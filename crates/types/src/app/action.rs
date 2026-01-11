@@ -59,6 +59,17 @@ pub enum ActionTarget {
     #[serde(rename = "browser::extract")]
     BrowserExtract,
 
+    // --- New Commerce Primitives (UCP) ---
+    /// Discovery phase: Fetch /.well-known/ucp to see what a merchant supports.
+    /// Typically low-risk, often allowed by default.
+    #[serde(rename = "ucp::discovery")]
+    CommerceDiscovery,
+    
+    /// Checkout phase: Execute a purchase via UCP.
+    /// High-risk: involves injecting payment tokens. Firewall MUST enforce spend limits.
+    #[serde(rename = "ucp::checkout")]
+    CommerceCheckout,
+
     /// Catch-all for application-specific or plugin-defined actions.
     Custom(String),
 }

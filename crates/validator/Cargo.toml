@@ -22,7 +22,8 @@ ioi-services = { path = "../services" }
 ioi-client = { path = "../client" }
 ioi-telemetry = { path = "../telemetry" }
 ioi-storage = { path = "../storage" }
-ioi-drivers = { path = "../drivers" }                               # [NEW]
+ioi-drivers = { path = "../drivers" }
+ioi-scs = { path = "../scs" }                                       # [NEW] Added SCS dependency
 
 log = { workspace = true }
 tracing = { workspace = true }

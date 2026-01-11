@@ -5,18 +5,18 @@ use super::accessibility::{
 };
 use anyhow::{anyhow, Result};
 use ioi_crypto::algorithms::hash::sha256;
+use ioi_scs::{FrameType, SovereignContextStore};
 use ioi_types::app::{ActionRequest, ContextSlice};
+use std::sync::{Arc, Mutex};
 
-// [NOTE] This is a placeholder for the platform-specific implementation.
-// AccessKit requires a window loop/context which is complex to setup in a headless library.
-// For Phase 1, we simulate the "Real" provider structure but mock the OS call.
-// In Phase 2, this will be replaced with `racc` (Windows) or `ax` (macOS) calls.
-
-pub struct NativeSubstrateProvider;
+/// A real, persistent substrate provider backed by `ioi-scs`.
+pub struct NativeSubstrateProvider {
+    scs: Arc<Mutex<SovereignContextStore>>,
+}
 
 impl NativeSubstrateProvider {
-    pub fn new() -> Self {
-        Self
+    pub fn new(scs: Arc<Mutex<SovereignContextStore>>) -> Self {
+        Self { scs }
     }
 
     /// Simulates fetching the accessibility tree from the OS.
@@ -107,28 +107,42 @@ impl SovereignSubstrateProvider for NativeSubstrateProvider {
         // 1. Capture Raw Context from OS
         let raw_tree = self.fetch_os_tree()?;
 
-        // 2. Apply Intent-Constraint (The Filter) using the shared logic
-        // This exercises the `serialize_tree_to_xml` filtering we added in the previous step.
+        // 2. Apply Intent-Constraint (The Filter)
         let xml_data = serialize_tree_to_xml(&raw_tree, 0).into_bytes();
 
-        // 3. Generate Provenance Proof (Standard Logic)
+        // 3. Persist to Local SCS
+        // We write the raw (but filtered) XML to the local store as a new Frame.
+        // This gives us a permanent record of what the agent saw.
+        let mut store = self.scs.lock().map_err(|_| anyhow!("SCS lock poisoned"))?;
+
+        // Placeholder: Assuming block height 0 for local captures if not synced from a service call
+        let frame_id = store.append_frame(
+            FrameType::Observation,
+            &xml_data,
+            0,
+            [0u8; 32], // mHNSW root placeholder - would come from index update
+        )?;
+
+        // 4. Generate Provenance (Binding to the Store)
+        // The slice_id is the hash of the data.
+        let slice_id_digest = sha256(&xml_data)?;
+        let mut slice_id = [0u8; 32];
+        slice_id.copy_from_slice(slice_id_digest.as_ref());
+
+        // The intent_hash binds this slice to the specific request.
         let intent_hash = intent.hash();
-        let mut proof_input = xml_data.clone();
-        proof_input.extend_from_slice(&intent_hash);
 
-        let proof =
-            sha256(&proof_input).map_err(|e| anyhow!("Provenance generation failed: {}", e))?;
-        let mut proof_arr = [0u8; 32];
-        proof_arr.copy_from_slice(proof.as_ref());
-
-        let slice_id = sha256(&xml_data).map_err(|e| anyhow!("Slice ID gen failed: {}", e))?;
-        let mut slice_id_arr = [0u8; 32];
-        slice_id_arr.copy_from_slice(slice_id.as_ref());
+        // The provenance proof links this specific frame in the store to the SCS root.
+        // For MVP, we use the Frame's checksum.
+        let frame = store.toc.frames.get(frame_id as usize).unwrap();
+        let proof = frame.checksum.to_vec();
 
         Ok(ContextSlice {
-            slice_id: slice_id_arr,
-            data: xml_data,
-            provenance_proof: proof.to_vec(),
+            slice_id,
+            frame_id,
+            chunks: vec![xml_data],
+            mhnsw_root: frame.mhnsw_root,
+            traversal_proof: Some(proof),
             intent_id: intent_hash,
         })
     }

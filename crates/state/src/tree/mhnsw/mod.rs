@@ -1,6 +1,12 @@
 // Path: crates/state/src/tree/mhnsw/mod.rs
 
 //! Merkelized Hierarchical Navigable Small World (mHNSW) Graph.
+//!
+//! This module provides a verifiable vector index where the root hash commits
+//! to the entire graph structure. It supports:
+//! 1. Vector Search (Nearest Neighbor)
+//! 2. Proof of Retrieval (Verifying a search path was followed correctly)
+//! 3. Serialization for persistent storage (e.g. in .scs files)
 
 pub mod graph;
 pub mod metric;
@@ -18,34 +24,55 @@ use ioi_api::state::{
 use ioi_api::storage::NodeStore;
 use ioi_types::app::{Membership, RootHash};
 use ioi_types::error::StateError;
+use parity_scale_codec::{Decode, Encode};
+use serde::{Deserialize, Serialize};
 use std::any::Any;
 use std::fmt::Debug;
 use std::sync::Arc;
 
 /// A Merkelized HNSW index wrapper that implements StateManager.
-#[derive(Clone)]
+///
+/// This struct is now serializable to support the .scs file format.
+#[derive(Clone, Encode, Decode, Serialize, Deserialize)]
 pub struct MHnswIndex<CS: CommitmentScheme, M: DistanceMetric> {
-    pub(crate) graph: HnswGraph<M>,
+    /// The underlying graph structure.
+    /// Made public to allow direct serialization/manipulation by storage layers (e.g. ioi-scs).
+    pub graph: HnswGraph<M>,
+    /// Commitment scheme is typically stateless (Hash), so we skip serialization or use default.
+    #[serde(skip, default)]
+    #[codec(skip)]
     scheme: CS,
+    /// Store is transient/runtime-only.
+    #[serde(skip)]
+    #[codec(skip)]
     store: Option<Arc<dyn NodeStore>>,
 }
 
-// Manual Debug implementation to skip `store` which doesn't implement Debug
+// Manual Debug implementation to skip `store`
 impl<CS: CommitmentScheme, M: DistanceMetric + Debug> Debug for MHnswIndex<CS, M> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("MHnswIndex")
             .field("graph", &self.graph)
-            .field("scheme", &self.scheme)
+            .field("scheme", &"...")
             .field("store", &self.store.is_some())
             .finish()
     }
 }
 
-impl<CS: CommitmentScheme, M: DistanceMetric> MHnswIndex<CS, M> {
+impl<CS: CommitmentScheme + Default, M: DistanceMetric> MHnswIndex<CS, M> {
     pub fn new(scheme: CS, metric: M, m: usize, ef_construction: usize) -> Self {
         Self {
             graph: HnswGraph::new(metric, m, ef_construction),
             scheme,
+            store: None,
+        }
+    }
+
+    /// Restore an index from its components. useful for deserialization in other crates.
+    pub fn from_graph(graph: HnswGraph<M>) -> Self {
+        Self {
+            graph,
+            scheme: CS::default(),
             store: None,
         }
     }

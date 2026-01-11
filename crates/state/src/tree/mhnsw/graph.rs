@@ -4,15 +4,19 @@ use super::metric::{DistanceMetric, Vector};
 use super::node::{GraphNode, NodeId};
 use super::proof::{TraversalProof, VisitedNode};
 use ioi_types::error::StateError;
+use parity_scale_codec::{Decode, Encode};
 use rand::Rng;
+use serde::{Deserialize, Serialize};
 use std::cmp::Ordering;
 use std::collections::HashMap;
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Encode, Decode, Serialize, Deserialize)]
 pub struct HnswGraph<M: DistanceMetric> {
     pub(crate) metric: M,
-    pub(crate) nodes: HashMap<NodeId, GraphNode>,
-    pub(crate) entry_point: Option<NodeId>,
+    /// Publicly accessible map of nodes for direct serialization/inspection.
+    pub nodes: HashMap<NodeId, GraphNode>,
+    /// The entry point node ID for the graph.
+    pub entry_point: Option<NodeId>,
 
     // Hyperparameters
     #[allow(dead_code)]

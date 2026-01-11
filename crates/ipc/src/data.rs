@@ -96,9 +96,22 @@ pub struct ZeroCopyBlock {
 #[derive(Archive, Deserialize, Serialize, Debug, PartialEq)]
 #[archive(check_bytes)]
 pub struct ContextSlice {
+    /// Unique content-addressed identifier for this slice.
     pub slice_id: [u8; 32],
+    
+    /// The ID of the frame in the SCS that this slice corresponds to.
+    /// This allows the Provider to request the surrounding context if needed.
+    pub frame_id: u64,
+
+    /// The actual data chunks (e.g. XML fragments, JSON objects).
     pub chunks: Vec<Vec<u8>>,
-    /// Optional proof of retrieval from the local SCS mHNSW.
+    
+    /// The Merkle Root of the mHNSW index at the time this frame was captured.
+    /// This is used by the Provider to verify the integrity of the vector index
+    /// before performing retrieval.
+    pub mhnsw_root: [u8; 32],
+
+    /// Cryptographic proof linking this slice to the root substrate state.
     pub traversal_proof: Option<Vec<u8>>,
 }
 

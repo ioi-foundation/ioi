@@ -16,6 +16,7 @@ ioi-macros = { path = "../macros" }
 ioi-vm-wasm = { path = "../vm/wasm" }
 # Add Wasmtime for component instantiation in light clients
 wasmtime = { version = "21.0.0", features = ["component-model", "async"] }
+ioi-scs = { path = "../scs" }                                              # [NEW] Added dependency on SCS
 
 log = { workspace = true }
 tracing = { workspace = true }

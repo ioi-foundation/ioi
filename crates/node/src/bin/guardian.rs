@@ -23,7 +23,7 @@ use std::path::Path;
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::io::AsyncWriteExt;
-use tonic::{Request, Response, Status, transport::Server};
+use tonic::{transport::Server, Request, Response, Status};
 
 #[derive(Parser, Debug)]
 struct GuardianOpts {
@@ -51,15 +51,24 @@ impl GuardianControl for GuardianControlImpl {
         request: Request<SecureEgressRequest>,
     ) -> Result<Response<SecureEgressResponse>, Status> {
         let req = request.into_inner();
-        
-        let (body, cert_hash, signature) = self.container
+
+        // Handle optional json_patch_path (empty string in proto3 means missing/none)
+        let json_patch = if req.json_patch_path.is_empty() {
+            None
+        } else {
+            Some(req.json_patch_path.as_str())
+        };
+
+        let (body, cert_hash, signature) = self
+            .container
             .secure_http_call(
                 &req.domain,
                 &req.path,
                 &req.method,
                 req.body,
                 &req.secret_id,
-                &self.keypair
+                &self.keypair,
+                json_patch, // [FIX] Pass the new argument
             )
             .await
             .map_err(|e| Status::internal(e.to_string()))?;
@@ -103,7 +112,10 @@ async fn main() -> Result<()> {
         .unwrap_or_else(|| "127.0.0.1:8443".to_string());
     tracing::info!(target: "guardian", listen_addr = %listen_addr);
 
-    let guardian = Arc::new(GuardianContainer::new(config_dir_path.to_path_buf(), config.clone())?);
+    let guardian = Arc::new(GuardianContainer::new(
+        config_dir_path.to_path_buf(),
+        config.clone(),
+    )?);
 
     // --- PHASE 2 IMPLEMENTATION: Boot Measurement ---
     // Verify binaries immediately upon instantiation, before starting network services.
@@ -138,7 +150,7 @@ async fn main() -> Result<()> {
             container: guardian.clone(),
             keypair: keypair.clone(),
         };
-        
+
         tokio::spawn(async move {
             tracing::info!("Guardian Control gRPC listening on {}", grpc_addr);
             Server::builder()
@@ -153,11 +165,7 @@ async fn main() -> Result<()> {
     tokio::spawn(async move {
         // Wait for the orchestration channel to be established before sending the report.
         // This resolves the race condition that caused the test timeout.
-        while !guardian_clone
-            .orchestration_channel
-            .is_established()
-            .await
-        {
+        while !guardian_clone.orchestration_channel.is_established().await {
             tokio::time::sleep(Duration::from_millis(100)).await;
         }
 
@@ -177,14 +185,13 @@ async fn main() -> Result<()> {
         };
 
         // 2. Binary Boot Attestation
-        let boot_attestation =
-            match guardian_clone.generate_boot_attestation(&keypair, &config) {
-                Ok(att) => att,
-                Err(e) => {
-                    tracing::error!(target: "guardian", event = "boot_attest_fail", error = %e);
-                    return Ok::<(), anyhow::Error>(());
-                }
-            };
+        let boot_attestation = match guardian_clone.generate_boot_attestation(&keypair, &config) {
+            Ok(att) => att,
+            Err(e) => {
+                tracing::error!(target: "guardian", event = "boot_attest_fail", error = %e);
+                return Ok::<(), anyhow::Error>(());
+            }
+        };
 
         // 3. Construct Combined Report
         let report = GuardianReport {

@@ -1,0 +1,45 @@
+# Path: crates/scs/Cargo.toml
+[package]
+name = "ioi-scs"
+version = "0.1.0"
+edition = "2021"
+description = "Sovereign Context Substrate: A verifiable, timeline-based memory store for IOI agents"
+license-file = "../../LICENSE-BBSL"
+repository = "https://github.com/ioi-foundation/ioi"
+
+[dependencies]
+# Workspace Dependencies
+ioi-types = { path = "../types" }
+ioi-state = { path = "../state" }   # Provides MHnswIndex implementation
+ioi-crypto = { path = "../crypto" }
+
+# Error Handling & Logging
+anyhow = { workspace = true }
+thiserror = { workspace = true }
+log = { workspace = true }
+tracing = { workspace = true }
+
+# Serialization
+serde = { workspace = true, features = ["derive", "rc"] }
+serde_json = { workspace = true }
+# Zero-copy deserialization for high-performance IPC support
+rkyv = { version = "0.7", features = ["validation", "std", "alloc"] }
+bytecheck = "0.6"
+# Consensus encoding for Merkle proofs
+parity-scale-codec = { workspace = true, features = ["derive"] }
+
+# System & I/O
+memmap2 = "0.9"                                                # Memory mapping for .scs/.mv2 files
+fs2 = "0.4"                                                    # File locking for exclusive access
+uuid = { version = "1.8.0", features = ["v4", "serde"] }
+time = { version = "0.3", features = ["serde", "formatting"] }
+parking_lot = "0.12"
+hex = { workspace = true }
+zstd = "0.13"                                                  # For frame payload compression
+
+[dev-dependencies]
+tempfile = "3.3"
+rand = { workspace = true }
+
+[features]
+default = []

@@ -12,6 +12,7 @@ repository = "https://github.com/ioi-foundation/ioi"
 ioi-api = { path = "../api" }
 ioi-types = { path = "../types" }
 ioi-crypto = { path = "../crypto" }
+ioi-scs = { path = "../scs" }       # [NEW] Added dependency on SCS
 anyhow = { workspace = true }
 log = { workspace = true }
 tracing = { workspace = true }
