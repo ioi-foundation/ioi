@@ -11,6 +11,8 @@ use ioi_api::{
 };
 use ioi_crypto::sign::dilithium::MldsaKeyPair;
 use ioi_ipc::public::TxStatus;
+// [NEW] Import ChainEvent
+use ioi_ipc::public::ChainEvent;
 use ioi_networking::libp2p::SwarmCommand;
 use ioi_networking::traits::NodeState;
 use ioi_types::app::{AccountId, Block, ChainTransaction, OracleAttestation, TxHash};
@@ -24,6 +26,8 @@ use tokio::sync::{mpsc, watch, Mutex};
 
 // [FIX] Import LocalSafetyModel trait from API
 use ioi_api::vm::inference::LocalSafetyModel;
+// [NEW] Import SCS for Blob Retrieval
+use ioi_scs::SovereignContextStore;
 
 /// A type alias for the thread-safe, dynamically dispatched chain state machine.
 pub type ChainFor<CS, ST> = Arc<
@@ -108,4 +112,14 @@ where
     /// Broadcast channel to notify the Ingestion Worker of the latest chain tip,
     /// enabling correct nonce fetching and timestamp pre-checks.
     pub tip_sender: watch::Sender<ChainTipInfo>,
+
+    // [NEW] Global event bus for the GUI (Capacity ~1000)
+    // Used to stream live updates (Thought process, Firewall interceptions, Block commits)
+    // to the Desktop Agent frontend.
+    pub event_broadcaster: tokio::sync::broadcast::Sender<ChainEvent>,
+
+    // [NEW] Handle to the Sovereign Context Substrate.
+    // Allows the Orchestrator to serve raw blobs (screenshots) to the GUI.
+    // Using std::sync::Mutex to match the SCS implementation.
+    pub scs: Option<Arc<std::sync::Mutex<SovereignContextStore>>>,
 }

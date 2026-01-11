@@ -6,8 +6,7 @@ import "blockchain.proto";
 
 service PublicApi {
   // Submit a transaction to the mempool/ingestion queue.
-  // Returns immediately with a receipt (hash).
-  // Clients should poll GetTransactionStatus to check validity and inclusion.
+  // Returns immediately with a receipt (hash) or an approval request.
   rpc SubmitTransaction (SubmitTransactionRequest) returns (SubmitTransactionResponse);
 
   // Check the status of a transaction hash.
@@ -17,7 +16,6 @@ service PublicApi {
   rpc QueryState (ioi.blockchain.v1.QueryStateAtRequest) returns (ioi.blockchain.v1.QueryStateAtResponse);
 
   // Queries the raw state value directly from the latest committed state.
-  // Useful for testing and simple lookups where proofs are not required.
   rpc QueryRawState (ioi.blockchain.v1.QueryRawStateRequest) returns (ioi.blockchain.v1.QueryRawStateResponse);
 
   // Get the current status of the chain (Height, etc).
@@ -25,6 +23,18 @@ service PublicApi {
 
   // Get a block by its height.
   rpc GetBlockByHeight (GetBlockByHeightRequest) returns (GetBlockByHeightResponse);
+
+  // [NEW] Subscribe to a stream of real-time events (agent thoughts, actions, block commits).
+  // Critical for the "Visual Sovereignty" of the Autopilot GUI.
+  rpc SubscribeEvents (SubscribeEventsRequest) returns (stream ChainEvent);
+
+  // [NEW] Converts a natural language intent into a signable transaction payload.
+  // This powers the "God Mode" search bar in the GUI.
+  rpc DraftTransaction (DraftTransactionRequest) returns (DraftTransactionResponse);
+
+  // [NEW] Retrieve a raw context chunk (e.g. screenshot PNG) by its hash/ID from the SCS.
+  // This allows the GUI to display the agent's visual memory.
+  rpc GetContextBlob (GetContextBlobRequest) returns (GetContextBlobResponse);
 }
 
 message SubmitTransactionRequest {
@@ -33,31 +43,38 @@ message SubmitTransactionRequest {
 }
 
 message SubmitTransactionResponse {
-    // SHA-256 hash of the accepted transaction (hex encoded).
+    // SHA-256 hash of the transaction.
+    // If status is PENDING_APPROVAL, this is the hash to sign in the ApprovalToken.
     string tx_hash = 1;
+    
+    // Indicates if the transaction was accepted, rejected, or requires 2FA.
+    SubmissionStatus status = 2;
+    
+    // If PENDING_APPROVAL, this contains the human-readable reason (e.g. "Spend limit exceeded").
+    string approval_reason = 3;
 }
 
-// Status lookup request
+enum SubmissionStatus {
+    ACCEPTED = 0;
+    REJECTED = 1;
+    PENDING_APPROVAL = 2; // "Suspended" state requiring user signature
+}
+
 message GetTransactionStatusRequest {
-  // The hex-encoded SHA-256 hash of the transaction bytes.
   string tx_hash = 1;
 }
 
-// Transaction lifecycle status
 enum TxStatus {
   UNKNOWN = 0;
-  PENDING = 1;      // In ingestion queue, waiting for validation
-  IN_MEMPOOL = 2;   // Passed validation, waiting for block inclusion
-  COMMITTED = 3;    // Included in a block
-  REJECTED = 4;     // Failed validation (see error_message)
+  PENDING = 1;
+  IN_MEMPOOL = 2;
+  COMMITTED = 3;
+  REJECTED = 4;
 }
 
-// Status lookup response
 message GetTransactionStatusResponse {
   TxStatus status = 1;
-  // If REJECTED, this contains the reason (e.g. "Nonce too low", "Bad signature")
   string error_message = 2;
-  // If COMMITTED, the block height containing the transaction
   uint64 block_height = 3;
 }
 
@@ -66,6 +83,86 @@ message GetBlockByHeightRequest {
 }
 
 message GetBlockByHeightResponse {
-  // Canonical SCALE-encoded bytes of the Block. Empty if not found.
   bytes block_bytes = 1;
+}
+
+// --- Event Streaming Types ---
+
+message SubscribeEventsRequest {
+    // Optional filters could be added here (e.g. only "Action" events)
+}
+
+message ChainEvent {
+    oneof event {
+        // A block was successfully committed to the chain.
+        BlockCommitted block = 1;
+        
+        // The agent is "thinking" (LLM token stream or internal monologue).
+        AgentThought thought = 2;
+        
+        // The firewall intercepted an action.
+        ActionIntercepted action = 3;
+        
+        // The status of a service or policy changed.
+        SystemUpdate system = 4;
+    }
+}
+
+message BlockCommitted {
+    uint64 height = 1;
+    string state_root = 2; // Hex
+    uint64 tx_count = 3;
+}
+
+message AgentThought {
+    string session_id = 1; // Hex
+    string content = 2;    // The text token or reasoning step
+    bool is_final = 3;     // True if this concludes the thought
+}
+
+message ActionIntercepted {
+    string session_id = 1;
+    string target = 2;     // e.g. "net::fetch"
+    string verdict = 3;    // "ALLOW", "BLOCK", "REQUIRE_APPROVAL"
+    string reason = 4;
+}
+
+message SystemUpdate {
+    string component = 1;  // e.g. "P2P", "Mempool"
+    string status = 2;
+}
+
+// --- Intent Drafting Types ---
+
+message DraftTransactionRequest {
+    // Natural language intent (e.g., "Send 50 tokens to Bob").
+    string intent = 1;
+    // Optional context to resolve names (e.g., "Bob" -> 0x123...).
+    map<string, string> address_book = 2;
+}
+
+message DraftTransactionResponse {
+    // The constructed, unsigned transaction bytes (SCALE encoded).
+    bytes transaction_bytes = 1;
+    
+    // A structured summary for the UI to display before signing.
+    string summary_markdown = 2;
+    
+    // The list of capabilities this transaction requires (for Policy check).
+    repeated string required_capabilities = 3;
+}
+
+// --- Blob Retrieval Types ---
+
+message GetContextBlobRequest {
+  // Hex-encoded SHA-256 hash of the blob (e.g., visual_hash).
+  string blob_hash = 1; 
+}
+
+message GetContextBlobResponse {
+  // Raw bytes of the blob (e.g., PNG image).
+  bytes data = 1;
+  // Suggested MIME type (e.g. "image/png"). 
+  // In a real implementation, this might be inferred or stored in metadata.
+  string mime_type = 2; 
 }
