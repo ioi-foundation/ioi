@@ -32,7 +32,6 @@ serde_bytes = { workspace = true }
 serde_json = { workspace = true }
 serde_jcs = "0.1.0"
 tokio = { workspace = true, features = ["full", "sync"] }
-# [FIX] Added tokio-stream
 tokio-stream = { version = "0.1", features = ["sync"] }
 axum = { workspace = true }
 libp2p = { workspace = true }
@@ -44,7 +43,6 @@ env_logger = { workspace = true, optional = true }
 ioi-state = { path = "../state" }
 once_cell = { workspace = true }
 rand = { workspace = true }
-# [FIX] Added serde feature to hex
 hex = { workspace = true, features = ["serde"] }
 base64 = { workspace = true }
 bs58 = "0.4"
@@ -59,11 +57,10 @@ dcrypt = { workspace = true }
 
 # Parallel processing for signature verification
 rayon = "1.8"
-# Get number of CPUs for thread pool sizing
 num_cpus = "1.0"
 
 # Hybrid IPC Stack
-tonic = "0.11"
+tonic = { version = "0.11", features = ["tls", "transport"] }
 prost = "0.12"
 shared_memory = "0.12"
 rkyv = { version = "0.7", features = ["validation"] }
@@ -82,7 +79,6 @@ tower = { workspace = true }
 tower-http = { workspace = true, features = ["limit", "trace", "catch-panic"] }
 ipnetwork = "0.20"
 
-# [FIX] Added zk-driver-succinct for ethereum-zk feature
 zk-driver-succinct = { path = "../zk-driver-succinct", optional = true }
 
 # [NEW] Dependencies for secure key loading
@@ -104,35 +100,31 @@ tempfile = "3.3"
 
 [features]
 default = []
-# This new feature will be used by Docker to build the node binary correctly.
+
+# [FIX] Explicitly enable the 'vm-wasm' feature here, not just the dependency.
 validator-bins = [
     "dep:clap",
     "dep:env_logger",
     "ioi-consensus/admft",
-    "dep:ioi-vm-wasm",
+    "vm-wasm",  # <--- CHANGED from "dep:ioi-vm-wasm" to "vm-wasm"
 ]
+
 consensus-admft = ["ioi-consensus/admft"]
 
-# VM Features
+# This feature flag corresponds to the cfg(feature = "vm-wasm") check in the code
 vm-wasm = ["dep:ioi-vm-wasm"]
 
-# --- FIX START: Add tree and primitive features so cfg attributes work correctly ---
+# State Tree features must propagate to BOTH commitment and validator crates
 state-iavl = ["ioi-state/state-iavl"]
 state-sparse-merkle = ["ioi-state/state-sparse-merkle"]
 state-verkle = ["ioi-state/state-verkle"]
-# [NEW] Add Jellyfish feature
 state-jellyfish = ["ioi-state/state-jellyfish"]
 commitment-hash = ["ioi-state/commitment-hash"]
 commitment-kzg = ["ioi-state/commitment-kzg"]
-# --- FIX END ---
 
-# Service Features
 ibc-deps = ["ioi-services/ibc-deps"]
-
-# [FIX] Added ethereum-zk feature
 ethereum-zk = ["ioi-services/ethereum-zk", "dep:zk-driver-succinct"]
 
-# [NEW] Real AI Feature: Enables Candle dependencies for real inference
 real-ai = [
     "dep:candle-core",
     "dep:candle-nn",

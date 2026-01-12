@@ -211,6 +211,34 @@ IOI agents are "Trace-First". You define logic, and the system auto-generates th
     cargo test --package ioi-cli --test agent_swarm_e2e --features "consensus-admft,vm-wasm,state-iavl" -- --nocapture --test-threads=1
     ```
 
+
+### Step 1: Start the IOI Kernel (Local Mode)
+
+In a **new terminal**, run the local node. This acts as the backend server (Orchestrator + Workload) that the UI will connect to via gRPC on port 9000.
+
+```bash
+# From the repository root
+cargo run -p ioi-node --bin ioi-local --features "validator-bins state-iavl consensus-admft"
+```
+
+*   **Success Indicator:** Look for the log line: `ORCHESTRATION_RPC_LISTENING_ON_0.0.0.0:9000`
+
+### Step 2: Start the Autopilot UI
+
+In a **second terminal**, start the frontend.
+
+```bash
+cd apps/autopilot
+npm install  # Ensure dependencies are fresh
+npm run tauri dev
+```
+
+*   **Action:** When the window opens, press `Cmd+Space` (or `Ctrl+Space`), type `Analyze network traffic`, and hit Enter.
+*   **Verification:**
+    *   **UI:** You should see a "Running" pill appear.
+    *   **Terminal 1 (Kernel):** You should see logs like `Received transaction via gRPC` and `Block #1 Committed`.
+    *   **Terminal 2 (UI):** You should see `[Autopilot] Connected to Kernel` and `[Autopilot] Intent submitted`.
+
 ---
 
 ## 🔐 Cryptography & Security

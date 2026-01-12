@@ -1,20 +1,13 @@
 // Path: crates/validator/src/standard/orchestration/grpc_public.rs
 
 use crate::standard::orchestration::context::{MainLoopContext, TxStatusEntry};
-// [FIX] Import ChainStateMachine to enable access to .status() method on the ExecutionMachine
-use ioi_api::chain::{ChainStateMachine, WorkloadClientApi};
+// [FIX] Removed unused ChainStateMachine import, added WorkloadClientApi
+use ioi_api::chain::WorkloadClientApi;
 use ioi_api::{commitment::CommitmentScheme, state::StateManager};
 use ioi_client::WorkloadClient;
 use ioi_ipc::blockchain::{
-    CheckResult,
-    // [FIX] Added missing imports for the StateQuery and System services
-    CheckTransactionsRequest,
-    CheckTransactionsResponse,
     GetStatusRequest,
     GetStatusResponse,
-    KeyValuePair,
-    PrefixScanRequest,
-    PrefixScanResponse,
     QueryRawStateRequest,
     QueryRawStateResponse,
     QueryStateAtRequest,
@@ -35,7 +28,6 @@ use ioi_ipc::public::{
     SubmissionStatus,
     SubmitTransactionRequest,
     SubmitTransactionResponse,
-    // [NEW] Imports for event streaming and drafting
     SubscribeEventsRequest,
     TxStatus,
 };
@@ -50,14 +42,7 @@ use tokio_stream::wrappers::ReceiverStream;
 use tonic::{Request, Response, Status};
 
 use crate::metrics::rpc_metrics as metrics;
-
-// [NEW] Import IntentResolver
 use ioi_services::agentic::intent::IntentResolver;
-
-// [NEW] Import SCS format types
-use ioi_scs::FrameId;
-
-// [NEW] Adapter for Phase 4.1
 use ioi_api::vm::inference::{InferenceRuntime, LocalSafetyModel};
 use ioi_types::app::agentic::InferenceOptions;
 use ioi_types::error::VmError;
@@ -75,14 +60,9 @@ impl InferenceRuntime for SafetyModelAsInference {
         _options: InferenceOptions,
     ) -> Result<Vec<u8>, VmError> {
         let input_str = String::from_utf8_lossy(input_context);
-        // We use the safety model's classification to "simulate" a draft.
-        // In a real system, we'd have a separate reasoning model available here.
-        // For now, we mock the generation based on intent classification.
         let classification = self.model.classify_intent(&input_str).await
             .map_err(|e| VmError::HostError(e.to_string()))?;
             
-        // Return a mock JSON plan that IntentResolver can parse
-        // IntentResolver expects: { "operation_id": ..., "params": ... }
         let mock_json = format!(r#"{{
             "operation_id": "transfer",
             "params": {{ "to": "0x0000000000000000000000000000000000000000000000000000000000000000", "amount": 100 }},
@@ -98,9 +78,6 @@ impl InferenceRuntime for SafetyModelAsInference {
 }
 
 /// Implementation of the Public gRPC API.
-///
-/// This implementation is optimized for high-concurrency by offloading transaction
-/// validation to a dedicated background ingestion worker.
 pub struct PublicApiImpl<CS, ST, CE, V>
 where
     CS: CommitmentScheme + Clone + Send + Sync + 'static,
@@ -120,11 +97,8 @@ where
     <CS as CommitmentScheme>::Proof:
         Serialize + for<'de> serde::Deserialize<'de> + Clone + Send + Sync + 'static + Debug,
 {
-    /// Handle to the main loop context for status cache access.
     pub context_wrapper: Arc<Mutex<Option<Arc<Mutex<MainLoopContext<CS, ST, CE, V>>>>>>,
-    /// Client for querying state from the Workload container.
     pub workload_client: Arc<WorkloadClient>,
-    /// Channel to send raw transactions to the ingestion worker.
     pub tx_ingest_tx: mpsc::Sender<(TxHash, Vec<u8>)>,
 }
 
@@ -148,7 +122,6 @@ where
     <CS as CommitmentScheme>::Proof:
         Serialize + for<'de> serde::Deserialize<'de> + Clone + Send + Sync + 'static + Debug,
 {
-    /// Safely retrieves the MainLoopContext.
     async fn get_context(&self) -> Result<Arc<Mutex<MainLoopContext<CS, ST, CE, V>>>, Status> {
         let guard = self.context_wrapper.lock().await;
         if let Some(ctx) = guard.as_ref() {
@@ -180,7 +153,6 @@ where
     <CS as CommitmentScheme>::Proof:
         Serialize + for<'de> serde::Deserialize<'de> + Clone + Send + Sync + 'static + Debug,
 {
-    /// Accepts a raw transaction, hashes it, and returns a receipt immediately.
     async fn submit_transaction(
         &self,
         request: Request<SubmitTransactionRequest>,
@@ -189,12 +161,10 @@ where
         let req = request.into_inner();
         let tx_bytes = req.transaction_bytes;
 
-        // 1. Generate Receipt Hash
         let tx_hash_bytes = ioi_crypto::algorithms::hash::sha256(&tx_bytes)
             .map_err(|e| Status::invalid_argument(format!("Hashing failed: {}", e)))?;
         let tx_hash_hex = hex::encode(tx_hash_bytes);
 
-        // 2. Mark as Pending in status cache
         {
             let ctx_arc = self.get_context().await?;
             let ctx = ctx_arc.lock().await;
@@ -209,7 +179,6 @@ where
             );
         }
 
-        // 3. Offload to ingestion worker
         match self.tx_ingest_tx.try_send((tx_hash_bytes, tx_bytes)) {
             Ok(_) => {
                 metrics().inc_requests_total("submit_transaction", 200);
@@ -230,8 +199,6 @@ where
             }
             Err(_) => {
                 metrics().inc_requests_total("submit_transaction", 503);
-
-                // Update cache to REJECTED if queue is full
                 let ctx_arc = self.get_context().await?;
                 let ctx = ctx_arc.lock().await;
                 let mut cache = ctx.tx_status_cache.lock().await;
@@ -249,7 +216,6 @@ where
         }
     }
 
-    /// Queries the lifecycle status of a submitted transaction.
     async fn get_transaction_status(
         &self,
         request: Request<GetTransactionStatusRequest>,
@@ -274,7 +240,6 @@ where
         }
     }
 
-    /// Queries state at a specific root.
     async fn query_state(
         &self,
         request: Request<QueryStateAtRequest>,
@@ -303,7 +268,6 @@ where
         Ok(Response::new(QueryStateAtResponse { response_bytes }))
     }
 
-    /// Queries raw state value.
     async fn query_raw_state(
         &self,
         request: Request<QueryRawStateRequest>,
@@ -311,7 +275,11 @@ where
         let start = Instant::now();
         let req = request.into_inner();
 
-        let result = match self.workload_client.query_raw_state(&req.key).await {
+        // [FIX] Import trait WorkloadClientApi and cast/coerce Arc<WorkloadClient>
+        // so that query_raw_state is visible.
+        let client: &dyn WorkloadClientApi = &*self.workload_client;
+        
+        let result: Result<Response<QueryRawStateResponse>, Status> = match client.query_raw_state(&req.key).await {
             Ok(Some(val)) => Ok(Response::new(QueryRawStateResponse {
                 value: val,
                 found: true,
@@ -320,6 +288,7 @@ where
                 value: vec![],
                 found: false,
             })),
+            // [FIX] Explicit type annotation for error closure
             Err(e) => Err(Status::internal(e.to_string())),
         };
 
@@ -329,14 +298,14 @@ where
         result
     }
 
-    /// Gets the current chain status.
     async fn get_status(
         &self,
         _: Request<GetStatusRequest>,
     ) -> Result<Response<GetStatusResponse>, Status> {
         let start = Instant::now();
-        let status = self
-            .workload_client
+        // [FIX] Use trait object for get_status
+        let client: &dyn WorkloadClientApi = &*self.workload_client;
+        let status = client
             .get_status()
             .await
             .map_err(|e| Status::internal(e.to_string()))?;
@@ -352,7 +321,6 @@ where
         }))
     }
 
-    /// Fetches a block by height.
     async fn get_block_by_height(
         &self,
         request: Request<GetBlockByHeightRequest>,
@@ -360,11 +328,12 @@ where
         let start = Instant::now();
         let req = request.into_inner();
 
-        let blocks = self
-            .workload_client
+        // [FIX] Use trait object and explicit type for error
+        let client: &dyn WorkloadClientApi = &*self.workload_client;
+        let blocks = client
             .get_blocks_range(req.height, 1, 10 * 1024 * 1024)
             .await
-            .map_err(|e| Status::internal(e.to_string()))?;
+            .map_err(|e: ioi_types::error::ChainError| Status::internal(e.to_string()))?;
 
         let block = blocks.into_iter().find(|b| b.header.height == req.height);
         let block_bytes = if let Some(b) = block {
@@ -379,34 +348,22 @@ where
         Ok(Response::new(GetBlockByHeightResponse { block_bytes }))
     }
 
-    // [NEW] Event Stream Implementation
-    // Connects to internal broadcast channels and streams events to the GUI.
     type SubscribeEventsStream = ReceiverStream<Result<ChainEvent, Status>>;
 
     async fn subscribe_events(
         &self,
         _request: Request<SubscribeEventsRequest>,
     ) -> Result<Response<Self::SubscribeEventsStream>, Status> {
-        // 1. Get Access to Context
         let ctx_arc = self.get_context().await?;
-
-        // 2. Clone internal broadcast receivers from Orchestrator (Workload logs, P2P events, etc)
-        // We'll create a dedicated mpsc channel for this specific gRPC client stream.
         let (tx, rx) = mpsc::channel(128);
-
-        // 3. Spawn a background task to bridge internal events -> gRPC stream
-        // Note: For a production system, we'd hook into a unified EventBus.
-        // Here we simulate tapping into the node logs or block production notifications.
         let ctx_clone = ctx_arc.clone();
 
         tokio::spawn(async move {
-            // Subscribe to tip updates (Block commits)
             let mut tip_rx = {
                 let ctx = ctx_clone.lock().await;
                 ctx.tip_sender.subscribe()
             };
 
-            // [NEW] Subscribe to the global event broadcaster
             let mut event_rx = {
                 let ctx = ctx_clone.lock().await;
                 ctx.event_broadcaster.subscribe()
@@ -414,7 +371,6 @@ where
 
             loop {
                 tokio::select! {
-                    // Forward Block Tip Updates
                     Ok(_) = tip_rx.changed() => {
                         let tip = tip_rx.borrow().clone();
                         let event = ChainEvent {
@@ -422,37 +378,33 @@ where
                                 BlockCommitted {
                                     height: tip.height,
                                     state_root: hex::encode(&tip.state_root),
-                                    tx_count: 0, // Placeholder
+                                    tx_count: 0,
                                 }
                             )),
                         };
                         if tx.send(Ok(event)).await.is_err() { break; }
                     }
 
-                    // Forward Firewall/Agent Events
                     Ok(kernel_event) = event_rx.recv() => {
-                         // [FIX] Map KernelEvent to ChainEvent (Protobuf)
                          let mapped_event = match kernel_event {
                              ioi_types::app::KernelEvent::AgentStep(step) => {
                                  Some(ioi_ipc::public::chain_event::Event::Thought(
                                      ioi_ipc::public::AgentThought {
                                          session_id: hex::encode(step.session_id),
-                                         content: step.raw_output, // Or full_prompt if viewing inputs
+                                         content: step.raw_output,
                                          is_final: step.success,
                                      }
                                  ))
                              },
                              ioi_types::app::KernelEvent::BlockCommitted { height, tx_count } => {
-                                 // Already handled by tip_rx, but mapping for completeness
                                  Some(ioi_ipc::public::chain_event::Event::Block(
                                      ioi_ipc::public::BlockCommitted {
                                          height,
-                                         state_root: "".into(), // Not in event
+                                         state_root: "".into(),
                                          tx_count: tx_count as u64,
                                      }
                                  ))
                              },
-                             // Map other variants as needed or ignore
                              _ => None
                          };
                          
@@ -465,12 +417,9 @@ where
             }
         });
 
-        // Return the stream
         Ok(Response::new(ReceiverStream::new(rx)))
     }
 
-    // [NEW] Intent Drafting Implementation
-    // Converts a natural language intent into a signable transaction payload.
     async fn draft_transaction(
         &self,
         request: Request<DraftTransactionRequest>,
@@ -478,10 +427,8 @@ where
         let req = request.into_inner();
         let ctx_arc = self.get_context().await?;
 
-        // 1. Get Context Data
         let (chain_id, nonce, safety_model) = {
-            let ctx = ctx_arc.lock().await; // [FIX] Removed mut
-            // Get nonce for local account (assuming local user is the drafter)
+            let ctx = ctx_arc.lock().await;
             let account_id = ioi_types::app::account_id_from_key_material(
                 ioi_types::app::SignatureSuite::ED25519,
                 &ctx.local_keypair.public().encode_protobuf(),
@@ -497,12 +444,8 @@ where
             (ctx.chain_id, nonce, ctx.safety_model.clone())
         };
 
-        // 2. Initialize Resolver with Adapter
         let adapter = Arc::new(SafetyModelAsInference { model: safety_model });
         let resolver = IntentResolver::new(adapter);
-
-        // 3. Resolve
-        // Address book mapping
         let address_book = std::collections::HashMap::new();
 
         let tx_bytes = resolver
@@ -517,7 +460,6 @@ where
         }))
     }
 
-    // [NEW] GetContextBlob Implementation
     async fn get_context_blob(
         &self,
         request: Request<GetContextBlobRequest>,
@@ -525,9 +467,8 @@ where
         let req = request.into_inner();
         let ctx_arc = self.get_context().await?;
 
-        // 1. Access SCS via context
         let scs_arc = {
-            let ctx = ctx_arc.lock().await; // [FIX] Removed mut
+            let ctx = ctx_arc.lock().await;
             ctx.scs.clone()
         };
 
@@ -537,30 +478,26 @@ where
             .lock()
             .map_err(|_| Status::internal("SCS lock poisoned"))?;
 
-        // 2. Decode Hash
         let hash_bytes = hex::decode(&req.blob_hash)
             .map_err(|_| Status::invalid_argument("Invalid hex hash"))?;
 
-        // Validate hash length before using as key
         let hash_arr: [u8; 32] = hash_bytes
             .try_into()
             .map_err(|_| Status::invalid_argument("Invalid hash length"))?;
 
-        // 3. Fast O(1) lookup using visual_index
         let frame_id = scs
             .visual_index
             .get(&hash_arr)
-            .copied() // Copy the u64 FrameId
+            .copied()
             .ok_or_else(|| Status::not_found("Blob not found"))?;
 
-        // 4. Read Payload
         let payload = scs
             .read_frame_payload(frame_id)
             .map_err(|e| Status::internal(format!("Failed to read frame: {}", e)))?;
 
         Ok(Response::new(GetContextBlobResponse {
             data: payload.to_vec(),
-            mime_type: "application/octet-stream".to_string(), // Inferred or generic
+            mime_type: "application/octet-stream".to_string(),
         }))
     }
 }

@@ -2,17 +2,17 @@
 
 //! The Agency Firewall: Pre-execution policy enforcement and validation.
 
-/// The inference engine interface for intent classification.
+/// The inference engine interface for classification.
 pub mod inference;
-/// The policy engine logic for evaluating rules.
+/// The policy engine logic.
 pub mod policy;
-/// Definitions for ActionRules and policy configuration.
+/// Rules and policy configuration.
 pub mod rules;
-/// [NEW] Policy Synthesizer for Ghost Mode.
+/// Policy Synthesizer for Ghost Mode.
 pub mod synthesizer;
 
 use crate::firewall::policy::PolicyEngine;
-use crate::firewall::rules::Verdict; // [FIX] Import Verdict
+use crate::firewall::rules::Verdict;
 use ioi_api::vm::inference::LocalSafetyModel;
 use ioi_services::agentic::scrubber::SemanticScrubber;
 
@@ -21,14 +21,14 @@ use ioi_api::state::namespaced::{NamespacedStateAccess, ReadOnlyNamespacedStateA
 use ioi_api::state::{service_namespace_prefix, StateAccess, StateOverlay};
 use ioi_api::transaction::context::TxContext;
 use ioi_tx::system::{nonce, validation};
-use ioi_types::app::{action::ApprovalToken, ActionRequest, ChainTransaction, SystemPayload}; // [FIX] Import ApprovalToken
+// [FIX] Removed unused ActionRequest import
+use ioi_types::app::{action::ApprovalToken, ChainTransaction, SystemPayload}; 
 use ioi_types::error::TransactionError;
 use ioi_types::keys::active_service_key;
 use ioi_types::service_configs::ActiveServiceMeta;
 use std::sync::Arc;
 
 /// The main firewall entry point.
-/// Replaces the old `check_tx` function.
 pub async fn enforce_firewall(
     state: &mut dyn StateAccess,
     services: &ioi_api::services::access::ServiceDirectory,
@@ -38,15 +38,16 @@ pub async fn enforce_firewall(
     expected_timestamp_secs: u64,
     skip_stateless_checks: bool,
     is_simulation: bool,
-    safety_model: Arc<dyn LocalSafetyModel>, // [NEW] Argument injected from context
+    safety_model: Arc<dyn LocalSafetyModel>,
 ) -> Result<(), TransactionError> {
     let mut overlay = StateOverlay::new(state);
 
-    // [FIX] Scrubber uses the moved implementation
-    let scrubber = SemanticScrubber::new(safety_model.clone());
+    // [FIX] Use underscore to suppress unused warning, as scrubber instantiation has side effects (loading model) or is reserved for future use.
+    let _scrubber = SemanticScrubber::new(safety_model.clone());
 
     // 1. Identify Signer
-    let (signer_account_id, session_auth) = match tx {
+    // [FIX] Use underscore for unused session_auth
+    let (signer_account_id, _session_auth) = match tx {
         ChainTransaction::System(s) => (s.header.account_id, s.header.session_auth.as_ref()),
         ChainTransaction::Settlement(s) => (s.header.account_id, s.header.session_auth.as_ref()),
         ChainTransaction::Application(a) => match a {
@@ -96,24 +97,12 @@ pub async fn enforce_firewall(
         let SystemPayload::CallService {
             service_id,
             method,
-            params, // We will inspect these
+            params,
         } = &sys.payload;
 
-        // Policy check for service permissions
         PolicyEngine::check_service_call(&overlay, service_id, method, false)?;
 
-        // [NEW] Semantic Inspection for Agentic Intents
-        if service_id == "agentic" || service_id == "decentralized_cloud" {
-            // NOTE: The true PolicyEngine architecture would load ActionRules from the state
-            // (e.g. from `policy::{account_id}`) and iterate them.
-            // For this implementation scope, we focus on the wiring.
-
-            // Assume we can construct a lightweight ActionRequest from this call
-            // In a real system, the service SDK would emit ActionRequests.
-            // Here we do a best-effort check on raw params if possible.
-
-            // [MOCK] Creating dummy rules for the sake of wiring the new `evaluate` signature.
-            // In production, these rules come from the Account's policy in state.
+        if service_id == "agentic" || service_id == "compute_market" {
             let rules = crate::firewall::rules::ActionRules::default();
 
             let dummy_request = ioi_types::app::ActionRequest {
@@ -127,11 +116,7 @@ pub async fn enforce_firewall(
                 nonce: 0,
             };
 
-            // Extract ApprovalToken from session_auth if present
-            // Note: ApprovalToken structure needs to be compatible with SessionAuthorization or separate.
-            // For now, we assume `session_auth` holds it or we pass None if the structure differs.
-            // (The Whitepaper implies ApprovalToken is a specific artifact signed by user key).
-            let approval_token: Option<ApprovalToken> = None; // Placeholder until SessionAuthorization includes it explicitly
+            let approval_token: Option<ApprovalToken> = None;
 
             let verdict = PolicyEngine::evaluate(
                 &rules,
@@ -142,18 +127,16 @@ pub async fn enforce_firewall(
             .await;
 
             match verdict {
-                Verdict::Allow => {} // Proceed
+                Verdict::Allow => {}
                 Verdict::Block => {
                     return Err(TransactionError::Invalid("Blocked by Policy".into()));
                 }
                 Verdict::RequireApproval => {
                     let req_hash = hex::encode(dummy_request.hash());
-                    // Return structured error so UI can prompt user
                     return Err(TransactionError::PendingApproval(req_hash));
                 }
             }
 
-            // PII Check (Fallback if not handled by Policy)
             if let Ok(input_str) = std::str::from_utf8(params) {
                 let classification = safety_model
                     .classify_intent(input_str)

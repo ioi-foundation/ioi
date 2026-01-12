@@ -13,7 +13,7 @@ use ioi_api::{
 use ioi_consensus::util::engine_from_config;
 use ioi_drivers::browser::BrowserDriver;
 use ioi_execution::{util::load_state_from_genesis_file, ExecutionMachine};
-use ioi_scs::SovereignContextStore; // [NEW] Import SCS
+use ioi_scs::SovereignContextStore;
 use ioi_services::{
     agentic::desktop::DesktopAgentService, governance::GovernanceModule, identity::IdentityHub,
     provider_registry::ProviderRegistryService,
@@ -34,17 +34,14 @@ use rand::{thread_rng, Rng};
 use std::{path::Path, sync::Arc, time::Duration};
 use tokio::{sync::Mutex, time::interval};
 
-// [UPDATED] Import from drivers module
 use crate::standard::workload::drivers::cpu::CpuDriver;
 use crate::standard::workload::hydration::ModelHydrator;
 use crate::standard::workload::runtime::StandardInferenceRuntime;
 
-// Imports for HttpInferenceRuntime and MockInferenceRuntime
 use ioi_api::vm::inference::{mock::MockInferenceRuntime, HttpInferenceRuntime};
 
-// [NEW] Import VerifiedHttpRuntime
 use crate::standard::workload::drivers::verified_http::VerifiedHttpRuntime;
-use crate::standard::workload::ipc::create_ipc_server_config;
+
 use tonic::transport::{Certificate, Channel, ClientTlsConfig, Identity};
 
 #[cfg(feature = "ibc-deps")]
@@ -60,8 +57,6 @@ use {
     zk_driver_succinct::config::SuccinctDriverConfig,
 };
 
-/// Helper to create a secure channel to the Guardian.
-/// Reuses logic similar to `ioi_client::WorkloadClient` but targets the Guardian port.
 async fn create_guardian_channel(certs_dir: &str) -> Result<Channel> {
     let ca_pem = std::fs::read(format!("{}/ca.pem", certs_dir))?;
     let client_pem = std::fs::read(format!("{}/workload.pem", certs_dir))?;
@@ -71,15 +66,13 @@ async fn create_guardian_channel(certs_dir: &str) -> Result<Channel> {
     let identity = Identity::from_pem(client_pem, client_key);
 
     let tls = ClientTlsConfig::new()
-        .domain_name("guardian") // Server name in cert
+        .domain_name("guardian")
         .ca_certificate(ca)
         .identity(identity);
 
-    // Guardian listens on 8443 by default
     let guardian_addr =
         std::env::var("GUARDIAN_ADDR").unwrap_or_else(|_| "http://127.0.0.1:8443".to_string());
 
-    // Check if GUARDIAN_GRPC_ADDR is set (for the separate control plane port)
     let endpoint = std::env::var("GUARDIAN_GRPC_ADDR").unwrap_or(guardian_addr);
 
     let channel = Channel::from_shared(endpoint)?
@@ -90,22 +83,17 @@ async fn create_guardian_channel(certs_dir: &str) -> Result<Channel> {
     Ok(channel)
 }
 
-/// Helper to build a runtime from a config block
 async fn build_runtime_from_config(
     cfg: &InferenceConfig,
     hydrator: Arc<ModelHydrator>,
     driver: Arc<dyn ioi_api::vm::inference::HardwareDriver>,
     workload_config: &WorkloadConfig,
 ) -> Result<Arc<dyn InferenceRuntime>> {
-    // [NEW] Check for connector reference
     if let Some(key_ref) = &cfg.connector_ref {
-        // Ensure the connector is defined and enabled
         if let Some(conn_cfg) = workload_config.connectors.get(key_ref) {
             if !conn_cfg.enabled {
                 return Err(anyhow!("Connector '{}' is disabled", key_ref));
             }
-
-            // Verify we have a key_ref in the connector config
             let secret_id = &conn_cfg.key_ref;
 
             tracing::info!(
@@ -117,7 +105,6 @@ async fn build_runtime_from_config(
             let certs_dir = std::env::var("CERTS_DIR").map_err(|_| anyhow!("CERTS_DIR not set"))?;
             let channel = create_guardian_channel(&certs_dir).await?;
 
-            // Explicitly cast to trait object to guide type inference
             return Ok(Arc::new(VerifiedHttpRuntime::new(
                 channel,
                 cfg.provider.clone(),
@@ -149,7 +136,6 @@ async fn build_runtime_from_config(
                 cfg.provider, api_url, model_name
             );
 
-            // Explicitly cast to trait object
             Ok(
                 Arc::new(HttpInferenceRuntime::new(api_url, api_key, model_name))
                     as Arc<dyn InferenceRuntime>,
@@ -157,13 +143,11 @@ async fn build_runtime_from_config(
         }
         "mock" => {
             tracing::info!(target: "workload", "Initializing Mock Inference Runtime");
-            // Explicitly cast to trait object
             Ok(Arc::new(MockInferenceRuntime) as Arc<dyn InferenceRuntime>)
         }
         other => {
             if other == "standard" {
                 tracing::info!(target: "workload", "Initializing Standard Inference Runtime (Local Hardware)");
-                // Explicitly cast to trait object
                 Ok(Arc::new(StandardInferenceRuntime::new(hydrator, driver))
                     as Arc<dyn InferenceRuntime>)
             } else {
@@ -173,15 +157,31 @@ async fn build_runtime_from_config(
     }
 }
 
-/// Sets up the Workload components: State, VM, Services, ExecutionMachine, and background tasks.
+/// Sets up the Workload components including State, VM, Services, ExecutionMachine, and background tasks.
+///
+/// This function initializes the entire workload stack, configuring the state backend,
+/// inference runtimes, hardware drivers, and the core execution state machine.
+///
+/// # Arguments
+///
+/// * `state_tree` - The initialized state manager instance (e.g., IAVLTree).
+/// * `commitment_scheme` - The cryptographic commitment scheme used by the state tree.
+/// * `config` - The workload configuration loaded from `workload.toml`.
+/// * `gui_driver` - Optional handle to the GUI automation driver (for Desktop Agent).
+/// * `browser_driver` - Optional handle to the Browser automation driver.
+/// * `scs` - Optional handle to the Sovereign Context Store.
+///
+/// # Returns
+///
+/// A tuple containing:
+/// 1. `Arc<WorkloadContainer>`: The initialized container holding state and VM resources.
+/// 2. `Arc<Mutex<ExecutionMachine>>`: The thread-safe execution engine ready to process blocks.
 pub async fn setup_workload<CS, ST>(
     mut state_tree: ST,
     commitment_scheme: CS,
     config: WorkloadConfig,
     gui_driver: Option<Arc<dyn GuiDriver>>,
     browser_driver: Option<Arc<BrowserDriver>>,
-    // [NEW] Optional SCS for Desktop Agent
-    // Using std::sync::Mutex to match DesktopAgentService expectations
     scs: Option<Arc<std::sync::Mutex<SovereignContextStore>>>,
 ) -> Result<(
     Arc<WorkloadContainer<ST>>,
@@ -207,6 +207,13 @@ where
         + 'static,
     CS::Commitment: std::fmt::Debug + From<Vec<u8>>,
 {
+    // Silence unused variable warnings for variables used conditionally or in future expansions
+    let _ = &commitment_scheme;
+    let _ = &gui_driver;
+    let _ = &browser_driver;
+    let _ = &scs;
+
+    // ... (rest of the function implementation)
     let db_path = Path::new(&config.state_file).with_extension("db");
     let db_preexisted = db_path.exists();
 
@@ -254,37 +261,29 @@ where
         }
     }
 
-    // --- Inference Stack Setup ---
-
-    // 1. Initialize Hardware Driver (CPU for now)
     let driver = Arc::new(CpuDriver::new());
-
-    // 2. Initialize Model Hydrator
     let models_dir = Path::new("models");
     std::fs::create_dir_all(models_dir).ok();
-
     let hydrator = Arc::new(ModelHydrator::new(models_dir.to_path_buf(), driver.clone()));
 
-    // 3. Initialize Primary (Legacy) Runtime
     let inference_runtime =
         build_runtime_from_config(&config.inference, hydrator.clone(), driver.clone(), &config)
             .await?;
 
-    // 4. [NEW] Initialize Hybrid Runtimes
-    // If specific configs are present, use them. Otherwise, fallback to the primary one.
     let fast_runtime = if let Some(cfg) = &config.fast_inference {
         build_runtime_from_config(cfg, hydrator.clone(), driver.clone(), &config).await?
     } else {
         inference_runtime.clone()
     };
+    // Silence unused warning if not used downstream yet
+    let _ = &fast_runtime;
 
     let reasoning_runtime = if let Some(cfg) = &config.reasoning_inference {
         build_runtime_from_config(cfg, hydrator.clone(), driver.clone(), &config).await?
     } else {
         inference_runtime.clone()
     };
-
-    // --- VM Setup ---
+    let _ = &reasoning_runtime;
 
     #[cfg(feature = "vm-wasm")]
     struct VmWrapper(Arc<WasmRuntime>);
@@ -307,8 +306,6 @@ where
     #[cfg(feature = "vm-wasm")]
     let (wasm_runtime_arc, vm): (Arc<WasmRuntime>, Box<dyn ioi_api::vm::VirtualMachine>) = {
         let runtime = WasmRuntime::new(config.fuel_costs.clone())?;
-
-        // Link the primary runtime to the VM (legacy support for simple contracts)
         runtime.link_inference(inference_runtime.clone());
 
         if let Some(driver) = &gui_driver {
@@ -329,6 +326,9 @@ where
     let vm: Box<dyn ioi_api::vm::VirtualMachine> = {
         panic!("vm-wasm feature is required for Workload setup");
     };
+
+    // Silence unused warning
+    let _ = &vm;
 
     let _temp_orch_config = OrchestrationConfig {
         chain_id: 1.into(),
@@ -451,15 +451,11 @@ where
 
     if let Some(gui) = gui_driver {
         tracing::info!(target: "workload", event = "service_init", name = "DesktopAgent", impl="native");
-        // [NEW] Inject both runtimes into the DesktopAgentService
         let mut agent = DesktopAgentService::new_hybrid(gui, fast_runtime, reasoning_runtime);
-
-        // [NEW] Inject SCS if provided
         if let Some(store) = scs {
             agent = agent.with_scs(store);
             tracing::info!(target: "workload", "SCS injected into DesktopAgent.");
         }
-
         initial_services.push(Arc::new(agent) as Arc<dyn UpgradableService>);
     }
 
@@ -469,7 +465,6 @@ where
         .collect();
     let _service_directory = ServiceDirectory::new(_services_for_dir);
 
-    // Wrapper for Runtime to satisfy the generic Arc<dyn InferenceRuntime> trait object
     struct RuntimeWrapper {
         inner: Arc<dyn InferenceRuntime>,
     }
@@ -503,9 +498,6 @@ where
         }
     }
 
-    // Note: WorkloadContainer's inference handle is mainly for IPC.
-    // We pass the "Reasoning" runtime as the default for external callers for now,
-    // but the DesktopAgent service uses both internally.
     let _workload_container = Arc::new(WorkloadContainer::new(
         config.clone(),
         state_tree,
