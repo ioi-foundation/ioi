@@ -31,5 +31,10 @@ pub enum KernelEvent {
     },
 
     /// A new block was committed to the local chain state.
-    BlockCommitted { height: u64, tx_count: usize },
+    BlockCommitted {
+        /// The height of the committed block.
+        height: u64,
+        /// The number of transactions included in the block.
+        tx_count: u64,
+    },
 }

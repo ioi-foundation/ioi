@@ -36,6 +36,8 @@ prost = { workspace = true }
 byte-slice-cast = "1.2"
 bincode = { workspace = true }
 dcrypt = { workspace = true }
+# [FIX] Added tokio dependency for broadcast channels
+tokio = { workspace = true, features = ["sync"] }
 
 # [NEW] Visual Perceptual Hashing for Desktop Agent
 image = "0.25"

@@ -4,6 +4,7 @@ use anyhow::{anyhow, Result};
 use serde::{Deserialize, Serialize};
 use ioi_types::app::{ActionRequest, ContextSlice}; 
 use ioi_crypto::algorithms::hash::sha256;
+use dcrypt::algorithms::ByteSerializable; // [FIX] Required for copy_from_slice
 
 /// A simplified, VLM-friendly representation of a UI element.
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -189,8 +190,10 @@ impl SovereignSubstrateProvider for MockSubstrateProvider {
 
         Ok(ContextSlice {
             slice_id: slice_id_arr,
-            data: xml_data,
-            provenance_proof: proof.to_vec(),
+            frame_id: 0, // [FIX] Added frame_id
+            chunks: vec![xml_data], // [FIX] Wrapped in chunks vector
+            mhnsw_root: [0u8; 32], // [FIX] Added mhnsw_root
+            traversal_proof: Some(proof.to_vec()), // [FIX] Renamed to traversal_proof
             intent_id: intent_hash,
         })
     }

@@ -8,33 +8,35 @@ use parity_scale_codec::{Decode, Encode};
 use rand::Rng;
 use serde::{Deserialize, Serialize};
 use std::cmp::Ordering;
-use std::collections::{HashMap, HashSet};
+// [FIX] Use BTreeMap for deterministic encoding
+use std::collections::BTreeMap;
 
 #[derive(Clone, Debug, Encode, Decode, Serialize, Deserialize)]
 pub struct HnswGraph<M: DistanceMetric> {
     pub(crate) metric: M,
     /// Publicly accessible map of nodes for direct serialization/inspection.
-    pub nodes: HashMap<NodeId, GraphNode>,
+    // [FIX] Changed HashMap to BTreeMap
+    pub nodes: BTreeMap<NodeId, GraphNode>,
     /// The entry point node ID for the graph.
     pub entry_point: Option<NodeId>,
 
     // Hyperparameters
     #[allow(dead_code)]
-    pub(crate) m: usize,
+    pub(crate) m: u32,
     #[allow(dead_code)]
-    pub(crate) m_max: usize,
+    pub(crate) m_max: u32,
     #[allow(dead_code)]
-    pub(crate) m_max0: usize,
+    pub(crate) m_max0: u32,
     #[allow(dead_code)]
-    pub(crate) ef_construction: usize,
+    pub(crate) ef_construction: u32,
     pub(crate) level_mult: f64,
 
     pub(crate) next_id: u64,
-    pub(crate) max_layer: usize,
+    pub(crate) max_layer: u32,
 }
 
 #[derive(PartialEq)]
-#[allow(dead_code)] // Helper for future search impl
+#[allow(dead_code)]
 struct Candidate {
     id: NodeId,
     distance: f32,
@@ -61,12 +63,13 @@ impl<M: DistanceMetric> HnswGraph<M> {
     pub fn new(metric: M, m: usize, ef_construction: usize) -> Self {
         Self {
             metric,
-            nodes: HashMap::new(),
+            // [FIX] Initialize BTreeMap
+            nodes: BTreeMap::new(),
             entry_point: None,
-            m,
-            m_max: m,
-            m_max0: m * 2,
-            ef_construction,
+            m: m as u32,
+            m_max: m as u32,
+            m_max0: (m * 2) as u32,
+            ef_construction: ef_construction as u32,
             level_mult: 1.0 / (m as f64).ln(),
             next_id: 1,
             max_layer: 0,
@@ -103,14 +106,14 @@ impl<M: DistanceMetric> HnswGraph<M> {
             node.compute_hash();
             self.nodes.insert(id, node);
             self.entry_point = Some(id);
-            self.max_layer = level;
+            self.max_layer = level as u32;
             return Ok(());
         }
 
         let mut curr_obj = self.entry_point.unwrap();
         let mut curr_dist = self.dist(&vector, &self.get_vector(curr_obj));
 
-        for l in (level + 1..=self.max_layer).rev() {
+        for l in ((level + 1)..=(self.max_layer as usize)).rev() {
             let mut changed = true;
             while changed {
                 changed = false;
@@ -130,8 +133,8 @@ impl<M: DistanceMetric> HnswGraph<M> {
             }
         }
 
-        if level > self.max_layer {
-            self.max_layer = level;
+        if level as u32 > self.max_layer {
+            self.max_layer = level as u32;
             self.entry_point = Some(id);
         }
 
@@ -141,46 +144,37 @@ impl<M: DistanceMetric> HnswGraph<M> {
         Ok(())
     }
 
-    /// Deletes a node from the graph.
-    /// Re-links neighbors to maintain graph connectivity.
-    /// This is a simplified "shrink" strategy: removing the node from neighbor lists.
-    /// For a rigorous HNSW delete, one would re-connect neighbors, but for mHNSW integrity,
-    /// removing edges is sufficient if graph remains connected (which small-world property generally preserves).
     pub fn delete(&mut self, id: NodeId) -> Result<(), String> {
         if !self.nodes.contains_key(&id) {
             return Err("Node not found".into());
         }
 
-        // 1. Remove node
-        let removed_node = self.nodes.remove(&id).unwrap();
+        // [FIX] Prefix unused variable
+        let _removed_node = self.nodes.remove(&id).unwrap();
 
         // 2. Scan all nodes to remove incoming edges.
-        // Optimization: In a real HNSW, we would store back-links or use the graph traversal to find parents.
-        // For MVP in-memory graph, iterating all nodes is acceptable but slow O(N).
-        // TODO: Add reverse index for O(1) parent lookup.
         for node in self.nodes.values_mut() {
+            let mut changed = false;
             for layer in &mut node.neighbors {
                 if let Some(pos) = layer.iter().position(|&x| x == id) {
                     layer.remove(pos);
-                    // Recompute hash since neighbor list changed
-                    // Note: This triggers a re-hashing cascade if this was a Merkle Tree.
-                    // Since mHNSW computes node hash from neighbors, we must rehash.
-                    node.compute_hash();
+                    changed = true;
                 }
+            }
+            if changed {
+                node.compute_hash();
             }
         }
 
         // 3. Update entry point if we deleted it
         if self.entry_point == Some(id) {
-            // Heuristic: Pick a random remaining node with max layer, or scanning.
-            // For safety, we just pick the first available node or None.
             if self.nodes.is_empty() {
                 self.entry_point = None;
                 self.max_layer = 0;
             } else {
-                // Try to find a new entry point at the highest layer
                 let mut max_l = 0;
                 let mut candidate = None;
+                // BTreeMap iteration is deterministic, which is good for consensus
                 for (&nid, node) in &self.nodes {
                     let l = node.neighbors.len().saturating_sub(1);
                     if l >= max_l {
@@ -189,7 +183,7 @@ impl<M: DistanceMetric> HnswGraph<M> {
                     }
                 }
                 self.entry_point = candidate;
-                self.max_layer = max_l;
+                self.max_layer = max_l as u32;
             }
         }
 
@@ -225,7 +219,7 @@ impl<M: DistanceMetric> HnswGraph<M> {
 
         let mut trace = Vec::new();
 
-        for l in (1..=self.max_layer).rev() {
+        for l in (1..=self.max_layer as usize).rev() {
             let mut changed = true;
             while changed {
                 changed = false;

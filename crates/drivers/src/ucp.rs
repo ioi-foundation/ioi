@@ -3,22 +3,15 @@
 //! Universal Commerce Protocol (UCP) Driver.
 //! 
 //! This module implements the "Digital Hardware" driver for agentic commerce.
-//! It abstracts the complexity of the UCP handshake, discovery, and checkout flows,
-//! and ensures that payment credentials are handled securely via the Guardian
-//! "Secure Egress" pattern, keeping them invisible to the AI model itself.
 
 use anyhow::{anyhow, Result};
-use ioi_types::error::VmError;
+// [FIX] Removed unused VmError, NativeVision, Arc imports
 use serde::{Deserialize, Serialize};
 use serde_json::json;
-use std::sync::Arc;
-use crate::gui::vision::NativeVision;
 
 // Using the VerifiedHttpRuntime pattern, but we need to abstract the network call
 // because the Driver runs in the Kernel (Orchestrator/Workload boundary), 
 // delegating actual network I/O to the Guardian.
-//
-// In the IOI architecture, the Driver prepares the request, but the Guardian executes it.
 
 /// Represents a standardized UCP Discovery Manifest (/.well-known/ucp).
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -120,7 +113,8 @@ impl UcpDriver {
         let json: serde_json::Value = serde_json::from_slice(response_body)?;
         
         // Basic check for success status
-        if let Some(status) = json.get("status").and_then(|s| s.as_str()) {
+        // [FIX] Explicit closure type for type inference
+        if let Some(status) = json.get("status").and_then(|s: &serde_json::Value| s.as_str()) {
             if status == "complete" || status == "ready_for_complete" {
                 return Ok(status.to_string());
             }

@@ -1,19 +1,12 @@
 // Path: crates/scs/src/index.rs
 
-//! Integration of the IOI Merkelized HNSW (mHNSW) index into the SCS format.
-//!
-//! This module provides the logic to:
-//! 1. Build an mHNSW index from a set of frames and embeddings.
-//! 2. Serialize the index to the `.scs` file.
-//! 3. Generate cryptographic "Proof of Retrieval" for agent queries.
-
 use crate::format::FrameId;
 use anyhow::{anyhow, Result};
 use ioi_api::state::{ProofProvider, VerifiableState};
 use ioi_state::primitives::hash::HashCommitmentScheme;
 use ioi_state::tree::mhnsw::{
     metric::{CosineSimilarity, Vector},
-    node::NodeHash,
+    // [FIX] Removed unused NodeHash import
     proof::TraversalProof,
     MHnswIndex,
 };

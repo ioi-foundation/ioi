@@ -9,6 +9,7 @@ cargo-features = ["profile-rustflags"]
 resolver = "2"
 exclude = ["crates/cli/tests/fixtures/mock-verifier", "crates/sp1-guests"]
 members = [
+    "apps/autopilot/src-tauri",
     "crates/node",
     "crates/cli",
     "crates/execution",

@@ -1,0 +1,446 @@
+/* ============================================
+   PolicyInspector — Logic vs Law
+   ============================================ */
+
+.policy-inspector {
+  width: 300px;
+  background: var(--surface-1);
+  border-left: 1px solid var(--border-subtle);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+/* --- Empty State --- */
+.policy-inspector.empty {
+  justify-content: center;
+  align-items: center;
+}
+
+.empty-state {
+  text-align: center;
+  padding: 32px;
+}
+
+.empty-icon {
+  color: var(--text-tertiary);
+  margin-bottom: 16px;
+}
+
+.empty-text {
+  color: var(--text-secondary);
+  font-size: 13px;
+  margin-bottom: 4px;
+}
+
+.empty-hint {
+  color: var(--text-tertiary);
+  font-size: 11px;
+}
+
+/* --- Header --- */
+.inspector-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  background: var(--surface-1);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.header-main {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.header-icon {
+  font-size: 20px;
+}
+
+.header-info {
+  display: flex;
+  flex-direction: column;
+}
+
+.header-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.header-id {
+  font-size: 10px;
+  font-family: var(--font-mono);
+  color: var(--text-tertiary);
+}
+
+.attested-badge {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--color-success);
+  background: rgba(52, 211, 153, 0.12);
+  padding: 4px 8px;
+  border-radius: 4px;
+}
+
+/* --- Scrollable Content --- */
+.inspector-scroll {
+  flex: 1;
+  overflow-y: auto;
+}
+
+/* --- Section --- */
+.inspector-section {
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.section-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  background: var(--surface-3);
+}
+
+.section-header.danger {
+  background: rgba(251, 191, 36, 0.08);
+}
+
+.section-icon {
+  font-size: 14px;
+}
+
+.section-title {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.section-header.danger .section-title {
+  color: var(--color-warning);
+}
+
+.section-content {
+  padding: 12px 16px;
+}
+
+/* --- Logic Section (Blue tint) --- */
+.logic-section {
+  background: rgba(74, 158, 255, 0.02);
+}
+
+/* --- Law Section (Orange/Warning tint) --- */
+.law-section {
+  background: rgba(251, 191, 36, 0.02);
+}
+
+/* --- Form Elements --- */
+.form-group {
+  margin-bottom: 14px;
+}
+
+.form-group:last-child {
+  margin-bottom: 0;
+}
+
+.form-label {
+  display: block;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-tertiary);
+  margin-bottom: 6px;
+}
+
+.form-input,
+.form-select,
+.form-textarea {
+  width: 100%;
+  background: var(--surface-3);
+  border: 1px solid var(--border-default);
+  border-radius: 4px;
+  color: var(--text-primary);
+  font-size: 12px;
+  padding: 8px 10px;
+  outline: none;
+  transition: border-color 0.15s;
+}
+
+.form-input:focus,
+.form-select:focus,
+.form-textarea:focus {
+  border-color: var(--ioi-blue);
+}
+
+.form-textarea {
+  resize: vertical;
+  min-height: 60px;
+}
+
+.form-input.code,
+.form-textarea.code {
+  font-family: var(--font-mono);
+  font-size: 11px;
+}
+
+.form-select {
+  cursor: pointer;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%239ca3af' stroke-width='2'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 8px center;
+  padding-right: 28px;
+}
+
+.form-hint {
+  display: block;
+  font-size: 10px;
+  color: var(--text-tertiary);
+  margin-top: 4px;
+}
+
+.input-with-unit {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.input-with-unit .form-input {
+  flex: 1;
+}
+
+.input-unit {
+  font-size: 11px;
+  color: var(--text-tertiary);
+}
+
+/* Slider */
+.slider-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.form-slider {
+  flex: 1;
+  height: 4px;
+  -webkit-appearance: none;
+  appearance: none;
+  background: var(--surface-4);
+  border-radius: 2px;
+  outline: none;
+}
+
+.form-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 14px;
+  height: 14px;
+  background: var(--ioi-blue);
+  border-radius: 50%;
+  cursor: pointer;
+}
+
+.slider-value {
+  font-size: 11px;
+  font-family: var(--font-mono);
+  color: var(--text-secondary);
+  min-width: 32px;
+  text-align: right;
+}
+
+/* --- Law Card --- */
+.law-card {
+  background: var(--surface-3);
+  border: 1px solid var(--border-default);
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.capability-row {
+  padding: 12px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.capability-row:last-child {
+  border-bottom: none;
+}
+
+.cap-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.cap-name {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.cap-body {
+  padding-left: 4px;
+}
+
+.cap-label {
+  display: block;
+  font-size: 10px;
+  color: var(--text-tertiary);
+  margin-bottom: 4px;
+}
+
+.cap-input,
+.cap-select {
+  width: 100%;
+  background: var(--surface-2);
+  border: 1px solid var(--border-subtle);
+  border-radius: 4px;
+  color: var(--text-secondary);
+  font-size: 11px;
+  padding: 6px 8px;
+  outline: none;
+}
+
+.cap-input.code {
+  font-family: var(--font-mono);
+}
+
+.cap-input:focus,
+.cap-select:focus {
+  border-color: var(--ioi-blue);
+}
+
+/* Capability Toggle */
+.cap-toggle {
+  position: relative;
+  cursor: pointer;
+}
+
+.cap-toggle input {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.toggle-track {
+  display: block;
+  width: 32px;
+  height: 18px;
+  background: var(--surface-4);
+  border: 1px solid var(--border-default);
+  border-radius: 9px;
+  transition: all 0.2s;
+}
+
+.toggle-thumb {
+  display: block;
+  width: 12px;
+  height: 12px;
+  background: var(--text-tertiary);
+  border-radius: 50%;
+  margin: 2px;
+  transition: all 0.2s;
+}
+
+.cap-toggle input:checked + .toggle-track {
+  background: var(--ioi-blue);
+  border-color: var(--ioi-blue);
+}
+
+.cap-toggle input:checked + .toggle-track .toggle-thumb {
+  transform: translateX(14px);
+  background: white;
+}
+
+/* Budget Control */
+.budget-control {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.budget-slider {
+  flex: 1;
+  height: 4px;
+  -webkit-appearance: none;
+  appearance: none;
+  background: linear-gradient(to right, var(--color-success) 0%, var(--color-warning) 50%, var(--color-error) 100%);
+  border-radius: 2px;
+  outline: none;
+}
+
+.budget-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 14px;
+  height: 14px;
+  background: white;
+  border: 2px solid var(--surface-4);
+  border-radius: 50%;
+  cursor: pointer;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.budget-value {
+  font-size: 12px;
+  font-family: var(--font-mono);
+  font-weight: 600;
+  color: var(--color-warning);
+  min-width: 48px;
+  text-align: right;
+}
+
+/* Approval Section */
+.approval-section {
+  padding: 12px;
+  background: rgba(251, 191, 36, 0.05);
+  border-top: 1px solid var(--border-subtle);
+}
+
+.checkbox-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+}
+
+.checkbox-row input[type="checkbox"] {
+  width: 14px;
+  height: 14px;
+  accent-color: var(--ioi-blue);
+}
+
+.checkbox-label {
+  font-size: 12px;
+  color: var(--text-primary);
+}
+
+.approval-hint {
+  font-size: 10px;
+  color: var(--text-tertiary);
+  margin-top: 6px;
+  margin-left: 22px;
+  line-height: 1.4;
+}
+
+/* --- Receipts Section --- */
+.receipts-section .section-content {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* --- Footer --- */
+.inspector-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 12px 16px;
+  background: var(--surface-1);
+  border-top: 1px solid var(--border-subtle);
+}

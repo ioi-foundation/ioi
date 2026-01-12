@@ -430,8 +430,36 @@ where
                     }
 
                     // Forward Firewall/Agent Events
-                    Ok(event) = event_rx.recv() => {
-                         if tx.send(Ok(event)).await.is_err() { break; }
+                    Ok(kernel_event) = event_rx.recv() => {
+                         // [FIX] Map KernelEvent to ChainEvent (Protobuf)
+                         let mapped_event = match kernel_event {
+                             ioi_types::app::KernelEvent::AgentStep(step) => {
+                                 Some(ioi_ipc::public::chain_event::Event::Thought(
+                                     ioi_ipc::public::AgentThought {
+                                         session_id: hex::encode(step.session_id),
+                                         content: step.raw_output, // Or full_prompt if viewing inputs
+                                         is_final: step.success,
+                                     }
+                                 ))
+                             },
+                             ioi_types::app::KernelEvent::BlockCommitted { height, tx_count } => {
+                                 // Already handled by tip_rx, but mapping for completeness
+                                 Some(ioi_ipc::public::chain_event::Event::Block(
+                                     ioi_ipc::public::BlockCommitted {
+                                         height,
+                                         state_root: "".into(), // Not in event
+                                         tx_count: tx_count as u64,
+                                     }
+                                 ))
+                             },
+                             // Map other variants as needed or ignore
+                             _ => None
+                         };
+                         
+                         if let Some(event_enum) = mapped_event {
+                             let event = ChainEvent { event: Some(event_enum) };
+                             if tx.send(Ok(event)).await.is_err() { break; }
+                         }
                     }
                 }
             }
@@ -452,7 +480,7 @@ where
 
         // 1. Get Context Data
         let (chain_id, nonce, safety_model) = {
-            let mut ctx = ctx_arc.lock().await;
+            let ctx = ctx_arc.lock().await; // [FIX] Removed mut
             // Get nonce for local account (assuming local user is the drafter)
             let account_id = ioi_types::app::account_id_from_key_material(
                 ioi_types::app::SignatureSuite::ED25519,
@@ -499,7 +527,7 @@ where
 
         // 1. Access SCS via context
         let scs_arc = {
-            let ctx = ctx_arc.lock().await;
+            let ctx = ctx_arc.lock().await; // [FIX] Removed mut
             ctx.scs.clone()
         };
 

@@ -19,6 +19,8 @@ tracing = { workspace = true }
 async-trait = { workspace = true }
 serde = { workspace = true }
 thiserror = { workspace = true }
+serde_json = { workspace = true } # [FIX] Added serde_json dependency
+dcrypt = { workspace = true } # [FIX] Added dcrypt dependency
 
 # --- Phase 2: GUI Automation Stack ---
 

@@ -80,7 +80,14 @@ impl GuiDriver for IoiGuiDriver {
         };
 
         let slice = self.capture_context(&dummy_intent).await?;
-        let tree_xml = String::from_utf8(slice.data)
+        
+        // [FIX] Access chunks instead of data
+        let mut combined_data = Vec::new();
+        for chunk in &slice.chunks {
+            combined_data.extend_from_slice(chunk);
+        }
+        
+        let tree_xml = String::from_utf8(combined_data)
             .map_err(|e| VmError::HostError(format!("Invalid UTF-8 in slice: {}", e)))?;
         Ok(tree_xml)
     }

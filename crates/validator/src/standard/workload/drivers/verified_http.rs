@@ -141,12 +141,14 @@ impl InferenceRuntime for VerifiedHttpRuntime {
         // 2. Delegate to Guardian via IPC Secure Egress
         let mut client = self.guardian_client.clone();
 
+        // [FIX] Initialize new field json_patch_path
         let req = SecureEgressRequest {
             domain: self.get_provider_domain(),
             path: self.get_provider_path(),
             method: "POST".into(),
             body: request_body,
             secret_id: self.key_ref.clone(),
+            json_patch_path: String::new(), 
         };
 
         let resp = client

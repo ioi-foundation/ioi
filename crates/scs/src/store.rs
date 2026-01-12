@@ -13,14 +13,13 @@ use crate::index::VectorIndex;
 use anyhow::{anyhow, Result};
 use fs2::FileExt;
 use ioi_crypto::algorithms::hash::sha256;
-use ioi_types::app::{AccountId, ChainId};
 use memmap2::Mmap;
 use std::fs::{File, OpenOptions};
 use std::io::{Read, Seek, SeekFrom, Write};
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 use std::time::{SystemTime, UNIX_EPOCH};
-use std::collections::HashMap; // [NEW] Import HashMap
+use std::collections::HashMap; 
 
 /// Configuration for opening or creating a store.
 #[derive(Debug, Clone)]

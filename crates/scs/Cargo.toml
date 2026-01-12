@@ -11,7 +11,9 @@ repository = "https://github.com/ioi-foundation/ioi"
 # Workspace Dependencies
 ioi-types = { path = "../types" }
 ioi-state = { path = "../state" }   # Provides MHnswIndex implementation
+ioi-api = { path = "../api" }       
 ioi-crypto = { path = "../crypto" }
+# [FIX] Removed ioi-services dependency to break cycle
 
 # Error Handling & Logging
 anyhow = { workspace = true }
@@ -27,6 +29,8 @@ rkyv = { version = "0.7", features = ["validation", "std", "alloc"] }
 bytecheck = "0.6"
 # Consensus encoding for Merkle proofs
 parity-scale-codec = { workspace = true, features = ["derive"] }
+# Added bincode dependency
+bincode = { workspace = true }
 
 # System & I/O
 memmap2 = "0.9"                                                # Memory mapping for .scs/.mv2 files
@@ -36,6 +40,7 @@ time = { version = "0.3", features = ["serde", "formatting"] }
 parking_lot = "0.12"
 hex = { workspace = true }
 zstd = "0.13"                                                  # For frame payload compression
+dcrypt = { workspace = true } # [FIX] Add dcrypt for ByteSerializable
 
 [dev-dependencies]
 tempfile = "3.3"

@@ -135,11 +135,14 @@ impl ProviderClient for HttpProviderClient {
             .await
             .map_err(|e| anyhow!("Provider connection failed: {}", e))?;
 
-        if !response.status().is_success() {
+        // [FIX] Capture status before consuming body
+        let status = response.status();
+
+        if !status.is_success() {
             let error_text = response.text().await.unwrap_or_default();
             return Err(anyhow!(
                 "Provider rejected provisioning: HTTP {} - {}",
-                response.status(),
+                status,
                 error_text
             ));
         }

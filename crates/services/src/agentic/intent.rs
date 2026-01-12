@@ -33,7 +33,7 @@ impl IntentResolver {
     /// 4. Construction: Build the `SystemTransaction` struct.
     pub async fn resolve_intent(
         &self,
-        user_prompt: &str,
+        user_prompt: &str, // [FIX] This is the variable name
         chain_id: ioi_types::app::ChainId,
         nonce: u64,
         // Mock address book for name resolution
@@ -55,7 +55,8 @@ impl IntentResolver {
 
         // Contextualize prompt with address book
         let mut context_str = format!("Address Book: {:?}", address_book);
-        let prompt = PromptWrapper::build_canonical_prompt(user_intent, &context_str, &guardrails);
+        // [FIX] Use user_prompt instead of user_intent
+        let prompt = PromptWrapper::build_canonical_prompt(user_prompt, &context_str, &guardrails);
 
         // 3. Inference
         // Use a deterministic hash for the prompt to cache results

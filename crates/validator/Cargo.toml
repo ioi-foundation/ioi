@@ -1,5 +1,4 @@
 # Path: crates/validator/Cargo.toml
-
 [package]
 name = "ioi-validator"
 version = "0.1.0"
@@ -23,7 +22,7 @@ ioi-client = { path = "../client" }
 ioi-telemetry = { path = "../telemetry" }
 ioi-storage = { path = "../storage" }
 ioi-drivers = { path = "../drivers" }
-ioi-scs = { path = "../scs" }                                       # [NEW] Added SCS dependency
+ioi-scs = { path = "../scs" }
 
 log = { workspace = true }
 tracing = { workspace = true }
@@ -33,6 +32,8 @@ serde_bytes = { workspace = true }
 serde_json = { workspace = true }
 serde_jcs = "0.1.0"
 tokio = { workspace = true, features = ["full", "sync"] }
+# [FIX] Added tokio-stream
+tokio-stream = { version = "0.1", features = ["sync"] }
 axum = { workspace = true }
 libp2p = { workspace = true }
 futures = { workspace = true }
@@ -43,7 +44,8 @@ env_logger = { workspace = true, optional = true }
 ioi-state = { path = "../state" }
 once_cell = { workspace = true }
 rand = { workspace = true }
-hex = { workspace = true }
+# [FIX] Added serde feature to hex
+hex = { workspace = true, features = ["serde"] }
 base64 = { workspace = true }
 bs58 = "0.4"
 lru = { workspace = true }

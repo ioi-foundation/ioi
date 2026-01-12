@@ -1,0 +1,267 @@
+/* ============================================
+   RightPanel — Live Node Inspector
+   ============================================ */
+
+.right-panel {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  background: #181B21;
+  border-left: 1px solid #2E333D;
+  display: flex;
+  flex-direction: column;
+  z-index: 20;
+  overflow: hidden;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+/* --- Header --- */
+.panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  border-bottom: 1px solid #2E333D;
+  background: #1F2329;
+  flex-shrink: 0;
+}
+
+.panel-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #E5E7EB;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.panel-title-icon {
+  font-size: 14px;
+}
+
+/* --- Empty State --- */
+.panel-empty {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 32px;
+  text-align: center;
+  color: #5F6B7C;
+}
+
+.empty-icon {
+  margin-bottom: 16px;
+  opacity: 0.5;
+}
+
+.empty-text {
+  color: #9CA3AF;
+  font-size: 13px;
+  font-weight: 500;
+  margin-bottom: 4px;
+}
+
+.empty-hint {
+  font-size: 11px;
+}
+
+/* --- Tabs --- */
+.inspector-tabs {
+  display: flex;
+  border-bottom: 1px solid #2E333D;
+  background: #181B21;
+}
+
+.inspector-tab {
+  flex: 1;
+  padding: 10px 0;
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: #8A9BA8;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.inspector-tab:hover {
+  color: #D1D5DB;
+  background: #252A33;
+}
+
+.inspector-tab.active {
+  color: #3D85C6;
+  border-bottom-color: #3D85C6;
+  background: #1F2329;
+}
+
+/* --- Content --- */
+.panel-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0;
+}
+
+/* --- Sections --- */
+.panel-section {
+  padding: 16px;
+  border-bottom: 1px solid #2E333D;
+}
+
+.panel-section-header {
+  margin-bottom: 12px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.panel-section-title {
+  font-size: 10px;
+  font-weight: 700;
+  color: #5F6B7C;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+/* --- Live Telemetry Graphs --- */
+.telemetry-graph {
+  height: 60px;
+  background: #111418;
+  border: 1px solid #2E333D;
+  border-radius: 4px;
+  margin-bottom: 8px;
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  align-items: flex-end;
+  padding: 0 2px;
+  gap: 2px;
+}
+
+.telemetry-bar {
+  flex: 1;
+  background: #3D85C6;
+  opacity: 0.6;
+  min-width: 2px;
+  border-radius: 1px 1px 0 0;
+  transition: height 0.2s ease;
+}
+
+.telemetry-bar.spike {
+  background: #F59E0B;
+  opacity: 0.8;
+}
+
+.telemetry-stat {
+  display: flex;
+  justify-content: space-between;
+  font-size: 11px;
+  color: #9CA3AF;
+  margin-top: 4px;
+}
+
+.stat-value {
+  color: #E5E7EB;
+  font-family: "JetBrains Mono", monospace;
+}
+
+/* --- Config Form --- */
+.config-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+
+.config-label {
+  font-size: 11px;
+  color: #8A9BA8;
+}
+
+.input, .select {
+  background: #252A33;
+  border: 1px solid #3F4652;
+  border-radius: 4px;
+  color: #D1D5DB;
+  font-size: 12px;
+  padding: 6px 8px;
+  outline: none;
+  font-family: inherit;
+}
+
+.input:focus, .select:focus {
+  border-color: #3D85C6;
+}
+
+.input[readonly] {
+  color: #5F6B7C;
+  cursor: not-allowed;
+}
+
+/* --- Buttons --- */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+  border: 1px solid transparent;
+}
+
+.btn-primary {
+  background: #3D85C6;
+  color: white;
+}
+
+.btn-primary:hover {
+  background: #2B74B3;
+}
+
+.btn-secondary {
+  background: #252A33;
+  border-color: #3F4652;
+  color: #D1D5DB;
+}
+
+.btn-secondary:hover {
+  background: #2E333D;
+  border-color: #5F6B7C;
+}
+
+.btn-ghost {
+  background: transparent;
+  color: #8A9BA8;
+}
+
+.btn-ghost:hover {
+  color: #E5E7EB;
+  background: rgba(255, 255, 255, 0.05);
+}
+
+/* --- Badges --- */
+.badge {
+  display: inline-block;
+  padding: 2px 6px;
+  border-radius: 3px;
+  font-size: 10px;
+  font-weight: 500;
+}
+
+.badge-success {
+  background: rgba(52, 211, 153, 0.15);
+  color: #34D399;
+  border: 1px solid rgba(52, 211, 153, 0.2);
+}
