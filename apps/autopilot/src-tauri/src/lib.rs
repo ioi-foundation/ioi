@@ -11,7 +11,10 @@ use tauri_plugin_global_shortcut::{Code, GlobalShortcutExt, Modifiers, Shortcut,
 
 // [NEW] Imports for IOI Kernel Integration
 use ioi_ipc::public::public_api_client::PublicApiClient;
-use ioi_ipc::public::{chain_event::Event as ChainEventEnum, SubscribeEventsRequest};
+use ioi_ipc::public::{
+    chain_event::Event as ChainEventEnum, DraftTransactionRequest, SubmitTransactionRequest,
+    SubscribeEventsRequest,
+};
 use tonic::transport::Channel;
 
 // ============================================
@@ -65,7 +68,7 @@ pub struct AppState {
     pub current_task: Option<AgentTask>,
     pub gate_response: Option<GateResponse>,
     pub is_simulating: bool,
-    // [NEW] gRPC Client handle
+    // [NEW] gRPC Client handle (optional cache)
     pub rpc_client: Option<PublicApiClient<Channel>>,
 }
 
@@ -100,26 +103,28 @@ fn set_spotlight_mode(app: AppHandle, mode: String) {
             let _ = window.hide();
             let _ = window.set_decorations(true);
             let _ = window.set_shadow(true);
-            let _ = window.set_always_on_top(true); 
+            let _ = window.set_always_on_top(true);
 
             if mode == "spotlight" {
-                let _ = window.set_resizable(false); 
+                let _ = window.set_resizable(false);
                 let width = 800.0;
                 let height = 600.0;
                 let x = (screen_w - width) / 2.0;
                 let y = (screen_h - height) / 3.0;
                 let _ = window.set_size(tauri::Size::Logical(tauri::LogicalSize { width, height }));
-                let _ = window.set_position(tauri::Position::Logical(tauri::LogicalPosition { x, y }));
+                let _ = window
+                    .set_position(tauri::Position::Logical(tauri::LogicalPosition { x, y }));
             } else {
                 let _ = window.set_resizable(true);
-                let width = 450.0; 
-                let height = screen_h - 40.0; 
+                let width = 450.0;
+                let height = screen_h - 40.0;
                 let x = screen_w - width;
                 let y = 0.0;
                 let _ = window.set_size(tauri::Size::Logical(tauri::LogicalSize { width, height }));
-                let _ = window.set_position(tauri::Position::Logical(tauri::LogicalPosition { x, y }));
+                let _ = window
+                    .set_position(tauri::Position::Logical(tauri::LogicalPosition { x, y }));
             }
-            
+
             let _ = window.show();
             let _ = window.set_focus();
         }
@@ -201,8 +206,9 @@ fn hide_studio(app: AppHandle) {
 // Task Commands & Kernel Integration
 // ============================================
 
-fn update_task_state<F>(app: &AppHandle, mut f: F) 
-where F: FnMut(&mut AgentTask) 
+fn update_task_state<F>(app: &AppHandle, mut f: F)
+where
+    F: FnMut(&mut AgentTask),
 {
     let state = app.state::<Mutex<AppState>>();
     let mut task_clone: Option<AgentTask> = None;
@@ -229,7 +235,7 @@ async fn monitor_kernel_events(app: AppHandle) {
     let mut client = loop {
         match PublicApiClient::connect("http://127.0.0.1:9000").await {
             Ok(c) => {
-                println!("[Autopilot] Connected to Kernel at :9000");
+                println!("[Autopilot] Connected to Kernel Event Stream at :9000");
                 break c;
             }
             Err(_) => {
@@ -262,7 +268,7 @@ async fn monitor_kernel_events(app: AppHandle) {
                         t.progress += 1;
                     });
                 }
-                
+
                 // Firewall Interception -> Open Gate
                 ChainEventEnum::Action(action) => {
                     if action.verdict == "REQUIRE_APPROVAL" {
@@ -272,7 +278,10 @@ async fn monitor_kernel_events(app: AppHandle) {
                             t.gate_info = Some(GateInfo {
                                 title: "Restricted Action Intercepted".to_string(),
                                 // [FIX] Clone strings here too for the same reason
-                                description: format!("Agent attempting to perform: {}", action.target),
+                                description: format!(
+                                    "Agent attempting to perform: {}",
+                                    action.target
+                                ),
                                 risk: "medium".to_string(), // Inferred
                             });
                         });
@@ -285,18 +294,21 @@ async fn monitor_kernel_events(app: AppHandle) {
                         });
                     }
                 }
-                
+
                 // Block Commit -> Confirm Progress
                 ChainEventEnum::Block(block) => {
                     // Could update a global block height indicator here
-                    println!("[Autopilot] Block #{} Committed (Root: {})", block.height, block.state_root);
+                    println!(
+                        "[Autopilot] Block #{} Committed (Root: {})",
+                        block.height, block.state_root
+                    );
                 }
 
                 _ => {}
             }
         }
     }
-    
+
     println!("[Autopilot] Event stream ended. Reconnecting...");
     // In production, we'd recursively call monitor_kernel_events here for auto-reconnect.
 }
@@ -307,7 +319,7 @@ async fn run_simulation(app: AppHandle) {
         "Parsing natural language...",
         "Identifying required tools...",
         "Searching knowledge base...",
-        "GATE_TRIGGER", 
+        "GATE_TRIGGER",
         "Navigating to payments page...",
         "Clicking 'Pay Now' button...",
         "Verifying transaction results...",
@@ -320,19 +332,22 @@ async fn run_simulation(app: AppHandle) {
                 t.current_step = "Policy Check Required".to_string();
                 t.gate_info = Some(GateInfo {
                     title: "Sensitive Action Detected".to_string(),
-                    description: "The agent attempts to authorize a payment of $42.00 via Stripe.".to_string(),
+                    description: "The agent attempts to authorize a payment of $42.00 via Stripe."
+                        .to_string(),
                     risk: "medium".to_string(),
                 });
             });
             show_gate(app.clone());
-            
+
             // Wait for approval
             let mut approved = false;
             loop {
                 tokio::time::sleep(Duration::from_millis(300)).await;
                 let state_guard = app.state::<Mutex<AppState>>();
                 let Ok(state) = state_guard.lock() else { break; };
-                if state.current_task.is_none() { return; }
+                if state.current_task.is_none() {
+                    return;
+                }
                 if let Some(response) = &state.gate_response {
                     approved = response.approved;
                     break;
@@ -344,12 +359,12 @@ async fn run_simulation(app: AppHandle) {
                     t.phase = AgentPhase::Failed;
                     t.current_step = "Blocked by User".to_string();
                 });
-                return; 
+                return;
             }
 
             update_task_state(&app, |t| {
                 t.phase = AgentPhase::Running;
-                t.gate_info = None; 
+                t.gate_info = None;
                 t.current_step = "Gate Approved. Resuming...".to_string();
             });
             tokio::time::sleep(Duration::from_millis(800)).await;
@@ -358,7 +373,9 @@ async fn run_simulation(app: AppHandle) {
 
         tokio::time::sleep(Duration::from_millis(1500)).await;
         if let Ok(state) = app.state::<Mutex<AppState>>().lock() {
-            if state.current_task.is_none() { return; }
+            if state.current_task.is_none() {
+                return;
+            }
         }
         update_task_state(&app, |t| {
             t.current_step = step_name.to_string();
@@ -384,6 +401,7 @@ fn start_task(
     app: AppHandle,
     intent: String,
 ) -> Result<AgentTask, String> {
+    // 1. Initialize local UI state optimistically
     let task = AgentTask {
         id: uuid::Uuid::new_v4().to_string(),
         intent: intent.clone(),
@@ -391,7 +409,7 @@ fn start_task(
         phase: AgentPhase::Running,
         progress: 0,
         total_steps: 10,
-        current_step: "Initializing...".to_string(),
+        current_step: "Transmitting intent to Kernel...".to_string(),
         gate_info: None,
         receipt: None,
     };
@@ -405,16 +423,55 @@ fn start_task(
     let _ = app.emit("task-started", &task);
     show_pill(app.clone());
 
-    // Dual Mode: If we can connect to the Kernel, we use that. Otherwise simulate.
+    // 2. Spawn Logic: Try Kernel, Fallback to Simulation
     let app_clone = app.clone();
+    let intent_clone = intent.clone();
+
     tauri::async_runtime::spawn(async move {
-        // Simple probe to check if kernel is up
-        if let Ok(_) = std::net::TcpStream::connect("127.0.0.1:9000") {
-             println!("[Autopilot] Kernel detected. Monitoring events...");
-             monitor_kernel_events(app_clone).await;
-        } else {
-             println!("[Autopilot] Kernel offline. Running simulation.");
-             run_simulation(app_clone).await;
+        // A. Attempt to connect to IOI Kernel
+        let mut client = match PublicApiClient::connect("http://127.0.0.1:9000").await {
+            Ok(c) => c,
+            Err(_) => {
+                println!("[Autopilot] Kernel offline (or not at :9000). Falling back to simulation.");
+                run_simulation(app_clone).await;
+                return;
+            }
+        };
+
+        println!("[Autopilot] Connected to Kernel. Drafting intent: '{}'", intent_clone);
+
+        // B. Draft Transaction
+        let draft_req = tonic::Request::new(DraftTransactionRequest {
+            intent: intent_clone,
+            address_book: Default::default(),
+        });
+
+        match client.draft_transaction(draft_req).await {
+            Ok(resp) => {
+                let draft = resp.into_inner();
+                // In production, we'd sign `draft.transaction_bytes`.
+                // For dev "God Mode", we submit directly to trigger the flow.
+                let submit_req = tonic::Request::new(SubmitTransactionRequest {
+                    transaction_bytes: draft.transaction_bytes,
+                });
+
+                if let Err(e) = client.submit_transaction(submit_req).await {
+                    eprintln!("[Autopilot] Submission failed: {}", e);
+                    // Force a UI failure state
+                    update_task_state(&app_clone, |t| {
+                        t.phase = AgentPhase::Failed;
+                        t.current_step = format!("Submission Error: {}", e);
+                    });
+                } else {
+                    println!("[Autopilot] Intent submitted. Listening for events...");
+                    // C. Listen for execution updates
+                    monitor_kernel_events(app_clone).await;
+                }
+            }
+            Err(e) => {
+                eprintln!("[Autopilot] Drafting failed: {}. Falling back to simulation.", e);
+                run_simulation(app_clone).await;
+            }
         }
     });
 
@@ -422,22 +479,38 @@ fn start_task(
 }
 
 #[tauri::command]
-fn update_task(state: State<Mutex<AppState>>, app: AppHandle, task: AgentTask) -> Result<(), String> {
+fn update_task(
+    state: State<Mutex<AppState>>,
+    app: AppHandle,
+    task: AgentTask,
+) -> Result<(), String> {
     let is_gate = matches!(task.phase, AgentPhase::Gate);
     if let Ok(mut app_state) = state.lock() {
         app_state.current_task = Some(task.clone());
-        if is_gate { app_state.gate_response = None; }
+        if is_gate {
+            app_state.gate_response = None;
+        }
     }
-    if is_gate { show_gate(app.clone()); }
+    if is_gate {
+        show_gate(app.clone());
+    }
     let _ = app.emit("task-updated", &task);
     Ok(())
 }
 
 #[tauri::command]
-fn complete_task(state: State<Mutex<AppState>>, app: AppHandle, success: bool) -> Result<(), String> {
+fn complete_task(
+    state: State<Mutex<AppState>>,
+    app: AppHandle,
+    success: bool,
+) -> Result<(), String> {
     if let Ok(mut app_state) = state.lock() {
         if let Some(ref mut task) = app_state.current_task {
-            task.phase = if success { AgentPhase::Complete } else { AgentPhase::Failed };
+            task.phase = if success {
+                AgentPhase::Complete
+            } else {
+                AgentPhase::Failed
+            };
             let _ = app.emit("task-completed", task.clone());
         }
     }
@@ -462,9 +535,16 @@ fn get_current_task(state: State<Mutex<AppState>>) -> Option<AgentTask> {
 }
 
 #[tauri::command]
-fn gate_respond(state: State<Mutex<AppState>>, app: AppHandle, approved: bool) -> Result<(), String> {
+fn gate_respond(
+    state: State<Mutex<AppState>>,
+    app: AppHandle,
+    approved: bool,
+) -> Result<(), String> {
     if let Ok(mut app_state) = state.lock() {
-        app_state.gate_response = Some(GateResponse { responded: true, approved });
+        app_state.gate_response = Some(GateResponse {
+            responded: true,
+            approved,
+        });
     }
     hide_gate(app.clone());
     let _ = app.emit("gate-response", approved);
@@ -492,14 +572,24 @@ pub fn run() {
         .plugin(tauri_plugin_notification::init())
         .manage(Mutex::new(AppState::default()))
         .setup(|app| {
-            let show_spotlight_item = MenuItem::with_id(app, "spotlight", "Open Spotlight (Ctrl+Space)", true, None::<&str>)?;
-            let show_studio_item = MenuItem::with_id(app, "studio", "Open Studio", true, None::<&str>)?;
+            let show_spotlight_item = MenuItem::with_id(
+                app,
+                "spotlight",
+                "Open Spotlight (Ctrl+Space)",
+                true,
+                None::<&str>,
+            )?;
+            let show_studio_item =
+                MenuItem::with_id(app, "studio", "Open Studio", true, None::<&str>)?;
             let quit_item = MenuItem::with_id(app, "quit", "Quit", true, None::<&str>)?;
 
-            let menu = Menu::with_items(app, &[&show_spotlight_item, &show_studio_item, &quit_item])?;
-            
+            let menu = Menu::with_items(
+                app,
+                &[&show_spotlight_item, &show_studio_item, &quit_item],
+            )?;
+
             if let Some(icon) = app.default_window_icon().cloned() {
-                 let tray_result = TrayIconBuilder::new()
+                let tray_result = TrayIconBuilder::new()
                     .menu(&menu)
                     .icon(icon)
                     .icon_as_template(true)
@@ -510,14 +600,22 @@ pub fn run() {
                         _ => {}
                     })
                     .on_tray_icon_event(|tray, event| {
-                        if let TrayIconEvent::Click { button: MouseButton::Left, button_state: MouseButtonState::Up, .. } = event {
+                        if let TrayIconEvent::Click {
+                            button: MouseButton::Left,
+                            button_state: MouseButtonState::Up,
+                            ..
+                        } = event
+                        {
                             show_spotlight(tray.app_handle().clone());
                         }
                     })
                     .build(app);
 
                 if let Err(e) = tray_result {
-                    eprintln!("WARNING: Failed to initialize system tray: {}. App will continue without it.", e);
+                    eprintln!(
+                        "WARNING: Failed to initialize system tray: {}. App will continue without it.",
+                        e
+                    );
                 }
             } else {
                 eprintln!("WARNING: Failed to load default window icon. Tray icon will not be available.");
@@ -548,12 +646,29 @@ pub fn run() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
-            show_spotlight, hide_spotlight, set_spotlight_mode,
-            show_pill, hide_pill, resize_pill,
-            show_gate, hide_gate, gate_respond, get_gate_response, clear_gate_response,
-            show_studio, hide_studio,
-            start_task, update_task, complete_task, dismiss_task, get_current_task,
+            show_spotlight,
+            hide_spotlight,
+            set_spotlight_mode,
+            show_pill,
+            hide_pill,
+            resize_pill,
+            show_gate,
+            hide_gate,
+            gate_respond,
+            get_gate_response,
+            clear_gate_response,
+            show_studio,
+            hide_studio,
+            start_task,
+            update_task,
+            complete_task,
+            dismiss_task,
+            get_current_task,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
+}
+
+pub fn run_lib() {
+    run()
 }

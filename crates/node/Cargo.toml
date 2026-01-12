@@ -29,8 +29,8 @@ http-rpc-gateway = { path = "../http-rpc-gateway" }
 ibc-host = { path = "../ibc-host" }
 ioi-ipc = { path = "../ipc" }
 zk-driver-succinct = { path = "../zk-driver-succinct", optional = true }
-ioi-drivers = { path = "../drivers" }                                    # [NEW] Added drivers crate for GUI/Browser automation
-ioi-scs = { path = "../scs" } # [FIX] Added SCS dependency
+ioi-drivers = { path = "../drivers" }
+ioi-scs = { path = "../scs" }
 
 bincode = { workspace = true }
 uuid = { version = "1.8.0", features = ["v4"] }
@@ -52,7 +52,7 @@ tokio = { workspace = true, features = ["full"] }
 tokio-rustls = { workspace = true }
 rustls = { workspace = true, features = [
     "ring",
-] } # [FIX] Added direct rustls dependency
+] }
 rcgen = { workspace = true }
 serde_json = { workspace = true }
 bs58 = "0.4"
@@ -66,18 +66,11 @@ dcrypt = { workspace = true }
 
 base64 = { workspace = true }
 parity-scale-codec = { workspace = true, features = ["std"] }
-# Added for gRPC server implementation
 tonic = "0.11"
-
-# Dependencies for ioi-signer and Oracle
 warp = "0.3"
 libc = "0.2"
-
-# [NEW] Dependencies for Guardian Key Encryption (Terminal I/O)
 rpassword = "7.0"
 atty = "0.2"
-
-# [NEW] Dependencies for Sharded Mempool
 ahash = "0.8"
 parking_lot = "0.12"
 
@@ -91,8 +84,10 @@ default = []
 validator-bins = [
     "dep:clap",
     "dep:env_logger",
-    "ioi-consensus/admft", # Default to PoA (A-DMFT)
+    "ioi-consensus/admft", 
     "dep:ioi-vm-wasm",
+    "ioi-validator/vm-wasm", # <--- ADD THIS LINE to propagate feature to lib
+    "ioi-validator/validator-bins", # <--- Ensure base features are on
 ]
 
 # This feature is for building the special malicious workload binary for testing.
@@ -110,7 +105,7 @@ state-verkle = [
     "ioi-validator/state-verkle",
     "commitment-kzg",
 ]
-# [NEW] Add Jellyfish feature
+
 state-jellyfish = [
     "ioi-state/state-jellyfish",
     "ioi-validator/state-jellyfish",
@@ -157,7 +152,6 @@ name = "malicious-workload"
 path = "src/bin/malicious-workload.rs"
 required-features = ["malicious-bin", "validator-bins", "vm-wasm"]
 
-# [NEW] Signer Binary
 [[bin]]
 name = "ioi-signer"
 path = "src/bin/signer.rs"
@@ -170,4 +164,4 @@ required-features = [
     "validator-bins",
     "state-iavl",
     "consensus-admft",
-] # Default stack
+]
