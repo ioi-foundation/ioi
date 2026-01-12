@@ -1,7 +1,7 @@
 // Path: crates/api/src/vm/inference/http_adapter.rs
 
 use async_trait::async_trait;
-use ioi_types::app::agentic::{InferenceOptions, LlmToolDefinition};
+use ioi_types::app::agentic::InferenceOptions;
 use ioi_types::error::VmError;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};

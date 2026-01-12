@@ -1,0 +1,98 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "Autopilot",
+  "version": "0.1.0",
+  "identifier": "ai.ioi.autopilot",
+  "build": {
+    "beforeDevCommand": "npm run dev",
+    "devUrl": "http://localhost:1420",
+    "beforeBuildCommand": "npm run build",
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "windows": [
+      {
+        "label": "main",
+        "title": "Autopilot Runtime",
+        "visible": false,
+        "skipTaskbar": true,
+        "width": 1,
+        "height": 1
+      },
+      {
+        "label": "spotlight",
+        "title": "Autopilot",
+        "url": "/spotlight",
+        "transparent": false,
+        "decorations": true,
+        "alwaysOnTop": true,
+        "skipTaskbar": false,
+        "visible": true,
+        "resizable": true,
+        "width": 800,
+        "height": 600,
+        "center": true,
+        "focus": true
+      },
+      {
+        "label": "pill",
+        "title": "Autopilot Agent",
+        "url": "/pill",
+        "transparent": true,
+        "decorations": false,
+        "alwaysOnTop": true,
+        "skipTaskbar": false,
+        "visible": false,
+        "resizable": false,
+        "width": 310,
+        "height": 60
+      },
+      {
+        "label": "gate",
+        "title": "Autopilot Policy Gate",
+        "url": "/gate",
+        "transparent": true,
+        "decorations": false,
+        "alwaysOnTop": true,
+        "skipTaskbar": true,
+        "visible": false,
+        "resizable": false,
+        "width": 520,
+        "height": 520,
+        "center": true,
+        "focus": true
+      },
+      {
+        "label": "studio",
+        "title": "Autopilot Studio",
+        "url": "/studio",
+        "visible": false,
+        "decorations": true,
+        "resizable": true,
+        "width": 1400,
+        "height": 900,
+        "minWidth": 1000,
+        "minHeight": 600,
+        "center": true
+      }
+    ],
+    "trayIcon": {
+      "iconPath": "icons/32x32.png",
+      "iconAsTemplate": true
+    },
+    "security": {
+      "csp": null
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ]
+  }
+}

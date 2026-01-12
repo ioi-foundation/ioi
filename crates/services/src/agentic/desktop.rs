@@ -279,8 +279,6 @@ impl DesktopAgentService {
         tools
     }
 
-    // ... (recall_skills, select_runtime unchanged)
-
     async fn recall_skills(
         &self,
         state: &dyn StateAccess,
@@ -333,7 +331,6 @@ impl UpgradableService for DesktopAgentService {
 
 #[async_trait::async_trait]
 impl BlockchainService for DesktopAgentService {
-    // ... (id, abi_version, etc. unchanged)
     fn id(&self) -> &str {
         "desktop_agent"
     }
@@ -358,7 +355,6 @@ impl BlockchainService for DesktopAgentService {
         _ctx: &mut TxContext<'_>,
     ) -> Result<(), TransactionError> {
         match method {
-            // ... (start@v1, resume@v1 unchanged)
             "start@v1" => {
                 let p: StartAgentParams = codec::from_bytes_canonical(params)?;
                 let key = Self::get_state_key(&p.session_id);
@@ -429,7 +425,6 @@ impl BlockchainService for DesktopAgentService {
                     .ok_or(TransactionError::Invalid("Session not found".into()))?;
                 let mut agent_state: AgentState = codec::from_bytes_canonical(&bytes)?;
 
-                // ... (status/budget checks unchanged)
                 match agent_state.status {
                     AgentStatus::Running => {}
                     AgentStatus::Paused(ref r) => {
@@ -451,7 +446,6 @@ impl BlockchainService for DesktopAgentService {
                     return Ok(());
                 }
 
-                // ... (Observation & Prompt Building logic unchanged)
                 let observation_intent = ActionRequest {
                     target: ActionTarget::GuiScreenshot,
                     params: agent_state.goal.as_bytes().to_vec(),
@@ -470,7 +464,13 @@ impl BlockchainService for DesktopAgentService {
                     .map_err(|e| {
                         TransactionError::Invalid(format!("Substrate access failed: {}", e))
                     })?;
-                let tree_xml = String::from_utf8_lossy(&context_slice.data);
+                
+                // [FIX] Reconstruct data from chunks
+                let mut tree_xml_bytes = Vec::new();
+                for chunk in &context_slice.chunks {
+                    tree_xml_bytes.extend_from_slice(chunk);
+                }
+                let tree_xml = String::from_utf8_lossy(&tree_xml_bytes);
 
                 let screenshot_bytes = self.gui.capture_screen().await.map_err(|e| {
                     TransactionError::Invalid(format!("Visual capture failed: {}", e))
@@ -521,7 +521,6 @@ impl BlockchainService for DesktopAgentService {
                     })?;
                 let user_prompt: String = scrubbed_prompt;
 
-                // ... (Inference unchanged)
                 let estimated_input_tokens = (user_prompt.len() as u64) / CHARS_PER_TOKEN;
                 let model_hash = [0u8; 32];
                 let options = InferenceOptions {
@@ -574,7 +573,6 @@ impl BlockchainService for DesktopAgentService {
                         action_type = name.to_string();
                         
                         if name == "agent__delegate" {
-                            // ... (delegation unchanged)
                             let goal = tool_call["arguments"]["goal"]
                                 .as_str()
                                 .unwrap_or("")
@@ -605,7 +603,6 @@ impl BlockchainService for DesktopAgentService {
                                 Err(e) => action_error = Some(format!("Delegation failed: {}", e)),
                             }
                         } else if name == "agent__await_result" {
-                            // ... (await unchanged)
                             if let Some(hex_id) =
                                 tool_call["arguments"]["child_session_id_hex"].as_str()
                             {
@@ -664,17 +661,11 @@ impl BlockchainService for DesktopAgentService {
                             }
                         } else if name == "commerce__checkout" {
                             // [NEW] UCP Checkout Handler
-                            // This translates the tool call into an ActionRequest for the Firewall.
-                            // The UCP Driver logic (discovery, handshake) would be invoked here if it
-                            // was a blocking local call, or handled by the Firewall if it's a pure
-                            // network request construction.
                             
-                            // For IOI, we treat UCP as a Driver. The tool call *is* the driver invocation.
-                            // The Firewall will inspect the Canonical JSON in `params`.
-                            
-                            // 1. Serialize arguments back to canonical JSON for ActionRequest
-                            // We construct the UCP request body here, effectively acting as the Driver's "prepare" phase.
-                            let ucp_params_bytes = codec::to_bytes_canonical(&tool_call["arguments"]).unwrap_or_default();
+                            // [FIX] Use serde_json::to_vec instead of codec::to_bytes_canonical 
+                            // because Value doesn't implement Encode.
+                            // The params field in ActionRequest is Vec<u8> (canonical JSON).
+                            let ucp_params_bytes = serde_json::to_vec(&tool_call["arguments"]).unwrap_or_default();
                             
                             // 2. Map to ActionTarget::CommerceCheckout
                             let ucp_intent = ActionRequest {
@@ -687,18 +678,6 @@ impl BlockchainService for DesktopAgentService {
                                 },
                                 nonce: agent_state.step_count as u64,
                             };
-                            
-                            // 3. NOTE: The Firewall check happens *outside* this service, 
-                            // typically in the Orchestrator before `handle_service_call` is even invoked 
-                            // if this were a user transaction. But here, the Agent (service) is *originating* the action.
-                            //
-                            // In the IOI architecture, when a Service originates an action (like calling a driver),
-                            // it must go through the Firewall if it affects external state.
-                            // Since `gui.inject_input` calls are driver calls, they are implicitly trusted if the service is trusted,
-                            // OR the driver itself enforces policy.
-                            //
-                            // For UCP, we simulate the driver call. In a full implementation, `self.ucp_driver.execute(...)` 
-                            // would call `SecureEgress` via the Guardian.
                             
                             // Placeholder for actual driver invocation:
                             action_success = true; // Assume success if we got here
@@ -726,7 +705,6 @@ impl BlockchainService for DesktopAgentService {
                     }
                 }
 
-                // ... (ZK Verifier check unchanged)
                 if let Some(verifier) = &self.zk_verifier {
                     let mut preimage = Vec::new();
                     preimage.extend_from_slice(user_prompt.as_bytes());
@@ -769,9 +747,10 @@ impl BlockchainService for DesktopAgentService {
                 let trace_key = Self::get_trace_key(&p.session_id, agent_state.step_count);
                 state.insert(&trace_key, &codec::to_bytes_canonical(&trace)?)?;
 
-                // [NEW] Emit Kernel Event
+                // [NEW] Emit Kernel Event with explicit type
                 if let Some(tx) = &self.event_sender {
-                    let _ = tx.send(KernelEvent::AgentStep(trace.clone()));
+                    let event = KernelEvent::AgentStep(trace.clone());
+                    let _ = tx.send(event);
                 }
 
                 if let Some(e) = action_error {

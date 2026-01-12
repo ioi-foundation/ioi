@@ -1,0 +1,57 @@
+.status-bar {
+  height: 22px;
+  background: #007acc; /* VS Code blue status bar */
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 8px;
+  font-family: "Segoe UI", sans-serif;
+  font-size: 11px;
+  user-select: none;
+  z-index: 100;
+  flex-shrink: 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.status-left, .status-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.status-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: default;
+  padding: 0 4px;
+  height: 100%;
+}
+
+.status-item.clickable {
+  cursor: pointer;
+}
+
+.status-item.clickable:hover {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.status-icon-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: white;
+}
+
+.status-meter {
+  width: 40px;
+  height: 6px;
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 1px;
+  overflow: hidden;
+}
+
+.meter-fill {
+  height: 100%;
+}

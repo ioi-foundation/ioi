@@ -1,0 +1,320 @@
+/* ============================================
+   GodModeBar — The Intent Interface
+   Floating cockpit control bar
+   ============================================ */
+
+.god-bar-container {
+  position: absolute;
+  top: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 100;
+  width: 90%;
+  max-width: 960px;
+  pointer-events: none;
+}
+
+.god-bar {
+  display: flex;
+  align-items: center;
+  height: 56px;
+  background: rgba(17, 19, 24, 0.92);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid var(--border-subtle);
+  border-radius: 12px;
+  padding: 0 16px;
+  box-shadow: 
+    0 8px 32px rgba(0, 0, 0, 0.4),
+    0 0 0 1px rgba(255, 255, 255, 0.03) inset;
+  gap: 12px;
+  pointer-events: all;
+}
+
+/* --- Sections --- */
+.god-section {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.god-section.left {
+  min-width: 140px;
+}
+
+.god-section.center {
+  flex: 1;
+  justify-content: center;
+  gap: 16px;
+}
+
+.god-section.right {
+  min-width: 200px;
+  justify-content: flex-end;
+  gap: 16px;
+}
+
+/* --- Divider --- */
+.divider-vertical {
+  width: 1px;
+  height: 28px;
+  background: var(--border-subtle);
+}
+
+/* --- Project Breadcrumb --- */
+.project-crumb {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.crumb-path {
+  color: var(--text-tertiary);
+}
+
+.crumb-name {
+  color: var(--text-primary);
+  font-weight: 600;
+  margin-left: 4px;
+}
+
+/* --- Mode Switcher --- */
+.mode-switcher {
+  display: flex;
+  background: var(--surface-0);
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  padding: 3px;
+}
+
+.mode-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 6px 14px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-tertiary);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.mode-btn:hover {
+  color: var(--text-secondary);
+  background: var(--surface-3);
+}
+
+.mode-btn.active {
+  color: var(--text-primary);
+  background: var(--surface-4);
+}
+
+/* Ghost mode special styling */
+.mode-btn.ghost {
+  padding: 6px 10px;
+}
+
+.mode-btn.ghost.active {
+  background: #dc2626;
+  color: white;
+}
+
+.record-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.mode-btn.ghost.active .record-dot {
+  animation: record-pulse 1s ease-in-out infinite;
+}
+
+@keyframes record-pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.6; transform: scale(0.85); }
+}
+
+/* --- Intent Input --- */
+.intent-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  max-width: 360px;
+  padding: 0 12px;
+  background: var(--surface-2);
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  height: 36px;
+  transition: border-color 0.15s;
+}
+
+.intent-wrapper:focus-within {
+  border-color: var(--ioi-blue);
+}
+
+.intent-icon {
+  font-size: 12px;
+  color: var(--text-tertiary);
+}
+
+.intent-input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  color: var(--text-primary);
+  font-size: 13px;
+  outline: none;
+}
+
+.intent-input::placeholder {
+  color: var(--text-tertiary);
+}
+
+.intent-input:disabled {
+  color: var(--text-tertiary);
+}
+
+.kbd-shortcut {
+  font-size: 10px;
+  padding: 2px 5px;
+  background: var(--surface-4);
+  border: 1px solid var(--border-default);
+  border-radius: 4px;
+  color: var(--text-tertiary);
+  font-family: var(--font-mono);
+}
+
+/* --- Metrics Cluster --- */
+.metrics-cluster {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.metric-dot {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: help;
+}
+
+.dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.dot.green {
+  background: var(--color-success);
+  box-shadow: 0 0 8px rgba(52, 211, 153, 0.5);
+}
+
+.dot.yellow {
+  background: var(--color-warning);
+  box-shadow: 0 0 8px rgba(251, 191, 36, 0.5);
+}
+
+.dot.red {
+  background: var(--color-error);
+  box-shadow: 0 0 8px rgba(248, 113, 113, 0.5);
+}
+
+.dot.blue {
+  background: var(--ioi-blue);
+  box-shadow: 0 0 8px var(--ioi-blue-glow);
+}
+
+.metric-label {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--text-tertiary);
+  letter-spacing: 0.04em;
+}
+
+/* --- Transport Controls --- */
+.transport-controls {
+  display: flex;
+  gap: 4px;
+}
+
+.transport-btn {
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
+  border: 1px solid var(--border-default);
+  background: var(--surface-3);
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.transport-btn:hover {
+  background: var(--surface-4);
+  color: var(--text-primary);
+}
+
+.transport-btn.play {
+  color: var(--color-success);
+}
+
+.transport-btn.play:hover {
+  background: rgba(52, 211, 153, 0.15);
+  border-color: var(--color-success);
+}
+
+.transport-btn.pause:hover {
+  background: rgba(251, 191, 36, 0.15);
+  border-color: var(--color-warning);
+}
+
+/* --- Status LEDs --- */
+.status-leds {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-left: 8px;
+  border-left: 1px solid var(--border-subtle);
+}
+
+.led-indicator {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.led {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+}
+
+.led-green {
+  background: var(--color-success);
+  box-shadow: 0 0 6px rgba(52, 211, 153, 0.6);
+  animation: led-breathe 3s ease-in-out infinite;
+}
+
+.led-label {
+  font-size: 9px;
+  font-weight: 700;
+  color: var(--text-tertiary);
+  letter-spacing: 0.05em;
+}
+
+@keyframes led-breathe {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.7; }
+}

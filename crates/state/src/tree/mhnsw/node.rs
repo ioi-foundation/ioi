@@ -1,15 +1,16 @@
 // Path: crates/state/src/tree/mhnsw/node.rs
-
 use super::metric::Vector;
 use ioi_crypto::algorithms::hash::sha256;
 use parity_scale_codec::{Decode, Encode};
+use serde::{Deserialize, Serialize};
 
 pub type NodeId = u64;
 pub type LayerId = u8;
 // [FIX] Added type alias
 pub type NodeHash = [u8; 32];
 
-#[derive(Debug, Clone, Encode, Decode)]
+// [FIX] Added Serialize, Deserialize
+#[derive(Debug, Clone, Encode, Decode, Serialize, Deserialize)]
 pub struct GraphNode {
     pub id: NodeId,
     /// The raw vector embedding.

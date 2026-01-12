@@ -1,0 +1,225 @@
+/* Pill - Transparent window with solid toast */
+
+html, body, #root {
+  margin: 0;
+  padding: 0;
+  background: transparent !important;
+  width: 100%;
+  height: 100%;
+}
+
+.pill-empty {
+  background: transparent;
+}
+
+.pill {
+  margin: 5px;
+  background: rgba(21, 23, 28, 0.95);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+  overflow: hidden;
+  cursor: pointer;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+  position: relative;
+  --pill-accent: #4a9eff;
+  --pill-accent-soft: rgba(74, 158, 255, 0.3);
+  --pill-glow: rgba(74, 158, 255, 0.18);
+}
+
+.pill.liability-local {
+  --pill-accent: #22c55e;
+  --pill-accent-soft: rgba(34, 197, 94, 0.35);
+  --pill-glow: rgba(34, 197, 94, 0.2);
+}
+
+.pill.liability-network {
+  --pill-accent: #f59e0b;
+  --pill-accent-soft: rgba(245, 158, 11, 0.4);
+  --pill-glow: rgba(245, 158, 11, 0.22);
+}
+
+.pill.liability-settlement {
+  --pill-accent: #60a5fa;
+  --pill-accent-soft: rgba(96, 165, 250, 0.35);
+  --pill-glow: rgba(96, 165, 250, 0.2);
+}
+
+/* Progress bar */
+.pill-bar {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 2px;
+  background: var(--pill-accent);
+  transition: width 0.3s;
+}
+
+.pill.complete .pill-bar { background: #10b981; }
+.pill.failed .pill-bar { background: #ef4444; }
+.pill.gate .pill-bar { background: #f59e0b; }
+
+/* Main row */
+.pill-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+}
+
+.pill-status {
+  width: 18px;
+  height: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.spinner {
+  width: 14px;
+  height: 14px;
+  border: 2px solid var(--pill-accent-soft);
+  border-top-color: var(--pill-accent);
+  border-radius: 50%;
+  animation: spin 0.6s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.icon {
+  font-size: 12px;
+  font-weight: 700;
+}
+.icon.ok { color: #10b981; }
+.icon.fail { color: #ef4444; }
+.icon.gate { color: #f59e0b; }
+
+.pill-label {
+  flex: 1;
+  font-size: 12px;
+  color: #e5e7eb;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.pill-count {
+  font-size: 10px;
+  font-family: monospace;
+  color: #6b7280;
+  background: rgba(255,255,255,0.06);
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.pill-stage {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  padding: 2px 6px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.06);
+  color: #9ca3af;
+  flex-shrink: 0;
+}
+
+.pill-stage .stage-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--pill-accent);
+  box-shadow: 0 0 6px var(--pill-glow);
+}
+
+.pill-stage.reasoning {
+  color: #7fb1ff;
+}
+
+.pill-stage.actuating {
+  color: #fbbf24;
+}
+
+.pill-stage.settling {
+  color: #a7f3d0;
+}
+
+/* Expanded */
+.pill-expand {
+  padding: 8px 12px 10px;
+  border-top: 1px solid rgba(255,255,255,0.06);
+}
+
+.pill-intent {
+  font-size: 11px;
+  color: #9ca3af;
+  margin-bottom: 6px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.pill-meta {
+  font-size: 10px;
+  color: #6b7280;
+  margin-bottom: 8px;
+}
+
+.pill-meter {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 10px;
+  color: #fbbf24;
+  padding: 6px 8px;
+  background: rgba(245, 158, 11, 0.12);
+  border-radius: 6px;
+  border: 1px solid rgba(245, 158, 11, 0.25);
+  margin-bottom: 8px;
+}
+
+.pill-meter strong {
+  color: #f8c56a;
+  font-weight: 600;
+}
+
+.pill-btns {
+  display: flex;
+  gap: 6px;
+}
+
+.pill-btns button {
+  flex: 1;
+  padding: 5px 10px;
+  background: rgba(255,255,255,0.06);
+  border: none;
+  border-radius: 5px;
+  font-size: 10px;
+  color: #9ca3af;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.pill-btns button:hover {
+  background: rgba(255,255,255,0.1);
+  color: #e5e7eb;
+}
+
+.pill-btns button.primary {
+  background: var(--pill-accent);
+  color: white;
+}
+
+.pill-btns button.primary:hover {
+  filter: brightness(1.05);
+}
+
+.pill.complete .pill-btns button.primary {
+  background: #10b981;
+}

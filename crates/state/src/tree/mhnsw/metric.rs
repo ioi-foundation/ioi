@@ -1,16 +1,18 @@
 // Path: crates/state/src/tree/mhnsw/metric.rs
 
 use serde::{Deserialize, Serialize};
+use parity_scale_codec::{Decode, Encode};
 
 /// A dense float vector.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Encode, Decode)]
 pub struct Vector(pub Vec<f32>);
 
-pub trait DistanceMetric: Send + Sync + Clone + 'static {
+// [FIX] Added Encode/Decode bounds
+pub trait DistanceMetric: Send + Sync + Clone + 'static + Encode + Decode {
     fn distance(&self, a: &Vector, b: &Vector) -> f32;
 }
 
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug, Default, Encode, Decode)]
 pub struct Euclidean;
 
 impl DistanceMetric for Euclidean {
@@ -23,7 +25,7 @@ impl DistanceMetric for Euclidean {
     }
 }
 
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug, Default, Encode, Decode)]
 pub struct CosineSimilarity;
 
 impl DistanceMetric for CosineSimilarity {

@@ -136,7 +136,14 @@ async fn main() -> Result<()> {
         epoch_size: 1000,
         gc_interval_secs: 3600,
         zk_config: Default::default(),
-        inference: Default::default(),
+        // [FIX] Explicitly configure inference to avoid empty provider string
+        inference: ioi_types::config::InferenceConfig {
+            provider: "mock".to_string(),
+            api_url: None,
+            api_key: None,
+            model_name: None,
+            connector_ref: None,
+        },
         fast_inference: None,
         reasoning_inference: None,
         connectors: Default::default(),
@@ -285,6 +292,8 @@ async fn main() -> Result<()> {
         signer,
         batch_verifier: Arc::new(ioi_crypto::sign::batch::CpuBatchVerifier::new()),
         safety_model: safety_model,
+        // [FIX] Initialize scs
+        scs: Some(scs_arc),
     };
 
     let orchestrator = Arc::new(Orchestrator::new(&config, deps, scheme)?);

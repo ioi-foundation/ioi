@@ -1,0 +1,38 @@
+/* ============================================
+   CanvasEdge — Data Pipes
+   ============================================ */
+
+.canvas-edge {
+  fill: none;
+  stroke: #2E333D; /* Base pipe color */
+  stroke-width: var(--edge-width, 2px);
+  stroke-linecap: round;
+  transition: stroke 0.2s, stroke-width 0.2s;
+  cursor: pointer;
+}
+
+.canvas-edge:hover {
+  stroke: #5F6B7C;
+  stroke-width: calc(var(--edge-width, 2px) + 2px);
+}
+
+.canvas-edge.active {
+  stroke: #3D85C6; /* Foundry Blue */
+  stroke-dasharray: 10 6;
+  animation: flow 0.5s linear infinite; /* Faster flow for active state */
+  stroke-opacity: 0.8;
+}
+
+@keyframes flow {
+  to { stroke-dashoffset: -16; }
+}
+
+.edge-arrow {
+  fill: #2E333D;
+  transition: fill 0.2s;
+}
+
+/* If the edge is active, the arrow lights up */
+.canvas-edge.active + .edge-arrow {
+  fill: #3D85C6;
+}

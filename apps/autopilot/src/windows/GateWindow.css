@@ -1,0 +1,319 @@
+/* GateWindow - Transparent window with solid dialog */
+
+html, body, #root {
+  margin: 0;
+  padding: 0;
+  background: transparent !important;
+  width: 100%;
+  height: 100%;
+}
+
+.gate-empty {
+  background: transparent;
+}
+
+.gate-window {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  background: transparent;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+.gate-card {
+  width: 100%;
+  max-width: 420px;
+  max-height: calc(100vh - 32px);
+  background: rgba(18, 20, 26, 0.96);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 14px;
+  overflow: hidden;
+  box-shadow: 0 14px 50px rgba(0, 0, 0, 0.55);
+  display: flex;
+  flex-direction: column;
+}
+
+/* Header */
+.gate-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 16px;
+  background: rgba(255,255,255,0.02);
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+}
+
+.gate-head.high { background: rgba(239,68,68,0.1); }
+.gate-head.medium { background: rgba(245,158,11,0.1); }
+.gate-head.low { background: rgba(16,185,129,0.1); }
+
+.gate-icon { font-size: 18px; }
+
+.gate-title {
+  flex: 1;
+  font-size: 14px;
+  font-weight: 600;
+  color: #f0f2f5;
+}
+
+.gate-tag {
+  font-size: 9px;
+  font-weight: 700;
+  padding: 3px 7px;
+  border-radius: 8px;
+}
+
+.gate-tag.high { background: rgba(239,68,68,0.2); color: #ef4444; }
+.gate-tag.medium { background: rgba(245,158,11,0.2); color: #f59e0b; }
+.gate-tag.low { background: rgba(16,185,129,0.2); color: #10b981; }
+
+/* Body */
+.gate-body {
+  padding: 18px;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.gate-task {
+  font-size: 11px;
+  color: #6b7280;
+  background: rgba(255,255,255,0.03);
+  padding: 8px 10px;
+  border-radius: 6px;
+  margin-bottom: 14px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.gate-body h3 {
+  font-size: 15px;
+  font-weight: 600;
+  color: #f0f2f5;
+  margin: 0 0 8px;
+}
+
+.gate-body p {
+  font-size: 13px;
+  color: #9ca3af;
+  line-height: 1.5;
+  margin: 0 0 14px;
+}
+
+.gate-section {
+  margin-bottom: 14px;
+}
+
+.gate-section-title {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  color: #8b95a7;
+  margin-bottom: 8px;
+}
+
+.gate-context-card {
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+  padding: 10px 12px;
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.context-summary {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 11px;
+  color: #cbd5f5;
+  margin-bottom: 10px;
+}
+
+.context-label {
+  color: #7b879a;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  font-size: 9px;
+}
+
+.context-value {
+  color: #d6e0f3;
+  text-align: right;
+}
+
+.context-slices {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+
+.slice {
+  font-size: 9px;
+  padding: 3px 6px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.05);
+  color: #aeb6c8;
+}
+
+.slice.file { border: 1px solid rgba(56, 189, 248, 0.4); color: #7dd3fc; }
+.slice.memory { border: 1px solid rgba(251, 191, 36, 0.4); color: #fbbf24; }
+.slice.meta { border: 1px solid rgba(34, 197, 94, 0.4); color: #86efac; }
+
+.context-files {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+
+.context-chip {
+  font-size: 10px;
+  padding: 4px 8px;
+  border-radius: 6px;
+  background: rgba(15, 18, 26, 0.8);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  color: #d1d5db;
+}
+
+.context-provider {
+  display: flex;
+  justify-content: space-between;
+  font-size: 11px;
+  color: #9ca3af;
+}
+
+.context-provider strong {
+  color: #e5e7eb;
+  font-weight: 600;
+}
+
+.gate-policy {
+  font-size: 12px;
+  color: #c0c7d4;
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 8px;
+  padding: 8px 10px;
+  border: 1px dashed rgba(255, 255, 255, 0.12);
+}
+
+.gate-policy span {
+  color: #fbbf24;
+  font-weight: 600;
+}
+
+.gate-agent {
+  font-size: 11px;
+  color: #6b7280;
+  background: rgba(255,255,255,0.03);
+  padding: 8px 10px;
+  border-radius: 6px;
+}
+
+/* Footer */
+.gate-foot {
+  display: flex;
+  gap: 10px;
+  padding: 14px 18px;
+  background: rgba(255,255,255,0.02);
+  border-top: 1px solid rgba(255,255,255,0.06);
+  flex-shrink: 0;
+}
+
+.btn-deny, .btn-approve {
+  flex: 1;
+  padding: 10px 16px;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.btn-deny {
+  background: transparent;
+  border: 1px solid rgba(255,255,255,0.1);
+  color: #9ca3af;
+}
+
+.btn-deny:hover {
+  background: rgba(239,68,68,0.1);
+  border-color: rgba(239,68,68,0.4);
+  color: #ef4444;
+}
+
+.btn-approve {
+  position: relative;
+  overflow: hidden;
+  background: rgba(15, 23, 42, 0.9);
+  border: 1px solid rgba(59, 130, 246, 0.4);
+  color: #e5e7eb;
+  padding: 0;
+  min-height: 48px;
+}
+
+.btn-approve:hover .signer-track {
+  background: rgba(59, 130, 246, 0.18);
+}
+
+.btn-approve.holding {
+  border-color: rgba(59, 130, 246, 0.8);
+  box-shadow: 0 0 16px rgba(59, 130, 246, 0.25);
+}
+
+.btn-approve.confirmed {
+  border-color: rgba(16, 185, 129, 0.8);
+}
+
+.signer-track,
+.signer-progress {
+  position: absolute;
+  inset: 0;
+  border-radius: 10px;
+}
+
+.signer-track {
+  background: rgba(15, 23, 42, 0.8);
+}
+
+.signer-progress {
+  background: linear-gradient(90deg, rgba(59, 130, 246, 0.2), rgba(34, 197, 94, 0.35));
+  width: 0%;
+  transition: width 0.1s linear;
+}
+
+.signer-content {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  padding: 8px 12px;
+}
+
+.signer-title {
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+}
+
+.signer-subtitle {
+  font-size: 10px;
+  color: #9ca3af;
+}
+
+.signer-status {
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 16px;
+  color: #9ca3af;
+  z-index: 1;
+}
+}

@@ -7,9 +7,9 @@
 //! while maintaining random access for retrieval.
 
 use crate::SCS_MAGIC;
-use ioi_types::app::{AccountId, ChainId};
 use parity_scale_codec::{Decode, Encode};
 use serde::{Deserialize, Serialize};
+
 
 /// The version of the SCS file format.
 pub const SCS_VERSION: u16 = 1;

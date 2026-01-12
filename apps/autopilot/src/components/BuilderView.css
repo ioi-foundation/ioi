@@ -1,0 +1,345 @@
+/* ============================================
+   BuilderView — Intent-Oriented Creation
+   Conversational workflow builder
+   ============================================ */
+
+.builder-view {
+  height: 100%;
+  width: 100%;
+  overflow-y: auto;
+  /* Updated background to match the new dark "Foundry" theme */
+  background: #111418; 
+  position: relative;
+}
+
+.builder-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 60px 32px 80px;
+  max-width: 900px; /* Slightly tighter width */
+  margin: 0 auto;
+}
+
+/* --- Hero Section --- */
+.builder-hero {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  margin-bottom: 40px;
+}
+
+.builder-icon {
+  width: 56px;
+  height: 56px;
+  margin-bottom: 28px;
+  /* Darker icon container */
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.builder-icon svg {
+  width: 32px;
+  height: 32px;
+}
+
+.builder-title {
+  font-size: 28px; /* Slightly smaller for density */
+  font-weight: 600;
+  color: #E5E7EB;
+  margin-bottom: 12px;
+  letter-spacing: -0.5px;
+}
+
+.builder-subtitle {
+  font-size: 15px;
+  color: #9CA3AF;
+  max-width: 500px;
+  line-height: 1.5;
+}
+
+/* --- Input Container --- */
+.builder-input-container {
+  width: 100%;
+  max-width: 800px;
+  background: #1F2329;
+  border: 1px solid #3F4652;
+  border-radius: 8px; /* Sharper corners */
+  padding: 20px;
+  margin-bottom: 16px;
+  transition: border-color 0.2s, box-shadow 0.2s;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+}
+
+.builder-input-container:focus-within {
+  border-color: #3D85C6;
+  box-shadow: 0 0 0 1px #3D85C6;
+}
+
+.builder-textarea {
+  width: 100%;
+  min-height: 120px;
+  background: transparent;
+  border: none;
+  color: #E5E7EB;
+  font-size: 14px;
+  font-family: "JetBrains Mono", monospace; /* Technical font */
+  line-height: 1.6;
+  resize: none;
+  outline: none;
+}
+
+.builder-textarea::placeholder {
+  color: #5F6B7C;
+}
+
+.builder-input-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid #2E333D;
+}
+
+/* --- Model Selector --- */
+.model-selector-wrapper {
+  position: relative;
+}
+
+.model-selector {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  background: #252A33;
+  border: 1px solid #3F4652;
+  border-radius: 4px;
+  color: #D1D5DB;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.model-selector:hover {
+  background: #2E333D;
+  border-color: #5F6B7C;
+}
+
+.model-icon {
+  font-size: 14px;
+}
+
+.model-name {
+  font-weight: 500;
+}
+
+.model-dropdown {
+  position: absolute;
+  bottom: 100%;
+  left: 0;
+  margin-bottom: 8px;
+  background: #1F2329;
+  border: 1px solid #3F4652;
+  border-radius: 4px;
+  overflow: hidden;
+  min-width: 180px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  z-index: 100;
+}
+
+.model-option {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 8px 12px;
+  background: transparent;
+  border: none;
+  color: #9CA3AF;
+  font-size: 12px;
+  text-align: left;
+  cursor: pointer;
+  transition: all 0.1s;
+}
+
+.model-option:hover {
+  background: #252A33;
+  color: #FFFFFF;
+}
+
+.model-option.active {
+  background: rgba(61, 133, 198, 0.15);
+  color: #3D85C6;
+}
+
+/* --- Submit Button --- */
+.submit-btn {
+  width: 36px;
+  height: 36px;
+  background: #3D85C6;
+  border: none;
+  border-radius: 4px;
+  color: white;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+}
+
+.submit-btn:hover:not(:disabled) {
+  background: #2B74B3;
+}
+
+.submit-btn:disabled {
+  background: #2E333D;
+  color: #5F6B7C;
+  cursor: not-allowed;
+}
+
+/* --- Manual Link --- */
+.manual-link {
+  background: none;
+  border: none;
+  font-size: 12px;
+  color: #5F6B7C;
+  cursor: pointer;
+  transition: color 0.2s;
+  margin-bottom: 40px;
+}
+
+.manual-link:hover {
+  color: #3D85C6;
+}
+
+/* --- Templates Section --- */
+.templates-section {
+  width: 100%;
+}
+
+.templates-divider {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  margin-bottom: 24px;
+}
+
+.templates-divider::before,
+.templates-divider::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: #2E333D;
+}
+
+.templates-divider span {
+  font-size: 11px;
+  color: #5F6B7C;
+  white-space: nowrap;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-weight: 600;
+}
+
+.templates-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+}
+
+@media (max-width: 1000px) {
+  .templates-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 600px) {
+  .templates-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* --- Template Card --- */
+.template-card {
+  position: relative;
+  background: #1F2329;
+  border: 1px solid #2E333D;
+  border-radius: 4px;
+  padding: 16px;
+  cursor: pointer;
+  transition: all 0.2s;
+  overflow: hidden;
+}
+
+.template-card:hover {
+  border-color: #5F6B7C;
+  transform: translateY(-2px);
+  background: #252A33;
+}
+
+.template-card.accent-blue { --card-accent: #3D85C6; }
+.template-card.accent-green { --card-accent: #34D399; }
+.template-card.accent-red { --card-accent: #EF4444; }
+.template-card.accent-purple { --card-accent: #A78BFA; }
+
+.template-card::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  background: var(--card-accent);
+  opacity: 0.5;
+  transition: opacity 0.2s;
+}
+
+.template-card:hover::before {
+  opacity: 1;
+}
+
+.template-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  margin-bottom: 12px;
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.template-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: #E5E7EB;
+  margin-bottom: 6px;
+}
+
+.template-desc {
+  font-size: 11px;
+  color: #9CA3AF;
+  line-height: 1.4;
+}
+
+.template-arrow {
+  position: absolute;
+  bottom: 12px;
+  right: 12px;
+  color: #5F6B7C;
+  opacity: 0;
+  transform: translateX(-4px);
+  transition: all 0.2s;
+}
+
+.template-card:hover .template-arrow {
+  opacity: 1;
+  transform: translateX(0);
+}

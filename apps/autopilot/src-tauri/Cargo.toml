@@ -1,0 +1,33 @@
+# apps/autopilot/src-tauri/Cargo.toml
+
+[package]
+name = "autopilot"
+version = "0.1.0"
+description = "A Tauri App"
+license-file = "../../../LICENSE-BBSL"
+authors = ["you"]
+edition = "2021"
+
+[lib]
+name = "autopilot_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = ["tray-icon"] }
+tauri-plugin-opener = "2"
+tauri-plugin-global-shortcut = "2"
+tauri-plugin-notification = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+uuid = { version = "1", features = ["v4"] }
+tokio = { version = "=1.42.0", features = ["full"] }
+
+# IOI Kernel Integration
+ioi-ipc = { path = "../../../crates/ipc" }
+ioi-types = { path = "../../../crates/types" }
+
+# [NEW] Add tonic dependency for gRPC client
+tonic = { version = "0.11", features = ["transport"] }
