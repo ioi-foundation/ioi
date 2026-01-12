@@ -23,10 +23,12 @@ use std::fmt::Debug;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 use tokio::sync::{mpsc, watch, Mutex};
-use tracing::{error, info};
+use tracing::{error, info, warn}; // [FIX] Added warn
 
 // [FIX] Import LocalSafetyModel and SafetyVerdict from ioi_api
 use ioi_api::vm::inference::{LocalSafetyModel, SafetyVerdict};
+
+// ... (rest of imports and structs remain the same until run_ingestion_worker) ...
 
 /// Configuration for the ingestion worker.
 #[derive(Debug, Clone)]
@@ -170,6 +172,7 @@ pub async fn run_ingestion_worker<CS>(
                         });
                     }
                     Err(e) => {
+                        warn!(target: "ingestion", "Canonical hashing failed: {}", e);
                         status_cache.lock().await.put(
                             receipt_hash_hex,
                             TxStatusEntry {
@@ -181,6 +184,7 @@ pub async fn run_ingestion_worker<CS>(
                     }
                 },
                 Err(e) => {
+                    warn!(target: "ingestion", "Deserialization failed: {}", e);
                     status_cache.lock().await.put(
                         receipt_hash_hex,
                         TxStatusEntry {
@@ -303,6 +307,8 @@ pub async fn run_ingestion_worker<CS>(
                                     SafetyVerdict::Safe => unreachable!(), // Handled by outer arm
                                 };
 
+                                warn!(target: "ingestion", "Transaction blocked by firewall: {}", reason);
+
                                 status_guard.put(
                                     p_tx.receipt_hash_hex.clone(),
                                     TxStatusEntry {
@@ -315,6 +321,7 @@ pub async fn run_ingestion_worker<CS>(
                             Err(e) => {
                                 // If model fails, fail closed
                                 is_safe = false;
+                                warn!(target: "ingestion", "Safety model failure: {}", e);
                                 status_guard.put(
                                     p_tx.receipt_hash_hex.clone(),
                                     TxStatusEntry {
@@ -402,6 +409,7 @@ pub async fn run_ingestion_worker<CS>(
                                 .await;
                         }
                         AddResult::Rejected(r) => {
+                            warn!(target: "ingestion", "Mempool rejected transaction {}: {}", p_tx.receipt_hash_hex, r);
                             status_guard.put(
                                 p_tx.receipt_hash_hex.clone(),
                                 TxStatusEntry {
@@ -414,6 +422,7 @@ pub async fn run_ingestion_worker<CS>(
                     }
                 }
                 Err(e) => {
+                    warn!(target: "ingestion", "Validation failed for transaction {}: {}", p_tx.receipt_hash_hex, e);
                     status_guard.put(
                         p_tx.receipt_hash_hex.clone(),
                         TxStatusEntry {

@@ -1,8 +1,7 @@
 // Path: crates/validator/src/standard/orchestration/grpc_public.rs
 
 use crate::standard::orchestration::context::{MainLoopContext, TxStatusEntry};
-// [FIX] Removed unused ChainStateMachine import, added WorkloadClientApi
-use ioi_api::chain::WorkloadClientApi;
+// [FIX] Removed unused WorkloadClientApi import
 use ioi_api::{commitment::CommitmentScheme, state::StateManager};
 use ioi_client::WorkloadClient;
 use ioi_ipc::blockchain::{
@@ -31,7 +30,8 @@ use ioi_ipc::public::{
     SubscribeEventsRequest,
     TxStatus,
 };
-use ioi_types::app::{ChainTransaction, StateRoot, TxHash};
+// [FIX] Removed unused SigningKeyPair import
+use ioi_types::app::{ChainTransaction, StateRoot, TxHash, SignatureProof, SignatureSuite};
 use ioi_types::codec;
 use serde::Serialize;
 use std::fmt::Debug;
@@ -46,6 +46,10 @@ use ioi_services::agentic::intent::IntentResolver;
 use ioi_api::vm::inference::{InferenceRuntime, LocalSafetyModel};
 use ioi_types::app::agentic::InferenceOptions;
 use ioi_types::error::VmError;
+
+// [FIX] Import WorkloadClientApi via trait object usage if needed, or remove if unused.
+// It is used in get_status/query_raw_state, so we must import it.
+use ioi_api::chain::WorkloadClientApi;
 
 struct SafetyModelAsInference {
     model: Arc<dyn LocalSafetyModel>,
@@ -275,8 +279,6 @@ where
         let start = Instant::now();
         let req = request.into_inner();
 
-        // [FIX] Import trait WorkloadClientApi and cast/coerce Arc<WorkloadClient>
-        // so that query_raw_state is visible.
         let client: &dyn WorkloadClientApi = &*self.workload_client;
         
         let result: Result<Response<QueryRawStateResponse>, Status> = match client.query_raw_state(&req.key).await {
@@ -288,7 +290,6 @@ where
                 value: vec![],
                 found: false,
             })),
-            // [FIX] Explicit type annotation for error closure
             Err(e) => Err(Status::internal(e.to_string())),
         };
 
@@ -303,7 +304,6 @@ where
         _: Request<GetStatusRequest>,
     ) -> Result<Response<GetStatusResponse>, Status> {
         let start = Instant::now();
-        // [FIX] Use trait object for get_status
         let client: &dyn WorkloadClientApi = &*self.workload_client;
         let status = client
             .get_status()
@@ -328,7 +328,6 @@ where
         let start = Instant::now();
         let req = request.into_inner();
 
-        // [FIX] Use trait object and explicit type for error
         let client: &dyn WorkloadClientApi = &*self.workload_client;
         let blocks = client
             .get_blocks_range(req.height, 1, 10 * 1024 * 1024)
@@ -427,7 +426,8 @@ where
         let req = request.into_inner();
         let ctx_arc = self.get_context().await?;
 
-        let (chain_id, nonce, safety_model) = {
+        // 1. Resolve Dependencies
+        let (chain_id, nonce, safety_model, keypair) = {
             let ctx = ctx_arc.lock().await;
             let account_id = ioi_types::app::account_id_from_key_material(
                 ioi_types::app::SignatureSuite::ED25519,
@@ -441,22 +441,54 @@ where
                 .copied()
                 .unwrap_or(0);
 
-            (ctx.chain_id, nonce, ctx.safety_model.clone())
+            (ctx.chain_id, nonce, ctx.safety_model.clone(), ctx.local_keypair.clone())
         };
 
         let adapter = Arc::new(SafetyModelAsInference { model: safety_model });
         let resolver = IntentResolver::new(adapter);
         let address_book = std::collections::HashMap::new();
 
+        // 2. Resolve Intent -> Unsigned Transaction Bytes
         let tx_bytes = resolver
             .resolve_intent(&req.intent, chain_id, nonce, &address_book)
             .await
             .map_err(|e| Status::internal(e.to_string()))?;
 
+        // 3. [FIXED] Sign the Transaction for Mode 0 (User Node)
+        // Deserialize the raw bytes back to ChainTransaction
+        let mut tx: ChainTransaction = codec::from_bytes_canonical(&tx_bytes)
+             .map_err(|e| Status::internal(format!("Failed to deserialize draft: {}", e)))?;
+
+        // Extract mutable reference to fields we need to sign
+        // We handle this directly in the match to avoid conflicting types
+        let signed_tx_bytes = match &mut tx {
+            ChainTransaction::Settlement(s) => {
+                 let sign_bytes = s.to_sign_bytes().map_err(|e| Status::internal(e))?;
+                 let sig = keypair.sign(&sign_bytes).map_err(|e| Status::internal(e.to_string()))?;
+                 s.signature_proof = SignatureProof {
+                     suite: SignatureSuite::ED25519,
+                     public_key: keypair.public().encode_protobuf(),
+                     signature: sig,
+                 };
+                 codec::to_bytes_canonical(&tx).map_err(|e| Status::internal(e))?
+            },
+            ChainTransaction::System(s) => {
+                 let sign_bytes = s.to_sign_bytes().map_err(|e| Status::internal(e))?;
+                 let sig = keypair.sign(&sign_bytes).map_err(|e| Status::internal(e.to_string()))?;
+                 s.signature_proof = SignatureProof {
+                     suite: SignatureSuite::ED25519,
+                     public_key: keypair.public().encode_protobuf(),
+                     signature: sig,
+                 };
+                 codec::to_bytes_canonical(&tx).map_err(|e| Status::internal(e))?
+            },
+            _ => return Err(Status::unimplemented("Auto-signing not supported for this transaction type"))
+        };
+
         Ok(Response::new(DraftTransactionResponse {
-            transaction_bytes: tx_bytes,
-            summary_markdown: format!("**Action:** Execute `{}`", req.intent),
-            required_capabilities: vec!["unknown".into()],
+            transaction_bytes: signed_tx_bytes,
+            summary_markdown: format!("**Action:** Execute `{}` (Auto-Signed)", req.intent),
+            required_capabilities: vec!["wallet::sign".into()],
         }))
     }
 
