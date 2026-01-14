@@ -1,0 +1,223 @@
+.install-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 3000;
+}
+
+.install-modal {
+  width: 480px;
+  background: #1F2329;
+  border: 1px solid #3F4652;
+  border-radius: 12px;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.6);
+  overflow: hidden;
+  color: #E5E7EB;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+.install-header {
+  padding: 20px;
+  background: #252A33;
+  border-bottom: 1px solid #2E333D;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+}
+
+.agent-preview {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
+.agent-icon-large {
+  width: 48px;
+  height: 48px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24px;
+  font-weight: bold;
+  color: white;
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,0.1);
+}
+
+.install-header h2 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.subtext {
+  margin: 2px 0 0;
+  font-size: 12px;
+  color: #9CA3AF;
+}
+
+.install-content {
+  padding: 20px;
+}
+
+.req-banner {
+  background: rgba(245, 158, 11, 0.1);
+  border: 1px solid rgba(245, 158, 11, 0.2);
+  border-radius: 6px;
+  padding: 8px 12px;
+  font-size: 12px;
+  color: #FBBF24;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 20px;
+}
+
+.provider-options {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.provider-option {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  border: 1px solid #3F4652;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+  background: #181B21;
+}
+
+.provider-option:hover {
+  border-color: #5F6B7C;
+}
+
+.provider-option.selected {
+  border-color: #3D85C6;
+  background: rgba(61, 133, 198, 0.1);
+}
+
+.provider-option.disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  background: rgba(0,0,0,0.2);
+  border-style: dashed;
+}
+
+.radio-circle {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: 1px solid #5F6B7C;
+  position: relative;
+}
+
+.provider-option.selected .radio-circle {
+  border-color: #3D85C6;
+  background: #3D85C6;
+  box-shadow: inset 0 0 0 3px #181B21;
+}
+
+.provider-detail {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.p-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.p-name {
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.p-tag {
+  font-size: 10px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: #3D85C6;
+  color: white;
+  font-weight: 600;
+}
+
+.p-meta {
+  font-size: 11px;
+  color: #9CA3AF;
+  margin-top: 2px;
+}
+
+.policy-mini {
+  margin-top: 24px;
+  padding-top: 16px;
+  border-top: 1px solid #2E333D;
+}
+
+.policy-mini h3 {
+  font-size: 11px;
+  text-transform: uppercase;
+  color: #5F6B7C;
+  margin-bottom: 8px;
+}
+
+.policy-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 13px;
+}
+
+.policy-row select {
+  background: #181B21;
+  border: 1px solid #3F4652;
+  color: #E5E7EB;
+  padding: 4px 8px;
+  border-radius: 4px;
+}
+
+.install-footer {
+  padding: 16px 20px;
+  background: #252A33;
+  border-top: 1px solid #2E333D;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.cost-summary {
+  display: flex;
+  flex-direction: column;
+  font-size: 11px;
+  color: #9CA3AF;
+}
+
+.cost-summary strong {
+  font-size: 16px;
+  color: #E5E7EB;
+}
+
+.install-btn {
+  background: #3D85C6;
+  color: white;
+  border: none;
+  padding: 10px 24px;
+  border-radius: 6px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.install-btn:hover {
+  background: #2B74B3;
+}
