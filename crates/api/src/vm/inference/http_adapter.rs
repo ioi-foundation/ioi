@@ -92,6 +92,17 @@ struct FunctionCall {
     arguments: String,
 }
 
+// [NEW] Structures for Embedding API response
+#[derive(Deserialize)]
+struct EmbeddingResponse {
+    data: Vec<EmbeddingData>,
+}
+
+#[derive(Deserialize)]
+struct EmbeddingData {
+    embedding: Vec<f32>,
+}
+
 #[async_trait]
 impl InferenceRuntime for HttpInferenceRuntime {
     async fn execute_inference(
@@ -186,6 +197,55 @@ impl InferenceRuntime for HttpInferenceRuntime {
 
         let content = choice.message.content.clone().unwrap_or_default();
         Ok(content.into_bytes())
+    }
+
+    // [NEW] Implementation of embed_text
+    async fn embed_text(&self, text: &str) -> Result<Vec<f32>, VmError> {
+        // Heuristic to derive embeddings URL from the configured chat URL.
+        // We look for standard OpenAI paths and replace them.
+        // E.g. /v1/chat/completions -> /v1/embeddings
+        let embedding_url = if self.api_url.contains("/chat/completions") {
+            self.api_url.replace("/chat/completions", "/embeddings")
+        } else if self.api_url.contains("/completions") {
+            self.api_url.replace("/completions", "/embeddings")
+        } else {
+            return Err(VmError::HostError(
+                "Cannot determine embeddings URL from configured API URL. Ensure API URL contains '/chat/completions' or '/completions'".into(),
+            ));
+        };
+
+        let request_body = json!({
+            "input": text,
+            "model": self.model_name
+        });
+
+        let response = self
+            .client
+            .post(&embedding_url)
+            .header("Authorization", format!("Bearer {}", self.api_key))
+            .json(&request_body)
+            .send()
+            .await
+            .map_err(|e| VmError::HostError(format!("Embedding Request failed: {}", e)))?;
+
+        if !response.status().is_success() {
+            let error_text = response
+                .text()
+                .await
+                .unwrap_or_else(|_| "Unknown error".into());
+            return Err(VmError::HostError(format!("API Error (Embeddings): {}", error_text)));
+        }
+
+        let response_body: EmbeddingResponse = response
+            .json::<EmbeddingResponse>()
+            .await
+            .map_err(|e| VmError::HostError(format!("Failed to parse embedding response: {}", e)))?;
+
+        if let Some(first) = response_body.data.first() {
+            Ok(first.embedding.clone())
+        } else {
+            Err(VmError::HostError("No embedding data returned".into()))
+        }
     }
 
     async fn load_model(&self, _model_hash: [u8; 32], _path: &Path) -> Result<(), VmError> {

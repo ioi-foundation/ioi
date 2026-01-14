@@ -17,9 +17,8 @@ export default defineConfig(async () => ({
   server: {
     port: 1420,
     strictPort: true,
-    // [FIX] Force binding to 0.0.0.0 (IPv4) if TAURI_DEV_HOST is not set.
-    // 'true' in Vite means "listen on all addresses".
-    host: host || true,
+    // [FIX] Force binding to 127.0.0.1 (IPv4) to avoid localhost IPv6 resolution issues on Linux
+    host: host || "127.0.0.1",
     hmr: host
       ? {
         protocol: "ws",
