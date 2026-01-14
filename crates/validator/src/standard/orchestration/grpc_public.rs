@@ -1,37 +1,24 @@
 // Path: crates/validator/src/standard/orchestration/grpc_public.rs
 
 use crate::standard::orchestration::context::{MainLoopContext, TxStatusEntry};
-// [FIX] Removed unused WorkloadClientApi import
 use ioi_api::{commitment::CommitmentScheme, state::StateManager};
 use ioi_client::WorkloadClient;
 use ioi_ipc::blockchain::{
-    GetStatusRequest,
-    GetStatusResponse,
-    QueryRawStateRequest,
-    QueryRawStateResponse,
-    QueryStateAtRequest,
-    QueryStateAtResponse,
+    GetStatusRequest, GetStatusResponse, QueryRawStateRequest, QueryRawStateResponse,
+    QueryStateAtRequest, QueryStateAtResponse,
 };
 use ioi_ipc::public::public_api_server::PublicApi;
 use ioi_ipc::public::{
-    BlockCommitted,
-    ChainEvent,
-    DraftTransactionRequest,
-    DraftTransactionResponse,
-    GetBlockByHeightRequest,
-    GetBlockByHeightResponse,
-    GetContextBlobRequest,
-    GetContextBlobResponse,
-    GetTransactionStatusRequest,
-    GetTransactionStatusResponse,
-    SubmissionStatus,
-    SubmitTransactionRequest,
-    SubmitTransactionResponse,
-    SubscribeEventsRequest,
-    TxStatus,
+    chain_event::Event as ChainEventEnum, BlockCommitted, ChainEvent, DraftTransactionRequest,
+    DraftTransactionResponse, GetBlockByHeightRequest, GetBlockByHeightResponse,
+    GetContextBlobRequest, GetContextBlobResponse, GetTransactionStatusRequest,
+    GetTransactionStatusResponse, SubmissionStatus, SubmitTransactionRequest,
+    SubmitTransactionResponse, SubscribeEventsRequest, TxStatus,
 };
-// [FIX] Removed unused SigningKeyPair import
-use ioi_types::app::{ChainTransaction, StateRoot, TxHash, SignatureProof, SignatureSuite};
+use ioi_types::app::{
+    account_id_from_key_material, AccountId, ChainTransaction, SignatureProof, SignatureSuite,
+    StateRoot, TxHash,
+};
 use ioi_types::codec;
 use serde::Serialize;
 use std::fmt::Debug;
@@ -42,13 +29,11 @@ use tokio_stream::wrappers::ReceiverStream;
 use tonic::{Request, Response, Status};
 
 use crate::metrics::rpc_metrics as metrics;
-use ioi_services::agentic::intent::IntentResolver;
 use ioi_api::vm::inference::{InferenceRuntime, LocalSafetyModel};
+use ioi_services::agentic::intent::IntentResolver;
 use ioi_types::app::agentic::InferenceOptions;
 use ioi_types::error::VmError;
 
-// [FIX] Import WorkloadClientApi via trait object usage if needed, or remove if unused.
-// It is used in get_status/query_raw_state, so we must import it.
 use ioi_api::chain::WorkloadClientApi;
 
 struct SafetyModelAsInference {
@@ -64,21 +49,31 @@ impl InferenceRuntime for SafetyModelAsInference {
         _options: InferenceOptions,
     ) -> Result<Vec<u8>, VmError> {
         let input_str = String::from_utf8_lossy(input_context);
-        let classification = self.model.classify_intent(&input_str).await
+        let classification = self
+            .model
+            .classify_intent(&input_str)
+            .await
             .map_err(|e| VmError::HostError(e.to_string()))?;
-            
-        let mock_json = format!(r#"{{
+
+        let mock_json = format!(
+            r#"{{
             "operation_id": "transfer",
             "params": {{ "to": "0x0000000000000000000000000000000000000000000000000000000000000000", "amount": 100 }},
             "gas_ceiling": 10000,
             "note": "Generated via SafetyModel classification: {:?}"
-        }}"#, classification);
-        
+        }}"#,
+            classification
+        );
+
         Ok(mock_json.into_bytes())
     }
 
-    async fn load_model(&self, _hash: [u8; 32], _path: &std::path::Path) -> Result<(), VmError> { Ok(()) }
-    async fn unload_model(&self, _hash: [u8; 32]) -> Result<(), VmError> { Ok(()) }
+    async fn load_model(&self, _hash: [u8; 32], _path: &std::path::Path) -> Result<(), VmError> {
+        Ok(())
+    }
+    async fn unload_model(&self, _hash: [u8; 32]) -> Result<(), VmError> {
+        Ok(())
+    }
 }
 
 /// Implementation of the Public gRPC API.
@@ -280,18 +275,19 @@ where
         let req = request.into_inner();
 
         let client: &dyn WorkloadClientApi = &*self.workload_client;
-        
-        let result: Result<Response<QueryRawStateResponse>, Status> = match client.query_raw_state(&req.key).await {
-            Ok(Some(val)) => Ok(Response::new(QueryRawStateResponse {
-                value: val,
-                found: true,
-            })),
-            Ok(None) => Ok(Response::new(QueryRawStateResponse {
-                value: vec![],
-                found: false,
-            })),
-            Err(e) => Err(Status::internal(e.to_string())),
-        };
+
+        let result: Result<Response<QueryRawStateResponse>, Status> =
+            match client.query_raw_state(&req.key).await {
+                Ok(Some(val)) => Ok(Response::new(QueryRawStateResponse {
+                    value: val,
+                    found: true,
+                })),
+                Ok(None) => Ok(Response::new(QueryRawStateResponse {
+                    value: vec![],
+                    found: false,
+                })),
+                Err(e) => Err(Status::internal(e.to_string())),
+            };
 
         metrics().observe_request_duration("query_raw_state", start.elapsed().as_secs_f64());
         metrics().inc_requests_total("query_raw_state", if result.is_ok() { 200 } else { 500 });
@@ -373,7 +369,7 @@ where
                     Ok(_) = tip_rx.changed() => {
                         let tip = tip_rx.borrow().clone();
                         let event = ChainEvent {
-                            event: Some(ioi_ipc::public::chain_event::Event::Block(
+                            event: Some(ChainEventEnum::Block(
                                 BlockCommitted {
                                     height: tip.height,
                                     state_root: hex::encode(&tip.state_root),
@@ -387,7 +383,7 @@ where
                     Ok(kernel_event) = event_rx.recv() => {
                          let mapped_event = match kernel_event {
                              ioi_types::app::KernelEvent::AgentStep(step) => {
-                                 Some(ioi_ipc::public::chain_event::Event::Thought(
+                                 Some(ChainEventEnum::Thought(
                                      ioi_ipc::public::AgentThought {
                                          session_id: hex::encode(step.session_id),
                                          content: step.raw_output,
@@ -396,7 +392,7 @@ where
                                  ))
                              },
                              ioi_types::app::KernelEvent::BlockCommitted { height, tx_count } => {
-                                 Some(ioi_ipc::public::chain_event::Event::Block(
+                                 Some(ChainEventEnum::Block(
                                      ioi_ipc::public::BlockCommitted {
                                          height,
                                          state_root: "".into(),
@@ -406,7 +402,7 @@ where
                              },
                              _ => None
                          };
-                         
+
                          if let Some(event_enum) = mapped_event {
                              let event = ChainEvent { event: Some(event_enum) };
                              if tx.send(Ok(event)).await.is_err() { break; }
@@ -429,22 +425,29 @@ where
         // 1. Resolve Dependencies
         let (chain_id, nonce, safety_model, keypair) = {
             let ctx = ctx_arc.lock().await;
-            let account_id = ioi_types::app::account_id_from_key_material(
-                ioi_types::app::SignatureSuite::ED25519,
+            let account_id = account_id_from_key_material(
+                SignatureSuite::ED25519,
                 &ctx.local_keypair.public().encode_protobuf(),
             )
             .unwrap_or_default();
 
             let nonce_manager = ctx.nonce_manager.lock().await;
             let nonce = nonce_manager
-                .get(&ioi_types::app::AccountId(account_id))
+                .get(&AccountId(account_id))
                 .copied()
                 .unwrap_or(0);
 
-            (ctx.chain_id, nonce, ctx.safety_model.clone(), ctx.local_keypair.clone())
+            (
+                ctx.chain_id,
+                nonce,
+                ctx.safety_model.clone(),
+                ctx.local_keypair.clone(),
+            )
         };
 
-        let adapter = Arc::new(SafetyModelAsInference { model: safety_model });
+        let adapter = Arc::new(SafetyModelAsInference {
+            model: safety_model,
+        });
         let resolver = IntentResolver::new(adapter);
         let address_book = std::collections::HashMap::new();
 
@@ -457,32 +460,49 @@ where
         // 3. [FIXED] Sign the Transaction for Mode 0 (User Node)
         // Deserialize the raw bytes back to ChainTransaction
         let mut tx: ChainTransaction = codec::from_bytes_canonical(&tx_bytes)
-             .map_err(|e| Status::internal(format!("Failed to deserialize draft: {}", e)))?;
+            .map_err(|e| Status::internal(format!("Failed to deserialize draft: {}", e)))?;
+
+        // Calculate the signer's Account ID from the keypair to correct the header.
+        let signer_pk_bytes = keypair.public().encode_protobuf();
+        let signer_account_id = AccountId(
+            account_id_from_key_material(SignatureSuite::ED25519, &signer_pk_bytes)
+                .map_err(|e| Status::internal(e.to_string()))?,
+        );
 
         // Extract mutable reference to fields we need to sign
         // We handle this directly in the match to avoid conflicting types
         let signed_tx_bytes = match &mut tx {
             ChainTransaction::Settlement(s) => {
-                 let sign_bytes = s.to_sign_bytes().map_err(|e| Status::internal(e))?;
-                 let sig = keypair.sign(&sign_bytes).map_err(|e| Status::internal(e.to_string()))?;
-                 s.signature_proof = SignatureProof {
-                     suite: SignatureSuite::ED25519,
-                     public_key: keypair.public().encode_protobuf(),
-                     signature: sig,
-                 };
-                 codec::to_bytes_canonical(&tx).map_err(|e| Status::internal(e))?
-            },
+                s.header.account_id = signer_account_id;
+                let sign_bytes = s.to_sign_bytes().map_err(|e| Status::internal(e))?;
+                let sig = keypair
+                    .sign(&sign_bytes)
+                    .map_err(|e| Status::internal(e.to_string()))?;
+                s.signature_proof = SignatureProof {
+                    suite: SignatureSuite::ED25519,
+                    public_key: signer_pk_bytes,
+                    signature: sig,
+                };
+                codec::to_bytes_canonical(&tx).map_err(|e| Status::internal(e))?
+            }
             ChainTransaction::System(s) => {
-                 let sign_bytes = s.to_sign_bytes().map_err(|e| Status::internal(e))?;
-                 let sig = keypair.sign(&sign_bytes).map_err(|e| Status::internal(e.to_string()))?;
-                 s.signature_proof = SignatureProof {
-                     suite: SignatureSuite::ED25519,
-                     public_key: keypair.public().encode_protobuf(),
-                     signature: sig,
-                 };
-                 codec::to_bytes_canonical(&tx).map_err(|e| Status::internal(e))?
-            },
-            _ => return Err(Status::unimplemented("Auto-signing not supported for this transaction type"))
+                s.header.account_id = signer_account_id;
+                let sign_bytes = s.to_sign_bytes().map_err(|e| Status::internal(e))?;
+                let sig = keypair
+                    .sign(&sign_bytes)
+                    .map_err(|e| Status::internal(e.to_string()))?;
+                s.signature_proof = SignatureProof {
+                    suite: SignatureSuite::ED25519,
+                    public_key: signer_pk_bytes,
+                    signature: sig,
+                };
+                codec::to_bytes_canonical(&tx).map_err(|e| Status::internal(e))?
+            }
+            _ => {
+                return Err(Status::unimplemented(
+                    "Auto-signing not supported for this transaction type",
+                ))
+            }
         };
 
         Ok(Response::new(DraftTransactionResponse {
@@ -510,8 +530,8 @@ where
             .lock()
             .map_err(|_| Status::internal("SCS lock poisoned"))?;
 
-        let hash_bytes = hex::decode(&req.blob_hash)
-            .map_err(|_| Status::invalid_argument("Invalid hex hash"))?;
+        let hash_bytes =
+            hex::decode(&req.blob_hash).map_err(|_| Status::invalid_argument("Invalid hex hash"))?;
 
         let hash_arr: [u8; 32] = hash_bytes
             .try_into()
