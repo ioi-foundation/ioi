@@ -7,7 +7,8 @@ use ioi_api::crypto::SerializableKey;
 use ioi_api::state::service_namespace_prefix;
 use ioi_api::validator::container::Container;
 use ioi_consensus::util::engine_from_config;
-use ioi_consensus::Consensus;
+// [FIX] Removed unused Consensus import
+// use ioi_consensus::Consensus;
 use ioi_crypto::sign::eddsa::Ed25519PrivateKey;
 use ioi_drivers::browser::BrowserDriver;
 use ioi_drivers::gui::IoiGuiDriver;
@@ -15,7 +16,7 @@ use ioi_scs::{SovereignContextStore, StoreConfig}; // [NEW] Import SCS
 use ioi_state::primitives::hash::HashCommitmentScheme;
 use ioi_state::tree::iavl::IAVLTree;
 use ioi_types::app::{
-    account_id_from_key_material, AccountId, ActiveKeyRecord, ChainTransaction, SignatureSuite,
+    account_id_from_key_material, AccountId, ActiveKeyRecord, SignatureSuite, // [FIX] Removed ChainTransaction
     ValidatorSetV1, ValidatorSetsV1, ValidatorV1,
 };
 use ioi_types::config::{
@@ -33,6 +34,10 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::{atomic::AtomicBool, Arc, Mutex}; // [FIX] Reverted to std Mutex for SCS
 use tokio::time::Duration;
+
+// [FIX] Added imports for ActiveServiceMeta
+use ioi_types::service_configs::{ActiveServiceMeta, Capabilities, MethodPermission};
+use ioi_types::keys::active_service_key;
 
 #[derive(Parser, Debug)]
 #[clap(name = "ioi-local", about = "IOI User Node (Mode 0)")]
@@ -106,6 +111,33 @@ async fn main() -> Result<()> {
         tokenizer_path: None,
     };
 
+    // [START FIX]
+    // Construct service policies, starting with defaults and adding local-only services.
+    // This prevents the runtime panic "Service 'desktop_agent' has no method permissions configured"
+    let mut service_policies = ioi_types::config::default_service_policies();
+
+    // Define policy for Desktop Agent
+    let mut agent_methods_policy = std::collections::BTreeMap::new();
+    agent_methods_policy.insert("start@v1".to_string(), MethodPermission::User);
+    agent_methods_policy.insert("step@v1".to_string(), MethodPermission::User);
+    agent_methods_policy.insert("resume@v1".to_string(), MethodPermission::User);
+
+    service_policies.insert("desktop_agent".to_string(), ioi_types::config::ServicePolicy {
+        methods: agent_methods_policy,
+        allowed_system_prefixes: vec![],
+    });
+
+    // Define policy for Compute Market (if used)
+    let mut market_methods_policy = std::collections::BTreeMap::new();
+    market_methods_policy.insert("request_task@v1".to_string(), MethodPermission::User);
+    market_methods_policy.insert("finalize_provisioning@v1".to_string(), MethodPermission::User);
+
+    service_policies.insert("compute_market".to_string(), ioi_types::config::ServicePolicy {
+        methods: market_methods_policy,
+        allowed_system_prefixes: vec![],
+    });
+    // [END FIX]
+
     let workload_config = WorkloadConfig {
         runtimes: vec!["wasm".to_string()],
         state_tree: ioi_types::config::StateTreeType::IAVL,
@@ -130,7 +162,7 @@ async fn main() -> Result<()> {
             InitialServiceConfig::Governance(Default::default()),
             InitialServiceConfig::Oracle(Default::default()),
         ],
-        service_policies: ioi_types::config::default_service_policies(),
+        service_policies, // [FIX] Use the augmented policies
         min_finality_depth: 0,
         keep_recent_heights: 1000,
         epoch_size: 1000,
@@ -203,6 +235,45 @@ async fn main() -> Result<()> {
             })
             .unwrap(),
         );
+
+        // [NEW] Register 'desktop_agent' service metadata
+        let mut agent_methods = std::collections::BTreeMap::new();
+        agent_methods.insert("start@v1".to_string(), MethodPermission::User);
+        agent_methods.insert("step@v1".to_string(), MethodPermission::User);
+        agent_methods.insert("resume@v1".to_string(), MethodPermission::User);
+
+        let agent_meta = ActiveServiceMeta {
+            id: "desktop_agent".to_string(),
+            abi_version: 1,
+            state_schema: "v1".to_string(),
+            caps: Capabilities::empty(),
+            artifact_hash: [0u8; 32],
+            activated_at: 0,
+            methods: agent_methods,
+            allowed_system_prefixes: vec![],
+        };
+        
+        let agent_key = active_service_key("desktop_agent");
+        insert_raw(&agent_key, to_bytes_canonical(&agent_meta).unwrap());
+        
+        // [NEW] Register 'compute_market' service metadata (required for firewall check)
+        let mut market_methods = std::collections::BTreeMap::new();
+        market_methods.insert("request_task@v1".to_string(), MethodPermission::User);
+        market_methods.insert("finalize_provisioning@v1".to_string(), MethodPermission::User);
+        
+        let market_meta = ActiveServiceMeta {
+            id: "compute_market".to_string(),
+            abi_version: 1,
+            state_schema: "v1".to_string(),
+            caps: Capabilities::empty(),
+            artifact_hash: [0u8; 32],
+            activated_at: 0,
+            methods: market_methods,
+            allowed_system_prefixes: vec![],
+        };
+        let market_key = active_service_key("compute_market");
+        insert_raw(&market_key, to_bytes_canonical(&market_meta).unwrap());
+
         let json = serde_json::json!({ "genesis_state": genesis_state });
         fs::write(
             &workload_config.genesis_file,
@@ -210,9 +281,16 @@ async fn main() -> Result<()> {
         )?;
     }
 
-    // [NEW] Initialize the Native GUI Driver (The "Eyes & Hands")
-    let gui_driver = Arc::new(IoiGuiDriver::new());
-    println!("   - Native GUI Driver: Initialized (enigo/xcap/accesskit)");
+    // 1. Create the broadcast channel FIRST so we can pass it to components
+    let (event_tx, _event_rx) = tokio::sync::broadcast::channel(1000);
+
+    // [FIX] Initialize the Native GUI Driver with the event sender
+    // This enables "Ghost Mode" to broadcast physical inputs to the UI
+    let gui_driver = Arc::new(
+        IoiGuiDriver::new()
+            .with_event_sender(event_tx.clone())
+    );
+    println!("   - Native GUI Driver: Initialized (enigo/xcap/accesskit) + Event Loop");
 
     // [NEW] Initialize Browser Driver
     let browser_driver = Arc::new(BrowserDriver::new());
@@ -293,7 +371,7 @@ async fn main() -> Result<()> {
         batch_verifier: Arc::new(ioi_crypto::sign::batch::CpuBatchVerifier::new()),
         safety_model: safety_model,
         // [FIX] Initialize scs
-        scs: Some(scs_arc),
+        scs: Some(scs_arc.clone()),
     };
 
     let orchestrator = Arc::new(Orchestrator::new(&config, deps, scheme)?);
@@ -302,7 +380,7 @@ async fn main() -> Result<()> {
     println!("\n✅ IOI User Node (Mode 0) configuration is valid.");
     println!("   - Agency Firewall: Active");
     println!("   - The Substrate: Mounted at {}", opts.data_dir.display());
-    println!("   - SCS Storage: Active (.scs)"); // [NEW]
+    println!("   - SCS Storage: Active (.scs)");
     println!("   - GUI Automation: Enabled");
     println!("   - Browser Automation: Enabled");
     println!(
@@ -311,8 +389,8 @@ async fn main() -> Result<()> {
     );
     println!("Starting main components (press Ctrl+C to exit)...");
 
-    orchestrator
-        .start(&config.rpc_listen_address)
+    // [FIX] Explicitly call Container::start on the dereferenced Arc
+    Container::start(&*orchestrator, &config.rpc_listen_address)
         .await
         .map_err(|e| anyhow!("Failed to start: {}", e))?;
 
@@ -330,7 +408,8 @@ async fn main() -> Result<()> {
     }
 
     println!("\nShutting down...");
-    orchestrator.stop().await?;
+    // [FIX] Corrected variable name from 'orchestration' to 'orchestrator'
+    Container::stop(&*orchestrator).await?;
     println!("Bye!");
 
     Ok(())

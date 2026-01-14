@@ -20,7 +20,6 @@ async fn test_admft_leader_rotation() -> Result<()> {
     build_test_artifacts();
 
     // 1. Setup a 3-node cluster
-    // With 3 nodes, the leader schedule should rotate deterministically.
     let cluster = TestCluster::builder()
         .with_validators(3)
         .with_consensus_type("Admft")
@@ -81,55 +80,95 @@ async fn test_admft_leader_rotation() -> Result<()> {
         .build()
         .await?;
 
-    let rpc_addr = &cluster.validators[0].validator().rpc_addr;
-
-    // 2. Wait for chain progression
-    let target_height = 6;
-    println!("Waiting for height {}...", target_height);
-    wait_for_height(rpc_addr, target_height, Duration::from_secs(30)).await?;
-
-    // 3. Analyze Blocks
-    let mut producers = HashSet::new();
-    let mut last_height = 0;
-
-    for h in 1..=target_height {
-        let block = rpc::get_block_by_height_resilient(rpc_addr, h)
-            .await?
-            .ok_or_else(|| anyhow::anyhow!("Block {} not found", h))?;
-
-        println!(
-            "Block #{}: Producer 0x{}, View {}",
-            h,
-            hex::encode(&block.header.producer_account_id.0[0..4]),
-            block.header.view
-        );
-
-        // Verify height continuity
-        assert_eq!(
-            block.header.height,
-            last_height + 1,
-            "Height gap detected"
-        );
-        last_height = block.header.height;
-
-        // Verify A-DMFT invariant: Monotonic Oracle Counter
-        // In this test environment, counters might reset if nodes restart, but within one run
-        // and one producer, they should be monotonic.
-        // (Skipping strict counter check here as we are checking rotation)
-
-        producers.insert(block.header.producer_account_id);
+    // [FIX] Spawn log printers for debugging - Handle closed channels gracefully
+    for (i, guard) in cluster.validators.iter().enumerate() {
+        let (mut orch_logs, mut work_logs, _) = guard.validator().subscribe_logs();
+        tokio::spawn(async move {
+            loop {
+                tokio::select! {
+                     res = orch_logs.recv() => {
+                        match res {
+                            Ok(line) => println!("[Node {} ORCH] {}", i, line),
+                            Err(_) => break, // Channel closed, exit loop
+                        }
+                     }
+                     res = work_logs.recv() => {
+                        match res {
+                            Ok(line) => println!("[Node {} WORK] {}", i, line),
+                            Err(_) => break, // Channel closed, exit loop
+                        }
+                     }
+                }
+            }
+        });
     }
 
-    // 4. Verify Rotation
-    // With 3 validators and 6 blocks, we expect at least 2 unique producers (ideally 3).
-    // If only 1 produced all blocks, round-robin failed.
-    assert!(
-        producers.len() >= 2,
-        "Leader rotation failed: observed {:?} unique producers out of 3 validators",
-        producers.len()
-    );
+    let rpc_addr = &cluster.validators[0].validator().rpc_addr;
 
-    println!("--- A-DMFT Leader Rotation Test Passed ---");
-    cluster.shutdown().await?;
-    Ok(())
+    let test_logic = async {
+        // 2. Wait for chain progression
+        let target_height = 6;
+        println!("Waiting for height {}...", target_height);
+        wait_for_height(rpc_addr, target_height, Duration::from_secs(30)).await?;
+
+        // 3. Analyze Blocks
+        let mut producers = HashSet::new();
+        let mut last_height = 0;
+
+        for h in 1..=target_height {
+            // [FIX] Add explicit retry loop with logging for the test
+            let mut block = None;
+            for _ in 0..10 {
+                match rpc::get_block_by_height_resilient(rpc_addr, h).await {
+                    Ok(Some(b)) => { block = Some(b); break; },
+                    Ok(None) => {
+                         println!("Block {} not found yet, retrying...", h);
+                         tokio::time::sleep(Duration::from_millis(500)).await;
+                    }
+                    Err(e) => {
+                         println!("RPC error for block {}: {}, retrying...", h, e);
+                         tokio::time::sleep(Duration::from_millis(500)).await;
+                    }
+                }
+            }
+            let block = block.ok_or_else(|| anyhow::anyhow!("Block {} not found after retries", h))?;
+
+            println!(
+                "Block #{}: Producer 0x{}, View {}",
+                h,
+                hex::encode(&block.header.producer_account_id.0[0..4]),
+                block.header.view
+            );
+
+            // Verify height continuity
+            if block.header.height != last_height + 1 {
+                 return Err(anyhow::anyhow!("Height gap detected"));
+            }
+            last_height = block.header.height;
+
+            producers.insert(block.header.producer_account_id);
+        }
+
+        // 4. Verify Rotation
+        // With 3 validators and 6 blocks, we expect at least 2 unique producers (ideally 3).
+        // If only 1 produced all blocks, round-robin failed.
+        if producers.len() < 2 {
+            return Err(anyhow::anyhow!(
+                "Leader rotation failed: observed {:?} unique producers out of 3 validators",
+                producers.len()
+            ));
+        }
+
+        println!("--- A-DMFT Leader Rotation Test Passed ---");
+        Ok(())
+    };
+
+    let result = test_logic.await;
+    
+    // Always shutdown
+    if let Err(e) = cluster.shutdown().await {
+        eprintln!("Error shutting down cluster: {}", e);
+    }
+
+    result
 }

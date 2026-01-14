@@ -9,11 +9,11 @@ use tauri::{
 };
 use tauri_plugin_global_shortcut::{Code, GlobalShortcutExt, Modifiers, Shortcut, ShortcutState};
 
-// [NEW] Imports for IOI Kernel Integration
+// Imports for IOI Kernel Integration
 use ioi_ipc::public::public_api_client::PublicApiClient;
 use ioi_ipc::public::{
-    chain_event::Event as ChainEventEnum, DraftTransactionRequest, SubmitTransactionRequest,
-    SubscribeEventsRequest,
+    chain_event::Event as ChainEventEnum, DraftTransactionRequest, GetContextBlobRequest,
+    SubmitTransactionRequest, SubscribeEventsRequest,
 };
 use tonic::transport::Channel;
 
@@ -55,6 +55,8 @@ pub struct AgentTask {
     pub current_step: String,
     pub gate_info: Option<GateInfo>,
     pub receipt: Option<Receipt>,
+    // [NEW] Store the current visual context hash
+    pub visual_hash: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -63,12 +65,27 @@ pub struct GateResponse {
     pub approved: bool,
 }
 
+// [NEW] Struct for Blob Response
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ContextBlob {
+    pub data_base64: String,
+    pub mime_type: String,
+}
+
+// [NEW] Local serializable struct for GhostInput event
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct GhostInputEvent {
+    device: String,
+    description: String,
+}
+
 #[derive(Default)]
 pub struct AppState {
     pub current_task: Option<AgentTask>,
     pub gate_response: Option<GateResponse>,
     pub is_simulating: bool,
-    // [NEW] gRPC Client handle (optional cache)
+    // [NEW] gRPC Client handle (cached to avoid reconnecting every request)
+    // Wrapped in Arc<Mutex> because State must be Send+Sync and the Client is cloneable but needs mutability for some calls
     pub rpc_client: Option<PublicApiClient<Channel>>,
 }
 
@@ -203,6 +220,78 @@ fn hide_studio(app: AppHandle) {
 }
 
 // ============================================
+// Data Retrieval Commands
+// ============================================
+
+/// Retrieves a raw context slice (image, xml, text) from the Kernel's SCS by Hash.
+#[tauri::command]
+async fn get_context_blob(
+    state: State<'_, Mutex<AppState>>,
+    hash: String,
+) -> Result<ContextBlob, String> {
+    
+    // Step 1: Check if we have a cached client. Use a scope to drop the lock immediately.
+    let cached_client = {
+        let s = state.lock().map_err(|_| "Failed to lock state")?;
+        s.rpc_client.clone()
+    };
+
+    // Step 2: If we have a client, use it. If not, connect (async) and then cache it.
+    let mut client = if let Some(c) = cached_client {
+        c
+    } else {
+        let channel = Channel::from_static("http://127.0.0.1:9000")
+            .connect()
+            .await
+            .map_err(|e| format!("Failed to connect to Kernel: {}", e))?;
+        let new_client = PublicApiClient::new(channel);
+
+        // Cache the new client
+        {
+            if let Ok(mut s) = state.lock() {
+                if s.rpc_client.is_none() {
+                    s.rpc_client = Some(new_client.clone());
+                }
+            }
+        }
+        new_client
+    };
+
+    // 3. Call gRPC (no lock held)
+    let request = tonic::Request::new(GetContextBlobRequest { blob_hash: hash });
+
+    let response = client
+        .get_context_blob(request)
+        .await
+        .map_err(|e| format!("RPC error: {}", e))?
+        .into_inner();
+
+    // 4. Convert bytes to Base64 for frontend
+    use base64::{engine::general_purpose::STANDARD, Engine as _};
+    let data_base64 = STANDARD.encode(&response.data);
+
+    // 5. Infer valid MIME type if kernel sent generic default
+    let mime_type = if response.mime_type == "application/octet-stream" {
+        if response.data.starts_with(b"\x89PNG") {
+            "image/png".to_string()
+        } else if response.data.starts_with(b"<") || response.data.starts_with(b"<?xml") {
+            "text/xml".to_string() // Accessibility Tree
+        } else if response.data.starts_with(b"{") || response.data.starts_with(b"[") {
+            "application/json".to_string()
+        } else {
+            "text/plain".to_string()
+        }
+    } else {
+        response.mime_type
+    };
+
+    Ok(ContextBlob {
+        data_base64,
+        mime_type,
+    })
+}
+
+// ============================================
 // Task Commands & Kernel Integration
 // ============================================
 
@@ -266,6 +355,31 @@ async fn monitor_kernel_events(app: AppHandle) {
                         t.current_step = thought.content.clone();
                         t.phase = AgentPhase::Running;
                         t.progress += 1;
+                        // [NEW] Update visual hash if present (non-empty string)
+                        if !thought.visual_hash.is_empty() {
+                            t.visual_hash = Some(thought.visual_hash.clone());
+                        }
+                    });
+                }
+
+                // [NEW] Ghost Mode Inputs
+                ChainEventEnum::Ghost(input) => {
+                    println!("[Autopilot] Ghost Input: [{}] {}", input.device, input.description);
+                    
+                    // Create serializable payload
+                    let payload = GhostInputEvent {
+                        device: input.device.clone(),
+                        description: input.description.clone(),
+                    };
+
+                    // Emit a specific event for the trace recorder UI (Store)
+                    let _ = app.emit("ghost-input", &payload);
+                    
+                    // Optionally update a "Ghost Recording" task state here for visual feedback on the pill
+                    update_task_state(&app, |t| {
+                        if matches!(t.phase, AgentPhase::Running) {
+                             t.current_step = format!("User Input: {}", input.description);
+                        }
                     });
                 }
 
@@ -277,7 +391,6 @@ async fn monitor_kernel_events(app: AppHandle) {
                             t.current_step = "Policy Gate: Approval Required".to_string();
                             t.gate_info = Some(GateInfo {
                                 title: "Restricted Action Intercepted".to_string(),
-                                // [FIX] Clone strings here too for the same reason
                                 description: format!(
                                     "Agent attempting to perform: {}",
                                     action.target
@@ -289,7 +402,6 @@ async fn monitor_kernel_events(app: AppHandle) {
                     } else if action.verdict == "BLOCK" {
                         update_task_state(&app, |t| {
                             t.phase = AgentPhase::Failed;
-                            // [FIX] Clone here too
                             t.current_step = format!("Blocked by Firewall: {}", action.reason);
                         });
                     }
@@ -297,7 +409,6 @@ async fn monitor_kernel_events(app: AppHandle) {
 
                 // Block Commit -> Confirm Progress
                 ChainEventEnum::Block(block) => {
-                    // Could update a global block height indicator here
                     println!(
                         "[Autopilot] Block #{} Committed (Root: {})",
                         block.height, block.state_root
@@ -412,6 +523,7 @@ fn start_task(
         current_step: "Transmitting intent to Kernel...".to_string(),
         gate_info: None,
         receipt: None,
+        visual_hash: None, // [NEW] Initialize
     };
 
     {
@@ -664,6 +776,7 @@ pub fn run() {
             complete_task,
             dismiss_task,
             get_current_task,
+            get_context_blob, // [NEW] Register the blob retrieval command
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

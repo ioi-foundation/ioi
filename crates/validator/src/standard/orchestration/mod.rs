@@ -32,7 +32,7 @@ use ioi_tx::unified::UnifiedTransactionModel;
 use ioi_types::{
     app::{
         account_id_from_key_material, AccountId, ChainTransaction, GuardianReport, SignHeader,
-        SignatureProof, SignatureSuite, SystemPayload, SystemTransaction,
+        SignatureProof, SignatureSuite, SystemPayload, SystemTransaction, Block,
     },
     codec,
     error::ValidatorError,
@@ -54,16 +54,16 @@ use tokio::{
     task::JoinHandle,
     time::{self, Duration, MissedTickBehavior},
 };
+use parity_scale_codec::{Decode, Encode};
 
 use crate::common::GuardianSigner;
 use crate::standard::orchestration::grpc_public::PublicApiImpl;
 use ioi_ipc::public::public_api_server::PublicApiServer;
 use tonic::transport::Server;
 
-// [FIX] Import from ioi_api directly
 use ioi_api::vm::inference::LocalSafetyModel;
-// [NEW] Import SCS
 use ioi_scs::SovereignContextStore;
+use crate::standard::orchestration::mempool::Mempool;
 
 // --- Submodule Declarations ---
 mod consensus;
@@ -71,16 +71,19 @@ mod context;
 mod gossip;
 mod grpc_public;
 mod ingestion;
-/// Transaction mempool logic.
+/// Transaction mempool logic for managing pending transactions.
 pub mod mempool;
 mod operator_tasks;
 mod oracle;
 mod peer_management;
 mod remote_state_view;
 mod sync;
-/// Logic for selecting the correct verifier based on features.
 pub mod verifier_select;
 mod view_resolver;
+
+// [NEW] Modules extracted during refactor
+mod events;
+mod finalize;
 
 use self::sync as sync_handlers;
 use crate::config::OrchestrationConfig;
@@ -89,6 +92,7 @@ use context::{ChainFor, MainLoopContext};
 use futures::FutureExt;
 use ingestion::{run_ingestion_worker, ChainTipInfo, IngestionConfig};
 use operator_tasks::run_oracle_operator_task;
+use events::handle_network_event; // Imported from new module
 
 /// A struct to hold the numerous dependencies for the Orchestrator.
 pub struct OrchestrationDependencies<CE, V> {
@@ -142,7 +146,7 @@ where
         + 'static
         + Debug,
     <CS as CommitmentScheme>::Proof:
-        Serialize + for<'de> serde::Deserialize<'de> + Clone + Send + Sync + 'static + Debug,
+        Serialize + for<'de> serde::Deserialize<'de> + Clone + Send + Sync + 'static + Debug + Encode + Decode,
     <CS as CommitmentScheme>::Commitment: Send + Sync + Debug,
 {
     config: OrchestrationConfig,
@@ -199,7 +203,7 @@ where
         + 'static
         + Debug,
     <CS as CommitmentScheme>::Proof:
-        Serialize + for<'de> serde::Deserialize<'de> + Clone + Send + Sync + 'static + Debug,
+        Serialize + for<'de> serde::Deserialize<'de> + Clone + Send + Sync + 'static + Debug + Encode + Decode,
     <CS as CommitmentScheme>::Commitment: Send + Sync + Debug,
 {
     /// Creates a new Orchestrator from its configuration and dependencies.
@@ -373,8 +377,10 @@ where
         mut kick_rx: mpsc::UnboundedReceiver<()>,
         mut shutdown_rx: watch::Receiver<bool>,
     ) {
+        eprintln!("[Consensus] Ticker task spawned. Acquiring context lock..."); // [DEBUG]
         let interval_secs = {
             let ctx = context_arc.lock().await;
+            eprintln!("[Consensus] Context lock acquired."); // [DEBUG]
             std::env::var("ORCH_BLOCK_INTERVAL_SECS")
                 .ok()
                 .and_then(|s| s.parse::<u64>().ok())
@@ -403,6 +409,7 @@ where
         loop {
             tokio::select! {
                 _ = ticker.tick() => {
+                    eprintln!("[Consensus] Timer Tick"); // [DEBUG]
                     let cause = "timer";
                     let is_quarantined = context_arc.lock().await.is_quarantined.load(Ordering::SeqCst);
                     if is_quarantined {
@@ -411,6 +418,7 @@ where
                     last_tick = tokio::time::Instant::now();
                     let result = AssertUnwindSafe(drive_consensus_tick(&context_arc, cause)).catch_unwind().await;
                     if let Err(e) = result.map_err(|e| anyhow!("Consensus tick panicked: {:?}", e)).and_then(|res| res) {
+                        eprintln!("[Consensus] Tick Error: {:?}", e); // [DEBUG]
                         tracing::error!(target: "consensus", "[Orch Tick] Consensus tick panicked: {:?}. Continuing loop.", e);
                     }
                 }
@@ -425,6 +433,7 @@ where
                     last_tick = tokio::time::Instant::now();
                     let result = AssertUnwindSafe(drive_consensus_tick(&context_arc, cause)).catch_unwind().await;
                      if let Err(e) = result.map_err(|e| anyhow!("Kicked consensus tick panicked: {:?}", e)).and_then(|res| res) {
+                        eprintln!("[Consensus] Kick Error: {:?}", e); // [DEBUG]
                         tracing::error!(target: "consensus", "[Orch Tick] Kicked panicked: {:?}.", e);
                     }
                 }
@@ -573,15 +582,60 @@ where
             })?
             .clone();
 
+        // --- NEW: Hydrate Chain Tip from Store ---
+        let mut initial_block = None;
+        match workload_client.get_status().await {
+            Ok(status) => {
+                if status.height > 0 {
+                    tracing::info!(target: "orchestration", "Recovering chain state from height {}", status.height);
+                    match workload_client.get_block_by_height(status.height).await {
+                        Ok(Some(block)) => {
+                            initial_block = Some(block);
+                            tracing::info!(target: "orchestration", "Hydrated last_committed_block (Height {})", status.height);
+                        }
+                        Ok(None) => {
+                            tracing::warn!(target: "orchestration", "Status says height {}, but block not found in store!", status.height);
+                        }
+                        Err(e) => {
+                            tracing::error!(target: "orchestration", "Failed to fetch head block: {}", e);
+                            return Err(ValidatorError::Other(e.to_string()));
+                        }
+                    }
+                }
+            }
+            Err(e) => {
+                // If we can't get status, we can't safely start consensus on a potentially existing chain.
+                return Err(ValidatorError::Other(format!(
+                    "Failed to get initial chain status: {}",
+                    e
+                )));
+            }
+        }
+        // ------------------------------------------
+
         let tx_model = Arc::new(UnifiedTransactionModel::new(self.scheme.clone()));
         let (tx_ingest_tx, tx_ingest_rx) = mpsc::channel(50_000);
-        let (tip_tx, tip_rx) = watch::channel(ChainTipInfo {
-            height: 0,
-            timestamp: 0,
-            gas_used: 0,
-            state_root: vec![],
-            genesis_root: self.genesis_hash.to_vec(),
-        });
+        
+        // Initialize tip_tx with the recovered state if available
+        let initial_tip = if let Some(b) = &initial_block {
+             ChainTipInfo {
+                height: b.header.height,
+                timestamp: b.header.timestamp,
+                gas_used: b.header.gas_used,
+                state_root: b.header.state_root.0.clone(),
+                genesis_root: self.genesis_hash.to_vec(),
+             }
+        } else {
+             ChainTipInfo {
+                height: 0,
+                timestamp: 0, // Should read genesis time? 0 is fine for bootstrap.
+                gas_used: 0,
+                state_root: vec![],
+                genesis_root: self.genesis_hash.to_vec(),
+             }
+        };
+
+        let (tip_tx, tip_rx) = watch::channel(initial_tip);
         let tx_status_cache = Arc::new(Mutex::new(LruCache::new(
             std::num::NonZeroUsize::new(100_000).unwrap(),
         )));
@@ -620,6 +674,10 @@ where
         let mut handles = self.task_handles.lock().await;
         handles.push(rpc_handle);
 
+        // [NEW] Event Broadcaster
+        let (event_tx, _event_rx) = tokio::sync::broadcast::channel(1000);
+
+        // Spawn Ingestion Worker (moved down to use clones)
         let ingestion_handle = tokio::spawn(run_ingestion_worker(
             tx_ingest_rx,
             workload_client.clone(),
@@ -632,6 +690,7 @@ where
             receipt_map.clone(),
             self.safety_model.clone(),
             IngestionConfig::default(),
+            event_tx.clone(), // [NEW] Pass the broadcaster
         ));
         handles.push(ingestion_handle);
 
@@ -697,9 +756,6 @@ where
             .await
             .insert(local_account_id, initial_nonce);
 
-        // [FIX] Create event broadcaster
-        let (event_tx, _event_rx) = tokio::sync::broadcast::channel(1000);
-
         let context = MainLoopContext::<CS, ST, CE, V> {
             chain_ref: chain,
             tx_pool_ref: self.tx_pool.clone(),
@@ -715,18 +771,20 @@ where
             genesis_hash: self.genesis_hash,
             is_quarantined: self.is_quarantined.clone(),
             pending_attestations: std::collections::HashMap::new(),
-            last_committed_block: None,
+            // --- MODIFIED: Use the recovered block ---
+            last_committed_block: initial_block,
+            // -----------------------------------------
             consensus_kick_tx: self.consensus_kick_tx.clone(),
             sync_progress: None,
             nonce_manager: self.nonce_manager.clone(),
             signer: self.signer.clone(),
             batch_verifier: self.batch_verifier.clone(),
-            tx_status_cache,
+            tx_status_cache: tx_status_cache.clone(),
             tip_sender: tip_tx,
-            receipt_map,
+            receipt_map: receipt_map.clone(),
             safety_model: self.safety_model.clone(),
-            scs: self.scs.clone(), // [NEW] Pass the SCS handle
-            event_broadcaster: event_tx, // [NEW] Pass the event broadcaster
+            scs: self.scs.clone(),
+            event_broadcaster: event_tx,
         };
 
         let mut receiver_opt = self.network_event_receiver.lock().await;
@@ -747,6 +805,7 @@ where
         };
 
         let shutdown_rx = self.shutdown_sender.subscribe();
+
         handles.push(tokio::spawn(Self::run_consensus_ticker(
             context_arc.clone(),
             ticker_kick_rx,
@@ -810,7 +869,7 @@ where
         + 'static
         + Debug,
     <CS as CommitmentScheme>::Proof:
-        Serialize + for<'de> serde::Deserialize<'de> + Clone + Send + Sync + 'static + Debug,
+        Serialize + for<'de> serde::Deserialize<'de> + Clone + Send + Sync + 'static + Debug + Encode + Decode, // [FIX] Added Encode + Decode
     <CS as CommitmentScheme>::Commitment: Send + Sync + Debug,
 {
     fn id(&self) -> &'static str {
@@ -827,167 +886,5 @@ where
 
     async fn stop(&self) -> Result<(), ValidatorError> {
         self.stop_internal().await
-    }
-}
-
-async fn handle_network_event<CS, ST, CE, V>(
-    event: NetworkEvent,
-    context_arc: &Arc<Mutex<MainLoopContext<CS, ST, CE, V>>>,
-) where
-    CS: CommitmentScheme + Clone + Send + Sync + 'static,
-    <CS as CommitmentScheme>::Proof:
-        Serialize + for<'de> serde::Deserialize<'de> + Clone + Send + Sync + 'static + Debug,
-    ST: StateManager<Commitment = CS::Commitment, Proof = CS::Proof>
-        + Send
-        + Sync
-        + 'static
-        + Debug
-        + Clone,
-    <CS as CommitmentScheme>::Commitment: Send + Sync + Debug,
-    CE: ConsensusEngine<ChainTransaction> + Send + Sync + 'static,
-    V: Verifier<Commitment = CS::Commitment, Proof = CS::Proof>
-        + Clone
-        + Send
-        + Sync
-        + 'static
-        + Debug,
-{
-    match event {
-        NetworkEvent::GossipTransaction(tx) => {
-            let tx_hash = match tx.hash() {
-                Ok(h) => h,
-                Err(e) => {
-                    tracing::warn!(target: "gossip", "Failed to hash gossiped transaction: {}", e);
-                    return;
-                }
-            };
-
-            let (tx_pool_ref, kick_tx) = {
-                let ctx = context_arc.lock().await;
-                (ctx.tx_pool_ref.clone(), ctx.consensus_kick_tx.clone())
-            };
-
-            let tx_info = match tx.as_ref() {
-                ChainTransaction::System(s) => Some((s.header.account_id, s.header.nonce)),
-                ChainTransaction::Settlement(s) => Some((s.header.account_id, s.header.nonce)),
-                ChainTransaction::Application(a) => match a {
-                    ioi_types::app::ApplicationTransaction::DeployContract { header, .. } => {
-                        Some((header.account_id, header.nonce))
-                    }
-                    ioi_types::app::ApplicationTransaction::CallContract { header, .. } => {
-                        Some((header.account_id, header.nonce))
-                    }
-                },
-                _ => None,
-            };
-
-            {
-                tx_pool_ref.add(*tx, tx_hash, tx_info, 0);
-                log::debug!("[Orchestrator] Mempool size is now {}", tx_pool_ref.len());
-                let _ = kick_tx.send(());
-            }
-        }
-        NetworkEvent::GossipBlock { block, mirror_id } => {
-            let node_state = { context_arc.lock().await.node_state.lock().await.clone() };
-            if node_state == NodeState::Syncing {
-                tracing::debug!(
-                    target: "gossip",
-                    event = "block_ignored",
-                    height = block.header.height,
-                    reason = "Node is currently syncing"
-                );
-                return;
-            }
-
-            let (our_ed_id, our_pqc_id_opt, kick_tx) = {
-                let ctx = context_arc.lock().await;
-
-                let ed_pk = ctx.local_keypair.public().encode_protobuf();
-                let ed_id = account_id_from_key_material(SignatureSuite::ED25519, &ed_pk)
-                    .unwrap_or_default();
-
-                let pqc_id_opt = ctx.pqc_signer.as_ref().map(|kp| {
-                    let pqc_pk: Vec<u8> = SigningKeyPair::public_key(kp).to_bytes();
-                    account_id_from_key_material(SignatureSuite::ML_DSA_44, &pqc_pk)
-                        .unwrap_or_default()
-                });
-
-                (ed_id, pqc_id_opt, ctx.consensus_kick_tx.clone())
-            };
-
-            let producer_id = block.header.producer_pubkey_hash;
-            let is_ours = producer_id == our_ed_id
-                || our_pqc_id_opt
-                    .map(|id: [u8; 32]| id == producer_id)
-                    .unwrap_or(false);
-
-            if is_ours {
-                tracing::info!(target: "orchestration",
-                    "[Orchestrator] Skipping verification of our own gossiped block #{}.",
-                    block.header.height
-                );
-                let _ = kick_tx.send(());
-                return;
-            }
-
-            let mut ctx = context_arc.lock().await;
-            gossip::handle_gossip_block(&mut ctx, block, mirror_id).await
-        }
-        NetworkEvent::ConnectionEstablished(peer_id) => {
-            let mut ctx = context_arc.lock().await;
-            peer_management::handle_connection_established(&mut ctx, peer_id).await
-        }
-        NetworkEvent::ConnectionClosed(peer_id) => {
-            let mut ctx = context_arc.lock().await;
-            peer_management::handle_connection_closed(&mut ctx, peer_id).await
-        }
-        NetworkEvent::StatusRequest(peer, channel) => {
-            let mut ctx = context_arc.lock().await;
-            sync_handlers::handle_status_request(&mut ctx, peer, channel).await
-        }
-        NetworkEvent::BlocksRequest {
-            peer,
-            since,
-            max_blocks,
-            max_bytes,
-            channel,
-        } => {
-            let mut ctx = context_arc.lock().await;
-            sync_handlers::handle_blocks_request(
-                &mut ctx, peer, since, max_blocks, max_bytes, channel,
-            )
-            .await
-        }
-        NetworkEvent::StatusResponse {
-            peer,
-            height,
-            head_hash,
-            chain_id,
-            genesis_root,
-        } => {
-            let mut ctx = context_arc.lock().await;
-            sync_handlers::handle_status_response(
-                &mut ctx,
-                peer,
-                height,
-                head_hash,
-                chain_id,
-                genesis_root,
-            )
-            .await
-        }
-        NetworkEvent::BlocksResponse(peer, blocks) => {
-            let mut ctx = context_arc.lock().await;
-            sync_handlers::handle_blocks_response(&mut ctx, peer, blocks).await
-        }
-        NetworkEvent::OracleAttestationReceived { from, attestation } => {
-            let mut ctx = context_arc.lock().await;
-            oracle::handle_oracle_attestation_received(&mut ctx, from, attestation).await
-        }
-        NetworkEvent::OutboundFailure(peer) => {
-            let mut ctx = context_arc.lock().await;
-            sync_handlers::handle_outbound_failure(&mut ctx, peer).await
-        }
-        _ => {}
     }
 }

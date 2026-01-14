@@ -137,7 +137,7 @@ pub struct ZkConfig {
 }
 
 /// Configuration for an AI Inference Runtime.
-#[derive(Debug, Serialize, Deserialize, Clone, Default)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct InferenceConfig {
     /// The provider type: "mock", "local" (e.g. llama.cpp), or "openai" (external).
     #[serde(default = "default_inference_provider")]
@@ -154,6 +154,18 @@ pub struct InferenceConfig {
 
     /// The connector to use for this provider.
     pub connector_ref: Option<String>,
+}
+
+impl Default for InferenceConfig {
+    fn default() -> Self {
+        Self {
+            provider: default_inference_provider(),
+            api_url: None,
+            api_key: None,
+            model_name: None,
+            connector_ref: None,
+        }
+    }
 }
 
 fn default_inference_provider() -> String {

@@ -28,9 +28,19 @@ export interface AgentTask {
   receipt?: Receipt;
 }
 
+// [NEW] Ghost Mode Trace Step
+export interface GhostStep {
+  device: string;
+  description: string;
+  timestamp: number;
+}
+
 interface AgentStore {
   task: AgentTask | null;
   receipts: Receipt[];
+  // [NEW] Ghost Mode Trace
+  ghostTrace: GhostStep[];
+  
   startTask: (intent: string) => Promise<AgentTask | null>;
   updateTask: (task: AgentTask) => void;
   dismissTask: () => Promise<void>;
@@ -38,11 +48,16 @@ interface AgentStore {
   hideSpotlight: () => Promise<void>;
   showStudio: () => Promise<void>;
   resizePill: (expanded: boolean) => Promise<void>;
+  
+  // [NEW] Ghost Mode Actions
+  addGhostStep: (step: GhostStep) => void;
+  clearGhostTrace: () => void;
 }
 
 export const useAgentStore = create<AgentStore>((set) => ({
   task: null,
   receipts: [],
+  ghostTrace: [],
 
   startTask: async (intent: string): Promise<AgentTask | null> => {
     try {
@@ -66,6 +81,10 @@ export const useAgentStore = create<AgentStore>((set) => ({
   hideSpotlight: async () => invoke("hide_spotlight"),
   showStudio: async () => invoke("show_studio"),
   resizePill: async (expanded: boolean) => invoke("resize_pill", { expanded }),
+
+  // [NEW] Ghost Mode Implementation
+  addGhostStep: (step) => set((state) => ({ ghostTrace: [...state.ghostTrace, step] })),
+  clearGhostTrace: () => set({ ghostTrace: [] }),
 }));
 
 export async function initEventListeners() {
@@ -73,6 +92,15 @@ export async function initEventListeners() {
   await listen<AgentTask>("task-updated", (e) => useAgentStore.getState().updateTask(e.payload));
   await listen<AgentTask>("task-completed", (e) => useAgentStore.getState().updateTask(e.payload));
   await listen("task-dismissed", () => useAgentStore.setState({ task: null }));
+
+  // [NEW] Listen for Ghost Inputs
+  await listen("ghost-input", (e: any) => {
+      useAgentStore.getState().addGhostStep({
+          device: e.payload.device,
+          description: e.payload.description,
+          timestamp: Date.now()
+      });
+  });
 
   // Load current task
   try {

@@ -31,3 +31,6 @@ ioi-types = { path = "../../../crates/types" }
 
 # [NEW] Add tonic dependency for gRPC client
 tonic = { version = "0.11", features = ["transport"] }
+
+# [FIX] Add base64 dependency
+base64 = "0.21"

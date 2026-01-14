@@ -1,5 +1,4 @@
 // Path: crates/storage/src/redb_epoch_store.rs
-
 use crate::metrics::metrics;
 use crate::wal::{StateDiff, WalWriter};
 use async_trait::async_trait;
@@ -14,6 +13,7 @@ use std::path::Path;
 use std::sync::{Arc, RwLock};
 use std::thread;
 use tokio::sync::{mpsc, Mutex};
+use tracing; // [FIX] Added import
 
 /// ---- Table definitions (single DB, prefix-encoded keys) ----
 /// Global - Keys are fixed-size arrays
@@ -91,6 +91,8 @@ pub struct RedbEpochStore {
     memtable: Arc<RwLock<HashMap<NodeHash, Vec<u8>>>>,
     // Pending roots cache for read-your-writes consistency on height_for_root
     pending_roots: Arc<RwLock<HashMap<RootHash, Height>>>,
+    // Pending blocks cache for read-your-writes consistency on get_block_by_height
+    pending_blocks: Arc<RwLock<HashMap<Height, Vec<u8>>>>,
     // Channel for sending commits to background thread with backpressure
     tx_sender: mpsc::Sender<PersistenceOp>,
     // Background flusher handle
@@ -140,15 +142,18 @@ impl RedbEpochStore {
         let (tx, mut rx) = mpsc::channel::<PersistenceOp>(1024);
         let memtable = Arc::new(RwLock::new(HashMap::new()));
         let pending_roots = Arc::new(RwLock::new(HashMap::new()));
+        let pending_blocks = Arc::new(RwLock::new(HashMap::new()));
         let db_arc = Arc::new(db);
 
         let db_clone = db_arc.clone();
         let memtable_clone = memtable.clone();
         let pending_roots_clone = pending_roots.clone();
+        let pending_blocks_clone = pending_blocks.clone();
         let epoch_size_clone = epoch_size;
         let wal_clone = wal_arc.clone(); // Clone WAL for thread
 
         let handle = thread::spawn(move || {
+            eprintln!("[Storage] Background persistence thread started"); // [DEBUG]
             while let Some(op) = rx.blocking_recv() {
                 match op {
                     PersistenceOp::CommitState(commit) => {
@@ -165,7 +170,7 @@ impl RedbEpochStore {
                         // 2. Write to WAL in background (offloading sync I/O)
                         if let Err(e) = wal_clone.append_block(commit.height, commit.root.0, &diff)
                         {
-                            eprintln!("Async WAL Write Failed: {}", e);
+                            eprintln!("[Storage] Async WAL Write Failed: {}", e);
                         }
 
                         let epoch = if epoch_size_clone == 0 {
@@ -224,7 +229,7 @@ impl RedbEpochStore {
                         })();
 
                         if let Err(e) = write_res {
-                            eprintln!("Async DB Write Failed (State): {}", e);
+                            eprintln!("[Storage] Async DB Write Failed (State): {}", e);
                         }
 
                         // Cleanup memtable
@@ -253,11 +258,17 @@ impl RedbEpochStore {
                         })();
 
                         if let Err(e) = write_res {
-                            eprintln!("Async DB Write Failed (Block): {}", e);
+                            eprintln!("[Storage] Async DB Write Failed (Block): {}", e);
+                        }
+                        // Cleanup pending_blocks
+                        {
+                            let mut guard = pending_blocks_clone.write().unwrap();
+                            guard.remove(&height);
                         }
                     }
                 }
             }
+            eprintln!("[Storage] Background persistence thread exiting"); // [DEBUG]
         });
 
         Ok(Self {
@@ -266,6 +277,7 @@ impl RedbEpochStore {
             _wal: wal_arc,
             memtable,
             pending_roots,
+            pending_blocks,
             tx_sender: tx,
             _flusher_handle: Arc::new(Mutex::new(Some(handle))),
         })
@@ -500,6 +512,12 @@ impl NodeStore for RedbEpochStore {
     }
 
     async fn put_block(&self, height: u64, block_bytes: &[u8]) -> Result<(), StorageError> {
+        // Cache synchronously for read-your-writes
+        {
+            let mut guard = self.pending_blocks.write().unwrap();
+            guard.insert(height, block_bytes.to_vec());
+        }
+
         // Offload block write to the same background thread to avoid lock contention.
         let op = PersistenceOp::WriteBlock(height, block_bytes.to_vec());
 
@@ -515,6 +533,17 @@ impl NodeStore for RedbEpochStore {
         &self,
         height: u64,
     ) -> Result<Option<Block<ChainTransaction>>, StorageError> {
+        // 1. Check Pending
+        {
+            let guard = self.pending_blocks.read().unwrap();
+            if let Some(bytes) = guard.get(&height) {
+                let block =
+                    codec::from_bytes_canonical(bytes).map_err(|e| StorageError::Decode(e))?;
+                return Ok(Some(block));
+            }
+        }
+
+        // 2. Check DB
         let r = self.read_txn()?;
         let table = r
             .open_table(BLOCKS)
@@ -545,26 +574,40 @@ impl NodeStore for RedbEpochStore {
             .map_err(|e| StorageError::Backend(e.to_string()))?;
         let mut blocks = Vec::new();
         let mut current_bytes: u32 = 0;
-        let range_start = start.to_be_bytes();
-        let range = table
-            .range::<&[u8; 8]>(&range_start..)
-            .map_err(|e| StorageError::Backend(e.to_string()))?;
 
-        for result in range {
-            if blocks.len() >= limit as usize {
-                break;
-            }
-            let (_key, value) = result.map_err(|e| StorageError::Backend(e.to_string()))?;
-            let block_bytes = value.value();
+        for i in 0..limit {
+            let h = start + i as u64;
 
-            if current_bytes + (block_bytes.len() as u32) > max_bytes && !blocks.is_empty() {
+            // Check pending first
+            let block_opt = {
+                let guard = self.pending_blocks.read().unwrap();
+                guard.get(&h).cloned()
+            };
+
+            let block_bytes = if let Some(b) = block_opt {
+                b
+            } else {
+                // Check DB
+                if let Some(v) = table
+                    .get(&h.to_be_bytes())
+                    .map_err(|e| StorageError::Backend(e.to_string()))?
+                {
+                    v.value().to_vec()
+                } else {
+                    // End of chain or gap
+                    break;
+                }
+            };
+
+            let len = block_bytes.len() as u32;
+            if current_bytes + len > max_bytes && !blocks.is_empty() {
                 break;
             }
 
             let block: Block<ChainTransaction> =
-                codec::from_bytes_canonical(block_bytes).map_err(|e| StorageError::Decode(e))?;
+                codec::from_bytes_canonical(&block_bytes).map_err(|e| StorageError::Decode(e))?;
 
-            current_bytes += block_bytes.len() as u32;
+            current_bytes += len;
             blocks.push(block);
         }
         Ok(blocks)

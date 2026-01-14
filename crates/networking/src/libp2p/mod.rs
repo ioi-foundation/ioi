@@ -446,6 +446,7 @@ impl Libp2pSync {
         event_sender: mpsc::Sender<SwarmInternalEvent>,
         mut shutdown_receiver: watch::Receiver<bool>,
     ) {
+        eprintln!("[Network] Swarm loop started."); // [DEBUG]
         // DEFINE MIRROR TOPICS FOR A-DMFT
         let block_topic_a = gossipsub::IdentTopic::new("blocks_mirror_a");
         let block_topic_b = gossipsub::IdentTopic::new("blocks_mirror_b");

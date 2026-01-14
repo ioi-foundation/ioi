@@ -16,7 +16,7 @@ ioi-macros = { path = "../macros" }
 ioi-vm-wasm = { path = "../vm/wasm" }
 # Add Wasmtime for component instantiation in light clients
 wasmtime = { version = "21.0.0", features = ["component-model", "async"] }
-ioi-scs = { path = "../scs" }                                              # [NEW] Added dependency on SCS
+ioi-scs = { path = "../scs" }
 
 log = { workspace = true }
 tracing = { workspace = true }
@@ -36,10 +36,11 @@ prost = { workspace = true }
 byte-slice-cast = "1.2"
 bincode = { workspace = true }
 dcrypt = { workspace = true }
-# [FIX] Added tokio dependency for broadcast channels
 tokio = { workspace = true, features = ["sync"] }
+# [FIX] Added rand dependency
+rand = { workspace = true }
 
-# [NEW] Visual Perceptual Hashing for Desktop Agent
+# Visual Perceptual Hashing for Desktop Agent
 image = "0.25"
 image_hasher = "2.0"
 

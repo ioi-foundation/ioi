@@ -32,6 +32,7 @@ use std::collections::HashSet;
 use std::fmt::Debug;
 use std::sync::Arc;
 use tokio::sync::{mpsc, Mutex};
+use parity_scale_codec::{Decode, Encode}; // [FIX] Added imports
 
 use crate::common::GuardianSigner;
 
@@ -58,8 +59,9 @@ where
         + Debug,
     <CS as CommitmentScheme>::Commitment: Send + Sync + Debug,
     <CS as CommitmentScheme>::Proof:
-        Serialize + for<'de> serde::Deserialize<'de> + Clone + Send + Sync + 'static + Debug,
+        Serialize + for<'de> serde::Deserialize<'de> + Clone + Send + Sync + 'static + Debug + Encode + Decode, // [FIX] Added Encode + Decode
 {
+    eprintln!("[Consensus] Drive Tick: {}", cause); // [DEBUG]
     let _tick_timer = ioi_telemetry::time::Timer::new(metrics());
 
     let (
@@ -100,7 +102,8 @@ where
         .map_or(0, |b: &Block<ChainTransaction>| b.header.height); // [FIX] explicit type
     let producing_h = parent_h + 1;
 
-    tracing::debug!(target: "consensus", event = "tick", %cause, ?node_state, parent_h, producing_h);
+    // [CHANGED] Elevated to INFO for visibility
+    tracing::info!(target: "consensus", event = "tick_start", %cause, ?node_state, parent_h, producing_h);
 
     let consensus_allows_bootstrap = matches!(
         cons_ty,
@@ -121,8 +124,14 @@ where
         .map_err(|e| anyhow!("[Consensus Tick] failed to derive local account id: {e}"))?,
     );
 
-    let (parent_ref, _parent_anchor) =
-        resolve_parent_ref_and_anchor(&last_committed_block_opt, view_resolver.as_ref()).await?;
+    // [DEBUG] Add detailed logging for view resolution failures
+    let (parent_ref, _parent_anchor) = match resolve_parent_ref_and_anchor(&last_committed_block_opt, view_resolver.as_ref()).await {
+        Ok(v) => v,
+        Err(e) => {
+            tracing::error!(target: "consensus", event = "view_resolve_fail", error = %e);
+            return Err(e);
+        }
+    };
 
     let decision = {
         let parent_view = view_resolver.resolve_anchored(&parent_ref).await?;
@@ -225,36 +234,44 @@ where
             transactions: valid_txs.clone(),
         };
 
-        if let Ok((final_block, _)) = view_resolver
+        // [FIX] Log errors from process_block using match
+        match view_resolver
             .workload_client()
             .process_block(new_block_template)
             .await
         {
-            if final_block.transactions.len() < valid_txs.len() {
-                let included_hashes: HashSet<TxHash> = final_block
-                    .transactions
-                    .iter()
-                    // [FIX] Explicit type for filter_map
-                    .filter_map(|tx: &ChainTransaction| tx.hash().ok())
-                    .collect();
-                for tx in valid_txs {
-                    if let Ok(h) = tx.hash() {
-                        if !included_hashes.contains(&h) {
-                            tx_pool_ref.remove_by_hash(&h);
+            Ok((final_block, _)) => {
+                if final_block.transactions.len() < valid_txs.len() {
+                    let included_hashes: HashSet<TxHash> = final_block
+                        .transactions
+                        .iter()
+                        // [FIX] Explicit type for filter_map
+                        .filter_map(|tx: &ChainTransaction| tx.hash().ok())
+                        .collect();
+                    for tx in valid_txs {
+                        if let Ok(h) = tx.hash() {
+                            if !included_hashes.contains(&h) {
+                                tx_pool_ref.remove_by_hash(&h);
+                            }
                         }
                     }
                 }
+                // [FIX] Explicitly call finalize function from super::finalize
+                crate::standard::orchestration::finalize::finalize_and_broadcast_block(
+                    context_arc,
+                    final_block,
+                    signer,
+                    &swarm_commander,
+                    &consensus_engine_ref,
+                    &tx_pool_ref,
+                    &node_state_arc,
+                )
+                .await?;
             }
-            finalize_and_broadcast_block(
-                context_arc,
-                final_block,
-                signer,
-                &swarm_commander,
-                &consensus_engine_ref,
-                &tx_pool_ref,
-                &node_state_arc,
-            )
-            .await?;
+            Err(e) => {
+                tracing::error!(target: "consensus", "Block processing failed: {}", e);
+                return Err(anyhow!("Block processing failed: {}", e));
+            }
         }
     }
     Ok(())
@@ -337,111 +354,4 @@ fn verify_batch_and_filter(
         }
     }
     Ok(valid_txs)
-}
-
-async fn finalize_and_broadcast_block<CS, ST, CE, V>(
-    context_arc: &Arc<Mutex<MainLoopContext<CS, ST, CE, V>>>,
-    mut final_block: Block<ChainTransaction>,
-    signer: Arc<dyn GuardianSigner>,
-    swarm_commander: &mpsc::Sender<SwarmCommand>,
-    consensus_engine_ref: &Arc<Mutex<CE>>,
-    tx_pool: &Arc<Mempool>,
-    node_state_arc: &Arc<Mutex<NodeState>>,
-) -> Result<()>
-where
-    CS: CommitmentScheme + Clone + Send + Sync + 'static,
-    ST: StateManager<Commitment = CS::Commitment, Proof = CS::Proof>
-        + Send
-        + Sync
-        + 'static
-        + Debug
-        + Clone,
-    CE: ConsensusEngine<ChainTransaction> + Send + Sync + 'static,
-    V: Verifier<Commitment = CS::Commitment, Proof = CS::Proof>
-        + Clone
-        + Send
-        + Sync
-        + 'static
-        + Debug,
-    <CS as CommitmentScheme>::Proof:
-        Serialize + for<'de> serde::Deserialize<'de> + Clone + Send + Sync + 'static + Debug,
-    <CS as CommitmentScheme>::Commitment: Send + Sync + Debug,
-{
-    let block_height = final_block.header.height;
-    let preimage = final_block.header.to_preimage_for_signing()?;
-    let preimage_hash = ioi_crypto::algorithms::hash::sha256(&preimage)?;
-
-    let bundle = signer.sign_consensus_payload(preimage_hash).await?;
-    final_block.header.signature = bundle.signature;
-    final_block.header.oracle_counter = bundle.counter;
-    final_block.header.oracle_trace_hash = bundle.trace_hash;
-
-    {
-        let view_resolver = context_arc.lock().await.view_resolver.clone();
-        view_resolver
-            .workload_client()
-            .update_block_header(final_block.clone())
-            .await?;
-    }
-
-    {
-        let ctx = context_arc.lock().await;
-        let receipt_guard = ctx.receipt_map.lock().await;
-        let mut status_guard = ctx.tx_status_cache.lock().await;
-
-        for tx in &final_block.transactions {
-            if let Ok(h) = tx.hash() {
-                if let Some(receipt_hex) = receipt_guard.peek(&h) {
-                    if let Some(entry) = status_guard.get_mut(receipt_hex) {
-                        entry.status = TxStatus::Committed;
-                        entry.block_height = Some(block_height);
-                    }
-                }
-            }
-        }
-    }
-
-    {
-        let mut ctx = context_arc.lock().await;
-        ctx.last_committed_block = Some(final_block.clone());
-        let _ = ctx.tip_sender.send(ChainTipInfo {
-            height: block_height,
-            timestamp: final_block.header.timestamp,
-            gas_used: final_block.header.gas_used,
-            state_root: final_block.header.state_root.0.clone(),
-            genesis_root: ctx.genesis_hash.to_vec(),
-        });
-    }
-
-    // [FIX] Map the String error to anyhow::Error
-    let data = codec::to_bytes_canonical(&final_block).map_err(|e| anyhow!(e))?;
-    let _ = swarm_commander.send(SwarmCommand::PublishBlock(data)).await;
-
-    // [FIX] Pass immutable reference to prune_mempool
-    if let Err(e) = prune_mempool(tx_pool, &final_block) {
-        tracing::error!(target: "consensus", event = "mempool_prune_fail", error=%e);
-    }
-
-    consensus_engine_ref.lock().await.reset(block_height);
-
-    let mut ns = node_state_arc.lock().await;
-    if *ns == NodeState::Syncing {
-        *ns = NodeState::Synced;
-    }
-
-    // [NEW] Loud Log
-    if !final_block.transactions.is_empty() {
-        tracing::info!(
-            target: "consensus",
-            "🧱 BLOCK #{} COMMITTED | Tx Count: {} | State Root: 0x{}",
-            final_block.header.height,
-            final_block.transactions.len(),
-            hex::encode(&final_block.header.state_root.0[..4]) // First 4 bytes for brevity
-        );
-    } else {
-        // Optional: Log empty blocks at debug level to keep noise down
-        tracing::debug!(target: "consensus", "Committed empty block #{}", final_block.header.height);
-    }
-
-    Ok(())
 }

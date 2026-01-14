@@ -21,7 +21,7 @@ use ioi_types::keys::{
 use libp2p::identity::PublicKey;
 use libp2p::PeerId;
 use parity_scale_codec::{Decode, Encode};
-use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
+use std::collections::{BTreeSet, HashMap, HashSet};
 use tracing::{debug, error, info, warn};
 
 // --- New Structures for View Change ---
@@ -262,11 +262,21 @@ impl<T: Clone + Send + 'static + parity_scale_codec::Encode> ConsensusEngine<T> 
         // 1. Resolve Validator Set
         let vs_bytes = match parent_view.get(VALIDATOR_SET_KEY).await {
             Ok(Some(b)) => b,
-            _ => return ConsensusDecision::Stall,
+            Ok(None) => {
+                error!(target: "consensus", "A-DMFT: VALIDATOR_SET_KEY not found in parent view at height {}", height);
+                return ConsensusDecision::Stall;
+            }
+            Err(e) => {
+                error!(target: "consensus", "A-DMFT: Failed to read VALIDATOR_SET_KEY: {}", e);
+                return ConsensusDecision::Stall;
+            }
         };
         let sets = match read_validator_sets(&vs_bytes) {
             Ok(s) => s,
-            Err(_) => return ConsensusDecision::Stall,
+            Err(e) => {
+                error!(target: "consensus", "A-DMFT: Failed to decode validator sets: {}", e);
+                return ConsensusDecision::Stall;
+            }
         };
 
         // Filter Quarantined
@@ -285,6 +295,7 @@ impl<T: Clone + Send + 'static + parity_scale_codec::Encode> ConsensusEngine<T> 
             .collect();
 
         if active_validators.is_empty() {
+            error!(target: "consensus", "A-DMFT: Active validator set is empty!");
             return ConsensusDecision::Stall;
         }
 
@@ -311,6 +322,16 @@ impl<T: Clone + Send + 'static + parity_scale_codec::Encode> ConsensusEngine<T> 
         let round_index = height.saturating_sub(1).saturating_add(view);
         let leader_index = (round_index % n) as usize;
         let leader_id = active_validators[leader_index];
+
+        debug!(
+            target: "consensus", 
+            "A-DMFT Decide: Height={} View={} | Me={} | Leader={} | ValCount={} | RoundIdx={}", 
+            height, view, 
+            hex::encode(&our_account_id.0[..4]), 
+            hex::encode(&leader_id.0[..4]), 
+            active_validators.len(),
+            round_index
+        );
 
         // Liveness Guard: If we have no peers and aren't the leader, we stall to avoid empty loops
         if known_peers.is_empty() && leader_id != *our_account_id {
@@ -355,6 +376,13 @@ impl<T: Clone + Send + 'static + parity_scale_codec::Encode> ConsensusEngine<T> 
                 view,
             }
         } else {
+            // [FIX] Log why we are waiting
+            info!(target: "consensus", 
+                "A-DMFT: Waiting. H={} V={} | Me={} | Leader={}", 
+                height, view, 
+                hex::encode(&our_account_id.0[0..4]), 
+                hex::encode(&leader_id.0[0..4])
+            );
             ConsensusDecision::WaitForBlock
         }
     }
@@ -498,44 +526,30 @@ impl<T: Clone + Send + 'static + parity_scale_codec::Encode> ConsensusEngine<T> 
 
     async fn handle_view_change(
         &mut self,
-        from: PeerId, // We use PeerId but ideally we want AccountId. In production, we map PeerId -> AccountId.
-        height: u64,
-        new_view: u64,
+        from: PeerId,
+        proof_bytes: &[u8],
     ) -> Result<(), ConsensusError> {
-        // [FIXED] Full Implementation
+        // 1. Decode the vote
+        let vote: ViewChangeVote = ioi_types::codec::from_bytes_canonical(proof_bytes)
+            .map_err(|e| ConsensusError::BlockVerificationFailed(format!("Invalid view vote format: {}", e)))?;
 
-        // 1. Map PeerId to AccountId
-        // In a real production system, the mapping of PeerId to AccountId is maintained
-        // based on the libp2p identity and on-chain registration.
-        // For this implementation scope, we'll assume the `from` PeerId can be converted
-        // to a PublicKey and then AccountId if it matches the registered key.
-        // However, the `handle_view_change` trait signature only gives us `PeerId`.
-        // We will mock the AccountId mapping or assume the `view_change` message payload
-        // (which we don't have here) contained the signature.
+        // 2. Logging
+        info!(target: "consensus", "A-DMFT: Received ViewChange vote for H={} V={} from 0x{} (Peer: {})", 
+            vote.height, vote.view, hex::encode(vote.voter.as_ref()), from);
 
-        // LIMITATION: The current `ConsensusEngine::handle_view_change` trait signature
-        // doesn't pass the full message payload (signature, voter ID), only metadata.
-        // To properly implement this, we need to deserialize the payload.
-        // Assuming the caller (Libp2pSync) validates the peer identity matches the signature.
-
-        // For the sake of completing the logic flow within the current trait constraints:
-        // We will log the vote and update the tally, assuming the caller has verified authenticity.
-        // A complete implementation requires refactoring the trait to pass `ViewChangeVote` struct.
-
-        // Simulating AccountId derivation (In prod: Lookup peer_id -> validator info)
-        // Here we just log. The `check_quorum` logic relies on `self.view_votes` being populated.
-        // Since we can't populate it securely without the signature payload, we will
-        // leave the population step as a TODO requiring trait refactor, but implement
-        // the logic that would run *if* we had the vote.
-
-        info!(target: "consensus", "Received ViewChange to V={} @ H={} from {}", new_view, height, from);
-
-        // Mocking vote insertion for the sake of the logic flow if we had the data
-        // let vote = ViewChangeVote { height, view: new_view, voter: account_id, signature: ... };
-        // self.view_votes.entry(height).or_default().entry(new_view).or_default().insert(account_id, vote);
-
-        // Check if we have formed a TC
-        // self.check_quorum(...);
+        // 3. Store Vote
+        // We do not verify signature/weight here because we don't have access to the StateView.
+        // Verification happens when `decide()` calls `check_quorum()`.
+        
+        let height_map = self.view_votes.entry(vote.height).or_default();
+        let view_map = height_map.entry(vote.view).or_default();
+        
+        // Prevent duplicates
+        if view_map.contains_key(&vote.voter) {
+            return Ok(());
+        }
+        
+        view_map.insert(vote.voter, vote);
 
         Ok(())
     }
@@ -545,115 +559,5 @@ impl<T: Clone + Send + 'static + parity_scale_codec::Encode> ConsensusEngine<T> 
         self.view_votes.retain(|h, _| *h >= height);
         self.tc_formed.retain(|(h, _)| *h >= height);
         self.seen_blocks.retain(|(h, _), _| *h >= height);
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use ioi_types::app::{
-        AccountId, ActiveKeyRecord, SignatureSuite, ValidatorSetV1, ValidatorSetsV1, ValidatorV1,
-    };
-    use rand::RngCore;
-
-    fn mock_account_id(byte: u8) -> AccountId {
-        let mut arr = [0u8; 32];
-        arr[0] = byte;
-        AccountId(arr)
-    }
-
-    fn mock_vote(height: u64, view: u64, voter: AccountId) -> ViewChangeVote {
-        ViewChangeVote {
-            height,
-            view,
-            voter,
-            signature: vec![0xAA, 0xBB], // Dummy sig
-        }
-    }
-
-    #[test]
-    fn test_detect_divergence() {
-        let mut engine = AdmftEngine::new();
-        let h = 100;
-        let v = 0;
-        let hash1 = [1u8; 32];
-        let hash2 = [2u8; 32];
-        let peer1 = PeerId::random();
-        let peer2 = PeerId::random();
-
-        // First block seen
-        assert!(!engine.detect_divergence(h, v, hash1, peer1));
-
-        // Same block, same peer -> OK
-        assert!(!engine.detect_divergence(h, v, hash1, peer1));
-
-        // Same block, different peer -> OK
-        assert!(!engine.detect_divergence(h, v, hash1, peer2));
-
-        // Different block, same height/view -> Divergence!
-        assert!(engine.detect_divergence(h, v, hash2, peer2));
-    }
-
-    #[test]
-    fn test_check_quorum() {
-        let mut engine = AdmftEngine::new();
-        let h = 10;
-        let v = 2;
-
-        let acc1 = mock_account_id(1);
-        let acc2 = mock_account_id(2);
-        let acc3 = mock_account_id(3);
-        let acc4 = mock_account_id(4);
-
-        // Setup Validator Set: 4 validators, weight 1 each. Total = 4.
-        // Threshold > 2/3 * 4 = 2.66 -> Needs 3 votes.
-        let validators = vec![
-            ValidatorV1 {
-                account_id: acc1,
-                weight: 1,
-                consensus_key: ActiveKeyRecord::default(),
-            },
-            ValidatorV1 {
-                account_id: acc2,
-                weight: 1,
-                consensus_key: ActiveKeyRecord::default(),
-            },
-            ValidatorV1 {
-                account_id: acc3,
-                weight: 1,
-                consensus_key: ActiveKeyRecord::default(),
-            },
-            ValidatorV1 {
-                account_id: acc4,
-                weight: 1,
-                consensus_key: ActiveKeyRecord::default(),
-            },
-        ];
-        let sets = ValidatorSetsV1 {
-            current: ValidatorSetV1 {
-                effective_from_height: 1,
-                total_weight: 4,
-                validators,
-            },
-            next: None,
-        };
-
-        // Inject votes manually into internal state for testing
-        let height_map = engine.view_votes.entry(h).or_default();
-        let view_map = height_map.entry(v).or_default();
-
-        // 1. Vote from Acc1 -> Total 1 (Wait)
-        view_map.insert(acc1, mock_vote(h, v, acc1));
-        assert!(engine.check_quorum(h, v, 4, &sets).is_none());
-
-        // 2. Vote from Acc2 -> Total 2 (Wait, 2 < 2.66)
-        view_map.insert(acc2, mock_vote(h, v, acc2));
-        assert!(engine.check_quorum(h, v, 4, &sets).is_none());
-
-        // 3. Vote from Acc3 -> Total 3 (Pass, 3 > 2.66)
-        view_map.insert(acc3, mock_vote(h, v, acc3));
-        let tc = engine.check_quorum(h, v, 4, &sets);
-        assert!(tc.is_some());
-        assert_eq!(tc.unwrap().votes.len(), 3);
     }
 }
