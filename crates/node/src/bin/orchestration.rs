@@ -72,6 +72,9 @@ use serde::Serialize;
 use std::fmt::Debug;
 use tokio::sync::Mutex;
 
+// [FIX] Correctly import LocalSafetyModel from API
+use ioi_api::vm::inference::LocalSafetyModel;
+
 #[derive(Parser, Debug)]
 struct OrchestrationOpts {
     #[clap(long, help = "Path to the orchestration.toml configuration file.")]
@@ -153,8 +156,8 @@ impl TransactionPool for MempoolAdapter {
                 | ioi_types::app::ApplicationTransaction::CallContract { header, .. } => {
                     Some((header.account_id, header.nonce))
                 }
-                _ => None,
             },
+            // [FIX] Removed unreachable wildcard pattern since we cover all variants explicitly or don't care
             _ => None,
         };
 
@@ -325,7 +328,8 @@ where
     let batch_verifier = Arc::new(CpuBatchVerifier::new());
 
     // [NEW] Initialize Safety Model
-    let safety_model: Arc<dyn ioi_validator::firewall::inference::LocalSafetyModel> = if let (
+    // [FIX] Explicitly type the Arc to use the public trait from ioi_api
+    let safety_model: Arc<dyn ioi_api::vm::inference::LocalSafetyModel> = if let (
         Some(model_path),
         Some(tok_path),
     ) =
@@ -367,6 +371,8 @@ where
         batch_verifier,
         // [FIX] Inject safety_model here
         safety_model: safety_model.clone(),
+        // [FIX] Initialize scs with None for standard Orchestrator
+        scs: None,
     };
 
     let orchestration = Arc::new(Orchestrator::new(&config, deps, commitment_scheme.clone())?);
@@ -512,6 +518,11 @@ where
             epoch_size: workload_config.epoch_size,
             gc_interval_secs: workload_config.gc_interval_secs,
             zk_config: Default::default(),
+            // [FIX] Initialize missing fields with defaults
+            inference: Default::default(),
+            fast_inference: None,
+            reasoning_inference: None,
+            connectors: Default::default(),
         };
 
         let data_dir = opts.config.parent().unwrap_or_else(|| Path::new("."));

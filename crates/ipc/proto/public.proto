@@ -105,6 +105,9 @@ message ChainEvent {
         
         // The status of a service or policy changed.
         SystemUpdate system = 4;
+
+        // The user performed a physical input while in Ghost Mode.
+        GhostInput ghost = 5;
     }
 }
 
@@ -118,6 +121,8 @@ message AgentThought {
     string session_id = 1; // Hex
     string content = 2;    // The text token or reasoning step
     bool is_final = 3;     // True if this concludes the thought
+    // [NEW] The hash of the visual context (screenshot) associated with this step.
+    string visual_hash = 4;
 }
 
 message ActionIntercepted {
@@ -130,6 +135,11 @@ message ActionIntercepted {
 message SystemUpdate {
     string component = 1;  // e.g. "P2P", "Mempool"
     string status = 2;
+}
+
+message GhostInput {
+    string device = 1;      // "mouse", "keyboard"
+    string description = 2; // "Click(100, 200)", "Type('hello')"
 }
 
 // --- Intent Drafting Types ---

@@ -58,31 +58,39 @@ pub trait GuardianSigner: Send + Sync {
 /// Mimics the Oracle's interface but uses an in-memory keypair and zeroed metadata.
 pub struct LocalSigner {
     keypair: ioi_crypto::sign::eddsa::Ed25519KeyPair,
+    // [FIX] Added monotonic counter to satisfy A-DMFT invariants in tests
+    counter: std::sync::atomic::AtomicU64,
 }
 
 impl LocalSigner {
     /// Creates a new `LocalSigner` with the given keypair.
     pub fn new(keypair: ioi_crypto::sign::eddsa::Ed25519KeyPair) -> Self {
-        Self { keypair }
+        Self { 
+            keypair,
+            counter: std::sync::atomic::AtomicU64::new(0),
+        }
     }
 }
 
 #[async_trait]
 impl GuardianSigner for LocalSigner {
     async fn sign_consensus_payload(&self, payload_hash: [u8; 32]) -> Result<SignatureBundle> {
+        // [FIX] Increment counter to simulate Oracle monotonicity
+        let counter = self.counter.fetch_add(1, Ordering::SeqCst) + 1;
+
         // To support Oracle-anchored logic even in dev mode, we must construct the same payload structure:
-        // Payload_Hash || Counter (0) || Trace (0)
+        // Payload_Hash || Counter || Trace (0)
         // This ensures verification logic in the consensus engine remains consistent.
         let mut sig_input = Vec::new();
         sig_input.extend_from_slice(&payload_hash);
-        sig_input.extend_from_slice(&0u64.to_be_bytes());
-        sig_input.extend_from_slice(&[0u8; 32]);
+        sig_input.extend_from_slice(&counter.to_be_bytes()); 
+        sig_input.extend_from_slice(&[0u8; 32]);          // Trace = 0
 
         let signature = self.keypair.private_key().sign(&sig_input)?.to_bytes();
 
         Ok(SignatureBundle {
             signature,
-            counter: 0,
+            counter,
             trace_hash: [0u8; 32],
         })
     }

@@ -86,11 +86,13 @@ pub trait ConsensusEngine<T: Clone + parity_scale_codec::Encode>:
 
     /// Handles a view change proposal from a peer, which is part of liveness mechanisms
     /// in BFT-style consensus algorithms.
+    ///
+    /// The `proof_bytes` argument contains the serialized vote or timeout message, allowing
+    /// the engine to verify signatures and update the view change tally.
     async fn handle_view_change(
         &mut self,
         from: PeerId,
-        height: u64,
-        new_view: u64,
+        proof_bytes: &[u8],
     ) -> Result<(), ConsensusError>;
 
     /// Resets any height-specific internal state of the consensus engine, typically called

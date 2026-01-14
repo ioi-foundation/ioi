@@ -27,6 +27,7 @@ use std::time::Instant;
 use tokio::sync::{mpsc, Mutex};
 use tokio_stream::wrappers::ReceiverStream;
 use tonic::{Request, Response, Status};
+use parity_scale_codec::{Decode, Encode}; // [FIX] Added imports
 
 use crate::metrics::rpc_metrics as metrics;
 use ioi_api::vm::inference::{InferenceRuntime, LocalSafetyModel};
@@ -55,13 +56,18 @@ impl InferenceRuntime for SafetyModelAsInference {
             .await
             .map_err(|e| VmError::HostError(e.to_string()))?;
 
+        // [MODIFIED] Changed from hardcoded "transfer" to dynamic "start_agent"
+        // to enable end-to-end agent execution from the Autopilot UI.
         let mock_json = format!(
             r#"{{
-            "operation_id": "transfer",
-            "params": {{ "to": "0x0000000000000000000000000000000000000000000000000000000000000000", "amount": 100 }},
-            "gas_ceiling": 10000,
+            "operation_id": "start_agent",
+            "params": {{ 
+                "goal": "{}" 
+            }},
+            "gas_ceiling": 5000000,
             "note": "Generated via SafetyModel classification: {:?}"
         }}"#,
+            input_str.trim().escape_debug(),
             classification
         );
 
@@ -94,7 +100,7 @@ where
         + 'static
         + Debug,
     <CS as CommitmentScheme>::Proof:
-        Serialize + for<'de> serde::Deserialize<'de> + Clone + Send + Sync + 'static + Debug,
+        Serialize + for<'de> serde::Deserialize<'de> + Clone + Send + Sync + 'static + Debug + Encode + Decode, // [FIX] Added Encode + Decode
 {
     pub context_wrapper: Arc<Mutex<Option<Arc<Mutex<MainLoopContext<CS, ST, CE, V>>>>>>,
     pub workload_client: Arc<WorkloadClient>,
@@ -119,7 +125,7 @@ where
         + 'static
         + Debug,
     <CS as CommitmentScheme>::Proof:
-        Serialize + for<'de> serde::Deserialize<'de> + Clone + Send + Sync + 'static + Debug,
+        Serialize + for<'de> serde::Deserialize<'de> + Clone + Send + Sync + 'static + Debug + Encode + Decode, // [FIX] Added Encode + Decode
 {
     async fn get_context(&self) -> Result<Arc<Mutex<MainLoopContext<CS, ST, CE, V>>>, Status> {
         let guard = self.context_wrapper.lock().await;
@@ -150,7 +156,7 @@ where
         + 'static
         + Debug,
     <CS as CommitmentScheme>::Proof:
-        Serialize + for<'de> serde::Deserialize<'de> + Clone + Send + Sync + 'static + Debug,
+        Serialize + for<'de> serde::Deserialize<'de> + Clone + Send + Sync + 'static + Debug + Encode + Decode, // [FIX] Added Encode + Decode
 {
     async fn submit_transaction(
         &self,
@@ -388,6 +394,8 @@ where
                                          session_id: hex::encode(step.session_id),
                                          content: step.raw_output,
                                          is_final: step.success,
+                                         // [NEW] Map the visual hash
+                                         visual_hash: hex::encode(step.visual_hash),
                                      }
                                  ))
                              },
@@ -395,8 +403,28 @@ where
                                  Some(ChainEventEnum::Block(
                                      ioi_ipc::public::BlockCommitted {
                                          height,
-                                         state_root: "".into(),
+                                         state_root: "".into(), // Simplified for UI
                                          tx_count: tx_count as u64,
+                                     }
+                                 ))
+                             },
+                             // [NEW] Handle Ghost Inputs
+                             ioi_types::app::KernelEvent::GhostInput { device, description } => {
+                                 Some(ChainEventEnum::Ghost(
+                                     ioi_ipc::public::GhostInput {
+                                         device,
+                                         description,
+                                     }
+                                 ))
+                             },
+                             // [NEW] Handle Firewall Interceptions
+                             ioi_types::app::KernelEvent::FirewallInterception { verdict, target, request_hash } => {
+                                 Some(ChainEventEnum::Action(
+                                     ioi_ipc::public::ActionIntercepted {
+                                         session_id: "".into(), // Context-dependent
+                                         target,
+                                         verdict,
+                                         reason: hex::encode(request_hash),
                                      }
                                  ))
                              },

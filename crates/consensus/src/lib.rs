@@ -134,14 +134,12 @@ where
     async fn handle_view_change(
         &mut self,
         from: PeerId,
-        height: u64,
-        new_view: u64,
+        proof_bytes: &[u8],
     ) -> Result<(), ConsensusError> {
         match self {
             Consensus::Admft(e) => {
-                // [FIX] Use fully qualified path for disambiguation
-                <AdmftEngine as ConsensusEngine<T>>::handle_view_change(e, from, height, new_view)
-                    .await
+                // [FIX] Use fully qualified path for disambiguation and match correct signature
+                <AdmftEngine as ConsensusEngine<T>>::handle_view_change(e, from, proof_bytes).await
             }
             Consensus::_Phantom(_) => unreachable!(),
         }

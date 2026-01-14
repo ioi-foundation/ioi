@@ -1,3 +1,4 @@
+// Path: apps/autopilot/src/windows/SpotlightWindow.tsx
 import React, { useState, useEffect, useRef } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { useAgentStore, initEventListeners } from "../store/agentStore";
@@ -44,6 +45,11 @@ interface ChatMessage {
   text: string;
 }
 
+interface ContextBlob {
+    data_base64: string;
+    mime_type: string;
+}
+
 type ViewMode = "sidebar" | "spotlight";
 
 export function SpotlightWindow() {
@@ -60,6 +66,11 @@ export function SpotlightWindow() {
   const [networkMode, setNetworkMode] = useState("Net");
   const [connectedApp, setConnectedApp] = useState("Apps");
   
+  // [NEW] Context Visualization State
+  const [visualContext, setVisualContext] = useState<string | null>(null);
+  const [semanticContext, setSemanticContext] = useState<string | null>(null);
+  const [contextLoading, setContextLoading] = useState(false);
+
   const { task, startTask } = useAgentStore();
 
   // Show split view if in spotlight mode and running a task
@@ -67,12 +78,17 @@ export function SpotlightWindow() {
 
   useEffect(() => {
     initEventListeners();
-    // Initialize window mode on mount
-    invoke("set_spotlight_mode", { mode: "sidebar" });
-    setTimeout(() => inputRef.current?.focus(), 100);
+    const timer = setTimeout(() => {
+      invoke("set_spotlight_mode", { mode: "sidebar" }).catch((e) =>
+        console.error("Failed to set window mode:", e)
+      );
+      inputRef.current?.focus();
+    }, 800);
+
+    return () => clearTimeout(timer);
   }, []);
 
-  // Sync task to chat
+  // Sync task to chat and fetch context blobs
   useEffect(() => {
     if (task?.phase === "Complete" && task.receipt) {
       setChatHistory(prev => [...prev, { role: 'agent', text: `✅ Task complete. ${task.receipt?.actions} actions.` }]);
@@ -80,7 +96,29 @@ export function SpotlightWindow() {
     if (task?.phase === "Failed") {
       setChatHistory(prev => [...prev, { role: 'agent', text: `❌ Task failed: ${task.current_step}` }]);
     }
-  }, [task?.phase]);
+
+    // [NEW] Fetch Context Slice if Hash is available (mocking the property on AgentTask for now)
+    // In a real scenario, task would have `visual_hash` field from the event.
+    // We check if the task object (extended) has a visual_hash
+    const visualHash = (task as any)?.visual_hash;
+    
+    if (visualHash && showPreview) {
+        setContextLoading(true);
+        invoke<ContextBlob>("get_context_blob", { hash: visualHash })
+            .then(blob => {
+                if (blob.mime_type.startsWith("image/")) {
+                    setVisualContext(`data:${blob.mime_type};base64,${blob.data_base64}`);
+                } else if (blob.mime_type.includes("xml") || blob.mime_type.includes("json")) {
+                    // Decode base64 to string for text display
+                    const text = atob(blob.data_base64);
+                    setSemanticContext(text);
+                }
+            })
+            .catch(e => console.error("Failed to fetch context blob:", e))
+            .finally(() => setContextLoading(false));
+    }
+
+  }, [task, showPreview]);
 
   const toggleViewMode = async () => {
     const newMode = viewMode === "sidebar" ? "spotlight" : "sidebar";
@@ -102,12 +140,10 @@ export function SpotlightWindow() {
     setChatHistory(prev => [...prev, { role: 'user', text }]);
     
     if (task && task.phase === "Running") {
-      // Don't interrupt if already running
       return;
     }
 
     try {
-      // Auto-switch to spotlight mode for better visibility if running a task
       if (viewMode === "sidebar") toggleViewMode();
 
       await startTask(text);
@@ -284,7 +320,7 @@ export function SpotlightWindow() {
             </div>
         </div>
 
-        {/* --- RIGHT PANE (Live Preview) --- */}
+        {/* --- RIGHT PANE (Live Context Preview) --- */}
         {showPreview && (
             <div className="spot-right-pane">
                 <div className="browser-card">
@@ -294,37 +330,51 @@ export function SpotlightWindow() {
                             <div className="traffic-dot" style={{background: '#ffbd2e'}} />
                             <div className="traffic-dot" style={{background: '#27c93f'}} />
                         </div>
-                        <div className="url-bar">booking.com/search?city=Los+Angeles</div>
+                        <div className="url-bar">
+                            {visualContext ? "scs://visual-memory/latest" : "Waiting for visual context..."}
+                        </div>
                     </div>
                     <div className="browser-viewport">
-                        {/* Mock Website Content - In prod this would be an image stream */}
-                        <div style={{width: '90%', height: '80%', background: '#f3f4f6', borderRadius: 4, padding: 20}}>
-                            <div style={{fontWeight: 'bold', color: '#1f2937', marginBottom: 10}}>Booking.com</div>
-                            <div style={{display: 'flex', gap: 10}}>
-                                <div style={{flex: 1, height: 100, background: 'white', borderRadius: 4, border: '1px solid #e5e7eb'}} />
-                                <div style={{flex: 1, height: 100, background: 'white', borderRadius: 4, border: '2px solid #3b82f6'}} />
-                                <div style={{flex: 1, height: 100, background: 'white', borderRadius: 4, border: '1px solid #e5e7eb'}} />
+                        {contextLoading ? (
+                            <div className="pill-spinner" style={{width: 32, height: 32, borderWidth: 3}} />
+                        ) : visualContext ? (
+                            <img src={visualContext} alt="Agent View" style={{width: '100%', height: '100%', objectFit: 'contain'}} />
+                        ) : semanticContext ? (
+                            <pre style={{padding: 20, fontSize: 10, color: '#333', overflow: 'auto'}}>{semanticContext}</pre>
+                        ) : (
+                            /* Fallback Mock Content */
+                            <div style={{width: '90%', height: '80%', background: '#f3f4f6', borderRadius: 4, padding: 20}}>
+                                <div style={{fontWeight: 'bold', color: '#1f2937', marginBottom: 10}}>Booking.com</div>
+                                <div style={{display: 'flex', gap: 10}}>
+                                    <div style={{flex: 1, height: 100, background: 'white', borderRadius: 4, border: '1px solid #e5e7eb'}} />
+                                    <div style={{flex: 1, height: 100, background: 'white', borderRadius: 4, border: '2px solid #3b82f6'}} />
+                                    <div style={{flex: 1, height: 100, background: 'white', borderRadius: 4, border: '1px solid #e5e7eb'}} />
+                                </div>
                             </div>
-                        </div>
-                        {/* Animated Cursor */}
-                        <div className="agent-cursor" style={{ top: '45%', left: '55%' }}>
-                            <CursorIcon />
-                        </div>
+                        )}
+                        
+                        {/* Simulated Cursor - Only show if not displaying real image */}
+                        {!visualContext && (
+                            <div className="agent-cursor" style={{ top: '45%', left: '55%' }}>
+                                <CursorIcon />
+                            </div>
+                        )}
                     </div>
                 </div>
 
                 <div className="vision-log">
                     <LogItem 
                         icon="👁️" 
-                        title="Thought" 
+                        title="Observation" 
                         accent="purple"
-                        desc="Need to check availability for The Ritz-Carlton. Clicking 'See availability' button." 
+                        desc={visualContext ? "Visual context synchronized from SCS." : "Waiting for agent eye-tracking..."}
+                        meta={visualContext ? `MIME: image/png` : undefined}
                     />
                     <LogItem 
                         icon="⚡" 
                         title="Action" 
                         accent="blue"
-                        desc="click(point='<point>846 698</point>')" 
+                        desc={task?.current_step || "Processing..."} 
                         meta="Browser Vision Control"
                     />
                 </div>
@@ -418,7 +468,6 @@ function Dropdown({ icon, label, options, selected, onSelect, isOpen, onToggle, 
   );
 }
 
-// Helper for log preview
 function LogItem({ icon, title, desc, meta, accent }: { icon: string, title: string, desc: string, meta?: string, accent: 'purple' | 'blue' }) {
     return (
         <div className="log-entry">

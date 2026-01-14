@@ -13,7 +13,7 @@ use ioi_networking::libp2p::SwarmCommand;
 use ioi_tx::unified::UnifiedTransactionModel;
 use ioi_types::app::{
     compute_next_timestamp, AccountId, BlockTimingParams, BlockTimingRuntime, ChainTransaction,
-    StateRoot, TxHash,
+    KernelEvent, StateRoot, TxHash,
 };
 use ioi_types::codec;
 use ioi_types::keys::ACCOUNT_NONCE_PREFIX;
@@ -23,7 +23,8 @@ use std::fmt::Debug;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 use tokio::sync::{mpsc, watch, Mutex};
-use tracing::{error, info, warn}; // [FIX] Added warn
+use tracing::{error, info, warn};
+use parity_scale_codec::{Decode, Encode}; // [FIX] Added imports
 
 // [FIX] Import LocalSafetyModel and SafetyVerdict from ioi_api
 use ioi_api::vm::inference::{LocalSafetyModel, SafetyVerdict};
@@ -89,10 +90,12 @@ pub async fn run_ingestion_worker<CS>(
     receipt_map: Arc<Mutex<lru::LruCache<TxHash, String>>>,
     safety_model: Arc<dyn LocalSafetyModel>,
     config: IngestionConfig,
+    // [NEW] Added event_broadcaster
+    event_broadcaster: tokio::sync::broadcast::Sender<KernelEvent>,
 ) where
     CS: CommitmentScheme + Clone + Send + Sync + 'static,
     <CS as CommitmentScheme>::Proof:
-        Serialize + for<'de> serde::Deserialize<'de> + Clone + Send + Sync + 'static + Debug,
+        Serialize + for<'de> serde::Deserialize<'de> + Clone + Send + Sync + 'static + Debug + Encode + Decode, // [FIX] Added Encode + Decode
 {
     info!(
         "Transaction Ingestion Worker started (Batch Size: {}, Timeout: {}ms)",
@@ -287,7 +290,7 @@ pub async fn run_ingestion_worker<CS>(
             let mut is_safe = true;
             if let ChainTransaction::System(sys) = &p_tx.tx {
                 let ioi_types::app::SystemPayload::CallService {
-                    service_id, params, ..
+                    service_id, method, params, ..
                 } = &sys.payload;
 
                 if service_id == "agentic" || service_id == "compute_market" {
@@ -299,15 +302,20 @@ pub async fn run_ingestion_worker<CS>(
                             Ok(v) => {
                                 is_safe = false;
                                 // [FIX] Updated enum variants usage
-                                let reason = match v {
-                                    SafetyVerdict::Unsafe(r) => {
-                                        format!("Blocked by Safety Firewall: {}", r)
-                                    }
-                                    SafetyVerdict::ContainsPII => "PII detected".to_string(),
+                                let (verdict, reason) = match v {
+                                    SafetyVerdict::Unsafe(r) => ("BLOCK", format!("Blocked by Safety Firewall: {}", r)),
+                                    SafetyVerdict::ContainsPII => ("REQUIRE_APPROVAL", "PII detected".to_string()),
                                     SafetyVerdict::Safe => unreachable!(), // Handled by outer arm
                                 };
 
                                 warn!(target: "ingestion", "Transaction blocked by firewall: {}", reason);
+                                
+                                // [NEW] Emit Event to UI
+                                let _ = event_broadcaster.send(KernelEvent::FirewallInterception {
+                                    verdict: verdict.to_string(),
+                                    target: method.clone(),
+                                    request_hash: p_tx.canonical_hash, // Use tx hash as proxy for request hash
+                                });
 
                                 status_guard.put(
                                     p_tx.receipt_hash_hex.clone(),

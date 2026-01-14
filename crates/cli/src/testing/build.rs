@@ -115,15 +115,34 @@ fn build_contract_component(contract_dir: &Path, target_dir: &Path, package_name
         package_name, contract_dir
     );
 
+    // [FIX] Check for cargo-component availability before attempting build
+    let cargo_component_path = find_on_path("cargo-component");
+    
+    // Check if the subcommand is available either as a binary or via cargo
+    let has_component_support = if cargo_component_path.is_some() {
+        true
+    } else {
+        let cargo = resolve_cargo();
+        Command::new(cargo)
+            .args(["component", "--version"])
+            .stdout(std::process::Stdio::null())
+            .stderr(std::process::Stdio::null())
+            .status()
+            .map(|s| s.success())
+            .unwrap_or(false)
+    };
+
+    if !has_component_support {
+        println!("WARN: `cargo-component` not found. Skipping build of '{}'. Tests relying on this artifact may fail.", package_name);
+        return;
+    }
+
     let manifest_path = contract_dir.join("Cargo.toml");
     if !manifest_path.is_file() {
         panic!("Contract manifest not found: {}", manifest_path.display());
     }
 
-    // Prefer invoking cargo-component directly if available.
-    let cargo_component = find_on_path("cargo-component");
-
-    let mut cmd = if let Some(cc) = cargo_component {
+    let mut cmd = if let Some(cc) = cargo_component_path {
         println!("Using cargo-component at {}", cc.display());
         let mut c = Command::new(cc);
         c.args([
