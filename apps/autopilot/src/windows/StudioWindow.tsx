@@ -14,6 +14,8 @@ import { DataPanel } from "../components/DataPanel";
 import { CommandPalette } from "../components/CommandPalette";
 import { BuilderView } from "../components/BuilderView";
 import { StatusBar } from "../components/StatusBar";
+import { MarketplaceView } from "../components/MarketplaceView";
+import { AgentInstallModal } from "../components/AgentInstallModal";
 
 // Import CSS
 import "../components/ActivityBar.css";
@@ -27,6 +29,8 @@ import "../components/DataPanel.css";
 import "../components/CommandPalette.css";
 import "../components/BuilderView.css";
 import "../components/StatusBar.css";
+import "../components/MarketplaceView.css";
+import "../components/AgentInstallModal.css";
 
 import "./StudioWindow.css";
 
@@ -64,6 +68,11 @@ export function StudioWindow() {
   const [canvasTransform, setCanvasTransform] = useState({ x: 50, y: 50, scale: 1 });
 
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
+  
+  // Install Modal State
+  const [installModalOpen, setInstallModalOpen] = useState(false);
+  const [selectedAgent, setSelectedAgent] = useState<any>(null);
+
   const { startTask, task } = useAgentStore();
 
   useEffect(() => {
@@ -203,6 +212,11 @@ export function StudioWindow() {
     await startTask("Manual Run: Invoice Guard Workflow");
   };
 
+  const handleInstallAgent = (agent: any) => {
+    setSelectedAgent(agent);
+    setInstallModalOpen(true);
+  };
+
   const handleZoomIn = () => setCanvasTransform(t => ({ ...t, scale: Math.min(2, t.scale * 1.2) }));
   const handleZoomOut = () => setCanvasTransform(t => ({ ...t, scale: Math.max(0.2, t.scale / 1.2) }));
   const handleFit = () => setCanvasTransform({ x: 50, y: 50, scale: 1 });
@@ -215,79 +229,82 @@ export function StudioWindow() {
       />
 
       <div className="studio-main">
-        <IDEHeader
-          projectPath="Personal"
-          projectName={activeView === "agent-builder" ? "Agent Builder" : "Invoice Guard"}
-          branch="main"
-          mode={interfaceMode}
-          onModeChange={setInterfaceMode}
-          isComposeView={activeView === "compose"}
-          onSave={() => console.log("Save")}
-          onRun={handleRun}
-          onZoomIn={handleZoomIn}
-          onZoomOut={handleZoomOut}
-          onFit={handleFit}
-        />
+        {/* IDE Header hidden in Marketplace view to maximize space */}
+        {activeView !== "marketplace" && (
+          <IDEHeader
+            projectPath="Personal"
+            projectName={activeView === "agent-builder" ? "Agent Builder" : "Invoice Guard"}
+            branch="main"
+            mode={interfaceMode}
+            onModeChange={setInterfaceMode}
+            isComposeView={activeView === "compose"}
+            onSave={() => console.log("Save")}
+            onRun={handleRun}
+            onZoomIn={handleZoomIn}
+            onZoomOut={handleZoomOut}
+            onFit={handleFit}
+          />
+        )}
 
         <div className="studio-content">
-          {/* LEFT: Ontology / Explorer / Library */}
-          <ExplorerPanel width={explorerWidth} />
-
-          {/* CENTER: Canvas / Builder */}
-          <div className="studio-center-area">
-            
-            {activeView === "agent-builder" ? (
-               <BuilderView onSwitchToCompose={() => setActiveView("compose")} />
-            ) : (
-               <div className="canvas-area">
+          
+          {activeView === "marketplace" ? (
+             <MarketplaceView onInstallAgent={handleInstallAgent} />
+          ) : activeView === "agent-builder" ? (
+             <div className="studio-center-area">
+                <BuilderView onSwitchToCompose={() => setActiveView("compose")} />
+             </div>
+          ) : (
+             <>
+               <ExplorerPanel width={explorerWidth} />
+               <div className="studio-center-area">
                   <div 
-                      className="canvas-container" 
-                      style={{ bottom: dataPanelCollapsed ? 32 : dataPanelHeight }}
+                      className="canvas-area"
                       onDragOver={(e) => e.preventDefault()}
                       onDrop={handleCanvasDrop}
                   >
-                      {interfaceMode === "GHOST" && (
-                          <div className="ghost-overlay">
-                              <div className="ghost-badge">
-                                  <span className="ghost-dot" />
-                                  <span>Ghost Mode: Observing & Inferring...</span>
+                      <div 
+                          className="canvas-container" 
+                          style={{ bottom: dataPanelCollapsed ? 32 : dataPanelHeight }}
+                      >
+                          {interfaceMode === "GHOST" && (
+                              <div className="ghost-overlay">
+                                  <div className="ghost-badge">
+                                      <span className="ghost-dot" />
+                                      <span>Ghost Mode: Observing & Inferring...</span>
+                                  </div>
                               </div>
-                          </div>
-                      )}
+                          )}
 
-                      <Canvas
-                        nodes={nodes}
-                        edges={edges}
-                        selectedNodeId={selectedNodeId}
-                        onNodeSelect={handleNodeSelect}
-                        onNodeMove={handleNodeMove}
-                        transform={canvasTransform}
-                        onTransformChange={setCanvasTransform}
+                          <Canvas
+                            nodes={nodes}
+                            edges={edges}
+                            selectedNodeId={selectedNodeId}
+                            onNodeSelect={handleNodeSelect}
+                            onNodeMove={handleNodeMove}
+                            transform={canvasTransform}
+                            onTransformChange={setCanvasTransform}
+                          />
+                      </div>
+                      
+                      <DataPanel
+                        height={dataPanelHeight}
+                        collapsed={dataPanelCollapsed}
+                        onToggleCollapse={() => setDataPanelCollapsed(!dataPanelCollapsed)}
+                        onResize={setDataPanelHeight}
+                        selectedNodeName={selectedNode?.name}
+                        isRunning={task?.phase === "Running" || task?.phase === "Gate"}
                       />
                   </div>
-                  
-                  {/* Pass running state to DataPanel */}
-                  <DataPanel
-                    height={dataPanelHeight}
-                    collapsed={dataPanelCollapsed}
-                    onToggleCollapse={() => setDataPanelCollapsed(!dataPanelCollapsed)}
-                    onResize={setDataPanelHeight}
-                    selectedNodeName={selectedNode?.name}
-                    isRunning={task?.phase === "Running" || task?.phase === "Gate"}
-                  />
                </div>
-            )}
-          </div>
-
-          {/* RIGHT: Inspector OR Ghost Chat */}
-          {activeView === "compose" && (
-            <div className="studio-right-panel" style={{ width: inspectorWidth }}>
-               {interfaceMode === "GHOST" ? (
-                   <GhostChatPanel />
-               ) : (
-                   <RightPanel width={inspectorWidth} selectedNode={selectedNode} />
-               )}
-            </div>
+               <div className="studio-right-panel" style={{ width: inspectorWidth }}>
+                   {interfaceMode === "GHOST" ? (
+                       <GhostChatPanel />
+                   ) : (
+                       <RightPanel width={inspectorWidth} selectedNode={selectedNode} />
+                   )}
+               </div>
+             </>
           )}
         </div>
         
@@ -299,6 +316,15 @@ export function StudioWindow() {
 
       {commandPaletteOpen && (
         <CommandPalette onClose={() => setCommandPaletteOpen(false)} />
+      )}
+      
+      {/* Install Modal */}
+      {installModalOpen && selectedAgent && (
+        <AgentInstallModal 
+          isOpen={installModalOpen}
+          onClose={() => setInstallModalOpen(false)}
+          agent={selectedAgent}
+        />
       )}
     </div>
   );

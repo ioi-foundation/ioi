@@ -229,7 +229,7 @@ In a **second terminal**, start the frontend.
 
 ```bash
 cd apps/autopilot
-npm install  # Ensure dependencies are fresh
+RUST_LOG=tauri=debug TAURI_LOG=debug npm run tauri dev  # with logging
 npm run tauri dev
 ```
 
