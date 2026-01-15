@@ -12,11 +12,11 @@ use ioi_consensus::util::engine_from_config;
 use ioi_crypto::sign::eddsa::Ed25519PrivateKey;
 use ioi_drivers::browser::BrowserDriver;
 use ioi_drivers::gui::IoiGuiDriver;
-use ioi_scs::{SovereignContextStore, StoreConfig}; // [NEW] Import SCS
+use ioi_scs::{SovereignContextStore, StoreConfig};
 use ioi_state::primitives::hash::HashCommitmentScheme;
 use ioi_state::tree::iavl::IAVLTree;
 use ioi_types::app::{
-    account_id_from_key_material, AccountId, ActiveKeyRecord, SignatureSuite, // [FIX] Removed ChainTransaction
+    account_id_from_key_material, AccountId, ActiveKeyRecord, SignatureSuite,
     ValidatorSetV1, ValidatorSetsV1, ValidatorV1,
 };
 use ioi_types::config::{
@@ -32,12 +32,17 @@ use ioi_validator::standard::Orchestrator;
 use libp2p::identity;
 use std::fs;
 use std::path::{Path, PathBuf};
-use std::sync::{atomic::AtomicBool, Arc, Mutex}; // [FIX] Reverted to std Mutex for SCS
+use std::sync::{atomic::AtomicBool, Arc, Mutex};
 use tokio::time::Duration;
 
 // [FIX] Added imports for ActiveServiceMeta
 use ioi_types::service_configs::{ActiveServiceMeta, Capabilities, MethodPermission};
-use ioi_types::keys::active_service_key;
+// [REMOVED] Unused import active_service_key
+
+// [FIX] Import run_agent_driver_task to drive the agent loop
+use ioi_validator::standard::orchestration::operator_tasks::{
+    run_agent_driver_task, run_oracle_operator_task,
+};
 
 #[derive(Parser, Debug)]
 #[clap(name = "ioi-local", about = "IOI User Node (Mode 0)")]
@@ -113,7 +118,6 @@ async fn main() -> Result<()> {
 
     // [START FIX]
     // Construct service policies, starting with defaults and adding local-only services.
-    // This prevents the runtime panic "Service 'desktop_agent' has no method permissions configured"
     let mut service_policies = ioi_types::config::default_service_policies();
 
     // Define policy for Desktop Agent
@@ -170,7 +174,7 @@ async fn main() -> Result<()> {
             InitialServiceConfig::Governance(Default::default()),
             InitialServiceConfig::Oracle(Default::default()),
         ],
-        service_policies, // [FIX] Use the augmented policies
+        service_policies, 
         min_finality_depth: 0,
         keep_recent_heights: 1000,
         epoch_size: 1000,
@@ -179,16 +183,14 @@ async fn main() -> Result<()> {
         
         // [MODIFIED] Inference Configuration
         inference: ioi_types::config::InferenceConfig {
-            // If key exists, use "openai", otherwise fallback to "mock"
             provider: if openai_key.is_some() { "openai".to_string() } else { "mock".to_string() },
-            // Standard OpenAI Chat Completions Endpoint
             api_url: if openai_key.is_some() { 
                 Some("https://api.openai.com/v1/chat/completions".to_string()) 
             } else { 
                 None 
             },
-            api_key: openai_key, // Inject the key
-            model_name: Some("gpt-4o".to_string()), // Use a smart model for tool calling
+            api_key: openai_key, 
+            model_name: Some("gpt-4o".to_string()),
             connector_ref: None,
         },
         fast_inference: None,
@@ -268,10 +270,10 @@ async fn main() -> Result<()> {
             allowed_system_prefixes: vec![],
         };
         
-        let agent_key = active_service_key("desktop_agent");
+        let agent_key = ioi_types::keys::active_service_key("desktop_agent");
         insert_raw(&agent_key, to_bytes_canonical(&agent_meta).unwrap());
         
-        // [NEW] Register 'compute_market' service metadata (required for firewall check)
+        // [NEW] Register 'compute_market' service metadata
         let mut market_methods = std::collections::BTreeMap::new();
         market_methods.insert("request_task@v1".to_string(), MethodPermission::User);
         market_methods.insert("finalize_provisioning@v1".to_string(), MethodPermission::User);
@@ -286,7 +288,7 @@ async fn main() -> Result<()> {
             methods: market_methods,
             allowed_system_prefixes: vec![],
         };
-        let market_key = active_service_key("compute_market");
+        let market_key = ioi_types::keys::active_service_key("compute_market");
         insert_raw(&market_key, to_bytes_canonical(&market_meta).unwrap());
 
         let json = serde_json::json!({ "genesis_state": genesis_state });
@@ -300,19 +302,16 @@ async fn main() -> Result<()> {
     let (event_tx, _event_rx) = tokio::sync::broadcast::channel(1000);
 
     // [FIX] Initialize the Native GUI Driver with the event sender AND the SCS
-    // This ensures captured screenshots/context are persisted to disk so the UI can retrieve them.
     let gui_driver = Arc::new(
         IoiGuiDriver::new()
             .with_event_sender(event_tx.clone())
-            .with_scs(scs_arc.clone()) // <--- ADD THIS LINE
+            .with_scs(scs_arc.clone()) 
     );
     println!("   - Native GUI Driver: Initialized (enigo/xcap/accesskit) + Event Loop + SCS Persistence");
 
-    // [NEW] Initialize Browser Driver
     let browser_driver = Arc::new(BrowserDriver::new());
     println!("   - Browser Driver: Initialized (chromiumoxide)");
 
-    // Pass driver and SCS to workload setup
     let scheme = HashCommitmentScheme::new();
     let tree = IAVLTree::new(scheme.clone());
     let (workload_container, machine) = setup_workload(
@@ -321,7 +320,8 @@ async fn main() -> Result<()> {
         workload_config.clone(),
         Some(gui_driver),
         Some(browser_driver),
-        Some(scs_arc.clone()), // [NEW] Pass SCS
+        Some(scs_arc.clone()), 
+        Some(event_tx.clone()), 
     )
     .await?;
 
@@ -386,9 +386,7 @@ async fn main() -> Result<()> {
         signer,
         batch_verifier: Arc::new(ioi_crypto::sign::batch::CpuBatchVerifier::new()),
         safety_model: safety_model,
-        // [FIX] Initialize scs
         scs: Some(scs_arc.clone()),
-        // [FIX] Inject the OS driver
         os_driver: Arc::new(ioi_drivers::os::NativeOsDriver::new()),
     };
 
@@ -407,26 +405,49 @@ async fn main() -> Result<()> {
     );
     println!("Starting main components (press Ctrl+C to exit)...");
 
-    // [FIX] Explicitly call Container::start on the dereferenced Arc
     Container::start(&*orchestrator, &config.rpc_listen_address)
         .await
         .map_err(|e| anyhow!("Failed to start: {}", e))?;
 
-    tokio::select! {
-        _ = tokio::signal::ctrl_c() => {
-            println!("\nShutdown signal received.");
-        }
-        res = workload_server_handle => {
-            match res {
-                Ok(Err(e)) => return Err(anyhow!("Workload IPC Server crashed: {}", e)),
-                Ok(Ok(_)) => return Err(anyhow!("Workload IPC Server exited unexpectedly.")),
-                Err(e) => return Err(anyhow!("Workload IPC Server task panicked: {}", e)),
+    // [FIX] Reduce loop interval to 1s for snappy UI
+    let mut operator_ticker = tokio::time::interval(Duration::from_secs(1));
+    // [FIX] Use set_missed_tick_behavior on the interval, not the duration
+    operator_ticker.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
+
+    loop {
+        tokio::select! {
+            _ = tokio::signal::ctrl_c() => {
+                println!("\nShutdown signal received.");
+                break;
+            }
+            res = workload_server_handle => {
+                match res {
+                    Ok(Err(e)) => return Err(anyhow!("Workload IPC Server crashed: {}", e)),
+                    Ok(Ok(_)) => return Err(anyhow!("Workload IPC Server exited unexpectedly.")),
+                    Err(e) => return Err(anyhow!("Workload IPC Server task panicked: {}", e)),
+                }
+            }
+            _ = operator_ticker.tick() => {
+                let ctx_opt = orchestrator.main_loop_context.lock().await;
+                if let Some(ctx) = ctx_opt.as_ref() {
+                    let ctx_guard = ctx.lock().await;
+                    
+                    // Run Oracle Tasks
+                    if let Err(e) = run_oracle_operator_task(&*ctx_guard).await {
+                         tracing::error!(target: "operator_task", "Oracle operator failed: {}", e);
+                    }
+
+                    // [FIX] Run Agent Driver Task
+                    // This is the missing link that drives the agent forward
+                    if let Err(e) = run_agent_driver_task(&*ctx_guard).await {
+                         tracing::error!(target: "operator_task", "Agent driver failed: {}", e);
+                    }
+                }
             }
         }
     }
 
     println!("\nShutting down...");
-    // [FIX] Corrected variable name from 'orchestration' to 'orchestrator'
     Container::stop(&*orchestrator).await?;
     println!("Bye!");
 

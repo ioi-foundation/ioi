@@ -4,17 +4,17 @@
 
 /// The inference engine interface for classification.
 pub mod inference;
-/// The policy engine logic.
-pub mod policy;
-/// Rules and policy configuration.
-pub mod rules;
+// REMOVED: pub mod policy;
+// REMOVED: pub mod rules;
 /// Policy Synthesizer for Ghost Mode.
 pub mod synthesizer;
 
-use crate::firewall::policy::PolicyEngine;
-use crate::firewall::rules::Verdict;
+// [FIX] Import PolicyEngine and Verdict from ioi-services
+use ioi_services::agentic::policy::PolicyEngine;
+use ioi_services::agentic::rules::{ActionRules, Verdict};
+
 use ioi_api::vm::inference::LocalSafetyModel;
-use ioi_api::vm::drivers::os::OsDriver; // [NEW] Import OsDriver
+use ioi_api::vm::drivers::os::OsDriver;
 use ioi_services::agentic::scrubber::SemanticScrubber;
 
 use ibc_primitives::Timestamp;
@@ -39,7 +39,7 @@ pub async fn enforce_firewall(
     skip_stateless_checks: bool,
     is_simulation: bool,
     safety_model: Arc<dyn LocalSafetyModel>,
-    os_driver: Arc<dyn OsDriver>, // [NEW] Added parameter
+    os_driver: Arc<dyn OsDriver>,
 ) -> Result<(), TransactionError> {
     let mut overlay = StateOverlay::new(state);
 
@@ -102,7 +102,8 @@ pub async fn enforce_firewall(
         PolicyEngine::check_service_call(&overlay, service_id, method, false)?;
 
         if service_id == "agentic" || service_id == "compute_market" {
-            let rules = crate::firewall::rules::ActionRules::default();
+            // [FIX] Use ActionRules from ioi-services
+            let rules = ActionRules::default();
 
             let dummy_request = ioi_types::app::ActionRequest {
                 target: ioi_types::app::ActionTarget::Custom(method.clone()),
@@ -117,7 +118,6 @@ pub async fn enforce_firewall(
 
             let approval_token: Option<ApprovalToken> = None;
 
-            // [FIX] Pass os_driver to PolicyEngine
             let verdict = PolicyEngine::evaluate(
                 &rules,
                 &dummy_request,

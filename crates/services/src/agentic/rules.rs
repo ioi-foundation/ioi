@@ -1,4 +1,4 @@
-// Path: crates/validator/src/firewall/rules.rs
+// Path: crates/services/src/agentic/rules.rs
 
 use serde::{Deserialize, Serialize};
 

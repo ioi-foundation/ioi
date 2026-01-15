@@ -165,8 +165,9 @@ where
     CS::Commitment: Debug + From<Vec<u8>>,
 {
     // 1. Shared Setup
+    // [FIX] Pass None for all driver/event arguments, including the new event_sender
     let (workload_container, machine_arc) =
-        setup_workload(state_tree, commitment_scheme, config).await?;
+        setup_workload(state_tree, commitment_scheme, config, None, None, None, None).await?;
 
     let ipc_server_addr =
         std::env::var("IPC_SERVER_ADDR").unwrap_or_else(|_| "0.0.0.0:8555".to_string());

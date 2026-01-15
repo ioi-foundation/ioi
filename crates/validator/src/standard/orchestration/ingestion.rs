@@ -27,11 +27,11 @@ use tracing::{error, info, warn};
 use parity_scale_codec::{Decode, Encode};
 
 use ioi_api::vm::inference::{LocalSafetyModel, SafetyVerdict};
-use ioi_api::vm::drivers::os::OsDriver; // [NEW]
+use ioi_api::vm::drivers::os::OsDriver;
 
-// [NEW] Imports for Policy Engine Integration
-use crate::firewall::policy::PolicyEngine;
-use crate::firewall::rules::{ActionRules, Verdict};
+// [FIX] Update imports for Policy Engine Integration
+use ioi_services::agentic::policy::PolicyEngine;
+use ioi_services::agentic::rules::{ActionRules, Verdict};
 use ioi_types::app::{ActionContext, ActionRequest, ActionTarget, ApprovalToken};
 
 /// Configuration for the ingestion worker.

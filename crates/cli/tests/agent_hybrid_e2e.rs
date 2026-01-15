@@ -23,6 +23,10 @@ use std::sync::{Arc, Mutex};
 use image::{ImageBuffer, ImageFormat, Rgba};
 use std::io::Cursor;
 
+// [NEW] Imports
+use ioi_drivers::browser::BrowserDriver;
+use ioi_drivers::terminal::TerminalDriver;
+
 // Mocks
 #[derive(Clone)]
 struct MockGuiDriver;
@@ -45,8 +49,10 @@ impl GuiDriver for MockGuiDriver {
     async fn capture_context(&self, _: &ActionRequest) -> Result<ContextSlice, VmError> {
         Ok(ContextSlice {
             slice_id: [0; 32],
-            data: vec![],
-            provenance_proof: vec![],
+            frame_id: 0,
+            chunks: vec![],
+            mhnsw_root: [0; 32],
+            traversal_proof: None,
             intent_id: [0; 32],
         })
     }
@@ -127,7 +133,18 @@ async fn test_hybrid_routing_logic() -> Result<()> {
     });
 
     use ioi_services::agentic::desktop::DesktopAgentService;
-    let service = DesktopAgentService::new_hybrid(gui, fast, reasoning);
+    
+    // [NEW] Instantiate drivers
+    let terminal = Arc::new(TerminalDriver::new());
+    let browser = Arc::new(BrowserDriver::new());
+
+    let service = DesktopAgentService::new_hybrid(
+        gui, 
+        terminal,
+        browser, 
+        fast, 
+        reasoning
+    );
     let mut state = IAVLTree::new(HashCommitmentScheme::new());
 
     use ioi_api::services::access::ServiceDirectory;

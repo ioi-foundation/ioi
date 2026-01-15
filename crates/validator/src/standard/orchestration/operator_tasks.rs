@@ -30,25 +30,38 @@ use std::time::Instant;
 // [FIX] Import reqwest for HTTP Client
 use reqwest::Client;
 
+// [NEW] Imports for Agent Driver
+use ioi_services::agentic::desktop::{AgentState, AgentStatus, StepAgentParams};
+
 // --- Compute Market Canonical Definitions ---
 
 /// Data required to reconstruct the provider's signature payload for verification.
 #[derive(Encode, Decode, Debug, Clone)]
 pub struct ProviderAckPayload {
+    /// The root hash of the ticket being acknowledged.
     pub ticket_root: [u8; 32],
+    /// The unique identifier for the compute instance.
     pub instance_id: Vec<u8>,
+    /// The hash of the provider's endpoint URI.
     pub endpoint_uri_hash: [u8; 32],
+    /// The block height at which the lease expires.
     pub expiry_height: u64,
+    /// The hash of the lease identifier.
     pub lease_id_hash: [u8; 32],
 }
 
 /// On-chain representation of a registered provider in the market.
 #[derive(Encode, Decode, Debug, Clone)]
 pub struct ProviderInfo {
+    /// The provider's public key.
     pub public_key: Vec<u8>,
+    /// The provider's service endpoint URL.
     pub endpoint: String,
+    /// The service tier of the provider.
     pub tier: u8,
+    /// List of regions where the provider operates.
     pub allowed_regions: Vec<String>,
+    /// The type of provider (e.g., "bare-metal", "cloud").
     pub provider_type: String,
 }
 
@@ -70,16 +83,22 @@ fn sha256_32(data: &[u8]) -> Result<[u8; 32]> {
 /// Data returned from a remote provider after a successful provisioning request.
 #[derive(serde::Deserialize)] // [FIX] Added Deserialize derive
 pub struct ProvisioningReceiptData {
+    /// The ID of the provisioned instance.
     pub instance_id: String,
+    /// The URI to access the instance.
     pub endpoint_uri: String,
+    /// The unique lease ID for the session.
     pub lease_id: String,
     // [FIX] Use hex decoding for byte fields in JSON
+    /// The provider's cryptographic signature.
     #[serde(deserialize_with = "hex::serde::deserialize")]
     pub signature: Vec<u8>,
 }
 
+/// A client for interacting with remote compute providers.
 #[async_trait]
 pub trait ProviderClient: Send + Sync {
+    /// Requests provisioning of a compute resource from a provider.
     async fn request_provisioning(
         &self,
         endpoint: &str,
@@ -89,12 +108,13 @@ pub trait ProviderClient: Send + Sync {
     ) -> Result<ProvisioningReceiptData>;
 }
 
-// Real HTTP Implementation
+/// Real HTTP Implementation of the Provider Client.
 pub struct HttpProviderClient {
     client: Client,
 }
 
 impl HttpProviderClient {
+    /// Creates a new `HttpProviderClient`.
     pub fn new() -> Self {
         Self {
             client: Client::builder()
@@ -156,6 +176,8 @@ impl ProviderClient for HttpProviderClient {
     }
 }
 
+/// Runs the background task for the Oracle operator.
+/// Checks if the oracle service is active and performs necessary duties.
 pub async fn run_oracle_operator_task<CS, ST, CE, V>(
     context: &MainLoopContext<CS, ST, CE, V>,
 ) -> Result<()>
@@ -188,6 +210,139 @@ where
         .is_none()
     {
         return Ok(());
+    }
+
+    Ok(())
+}
+
+// [NEW] Agent Driver Task
+// This acts as the "System 2" loop for the User Node, driving agents forward.
+/// Runs the background task for the Agent driver.
+/// Scans for active agents and triggers steps if needed.
+pub async fn run_agent_driver_task<CS, ST, CE, V>(
+    context: &MainLoopContext<CS, ST, CE, V>,
+) -> Result<()>
+where
+    CS: CommitmentScheme + Clone + Send + Sync + 'static,
+    ST: StateManager<Commitment = CS::Commitment, Proof = CS::Proof>
+        + Send
+        + Sync
+        + 'static
+        + Debug
+        + Clone,
+    CE: ConsensusEngine<ChainTransaction> + Send + Sync + 'static,
+    V: Verifier<Commitment = CS::Commitment, Proof = CS::Proof>
+        + Clone
+        + Send
+        + Sync
+        + 'static
+        + Debug,
+    <CS as CommitmentScheme>::Proof:
+        serde::Serialize + for<'de> serde::Deserialize<'de> + Clone + Send + Sync + 'static + Debug,
+    <CS as CommitmentScheme>::Commitment: Send + Sync + Debug,
+{
+    let workload_client = context.view_resolver.workload_client();
+
+    // 1. Scan for agent states
+    // The canonical prefix for AgentState is b"agent::state::"
+    const AGENT_STATE_PREFIX: &[u8] = b"agent::state::";
+
+    let kvs = match workload_client.prefix_scan(AGENT_STATE_PREFIX).await {
+        Ok(k) => k,
+        Err(_) => return Ok(()),
+    };
+
+    if kvs.is_empty() {
+        return Ok(());
+    }
+
+    // 2. Identify Running Agents
+    for (_key, val_bytes) in kvs {
+        let state: AgentState = match codec::from_bytes_canonical(&val_bytes) {
+            Ok(s) => s,
+            Err(_) => continue,
+        };
+
+        if state.status == AgentStatus::Running {
+            // 3. Check Mempool for Pending Step (Simple Debounce)
+            // If the account has *any* pending transaction in the pool, we assume it's the step
+            // and wait for it to clear to avoid nonce gaps or spam.
+            let our_pk = context.local_keypair.public().encode_protobuf();
+            // [FIX] Use SignatureSuite::ED25519
+            let our_account_id = AccountId(account_id_from_key_material(
+                SignatureSuite::ED25519,
+                &our_pk,
+            )?);
+
+            if context.tx_pool_ref.contains_account(&our_account_id) {
+                continue;
+            }
+
+            // 4. Construct Step Transaction
+            let params = StepAgentParams {
+                session_id: state.session_id,
+            };
+
+            let payload = SystemPayload::CallService {
+                service_id: "desktop_agent".to_string(),
+                method: "step@v1".to_string(),
+                params: codec::to_bytes_canonical(&params).unwrap(),
+            };
+
+            // Get next nonce
+            let nonce_key = [
+                ioi_types::keys::ACCOUNT_NONCE_PREFIX,
+                our_account_id.as_ref(),
+            ]
+            .concat();
+
+            let nonce = match workload_client.query_raw_state(&nonce_key).await {
+                Ok(Some(b)) => codec::from_bytes_canonical::<u64>(&b).unwrap_or(0),
+                _ => 0,
+            };
+
+            let mut sys_tx = SystemTransaction {
+                header: SignHeader {
+                    account_id: our_account_id,
+                    nonce,
+                    chain_id: context.chain_id,
+                    tx_version: 1,
+                    session_auth: None,
+                },
+                payload,
+                signature_proof: SignatureProof::default(),
+            };
+
+            // [FIXED] Map String error to anyhow::Error
+            let sign_bytes = sys_tx
+                .to_sign_bytes()
+                .map_err(|e| anyhow!("Failed to serialize tx: {}", e))?;
+            
+            let signature = context.local_keypair.sign(&sign_bytes)?;
+
+            sys_tx.signature_proof = SignatureProof {
+                suite: SignatureSuite::ED25519,
+                public_key: our_pk,
+                signature,
+            };
+
+            let tx = ChainTransaction::System(Box::new(sys_tx));
+            let tx_hash = tx.hash()?;
+
+            // 5. Submit to Mempool
+            // We use the pool directly to skip gRPC overhead, as we are the node itself.
+            context.tx_pool_ref.add(tx, tx_hash, Some((our_account_id, nonce)), 0);
+
+            // Wake consensus
+            let _ = context.consensus_kick_tx.send(());
+
+            tracing::info!(
+                target: "agent_driver",
+                "Auto-stepping agent session {} (Step {})",
+                hex::encode(&state.session_id[0..4]),
+                state.step_count
+            );
+        }
     }
 
     Ok(())

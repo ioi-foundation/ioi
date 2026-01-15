@@ -1,4 +1,5 @@
 // Path: crates/validator/src/standard/orchestration/mod.rs
+
 #![cfg_attr(
     not(test),
     deny(
@@ -35,7 +36,7 @@ use ioi_types::{
     codec,
     error::ValidatorError,
 };
-use libp2p::{identity, PeerId};
+use libp2p::identity;
 use lru::LruCache;
 use rand::seq::SliceRandom;
 use serde::Serialize;
@@ -66,13 +67,16 @@ use crate::standard::orchestration::mempool::Mempool;
 
 // --- Submodule Declarations ---
 mod consensus;
-mod context;
+
+/// Context structures for the orchestration main loop.
+pub mod context; // [FIX] Made public so MainLoopContext is accessible
 mod gossip;
 mod grpc_public;
 mod ingestion;
 /// Transaction mempool logic.
 pub mod mempool;
-mod operator_tasks;
+/// Background tasks for operator logic (Oracle, Agents).
+pub mod operator_tasks; // [FIX] Made public to allow access from ioi-local
 mod oracle;
 mod peer_management;
 mod remote_state_view;
@@ -856,6 +860,7 @@ where
     }
 }
 
+// [ADDITION] Implement Container trait for Orchestrator
 #[async_trait]
 impl<CS, ST, CE, V> Container for Orchestrator<CS, ST, CE, V>
 where
@@ -874,22 +879,22 @@ where
         + 'static
         + Debug,
     <CS as CommitmentScheme>::Proof:
-        Serialize + for<'de> serde::Deserialize<'de> + Clone + Send + Sync + 'static + Debug + Encode + Decode, // [FIX] Added Encode + Decode
+        Serialize + for<'de> serde::Deserialize<'de> + Clone + Send + Sync + 'static + Debug + Encode + Decode,
     <CS as CommitmentScheme>::Commitment: Send + Sync + Debug,
 {
-    fn id(&self) -> &'static str {
-        "orchestration"
-    }
-
-    fn is_running(&self) -> bool {
-        self.is_running.load(Ordering::SeqCst)
-    }
-
     async fn start(&self, listen_addr: &str) -> Result<(), ValidatorError> {
         self.start_internal(listen_addr).await
     }
 
     async fn stop(&self) -> Result<(), ValidatorError> {
         self.stop_internal().await
+    }
+
+    fn is_running(&self) -> bool {
+        self.is_running.load(Ordering::SeqCst)
+    }
+
+    fn id(&self) -> &'static str {
+        "orchestration"
     }
 }

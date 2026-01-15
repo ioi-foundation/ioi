@@ -10,13 +10,16 @@ use ioi_cli::testing::build_test_artifacts;
 use ioi_services::agentic::desktop::{StartAgentParams, StepAgentParams};
 use ioi_state::primitives::hash::HashCommitmentScheme;
 use ioi_state::tree::iavl::IAVLTree;
-use ioi_types::{error::VmError, keys::*};
-// [FIX] Added ContextSlice import
+use ioi_types::error::VmError;
 use image::{ImageBuffer, Rgba};
 use ioi_types::app::{ActionContext, ActionRequest, ActionTarget, ContextSlice};
 use std::io::Cursor;
 use std::path::Path;
 use std::sync::{Arc, Mutex};
+
+// [NEW] Imports
+use ioi_drivers::browser::BrowserDriver;
+use ioi_drivers::terminal::TerminalDriver;
 
 // --- Mocks ---
 
@@ -40,12 +43,13 @@ impl GuiDriver for MockGuiDriver {
         Ok("<root><window title='Amazon' /></root>".to_string())
     }
 
-    // [FIX] Implemented capture_context
     async fn capture_context(&self, _intent: &ActionRequest) -> Result<ContextSlice, VmError> {
         Ok(ContextSlice {
             slice_id: [0u8; 32],
-            data: b"<root><window title='Amazon' /></root>".to_vec(),
-            provenance_proof: vec![],
+            frame_id: 0,
+            chunks: vec![b"<root><window title='Amazon' /></root>".to_vec()],
+            mhnsw_root: [0u8; 32],
+            traversal_proof: None,
             intent_id: [0u8; 32],
         })
     }
@@ -71,8 +75,6 @@ impl InferenceRuntime for MockBrain {
         _opts: ioi_types::app::agentic::InferenceOptions,
     ) -> Result<Vec<u8>, VmError> {
         // Deterministic "Zombie" Brain
-        // Output format must match what `grounding::parse_vlm_action` expects
-        // The simple parser expects "click x y"
         Ok(b"click 500 500".to_vec())
     }
 
@@ -95,8 +97,18 @@ async fn test_agentic_loop_end_to_end() -> Result<()> {
 
     // 1. Setup Service with Mocks
     use ioi_services::agentic::desktop::DesktopAgentService;
-    let service =
-        DesktopAgentService::new_hybrid(mock_gui, Arc::new(MockBrain), Arc::new(MockBrain));
+    
+    // [NEW] Instantiate drivers
+    let terminal = Arc::new(TerminalDriver::new());
+    let browser = Arc::new(BrowserDriver::new());
+
+    let service = DesktopAgentService::new_hybrid(
+        mock_gui, 
+        terminal, 
+        browser, // Injected
+        Arc::new(MockBrain), 
+        Arc::new(MockBrain)
+    );
 
     // 2. Mock State Access
     let mut state = IAVLTree::new(HashCommitmentScheme::new());
@@ -107,7 +119,6 @@ async fn test_agentic_loop_end_to_end() -> Result<()> {
         session_id,
         goal: "Buy t-shirt".into(),
         max_steps: 5,
-        // [FIX] Added missing fields for delegation
         parent_session_id: None,
         initial_budget: 1000,
     };
@@ -144,10 +155,7 @@ async fn test_agentic_loop_end_to_end() -> Result<()> {
     let logs = actions_log.lock().unwrap();
     assert_eq!(logs.len(), 1);
     // MockBrain returns "click 500 500".
-    // `grounding.rs` logic handles clamping/scaling.
-    // `MockGuiDriver` logs "click(x, y)".
-    // 500 is within 1000 range.
-    // If screen is 1920x1080 (hardcoded in desktop.rs for MVP), 500/1000 = 0.5.
+    // 500/1000 = 0.5.
     // 0.5 * 1920 = 960. 0.5 * 1080 = 540.
     assert_eq!(logs[0], "click(960, 540)");
 

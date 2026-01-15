@@ -8,8 +8,9 @@ use ioi_api::transaction::context::TxContext;
 use ioi_api::vm::drivers::gui::{GuiDriver, InputEvent};
 use ioi_api::vm::inference::InferenceRuntime;
 
-use ioi_types::app::agentic::{AgentSkill, InferenceOptions, LlmToolDefinition, StepTrace};
-use ioi_types::app::{ActionContext, ActionRequest, ActionTarget, KernelEvent}; // [FIX] Import KernelEvent
+use ioi_types::app::agentic::{AgentSkill, InferenceOptions, LlmToolDefinition, StepTrace, ResumeAgentParams};
+use ioi_types::app::action::ApprovalToken;
+use ioi_types::app::{ActionContext, ActionRequest, ActionTarget, KernelEvent}; 
 use ioi_types::codec;
 use ioi_types::error::{TransactionError, UpgradeError};
 use ioi_types::keys::UPGRADE_ACTIVE_SERVICE_PREFIX;
@@ -24,10 +25,13 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use crate::agentic::grounding::parse_vlm_action;
 use crate::agentic::scrub_adapter::RuntimeAsSafetyModel;
 use crate::agentic::scrubber::SemanticScrubber;
+use crate::agentic::policy::PolicyEngine; // [FIX] Updated import path
+use crate::agentic::rules::{ActionRules, Verdict}; // [FIX] Updated import path
 
 use ioi_api::ibc::AgentZkVerifier;
 use ioi_drivers::terminal::TerminalDriver;
-use ioi_scs::{SovereignContextStore, VectorIndex}; 
+use ioi_drivers::browser::BrowserDriver;
+use ioi_scs::SovereignContextStore; 
 use std::sync::Mutex;
 
 const AGENT_STATE_PREFIX: &[u8] = b"agent::state::";
@@ -59,6 +63,8 @@ pub struct AgentState {
     pub budget: u64,
     pub tokens_used: u64,
     pub consecutive_failures: u8,
+    // [NEW] Staged approval token for the next retry
+    pub pending_approval: Option<ApprovalToken>,
 }
 
 #[derive(Encode, Decode)]
@@ -75,26 +81,29 @@ pub struct StepAgentParams {
     pub session_id: [u8; 32],
 }
 
-#[derive(Encode, Decode)]
-pub struct ResumeAgentParams {
-    pub session_id: [u8; 32],
-}
-
 pub struct DesktopAgentService {
     gui: Arc<dyn GuiDriver>,
-    terminal: Arc<TerminalDriver>, // [NEW] Terminal driver for system execution
+    terminal: Arc<TerminalDriver>,
+    browser: Arc<BrowserDriver>, 
     fast_inference: Arc<dyn InferenceRuntime>,
     reasoning_inference: Arc<dyn InferenceRuntime>,
     scrubber: SemanticScrubber,
     zk_verifier: Option<Arc<dyn AgentZkVerifier>>,
     scs: Option<Arc<Mutex<SovereignContextStore>>>,
-    event_sender: Option<tokio::sync::broadcast::Sender<KernelEvent>>, // [NEW] Event sender
+    event_sender: Option<tokio::sync::broadcast::Sender<KernelEvent>>,
+    // [NEW] Add OS Driver for policy checks (mocked via GuiDriver cast or new field)
+    // For MVP we can reuse gui as OS driver if it implements it, or add field.
+    // Let's assume we can use a basic implementation or the one from `ioi_drivers`.
+    // Actually, PolicyEngine::evaluate needs `OsDriver`.
+    // We'll add it to struct.
+    os_driver: Option<Arc<dyn ioi_api::vm::drivers::os::OsDriver>>,
 }
 
 impl DesktopAgentService {
     pub fn new(
         gui: Arc<dyn GuiDriver>,
         terminal: Arc<TerminalDriver>,
+        browser: Arc<BrowserDriver>,
         inference: Arc<dyn InferenceRuntime>,
     ) -> Self {
         let safety_adapter = Arc::new(RuntimeAsSafetyModel::new(inference.clone()));
@@ -103,18 +112,21 @@ impl DesktopAgentService {
         Self {
             gui,
             terminal,
+            browser, 
             fast_inference: inference.clone(),
             reasoning_inference: inference,
             scrubber,
             zk_verifier: None,
             scs: None,
-            event_sender: None, // [NEW] Initialize to None
+            event_sender: None, 
+            os_driver: None, // Will be set via builder or default
         }
     }
 
     pub fn new_hybrid(
         gui: Arc<dyn GuiDriver>,
         terminal: Arc<TerminalDriver>,
+        browser: Arc<BrowserDriver>,
         fast_inference: Arc<dyn InferenceRuntime>,
         reasoning_inference: Arc<dyn InferenceRuntime>,
     ) -> Self {
@@ -124,12 +136,14 @@ impl DesktopAgentService {
         Self {
             gui,
             terminal,
+            browser, 
             fast_inference,
             reasoning_inference,
             scrubber,
             zk_verifier: None,
             scs: None,
-            event_sender: None, // [NEW] Initialize to None
+            event_sender: None,
+            os_driver: None,
         }
     }
 
@@ -143,9 +157,14 @@ impl DesktopAgentService {
         self
     }
 
-    // [NEW] Builder method for event sender
     pub fn with_event_sender(mut self, sender: tokio::sync::broadcast::Sender<KernelEvent>) -> Self {
         self.event_sender = Some(sender);
+        self
+    }
+
+    // [NEW] Builder for OS Driver
+    pub fn with_os_driver(mut self, driver: Arc<dyn ioi_api::vm::drivers::os::OsDriver>) -> Self {
+        self.os_driver = Some(driver);
         self
     }
 
@@ -201,6 +220,44 @@ impl DesktopAgentService {
                 }
             }
         }
+        
+        let nav_params = json!({
+            "type": "object",
+            "properties": {
+                "url": { "type": "string", "description": "The URL to navigate to (must start with http/https)" }
+            },
+            "required": ["url"]
+        });
+        tools.push(LlmToolDefinition {
+            name: "browser__navigate".to_string(),
+            description: "Navigate the internal browser to a URL and return page content.".to_string(),
+            parameters: nav_params.to_string(),
+        });
+
+        let extract_params = json!({
+            "type": "object",
+            "properties": {},
+            "required": []
+        });
+        tools.push(LlmToolDefinition {
+            name: "browser__extract".to_string(),
+            description: "Extract the HTML content from the current browser page.".to_string(),
+            parameters: extract_params.to_string(),
+        });
+
+        let click_selector_params = json!({
+            "type": "object",
+            "properties": {
+                "selector": { "type": "string", "description": "CSS selector to click (e.g. '#login-button')" }
+            },
+            "required": ["selector"]
+        });
+        tools.push(LlmToolDefinition {
+            name: "browser__click".to_string(),
+            description: "Click an element on the current page using a CSS selector.".to_string(),
+            parameters: click_selector_params.to_string(),
+        });
+
         let gui_params = json!({
             "type": "object",
             "properties": {
@@ -215,6 +272,7 @@ impl DesktopAgentService {
             description: "Click on UI element at coordinates".to_string(),
             parameters: gui_params.to_string(),
         });
+
         let delegate_params = json!({
             "type": "object",
             "properties": {
@@ -258,7 +316,6 @@ impl DesktopAgentService {
             parameters: pause_params.to_string(),
         });
 
-        // [NEW] UCP Checkout tool
         let checkout_params = json!({
             "type": "object",
             "properties": {
@@ -285,7 +342,6 @@ impl DesktopAgentService {
             parameters: checkout_params.to_string(),
         });
 
-        // [NEW] System Execution Tool
         let sys_params = json!({
             "type": "object",
             "properties": {
@@ -336,16 +392,12 @@ impl DesktopAgentService {
         Ok(relevant_skills)
     }
 
-    // [NEW] RAG Memory Retrieval
     async fn retrieve_memory(&self, query: &str) -> String {
-        // Only run if SCS is configured
         let scs_mutex = match &self.scs {
             Some(m) => m,
             None => return "".to_string(),
         };
 
-        // 1. Generate Embedding
-        // Use the reasoning model for semantic similarity as it likely has better embedding capabilities
         let embedding_res = self.reasoning_inference.embed_text(query).await;
         
         let embedding = match embedding_res {
@@ -356,8 +408,6 @@ impl DesktopAgentService {
             }
         };
 
-        // 2. Search Index
-        // Lock the SCS to access the index
         let results = {
             let scs = match scs_mutex.lock() {
                 Ok(s) => s,
@@ -372,18 +422,12 @@ impl DesktopAgentService {
                 }
             };
             
-            // Drop SCS lock before Index lock?
-            // get_vector_index returns a cloned Arc, so we can drop scs.
-            // But scs.get_vector_index() acquires its own internal lock.
-            // Let's keep it simple.
-
             let idx = match index_mutex.lock() {
                 Ok(i) => i,
                 Err(_) => return "".to_string(),
             };
 
             if let Some(index) = idx.as_ref() {
-                // Search for top 3 matches
                 index.search(&embedding, 3)
             } else {
                 Ok(vec![])
@@ -402,7 +446,6 @@ impl DesktopAgentService {
             return "".to_string();
         }
 
-        // 3. Retrieve Content
         let mut context_str = String::new();
         context_str.push_str("\n### Relevant Memories\n");
         
@@ -415,7 +458,6 @@ impl DesktopAgentService {
             for (frame_id, dist) in matches {
                 if let Ok(payload) = scs.read_frame_payload(frame_id) {
                     if let Ok(text) = String::from_utf8(payload.to_vec()) {
-                        // Truncate if too long to save tokens
                         let snippet = if text.len() > 200 {
                             format!("{}...", &text[..200])
                         } else {
@@ -518,6 +560,7 @@ impl BlockchainService for DesktopAgentService {
                     budget: p.initial_budget,
                     consecutive_failures: 0,
                     tokens_used: 0,
+                    pending_approval: None,
                 };
                 state.insert(&key, &codec::to_bytes_canonical(&agent_state)?)?;
                 Ok(())
@@ -535,6 +578,13 @@ impl BlockchainService for DesktopAgentService {
                     agent_state
                         .history
                         .push("System: Resumed by user/controller.".to_string());
+                    
+                    // [NEW] Store approval token
+                    if let Some(token) = p.approval_token {
+                        agent_state.pending_approval = Some(token);
+                        agent_state.history.push("System: Approval token staged for retry.".to_string());
+                    }
+
                     state.insert(&key, &codec::to_bytes_canonical(&agent_state)?)?;
                     Ok(())
                 } else {
@@ -590,7 +640,6 @@ impl BlockchainService for DesktopAgentService {
                         TransactionError::Invalid(format!("Substrate access failed: {}", e))
                     })?;
                 
-                // [FIX] Reconstruct data from chunks
                 let mut tree_xml_bytes = Vec::new();
                 for chunk in &context_slice.chunks {
                     tree_xml_bytes.extend_from_slice(chunk);
@@ -615,8 +664,6 @@ impl BlockchainService for DesktopAgentService {
                     }
                 }
 
-                // [NEW] Retrieve RAG Memory
-                // We use the goal as the query to find related past experiences.
                 let rag_context = self.retrieve_memory(&agent_state.goal).await;
 
                 let mut recovery_guidance = String::new();
@@ -633,7 +680,7 @@ impl BlockchainService for DesktopAgentService {
                     "Goal: {}\n\n{}{}{}\n\nHistory: {:?}\n{}{}\nContext: {}",
                     agent_state.goal,
                     skills_prompt,
-                    rag_context, // [NEW] Inject RAG context
+                    rag_context, 
                     "Available Tools: ...",
                     agent_state.history,
                     recovery_guidance,
@@ -701,6 +748,69 @@ impl BlockchainService for DesktopAgentService {
                 if let Ok(tool_call) = serde_json::from_str::<Value>(&output_str) {
                     if let Some(name) = tool_call.get("name").and_then(|n| n.as_str()) {
                         action_type = name.to_string();
+
+                        // --- [NEW] Policy Enforcment with Token ---
+                        // We use the os_driver injected via builder, or fail closed if missing.
+                        let os_driver = self.os_driver.clone().ok_or_else(|| {
+                            TransactionError::Invalid("OS Driver not configured for policy check".into())
+                        })?;
+
+                        // 1. Construct Request
+                        let request_params = serde_json::to_vec(&tool_call["arguments"]).unwrap_or_default();
+                        let dummy_request = ActionRequest {
+                            target: ActionTarget::Custom(name.to_string()),
+                            params: request_params,
+                            context: ActionContext {
+                                agent_id: "desktop_agent".into(),
+                                session_id: Some(p.session_id),
+                                window_id: None,
+                            },
+                            nonce: agent_state.step_count as u64,
+                        };
+
+                        // 2. Check Policy (using staged token if present)
+                        let rules = ActionRules::default(); // Load real rules in prod
+                        
+                        let verdict = PolicyEngine::evaluate(
+                            &rules,
+                            &dummy_request,
+                            &self.scrubber.model, // Reuse scrubber's model for classification
+                            &os_driver,
+                            agent_state.pending_approval.as_ref(),
+                        ).await;
+
+                        match verdict {
+                            Verdict::Allow => {
+                                // If token was used, consume it
+                                if agent_state.pending_approval.is_some() {
+                                     agent_state.pending_approval = None;
+                                }
+                            }
+                            Verdict::Block => {
+                                action_error = Some("Blocked by Policy".into());
+                                // Skip execution
+                                goto_trace_log(&mut agent_state, state, &key, p.session_id, visual_hash_arr, user_prompt, output_str, false, action_error, action_type, self.event_sender.clone())?;
+                                return Ok(()); 
+                            }
+                            Verdict::RequireApproval => {
+                                // Pause agent
+                                agent_state.status = AgentStatus::Paused("Policy Gate: Approval Required".into());
+                                
+                                // Emit Interception Event
+                                if let Some(tx) = &self.event_sender {
+                                    let _ = tx.send(KernelEvent::FirewallInterception {
+                                        verdict: "REQUIRE_APPROVAL".to_string(),
+                                        target: name.to_string(),
+                                        request_hash: dummy_request.hash(),
+                                    });
+                                }
+                                
+                                state.insert(&key, &codec::to_bytes_canonical(&agent_state)?)?;
+                                return Err(TransactionError::PendingApproval(hex::encode(dummy_request.hash())));
+                            }
+                        }
+
+                        // --- End Policy ---
                         
                         if name == "agent__delegate" {
                             let goal = tool_call["arguments"]["goal"]
@@ -790,17 +900,9 @@ impl BlockchainService for DesktopAgentService {
                                 Err(e) => action_error = Some(e.to_string()),
                             }
                         } else if name == "commerce__checkout" {
-                            // [NEW] UCP Checkout Handler
-                            
-                            // [FIX] Use serde_json::to_vec instead of codec::to_bytes_canonical 
-                            // because Value doesn't implement Encode.
-                            // The params field in ActionRequest is Vec<u8> (canonical JSON).
-                            let ucp_params_bytes = serde_json::to_vec(&tool_call["arguments"]).unwrap_or_default();
-                            
-                            // 2. Map to ActionTarget::CommerceCheckout
-                            let ucp_intent = ActionRequest {
+                            let _ucp_intent = ActionRequest {
                                 target: ActionTarget::CommerceCheckout,
-                                params: ucp_params_bytes,
+                                params: serde_json::to_vec(&tool_call["arguments"]).unwrap_or_default(),
                                 context: ActionContext {
                                     agent_id: "desktop_agent".to_string(),
                                     session_id: Some(p.session_id),
@@ -809,8 +911,7 @@ impl BlockchainService for DesktopAgentService {
                                 nonce: agent_state.step_count as u64,
                             };
                             
-                            // Placeholder for actual driver invocation:
-                            action_success = true; // Assume success if we got here
+                            action_success = true; 
                             agent_state.history.push("System: Initiated UCP Checkout (Pending Guardian Approval)".to_string());
                         } else if name == "sys__exec" {
                             let cmd = tool_call["arguments"]["command"].as_str().unwrap_or("");
@@ -822,7 +923,6 @@ impl BlockchainService for DesktopAgentService {
                             match self.terminal.execute(cmd, &args).await {
                                 Ok(output) => {
                                     action_success = true;
-                                    // [FIX] Explicitly type safe_output as String
                                     let safe_output: String = if output.len() > 1000 {
                                         format!("{}... (truncated)", &output[..1000])
                                     } else {
@@ -830,7 +930,6 @@ impl BlockchainService for DesktopAgentService {
                                     };
                                     agent_state.history.push(format!("System Output: {}", safe_output));
 
-                                    // [NEW] Emit the result event
                                     if let Some(tx) = &self.event_sender {
                                         let event = KernelEvent::AgentActionResult {
                                             session_id: p.session_id,
@@ -843,8 +942,86 @@ impl BlockchainService for DesktopAgentService {
                                 }
                                 Err(e) => {
                                     action_success = false;
-                                    // [FIX] Explicitly wrap error
                                     action_error = Some(e.to_string());
+                                }
+                            }
+                        } else if name == "browser__navigate" {
+                            let url = tool_call["arguments"]["url"].as_str().unwrap_or("");
+                            if url.is_empty() {
+                                action_error = Some("URL argument is missing".to_string());
+                            } else {
+                                match self.browser.navigate(url).await {
+                                    Ok(content) => {
+                                        action_success = true;
+                                        let content_len = content.len();
+                                        let preview = if content_len > 300 { 
+                                            format!("{}...", &content[..300]) 
+                                        } else { 
+                                            content.clone() 
+                                        };
+                                        agent_state.history.push(format!("Browser: Navigated to {} ({} chars). Preview: {}", url, content_len, preview));
+                                        
+                                        if let Some(tx) = &self.event_sender {
+                                            let _ = tx.send(KernelEvent::AgentActionResult {
+                                                session_id: p.session_id,
+                                                step_index: agent_state.step_count,
+                                                tool_name: "browser__navigate".to_string(),
+                                                output: format!("Navigated to {}. Content len: {}", url, content_len),
+                                            });
+                                        }
+                                    }
+                                    Err(e) => {
+                                        action_success = false;
+                                        action_error = Some(format!("Browser navigation failed: {}", e));
+                                    }
+                                }
+                            }
+                        } else if name == "browser__extract" {
+                            match self.browser.extract_dom().await {
+                                Ok(content) => {
+                                    action_success = true;
+                                    let content_len = content.len();
+                                    let preview = if content_len > 300 { 
+                                        format!("{}...", &content[..300]) 
+                                    } else { 
+                                        content.clone()
+                                    };
+                                    agent_state.history.push(format!("Browser: Extracted DOM. Preview: {}", preview));
+
+                                    if let Some(tx) = &self.event_sender {
+                                        let _ = tx.send(KernelEvent::AgentActionResult {
+                                            session_id: p.session_id,
+                                            step_index: agent_state.step_count,
+                                            tool_name: "browser__extract".to_string(),
+                                            output: format!("Extracted DOM ({} chars)", content_len),
+                                        });
+                                    }
+                                }
+                                Err(e) => {
+                                    action_success = false;
+                                    action_error = Some(format!("Browser extraction failed: {}", e));
+                                }
+                            }
+                        } else if name == "browser__click" {
+                             let selector = tool_call["arguments"]["selector"].as_str().unwrap_or("");
+                            if selector.is_empty() {
+                                action_error = Some("Selector argument is missing".to_string());
+                            } else {
+                                match self.browser.click_selector(selector).await {
+                                    Ok(_) => {
+                                        action_success = true;
+                                        agent_state.history.push(format!("Clicked element: {}", selector));
+
+                                        if let Some(tx) = &self.event_sender {
+                                            let _ = tx.send(KernelEvent::AgentActionResult {
+                                                session_id: p.session_id,
+                                                step_index: agent_state.step_count,
+                                                tool_name: "browser__click".to_string(),
+                                                output: format!("Clicked: {}", selector),
+                                            });
+                                        }
+                                    }
+                                    Err(e) => action_error = Some(format!("Click failed: {}", e)),
                                 }
                             }
                         }
@@ -896,47 +1073,66 @@ impl BlockchainService for DesktopAgentService {
                     }
                 }
 
-                let trace = StepTrace {
-                    session_id: p.session_id,
-                    step_index: agent_state.step_count,
-                    visual_hash: visual_hash_arr,
-                    full_prompt: user_prompt,
-                    raw_output: output_str.clone(),
-                    success: action_success,
-                    error: action_error.clone(),
-                    timestamp: SystemTime::now()
-                        .duration_since(UNIX_EPOCH)
-                        .unwrap()
-                        .as_secs(),
-                };
-                let trace_key = Self::get_trace_key(&p.session_id, agent_state.step_count);
-                state.insert(&trace_key, &codec::to_bytes_canonical(&trace)?)?;
+                goto_trace_log(&mut agent_state, state, &key, p.session_id, visual_hash_arr, user_prompt, output_str, action_success, action_error, action_type, self.event_sender.clone())?;
 
-                // [NEW] Emit Kernel Event with explicit type
-                if let Some(tx) = &self.event_sender {
-                    let event = KernelEvent::AgentStep(trace.clone());
-                    let _ = tx.send(event);
-                }
-
-                if let Some(e) = action_error {
-                    agent_state.consecutive_failures += 1;
-                    agent_state
-                        .history
-                        .push(format!("System: Action Failed: {}", e));
-                } else {
-                    agent_state.consecutive_failures = 0;
-                }
-
-                agent_state.step_count += 1;
-                agent_state.last_action_type = Some(action_type);
-                if agent_state.step_count >= agent_state.max_steps {
-                    agent_state.status = AgentStatus::Completed(None);
-                }
-
-                state.insert(&key, &codec::to_bytes_canonical(&agent_state)?)?;
                 Ok(())
             }
             _ => Err(TransactionError::Unsupported(method.into())),
         }
     }
+}
+
+// Helper to clean up the nesting in handle_service_call
+fn goto_trace_log(
+    agent_state: &mut AgentState,
+    state: &mut dyn StateAccess,
+    key: &[u8],
+    session_id: [u8; 32],
+    visual_hash_arr: [u8; 32],
+    user_prompt: String,
+    output_str: String,
+    action_success: bool,
+    action_error: Option<String>,
+    action_type: String,
+    event_sender: Option<tokio::sync::broadcast::Sender<KernelEvent>>,
+) -> Result<(), TransactionError> {
+
+    let trace = StepTrace {
+        session_id: session_id,
+        step_index: agent_state.step_count,
+        visual_hash: visual_hash_arr,
+        full_prompt: user_prompt,
+        raw_output: output_str.clone(),
+        success: action_success,
+        error: action_error.clone(),
+        timestamp: SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_secs(),
+    };
+    let trace_key = DesktopAgentService::get_trace_key(&session_id, agent_state.step_count);
+    state.insert(&trace_key, &codec::to_bytes_canonical(&trace)?)?;
+
+    if let Some(tx) = &event_sender {
+        let event = KernelEvent::AgentStep(trace.clone());
+        let _ = tx.send(event);
+    }
+
+    if let Some(e) = action_error {
+        agent_state.consecutive_failures += 1;
+        agent_state
+            .history
+            .push(format!("System: Action Failed: {}", e));
+    } else {
+        agent_state.consecutive_failures = 0;
+    }
+
+    agent_state.step_count += 1;
+    agent_state.last_action_type = Some(action_type);
+    if agent_state.step_count >= agent_state.max_steps {
+        agent_state.status = AgentStatus::Completed(None);
+    }
+
+    state.insert(&key, &codec::to_bytes_canonical(&agent_state)?)?;
+    Ok(())
 }
