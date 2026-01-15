@@ -6,12 +6,13 @@ use ioi_api::{
     consensus::ConsensusEngine,
     state::{StateManager, Verifier},
 };
-use ioi_client::WorkloadClient;
+// REMOVED: use ioi_client::WorkloadClient;
 use ioi_ipc::public::TxStatus;
 use ioi_networking::libp2p::SwarmCommand;
 use ioi_networking::traits::NodeState;
 use ioi_types::{
-    app::{Block, ChainTransaction, TxHash},
+    // REMOVED: app::{Block, ChainTransaction, TxHash},
+    app::{Block, ChainTransaction},
     codec,
 };
 use serde::Serialize;

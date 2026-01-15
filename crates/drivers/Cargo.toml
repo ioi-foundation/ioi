@@ -38,6 +38,9 @@ image_hasher = "2.0"
 # Replacement for DOM/Accessibility Parsing
 accesskit = "0.16.0"
 
+# OS Window Context
+active-win-pos-rs = "0.8"
+
 # Browser Control (Replacement for Puppeteer)
 # [Note: Chromiumoxide requires tokio]
 chromiumoxide = { version = "0.5", features = ["tokio-runtime"] }

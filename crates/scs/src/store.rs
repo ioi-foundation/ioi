@@ -19,7 +19,7 @@ use std::io::{Read, Seek, SeekFrom, Write};
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 use std::time::{SystemTime, UNIX_EPOCH};
-use std::collections::HashMap; 
+use std::collections::HashMap;
 
 /// Configuration for opening or creating a store.
 #[derive(Debug, Clone)]
@@ -40,7 +40,7 @@ pub struct SovereignContextStore {
     mmap: Option<Mmap>,
     /// In-memory vector index (lazy loaded).
     vec_index: Arc<Mutex<Option<VectorIndex>>>,
-    /// [NEW] In-memory index for fast lookup of frames by their visual hash (checksum).
+    /// In-memory index for fast lookup of frames by their visual hash (checksum).
     pub visual_index: HashMap<[u8; 32], FrameId>,
 }
 
@@ -88,7 +88,7 @@ impl SovereignContextStore {
             toc,
             mmap: None,
             vec_index: Arc::new(Mutex::new(None)),
-            visual_index: HashMap::new(), // [NEW] Initialize empty
+            visual_index: HashMap::new(),
         })
     }
 
@@ -108,14 +108,13 @@ impl SovereignContextStore {
         let toc: Toc = bincode::deserialize(&toc_bytes)?;
 
         // Verify TOC Checksum (Integrity Check)
-        let computed_checksum = sha256(&toc_bytes)?;
+        let _computed_checksum = sha256(&toc_bytes)?;
         // We verify against the header logic or just trust it for now if header doesn't store checksum.
-        // The Toc struct has an internal checksum field for self-consistency if needed.
-
+        
         // Mmap the file for reading
         let mmap = unsafe { Mmap::map(&file)? };
 
-        // [NEW] Rebuild visual index
+        // Rebuild visual index
         let mut visual_index = HashMap::new();
         for frame in &toc.frames {
             // Map checksum -> FrameId. This assumes payload checksum IS the visual hash for Observation frames.
@@ -129,7 +128,7 @@ impl SovereignContextStore {
             toc,
             mmap: Some(mmap),
             vec_index: Arc::new(Mutex::new(None)),
-            visual_index, // [NEW]
+            visual_index,
         })
     }
 
@@ -177,7 +176,7 @@ impl SovereignContextStore {
         };
         self.toc.frames.push(frame);
 
-        // [NEW] Update In-Memory Visual Index
+        // Update In-Memory Visual Index
         self.visual_index.insert(checksum_arr, next_id);
 
         // 5. Serialize and Append New TOC
@@ -194,7 +193,6 @@ impl SovereignContextStore {
         self.file.sync_all()?;
 
         // Remap mmap to include new data
-        // Note: Remapping on every write is expensive; in prod we'd chunk or lazily remap.
         self.mmap = Some(unsafe { Mmap::map(&self.file)? });
 
         Ok(next_id)
@@ -216,8 +214,6 @@ impl SovereignContextStore {
             }
             Ok(&mmap[start..end])
         } else {
-            // Fallback to file seek/read if mmap failed or not initialized
-            // (Though open/create initializes it).
             Err(anyhow!("Memory map not initialized"))
         }
     }
@@ -272,6 +268,8 @@ impl SovereignContextStore {
     pub fn get_vector_index(&self) -> Result<Arc<Mutex<Option<VectorIndex>>>> {
         let mut guard = self.vec_index.lock().unwrap();
         if guard.is_some() {
+            // Already loaded
+            // We need to return the Arc, so we drop guard and return self.vec_index clone
             drop(guard);
             return Ok(self.vec_index.clone());
         }
@@ -284,6 +282,9 @@ impl SovereignContextStore {
                 .ok_or_else(|| anyhow!("Mmap not ready"))?;
             let start = manifest.offset as usize;
             let end = start + manifest.length as usize;
+            if end > mmap.len() {
+                 return Err(anyhow!("Index artifact out of bounds"));
+            }
             let bytes = &mmap[start..end];
 
             // Deserialize artifact

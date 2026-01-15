@@ -255,16 +255,13 @@ where
 
         let base_state_tree = self.ctx.workload.state_tree();
         let base_state = base_state_tree.read().await;
-        let mut overlay = ioi_api::state::StateOverlay::new(&*base_state);
+        // [FIX] Removed mut keyword here
+        let overlay = ioi_api::state::StateOverlay::new(&*base_state);
 
         let mut results = Vec::with_capacity(txs.len());
         for tx in txs {
-            // [FIX] REMOVED enforce_firewall from Workload side.
-            // Workload only performs execution pre-checks (nonce, balance, signature).
-            // Safety checks happen in Orchestrator ingestion.
-
-            // Use the standard transaction model validation
-            let mut ctx = ioi_api::transaction::context::TxContext {
+            // [FIX] Removed mut keyword here
+            let ctx = ioi_api::transaction::context::TxContext {
                 block_height: height + 1,
                 // Approximate timestamp for check
                 block_timestamp: ibc_primitives::Timestamp::from_nanoseconds(
@@ -302,6 +299,7 @@ where
         Ok(Response::new(CheckTransactionsResponse { results }))
     }
 
+    // ... (rest of implementation remains the same)
     async fn query_state_at(
         &self,
         request: Request<QueryStateAtRequest>,

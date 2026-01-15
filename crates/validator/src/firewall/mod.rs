@@ -14,6 +14,7 @@ pub mod synthesizer;
 use crate::firewall::policy::PolicyEngine;
 use crate::firewall::rules::Verdict;
 use ioi_api::vm::inference::LocalSafetyModel;
+use ioi_api::vm::drivers::os::OsDriver; // [NEW] Import OsDriver
 use ioi_services::agentic::scrubber::SemanticScrubber;
 
 use ibc_primitives::Timestamp;
@@ -21,7 +22,6 @@ use ioi_api::state::namespaced::{NamespacedStateAccess, ReadOnlyNamespacedStateA
 use ioi_api::state::{service_namespace_prefix, StateAccess, StateOverlay};
 use ioi_api::transaction::context::TxContext;
 use ioi_tx::system::{nonce, validation};
-// [FIX] Removed unused ActionRequest import
 use ioi_types::app::{action::ApprovalToken, ChainTransaction, SystemPayload}; 
 use ioi_types::error::TransactionError;
 use ioi_types::keys::active_service_key;
@@ -39,14 +39,13 @@ pub async fn enforce_firewall(
     skip_stateless_checks: bool,
     is_simulation: bool,
     safety_model: Arc<dyn LocalSafetyModel>,
+    os_driver: Arc<dyn OsDriver>, // [NEW] Added parameter
 ) -> Result<(), TransactionError> {
     let mut overlay = StateOverlay::new(state);
 
-    // [FIX] Use underscore to suppress unused warning, as scrubber instantiation has side effects (loading model) or is reserved for future use.
     let _scrubber = SemanticScrubber::new(safety_model.clone());
 
     // 1. Identify Signer
-    // [FIX] Use underscore for unused session_auth
     let (signer_account_id, _session_auth) = match tx {
         ChainTransaction::System(s) => (s.header.account_id, s.header.session_auth.as_ref()),
         ChainTransaction::Settlement(s) => (s.header.account_id, s.header.session_auth.as_ref()),
@@ -118,10 +117,12 @@ pub async fn enforce_firewall(
 
             let approval_token: Option<ApprovalToken> = None;
 
+            // [FIX] Pass os_driver to PolicyEngine
             let verdict = PolicyEngine::evaluate(
                 &rules,
                 &dummy_request,
                 &safety_model,
+                &os_driver, 
                 approval_token.as_ref(),
             )
             .await;

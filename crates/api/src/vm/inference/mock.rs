@@ -5,6 +5,8 @@ use async_trait::async_trait;
 use ioi_types::app::agentic::InferenceOptions; // [UPDATED]
 use ioi_types::error::VmError;
 use std::path::Path;
+// [NEW] Import for hashing
+use dcrypt::algorithms::hash::{HashFunction, Sha256};
 
 /// A mock implementation of the InferenceRuntime for testing and development.
 #[derive(Debug, Default, Clone)]
@@ -33,6 +35,38 @@ impl InferenceRuntime for MockInferenceRuntime {
         );
 
         Ok(response.into_bytes())
+    }
+
+    // [NEW] Implement embed_text
+    async fn embed_text(&self, text: &str) -> Result<Vec<f32>, VmError> {
+        // Deterministic embedding: Hash the text, seed a PRNG (or just cycle the bytes),
+        // and generate a float vector.
+        // For testing stability, we map the 32-byte hash to a 384-dimensional vector (common small size).
+        
+        let digest = Sha256::digest(text.as_bytes())
+            .map_err(|e| VmError::HostError(e.to_string()))?;
+        
+        let seed = digest.as_ref();
+        let mut embedding = Vec::with_capacity(384);
+        
+        for i in 0..384 {
+            // Simple chaotic mapping to get floats in [-1.0, 1.0]
+            let byte = seed[i % 32];
+            let modifier = (i * 7) as u8;
+            let val = byte.wrapping_add(modifier);
+            let float_val = (val as f32 / 255.0) * 2.0 - 1.0;
+            embedding.push(float_val);
+        }
+        
+        // Normalize vector
+        let norm: f32 = embedding.iter().map(|x| x * x).sum::<f32>().sqrt();
+        if norm > 0.0 {
+            for x in &mut embedding {
+                *x /= norm;
+            }
+        }
+
+        Ok(embedding)
     }
 
     async fn load_model(&self, model_hash: [u8; 32], path: &Path) -> Result<(), VmError> {
