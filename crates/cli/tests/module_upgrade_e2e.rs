@@ -50,6 +50,7 @@ fn create_system_tx(
             nonce,
             chain_id,
             tx_version: 1,
+            session_auth: None,
         },
         payload,
         signature_proof: Default::default(),

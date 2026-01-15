@@ -138,6 +138,14 @@ async fn main() -> Result<()> {
     });
     // [END FIX]
 
+    // [NEW] Check for API Key for Real Inference
+    let openai_key = std::env::var("OPENAI_API_KEY").ok();
+    if openai_key.is_some() {
+        println!("🤖 OpenAI API Key detected. Using Real Inference Model.");
+    } else {
+        println!("🤖 No API Key found. Using Mock Brain.");
+    }
+
     let workload_config = WorkloadConfig {
         runtimes: vec!["wasm".to_string()],
         state_tree: ioi_types::config::StateTreeType::IAVL,
@@ -168,12 +176,19 @@ async fn main() -> Result<()> {
         epoch_size: 1000,
         gc_interval_secs: 3600,
         zk_config: Default::default(),
-        // [FIX] Explicitly configure inference to avoid empty provider string
+        
+        // [MODIFIED] Inference Configuration
         inference: ioi_types::config::InferenceConfig {
-            provider: "mock".to_string(),
-            api_url: None,
-            api_key: None,
-            model_name: None,
+            // If key exists, use "openai", otherwise fallback to "mock"
+            provider: if openai_key.is_some() { "openai".to_string() } else { "mock".to_string() },
+            // Standard OpenAI Chat Completions Endpoint
+            api_url: if openai_key.is_some() { 
+                Some("https://api.openai.com/v1/chat/completions".to_string()) 
+            } else { 
+                None 
+            },
+            api_key: openai_key, // Inject the key
+            model_name: Some("gpt-4o".to_string()), // Use a smart model for tool calling
             connector_ref: None,
         },
         fast_inference: None,

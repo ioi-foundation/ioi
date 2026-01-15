@@ -56,6 +56,7 @@ fn create_transfer_tx(
         nonce,
         chain_id: chain_id.into(),
         tx_version: 1,
+        session_auth: None,
     };
 
     let app_tx = ApplicationTransaction::CallContract {

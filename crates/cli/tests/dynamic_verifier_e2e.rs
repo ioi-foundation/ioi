@@ -46,6 +46,7 @@ fn create_gov_tx(signer: &Keypair, payload: SystemPayload, nonce: u64) -> Result
             nonce,
             chain_id: 1.into(),
             tx_version: 1,
+            session_auth: None,
         },
         payload,
         signature_proof: Default::default(),

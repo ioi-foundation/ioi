@@ -223,7 +223,7 @@ In a **new terminal**, run the local node. This acts as the backend server (Orch
 
 ```bash
 # From the repository root
-cargo run -p ioi-node --bin ioi-local --features "validator-bins state-iavl consensus-admft"
+cargo run --bin ioi-local --features="validator-bins state-iavl consensus-admft"
 ```
 
 *   **Success Indicator:** Look for the log line: `ORCHESTRATION_RPC_LISTENING_ON_0.0.0.0:9000`

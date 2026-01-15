@@ -26,6 +26,7 @@ use crate::agentic::scrub_adapter::RuntimeAsSafetyModel;
 use crate::agentic::scrubber::SemanticScrubber;
 
 use ioi_api::ibc::AgentZkVerifier;
+use ioi_drivers::terminal::TerminalDriver;
 use ioi_scs::{SovereignContextStore, VectorIndex}; 
 use std::sync::Mutex;
 
@@ -81,6 +82,7 @@ pub struct ResumeAgentParams {
 
 pub struct DesktopAgentService {
     gui: Arc<dyn GuiDriver>,
+    terminal: Arc<TerminalDriver>, // [NEW] Terminal driver for system execution
     fast_inference: Arc<dyn InferenceRuntime>,
     reasoning_inference: Arc<dyn InferenceRuntime>,
     scrubber: SemanticScrubber,
@@ -90,12 +92,17 @@ pub struct DesktopAgentService {
 }
 
 impl DesktopAgentService {
-    pub fn new(gui: Arc<dyn GuiDriver>, inference: Arc<dyn InferenceRuntime>) -> Self {
+    pub fn new(
+        gui: Arc<dyn GuiDriver>,
+        terminal: Arc<TerminalDriver>,
+        inference: Arc<dyn InferenceRuntime>,
+    ) -> Self {
         let safety_adapter = Arc::new(RuntimeAsSafetyModel::new(inference.clone()));
         let scrubber = SemanticScrubber::new(safety_adapter);
 
         Self {
             gui,
+            terminal,
             fast_inference: inference.clone(),
             reasoning_inference: inference,
             scrubber,
@@ -107,6 +114,7 @@ impl DesktopAgentService {
 
     pub fn new_hybrid(
         gui: Arc<dyn GuiDriver>,
+        terminal: Arc<TerminalDriver>,
         fast_inference: Arc<dyn InferenceRuntime>,
         reasoning_inference: Arc<dyn InferenceRuntime>,
     ) -> Self {
@@ -115,6 +123,7 @@ impl DesktopAgentService {
 
         Self {
             gui,
+            terminal,
             fast_inference,
             reasoning_inference,
             scrubber,
@@ -249,7 +258,7 @@ impl DesktopAgentService {
             parameters: pause_params.to_string(),
         });
 
-        // [NEW] Add UCP Checkout tool
+        // [NEW] UCP Checkout tool
         let checkout_params = json!({
             "type": "object",
             "properties": {
@@ -274,6 +283,28 @@ impl DesktopAgentService {
             name: "commerce__checkout".to_string(),
             description: "Purchase items from a UCP-compatible merchant using secure payment injection.".to_string(),
             parameters: checkout_params.to_string(),
+        });
+
+        // [NEW] System Execution Tool
+        let sys_params = json!({
+            "type": "object",
+            "properties": {
+                "command": { 
+                    "type": "string", 
+                    "description": "The binary to execute (e.g., 'ls', 'netstat', 'ping')" 
+                },
+                "args": { 
+                    "type": "array", 
+                    "items": { "type": "string" },
+                    "description": "Arguments for the command" 
+                }
+            },
+            "required": ["command"]
+        });
+        tools.push(LlmToolDefinition {
+            name: "sys__exec".to_string(),
+            description: "Execute a terminal command on the local system and return the output.".to_string(),
+            parameters: sys_params.to_string(),
         });
 
         tools
@@ -781,6 +812,41 @@ impl BlockchainService for DesktopAgentService {
                             // Placeholder for actual driver invocation:
                             action_success = true; // Assume success if we got here
                             agent_state.history.push("System: Initiated UCP Checkout (Pending Guardian Approval)".to_string());
+                        } else if name == "sys__exec" {
+                            let cmd = tool_call["arguments"]["command"].as_str().unwrap_or("");
+                            let args: Vec<String> = tool_call["arguments"]["args"]
+                                .as_array()
+                                .map(|arr| arr.iter().map(|v| v.as_str().unwrap_or("").to_string()).collect())
+                                .unwrap_or_default();
+
+                            match self.terminal.execute(cmd, &args).await {
+                                Ok(output) => {
+                                    action_success = true;
+                                    // [FIX] Explicitly type safe_output as String
+                                    let safe_output: String = if output.len() > 1000 {
+                                        format!("{}... (truncated)", &output[..1000])
+                                    } else {
+                                        output
+                                    };
+                                    agent_state.history.push(format!("System Output: {}", safe_output));
+
+                                    // [NEW] Emit the result event
+                                    if let Some(tx) = &self.event_sender {
+                                        let event = KernelEvent::AgentActionResult {
+                                            session_id: p.session_id,
+                                            step_index: agent_state.step_count,
+                                            tool_name: "sys__exec".to_string(),
+                                            output: safe_output,
+                                        };
+                                        let _ = tx.send(event);
+                                    }
+                                }
+                                Err(e) => {
+                                    action_success = false;
+                                    // [FIX] Explicitly wrap error
+                                    action_error = Some(e.to_string());
+                                }
+                            }
                         }
                     }
                 } else if let Some(req) = parse_vlm_action(

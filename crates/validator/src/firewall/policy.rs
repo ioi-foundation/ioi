@@ -96,6 +96,42 @@ impl PolicyEngine {
     ) -> bool {
         let conditions = &rule.conditions;
 
+        // [NEW] System Command Allowlist
+        if let ActionTarget::SysExec = target {
+            if let Ok(json) = serde_json::from_slice::<serde_json::Value>(params) {
+                let cmd = json["command"].as_str().unwrap_or("");
+                
+                // STRICT Allowlist for System Commands
+                let allowed_commands = vec![
+                    "netstat", 
+                    "ping", 
+                    "whoami", 
+                    "ls", 
+                    "echo"
+                ];
+                
+                if !allowed_commands.contains(&cmd) {
+                    tracing::warn!("Policy Violation: Command '{}' is not in the system allowlist.", cmd);
+                    return false;
+                }
+                
+                // Optional: Check arguments for dangerous characters
+                // (e.g. prevent chaining like `ls; rm -rf /`)
+                if let Some(args) = json["args"].as_array() {
+                    for arg in args {
+                        let s = arg.as_str().unwrap_or("");
+                        if s.contains(';') || s.contains('|') || s.contains('>') {
+                            tracing::warn!("Policy Violation: Dangerous argument characters detected.");
+                            return false;
+                        }
+                    }
+                }
+                
+                return true;
+            }
+            return false; // Failed to parse params
+        }
+
         // 1. Context Check: Allowed Apps (GUI Isolation)
         if let Some(allowed_apps) = &conditions.allow_apps {
             match target {

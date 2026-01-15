@@ -37,4 +37,16 @@ pub enum KernelEvent {
         /// The number of transactions included in the block.
         tx_count: u64,
     },
+
+    /// [NEW] The result of an agent action execution.
+    AgentActionResult {
+        /// The session ID the action belongs to.
+        session_id: [u8; 32],
+        /// The sequence number of the step.
+        step_index: u32,
+        /// The name of the tool executed (e.g. "sys__exec").
+        tool_name: String,
+        /// The output/result of the execution (e.g. stdout).
+        output: String,
+    },
 }
