@@ -210,7 +210,12 @@ IOI agents are "Trace-First". You define logic, and the system auto-generates th
     ```bash
     cargo test --package ioi-cli --test agent_swarm_e2e --features "consensus-admft,vm-wasm,state-iavl" -- --nocapture --test-threads=1
     ```
-
+    ```bash
+    cargo test --package ioi-cli --test ghost_mode_e2e --features "consensus-admft,vm-wasm,state-iavl" -- --nocapture --test-threads=1
+    ```
+    ```bash
+    cargo test --package ioi-cli --test agent_rag_and_policy_e2e --features "consensus-admft,vm-wasm,state-iavl" -- --nocapture --test-threads=1
+    ```
 
 ### Step 1: Start the IOI Kernel (Local Mode)
 
