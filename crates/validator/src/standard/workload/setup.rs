@@ -57,6 +57,8 @@ use {
     zk_driver_succinct::config::SuccinctDriverConfig,
 };
 
+use ioi_drivers::terminal::TerminalDriver; // [NEW] Import Terminal Driver
+
 async fn create_guardian_channel(certs_dir: &str) -> Result<Channel> {
     let ca_pem = std::fs::read(format!("{}/ca.pem", certs_dir))?;
     let client_pem = std::fs::read(format!("{}/workload.pem", certs_dir))?;
@@ -451,7 +453,19 @@ where
 
     if let Some(gui) = gui_driver {
         tracing::info!(target: "workload", event = "service_init", name = "DesktopAgent", impl="native");
-        let mut agent = DesktopAgentService::new_hybrid(gui, fast_runtime, reasoning_runtime);
+        
+        // [NEW] Initialize Terminal Driver
+        let terminal_driver = Arc::new(TerminalDriver::new());
+        tracing::info!(target: "workload", "Terminal Driver initialized");
+
+        // [NEW] Pass terminal_driver to DesktopAgentService
+        let mut agent = DesktopAgentService::new_hybrid(
+            gui,
+            terminal_driver,
+            fast_runtime,
+            reasoning_runtime
+        );
+        
         if let Some(store) = scs {
             agent = agent.with_scs(store);
             tracing::info!(target: "workload", "SCS injected into DesktopAgent.");

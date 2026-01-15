@@ -47,6 +47,7 @@ fn create_zk_system_tx(
             nonce,
             chain_id: ChainId(1),
             tx_version: 1,
+            session_auth: None,
         },
         payload,
         signature_proof: SignatureProof::default(),

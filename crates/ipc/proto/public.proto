@@ -108,6 +108,9 @@ message ChainEvent {
 
         // The user performed a physical input while in Ghost Mode.
         GhostInput ghost = 5;
+
+        // The result of an executed action.
+        AgentActionResult action_result = 6;
     }
 }
 
@@ -140,6 +143,14 @@ message SystemUpdate {
 message GhostInput {
     string device = 1;      // "mouse", "keyboard"
     string description = 2; // "Click(100, 200)", "Type('hello')"
+}
+
+// [NEW] Message for action results
+message AgentActionResult {
+    string session_id = 1; // Hex
+    uint32 step_index = 2;
+    string tool_name = 3;
+    string output = 4;
 }
 
 // --- Intent Drafting Types ---

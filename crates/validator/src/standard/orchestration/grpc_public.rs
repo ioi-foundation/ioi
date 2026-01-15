@@ -428,6 +428,17 @@ where
                                      }
                                  ))
                              },
+                             // [NEW] Map AgentActionResult for UI feedback
+                             ioi_types::app::KernelEvent::AgentActionResult { session_id, step_index, tool_name, output } => {
+                                 Some(ChainEventEnum::ActionResult(
+                                     ioi_ipc::public::AgentActionResult {
+                                         session_id: hex::encode(session_id),
+                                         step_index,
+                                         tool_name,
+                                         output,
+                                     }
+                                 ))
+                             },
                              // [FIX] Handle catch-all for unknown events explicitly
                              _ => None
                          };

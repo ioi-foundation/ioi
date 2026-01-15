@@ -106,6 +106,7 @@ fn create_call_service_tx<S: TestSigner, P: Encode>(
         nonce,
         chain_id,
         tx_version: 1,
+        session_auth: None,
     };
 
     let mut tx_to_sign = SystemTransaction {

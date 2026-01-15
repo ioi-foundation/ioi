@@ -362,6 +362,27 @@ async fn monitor_kernel_events(app: AppHandle) {
                     });
                 }
 
+                // [NEW] Agent Action Results (Outputs from tools)
+                ChainEventEnum::ActionResult(res) => {
+                    println!("[Autopilot] Action Result: {} -> {}", res.tool_name, res.output);
+                    
+                    update_task_state(&app, |t| {
+                        // Append the output to the current step description for visibility
+                        t.current_step = format!("Executed {}: {}", res.tool_name, res.output);
+                        
+                        // If it's a sys__exec, we treat it as progress towards completion
+                        if res.tool_name == "sys__exec" && !res.output.is_empty() {
+                             // Mark complete for this demo flow
+                             t.phase = AgentPhase::Complete;
+                             t.receipt = Some(Receipt {
+                                 duration: "2s".to_string(), // Mock duration
+                                 actions: 1,
+                                 cost: Some("$0.00".to_string()),
+                             });
+                        }
+                    });
+                }
+
                 // [NEW] Ghost Mode Inputs
                 ChainEventEnum::Ghost(input) => {
                     println!("[Autopilot] Ghost Input: [{}] {}", input.device, input.description);

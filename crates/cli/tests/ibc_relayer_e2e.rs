@@ -37,8 +37,8 @@ use ioi_types::codec;
 use ioi_types::{
     app::{
         account_id_from_key_material, AccountId, ActiveKeyRecord, BlockTimingParams,
-        BlockTimingRuntime, ChainTransaction, SignatureSuite, SystemPayload, SystemTransaction,
-        ValidatorSetV1, ValidatorSetsV1, ValidatorV1,
+        BlockTimingRuntime, ChainTransaction, SignHeader, SignatureProof, SignatureSuite,
+        SystemPayload, SystemTransaction, ValidatorSetV1, ValidatorSetsV1, ValidatorV1,
     },
     config::InitialServiceConfig,
     keys::ACCOUNT_NONCE_PREFIX,
@@ -195,7 +195,6 @@ async fn test_ibc_tendermint_client_update_via_gateway() -> Result<()> {
             move |builder, keys| {
                 let keypair = &keys[0];
 
-                // --- Seed clientType so ibc-rs can route updates to the Tendermint client ---
                 let client_type_key = format!("clients/{}/clientType", client_id);
                 builder.insert_raw(client_type_key, "07-tendermint".as_bytes());
 
@@ -220,10 +219,9 @@ async fn test_ibc_tendermint_client_update_via_gateway() -> Result<()> {
                 };
                 builder.set_validators(&vs);
 
-                // [+] FIX: Add block timing parameters to genesis
                 let timing_params = BlockTimingParams {
                     base_interval_secs: 5,
-                    retarget_every_blocks: 0, // Disable adaptive timing for simplicity in test
+                    retarget_every_blocks: 0,
                     ..Default::default()
                 };
                 let timing_runtime = BlockTimingRuntime {
@@ -232,8 +230,7 @@ async fn test_ibc_tendermint_client_update_via_gateway() -> Result<()> {
                 };
                 builder.set_block_timing(&timing_params, &timing_runtime);
 
-                // --- Store ClientState as google.protobuf.Any (expected by ibc-rs) ---
-                let client_state_any = Any {
+                let client_state_any = PbAny {
                     type_url: "/ibc.lightclients.tendermint.v1.ClientState".to_string(),
                     value: RawTmClientState {
                         chain_id: mock_cosmos_chain_id.to_string(),
@@ -270,16 +267,13 @@ async fn test_ibc_tendermint_client_update_via_gateway() -> Result<()> {
                 let cs_path = ClientStatePath::new(ClientId::from_str(client_id).unwrap());
                 let cs_key_str = cs_path.to_string();
 
-                // 2a. Global ICS-24 path for HTTP gateway
                 builder.insert_raw(cs_key_str.clone(), client_state_any.encode_to_vec());
 
-                // 2b. Namespaced key for the IBC service
                 let ibc_ns = service_namespace_prefix("ibc");
                 let cs_key_ns: Vec<u8> = [ibc_ns.as_slice(), cs_key_str.as_bytes()].concat();
                 builder.insert_raw(cs_key_ns, client_state_any.encode_to_vec());
 
-                // --- Store ConsensusState (height 1) as Any as well ---
-                let consensus_state_any = Any {
+                let consensus_state_any = PbAny {
                     type_url: "/ibc.lightclients.tendermint.v1.ConsensusState".to_string(),
                     value: RawTmConsensusState {
                         timestamp: Some(ibc_proto::google::protobuf::Timestamp {
@@ -295,10 +289,8 @@ async fn test_ibc_tendermint_client_update_via_gateway() -> Result<()> {
                     ClientConsensusStatePath::new(ClientId::from_str(client_id).unwrap(), 0, 1);
                 let ccs_key_str = ccs_path.to_string();
 
-                // 2c. Global path for HTTP gateway
                 builder.insert_raw(ccs_key_str.clone(), consensus_state_any.encode_to_vec());
 
-                // 2d. Namespaced path for IBC service
                 let ccs_key_ns: Vec<u8> = [ibc_ns.as_slice(), ccs_key_str.as_bytes()].concat();
                 builder.insert_raw(ccs_key_ns, consensus_state_any.encode_to_vec());
             }
@@ -306,14 +298,12 @@ async fn test_ibc_tendermint_client_update_via_gateway() -> Result<()> {
         .build()
         .await?;
 
-    // Wrap the core test logic in an async block to guarantee cleanup.
     let test_result: Result<()> = async {
         let node_guard = &cluster.validators[0];
         let node = node_guard.validator();
         let rpc_addr = &node.rpc_addr;
         wait_for_height(rpc_addr, 1, Duration::from_secs(20)).await?;
 
-        // 3. QUERY INITIAL STATE VIA HTTP GATEWAY (Sanity check)
         let http_client = Client::new();
         let client_id_parsed = ClientId::from_str(client_id)?;
         let client_state_path = ClientStatePath::new(client_id_parsed.clone());
@@ -328,8 +318,7 @@ async fn test_ibc_tendermint_client_update_via_gateway() -> Result<()> {
             .as_str()
             .ok_or_else(|| anyhow!("Missing value_pb"))?;
         let value_bytes = BASE64.decode(value_pb_b64)?;
-        // Stored value is Any(ClientState)
-        let any_wrapped = Any::decode(value_bytes.as_slice())?;
+        let any_wrapped = PbAny::decode(value_bytes.as_slice())?;
         assert_eq!(
             any_wrapped.type_url,
             "/ibc.lightclients.tendermint.v1.ClientState"
@@ -338,7 +327,6 @@ async fn test_ibc_tendermint_client_update_via_gateway() -> Result<()> {
         assert_eq!(cs_from_gateway.chain_id, mock_cosmos_chain_id);
         println!("SUCCESS: Queried and verified initial client state via HTTP gateway.");
 
-        // 4. SUBMIT A HEADER UPDATE VIA A SIGNED SERVICE CALL
         let header_bytes = {
             let light_block_h2: TmLightBlock = TmLightBlock::new_default(2);
             let mut hdr = pb_header_from_testgen(light_block_h2.header.clone().unwrap());
@@ -385,7 +373,7 @@ async fn test_ibc_tendermint_client_update_via_gateway() -> Result<()> {
                     part_set_header: Some(TmProtoPartSetHeader::from(part_set_header)),
                 }),
                 signatures: vec![TmProtoCommitSig {
-                    block_id_flag: 2, // BlockIdFlagCommit
+                    block_id_flag: 2,
                     validator_address: shared_addr.clone(),
                     timestamp: Some(PbTimestamp::from(hdr_domain.time)),
                     signature: sig.to_bytes().to_vec(),
@@ -434,7 +422,7 @@ async fn test_ibc_tendermint_client_update_via_gateway() -> Result<()> {
         ) -> Result<(), anyhow::Error> {
             let msg_update_client = MsgUpdateClient {
                 client_id: ClientId::from_str(client_id)?,
-                client_message: Any { type_url, value },
+                client_message: PbAny { type_url, value },
                 signer: "ioi-signer".to_string().into(),
             };
             let tx_body = TxBody {
@@ -450,6 +438,7 @@ async fn test_ibc_tendermint_client_update_via_gateway() -> Result<()> {
                     nonce,
                     chain_id: 1.into(),
                     tx_version: 1,
+                    session_auth: None, // [FIX] Initialize session_auth
                 },
                 payload: SystemPayload::CallService {
                     service_id: "ibc".to_string(),
@@ -470,7 +459,6 @@ async fn test_ibc_tendermint_client_update_via_gateway() -> Result<()> {
             Ok(())
         }
 
-        // Based on the log, we know the bare Header works. Submit that directly.
         try_submit(
             client_id,
             hdr_type_url,
@@ -483,11 +471,9 @@ async fn test_ibc_tendermint_client_update_via_gateway() -> Result<()> {
         .await?;
         println!("SUCCESS: UpdateClient accepted using Header-only envelope.");
 
-        // 5. VERIFY ON-CHAIN STATE
         let consensus_state_path_h2 =
             ClientConsensusStatePath::new(ClientId::from_str(client_id)?, 0, 2);
 
-        // Build the namespaced key: _service_data::ibc:: + "clients/.../consensusStates/..."
         let ibc_ns = service_namespace_prefix("ibc");
         let cs_h2_key: Vec<u8> = [
             ibc_ns.as_slice(),
@@ -502,8 +488,7 @@ async fn test_ibc_tendermint_client_update_via_gateway() -> Result<()> {
             || async { query_state_key(rpc_addr, &cs_h2_key).await },
         )
         .await?;
-        // ibc-rs writes Any(ConsensusState); unwrap then decode
-        let cs_any = Any::decode(cs_bytes.as_slice())?;
+        let cs_any = PbAny::decode(cs_bytes.as_slice())?;
         assert_eq!(
             cs_any.type_url,
             "/ibc.lightclients.tendermint.v1.ConsensusState"
@@ -512,7 +497,6 @@ async fn test_ibc_tendermint_client_update_via_gateway() -> Result<()> {
         let _cs_h2 = TmConsensusState::try_from(cs_pb)?;
         println!("SUCCESS: Tendermint consensus state for height 2 was written and decoded.");
 
-        // Final liveness check: ensure the chain can produce another block after the update.
         wait_for_height(rpc_addr, 3, Duration::from_secs(30)).await?;
         println!("SUCCESS: Chain remains live and advanced to height >= 3 after UpdateClient.");
 
@@ -520,13 +504,11 @@ async fn test_ibc_tendermint_client_update_via_gateway() -> Result<()> {
     }
     .await;
 
-    // 6. CLEANUP
     for guard in cluster.validators {
         if let Err(e) = guard.shutdown().await {
             eprintln!("Error during validator shutdown: {}", e);
         }
     }
-    // Propagate the actual test result
     test_result?;
 
     println!("--- Universal Interoperability (Tendermint) E2E Test Passed ---");

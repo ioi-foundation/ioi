@@ -9,3 +9,4 @@ pub mod gui;
 pub mod browser;
 pub mod ucp; // [NEW] Export UCP driver
 pub mod os;  // [NEW] Export OS driver
+pub mod terminal;
