@@ -12,15 +12,15 @@ repository = "https://github.com/ioi-foundation/ioi"
 ioi-api = { path = "../api" }
 ioi-types = { path = "../types" }
 ioi-crypto = { path = "../crypto" }
-ioi-scs = { path = "../scs" }       # [NEW] Added dependency on SCS
+ioi-scs = { path = "../scs" }
 anyhow = { workspace = true }
 log = { workspace = true }
 tracing = { workspace = true }
 async-trait = { workspace = true }
 serde = { workspace = true }
 thiserror = { workspace = true }
-serde_json = { workspace = true } # [FIX] Added serde_json dependency
-dcrypt = { workspace = true } # [FIX] Added dcrypt dependency
+serde_json = { workspace = true }
+dcrypt = { workspace = true }
 
 # --- Phase 2: GUI Automation Stack ---
 
@@ -28,11 +28,8 @@ dcrypt = { workspace = true } # [FIX] Added dcrypt dependency
 enigo = "0.2.1"
 
 # Replacement for Screenshot-desktop (Vision)
-# Note: Using a robust screenshot crate
 xcap = { version = "0.0.14", default-features = false }
-# [FIX] Bump image to 0.25 to match xcap
 image = "0.25"
-# [NEW] Visual Perceptual Hashing
 image_hasher = "2.0"
 
 # Replacement for DOM/Accessibility Parsing
@@ -41,8 +38,7 @@ accesskit = "0.16.0"
 # OS Window Context
 active-win-pos-rs = "0.8"
 
-# Browser Control (Replacement for Puppeteer)
-# [Note: Chromiumoxide requires tokio]
+# Browser Control
 chromiumoxide = { version = "0.5", features = ["tokio-runtime"] }
 futures = "0.3"
 tokio = { workspace = true }

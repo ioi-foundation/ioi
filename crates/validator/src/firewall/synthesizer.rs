@@ -1,6 +1,7 @@
 // Path: crates/validator/src/firewall/synthesizer.rs
 
-use crate::firewall::rules::{ActionRules, DefaultPolicy, Rule, RuleConditions, Verdict};
+// [FIX] Update import path
+use ioi_services::agentic::rules::{ActionRules, DefaultPolicy, Rule, RuleConditions, Verdict};
 use ioi_types::app::agentic::StepTrace;
 use serde_json::Value;
 use std::collections::HashMap;

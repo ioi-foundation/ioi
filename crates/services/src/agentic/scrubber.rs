@@ -10,7 +10,8 @@ use std::sync::Arc;
 /// The Semantic Scrubber acts as the "Airlock" for data leaving the Orchestrator.
 /// It uses the local safety model to identify and redact sensitive information.
 pub struct SemanticScrubber {
-    model: Arc<dyn LocalSafetyModel>,
+    /// The underlying safety model used for PII detection.
+    pub model: Arc<dyn LocalSafetyModel>,
 }
 
 impl SemanticScrubber {

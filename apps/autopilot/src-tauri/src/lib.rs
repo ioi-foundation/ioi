@@ -17,6 +17,17 @@ use ioi_ipc::public::{
 };
 use tonic::transport::Channel;
 
+// [FIX] Import types needed for signing
+use ioi_crypto::sign::eddsa::Ed25519KeyPair;
+// [FIX] Import SerializableKey trait to enable .to_bytes()
+use ioi_api::crypto::{SerializableKey, SigningKeyPair};
+use ioi_types::app::action::{ApprovalToken, ApprovalScope}; 
+use ioi_types::app::SignatureSuite;
+use ioi_types::app::agentic::ResumeAgentParams;
+use ioi_types::app::{ChainTransaction, SignHeader, SignatureProof, SystemPayload, SystemTransaction};
+use ioi_types::app::{AccountId, ChainId, account_id_from_key_material}; 
+use ioi_types::codec;
+
 // ============================================
 // State Types
 // ============================================
@@ -55,8 +66,9 @@ pub struct AgentTask {
     pub current_step: String,
     pub gate_info: Option<GateInfo>,
     pub receipt: Option<Receipt>,
-    // [NEW] Store the current visual context hash
     pub visual_hash: Option<String>,
+    pub pending_request_hash: Option<String>,
+    pub session_id: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -65,14 +77,12 @@ pub struct GateResponse {
     pub approved: bool,
 }
 
-// [NEW] Struct for Blob Response
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ContextBlob {
     pub data_base64: String,
     pub mime_type: String,
 }
 
-// [NEW] Local serializable struct for GhostInput event
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct GhostInputEvent {
     device: String,
@@ -84,8 +94,6 @@ pub struct AppState {
     pub current_task: Option<AgentTask>,
     pub gate_response: Option<GateResponse>,
     pub is_simulating: bool,
-    // [NEW] gRPC Client handle (cached to avoid reconnecting every request)
-    // Wrapped in Arc<Mutex> because State must be Send+Sync and the Client is cloneable but needs mutability for some calls
     pub rpc_client: Option<PublicApiClient<Channel>>,
 }
 
@@ -223,20 +231,17 @@ fn hide_studio(app: AppHandle) {
 // Data Retrieval Commands
 // ============================================
 
-/// Retrieves a raw context slice (image, xml, text) from the Kernel's SCS by Hash.
 #[tauri::command]
 async fn get_context_blob(
     state: State<'_, Mutex<AppState>>,
     hash: String,
 ) -> Result<ContextBlob, String> {
     
-    // Step 1: Check if we have a cached client. Use a scope to drop the lock immediately.
     let cached_client = {
         let s = state.lock().map_err(|_| "Failed to lock state")?;
         s.rpc_client.clone()
     };
 
-    // Step 2: If we have a client, use it. If not, connect (async) and then cache it.
     let mut client = if let Some(c) = cached_client {
         c
     } else {
@@ -246,7 +251,6 @@ async fn get_context_blob(
             .map_err(|e| format!("Failed to connect to Kernel: {}", e))?;
         let new_client = PublicApiClient::new(channel);
 
-        // Cache the new client
         {
             if let Ok(mut s) = state.lock() {
                 if s.rpc_client.is_none() {
@@ -257,7 +261,6 @@ async fn get_context_blob(
         new_client
     };
 
-    // 3. Call gRPC (no lock held)
     let request = tonic::Request::new(GetContextBlobRequest { blob_hash: hash });
 
     let response = client
@@ -266,16 +269,14 @@ async fn get_context_blob(
         .map_err(|e| format!("RPC error: {}", e))?
         .into_inner();
 
-    // 4. Convert bytes to Base64 for frontend
     use base64::{engine::general_purpose::STANDARD, Engine as _};
     let data_base64 = STANDARD.encode(&response.data);
 
-    // 5. Infer valid MIME type if kernel sent generic default
     let mime_type = if response.mime_type == "application/octet-stream" {
         if response.data.starts_with(b"\x89PNG") {
             "image/png".to_string()
         } else if response.data.starts_with(b"<") || response.data.starts_with(b"<?xml") {
-            "text/xml".to_string() // Accessibility Tree
+            "text/xml".to_string() 
         } else if response.data.starts_with(b"{") || response.data.starts_with(b"[") {
             "application/json".to_string()
         } else {
@@ -318,9 +319,7 @@ where
     }
 }
 
-/// Connects to the local IOI Node and streams events to the UI.
 async fn monitor_kernel_events(app: AppHandle) {
-    // 1. Attempt connection (Retry loop)
     let mut client = loop {
         match PublicApiClient::connect("http://127.0.0.1:9000").await {
             Ok(c) => {
@@ -328,13 +327,11 @@ async fn monitor_kernel_events(app: AppHandle) {
                 break c;
             }
             Err(_) => {
-                // If node isn't running, wait 2s and retry
                 tokio::time::sleep(Duration::from_secs(2)).await;
             }
         }
     };
 
-    // 2. Subscribe to Event Stream
     let request = tonic::Request::new(SubscribeEventsRequest {});
     let mut stream = match client.subscribe_events(request).await {
         Ok(s) => s.into_inner(),
@@ -344,38 +341,37 @@ async fn monitor_kernel_events(app: AppHandle) {
         }
     };
 
-    // 3. Consume Stream
     while let Ok(Some(event_msg)) = stream.message().await {
         if let Some(event_enum) = event_msg.event {
             match event_enum {
-                // Agent "Thinking" or Acting
                 ChainEventEnum::Thought(thought) => {
                     update_task_state(&app, |t| {
-                        // [FIX] Clone content because FnMut closure cannot consume outer variable
                         t.current_step = thought.content.clone();
                         t.phase = AgentPhase::Running;
                         t.progress += 1;
-                        // [NEW] Update visual hash if present (non-empty string)
                         if !thought.visual_hash.is_empty() {
                             t.visual_hash = Some(thought.visual_hash.clone());
+                        }
+                        if !thought.session_id.is_empty() {
+                            t.session_id = Some(thought.session_id.clone());
                         }
                     });
                 }
 
-                // [NEW] Agent Action Results (Outputs from tools)
                 ChainEventEnum::ActionResult(res) => {
                     println!("[Autopilot] Action Result: {} -> {}", res.tool_name, res.output);
                     
                     update_task_state(&app, |t| {
-                        // Append the output to the current step description for visibility
                         t.current_step = format!("Executed {}: {}", res.tool_name, res.output);
                         
-                        // If it's a sys__exec, we treat it as progress towards completion
+                        if !res.session_id.is_empty() {
+                            t.session_id = Some(res.session_id.clone());
+                        }
+
                         if res.tool_name == "sys__exec" && !res.output.is_empty() {
-                             // Mark complete for this demo flow
                              t.phase = AgentPhase::Complete;
                              t.receipt = Some(Receipt {
-                                 duration: "2s".to_string(), // Mock duration
+                                 duration: "2s".to_string(), 
                                  actions: 1,
                                  cost: Some("$0.00".to_string()),
                              });
@@ -383,20 +379,16 @@ async fn monitor_kernel_events(app: AppHandle) {
                     });
                 }
 
-                // [NEW] Ghost Mode Inputs
                 ChainEventEnum::Ghost(input) => {
                     println!("[Autopilot] Ghost Input: [{}] {}", input.device, input.description);
                     
-                    // Create serializable payload
                     let payload = GhostInputEvent {
                         device: input.device.clone(),
                         description: input.description.clone(),
                     };
 
-                    // Emit a specific event for the trace recorder UI (Store)
                     let _ = app.emit("ghost-input", &payload);
                     
-                    // Optionally update a "Ghost Recording" task state here for visual feedback on the pill
                     update_task_state(&app, |t| {
                         if matches!(t.phase, AgentPhase::Running) {
                              t.current_step = format!("User Input: {}", input.description);
@@ -404,7 +396,6 @@ async fn monitor_kernel_events(app: AppHandle) {
                     });
                 }
 
-                // Firewall Interception -> Open Gate
                 ChainEventEnum::Action(action) => {
                     if action.verdict == "REQUIRE_APPROVAL" {
                         update_task_state(&app, |t| {
@@ -416,8 +407,9 @@ async fn monitor_kernel_events(app: AppHandle) {
                                     "Agent attempting to perform: {}",
                                     action.target
                                 ),
-                                risk: "medium".to_string(), // Inferred
+                                risk: "medium".to_string(), 
                             });
+                            t.pending_request_hash = Some(action.reason.clone());
                         });
                         show_gate(app.clone());
                     } else if action.verdict == "BLOCK" {
@@ -428,7 +420,6 @@ async fn monitor_kernel_events(app: AppHandle) {
                     }
                 }
 
-                // Block Commit -> Confirm Progress
                 ChainEventEnum::Block(block) => {
                     println!(
                         "[Autopilot] Block #{} Committed (Root: {})",
@@ -442,10 +433,8 @@ async fn monitor_kernel_events(app: AppHandle) {
     }
 
     println!("[Autopilot] Event stream ended. Reconnecting...");
-    // In production, we'd recursively call monitor_kernel_events here for auto-reconnect.
 }
 
-// Fallback simulation for dev/demo without running node
 async fn run_simulation(app: AppHandle) {
     let steps = vec![
         "Parsing natural language...",
@@ -471,7 +460,6 @@ async fn run_simulation(app: AppHandle) {
             });
             show_gate(app.clone());
 
-            // Wait for approval
             let mut approved = false;
             loop {
                 tokio::time::sleep(Duration::from_millis(300)).await;
@@ -533,7 +521,6 @@ fn start_task(
     app: AppHandle,
     intent: String,
 ) -> Result<AgentTask, String> {
-    // 1. Initialize local UI state optimistically
     let task = AgentTask {
         id: uuid::Uuid::new_v4().to_string(),
         intent: intent.clone(),
@@ -544,7 +531,9 @@ fn start_task(
         current_step: "Transmitting intent to Kernel...".to_string(),
         gate_info: None,
         receipt: None,
-        visual_hash: None, // [NEW] Initialize
+        visual_hash: None, 
+        pending_request_hash: None,
+        session_id: None,
     };
 
     {
@@ -556,12 +545,10 @@ fn start_task(
     let _ = app.emit("task-started", &task);
     show_pill(app.clone());
 
-    // 2. Spawn Logic: Try Kernel, Fallback to Simulation
     let app_clone = app.clone();
     let intent_clone = intent.clone();
 
     tauri::async_runtime::spawn(async move {
-        // A. Attempt to connect to IOI Kernel
         let mut client = match PublicApiClient::connect("http://127.0.0.1:9000").await {
             Ok(c) => c,
             Err(_) => {
@@ -573,7 +560,6 @@ fn start_task(
 
         println!("[Autopilot] Connected to Kernel. Drafting intent: '{}'", intent_clone);
 
-        // B. Draft Transaction
         let draft_req = tonic::Request::new(DraftTransactionRequest {
             intent: intent_clone,
             address_book: Default::default(),
@@ -582,22 +568,18 @@ fn start_task(
         match client.draft_transaction(draft_req).await {
             Ok(resp) => {
                 let draft = resp.into_inner();
-                // In production, we'd sign `draft.transaction_bytes`.
-                // For dev "God Mode", we submit directly to trigger the flow.
                 let submit_req = tonic::Request::new(SubmitTransactionRequest {
                     transaction_bytes: draft.transaction_bytes,
                 });
 
                 if let Err(e) = client.submit_transaction(submit_req).await {
                     eprintln!("[Autopilot] Submission failed: {}", e);
-                    // Force a UI failure state
                     update_task_state(&app_clone, |t| {
                         t.phase = AgentPhase::Failed;
                         t.current_step = format!("Submission Error: {}", e);
                     });
                 } else {
                     println!("[Autopilot] Intent submitted. Listening for events...");
-                    // C. Listen for execution updates
                     monitor_kernel_events(app_clone).await;
                 }
             }
@@ -668,19 +650,138 @@ fn get_current_task(state: State<Mutex<AppState>>) -> Option<AgentTask> {
 }
 
 #[tauri::command]
-fn gate_respond(
-    state: State<Mutex<AppState>>,
+async fn gate_respond(
+    state: State<'_, Mutex<AppState>>,
     app: AppHandle,
     approved: bool,
 ) -> Result<(), String> {
-    if let Ok(mut app_state) = state.lock() {
-        app_state.gate_response = Some(GateResponse {
-            responded: true,
-            approved,
-        });
+    // 1. Gather Context
+    let mut session_id_hex = None;
+    let mut request_hash_hex = None;
+
+    {
+        if let Ok(mut s) = state.lock() {
+            // Update local state for UI responsiveness
+            s.gate_response = Some(GateResponse {
+                responded: true,
+                approved,
+            });
+
+            if let Some(task) = &s.current_task {
+                session_id_hex = task.session_id.clone();
+                request_hash_hex = task.pending_request_hash.clone();
+            }
+        }
     }
+    
     hide_gate(app.clone());
     let _ = app.emit("gate-response", approved);
+
+    // 2. If approved, construct and submit the Resume transaction
+    if approved {
+        if let (Some(sid_hex), Some(hash_hex)) = (session_id_hex, request_hash_hex) {
+            println!("[Autopilot] Approving request {} for session {}", hash_hex, sid_hex);
+            
+            // [FIX] Explicit error type inference using type annotations for map_err closure
+            let session_id_bytes = hex::decode(&sid_hex).map_err(|e: hex::FromHexError| e.to_string())?;
+            let mut session_id_arr = [0u8; 32];
+            if session_id_bytes.len() != 32 { return Err("Invalid session ID len".into()); }
+            session_id_arr.copy_from_slice(&session_id_bytes);
+
+            // [FIX] Explicit error type inference
+            let request_hash_bytes = hex::decode(&hash_hex).map_err(|e: hex::FromHexError| e.to_string())?;
+            let mut request_hash_arr = [0u8; 32];
+            request_hash_arr.copy_from_slice(&request_hash_bytes);
+
+            // 3. Sign Approval Token
+            // [FIX] Explicit error type inference
+            let approver_kp = Ed25519KeyPair::generate().map_err(|e: ioi_api::error::CryptoError| e.to_string())?;
+            let approver_pub = approver_kp.public_key();
+            
+            // Create ApprovalToken
+            let token = ApprovalToken {
+                request_hash: request_hash_arr,
+                scope: ApprovalScope {
+                    expires_at: std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_secs() + 3600,
+                    max_usages: Some(1),
+                },
+                approver_sig: vec![], // Placeholder
+                approver_suite: SignatureSuite::ED25519,
+            };
+            
+            let mut token_for_signing = token.clone();
+            let token_bytes = codec::to_bytes_canonical(&token_for_signing).map_err(|e| e.to_string())?;
+            // [FIX] Explicit error type inference
+            let sig = approver_kp.sign(&token_bytes).map_err(|e: ioi_api::error::CryptoError| e.to_string())?;
+            
+            token_for_signing.approver_sig = sig.to_bytes();
+            token_for_signing.approver_suite = SignatureSuite::ED25519; 
+
+            // 4. Construct Resume Transaction
+            let resume_params = ResumeAgentParams {
+                session_id: session_id_arr,
+                approval_token: Some(token_for_signing),
+            };
+            let params_bytes = codec::to_bytes_canonical(&resume_params).map_err(|e| e.to_string())?;
+
+            let sys_payload = SystemPayload::CallService {
+                service_id: "desktop_agent".to_string(),
+                method: "resume@v1".to_string(),
+                params: params_bytes,
+            };
+
+            // 5. Submit via gRPC
+            let cached_client = {
+                let s = state.lock().map_err(|_| "Failed to lock state")?;
+                s.rpc_client.clone()
+            };
+
+            let mut client = if let Some(c) = cached_client {
+                c
+            } else {
+                 return Err("RPC client not connected".into());
+            };
+
+            let rand_nonce = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos() as u64;
+
+            let header = SignHeader {
+                account_id: AccountId(account_id_from_key_material(SignatureSuite::ED25519, &approver_pub.to_bytes()).unwrap()),
+                nonce: rand_nonce,
+                chain_id: ChainId(0),
+                tx_version: 1,
+                session_auth: None,
+            };
+            
+            let mut tx = SystemTransaction {
+                header,
+                payload: sys_payload,
+                signature_proof: SignatureProof::default(),
+            };
+            
+            let tx_sign_bytes = tx.to_sign_bytes().map_err(|e| e.to_string())?;
+            // [FIX] Explicit error type inference
+            let tx_sig = approver_kp.sign(&tx_sign_bytes).map_err(|e: ioi_api::error::CryptoError| e.to_string())?;
+            
+            tx.signature_proof = SignatureProof {
+                suite: SignatureSuite::ED25519,
+                public_key: approver_pub.to_bytes(),
+                signature: tx_sig.to_bytes(),
+            };
+            
+            let final_tx = ChainTransaction::System(Box::new(tx));
+            let final_tx_bytes = codec::to_bytes_canonical(&final_tx).map_err(|e| e.to_string())?;
+
+            let request = tonic::Request::new(SubmitTransactionRequest {
+                transaction_bytes: final_tx_bytes,
+            });
+
+            match client.submit_transaction(request).await {
+                Ok(_) => println!("[Autopilot] Approval transaction submitted successfully."),
+                Err(e) => return Err(format!("Failed to submit approval: {}", e)),
+            }
+        }
+    }
+
     Ok(())
 }
 
@@ -787,7 +888,7 @@ pub fn run() {
             resize_pill,
             show_gate,
             hide_gate,
-            gate_respond,
+            gate_respond, 
             get_gate_response,
             clear_gate_response,
             show_studio,
@@ -797,7 +898,7 @@ pub fn run() {
             complete_task,
             dismiss_task,
             get_current_task,
-            get_context_blob, // [NEW] Register the blob retrieval command
+            get_context_blob,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

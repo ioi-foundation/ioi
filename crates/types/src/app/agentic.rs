@@ -1,7 +1,7 @@
 // Path: crates/types/src/app/agentic.rs
 use parity_scale_codec::{Decode, Encode};
 use serde::{Deserialize, Serialize};
-// [REMOVED] use serde_json::Value;
+use crate::app::action::ApprovalToken; // [NEW] Import
 
 /// The cryptographic proof that a distributed committee converged on a specific meaning.
 /// This forms the "Proof of Meaning" verified by Type A (Consensus) validators.
@@ -70,7 +70,7 @@ pub struct RedactionMap {
 
 /// Represents a tool definition compatible with LLM function calling schemas (e.g. OpenAI/Anthropic).
 /// This allows the Kernel to project on-chain services as tools into the model's context window.
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Encode, Decode)] // [FIX] Added Encode, Decode
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Encode, Decode)]
 pub struct LlmToolDefinition {
     /// The name of the function to be called.
     /// Typically namespaced, e.g., "browser__navigate" or "calculator__add".
@@ -80,12 +80,11 @@ pub struct LlmToolDefinition {
     pub description: String,
 
     /// The parameters the function accepts, described as a JSON Schema string.
-    /// [CHANGED] Value -> String to support SCALE encoding.
     pub parameters: String,
 }
 
 /// Defines the configuration for a single inference request, including tool availability.
-#[derive(Serialize, Deserialize, Debug, Clone, Default, Encode, Decode)] // [FIX] Added Encode, Decode
+#[derive(Serialize, Deserialize, Debug, Clone, Default, Encode, Decode)]
 pub struct InferenceOptions {
     /// The list of tools available for the model to call during this inference generation.
     #[serde(default)]
@@ -130,4 +129,14 @@ pub struct StepTrace {
     pub error: Option<String>,
     /// UNIX timestamp of this step.
     pub timestamp: u64,
+}
+
+/// Parameters for resuming a paused agent session.
+#[derive(Encode, Decode)]
+pub struct ResumeAgentParams {
+    /// The ID of the session to resume.
+    pub session_id: [u8; 32],
+    /// Optional approval token to unblock a gated action.
+    /// If provided, this token authorizes the action that caused the pause.
+    pub approval_token: Option<ApprovalToken>, 
 }

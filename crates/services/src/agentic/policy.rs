@@ -1,6 +1,6 @@
-// Path: crates/validator/src/firewall/policy.rs
+// Path: crates/services/src/agentic/policy.rs
 
-use crate::firewall::rules::{ActionRules, DefaultPolicy, Rule, Verdict};
+use crate::agentic::rules::{ActionRules, DefaultPolicy, Rule, Verdict};
 use ioi_api::state::StateAccess;
 use ioi_api::vm::inference::{LocalSafetyModel, SafetyVerdict};
 use ioi_api::vm::drivers::os::OsDriver;
@@ -10,25 +10,12 @@ use ioi_types::{codec, error::TransactionError, keys::active_service_key};
 use serde_json::Value;
 use std::sync::Arc;
 
-/// Helper to simulate OS context retrieval.
-/// In the full implementation, this calls into `ioi-drivers`.
-mod os_context {
-    // This module is deprecated in favor of OsDriver trait but kept for reference if needed
-}
-
 /// The core engine for evaluating actions against firewall policies.
 pub struct PolicyEngine;
 
 impl PolicyEngine {
     /// Evaluates an ActionRequest against the active policy.
     /// This is the core "Compliance Layer" logic.
-    ///
-    /// # Arguments
-    /// * `rules` - The active ActionRules policy set.
-    /// * `request` - The canonicalized action request.
-    /// * `safety_model` - The local AI model for semantic classification.
-    /// * `os_driver` - The driver to query live OS context (active window).
-    /// * `presented_approval` - An optional signed token from the user authorizing this specific action.
     pub async fn evaluate(
         rules: &ActionRules,
         request: &ActionRequest,

@@ -439,8 +439,7 @@ where
                                      }
                                  ))
                              },
-                             // [FIX] Handle catch-all for unknown events explicitly
-                             _ => None
+                             // [FIXED] Removed unreachable catch-all pattern because match is exhaustive
                          };
 
                          if let Some(event_enum) = mapped_event {
@@ -462,8 +461,8 @@ where
         let req = request.into_inner();
         let ctx_arc = self.get_context().await?;
 
-        // 1. Resolve Dependencies
-        let (chain_id, nonce, safety_model, keypair) = {
+        // 1. Resolve Dependencies & Nonce
+        let (chain_id, nonce, safety_model, keypair, nonce_manager) = {
             let ctx = ctx_arc.lock().await;
             let account_id = account_id_from_key_material(
                 SignatureSuite::ED25519,
@@ -471,17 +470,22 @@ where
             )
             .unwrap_or_default();
 
-            let nonce_manager = ctx.nonce_manager.lock().await;
-            let nonce = nonce_manager
-                .get(&AccountId(account_id))
-                .copied()
-                .unwrap_or(0);
+            // [FIX] Clone the nonce manager so we can lock it to get the authoritative next nonce
+            let nonce_manager = ctx.nonce_manager.clone();
+            
+            // We need to lock the manager to get the value.
+            // The manager tracks the *next available* nonce (0 if empty).
+            let current_nonce = {
+                let guard = nonce_manager.lock().await;
+                guard.get(&AccountId(account_id)).copied().unwrap_or(0)
+            };
 
             (
                 ctx.chain_id,
-                nonce,
+                current_nonce, // Use the correct sequential nonce
                 ctx.safety_model.clone(),
                 ctx.local_keypair.clone(),
+                nonce_manager,
             )
         };
 
@@ -492,25 +496,22 @@ where
         let address_book = std::collections::HashMap::new();
 
         // 2. Resolve Intent -> Unsigned Transaction Bytes
+        // Pass the fetched nonce here
         let tx_bytes = resolver
             .resolve_intent(&req.intent, chain_id, nonce, &address_book)
             .await
             .map_err(|e| Status::internal(e.to_string()))?;
 
-        // 3. [FIXED] Sign the Transaction for Mode 0 (User Node)
-        // Deserialize the raw bytes back to ChainTransaction
+        // 3. Sign the Transaction for Mode 0 (User Node)
         let mut tx: ChainTransaction = codec::from_bytes_canonical(&tx_bytes)
             .map_err(|e| Status::internal(format!("Failed to deserialize draft: {}", e)))?;
 
-        // Calculate the signer's Account ID from the keypair to correct the header.
         let signer_pk_bytes = keypair.public().encode_protobuf();
         let signer_account_id = AccountId(
             account_id_from_key_material(SignatureSuite::ED25519, &signer_pk_bytes)
                 .map_err(|e| Status::internal(e.to_string()))?,
         );
 
-        // Extract mutable reference to fields we need to sign
-        // We handle this directly in the match to avoid conflicting types
         let signed_tx_bytes = match &mut tx {
             ChainTransaction::Settlement(s) => {
                 s.header.account_id = signer_account_id;
@@ -545,9 +546,21 @@ where
             }
         };
 
+        // [FIX] Optimistically increment the nonce in the manager.
+        // This ensures subsequent drafts (e.g. if user types fast) don't reuse the same nonce
+        // before the first one is submitted to the mempool.
+        // The mempool ingestion will also attempt to update this, but the manager is the source of truth.
+        {
+            let mut guard = nonce_manager.lock().await;
+            let entry = guard.entry(signer_account_id).or_insert(0);
+            if *entry == nonce {
+                *entry += 1;
+            }
+        }
+
         Ok(Response::new(DraftTransactionResponse {
             transaction_bytes: signed_tx_bytes,
-            summary_markdown: format!("**Action:** Execute `{}` (Auto-Signed)", req.intent),
+            summary_markdown: format!("**Action:** Execute `{}` (Auto-Signed, Nonce {})", req.intent, nonce),
             required_capabilities: vec!["wallet::sign".into()],
         }))
     }

@@ -54,9 +54,10 @@ where
     CS::Commitment: Debug + From<Vec<u8>>,
 {
     // 1. Run Shared Initialization
-    // [FIX] Pass None for GUI, Browser drivers, and SCS, as server-side workloads don't have these.
+    // [FIX] Pass None for GUI, Browser drivers, SCS, and event_sender.
+    // The standalone workload binary does not support local UI event streaming.
     let (workload_container, machine_arc) =
-        setup_workload(state_tree, commitment_scheme, config, None, None, None).await?;
+        setup_workload(state_tree, commitment_scheme, config, None, None, None, None).await?;
 
     // 2. Start the Standard IPC Server
     // The IPC server now internally handles both Legacy JSON-RPC and the new gRPC Data Plane
@@ -84,7 +85,7 @@ fn check_features() {
     }
     if cfg!(feature = "state-jellyfish") {
         enabled_features.push("state-jellyfish");
-    } // [NEW]
+    }
 
     if enabled_features.len() != 1 {
         panic!(
@@ -171,7 +172,6 @@ async fn main() -> Result<()> {
             run_standard_workload(state_tree, commitment_scheme, config).await
         }
 
-        // [NEW] Jellyfish Merkle Tree instantiation
         #[cfg(all(feature = "state-jellyfish", feature = "commitment-hash"))]
         (
             ioi_types::config::StateTreeType::Jellyfish,

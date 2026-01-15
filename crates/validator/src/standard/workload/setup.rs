@@ -57,7 +57,8 @@ use {
     zk_driver_succinct::config::SuccinctDriverConfig,
 };
 
-use ioi_drivers::terminal::TerminalDriver; // [NEW] Import Terminal Driver
+use ioi_drivers::terminal::TerminalDriver; 
+use ioi_types::app::KernelEvent; // [NEW] Import KernelEvent for event sender
 
 async fn create_guardian_channel(certs_dir: &str) -> Result<Channel> {
     let ca_pem = std::fs::read(format!("{}/ca.pem", certs_dir))?;
@@ -172,6 +173,7 @@ async fn build_runtime_from_config(
 /// * `gui_driver` - Optional handle to the GUI automation driver (for Desktop Agent).
 /// * `browser_driver` - Optional handle to the Browser automation driver.
 /// * `scs` - Optional handle to the Sovereign Context Store.
+/// * `event_sender` - Optional broadcast sender for Kernel Events (used in local mode).
 ///
 /// # Returns
 ///
@@ -185,6 +187,7 @@ pub async fn setup_workload<CS, ST>(
     gui_driver: Option<Arc<dyn GuiDriver>>,
     browser_driver: Option<Arc<BrowserDriver>>,
     scs: Option<Arc<std::sync::Mutex<SovereignContextStore>>>,
+    event_sender: Option<tokio::sync::broadcast::Sender<KernelEvent>>,
 ) -> Result<(
     Arc<WorkloadContainer<ST>>,
     Arc<Mutex<ExecutionMachine<CS, ST>>>,
@@ -454,14 +457,17 @@ where
     if let Some(gui) = gui_driver {
         tracing::info!(target: "workload", event = "service_init", name = "DesktopAgent", impl="native");
         
-        // [NEW] Initialize Terminal Driver
         let terminal_driver = Arc::new(TerminalDriver::new());
         tracing::info!(target: "workload", "Terminal Driver initialized");
 
-        // [NEW] Pass terminal_driver to DesktopAgentService
+        // [NEW] Use the provided browser driver or create a fresh one if missing (e.g. tests)
+        let browser = browser_driver.clone().unwrap_or_else(|| Arc::new(BrowserDriver::new()));
+        tracing::info!(target: "workload", "Browser Driver injected into DesktopAgent");
+
         let mut agent = DesktopAgentService::new_hybrid(
             gui,
             terminal_driver,
+            browser, // [NEW] Pass the driver
             fast_runtime,
             reasoning_runtime
         );
@@ -470,6 +476,12 @@ where
             agent = agent.with_scs(store);
             tracing::info!(target: "workload", "SCS injected into DesktopAgent.");
         }
+
+        if let Some(sender) = event_sender {
+            agent = agent.with_event_sender(sender);
+            tracing::info!(target: "workload", "Event Bus connected to DesktopAgent.");
+        }
+
         initial_services.push(Arc::new(agent) as Arc<dyn UpgradableService>);
     }
 

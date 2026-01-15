@@ -12,7 +12,9 @@ pub mod normaliser;
 pub mod prompt_wrapper;
 pub mod scrub_adapter;
 pub mod scrubber;
-pub mod session; // [NEW] Registered Intent Resolver
+pub mod session;
+pub mod rules; // [NEW]
+pub mod policy; // [NEW]
 
 /// A service for agentic operations.
 pub struct AgenticService {

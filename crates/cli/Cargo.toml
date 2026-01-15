@@ -37,7 +37,7 @@ ioi-state = { path = "../state", default-features = false }
 ioi-client = { path = "../client" }
 ioi-tx = { path = "../tx" }
 ioi-ipc = { path = "../ipc" }
-ioi-services = { path = "../services" }                             # [NEW] Added ioi-services
+ioi-services = { path = "../services" }
 toml = { workspace = true }
 
 # Dependencies for testing helpers that are now part of the library
@@ -80,6 +80,8 @@ ioi-execution = { path = "../execution" }
 ioi-networking = { path = "../networking" }
 # [FIX] Add ioi-scs dependency for agent_rag_and_policy_e2e test
 ioi-scs = { path = "../scs" }
+# [FIX] Add ioi-drivers for agentic_e2e tests
+ioi-drivers = { path = "../drivers" }
 
 once_cell = { workspace = true }
 cfg-if = "1.0"
