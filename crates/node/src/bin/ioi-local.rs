@@ -284,13 +284,14 @@ async fn main() -> Result<()> {
     // 1. Create the broadcast channel FIRST so we can pass it to components
     let (event_tx, _event_rx) = tokio::sync::broadcast::channel(1000);
 
-    // [FIX] Initialize the Native GUI Driver with the event sender
-    // This enables "Ghost Mode" to broadcast physical inputs to the UI
+    // [FIX] Initialize the Native GUI Driver with the event sender AND the SCS
+    // This ensures captured screenshots/context are persisted to disk so the UI can retrieve them.
     let gui_driver = Arc::new(
         IoiGuiDriver::new()
             .with_event_sender(event_tx.clone())
+            .with_scs(scs_arc.clone()) // <--- ADD THIS LINE
     );
-    println!("   - Native GUI Driver: Initialized (enigo/xcap/accesskit) + Event Loop");
+    println!("   - Native GUI Driver: Initialized (enigo/xcap/accesskit) + Event Loop + SCS Persistence");
 
     // [NEW] Initialize Browser Driver
     let browser_driver = Arc::new(BrowserDriver::new());
@@ -372,6 +373,8 @@ async fn main() -> Result<()> {
         safety_model: safety_model,
         // [FIX] Initialize scs
         scs: Some(scs_arc.clone()),
+        // [FIX] Inject the OS driver
+        os_driver: Arc::new(ioi_drivers::os::NativeOsDriver::new()),
     };
 
     let orchestrator = Arc::new(Orchestrator::new(&config, deps, scheme)?);

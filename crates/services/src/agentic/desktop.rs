@@ -305,6 +305,100 @@ impl DesktopAgentService {
         Ok(relevant_skills)
     }
 
+    // [NEW] RAG Memory Retrieval
+    async fn retrieve_memory(&self, query: &str) -> String {
+        // Only run if SCS is configured
+        let scs_mutex = match &self.scs {
+            Some(m) => m,
+            None => return "".to_string(),
+        };
+
+        // 1. Generate Embedding
+        // Use the reasoning model for semantic similarity as it likely has better embedding capabilities
+        let embedding_res = self.reasoning_inference.embed_text(query).await;
+        
+        let embedding = match embedding_res {
+            Ok(vec) => vec,
+            Err(e) => {
+                log::warn!("Failed to generate embedding for RAG: {}", e);
+                return "".to_string();
+            }
+        };
+
+        // 2. Search Index
+        // Lock the SCS to access the index
+        let results = {
+            let scs = match scs_mutex.lock() {
+                Ok(s) => s,
+                Err(_) => return "".to_string(),
+            };
+
+            let index_mutex = match scs.get_vector_index() {
+                Ok(idx) => idx,
+                Err(e) => {
+                    log::warn!("Failed to get vector index: {}", e);
+                    return "".to_string();
+                }
+            };
+            
+            // Drop SCS lock before Index lock?
+            // get_vector_index returns a cloned Arc, so we can drop scs.
+            // But scs.get_vector_index() acquires its own internal lock.
+            // Let's keep it simple.
+
+            let idx = match index_mutex.lock() {
+                Ok(i) => i,
+                Err(_) => return "".to_string(),
+            };
+
+            if let Some(index) = idx.as_ref() {
+                // Search for top 3 matches
+                index.search(&embedding, 3)
+            } else {
+                Ok(vec![])
+            }
+        };
+
+        let matches = match results {
+            Ok(m) => m,
+            Err(e) => {
+                log::warn!("RAG search failed: {}", e);
+                return "".to_string();
+            }
+        };
+
+        if matches.is_empty() {
+            return "".to_string();
+        }
+
+        // 3. Retrieve Content
+        let mut context_str = String::new();
+        context_str.push_str("\n### Relevant Memories\n");
+        
+        {
+            let scs = match scs_mutex.lock() {
+                Ok(s) => s,
+                Err(_) => return "".to_string(),
+            };
+
+            for (frame_id, dist) in matches {
+                if let Ok(payload) = scs.read_frame_payload(frame_id) {
+                    if let Ok(text) = String::from_utf8(payload.to_vec()) {
+                        // Truncate if too long to save tokens
+                        let snippet = if text.len() > 200 {
+                            format!("{}...", &text[..200])
+                        } else {
+                            text
+                        };
+                        context_str.push_str(&format!("- (Sim: {:.2}) {}\n", 1.0 - dist, snippet));
+                    }
+                }
+            }
+        }
+
+        context_str
+    }
+
     fn select_runtime(&self, state: &AgentState) -> Arc<dyn InferenceRuntime> {
         if state.consecutive_failures > 0 {
             return self.reasoning_inference.clone();
@@ -490,6 +584,10 @@ impl BlockchainService for DesktopAgentService {
                     }
                 }
 
+                // [NEW] Retrieve RAG Memory
+                // We use the goal as the query to find related past experiences.
+                let rag_context = self.retrieve_memory(&agent_state.goal).await;
+
                 let mut recovery_guidance = String::new();
                 if agent_state.consecutive_failures > 0 {
                     if let Some(last_msg) = agent_state.history.last() {
@@ -501,9 +599,10 @@ impl BlockchainService for DesktopAgentService {
                 }
 
                 let raw_user_prompt = format!(
-                    "Goal: {}\n\n{}{}\n\nHistory: {:?}\n{}{}\nContext: {}",
+                    "Goal: {}\n\n{}{}{}\n\nHistory: {:?}\n{}{}\nContext: {}",
                     agent_state.goal,
                     skills_prompt,
+                    rag_context, // [NEW] Inject RAG context
                     "Available Tools: ...",
                     agent_state.history,
                     recovery_guidance,

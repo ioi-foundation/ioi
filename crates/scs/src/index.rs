@@ -6,7 +6,6 @@ use ioi_api::state::{ProofProvider, VerifiableState};
 use ioi_state::primitives::hash::HashCommitmentScheme;
 use ioi_state::tree::mhnsw::{
     metric::{CosineSimilarity, Vector},
-    // [FIX] Removed unused NodeHash import
     proof::TraversalProof,
     MHnswIndex,
 };
@@ -98,8 +97,8 @@ impl VectorIndex {
     pub fn generate_proof(&self, query: &[f32], k: usize) -> Result<RetrievalProof> {
         let q_vec = Vector(query.to_vec());
 
-        // We use the search_with_proof method from MHnswIndex
-        // Since graph is now public, we can access it.
+        // Delegate to the inner graph's proof generation logic.
+        // We use the `search_with_proof` method which returns both results and the traversal trace.
         let (_, traversal_proof) = self
             .inner
             .graph
@@ -121,7 +120,6 @@ impl VectorIndex {
     /// Serializes the index to a byte vector for storage in the .scs file.
     pub fn serialize_to_artifact(&self) -> Result<VectorIndexArtifact> {
         // Serialize the internal graph nodes using SCALE codec.
-        // graph is now public
         let graph_bytes = self.inner.graph.encode();
 
         let count = self.inner.graph.nodes.len() as u64;

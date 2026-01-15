@@ -24,12 +24,15 @@ use std::sync::Arc;
 use std::time::{Duration, Instant};
 use tokio::sync::{mpsc, watch, Mutex};
 use tracing::{error, info, warn};
-use parity_scale_codec::{Decode, Encode}; // [FIX] Added imports
+use parity_scale_codec::{Decode, Encode};
 
-// [FIX] Import LocalSafetyModel and SafetyVerdict from ioi_api
 use ioi_api::vm::inference::{LocalSafetyModel, SafetyVerdict};
+use ioi_api::vm::drivers::os::OsDriver; // [NEW]
 
-// ... (rest of imports and structs remain the same until run_ingestion_worker) ...
+// [NEW] Imports for Policy Engine Integration
+use crate::firewall::policy::PolicyEngine;
+use crate::firewall::rules::{ActionRules, Verdict};
+use ioi_types::app::{ActionContext, ActionRequest, ActionTarget, ApprovalToken};
 
 /// Configuration for the ingestion worker.
 #[derive(Debug, Clone)]
@@ -77,7 +80,6 @@ struct TimingCache {
 }
 
 /// The main loop for the ingestion worker.
-/// Decouples RPC receipt from heavy-lifting validation and mempool management.
 pub async fn run_ingestion_worker<CS>(
     mut rx: mpsc::Receiver<(TxHash, Vec<u8>)>,
     workload_client: Arc<WorkloadClient>,
@@ -89,13 +91,14 @@ pub async fn run_ingestion_worker<CS>(
     status_cache: Arc<Mutex<lru::LruCache<String, TxStatusEntry>>>,
     receipt_map: Arc<Mutex<lru::LruCache<TxHash, String>>>,
     safety_model: Arc<dyn LocalSafetyModel>,
+    // [NEW] Added os_driver to worker arguments
+    os_driver: Arc<dyn OsDriver>, 
     config: IngestionConfig,
-    // [NEW] Added event_broadcaster
     event_broadcaster: tokio::sync::broadcast::Sender<KernelEvent>,
 ) where
     CS: CommitmentScheme + Clone + Send + Sync + 'static,
     <CS as CommitmentScheme>::Proof:
-        Serialize + for<'de> serde::Deserialize<'de> + Clone + Send + Sync + 'static + Debug + Encode + Decode, // [FIX] Added Encode + Decode
+        Serialize + for<'de> serde::Deserialize<'de> + Clone + Send + Sync + 'static + Debug + Encode + Decode,
 {
     info!(
         "Transaction Ingestion Worker started (Batch Size: {}, Timeout: {}ms)",
@@ -282,7 +285,7 @@ pub async fn run_ingestion_worker<CS>(
         let anchor = root_struct.to_anchor().unwrap_or_default();
 
         // --- 4. Validation ---
-        // Step A: Semantic Safety Check (Orchestrator Local CPU)
+        // Step A: Semantic Safety Check & Policy Enforcement (Orchestrator Local CPU)
         let mut semantically_valid_indices = Vec::new();
         let mut status_guard = status_cache.lock().await;
 
@@ -294,50 +297,122 @@ pub async fn run_ingestion_worker<CS>(
                 } = &sys.payload;
 
                 if service_id == "agentic" || service_id == "compute_market" {
-                    if let Ok(input_str) = std::str::from_utf8(params) {
-                        // Run safety check
-                        let result = safety_model.classify_intent(input_str).await;
-                        match result {
-                            Ok(SafetyVerdict::Safe) => {}
-                            Ok(v) => {
-                                is_safe = false;
-                                // [FIX] Updated enum variants usage
-                                let (verdict, reason) = match v {
-                                    SafetyVerdict::Unsafe(r) => ("BLOCK", format!("Blocked by Safety Firewall: {}", r)),
-                                    SafetyVerdict::ContainsPII => ("REQUIRE_APPROVAL", "PII detected".to_string()),
-                                    SafetyVerdict::Safe => unreachable!(), // Handled by outer arm
-                                };
+                    // 1. Construct ActionRequest for PolicyEngine
+                    let request = ActionRequest {
+                        target: ActionTarget::Custom(method.clone()),
+                        params: params.clone(),
+                        context: ActionContext {
+                            agent_id: "unknown".into(), // TODO: Extract from tx metadata if available
+                            session_id: None, 
+                            window_id: None,
+                        },
+                        nonce: 0, // Placeholder
+                    };
 
-                                warn!(target: "ingestion", "Transaction blocked by firewall: {}", reason);
-                                
-                                // [NEW] Emit Event to UI
-                                let _ = event_broadcaster.send(KernelEvent::FirewallInterception {
-                                    verdict: verdict.to_string(),
-                                    target: method.clone(),
-                                    request_hash: p_tx.canonical_hash, // Use tx hash as proxy for request hash
-                                });
+                    // TODO: Load active policy from chain state or config
+                    let rules = ActionRules::default();
+                    
+                    // TODO: Extract ApprovalToken from tx signature wrapper if present
+                    let approval_token: Option<ApprovalToken> = None;
 
-                                status_guard.put(
-                                    p_tx.receipt_hash_hex.clone(),
-                                    TxStatusEntry {
-                                        status: TxStatus::Rejected,
-                                        error: Some(format!("Firewall: {}", reason)),
-                                        block_height: None,
-                                    },
-                                );
-                            }
-                            Err(e) => {
-                                // If model fails, fail closed
-                                is_safe = false;
-                                warn!(target: "ingestion", "Safety model failure: {}", e);
-                                status_guard.put(
-                                    p_tx.receipt_hash_hex.clone(),
-                                    TxStatusEntry {
-                                        status: TxStatus::Rejected,
-                                        error: Some(format!("Firewall Error: {}", e)),
-                                        block_height: None,
-                                    },
-                                );
+                    // 2. Evaluate Policy (Context-Aware)
+                    let verdict = PolicyEngine::evaluate(
+                        &rules,
+                        &request,
+                        &safety_model,
+                        &os_driver,
+                        approval_token.as_ref(),
+                    ).await;
+
+                    match verdict {
+                        Verdict::Allow => {
+                            // Proceed to Semantic Checks
+                        },
+                        Verdict::Block => {
+                            is_safe = false;
+                            let reason = "Blocked by active policy rules";
+                            warn!(target: "ingestion", "Transaction blocked: {}", reason);
+                            
+                            let _ = event_broadcaster.send(KernelEvent::FirewallInterception {
+                                verdict: "BLOCK".to_string(),
+                                target: method.clone(),
+                                request_hash: p_tx.canonical_hash,
+                            });
+
+                            status_guard.put(
+                                p_tx.receipt_hash_hex.clone(),
+                                TxStatusEntry {
+                                    status: TxStatus::Rejected,
+                                    error: Some(format!("Policy: {}", reason)),
+                                    block_height: None,
+                                },
+                            );
+                        },
+                        Verdict::RequireApproval => {
+                            is_safe = false;
+                            let reason = "Manual approval required";
+                            warn!(target: "ingestion", "Transaction halted: {}", reason);
+
+                            let _ = event_broadcaster.send(KernelEvent::FirewallInterception {
+                                verdict: "REQUIRE_APPROVAL".to_string(),
+                                target: method.clone(),
+                                request_hash: p_tx.canonical_hash,
+                            });
+
+                            status_guard.put(
+                                p_tx.receipt_hash_hex.clone(),
+                                TxStatusEntry {
+                                    status: TxStatus::Rejected, // Effectively rejected from mempool until resubmitted with token
+                                    error: Some(format!("Policy: {}", reason)),
+                                    block_height: None,
+                                },
+                            );
+                        }
+                    }
+
+                    // 3. Semantic Safety Check (Legacy Fallback / Deep Content Inspection)
+                    if is_safe {
+                        if let Ok(input_str) = std::str::from_utf8(params) {
+                            let result = safety_model.classify_intent(input_str).await;
+                            match result {
+                                Ok(SafetyVerdict::Safe) => {}
+                                Ok(v) => {
+                                    is_safe = false;
+                                    let (verdict_str, reason) = match v {
+                                        SafetyVerdict::Unsafe(r) => ("BLOCK", format!("Blocked by Safety Firewall: {}", r)),
+                                        SafetyVerdict::ContainsPII => ("REQUIRE_APPROVAL", "PII detected".to_string()),
+                                        SafetyVerdict::Safe => unreachable!(),
+                                    };
+
+                                    warn!(target: "ingestion", "Transaction blocked by semantic firewall: {}", reason);
+                                    
+                                    let _ = event_broadcaster.send(KernelEvent::FirewallInterception {
+                                        verdict: verdict_str.to_string(),
+                                        target: method.clone(),
+                                        request_hash: p_tx.canonical_hash,
+                                    });
+
+                                    status_guard.put(
+                                        p_tx.receipt_hash_hex.clone(),
+                                        TxStatusEntry {
+                                            status: TxStatus::Rejected,
+                                            error: Some(format!("Firewall: {}", reason)),
+                                            block_height: None,
+                                        },
+                                    );
+                                }
+                                Err(e) => {
+                                    is_safe = false;
+                                    warn!(target: "ingestion", "Safety model failure: {}", e);
+                                    status_guard.put(
+                                        p_tx.receipt_hash_hex.clone(),
+                                        TxStatusEntry {
+                                            status: TxStatus::Rejected,
+                                            error: Some(format!("Firewall Error: {}", e)),
+                                            block_height: None,
+                                        },
+                                    );
+                                }
                             }
                         }
                     }

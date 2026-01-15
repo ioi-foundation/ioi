@@ -25,6 +25,8 @@ use tokio::sync::{mpsc, watch, Mutex};
 use parity_scale_codec::{Decode, Encode}; // [FIX] Added imports
 
 use ioi_api::vm::inference::LocalSafetyModel;
+// [NEW] Import OsDriver trait
+use ioi_api::vm::drivers::os::OsDriver;
 use ioi_scs::SovereignContextStore;
 
 pub type ChainFor<CS, ST> = Arc<
@@ -89,6 +91,8 @@ where
     pub tip_sender: watch::Sender<ChainTipInfo>,
     pub receipt_map: Arc<Mutex<LruCache<TxHash, String>>>,
     pub safety_model: Arc<dyn LocalSafetyModel>,
+    // [NEW] Added os_driver field
+    pub os_driver: Arc<dyn OsDriver>,
     pub scs: Option<Arc<std::sync::Mutex<SovereignContextStore>>>,
     pub event_broadcaster: tokio::sync::broadcast::Sender<KernelEvent>,
 }

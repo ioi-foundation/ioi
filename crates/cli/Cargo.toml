@@ -78,6 +78,9 @@ rkyv = { version = "0.7", features = ["validation", "std", "alloc"] }
 ioi-relayer = { path = "../relayer" }
 ioi-execution = { path = "../execution" }
 ioi-networking = { path = "../networking" }
+# [FIX] Add ioi-scs dependency for agent_rag_and_policy_e2e test
+ioi-scs = { path = "../scs" }
+
 once_cell = { workspace = true }
 cfg-if = "1.0"
 ibc-client-tendermint = { workspace = true }

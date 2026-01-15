@@ -14,12 +14,10 @@
 use anyhow::{anyhow, Result};
 use async_trait::async_trait;
 use ioi_api::crypto::BatchVerifier;
-use ioi_api::crypto::SerializableKey;
 use ioi_api::{
     chain::WorkloadClientApi,
     commitment::CommitmentScheme,
     consensus::ConsensusEngine,
-    crypto::SigningKeyPair,
     state::{StateManager, Verifier},
     validator::container::Container,
 };
@@ -62,6 +60,7 @@ use ioi_ipc::public::public_api_server::PublicApiServer;
 use tonic::transport::Server;
 
 use ioi_api::vm::inference::LocalSafetyModel;
+use ioi_api::vm::drivers::os::OsDriver; 
 use ioi_scs::SovereignContextStore;
 use crate::standard::orchestration::mempool::Mempool;
 
@@ -71,28 +70,27 @@ mod context;
 mod gossip;
 mod grpc_public;
 mod ingestion;
-/// Transaction mempool logic for managing pending transactions.
+/// Transaction mempool logic.
 pub mod mempool;
 mod operator_tasks;
 mod oracle;
 mod peer_management;
 mod remote_state_view;
 mod sync;
+/// Verifier selection logic.
 pub mod verifier_select;
 mod view_resolver;
 
-// [NEW] Modules extracted during refactor
 mod events;
 mod finalize;
 
-use self::sync as sync_handlers;
 use crate::config::OrchestrationConfig;
 use consensus::drive_consensus_tick;
 use context::{ChainFor, MainLoopContext};
 use futures::FutureExt;
 use ingestion::{run_ingestion_worker, ChainTipInfo, IngestionConfig};
 use operator_tasks::run_oracle_operator_task;
-use events::handle_network_event; // Imported from new module
+use events::handle_network_event; 
 
 /// A struct to hold the numerous dependencies for the Orchestrator.
 pub struct OrchestrationDependencies<CE, V> {
@@ -118,9 +116,11 @@ pub struct OrchestrationDependencies<CE, V> {
     pub signer: Arc<dyn GuardianSigner>,
     /// The batch verifier for parallel signature verification.
     pub batch_verifier: Arc<dyn BatchVerifier>,
-    /// [NEW] The local safety model for the semantic firewall.
+    /// The local safety model for semantic firewall.
     pub safety_model: Arc<dyn LocalSafetyModel>,
-    /// [NEW] The Sovereign Context Store handle (optional, for local nodes).
+    /// The OS driver for context-aware policy enforcement.
+    pub os_driver: Arc<dyn OsDriver>,
+    /// The Sovereign Context Store handle (optional, for local nodes).
     pub scs: Option<Arc<std::sync::Mutex<SovereignContextStore>>>,
 }
 
@@ -153,17 +153,17 @@ where
     genesis_hash: [u8; 32],
     chain: Arc<OnceCell<ChainFor<CS, ST>>>,
     workload_client: Arc<OnceCell<Arc<WorkloadClient>>>,
-    /// The local mempool for pending transactions.
-    pub tx_pool: Arc<crate::standard::orchestration::mempool::Mempool>,
+    /// Local transaction pool.
+    pub tx_pool: Arc<Mempool>,
     syncer: Arc<Libp2pSync>,
     swarm_command_sender: mpsc::Sender<SwarmCommand>,
     network_event_receiver: NetworkEventReceiver,
     consensus_engine: Arc<Mutex<CE>>,
     local_keypair: identity::Keypair,
     pqc_signer: Option<MldsaKeyPair>,
-    /// A channel sender to signal graceful shutdown to all background tasks.
+    /// Sender for shutdown signal.
     pub shutdown_sender: Arc<watch::Sender<bool>>,
-    /// Handles to background tasks for graceful shutdown.
+    /// Handles for background tasks.
     pub task_handles: Arc<Mutex<Vec<JoinHandle<()>>>>,
     is_running: Arc<AtomicBool>,
     is_quarantined: Arc<AtomicBool>,
@@ -172,17 +172,19 @@ where
     main_loop_context: Arc<Mutex<Option<Arc<Mutex<MainLoopContext<CS, ST, CE, V>>>>>>,
     consensus_kick_tx: mpsc::UnboundedSender<()>,
     consensus_kick_rx: ConsensusKickReceiver,
-    /// A local, atomically-managed nonce for self-generated transactions.
+    /// Manager for account nonces.
     pub nonce_manager: Arc<Mutex<BTreeMap<AccountId, u64>>>,
-    /// The signer for block headers (Local or Remote Oracle).
+    /// Guardian signer for block headers.
     pub signer: Arc<dyn GuardianSigner>,
     _cpu_pool: Arc<rayon::ThreadPool>,
-    /// The batch verifier for parallel signature verification.
+    /// Batch verifier for signatures.
     pub batch_verifier: Arc<dyn BatchVerifier>,
     scheme: CS,
-    /// [NEW] The safety model for semantic firewall.
+    /// Safety model for semantic checks.
     pub safety_model: Arc<dyn LocalSafetyModel>,
-    /// [NEW] The SCS handle.
+    /// OS driver for context-aware policy.
+    pub os_driver: Arc<dyn OsDriver>,
+    /// Sovereign Context Store handle.
     pub scs: Option<Arc<std::sync::Mutex<SovereignContextStore>>>,
 }
 
@@ -226,7 +228,7 @@ where
             genesis_hash: deps.genesis_hash,
             chain: Arc::new(OnceCell::new()),
             workload_client: Arc::new(OnceCell::new()),
-            tx_pool: Arc::new(crate::standard::orchestration::mempool::Mempool::new()),
+            tx_pool: Arc::new(Mempool::new()),
             syncer: deps.syncer,
             swarm_command_sender: deps.swarm_command_sender,
             network_event_receiver: Mutex::new(Some(deps.network_event_receiver)),
@@ -250,7 +252,8 @@ where
             batch_verifier: deps.batch_verifier,
             scheme,
             safety_model: deps.safety_model,
-            scs: deps.scs, // [NEW] Store SCS
+            os_driver: deps.os_driver,
+            scs: deps.scs, 
         })
     }
 
@@ -689,6 +692,7 @@ where
             tx_status_cache.clone(),
             receipt_map.clone(),
             self.safety_model.clone(),
+            self.os_driver.clone(), // [NEW] Pass OsDriver
             IngestionConfig::default(),
             event_tx.clone(), // [NEW] Pass the broadcaster
         ));
@@ -783,6 +787,7 @@ where
             tip_sender: tip_tx,
             receipt_map: receipt_map.clone(),
             safety_model: self.safety_model.clone(),
+            os_driver: self.os_driver.clone(), // [NEW] Added field
             scs: self.scs.clone(),
             event_broadcaster: event_tx,
         };

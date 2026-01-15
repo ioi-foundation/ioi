@@ -27,7 +27,7 @@ use std::time::Instant;
 use tokio::sync::{mpsc, Mutex};
 use tokio_stream::wrappers::ReceiverStream;
 use tonic::{Request, Response, Status};
-use parity_scale_codec::{Decode, Encode}; // [FIX] Added imports
+use parity_scale_codec::{Decode, Encode};
 
 use crate::metrics::rpc_metrics as metrics;
 use ioi_api::vm::inference::{InferenceRuntime, LocalSafetyModel};
@@ -100,7 +100,7 @@ where
         + 'static
         + Debug,
     <CS as CommitmentScheme>::Proof:
-        Serialize + for<'de> serde::Deserialize<'de> + Clone + Send + Sync + 'static + Debug + Encode + Decode, // [FIX] Added Encode + Decode
+        Serialize + for<'de> serde::Deserialize<'de> + Clone + Send + Sync + 'static + Debug + Encode + Decode, 
 {
     pub context_wrapper: Arc<Mutex<Option<Arc<Mutex<MainLoopContext<CS, ST, CE, V>>>>>>,
     pub workload_client: Arc<WorkloadClient>,
@@ -125,7 +125,7 @@ where
         + 'static
         + Debug,
     <CS as CommitmentScheme>::Proof:
-        Serialize + for<'de> serde::Deserialize<'de> + Clone + Send + Sync + 'static + Debug + Encode + Decode, // [FIX] Added Encode + Decode
+        Serialize + for<'de> serde::Deserialize<'de> + Clone + Send + Sync + 'static + Debug + Encode + Decode,
 {
     async fn get_context(&self) -> Result<Arc<Mutex<MainLoopContext<CS, ST, CE, V>>>, Status> {
         let guard = self.context_wrapper.lock().await;
@@ -156,7 +156,7 @@ where
         + 'static
         + Debug,
     <CS as CommitmentScheme>::Proof:
-        Serialize + for<'de> serde::Deserialize<'de> + Clone + Send + Sync + 'static + Debug + Encode + Decode, // [FIX] Added Encode + Decode
+        Serialize + for<'de> serde::Deserialize<'de> + Clone + Send + Sync + 'static + Debug + Encode + Decode,
 {
     async fn submit_transaction(
         &self,
@@ -428,6 +428,7 @@ where
                                      }
                                  ))
                              },
+                             // [FIX] Handle catch-all for unknown events explicitly
                              _ => None
                          };
 

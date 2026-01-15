@@ -26,6 +26,7 @@ export interface AgentTask {
   current_step: string;
   gate_info?: GateInfo;
   receipt?: Receipt;
+  visual_hash?: string; // [NEW] Added to match Rust backend
 }
 
 // [NEW] Ghost Mode Trace Step

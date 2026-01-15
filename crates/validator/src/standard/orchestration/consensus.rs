@@ -1,40 +1,38 @@
 // Path: crates/validator/src/standard/orchestration/consensus.rs
 use crate::metrics::consensus_metrics as metrics;
 use crate::standard::orchestration::context::MainLoopContext;
-use crate::standard::orchestration::gossip::prune_mempool;
-use crate::standard::orchestration::ingestion::ChainTipInfo;
 use crate::standard::orchestration::mempool::Mempool;
 use anyhow::{anyhow, Result};
 use ioi_api::crypto::BatchVerifier;
 use ioi_api::{
-    chain::{AnchoredStateView, StateRef, WorkloadClientApi},
+    chain::AnchoredStateView,
     commitment::CommitmentScheme,
     consensus::ConsensusEngine,
-    crypto::{SerializableKey, SigningKeyPair},
+    crypto::SerializableKey,
+    // [FIX] Added SigningKeyPair
+    crypto::SigningKeyPair,
     state::{ProofProvider, StateManager, Verifier},
 };
-// [FIX] Use local re-export if needed, or direct import if available. Assuming direct import for now based on context.
+// [FIX] Added StateRef
+use ioi_api::chain::StateRef;
+
+// [FIX] Added MldsaKeyPair import
 use ioi_crypto::sign::dilithium::MldsaKeyPair;
-use ioi_ipc::public::TxStatus;
-use ioi_networking::libp2p::SwarmCommand;
+
 use ioi_networking::traits::NodeState;
-use ioi_tx::system::validation::get_signature_components;
 use ioi_types::{
     app::{
         account_id_from_key_material, to_root_hash, AccountId, Block, BlockHeader,
         ChainTransaction, SignatureSuite, StateAnchor, StateRoot, TxHash,
     },
-    codec,
     keys::VALIDATOR_SET_KEY,
 };
 use serde::Serialize;
 use std::collections::HashSet;
 use std::fmt::Debug;
 use std::sync::Arc;
-use tokio::sync::{mpsc, Mutex};
-use parity_scale_codec::{Decode, Encode}; // [FIX] Added imports
-
-use crate::common::GuardianSigner;
+use tokio::sync::Mutex;
+use parity_scale_codec::{Decode, Encode};
 
 /// Drive one consensus tick without holding the MainLoopContext lock across awaits.
 pub async fn drive_consensus_tick<CS, ST, CE, V>(
@@ -59,7 +57,7 @@ where
         + Debug,
     <CS as CommitmentScheme>::Commitment: Send + Sync + Debug,
     <CS as CommitmentScheme>::Proof:
-        Serialize + for<'de> serde::Deserialize<'de> + Clone + Send + Sync + 'static + Debug + Encode + Decode, // [FIX] Added Encode + Decode
+        Serialize + for<'de> serde::Deserialize<'de> + Clone + Send + Sync + 'static + Debug + Encode + Decode, 
 {
     eprintln!("[Consensus] Drive Tick: {}", cause); // [DEBUG]
     let _tick_timer = ioi_telemetry::time::Timer::new(metrics());
@@ -312,7 +310,7 @@ fn verify_batch_and_filter(
     let mut sign_bytes_storage = Vec::new();
 
     for (i, tx) in candidate_txs.iter().enumerate() {
-        if let Ok(Some((_, _, bytes))) = get_signature_components(tx) {
+        if let Ok(Some((_, _, bytes))) = ioi_tx::system::validation::get_signature_components(tx) {
             sign_bytes_storage.push(bytes);
             sig_indices.push(i);
         }
@@ -320,7 +318,7 @@ fn verify_batch_and_filter(
 
     let mut batch_items = Vec::with_capacity(sig_indices.len());
     for (i, &idx) in sig_indices.iter().enumerate() {
-        if let Ok(Some((_, proof, _))) = get_signature_components(&candidate_txs[idx]) {
+        if let Ok(Some((_, proof, _))) = ioi_tx::system::validation::get_signature_components(&candidate_txs[idx]) {
             batch_items.push((
                 proof.public_key.as_slice(),
                 sign_bytes_storage[i].as_slice(),
