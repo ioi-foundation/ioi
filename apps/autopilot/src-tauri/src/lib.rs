@@ -371,11 +371,12 @@ async fn monitor_kernel_events(app: AppHandle) {
                             t.session_id = Some(res.session_id.clone());
                         }
 
-                        if res.tool_name == "sys__exec" && !res.output.is_empty() {
+                        // [FIX] Check for completion signals
+                        if res.tool_name == "agent__complete" || res.tool_name == "system::max_steps_reached" {
                              t.phase = AgentPhase::Complete;
                              t.receipt = Some(Receipt {
-                                 duration: "2s".to_string(), 
-                                 actions: 1,
+                                 duration: "Done".to_string(), 
+                                 actions: t.progress,
                                  cost: Some("$0.00".to_string()),
                              });
                         }
