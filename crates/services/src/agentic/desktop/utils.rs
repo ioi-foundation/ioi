@@ -1,3 +1,5 @@
+// Path: crates/services/src/agentic/desktop/utils.rs
+
 use crate::agentic::desktop::keys::TRACE_PREFIX;
 use ioi_api::state::StateAccess;
 use ioi_types::app::agentic::StepTrace;
@@ -5,10 +7,11 @@ use ioi_types::app::KernelEvent;
 use ioi_types::codec;
 use ioi_types::error::TransactionError;
 
-use dcrypt::algorithms::ByteSerializable;
+// [FIX] Removed unused import
 use image::load_from_memory;
 use image_hasher::{HashAlg, HasherConfig};
 use std::time::{SystemTime, UNIX_EPOCH};
+use dcrypt::algorithms::ByteSerializable;
 
 use super::types::{AgentState, AgentStatus};
 
@@ -77,6 +80,16 @@ pub fn goto_trace_log(
 
     if agent_state.step_count >= agent_state.max_steps && agent_state.status == AgentStatus::Running {
         agent_state.status = AgentStatus::Completed(None);
+        
+        // [FIX] Emit completion event so UI knows to stop when max steps reached
+        if let Some(tx) = &event_sender {
+             let _ = tx.send(KernelEvent::AgentActionResult {
+                 session_id,
+                 step_index: agent_state.step_count,
+                 tool_name: "system::max_steps_reached".to_string(),
+                 output: "Max steps reached. Task completed.".to_string(),
+             });
+        }
     }
 
     state.insert(key, &codec::to_bytes_canonical(&agent_state)?)?;
