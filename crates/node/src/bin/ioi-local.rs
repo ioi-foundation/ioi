@@ -7,8 +7,6 @@ use ioi_api::crypto::SerializableKey;
 use ioi_api::state::service_namespace_prefix;
 use ioi_api::validator::container::Container;
 use ioi_consensus::util::engine_from_config;
-// [FIX] Removed unused Consensus import
-// use ioi_consensus::Consensus;
 use ioi_crypto::sign::eddsa::Ed25519PrivateKey;
 use ioi_drivers::browser::BrowserDriver;
 use ioi_drivers::gui::IoiGuiDriver;
@@ -17,14 +15,13 @@ use ioi_state::primitives::hash::HashCommitmentScheme;
 use ioi_state::tree::iavl::IAVLTree;
 use ioi_types::app::{
     account_id_from_key_material, AccountId, ActiveKeyRecord, SignatureSuite,
-    ValidatorSetV1, ValidatorSetsV1, ValidatorV1,
+    ValidatorSetV1, ValidatorSetsV1, ValidatorV1, ChainTransaction,
 };
 use ioi_types::config::{
     ConsensusType, InitialServiceConfig, OrchestrationConfig, ValidatorRole, WorkloadConfig,
 };
 use ioi_types::service_configs::MigrationConfig;
 use ioi_validator::common::{GuardianContainer, LocalSigner};
-use ioi_validator::firewall::inference::MockBitNet;
 use ioi_validator::standard::orchestration::verifier_select::DefaultVerifier;
 use ioi_validator::standard::orchestration::OrchestrationDependencies;
 use ioi_validator::standard::workload::setup::setup_workload;
@@ -34,15 +31,22 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::{atomic::AtomicBool, Arc, Mutex};
 use tokio::time::Duration;
+use tokio::sync::Mutex as TokioMutex;
 
-// [FIX] Added imports for ActiveServiceMeta
 use ioi_types::service_configs::{ActiveServiceMeta, Capabilities, MethodPermission};
-// [REMOVED] Unused import active_service_key
 
-// [FIX] Import run_agent_driver_task to drive the agent loop
+// [FIX] Imports for Agent Driver and Context
 use ioi_validator::standard::orchestration::operator_tasks::{
     run_agent_driver_task, run_oracle_operator_task,
 };
+use ioi_validator::standard::orchestration::context::MainLoopContext;
+use ioi_consensus::Consensus;
+
+// [FIX] Imports for Real Inference
+use ioi_api::vm::inference::{HttpInferenceRuntime, InferenceRuntime, LocalSafetyModel};
+use ioi_services::agentic::scrub_adapter::RuntimeAsSafetyModel;
+// [FIX] Import NativeOsDriver
+use ioi_drivers::os::NativeOsDriver;
 
 #[derive(Parser, Debug)]
 #[clap(name = "ioi-local", about = "IOI User Node (Mode 0)")]
@@ -53,12 +57,14 @@ struct LocalOpts {
 
 #[tokio::main]
 async fn main() -> Result<()> {
+    // [FIX] Install default crypto provider for rustls 0.23+
     let _ = rustls::crypto::ring::default_provider().install_default();
     ioi_telemetry::init::init_tracing()?;
 
     let opts = LocalOpts::parse();
     fs::create_dir_all(&opts.data_dir)?;
 
+    // --- Identity Setup ---
     let key_path = opts.data_dir.join("identity.key");
     let local_key = if key_path.exists() {
         let raw = GuardianContainer::load_encrypted_file(&key_path)?;
@@ -77,7 +83,7 @@ async fn main() -> Result<()> {
         &local_key.public().encode_protobuf(),
     )?);
 
-    // [NEW] Initialize the Sovereign Context Store (SCS)
+    // --- SCS Setup ---
     let scs_path = opts.data_dir.join("context.scs");
     let scs_config = StoreConfig {
         chain_id: 0,
@@ -94,7 +100,6 @@ async fn main() -> Result<()> {
         println!("Creating new Sovereign Context Substrate at {:?}", scs_path);
         SovereignContextStore::create(&scs_path, scs_config)?
     };
-    // Wrap in Arc<Mutex> for shared access using STD MUTEX
     let scs_arc: Arc<Mutex<SovereignContextStore>> = Arc::new(Mutex::new(scs));
 
     let rpc_addr = std::env::var("ORCHESTRATION_RPC_LISTEN_ADDRESS")
@@ -116,11 +121,9 @@ async fn main() -> Result<()> {
         tokenizer_path: None,
     };
 
-    // [START FIX]
-    // Construct service policies, starting with defaults and adding local-only services.
+    // --- Service Policies ---
     let mut service_policies = ioi_types::config::default_service_policies();
 
-    // Define policy for Desktop Agent
     let mut agent_methods_policy = std::collections::BTreeMap::new();
     agent_methods_policy.insert("start@v1".to_string(), MethodPermission::User);
     agent_methods_policy.insert("step@v1".to_string(), MethodPermission::User);
@@ -131,7 +134,6 @@ async fn main() -> Result<()> {
         allowed_system_prefixes: vec![],
     });
 
-    // Define policy for Compute Market (if used)
     let mut market_methods_policy = std::collections::BTreeMap::new();
     market_methods_policy.insert("request_task@v1".to_string(), MethodPermission::User);
     market_methods_policy.insert("finalize_provisioning@v1".to_string(), MethodPermission::User);
@@ -140,15 +142,28 @@ async fn main() -> Result<()> {
         methods: market_methods_policy,
         allowed_system_prefixes: vec![],
     });
-    // [END FIX]
 
-    // [NEW] Check for API Key for Real Inference
+    // --- REAL INFERENCE CONFIGURATION ---
+    // Priority: 1. OpenAI Key -> 2. Local URL -> 3. Ollama (Default)
     let openai_key = std::env::var("OPENAI_API_KEY").ok();
-    if openai_key.is_some() {
-        println!("🤖 OpenAI API Key detected. Using Real Inference Model.");
+    let local_url = std::env::var("LOCAL_LLM_URL").ok();
+
+    let (provider, api_url, api_key, model_name) = if let Some(key) = openai_key {
+        let model = std::env::var("OPENAI_MODEL").unwrap_or("gpt-4o".to_string());
+        println!("🤖 OpenAI API Key detected.");
+        println!("   - Provider: OpenAI");
+        println!("   - Model: {}", model);
+        ("openai", "https://api.openai.com/v1/chat/completions".to_string(), Some(key), model)
+    } else if let Some(url) = local_url {
+        println!("🤖 LOCAL_LLM_URL detected. Using Custom Endpoint.");
+        ("local", url, None, "llama3".to_string())
     } else {
-        println!("🤖 No API Key found. Using Mock Brain.");
-    }
+        // DEFAULT: Assume Local Ollama is running if nothing else is configured
+        println!("🤖 No API Key found. Defaulting to Local Ollama.");
+        println!("   - URL: http://localhost:11434/v1/chat/completions");
+        println!("   (Set OPENAI_API_KEY to use cloud inference instead)");
+        ("local", "http://localhost:11434/v1/chat/completions".to_string(), None, "llama3".to_string())
+    };
 
     let workload_config = WorkloadConfig {
         runtimes: vec!["wasm".to_string()],
@@ -181,16 +196,11 @@ async fn main() -> Result<()> {
         gc_interval_secs: 3600,
         zk_config: Default::default(),
         
-        // [MODIFIED] Inference Configuration
         inference: ioi_types::config::InferenceConfig {
-            provider: if openai_key.is_some() { "openai".to_string() } else { "mock".to_string() },
-            api_url: if openai_key.is_some() { 
-                Some("https://api.openai.com/v1/chat/completions".to_string()) 
-            } else { 
-                None 
-            },
-            api_key: openai_key, 
-            model_name: Some("gpt-4o".to_string()),
+            provider: provider.to_string(),
+            api_url: Some(api_url.clone()),
+            api_key: api_key.clone(),
+            model_name: Some(model_name.clone()),
             connector_ref: None,
         },
         fast_inference: None,
@@ -253,7 +263,6 @@ async fn main() -> Result<()> {
             .unwrap(),
         );
 
-        // [NEW] Register 'desktop_agent' service metadata
         let mut agent_methods = std::collections::BTreeMap::new();
         agent_methods.insert("start@v1".to_string(), MethodPermission::User);
         agent_methods.insert("step@v1".to_string(), MethodPermission::User);
@@ -273,7 +282,6 @@ async fn main() -> Result<()> {
         let agent_key = ioi_types::keys::active_service_key("desktop_agent");
         insert_raw(&agent_key, to_bytes_canonical(&agent_meta).unwrap());
         
-        // [NEW] Register 'compute_market' service metadata
         let mut market_methods = std::collections::BTreeMap::new();
         market_methods.insert("request_task@v1".to_string(), MethodPermission::User);
         market_methods.insert("finalize_provisioning@v1".to_string(), MethodPermission::User);
@@ -298,10 +306,11 @@ async fn main() -> Result<()> {
         )?;
     }
 
-    // 1. Create the broadcast channel FIRST so we can pass it to components
     let (event_tx, _event_rx) = tokio::sync::broadcast::channel(1000);
 
-    // [FIX] Initialize the Native GUI Driver with the event sender AND the SCS
+    // [FIX] Instantiate OS Driver
+    let os_driver = Arc::new(NativeOsDriver::new());
+
     let gui_driver = Arc::new(
         IoiGuiDriver::new()
             .with_event_sender(event_tx.clone())
@@ -314,6 +323,8 @@ async fn main() -> Result<()> {
 
     let scheme = HashCommitmentScheme::new();
     let tree = IAVLTree::new(scheme.clone());
+    
+    // [FIX] Pass os_driver to setup_workload
     let (workload_container, machine) = setup_workload(
         tree,
         scheme.clone(),
@@ -322,6 +333,7 @@ async fn main() -> Result<()> {
         Some(browser_driver),
         Some(scs_arc.clone()), 
         Some(event_tx.clone()), 
+        Some(os_driver.clone()), // <--- PASSED HERE
     )
     .await?;
 
@@ -332,7 +344,7 @@ async fn main() -> Result<()> {
     let server_machine = machine.clone();
     let server_addr = workload_ipc_addr.to_string();
 
-    let workload_server_handle = tokio::spawn(async move {
+    let mut workload_server_handle = tokio::spawn(async move {
         let server = ioi_validator::standard::workload::ipc::WorkloadIpcServer::new(
             server_addr,
             server_workload,
@@ -371,7 +383,19 @@ async fn main() -> Result<()> {
     let internal_kp = ioi_crypto::sign::eddsa::Ed25519KeyPair::from_private_key(&internal_sk)?;
     let signer = Arc::new(LocalSigner::new(internal_kp));
 
-    let safety_model = Arc::new(MockBitNet);
+    // [FIX] CONSTRUCT REAL INFERENCE RUNTIME FOR SAFETY
+    let inference_runtime: Arc<dyn InferenceRuntime> = Arc::new(
+        HttpInferenceRuntime::new(
+            api_url,
+            api_key.unwrap_or_default(),
+            model_name
+        )
+    );
+
+    // [FIX] Use RuntimeAsSafetyModel instead of MockBitNet
+    let safety_model: Arc<dyn LocalSafetyModel> = Arc::new(
+        RuntimeAsSafetyModel::new(inference_runtime.clone())
+    );
 
     let deps = OrchestrationDependencies {
         syncer,
@@ -386,15 +410,21 @@ async fn main() -> Result<()> {
         signer,
         batch_verifier: Arc::new(ioi_crypto::sign::batch::CpuBatchVerifier::new()),
         safety_model: safety_model,
+        
+        inference_runtime: inference_runtime.clone(),
+        
+        // [FIX] Pass the os_driver instance
+        os_driver: os_driver.clone(),
+
         scs: Some(scs_arc.clone()),
-        os_driver: Arc::new(ioi_drivers::os::NativeOsDriver::new()),
+        event_broadcaster: Some(event_tx.clone()),
     };
 
     let orchestrator = Arc::new(Orchestrator::new(&config, deps, scheme)?);
     orchestrator.set_chain_and_workload_client(machine, workload_client);
 
     println!("\n✅ IOI User Node (Mode 0) configuration is valid.");
-    println!("   - Agency Firewall: Active");
+    println!("   - Agency Firewall: Active (Powered by LLM)");
     println!("   - The Substrate: Mounted at {}", opts.data_dir.display());
     println!("   - SCS Storage: Active (.scs)");
     println!("   - GUI Automation: Enabled");
@@ -409,9 +439,7 @@ async fn main() -> Result<()> {
         .await
         .map_err(|e| anyhow!("Failed to start: {}", e))?;
 
-    // [FIX] Reduce loop interval to 1s for snappy UI
     let mut operator_ticker = tokio::time::interval(Duration::from_secs(1));
-    // [FIX] Use set_missed_tick_behavior on the interval, not the duration
     operator_ticker.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
 
     loop {
@@ -420,7 +448,7 @@ async fn main() -> Result<()> {
                 println!("\nShutdown signal received.");
                 break;
             }
-            res = workload_server_handle => {
+            res = &mut workload_server_handle => {
                 match res {
                     Ok(Err(e)) => return Err(anyhow!("Workload IPC Server crashed: {}", e)),
                     Ok(Ok(_)) => return Err(anyhow!("Workload IPC Server exited unexpectedly.")),
@@ -428,17 +456,16 @@ async fn main() -> Result<()> {
                 }
             }
             _ = operator_ticker.tick() => {
-                let ctx_opt = orchestrator.main_loop_context.lock().await;
-                if let Some(ctx) = ctx_opt.as_ref() {
+                let ctx_opt_guard = orchestrator.main_loop_context.lock().await;
+                let ctx_opt: &Option<Arc<TokioMutex<MainLoopContext<HashCommitmentScheme, IAVLTree<HashCommitmentScheme>, Consensus<ChainTransaction>, DefaultVerifier>>>> = &*ctx_opt_guard;
+                
+                if let Some(ctx) = ctx_opt {
                     let ctx_guard = ctx.lock().await;
                     
-                    // Run Oracle Tasks
                     if let Err(e) = run_oracle_operator_task(&*ctx_guard).await {
                          tracing::error!(target: "operator_task", "Oracle operator failed: {}", e);
                     }
 
-                    // [FIX] Run Agent Driver Task
-                    // This is the missing link that drives the agent forward
                     if let Err(e) = run_agent_driver_task(&*ctx_guard).await {
                          tracing::error!(target: "operator_task", "Agent driver failed: {}", e);
                     }

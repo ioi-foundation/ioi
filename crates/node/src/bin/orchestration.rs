@@ -72,8 +72,12 @@ use serde::Serialize;
 use std::fmt::Debug;
 use tokio::sync::Mutex;
 
-// [FIX] Correctly import LocalSafetyModel from API
-use ioi_api::vm::inference::LocalSafetyModel;
+// [FIX] Correctly import LocalSafetyModel, InferenceRuntime and OsDriver
+use ioi_api::vm::inference::{InferenceRuntime, LocalSafetyModel, HttpInferenceRuntime};
+use ioi_api::vm::drivers::os::OsDriver;
+use ioi_drivers::os::NativeOsDriver;
+use ioi_services::agentic::scrub_adapter::RuntimeAsSafetyModel;
+
 
 #[derive(Parser, Debug)]
 struct OrchestrationOpts {
@@ -327,35 +331,20 @@ where
 
     let batch_verifier = Arc::new(CpuBatchVerifier::new());
 
-    // [NEW] Initialize Safety Model
-    // [FIX] Explicitly type the Arc to use the public trait from ioi_api
-    let safety_model: Arc<dyn ioi_api::vm::inference::LocalSafetyModel> = if let (
-        Some(model_path),
-        Some(tok_path),
-    ) =
-        (&config.safety_model_path, &config.tokenizer_path)
-    {
-        #[cfg(feature = "real-ai")]
-        {
-            tracing::info!(target: "orchestration", "Loading Real Safety Model from {}", model_path);
-            let model = ioi_validator::firewall::inference::CandleSafetyModel::new(
-                &PathBuf::from(model_path),
-                &PathBuf::from(tok_path),
-            )
-            .map_err(|e| anyhow!("Failed to load safety model: {}", e))?;
-            Arc::new(model)
-        }
-        #[cfg(not(feature = "real-ai"))]
-        {
-            tracing::warn!(
-                "Safety model configured but 'real-ai' feature not enabled. Using Mock."
-            );
-            Arc::new(ioi_validator::firewall::inference::MockBitNet)
-        }
+    // [FIX] Initialize Safety Model and Inference Runtime properly
+    let inference_runtime: Arc<dyn InferenceRuntime> = if let Some(key) = &workload_config.inference.api_key {
+        let model_name = workload_config.inference.model_name.clone().unwrap_or("gpt-4o".to_string());
+        let api_url = workload_config.inference.api_url.clone().unwrap_or("https://api.openai.com/v1/chat/completions".to_string());
+        
+        Arc::new(HttpInferenceRuntime::new(api_url, key.clone(), model_name))
     } else {
-        tracing::info!(target: "orchestration", "No safety model configured. Using Mock.");
-        Arc::new(ioi_validator::firewall::inference::MockBitNet)
+        Arc::new(ioi_api::vm::inference::mock::MockInferenceRuntime)
     };
+
+    let safety_model: Arc<dyn LocalSafetyModel> = Arc::new(RuntimeAsSafetyModel::new(inference_runtime.clone()));
+
+    // [FIX] Initialize OS Driver
+    let os_driver = Arc::new(NativeOsDriver::new());
 
     let deps = OrchestrationDependencies {
         syncer,
@@ -369,14 +358,17 @@ where
         verifier: verifier.clone(),
         signer,
         batch_verifier,
-        // [FIX] Inject safety_model here
         safety_model: safety_model.clone(),
-        // [FIX] Initialize scs with None for standard Orchestrator
         scs: None,
+        event_broadcaster: None,
+        inference_runtime: inference_runtime.clone(),
+        // [FIX] Pass os_driver
+        os_driver: os_driver.clone(),
     };
 
     let orchestration = Arc::new(Orchestrator::new(&config, deps, commitment_scheme.clone())?);
 
+    // [FIX] Create ExecutionMachine with OS Driver
     let consensus_for_chain = consensus_engine.clone();
     let chain_ref = {
         let tm = UnifiedTransactionModel::new(commitment_scheme.clone());
@@ -537,14 +529,16 @@ where
             service_directory, // <-- Pass the populated directory here
             dummy_store,
         )?);
+        
         let mut machine = ExecutionMachine::new(
             commitment_scheme.clone(),
             tm,
             config.chain_id,
-            initial_services,    // <-- And pass the instantiated services here
-            consensus_for_chain, // Use the cloned engine
+            initial_services,    
+            consensus_for_chain, 
             workload_container,
-            workload_config.service_policies.clone(), // [NEW] Pass policies
+            workload_config.service_policies.clone(), 
+            os_driver.clone(), // [FIX] Pass os_driver
         )
         .map_err(|e| anyhow!("Failed to initialize ExecutionMachine: {}", e))?;
 
@@ -608,7 +602,6 @@ where
         orchestration.task_handles.lock().await.push(gateway_handle);
     }
 
-    // [FIX] Updated start call with only address
     orchestration.start(&config.rpc_listen_address).await?;
     eprintln!("ORCHESTRATION_STARTUP_COMPLETE");
 
@@ -620,7 +613,6 @@ where
 
     tracing::info!(target: "orchestration", "Shutdown signal received.");
 
-    // [FIX] Explicitly use the Container trait method to avoid ambiguity/visibility issues
     Container::stop(&*orchestration).await?;
 
     let data_dir = opts.config.parent().unwrap_or_else(|| Path::new("."));

@@ -31,7 +31,7 @@ use ioi_tx::unified::UnifiedTransactionModel;
 use ioi_types::{
     app::{
         account_id_from_key_material, AccountId, ChainTransaction, GuardianReport, SignHeader,
-        SignatureProof, SignatureSuite, SystemPayload, SystemTransaction, Block,
+        SignatureProof, SignatureSuite, SystemPayload, SystemTransaction,
     },
     codec,
     error::ValidatorError,
@@ -60,7 +60,7 @@ use crate::standard::orchestration::grpc_public::PublicApiImpl;
 use ioi_ipc::public::public_api_server::PublicApiServer;
 use tonic::transport::Server;
 
-use ioi_api::vm::inference::LocalSafetyModel;
+use ioi_api::vm::inference::{LocalSafetyModel, InferenceRuntime};
 use ioi_api::vm::drivers::os::OsDriver; 
 use ioi_scs::SovereignContextStore;
 use crate::standard::orchestration::mempool::Mempool;
@@ -69,14 +69,14 @@ use crate::standard::orchestration::mempool::Mempool;
 mod consensus;
 
 /// Context structures for the orchestration main loop.
-pub mod context; // [FIX] Made public so MainLoopContext is accessible
+pub mod context;
 mod gossip;
 mod grpc_public;
 mod ingestion;
 /// Transaction mempool logic.
 pub mod mempool;
 /// Background tasks for operator logic (Oracle, Agents).
-pub mod operator_tasks; // [FIX] Made public to allow access from ioi-local
+pub mod operator_tasks;
 mod oracle;
 mod peer_management;
 mod remote_state_view;
@@ -122,10 +122,14 @@ pub struct OrchestrationDependencies<CE, V> {
     pub batch_verifier: Arc<dyn BatchVerifier>,
     /// The local safety model for semantic firewall.
     pub safety_model: Arc<dyn LocalSafetyModel>,
+    /// [NEW] The primary inference runtime.
+    pub inference_runtime: Arc<dyn InferenceRuntime>,
     /// The OS driver for context-aware policy enforcement.
     pub os_driver: Arc<dyn OsDriver>,
     /// The Sovereign Context Store handle (optional, for local nodes).
     pub scs: Option<Arc<std::sync::Mutex<SovereignContextStore>>>,
+    /// [NEW] Shared event broadcaster
+    pub event_broadcaster: Option<tokio::sync::broadcast::Sender<ioi_types::app::KernelEvent>>,
 }
 
 type ProofCache = Arc<Mutex<LruCache<(Vec<u8>, Vec<u8>), Option<Vec<u8>>>>>;
@@ -173,7 +177,8 @@ where
     is_quarantined: Arc<AtomicBool>,
     proof_cache: ProofCache,
     verifier: V,
-    main_loop_context: Arc<Mutex<Option<Arc<Mutex<MainLoopContext<CS, ST, CE, V>>>>>>,
+    /// [FIX] Made public to allow access from ioi-local
+    pub main_loop_context: Arc<Mutex<Option<Arc<Mutex<MainLoopContext<CS, ST, CE, V>>>>>>,
     consensus_kick_tx: mpsc::UnboundedSender<()>,
     consensus_kick_rx: ConsensusKickReceiver,
     /// Manager for account nonces.
@@ -186,10 +191,14 @@ where
     scheme: CS,
     /// Safety model for semantic checks.
     pub safety_model: Arc<dyn LocalSafetyModel>,
+    /// [NEW] Primary inference runtime.
+    pub inference_runtime: Arc<dyn InferenceRuntime>,
     /// OS driver for context-aware policy.
     pub os_driver: Arc<dyn OsDriver>,
     /// Sovereign Context Store handle.
     pub scs: Option<Arc<std::sync::Mutex<SovereignContextStore>>>,
+    /// [NEW] Shared event broadcaster
+    pub event_broadcaster: Option<tokio::sync::broadcast::Sender<ioi_types::app::KernelEvent>>,
 }
 
 impl<CS, ST, CE, V> Orchestrator<CS, ST, CE, V>
@@ -256,8 +265,10 @@ where
             batch_verifier: deps.batch_verifier,
             scheme,
             safety_model: deps.safety_model,
+            inference_runtime: deps.inference_runtime, // [NEW]
             os_driver: deps.os_driver,
             scs: deps.scs, 
+            event_broadcaster: deps.event_broadcaster, // [NEW]
         })
     }
 
@@ -681,8 +692,13 @@ where
         let mut handles = self.task_handles.lock().await;
         handles.push(rpc_handle);
 
-        // [NEW] Event Broadcaster
-        let (event_tx, _event_rx) = tokio::sync::broadcast::channel(1000);
+        // [MODIFIED] Use stored broadcaster or create new
+        let (event_tx, _event_rx_guard) = if let Some(tx) = &self.event_broadcaster {
+            (tx.clone(), None)
+        } else {
+            let (tx, rx) = tokio::sync::broadcast::channel(1000);
+            (tx, Some(rx))
+        };
 
         // Spawn Ingestion Worker (moved down to use clones)
         let ingestion_handle = tokio::spawn(run_ingestion_worker(
@@ -698,7 +714,7 @@ where
             self.safety_model.clone(),
             self.os_driver.clone(), // [NEW] Pass OsDriver
             IngestionConfig::default(),
-            event_tx.clone(), // [NEW] Pass the broadcaster
+            event_tx.clone(), // [MODIFIED] Pass the broadcaster
         ));
         handles.push(ingestion_handle);
 
@@ -764,6 +780,7 @@ where
             .await
             .insert(local_account_id, initial_nonce);
 
+        // [MODIFIED] Use event_tx in MainLoopContext
         let context = MainLoopContext::<CS, ST, CE, V> {
             chain_ref: chain,
             tx_pool_ref: self.tx_pool.clone(),
@@ -791,9 +808,10 @@ where
             tip_sender: tip_tx,
             receipt_map: receipt_map.clone(),
             safety_model: self.safety_model.clone(),
+            inference_runtime: self.inference_runtime.clone(), // [NEW]
             os_driver: self.os_driver.clone(), // [NEW] Added field
             scs: self.scs.clone(),
-            event_broadcaster: event_tx,
+            event_broadcaster: event_tx, // [MODIFIED] Use the unified broadcaster
         };
 
         let mut receiver_opt = self.network_event_receiver.lock().await;

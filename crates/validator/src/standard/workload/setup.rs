@@ -58,7 +58,9 @@ use {
 };
 
 use ioi_drivers::terminal::TerminalDriver; 
-use ioi_types::app::KernelEvent; // [NEW] Import KernelEvent for event sender
+use ioi_types::app::KernelEvent;
+// [FIX] Import OsDriver trait
+use ioi_api::vm::drivers::os::OsDriver;
 
 async fn create_guardian_channel(certs_dir: &str) -> Result<Channel> {
     let ca_pem = std::fs::read(format!("{}/ca.pem", certs_dir))?;
@@ -161,25 +163,6 @@ async fn build_runtime_from_config(
 }
 
 /// Sets up the Workload components including State, VM, Services, ExecutionMachine, and background tasks.
-///
-/// This function initializes the entire workload stack, configuring the state backend,
-/// inference runtimes, hardware drivers, and the core execution state machine.
-///
-/// # Arguments
-///
-/// * `state_tree` - The initialized state manager instance (e.g., IAVLTree).
-/// * `commitment_scheme` - The cryptographic commitment scheme used by the state tree.
-/// * `config` - The workload configuration loaded from `workload.toml`.
-/// * `gui_driver` - Optional handle to the GUI automation driver (for Desktop Agent).
-/// * `browser_driver` - Optional handle to the Browser automation driver.
-/// * `scs` - Optional handle to the Sovereign Context Store.
-/// * `event_sender` - Optional broadcast sender for Kernel Events (used in local mode).
-///
-/// # Returns
-///
-/// A tuple containing:
-/// 1. `Arc<WorkloadContainer>`: The initialized container holding state and VM resources.
-/// 2. `Arc<Mutex<ExecutionMachine>>`: The thread-safe execution engine ready to process blocks.
 pub async fn setup_workload<CS, ST>(
     mut state_tree: ST,
     commitment_scheme: CS,
@@ -188,6 +171,8 @@ pub async fn setup_workload<CS, ST>(
     browser_driver: Option<Arc<BrowserDriver>>,
     scs: Option<Arc<std::sync::Mutex<SovereignContextStore>>>,
     event_sender: Option<tokio::sync::broadcast::Sender<KernelEvent>>,
+    // [FIX] Add os_driver argument
+    os_driver: Option<Arc<dyn OsDriver>>,
 ) -> Result<(
     Arc<WorkloadContainer<ST>>,
     Arc<Mutex<ExecutionMachine<CS, ST>>>,
@@ -212,13 +197,7 @@ where
         + 'static,
     CS::Commitment: std::fmt::Debug + From<Vec<u8>>,
 {
-    // Silence unused variable warnings for variables used conditionally or in future expansions
     let _ = &commitment_scheme;
-    let _ = &gui_driver;
-    let _ = &browser_driver;
-    let _ = &scs;
-
-    // ... (rest of the function implementation)
     let db_path = Path::new(&config.state_file).with_extension("db");
     let db_preexisted = db_path.exists();
 
@@ -280,7 +259,6 @@ where
     } else {
         inference_runtime.clone()
     };
-    // Silence unused warning if not used downstream yet
     let _ = &fast_runtime;
 
     let reasoning_runtime = if let Some(cfg) = &config.reasoning_inference {
@@ -332,7 +310,6 @@ where
         panic!("vm-wasm feature is required for Workload setup");
     };
 
-    // Silence unused warning
     let _ = &vm;
 
     let _temp_orch_config = OrchestrationConfig {
@@ -460,14 +437,13 @@ where
         let terminal_driver = Arc::new(TerminalDriver::new());
         tracing::info!(target: "workload", "Terminal Driver initialized");
 
-        // [NEW] Use the provided browser driver or create a fresh one if missing (e.g. tests)
         let browser = browser_driver.clone().unwrap_or_else(|| Arc::new(BrowserDriver::new()));
         tracing::info!(target: "workload", "Browser Driver injected into DesktopAgent");
 
         let mut agent = DesktopAgentService::new_hybrid(
             gui,
             terminal_driver,
-            browser, // [NEW] Pass the driver
+            browser, 
             fast_runtime,
             reasoning_runtime
         );
@@ -480,6 +456,14 @@ where
         if let Some(sender) = event_sender {
             agent = agent.with_event_sender(sender);
             tracing::info!(target: "workload", "Event Bus connected to DesktopAgent.");
+        }
+
+        // [FIX] Inject OS Driver if available (using reference)
+        if let Some(os) = &os_driver {
+            agent = agent.with_os_driver(os.clone());
+            tracing::info!(target: "workload", "OS Driver injected into DesktopAgent.");
+        } else {
+             tracing::warn!(target: "workload", "OS Driver missing! DesktopAgent will fail policy checks.");
         }
 
         initial_services.push(Arc::new(agent) as Arc<dyn UpgradableService>);
@@ -535,6 +519,13 @@ where
         store,
     )?);
 
+    // [FIX] Clone os_driver for ExecutionMachine, providing a default if none given
+    let machine_os_driver = if let Some(os) = &os_driver {
+        os.clone()
+    } else {
+        Arc::new(ioi_drivers::os::NativeOsDriver::new())
+    };
+
     let mut _machine = ExecutionMachine::new(
         commitment_scheme.clone(),
         UnifiedTransactionModel::new(commitment_scheme),
@@ -543,6 +534,7 @@ where
         _consensus_engine,
         _workload_container.clone(),
         config.service_policies.clone(),
+        machine_os_driver,
     )?;
 
     for _runtime_id in &config.runtimes {

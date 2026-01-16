@@ -19,8 +19,7 @@ impl NativeOsDriver {
 #[async_trait]
 impl OsDriver for NativeOsDriver {
     async fn get_active_window_title(&self) -> Result<Option<String>, VmError> {
-        // Offload to blocking thread as this may involve system calls
-        tokio::task::spawn_blocking(|| {
+        let op = || {
             match get_active_window() {
                 Ok(window) => Ok(Some(window.title)),
                 Err(e) => {
@@ -30,8 +29,17 @@ impl OsDriver for NativeOsDriver {
                     Ok(None)
                 }
             }
-        })
-        .await
-        .map_err(|e| VmError::HostError(format!("Task join error: {}", e)))?
+        };
+
+        // Offload to a blocking thread when a Tokio runtime is available.
+        if let Ok(handle) = tokio::runtime::Handle::try_current() {
+            return handle
+                .spawn_blocking(op)
+                .await
+                .map_err(|e| VmError::HostError(format!("Task join error: {}", e)))?;
+        }
+
+        // Fallback for non-Tokio worker threads (e.g., parallel execution pool).
+        op()
     }
 }

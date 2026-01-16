@@ -2,13 +2,12 @@
 
 use crate::vm::inference::InferenceRuntime;
 use async_trait::async_trait;
-use ioi_types::app::agentic::InferenceOptions; // [UPDATED]
+use ioi_types::app::agentic::InferenceOptions;
 use ioi_types::error::VmError;
 use std::path::Path;
-// [NEW] Import for hashing
 use dcrypt::algorithms::hash::{HashFunction, Sha256};
+use serde_json::json;
 
-/// A mock implementation of the InferenceRuntime for testing and development.
 #[derive(Debug, Default, Clone)]
 pub struct MockInferenceRuntime;
 
@@ -18,7 +17,7 @@ impl InferenceRuntime for MockInferenceRuntime {
         &self,
         model_hash: [u8; 32],
         input_context: &[u8],
-        _options: InferenceOptions, // [UPDATED] Add options parameter
+        _options: InferenceOptions, 
     ) -> Result<Vec<u8>, VmError> {
         // Log the execution request
         log::info!(
@@ -27,21 +26,55 @@ impl InferenceRuntime for MockInferenceRuntime {
             input_context.len()
         );
 
-        // Return a deterministic response based on the input.
-        let response = format!(
-            r#"{{"status": "success", "processed_bytes": {}, "model": "{}"}}"#,
-            input_context.len(),
-            hex::encode(model_hash)
-        );
+        let input_str = String::from_utf8_lossy(input_context);
 
-        Ok(response.into_bytes())
+        // [DEBUG]
+        // println!("[MockBrain] Input: {}", input_str);
+
+        // 1. Intent Resolver Logic (Control Plane)
+        // Detect if this is a request to map Natural Language -> Transaction.
+        // We look for keywords from the System Prompt or specific user intent triggers.
+        if input_str.contains("intent resolver") || input_str.contains("User Input:") || input_str.contains("<user_intent>") {
+             if input_str.contains("Analyze network traffic") || input_str.contains("example.com") {
+                // Return Intent Plan JSON matching the schema expected by IntentResolver
+                let mock_intent_json = json!({
+                    "operation_id": "start_agent",
+                    "params": { 
+                        "goal": "Analyze network traffic on example.com" 
+                    },
+                    "gas_ceiling": 5000000
+                });
+                return Ok(mock_intent_json.to_string().into_bytes());
+             }
+        }
+
+        // 2. Agent Execution Logic (Data Plane)
+        // If not intent resolution, it's the agent loop asking for the next tool action.
+        let response = if input_str.contains("browser") || (input_str.contains("network") && !input_str.contains("start_agent")) || input_str.contains("example.com") {
+             json!({
+                "name": "browser__navigate",
+                "arguments": { "url": "https://example.com" }
+            })
+        } else if input_str.contains("click") {
+             json!({
+                "name": "gui__click",
+                "arguments": { "x": 500, "y": 500, "button": "left" }
+            })
+        } else {
+             // Default thought/action
+             json!({
+                "name": "sys__exec",
+                "arguments": { "command": "echo", "args": ["Mock Brain Thinking..."] }
+            })
+        };
+
+        Ok(response.to_string().into_bytes())
     }
 
     // [NEW] Implement embed_text
     async fn embed_text(&self, text: &str) -> Result<Vec<f32>, VmError> {
         // Deterministic embedding: Hash the text, seed a PRNG (or just cycle the bytes),
         // and generate a float vector.
-        // For testing stability, we map the 32-byte hash to a 384-dimensional vector (common small size).
         
         let digest = Sha256::digest(text.as_bytes())
             .map_err(|e| VmError::HostError(e.to_string()))?;
@@ -71,16 +104,19 @@ impl InferenceRuntime for MockInferenceRuntime {
 
     async fn load_model(&self, model_hash: [u8; 32], path: &Path) -> Result<(), VmError> {
         if !path.exists() {
-            return Err(VmError::HostError(format!(
-                "MockInference: Model file not found at {:?}",
+            // In mock mode, we don't strictly require the file to exist on disk unless testing hydration.
+            // But we log it.
+            log::warn!(
+                "MockInference: Model file not found at {:?} (proceeding anyway for mock)",
                 path
-            )));
+            );
+        } else {
+            log::info!(
+                "MockInference: Loaded model {} from {:?}",
+                hex::encode(model_hash),
+                path
+            );
         }
-        log::info!(
-            "MockInference: Loaded model {} from {:?}",
-            hex::encode(model_hash),
-            path
-        );
         Ok(())
     }
 

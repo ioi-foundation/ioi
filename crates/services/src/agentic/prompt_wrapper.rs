@@ -1,45 +1,43 @@
 // Path: crates/services/src/agentic/prompt_wrapper.rs
 use ioi_api::impl_service_base;
 
-// A placeholder for on-chain policy definitions.
 pub struct PolicyGuardrails {
     pub allowed_operations: Vec<String>,
     pub max_token_spend: u64,
 }
 
-/// A service to construct canonical, secure prompts for agentic operations.
 pub struct PromptWrapper;
 
-// Implement the base BlockchainService trait using the helper macro.
-// "prompt_wrapper" is the unique, static ID for this service.
 impl_service_base!(PromptWrapper, "prompt_wrapper");
 
 impl PromptWrapper {
-    /// Constructs the canonical prompt sent to all inference committee members.
-    /// This ensures every node starts with the exact same input.
     pub fn build_canonical_prompt(
         user_intent: &str,
-        chain_state_context: &str, // e.g., current block height, timestamp
+        chain_state_context: &str, 
         guardrails: &PolicyGuardrails,
     ) -> String {
-        // 1. Header: Injects system role and security constraints.
+        // [FIX] Improved Prompt Engineering to ensure correct schema compliance
         let header = format!(
-            "You are a secure blockchain translation agent. Your role is to interpret user intent into a specific JSON format. \
-            You must strictly adhere to the following guardrails: only use operations from the list {:?}. \
-            The maximum token spend is {}. Current chain context: {}.",
-            guardrails.allowed_operations, guardrails.max_token_spend, chain_state_context
+            "You are a secure blockchain intent resolver. Your job is to map natural language to a transaction JSON.\n\
+            Allowed Operations: {:?}\n\
+            Chain Context: {}\n\n\
+            Schemas:\n\
+            - Transfer: {{ \"operation_id\": \"transfer\", \"params\": {{ \"to\": \"0x...\", \"amount\": 100 }} }}\n\
+            - Start Agent: {{ \"operation_id\": \"start_agent\", \"params\": {{ \"goal\": \"...\" }} }}\n\
+            - Governance: {{ \"operation_id\": \"governance_vote\", \"params\": {{ \"proposal_id\": 1, \"vote\": \"yes\" }} }}",
+            guardrails.allowed_operations, chain_state_context
         );
 
-        // 2. Body: Safely wraps the user's raw input.
-        let body = format!("<user_intent>{}</user_intent>", user_intent);
+        let body = format!("User Input: \"{}\"", user_intent);
 
-        // 3. Footer: Appends the rigid JSON schema for the output.
         let footer =
-            "Your entire output must be a single, minified JSON object matching this exact schema: \
-            {\"operation_id\": \"string\", \"params\": {\"to\": \"address\", \"amount\": number}, \"gas_ceiling\": number}. \
-            Do not include any other text, explanations, or formatting.";
+            "OUTPUT RULES:\n\
+            1. Return ONLY the JSON object.\n\
+            2. Do NOT use Markdown formatting (no ```json ... ```).\n\
+            3. The root object MUST have an 'operation_id' field.\n\
+            4. 'gas_ceiling' is optional.";
 
-        let prompt = format!("{}\n{}\n{}", header, body, footer);
+        let prompt = format!("{}\n\n{}\n\n{}", header, body, footer);
         log::info!("PromptWrapper created canonical prompt");
         prompt
     }

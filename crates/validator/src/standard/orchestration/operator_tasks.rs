@@ -15,7 +15,7 @@ use ioi_services::compute_market::{JobTicket, ProvisioningReceipt};
 use ioi_types::{
     app::{
         account_id_from_key_material, AccountId, ChainTransaction, SignHeader, SignatureProof,
-        SignatureSuite, SystemPayload, SystemTransaction,
+        SignatureSuite, StateEntry, SystemPayload, SystemTransaction,
     },
     codec,
     keys::active_service_key,
@@ -76,6 +76,19 @@ fn sha256_32(data: &[u8]) -> Result<[u8; 32]> {
     let mut arr = [0u8; 32];
     arr.copy_from_slice(digest.as_ref());
     Ok(arr)
+}
+
+fn decode_state_value<T>(bytes: &[u8]) -> Result<T>
+where
+    T: Decode,
+{
+    if let Ok(value) = codec::from_bytes_canonical::<T>(bytes) {
+        return Ok(value);
+    }
+    let entry: StateEntry = codec::from_bytes_canonical(bytes)
+        .map_err(|e| anyhow!("StateEntry decode failed: {}", e))?;
+    codec::from_bytes_canonical(&entry.value)
+        .map_err(|e| anyhow!("StateEntry inner decode failed: {}", e))
 }
 
 // --- Provider Client Abstraction ---
@@ -245,38 +258,78 @@ where
 
     // 1. Scan for agent states
     // The canonical prefix for AgentState is b"agent::state::"
-    const AGENT_STATE_PREFIX: &[u8] = b"agent::state::";
+    const AGENT_STATE_PREFIX_RAW: &[u8] = b"agent::state::";
+    
+    // [FIX] Use the fully namespaced key prefix so the scan actually finds the service data
+    let ns_prefix = service_namespace_prefix("desktop_agent");
+    let full_scan_prefix = [ns_prefix.as_slice(), AGENT_STATE_PREFIX_RAW].concat();
 
-    let kvs = match workload_client.prefix_scan(AGENT_STATE_PREFIX).await {
+    let kvs = match workload_client.prefix_scan(&full_scan_prefix).await {
         Ok(k) => k,
-        Err(_) => return Ok(()),
+        Err(e) => {
+            tracing::warn!(target: "agent_driver", "Prefix scan failed: {}", e);
+            return Ok(());
+        }
     };
 
     if kvs.is_empty() {
+        tracing::debug!(target: "agent_driver", "No agent states found under prefix.");
         return Ok(());
     }
+    tracing::info!(
+        target: "agent_driver",
+        "Found {} agent state entries",
+        kvs.len()
+    );
 
     // 2. Identify Running Agents
     for (_key, val_bytes) in kvs {
-        let state: AgentState = match codec::from_bytes_canonical(&val_bytes) {
+        let key_suffix = _key
+            .as_slice()
+            .strip_prefix(full_scan_prefix.as_slice())
+            .map(|s| hex::encode(&s[..s.len().min(4)]))
+            .unwrap_or_else(|| "unknown".to_string());
+        let state: AgentState = match decode_state_value(&val_bytes) {
             Ok(s) => s,
-            Err(_) => continue,
+            Err(e) => {
+                tracing::warn!(
+                    target: "agent_driver",
+                    "Failed to decode agent state (raw or StateEntry) for key {}: {}",
+                    key_suffix,
+                    e
+                );
+                continue;
+            }
         };
+
+        tracing::info!(
+            target: "agent_driver",
+            "Agent {} status {:?} step_count {}",
+            hex::encode(&state.session_id[..4]),
+            state.status,
+            state.step_count
+        );
 
         if state.status == AgentStatus::Running {
             // 3. Check Mempool for Pending Step (Simple Debounce)
-            // If the account has *any* pending transaction in the pool, we assume it's the step
-            // and wait for it to clear to avoid nonce gaps or spam.
+            // [FIX] Disabled strict mempool check to prevent single-node deadlocks.
+            // The nonce query below combined with Mempool's own deduplication provides sufficient safety.
             let our_pk = context.local_keypair.public().encode_protobuf();
-            // [FIX] Use SignatureSuite::ED25519
             let our_account_id = AccountId(account_id_from_key_material(
                 SignatureSuite::ED25519,
                 &our_pk,
             )?);
 
+            /*
             if context.tx_pool_ref.contains_account(&our_account_id) {
+                tracing::info!(
+                    target: "agent_driver",
+                    "Skipping step; mempool already has txs for signer {}",
+                    hex::encode(our_account_id.as_ref())
+                );
                 continue;
             }
+            */
 
             // 4. Construct Step Transaction
             let params = StepAgentParams {
@@ -297,9 +350,32 @@ where
             .concat();
 
             let nonce = match workload_client.query_raw_state(&nonce_key).await {
-                Ok(Some(b)) => codec::from_bytes_canonical::<u64>(&b).unwrap_or(0),
-                _ => 0,
+                Ok(Some(b)) => match decode_state_value::<u64>(&b) {
+                    Ok(n) => n,
+                    Err(e) => {
+                        tracing::warn!(
+                            target: "agent_driver",
+                            "Failed to decode nonce (raw or StateEntry): {}",
+                            e
+                        );
+                        0
+                    }
+                },
+                Ok(None) => {
+                    tracing::debug!(target: "agent_driver", "Nonce key not found (new account?), assuming 0.");
+                    0
+                }
+                Err(e) => {
+                    tracing::warn!(target: "agent_driver", "Failed to query nonce: {}", e);
+                    continue; 
+                }
             };
+            tracing::info!(
+                target: "agent_driver",
+                "Submitting step for session {} with nonce {}",
+                hex::encode(&state.session_id[..4]),
+                nonce
+            );
 
             let mut sys_tx = SystemTransaction {
                 header: SignHeader {
@@ -331,16 +407,31 @@ where
 
             // 5. Submit to Mempool
             // We use the pool directly to skip gRPC overhead, as we are the node itself.
-            context.tx_pool_ref.add(tx, tx_hash, Some((our_account_id, nonce)), 0);
+            let res = context.tx_pool_ref.add(tx, tx_hash, Some((our_account_id, nonce)), 0);
 
-            // Wake consensus
-            let _ = context.consensus_kick_tx.send(());
+            match res {
+                crate::standard::orchestration::mempool::AddResult::Rejected(reason) => {
+                     tracing::warn!(target: "agent_driver", "Step tx rejected by mempool (Nonce: {}): {}", nonce, reason);
+                },
+                _ => {
+                    // Wake consensus
+                    let _ = context.consensus_kick_tx.send(());
 
+                    tracing::info!(
+                        target: "agent_driver",
+                        "Auto-stepping agent session {} (Step {} | Nonce {})",
+                        hex::encode(&state.session_id[0..4]),
+                        state.step_count,
+                        nonce
+                    );
+                }
+            }
+        } else {
             tracing::info!(
                 target: "agent_driver",
-                "Auto-stepping agent session {} (Step {})",
-                hex::encode(&state.session_id[0..4]),
-                state.step_count
+                "Agent {} not running; status {:?}",
+                hex::encode(&state.session_id[..4]),
+                state.status
             );
         }
     }
