@@ -8,8 +8,10 @@ use ioi_api::{
     crypto::{SerializableKey, SigningKeyPair},
     state::{StateManager, Verifier},
 };
-// [FIX] Added MldsaKeyPair
-use ioi_crypto::sign::dilithium::MldsaKeyPair;
+
+// [FIX] REMOVED unused MldsaKeyPair import
+// use ioi_crypto::sign::dilithium::MldsaKeyPair;
+
 use ioi_networking::libp2p::NetworkEvent;
 use ioi_networking::traits::NodeState;
 use ioi_types::app::{account_id_from_key_material, ChainTransaction, SignatureSuite};
@@ -96,6 +98,11 @@ pub async fn handle_network_event<CS, ST, CE, V>(
                     .unwrap_or_default();
 
                 let pqc_id_opt = ctx.pqc_signer.as_ref().map(|kp| {
+                    // [FIX] Explicit generic typing for public_key if needed, but remove if MldsaKeyPair is not imported
+                    // MldsaKeyPair was unused in imports, so we need to access trait method via fully qualified path or rely on inference.
+                    // Since MldsaKeyPair impls SigningKeyPair, we can use that trait.
+                    // But we removed the import. If `pqc_signer` is `Option<MldsaKeyPair>`, we need `MldsaKeyPair` in scope or `SigningKeyPair`.
+                    // We kept `SigningKeyPair` in imports.
                     let pqc_pk: Vec<u8> = SigningKeyPair::public_key(kp).to_bytes();
                     account_id_from_key_material(SignatureSuite::ML_DSA_44, &pqc_pk)
                         .unwrap_or_default()

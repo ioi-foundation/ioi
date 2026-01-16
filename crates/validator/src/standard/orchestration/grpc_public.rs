@@ -50,25 +50,19 @@ impl InferenceRuntime for SafetyModelAsInference {
         _options: InferenceOptions,
     ) -> Result<Vec<u8>, VmError> {
         let input_str = String::from_utf8_lossy(input_context);
-        let classification = self
-            .model
-            .classify_intent(&input_str)
-            .await
-            .map_err(|e| VmError::HostError(e.to_string()))?;
-
-        // [MODIFIED] Changed from hardcoded "transfer" to dynamic "start_agent"
-        // to enable end-to-end agent execution from the Autopilot UI.
+        
+        // [FIX] Return JSON that matches the schema expected by IntentResolver for "start_agent"
+        // IntentResolver expects: {"operation_id": "...", "params": {...}}
+        // For start_agent, params needs "goal".
         let mock_json = format!(
             r#"{{
             "operation_id": "start_agent",
             "params": {{ 
                 "goal": "{}" 
             }},
-            "gas_ceiling": 5000000,
-            "note": "Generated via SafetyModel classification: {:?}"
+            "gas_ceiling": 5000000
         }}"#,
-            input_str.trim().escape_debug(),
-            classification
+            input_str.trim().escape_debug()
         );
 
         Ok(mock_json.into_bytes())
@@ -387,6 +381,9 @@ where
                     }
 
                     Ok(kernel_event) = event_rx.recv() => {
+                         // [MODIFIED] Added debug log
+                         tracing::info!(target: "rpc", "PublicAPI processing KernelEvent: {:?}", kernel_event);
+
                          let mapped_event = match kernel_event {
                              ioi_types::app::KernelEvent::AgentStep(step) => {
                                  Some(ChainEventEnum::Thought(
@@ -462,7 +459,7 @@ where
         let ctx_arc = self.get_context().await?;
 
         // 1. Resolve Dependencies & Nonce
-        let (chain_id, nonce, safety_model, keypair, nonce_manager) = {
+        let (chain_id, nonce, inference_runtime, keypair, nonce_manager) = {
             let ctx = ctx_arc.lock().await;
             let account_id = account_id_from_key_material(
                 SignatureSuite::ED25519,
@@ -483,16 +480,15 @@ where
             (
                 ctx.chain_id,
                 current_nonce, // Use the correct sequential nonce
-                ctx.safety_model.clone(),
+                // [FIX] Use the unified inference runtime instead of safety model adapter
+                ctx.inference_runtime.clone(), 
                 ctx.local_keypair.clone(),
                 nonce_manager,
             )
         };
 
-        let adapter = Arc::new(SafetyModelAsInference {
-            model: safety_model,
-        });
-        let resolver = IntentResolver::new(adapter);
+        // [FIX] Use the real runtime directly
+        let resolver = IntentResolver::new(inference_runtime);
         let address_book = std::collections::HashMap::new();
 
         // 2. Resolve Intent -> Unsigned Transaction Bytes

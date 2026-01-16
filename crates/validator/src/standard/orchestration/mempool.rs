@@ -122,6 +122,10 @@ impl AccountQueue {
             AddResult::Future
         }
     }
+
+    fn is_empty(&self) -> bool {
+        self.ready.is_empty() && self.future.is_empty()
+    }
 }
 
 /// A high-performance, sharded mempool.
@@ -171,7 +175,11 @@ impl Mempool {
     /// Checks if the mempool is already tracking any transactions for a specific account.
     pub fn contains_account(&self, account_id: &AccountId) -> bool {
         let idx = self.get_shard_index(account_id);
-        self.shards[idx].lock().contains_key(account_id)
+        let guard = self.shards[idx].lock();
+        guard
+            .get(account_id)
+            .map(|queue| !queue.is_empty())
+            .unwrap_or(false)
     }
 
     /// Adds a transaction to the pool, routing it to the appropriate queue based on its type and nonce.

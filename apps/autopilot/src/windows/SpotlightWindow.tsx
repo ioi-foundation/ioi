@@ -66,7 +66,7 @@ export function SpotlightWindow() {
   const [networkMode, setNetworkMode] = useState("Net");
   const [connectedApp, setConnectedApp] = useState("Apps");
   
-  // [NEW] Context Visualization State
+  // Context Visualization State
   const [visualContext, setVisualContext] = useState<string | null>(null);
   const [semanticContext, setSemanticContext] = useState<string | null>(null);
   const [contextLoading, setContextLoading] = useState(false);
@@ -90,16 +90,41 @@ export function SpotlightWindow() {
 
   // Sync task to chat and fetch context blobs
   useEffect(() => {
-    if (task?.phase === "Complete" && task.receipt) {
-      setChatHistory(prev => [...prev, { role: 'agent', text: `✅ Task complete. ${task.receipt?.actions} actions.` }]);
-    }
-    if (task?.phase === "Failed") {
-      setChatHistory(prev => [...prev, { role: 'agent', text: `❌ Task failed: ${task.current_step}` }]);
+    if (!task) return;
+
+    // [DEBUG]
+    console.log("[Spotlight] Task update received:", task);
+
+    // [FIX] Handling Reasoning/Long Outputs
+    // If the step description is very long (like the explanation of a policy block),
+    // treat it as a chat message and keep the pill clean.
+    if (task.phase === "Running" && task.current_step.length > 80) {
+        setChatHistory(prev => {
+            const lastMsg = prev[prev.length - 1];
+            // Dedup to prevent stream flicker adding same msg multiple times
+            if (lastMsg?.text === task.current_step) return prev;
+            return [...prev, { role: 'agent', text: task.current_step }];
+        });
     }
 
-    // [NEW] Fetch Context Slice if Hash is available (mocking the property on AgentTask for now)
+    if (task.phase === "Complete" && task.receipt) {
+      setChatHistory(prev => {
+        const lastMsg = prev[prev.length - 1];
+        if (lastMsg?.text.includes("Task complete")) return prev;
+        return [...prev, { role: 'agent', text: `✅ Task complete. ${task.receipt?.actions} actions.` }];
+      });
+    }
+    if (task.phase === "Failed") {
+      setChatHistory(prev => {
+         const lastMsg = prev[prev.length - 1];
+         // Simple dedup for failures
+         if (lastMsg?.text.startsWith("❌ Task failed")) return prev;
+         return [...prev, { role: 'agent', text: `❌ Task failed: ${task.current_step}` }];
+      });
+    }
+
+    // Fetch Context Slice if Hash is available (mocking the property on AgentTask for now)
     // In a real scenario, task would have `visual_hash` field from the event.
-    // We check if the task object (extended) has a visual_hash
     const visualHash = (task as any)?.visual_hash;
     
     if (visualHash && showPreview) {
@@ -251,7 +276,10 @@ export function SpotlightWindow() {
                       <div className="pill-status-icon">{task.phase === 'Complete' ? '✅' : '⏸'}</div>
                     )}
                     <div>
-                       <div className="pill-text">{task.current_step}</div>
+                       {/* [FIX] Truncate pill text if it's too long, since we moved full text to chat */}
+                       <div className="pill-text">
+                           {task.current_step.length > 60 ? "Reasoning..." : task.current_step}
+                       </div>
                        {task.intent && <div style={{fontSize: 10, color: '#9ca3af'}}>{task.intent}</div>}
                     </div>
                   </div>

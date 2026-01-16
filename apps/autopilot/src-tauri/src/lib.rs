@@ -342,6 +342,9 @@ async fn monitor_kernel_events(app: AppHandle) {
     };
 
     while let Ok(Some(event_msg)) = stream.message().await {
+        // [MODIFIED] Added debug print
+        println!("[Autopilot] RAW EVENT RECEIVED: {:?}", event_msg);
+
         if let Some(event_enum) = event_msg.event {
             match event_enum {
                 ChainEventEnum::Thought(thought) => {

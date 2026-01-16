@@ -57,13 +57,20 @@ impl IoiGuiDriver {
 #[async_trait]
 impl GuiDriver for IoiGuiDriver {
     async fn capture_screen(&self) -> Result<Vec<u8>, VmError> {
-        // Offload to blocking thread as screen capture is CPU intensive IO
-        tokio::task::spawn_blocking(|| {
-            NativeVision::capture_primary()
-                .map_err(|e| VmError::HostError(format!("Vision failure: {}", e)))
-        })
-        .await
-        .map_err(|e| VmError::HostError(format!("Task join error: {}", e)))?
+        // Offload to a blocking thread when a Tokio runtime is available.
+        if let Ok(handle) = tokio::runtime::Handle::try_current() {
+            return handle
+                .spawn_blocking(|| {
+                    NativeVision::capture_primary()
+                        .map_err(|e| VmError::HostError(format!("Vision failure: {}", e)))
+                })
+                .await
+                .map_err(|e| VmError::HostError(format!("Task join error: {}", e)))?;
+        }
+
+        // Fallback for non-Tokio worker threads (e.g., parallel execution pool).
+        NativeVision::capture_primary()
+            .map_err(|e| VmError::HostError(format!("Vision failure: {}", e)))
     }
 
     async fn capture_tree(&self) -> Result<String, VmError> {

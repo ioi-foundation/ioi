@@ -355,6 +355,10 @@ where
                     let executor = executor.clone();
 
                     s.spawn(move |_| {
+                        let rt = tokio::runtime::Builder::new_current_thread()
+                            .enable_all()
+                            .build()
+                            .expect("Failed to build Tokio runtime for execution worker");
                         loop {
                             match scheduler.next_task() {
                                 Task::Execute(idx) => {
@@ -364,7 +368,7 @@ where
                                     let mut state_proxy = ParallelStateAccess::new(&mv_memory, idx);
 
                                     // Run the async execution logic synchronously
-                                    let result = futures::executor::block_on(
+                                    let result = rt.block_on(
                                         executor.process_transaction_parallel(
                                             tx,
                                             &mut state_proxy,

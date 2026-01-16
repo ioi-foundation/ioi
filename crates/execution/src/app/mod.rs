@@ -39,6 +39,9 @@ use std::collections::{BTreeMap, HashMap};
 use std::fmt::Debug;
 use std::sync::Arc;
 
+// [FIX] Import OsDriver trait
+use ioi_api::vm::drivers::os::OsDriver;
+
 /// Represents the initialization state of the chain's genesis block.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum GenesisState {
@@ -101,7 +104,9 @@ pub struct ExecutionMachine<CS: CommitmentScheme + Clone, ST: StateManager> {
     /// In-memory cache for fast access to on-chain service metadata.
     pub service_meta_cache: HashMap<String, Arc<ActiveServiceMeta>>,
     /// Holds the configuration-driven policies for services
-    service_policies: BTreeMap<String, ServicePolicy>,
+    pub service_policies: BTreeMap<String, ServicePolicy>,
+    // [FIX] Added os_driver field for policy enforcement context
+    pub os_driver: Arc<dyn OsDriver>,
 }
 
 impl<CS, ST> Debug for ExecutionMachine<CS, ST>
@@ -115,6 +120,8 @@ where
             .field("services", &self.services)
             .field("consensus_type", &self.consensus_engine.consensus_type())
             .field("service_meta_cache", &self.service_meta_cache.keys())
+            // [FIX] Added os_driver to debug (opaque pointer)
+            .field("os_driver", &"Arc<dyn OsDriver>")
             .finish()
     }
 }
@@ -166,6 +173,8 @@ where
         consensus_engine: Consensus<ioi_types::app::ChainTransaction>,
         workload_container: Arc<WorkloadContainer<ST>>,
         service_policies: BTreeMap<String, ServicePolicy>,
+        // [FIX] Added os_driver parameter
+        os_driver: Arc<dyn OsDriver>,
     ) -> Result<Self, CoreError> {
         let status = ChainStatus {
             height: 0,
@@ -204,6 +213,8 @@ where
             workload_container,
             service_meta_cache: HashMap::new(),
             service_policies,
+            // [FIX] Assign os_driver
+            os_driver,
         })
     }
 

@@ -214,9 +214,18 @@ impl InferenceRuntime for HttpInferenceRuntime {
             ));
         };
 
+        // FIX: Chat models (gpt-*) cannot generate embeddings.
+        // Automatically switch to a standard embedding model if a chat model is configured.
+        let model_to_use = if self.model_name.starts_with("gpt-") || self.model_name.starts_with("chat")
+        {
+            "text-embedding-3-small"
+        } else {
+            &self.model_name
+        };
+
         let request_body = json!({
             "input": text,
-            "model": self.model_name
+            "model": model_to_use
         });
 
         let response = self
@@ -233,13 +242,15 @@ impl InferenceRuntime for HttpInferenceRuntime {
                 .text()
                 .await
                 .unwrap_or_else(|_| "Unknown error".into());
-            return Err(VmError::HostError(format!("API Error (Embeddings): {}", error_text)));
+            return Err(VmError::HostError(format!(
+                "API Error (Embeddings): {}",
+                error_text
+            )));
         }
 
-        let response_body: EmbeddingResponse = response
-            .json::<EmbeddingResponse>()
-            .await
-            .map_err(|e| VmError::HostError(format!("Failed to parse embedding response: {}", e)))?;
+        let response_body: EmbeddingResponse = response.json::<EmbeddingResponse>().await.map_err(
+            |e| VmError::HostError(format!("Failed to parse embedding response: {}", e)),
+        )?;
 
         if let Some(first) = response_body.data.first() {
             Ok(first.embedding.clone())

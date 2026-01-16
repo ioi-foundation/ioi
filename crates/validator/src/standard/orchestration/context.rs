@@ -24,7 +24,7 @@ use std::sync::{atomic::AtomicBool, Arc};
 use tokio::sync::{mpsc, watch, Mutex};
 use parity_scale_codec::{Decode, Encode}; // [FIX] Added imports
 
-use ioi_api::vm::inference::LocalSafetyModel;
+use ioi_api::vm::inference::{LocalSafetyModel, InferenceRuntime}; // [FIX] Added InferenceRuntime
 // [NEW] Import OsDriver trait
 use ioi_api::vm::drivers::os::OsDriver;
 use ioi_scs::SovereignContextStore;
@@ -128,6 +128,8 @@ where
     pub receipt_map: Arc<Mutex<LruCache<TxHash, String>>>,
     /// The local safety model for semantic analysis.
     pub safety_model: Arc<dyn LocalSafetyModel>,
+    /// [NEW] The primary inference runtime (The "Brain") for intent resolution.
+    pub inference_runtime: Arc<dyn InferenceRuntime>,
     /// [NEW] Added os_driver field
     /// Driver for OS-level interactions.
     pub os_driver: Arc<dyn OsDriver>,
