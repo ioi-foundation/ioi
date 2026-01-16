@@ -1,4 +1,9 @@
-/* SpotlightWindow - Sidebar & Spotlight Modes */
+/* Import SwarmViz styles */
+@import '../components/SwarmViz.css';
+
+/* ============================================
+   SpotlightWindow — Sidebar & Spotlight Modes
+   ============================================ */
 
 html, body, #root {
   margin: 0;
@@ -59,7 +64,7 @@ html, body, #root {
   border-right: 1px solid rgba(255, 255, 255, 0.08);
 }
 
-/* Right side (Live Preview) */
+/* Right side (Live Preview / Swarm Viz) */
 .spot-right-pane {
   flex: 1.5;
   background: rgba(10, 12, 16, 0.5); /* Slightly darker/transparent */
@@ -333,6 +338,12 @@ html, body, #root {
   z-index: 20;
 }
 
+/* === REQUISITION MODE (Input Section Variant) === */
+.input-section.requisition-mode {
+  background: rgba(14, 165, 233, 0.08); /* Cyan tint */
+  border-top: 1px solid #0EA5E9;
+}
+
 .input-wrapper {
   background: rgba(31, 35, 41, 0.7);
   border: 1px solid rgba(255, 255, 255, 0.1);
@@ -501,7 +512,7 @@ html, body, #root {
   opacity: 0.6;
 }
 
-/* === BROWSER MOCKUP (Right Pane) === */
+/* === BROWSER MOCKUP (Visual Mode) === */
 .browser-card {
   background: #1F2329;
   border: 1px solid #2E333D;
@@ -587,7 +598,7 @@ html, body, #root {
   position: absolute;
   top: 0;
   left: -7px;
-  background: #16181d; /* Matches right pane bg if possible, or visually close */
+  background: #16181d; 
   padding: 2px 0;
   border-radius: 4px;
 }
@@ -634,3 +645,313 @@ html, body, #root {
 
 .accent-purple { color: #a78bfa; }
 .accent-blue { color: #3b82f6; }
+
+/* === SWARM TOPOLOGY VIEW (Economic Mode) === */
+.swarm-container {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  padding: 16px;
+  background: rgba(10, 12, 16, 0.6);
+  font-family: "JetBrains Mono", monospace;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.swarm-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.swarm-metrics {
+  display: flex;
+  gap: 16px;
+}
+
+.swarm-metric {
+  display: flex;
+  flex-direction: column;
+}
+
+.metric-val {
+  font-size: 14px;
+  color: #E5E7EB;
+  font-weight: 600;
+}
+
+.metric-label {
+  font-size: 10px;
+  color: #6B7280;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+/* Tree Structure */
+.swarm-tree {
+  flex: 1;
+  overflow-y: auto;
+  position: relative;
+}
+
+/* Connector Lines */
+.agent-node {
+  position: relative;
+  margin-bottom: 12px;
+  padding-left: 24px; /* Indent for hierarchy */
+}
+
+/* Draw hierarchy lines */
+.agent-node::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 8px;
+  bottom: -12px; /* Connect to next sibling */
+  width: 1px;
+  background: #2E333D;
+}
+
+.agent-node:last-child::before {
+  bottom: 24px; /* Stop line at last child */
+}
+
+.agent-node::after {
+  content: "";
+  position: absolute;
+  top: 24px;
+  left: 8px;
+  width: 12px;
+  height: 1px;
+  background: #2E333D;
+}
+
+/* Dotted lines for Requisitions */
+.agent-node:has(.agent-card.requisition)::before,
+.agent-node:has(.agent-card.requisition)::after {
+  border-style: dashed;
+  opacity: 0.5;
+}
+
+/* Root node has no lines */
+.agent-node.root {
+  padding-left: 0;
+}
+.agent-node.root::before, .agent-node.root::after {
+  display: none;
+}
+
+/* Agent Card */
+.agent-card {
+  background: #1F2329;
+  border: 1px solid #2E333D;
+  border-radius: 6px;
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  transition: all 0.2s;
+}
+
+/* Requisition Node (The Hiring Proposal) */
+.agent-card.requisition {
+  background: rgba(14, 165, 233, 0.05); /* Cyan tint */
+  border: 1px dashed #0EA5E9;
+  position: relative;
+}
+
+.agent-card.active {
+  border-color: #3D85C6;
+  box-shadow: 0 0 0 1px rgba(61, 133, 198, 0.3);
+}
+
+.agent-card.failed {
+  border-color: #EF4444;
+}
+
+.agent-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.agent-identity {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.agent-icon {
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 4px;
+  font-size: 10px;
+}
+
+.agent-name {
+  font-size: 12px;
+  font-weight: 600;
+  color: #E5E7EB;
+}
+
+.agent-role {
+  font-size: 10px;
+  color: #9CA3AF;
+  background: rgba(255, 255, 255, 0.05);
+  padding: 1px 4px;
+  border-radius: 3px;
+  margin-left: 6px;
+}
+
+.agent-status {
+  font-size: 10px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* Status styles */
+.status-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+}
+
+.status-dot.running { background: #3D85C6; animation: pulse 1s infinite; }
+.status-dot.completed { background: #22C55E; }
+.status-dot.negotiating { background: #F59E0B; }
+.status-dot.failed { background: #EF4444; }
+
+.status-badge-requisition {
+  font-size: 9px;
+  font-weight: 700;
+  color: #0EA5E9;
+  background: rgba(14, 165, 233, 0.1);
+  padding: 2px 6px;
+  border-radius: 4px;
+  border: 1px solid rgba(14, 165, 233, 0.3);
+}
+
+/* Requisition Details */
+.agent-requisition-details {
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 4px;
+  padding: 6px;
+  margin: 4px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.req-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 10px;
+  color: #9CA3AF;
+  font-family: "JetBrains Mono", monospace;
+}
+
+.req-row strong {
+  color: #E5E7EB;
+}
+
+/* Economic Info */
+.agent-meta {
+  display: flex;
+  justify-content: space-between;
+  font-size: 10px;
+  color: #6B7280;
+  border-top: 1px solid #2E333D;
+  padding-top: 6px;
+  margin-top: 2px;
+}
+
+.meta-cost {
+  font-family: "JetBrains Mono", monospace;
+  color: #D1D5DB;
+}
+
+.agent-thought {
+  font-size: 11px;
+  color: #9CA3AF;
+  font-style: italic;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  padding: 2px 0;
+}
+
+/* === REQUISITION BANNER (Improved) === */
+.requisition-banner {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+  padding: 4px 0;
+}
+
+.requisition-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.requisition-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: #0EA5E9;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.requisition-desc {
+  font-size: 10px;
+  color: #9CA3AF;
+}
+
+.requisition-desc strong {
+  color: #E5E7EB;
+}
+
+.requisition-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.requisition-cost {
+  font-size: 12px;
+  font-weight: 600;
+  color: #E5E7EB;
+  font-family: "JetBrains Mono", monospace;
+}
+
+.requisition-btn {
+  padding: 6px 14px;
+  background: rgba(14, 165, 233, 0.15);
+  border: 1px solid rgba(14, 165, 233, 0.4);
+  border-radius: 6px;
+  color: #0EA5E9;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.requisition-btn:hover {
+  background: rgba(14, 165, 233, 0.25);
+  border-color: #0EA5E9;
+  transform: translateY(-1px);
+}
+
+.requisition-btn:active {
+  transform: translateY(0);
+}

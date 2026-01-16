@@ -16,6 +16,7 @@ import { BuilderView } from "../components/BuilderView";
 import { StatusBar } from "../components/StatusBar";
 import { MarketplaceView } from "../components/MarketplaceView";
 import { AgentInstallModal } from "../components/AgentInstallModal";
+import { VisionHUD } from "../components/VisionHUD"; // [NEW]
 
 // Import CSS
 import "../components/ActivityBar.css";
@@ -31,6 +32,7 @@ import "../components/BuilderView.css";
 import "../components/StatusBar.css";
 import "../components/MarketplaceView.css";
 import "../components/AgentInstallModal.css";
+import "../components/VisionHUD.css"; // [NEW]
 
 import "./StudioWindow.css";
 
@@ -267,13 +269,19 @@ export function StudioWindow() {
                           className="canvas-container" 
                           style={{ bottom: dataPanelCollapsed ? 32 : dataPanelHeight }}
                       >
+                          {/* GHOST MODE OVERLAY AND HUD */}
                           {interfaceMode === "GHOST" && (
-                              <div className="ghost-overlay">
-                                  <div className="ghost-badge">
-                                      <span className="ghost-dot" />
-                                      <span>Ghost Mode: Observing & Inferring...</span>
+                              <>
+                                  <div className="ghost-overlay">
+                                      {/* Badge for context */}
+                                      <div className="ghost-badge">
+                                          <span className="ghost-dot" />
+                                          <span>Ghost Mode: Observing & Inferring...</span>
+                                      </div>
                                   </div>
-                              </div>
+                                  {/* Active Vision HUD */}
+                                  <VisionHUD />
+                              </>
                           )}
 
                           <Canvas
