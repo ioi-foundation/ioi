@@ -73,13 +73,16 @@
   background: #111418;
 }
 
-/* Ghost overlay */
+/* Update the existing .ghost-overlay rule */
 .ghost-overlay {
   position: absolute;
   inset: 0;
-  pointer-events: none;
+  pointer-events: none; /* Critical: let clicks pass through to canvas */
   z-index: 100;
-  border: 2px solid rgba(245, 158, 11, 0.3); /* Amber border for ghost mode */
+  
+  /* Replace solid border with a Vignette effect for immersion */
+  box-shadow: inset 0 0 100px rgba(245, 158, 11, 0.15); 
+  border: 1px solid rgba(245, 158, 11, 0.3);
 }
 
 .ghost-badge {
@@ -97,6 +100,7 @@
   font-weight: 600;
   color: #F59E0B;
   backdrop-filter: blur(4px);
+  pointer-events: auto; /* Allow badge interaction if needed */
 }
 
 .ghost-dot {
@@ -110,4 +114,9 @@
 @keyframes pulse {
   0%, 100% { opacity: 1; }
   50% { opacity: 0.5; }
+}
+
+/* Ensure HUD sits on top */
+.vision-hud-container {
+  pointer-events: auto; /* Allow interaction with the HUD if we add close buttons later */
 }

@@ -1,7 +1,8 @@
-// Path: apps/autopilot/src/windows/SpotlightWindow.tsx
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { useAgentStore, initEventListeners } from "../store/agentStore";
+import { SwarmViz } from "../components/SwarmViz";
+import type { SwarmAgent } from "../types";
 import "./SpotlightWindow.css";
 
 // --- Icons ---
@@ -29,8 +30,18 @@ const CursorIcon = () => (
   </svg>
 );
 
+// --- Mode Icons ---
+const MessageIcon = () => (
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+);
+const BotIcon = () => (
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="11" width="18" height="10" rx="2"/><circle cx="12" cy="5" r="2"/><path d="M12 7v4"/><line x1="8" y1="16" x2="8" y2="16"/><line x1="16" y1="16" x2="16" y2="16"/></svg>
+);
+const SwarmIcon = () => (
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="5" r="3"/><circle cx="5" cy="19" r="3"/><circle cx="19" cy="19" r="3"/><path d="M7.5 17.5 10 12.5"/><path d="M16.5 17.5 14 12.5"/></svg>
+);
+
 // Suggestion Icons
-const SparklesIcon = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/></svg>;
 const CubeIcon = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>;
 const GlobeIcon = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>;
 const AppsIcon = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="7" height="7" rx="2" /><rect x="14" y="3" width="7" height="7" rx="2" /><rect x="14" y="14" width="7" height="7" rx="2" /><rect x="3" y="14" width="7" height="7" rx="2" /></svg>;
@@ -53,11 +64,12 @@ interface ContextBlob {
 type ViewMode = "sidebar" | "spotlight";
 
 export function SpotlightWindow() {
-  const [viewMode, setViewMode] = useState<ViewMode>("sidebar"); // Default to sidebar
+  const [viewMode, setViewMode] = useState<ViewMode>("sidebar");
   const [isIncognito, setIsIncognito] = useState(false);
   const [intent, setIntent] = useState("");
   const [chatHistory, setChatHistory] = useState<ChatMessage[]>([]);
   const inputRef = useRef<HTMLInputElement>(null);
+  const chatAreaRef = useRef<HTMLDivElement>(null);
   
   // State for selections
   const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
@@ -71,10 +83,127 @@ export function SpotlightWindow() {
   const [semanticContext, setSemanticContext] = useState<string | null>(null);
   const [contextLoading, setContextLoading] = useState(false);
 
+  // Swarm State (Whitepaper Section 10.3 / 14.1)
+  const [swarmState, setSwarmState] = useState<SwarmAgent[]>([]);
+
   const { task, startTask } = useAgentStore();
 
-  // Show split view if in spotlight mode and running a task
-  const showPreview = viewMode === "spotlight" && task?.phase === "Running";
+  // Show split view if in spotlight mode and running a task OR swarm is active
+  const showPreview = viewMode === "spotlight" && (task?.phase === "Running" || swarmState.length > 0);
+  
+  // Determine if we should show Swarm Viz (Federated Mode) or Browser (Solo Mode)
+  const showSwarm = swarmState.length > 0;
+
+  // ========================================
+  // SWARM ACTION HANDLERS (New UX Controls)
+  // ========================================
+  
+  const handleApproveAgent = useCallback((agentId: string) => {
+    setSwarmState(prev => prev.map(agent => {
+      if (agent.id === agentId && agent.status === 'requisition') {
+        setChatHistory(h => [...h, { 
+          role: 'agent', 
+          text: `✅ Approved ${agent.name} (${agent.role}). Starting execution...` 
+        }]);
+        return { 
+          ...agent, 
+          status: 'running', 
+          current_thought: 'Initializing context sync...', 
+          budget_cap: (agent.estimated_cost || 0) * 1.2 // 20% buffer
+        };
+      }
+      return agent;
+    }));
+  }, []);
+
+  const handleRejectAgent = useCallback((agentId: string) => {
+    setSwarmState(prev => {
+      const agent = prev.find(a => a.id === agentId);
+      if (agent) {
+        setChatHistory(h => [...h, { 
+          role: 'agent', 
+          text: `❌ Rejected ${agent.name} (${agent.role}). Worker not hired.` 
+        }]);
+      }
+      return prev.filter(a => a.id !== agentId);
+    });
+  }, []);
+
+  const handlePauseAgent = useCallback((agentId: string) => {
+    setSwarmState(prev => prev.map(agent => {
+      if (agent.id === agentId && agent.status === 'running') {
+        setChatHistory(h => [...h, { 
+          role: 'agent', 
+          text: `⏸ Paused ${agent.name}. Work suspended.` 
+        }]);
+        return { ...agent, status: 'paused' };
+      }
+      return agent;
+    }));
+  }, []);
+
+  const handleResumeAgent = useCallback((agentId: string) => {
+    setSwarmState(prev => prev.map(agent => {
+      if (agent.id === agentId && agent.status === 'paused') {
+        setChatHistory(h => [...h, { 
+          role: 'agent', 
+          text: `▶️ Resumed ${agent.name}. Continuing work...` 
+        }]);
+        return { ...agent, status: 'running', current_thought: 'Resuming from checkpoint...' };
+      }
+      return agent;
+    }));
+  }, []);
+
+  const handleCancelAgent = useCallback((agentId: string) => {
+    setSwarmState(prev => prev.map(agent => {
+      if (agent.id === agentId && (agent.status === 'running' || agent.status === 'paused')) {
+        setChatHistory(h => [...h, { 
+          role: 'agent', 
+          text: `🛑 Cancelled ${agent.name}. Spent: $${agent.budget_used.toFixed(4)}` 
+        }]);
+        return { ...agent, status: 'failed', current_thought: 'Cancelled by user' };
+      }
+      return agent;
+    }));
+  }, []);
+
+  // Auto-scroll chat
+  useEffect(() => {
+    if (chatAreaRef.current) {
+      chatAreaRef.current.scrollTop = chatAreaRef.current.scrollHeight;
+    }
+  }, [chatHistory]);
+
+  // --- Logic to handle Agent Mode switching ---
+  useEffect(() => {
+    if (agentMode === "Swarm") {
+      // Mock Swarm Initialization for "General Contractor" flow
+      setSwarmState([
+        {
+          id: "root", parentId: null, name: "Manager", role: "Planner", status: "running",
+          budget_used: 0.05, budget_cap: 1.00, policy_hash: "0xab42def8",
+          current_thought: "Analyzing intent... Need specialized workers.",
+          artifacts_produced: 0
+        },
+        {
+          id: "w1", parentId: "root", name: "Worker-1", role: "Researcher", status: "requisition",
+          budget_used: 0.00, budget_cap: 0.20, policy_hash: "0xcd99fa12",
+          estimated_cost: 0.15,
+          artifacts_produced: 0
+        },
+        {
+          id: "w2", parentId: "root", name: "Worker-2", role: "Python Exec", status: "requisition",
+          budget_used: 0.00, budget_cap: 0.50, policy_hash: "0xef11bc34",
+          estimated_cost: 0.35,
+          artifacts_produced: 0
+        }
+      ]);
+      if (viewMode === "sidebar") toggleViewMode(); // Auto-expand for Swarm
+    } else {
+      setSwarmState([]); // Clear swarm state for Chat/Agent modes
+    }
+  }, [agentMode]);
 
   useEffect(() => {
     initEventListeners();
@@ -92,16 +221,10 @@ export function SpotlightWindow() {
   useEffect(() => {
     if (!task) return;
 
-    // [DEBUG]
-    console.log("[Spotlight] Task update received:", task);
-
-    // [FIX] Handling Reasoning/Long Outputs
-    // If the step description is very long (like the explanation of a policy block),
-    // treat it as a chat message and keep the pill clean.
+    // Handling Reasoning/Long Outputs
     if (task.phase === "Running" && task.current_step.length > 80) {
         setChatHistory(prev => {
             const lastMsg = prev[prev.length - 1];
-            // Dedup to prevent stream flicker adding same msg multiple times
             if (lastMsg?.text === task.current_step) return prev;
             return [...prev, { role: 'agent', text: task.current_step }];
         });
@@ -117,24 +240,21 @@ export function SpotlightWindow() {
     if (task.phase === "Failed") {
       setChatHistory(prev => {
          const lastMsg = prev[prev.length - 1];
-         // Simple dedup for failures
          if (lastMsg?.text.startsWith("❌ Task failed")) return prev;
          return [...prev, { role: 'agent', text: `❌ Task failed: ${task.current_step}` }];
       });
     }
 
-    // Fetch Context Slice if Hash is available (mocking the property on AgentTask for now)
-    // In a real scenario, task would have `visual_hash` field from the event.
+    // Fetch Context Slice if Hash is available
     const visualHash = (task as any)?.visual_hash;
     
-    if (visualHash && showPreview) {
+    if (visualHash && showPreview && !showSwarm) {
         setContextLoading(true);
         invoke<ContextBlob>("get_context_blob", { hash: visualHash })
             .then(blob => {
                 if (blob.mime_type.startsWith("image/")) {
                     setVisualContext(`data:${blob.mime_type};base64,${blob.data_base64}`);
                 } else if (blob.mime_type.includes("xml") || blob.mime_type.includes("json")) {
-                    // Decode base64 to string for text display
                     const text = atob(blob.data_base64);
                     setSemanticContext(text);
                 }
@@ -143,7 +263,7 @@ export function SpotlightWindow() {
             .finally(() => setContextLoading(false));
     }
 
-  }, [task, showPreview]);
+  }, [task, showPreview, showSwarm]);
 
   const toggleViewMode = async () => {
     const newMode = viewMode === "sidebar" ? "spotlight" : "sidebar";
@@ -171,6 +291,11 @@ export function SpotlightWindow() {
     try {
       if (viewMode === "sidebar") toggleViewMode();
 
+      // Heuristic: If "swarm" or "team" is in prompt, switch mode automatically
+      if ((text.toLowerCase().includes("swarm") || text.toLowerCase().includes("team")) && agentMode !== "Swarm") {
+          setAgentMode("Swarm");
+      }
+
       await startTask(text);
       setChatHistory(prev => [...prev, { role: 'agent', text: "Initializing workflow..." }]);
     } catch (e) {
@@ -180,6 +305,29 @@ export function SpotlightWindow() {
 
   const handleGlobalClick = () => {
     if (activeDropdown) setActiveDropdown(null);
+  };
+
+  // Logic to calculate Requisition (Hiring) state
+  const hasRequisitions = swarmState.some(a => a.status === 'requisition');
+  const requisitionTotal = swarmState
+    .filter(a => a.status === 'requisition')
+    .reduce((sum, a) => sum + (a.estimated_cost || 0), 0);
+  const requisitionCount = swarmState.filter(a => a.status === 'requisition').length;
+
+  const handleSignAllRequisitions = () => {
+    // "Sign" all delegation certificates at once
+    swarmState
+      .filter(a => a.status === 'requisition')
+      .forEach(a => handleApproveAgent(a.id));
+  };
+
+  // Helper to get the correct icon for the dropdown trigger
+  const getModeIcon = () => {
+    switch (agentMode) {
+      case "Chat": return <MessageIcon />;
+      case "Swarm": return <SwarmIcon />;
+      default: return <BotIcon />;
+    }
   };
 
   const hasContent = chatHistory.length > 0 || task != null;
@@ -224,7 +372,7 @@ export function SpotlightWindow() {
             </div>
 
             {/* Chat / Content Area */}
-            <div className="chat-area">
+            <div className="chat-area" ref={chatAreaRef}>
               {/* Welcome / Suggestions (Empty State) */}
               {!hasContent && (
                  <div className="suggestions-container">
@@ -276,7 +424,6 @@ export function SpotlightWindow() {
                       <div className="pill-status-icon">{task.phase === 'Complete' ? '✅' : '⏸'}</div>
                     )}
                     <div>
-                       {/* [FIX] Truncate pill text if it's too long, since we moved full text to chat */}
                        <div className="pill-text">
                            {task.current_step.length > 60 ? "Reasoning..." : task.current_step}
                        </div>
@@ -287,125 +434,165 @@ export function SpotlightWindow() {
               </div>
             )}
 
-            {/* Input Area */}
-            <div className="input-section">
-              <div className="input-wrapper">
-                 <input
-                    ref={inputRef}
-                    className="main-input"
-                    placeholder={task ? "Wait for task..." : "Ask Copilot or type a command..."}
-                    value={intent}
-                    onChange={(e) => setIntent(e.target.value)}
-                    onKeyDown={(e) => e.key === "Enter" && handleSubmit()}
-                    disabled={!!task && task.phase === "Running"}
-                 />
-                 <button className="send-btn" onClick={() => handleSubmit()} disabled={!intent.trim()}>
-                   <SendIcon />
-                 </button>
-              </div>
+            {/* Input Area or Requisition Signer */}
+            {hasRequisitions ? (
+                <div className="input-section requisition-mode">
+                    <div className="requisition-banner">
+                        <div className="requisition-info">
+                            <span className="requisition-label">Hiring Plan Proposed</span>
+                            <span className="requisition-desc">
+                                Manager requests <strong>{requisitionCount} worker{requisitionCount > 1 ? 's' : ''}</strong>
+                            </span>
+                        </div>
 
-              <div className="stack-footer">
-                <Dropdown 
-                  icon={<SparklesIcon />} 
-                  label={agentMode} 
-                  options={["Agent", "Chat"]}
-                  selected={agentMode}
-                  onSelect={setAgentMode}
-                  footer={{ label: "Configure Custom Agents...", onClick: openStudio }}
-                  isOpen={activeDropdown === "agent"}
-                  onToggle={() => setActiveDropdown(activeDropdown === "agent" ? null : "agent")}
-                />
-                <Dropdown 
-                  icon={<CubeIcon />} 
-                  label={selectedModel} 
-                  options={["GPT-4o", "Claude 3.5", "Llama 3"]} 
-                  selected={selectedModel}
-                  onSelect={setSelectedModel}
-                  footer={{ label: "Manage Models...", onClick: openStudio }}
-                  isOpen={activeDropdown === "model"}
-                  onToggle={() => setActiveDropdown(activeDropdown === "model" ? null : "model")}
-                />
-                <Dropdown 
-                  icon={<GlobeIcon />} 
-                  label={networkMode} 
-                  options={["Net", "Local Only"]} 
-                  selected={networkMode}
-                  onSelect={setNetworkMode}
-                  isOpen={activeDropdown === "network"}
-                  onToggle={() => setActiveDropdown(activeDropdown === "network" ? null : "network")}
-                />
-                <Dropdown 
-                  icon={<AppsIcon />} 
-                  label={connectedApp}
-                  options={["Apps", "Slack", "Notion", "GitHub"]}
-                  selected={connectedApp}
-                  onSelect={setConnectedApp} 
-                  footer={{ label: "Connect Apps...", onClick: openStudio }}
-                  isOpen={activeDropdown === "connect"}
-                  onToggle={() => setActiveDropdown(activeDropdown === "connect" ? null : "connect")}
-                />
-              </div>
-            </div>
+                        <div className="requisition-actions">
+                            <span className="requisition-cost">
+                                Total: ${requisitionTotal.toFixed(4)}
+                            </span>
+                            <button 
+                                className="requisition-btn"
+                                onClick={handleSignAllRequisitions}
+                            >
+                                Sign & Hire All
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            ) : (
+                <div className="input-section">
+                    <div className="input-wrapper">
+                        <input
+                            ref={inputRef}
+                            className="main-input"
+                            placeholder={task ? "Wait for task..." : "Ask Copilot or type a command..."}
+                            value={intent}
+                            onChange={(e) => setIntent(e.target.value)}
+                            onKeyDown={(e) => e.key === "Enter" && handleSubmit()}
+                            disabled={!!task && task.phase === "Running"}
+                        />
+                        <button className="send-btn" onClick={() => handleSubmit()} disabled={!intent.trim()}>
+                        <SendIcon />
+                        </button>
+                    </div>
+
+                    <div className="stack-footer">
+                        <Dropdown 
+                            icon={getModeIcon()} 
+                            label={agentMode} 
+                            options={["Chat", "Agent", "Swarm"]}
+                            selected={agentMode}
+                            onSelect={setAgentMode}
+                            footer={{ label: "Configure Custom Agents...", onClick: openStudio }}
+                            isOpen={activeDropdown === "agent"}
+                            onToggle={() => setActiveDropdown(activeDropdown === "agent" ? null : "agent")}
+                        />
+                        <Dropdown 
+                            icon={<CubeIcon />} 
+                            label={selectedModel} 
+                            options={["GPT-4o", "Claude 3.5", "Llama 3"]} 
+                            selected={selectedModel}
+                            onSelect={setSelectedModel}
+                            footer={{ label: "Manage Models...", onClick: openStudio }}
+                            isOpen={activeDropdown === "model"}
+                            onToggle={() => setActiveDropdown(activeDropdown === "model" ? null : "model")}
+                        />
+                        <Dropdown 
+                            icon={<GlobeIcon />} 
+                            label={networkMode} 
+                            options={["Net", "Local Only"]} 
+                            selected={networkMode}
+                            onSelect={setNetworkMode}
+                            isOpen={activeDropdown === "network"}
+                            onToggle={() => setActiveDropdown(activeDropdown === "network" ? null : "network")}
+                        />
+                        <Dropdown 
+                            icon={<AppsIcon />} 
+                            label={connectedApp}
+                            options={["Apps", "Slack", "Notion", "GitHub"]}
+                            selected={connectedApp}
+                            onSelect={setConnectedApp} 
+                            footer={{ label: "Connect Apps...", onClick: openStudio }}
+                            isOpen={activeDropdown === "connect"}
+                            onToggle={() => setActiveDropdown(activeDropdown === "connect" ? null : "connect")}
+                        />
+                    </div>
+                </div>
+            )}
         </div>
 
-        {/* --- RIGHT PANE (Live Context Preview) --- */}
+        {/* --- RIGHT PANE (Live Context OR Swarm Topology) --- */}
         {showPreview && (
             <div className="spot-right-pane">
-                <div className="browser-card">
-                    <div className="browser-chrome">
-                        <div className="traffic-lights">
-                            <div className="traffic-dot" style={{background: '#ff5f56'}} />
-                            <div className="traffic-dot" style={{background: '#ffbd2e'}} />
-                            <div className="traffic-dot" style={{background: '#27c93f'}} />
+                {showSwarm ? (
+                    // MODE 1: FEDERATED SWARM TOPOLOGY (Enhanced UX)
+                    <SwarmViz 
+                      agents={swarmState}
+                      onApproveAgent={handleApproveAgent}
+                      onRejectAgent={handleRejectAgent}
+                      onPauseAgent={handlePauseAgent}
+                      onResumeAgent={handleResumeAgent}
+                      onCancelAgent={handleCancelAgent}
+                    />
+                ) : (
+                    // MODE 0: SINGLE AGENT CONTEXT PREVIEW
+                    <>
+                    <div className="browser-card">
+                        <div className="browser-chrome">
+                            <div className="traffic-lights">
+                                <div className="traffic-dot" style={{background: '#ff5f56'}} />
+                                <div className="traffic-dot" style={{background: '#ffbd2e'}} />
+                                <div className="traffic-dot" style={{background: '#27c93f'}} />
+                            </div>
+                            <div className="url-bar">
+                                {visualContext ? "scs://visual-memory/latest" : "Waiting for visual context..."}
+                            </div>
                         </div>
-                        <div className="url-bar">
-                            {visualContext ? "scs://visual-memory/latest" : "Waiting for visual context..."}
-                        </div>
-                    </div>
-                    <div className="browser-viewport">
-                        {contextLoading ? (
-                            <div className="pill-spinner" style={{width: 32, height: 32, borderWidth: 3}} />
-                        ) : visualContext ? (
-                            <img src={visualContext} alt="Agent View" style={{width: '100%', height: '100%', objectFit: 'contain'}} />
-                        ) : semanticContext ? (
-                            <pre style={{padding: 20, fontSize: 10, color: '#333', overflow: 'auto'}}>{semanticContext}</pre>
-                        ) : (
-                            /* Fallback Mock Content */
-                            <div style={{width: '90%', height: '80%', background: '#f3f4f6', borderRadius: 4, padding: 20}}>
-                                <div style={{fontWeight: 'bold', color: '#1f2937', marginBottom: 10}}>Booking.com</div>
-                                <div style={{display: 'flex', gap: 10}}>
-                                    <div style={{flex: 1, height: 100, background: 'white', borderRadius: 4, border: '1px solid #e5e7eb'}} />
-                                    <div style={{flex: 1, height: 100, background: 'white', borderRadius: 4, border: '2px solid #3b82f6'}} />
-                                    <div style={{flex: 1, height: 100, background: 'white', borderRadius: 4, border: '1px solid #e5e7eb'}} />
+                        <div className="browser-viewport">
+                            {contextLoading ? (
+                                <div className="pill-spinner" style={{width: 32, height: 32, borderWidth: 3}} />
+                            ) : visualContext ? (
+                                <img src={visualContext} alt="Agent View" style={{width: '100%', height: '100%', objectFit: 'contain'}} />
+                            ) : semanticContext ? (
+                                <pre style={{padding: 20, fontSize: 10, color: '#333', overflow: 'auto'}}>{semanticContext}</pre>
+                            ) : (
+                                /* Fallback Mock Content */
+                                <div style={{width: '90%', height: '80%', background: '#f3f4f6', borderRadius: 4, padding: 20}}>
+                                    <div style={{fontWeight: 'bold', color: '#1f2937', marginBottom: 10}}>Booking.com</div>
+                                    <div style={{display: 'flex', gap: 10}}>
+                                        <div style={{flex: 1, height: 100, background: 'white', borderRadius: 4, border: '1px solid #e5e7eb'}} />
+                                        <div style={{flex: 1, height: 100, background: 'white', borderRadius: 4, border: '2px solid #3b82f6'}} />
+                                        <div style={{flex: 1, height: 100, background: 'white', borderRadius: 4, border: '1px solid #e5e7eb'}} />
+                                    </div>
                                 </div>
-                            </div>
-                        )}
-                        
-                        {/* Simulated Cursor - Only show if not displaying real image */}
-                        {!visualContext && (
-                            <div className="agent-cursor" style={{ top: '45%', left: '55%' }}>
-                                <CursorIcon />
-                            </div>
-                        )}
+                            )}
+                            
+                            {/* Simulated Cursor - Only show if not displaying real image */}
+                            {!visualContext && (
+                                <div className="agent-cursor" style={{ top: '45%', left: '55%' }}>
+                                    <CursorIcon />
+                                </div>
+                            )}
+                        </div>
                     </div>
-                </div>
 
-                <div className="vision-log">
-                    <LogItem 
-                        icon="👁️" 
-                        title="Observation" 
-                        accent="purple"
-                        desc={visualContext ? "Visual context synchronized from SCS." : "Waiting for agent eye-tracking..."}
-                        meta={visualContext ? `MIME: image/png` : undefined}
-                    />
-                    <LogItem 
-                        icon="⚡" 
-                        title="Action" 
-                        accent="blue"
-                        desc={task?.current_step || "Processing..."} 
-                        meta="Browser Vision Control"
-                    />
-                </div>
+                    <div className="vision-log">
+                        <LogItem 
+                            icon="👁️" 
+                            title="Observation" 
+                            accent="purple"
+                            desc={visualContext ? "Visual context synchronized from SCS." : "Waiting for agent eye-tracking..."}
+                            meta={visualContext ? `MIME: image/png` : undefined}
+                        />
+                        <LogItem 
+                            icon="⚡" 
+                            title="Action" 
+                            accent="blue"
+                            desc={task?.current_step || "Processing..."} 
+                            meta="Browser Vision Control"
+                        />
+                    </div>
+                    </>
+                )}
             </div>
         )}
 
@@ -451,7 +638,6 @@ function Dropdown({ icon, label, options, selected, onSelect, isOpen, onToggle, 
       >
         <span>{icon}</span>
         <span>{label}</span>
-        {/* Caret Down Icon */}
         <svg className="trigger-caret" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{marginLeft: 2, opacity: 0.5}}>
            <polyline points="6 9 12 15 18 9" />
         </svg>
