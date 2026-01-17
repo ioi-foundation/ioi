@@ -1,33 +1,21 @@
-import React, { useState, useEffect, useRef, useCallback } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import { emit } from "@tauri-apps/api/event";
 import { useAgentStore, initEventListeners } from "../store/agentStore";
-import { SwarmViz } from "../components/SwarmViz";
-import type { SwarmAgent } from "../types";
 import "./SpotlightWindow.css";
 
 // --- Icons ---
 const MaximizeIcon = () => (
   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7" /></svg>
 );
-const SidebarIcon = () => (
-  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="15" y="3" width="6" height="18" rx="2" /><path d="M3 12h8" /><path d="M3 6h8" /><path d="M3 18h8" /></svg>
-);
 const CloseIcon = () => (
   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
-);
-const BuildIcon = () => (
-  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z" /></svg>
 );
 const IncognitoIcon = () => (
   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
 );
 const SendIcon = () => (
   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="22" y1="2" x2="11" y2="13" /><polygon points="22 2 15 22 11 13 2 9 22 2" /></svg>
-);
-const CursorIcon = () => (
-  <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-    <path d="M5.5 3.2L11.5 19.5L14.5 13L21 12L5.5 3.2Z" fill="black" stroke="white" strokeWidth="1.5"/>
-  </svg>
 );
 
 // --- Mode Icons ---
@@ -56,15 +44,7 @@ interface ChatMessage {
   text: string;
 }
 
-interface ContextBlob {
-    data_base64: string;
-    mime_type: string;
-}
-
-type ViewMode = "sidebar" | "spotlight";
-
 export function SpotlightWindow() {
-  const [viewMode, setViewMode] = useState<ViewMode>("sidebar");
   const [isIncognito, setIsIncognito] = useState(false);
   const [intent, setIntent] = useState("");
   const [chatHistory, setChatHistory] = useState<ChatMessage[]>([]);
@@ -78,150 +58,28 @@ export function SpotlightWindow() {
   const [networkMode, setNetworkMode] = useState("Net");
   const [connectedApp, setConnectedApp] = useState("Apps");
   
-  // Context Visualization State
-  const [visualContext, setVisualContext] = useState<string | null>(null);
-  const [semanticContext, setSemanticContext] = useState<string | null>(null);
-  const [contextLoading, setContextLoading] = useState(false);
-
-  // Swarm State (Whitepaper Section 10.3 / 14.1)
-  const [swarmState, setSwarmState] = useState<SwarmAgent[]>([]);
-
   const { task, startTask } = useAgentStore();
-
-  // Show split view if in spotlight mode and running a task OR swarm is active
-  const showPreview = viewMode === "spotlight" && (task?.phase === "Running" || swarmState.length > 0);
-  
-  // Determine if we should show Swarm Viz (Federated Mode) or Browser (Solo Mode)
-  const showSwarm = swarmState.length > 0;
-
-  // ========================================
-  // SWARM ACTION HANDLERS (New UX Controls)
-  // ========================================
-  
-  const handleApproveAgent = useCallback((agentId: string) => {
-    setSwarmState(prev => prev.map(agent => {
-      if (agent.id === agentId && agent.status === 'requisition') {
-        setChatHistory(h => [...h, { 
-          role: 'agent', 
-          text: `✅ Approved ${agent.name} (${agent.role}). Starting execution...` 
-        }]);
-        return { 
-          ...agent, 
-          status: 'running', 
-          current_thought: 'Initializing context sync...', 
-          budget_cap: (agent.estimated_cost || 0) * 1.2 // 20% buffer
-        };
-      }
-      return agent;
-    }));
-  }, []);
-
-  const handleRejectAgent = useCallback((agentId: string) => {
-    setSwarmState(prev => {
-      const agent = prev.find(a => a.id === agentId);
-      if (agent) {
-        setChatHistory(h => [...h, { 
-          role: 'agent', 
-          text: `❌ Rejected ${agent.name} (${agent.role}). Worker not hired.` 
-        }]);
-      }
-      return prev.filter(a => a.id !== agentId);
-    });
-  }, []);
-
-  const handlePauseAgent = useCallback((agentId: string) => {
-    setSwarmState(prev => prev.map(agent => {
-      if (agent.id === agentId && agent.status === 'running') {
-        setChatHistory(h => [...h, { 
-          role: 'agent', 
-          text: `⏸ Paused ${agent.name}. Work suspended.` 
-        }]);
-        return { ...agent, status: 'paused' };
-      }
-      return agent;
-    }));
-  }, []);
-
-  const handleResumeAgent = useCallback((agentId: string) => {
-    setSwarmState(prev => prev.map(agent => {
-      if (agent.id === agentId && agent.status === 'paused') {
-        setChatHistory(h => [...h, { 
-          role: 'agent', 
-          text: `▶️ Resumed ${agent.name}. Continuing work...` 
-        }]);
-        return { ...agent, status: 'running', current_thought: 'Resuming from checkpoint...' };
-      }
-      return agent;
-    }));
-  }, []);
-
-  const handleCancelAgent = useCallback((agentId: string) => {
-    setSwarmState(prev => prev.map(agent => {
-      if (agent.id === agentId && (agent.status === 'running' || agent.status === 'paused')) {
-        setChatHistory(h => [...h, { 
-          role: 'agent', 
-          text: `🛑 Cancelled ${agent.name}. Spent: $${agent.budget_used.toFixed(4)}` 
-        }]);
-        return { ...agent, status: 'failed', current_thought: 'Cancelled by user' };
-      }
-      return agent;
-    }));
-  }, []);
-
-  // Auto-scroll chat
-  useEffect(() => {
-    if (chatAreaRef.current) {
-      chatAreaRef.current.scrollTop = chatAreaRef.current.scrollHeight;
-    }
-  }, [chatHistory]);
-
-  // --- Logic to handle Agent Mode switching ---
-  useEffect(() => {
-    if (agentMode === "Swarm") {
-      // Mock Swarm Initialization for "General Contractor" flow
-      setSwarmState([
-        {
-          id: "root", parentId: null, name: "Manager", role: "Planner", status: "running",
-          budget_used: 0.05, budget_cap: 1.00, policy_hash: "0xab42def8",
-          current_thought: "Analyzing intent... Need specialized workers.",
-          artifacts_produced: 0
-        },
-        {
-          id: "w1", parentId: "root", name: "Worker-1", role: "Researcher", status: "requisition",
-          budget_used: 0.00, budget_cap: 0.20, policy_hash: "0xcd99fa12",
-          estimated_cost: 0.15,
-          artifacts_produced: 0
-        },
-        {
-          id: "w2", parentId: "root", name: "Worker-2", role: "Python Exec", status: "requisition",
-          budget_used: 0.00, budget_cap: 0.50, policy_hash: "0xef11bc34",
-          estimated_cost: 0.35,
-          artifacts_produced: 0
-        }
-      ]);
-      if (viewMode === "sidebar") toggleViewMode(); // Auto-expand for Swarm
-    } else {
-      setSwarmState([]); // Clear swarm state for Chat/Agent modes
-    }
-  }, [agentMode]);
 
   useEffect(() => {
     initEventListeners();
-    const timer = setTimeout(() => {
-      invoke("set_spotlight_mode", { mode: "sidebar" }).catch((e) =>
-        console.error("Failed to set window mode:", e)
-      );
-      inputRef.current?.focus();
-    }, 800);
-
-    return () => clearTimeout(timer);
+    // Ensure we are in sidebar mode on mount
+    invoke("set_spotlight_mode", { mode: "sidebar" }).catch(console.error);
+    setTimeout(() => inputRef.current?.focus(), 150);
   }, []);
 
-  // Sync task to chat and fetch context blobs
+  // [NEW] Logic to handle Agent Mode switching -> Open Studio Copilot
+  useEffect(() => {
+    if (agentMode === "Swarm") {
+      openStudio("copilot"); // Pass "copilot" payload
+      // Reset dropdown to default after triggering transition
+      setTimeout(() => setAgentMode("Agent"), 500); 
+    }
+  }, [agentMode]);
+
+  // Sync task to chat
   useEffect(() => {
     if (!task) return;
 
-    // Handling Reasoning/Long Outputs
     if (task.phase === "Running" && task.current_step.length > 80) {
         setChatHistory(prev => {
             const lastMsg = prev[prev.length - 1];
@@ -244,35 +102,18 @@ export function SpotlightWindow() {
          return [...prev, { role: 'agent', text: `❌ Task failed: ${task.current_step}` }];
       });
     }
+  }, [task]);
 
-    // Fetch Context Slice if Hash is available
-    const visualHash = (task as any)?.visual_hash;
-    
-    if (visualHash && showPreview && !showSwarm) {
-        setContextLoading(true);
-        invoke<ContextBlob>("get_context_blob", { hash: visualHash })
-            .then(blob => {
-                if (blob.mime_type.startsWith("image/")) {
-                    setVisualContext(`data:${blob.mime_type};base64,${blob.data_base64}`);
-                } else if (blob.mime_type.includes("xml") || blob.mime_type.includes("json")) {
-                    const text = atob(blob.data_base64);
-                    setSemanticContext(text);
-                }
-            })
-            .catch(e => console.error("Failed to fetch context blob:", e))
-            .finally(() => setContextLoading(false));
+  // Auto-scroll
+  useEffect(() => {
+    if (chatAreaRef.current) {
+      chatAreaRef.current.scrollTop = chatAreaRef.current.scrollHeight;
     }
+  }, [chatHistory]);
 
-  }, [task, showPreview, showSwarm]);
-
-  const toggleViewMode = async () => {
-    const newMode = viewMode === "sidebar" ? "spotlight" : "sidebar";
-    setViewMode(newMode);
-    await invoke("set_spotlight_mode", { mode: newMode });
-    setTimeout(() => inputRef.current?.focus(), 200);
-  };
-
-  const openStudio = async () => {
+  const openStudio = async (targetView: string = "compose") => {
+    // Emit event to tell Studio which tab to open
+    await emit("request-studio-view", targetView);
     await invoke("hide_spotlight");
     await invoke("show_studio");
   };
@@ -289,11 +130,9 @@ export function SpotlightWindow() {
     }
 
     try {
-      if (viewMode === "sidebar") toggleViewMode();
-
-      // Heuristic: If "swarm" or "team" is in prompt, switch mode automatically
-      if ((text.toLowerCase().includes("swarm") || text.toLowerCase().includes("team")) && agentMode !== "Swarm") {
-          setAgentMode("Swarm");
+      // Heuristic: If "swarm" or "team" is in prompt, switch to Studio Copilot
+      if (text.toLowerCase().includes("swarm") || text.toLowerCase().includes("team")) {
+          await openStudio("copilot");
       }
 
       await startTask(text);
@@ -305,20 +144,6 @@ export function SpotlightWindow() {
 
   const handleGlobalClick = () => {
     if (activeDropdown) setActiveDropdown(null);
-  };
-
-  // Logic to calculate Requisition (Hiring) state
-  const hasRequisitions = swarmState.some(a => a.status === 'requisition');
-  const requisitionTotal = swarmState
-    .filter(a => a.status === 'requisition')
-    .reduce((sum, a) => sum + (a.estimated_cost || 0), 0);
-  const requisitionCount = swarmState.filter(a => a.status === 'requisition').length;
-
-  const handleSignAllRequisitions = () => {
-    // "Sign" all delegation certificates at once
-    swarmState
-      .filter(a => a.status === 'requisition')
-      .forEach(a => handleApproveAgent(a.id));
   };
 
   // Helper to get the correct icon for the dropdown trigger
@@ -333,10 +158,13 @@ export function SpotlightWindow() {
   const hasContent = chatHistory.length > 0 || task != null;
 
   return (
-    <div className={`spotlight-window mode-${viewMode} ${showPreview ? 'has-preview' : ''}`} onClick={handleGlobalClick}>
+    <div 
+      className="spotlight-window mode-sidebar" 
+      onClick={handleGlobalClick}
+    >
       <div className="assistant-container">
         
-        {/* --- LEFT PANE (Chat + Controls) --- */}
+        {/* --- SINGLE PANE (Chat + Controls) --- */}
         <div className="spot-left-pane">
             {/* Header */}
             <div className="spot-header" data-tauri-drag-region>
@@ -359,11 +187,12 @@ export function SpotlightWindow() {
                 >
                   <IncognitoIcon />
                 </button>
-                <button className="header-btn" onClick={openStudio} title="Open Studio IDE">
-                  <BuildIcon />
-                </button>
-                <button className="header-btn" onClick={toggleViewMode} title={viewMode === "sidebar" ? "Maximize" : "Dock Right"}>
-                  {viewMode === "sidebar" ? <MaximizeIcon /> : <SidebarIcon />}
+                <button 
+                  className="header-btn" 
+                  onClick={() => openStudio("copilot")} 
+                  title="Expand to Studio Copilot"
+                >
+                  <MaximizeIcon />
                 </button>
                 <button className="header-btn" onClick={() => invoke("hide_spotlight")} title="Close">
                   <CloseIcon />
@@ -434,168 +263,64 @@ export function SpotlightWindow() {
               </div>
             )}
 
-            {/* Input Area or Requisition Signer */}
-            {hasRequisitions ? (
-                <div className="input-section requisition-mode">
-                    <div className="requisition-banner">
-                        <div className="requisition-info">
-                            <span className="requisition-label">Hiring Plan Proposed</span>
-                            <span className="requisition-desc">
-                                Manager requests <strong>{requisitionCount} worker{requisitionCount > 1 ? 's' : ''}</strong>
-                            </span>
-                        </div>
-
-                        <div className="requisition-actions">
-                            <span className="requisition-cost">
-                                Total: ${requisitionTotal.toFixed(4)}
-                            </span>
-                            <button 
-                                className="requisition-btn"
-                                onClick={handleSignAllRequisitions}
-                            >
-                                Sign & Hire All
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            ) : (
-                <div className="input-section">
-                    <div className="input-wrapper">
-                        <input
-                            ref={inputRef}
-                            className="main-input"
-                            placeholder={task ? "Wait for task..." : "Ask Copilot or type a command..."}
-                            value={intent}
-                            onChange={(e) => setIntent(e.target.value)}
-                            onKeyDown={(e) => e.key === "Enter" && handleSubmit()}
-                            disabled={!!task && task.phase === "Running"}
-                        />
-                        <button className="send-btn" onClick={() => handleSubmit()} disabled={!intent.trim()}>
-                        <SendIcon />
-                        </button>
-                    </div>
-
-                    <div className="stack-footer">
-                        <Dropdown 
-                            icon={getModeIcon()} 
-                            label={agentMode} 
-                            options={["Chat", "Agent", "Swarm"]}
-                            selected={agentMode}
-                            onSelect={setAgentMode}
-                            footer={{ label: "Configure Custom Agents...", onClick: openStudio }}
-                            isOpen={activeDropdown === "agent"}
-                            onToggle={() => setActiveDropdown(activeDropdown === "agent" ? null : "agent")}
-                        />
-                        <Dropdown 
-                            icon={<CubeIcon />} 
-                            label={selectedModel} 
-                            options={["GPT-4o", "Claude 3.5", "Llama 3"]} 
-                            selected={selectedModel}
-                            onSelect={setSelectedModel}
-                            footer={{ label: "Manage Models...", onClick: openStudio }}
-                            isOpen={activeDropdown === "model"}
-                            onToggle={() => setActiveDropdown(activeDropdown === "model" ? null : "model")}
-                        />
-                        <Dropdown 
-                            icon={<GlobeIcon />} 
-                            label={networkMode} 
-                            options={["Net", "Local Only"]} 
-                            selected={networkMode}
-                            onSelect={setNetworkMode}
-                            isOpen={activeDropdown === "network"}
-                            onToggle={() => setActiveDropdown(activeDropdown === "network" ? null : "network")}
-                        />
-                        <Dropdown 
-                            icon={<AppsIcon />} 
-                            label={connectedApp}
-                            options={["Apps", "Slack", "Notion", "GitHub"]}
-                            selected={connectedApp}
-                            onSelect={setConnectedApp} 
-                            footer={{ label: "Connect Apps...", onClick: openStudio }}
-                            isOpen={activeDropdown === "connect"}
-                            onToggle={() => setActiveDropdown(activeDropdown === "connect" ? null : "connect")}
-                        />
-                    </div>
-                </div>
-            )}
-        </div>
-
-        {/* --- RIGHT PANE (Live Context OR Swarm Topology) --- */}
-        {showPreview && (
-            <div className="spot-right-pane">
-                {showSwarm ? (
-                    // MODE 1: FEDERATED SWARM TOPOLOGY (Enhanced UX)
-                    <SwarmViz 
-                      agents={swarmState}
-                      onApproveAgent={handleApproveAgent}
-                      onRejectAgent={handleRejectAgent}
-                      onPauseAgent={handlePauseAgent}
-                      onResumeAgent={handleResumeAgent}
-                      onCancelAgent={handleCancelAgent}
+            {/* Input Area */}
+            <div className="input-section">
+                <div className="input-wrapper">
+                    <input
+                        ref={inputRef}
+                        className="main-input"
+                        placeholder={task ? "Wait for task..." : "Ask Copilot or type a command..."}
+                        value={intent}
+                        onChange={(e) => setIntent(e.target.value)}
+                        onKeyDown={(e) => e.key === "Enter" && handleSubmit()}
+                        disabled={!!task && task.phase === "Running"}
                     />
-                ) : (
-                    // MODE 0: SINGLE AGENT CONTEXT PREVIEW
-                    <>
-                    <div className="browser-card">
-                        <div className="browser-chrome">
-                            <div className="traffic-lights">
-                                <div className="traffic-dot" style={{background: '#ff5f56'}} />
-                                <div className="traffic-dot" style={{background: '#ffbd2e'}} />
-                                <div className="traffic-dot" style={{background: '#27c93f'}} />
-                            </div>
-                            <div className="url-bar">
-                                {visualContext ? "scs://visual-memory/latest" : "Waiting for visual context..."}
-                            </div>
-                        </div>
-                        <div className="browser-viewport">
-                            {contextLoading ? (
-                                <div className="pill-spinner" style={{width: 32, height: 32, borderWidth: 3}} />
-                            ) : visualContext ? (
-                                <img src={visualContext} alt="Agent View" style={{width: '100%', height: '100%', objectFit: 'contain'}} />
-                            ) : semanticContext ? (
-                                <pre style={{padding: 20, fontSize: 10, color: '#333', overflow: 'auto'}}>{semanticContext}</pre>
-                            ) : (
-                                /* Fallback Mock Content */
-                                <div style={{width: '90%', height: '80%', background: '#f3f4f6', borderRadius: 4, padding: 20}}>
-                                    <div style={{fontWeight: 'bold', color: '#1f2937', marginBottom: 10}}>Booking.com</div>
-                                    <div style={{display: 'flex', gap: 10}}>
-                                        <div style={{flex: 1, height: 100, background: 'white', borderRadius: 4, border: '1px solid #e5e7eb'}} />
-                                        <div style={{flex: 1, height: 100, background: 'white', borderRadius: 4, border: '2px solid #3b82f6'}} />
-                                        <div style={{flex: 1, height: 100, background: 'white', borderRadius: 4, border: '1px solid #e5e7eb'}} />
-                                    </div>
-                                </div>
-                            )}
-                            
-                            {/* Simulated Cursor - Only show if not displaying real image */}
-                            {!visualContext && (
-                                <div className="agent-cursor" style={{ top: '45%', left: '55%' }}>
-                                    <CursorIcon />
-                                </div>
-                            )}
-                        </div>
-                    </div>
+                    <button className="send-btn" onClick={() => handleSubmit()} disabled={!intent.trim()}>
+                    <SendIcon />
+                    </button>
+                </div>
 
-                    <div className="vision-log">
-                        <LogItem 
-                            icon="👁️" 
-                            title="Observation" 
-                            accent="purple"
-                            desc={visualContext ? "Visual context synchronized from SCS." : "Waiting for agent eye-tracking..."}
-                            meta={visualContext ? `MIME: image/png` : undefined}
-                        />
-                        <LogItem 
-                            icon="⚡" 
-                            title="Action" 
-                            accent="blue"
-                            desc={task?.current_step || "Processing..."} 
-                            meta="Browser Vision Control"
-                        />
-                    </div>
-                    </>
-                )}
+                <div className="stack-footer">
+                    <Dropdown 
+                        icon={getModeIcon()} 
+                        label={agentMode} 
+                        options={["Chat", "Agent", "Swarm"]}
+                        selected={agentMode}
+                        onSelect={setAgentMode}
+                        footer={{ label: "Open Studio...", onClick: () => openStudio("compose") }}
+                        isOpen={activeDropdown === "agent"}
+                        onToggle={() => setActiveDropdown(activeDropdown === "agent" ? null : "agent")}
+                    />
+                    <Dropdown 
+                        icon={<CubeIcon />} 
+                        label={selectedModel} 
+                        options={["GPT-4o", "Claude 3.5", "Llama 3"]} 
+                        selected={selectedModel}
+                        onSelect={setSelectedModel}
+                        isOpen={activeDropdown === "model"}
+                        onToggle={() => setActiveDropdown(activeDropdown === "model" ? null : "model")}
+                    />
+                    <Dropdown 
+                        icon={<GlobeIcon />} 
+                        label={networkMode} 
+                        options={["Net", "Local Only"]} 
+                        selected={networkMode}
+                        onSelect={setNetworkMode}
+                        isOpen={activeDropdown === "network"}
+                        onToggle={() => setActiveDropdown(activeDropdown === "network" ? null : "network")}
+                    />
+                    <Dropdown 
+                        icon={<AppsIcon />} 
+                        label={connectedApp}
+                        options={["Apps", "Slack", "Notion", "GitHub"]}
+                        selected={connectedApp}
+                        onSelect={setConnectedApp} 
+                        isOpen={activeDropdown === "connect"}
+                        onToggle={() => setActiveDropdown(activeDropdown === "connect" ? null : "connect")}
+                    />
+                </div>
             </div>
-        )}
-
+        </div>
       </div>
     </div>
   );
@@ -680,22 +405,4 @@ function Dropdown({ icon, label, options, selected, onSelect, isOpen, onToggle, 
       )}
     </div>
   );
-}
-
-function LogItem({ icon, title, desc, meta, accent }: { icon: string, title: string, desc: string, meta?: string, accent: 'purple' | 'blue' }) {
-    return (
-        <div className="log-entry">
-            <div className="log-line">
-                <div className="log-icon-wrapper">{icon}</div>
-            </div>
-            <div className="log-content">
-                <div className="log-header">
-                    <span className={`log-title accent-${accent}`}>{title}</span>
-                    <span className="log-status">Success</span>
-                </div>
-                <div className="log-desc">{desc}</div>
-                {meta && <span className="log-meta">{meta}</span>}
-            </div>
-        </div>
-    );
 }
