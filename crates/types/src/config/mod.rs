@@ -181,6 +181,20 @@ pub struct ConnectorConfig {
     pub key_ref: String,
 }
 
+/// Configuration for an external MCP server process.
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct McpConfigEntry {
+    /// The executable command to run (e.g., "node", "python").
+    pub command: String,
+    /// Arguments to pass to the command (e.g., ["index.js"]).
+    pub args: Vec<String>,
+    /// Environment variables for the process.
+    /// Values starting with "env:" (e.g. "env:STRIPE_SECRET") will be resolved 
+    /// from the Guardian's secure vault at runtime.
+    #[serde(default)]
+    pub env: HashMap<String, String>,
+}
+
 /// Configuration for the Workload container (`workload.toml`).
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct WorkloadConfig {
@@ -234,17 +248,22 @@ pub struct WorkloadConfig {
     #[serde(default)]
     pub inference: InferenceConfig,
 
-    /// [NEW] Dedicated Configuration for Fast/Local Inference (The "Reflexes").
+    /// Dedicated Configuration for Fast/Local Inference (The "Reflexes").
     #[serde(default)]
     pub fast_inference: Option<InferenceConfig>,
 
-    /// [NEW] Dedicated Configuration for Reasoning/Cloud Inference (The "Brain").
+    /// Dedicated Configuration for Reasoning/Cloud Inference (The "Brain").
     #[serde(default)]
     pub reasoning_inference: Option<InferenceConfig>,
 
-    /// Connectors for secure egress.
+    /// Connectors for secure egress (internal drivers).
     #[serde(default)]
     pub connectors: HashMap<String, ConnectorConfig>,
+
+    /// Configuration for external MCP servers to spawn.
+    /// Key is the logical server name (e.g. "filesystem"), Value contains execution details.
+    #[serde(default)]
+    pub mcp_servers: HashMap<String, McpConfigEntry>,
 }
 
 impl WorkloadConfig {

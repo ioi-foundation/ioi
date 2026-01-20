@@ -41,7 +41,9 @@ active-win-pos-rs = "0.8"
 # Browser Control
 chromiumoxide = { version = "0.5", features = ["tokio-runtime"] }
 futures = "0.3"
-tokio = { workspace = true }
+
+# [MODIFIED] Tokio needs process and io-util for MCP transport
+tokio = { workspace = true, features = ["process", "io-util", "sync", "rt"] }
 
 wait-timeout = "0.2"
 

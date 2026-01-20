@@ -5,10 +5,11 @@ use clap::{Parser, Subcommand};
 use ioi_types::config::{
     CommitmentSchemeType, ConsensusType, ConnectorConfig, InferenceConfig, InitialServiceConfig,
     OrchestrationConfig, RpcHardeningConfig, StateTreeType, ValidatorRole, VmFuelCosts,
-    WorkloadConfig, ZkConfig,
+    WorkloadConfig, ZkConfig, McpConfigEntry,
 };
 use std::fs;
 use std::path::PathBuf;
+use std::collections::HashMap;
 
 #[derive(Parser, Debug)]
 pub struct ConfigCmdArgs {
@@ -48,7 +49,7 @@ pub fn run(args: ConfigCmdArgs) -> Result<()> {
                 tokenizer_path: None,
             };
 
-            let mut connectors = std::collections::HashMap::new();
+            let mut connectors = HashMap::new();
             connectors.insert(
                 "openai_primary".to_string(),
                 ConnectorConfig {
@@ -56,6 +57,43 @@ pub fn run(args: ConfigCmdArgs) -> Result<()> {
                     key_ref: "openai".to_string(),
                 },
             );
+
+            // [NEW] Default MCP Server Configuration
+            let mut mcp_servers = HashMap::new();
+            
+            // Example: Filesystem MCP
+            // This assumes 'npx' is available in the environment.
+            // It mounts the current directory as an allowed path.
+            mcp_servers.insert(
+                "filesystem".to_string(),
+                McpConfigEntry {
+                    command: "npx".to_string(),
+                    args: vec![
+                        "-y".to_string(),
+                        "@modelcontextprotocol/server-filesystem".to_string(),
+                        "./".to_string(), // Allow access to current directory
+                    ],
+                    env: HashMap::new(),
+                }
+            );
+
+            // Example: Brave Search MCP (Commented out in logic, but structure ready)
+            // Users would need to provide BRAVE_API_KEY in the vault.
+            /*
+            let mut brave_env = HashMap::new();
+            brave_env.insert("BRAVE_API_KEY".to_string(), "env:brave_search_key".to_string());
+            mcp_servers.insert(
+                "brave_search".to_string(),
+                McpConfigEntry {
+                    command: "npx".to_string(),
+                    args: vec![
+                        "-y".to_string(),
+                        "@modelcontextprotocol/server-brave-search".to_string(),
+                    ],
+                    env: brave_env,
+                }
+            );
+            */
 
             let workload_cfg = WorkloadConfig {
                 runtimes: vec!["wasm".into()],
@@ -77,6 +115,7 @@ pub fn run(args: ConfigCmdArgs) -> Result<()> {
                 fast_inference: None,
                 reasoning_inference: None,
                 connectors,
+                mcp_servers,
             };
 
             fs::write(
@@ -89,6 +128,8 @@ pub fn run(args: ConfigCmdArgs) -> Result<()> {
             )?;
 
             println!("✅ Generated config files in {}", out_dir.display());
+            println!("ℹ️  Edit workload.toml to configure MCP servers.");
+            println!("   Default: 'filesystem' MCP server is enabled (via npx).");
         }
     }
     Ok(())

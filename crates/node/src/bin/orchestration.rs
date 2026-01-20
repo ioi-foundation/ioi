@@ -515,6 +515,7 @@ where
             fast_inference: None,
             reasoning_inference: None,
             connectors: Default::default(),
+            mcp_servers: Default::default(), // [FIX] Initialize mcp_servers
         };
 
         let data_dir = opts.config.parent().unwrap_or_else(|| Path::new("."));

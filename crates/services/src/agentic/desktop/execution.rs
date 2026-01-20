@@ -1,4 +1,7 @@
-use anyhow::anyhow;
+// Path: crates/services/src/agentic/desktop/execution.rs
+
+// [FIX] Removed unused import
+// use anyhow::anyhow;
 use ioi_api::vm::drivers::gui::{GuiDriver, InputEvent, MouseButton as ApiButton};
 use ioi_drivers::browser::BrowserDriver;
 use ioi_drivers::terminal::TerminalDriver;
@@ -6,6 +9,8 @@ use ioi_types::app::KernelEvent;
 use serde_json::Value;
 use std::sync::Arc;
 use tokio::sync::broadcast::Sender;
+
+use ioi_drivers::mcp::McpManager; // NEW IMPORT
 
 pub struct ToolExecutionResult {
     pub success: bool,
@@ -17,6 +22,7 @@ pub struct ToolExecutor {
     gui: Arc<dyn GuiDriver>,
     terminal: Arc<TerminalDriver>,
     browser: Arc<BrowserDriver>,
+    mcp: Arc<McpManager>, // NEW FIELD
     event_sender: Option<Sender<KernelEvent>>,
 }
 
@@ -25,12 +31,14 @@ impl ToolExecutor {
         gui: Arc<dyn GuiDriver>,
         terminal: Arc<TerminalDriver>,
         browser: Arc<BrowserDriver>,
+        mcp: Arc<McpManager>, // NEW PARAMETER
         event_sender: Option<Sender<KernelEvent>>,
     ) -> Self {
         Self {
             gui,
             terminal,
             browser,
+            mcp,
             event_sender,
         }
     }
@@ -169,8 +177,38 @@ impl ToolExecutor {
                 }
             }
             _ => {
-                // Fallback for non-driver tools (handled in main loop or unrecognized)
-                success = true; // Assume success if just logging thought
+                // MCP Fallback for unknown tools
+                if name.contains("__") {
+                    let args = tool_call["arguments"].clone();
+                    match self.mcp.execute_tool(name, args).await {
+                        Ok(output) => {
+                            success = true;
+                            // [FIX] Include output content in history log
+                            let preview = if output.len() > 300 {
+                                format!("{}...", &output[..300])
+                            } else {
+                                output.clone()
+                            };
+                            
+                            history_entry = Some(format!("Tool '{}' executed via MCP. Output: {}", name, preview));
+                            
+                            if let Some(tx) = &self.event_sender {
+                                let _ = tx.send(KernelEvent::AgentActionResult {
+                                    session_id,
+                                    step_index,
+                                    tool_name: name.to_string(),
+                                    output,
+                                });
+                            }
+                        },
+                        Err(e) => {
+                            error = Some(format!("MCP Execution Failed: {}", e));
+                        }
+                    }
+                } else {
+                    // Fallback for non-driver tools (handled in main loop or unrecognized)
+                    success = true; // Assume success if just logging thought
+                }
             }
         }
 

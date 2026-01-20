@@ -1,9 +1,11 @@
 // Path: crates/services/src/agentic/rules.rs
 
 use serde::{Deserialize, Serialize};
+// [FIX] Import Encode, Decode
+use parity_scale_codec::{Decode, Encode};
 
 /// The verdict of the firewall for a specific action.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Encode, Decode)] // [FIX] Added Encode, Decode
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum Verdict {
     /// Allow the action to proceed.
@@ -15,7 +17,7 @@ pub enum Verdict {
 }
 
 /// A collection of rules defining the security boundary for an agent.
-#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default, Encode, Decode)] // [FIX] Added Encode, Decode
 pub struct ActionRules {
     /// Unique identifier for this policy set.
     pub policy_id: String,
@@ -27,7 +29,7 @@ pub struct ActionRules {
 }
 
 /// The default policy behavior (Allow/Deny).
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Encode, Decode)] // [FIX] Added Encode, Decode
 #[serde(rename_all = "snake_case")]
 pub enum DefaultPolicy {
     /// Allow actions by default unless explicitly blocked.
@@ -43,7 +45,7 @@ impl Default for DefaultPolicy {
 }
 
 /// A specific firewall rule matching a target action.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Encode, Decode)] // [FIX] Added Encode, Decode
 pub struct Rule {
     /// Optional unique identifier for the rule.
     pub rule_id: Option<String>,
@@ -56,7 +58,7 @@ pub struct Rule {
 }
 
 /// Conditions that refine when a rule applies.
-#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default, Encode, Decode)] // [FIX] Added Encode, Decode
 pub struct RuleConditions {
     /// List of allowed domains for network requests.
     pub allow_domains: Option<Vec<String>>,
