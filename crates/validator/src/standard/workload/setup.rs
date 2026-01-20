@@ -62,6 +62,10 @@ use ioi_types::app::KernelEvent;
 // [FIX] Import OsDriver trait
 use ioi_api::vm::drivers::os::OsDriver;
 
+// [NEW] MCP Imports
+use ioi_drivers::mcp::{McpManager, McpServerConfig};
+use std::collections::HashMap;
+
 async fn create_guardian_channel(certs_dir: &str) -> Result<Channel> {
     let ca_pem = std::fs::read(format!("{}/ca.pem", certs_dir))?;
     let client_pem = std::fs::read(format!("{}/workload.pem", certs_dir))?;
@@ -440,13 +444,49 @@ where
         let browser = browser_driver.clone().unwrap_or_else(|| Arc::new(BrowserDriver::new()));
         tracing::info!(target: "workload", "Browser Driver injected into DesktopAgent");
 
+        // [NEW] Initialize MCP Manager and spawn servers
+        let mcp_manager = Arc::new(McpManager::new());
+        
+        // Spawn configured MCP servers asynchronously
+        for (name, server_cfg) in &config.mcp_servers {
+            let manager_clone = mcp_manager.clone();
+            let name_clone = name.clone();
+            
+            // Resolve ENV secrets (simulated for now, would use Guardian/Vault in full impl)
+            let mut resolved_env = HashMap::new();
+            for (k, v) in &server_cfg.env {
+                if let Some(secret_ref) = v.strip_prefix("env:") {
+                    let secret = std::env::var(secret_ref).unwrap_or_default();
+                    resolved_env.insert(k.clone(), secret);
+                } else {
+                    resolved_env.insert(k.clone(), v.clone());
+                }
+            }
+
+            let mcp_cfg = McpServerConfig {
+                command: server_cfg.command.clone(),
+                args: server_cfg.args.clone(),
+                env: resolved_env,
+            };
+
+            // Don't block startup on MCP spawning
+            tokio::spawn(async move {
+                if let Err(e) = manager_clone.start_server(&name_clone, mcp_cfg).await {
+                    tracing::error!(target: "mcp", "Failed to start MCP server '{}': {}", name_clone, e);
+                } else {
+                    tracing::info!(target: "mcp", "MCP server '{}' started successfully", name_clone);
+                }
+            });
+        }
+
+        // [MODIFIED] Pass MCP Manager to DesktopAgentService
         let mut agent = DesktopAgentService::new_hybrid(
             gui,
             terminal_driver,
             browser, 
             fast_runtime,
             reasoning_runtime
-        );
+        ).with_mcp_manager(mcp_manager); // Add this method to DesktopAgentService
         
         if let Some(store) = scs {
             agent = agent.with_scs(store);

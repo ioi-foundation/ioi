@@ -5,11 +5,11 @@ use ioi_api::state::StateAccess;
 use ioi_api::transaction::context::TxContext;
 use ioi_api::vm::drivers::gui::GuiDriver;
 use ioi_api::vm::inference::InferenceRuntime;
-use ioi_types::app::{ActionContext, ActionRequest, ActionTarget, KernelEvent, InferenceOptions}; // [FIX] Added InferenceOptions
+use ioi_types::app::{ActionContext, ActionRequest, ActionTarget, KernelEvent, InferenceOptions};
 use ioi_types::codec;
 use ioi_types::error::{TransactionError, UpgradeError};
 use ioi_types::service_configs::Capabilities;
-use serde_json::{json, Value}; // [FIX] Added json macro import
+use serde_json::{json, Value};
 use std::any::Any;
 use std::sync::{Arc, Mutex};
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -18,6 +18,8 @@ use ioi_api::ibc::AgentZkVerifier;
 use ioi_drivers::browser::BrowserDriver;
 use ioi_drivers::terminal::TerminalDriver;
 use ioi_scs::{FrameType, SovereignContextStore};
+
+use ioi_drivers::mcp::McpManager;
 
 use crate::agentic::grounding::parse_vlm_action;
 use crate::agentic::policy::PolicyEngine;
@@ -33,11 +35,14 @@ use super::utils::{compute_phash, goto_trace_log};
 
 // Constants
 const CHARS_PER_TOKEN: u64 = 4;
+// [NEW] Policy prefix
+const AGENT_POLICY_PREFIX: &[u8] = b"agent::policy::";
 
 pub struct DesktopAgentService {
     gui: Arc<dyn GuiDriver>,
     terminal: Arc<TerminalDriver>,
     browser: Arc<BrowserDriver>,
+    mcp: Option<Arc<McpManager>>, 
     fast_inference: Arc<dyn InferenceRuntime>,
     reasoning_inference: Arc<dyn InferenceRuntime>,
     scrubber: SemanticScrubber,
@@ -47,6 +52,7 @@ pub struct DesktopAgentService {
     os_driver: Option<Arc<dyn ioi_api::vm::drivers::os::OsDriver>>,
 }
 
+// ... [Constructor Impls unchanged] ...
 impl DesktopAgentService {
     pub fn new(
         gui: Arc<dyn GuiDriver>,
@@ -61,6 +67,7 @@ impl DesktopAgentService {
             gui,
             terminal,
             browser,
+            mcp: None,
             fast_inference: inference.clone(),
             reasoning_inference: inference,
             scrubber,
@@ -85,6 +92,7 @@ impl DesktopAgentService {
             gui,
             terminal,
             browser,
+            mcp: None, 
             fast_inference,
             reasoning_inference,
             scrubber,
@@ -93,6 +101,11 @@ impl DesktopAgentService {
             event_sender: None,
             os_driver: None,
         }
+    }
+
+    pub fn with_mcp_manager(mut self, manager: Arc<McpManager>) -> Self {
+        self.mcp = Some(manager);
+        self
     }
 
     pub fn with_zk_verifier(mut self, verifier: Arc<dyn AgentZkVerifier>) -> Self {
@@ -252,21 +265,11 @@ impl UpgradableService for DesktopAgentService {
 
 #[async_trait]
 impl BlockchainService for DesktopAgentService {
-    fn id(&self) -> &str {
-        "desktop_agent"
-    }
-    fn abi_version(&self) -> u32 {
-        1
-    }
-    fn state_schema(&self) -> &str {
-        "v1"
-    }
-    fn capabilities(&self) -> Capabilities {
-        Capabilities::empty()
-    }
-    fn as_any(&self) -> &dyn Any {
-        self
-    }
+    fn id(&self) -> &str { "desktop_agent" }
+    fn abi_version(&self) -> u32 { 1 }
+    fn state_schema(&self) -> &str { "v1" }
+    fn capabilities(&self) -> Capabilities { Capabilities::empty() }
+    fn as_any(&self) -> &dyn Any { self }
 
     async fn handle_service_call(
         &self,
@@ -387,6 +390,14 @@ impl BlockchainService for DesktopAgentService {
                     return Ok(());
                 }
 
+                // [FIX] Load Policy from State
+                let policy_key = [AGENT_POLICY_PREFIX, p.session_id.as_slice()].concat();
+                let rules: ActionRules = if let Some(bytes) = state.get(&policy_key)? {
+                    codec::from_bytes_canonical(&bytes).map_err(|e| TransactionError::Invalid(format!("Invalid policy in state: {}", e)))?
+                } else {
+                    ActionRules::default()
+                };
+
                 let observation_intent = ActionRequest {
                     target: ActionTarget::GuiScreenshot,
                     params: agent_state.goal.as_bytes().to_vec(),
@@ -433,7 +444,15 @@ impl BlockchainService for DesktopAgentService {
                     }
                 }
 
-                let available_tools = discover_tools(state);
+                let mut available_tools = discover_tools(state);
+                if let Some(mcp) = &self.mcp {
+                    let mcp_tools = mcp.get_all_tools().await;
+                    if !mcp_tools.is_empty() {
+                        log::debug!("Injecting {} MCP tools into context", mcp_tools.len());
+                        available_tools.extend(mcp_tools);
+                    }
+                }
+
                 let skills = self.recall_skills(state, &agent_state.goal).await?;
                 let mut skills_prompt = String::new();
                 if !skills.is_empty() {
@@ -463,7 +482,7 @@ impl BlockchainService for DesktopAgentService {
                     agent_state.goal,
                     skills_prompt,
                     rag_context, 
-                    "Available Tools: ...",
+                    format!("Available Tools: {} (plus native)", available_tools.len()),
                     agent_state.history,
                     recovery_guidance,
                     if agent_state.consecutive_failures > 0 {
@@ -483,7 +502,7 @@ impl BlockchainService for DesktopAgentService {
                 let estimated_input_tokens = (user_prompt.len() as u64) / CHARS_PER_TOKEN;
                 let model_hash = [0u8; 32];
                 let options = InferenceOptions {
-                    tools: available_tools,
+                    tools: available_tools, 
                     temperature: if agent_state.consecutive_failures > 0 {
                         0.5
                     } else {
@@ -530,10 +549,13 @@ impl BlockchainService for DesktopAgentService {
                 let mut action_error = None;
                 let mut action_type = "unknown".to_string();
 
+                let mcp_handle = self.mcp.clone().unwrap_or_else(|| Arc::new(McpManager::new()));
+
                 let executor = ToolExecutor::new(
                     self.gui.clone(),
                     self.terminal.clone(),
                     self.browser.clone(),
+                    mcp_handle,
                     self.event_sender.clone(),
                 );
 
@@ -542,7 +564,7 @@ impl BlockchainService for DesktopAgentService {
                     if let Some(name) = tool_call.get("name").and_then(|n| n.as_str()) {
                         action_type = name.to_string();
 
-                        // --- Policy Enforcment ---
+                        // --- Policy Enforcment (Using Loaded Rules) ---
                         let os_driver = self.os_driver.clone().ok_or_else(|| {
                             TransactionError::Invalid("OS Driver not configured for policy check".into())
                         })?;
@@ -559,10 +581,8 @@ impl BlockchainService for DesktopAgentService {
                             nonce: agent_state.step_count as u64,
                         };
 
-                        let rules = ActionRules::default();
-                        
                         let verdict = PolicyEngine::evaluate(
-                            &rules,
+                            &rules, // [FIX] Use loaded rules
                             &dummy_request,
                             &self.scrubber.model,
                             &os_driver,
