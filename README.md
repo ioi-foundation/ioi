@@ -1,6 +1,6 @@
 # IOI: Internet of Intelligence
 
-![Status](https://img.shields.io/badge/status-pre--alpha-orange)
+![Status](https://img.shields.io/badge/status-alpha-yellow)
 ![License](https://img.shields.io/badge/license-BBSL-blue)
 ![Architecture](https://img.shields.io/badge/architecture-runtime--first-green)
 
