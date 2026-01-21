@@ -1,9 +1,9 @@
+// apps/autopilot/src-tauri/src/models.rs
 use serde::{Deserialize, Serialize};
-use std::sync::Mutex;
 use ioi_ipc::public::public_api_client::PublicApiClient;
 use tonic::transport::Channel;
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub enum AgentPhase {
     Idle,
     Running,

@@ -7,11 +7,10 @@ use ioi_types::app::KernelEvent;
 use ioi_types::codec;
 use ioi_types::error::TransactionError;
 
-// [FIX] Removed unused import
+// [FIX] Removed unused import ByteSerializable
 use image::load_from_memory;
 use image_hasher::{HashAlg, HasherConfig};
 use std::time::{SystemTime, UNIX_EPOCH};
-use dcrypt::algorithms::ByteSerializable;
 
 use super::types::{AgentState, AgentStatus};
 
@@ -26,6 +25,7 @@ pub fn compute_phash(image_bytes: &[u8]) -> Result<[u8; 32], TransactionError> {
 
     let mut out = [0u8; 32];
     let len = hash_bytes.len().min(32);
+    // Use standard slice copy since ByteSerializable is removed
     out[..len].copy_from_slice(&hash_bytes[..len]);
     Ok(out)
 }

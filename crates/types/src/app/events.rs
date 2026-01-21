@@ -20,6 +20,8 @@ pub enum KernelEvent {
         target: String,
         /// The hash of the ActionRequest, used for signing ApprovalTokens.
         request_hash: [u8; 32],
+        /// The session ID associated with this interception (if available).
+        session_id: Option<[u8; 32]>, // [NEW] Added session_id
     },
 
     /// The user performed a physical input while in Ghost Mode (Recording).

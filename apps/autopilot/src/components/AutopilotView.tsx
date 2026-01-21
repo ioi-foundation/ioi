@@ -88,127 +88,30 @@ export function AutopilotView({ onOpenStudio }: AutopilotViewProps) {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, []);
 
-  // Simulate agent execution
-  const handleSubmit = () => {
+  // Handle user intent submission
+  const handleSubmit = async () => {
     if (!intent.trim()) return;
     
-    const task: AgentTask = {
-      id: `task-${Date.now()}`,
-      intent: intent,
-      agent: "General Agent",
-      phase: "running",
-      progress: 0,
-      totalSteps: 7,
-      currentStep: "Analyzing intent...",
-      startTime: new Date(),
-    };
-    
-    setActiveTask(task);
-    setSpotlightOpen(false);
-    setIntent("");
-    
-    // Simulate progress
-    simulateExecution(task);
-  };
-
-  const simulateExecution = (task: AgentTask) => {
-    const steps = [
-      "Analyzing intent...",
-      "Opening browser...",
-      "Navigating to flights.google.com...",
-      "Entering search parameters...",
-      "Filtering results...",
-      "Comparing options...",
-      "Selecting best match...",
-    ];
-
-    let step = 0;
-    const interval = setInterval(() => {
-      step++;
-      
-      if (step === 4) {
-        // Trigger gate at step 4
-        setActiveTask(prev => prev ? {
-          ...prev,
-          phase: "gate",
-          progress: step,
-          currentStep: steps[step - 1],
-          gateInfo: {
-            title: "Payment Authorization",
-            description: "Agent wants to proceed to checkout. This will enter payment details and complete purchase of Delta flight DL1234 for $347.",
-            risk: "high",
-          }
-        } : null);
-        clearInterval(interval);
-      } else if (step >= steps.length) {
-        setActiveTask(prev => prev ? {
-          ...prev,
-          phase: "complete",
-          progress: steps.length,
-          currentStep: "Complete",
-          receipt: {
-            duration: "2m 34s",
-            actions: 47,
-            cost: "$347.00",
-          }
-        } : null);
-        clearInterval(interval);
-      } else {
-        setActiveTask(prev => prev ? {
-          ...prev,
-          progress: step,
-          currentStep: steps[step - 1],
-        } : null);
-      }
-    }, 1200);
+    // We don't manually creating the task state here anymore.
+    // We call the backend, and let the event stream update the UI.
+    try {
+        await startTask(intent);
+        setSpotlightOpen(false);
+        setIntent("");
+    } catch (e) {
+        console.error("Failed to start task:", e);
+    }
   };
 
   const handleGateApprove = () => {
-    if (!activeTask) return;
-    
-    setActiveTask(prev => prev ? {
-      ...prev,
-      phase: "running",
-      gateInfo: undefined,
-    } : null);
-    
-    // Continue execution
-    setTimeout(() => {
-      setActiveTask(prev => prev ? {
-        ...prev,
-        progress: 5,
-        currentStep: "Processing payment...",
-      } : null);
-    }, 800);
-    
-    setTimeout(() => {
-      setActiveTask(prev => prev ? {
-        ...prev,
-        progress: 6,
-        currentStep: "Confirming booking...",
-      } : null);
-    }, 2000);
-    
-    setTimeout(() => {
-      setActiveTask(prev => prev ? {
-        ...prev,
-        phase: "complete",
-        progress: 7,
-        currentStep: "Complete",
-        receipt: {
-          duration: "2m 34s",
-          actions: 47,
-          cost: "$347.00",
-        }
-      } : null);
-    }, 3500);
+    // Logic moved to src-tauri/src/lib.rs `gate_respond`
   };
 
   const handleGateDeny = () => {
     setActiveTask(prev => prev ? {
       ...prev,
       phase: "failed",
-      currentStep: "Cancelled by user",
+      currentStep: "Cancelled by user (Policy Denied)",
     } : null);
   };
 

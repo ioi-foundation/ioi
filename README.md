@@ -21,9 +21,10 @@ IOI transforms probabilistic AI inference into **Deterministic Agentic Finality*
 - [Repository Structure](#-repository-structure)
 - [Getting Started](#-getting-started)
     - [Prerequisites](#prerequisites)
-    - [Building from Source](#building-from-source)
-    - [Running a Local Devnet](#running-a-local-devnet)
+    - [Running the Full Stack (Kernel + UI)](#running-the-full-stack-kernel--ui)
+- [The "Human-in-the-Loop" Workflow](#-the-human-in-the-loop-workflow)
 - [Developing Agents](#-developing-agents)
+    - [Test Suite](#test-suite)
 - [Cryptography & Security](#-cryptography--security)
 - [License](#-license)
 
@@ -51,17 +52,11 @@ Every node in the IOI network (User, Provider, or Validator) runs the **Triadic 
     *   Signs the audit log of all actions.
 2.  **Orchestrator (`crates/node/src/bin/orchestration.rs`):**
     *   The control plane and **Agency Firewall**.
-    *   Manages the memeory pool, networking, and policy enforcement.
+    *   Manages the mempool, networking, and policy enforcement.
     *   Routes intents to local hardware or the Burst Network.
 3.  **Workload (`crates/node/src/bin/workload.rs`):**
     *   The ephemeral sandbox where "Alien Intelligence" (AI Models/Scripts) runs.
     *   Communicates via Shared Memory (Zero-Copy) for high throughput.
-
-### Fractal Topology
-IOI is **Edge-In**, not Server-Out.
-*   **Mode 0 (Local):** Runs on your laptop (`ioi-local`). Zero latency, full privacy.
-*   **Mode 1 (Session):** Burst to a Provider via p2p state channels for heavy compute (e.g., H100 GPU).
-*   **Mode 2 (Global):** The Mainnet. Used only for settlement, bonding, and dispute resolution.
 
 ---
 
@@ -69,30 +64,22 @@ IOI is **Edge-In**, not Server-Out.
 
 The codebase is organized as a Rust workspace with an Agent SDK in Python.
 
-### Core Protocol (`crates/`)
 | Crate | Description |
 | :--- | :--- |
-| **`api`** | Core traits (`ChainStateMachine`, `CommitmentScheme`, `TransactionModel`) and interfaces. |
+| **`api`** | Core traits (`ChainStateMachine`, `CommitmentScheme`) and interfaces. |
 | **`cli`** | The `ioi` developer toolchain. Handles scaffolding, testing, and devnets. |
 | **`consensus`** | Implements **A-DMFT** (Adaptive Deterministic Mirror Fault Tolerance). |
 | **`crypto`** | Post-Quantum primitives (ML-DSA, Kyber), BLS12-381, and Ed25519. |
 | **`execution`** | The execution environment, including **Block-STM**-style parallel execution (`mv_memory`). |
 | **`ibc-host`** | Universal Interoperability implementation (ICS-23, ICS-24, ICS-26). |
 | **`ipc`** | Inter-Process Communication using **gRPC** (Control) and **rkyv** (Shared Memory Data Plane). |
-| **`networking`** | Libp2p stack for block sync, gossipsub, and request-response. |
-| **`node`** | Entry points for the binaries (`orchestration`, `workload`, `guardian`, `ioi-local`). |
+| **`drivers`** | Native hardware drivers (GUI, Browser, MCP) for agent interaction. |
+| **`node`** | Entry points for the binaries (`ioi-local`, `guardian`, `workload`). |
 | **`services`** | Native WASM modules: `Governance`, `IdentityHub`, `ProviderRegistry`, `IBC`. |
-| **`state`** | Pluggable state trees: **IAVL**, **Jellyfish**, **Verkle**, **SparseMerkle**, and **mHNSW**. |
+| **`state`** | Pluggable state trees: **IAVL**, **Jellyfish**, **Verkle**, **mHNSW**. |
 | **`storage`** | Persistent storage layer based on **redb** with WAL support. |
-| **`tx`** | Transaction models (`UnifiedTransactionModel`, `SettlementModel`). |
 | **`validator`** | Container architecture logic (Standard vs. Hybrid validators). |
 | **`vm/wasm`** | Wasmtime-based runtime for smart contracts and services. |
-| **`zk-driver-succinct`** | Drivers for verifying SP1 / Succinct zero-knowledge proofs. |
-
-### SDKs
-| Path | Description |
-| :--- | :--- |
-| **`agent-sdk/python`** | Python bindings for building agents that interface with the IOI Kernel. |
 
 ---
 
@@ -101,26 +88,51 @@ The codebase is organized as a Rust workspace with an Agent SDK in Python.
 ### Prerequisites
 *   **Rust:** Stable 1.78+ (`rustup update stable`)
 *   **Protobuf Compiler:** `protoc` (required for `tonic-build`)
+*   **Node.js/NPM:** Required for the Autopilot UI.
 *   **System Deps:** `pkg-config`, `libssl-dev`, `build-essential`
 
-### Building from Source
+### Running the Full Stack (Kernel + UI)
 
-Build the CLI tool, which includes the embedded node runner:
-
-```bash
-cargo build --release -p ioi-cli
-```
-
-### Running a Local Devnet
-
-The easiest way to develop on IOI is using the CLI to spawn a local cluster. This sets up a Genesis block, keys, and runs the Triadic Kernel locally.
+#### 1. Start the IOI Kernel (Local Mode)
+In a **terminal**, first build and initialize the local node to generate identity keys and genesis state:
 
 ```bash
-# Run a single-node devnet with Proof of Authority and IAVL state
-./target/release/cli node --validators 1 --consensus poa --tree iavl
+cargo run --bin ioi-local --features="validator-bins state-iavl consensus-admft"
 ```
 
-You should see logs indicating the **Orchestrator**, **Workload**, and **Guardian** containers starting up and peering via mTLS.
+Once the node starts and prints the logs, **stop it (Ctrl+C)**.
+
+To enable real AI inference (required for complex agent demos), inject your API key and run the compiled binary directly:
+
+```bash
+export OPENAI_API_KEY=sk-proj-...
+./target/debug/ioi-local
+```
+*Wait for:* `ORCHESTRATION_RPC_LISTENING_ON_0.0.0.0:9000`
+
+#### 2. Start the Autopilot UI
+In a **second terminal**, start the desktop frontend.
+
+```bash
+cd apps/autopilot
+npm install
+npm run tauri dev
+```
+*Action:* Press `Ctrl+Space` (or `Cmd+Space` on macOS) to open the spotlight bar.
+
+---
+
+## 🛡️ The "Human-in-the-Loop" Workflow
+
+IOI introduces the **Agency Firewall**, allowing users to safely delegate tasks to agents. Here is the lifecycle of a protected action:
+
+1.  **Intent:** User types `"Write a file to ./ioi-data/test.txt"` in Autopilot.
+2.  **Inference:** The Kernel's AI resolves this intent to a tool call: `filesystem__write_file`.
+3.  **Interception:** The Firewall detects that `fs::write` is a restricted capability. It halts execution and returns `REQUIRE_APPROVAL`.
+4.  **Gate Window:** The Autopilot UI catches this event and pops up a "Policy Gate" window.
+5.  **Approval:** The user clicks "Approve". The UI signs a cryptographic `ApprovalToken` using the local identity.
+6.  **Resumption:** The token is submitted to the Kernel via `resume@v1`.
+7.  **Execution:** The Kernel verifies the token, unblocks the action, and the MCP Server executes the file write.
 
 ---
 
@@ -128,124 +140,24 @@ You should see logs indicating the **Orchestrator**, **Workload**, and **Guardia
 
 IOI agents are "Trace-First". You define logic, and the system auto-generates the security policy.
 
-1.  **Scaffold a Project:**
-    ```bash
-    ./target/release/cli init my-agent
-    ```
-
-2.  **Define Logic (Python SDK):**
-    ```python
-    from ioi import tool, Agent
-
-    @tool("net::fetch")
-    def get_price(ticker: str):
-        # Implementation...
-        pass
-    
-    agent = Agent("trader")
-    ```
-
-3.  **Ghost Mode (Trace Generation):**
-    Run the agent in "Ghost Mode" to capture its behavior without enforcement. The kernel records all I/O to generate a Manifest.
-    ```bash
-    # (Future feature in CLI)
-    ioi-cli ghost run my_agent.py
-    ```
-
-4. **Helpful test commands**
-
-    ```bash
-    IOI_GUARDIAN_KEY_PASS="local-mode" cargo run --bin ioi-local --features="validator-bins state-iavl consensus-admft"
-    ```
-
-    2.  **Restart the Node:**
-    ```bash
-    LISTEN_ADDRESS="/ip4/0.0.0.0/tcp/9000" \
-    ORCHESTRATION_RPC_LISTEN_ADDRESS="0.0.0.0:9000" \
-    IOI_GUARDIAN_KEY_PASS="local-mode" \
-    cargo run --bin ioi-local --features="validator-bins state-iavl consensus-admft"
-    ```
-3.  **Run the Agent Script:**
-    ```bash
-    export PYTHONPATH=$PYTHONPATH:$(pwd)/agent-sdk/python/src
-    python3 examples/test_agent.py
-    ```
-    ```bash
-    cargo test -p ioi-cli --test infra_e2e --features "consensus-admft,vm-wasm,state-iavl" -- --nocapture --test-threads=1
-    ```
-
-    ```bash
-    cargo test --package ioi-cli --test sync_e2e --features "consensus-admft,vm-wasm,state-iavl" -- --nocapture --test-threads=1
-    ```
-    ```bash
-    cargo test --package ioi-cli --test scrubber_e2e --features "consensus-admft,vm-wasm,state-iavl" -- --nocapture --test-threads=1
-    ```
-
-    ```bash
-    cargo test --package ioi-cli --test workload_control_e2e --features "consensus-admft,vm-wasm,state-iavl" -- --nocapture --test-threads=1
-    ```
-
-    ```bash
-    cargo test --package ioi-cli --test agentic_e2e --features "consensus-admft,vm-wasm,state-iavl" -- --nocapture --test-threads=1
-    ```
-    ```bash
-    cargo test --package ioi-cli --test agent_trace_e2e --features "consensus-admft,vm-wasm,state-iavl" -- --nocapture --test-threads=1
-    ```
-
-    ```bash
-    cargo test --package ioi-cli --test agent_budget_e2e --features "consensus-admft,vm-wasm,state-iavl" -- --nocapture --test-threads=1
-    ```
-    ```bash
-    cargo test --package ioi-cli --test agent_hybrid_e2e --features "consensus-admft,vm-wasm,state-iavl" -- --nocapture --test-threads=1
-    ```
-    ```bash
-    cargo test --package ioi-cli --test agent_pause_resume --features "consensus-admft,vm-wasm,state-iavl" -- --nocapture --test-threads=1
-    ```
-    ```bash
-    cargo test --package ioi-cli --test agent_resilience_e2e --features "consensus-admft,vm-wasm,state-iavl" -- --nocapture --test-threads=1
-    ```
-    ```bash
-    cargo test --package ioi-cli --test agent_scrub_e2e --features "consensus-admft,vm-wasm,state-iavl" -- --nocapture --test-threads=1
-    ```
-    ```bash
-    cargo test --package ioi-cli --test agent_swarm_e2e --features "consensus-admft,vm-wasm,state-iavl" -- --nocapture --test-threads=1
-    ```
-    ```bash
-    cargo test --package ioi-cli --test ghost_mode_e2e --features "consensus-admft,vm-wasm,state-iavl" -- --nocapture --test-threads=1
-    ```
-    ```bash
-    cargo test --package ioi-cli --test agent_rag_and_policy_e2e --features "consensus-admft,vm-wasm,state-iavl" -- --nocapture --test-threads=1
-    ```
-    ```bash
-    cargo test --package ioi-cli --test agent_mcp_e2e --features "consensus-admft,vm-wasm,state-iavl" -- --nocapture --test-threads=1
-    ```
-
-### Step 1: Start the IOI Kernel (Local Mode)
-
-In a **new terminal**, run the local node. This acts as the backend server (Orchestrator + Workload) that the UI will connect to via gRPC on port 9000.
+### Test Suite
+Run specific end-to-end tests to verify kernel components:
 
 ```bash
-# From the repository root
-cargo run --bin ioi-local --features="validator-bins state-iavl consensus-admft"
+# Core Infrastructure
+cargo test -p ioi-cli --test infra_e2e --features "consensus-admft,vm-wasm,state-iavl" -- --nocapture
+
+# Agentic Capabilities (Budget, Policy, Scrubbing)
+cargo test -p ioi-cli --test agent_budget_e2e --features "consensus-admft,vm-wasm,state-iavl"
+cargo test -p ioi-cli --test agent_scrub_e2e --features "consensus-admft,vm-wasm,state-iavl"
+cargo test -p ioi-cli --test agent_rag_and_policy_e2e --features "consensus-admft,vm-wasm,state-iavl"
+
+# Model Context Protocol (MCP) Integration
+cargo test -p ioi-cli --test agent_mcp_e2e --features "consensus-admft,vm-wasm,state-iavl" -- --nocapture
+
+# Full Swarm Logic
+cargo test -p ioi-cli --test agent_swarm_e2e --features "consensus-admft,vm-wasm,state-iavl"
 ```
-
-*   **Success Indicator:** Look for the log line: `ORCHESTRATION_RPC_LISTENING_ON_0.0.0.0:9000`
-
-### Step 2: Start the Autopilot UI
-
-In a **second terminal**, start the frontend.
-
-```bash
-cd apps/autopilot
-RUST_LOG=tauri=debug TAURI_LOG=debug npm run tauri dev  # with logging
-npm run tauri dev
-```
-
-*   **Action:** When the window opens, press `Cmd+Space` (or `Ctrl+Space`), type `Analyze network traffic`, and hit Enter.
-*   **Verification:**
-    *   **UI:** You should see a "Running" pill appear.
-    *   **Terminal 1 (Kernel):** You should see logs like `Received transaction via gRPC` and `Block #1 Committed`.
-    *   **Terminal 2 (UI):** You should see `[Autopilot] Connected to Kernel` and `[Autopilot] Intent submitted`.
 
 ---
 
@@ -265,4 +177,4 @@ This project is licensed under the **BBSL** (Business Source License) as defined
 *   Free for non-production and development use.
 *   Production use requires a license (or converts to Open Source after a set period).
 
-*Copyright © 2025 IOI Foundation.*
+*Copyright © 2026 IOI Foundation.*

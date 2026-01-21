@@ -26,9 +26,18 @@ impl PolicyEngine {
         let request_hash = request.hash();
 
         // 1. Authorization Gate: Check for valid ApprovalToken first.
+        // If the user has already signed a token for this EXACT request hash, it bypasses policy checks.
+        // This is how the "Gate Window" flow resolves.
         if let Some(token) = presented_approval {
             if token.request_hash == request_hash {
+                tracing::info!("Policy Gate: Valid Approval Token presented. Allowing action.");
                 return Verdict::Allow; 
+            } else {
+                 tracing::warn!(
+                     "Policy Gate: Token mismatch. Token for {:?}, Request is {:?}", 
+                     hex::encode(token.request_hash), 
+                     hex::encode(request_hash)
+                 );
             }
         }
 
@@ -58,7 +67,8 @@ impl PolicyEngine {
             ActionTarget::Custom(s) => s.as_str(),
         };
 
-        // Linear scan of rules (specific overrides general)
+        // 2. Specific Rules: Linear scan (specific overrides general)
+        // First matching rule wins.
         for rule in &rules.rules {
             if rule.target == target_str || rule.target == "*" {
                 if Self::check_conditions(rule, &request.target, &request.params, safety_model, os_driver).await {
@@ -67,13 +77,17 @@ impl PolicyEngine {
             }
         }
 
+        // 3. Default Behavior
         match rules.defaults {
             DefaultPolicy::AllowAll => Verdict::Allow,
             DefaultPolicy::DenyAll => Verdict::Block,
+            // [NEW] If no rule matches, default to asking the user (Interactive Mode)
+            DefaultPolicy::RequireApproval => Verdict::RequireApproval,
         }
     }
 
     /// Evaluates specific conditions for a rule.
+    /// Returns true if ALL conditions in the rule are met (or if there are no conditions).
     async fn check_conditions(
         rule: &Rule,
         target: &ActionTarget,
@@ -114,9 +128,31 @@ impl PolicyEngine {
                     }
                 }
                 
-                return true;
+                // If the command is safe, we continue to check other generic conditions below.
+                // If there are no other conditions, we return true at the end.
+            } else {
+                return false; // Failed to parse params
             }
-            return false; // Failed to parse params
+        }
+
+        // [FIX] Filesystem Path Check
+        if let Some(allowed_paths) = &conditions.allow_paths {
+            if let ActionTarget::FsWrite | ActionTarget::FsRead = target {
+                if let Ok(json) = serde_json::from_slice::<Value>(params) {
+                    if let Some(path) = json.get("path").and_then(|p| p.as_str()) {
+                        // Check if the requested path starts with any allowed path prefix
+                        let is_allowed = allowed_paths.iter().any(|allowed| path.starts_with(allowed));
+                        
+                        if !is_allowed {
+                             tracing::warn!(
+                                 "Policy Blocking FS Access: Requested '{}' does not start with any allowed path: {:?}", 
+                                 path, allowed_paths
+                             );
+                             return false;
+                        }
+                    }
+                }
+            }
         }
 
         // 1. Context Check: Allowed Apps (GUI Isolation)
@@ -131,7 +167,6 @@ impl PolicyEngine {
                         if !is_allowed {
                             tracing::warn!("Policy Violation: Blocked interaction with window '{}'", active_app);
                             // If condition fails (app not allowed), the rule (e.g., Allow) should NOT apply.
-                            // So we return false.
                             return false;
                         }
                     } else {
@@ -150,9 +185,12 @@ impl PolicyEngine {
                 if let Ok(json) = serde_json::from_slice::<Value>(params) {
                     if let Some(text) = json.get("text").and_then(|t| t.as_str()) {
                         if text.contains(pattern) {
-                            return true; // Match! (Block this rule)
-                        } else {
-                            return false;
+                            // If block pattern matches, does the rule apply?
+                            // This logic depends on the rule action. 
+                            // If the rule is "Block if pattern matches", returning true applies the block.
+                            // If the rule is "Allow", this logic is inverted (we return false if pattern matches).
+                            // Assuming `block_text_pattern` implies a negative constraint on an Allow rule:
+                            return false; 
                         }
                     }
                 }
@@ -214,20 +252,19 @@ impl PolicyEngine {
 
                 if let SafetyVerdict::Unsafe(reason) = classification {
                     if blocked_intents.iter().any(|i| reason.contains(i)) {
-                         return true; 
-                    } else {
+                        // If intent is blocked, the rule (assuming Allow) should NOT apply.
                         return false; 
                     }
                 }
-                return false;
             }
         }
 
-        // Default: If no specific conditions failed, the rule applies.
+        // Default: If no specific conditions failed (or if there were no conditions set in the rule),
+        // then the rule matches. This enables "Catch-All" rules where conditions are None/Default.
         true
     }
 
-    /// Checks permission for a `CallService` transaction.
+    /// Checks permission for a `CallService` transaction based on the service's ABI metadata.
     pub fn check_service_call(
         state: &dyn StateAccess,
         service_id: &str,

@@ -127,7 +127,7 @@ impl ActionRequest {
 // -----------------------------------------------------------------------------
 
 /// Constraints on a user approval.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Encode, Decode)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Encode, Decode, Default)]
 pub struct ApprovalScope {
     /// UNIX timestamp when this approval expires.
     pub expires_at: u64,
