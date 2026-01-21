@@ -89,11 +89,13 @@ export function GateWindow() {
     setConfirmed(true);
     // Delay actual response to allow stamp animation to play
     setTimeout(async () => {
+      // COMMAND UPDATED HERE: submit_gate_decision -> gate_respond
       await invoke("gate_respond", { approved: true });
     }, 1500); 
   };
 
   const handleDeny = async () => {
+    // COMMAND UPDATED HERE: submit_gate_decision -> gate_respond
     await invoke("gate_respond", { approved: false });
   };
 

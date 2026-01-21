@@ -188,5 +188,20 @@ pub fn discover_tools(state: &dyn StateAccess) -> Vec<LlmToolDefinition> {
         parameters: sys_params.to_string(),
     });
 
+    // [NEW] Filesystem Write
+    let fs_write_params = json!({
+        "type": "object",
+        "properties": {
+            "path": { "type": "string", "description": "Absolute path to write the file to" },
+            "content": { "type": "string", "description": "Text content to write" }
+        },
+        "required": ["path", "content"]
+    });
+    tools.push(LlmToolDefinition {
+        name: "filesystem__write_file".to_string(),
+        description: "Write text content to a file on the local filesystem. Use this to save data.".to_string(),
+        parameters: fs_write_params.to_string(),
+    });
+
     tools
 }

@@ -296,23 +296,31 @@ pub async fn run_ingestion_worker<CS>(
                     service_id, method, params, ..
                 } = &sys.payload;
 
-                if service_id == "agentic" || service_id == "compute_market" {
+                if service_id == "agentic" || service_id == "desktop_agent" || service_id == "compute_market" {
                     // 1. Construct ActionRequest for PolicyEngine
                     let request = ActionRequest {
                         target: ActionTarget::Custom(method.clone()),
                         params: params.clone(),
                         context: ActionContext {
-                            agent_id: "unknown".into(), // TODO: Extract from tx metadata if available
+                            agent_id: "unknown".into(), 
                             session_id: None, 
                             window_id: None,
                         },
-                        nonce: 0, // Placeholder
+                        nonce: 0, 
                     };
 
-                    // TODO: Load active policy from chain state or config
-                    let rules = ActionRules::default();
+                    // [FIX] Load active policy from state (Global Fallback)
+                    // We query the raw state for the global policy key (zero address)
+                    // This matches the ioi-local setup.
+                    let global_policy_key = [b"agent::policy::".as_slice(), &[0u8; 32]].concat();
                     
-                    // TODO: Extract ApprovalToken from tx signature wrapper if present
+                    let rules = match workload_client.query_raw_state(&global_policy_key).await {
+                        Ok(Some(bytes)) => {
+                            codec::from_bytes_canonical::<ActionRules>(&bytes).unwrap_or_default()
+                        },
+                        _ => ActionRules::default() // DenyAll
+                    };
+                    
                     let approval_token: Option<ApprovalToken> = None;
 
                     // 2. Evaluate Policy (Context-Aware)
@@ -322,11 +330,12 @@ pub async fn run_ingestion_worker<CS>(
                         &safety_model,
                         &os_driver,
                         approval_token.as_ref(),
-                    ).await;
+                    )
+                    .await;
 
                     match verdict {
                         Verdict::Allow => {
-                            // Proceed to Semantic Checks
+                            // Proceed
                         },
                         Verdict::Block => {
                             is_safe = false;
@@ -337,6 +346,7 @@ pub async fn run_ingestion_worker<CS>(
                                 verdict: "BLOCK".to_string(),
                                 target: method.clone(),
                                 request_hash: p_tx.canonical_hash,
+                                session_id: None, // [FIX] Added session_id (None for ingestion context)
                             });
 
                             status_guard.put(
@@ -357,6 +367,7 @@ pub async fn run_ingestion_worker<CS>(
                                 verdict: "REQUIRE_APPROVAL".to_string(),
                                 target: method.clone(),
                                 request_hash: p_tx.canonical_hash,
+                                session_id: None, // [FIX] Added session_id (None for ingestion context)
                             });
 
                             status_guard.put(
@@ -390,6 +401,7 @@ pub async fn run_ingestion_worker<CS>(
                                         verdict: verdict_str.to_string(),
                                         target: method.clone(),
                                         request_hash: p_tx.canonical_hash,
+                                        session_id: None, // [FIX] Added session_id (None for ingestion context)
                                     });
 
                                     status_guard.put(

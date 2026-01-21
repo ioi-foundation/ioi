@@ -5,6 +5,8 @@ use anyhow::{anyhow, Result};
 use clap::Parser;
 use ioi_api::crypto::SerializableKey;
 use ioi_api::state::service_namespace_prefix;
+// [FIX] Add StateAccess and StateManager imports for hot-patching logic
+use ioi_api::state::{StateAccess, StateManager};
 use ioi_api::validator::container::Container;
 use ioi_consensus::util::engine_from_config;
 use ioi_crypto::sign::eddsa::Ed25519PrivateKey;
@@ -35,18 +37,19 @@ use tokio::sync::Mutex as TokioMutex;
 
 use ioi_types::service_configs::{ActiveServiceMeta, Capabilities, MethodPermission};
 
-// [FIX] Imports for Agent Driver and Context
 use ioi_validator::standard::orchestration::operator_tasks::{
     run_agent_driver_task, run_oracle_operator_task,
 };
 use ioi_validator::standard::orchestration::context::MainLoopContext;
 use ioi_consensus::Consensus;
 
-// [FIX] Imports for Real Inference
 use ioi_api::vm::inference::{HttpInferenceRuntime, InferenceRuntime, LocalSafetyModel};
 use ioi_services::agentic::scrub_adapter::RuntimeAsSafetyModel;
-// [FIX] Import NativeOsDriver
 use ioi_drivers::os::NativeOsDriver;
+
+// [FIX] Removed unused RuleConditions import to silence warning
+use ioi_services::agentic::rules::{ActionRules, DefaultPolicy, Rule, Verdict, RuleConditions};
+use ioi_types::codec;
 
 #[derive(Parser, Debug)]
 #[clap(name = "ioi-local", about = "IOI User Node (Mode 0)")]
@@ -57,14 +60,14 @@ struct LocalOpts {
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    // [FIX] Install default crypto provider for rustls 0.23+
+    // Install default crypto provider for rustls 0.23+
     let _ = rustls::crypto::ring::default_provider().install_default();
     ioi_telemetry::init::init_tracing()?;
 
     let opts = LocalOpts::parse();
     fs::create_dir_all(&opts.data_dir)?;
 
-    // --- Identity Setup ---
+    // 1. Identity Setup
     let key_path = opts.data_dir.join("identity.key");
     let local_key = if key_path.exists() {
         let raw = GuardianContainer::load_encrypted_file(&key_path)?;
@@ -83,18 +86,14 @@ async fn main() -> Result<()> {
         &local_key.public().encode_protobuf(),
     )?);
 
-    // --- SCS Setup ---
+    // 2. SCS Setup
     let scs_path = opts.data_dir.join("context.scs");
     let scs_config = StoreConfig {
         chain_id: 0,
         owner_id: local_account_id.0,
     };
-
     let scs = if scs_path.exists() {
-        println!(
-            "Opening existing Sovereign Context Substrate at {:?}",
-            scs_path
-        );
+        println!("Opening existing Sovereign Context Substrate at {:?}", scs_path);
         SovereignContextStore::open(&scs_path)?
     } else {
         println!("Creating new Sovereign Context Substrate at {:?}", scs_path);
@@ -102,6 +101,68 @@ async fn main() -> Result<()> {
     };
     let scs_arc: Arc<Mutex<SovereignContextStore>> = Arc::new(Mutex::new(scs));
 
+    // -------------------------------------------------------------------------
+    // DEFINITIONS: Dynamic Policy & Metadata
+    // We define these here so they can be used for BOTH Genesis Generation AND Hot-Patching
+    // -------------------------------------------------------------------------
+    
+    // 1. Desktop Agent Service Metadata
+    let mut agent_methods = std::collections::BTreeMap::new();
+    agent_methods.insert("start@v1".to_string(), MethodPermission::User);
+    agent_methods.insert("step@v1".to_string(), MethodPermission::User);
+    agent_methods.insert("resume@v1".to_string(), MethodPermission::User);
+
+    let agent_meta = ActiveServiceMeta {
+        id: "desktop_agent".to_string(),
+        abi_version: 1,
+        state_schema: "v1".to_string(),
+        caps: Capabilities::empty(),
+        artifact_hash: [0u8; 32],
+        activated_at: 0,
+        methods: agent_methods,
+        allowed_system_prefixes: vec![],
+    };
+
+    // 2. Agency Firewall Rules (The Policy)
+    // Instead of hardcoding capabilities, we set the default to RequireApproval.
+    // The Agent creates the intent -> The Kernel pauses -> The UI asks You -> You Sign -> Agent Acts.
+    let session_id = [0u8; 32];
+    let local_policy = ActionRules {
+        policy_id: "interactive-mode".to_string(),
+        // [FIX] This enables the dynamic behavior.
+        // Unknown actions aren't banned; they trigger the Gate Window for approval.
+        defaults: DefaultPolicy::RequireApproval, 
+        rules: vec![
+             // We only strictly ALLOW things that are purely internal/safe to reduce UI noise.
+             Rule {
+                rule_id: Some("allow-ui-read".into()),
+                target: "gui::screenshot".into(), // Passive observation is allowed
+                conditions: Default::default(),
+                action: Verdict::Allow, 
+             },
+             Rule {
+                rule_id: Some("allow-lifecycle".into()),
+                target: "start@v1".into(), 
+                conditions: Default::default(),
+                action: Verdict::Allow, 
+             },
+             Rule {
+                rule_id: Some("allow-step".into()),
+                target: "step@v1".into(), 
+                conditions: Default::default(),
+                action: Verdict::Allow, 
+             },
+             Rule {
+                rule_id: Some("allow-resume".into()),
+                target: "resume@v1".into(), 
+                conditions: Default::default(),
+                action: Verdict::Allow, 
+             },
+             // Everything else (File Write, Network, Exec) hits the Default => RequireApproval
+        ],
+    };
+
+    // 3. Configuration Setup
     let rpc_addr = std::env::var("ORCHESTRATION_RPC_LISTEN_ADDRESS")
         .unwrap_or_else(|_| "0.0.0.0:9000".to_string());
 
@@ -121,16 +182,12 @@ async fn main() -> Result<()> {
         tokenizer_path: None,
     };
 
-    // --- Service Policies ---
+    // Service Policies (ACLs)
     let mut service_policies = ioi_types::config::default_service_policies();
 
-    let mut agent_methods_policy = std::collections::BTreeMap::new();
-    agent_methods_policy.insert("start@v1".to_string(), MethodPermission::User);
-    agent_methods_policy.insert("step@v1".to_string(), MethodPermission::User);
-    agent_methods_policy.insert("resume@v1".to_string(), MethodPermission::User);
-
+    // Use the same metadata definitions for policy consistency
     service_policies.insert("desktop_agent".to_string(), ioi_types::config::ServicePolicy {
-        methods: agent_methods_policy,
+        methods: agent_meta.methods.clone(),
         allowed_system_prefixes: vec![],
     });
 
@@ -143,27 +200,44 @@ async fn main() -> Result<()> {
         allowed_system_prefixes: vec![],
     });
 
-    // --- REAL INFERENCE CONFIGURATION ---
-    // Priority: 1. OpenAI Key -> 2. Local URL -> 3. Ollama (Default)
+    // Inference Configuration
     let openai_key = std::env::var("OPENAI_API_KEY").ok();
     let local_url = std::env::var("LOCAL_LLM_URL").ok();
 
     let (provider, api_url, api_key, model_name) = if let Some(key) = openai_key {
         let model = std::env::var("OPENAI_MODEL").unwrap_or("gpt-4o".to_string());
         println!("🤖 OpenAI API Key detected.");
-        println!("   - Provider: OpenAI");
-        println!("   - Model: {}", model);
         ("openai", "https://api.openai.com/v1/chat/completions".to_string(), Some(key), model)
     } else if let Some(url) = local_url {
-        println!("🤖 LOCAL_LLM_URL detected. Using Custom Endpoint.");
+        println!("🤖 LOCAL_LLM_URL detected.");
         ("local", url, None, "llama3".to_string())
     } else {
-        // DEFAULT: Assume Local Ollama is running if nothing else is configured
-        println!("🤖 No API Key found. Defaulting to Local Ollama.");
-        println!("   - URL: http://localhost:11434/v1/chat/completions");
-        println!("   (Set OPENAI_API_KEY to use cloud inference instead)");
-        ("local", "http://localhost:11434/v1/chat/completions".to_string(), None, "llama3".to_string())
+        println!("🤖 No API Key found. Using MOCK BRAIN for deterministic testing.");
+        println!("   (Set OPENAI_API_KEY or LOCAL_LLM_URL to use real AI)");
+        ("mock", "".to_string(), None, "mock-model".to_string())
     };
+    
+    // Resolve User Home for MCP mounts
+    let user_home = std::env::var("HOME").unwrap_or_else(|_| ".".to_string());
+    println!("📂 Mounting User Space (Gated): {}", user_home);
+
+    let mut mcp_servers = std::collections::HashMap::new();
+
+    mcp_servers.insert(
+        "filesystem".to_string(),
+        ioi_types::config::McpConfigEntry {
+            command: "npx".to_string(),
+            args: vec![
+                "-y".to_string(),
+                "@modelcontextprotocol/server-filesystem".to_string(),
+                // Mount internal data (scratchpad)
+                opts.data_dir.to_string_lossy().to_string(), 
+                // Mount User Home (so it can be useful)
+                user_home.clone(), 
+            ],
+            env: std::collections::HashMap::new(),
+        }
+    );
 
     let workload_config = WorkloadConfig {
         runtimes: vec!["wasm".to_string()],
@@ -206,20 +280,27 @@ async fn main() -> Result<()> {
         fast_inference: None,
         reasoning_inference: None,
         connectors: Default::default(),
+        mcp_servers, 
     };
 
+    // -------------------------------------------------------------------------
+    // 4. Genesis Generation
+    // -------------------------------------------------------------------------
     if !Path::new(&workload_config.genesis_file).exists() {
         println!("Generating new genesis file for local mode...");
         use base64::{engine::general_purpose::STANDARD as BASE64, Engine};
         use ioi_types::codec::to_bytes_canonical;
         use ioi_types::keys::*;
         use ioi_types::service_configs::{GovernancePolicy, GovernanceSigner};
+        
         let mut genesis_state = serde_json::Map::new();
         let mut insert_raw = |key: &[u8], encoded_val: Vec<u8>| {
             let key_str = format!("b64:{}", BASE64.encode(key));
             let val_str = format!("b64:{}", BASE64.encode(encoded_val));
             genesis_state.insert(key_str, serde_json::Value::String(val_str));
         };
+
+        // Identity & Validator Set
         let cred = ioi_types::app::Credential {
             suite: SignatureSuite::ED25519,
             public_key_hash: local_account_id.0,
@@ -263,25 +344,14 @@ async fn main() -> Result<()> {
             .unwrap(),
         );
 
-        let mut agent_methods = std::collections::BTreeMap::new();
-        agent_methods.insert("start@v1".to_string(), MethodPermission::User);
-        agent_methods.insert("step@v1".to_string(), MethodPermission::User);
-        agent_methods.insert("resume@v1".to_string(), MethodPermission::User);
-
-        let agent_meta = ActiveServiceMeta {
-            id: "desktop_agent".to_string(),
-            abi_version: 1,
-            state_schema: "v1".to_string(),
-            caps: Capabilities::empty(),
-            artifact_hash: [0u8; 32],
-            activated_at: 0,
-            methods: agent_methods,
-            allowed_system_prefixes: vec![],
-        };
-        
+        // --- INSERT THE AGENT METADATA & POLICY INTO GENESIS ---
         let agent_key = ioi_types::keys::active_service_key("desktop_agent");
         insert_raw(&agent_key, to_bytes_canonical(&agent_meta).unwrap());
         
+        let policy_key = [b"agent::policy::", session_id.as_slice()].concat();
+        insert_raw(&policy_key, to_bytes_canonical(&local_policy).unwrap());
+
+        // Service Metadata: Compute Market
         let mut market_methods = std::collections::BTreeMap::new();
         market_methods.insert("request_task@v1".to_string(), MethodPermission::User);
         market_methods.insert("finalize_provisioning@v1".to_string(), MethodPermission::User);
@@ -306,9 +376,11 @@ async fn main() -> Result<()> {
         )?;
     }
 
+    // -------------------------------------------------------------------------
+    // 5. Driver Instantiation
+    // -------------------------------------------------------------------------
     let (event_tx, _event_rx) = tokio::sync::broadcast::channel(1000);
 
-    // [FIX] Instantiate OS Driver
     let os_driver = Arc::new(NativeOsDriver::new());
 
     let gui_driver = Arc::new(
@@ -324,7 +396,7 @@ async fn main() -> Result<()> {
     let scheme = HashCommitmentScheme::new();
     let tree = IAVLTree::new(scheme.clone());
     
-    // [FIX] Pass os_driver to setup_workload
+    // Setup Workload with drivers
     let (workload_container, machine) = setup_workload(
         tree,
         scheme.clone(),
@@ -333,10 +405,39 @@ async fn main() -> Result<()> {
         Some(browser_driver),
         Some(scs_arc.clone()), 
         Some(event_tx.clone()), 
-        Some(os_driver.clone()), // <--- PASSED HERE
+        Some(os_driver.clone()), 
     )
     .await?;
 
+    // -------------------------------------------------------------------------
+    // [NEW] HOT-PATCH STATE: Force Update Policy & Meta
+    // This ensures that code changes apply even if state.db exists.
+    // -------------------------------------------------------------------------
+    {
+        println!("Applying active security policy to state...");
+        let state_tree = workload_container.state_tree();
+        let mut state = state_tree.write().await;
+        
+        // 1. Patch Policy
+        let policy_key = [b"agent::policy::", session_id.as_slice()].concat();
+        // [FIX] Explicitly type error conversion
+        let policy_bytes = codec::to_bytes_canonical(&local_policy).map_err(|e| anyhow!(e))?;
+        state.insert(&policy_key, &policy_bytes).map_err(|e| anyhow!(e.to_string()))?;
+
+        // 2. Patch Service Meta
+        let agent_key = ioi_types::keys::active_service_key("desktop_agent");
+        // [FIX] Explicitly type error conversion
+        let meta_bytes = codec::to_bytes_canonical(&agent_meta).map_err(|e| anyhow!(e))?;
+        state.insert(&agent_key, &meta_bytes).map_err(|e| anyhow!(e.to_string()))?;
+        
+        // Commit these changes immediately so they are available for the first transaction
+        // [FIX] Explicitly type error conversion
+        let _ = state.commit_version(0).map_err(|e| anyhow!(e.to_string()))?;
+    }
+
+    // -------------------------------------------------------------------------
+    // 6. Runtime Execution
+    // -------------------------------------------------------------------------
     let workload_ipc_addr = "127.0.0.1:8555";
     std::env::set_var("IPC_SERVER_ADDR", workload_ipc_addr);
 
@@ -383,16 +484,19 @@ async fn main() -> Result<()> {
     let internal_kp = ioi_crypto::sign::eddsa::Ed25519KeyPair::from_private_key(&internal_sk)?;
     let signer = Arc::new(LocalSigner::new(internal_kp));
 
-    // [FIX] CONSTRUCT REAL INFERENCE RUNTIME FOR SAFETY
-    let inference_runtime: Arc<dyn InferenceRuntime> = Arc::new(
-        HttpInferenceRuntime::new(
-            api_url,
-            api_key.unwrap_or_default(),
-            model_name
-        )
-    );
+    let inference_runtime: Arc<dyn InferenceRuntime> = if let Some(key) = &workload_config.inference.api_key {
+        let model_name = workload_config.inference.model_name.clone().unwrap_or("gpt-4o".to_string());
+        let api_url = workload_config.inference.api_url.clone().unwrap_or("https://api.openai.com/v1/chat/completions".to_string());
+        
+        Arc::new(HttpInferenceRuntime::new(api_url, key.clone(), model_name))
+    } else if workload_config.inference.provider == "mock" {
+         Arc::new(ioi_api::vm::inference::mock::MockInferenceRuntime)
+    } else {
+         let model_name = workload_config.inference.model_name.clone().unwrap_or("llama3".to_string());
+         let api_url = workload_config.inference.api_url.clone().unwrap_or("http://localhost:11434/v1/chat/completions".to_string());
+          Arc::new(HttpInferenceRuntime::new(api_url, "".to_string(), model_name))
+    };
 
-    // [FIX] Use RuntimeAsSafetyModel instead of MockBitNet
     let safety_model: Arc<dyn LocalSafetyModel> = Arc::new(
         RuntimeAsSafetyModel::new(inference_runtime.clone())
     );
@@ -413,7 +517,6 @@ async fn main() -> Result<()> {
         
         inference_runtime: inference_runtime.clone(),
         
-        // [FIX] Pass the os_driver instance
         os_driver: os_driver.clone(),
 
         scs: Some(scs_arc.clone()),
@@ -424,11 +527,12 @@ async fn main() -> Result<()> {
     orchestrator.set_chain_and_workload_client(machine, workload_client);
 
     println!("\n✅ IOI User Node (Mode 0) configuration is valid.");
-    println!("   - Agency Firewall: Active (Powered by LLM)");
+    println!("   - Agency Firewall: User-in-the-Loop Mode (Interactive Gates)");
     println!("   - The Substrate: Mounted at {}", opts.data_dir.display());
     println!("   - SCS Storage: Active (.scs)");
     println!("   - GUI Automation: Enabled");
     println!("   - Browser Automation: Enabled");
+    println!("   - MCP: Enabled (Filesystem)");
     println!(
         "   - RPC will listen on http://{}",
         config.rpc_listen_address

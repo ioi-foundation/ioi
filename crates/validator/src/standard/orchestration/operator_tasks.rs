@@ -311,25 +311,20 @@ where
         );
 
         if state.status == AgentStatus::Running {
-            // 3. Check Mempool for Pending Step (Simple Debounce)
-            // [FIX] Disabled strict mempool check to prevent single-node deadlocks.
-            // The nonce query below combined with Mempool's own deduplication provides sufficient safety.
+            // 3. Check Mempool for Pending Step (Debounce)
+            // If the mempool already has a transaction for this signer, we wait.
+            // This prevents spam loops when the agent is blocked by policy or waiting for a block commit.
             let our_pk = context.local_keypair.public().encode_protobuf();
             let our_account_id = AccountId(account_id_from_key_material(
                 SignatureSuite::ED25519,
                 &our_pk,
             )?);
 
-            /*
             if context.tx_pool_ref.contains_account(&our_account_id) {
-                tracing::info!(
-                    target: "agent_driver",
-                    "Skipping step; mempool already has txs for signer {}",
-                    hex::encode(our_account_id.as_ref())
-                );
+                // If we already have a pending transaction (e.g. from the previous tick),
+                // don't spam another one. Wait for it to clear.
                 continue;
             }
-            */
 
             // 4. Construct Step Transaction
             let params = StepAgentParams {

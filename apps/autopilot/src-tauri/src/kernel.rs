@@ -1,5 +1,6 @@
+// apps/autopilot/src-tauri/src/kernel.rs
 use crate::models::*;
-use crate::windows::{show_gate, hide_gate, show_pill, hide_pill};
+use crate::windows; 
 use std::sync::Mutex;
 use std::time::Duration;
 use tauri::{AppHandle, Emitter, Manager, State};
@@ -12,7 +13,7 @@ use ioi_ipc::public::{
 };
 use tonic::transport::Channel;
 
-// Crypto
+// Crypto & Types for gate_respond
 use ioi_crypto::sign::eddsa::Ed25519KeyPair;
 use ioi_api::crypto::{SerializableKey, SigningKeyPair};
 use ioi_types::app::action::{ApprovalToken, ApprovalScope}; 
@@ -47,90 +48,6 @@ where
 }
 
 // -------------------------------------------------------------------------
-// Simulation Logic
-// -------------------------------------------------------------------------
-
-async fn run_simulation(app: AppHandle) {
-    let steps = vec![
-        "Parsing natural language...",
-        "Identifying required tools...",
-        "Searching knowledge base...",
-        "GATE_TRIGGER",
-        "Navigating to payments page...",
-        "Clicking 'Pay Now' button...",
-        "Verifying transaction results...",
-    ];
-
-    for (i, step_name) in steps.iter().enumerate() {
-        if *step_name == "GATE_TRIGGER" {
-            update_task_state(&app, |t| {
-                t.phase = AgentPhase::Gate;
-                t.current_step = "Policy Check Required".to_string();
-                t.gate_info = Some(GateInfo {
-                    title: "Sensitive Action Detected".to_string(),
-                    description: "The agent attempts to authorize a payment of $42.00 via Stripe."
-                        .to_string(),
-                    risk: "medium".to_string(),
-                });
-            });
-            show_gate(app.clone());
-
-            let mut approved = false;
-            loop {
-                tokio::time::sleep(Duration::from_millis(300)).await;
-                let state_guard = app.state::<Mutex<AppState>>();
-                let Ok(state) = state_guard.lock() else { break; };
-                if state.current_task.is_none() {
-                    return;
-                }
-                if let Some(response) = &state.gate_response {
-                    approved = response.approved;
-                    break;
-                }
-            }
-
-            if !approved {
-                update_task_state(&app, |t| {
-                    t.phase = AgentPhase::Failed;
-                    t.current_step = "Blocked by User".to_string();
-                });
-                return;
-            }
-
-            update_task_state(&app, |t| {
-                t.phase = AgentPhase::Running;
-                t.gate_info = None;
-                t.current_step = "Gate Approved. Resuming...".to_string();
-            });
-            tokio::time::sleep(Duration::from_millis(800)).await;
-            continue;
-        }
-
-        tokio::time::sleep(Duration::from_millis(1500)).await;
-        if let Ok(state) = app.state::<Mutex<AppState>>().lock() {
-            if state.current_task.is_none() {
-                return;
-            }
-        }
-        update_task_state(&app, |t| {
-            t.current_step = step_name.to_string();
-            t.progress = i as u32 + 1;
-        });
-    }
-
-    update_task_state(&app, |t| {
-        t.phase = AgentPhase::Complete;
-        t.progress = 7;
-        t.current_step = "Done".to_string();
-        t.receipt = Some(Receipt {
-            duration: "8.2s".to_string(),
-            actions: 14,
-            cost: Some("$0.02".to_string()),
-        });
-    });
-}
-
-// -------------------------------------------------------------------------
 // Kernel Monitor
 // -------------------------------------------------------------------------
 
@@ -142,6 +59,7 @@ async fn monitor_kernel_events(app: AppHandle) {
                 break c;
             }
             Err(_) => {
+                // Retry loop for connection
                 tokio::time::sleep(Duration::from_secs(2)).await;
             }
         }
@@ -157,8 +75,6 @@ async fn monitor_kernel_events(app: AppHandle) {
     };
 
     while let Ok(Some(event_msg)) = stream.message().await {
-        println!("[Autopilot] RAW EVENT: {:?}", event_msg);
-
         if let Some(event_enum) = event_msg.event {
             match event_enum {
                 ChainEventEnum::Thought(thought) => {
@@ -213,8 +129,12 @@ async fn monitor_kernel_events(app: AppHandle) {
                                 risk: "medium".to_string(), 
                             });
                             t.pending_request_hash = Some(action.reason.clone());
+                            
+                            if !action.session_id.is_empty() {
+                                t.session_id = Some(action.session_id.clone());
+                            }
                         });
-                        show_gate(app.clone());
+                        windows::show_gate(app.clone());
                     } else if action.verdict == "BLOCK" {
                         update_task_state(&app, |t| {
                             t.phase = AgentPhase::Failed;
@@ -260,17 +180,21 @@ pub fn start_task(
     }
 
     let _ = app.emit("task-started", &task);
-    show_pill(app.clone());
+    windows::show_pill(app.clone());
 
     let app_clone = app.clone();
     let intent_clone = intent.clone();
 
     tauri::async_runtime::spawn(async move {
+        // [MODIFIED] Removed simulation fallback. Errors are now reported directly.
         let mut client = match PublicApiClient::connect("http://127.0.0.1:9000").await {
             Ok(c) => c,
-            Err(_) => {
-                println!("[Autopilot] Kernel offline. Falling back to simulation.");
-                run_simulation(app_clone).await;
+            Err(e) => {
+                eprintln!("[Autopilot] Kernel offline: {}", e);
+                update_task_state(&app_clone, |t| {
+                    t.phase = AgentPhase::Failed;
+                    t.current_step = "Error: IOI Kernel is offline. Please run `ioi-local`.".to_string();
+                });
                 return;
             }
         };
@@ -296,12 +220,16 @@ pub fn start_task(
                         t.current_step = format!("Submission Error: {}", e);
                     });
                 } else {
+                    // Success: Start monitoring for events
                     monitor_kernel_events(app_clone).await;
                 }
             }
             Err(e) => {
-                eprintln!("[Autopilot] Drafting failed: {}. Falling back to simulation.", e);
-                run_simulation(app_clone).await;
+                eprintln!("[Autopilot] Drafting failed: {}", e);
+                update_task_state(&app_clone, |t| {
+                    t.phase = AgentPhase::Failed;
+                    t.current_step = format!("Drafting Error: {}", e);
+                });
             }
         }
     });
@@ -323,7 +251,7 @@ pub fn update_task(
         }
     }
     if is_gate {
-        show_gate(app.clone());
+        windows::show_gate(app.clone());
     }
     let _ = app.emit("task-updated", &task);
     Ok(())
@@ -354,8 +282,8 @@ pub fn dismiss_task(state: State<Mutex<AppState>>, app: AppHandle) -> Result<(),
         app_state.current_task = None;
         app_state.gate_response = None;
     }
-    hide_pill(app.clone());
-    hide_gate(app.clone());
+    windows::hide_pill(app.clone());
+    windows::hide_gate(app.clone());
     let _ = app.emit("task-dismissed", ());
     Ok(())
 }
@@ -363,6 +291,19 @@ pub fn dismiss_task(state: State<Mutex<AppState>>, app: AppHandle) -> Result<(),
 #[tauri::command]
 pub fn get_current_task(state: State<Mutex<AppState>>) -> Option<AgentTask> {
     state.lock().ok().and_then(|s| s.current_task.clone())
+}
+
+#[tauri::command]
+pub fn get_gate_response(state: State<Mutex<AppState>>) -> Option<GateResponse> {
+    state.lock().ok().and_then(|s| s.gate_response.clone())
+}
+
+#[tauri::command]
+pub fn clear_gate_response(state: State<Mutex<AppState>>) -> Result<(), String> {
+    if let Ok(mut app_state) = state.lock() {
+        app_state.gate_response = None;
+    }
+    Ok(())
 }
 
 #[tauri::command]
@@ -384,21 +325,25 @@ pub async fn gate_respond(
         }
     }
     
-    hide_gate(app.clone());
+    windows::hide_gate(app.clone());
     let _ = app.emit("gate-response", approved);
 
     if approved {
         if let (Some(sid_hex), Some(hash_hex)) = (session_id_hex, request_hash_hex) {
-            let session_id_bytes = hex::decode(&sid_hex).map_err(|e: hex::FromHexError| e.to_string())?;
+            println!("[Autopilot] Processing approval for Session {} / Hash {}", sid_hex, hash_hex);
+
+            let session_id_bytes = hex::decode(&sid_hex).map_err(|e| e.to_string())?;
             let mut session_id_arr = [0u8; 32];
             if session_id_bytes.len() != 32 { return Err("Invalid session ID len".into()); }
             session_id_arr.copy_from_slice(&session_id_bytes);
 
-            let request_hash_bytes = hex::decode(&hash_hex).map_err(|e: hex::FromHexError| e.to_string())?;
+            let request_hash_bytes = hex::decode(&hash_hex).map_err(|e| e.to_string())?;
             let mut request_hash_arr = [0u8; 32];
             request_hash_arr.copy_from_slice(&request_hash_bytes);
 
-            let approver_kp = Ed25519KeyPair::generate().map_err(|e: ioi_api::error::CryptoError| e.to_string())?;
+            // In production, we would use a stored high-security key (e.g., from Secure Enclave or Ledger)
+            // For now, we generate a fresh key to simulate the "Approver" signature
+            let approver_kp = Ed25519KeyPair::generate().map_err(|e| e.to_string())?;
             let approver_pub = approver_kp.public_key();
             
             let token = ApprovalToken {
@@ -413,7 +358,7 @@ pub async fn gate_respond(
             
             let mut token_for_signing = token.clone();
             let token_bytes = codec::to_bytes_canonical(&token_for_signing).map_err(|e| e.to_string())?;
-            let sig = approver_kp.sign(&token_bytes).map_err(|e: ioi_api::error::CryptoError| e.to_string())?;
+            let sig = approver_kp.sign(&token_bytes).map_err(|e| e.to_string())?;
             
             token_for_signing.approver_sig = sig.to_bytes();
             token_for_signing.approver_suite = SignatureSuite::ED25519; 
@@ -430,18 +375,33 @@ pub async fn gate_respond(
                 params: params_bytes,
             };
 
-            let cached_client = {
-                let s = state.lock().map_err(|_| "Failed to lock state")?;
-                s.rpc_client.clone()
+            let mut client = {
+                let maybe_client = state.lock().map_err(|_| "Failed to lock state")?.rpc_client.clone();
+                
+                if let Some(c) = maybe_client {
+                    c
+                } else {
+                    println!("[Autopilot] RPC client not ready. Connecting now...");
+                    let channel = Channel::from_static("http://127.0.0.1:9000")
+                        .connect()
+                        .await
+                        .map_err(|e| format!("Failed to connect to Kernel: {}", e))?;
+                    let new_client = PublicApiClient::new(channel);
+                    
+                    if let Ok(mut s) = state.lock() {
+                        s.rpc_client = Some(new_client.clone());
+                    }
+                    new_client
+                }
             };
 
-            let mut client = if let Some(c) = cached_client { c } else { return Err("RPC client not connected".into()); };
-
-            let rand_nonce = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos() as u64;
+            // FIX: Use nonce 0 for ephemeral/bootstrap accounts.
+            // The kernel accepts unknown accounts only if nonce is 0.
+            let tx_nonce = 0;
 
             let header = SignHeader {
                 account_id: AccountId(account_id_from_key_material(SignatureSuite::ED25519, &approver_pub.to_bytes()).unwrap()),
-                nonce: rand_nonce,
+                nonce: tx_nonce,
                 chain_id: ChainId(0),
                 tx_version: 1,
                 session_auth: None,
@@ -454,7 +414,7 @@ pub async fn gate_respond(
             };
             
             let tx_sign_bytes = tx.to_sign_bytes().map_err(|e| e.to_string())?;
-            let tx_sig = approver_kp.sign(&tx_sign_bytes).map_err(|e: ioi_api::error::CryptoError| e.to_string())?;
+            let tx_sig = approver_kp.sign(&tx_sign_bytes).map_err(|e| e.to_string())?;
             
             tx.signature_proof = SignatureProof {
                 suite: SignatureSuite::ED25519,
@@ -470,23 +430,57 @@ pub async fn gate_respond(
             });
 
             match client.submit_transaction(request).await {
-                Ok(_) => println!("[Autopilot] Approval transaction submitted successfully."),
-                Err(e) => return Err(format!("Failed to submit approval: {}", e)),
+                Ok(resp) => {
+                    let tx_hash = resp.into_inner().tx_hash;
+                    println!("[Autopilot] Approval transaction submitted: {}", tx_hash);
+                    
+                    // Wait for transaction to be committed before returning
+                    let mut attempts = 0;
+                    loop {
+                        tokio::time::sleep(Duration::from_millis(500)).await;
+                        attempts += 1;
+                        if attempts > 20 { // 10 seconds timeout
+                            println!("[Autopilot] Timeout waiting for approval tx commit");
+                            break;
+                        }
+
+                        let status_req = tonic::Request::new(
+                            ioi_ipc::public::GetTransactionStatusRequest { tx_hash: tx_hash.clone() }
+                        );
+                        
+                        if let Ok(status_resp) = client.get_transaction_status(status_req).await {
+                            let status = status_resp.into_inner().status;
+                            // 3 = COMMITTED
+                            if status == 3 {
+                                println!("[Autopilot] Approval transaction committed!");
+                                break;
+                            } else if status == 4 { // REJECTED
+                                return Err(format!("Approval transaction rejected"));
+                            }
+                        }
+                    }
+                    
+                    update_task_state(&app, |t| {
+                        t.phase = AgentPhase::Running;
+                        t.gate_info = None;
+                        t.pending_request_hash = None;
+                        t.current_step = "Approval granted. Resuming agent...".to_string();
+                    });
+                },
+                Err(e) => {
+                    eprintln!("[Autopilot] Failed to submit approval transaction: {}", e);
+                    return Err(format!("Failed to submit approval: {}", e));
+                }
             }
+        } else {
+            eprintln!("[Autopilot] Missing session_id or request_hash in state. Cannot approve.");
         }
-    }
-    Ok(())
-}
-
-#[tauri::command]
-pub fn get_gate_response(state: State<Mutex<AppState>>) -> Option<GateResponse> {
-    state.lock().ok().and_then(|s| s.gate_response.clone())
-}
-
-#[tauri::command]
-pub fn clear_gate_response(state: State<Mutex<AppState>>) -> Result<(), String> {
-    if let Ok(mut app_state) = state.lock() {
-        app_state.gate_response = None;
+    } else {
+        update_task_state(&app, |t| {
+            t.phase = AgentPhase::Failed;
+            t.current_step = "Action blocked by user".to_string();
+            t.gate_info = None;
+        });
     }
     Ok(())
 }

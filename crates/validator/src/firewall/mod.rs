@@ -12,6 +12,9 @@ pub mod synthesizer;
 // [FIX] Import PolicyEngine and Verdict from ioi-services
 use ioi_services::agentic::policy::PolicyEngine;
 use ioi_services::agentic::rules::{ActionRules, Verdict};
+// [NEW] Imports for state lookup
+use ioi_services::agentic::desktop::{AgentState, StepAgentParams};
+use ioi_services::agentic::desktop::keys::get_state_key;
 
 use ioi_api::vm::inference::LocalSafetyModel;
 use ioi_api::vm::drivers::os::OsDriver;
@@ -22,10 +25,11 @@ use ioi_api::state::namespaced::{NamespacedStateAccess, ReadOnlyNamespacedStateA
 use ioi_api::state::{service_namespace_prefix, StateAccess, StateOverlay};
 use ioi_api::transaction::context::TxContext;
 use ioi_tx::system::{nonce, validation};
-use ioi_types::app::{action::ApprovalToken, ChainTransaction, SystemPayload}; 
+use ioi_types::app::{action::ApprovalToken, ChainTransaction, KernelEvent, SystemPayload}; 
 use ioi_types::error::TransactionError;
 use ioi_types::keys::active_service_key;
 use ioi_types::service_configs::ActiveServiceMeta;
+use ioi_types::codec;
 use std::sync::Arc;
 
 /// The main firewall entry point.
@@ -40,6 +44,8 @@ pub async fn enforce_firewall(
     is_simulation: bool,
     safety_model: Arc<dyn LocalSafetyModel>,
     os_driver: Arc<dyn OsDriver>,
+    // [NEW] Added event_broadcaster to emit UI events (gates, blocks)
+    event_broadcaster: &Option<tokio::sync::broadcast::Sender<KernelEvent>>,
 ) -> Result<(), TransactionError> {
     let mut overlay = StateOverlay::new(state);
 
@@ -101,22 +107,50 @@ pub async fn enforce_firewall(
 
         PolicyEngine::check_service_call(&overlay, service_id, method, false)?;
 
-        if service_id == "agentic" || service_id == "compute_market" {
-            // [FIX] Use ActionRules from ioi-services
+        if service_id == "agentic" || service_id == "desktop_agent" || service_id == "compute_market" {
+            // [FIX] Load active policy from state or use default
+            // In a real implementation, this would query the state for the account's specific policy.
+            // For MVP Beta, we use default rules which default to DenyAll, requiring approvals.
             let rules = ActionRules::default();
+
+            // [NEW] Attempt to extract session_id and approval token from state
+            let mut session_id_opt = None;
+            let mut approval_token: Option<ApprovalToken> = None;
+
+            if service_id == "desktop_agent" && method == "step@v1" {
+                 if let Ok(p) = codec::from_bytes_canonical::<StepAgentParams>(params) {
+                     session_id_opt = Some(p.session_id);
+                     
+                     // Look up agent state to see if approval token exists
+                     let key = get_state_key(&p.session_id);
+                     
+                     // We need to access the namespaced data of desktop_agent.
+                     // The state accessor here is raw (overlay). 
+                     // The service stores data under `_service_data::desktop_agent::...`
+                     // get_state_key returns `agent::state::{id}`.
+                     // So we need to construct the full key manually here since we are outside the service.
+                     
+                     let ns_prefix = service_namespace_prefix("desktop_agent");
+                     let full_key = [ns_prefix.as_slice(), key.as_slice()].concat();
+
+                     if let Ok(Some(bytes)) = overlay.get(&full_key) {
+                         if let Ok(agent_state) = codec::from_bytes_canonical::<AgentState>(&bytes) {
+                             approval_token = agent_state.pending_approval;
+                         }
+                     }
+                 }
+            }
 
             let dummy_request = ioi_types::app::ActionRequest {
                 target: ioi_types::app::ActionTarget::Custom(method.clone()),
                 params: params.clone(),
                 context: ioi_types::app::ActionContext {
                     agent_id: "unknown".into(),
-                    session_id: None,
+                    session_id: session_id_opt, // [FIX] Pass session_id
                     window_id: None,
                 },
                 nonce: 0,
             };
-
-            let approval_token: Option<ApprovalToken> = None;
 
             let verdict = PolicyEngine::evaluate(
                 &rules,
@@ -128,13 +162,37 @@ pub async fn enforce_firewall(
             .await;
 
             match verdict {
-                Verdict::Allow => {}
+                Verdict::Allow => {
+                    // Proceed
+                }
                 Verdict::Block => {
+                    // [NEW] Emit Block Event
+                    if let Some(tx) = event_broadcaster {
+                        let _ = tx.send(KernelEvent::FirewallInterception {
+                            verdict: "BLOCK".to_string(),
+                            target: method.clone(),
+                            request_hash: dummy_request.hash(),
+                            session_id: session_id_opt, // [FIX] Pass session ID
+                        });
+                    }
                     return Err(TransactionError::Invalid("Blocked by Policy".into()));
                 }
                 Verdict::RequireApproval => {
-                    let req_hash = hex::encode(dummy_request.hash());
-                    return Err(TransactionError::PendingApproval(req_hash));
+                    let req_hash_bytes = dummy_request.hash();
+                    let req_hash_hex = hex::encode(req_hash_bytes);
+
+                    // [NEW] Emit RequireApproval Event (Triggers Gate UI)
+                    if let Some(tx) = event_broadcaster {
+                        let _ = tx.send(KernelEvent::FirewallInterception {
+                            verdict: "REQUIRE_APPROVAL".to_string(),
+                            target: method.clone(),
+                            request_hash: req_hash_bytes,
+                            session_id: session_id_opt, // [FIX] Pass session ID
+                        });
+                    }
+                    
+                    tracing::info!(target: "firewall", "Gating action {} (Hash: {})", method, req_hash_hex);
+                    return Err(TransactionError::PendingApproval(req_hash_hex));
                 }
             }
 

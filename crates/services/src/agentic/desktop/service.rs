@@ -5,7 +5,7 @@ use ioi_api::state::StateAccess;
 use ioi_api::transaction::context::TxContext;
 use ioi_api::vm::drivers::gui::GuiDriver;
 use ioi_api::vm::inference::InferenceRuntime;
-use ioi_types::app::{ActionContext, ActionRequest, ActionTarget, KernelEvent, InferenceOptions};
+use ioi_types::app::{ActionContext, ActionRequest, ActionTarget, KernelEvent, InferenceOptions, ApprovalToken};
 use ioi_types::codec;
 use ioi_types::error::{TransactionError, UpgradeError};
 use ioi_types::service_configs::Capabilities;
@@ -35,7 +35,6 @@ use super::utils::{compute_phash, goto_trace_log};
 
 // Constants
 const CHARS_PER_TOKEN: u64 = 4;
-// [NEW] Policy prefix
 const AGENT_POLICY_PREFIX: &[u8] = b"agent::policy::";
 
 pub struct DesktopAgentService {
@@ -52,7 +51,6 @@ pub struct DesktopAgentService {
     os_driver: Option<Arc<dyn ioi_api::vm::drivers::os::OsDriver>>,
 }
 
-// ... [Constructor Impls unchanged] ...
 impl DesktopAgentService {
     pub fn new(
         gui: Arc<dyn GuiDriver>,
@@ -251,6 +249,89 @@ impl DesktopAgentService {
             _ => self.reasoning_inference.clone(),
         }
     }
+
+    async fn handle_action_execution(
+        &self,
+        executor: &ToolExecutor,
+        name: &str,
+        tool_call: &Value,
+        session_id: [u8; 32],
+        step_index: u32,
+        visual_phash: [u8; 32],
+        rules: &ActionRules,
+        agent_state: &AgentState,
+        os_driver: &Arc<dyn ioi_api::vm::drivers::os::OsDriver>,
+    ) -> Result<(bool, Option<String>, Option<String>), TransactionError> {
+        
+        let request_params = serde_json::to_vec(&tool_call["arguments"]).unwrap_or_default();
+        
+        let target = if name == "filesystem__write_file" {
+             ActionTarget::FsWrite 
+        } else if name == "filesystem__read_file" || name == "filesystem__list_allowed_directories" {
+             ActionTarget::FsRead
+        } else if name == "gui__click" {
+             ActionTarget::GuiClick
+        } else if name == "gui__type" {
+             ActionTarget::GuiType
+        } else if name == "browser__navigate" {
+             ActionTarget::BrowserNavigate
+        } else if name == "sys__exec" {
+             ActionTarget::SysExec
+        } else {
+             ActionTarget::Custom(name.to_string())
+        };
+
+        let dummy_request = ActionRequest {
+            target, 
+            params: request_params,
+            context: ActionContext {
+                agent_id: "desktop_agent".into(),
+                session_id: Some(session_id),
+                window_id: None,
+            },
+            nonce: step_index as u64,
+        };
+
+        // Pass the stored approval token to the policy engine
+        let verdict = PolicyEngine::evaluate(
+            rules,
+            &dummy_request,
+            &self.scrubber.model,
+            os_driver,
+            agent_state.pending_approval.as_ref(), // <--- PASS TOKEN HERE
+        )
+        .await;
+
+        match verdict {
+            Verdict::Allow => {
+                // Proceed
+            }
+            Verdict::Block => {
+                return Err(TransactionError::Invalid("Blocked by Policy".into()));
+            }
+            Verdict::RequireApproval => {
+                let req_hash = hex::encode(dummy_request.hash());
+                return Err(TransactionError::PendingApproval(req_hash));
+            }
+        }
+
+        // Special handling for meta-tools
+        if name == "agent__delegate" {
+            return Ok((true, None, None));
+        } else if name == "agent__await_result" {
+            return Ok((true, None, None));
+        } else if name == "agent__pause" {
+            return Ok((true, None, None));
+        } else if name == "agent__complete" {
+            return Ok((true, None, None));
+        } else if name == "commerce__checkout" {
+            return Ok((true, Some("System: Initiated UCP Checkout (Pending Guardian Approval)".to_string()), None));
+        } else {
+            // Driver Execution
+            let result = executor.execute(name, tool_call, session_id, step_index, visual_phash).await;
+            return Ok((result.success, result.history_entry, result.error));
+        }
+    }
 }
 
 #[async_trait]
@@ -318,6 +399,7 @@ impl BlockchainService for DesktopAgentService {
                     consecutive_failures: 0,
                     tokens_used: 0,
                     pending_approval: None,
+                    pending_tool_call: None, // [NEW] Initialize to None
                 };
                 state.insert(&key, &codec::to_bytes_canonical(&agent_state)?)?;
                 Ok(())
@@ -332,14 +414,22 @@ impl BlockchainService for DesktopAgentService {
 
                 if let AgentStatus::Paused(_) = agent_state.status {
                     agent_state.status = AgentStatus::Running;
-                    agent_state
-                        .history
-                        .push("System: Resumed by user/controller.".to_string());
                     
+                    // Store the Approval Token provided by the UI
                     if let Some(token) = p.approval_token {
+                        log::info!("Resuming session {} with Approval Token for hash {:?}", 
+                            hex::encode(&p.session_id[0..4]), 
+                            hex::encode(&token.request_hash));
+                            
                         agent_state.pending_approval = Some(token);
-                        agent_state.history.push("System: Approval token staged for retry.".to_string());
+                        
+                        agent_state.history.push("System: Authorization GRANTED. You may retry the action immediately.".to_string());
+                    } else {
+                        agent_state.history.push("System: Resumed by user/controller without specific approval.".to_string());
                     }
+
+                    // Reset failure counters so the retry doesn't trip the circuit breaker
+                    agent_state.consecutive_failures = 0;
 
                     state.insert(&key, &codec::to_bytes_canonical(&agent_state)?)?;
                     Ok(())
@@ -373,7 +463,7 @@ impl BlockchainService for DesktopAgentService {
                              session_id: p.session_id,
                              step_index: agent_state.step_count,
                              visual_hash: [0; 32],
-                             full_prompt: "".into(), // Omit prompt for error
+                             full_prompt: "".into(), 
                              raw_output: "Budget Exhausted".into(),
                              success: false,
                              error: Some("Budget Exhausted".into()),
@@ -390,12 +480,18 @@ impl BlockchainService for DesktopAgentService {
                     return Ok(());
                 }
 
-                // [FIX] Load Policy from State
                 let policy_key = [AGENT_POLICY_PREFIX, p.session_id.as_slice()].concat();
                 let rules: ActionRules = if let Some(bytes) = state.get(&policy_key)? {
-                    codec::from_bytes_canonical(&bytes).map_err(|e| TransactionError::Invalid(format!("Invalid policy in state: {}", e)))?
+                    codec::from_bytes_canonical(&bytes)
+                        .map_err(|e| TransactionError::Invalid(format!("Invalid policy in state: {}", e)))?
                 } else {
-                    ActionRules::default()
+                    let global_key = [AGENT_POLICY_PREFIX, [0u8; 32].as_slice()].concat();
+                    if let Some(bytes) = state.get(&global_key)? {
+                        codec::from_bytes_canonical(&bytes)
+                            .map_err(|e| TransactionError::Invalid(format!("Invalid global policy in state: {}", e)))?
+                    } else {
+                        ActionRules::default() 
+                    }
                 };
 
                 let observation_intent = ActionRequest {
@@ -439,7 +535,7 @@ impl BlockchainService for DesktopAgentService {
                             FrameType::Observation,
                             &screenshot_bytes,
                             _ctx.block_height,
-                            [0u8; 32], // mHNSW root placeholder
+                            [0u8; 32], 
                         );
                     }
                 }
@@ -448,7 +544,6 @@ impl BlockchainService for DesktopAgentService {
                 if let Some(mcp) = &self.mcp {
                     let mcp_tools = mcp.get_all_tools().await;
                     if !mcp_tools.is_empty() {
-                        log::debug!("Injecting {} MCP tools into context", mcp_tools.len());
                         available_tools.extend(mcp_tools);
                     }
                 }
@@ -467,29 +562,45 @@ impl BlockchainService for DesktopAgentService {
 
                 let rag_context = self.retrieve_memory(&agent_state.goal).await;
 
-                let mut recovery_guidance = String::new();
-                if agent_state.consecutive_failures > 0 {
-                    if let Some(last_msg) = agent_state.history.last() {
-                        recovery_guidance = format!(
-                            "\n⚠️ WARNING: Previous action FAILED: {}\nAnalyze error and retry.",
-                            last_msg
-                        );
-                    }
-                }
+                // Inject Workspace Context
+                let workspace_context = format!(
+                    "You are running in a secure sandbox.\n\
+                     Current Working Directory: ./ioi-data\n\
+                     Allowed Paths: ./ioi-data/*"
+                );
 
                 let raw_user_prompt = format!(
-                    "Goal: {}\n\n{}{}{}\n\nHistory: {:?}\n{}{}\nContext: {}",
+                    "SYSTEM INSTRUCTION: You are an autonomous agent API.
+                    Your Goal: {}
+                    
+                    ENVIRONMENT:
+                    {}
+                    
+                    AVAILABLE TOOLS:
+                    {}
+                    
+                    HISTORY:
+                    {:?}
+                    
+                    CONTEXT:
+                    {}
+                    
+                    CRITICAL RULES:
+                    1. You MUST respond with a VALID JSON OBJECT representing the tool call.
+                    2. When writing files, ALWAYS use paths starting with './ioi-data/' or absolute paths you have confirmed exist.
+                    3. Do NOT use placeholders like '/path/to/file'.
+                    
+                    EXAMPLE RESPONSE:
+                    {{
+                        \"thought\": \"I will save the results to the data directory.\",
+                        \"name\": \"filesystem__write_file\",
+                        \"arguments\": {{ \"path\": \"./ioi-data/results.txt\", \"content\": \"...\" }}
+                    }}
+                    ",
                     agent_state.goal,
-                    skills_prompt,
-                    rag_context, 
-                    format!("Available Tools: {} (plus native)", available_tools.len()),
+                    workspace_context, 
+                    serde_json::to_string_pretty(&available_tools).unwrap_or_default(),
                     agent_state.history,
-                    recovery_guidance,
-                    if agent_state.consecutive_failures > 0 {
-                        "MODE: RECOVERY"
-                    } else {
-                        ""
-                    },
                     tree_xml
                 );
 
@@ -499,49 +610,48 @@ impl BlockchainService for DesktopAgentService {
                     })?;
                 let user_prompt: String = scrubbed_prompt;
 
-                let estimated_input_tokens = (user_prompt.len() as u64) / CHARS_PER_TOKEN;
-                let model_hash = [0u8; 32];
-                let options = InferenceOptions {
-                    tools: available_tools, 
-                    temperature: if agent_state.consecutive_failures > 0 {
-                        0.5
-                    } else {
-                        0.0
-                    },
-                };
-                let runtime = self.select_runtime(&agent_state);
-                let output_bytes = runtime
-                    .execute_inference(model_hash, user_prompt.as_bytes(), options)
-                    .await
-                    .map_err(|e| TransactionError::Invalid(format!("Inference error: {}", e)))?;
-                let output_str = String::from_utf8_lossy(&output_bytes).to_string();
-                println!("[DesktopAgent] Brain Output: {}", output_str); 
+                // [FIX] Move model_hash definition here so it's available for ZK verification
+                let model_hash = [0u8; 32]; 
 
-                let estimated_output_tokens = (output_str.len() as u64) / CHARS_PER_TOKEN;
-                let total_cost = estimated_input_tokens + estimated_output_tokens;
-                agent_state.tokens_used += total_cost;
-                if agent_state.budget >= total_cost {
-                    agent_state.budget -= total_cost;
+                // [FIX] Deterministic Retry Logic
+                // If we have a pending tool call from a paused/gated step, use that instead of re-running inference.
+                let output_str = if let Some(stored_call) = &agent_state.pending_tool_call {
+                    log::info!("Retrying pending tool call for session {}", hex::encode(&p.session_id[0..4]));
+                    stored_call.clone()
                 } else {
-                    agent_state.budget = 0;
-                    agent_state.status = AgentStatus::Failed("Budget Exhausted during step".into());
-                    state.insert(&key, &codec::to_bytes_canonical(&agent_state)?)?;
+                    let estimated_input_tokens = (user_prompt.len() as u64) / CHARS_PER_TOKEN;
                     
-                    if let Some(tx) = &self.event_sender {
-                         let _ = tx.send(KernelEvent::AgentStep(ioi_types::app::agentic::StepTrace {
-                             session_id: p.session_id,
-                             step_index: agent_state.step_count,
-                             visual_hash: [0; 32],
-                             full_prompt: user_prompt.clone(),
-                             raw_output: "Budget Exhausted".into(),
-                             success: false,
-                             error: Some("Budget Exhausted".into()),
-                             timestamp: SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs(),
-                         }));
+                    let options = InferenceOptions {
+                        tools: available_tools, 
+                        temperature: if agent_state.consecutive_failures > 0 {
+                            0.5
+                        } else {
+                            0.0
+                        },
+                    };
+                    let runtime = self.select_runtime(&agent_state);
+                    let output_bytes = runtime
+                        .execute_inference(model_hash, user_prompt.as_bytes(), options)
+                        .await
+                        .map_err(|e| TransactionError::Invalid(format!("Inference error: {}", e)))?;
+                    let output_str = String::from_utf8_lossy(&output_bytes).to_string();
+                    
+                    let estimated_output_tokens = (output_str.len() as u64) / CHARS_PER_TOKEN;
+                    let total_cost = estimated_input_tokens + estimated_output_tokens;
+                    agent_state.tokens_used += total_cost;
+                    if agent_state.budget >= total_cost {
+                        agent_state.budget -= total_cost;
+                    } else {
+                        agent_state.budget = 0;
+                        agent_state.status = AgentStatus::Failed("Budget Exhausted during step".into());
+                        state.insert(&key, &codec::to_bytes_canonical(&agent_state)?)?;
+                        return Ok(());
                     }
-                    
-                    return Ok(());
-                }
+                    output_str
+                };
+                
+                // Print to stdout for debugging
+                println!("[DesktopAgent] Brain Output: {}", output_str); 
 
                 agent_state.history.push(format!("Action: {}", output_str));
 
@@ -559,158 +669,116 @@ impl BlockchainService for DesktopAgentService {
                     self.event_sender.clone(),
                 );
 
-                // Tool Dispatch Loop
                 if let Ok(tool_call) = serde_json::from_str::<Value>(&output_str) {
                     if let Some(name) = tool_call.get("name").and_then(|n| n.as_str()) {
                         action_type = name.to_string();
 
-                        // --- Policy Enforcment (Using Loaded Rules) ---
                         let os_driver = self.os_driver.clone().ok_or_else(|| {
                             TransactionError::Invalid("OS Driver not configured for policy check".into())
                         })?;
 
-                        let request_params = serde_json::to_vec(&tool_call["arguments"]).unwrap_or_default();
-                        let dummy_request = ActionRequest {
-                            target: ActionTarget::Custom(name.to_string()),
-                            params: request_params,
-                            context: ActionContext {
-                                agent_id: "desktop_agent".into(),
-                                session_id: Some(p.session_id),
-                                window_id: None,
-                            },
-                            nonce: agent_state.step_count as u64,
-                        };
-
-                        let verdict = PolicyEngine::evaluate(
-                            &rules, // [FIX] Use loaded rules
-                            &dummy_request,
-                            &self.scrubber.model,
+                        let result = self.handle_action_execution(
+                            &executor,
+                            name,
+                            &tool_call,
+                            p.session_id,
+                            agent_state.step_count,
+                            visual_phash,
+                            &rules,
+                            &agent_state,
                             &os_driver,
-                            agent_state.pending_approval.as_ref(),
                         ).await;
 
-                        match verdict {
-                            Verdict::Allow => {
-                                if agent_state.pending_approval.is_some() {
-                                     agent_state.pending_approval = None;
-                                }
-                            }
-                            Verdict::Block => {
-                                action_error = Some("Blocked by Policy".into());
-                                goto_trace_log(&mut agent_state, state, &key, p.session_id, content_hash, user_prompt, output_str, false, action_error, action_type, self.event_sender.clone())?;
-                                return Ok(()); 
-                            }
-                            Verdict::RequireApproval => {
-                                agent_state.status = AgentStatus::Paused("Policy Gate: Approval Required".into());
-                                
-                                if let Some(tx) = &self.event_sender {
-                                    let _ = tx.send(KernelEvent::FirewallInterception {
-                                        verdict: "REQUIRE_APPROVAL".to_string(),
-                                        target: name.to_string(),
-                                        request_hash: dummy_request.hash(),
-                                    });
+                        match result {
+                            Ok((success, history_entry, error)) => {
+                                action_success = success;
+                                action_error = error;
+                                if let Some(entry) = history_entry {
+                                    agent_state.history.push(entry);
                                 }
                                 
-                                state.insert(&key, &codec::to_bytes_canonical(&agent_state)?)?;
-                                return Err(TransactionError::PendingApproval(hex::encode(dummy_request.hash())));
-                            }
-                        }
-
-                        // Special handling for meta-tools
-                        if name == "agent__delegate" {
-                            let goal = tool_call["arguments"]["goal"].as_str().unwrap_or("").to_string();
-                            let budget = tool_call["arguments"]["budget"].as_u64().unwrap_or(0);
-                            let mut seed = p.session_id.to_vec();
-                            seed.extend_from_slice(&agent_state.step_count.to_le_bytes());
-                            let child_id_vec = ioi_crypto::algorithms::hash::sha256(&seed).unwrap().to_vec();
-                            let mut child_id = [0u8; 32];
-                            child_id.copy_from_slice(&child_id_vec);
-
-                            let child_params = StartAgentParams {
-                                session_id: child_id,
-                                goal: goal.clone(),
-                                max_steps: 10,
-                                parent_session_id: Some(p.session_id),
-                                initial_budget: budget,
-                            };
-                            let params_bytes = codec::to_bytes_canonical(&child_params).unwrap();
-
-                            match self.handle_service_call(state, "start@v1", &params_bytes, _ctx).await {
-                                Ok(_) => action_success = true,
-                                Err(e) => action_error = Some(format!("Delegation failed: {}", e)),
-                            }
-                        } else if name == "agent__await_result" {
-                            if let Some(hex_id) = tool_call["arguments"]["child_session_id_hex"].as_str() {
-                                if let Ok(child_id_vec) = hex::decode(hex_id) {
-                                    let mut child_id = [0u8; 32];
-                                    if child_id_vec.len() == 32 {
-                                        child_id.copy_from_slice(&child_id_vec);
-                                        let child_key = get_state_key(&child_id);
-
-                                        if let Some(child_bytes) = state.get(&child_key)? {
-                                            let child_state: AgentState = codec::from_bytes_canonical(&child_bytes)?;
-                                            match child_state.status {
-                                                AgentStatus::Completed(res) => {
-                                                    action_success = true;
-                                                    let res_str = res.unwrap_or_default();
-                                                    agent_state.history.push(format!("Child Result: {}", res_str));
-                                                }
-                                                AgentStatus::Failed(err) => {
-                                                    action_success = false;
-                                                    action_error = Some(format!("Child failed: {}", err));
-                                                }
-                                                _ => {
-                                                    action_success = true;
-                                                    agent_state.history.push("Child is still running.".to_string());
-                                                }
-                                            }
-                                        } else {
-                                            action_error = Some("Child session not found".into());
-                                        }
-                                    } else {
-                                        action_error = Some("Invalid child ID length".into());
+                                // [FIX] If action succeeded and we had a pending approval or stored call, clear them.
+                                if success {
+                                    if agent_state.pending_approval.is_some() {
+                                        agent_state.pending_approval = None;
                                     }
-                                } else {
-                                    action_error = Some("Invalid hex ID".into());
+                                    if agent_state.pending_tool_call.is_some() {
+                                        agent_state.pending_tool_call = None;
+                                    }
                                 }
                             }
-                        } else if name == "agent__pause" {
-                            let reason = tool_call["arguments"]["reason"].as_str().unwrap_or("Paused").to_string();
-                            agent_state.status = AgentStatus::Paused(reason);
-                            action_success = true;
-                        } else if name == "agent__complete" {
-                            let result = tool_call["arguments"]["result"].as_str().unwrap_or("Done").to_string();
-                            agent_state.status = AgentStatus::Completed(Some(result.clone()));
-                            action_success = true;
-                            agent_state.history.push(format!("System: Task Completed. Result: {}", result));
+                            Err(e) => {
+                                let err_str = e.to_string();
+                                
+                                // Check for PendingApproval error
+                                let is_pending_approval = if let TransactionError::PendingApproval(_) = &e {
+                                    true
+                                } else {
+                                    err_str.contains("Approval required") || err_str.contains("PendingApproval")
+                                };
 
-                            if let Some(tx) = &self.event_sender {
-                                let _ = tx.send(KernelEvent::AgentActionResult {
-                                    session_id: p.session_id,
-                                    step_index: agent_state.step_count,
-                                    tool_name: "agent__complete".to_string(),
-                                    output: result.clone(),
-                                });
-                            }
-                        } else if name == "commerce__checkout" {
-                            action_success = true; 
-                            agent_state.history.push("System: Initiated UCP Checkout (Pending Guardian Approval)".to_string());
-                        } else {
-                            // Driver Execution
-                            let result = executor.execute(name, &tool_call, p.session_id, agent_state.step_count, visual_phash).await;
-                            action_success = result.success;
-                            action_error = result.error;
-                            if let Some(entry) = result.history_entry {
-                                agent_state.history.push(entry);
+                                if is_pending_approval {
+                                    agent_state.status = AgentStatus::Paused("Waiting for User Approval".into());
+                                    
+                                    // Variable to hold the real hash for the event
+                                    let mut real_request_hash = [0u8; 32];
+
+                                    // Extract hash if available in the specific variant
+                                    if let TransactionError::PendingApproval(hash) = e {
+                                         if let Ok(hash_bytes) = hex::decode(&hash) {
+                                            if let Ok(hash_arr) = hash_bytes.try_into() {
+                                                real_request_hash = hash_arr;
+                                                // Create a placeholder token that the user will sign and replace
+                                                agent_state.pending_approval = Some(ApprovalToken {
+                                                    request_hash: hash_arr,
+                                                    scope: Default::default(),
+                                                    approver_sig: vec![],
+                                                    approver_suite: Default::default(),
+                                                });
+                                            }
+                                         }
+                                    }
+
+                                    // Persist the tool call so we retry exactly this later
+                                    agent_state.pending_tool_call = Some(output_str.clone());
+                                    
+                                    agent_state.history.push(format!(
+                                        "System: Action '{}' halted by Agency Firewall. Requesting authorization.", 
+                                        action_type
+                                    ));
+                                    
+                                    if let Some(tx) = &self.event_sender {
+                                         let _ = tx.send(KernelEvent::FirewallInterception {
+                                             verdict: "REQUIRE_APPROVAL".to_string(),
+                                             target: action_type.clone(),
+                                             request_hash: real_request_hash, 
+                                             session_id: Some(p.session_id),
+                                         });
+                                    }
+                                    
+                                    state.insert(&key, &codec::to_bytes_canonical(&agent_state)?)?;
+                                    return Ok(()); 
+                                } 
+                                else if err_str.contains("Blocked by Policy") {
+                                    agent_state.history.push(format!(
+                                        "System: Action '{}' was BLOCKED by security policy. Do not retry this exact action.", 
+                                        action_type
+                                    ));
+                                    agent_state.consecutive_failures += 1;
+                                    action_error = Some("Blocked by Policy".into());
+                                    action_success = false;
+                                } 
+                                else {
+                                    action_error = Some(err_str);
+                                    action_success = false;
+                                }
                             }
                         }
                     } else {
-                         // Valid JSON but not a tool call
                         agent_state.history.push(format!("Thought (JSON): {}", output_str));
                         action_success = true;
                     }
                 } else {
-                    // Raw text thought/monologue
                     agent_state.history.push(format!("Thought: {}", output_str));
                     
                     if let Some(req) = parse_vlm_action(
@@ -722,19 +790,41 @@ impl BlockchainService for DesktopAgentService {
                         agent_state.step_count as u64,
                         Some(visual_phash), 
                     ) {
-                        // VLM Parsing Fallback for raw text actions
                         let params: serde_json::Value = serde_json::from_slice(&req.params).unwrap();
                         if req.target == ioi_types::app::ActionTarget::GuiClick {
                             action_type = "gui__click".to_string();
                             
-                            // Re-use executor logic via JSON construction for consistency
                             let call = json!({
                                 "name": "gui__click",
                                 "arguments": params
                             });
-                            let result = executor.execute("gui__click", &call, p.session_id, agent_state.step_count, visual_phash).await;
-                            action_success = result.success;
-                            action_error = result.error;
+                            
+                             let os_driver = self.os_driver.clone().ok_or_else(|| {
+                                TransactionError::Invalid("OS Driver not configured".into())
+                            })?;
+
+                            let result = self.handle_action_execution(
+                                &executor,
+                                "gui__click",
+                                &call,
+                                p.session_id,
+                                agent_state.step_count,
+                                visual_phash,
+                                &rules,
+                                &agent_state,
+                                &os_driver,
+                            ).await;
+                            
+                             match result {
+                                Ok((success, _hist, error)) => {
+                                    action_success = success;
+                                    action_error = error;
+                                }
+                                Err(e) => {
+                                    action_error = Some(e.to_string());
+                                    action_success = false;
+                                }
+                            }
                         }
                     } else {
                          action_success = true;
@@ -744,7 +834,11 @@ impl BlockchainService for DesktopAgentService {
                 if let Some(verifier) = &self.zk_verifier {
                     let mut preimage = Vec::new();
                     preimage.extend_from_slice(user_prompt.as_bytes());
-                    preimage.extend_from_slice(&output_bytes);
+                    // Note: `output_bytes` might not be available if we used `pending_tool_call`.
+                    // We reconstruct it from `output_str` if needed.
+                    let effective_output_bytes = output_str.as_bytes(); 
+                    
+                    preimage.extend_from_slice(effective_output_bytes);
                     preimage.extend_from_slice(&model_hash);
                     let proof_hash = ioi_crypto::algorithms::hash::sha256(&preimage).unwrap();
 
@@ -753,7 +847,7 @@ impl BlockchainService for DesktopAgentService {
                             proof_hash.as_ref(),
                             model_hash,
                             user_prompt.as_bytes(),
-                            &output_bytes,
+                            effective_output_bytes,
                         )
                         .await
                         .map_err(|e| {

@@ -3,10 +3,10 @@
 use crate::agentic::prompt_wrapper::{PolicyGuardrails, PromptWrapper};
 use crate::agentic::desktop::StartAgentParams;
 use anyhow::{anyhow, Result};
-use ioi_api::vm::inference::{InferenceRuntime, SafetyVerdict};
+use ioi_api::vm::inference::InferenceRuntime;
 use ioi_types::app::agentic::InferenceOptions;
 use ioi_types::app::{
-    ActionContext, ActionRequest, ActionTarget, ChainTransaction, SignHeader, SignatureProof,
+    ChainTransaction, SignHeader, SignatureProof,
     SystemPayload, SystemTransaction,
 };
 use ioi_types::codec;

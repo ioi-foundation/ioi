@@ -1,3 +1,4 @@
+// Path: crates/services/src/agentic/desktop/types.rs
 use ioi_types::app::action::ApprovalToken;
 use parity_scale_codec::{Decode, Encode};
 use serde::{Deserialize, Serialize};
@@ -26,6 +27,10 @@ pub struct AgentState {
     pub tokens_used: u64,
     pub consecutive_failures: u8,
     pub pending_approval: Option<ApprovalToken>,
+    /// [NEW] Persist the raw tool call JSON that is pending approval.
+    /// This ensures that when the agent resumes, we retry the EXACT same payload bytes,
+    /// guaranteeing that the ActionRequest hash matches the signed ApprovalToken.
+    pub pending_tool_call: Option<String>,
 }
 
 #[derive(Encode, Decode)]

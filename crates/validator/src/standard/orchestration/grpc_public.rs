@@ -415,10 +415,10 @@ where
                                  ))
                              },
                              // [NEW] Handle Firewall Interceptions
-                             ioi_types::app::KernelEvent::FirewallInterception { verdict, target, request_hash } => {
+                             ioi_types::app::KernelEvent::FirewallInterception { verdict, target, request_hash, session_id } => {
                                  Some(ChainEventEnum::Action(
                                      ioi_ipc::public::ActionIntercepted {
-                                         session_id: "".into(), // Context-dependent
+                                         session_id: session_id.map(hex::encode).unwrap_or_default(), // [FIX] Map session ID
                                          target,
                                          verdict,
                                          reason: hex::encode(request_hash),
