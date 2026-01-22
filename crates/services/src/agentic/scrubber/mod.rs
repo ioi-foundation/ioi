@@ -1,4 +1,4 @@
-// Path: crates/services/src/agentic/scrubber.rs
+// Path: crates/services/src/agentic/scrubber/mod.rs
 
 use anyhow::Result;
 use dcrypt::algorithms::ByteSerializable; // Required for copy_from_slice
