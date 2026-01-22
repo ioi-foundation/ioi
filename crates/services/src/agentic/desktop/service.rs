@@ -387,7 +387,7 @@ impl BlockchainService for DesktopAgentService {
 
                 let agent_state = AgentState {
                     session_id: p.session_id,
-                    goal: p.goal,
+                    goal: p.goal.clone(),
                     history: Vec::new(),
                     status: AgentStatus::Running,
                     step_count: 0,
@@ -404,6 +404,36 @@ impl BlockchainService for DesktopAgentService {
                     mode: p.mode, // [NEW] Set mode from params
                 };
                 state.insert(&key, &codec::to_bytes_canonical(&agent_state)?)?;
+
+                // [NEW] Update Global History Index
+                // Key: "agent::history"
+                let history_key = b"agent::history".to_vec();
+                let mut history: Vec<SessionSummary> = 
+                    if let Some(bytes) = state.get(&history_key)? {
+                        codec::from_bytes_canonical(&bytes).unwrap_or_default()
+                    } else {
+                        Vec::new()
+                    };
+
+                // Prepend new session (newest first)
+                history.insert(0, SessionSummary {
+                    session_id: p.session_id,
+                    title: if agent_state.mode == AgentMode::Chat {
+                        // Truncate long prompts for titles
+                        let t = p.goal.lines().next().unwrap_or("New Chat");
+                        if t.len() > 30 { format!("{}...", &t[..30]) } else { t.to_string() }
+                    } else {
+                        let t = p.goal.lines().next().unwrap_or("Agent Task");
+                        if t.len() > 30 { format!("{}...", &t[..30]) } else { t.to_string() }
+                    },
+                    timestamp: SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_millis() as u64,
+                });
+
+                // Keep last 50
+                if history.len() > 50 { history.truncate(50); }
+
+                state.insert(&history_key, &codec::to_bytes_canonical(&history)?)?;
+
                 Ok(())
             }
             "resume@v1" => {

@@ -67,3 +67,12 @@ pub struct ResumeAgentParams {
     pub session_id: [u8; 32],
     pub approval_token: Option<ApprovalToken>,
 }
+
+// [NEW] Struct for persistent session history index
+// Used by the backend to display the sidebar list without hydrating full state
+#[derive(Debug, Clone, Serialize, Deserialize, Encode, Decode)]
+pub struct SessionSummary {
+    pub session_id: [u8; 32],
+    pub title: String,
+    pub timestamp: u64,
+}

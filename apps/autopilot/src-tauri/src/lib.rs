@@ -11,7 +11,7 @@ mod models;
 mod windows;
 mod kernel;
 
-use models::{AppState, GateInfo, AgentPhase, AgentTask, GhostInputEvent, Receipt};
+use models::{AppState, GateInfo, AgentPhase, AgentTask, GhostInputEvent, Receipt, ChatMessage};
 use windows::{show_gate};
 
 // Kernel Integration
@@ -19,6 +19,11 @@ use ioi_ipc::public::public_api_client::PublicApiClient;
 use ioi_ipc::public::{
     chain_event::Event as ChainEventEnum, SubscribeEventsRequest
 };
+
+// Helper to get current timestamp
+fn now() -> u64 {
+    std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap_or_default().as_millis() as u64
+}
 
 fn update_task_state_local<F>(app: &tauri::AppHandle, mut f: F)
 where
@@ -82,20 +87,65 @@ async fn monitor_kernel_events(app: tauri::AppHandle) {
                         if !thought.session_id.is_empty() {
                             t.session_id = Some(thought.session_id.clone());
                         }
+                        
+                        // Thoughts are ephemeral status updates. 
+                        // We do NOT push them to history in Chat Mode to avoid duplication 
+                        // with the final ActionResult.
                     });
                 }
                 ChainEventEnum::ActionResult(res) => {
                     update_task_state_local(&app, |t| {
+                        // [FIX] Deduplication Check
+                        if t.processed_steps.contains(&res.step_index) {
+                            return;
+                        }
+                        t.processed_steps.insert(res.step_index);
+
                         t.current_step = format!("Executed {}: {}", res.tool_name, res.output);
                         if !res.session_id.is_empty() {
                             t.session_id = Some(res.session_id.clone());
                         }
+                        
                         if res.tool_name == "agent__complete" || res.tool_name == "system::max_steps_reached" {
                              t.phase = AgentPhase::Complete;
                              t.receipt = Some(Receipt {
                                  duration: "Done".to_string(), 
                                  actions: t.progress,
                                  cost: Some("$0.00".to_string()),
+                             });
+                             // Log completion if not redundant
+                             let msg = format!("Task Completed: {}", res.output);
+                             if t.history.last().map(|m| m.text != msg).unwrap_or(true) {
+                                 t.history.push(ChatMessage { role: "system".into(), text: msg, timestamp: now() });
+                             }
+                        }
+                        
+                        // Chat Mode completion
+                        if res.tool_name == "chat::reply" {
+                             t.phase = AgentPhase::Complete;
+                             t.current_step = res.output.clone(); 
+                             t.receipt = Some(Receipt {
+                                 duration: "Done".to_string(), 
+                                 actions: 1,
+                                 cost: Some("$0.00".to_string()),
+                             });
+                             
+                             // DEDUPLICATION: Check last history item
+                             let duplicate = t.history.last().map(|m| m.text == res.output).unwrap_or(false);
+                             
+                             if !duplicate {
+                                 t.history.push(ChatMessage {
+                                     role: "agent".to_string(),
+                                     text: res.output.clone(),
+                                     timestamp: now(),
+                                 });
+                             }
+                        } else if res.tool_name != "agent__complete" && res.tool_name != "system::max_steps_reached" {
+                             // Log tool output for normal tools
+                             t.history.push(ChatMessage {
+                                 role: "tool".to_string(),
+                                 text: format!("Tool Output ({}): {}", res.tool_name, res.output),
+                                 timestamp: now(),
                              });
                         }
                     });
@@ -109,6 +159,12 @@ async fn monitor_kernel_events(app: tauri::AppHandle) {
                     update_task_state_local(&app, |t| {
                         if matches!(t.phase, AgentPhase::Running) {
                              t.current_step = format!("User Input: {}", input.description);
+                             // [NEW] Log Ghost Input
+                             t.history.push(ChatMessage {
+                                 role: "user".to_string(),
+                                 text: format!("[Ghost] {}", input.description),
+                                 timestamp: now(),
+                             });
                         }
                     });
                 }
@@ -145,6 +201,13 @@ async fn monitor_kernel_events(app: tauri::AppHandle) {
                                 if !action.session_id.is_empty() {
                                     t.session_id = Some(action.session_id.clone());
                                 }
+                                
+                                // [NEW] Log Gate
+                                t.history.push(ChatMessage {
+                                    role: "system".to_string(),
+                                    text: format!("🛑 Policy Gate triggered for action: {}", action.target),
+                                    timestamp: now(),
+                                });
                             });
                             
                             show_gate(app.clone());
@@ -154,6 +217,12 @@ async fn monitor_kernel_events(app: tauri::AppHandle) {
                         update_task_state_local(&app, |t| {
                              t.current_step = format!("⛔ Action Blocked: {}", action.target);
                              t.phase = AgentPhase::Failed;
+                             // [NEW] Log Block
+                             t.history.push(ChatMessage {
+                                 role: "system".to_string(),
+                                 text: format!("⛔ Blocked action: {}", action.target),
+                                 timestamp: now(),
+                             });
                         });
                     }
                 }
@@ -275,6 +344,8 @@ pub fn run() {
             kernel::get_gate_response,
             kernel::clear_gate_response,
             kernel::get_context_blob,
+            kernel::get_session_history,
+            kernel::load_session,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

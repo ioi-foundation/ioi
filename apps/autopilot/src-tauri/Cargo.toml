@@ -30,6 +30,11 @@ ioi-ipc = { path = "../../../crates/ipc" }
 ioi-types = { path = "../../../crates/types" }
 ioi-crypto = { path = "../../../crates/crypto" }
 ioi-api = { path = "../../../crates/api" }
+# [NEW] Add dependency for SessionSummary persistence
+ioi-services = { path = "../../../crates/services" }
+
+# [NEW] Add parity-scale-codec for raw state decoding
+parity-scale-codec = { workspace = true, features = ["derive", "std"] }
 
 # [NEW] Add tonic dependency for gRPC client
 tonic = { version = "0.11", features = ["transport"] }
