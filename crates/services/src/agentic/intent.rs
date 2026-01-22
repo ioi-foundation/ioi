@@ -1,7 +1,7 @@
 // Path: crates/services/src/agentic/intent.rs
 
 use crate::agentic::prompt_wrapper::{PolicyGuardrails, PromptWrapper};
-use crate::agentic::desktop::StartAgentParams;
+use crate::agentic::desktop::{StartAgentParams, AgentMode}; // [FIX] Add AgentMode to imports
 use anyhow::{anyhow, Result};
 use ioi_api::vm::inference::InferenceRuntime;
 use ioi_types::app::agentic::InferenceOptions;
@@ -81,7 +81,31 @@ impl IntentResolver {
         };
 
         let context_str = format!("Address Book: {:?}", address_book);
-        let prompt = PromptWrapper::build_canonical_prompt(user_prompt, &context_str, &guardrails);
+        
+        // [MODIFIED] Update prompt to handle explicit "Chat Mode" prefix and schema examples
+        let header = format!(
+            "You are a secure blockchain intent resolver. Your job is to map natural language to a transaction JSON.\n\
+            Allowed Operations: {:?}\n\
+            Chain Context: {}\n\n\
+            Schemas:\n\
+            - Transfer: {{ \"operation_id\": \"transfer\", \"params\": {{ \"to\": \"0x...\", \"amount\": 100 }} }}\n\
+            - Agent: {{ \"operation_id\": \"start_agent\", \"params\": {{ \"goal\": \"...\", \"mode\": \"Agent\" }} }}\n\
+            - Chat: {{ \"operation_id\": \"start_agent\", \"params\": {{ \"goal\": \"...\", \"mode\": \"Chat\" }} }}\n\
+            - Governance: {{ \"operation_id\": \"governance_vote\", \"params\": {{ \"proposal_id\": 1, \"vote\": \"yes\" }} }}",
+            guardrails.allowed_operations, context_str
+        );
+
+        let body = format!("User Input: \"{}\"", user_prompt);
+
+        let footer =
+            "OUTPUT RULES:\n\
+            1. Return ONLY the JSON object.\n\
+            2. Do NOT use Markdown formatting (no ```json ... ```).\n\
+            3. The root object MUST have an 'operation_id' field.\n\
+            4. If input starts with 'MODE:CHAT', set params.mode='Chat'. Default mode is 'Agent'.\n\
+            5. 'gas_ceiling' is optional.";
+
+        let prompt = format!("{}\n\n{}\n\n{}", header, body, footer);
 
         let model_hash = [0u8; 32]; 
         let options = InferenceOptions {
@@ -97,7 +121,7 @@ impl IntentResolver {
 
         let output_str = String::from_utf8(output_bytes)?;
         
-        // [FIX] Robust extraction
+        // Robust extraction
         let json_str = Self::extract_json(&output_str).ok_or_else(|| {
             log::error!("IntentResolver: No JSON object found in output: '{}'", output_str);
             anyhow!("LLM did not return a valid JSON object")
@@ -162,6 +186,12 @@ impl IntentResolver {
                     .and_then(|v| v.as_str())
                     .unwrap_or("Unknown goal");
 
+                // [NEW] Parse mode from LLM output
+                let mode = match plan.params.get("mode").and_then(|v| v.as_str()) {
+                    Some("Chat") => AgentMode::Chat,
+                    _ => AgentMode::Agent,
+                };
+
                 let mut session_id = [0u8; 32];
                 rand::thread_rng().fill_bytes(&mut session_id);
 
@@ -171,6 +201,7 @@ impl IntentResolver {
                     max_steps: 10,
                     parent_session_id: None,
                     initial_budget: 10_000_000, 
+                    mode, // [NEW] Set the mode
                 };
                 
                 let params_bytes = codec::to_bytes_canonical(&params)
@@ -206,7 +237,7 @@ impl IntentResolver {
 
 #[derive(Deserialize, Debug)]
 struct IntentPlan {
-    // [FIX] Aliases for common LLM hallucinations
+    // Aliases for common LLM hallucinations
     #[serde(alias = "operationId", alias = "action", alias = "function")]
     operation_id: String,
     

@@ -104,6 +104,16 @@ async fn monitor_kernel_events(app: AppHandle) {
                                  cost: Some("$0.00".to_string()),
                              });
                         }
+                        // [NEW] Chat Mode completion
+                        if res.tool_name == "chat::reply" {
+                             t.phase = AgentPhase::Complete;
+                             t.current_step = res.output.clone(); // Show reply as final state
+                             t.receipt = Some(Receipt {
+                                 duration: "Done".to_string(), 
+                                 actions: 1,
+                                 cost: Some("$0.00".to_string()),
+                             });
+                        }
                     });
                 }
                 ChainEventEnum::Ghost(input) => {
@@ -157,11 +167,12 @@ pub fn start_task(
     state: State<Mutex<AppState>>,
     app: AppHandle,
     intent: String,
+    mode: String, // [NEW] Receive mode from frontend ("Chat" or "Agent")
 ) -> Result<AgentTask, String> {
     let task = AgentTask {
         id: uuid::Uuid::new_v4().to_string(),
         intent: intent.clone(),
-        agent: "General Agent".to_string(),
+        agent: if mode == "Chat" { "Chat Assistant".to_string() } else { "General Agent".to_string() },
         phase: AgentPhase::Running,
         progress: 0,
         total_steps: 10,
@@ -184,9 +195,15 @@ pub fn start_task(
 
     let app_clone = app.clone();
     let intent_clone = intent.clone();
+    
+    // [NEW] Construct effective intent for Resolver
+    let effective_intent = if mode == "Chat" {
+        format!("MODE:CHAT {}", intent_clone)
+    } else {
+        intent_clone
+    };
 
     tauri::async_runtime::spawn(async move {
-        // [MODIFIED] Removed simulation fallback. Errors are now reported directly.
         let mut client = match PublicApiClient::connect("http://127.0.0.1:9000").await {
             Ok(c) => c,
             Err(e) => {
@@ -199,10 +216,10 @@ pub fn start_task(
             }
         };
 
-        println!("[Autopilot] Drafting intent: '{}'", intent_clone);
+        println!("[Autopilot] Drafting intent: '{}' (Mode: {})", effective_intent, mode);
 
         let draft_req = tonic::Request::new(DraftTransactionRequest {
-            intent: intent_clone,
+            intent: effective_intent,
             address_book: Default::default(),
         });
 

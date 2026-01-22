@@ -338,33 +338,39 @@ where
             };
 
             // Get next nonce
-            let nonce_key = [
-                ioi_types::keys::ACCOUNT_NONCE_PREFIX,
-                our_account_id.as_ref(),
-            ]
-            .concat();
-
-            let nonce = match workload_client.query_raw_state(&nonce_key).await {
-                Ok(Some(b)) => match decode_state_value::<u64>(&b) {
-                    Ok(n) => n,
-                    Err(e) => {
-                        tracing::warn!(
-                            target: "agent_driver",
-                            "Failed to decode nonce (raw or StateEntry): {}",
-                            e
-                        );
-                        0
-                    }
-                },
-                Ok(None) => {
-                    tracing::debug!(target: "agent_driver", "Nonce key not found (new account?), assuming 0.");
-                    0
+            // [FIX] Use NonceManager + State Hybrid Approach
+            // This ensures AgentDriver respects nonces reserved by DraftTransaction
+            let nonce = {
+                // 1. Get state nonce
+                let nonce_key = [
+                    ioi_types::keys::ACCOUNT_NONCE_PREFIX,
+                    our_account_id.as_ref(),
+                ].concat();
+                
+                let state_nonce = match workload_client.query_raw_state(&nonce_key).await {
+                    Ok(Some(b)) => match decode_state_value::<u64>(&b) {
+                        Ok(n) => n,
+                        Err(_) => 0,
+                    },
+                    _ => 0,
+                };
+                
+                // 2. Sync with Manager
+                let mut nm = context.nonce_manager.lock().await;
+                let entry = nm.entry(our_account_id).or_insert(0);
+                
+                // Fast-forward if state is ahead
+                if *entry < state_nonce {
+                    *entry = state_nonce;
                 }
-                Err(e) => {
-                    tracing::warn!(target: "agent_driver", "Failed to query nonce: {}", e);
-                    continue; 
-                }
+                
+                let use_nonce = *entry;
+                // Increment to reserve
+                *entry += 1;
+                
+                use_nonce
             };
+
             tracing::info!(
                 target: "agent_driver",
                 "Submitting step for session {} with nonce {}",
