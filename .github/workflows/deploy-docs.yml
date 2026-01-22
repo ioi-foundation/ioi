@@ -1,0 +1,26 @@
+name: Deploy Docs
+
+on:
+  push:
+    branches: [ "main" ]
+    paths:
+      - 'apps/documentation/**' # Only rebuild if the doc app itself changes
+  
+  # This listens for the "ping" from your Kernel/Swarm repos
+  repository_dispatch:
+    types: [update-docs] 
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      # It clones the Kernel/Swarm repos into the build folder
+      - name: Sync External Repos & Build
+        env:
+          CI: true 
+        run: |
+          npm ci
+          npm run sync --workspace=apps/documentation
+          npm run build --workspace=apps/documentation

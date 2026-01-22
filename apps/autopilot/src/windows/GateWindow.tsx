@@ -3,6 +3,10 @@ import { invoke } from "@tauri-apps/api/core";
 import { listen, UnlistenFn } from "@tauri-apps/api/event";
 import "./GateWindow.css";
 
+// =========================================
+// TYPES
+// =========================================
+
 type AgentPhase = "Idle" | "Running" | "Gate" | "Complete" | "Failed";
 
 interface GateInfo {
@@ -25,20 +29,90 @@ interface AgentTask {
   gate_info?: GateInfo;
 }
 
-// Determines the "Visual Thumbnail" for the evidence card
-function getEvidenceIcon(title: string, desc: string): string {
-  const t = (title + desc).toLowerCase();
-  if (t.includes("stripe") || t.includes("pay")) return "💳";
-  if (t.includes("file") || t.includes("write")) return "💾";
-  if (t.includes("network") || t.includes("fetch")) return "🌐";
-  if (t.includes("email")) return "✉️";
-  return "⚡"; // Default Action
+// =========================================
+// ICONS — Clean SVG Components
+// =========================================
+
+const CreditCardIcon = () => (
+  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <rect x="1" y="4" width="22" height="16" rx="2" ry="2"/>
+    <line x1="1" y1="10" x2="23" y2="10"/>
+  </svg>
+);
+
+const FileIcon = () => (
+  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+    <polyline points="14 2 14 8 20 8"/>
+  </svg>
+);
+
+const GlobeIcon = () => (
+  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <circle cx="12" cy="12" r="10"/>
+    <line x1="2" y1="12" x2="22" y2="12"/>
+    <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
+  </svg>
+);
+
+const MailIcon = () => (
+  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
+    <polyline points="22,6 12,13 2,6"/>
+  </svg>
+);
+
+const ZapIcon = () => (
+  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
+  </svg>
+);
+
+const CheckIcon = () => (
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+    <polyline points="20 6 9 17 4 12"/>
+  </svg>
+);
+
+// =========================================
+// HELPER FUNCTIONS
+// =========================================
+
+function getEvidenceIcon(title: string, desc: string): React.ReactNode {
+  const text = (title + desc).toLowerCase();
+  
+  if (text.includes("stripe") || text.includes("pay") || text.includes("card")) {
+    return <CreditCardIcon />;
+  }
+  if (text.includes("file") || text.includes("write") || text.includes("save")) {
+    return <FileIcon />;
+  }
+  if (text.includes("network") || text.includes("fetch") || text.includes("api")) {
+    return <GlobeIcon />;
+  }
+  if (text.includes("email") || text.includes("mail") || text.includes("send")) {
+    return <MailIcon />;
+  }
+  
+  return <ZapIcon />;
 }
+
+function getRiskLabel(risk: string): string {
+  switch (risk.toLowerCase()) {
+    case "high": return "Critical Risk";
+    case "medium": return "Sensitive";
+    default: return "Standard";
+  }
+}
+
+// =========================================
+// MAIN COMPONENT
+// =========================================
 
 export function GateWindow() {
   const [task, setTask] = useState<AgentTask | null>(null);
   
-  // Hold-to-Sign Physics
+  // Hold-to-Sign State
   const [holdProgress, setHoldProgress] = useState(0);
   const [holdActive, setHoldActive] = useState(false);
   const [confirmed, setConfirmed] = useState(false);
@@ -46,6 +120,7 @@ export function GateWindow() {
   const holdStartRef = useRef<number | null>(null);
   const rafRef = useRef<number | null>(null);
 
+  // --- Load Current Task ---
   const loadTask = useCallback(async () => {
     try {
       const t = await invoke<AgentTask | null>("get_current_task");
@@ -59,18 +134,28 @@ export function GateWindow() {
     }
   }, []);
 
+  // --- Event Listeners ---
   useEffect(() => {
     loadTask();
     const poll = setInterval(loadTask, 300);
 
     const unlisteners: UnlistenFn[] = [];
+    
     const setup = async () => {
-      unlisteners.push(await listen<AgentTask>("task-updated", (e) => {
-        if (e.payload.phase === "Gate") setTask(e.payload);
-        else setTask(null);
-      }));
-      unlisteners.push(await listen("task-dismissed", () => setTask(null)));
+      unlisteners.push(
+        await listen<AgentTask>("task-updated", (e) => {
+          if (e.payload.phase === "Gate") {
+            setTask(e.payload);
+          } else {
+            setTask(null);
+          }
+        })
+      );
+      unlisteners.push(
+        await listen("task-dismissed", () => setTask(null))
+      );
     };
+    
     setup();
 
     return () => {
@@ -79,27 +164,27 @@ export function GateWindow() {
     };
   }, [loadTask]);
 
+  // --- Reset State on Task Change ---
   useEffect(() => {
     setHoldProgress(0);
     setHoldActive(false);
     setConfirmed(false);
   }, [task?.id]);
 
+  // --- Actions ---
   const handleApprove = async () => {
     setConfirmed(true);
-    // Delay actual response to allow stamp animation to play
+    // Delay to allow stamp animation
     setTimeout(async () => {
-      // COMMAND UPDATED HERE: submit_gate_decision -> gate_respond
       await invoke("gate_respond", { approved: true });
-    }, 1500); 
+    }, 1500);
   };
 
   const handleDeny = async () => {
-    // COMMAND UPDATED HERE: submit_gate_decision -> gate_respond
     await invoke("gate_respond", { approved: false });
   };
 
-  // --- Physics Engine for the Button ---
+  // --- Hold-to-Sign Physics ---
   const startHold = () => {
     if (confirmed) return;
     setHoldActive(true);
@@ -120,10 +205,10 @@ export function GateWindow() {
 
   const tickHold = () => {
     if (holdStartRef.current == null) return;
-    const elapsed = performance.now() - holdStartRef.current;
     
-    // 700ms hold time - snappy but deliberate
-    const progress = Math.min(elapsed / 700, 1);
+    const elapsed = performance.now() - holdStartRef.current;
+    const progress = Math.min(elapsed / 700, 1); // 700ms hold time
+    
     setHoldProgress(progress);
     
     if (progress >= 1) {
@@ -136,9 +221,11 @@ export function GateWindow() {
       handleApprove();
       return;
     }
+    
     rafRef.current = requestAnimationFrame(tickHold);
   };
 
+  // --- Empty State ---
   if (!task?.gate_info) {
     return <div className="gate-empty" />;
   }
@@ -146,16 +233,24 @@ export function GateWindow() {
   const { gate_info } = task;
   const risk = gate_info.risk.toLowerCase();
   
-  // Heuristic parsing to make the "Receipt" look real
+  // Parse description for display values
   const amountMatch = gate_info.description.match(/\$\d+(\.\d{2})?/);
   const costDisplay = amountMatch ? amountMatch[0] : null;
   const targetHost = gate_info.description.match(/([a-z0-9-]+\.com)/)?.[0] || "api.gateway.io";
 
+  // Build class names
+  const cardClasses = ["gate-card", confirmed ? "signed" : ""].filter(Boolean).join(" ");
+  const signBtnClasses = [
+    "btn-sign",
+    holdActive ? "holding" : "",
+    confirmed ? "confirmed" : ""
+  ].filter(Boolean).join(" ");
+
   return (
     <div className="gate-window">
-      <div className={`gate-card ${confirmed ? "signed" : ""}`}>
+      <div className={cardClasses}>
         
-        {/* Stamp Animation Overlay */}
+        {/* Stamp Overlay */}
         <div className={`stamp-overlay ${confirmed ? "visible" : ""}`}>
           <div className="approval-stamp">APPROVED</div>
         </div>
@@ -172,13 +267,13 @@ export function GateWindow() {
             </div>
           </div>
           <div className={`risk-badge ${risk}`}>
-            {risk === "high" ? "Critical Risk" : risk === "medium" ? "Sensitive" : "Standard"}
+            {getRiskLabel(risk)}
           </div>
         </div>
 
         {/* Body */}
         <div className="gate-body">
-          {/* 1. The Evidence (Visual Anchor) */}
+          {/* Evidence Card */}
           <div className="evidence-container">
             <div className="evidence-thumbnail">
               {getEvidenceIcon(gate_info.title, gate_info.description)}
@@ -189,7 +284,7 @@ export function GateWindow() {
             </div>
           </div>
 
-          {/* 2. The Line Items (Structured Data) */}
+          {/* Line Items */}
           <div className="line-items">
             <div className="line-item">
               <span className="li-label">Target Resource</span>
@@ -223,12 +318,11 @@ export function GateWindow() {
           </button>
           
           <button
-            className={`btn-sign ${holdActive ? "holding" : ""} ${confirmed ? "confirmed" : ""}`}
+            className={signBtnClasses}
             onPointerDown={startHold}
             onPointerUp={cancelHold}
             onPointerLeave={cancelHold}
             onPointerCancel={cancelHold}
-            // Touch support for tablets
             onTouchStart={(e) => { e.preventDefault(); startHold(); }}
             onTouchEnd={(e) => { e.preventDefault(); cancelHold(); }}
           >
@@ -237,7 +331,14 @@ export function GateWindow() {
               style={{ width: `${holdProgress * 100}%` }} 
             />
             <div className="sign-label">
-              <span>{confirmed ? "Authorized ✓" : "Hold to Sign"}</span>
+              {confirmed ? (
+                <>
+                  Authorized
+                  <CheckIcon />
+                </>
+              ) : (
+                "Hold to Sign"
+              )}
             </div>
           </button>
         </div>

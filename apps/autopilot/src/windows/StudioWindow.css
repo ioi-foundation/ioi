@@ -1,44 +1,71 @@
-/* StudioWindow - Main IDE shell */
+/* ============================================
+   StudioWindow — Premium Dark UI
+   Cursor / Linear / Raycast Caliber
+   ============================================ */
 
+/* --- CSS Variables (Design Tokens) --- */
+:root {
+  --studio-bg: #0a0a0b;
+  --studio-bg-elevated: #111113;
+  --studio-bg-surface: #18181b;
+  --studio-bg-hover: rgba(255, 255, 255, 0.03);
+  
+  --studio-border: rgba(255, 255, 255, 0.08);
+  --studio-border-strong: rgba(255, 255, 255, 0.12);
+  
+  --studio-text: #fafafa;
+  --studio-text-secondary: #a1a1aa;
+  --studio-text-muted: #52525b;
+  
+  --studio-accent: #3b82f6;
+  --studio-accent-muted: rgba(59, 130, 246, 0.1);
+  
+  --studio-warning: #f59e0b;
+  --studio-warning-muted: rgba(245, 158, 11, 0.1);
+  
+  --studio-success: #22c55e;
+  --studio-error: #ef4444;
+}
+
+/* --- Main Shell --- */
 .studio-window {
   width: 100vw;
   height: 100vh;
   display: flex;
-  flex-direction: row; /* Explicitly horizontal layout */
-  background: #111418; 
-  color: #f0f2f5;
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  flex-direction: row;
+  background: var(--studio-bg);
+  color: var(--studio-text);
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", sans-serif;
+  font-size: 13px;
+  line-height: 1.5;
   overflow: hidden;
+  -webkit-font-smoothing: antialiased;
 }
 
-/* Ensure children respect the flex layout */
 .studio-window > * {
   position: relative;
   z-index: 1;
 }
 
-/* Main content area (Right of Activity Bar) */
+/* --- Main Content Area --- */
 .studio-main {
   flex: 1;
   display: flex;
   flex-direction: column;
-  min-width: 0; /* Prevents flex items from overflowing */
+  min-width: 0;
   overflow: hidden;
-  background: #111418;
-  border-left: 1px solid #2E333D; /* Visual separator from Activity Bar */
+  background: var(--studio-bg);
+  border-left: 1px solid var(--studio-border);
 }
 
-/* Content area below the IDE Header */
 .studio-content {
   flex: 1;
   display: flex;
-  flex-direction: row; /* Horizontal layout for Panels + Canvas */
+  flex-direction: row;
   overflow: hidden;
   position: relative;
-  background: #111418;
 }
 
-/* Center area (Canvas + DataPanel) */
 .studio-center-area {
   flex: 1;
   position: relative;
@@ -47,16 +74,14 @@
   min-width: 0;
 }
 
-/* Right Panel container */
 .studio-right-panel {
   display: flex;
   flex-direction: column;
-  background: #181B21;
-  border-left: 1px solid #2E333D;
-  z-index: 20;
+  background: var(--studio-bg-elevated);
+  border-left: 1px solid var(--studio-border);
 }
 
-/* Canvas styling fixes */
+/* --- Canvas --- */
 .canvas-area {
   flex: 1;
   display: flex;
@@ -70,53 +95,525 @@
   top: 0;
   left: 0;
   right: 0;
-  background: #111418;
+  background: var(--studio-bg);
 }
 
-/* Update the existing .ghost-overlay rule */
+/* --- Ghost Mode Overlay --- */
 .ghost-overlay {
   position: absolute;
   inset: 0;
-  pointer-events: none; /* Critical: let clicks pass through to canvas */
+  pointer-events: none;
   z-index: 100;
-  
-  /* Replace solid border with a Vignette effect for immersion */
-  box-shadow: inset 0 0 100px rgba(245, 158, 11, 0.15); 
-  border: 1px solid rgba(245, 158, 11, 0.3);
+  box-shadow: inset 0 0 120px var(--studio-warning-muted);
+  border: 1px solid rgba(245, 158, 11, 0.2);
 }
 
 .ghost-badge {
   position: absolute;
-  top: 16px;
-  right: 16px;
+  top: 12px;
+  right: 12px;
   display: flex;
   align-items: center;
   gap: 8px;
   padding: 6px 12px;
-  background: rgba(245, 158, 11, 0.15);
-  border: 1px solid rgba(245, 158, 11, 0.4);
-  border-radius: 4px;
+  background: var(--studio-warning-muted);
+  border: 1px solid rgba(245, 158, 11, 0.3);
+  border-radius: 6px;
   font-size: 11px;
-  font-weight: 600;
-  color: #F59E0B;
-  backdrop-filter: blur(4px);
-  pointer-events: auto; /* Allow badge interaction if needed */
+  font-weight: 500;
+  color: var(--studio-warning);
+  backdrop-filter: blur(8px);
+  pointer-events: auto;
 }
 
 .ghost-dot {
   width: 6px;
   height: 6px;
-  background: #F59E0B;
+  background: var(--studio-warning);
   border-radius: 50%;
-  animation: pulse 1s infinite;
+  animation: ghostPulse 1.5s ease-in-out infinite;
 }
 
-@keyframes pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.5; }
+@keyframes ghostPulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.5; transform: scale(0.9); }
 }
 
-/* Ensure HUD sits on top */
-.vision-hud-container {
-  pointer-events: auto; /* Allow interaction with the HUD if we add close buttons later */
+/* =========================================
+   GHOST CHAT PANEL (Right Sidebar)
+   ========================================= */
+
+.ghost-panel {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  background: var(--studio-bg-elevated);
+}
+
+.ghost-panel-header {
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--studio-border);
+}
+
+.ghost-panel-title {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--studio-warning);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+}
+
+.ghost-panel-indicator {
+  width: 8px;
+  height: 8px;
+  background: var(--studio-warning);
+  border-radius: 50%;
+  box-shadow: 0 0 8px var(--studio-warning-muted);
+  animation: ghostPulse 1.5s ease-in-out infinite;
+}
+
+.ghost-panel-messages {
+  flex: 1;
+  padding: 16px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.ghost-panel-msg {
+  align-self: flex-start;
+  background: var(--studio-bg-surface);
+  padding: 10px 12px;
+  border-radius: 8px;
+  font-size: 12px;
+  color: var(--studio-text-secondary);
+  border: 1px solid var(--studio-border);
+  line-height: 1.5;
+}
+
+.ghost-panel-input {
+  padding: 12px;
+  border-top: 1px solid var(--studio-border);
+}
+
+.ghost-panel-input input {
+  width: 100%;
+  background: var(--studio-bg);
+  border: 1px solid var(--studio-border);
+  padding: 10px 12px;
+  border-radius: 6px;
+  color: var(--studio-text);
+  font-size: 12px;
+  font-family: inherit;
+  outline: none;
+  transition: border-color 0.15s ease;
+}
+
+.ghost-panel-input input:focus {
+  border-color: var(--studio-border-strong);
+}
+
+.ghost-panel-input input::placeholder {
+  color: var(--studio-text-muted);
+}
+
+/* =========================================
+   COPILOT VIEW — 3-Pane Layout
+   ========================================= */
+
+.copilot-layout {
+  display: flex;
+  width: 100%;
+  height: 100%;
+  background: var(--studio-bg);
+}
+
+/* --- History Sidebar (Left) --- */
+.copilot-sidebar {
+  width: 240px;
+  background: var(--studio-bg-elevated);
+  border-right: 1px solid var(--studio-border);
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+}
+
+.copilot-sidebar-header {
+  padding: 12px;
+  display: flex;
+  gap: 8px;
+}
+
+.copilot-new-btn {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  background: var(--studio-accent);
+  color: white;
+  border: none;
+  padding: 8px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 500;
+  font-family: inherit;
+  transition: opacity 0.15s ease;
+}
+
+.copilot-new-btn:hover {
+  opacity: 0.9;
+}
+
+.copilot-dock-btn {
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: 1px solid var(--studio-border);
+  color: var(--studio-text-muted);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.copilot-dock-btn:hover {
+  background: var(--studio-bg-hover);
+  color: var(--studio-text-secondary);
+  border-color: var(--studio-border-strong);
+}
+
+.copilot-search {
+  padding: 0 12px 12px;
+}
+
+.copilot-search-box {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--studio-bg);
+  padding: 8px 10px;
+  border-radius: 6px;
+  border: 1px solid var(--studio-border);
+  transition: border-color 0.15s ease;
+}
+
+.copilot-search-box:focus-within {
+  border-color: var(--studio-border-strong);
+}
+
+.copilot-search-box svg {
+  color: var(--studio-text-muted);
+  flex-shrink: 0;
+}
+
+.copilot-search-box input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  color: var(--studio-text);
+  font-size: 12px;
+  font-family: inherit;
+  outline: none;
+}
+
+.copilot-search-box input::placeholder {
+  color: var(--studio-text-muted);
+}
+
+.copilot-history {
+  flex: 1;
+  overflow-y: auto;
+}
+
+.copilot-history-label {
+  padding: 8px 12px 4px;
+  font-size: 10px;
+  font-weight: 500;
+  color: var(--studio-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.copilot-history-item {
+  padding: 10px 12px;
+  cursor: pointer;
+  transition: background 0.1s ease;
+}
+
+.copilot-history-item:hover {
+  background: var(--studio-bg-hover);
+}
+
+.copilot-history-title {
+  font-size: 13px;
+  color: var(--studio-text);
+  margin-bottom: 2px;
+}
+
+.copilot-history-time {
+  font-size: 11px;
+  color: var(--studio-text-muted);
+}
+
+/* --- Chat Pane (Center) --- */
+.copilot-chat {
+  flex: 2;
+  display: flex;
+  flex-direction: column;
+  border-right: 1px solid var(--studio-border);
+  background: var(--studio-bg-elevated);
+  min-width: 350px;
+  transition: flex 0.2s ease;
+}
+
+.copilot-chat.expanded {
+  flex: 1;
+  border-right: none;
+}
+
+.copilot-chat-header {
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--studio-border);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--studio-text);
+}
+
+.copilot-chat-header svg {
+  color: var(--studio-accent);
+}
+
+.copilot-messages {
+  flex: 1;
+  padding: 16px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.copilot-messages.centered {
+  max-width: 800px;
+  margin: 0 auto;
+  width: 100%;
+}
+
+/* --- Chat Messages --- */
+.chat-msg {
+  max-width: 85%;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.chat-msg.user {
+  align-self: flex-end;
+  background: var(--studio-text);
+  color: var(--studio-bg);
+  padding: 10px 14px;
+  border-radius: 14px 14px 4px 14px;
+}
+
+.chat-msg.agent {
+  align-self: flex-start;
+  color: var(--studio-text-secondary);
+  padding: 0;
+}
+
+/* --- Chat Input Area --- */
+.copilot-input-area {
+  padding: 16px;
+  border-top: 1px solid var(--studio-border);
+}
+
+.copilot-input-container {
+  width: 100%;
+}
+
+.copilot-input-container.centered {
+  max-width: 800px;
+  margin: 0 auto;
+}
+
+.copilot-input-wrapper {
+  background: var(--studio-bg-surface);
+  border: 1px solid var(--studio-border);
+  border-radius: 10px;
+  margin-bottom: 10px;
+  transition: border-color 0.15s ease;
+}
+
+.copilot-input-wrapper:focus-within {
+  border-color: var(--studio-border-strong);
+}
+
+.copilot-input {
+  width: 100%;
+  padding: 12px 14px;
+  background: transparent;
+  border: none;
+  color: var(--studio-text);
+  font-size: 13px;
+  font-family: inherit;
+  outline: none;
+}
+
+.copilot-input::placeholder {
+  color: var(--studio-text-muted);
+}
+
+/* --- Controls Row --- */
+.copilot-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* --- Swarm Pane (Right) --- */
+.copilot-swarm {
+  flex: 3;
+  padding: 16px;
+  background: var(--studio-bg);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+/* =========================================
+   STUDIO DROPDOWNS
+   ========================================= */
+
+.studio-dropdown {
+  position: relative;
+}
+
+.studio-dropdown-trigger {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 8px;
+  background: transparent;
+  border: none;
+  border-radius: 4px;
+  color: var(--studio-text-muted);
+  font-size: 12px;
+  font-family: inherit;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.studio-dropdown-trigger:hover,
+.studio-dropdown-trigger.open {
+  background: var(--studio-bg-hover);
+  color: var(--studio-text-secondary);
+}
+
+.studio-dropdown-trigger svg {
+  flex-shrink: 0;
+}
+
+.studio-dropdown-trigger .chevron {
+  opacity: 0.5;
+  margin-left: 2px;
+}
+
+.studio-dropdown-menu {
+  position: absolute;
+  bottom: calc(100% + 4px);
+  left: 0;
+  min-width: 140px;
+  background: var(--studio-bg-surface);
+  border: 1px solid var(--studio-border-strong);
+  border-radius: 8px;
+  padding: 4px;
+  z-index: 100;
+  animation: dropdownSlide 0.12s ease;
+}
+
+@keyframes dropdownSlide {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.studio-dropdown-item {
+  display: block;
+  width: 100%;
+  padding: 8px 10px;
+  background: transparent;
+  border: none;
+  border-radius: 4px;
+  color: var(--studio-text-secondary);
+  font-size: 12px;
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: all 0.1s ease;
+}
+
+.studio-dropdown-item:hover {
+  background: var(--studio-bg-hover);
+  color: var(--studio-text);
+}
+
+.studio-dropdown-item.selected {
+  background: var(--studio-accent-muted);
+  color: var(--studio-accent);
+}
+
+.studio-dropdown-separator {
+  height: 1px;
+  background: var(--studio-border);
+  margin: 4px 0;
+}
+
+.studio-dropdown-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 8px 10px;
+  background: transparent;
+  border: none;
+  border-radius: 4px;
+  color: var(--studio-accent);
+  font-size: 12px;
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: all 0.1s ease;
+}
+
+.studio-dropdown-footer:hover {
+  background: var(--studio-accent-muted);
+}
+
+/* =========================================
+   SCROLLBARS
+   ========================================= */
+
+.studio-window ::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.studio-window ::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.studio-window ::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 3px;
+}
+
+.studio-window ::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.12);
 }

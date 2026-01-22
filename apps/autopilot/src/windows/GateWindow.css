@@ -1,6 +1,9 @@
-/* GateWindow - The "Glass Purchase Order" */
-/* Combines high-end Glassmorphism with Executive Clarity */
+/* ============================================
+   GateWindow — Premium Dark UI
+   Cursor / Linear / Raycast Caliber
+   ============================================ */
 
+/* --- Reset --- */
 html, body, #root {
   margin: 0;
   padding: 0;
@@ -9,10 +12,39 @@ html, body, #root {
   height: 100%;
 }
 
+/* --- CSS Variables (Design Tokens) --- */
+:root {
+  --gate-bg: rgba(10, 10, 11, 0.95);
+  --gate-bg-elevated: rgba(24, 24, 27, 0.9);
+  --gate-bg-surface: #18181b;
+  --gate-bg-hover: rgba(255, 255, 255, 0.03);
+  
+  --gate-border: rgba(255, 255, 255, 0.08);
+  --gate-border-strong: rgba(255, 255, 255, 0.12);
+  
+  --gate-text: #fafafa;
+  --gate-text-secondary: #a1a1aa;
+  --gate-text-muted: #52525b;
+  
+  --gate-accent: #3b82f6;
+  --gate-accent-muted: rgba(59, 130, 246, 0.15);
+  
+  --gate-success: #22c55e;
+  --gate-success-muted: rgba(34, 197, 94, 0.15);
+  
+  --gate-warning: #f59e0b;
+  --gate-warning-muted: rgba(245, 158, 11, 0.15);
+  
+  --gate-error: #ef4444;
+  --gate-error-muted: rgba(239, 68, 68, 0.15);
+}
+
+/* --- Empty State --- */
 .gate-empty {
   background: transparent;
 }
 
+/* --- Window Container --- */
 .gate-window {
   width: 100%;
   height: 100%;
@@ -20,59 +52,48 @@ html, body, #root {
   align-items: center;
   justify-content: center;
   padding: 16px;
-  /* Subtle vignette, but keep context visible */
-  background: radial-gradient(circle at center, rgba(0,0,0,0.2) 0%, rgba(0,0,0,0.6) 100%);
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  perspective: 1200px;
+  background: rgba(0, 0, 0, 0.6);
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", sans-serif;
+  font-size: 13px;
+  -webkit-font-smoothing: antialiased;
 }
 
 /* === THE CARD === */
 .gate-card {
   width: 100%;
-  max-width: 420px;
-  
-  /* Restored High-Caliber Glassmorphism */
-  background: rgba(18, 20, 26, 0.85);
-  backdrop-filter: blur(24px) saturate(180%);
-  -webkit-backdrop-filter: blur(24px) saturate(180%);
-  
-  /* Premium Border Treatment */
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  box-shadow: 
-    0 24px 48px rgba(0, 0, 0, 0.6), /* Deep shadow for depth */
-    0 0 0 1px rgba(255, 255, 255, 0.05) inset; /* Inner light rim */
-    
-  border-radius: 16px;
+  max-width: 400px;
+  background: var(--gate-bg);
+  backdrop-filter: blur(40px);
+  -webkit-backdrop-filter: blur(40px);
+  border: 1px solid var(--gate-border);
+  border-radius: 12px;
   overflow: hidden;
   display: flex;
   flex-direction: column;
-  transition: transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1), border-color 0.3s;
+  position: relative;
+  transition: all 0.3s ease;
 }
 
-/* Interaction State */
 .gate-card.signed {
-  transform: rotateX(5deg) scale(0.96); /* Physical recession into screen */
-  border-color: rgba(16, 185, 129, 0.5);
-  background: rgba(18, 20, 26, 0.95);
+  transform: scale(0.98);
+  border-color: rgba(34, 197, 94, 0.3);
 }
 
 /* === HEADER === */
 .gate-header {
-  padding: 20px 24px;
+  padding: 16px 20px;
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-  background: linear-gradient(to bottom, rgba(255,255,255,0.03), transparent);
+  border-bottom: 1px solid var(--gate-border);
 }
 
 .gate-title-block h1 {
   margin: 0;
-  font-size: 16px;
-  font-weight: 600;
-  color: #F3F4F6;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--gate-text);
   letter-spacing: -0.01em;
-  text-shadow: 0 1px 2px rgba(0,0,0,0.5);
 }
 
 .gate-subtitle {
@@ -81,88 +102,110 @@ html, body, #root {
   gap: 6px;
   margin-top: 4px;
   font-size: 11px;
-  color: #9CA3AF;
-  font-family: "JetBrains Mono", monospace;
+  color: var(--gate-text-muted);
+  font-family: "SF Mono", "Menlo", monospace;
 }
 
 .agent-dot {
   width: 6px;
   height: 6px;
-  background: #3D85C6;
+  background: var(--gate-accent);
   border-radius: 50%;
-  box-shadow: 0 0 8px rgba(61, 133, 198, 0.6);
 }
 
-/* Risk Badge - Glass Style */
+/* --- Risk Badge --- */
 .risk-badge {
-  font-size: 9px;
-  font-weight: 700;
+  font-size: 10px;
+  font-weight: 500;
   text-transform: uppercase;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.5px;
   padding: 4px 10px;
-  border-radius: 20px;
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  backdrop-filter: blur(4px);
+  border-radius: 6px;
+  background: var(--gate-bg-hover);
+  border: 1px solid var(--gate-border);
 }
 
-.risk-badge.high { color: #EF4444; border-color: rgba(239, 68, 68, 0.3); background: rgba(239, 68, 68, 0.1); }
-.risk-badge.medium { color: #F59E0B; border-color: rgba(245, 158, 11, 0.3); background: rgba(245, 158, 11, 0.1); }
-.risk-badge.low { color: #10B981; border-color: rgba(16, 185, 129, 0.3); background: rgba(16, 185, 129, 0.1); }
+.risk-badge.high {
+  color: var(--gate-error);
+  border-color: rgba(239, 68, 68, 0.2);
+  background: var(--gate-error-muted);
+}
+
+.risk-badge.medium {
+  color: var(--gate-warning);
+  border-color: rgba(245, 158, 11, 0.2);
+  background: var(--gate-warning-muted);
+}
+
+.risk-badge.low {
+  color: var(--gate-success);
+  border-color: rgba(34, 197, 94, 0.2);
+  background: var(--gate-success-muted);
+}
 
 /* === BODY === */
 .gate-body {
-  padding: 24px;
+  padding: 20px;
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 16px;
 }
 
-/* Evidence Container - "The Object of Interest" */
+/* --- Evidence Container --- */
 .evidence-container {
   display: flex;
-  gap: 16px;
+  gap: 14px;
   align-items: center;
 }
 
 .evidence-thumbnail {
-  width: 56px;
-  height: 56px;
-  border-radius: 12px;
-  background: linear-gradient(135deg, rgba(255,255,255,0.08), rgba(255,255,255,0.02));
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  width: 48px;
+  height: 48px;
+  border-radius: 10px;
+  background: var(--gate-bg-elevated);
+  border: 1px solid var(--gate-border);
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 24px;
-  box-shadow: 0 8px 16px rgba(0,0,0,0.3);
+  flex-shrink: 0;
+}
+
+.evidence-thumbnail svg {
+  width: 22px;
+  height: 22px;
+  color: var(--gate-text-secondary);
 }
 
 .evidence-details {
   flex: 1;
+  min-width: 0;
 }
 
 .evidence-title {
-  font-size: 15px;
-  font-weight: 600;
-  color: #fff;
-  margin-bottom: 4px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--gate-text);
+  margin-bottom: 2px;
 }
 
 .evidence-desc {
   font-size: 12px;
-  color: #9CA3AF;
+  color: var(--gate-text-secondary);
   line-height: 1.4;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
 }
 
-/* Line Items - "The Receipt" */
+/* --- Line Items --- */
 .line-items {
   display: flex;
   flex-direction: column;
-  gap: 1px; /* Gap for separator lines */
-  background: rgba(255, 255, 255, 0.05); /* Divider color */
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 12px;
+  background: var(--gate-bg-elevated);
+  border: 1px solid var(--gate-border);
+  border-radius: 10px;
   overflow: hidden;
 }
 
@@ -170,88 +213,95 @@ html, body, #root {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 12px 16px;
-  background: rgba(18, 20, 26, 0.6); /* Item bg */
+  padding: 10px 14px;
   font-size: 12px;
+  border-bottom: 1px solid var(--gate-border);
 }
 
-/* Highlight the cost/value row */
+.line-item:last-child {
+  border-bottom: none;
+}
+
 .line-item.highlight {
-  background: rgba(61, 133, 198, 0.08);
+  background: var(--gate-warning-muted);
 }
 
 .li-label {
-  color: #8A9BA8;
+  color: var(--gate-text-muted);
   font-weight: 500;
 }
 
 .li-value {
-  color: #E5E7EB;
-  font-family: "JetBrains Mono", monospace;
-  font-weight: 500;
+  color: var(--gate-text-secondary);
+  font-family: "SF Mono", "Menlo", monospace;
+  font-size: 11px;
 }
 
 .li-value.cost {
-  color: #F59E0B;
-  font-weight: 700;
-  font-size: 13px;
+  color: var(--gate-warning);
+  font-weight: 600;
+  font-size: 12px;
 }
 
 /* === FOOTER === */
 .gate-footer {
-  padding: 16px 24px 24px;
+  padding: 16px 20px;
   display: flex;
-  gap: 12px;
-  margin-top: auto;
-  border-top: 1px solid rgba(255, 255, 255, 0.06);
-  background: rgba(0, 0, 0, 0.2);
+  gap: 10px;
+  border-top: 1px solid var(--gate-border);
 }
 
+/* --- Reject Button --- */
 .btn-reject {
-  padding: 0 20px;
-  height: 44px;
-  border-radius: 10px;
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  padding: 0 16px;
+  height: 40px;
+  border-radius: 8px;
+  border: 1px solid var(--gate-border);
   background: transparent;
-  color: #9CA3AF;
+  color: var(--gate-text-secondary);
   font-size: 13px;
-  font-weight: 600;
+  font-weight: 500;
+  font-family: inherit;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: all 0.15s ease;
 }
 
 .btn-reject:hover {
-  background: rgba(239, 68, 68, 0.1);
-  border-color: rgba(239, 68, 68, 0.4);
-  color: #EF4444;
+  background: var(--gate-error-muted);
+  border-color: rgba(239, 68, 68, 0.3);
+  color: var(--gate-error);
 }
 
-/* Hold Button - The Centerpiece */
+.btn-reject:disabled {
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+/* --- Sign Button --- */
 .btn-sign {
   flex: 1;
   position: relative;
-  height: 44px;
-  border-radius: 10px;
-  border: 1px solid rgba(61, 133, 198, 0.5); /* Subtle border */
-  background: linear-gradient(180deg, #3D85C6 0%, #2B74B3 100%);
+  height: 40px;
+  border-radius: 8px;
+  border: 1px solid var(--gate-accent);
+  background: var(--gate-accent);
   overflow: hidden;
   cursor: pointer;
-  box-shadow: 
-    0 4px 12px rgba(61, 133, 198, 0.3),
-    0 1px 0 rgba(255,255,255,0.2) inset; /* Top highlight */
-  transition: all 0.1s;
+  transition: all 0.15s ease;
   user-select: none;
+}
+
+.btn-sign:hover {
+  opacity: 0.9;
 }
 
 .btn-sign:active {
   transform: translateY(1px);
-  box-shadow: 0 2px 4px rgba(61, 133, 198, 0.2);
 }
 
 .btn-sign.confirmed {
-  background: #10B981;
-  border-color: #059669;
-  box-shadow: 0 0 20px rgba(16, 185, 129, 0.4);
+  background: var(--gate-success);
+  border-color: var(--gate-success);
   pointer-events: none;
 }
 
@@ -260,9 +310,9 @@ html, body, #root {
   top: 0;
   bottom: 0;
   left: 0;
-  background: rgba(0, 0, 0, 0.25);
+  background: rgba(0, 0, 0, 0.2);
   width: 0%;
-  transition: width 0.05s linear; /* Smooth fill */
+  transition: width 0.05s linear;
 }
 
 .sign-label {
@@ -271,17 +321,16 @@ html, body, #root {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
+  gap: 6px;
   width: 100%;
   height: 100%;
   color: white;
   font-size: 13px;
-  font-weight: 600;
-  letter-spacing: 0.02em;
-  text-shadow: 0 1px 2px rgba(0,0,0,0.2);
+  font-weight: 500;
+  font-family: inherit;
 }
 
-/* === STAMP ANIMATION (High Fidelity) === */
+/* === STAMP OVERLAY === */
 .stamp-overlay {
   position: absolute;
   inset: 0;
@@ -291,32 +340,24 @@ html, body, #root {
   pointer-events: none;
   z-index: 100;
   opacity: 0;
-  transform: scale(3) rotate(-15deg);
-  transition: all 0.25s cubic-bezier(0.34, 1.56, 0.64, 1); /* Bouncy pop */
+  transform: scale(2) rotate(-12deg);
+  transition: all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
 .stamp-overlay.visible {
   opacity: 1;
-  transform: scale(1) rotate(-15deg);
+  transform: scale(1) rotate(-12deg);
 }
 
 .approval-stamp {
-  border: 5px solid #10B981;
-  color: #10B981;
-  font-size: 36px;
-  font-weight: 900;
+  border: 3px solid var(--gate-success);
+  color: var(--gate-success);
+  font-size: 28px;
+  font-weight: 700;
   text-transform: uppercase;
-  padding: 12px 32px;
-  border-radius: 12px;
-  letter-spacing: 0.15em;
-  
-  /* Grunge / Ink bleed effect via shadows */
-  box-shadow: 
-    0 0 0 4px rgba(16, 185, 129, 0.1),
-    inset 0 0 20px rgba(16, 185, 129, 0.2);
-    
-  text-shadow: 0 2px 10px rgba(16, 185, 129, 0.5);
-  background: rgba(16, 185, 129, 0.05);
+  padding: 10px 24px;
+  border-radius: 8px;
+  letter-spacing: 0.1em;
+  background: var(--gate-success-muted);
   backdrop-filter: blur(4px);
-  mix-blend-mode: hard-light; /* Blends nicely with dark background */
 }
