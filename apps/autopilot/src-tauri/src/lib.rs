@@ -1,4 +1,4 @@
-// apps/autopilot/src-tauri/src/lib.rs
+// Path: apps/autopilot/src-tauri/src/lib.rs
 use std::sync::Mutex;
 use tauri::{
     menu::{Menu, MenuItem},
@@ -106,7 +106,8 @@ async fn monitor_kernel_events(app: tauri::AppHandle) {
                             t.session_id = Some(res.session_id.clone());
                         }
                         
-                        if res.tool_name == "agent__complete" || res.tool_name == "system::max_steps_reached" {
+                        // [FIX] Added system::auto_complete to the check
+                        if res.tool_name == "agent__complete" || res.tool_name == "system::max_steps_reached" || res.tool_name == "system::auto_complete" {
                              t.phase = AgentPhase::Complete;
                              t.receipt = Some(Receipt {
                                  duration: "Done".to_string(), 
@@ -140,7 +141,7 @@ async fn monitor_kernel_events(app: tauri::AppHandle) {
                                      timestamp: now(),
                                  });
                              }
-                        } else if res.tool_name != "agent__complete" && res.tool_name != "system::max_steps_reached" {
+                        } else if res.tool_name != "agent__complete" && res.tool_name != "system::max_steps_reached" && res.tool_name != "system::auto_complete" {
                              // Log tool output for normal tools
                              t.history.push(ChatMessage {
                                  role: "tool".to_string(),
