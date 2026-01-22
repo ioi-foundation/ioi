@@ -108,11 +108,6 @@ pub async fn enforce_firewall(
         PolicyEngine::check_service_call(&overlay, service_id, method, false)?;
 
         if service_id == "agentic" || service_id == "desktop_agent" || service_id == "compute_market" {
-            // [FIX] Load active policy from state or use default
-            // In a real implementation, this would query the state for the account's specific policy.
-            // For MVP Beta, we use default rules which default to DenyAll, requiring approvals.
-            let rules = ActionRules::default();
-
             // [NEW] Attempt to extract session_id and approval token from state
             let mut session_id_opt = None;
             let mut approval_token: Option<ApprovalToken> = None;
@@ -123,12 +118,6 @@ pub async fn enforce_firewall(
                      
                      // Look up agent state to see if approval token exists
                      let key = get_state_key(&p.session_id);
-                     
-                     // We need to access the namespaced data of desktop_agent.
-                     // The state accessor here is raw (overlay). 
-                     // The service stores data under `_service_data::desktop_agent::...`
-                     // get_state_key returns `agent::state::{id}`.
-                     // So we need to construct the full key manually here since we are outside the service.
                      
                      let ns_prefix = service_namespace_prefix("desktop_agent");
                      let full_key = [ns_prefix.as_slice(), key.as_slice()].concat();
@@ -141,12 +130,50 @@ pub async fn enforce_firewall(
                  }
             }
 
+            // [FIX] Load active policy from state (Global Fallback)
+            // We use the global policy key (zero session ID) defined in `ioi-local.rs`.
+            // Canonical prefix: b"agent::policy::"
+            // The namespaced prefix is not applied here because we are reading raw state in the firewall,
+            // but the policy was inserted in ioi-local via raw insert which might or might not be namespaced.
+            // Wait, ioi-local.rs uses `workload_container.state_tree().write()` which is raw access.
+            // But `ioi-local.rs` inserts keys `agent::policy::{session_id}`.
+            
+            // NOTE: The `ioi-local` setup writes to raw state.
+            // The policy prefix is `b"agent::policy::"`.
+            // The global policy uses a zeroed session ID.
+            
+            let policy_prefix = b"agent::policy::";
+            
+            let rules = if let Some(sid) = session_id_opt {
+                // Try session specific policy first
+                let session_policy_key = [policy_prefix, sid.as_slice()].concat();
+                 if let Ok(Some(bytes)) = overlay.get(&session_policy_key) {
+                     codec::from_bytes_canonical::<ActionRules>(&bytes).unwrap_or_default()
+                 } else {
+                     // Fallback to global
+                     let global_key = [policy_prefix, [0u8; 32].as_slice()].concat();
+                     if let Ok(Some(bytes)) = overlay.get(&global_key) {
+                         codec::from_bytes_canonical::<ActionRules>(&bytes).unwrap_or_default()
+                     } else {
+                         ActionRules::default()
+                     }
+                 }
+            } else {
+                // Global fallback
+                let global_key = [policy_prefix, [0u8; 32].as_slice()].concat();
+                if let Ok(Some(bytes)) = overlay.get(&global_key) {
+                    codec::from_bytes_canonical::<ActionRules>(&bytes).unwrap_or_default()
+                } else {
+                    ActionRules::default()
+                }
+            };
+
             let dummy_request = ioi_types::app::ActionRequest {
                 target: ioi_types::app::ActionTarget::Custom(method.clone()),
                 params: params.clone(),
                 context: ioi_types::app::ActionContext {
                     agent_id: "unknown".into(),
-                    session_id: session_id_opt, // [FIX] Pass session_id
+                    session_id: session_id_opt, 
                     window_id: None,
                 },
                 nonce: 0,
@@ -172,7 +199,7 @@ pub async fn enforce_firewall(
                             verdict: "BLOCK".to_string(),
                             target: method.clone(),
                             request_hash: dummy_request.hash(),
-                            session_id: session_id_opt, // [FIX] Pass session ID
+                            session_id: session_id_opt, 
                         });
                     }
                     return Err(TransactionError::Invalid("Blocked by Policy".into()));
@@ -187,7 +214,7 @@ pub async fn enforce_firewall(
                             verdict: "REQUIRE_APPROVAL".to_string(),
                             target: method.clone(),
                             request_hash: req_hash_bytes,
-                            session_id: session_id_opt, // [FIX] Pass session ID
+                            session_id: session_id_opt, 
                         });
                     }
                     

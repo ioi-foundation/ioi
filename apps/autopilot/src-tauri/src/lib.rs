@@ -95,11 +95,15 @@ async fn monitor_kernel_events(app: tauri::AppHandle) {
                 }
                 ChainEventEnum::ActionResult(res) => {
                     update_task_state_local(&app, |t| {
-                        // [FIX] Deduplication Check
-                        if t.processed_steps.contains(&res.step_index) {
+                        // [FIX] Deduplication using Composite Key (Index + Tool)
+                        // This ensures 'filesystem__write_file' (Step 0) AND 'system::auto_complete' (Step 0)
+                        // are both processed, allowing the phase transition to Complete.
+                        let dedup_key = format!("{}:{}", res.step_index, res.tool_name);
+
+                        if t.processed_steps.contains(&dedup_key) {
                             return;
                         }
-                        t.processed_steps.insert(res.step_index);
+                        t.processed_steps.insert(dedup_key);
 
                         t.current_step = format!("Executed {}: {}", res.tool_name, res.output);
                         if !res.session_id.is_empty() {
