@@ -70,7 +70,15 @@ pub fn goto_trace_log(
 
     if let Some(e) = action_error {
         agent_state.consecutive_failures += 1;
-        agent_state.history.push(format!("System: Action Failed: {}", e));
+        
+        // [FIX] Push structured ChatMessage
+        agent_state.history.push(ioi_types::app::agentic::ChatMessage {
+            role: "system".to_string(),
+            content: format!("System: Action Failed: {}", e),
+            timestamp: SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_millis() as u64,
+            trace_hash: None,
+        });
+        
     } else {
         agent_state.consecutive_failures = 0;
     }

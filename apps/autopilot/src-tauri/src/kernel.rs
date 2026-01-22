@@ -2,15 +2,16 @@
 use crate::models::*;
 use crate::windows; 
 use std::sync::Mutex;
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use std::time::{Duration, SystemTime, UNIX_EPOCH}; // [FIX] Added Duration
 use tauri::{AppHandle, Emitter, Manager, State};
 use std::collections::HashSet; // Needed for processed_steps
 
 // Kernel Integration
 use ioi_ipc::public::public_api_client::PublicApiClient;
 use ioi_ipc::public::{
-    chain_event::Event as ChainEventEnum, DraftTransactionRequest, GetContextBlobRequest,
-    SubmitTransactionRequest, SubscribeEventsRequest,
+    DraftTransactionRequest, GetContextBlobRequest,
+    SubmitTransactionRequest,
+    SubscribeEventsRequest, chain_event::Event as ChainEventEnum // [FIX] Added missing imports
 };
 use ioi_ipc::blockchain::QueryRawStateRequest; // [NEW] For hydration
 
@@ -89,225 +90,37 @@ async fn hydrate_session_history(
     session_id_hex: &str,
 ) -> Result<Vec<ChatMessage>, String> {
     let session_id_bytes = hex::decode(session_id_hex).map_err(|e| e.to_string())?;
-    let mut history = Vec::new();
-    let mut step: u32 = 0;
+    
+    // 1. Construct State Key
+    // Key: _service_data::desktop_agent::agent::state::{id}
+    let ns_prefix = ioi_api::state::service_namespace_prefix("desktop_agent");
+    let state_prefix = b"agent::state::"; 
+    
+    let key = [ns_prefix.as_slice(), state_prefix, &session_id_bytes].concat();
 
-    // Iterate through steps until we find no more traces
-    // Key format: "agent::trace::{session_id}::{step_u32_le}"
-    let prefix = b"agent::trace::";
+    let req = tonic::Request::new(QueryRawStateRequest { key });
 
-    loop {
-        let mut key = Vec::new();
-        key.extend_from_slice(prefix);
-        key.extend_from_slice(&session_id_bytes);
-        key.extend_from_slice(&step.to_le_bytes());
+    // 2. Fetch Single Key (O(1))
+    let resp = client.query_raw_state(req).await.map_err(|e| e.to_string())?.into_inner();
 
-        let req = tonic::Request::new(QueryRawStateRequest { key });
+    if resp.found && !resp.value.is_empty() {
+        // 3. Decode State
+        let agent_state = codec::from_bytes_canonical::<ioi_services::agentic::desktop::AgentState>(&resp.value)
+            .map_err(|e| format!("Failed to decode state: {}", e))?;
+
+        // 4. Map to UI Model
+        // The types match structurally but are distinct Rust types, so we map them.
+        let history = agent_state.history.into_iter().map(|msg| ChatMessage {
+            role: msg.role,
+            text: msg.content,
+            timestamp: msg.timestamp,
+        }).collect();
         
-        match client.query_raw_state(req).await {
-            Ok(resp) => {
-                let inner = resp.into_inner();
-                if !inner.found || inner.value.is_empty() {
-                    break; // End of history
-                }
-
-                if let Ok(trace) = codec::from_bytes_canonical::<ioi_types::app::agentic::StepTrace>(&inner.value) {
-                    // 1. Add User Prompt (Input)
-                    // Deduplicate: Don't add if identical to previous (e.g. re-runs)
-                    if history.last().map(|m: &ChatMessage| m.text != trace.full_prompt).unwrap_or(true) {
-                        history.push(ChatMessage {
-                            role: "user".to_string(),
-                            text: trace.full_prompt,
-                            timestamp: trace.timestamp * 1000, // s -> ms
-                        });
-                    }
-
-                    // 2. Add Agent Result (Output)
-                    // If success, log output. If fail, log error.
-                    let text = if trace.success {
-                        trace.raw_output
-                    } else {
-                        format!("Error: {}", trace.error.unwrap_or_default())
-                    };
-
-                    history.push(ChatMessage {
-                        role: "agent".to_string(),
-                        text,
-                        timestamp: trace.timestamp * 1000,
-                    });
-                }
-            }
-            Err(_) => break,
-        }
-        step += 1;
+        return Ok(history);
     }
 
-    Ok(history)
-}
-
-// -------------------------------------------------------------------------
-// Kernel Monitor
-// -------------------------------------------------------------------------
-
-async fn monitor_kernel_events(app: AppHandle) {
-    let mut client = loop {
-        match PublicApiClient::connect("http://127.0.0.1:9000").await {
-            Ok(c) => {
-                println!("[Autopilot] Connected to Kernel Event Stream at :9000");
-                break c;
-            }
-            Err(_) => {
-                // Retry loop for connection
-                tokio::time::sleep(Duration::from_secs(2)).await;
-            }
-        }
-    };
-
-    let request = tonic::Request::new(SubscribeEventsRequest {});
-    let mut stream = match client.subscribe_events(request).await {
-        Ok(s) => s.into_inner(),
-        Err(e) => {
-            eprintln!("[Autopilot] Failed to subscribe to events: {}", e);
-            return;
-        }
-    };
-
-    while let Ok(Some(event_msg)) = stream.message().await {
-        if let Some(event_enum) = event_msg.event {
-            match event_enum {
-                ChainEventEnum::Thought(thought) => {
-                    update_task_state(&app, |t| {
-                        t.current_step = thought.content.clone();
-                        t.phase = AgentPhase::Running;
-                        t.progress += 1;
-                        if !thought.visual_hash.is_empty() {
-                            t.visual_hash = Some(thought.visual_hash.clone());
-                        }
-                        if !thought.session_id.is_empty() {
-                            t.session_id = Some(thought.session_id.clone());
-                        }
-                        
-                        // Thoughts are ephemeral. We do NOT push to history here to avoid duplication
-                        // with the final ActionResult in Chat Mode.
-                    });
-                }
-                ChainEventEnum::ActionResult(res) => {
-                    update_task_state(&app, |t| {
-                        // [FIX] Deduplication Check
-                        if t.processed_steps.contains(&res.step_index) {
-                            return;
-                        }
-                        t.processed_steps.insert(res.step_index);
-
-                        t.current_step = format!("Executed {}: {}", res.tool_name, res.output);
-                        if !res.session_id.is_empty() {
-                            t.session_id = Some(res.session_id.clone());
-                        }
-                        
-                        // Completion handling
-                        if res.tool_name == "agent__complete" || res.tool_name == "system::max_steps_reached" {
-                             t.phase = AgentPhase::Complete;
-                             t.receipt = Some(Receipt {
-                                 duration: "Done".to_string(), 
-                                 actions: t.progress,
-                                 cost: Some("$0.00".to_string()),
-                             });
-                             // Log completion if not redundant
-                             let msg = format!("Task Completed: {}", res.output);
-                             if t.history.last().map(|m| m.text != msg).unwrap_or(true) {
-                                 t.history.push(ChatMessage { role: "system".into(), text: msg, timestamp: now() });
-                             }
-                        }
-                        
-                        // Chat Mode completion
-                        if res.tool_name == "chat::reply" {
-                             t.phase = AgentPhase::Complete;
-                             t.current_step = res.output.clone(); 
-                             t.receipt = Some(Receipt {
-                                 duration: "Done".to_string(), 
-                                 actions: 1,
-                                 cost: Some("$0.00".to_string()),
-                             });
-                             
-                             // DEDUPLICATION: Check last history item
-                             let duplicate = t.history.last().map(|m| m.text == res.output).unwrap_or(false);
-                             
-                             if !duplicate {
-                                 t.history.push(ChatMessage {
-                                     role: "agent".to_string(),
-                                     text: res.output.clone(),
-                                     timestamp: now(),
-                                 });
-                             }
-                        } else if res.tool_name != "agent__complete" && res.tool_name != "system::max_steps_reached" {
-                             // Log tool output for normal tools
-                             t.history.push(ChatMessage {
-                                 role: "tool".to_string(),
-                                 text: format!("Tool Output ({}): {}", res.tool_name, res.output),
-                                 timestamp: now(),
-                             });
-                        }
-                    });
-                }
-                ChainEventEnum::Ghost(input) => {
-                    let payload = GhostInputEvent {
-                        device: input.device.clone(),
-                        description: input.description.clone(),
-                    };
-                    let _ = app.emit("ghost-input", &payload);
-                    update_task_state(&app, |t| {
-                        if matches!(t.phase, AgentPhase::Running) {
-                             t.current_step = format!("User Input: {}", input.description);
-                             // [NEW] Log Ghost Input
-                             t.history.push(ChatMessage {
-                                 role: "user".to_string(),
-                                 text: format!("[Ghost] {}", input.description),
-                                 timestamp: now(),
-                             });
-                        }
-                    });
-                }
-                ChainEventEnum::Action(action) => {
-                    if action.verdict == "REQUIRE_APPROVAL" {
-                        update_task_state(&app, |t| {
-                            t.phase = AgentPhase::Gate;
-                            t.current_step = "Policy Gate: Approval Required".to_string();
-                            t.gate_info = Some(GateInfo {
-                                title: "Restricted Action Intercepted".to_string(),
-                                description: format!("Agent attempting: {}", action.target),
-                                risk: "medium".to_string(), 
-                            });
-                            t.pending_request_hash = Some(action.reason.clone());
-                            
-                            if !action.session_id.is_empty() {
-                                t.session_id = Some(action.session_id.clone());
-                            }
-
-                            // [NEW] Log Gate
-                            t.history.push(ChatMessage {
-                                role: "system".to_string(),
-                                text: format!("🛑 Policy Gate triggered for action: {}", action.target),
-                                timestamp: now(),
-                            });
-                        });
-                        windows::show_gate(app.clone());
-                    } else if action.verdict == "BLOCK" {
-                        update_task_state(&app, |t| {
-                            t.phase = AgentPhase::Failed;
-                            t.current_step = format!("Blocked by Firewall: {}", action.reason);
-                            // [NEW] Log Block
-                            t.history.push(ChatMessage {
-                                role: "system".to_string(),
-                                text: format!("⛔ Blocked action: {}", action.target),
-                                timestamp: now(),
-                            });
-                        });
-                    }
-                }
-                _ => {}
-            }
-        }
-    }
+    // Fallback: If no state found, return empty (session might be purged or invalid)
+    Ok(vec![])
 }
 
 // -------------------------------------------------------------------------
@@ -485,8 +298,9 @@ pub fn start_task(
                         t.current_step = format!("Submission Error: {}", e);
                     });
                 } else {
-                    // Success: Start monitoring for events
-                    monitor_kernel_events(app_clone).await;
+                    // [FIX] REMOVED REDUNDANT MONITOR CALL
+                    // The global monitor in lib.rs will handle the events.
+                    println!("[Autopilot] Transaction submitted. Watching events...");
                 }
             }
             Err(e) => {

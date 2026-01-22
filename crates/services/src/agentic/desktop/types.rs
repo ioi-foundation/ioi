@@ -1,6 +1,7 @@
 // Path: crates/services/src/agentic/desktop/types.rs
 
 use ioi_types::app::action::ApprovalToken;
+use ioi_types::app::agentic::ChatMessage;
 use parity_scale_codec::{Decode, Encode};
 use serde::{Deserialize, Serialize};
 
@@ -26,7 +27,12 @@ pub enum AgentMode {
 pub struct AgentState {
     pub session_id: [u8; 32],
     pub goal: String,
-    pub history: Vec<String>,
+    
+    /// The conversation history, stored as structured messages.
+    /// This serves as the context window for the LLM and the display data for the UI.
+    #[serde(default)]
+    pub history: Vec<ChatMessage>,
+    
     pub status: AgentStatus,
     pub step_count: u32,
     pub max_steps: u32,

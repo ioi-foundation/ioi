@@ -47,6 +47,9 @@ use ioi_api::vm::inference::{HttpInferenceRuntime, InferenceRuntime, LocalSafety
 use ioi_services::agentic::scrub_adapter::RuntimeAsSafetyModel;
 use ioi_drivers::os::NativeOsDriver;
 
+// [FIX] Add missing import
+use ioi_services::agentic::desktop::DesktopAgentService;
+
 // [FIX] Removed unused RuleConditions import to silence warning
 use ioi_services::agentic::rules::{ActionRules, DefaultPolicy, Rule, Verdict, RuleConditions};
 use ioi_types::codec;
@@ -66,6 +69,10 @@ async fn main() -> Result<()> {
 
     let opts = LocalOpts::parse();
     fs::create_dir_all(&opts.data_dir)?;
+    
+    // [FIX] Use absolute path for data dir to ensure MCP compatibility
+    let abs_data_dir = fs::canonicalize(&opts.data_dir)?;
+    let abs_data_dir_str = abs_data_dir.to_string_lossy().to_string();
 
     // 1. Identity Setup
     let key_path = opts.data_dir.join("identity.key");
@@ -158,6 +165,13 @@ async fn main() -> Result<()> {
                 conditions: Default::default(),
                 action: Verdict::Allow, 
              },
+             // [FIX] Allow agent completion without gate
+             Rule {
+                rule_id: Some("allow-complete".into()),
+                target: "agent__complete".into(), 
+                conditions: Default::default(),
+                action: Verdict::Allow, 
+             },
              // Everything else (File Write, Network, Exec) hits the Default => RequireApproval
         ],
     };
@@ -231,7 +245,7 @@ async fn main() -> Result<()> {
                 "-y".to_string(),
                 "@modelcontextprotocol/server-filesystem".to_string(),
                 // Mount internal data (scratchpad)
-                opts.data_dir.to_string_lossy().to_string(), 
+                abs_data_dir_str.clone(), 
                 // Mount User Home (so it can be useful)
                 user_home.clone(), 
             ],
@@ -401,8 +415,8 @@ async fn main() -> Result<()> {
         tree,
         scheme.clone(),
         workload_config.clone(),
-        Some(gui_driver),
-        Some(browser_driver),
+        Some(gui_driver.clone()), // [FIX] Clone
+        Some(browser_driver.clone()), // [FIX] Clone
         Some(scs_arc.clone()), 
         Some(event_tx.clone()), 
         Some(os_driver.clone()), 
@@ -524,7 +538,7 @@ async fn main() -> Result<()> {
     };
 
     let orchestrator = Arc::new(Orchestrator::new(&config, deps, scheme)?);
-    orchestrator.set_chain_and_workload_client(machine, workload_client);
+    orchestrator.set_chain_and_workload_client(machine.clone(), workload_client); // [FIX] Clone machine Arc
 
     println!("\n✅ IOI User Node (Mode 0) configuration is valid.");
     println!("   - Agency Firewall: User-in-the-Loop Mode (Interactive Gates)");
@@ -542,6 +556,32 @@ async fn main() -> Result<()> {
     Container::start(&*orchestrator, &config.rpc_listen_address)
         .await
         .map_err(|e| anyhow!("Failed to start: {}", e))?;
+        
+    // [MODIFIED] Create and Inject Enhanced DesktopAgentService
+    let agent = DesktopAgentService::new_hybrid(
+        gui_driver,
+        Arc::new(ioi_drivers::terminal::TerminalDriver::new()),
+        browser_driver, 
+        inference_runtime.clone(),
+        inference_runtime.clone()
+    )
+    .with_mcp_manager(Arc::new(ioi_drivers::mcp::McpManager::new()))
+    .with_workspace_path(abs_data_dir_str.clone())
+    .with_scs(scs_arc.clone())
+    .with_event_sender(event_tx.clone())
+    .with_os_driver(os_driver.clone());
+    
+    // Inject into ExecutionMachine (Hot Swap)
+    {
+        use ioi_api::services::UpgradableService;
+        let mut machine_guard = machine.lock().await;
+        let service_arc = Arc::new(agent);
+        if let Err(e) = machine_guard.service_manager.register_service(service_arc) {
+             eprintln!("Failed to register enhanced DesktopAgentService: {}", e);
+        } else {
+             println!("✅ Enhanced DesktopAgentService (MCP+Path) registered via Hot Swap.");
+        }
+    }
 
     let mut operator_ticker = tokio::time::interval(Duration::from_secs(1));
     operator_ticker.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);

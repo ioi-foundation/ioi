@@ -31,7 +31,11 @@ pub struct Receipt {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ChatMessage {
     pub role: String, // "user", "agent", "system", "tool"
+    
+    // [NOTE] We map backend `content` to frontend `text` for compatibility with UI components
+    #[serde(alias = "content")] 
     pub text: String,
+    
     pub timestamp: u64,
 }
 

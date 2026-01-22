@@ -1,7 +1,7 @@
 // Path: crates/types/src/app/agentic.rs
 use parity_scale_codec::{Decode, Encode};
 use serde::{Deserialize, Serialize};
-use crate::app::action::ApprovalToken; // [NEW] Import
+use crate::app::action::ApprovalToken; 
 
 /// The cryptographic proof that a distributed committee converged on a specific meaning.
 /// This forms the "Proof of Meaning" verified by Type A (Consensus) validators.
@@ -66,6 +66,24 @@ pub struct RedactionEntry {
 pub struct RedactionMap {
     /// A chronological list of redactions applied to the source text.
     pub entries: Vec<RedactionEntry>,
+}
+
+/// Represents a single message in an agent's conversation history.
+/// This provides a structured, queryable format for Chat Mode and Context hydration.
+#[derive(Debug, Clone, Serialize, Deserialize, Encode, Decode, PartialEq, Eq)]
+pub struct ChatMessage {
+    /// The entity that generated the message: "user", "agent", "system", "tool".
+    pub role: String,
+    
+    /// The text content of the message (input prompt, thought, or tool output).
+    pub content: String,
+    
+    /// UNIX timestamp (milliseconds) when the message was created.
+    pub timestamp: u64,
+    
+    /// Optional: The hash of the specific execution trace step this message corresponds to.
+    /// This allows linking the conversation view back to the high-resolution Audit Log.
+    pub trace_hash: Option<[u8; 32]>,
 }
 
 /// Represents a tool definition compatible with LLM function calling schemas (e.g. OpenAI/Anthropic).

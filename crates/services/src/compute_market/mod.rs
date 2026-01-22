@@ -1,15 +1,13 @@
 // Path: crates/services/src/compute_market/mod.rs
 use async_trait::async_trait;
-use ioi_api::services::{BlockchainService, UpgradableService};
+use ioi_api::services::UpgradableService; // [FIX] Removed BlockchainService
 use ioi_api::state::StateAccess;
 use ioi_api::transaction::context::TxContext;
-// [FIX] Removed unused hash import
 use ioi_macros::service_interface;
 use ioi_types::{
-    app::AccountId, // [FIX] Removed ChainTransaction
+    app::AccountId,
     codec,
     error::TransactionError,
-    // [FIX] Removed unused active_service_key
 };
 use parity_scale_codec::{Decode, Encode};
 use serde::{Deserialize, Serialize};

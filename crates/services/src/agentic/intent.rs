@@ -1,7 +1,7 @@
 // Path: crates/services/src/agentic/intent.rs
 
-use crate::agentic::prompt_wrapper::{PolicyGuardrails, PromptWrapper};
-use crate::agentic::desktop::{StartAgentParams, AgentMode}; // [FIX] Add AgentMode to imports
+use crate::agentic::prompt_wrapper::PolicyGuardrails; // [FIX] Removed PromptWrapper
+use crate::agentic::desktop::{StartAgentParams, AgentMode}; 
 use anyhow::{anyhow, Result};
 use ioi_api::vm::inference::InferenceRuntime;
 use ioi_types::app::agentic::InferenceOptions;
