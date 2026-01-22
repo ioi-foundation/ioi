@@ -1,4 +1,4 @@
-// Path: crates/ipc/proto/blockchain.proto
+// Path: crates/ipc/proto/blockchain/v1/blockchain.proto
 syntax = "proto3";
 package ioi.blockchain.v1;
 

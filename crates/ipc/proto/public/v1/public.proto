@@ -1,4 +1,4 @@
-// Path: crates/ipc/proto/public.proto
+// Path: crates/ipc/proto/public/v1/public.proto
 syntax = "proto3";
 package ioi.public.v1;
 
