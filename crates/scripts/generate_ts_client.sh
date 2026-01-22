@@ -52,8 +52,8 @@ protoc \
     --ts_opt=outputServices=grpc-js \
     --ts_opt=env=browser \
     --proto_path="${PROTO_SRC}" \
-    "${PROTO_SRC}/public.proto" \
-    "${PROTO_SRC}/blockchain.proto" \
-    "${PROTO_SRC}/control.proto"
+    "${PROTO_SRC}/public/v1/public.proto" \
+    "${PROTO_SRC}/blockchain/v1/blockchain.proto" \
+    "${PROTO_SRC}/control/v1/control.proto"
 
 echo "✅ Done. Frontend client is in sync with Kernel schema."

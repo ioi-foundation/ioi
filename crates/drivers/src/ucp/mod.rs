@@ -1,4 +1,4 @@
-// Path: crates/drivers/src/ucp.rs
+// Path: crates/drivers/src/ucp/mod.rs
 
 //! Universal Commerce Protocol (UCP) Driver.
 //! 
