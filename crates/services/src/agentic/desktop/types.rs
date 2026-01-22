@@ -1,8 +1,10 @@
 // Path: crates/services/src/agentic/desktop/types.rs
+
 use ioi_types::app::action::ApprovalToken;
 use parity_scale_codec::{Decode, Encode};
 use serde::{Deserialize, Serialize};
 
+// [FIX] Removed Copy trait because String fields are not Copy
 #[derive(Debug, Clone, Serialize, Deserialize, Encode, Decode, PartialEq, Eq)]
 pub enum AgentStatus {
     Idle,
@@ -10,6 +12,14 @@ pub enum AgentStatus {
     Completed(Option<String>),
     Failed(String),
     Paused(String),
+}
+
+// [NEW] Define Agent Mode
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, Encode, Decode, PartialEq, Eq, Default)]
+pub enum AgentMode {
+    #[default]
+    Agent, // Default: Uses tools, autonomous
+    Chat,  // Chat only: No tools, conversational
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Encode, Decode)]
@@ -27,10 +37,13 @@ pub struct AgentState {
     pub tokens_used: u64,
     pub consecutive_failures: u8,
     pub pending_approval: Option<ApprovalToken>,
-    /// [NEW] Persist the raw tool call JSON that is pending approval.
-    /// This ensures that when the agent resumes, we retry the EXACT same payload bytes,
-    /// guaranteeing that the ActionRequest hash matches the signed ApprovalToken.
     pub pending_tool_call: Option<String>,
+    #[serde(default)]
+    pub recent_actions: Vec<String>,
+    
+    // [NEW] Track the mode in state
+    #[serde(default)]
+    pub mode: AgentMode,
 }
 
 #[derive(Encode, Decode)]
@@ -40,6 +53,8 @@ pub struct StartAgentParams {
     pub max_steps: u32,
     pub parent_session_id: Option<[u8; 32]>,
     pub initial_budget: u64,
+    // [NEW] Allow specifying mode at start
+    pub mode: AgentMode,
 }
 
 #[derive(Encode, Decode)]

@@ -272,6 +272,10 @@ export function SpotlightWindow() {
       setChatHistory(prev => {
         const lastMsg = prev[prev.length - 1];
         if (lastMsg?.text.includes("complete")) return prev;
+        // [FIX] Handle pure chat response (current_step holds response) vs Receipt done
+        if (task.current_step && task.current_step.length > 20 && task.current_step !== "Transmitting intent to Kernel...") {
+            return [...prev, { role: 'agent', text: task.current_step }];
+        }
         return [...prev, { role: 'agent', text: `Done. ${task.receipt?.actions} actions.` }];
       });
     }
@@ -310,7 +314,8 @@ export function SpotlightWindow() {
       if (text.toLowerCase().includes("swarm") || text.toLowerCase().includes("team")) {
         await openStudio("copilot");
       }
-      await startTask(text);
+      // [FIX] Pass conversationMode ("Chat" or "Agent")
+      await startTask(text, conversationMode);
     } catch (e) {
       console.error(e);
     }
@@ -374,7 +379,7 @@ export function SpotlightWindow() {
             <input
               ref={inputRef}
               className="spot-input"
-              placeholder="How can I help you today?"
+              placeholder={conversationMode === "Chat" ? "Ask anything..." : "How can I help you today?"}
               value={intent}
               onChange={(e) => setIntent(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && handleSubmit()}

@@ -298,7 +298,7 @@ impl DesktopAgentService {
             &dummy_request,
             &self.scrubber.model,
             os_driver,
-            agent_state.pending_approval.as_ref(), // <--- PASS TOKEN HERE
+            agent_state.pending_approval.as_ref(), 
         )
         .await;
 
@@ -399,7 +399,9 @@ impl BlockchainService for DesktopAgentService {
                     consecutive_failures: 0,
                     tokens_used: 0,
                     pending_approval: None,
-                    pending_tool_call: None, // [NEW] Initialize to None
+                    pending_tool_call: None,
+                    recent_actions: Vec::new(),
+                    mode: p.mode, // [NEW] Set mode from params
                 };
                 state.insert(&key, &codec::to_bytes_canonical(&agent_state)?)?;
                 Ok(())
@@ -445,6 +447,9 @@ impl BlockchainService for DesktopAgentService {
                     .get(&key)?
                     .ok_or(TransactionError::Invalid("Session not found".into()))?;
                 let mut agent_state: AgentState = codec::from_bytes_canonical(&bytes)?;
+
+                // [NEW] Buffer for completion event to ensure correct ordering (Trace -> Result)
+                let mut completion_event: Option<KernelEvent> = None;
 
                 match agent_state.status {
                     AgentStatus::Running => {}
@@ -540,13 +545,20 @@ impl BlockchainService for DesktopAgentService {
                     }
                 }
 
-                let mut available_tools = discover_tools(state);
-                if let Some(mcp) = &self.mcp {
-                    let mcp_tools = mcp.get_all_tools().await;
-                    if !mcp_tools.is_empty() {
-                        available_tools.extend(mcp_tools);
+                // [MODIFIED] Tool Discovery based on Mode
+                // [FIX] Use immutable variable
+                let available_tools = if agent_state.mode == AgentMode::Chat {
+                    // Chat Mode: No tools available. Pure conversation.
+                    Vec::new()
+                } else {
+                    // Agent Mode: Full tool access
+                    let mut tools = discover_tools(state);
+                    if let Some(mcp) = &self.mcp {
+                        let mcp_tools = mcp.get_all_tools().await;
+                        tools.extend(mcp_tools);
                     }
-                }
+                    tools
+                };
 
                 let skills = self.recall_skills(state, &agent_state.goal).await?;
                 let mut skills_prompt = String::new();
@@ -560,8 +572,6 @@ impl BlockchainService for DesktopAgentService {
                     }
                 }
 
-                let rag_context = self.retrieve_memory(&agent_state.goal).await;
-
                 // Inject Workspace Context
                 let workspace_context = format!(
                     "You are running in a secure sandbox.\n\
@@ -569,40 +579,61 @@ impl BlockchainService for DesktopAgentService {
                      Allowed Paths: ./ioi-data/*"
                 );
 
-                let raw_user_prompt = format!(
-                    "SYSTEM INSTRUCTION: You are an autonomous agent API.
-                    Your Goal: {}
-                    
-                    ENVIRONMENT:
-                    {}
-                    
-                    AVAILABLE TOOLS:
-                    {}
-                    
-                    HISTORY:
-                    {:?}
-                    
-                    CONTEXT:
-                    {}
-                    
-                    CRITICAL RULES:
-                    1. You MUST respond with a VALID JSON OBJECT representing the tool call.
-                    2. When writing files, ALWAYS use paths starting with './ioi-data/' or absolute paths you have confirmed exist.
-                    3. Do NOT use placeholders like '/path/to/file'.
-                    
-                    EXAMPLE RESPONSE:
-                    {{
-                        \"thought\": \"I will save the results to the data directory.\",
-                        \"name\": \"filesystem__write_file\",
-                        \"arguments\": {{ \"path\": \"./ioi-data/results.txt\", \"content\": \"...\" }}
-                    }}
-                    ",
-                    agent_state.goal,
-                    workspace_context, 
-                    serde_json::to_string_pretty(&available_tools).unwrap_or_default(),
-                    agent_state.history,
-                    tree_xml
-                );
+                // [MODIFIED] System Prompt Construction based on Mode
+                let raw_user_prompt = if agent_state.mode == AgentMode::Chat {
+                    format!(
+                        "SYSTEM: You are a helpful AI assistant.
+                        User Input: {}
+                        
+                        CONTEXT:
+                        {}
+                        
+                        INSTRUCTIONS:
+                        1. Answer the user's question directly.
+                        2. Do NOT generate tool calls or JSON.
+                        3. Be concise and helpful.
+                        4. Note: PII has been scrubbed from your input for privacy.
+                        ",
+                        agent_state.goal, // In chat mode, goal is the prompt
+                        tree_xml // We still provide visual context (read-only)
+                    )
+                } else {
+                    format!(
+                        "SYSTEM INSTRUCTION: You are an autonomous agent API.
+                        Your Goal: {}
+                        
+                        ENVIRONMENT:
+                        {}
+                        
+                        AVAILABLE TOOLS:
+                        {}
+                        
+                        HISTORY:
+                        {:?}
+                        
+                        CONTEXT:
+                        {}
+                        
+                        CRITICAL RULES:
+                        1. You MUST respond with a VALID JSON OBJECT representing the tool call.
+                        2. When writing files, ALWAYS use paths starting with './ioi-data/' or absolute paths you have confirmed exist.
+                        3. Do NOT use placeholders like '/path/to/file'.
+                        4. If the user's specific request is satisfied by the previous action, you MUST call 'agent__complete' immediately.
+                        
+                        EXAMPLE RESPONSE:
+                        {{
+                            \"thought\": \"I will save the results to the data directory.\",
+                            \"name\": \"filesystem__write_file\",
+                            \"arguments\": {{ \"path\": \"./ioi-data/results.txt\", \"content\": \"...\" }}
+                        }}
+                        ",
+                        agent_state.goal,
+                        workspace_context, 
+                        serde_json::to_string_pretty(&available_tools).unwrap_or_default(),
+                        agent_state.history,
+                        tree_xml
+                    )
+                };
 
                 let (scrubbed_prompt, _redaction_map) =
                     self.scrubber.scrub(&raw_user_prompt).await.map_err(|e| {
@@ -610,11 +641,9 @@ impl BlockchainService for DesktopAgentService {
                     })?;
                 let user_prompt: String = scrubbed_prompt;
 
-                // [FIX] Move model_hash definition here so it's available for ZK verification
                 let model_hash = [0u8; 32]; 
 
-                // [FIX] Deterministic Retry Logic
-                // If we have a pending tool call from a paused/gated step, use that instead of re-running inference.
+                // Deterministic Retry Logic (If pending, use it)
                 let output_str = if let Some(stored_call) = &agent_state.pending_tool_call {
                     log::info!("Retrying pending tool call for session {}", hex::encode(&p.session_id[0..4]));
                     stored_call.clone()
@@ -650,8 +679,54 @@ impl BlockchainService for DesktopAgentService {
                     output_str
                 };
                 
-                // Print to stdout for debugging
                 println!("[DesktopAgent] Brain Output: {}", output_str); 
+                
+                // [1.1] Deduplication Check
+                if let Ok(tool_call) = serde_json::from_str::<Value>(&output_str) {
+                    if let Some(name) = tool_call.get("name").and_then(|n| n.as_str()) {
+                         let signature_obj = json!({
+                            "name": name,
+                            "arguments": tool_call["arguments"]
+                        });
+                        
+                        let signature = match serde_jcs::to_string(&signature_obj) {
+                            Ok(s) => s,
+                            Err(_) => signature_obj.to_string(),
+                        };
+
+                        if let Some(last) = agent_state.recent_actions.last() {
+                            if *last == signature {
+                                 // Loop detected
+                                 let err_msg = "System: Repetitive Action Detected. Stop or change parameters.";
+                                 agent_state.history.push(err_msg.to_string());
+                                 agent_state.consecutive_failures += 1;
+                                 
+                                 // Emit Step for UI visibility
+                                 if let Some(tx) = &self.event_sender {
+                                     let _ = tx.send(KernelEvent::AgentStep(ioi_types::app::agentic::StepTrace {
+                                         session_id: p.session_id,
+                                         step_index: agent_state.step_count,
+                                         visual_hash: visual_phash,
+                                         full_prompt: user_prompt.clone(),
+                                         raw_output: output_str.clone(),
+                                         success: false,
+                                         error: Some("Repetitive Action".into()),
+                                         timestamp: SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs(),
+                                     }));
+                                 }
+                                 
+                                 state.insert(&key, &codec::to_bytes_canonical(&agent_state)?)?;
+                                 return Ok(());
+                            }
+                        }
+                        
+                        // Update rolling window
+                        if agent_state.recent_actions.len() >= 3 {
+                            agent_state.recent_actions.remove(0);
+                        }
+                        agent_state.recent_actions.push(signature);
+                    }
+                }
 
                 agent_state.history.push(format!("Action: {}", output_str));
 
@@ -697,7 +772,6 @@ impl BlockchainService for DesktopAgentService {
                                     agent_state.history.push(entry);
                                 }
                                 
-                                // [FIX] If action succeeded and we had a pending approval or stored call, clear them.
                                 if success {
                                     if agent_state.pending_approval.is_some() {
                                         agent_state.pending_approval = None;
@@ -705,12 +779,28 @@ impl BlockchainService for DesktopAgentService {
                                     if agent_state.pending_tool_call.is_some() {
                                         agent_state.pending_tool_call = None;
                                     }
+                                    
+                                    // [1.2] Heuristic Auto-Termination
+                                    let is_mutator = match name {
+                                         "filesystem__write_file" | "gui__click" | "sys__exec" | "browser__click" => true,
+                                         _ => false
+                                     };
+                                     
+                                     if is_mutator && agent_state.goal.len() < 60 {
+                                         agent_state.status = AgentStatus::Completed(Some("Auto-terminated: Action successful.".into()));
+                                          
+                                          // [FIX] Buffer event instead of sending immediately
+                                          completion_event = Some(KernelEvent::AgentActionResult {
+                                                 session_id: p.session_id,
+                                                 step_index: agent_state.step_count,
+                                                 tool_name: "system::auto_complete".to_string(),
+                                                 output: "Goal likely satisfied. Terminating.".to_string(),
+                                             });
+                                     }
                                 }
                             }
                             Err(e) => {
                                 let err_str = e.to_string();
-                                
-                                // Check for PendingApproval error
                                 let is_pending_approval = if let TransactionError::PendingApproval(_) = &e {
                                     true
                                 } else {
@@ -720,15 +810,11 @@ impl BlockchainService for DesktopAgentService {
                                 if is_pending_approval {
                                     agent_state.status = AgentStatus::Paused("Waiting for User Approval".into());
                                     
-                                    // Variable to hold the real hash for the event
                                     let mut real_request_hash = [0u8; 32];
-
-                                    // Extract hash if available in the specific variant
                                     if let TransactionError::PendingApproval(hash) = e {
                                          if let Ok(hash_bytes) = hex::decode(&hash) {
                                             if let Ok(hash_arr) = hash_bytes.try_into() {
                                                 real_request_hash = hash_arr;
-                                                // Create a placeholder token that the user will sign and replace
                                                 agent_state.pending_approval = Some(ApprovalToken {
                                                     request_hash: hash_arr,
                                                     scope: Default::default(),
@@ -739,7 +825,6 @@ impl BlockchainService for DesktopAgentService {
                                          }
                                     }
 
-                                    // Persist the tool call so we retry exactly this later
                                     agent_state.pending_tool_call = Some(output_str.clone());
                                     
                                     agent_state.history.push(format!(
@@ -775,13 +860,27 @@ impl BlockchainService for DesktopAgentService {
                             }
                         }
                     } else {
+                        // [MODIFIED] Chat Mode handling fallback or unexpected JSON
                         agent_state.history.push(format!("Thought (JSON): {}", output_str));
                         action_success = true;
                     }
                 } else {
+                    // Fallback: Plain Text (Chat Mode) or VLM
                     agent_state.history.push(format!("Thought: {}", output_str));
-                    
-                    if let Some(req) = parse_vlm_action(
+                    action_success = true;
+
+                    // [NEW] If Chat Mode, complete immediately after response
+                    if agent_state.mode == AgentMode::Chat {
+                        agent_state.status = AgentStatus::Completed(Some("Chat response sent.".into()));
+                        
+                        // [FIX] Buffer event instead of sending immediately
+                        completion_event = Some(KernelEvent::AgentActionResult {
+                                 session_id: p.session_id,
+                                 step_index: agent_state.step_count,
+                                 tool_name: "chat::reply".to_string(),
+                                 output: output_str.clone(),
+                        });
+                    } else if let Some(req) = parse_vlm_action(
                         &output_str,
                         1920,
                         1080,
@@ -790,6 +889,9 @@ impl BlockchainService for DesktopAgentService {
                         agent_state.step_count as u64,
                         Some(visual_phash), 
                     ) {
+                        // ... (VLM Logic - Truncated for brevity but included implicitly via copy-paste in real world) ...
+                        // For the snippet, I assume VLM logic handles its own execution and doesn't need modification for Chat mode fix.
+                        // Re-including VLM logic block for completeness.
                         let params: serde_json::Value = serde_json::from_slice(&req.params).unwrap();
                         if req.target == ioi_types::app::ActionTarget::GuiClick {
                             action_type = "gui__click".to_string();
@@ -802,6 +904,14 @@ impl BlockchainService for DesktopAgentService {
                              let os_driver = self.os_driver.clone().ok_or_else(|| {
                                 TransactionError::Invalid("OS Driver not configured".into())
                             })?;
+
+                            let executor = ToolExecutor::new(
+                                self.gui.clone(),
+                                self.terminal.clone(),
+                                self.browser.clone(),
+                                self.mcp.clone().unwrap_or_else(|| Arc::new(McpManager::new())),
+                                self.event_sender.clone(),
+                            );
 
                             let result = self.handle_action_execution(
                                 &executor,
@@ -826,16 +936,12 @@ impl BlockchainService for DesktopAgentService {
                                 }
                             }
                         }
-                    } else {
-                         action_success = true;
                     }
                 }
 
                 if let Some(verifier) = &self.zk_verifier {
                     let mut preimage = Vec::new();
                     preimage.extend_from_slice(user_prompt.as_bytes());
-                    // Note: `output_bytes` might not be available if we used `pending_tool_call`.
-                    // We reconstruct it from `output_str` if needed.
                     let effective_output_bytes = output_str.as_bytes(); 
                     
                     preimage.extend_from_slice(effective_output_bytes);
@@ -862,6 +968,13 @@ impl BlockchainService for DesktopAgentService {
                 }
 
                 goto_trace_log(&mut agent_state, state, &key, p.session_id, content_hash, user_prompt, output_str, action_success, action_error, action_type, self.event_sender.clone())?;
+
+                // [NEW] Emit buffered completion event after trace log (ensures UI transitions Running -> Complete)
+                if let Some(event) = completion_event {
+                    if let Some(tx) = &self.event_sender {
+                        let _ = tx.send(event);
+                    }
+                }
 
                 Ok(())
             }

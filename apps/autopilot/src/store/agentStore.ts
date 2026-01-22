@@ -1,3 +1,4 @@
+// apps/autopilot/src/store/agentStore.ts
 import { create } from "zustand";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
@@ -26,10 +27,10 @@ export interface AgentTask {
   current_step: string;
   gate_info?: GateInfo;
   receipt?: Receipt;
-  visual_hash?: string; // [NEW] Added to match Rust backend
+  visual_hash?: string; // Added to match Rust backend
 }
 
-// [NEW] Ghost Mode Trace Step
+// Ghost Mode Trace Step
 export interface GhostStep {
   device: string;
   description: string;
@@ -39,10 +40,10 @@ export interface GhostStep {
 interface AgentStore {
   task: AgentTask | null;
   receipts: Receipt[];
-  // [NEW] Ghost Mode Trace
+  // Ghost Mode Trace
   ghostTrace: GhostStep[];
   
-  startTask: (intent: string) => Promise<AgentTask | null>;
+  startTask: (intent: string, mode: string) => Promise<AgentTask | null>; // [FIX] Add mode param
   updateTask: (task: AgentTask) => void;
   dismissTask: () => Promise<void>;
   showSpotlight: () => Promise<void>;
@@ -50,7 +51,7 @@ interface AgentStore {
   showStudio: () => Promise<void>;
   resizePill: (expanded: boolean) => Promise<void>;
   
-  // [NEW] Ghost Mode Actions
+  // Ghost Mode Actions
   addGhostStep: (step: GhostStep) => void;
   clearGhostTrace: () => void;
 }
@@ -60,9 +61,10 @@ export const useAgentStore = create<AgentStore>((set) => ({
   receipts: [],
   ghostTrace: [],
 
-  startTask: async (intent: string): Promise<AgentTask | null> => {
+  // [FIX] Pass mode to backend, default to "Agent" if not provided
+  startTask: async (intent: string, mode: string = "Agent"): Promise<AgentTask | null> => {
     try {
-      const task = await invoke<AgentTask>("start_task", { intent });
+      const task = await invoke<AgentTask>("start_task", { intent, mode });
       set({ task });
       return task;
     } catch (e) {
@@ -83,7 +85,7 @@ export const useAgentStore = create<AgentStore>((set) => ({
   showStudio: async () => invoke("show_studio"),
   resizePill: async (expanded: boolean) => invoke("resize_pill", { expanded }),
 
-  // [NEW] Ghost Mode Implementation
+  // Ghost Mode Implementation
   addGhostStep: (step) => set((state) => ({ ghostTrace: [...state.ghostTrace, step] })),
   clearGhostTrace: () => set({ ghostTrace: [] }),
 }));
@@ -94,7 +96,7 @@ export async function initEventListeners() {
   await listen<AgentTask>("task-completed", (e) => useAgentStore.getState().updateTask(e.payload));
   await listen("task-dismissed", () => useAgentStore.setState({ task: null }));
 
-  // [NEW] Listen for Ghost Inputs
+  // Listen for Ghost Inputs
   await listen("ghost-input", (e: any) => {
       useAgentStore.getState().addGhostStep({
           device: e.payload.device,

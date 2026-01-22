@@ -436,7 +436,6 @@ where
                                      }
                                  ))
                              },
-                             // [FIXED] Removed unreachable catch-all pattern because match is exhaustive
                          };
 
                          if let Some(event_enum) = mapped_event {
@@ -459,7 +458,8 @@ where
         let ctx_arc = self.get_context().await?;
 
         // 1. Resolve Dependencies & Nonce
-        let (chain_id, nonce, inference_runtime, keypair, nonce_manager) = {
+        // [FIX] Added workload_client to returned tuple
+        let (chain_id, inference_runtime, keypair, nonce_manager, workload_client, account_id_bytes) = {
             let ctx = ctx_arc.lock().await;
             let account_id = account_id_from_key_material(
                 SignatureSuite::ED25519,
@@ -467,24 +467,47 @@ where
             )
             .unwrap_or_default();
 
-            // [FIX] Clone the nonce manager so we can lock it to get the authoritative next nonce
-            let nonce_manager = ctx.nonce_manager.clone();
-            
-            // We need to lock the manager to get the value.
-            // The manager tracks the *next available* nonce (0 if empty).
-            let current_nonce = {
-                let guard = nonce_manager.lock().await;
-                guard.get(&AccountId(account_id)).copied().unwrap_or(0)
-            };
-
             (
                 ctx.chain_id,
-                current_nonce, // Use the correct sequential nonce
-                // [FIX] Use the unified inference runtime instead of safety model adapter
                 ctx.inference_runtime.clone(), 
                 ctx.local_keypair.clone(),
-                nonce_manager,
+                ctx.nonce_manager.clone(),
+                ctx.view_resolver.workload_client().clone(), // [NEW] Get client for state check
+                account_id,
             )
+        };
+
+        // [FIX] Hybrid Nonce Synchronization Logic
+        let account_id = AccountId(account_id_bytes);
+        
+        // 1. Query confirmed state nonce
+        let nonce_key = [
+            ioi_types::keys::ACCOUNT_NONCE_PREFIX,
+            account_id.as_ref(),
+        ]
+        .concat();
+        
+        let state_nonce = match workload_client.query_raw_state(&nonce_key).await {
+             Ok(Some(b)) => codec::from_bytes_canonical::<u64>(&b).unwrap_or(0),
+             _ => 0,
+        };
+        
+        // 2. Sync with Memory Manager
+        // This ensures subsequent drafts or concurrent Agent actions don't collide
+        let nonce = {
+            let mut guard = nonce_manager.lock().await;
+            let entry = guard.entry(account_id).or_insert(0);
+            
+            // Fast-forward memory if state is ahead (e.g. after restart)
+            if *entry < state_nonce {
+                *entry = state_nonce;
+            }
+            
+            let use_nonce = *entry;
+            // Optimistically increment to reserve this nonce against AgentDriver
+            *entry += 1;
+            
+            use_nonce
         };
 
         // [FIX] Use the real runtime directly
@@ -492,7 +515,7 @@ where
         let address_book = std::collections::HashMap::new();
 
         // 2. Resolve Intent -> Unsigned Transaction Bytes
-        // Pass the fetched nonce here
+        // Pass the fetched (and reserved) nonce here
         let tx_bytes = resolver
             .resolve_intent(&req.intent, chain_id, nonce, &address_book)
             .await
@@ -542,17 +565,7 @@ where
             }
         };
 
-        // [FIX] Optimistically increment the nonce in the manager.
-        // This ensures subsequent drafts (e.g. if user types fast) don't reuse the same nonce
-        // before the first one is submitted to the mempool.
-        // The mempool ingestion will also attempt to update this, but the manager is the source of truth.
-        {
-            let mut guard = nonce_manager.lock().await;
-            let entry = guard.entry(signer_account_id).or_insert(0);
-            if *entry == nonce {
-                *entry += 1;
-            }
-        }
+        // Note: We already incremented the nonce manager optimistically above.
 
         Ok(Response::new(DraftTransactionResponse {
             transaction_bytes: signed_tx_bytes,
