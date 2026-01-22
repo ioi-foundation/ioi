@@ -1,4 +1,4 @@
-// Path: crates/drivers/src/os.rs
+// Path: crates/drivers/src/os/mod.rs
 
 use anyhow::Result;
 use async_trait::async_trait;

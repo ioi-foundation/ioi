@@ -1,4 +1,4 @@
-// Path: crates/drivers/src/browser.rs
+// Path: crates/drivers/src/browser/mod.rs
 
 use chromiumoxide::{Browser, BrowserConfig, Page};
 use futures::StreamExt;
