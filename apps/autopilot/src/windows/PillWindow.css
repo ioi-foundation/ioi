@@ -1,5 +1,9 @@
-/* Pill - Transparent window with solid toast */
+/* ============================================
+   PillWindow — Premium Dark UI
+   Cursor / Linear / Raycast Caliber
+   ============================================ */
 
+/* --- Reset --- */
 html, body, #root {
   margin: 0;
   padding: 0;
@@ -8,60 +12,96 @@ html, body, #root {
   height: 100%;
 }
 
+/* --- CSS Variables (Design Tokens) --- */
+:root {
+  --pill-bg: rgba(10, 10, 11, 0.92);
+  --pill-bg-elevated: rgba(24, 24, 27, 0.95);
+  --pill-bg-hover: rgba(255, 255, 255, 0.03);
+  
+  --pill-border: rgba(255, 255, 255, 0.08);
+  --pill-border-strong: rgba(255, 255, 255, 0.12);
+  
+  --pill-text: #fafafa;
+  --pill-text-secondary: #a1a1aa;
+  --pill-text-muted: #52525b;
+  
+  --pill-accent: #3b82f6;
+  --pill-accent-muted: rgba(59, 130, 246, 0.15);
+  
+  --pill-success: #22c55e;
+  --pill-success-muted: rgba(34, 197, 94, 0.15);
+  
+  --pill-warning: #f59e0b;
+  --pill-warning-muted: rgba(245, 158, 11, 0.15);
+  
+  --pill-error: #ef4444;
+  --pill-error-muted: rgba(239, 68, 68, 0.15);
+}
+
+/* --- Empty State --- */
 .pill-empty {
   background: transparent;
 }
 
+/* --- Main Pill Container --- */
 .pill {
   margin: 5px;
-  background: rgba(21, 23, 28, 0.95);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: var(--pill-bg);
+  backdrop-filter: blur(40px);
+  -webkit-backdrop-filter: blur(40px);
+  border: 1px solid var(--pill-border);
   border-radius: 10px;
   overflow: hidden;
   cursor: pointer;
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", sans-serif;
+  font-size: 13px;
+  -webkit-font-smoothing: antialiased;
   position: relative;
-  --pill-accent: #4a9eff;
-  --pill-accent-soft: rgba(74, 158, 255, 0.3);
-  --pill-glow: rgba(74, 158, 255, 0.18);
+  
+  /* Dynamic accent color */
+  --active-accent: var(--pill-accent);
+  --active-accent-muted: var(--pill-accent-muted);
 }
 
+/* --- Liability Mode Variants --- */
 .pill.liability-local {
-  --pill-accent: #22c55e;
-  --pill-accent-soft: rgba(34, 197, 94, 0.35);
-  --pill-glow: rgba(34, 197, 94, 0.2);
+  --active-accent: var(--pill-success);
+  --active-accent-muted: var(--pill-success-muted);
 }
 
 .pill.liability-network {
-  --pill-accent: #f59e0b;
-  --pill-accent-soft: rgba(245, 158, 11, 0.4);
-  --pill-glow: rgba(245, 158, 11, 0.22);
+  --active-accent: var(--pill-warning);
+  --active-accent-muted: var(--pill-warning-muted);
 }
 
 .pill.liability-settlement {
-  --pill-accent: #60a5fa;
-  --pill-accent-soft: rgba(96, 165, 250, 0.35);
-  --pill-glow: rgba(96, 165, 250, 0.2);
+  --active-accent: var(--pill-accent);
+  --active-accent-muted: var(--pill-accent-muted);
 }
 
-/* Progress bar */
+/* --- Progress Bar --- */
 .pill-bar {
   position: absolute;
   top: 0;
   left: 0;
   height: 2px;
-  background: var(--pill-accent);
-  transition: width 0.3s;
+  background: var(--active-accent);
+  transition: width 0.3s ease;
 }
 
-.pill.complete .pill-bar { background: #10b981; }
-.pill.failed .pill-bar { background: #ef4444; }
-.pill.gate .pill-bar { background: #f59e0b; }
+.pill.complete .pill-bar {
+  background: var(--pill-success);
+}
 
-/* Main row */
+.pill.failed .pill-bar {
+  background: var(--pill-error);
+}
+
+.pill.gate .pill-bar {
+  background: var(--pill-warning);
+}
+
+/* --- Main Row --- */
 .pill-row {
   display: flex;
   align-items: center;
@@ -69,126 +109,171 @@ html, body, #root {
   padding: 10px 12px;
 }
 
+/* --- Status Icon Container --- */
 .pill-status {
   width: 18px;
   height: 18px;
   display: flex;
   align-items: center;
   justify-content: center;
+  flex-shrink: 0;
 }
 
+/* --- Spinner (Running State) --- */
 .spinner {
   width: 14px;
   height: 14px;
-  border: 2px solid var(--pill-accent-soft);
-  border-top-color: var(--pill-accent);
+  border: 2px solid var(--active-accent-muted);
+  border-top-color: var(--active-accent);
   border-radius: 50%;
-  animation: spin 0.6s linear infinite;
+  animation: spin 0.8s linear infinite;
 }
 
 @keyframes spin {
   to { transform: rotate(360deg); }
 }
 
+/* --- Status Icons --- */
 .icon {
   font-size: 12px;
-  font-weight: 700;
+  font-weight: 600;
 }
-.icon.ok { color: #10b981; }
-.icon.fail { color: #ef4444; }
-.icon.gate { color: #f59e0b; }
 
+.icon.ok {
+  color: var(--pill-success);
+}
+
+.icon.fail {
+  color: var(--pill-error);
+}
+
+.icon.gate {
+  color: var(--pill-warning);
+}
+
+/* --- Label (Current Step) --- */
 .pill-label {
   flex: 1;
   font-size: 12px;
-  color: #e5e7eb;
+  color: var(--pill-text);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  min-width: 0;
 }
 
+/* --- Step Counter --- */
 .pill-count {
   font-size: 10px;
-  font-family: monospace;
-  color: #6b7280;
-  background: rgba(255,255,255,0.06);
+  font-family: "SF Mono", "Menlo", monospace;
+  color: var(--pill-text-muted);
+  background: var(--pill-bg-hover);
   padding: 2px 6px;
   border-radius: 4px;
+  flex-shrink: 0;
 }
 
+/* --- Activity Stage Badge --- */
 .pill-stage {
   display: inline-flex;
   align-items: center;
   gap: 4px;
   font-size: 9px;
+  font-weight: 500;
   text-transform: uppercase;
-  letter-spacing: 0.6px;
-  padding: 2px 6px;
+  letter-spacing: 0.5px;
+  padding: 3px 8px;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.06);
-  color: #9ca3af;
+  background: var(--pill-bg-hover);
+  color: var(--pill-text-muted);
   flex-shrink: 0;
 }
 
 .pill-stage .stage-dot {
-  width: 6px;
-  height: 6px;
+  width: 5px;
+  height: 5px;
   border-radius: 50%;
-  background: var(--pill-accent);
-  box-shadow: 0 0 6px var(--pill-glow);
+  background: var(--active-accent);
+  animation: stagePulse 1.5s ease-in-out infinite;
+}
+
+@keyframes stagePulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.6; transform: scale(0.9); }
 }
 
 .pill-stage.reasoning {
-  color: #7fb1ff;
+  color: var(--pill-accent);
+}
+
+.pill-stage.reasoning .stage-dot {
+  background: var(--pill-accent);
 }
 
 .pill-stage.actuating {
-  color: #fbbf24;
+  color: var(--pill-warning);
+}
+
+.pill-stage.actuating .stage-dot {
+  background: var(--pill-warning);
 }
 
 .pill-stage.settling {
-  color: #a7f3d0;
+  color: var(--pill-success);
 }
 
-/* Expanded */
+.pill-stage.settling .stage-dot {
+  background: var(--pill-success);
+}
+
+/* --- Expanded Panel --- */
 .pill-expand {
   padding: 8px 12px 10px;
-  border-top: 1px solid rgba(255,255,255,0.06);
+  border-top: 1px solid var(--pill-border);
 }
 
+/* --- Intent Text --- */
 .pill-intent {
   font-size: 11px;
-  color: #9ca3af;
+  color: var(--pill-text-secondary);
   margin-bottom: 6px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
+/* --- Meta Info (Duration, Actions) --- */
 .pill-meta {
   font-size: 10px;
-  color: #6b7280;
+  color: var(--pill-text-muted);
   margin-bottom: 8px;
 }
 
+/* --- Live Cost Meter --- */
 .pill-meter {
   display: flex;
   align-items: center;
   justify-content: space-between;
   font-size: 10px;
-  color: #fbbf24;
-  padding: 6px 8px;
-  background: rgba(245, 158, 11, 0.12);
+  color: var(--pill-warning);
+  padding: 6px 10px;
+  background: var(--pill-warning-muted);
   border-radius: 6px;
-  border: 1px solid rgba(245, 158, 11, 0.25);
+  border: 1px solid rgba(245, 158, 11, 0.2);
   margin-bottom: 8px;
 }
 
-.pill-meter strong {
-  color: #f8c56a;
-  font-weight: 600;
+.pill-meter span {
+  font-weight: 500;
 }
 
+.pill-meter strong {
+  color: var(--pill-warning);
+  font-weight: 600;
+  font-family: "SF Mono", "Menlo", monospace;
+}
+
+/* --- Action Buttons --- */
 .pill-btns {
   display: flex;
   gap: 6px;
@@ -196,30 +281,40 @@ html, body, #root {
 
 .pill-btns button {
   flex: 1;
-  padding: 5px 10px;
-  background: rgba(255,255,255,0.06);
-  border: none;
-  border-radius: 5px;
-  font-size: 10px;
-  color: #9ca3af;
+  padding: 6px 10px;
+  background: var(--pill-bg-elevated);
+  border: 1px solid var(--pill-border);
+  border-radius: 6px;
+  font-size: 11px;
+  font-family: inherit;
+  font-weight: 500;
+  color: var(--pill-text-secondary);
   cursor: pointer;
-  transition: all 0.15s;
+  transition: all 0.15s ease;
 }
 
 .pill-btns button:hover {
-  background: rgba(255,255,255,0.1);
-  color: #e5e7eb;
+  background: var(--pill-bg-hover);
+  border-color: var(--pill-border-strong);
+  color: var(--pill-text);
 }
 
 .pill-btns button.primary {
-  background: var(--pill-accent);
+  background: var(--active-accent);
+  border-color: var(--active-accent);
   color: white;
 }
 
 .pill-btns button.primary:hover {
-  filter: brightness(1.05);
+  opacity: 0.9;
 }
 
 .pill.complete .pill-btns button.primary {
-  background: #10b981;
+  background: var(--pill-success);
+  border-color: var(--pill-success);
+}
+
+.pill.failed .pill-btns button.primary {
+  background: var(--pill-error);
+  border-color: var(--pill-error);
 }

@@ -20,7 +20,7 @@ import { MarketplaceView } from "../components/MarketplaceView";
 import { AgentInstallModal } from "../components/AgentInstallModal";
 import { VisionHUD } from "../components/VisionHUD";
 import { SwarmViz } from "../components/SwarmViz"; 
-import { FleetView } from "../components/FleetView"; // [NEW] Import FleetView
+import { FleetView } from "../components/FleetView";
 
 // Import CSS
 import "../components/ActivityBar.css";
@@ -37,22 +37,95 @@ import "../components/StatusBar.css";
 import "../components/MarketplaceView.css";
 import "../components/AgentInstallModal.css";
 import "../components/VisionHUD.css";
-import "../components/FleetView.css"; // [NEW] Import FleetView CSS
-import "./SpotlightWindow.css"; // Reuse chat styles for Copilot view
+import "../components/FleetView.css";
 import "./StudioWindow.css";
 
-// --- Icons for this file ---
-const CubeIcon = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>;
-const GlobeIcon = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>;
-const AppsIcon = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="7" height="7" rx="2" /><rect x="14" y="3" width="7" height="7" rx="2" /><rect x="14" y="14" width="7" height="7" rx="2" /><rect x="3" y="14" width="7" height="7" rx="2" /></svg>;
-const MessageIcon = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>;
-const BotIcon = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="11" width="18" height="10" rx="2"/><circle cx="12" cy="5" r="2"/><path d="M12 7v4"/><line x1="8" y1="16" x2="8" y2="16"/><line x1="16" y1="16" x2="16" y2="16"/></svg>;
-const SwarmIcon = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="5" r="3"/><circle cx="5" cy="19" r="3"/><circle cx="19" cy="19" r="3"/><path d="M7.5 17.5 10 12.5"/><path d="M16.5 17.5 14 12.5"/></svg>;
-const SidebarIcon = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="18" height="18" rx="2" /><path d="M9 3v18" /></svg>;
-const PlusIcon = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></svg>;
-const SearchIcon = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>;
+// =========================================
+// ICONS — Minimal, 14x14, stroke 2
+// =========================================
 
-// Sample pipeline data
+const CubeIcon = () => (
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>
+    <path d="M3.27 6.96L12 12.01l8.73-5.05M12 22.08V12"/>
+  </svg>
+);
+
+const GlobeIcon = () => (
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <circle cx="12" cy="12" r="10"/>
+    <line x1="2" y1="12" x2="22" y2="12"/>
+    <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
+  </svg>
+);
+
+const AppsIcon = () => (
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <rect x="3" y="3" width="7" height="7" rx="2" />
+    <rect x="14" y="3" width="7" height="7" rx="2" />
+    <rect x="14" y="14" width="7" height="7" rx="2" />
+    <rect x="3" y="14" width="7" height="7" rx="2" />
+  </svg>
+);
+
+const MessageIcon = () => (
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+  </svg>
+);
+
+const BotIcon = () => (
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <rect x="3" y="11" width="18" height="10" rx="2"/>
+    <circle cx="12" cy="5" r="2"/>
+    <path d="M12 7v4"/>
+    <circle cx="8" cy="16" r="1" fill="currentColor"/>
+    <circle cx="16" cy="16" r="1" fill="currentColor"/>
+  </svg>
+);
+
+const SwarmIcon = () => (
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+    <circle cx="12" cy="12" r="2.5"/>
+    <circle cx="6" cy="6" r="2"/>
+    <circle cx="18" cy="6" r="2"/>
+    <circle cx="6" cy="18" r="2"/>
+    <circle cx="18" cy="18" r="2"/>
+    <path d="M12 9.5V7M12 14.5V17M9.5 12H7M14.5 12H17M9.88 9.88L7.5 7.5M14.12 9.88L16.5 7.5M9.88 14.12L7.5 16.5M14.12 14.12L16.5 16.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" fill="none"/>
+  </svg>
+);
+
+const SidebarIcon = () => (
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <rect x="3" y="3" width="18" height="18" rx="2" />
+    <path d="M9 3v18" />
+  </svg>
+);
+
+const PlusIcon = () => (
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <line x1="12" y1="5" x2="12" y2="19" />
+    <line x1="5" y1="12" x2="19" y2="12" />
+  </svg>
+);
+
+const SearchIcon = () => (
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <circle cx="11" cy="11" r="8"/>
+    <path d="m21 21-4.3-4.3"/>
+  </svg>
+);
+
+const ChevronIcon = () => (
+  <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+    <path d="M6 9l6 6 6-6"/>
+  </svg>
+);
+
+// =========================================
+// SAMPLE PIPELINE DATA
+// =========================================
+
 const initialNodes: Node[] = [
   { id: "n-1", type: "trigger", name: "Cron Trigger", x: 100, y: 150, status: "success", outputs: ["out"], ioTypes: {in: "—", out: "Signal"} },
   { id: "n-2", type: "action", name: "Read Invoices", x: 400, y: 150, status: "success", inputs: ["in"], outputs: ["out"], ioTypes: {in: "Signal", out: "PDF[]"} },
@@ -67,6 +140,10 @@ const initialEdges: Edge[] = [
   { id: "e-3", from: "n-3", to: "n-4", fromPort: "out", toPort: "in", type: "data", active: false, volume: 5 },
   { id: "e-4", from: "n-4", to: "n-5", fromPort: "out", toPort: "in", type: "control", active: false },
 ];
+
+// =========================================
+// MAIN STUDIO WINDOW COMPONENT
+// =========================================
 
 export function StudioWindow() {
   const [interfaceMode, setInterfaceMode] = useState<InterfaceMode>("COMPOSE");
@@ -96,7 +173,6 @@ export function StudioWindow() {
   useEffect(() => {
     initEventListeners();
 
-    // Listen for requests from Spotlight to switch views
     const unlistenPromise = listen<string>("request-studio-view", (event) => {
       console.log("Studio received view request:", event.payload);
       setActiveView(event.payload);
@@ -143,7 +219,6 @@ export function StudioWindow() {
       setNodes(prev => prev.map(n => ({ ...n, status: "success" })));
       setEdges(prev => prev.map(e => ({ ...e, active: false })));
     }
-
   }, [task]);
 
   // --- Ghost Mode Logic ---
@@ -167,7 +242,6 @@ export function StudioWindow() {
       setEdges(prev => prev.filter(e => e.id !== "e-ghost"));
     }
   }, [interfaceMode]);
-
 
   const handleNodeSelect = useCallback((nodeId: string | null) => {
     setSelectedNodeId(nodeId);
@@ -226,7 +300,7 @@ export function StudioWindow() {
       />
 
       <div className="studio-main">
-        {/* IDE Header: Hidden in Copilot/Marketplace for immersion */}
+        {/* IDE Header: Hidden in Copilot/Marketplace/Fleet for immersion */}
         {activeView !== "marketplace" && activeView !== "copilot" && activeView !== "fleet" && (
           <IDEHeader
             projectPath="Personal"
@@ -244,74 +318,71 @@ export function StudioWindow() {
         )}
 
         <div className="studio-content">
-          
           {activeView === "marketplace" ? (
-             <MarketplaceView onInstallAgent={handleInstallAgent} />
+            <MarketplaceView onInstallAgent={handleInstallAgent} />
           ) : activeView === "agent-builder" ? (
-             <div className="studio-center-area">
-                <BuilderView onSwitchToCompose={() => setActiveView("compose")} />
-             </div>
+            <div className="studio-center-area">
+              <BuilderView onSwitchToCompose={() => setActiveView("compose")} />
+            </div>
           ) : activeView === "copilot" ? (
-             // [NEW] 3-Pane Copilot View
-             <StudioCopilotView />
+            <StudioCopilotView />
           ) : activeView === "fleet" ? (
-             // [NEW] Fleet Management View
-             <FleetView />
+            <FleetView />
           ) : (
-             // Default: Composition / Graph View
-             <>
-               <ExplorerPanel width={explorerWidth} />
-               <div className="studio-center-area">
-                  <div 
-                      className="canvas-area"
-                      onDragOver={(e) => e.preventDefault()}
-                      onDrop={handleCanvasDrop}
-                  >
-                      <div className="canvas-container" style={{ bottom: dataPanelCollapsed ? 32 : dataPanelHeight }}>
-                          {/* GHOST MODE */}
-                          {interfaceMode === "GHOST" && (
-                              <>
-                                  <div className="ghost-overlay">
-                                      <div className="ghost-badge">
-                                          <span className="ghost-dot" />
-                                          <span>Ghost Mode: Observing & Inferring...</span>
-                                      </div>
-                                  </div>
-                                  <VisionHUD />
-                              </>
-                          )}
+            // Default: Composition / Graph View
+            <>
+              <ExplorerPanel width={explorerWidth} />
+              <div className="studio-center-area">
+                <div 
+                  className="canvas-area"
+                  onDragOver={(e) => e.preventDefault()}
+                  onDrop={handleCanvasDrop}
+                >
+                  <div className="canvas-container" style={{ bottom: dataPanelCollapsed ? 32 : dataPanelHeight }}>
+                    {/* GHOST MODE */}
+                    {interfaceMode === "GHOST" && (
+                      <>
+                        <div className="ghost-overlay">
+                          <div className="ghost-badge">
+                            <span className="ghost-dot" />
+                            <span>Ghost Mode: Observing & Inferring...</span>
+                          </div>
+                        </div>
+                        <VisionHUD />
+                      </>
+                    )}
 
-                          <Canvas
-                            nodes={nodes} edges={edges} selectedNodeId={selectedNodeId}
-                            onNodeSelect={handleNodeSelect} onNodeMove={handleNodeMove}
-                            transform={canvasTransform} onTransformChange={setCanvasTransform}
-                          />
-                      </div>
-                      
-                      <DataPanel
-                        height={dataPanelHeight}
-                        collapsed={dataPanelCollapsed}
-                        onToggleCollapse={() => setDataPanelCollapsed(!dataPanelCollapsed)}
-                        onResize={setDataPanelHeight}
-                        selectedNodeName={selectedNode?.name}
-                        isRunning={task?.phase === "Running" || task?.phase === "Gate"}
-                      />
+                    <Canvas
+                      nodes={nodes} edges={edges} selectedNodeId={selectedNodeId}
+                      onNodeSelect={handleNodeSelect} onNodeMove={handleNodeMove}
+                      transform={canvasTransform} onTransformChange={setCanvasTransform}
+                    />
                   </div>
-               </div>
-               <div className="studio-right-panel" style={{ width: inspectorWidth }}>
-                   {interfaceMode === "GHOST" ? (
-                       <GhostChatPanel />
-                   ) : (
-                       <RightPanel width={inspectorWidth} selectedNode={selectedNode} />
-                   )}
-               </div>
-             </>
+                  
+                  <DataPanel
+                    height={dataPanelHeight}
+                    collapsed={dataPanelCollapsed}
+                    onToggleCollapse={() => setDataPanelCollapsed(!dataPanelCollapsed)}
+                    onResize={setDataPanelHeight}
+                    selectedNodeName={selectedNode?.name}
+                    isRunning={task?.phase === "Running" || task?.phase === "Gate"}
+                  />
+                </div>
+              </div>
+              <div className="studio-right-panel" style={{ width: inspectorWidth }}>
+                {interfaceMode === "GHOST" ? (
+                  <GhostChatPanel />
+                ) : (
+                  <RightPanel width={inspectorWidth} selectedNode={selectedNode} />
+                )}
+              </div>
+            </>
           )}
         </div>
         
         <StatusBar 
-            metrics={{ cost: 0.42, privacy: 0.15, risk: 0.6 }} 
-            status={task ? task.phase : "Ready"} 
+          metrics={{ cost: 0.42, privacy: 0.15, risk: 0.6 }} 
+          status={task ? task.phase : "Ready"} 
         />
       </div>
 
@@ -330,67 +401,76 @@ export function StudioWindow() {
   );
 }
 
-// --- Ghost Chat (Side Panel) ---
+// =========================================
+// GHOST CHAT PANEL (Right Sidebar)
+// =========================================
+
 function GhostChatPanel() {
-    return (
-        <aside style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-            <div className="panel-header" style={{ padding: '12px 16px', borderBottom: '1px solid #2E333D' }}>
-                <h2 className="panel-title" style={{ fontSize: '12px', fontWeight: 600, color: '#F59E0B', display: 'flex', gap: 8, alignItems: 'center' }}>
-                    <span style={{ width: 8, height: 8, background: '#F59E0B', borderRadius: '50%', boxShadow: '0 0 8px rgba(245, 158, 11, 0.4)' }} />
-                    Ghost Copilot
-                </h2>
-            </div>
-            <div style={{ flex: 1, padding: 16, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 12 }}>
-                <div style={{ alignSelf: 'flex-start', background: '#252A33', padding: '8px 12px', borderRadius: 6, fontSize: '12px', color: '#D1D5DB', border: '1px solid #3F4652' }}>
-                    I'm watching your actions. Perform the manual task in the "Sandbox" browser, and I'll generate the graph nodes.
-                </div>
-            </div>
-            <div style={{ padding: 12, borderTop: '1px solid #2E333D' }}>
-                <input type="text" placeholder="Describe intent..." style={{ width: '100%', background: '#111418', border: '1px solid #3F4652', padding: '8px', borderRadius: 4, color: 'white', fontSize: '12px' }}/>
-            </div>
-        </aside>
-    );
+  return (
+    <aside className="ghost-panel">
+      <div className="ghost-panel-header">
+        <h2 className="ghost-panel-title">
+          <span className="ghost-panel-indicator" />
+          Ghost Copilot
+        </h2>
+      </div>
+      <div className="ghost-panel-messages">
+        <div className="ghost-panel-msg">
+          I'm watching your actions. Perform the manual task in the "Sandbox" browser, and I'll generate the graph nodes.
+        </div>
+      </div>
+      <div className="ghost-panel-input">
+        <input type="text" placeholder="Describe intent..." />
+      </div>
+    </aside>
+  );
 }
 
-// =========================================================
-// STUDIO COPILOT VIEW (Dynamic 3-Pane Layout)
-// =========================================================
+// =========================================
+// STUDIO COPILOT VIEW — 3-Pane Layout
+// =========================================
 
 function StudioCopilotView() {
-  const [chatHistory, setChatHistory] = useState<{role:string, text:string}[]>([]);
+  const [chatHistory, setChatHistory] = useState<{role: string; text: string}[]>([]);
   const [intent, setIntent] = useState("");
   const [swarmState, setSwarmState] = useState<SwarmAgent[]>([]);
   
-  // Footer State
+  // Dropdown State
   const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
-  const [agentMode, setAgentMode] = useState("Swarm"); // Default to Swarm to show off the UI initially
+  const [agentMode, setAgentMode] = useState("Swarm");
   const [selectedModel, setSelectedModel] = useState("GPT-4o");
   const [networkMode, setNetworkMode] = useState("Net");
   const [connectedApp, setConnectedApp] = useState("Apps");
 
-  const { startTask, task } = useAgentStore();
+  const { startTask } = useAgentStore();
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // Determine layout based on mode
-  const showRightPanel = agentMode === "Swarm";
+  const showSwarmPanel = agentMode === "Swarm";
 
   // Auto-initialize swarm for demo
   useEffect(() => {
     setSwarmState([
-        { id: "root", parentId: null, name: "Manager", role: "Planner", status: "running", budget_used: 0.05, budget_cap: 1.00, policy_hash: "0xab42def8", current_thought: "Initializing Studio Swarm Context...", artifacts_produced: 0 },
-        { id: "w1", parentId: "root", name: "Research-1", role: "Researcher", status: "requisition", budget_used: 0.00, budget_cap: 0.20, policy_hash: "0xcd99fa12", estimated_cost: 0.15, artifacts_produced: 0 },
+      { 
+        id: "root", parentId: null, name: "Manager", role: "Planner", status: "running", 
+        budget_used: 0.05, budget_cap: 1.00, policy_hash: "0xab42def8", 
+        current_thought: "Initializing Studio Swarm Context...", artifacts_produced: 0 
+      },
+      { 
+        id: "w1", parentId: "root", name: "Research-1", role: "Researcher", status: "requisition", 
+        budget_used: 0.00, budget_cap: 0.20, policy_hash: "0xcd99fa12", 
+        estimated_cost: 0.15, artifacts_produced: 0 
+      },
     ]);
-    setChatHistory([{role: 'agent', text: "Swarm Orchestrator initialized. Pending requisitions detected."}]);
+    setChatHistory([{ role: 'agent', text: "Swarm Orchestrator initialized. Pending requisitions detected." }]);
   }, []);
 
   const handleSubmit = async () => {
-    if(!intent.trim()) return;
+    if (!intent.trim()) return;
     setChatHistory(prev => [...prev, { role: 'user', text: intent }]);
     setIntent("");
     
-    // Heuristic: If user types "swarm", switch view automatically
     if (intent.toLowerCase().includes("swarm") && agentMode !== "Swarm") {
-        setAgentMode("Swarm");
+      setAgentMode("Swarm");
     }
     
     await startTask(intent);
@@ -401,7 +481,9 @@ function StudioCopilotView() {
     setChatHistory(prev => [...prev, { role: 'agent', text: `✅ Agent authorized.` }]);
   };
 
-  const handleGlobalClick = () => { if (activeDropdown) setActiveDropdown(null); };
+  const handleGlobalClick = () => { 
+    if (activeDropdown) setActiveDropdown(null); 
+  };
 
   const getModeIcon = () => {
     switch (agentMode) {
@@ -412,154 +494,143 @@ function StudioCopilotView() {
   };
 
   return (
-    <div style={{ display: 'flex', width: '100%', height: '100%', background: '#111418' }} onClick={handleGlobalClick}>
-      
-      {/* PANE 1: Chat History / Navigation (Fixed Width) */}
+    <div className="copilot-layout" onClick={handleGlobalClick}>
       <ChatHistorySidebar />
 
-      {/* PANE 2: Active Chat Interface (Flex 2) */}
-      <div style={{ 
-          flex: 2, // Takes up ~40% of remaining space when Swarm is open
-          display: 'flex', 
-          flexDirection: 'column', 
-          borderRight: showRightPanel ? '1px solid #2E333D' : 'none', 
-          background: '#171A20', 
-          minWidth: '350px',
-          transition: 'all 0.3s ease'
-      }}>
-         <div style={{ padding: '16px', borderBottom: '1px solid #2E333D', fontWeight: 600, fontSize: '13px', color: '#E5E7EB', display: 'flex', alignItems: 'center', gap: 8 }}>
-            <span style={{color: '#3D85C6'}}><BotIcon/></span> 
-            {agentMode} Mode
-         </div>
-         
-         {/* Messages Area */}
-         <div style={{ 
-             flex: 1, 
-             padding: '20px', 
-             overflowY: 'auto', 
-             display: 'flex', 
-             flexDirection: 'column', 
-             gap: '16px',
-             maxWidth: showRightPanel ? '100%' : '900px', // Limit width in wide mode for readability
-             margin: showRightPanel ? '0' : '0 auto',
-             width: '100%'
-         }}>
-            {chatHistory.map((msg, i) => (
-                <div key={i} className={`chat-msg ${msg.role}`}>
-                  {msg.text}
-                </div>
-            ))}
-         </div>
-
-         {/* Chat Input + Dropdowns */}
-         <div style={{ padding: '16px', borderTop: '1px solid #2E333D', background: '#171A20' }}>
-            <div style={{ maxWidth: showRightPanel ? '100%' : '900px', margin: '0 auto', width: '100%' }}>
-                <div className="input-wrapper" style={{ background: '#252A33', marginBottom: 8 }}>
-                    <input 
-                        ref={inputRef}
-                        className="main-input" 
-                        placeholder={agentMode === "Swarm" ? "Command the swarm..." : "Message Copilot..."}
-                        value={intent}
-                        onChange={e => setIntent(e.target.value)}
-                        onKeyDown={e => e.key === 'Enter' && handleSubmit()}
-                    />
-                </div>
-                
-                {/* Integrated Dropdowns */}
-                <div className="stack-footer">
-                    <Dropdown 
-                        icon={getModeIcon()} label={agentMode} options={["Chat", "Agent", "Swarm"]}
-                        selected={agentMode} onSelect={setAgentMode}
-                        isOpen={activeDropdown === "agent"} onToggle={() => setActiveDropdown(activeDropdown === "agent" ? null : "agent")}
-                    />
-                    <Dropdown 
-                        icon={<CubeIcon />} label={selectedModel} options={["GPT-4o", "Claude 3.5", "Llama 3"]}
-                        selected={selectedModel} onSelect={setSelectedModel}
-                        isOpen={activeDropdown === "model"} onToggle={() => setActiveDropdown(activeDropdown === "model" ? null : "model")}
-                    />
-                    <Dropdown 
-                        icon={<GlobeIcon />} label={networkMode} options={["Net", "Local Only"]}
-                        selected={networkMode} onSelect={setNetworkMode}
-                        isOpen={activeDropdown === "network"} onToggle={() => setActiveDropdown(activeDropdown === "network" ? null : "network")}
-                    />
-                    <Dropdown 
-                        icon={<AppsIcon />} label={connectedApp} options={["Apps", "Slack", "Notion"]}
-                        selected={connectedApp} onSelect={setConnectedApp} 
-                        isOpen={activeDropdown === "connect"} onToggle={() => setActiveDropdown(activeDropdown === "connect" ? null : "connect")}
-                    />
-                </div>
+      <div className={`copilot-chat ${!showSwarmPanel ? 'expanded' : ''}`}>
+        <div className="copilot-chat-header">
+          <BotIcon />
+          {agentMode} Mode
+        </div>
+        
+        <div className={`copilot-messages ${!showSwarmPanel ? 'centered' : ''}`}>
+          {chatHistory.map((msg, i) => (
+            <div key={i} className={`chat-msg ${msg.role}`}>
+              {msg.text}
             </div>
-         </div>
+          ))}
+        </div>
+
+        <div className="copilot-input-area">
+          <div className={`copilot-input-container ${!showSwarmPanel ? 'centered' : ''}`}>
+            <div className="copilot-input-wrapper">
+              <input
+                ref={inputRef}
+                className="copilot-input"
+                placeholder={agentMode === "Swarm" ? "Command the swarm..." : "How can I help you today?"}
+                value={intent}
+                onChange={e => setIntent(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && handleSubmit()}
+              />
+            </div>
+            
+            <div className="copilot-controls">
+              <StudioDropdown
+                icon={getModeIcon()}
+                label={agentMode}
+                options={["Chat", "Agent", "Swarm"]}
+                selected={agentMode}
+                onSelect={setAgentMode}
+                isOpen={activeDropdown === "agent"}
+                onToggle={() => setActiveDropdown(activeDropdown === "agent" ? null : "agent")}
+              />
+              <StudioDropdown
+                icon={<CubeIcon />}
+                label={selectedModel}
+                options={["GPT-4o", "Claude 3.5", "Llama 3"]}
+                selected={selectedModel}
+                onSelect={setSelectedModel}
+                isOpen={activeDropdown === "model"}
+                onToggle={() => setActiveDropdown(activeDropdown === "model" ? null : "model")}
+              />
+              <StudioDropdown
+                icon={<GlobeIcon />}
+                label={networkMode}
+                options={["Net", "Local Only"]}
+                selected={networkMode}
+                onSelect={setNetworkMode}
+                isOpen={activeDropdown === "network"}
+                onToggle={() => setActiveDropdown(activeDropdown === "network" ? null : "network")}
+              />
+              <StudioDropdown
+                icon={<AppsIcon />}
+                label={connectedApp}
+                options={["Apps", "Slack", "Notion"]}
+                selected={connectedApp}
+                onSelect={setConnectedApp}
+                isOpen={activeDropdown === "connect"}
+                onToggle={() => setActiveDropdown(activeDropdown === "connect" ? null : "connect")}
+              />
+            </div>
+          </div>
+        </div>
       </div>
 
-      {/* PANE 3: Swarm Visualization (Flex 3) */}
-      {showRightPanel && (
-          <div style={{ 
-              flex: 3, // Takes up ~60% of remaining space
-              padding: '16px', 
-              background: '#0D0F12', 
-              overflow: 'hidden', 
-              display: 'flex', 
-              flexDirection: 'column', 
-              borderLeft: '1px solid #2E333D' 
-          }}>
-             <SwarmViz 
-                agents={swarmState}
-                onApproveAgent={handleApprove}
-                onRejectAgent={(id) => setSwarmState(p => p.filter(a => a.id !== id))}
-             />
-          </div>
+      {showSwarmPanel && (
+        <div className="copilot-swarm">
+          <SwarmViz
+            agents={swarmState}
+            onApproveAgent={handleApprove}
+            onRejectAgent={(id) => setSwarmState(p => p.filter(a => a.id !== id))}
+          />
+        </div>
       )}
     </div>
   );
 }
 
-// --- Chat History Sidebar ---
+// =========================================
+// CHAT HISTORY SIDEBAR
+// =========================================
+
 function ChatHistorySidebar() {
-    const historyItems = [
-        { id: 1, title: "Invoice Analysis", time: "2m ago" },
-        { id: 2, title: "DeFi Research", time: "1h ago" },
-        { id: 3, title: "Email Summary", time: "Yesterday" },
-    ];
+  const historyItems = [
+    { id: 1, title: "Invoice Analysis", time: "2m ago" },
+    { id: 2, title: "DeFi Research", time: "1h ago" },
+    { id: 3, title: "Email Summary", time: "Yesterday" },
+  ];
 
-    const dockOut = async () => {
-        await invoke("show_spotlight");
-        await invoke("hide_studio");
-    };
+  const dockOut = async () => {
+    await invoke("show_spotlight");
+    await invoke("hide_studio");
+  };
 
-    return (
-        <div style={{ width: '240px', background: '#1F2329', borderRight: '1px solid #2E333D', display: 'flex', flexDirection: 'column', color: '#9CA3AF' }}>
-            <div style={{ padding: '12px', display: 'flex', gap: 8 }}>
-                <button style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, background: '#3D85C6', color: 'white', border: 'none', padding: '6px', borderRadius: 4, cursor: 'pointer', fontSize: '11px', fontWeight: 600 }}>
-                    <PlusIcon /> New Chat
-                </button>
-                <button onClick={dockOut} title="Pop out to Sidebar" style={{ width: 28, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'transparent', border: '1px solid #3F4652', color: '#9CA3AF', borderRadius: 4, cursor: 'pointer' }}>
-                    <SidebarIcon />
-                </button>
-            </div>
-            
-            <div style={{ padding: '0 12px 12px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#111418', padding: '6px 8px', borderRadius: 4, border: '1px solid #2E333D' }}>
-                    <SearchIcon />
-                    <input placeholder="Search chats..." style={{ background: 'transparent', border: 'none', color: 'white', fontSize: '11px', width: '100%', outline: 'none' }} />
-                </div>
-            </div>
-
-            <div style={{ flex: 1, overflowY: 'auto' }}>
-                <div style={{ padding: '0 12px', fontSize: '10px', fontWeight: 600, textTransform: 'uppercase', marginBottom: 4 }}>Recent</div>
-                {historyItems.map(item => (
-                    <div key={item.id} style={{ padding: '8px 12px', cursor: 'pointer', fontSize: '12px', color: '#D1D5DB', display: 'flex', flexDirection: 'column', gap: 2 }} className="history-item">
-                        <span>{item.title}</span>
-                        <span style={{ fontSize: '10px', color: '#5F6B7C' }}>{item.time}</span>
-                    </div>
-                ))}
-            </div>
+  return (
+    <div className="copilot-sidebar">
+      <div className="copilot-sidebar-header">
+        <button className="copilot-new-btn">
+          <PlusIcon /> New Chat
+        </button>
+        <button className="copilot-dock-btn" onClick={dockOut} title="Pop out to Sidebar">
+          <SidebarIcon />
+        </button>
+      </div>
+      
+      <div className="copilot-search">
+        <div className="copilot-search-box">
+          <SearchIcon />
+          <input placeholder="Search chats..." />
         </div>
-    );
+      </div>
+
+      <div className="copilot-history">
+        <div className="copilot-history-label">Recent</div>
+        {historyItems.map(item => (
+          <div key={item.id} className="copilot-history-item">
+            <div className="copilot-history-title">{item.title}</div>
+            <div className="copilot-history-time">{item.time}</div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
 }
 
-// --- Reused Helper Components (Dropdown) ---
-interface DropdownProps {
+// =========================================
+// DROPDOWN COMPONENT
+// =========================================
+
+interface StudioDropdownProps {
   icon: React.ReactNode;
   label: string;
   options: string[];
@@ -570,31 +641,47 @@ interface DropdownProps {
   footer?: { label: string; onClick: () => void };
 }
 
-function Dropdown({ icon, label, options, selected, onSelect, isOpen, onToggle, footer }: DropdownProps) {
+function StudioDropdown({ 
+  icon, 
+  label, 
+  options, 
+  selected, 
+  onSelect, 
+  isOpen, 
+  onToggle, 
+  footer 
+}: StudioDropdownProps) {
   return (
-    <div className="custom-dropdown">
-      <div 
-        className={`dropdown-trigger ${isOpen ? 'open' : ''}`}
+    <div className="studio-dropdown">
+      <button
+        className={`studio-dropdown-trigger ${isOpen ? 'open' : ''}`}
         onClick={(e) => { e.stopPropagation(); onToggle(); }}
       >
-        <span>{icon}</span>
+        {icon}
         <span>{label}</span>
-        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{marginLeft: 2, opacity: 0.5}}><polyline points="6 9 12 15 18 9" /></svg>
-      </div>
+        <span className="chevron"><ChevronIcon /></span>
+      </button>
       
       {isOpen && (
-        <div className="dropdown-menu">
+        <div className="studio-dropdown-menu">
           {options.map(opt => (
-            <div key={opt} className={`dropdown-item ${selected === opt ? 'selected' : ''}`} onClick={() => { if(onSelect) onSelect(opt); onToggle(); }}>
+            <button
+              key={opt}
+              className={`studio-dropdown-item ${selected === opt ? 'selected' : ''}`}
+              onClick={() => { if (onSelect) onSelect(opt); onToggle(); }}
+            >
               {opt}
-            </div>
+            </button>
           ))}
           {footer && (
             <>
-              <div className="dropdown-separator" />
-              <div className="dropdown-footer" onClick={(e) => { e.stopPropagation(); footer.onClick(); onToggle(); }}>
+              <div className="studio-dropdown-separator" />
+              <button
+                className="studio-dropdown-footer"
+                onClick={(e) => { e.stopPropagation(); footer.onClick(); onToggle(); }}
+              >
                 {footer.label}
-              </div>
+              </button>
             </>
           )}
         </div>

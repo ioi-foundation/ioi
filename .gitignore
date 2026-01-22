@@ -14,7 +14,7 @@ state_node2.json.identity.key
 examples/config
 diff_snapshot.md
 ioi-data/
-
+./ioi-data/
 node_modules/
 dist/
 .DS_Store
