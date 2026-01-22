@@ -1,4 +1,4 @@
-// Path: crates/services/src/agentic/policy.rs
+// Path: crates/services/src/agentic/policy/mod.rs
 
 use crate::agentic::rules::{ActionRules, DefaultPolicy, Rule, Verdict};
 use ioi_api::state::StateAccess;

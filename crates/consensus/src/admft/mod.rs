@@ -1,4 +1,4 @@
-// Path: crates/consensus/src/admft.rs
+// Path: crates/consensus/src/admft/mod.rs
 
 use crate::common::penalty::apply_quarantine_penalty;
 use crate::{ConsensusDecision, ConsensusEngine, PenaltyEngine, PenaltyMechanism};
