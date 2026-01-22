@@ -59,11 +59,12 @@ pub struct AgentTask {
     #[serde(default)] 
     pub history: Vec<ChatMessage>,
 
-    // [NEW] Track processed step indices to prevent duplicate logs
-    // from overlapping 'Thought' and 'ActionResult' events.
-    // Marked skip so it doesn't get sent to the frontend.
+    // [MODIFIED] Track processed steps using a composite key "{step}:{tool}"
+    // This prevents race conditions where a tool execution event and a completion event
+    // occurring at the same step index would be incorrectly deduplicated.
+    // Changed from HashSet<u32> to HashSet<String>.
     #[serde(skip, default)]
-    pub processed_steps: HashSet<u32>,
+    pub processed_steps: HashSet<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
