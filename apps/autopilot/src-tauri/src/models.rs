@@ -2,6 +2,7 @@
 use serde::{Deserialize, Serialize};
 use ioi_ipc::public::public_api_client::PublicApiClient;
 use tonic::transport::Channel;
+use std::collections::HashSet;
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub enum AgentPhase {
@@ -26,6 +27,14 @@ pub struct Receipt {
     pub cost: Option<String>,
 }
 
+// [NEW] Structured chat message for persistent history
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ChatMessage {
+    pub role: String, // "user", "agent", "system", "tool"
+    pub text: String,
+    pub timestamp: u64,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AgentTask {
     pub id: String,
@@ -40,6 +49,17 @@ pub struct AgentTask {
     pub visual_hash: Option<String>,
     pub pending_request_hash: Option<String>,
     pub session_id: Option<String>,
+    
+    // [NEW] History source of truth. 
+    // This is populated by hydrating from the blockchain state (Audit Log).
+    #[serde(default)] 
+    pub history: Vec<ChatMessage>,
+
+    // [NEW] Track processed step indices to prevent duplicate logs
+    // from overlapping 'Thought' and 'ActionResult' events.
+    // Marked skip so it doesn't get sent to the frontend.
+    #[serde(skip, default)]
+    pub processed_steps: HashSet<u32>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -58,6 +78,15 @@ pub struct ContextBlob {
 pub struct GhostInputEvent {
     pub device: String,
     pub description: String,
+}
+
+// [NEW] Struct for persistent session history index
+// Used by the backend to display the sidebar list without hydrating full state
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SessionSummary {
+    pub session_id: String, // Hex encoded
+    pub title: String,
+    pub timestamp: u64,
 }
 
 #[derive(Default)]

@@ -1,5 +1,7 @@
+/* apps/autopilot/src/windows/SpotlightWindow.css */
+
 /* ============================================
-   SpotlightWindow V7 — Refined + Functional
+   SpotlightWindow V7 — Revert to Column Layout
    ============================================ */
 
 /* --- Reset & Base --- */
@@ -48,7 +50,7 @@ html, body, #root {
 
 .spot-container {
   display: flex;
-  flex-direction: column;
+  flex-direction: column; /* Restored to Column */
   width: 100%;
   height: 100%;
   background: var(--spot-bg);
@@ -58,6 +60,86 @@ html, body, #root {
   box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.3), 0 20px 50px rgba(0, 0, 0, 0.5);
   overflow: hidden;
   position: relative;
+}
+
+/* --- Tasks Header Bar (Opaque) --- */
+.spot-tasks-bar {
+  display: flex;
+  align-items: center;
+  padding: 12px 16px;
+  padding-right: 110px;
+  background: var(--spot-bg-opaque);
+  border-bottom: 1px solid var(--spot-border);
+  flex-shrink: 0;
+}
+
+.spot-tasks-title {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--spot-text);
+}
+
+/* --- Tasks List --- */
+.spot-tasks-list {
+  display: flex;
+  flex-direction: column;
+  padding: 8px 16px 12px;
+  border-bottom: 1px solid var(--spot-border);
+  flex-shrink: 0;
+  max-height: 140px; /* Limit height of recent tasks */
+  overflow-y: auto;
+}
+
+.spot-task-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 6px 8px;
+  background: transparent;
+  border: none;
+  border-radius: var(--spot-radius-sm);
+  cursor: pointer;
+  text-align: left;
+  width: 100%;
+  transition: background 0.15s ease;
+}
+
+.spot-task-item:hover {
+  background: var(--spot-bg-subtle);
+}
+
+.spot-task-title {
+  font-size: 13px;
+  color: var(--spot-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  flex: 1;
+  min-width: 0;
+}
+
+.spot-task-age {
+  font-size: 11px;
+  color: var(--spot-text-muted);
+  flex-shrink: 0;
+}
+
+.spot-tasks-more {
+  margin-top: 4px;
+  padding: 0 8px;
+  background: transparent;
+  border: none;
+  font-size: 11px;
+  color: var(--spot-accent);
+  cursor: pointer;
+  text-align: left;
+  transition: opacity 0.15s ease;
+  width: fit-content;
+}
+
+.spot-tasks-more:hover {
+  opacity: 0.8;
 }
 
 /* --- Header Actions (Top-right overlay) --- */
@@ -89,88 +171,6 @@ html, body, #root {
   background: var(--spot-bg-subtle);
 }
 
-.spot-icon-btn.active {
-  color: var(--spot-accent);
-  background: rgba(59, 130, 246, 0.1);
-}
-
-/* --- Tasks Header Bar (Opaque) --- */
-.spot-tasks-bar {
-  display: flex;
-  align-items: center;
-  padding: 12px 16px;
-  padding-right: 110px;
-  background: var(--spot-bg-opaque);
-  border-bottom: 1px solid var(--spot-border);
-  flex-shrink: 0;
-}
-
-.spot-tasks-title {
-  font-size: 12px;
-  font-weight: 500;
-  color: var(--spot-text);
-}
-
-/* --- Tasks List (Transparent like sidebar) --- */
-.spot-tasks-list {
-  display: flex;
-  flex-direction: column;
-  padding: 8px 16px 12px;
-  border-bottom: 1px solid var(--spot-border);
-  flex-shrink: 0;
-}
-
-.spot-task-item {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 6px 0;
-  background: transparent;
-  border: none;
-  cursor: pointer;
-  text-align: left;
-  width: 100%;
-  transition: opacity 0.15s ease;
-}
-
-.spot-task-item:hover {
-  opacity: 0.8;
-}
-
-.spot-task-title {
-  font-size: 13px;
-  color: var(--spot-text);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  flex: 1;
-  min-width: 0;
-}
-
-.spot-task-age {
-  font-size: 12px;
-  color: var(--spot-text-muted);
-  flex-shrink: 0;
-}
-
-.spot-tasks-more {
-  margin-top: 4px;
-  padding: 0;
-  background: transparent;
-  border: none;
-  font-size: 12px;
-  color: var(--spot-accent);
-  cursor: pointer;
-  text-align: left;
-  transition: opacity 0.15s ease;
-  width: fit-content;
-}
-
-.spot-tasks-more:hover {
-  opacity: 0.8;
-}
-
 /* --- Chat Area --- */
 .spot-chat {
   flex: 1;
@@ -184,24 +184,26 @@ html, body, #root {
   position: relative;
 }
 
-.spot-chat::-webkit-scrollbar {
+/* Scrollbar styles */
+.spot-chat::-webkit-scrollbar,
+.spot-tasks-list::-webkit-scrollbar {
   width: 6px;
 }
-
-.spot-chat::-webkit-scrollbar-track {
+.spot-chat::-webkit-scrollbar-track,
+.spot-tasks-list::-webkit-scrollbar-track {
   background: transparent;
 }
-
-.spot-chat::-webkit-scrollbar-thumb {
+.spot-chat::-webkit-scrollbar-thumb,
+.spot-tasks-list::-webkit-scrollbar-thumb {
   background: rgba(255, 255, 255, 0.08);
   border-radius: 3px;
 }
-
-.spot-chat::-webkit-scrollbar-thumb:hover {
+.spot-chat::-webkit-scrollbar-thumb:hover,
+.spot-tasks-list::-webkit-scrollbar-thumb:hover {
   background: rgba(255, 255, 255, 0.12);
 }
 
-/* --- Empty State / Watermark --- */
+/* --- Empty State --- */
 .spot-empty {
   position: absolute;
   inset: 0;
@@ -209,13 +211,13 @@ html, body, #root {
   align-items: center;
   justify-content: center;
   pointer-events: none;
+  opacity: 0.05;
 }
 
 .spot-watermark {
   width: 90px;
   height: 90px;
-  color: rgba(255, 255, 255, 0.7);
-  opacity: 1;
+  color: white;
 }
 
 /* --- Messages --- */
@@ -223,6 +225,7 @@ html, body, #root {
   max-width: 85%;
   font-size: 13px;
   line-height: 1.5;
+  white-space: pre-wrap;
 }
 
 .spot-message.user {
@@ -236,7 +239,7 @@ html, body, #root {
 .spot-message.agent {
   align-self: flex-start;
   color: var(--spot-text-secondary);
-  padding: 0;
+  padding: 0 4px;
 }
 
 /* --- Thinking Indicator --- */
@@ -244,34 +247,24 @@ html, body, #root {
   display: flex;
   align-items: center;
   gap: 4px;
-  padding: 8px 0;
+  padding: 8px 4px;
+  align-self: flex-start;
 }
 
 .spot-thinking-dot {
-  width: 6px;
-  height: 6px;
+  width: 5px;
+  height: 5px;
   background: var(--spot-text-muted);
   border-radius: 50%;
   animation: thinking 1.4s ease-in-out infinite;
 }
 
-.spot-thinking-dot:nth-child(2) {
-  animation-delay: 0.2s;
-}
-
-.spot-thinking-dot:nth-child(3) {
-  animation-delay: 0.4s;
-}
+.spot-thinking-dot:nth-child(2) { animation-delay: 0.2s; }
+.spot-thinking-dot:nth-child(3) { animation-delay: 0.4s; }
 
 @keyframes thinking {
-  0%, 80%, 100% {
-    opacity: 0.3;
-    transform: scale(0.8);
-  }
-  40% {
-    opacity: 1;
-    transform: scale(1);
-  }
+  0%, 80%, 100% { opacity: 0.3; transform: scale(0.8); }
+  40% { opacity: 1; transform: scale(1); }
 }
 
 /* --- Input Section --- */
@@ -300,13 +293,6 @@ html, body, #root {
   border-color: var(--spot-border-strong);
 }
 
-.spot-input-label {
-  font-size: 13px;
-  font-weight: 500;
-  color: var(--spot-text);
-  flex-shrink: 0;
-}
-
 .spot-input {
   flex: 1;
   background: transparent;
@@ -320,10 +306,6 @@ html, body, #root {
 
 .spot-input::placeholder {
   color: var(--spot-text-muted);
-}
-
-.spot-input:disabled {
-  opacity: 0.5;
 }
 
 /* --- Controls Row --- */
@@ -370,7 +352,6 @@ html, body, #root {
   border-radius: var(--spot-radius-sm);
   color: var(--spot-text-muted);
   font-size: 12px;
-  font-family: inherit;
   cursor: pointer;
   transition: all 0.15s ease;
 }
@@ -384,13 +365,9 @@ html, body, #root {
   color: var(--spot-accent);
 }
 
-.spot-context-btn.active:hover {
-  background: rgba(59, 130, 246, 0.15);
-}
-
 .spot-send-btn {
-  width: 36px;
-  height: 36px;
+  width: 32px;
+  height: 32px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -404,7 +381,7 @@ html, body, #root {
 
 .spot-send-btn:hover:not(:disabled) {
   opacity: 0.9;
-  transform: scale(1.02);
+  transform: scale(1.05);
 }
 
 .spot-send-btn:disabled {
@@ -412,7 +389,7 @@ html, body, #root {
   cursor: not-allowed;
 }
 
-/* --- Bottom Toggles with Dropdowns --- */
+/* --- Toggles & Dropdowns --- */
 .spot-toggles {
   display: flex;
   align-items: center;
@@ -420,9 +397,7 @@ html, body, #root {
   padding-top: 4px;
 }
 
-.spot-dropdown {
-  position: relative;
-}
+.spot-dropdown { position: relative; }
 
 .spot-toggle {
   display: flex;
@@ -435,45 +410,33 @@ html, body, #root {
   color: var(--spot-text-muted);
   cursor: pointer;
   transition: all 0.15s ease;
+  font-size: 12px;
 }
 
-.spot-toggle:hover,
-.spot-toggle.open {
+.spot-toggle:hover, .spot-toggle.open {
   color: var(--spot-text-secondary);
   background: var(--spot-bg-subtle);
 }
 
-.spot-toggle.active {
-  color: var(--spot-text);
-}
+.spot-toggle.active { color: var(--spot-text); }
 
-.spot-toggle svg:last-child {
-  opacity: 0.5;
-}
-
-/* --- Dropdown Menu --- */
 .spot-dropdown-menu {
   position: absolute;
   bottom: calc(100% + 4px);
   left: 0;
   min-width: 200px;
-  background: #1a1a1c;
+  background: #18181b;
   border: 1px solid var(--spot-border-strong);
   border-radius: var(--spot-radius);
   padding: 4px;
   z-index: 100;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.5);
   animation: slideUp 0.12s ease;
 }
 
 @keyframes slideUp {
-  from {
-    opacity: 0;
-    transform: translateY(4px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
 .spot-dropdown-item {
@@ -486,55 +449,31 @@ html, body, #root {
   border: none;
   border-radius: 4px;
   color: var(--spot-text-secondary);
-  font-family: inherit;
   cursor: pointer;
-  transition: all 0.1s ease;
   text-align: left;
 }
 
-.spot-dropdown-item:hover {
-  background: rgba(255, 255, 255, 0.05);
-}
-
-.spot-dropdown-item:hover .spot-dropdown-label {
-  color: var(--spot-text);
-}
-
-.spot-dropdown-item.selected {
-  background: rgba(59, 130, 246, 0.1);
-}
-
-.spot-dropdown-item.selected .spot-dropdown-label {
-  color: var(--spot-accent);
-}
-
-.spot-dropdown-item.selected .spot-dropdown-icon {
-  color: var(--spot-accent);
-}
+.spot-dropdown-item:hover { background: rgba(255, 255, 255, 0.08); color: var(--spot-text); }
+.spot-dropdown-item.selected { background: rgba(59, 130, 246, 0.15); }
+.spot-dropdown-item.selected .spot-dropdown-label { color: var(--spot-accent); }
+.spot-dropdown-item.selected .spot-dropdown-icon { color: var(--spot-accent); }
 
 .spot-dropdown-icon {
   flex-shrink: 0;
   color: var(--spot-text-muted);
   margin-top: 1px;
-  transition: color 0.1s ease;
-}
-
-.spot-dropdown-item:hover .spot-dropdown-icon {
-  color: var(--spot-text-secondary);
 }
 
 .spot-dropdown-content {
   display: flex;
   flex-direction: column;
   gap: 1px;
-  min-width: 0;
 }
 
 .spot-dropdown-label {
   font-size: 12px;
   font-weight: 500;
   color: var(--spot-text-secondary);
-  transition: color 0.1s ease;
 }
 
 .spot-dropdown-desc {
@@ -559,35 +498,8 @@ html, body, #root {
   border-radius: 4px;
   color: var(--spot-accent);
   font-size: 12px;
-  font-family: inherit;
   cursor: pointer;
-  transition: all 0.1s ease;
   text-align: left;
 }
 
-.spot-dropdown-footer:hover {
-  background: rgba(59, 130, 246, 0.1);
-}
-
-.spot-dropdown-footer svg {
-  opacity: 0.6;
-}
-
-/* --- Scrollbar (Global) --- */
-::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
-}
-
-::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.08);
-  border-radius: 3px;
-}
-
-::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.12);
-}
+.spot-dropdown-footer:hover { background: rgba(59, 130, 246, 0.1); }

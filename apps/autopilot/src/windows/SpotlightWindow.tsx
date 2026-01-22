@@ -1,7 +1,9 @@
+// apps/autopilot/src/windows/SpotlightWindow.tsx
 import React, { useState, useEffect, useRef } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { emit } from "@tauri-apps/api/event";
 import { useAgentStore, initEventListeners } from "../store/agentStore";
+import { AgentTask, ChatMessage, SessionSummary } from "../types"; 
 import "./SpotlightWindow.css";
 
 // --- Minimal Icons ---
@@ -60,7 +62,7 @@ const icons = {
   ),
   chat: (
     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-      <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/>
+      <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
     </svg>
   ),
   robot: (
@@ -84,7 +86,7 @@ const icons = {
   ),
   cube: (
     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-      <path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/>
+      <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>
       <path d="M3.27 6.96L12 12.01l8.73-5.05M12 22.08V12"/>
     </svg>
   ),
@@ -100,13 +102,9 @@ const icons = {
   ),
 };
 
-// IOI Logo Watermark Component - thin stroke, opaque
+// IOI Logo Watermark Component
 const IOIWatermark = () => (
-  <svg 
-    className="spot-watermark" 
-    viewBox="108.97 89.47 781.56 706.06" 
-    fill="none"
-  >
+  <svg className="spot-watermark" viewBox="108.97 89.47 781.56 706.06" fill="none">
     <g stroke="currentColor" strokeWidth="1" strokeLinejoin="round" strokeLinecap="round">
       <path d="M295.299 434.631L295.299 654.116 485.379 544.373z"/>
       <path d="M500 535.931L697.39 421.968 500 308.005 302.61 421.968z"/>
@@ -123,17 +121,6 @@ const IOIWatermark = () => (
   </svg>
 );
 
-interface ChatMessage {
-  role: 'user' | 'agent';
-  text: string;
-}
-
-interface TaskItem {
-  id: string;
-  title: string;
-  age: string;
-}
-
 interface DropdownOption {
   value: string;
   label: string;
@@ -141,7 +128,6 @@ interface DropdownOption {
   icon?: React.ReactNode;
 }
 
-// Dropdown component with icons, descriptions, and footer
 interface DropdownProps {
   icon: React.ReactNode;
   options: DropdownOption[];
@@ -153,7 +139,6 @@ interface DropdownProps {
 }
 
 function Dropdown({ icon, options, selected, onSelect, isOpen, onToggle, footer }: DropdownProps) {
-  // Find selected option to get its icon for the toggle
   const selectedOption = options.find(opt => opt.value === selected);
   const displayIcon = selectedOption?.icon || icon;
 
@@ -182,7 +167,6 @@ function Dropdown({ icon, options, selected, onSelect, isOpen, onToggle, footer 
               </div>
             </button>
           ))}
-          
           {footer && (
             <>
               <div className="spot-dropdown-divider" />
@@ -201,7 +185,6 @@ function Dropdown({ icon, options, selected, onSelect, isOpen, onToggle, footer 
   );
 }
 
-// Dropdown options with icons
 const workspaceOptions: DropdownOption[] = [
   { value: "local", label: "Local workspace", desc: "Process on device", icon: icons.laptop },
   { value: "cloud", label: "Send to cloud", desc: "Use remote compute", icon: icons.cloud },
@@ -220,18 +203,26 @@ const modelOptions: DropdownOption[] = [
   { value: "Local", label: "Local", desc: "On-device model" },
 ];
 
-// Mock recent tasks
-const recentTasks: TaskItem[] = [
-  { id: '1', title: 'Fix freelance megamenu link', age: '5d' },
-  { id: '2', title: 'Compiling ioi-validator v0.1.0 (/home/l...', age: '5d' },
-  { id: '3', title: 'The "Waiting for visual context..." hang...', age: '6d' },
-];
+function formatTimeAgo(ms: number) {
+  const diff = Date.now() - ms;
+  const sec = Math.floor(diff / 1000);
+  if (sec < 60) return 'just now';
+  const min = Math.floor(sec / 60);
+  if (min < 60) return `${min}m`;
+  const hr = Math.floor(min / 60);
+  if (hr < 24) return `${hr}h`;
+  const day = Math.floor(hr / 24);
+  return `${day}d`;
+}
 
 export function SpotlightWindow() {
   const [intent, setIntent] = useState("");
-  const [chatHistory, setChatHistory] = useState<ChatMessage[]>([]);
+  const [localHistory, setLocalHistory] = useState<ChatMessage[]>([]);
   const [autoContext, setAutoContext] = useState(true);
   const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
+  
+  // History State
+  const [sessions, setSessions] = useState<SessionSummary[]>([]);
   
   // Dropdown selections
   const [workspaceMode, setWorkspaceMode] = useState("local");
@@ -245,55 +236,40 @@ export function SpotlightWindow() {
 
   useEffect(() => {
     initEventListeners();
+    // [FIX] Correctly set mode to "sidebar" to trigger docking behavior in Rust backend
     invoke("set_spotlight_mode", { mode: "sidebar" }).catch(console.error);
     setTimeout(() => inputRef.current?.focus(), 150);
+    
+    // Load history
+    const loadHistory = async () => {
+        try {
+            const history = await invoke<SessionSummary[]>("get_session_history");
+            setSessions(history);
+        } catch (e) {
+            console.error("Failed to load history:", e);
+        }
+    };
+    loadHistory();
+    const interval = setInterval(loadHistory, 5000);
+    return () => clearInterval(interval);
   }, []);
 
-  // Handle conversation mode -> Swarm opens Studio
-  useEffect(() => {
-    if (conversationMode === "Swarm") {
-      openStudio("copilot");
-      setTimeout(() => setConversationMode("Agent"), 500);
-    }
-  }, [conversationMode]);
-
-  useEffect(() => {
-    if (!task) return;
-
-    if (task.phase === "Running" && task.current_step.length > 80) {
-      setChatHistory(prev => {
-        const lastMsg = prev[prev.length - 1];
-        if (lastMsg?.text === task.current_step) return prev;
-        return [...prev, { role: 'agent', text: task.current_step }];
-      });
-    }
-
-    if (task.phase === "Complete" && task.receipt) {
-      setChatHistory(prev => {
-        const lastMsg = prev[prev.length - 1];
-        if (lastMsg?.text.includes("complete")) return prev;
-        // [FIX] Handle pure chat response (current_step holds response) vs Receipt done
-        if (task.current_step && task.current_step.length > 20 && task.current_step !== "Transmitting intent to Kernel...") {
-            return [...prev, { role: 'agent', text: task.current_step }];
-        }
-        return [...prev, { role: 'agent', text: `Done. ${task.receipt?.actions} actions.` }];
-      });
-    }
-    
-    if (task.phase === "Failed") {
-      setChatHistory(prev => {
-        const lastMsg = prev[prev.length - 1];
-        if (lastMsg?.text.startsWith("Failed")) return prev;
-        return [...prev, { role: 'agent', text: `Failed: ${task.current_step}` }];
-      });
-    }
-  }, [task]);
+  const activeHistory: ChatMessage[] = (task as AgentTask | null)?.history || localHistory;
 
   useEffect(() => {
     if (chatAreaRef.current) {
       chatAreaRef.current.scrollTop = chatAreaRef.current.scrollHeight;
     }
-  }, [chatHistory]);
+  }, [activeHistory]); 
+
+  // Force scroll when task completes
+  useEffect(() => {
+    if (task && (task.phase === "Complete" || task.phase === "Failed")) {
+        if (chatAreaRef.current) {
+            chatAreaRef.current.scrollTop = chatAreaRef.current.scrollHeight;
+        }
+    }
+  }, [task?.phase]);
 
   const openStudio = async (targetView: string = "compose") => {
     await emit("request-studio-view", targetView);
@@ -301,12 +277,24 @@ export function SpotlightWindow() {
     await invoke("show_studio");
   };
 
+  const handleLoadSession = async (id: string) => {
+    try {
+      await invoke("load_session", { sessionId: id });
+    } catch (e) {
+      console.error("Failed to load session:", e);
+    }
+  };
+
   const handleSubmit = async (textOverride?: string) => {
     const text = textOverride || intent;
     if (!text.trim()) return;
 
     setIntent("");
-    setChatHistory(prev => [...prev, { role: 'user', text }]);
+    
+    // Optimistic add to local history if no task active
+    if (!task) {
+        setLocalHistory(prev => [...prev, { role: 'user', text, timestamp: Date.now() }]);
+    }
     
     if (task && task.phase === "Running") return;
 
@@ -314,7 +302,6 @@ export function SpotlightWindow() {
       if (text.toLowerCase().includes("swarm") || text.toLowerCase().includes("team")) {
         await openStudio("copilot");
       }
-      // [FIX] Pass conversationMode ("Chat" or "Agent")
       await startTask(text, conversationMode);
     } catch (e) {
       console.error(e);
@@ -325,45 +312,51 @@ export function SpotlightWindow() {
     if (activeDropdown) setActiveDropdown(null);
   };
 
-  const hasContent = chatHistory.length > 0;
+  const hasContent = activeHistory.length > 0;
 
   return (
     <div className="spot-window" onClick={handleGlobalClick}>
       <div className="spot-container">
         
-        {/* Tasks Header Bar (Opaque) */}
+        {/* Tasks List (Replaces Sidebar) */}
         <div className="spot-tasks-bar">
-          <span className="spot-tasks-title">Tasks</span>
+          <span className="spot-tasks-title">Recent Tasks</span>
         </div>
-
-        {/* Tasks List (Transparent, same as sidebar) */}
         <div className="spot-tasks-list">
-          {recentTasks.map(t => (
-            <button key={t.id} className="spot-task-item">
-              <span className="spot-task-title">{t.title}</span>
-              <span className="spot-task-age">{t.age}</span>
+          {sessions.slice(0, 5).map(s => (
+            <button 
+                key={s.session_id} 
+                className="spot-task-item"
+                onClick={() => handleLoadSession(s.session_id)}
+            >
+              <span className="spot-task-title">{s.title}</span>
+              <span className="spot-task-age">{formatTimeAgo(s.timestamp)}</span>
             </button>
           ))}
-          <button className="spot-tasks-more">View all (9)</button>
+          {sessions.length === 0 && (
+              <div className="spot-task-item disabled" style={{opacity: 0.5}}>
+                  <span className="spot-task-title">No recent tasks</span>
+              </div>
+          )}
+          {sessions.length > 5 && (
+              <button className="spot-tasks-more">View all ({sessions.length})</button>
+          )}
         </div>
 
         {/* Chat Area */}
         <div className="spot-chat" ref={chatAreaRef}>
-          {/* Watermark in empty state */}
           {!hasContent && !task && (
             <div className="spot-empty">
               <IOIWatermark />
             </div>
           )}
 
-          {/* Messages */}
-          {chatHistory.map((msg, i) => (
+          {activeHistory.map((msg: ChatMessage, i: number) => (
             <div key={i} className={`spot-message ${msg.role}`}>
               {msg.text}
             </div>
           ))}
 
-          {/* Active task indicator */}
           {task && task.phase === "Running" && (
             <div className="spot-thinking">
               <span className="spot-thinking-dot" />
@@ -412,7 +405,6 @@ export function SpotlightWindow() {
             </button>
           </div>
 
-          {/* Bottom toggles with dropdown menus */}
           <div className="spot-toggles">
             <Dropdown
               icon={icons.laptop}
@@ -442,36 +434,12 @@ export function SpotlightWindow() {
           </div>
         </div>
 
-        {/* Header Actions (top-right overlay) */}
+        {/* Header Actions */}
         <div className="spot-header-actions">
-          <button 
-            className="spot-icon-btn"
-            onClick={() => openStudio("history")}
-            title="Task History"
-          >
-            {icons.history}
-          </button>
-          <button 
-            className="spot-icon-btn"
-            onClick={() => openStudio("settings")}
-            title="Settings"
-          >
-            {icons.settings}
-          </button>
-          <button 
-            className="spot-icon-btn"
-            onClick={() => openStudio("copilot")}
-            title="Expand to Studio"
-          >
-            {icons.expand}
-          </button>
-          <button 
-            className="spot-icon-btn"
-            onClick={() => invoke("hide_spotlight")}
-            title="Close"
-          >
-            {icons.close}
-          </button>
+          <button className="spot-icon-btn" onClick={() => openStudio("history")} title="History">{icons.history}</button>
+          <button className="spot-icon-btn" onClick={() => openStudio("settings")} title="Settings">{icons.settings}</button>
+          <button className="spot-icon-btn" onClick={() => openStudio("copilot")} title="Expand">{icons.expand}</button>
+          <button className="spot-icon-btn" onClick={() => invoke("hide_spotlight")} title="Close">{icons.close}</button>
         </div>
       </div>
     </div>

@@ -2,8 +2,9 @@
 use crate::models::*;
 use crate::windows; 
 use std::sync::Mutex;
-use std::time::Duration;
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use tauri::{AppHandle, Emitter, Manager, State};
+use std::collections::HashSet; // Needed for processed_steps
 
 // Kernel Integration
 use ioi_ipc::public::public_api_client::PublicApiClient;
@@ -11,6 +12,8 @@ use ioi_ipc::public::{
     chain_event::Event as ChainEventEnum, DraftTransactionRequest, GetContextBlobRequest,
     SubmitTransactionRequest, SubscribeEventsRequest,
 };
+use ioi_ipc::blockchain::QueryRawStateRequest; // [NEW] For hydration
+
 use tonic::transport::Channel;
 
 // Crypto & Types for gate_respond
@@ -22,6 +25,11 @@ use ioi_types::app::agentic::ResumeAgentParams;
 use ioi_types::app::{ChainTransaction, SignHeader, SignatureProof, SystemPayload, SystemTransaction};
 use ioi_types::app::{AccountId, ChainId, account_id_from_key_material}; 
 use ioi_types::codec;
+
+// Helper to get current timestamp
+fn now() -> u64 {
+    SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default().as_millis() as u64
+}
 
 // Helper to update state and emit events
 fn update_task_state<F>(app: &AppHandle, mut f: F)
@@ -45,6 +53,96 @@ where
         };
         let _ = app.emit(event_name, &t);
     }
+}
+
+// Helper to get client without duplicating code
+async fn get_rpc_client(state: &State<'_, Mutex<AppState>>) -> Result<PublicApiClient<Channel>, String> {
+    let cached_client = {
+        let s = state.lock().map_err(|_| "Failed to lock state")?;
+        s.rpc_client.clone()
+    };
+    
+    if let Some(c) = cached_client {
+        Ok(c)
+    } else {
+        let channel = Channel::from_static("http://127.0.0.1:9000")
+            .connect()
+            .await
+            .map_err(|e| e.to_string())?;
+        let new_client = PublicApiClient::new(channel);
+        
+        {
+            if let Ok(mut s) = state.lock() {
+                if s.rpc_client.is_none() {
+                    s.rpc_client = Some(new_client.clone());
+                }
+            }
+        }
+        Ok(new_client)
+    }
+}
+
+/// Fetches the full execution history of a session from the Kernel state.
+/// This reconstructs the chat UI from the on-chain audit log.
+async fn hydrate_session_history(
+    client: &mut PublicApiClient<Channel>,
+    session_id_hex: &str,
+) -> Result<Vec<ChatMessage>, String> {
+    let session_id_bytes = hex::decode(session_id_hex).map_err(|e| e.to_string())?;
+    let mut history = Vec::new();
+    let mut step: u32 = 0;
+
+    // Iterate through steps until we find no more traces
+    // Key format: "agent::trace::{session_id}::{step_u32_le}"
+    let prefix = b"agent::trace::";
+
+    loop {
+        let mut key = Vec::new();
+        key.extend_from_slice(prefix);
+        key.extend_from_slice(&session_id_bytes);
+        key.extend_from_slice(&step.to_le_bytes());
+
+        let req = tonic::Request::new(QueryRawStateRequest { key });
+        
+        match client.query_raw_state(req).await {
+            Ok(resp) => {
+                let inner = resp.into_inner();
+                if !inner.found || inner.value.is_empty() {
+                    break; // End of history
+                }
+
+                if let Ok(trace) = codec::from_bytes_canonical::<ioi_types::app::agentic::StepTrace>(&inner.value) {
+                    // 1. Add User Prompt (Input)
+                    // Deduplicate: Don't add if identical to previous (e.g. re-runs)
+                    if history.last().map(|m: &ChatMessage| m.text != trace.full_prompt).unwrap_or(true) {
+                        history.push(ChatMessage {
+                            role: "user".to_string(),
+                            text: trace.full_prompt,
+                            timestamp: trace.timestamp * 1000, // s -> ms
+                        });
+                    }
+
+                    // 2. Add Agent Result (Output)
+                    // If success, log output. If fail, log error.
+                    let text = if trace.success {
+                        trace.raw_output
+                    } else {
+                        format!("Error: {}", trace.error.unwrap_or_default())
+                    };
+
+                    history.push(ChatMessage {
+                        role: "agent".to_string(),
+                        text,
+                        timestamp: trace.timestamp * 1000,
+                    });
+                }
+            }
+            Err(_) => break,
+        }
+        step += 1;
+    }
+
+    Ok(history)
 }
 
 // -------------------------------------------------------------------------
@@ -88,14 +186,25 @@ async fn monitor_kernel_events(app: AppHandle) {
                         if !thought.session_id.is_empty() {
                             t.session_id = Some(thought.session_id.clone());
                         }
+                        
+                        // Thoughts are ephemeral. We do NOT push to history here to avoid duplication
+                        // with the final ActionResult in Chat Mode.
                     });
                 }
                 ChainEventEnum::ActionResult(res) => {
                     update_task_state(&app, |t| {
+                        // [FIX] Deduplication Check
+                        if t.processed_steps.contains(&res.step_index) {
+                            return;
+                        }
+                        t.processed_steps.insert(res.step_index);
+
                         t.current_step = format!("Executed {}: {}", res.tool_name, res.output);
                         if !res.session_id.is_empty() {
                             t.session_id = Some(res.session_id.clone());
                         }
+                        
+                        // Completion handling
                         if res.tool_name == "agent__complete" || res.tool_name == "system::max_steps_reached" {
                              t.phase = AgentPhase::Complete;
                              t.receipt = Some(Receipt {
@@ -103,15 +212,39 @@ async fn monitor_kernel_events(app: AppHandle) {
                                  actions: t.progress,
                                  cost: Some("$0.00".to_string()),
                              });
+                             // Log completion if not redundant
+                             let msg = format!("Task Completed: {}", res.output);
+                             if t.history.last().map(|m| m.text != msg).unwrap_or(true) {
+                                 t.history.push(ChatMessage { role: "system".into(), text: msg, timestamp: now() });
+                             }
                         }
-                        // [NEW] Chat Mode completion
+                        
+                        // Chat Mode completion
                         if res.tool_name == "chat::reply" {
                              t.phase = AgentPhase::Complete;
-                             t.current_step = res.output.clone(); // Show reply as final state
+                             t.current_step = res.output.clone(); 
                              t.receipt = Some(Receipt {
                                  duration: "Done".to_string(), 
                                  actions: 1,
                                  cost: Some("$0.00".to_string()),
+                             });
+                             
+                             // DEDUPLICATION: Check last history item
+                             let duplicate = t.history.last().map(|m| m.text == res.output).unwrap_or(false);
+                             
+                             if !duplicate {
+                                 t.history.push(ChatMessage {
+                                     role: "agent".to_string(),
+                                     text: res.output.clone(),
+                                     timestamp: now(),
+                                 });
+                             }
+                        } else if res.tool_name != "agent__complete" && res.tool_name != "system::max_steps_reached" {
+                             // Log tool output for normal tools
+                             t.history.push(ChatMessage {
+                                 role: "tool".to_string(),
+                                 text: format!("Tool Output ({}): {}", res.tool_name, res.output),
+                                 timestamp: now(),
                              });
                         }
                     });
@@ -125,6 +258,12 @@ async fn monitor_kernel_events(app: AppHandle) {
                     update_task_state(&app, |t| {
                         if matches!(t.phase, AgentPhase::Running) {
                              t.current_step = format!("User Input: {}", input.description);
+                             // [NEW] Log Ghost Input
+                             t.history.push(ChatMessage {
+                                 role: "user".to_string(),
+                                 text: format!("[Ghost] {}", input.description),
+                                 timestamp: now(),
+                             });
                         }
                     });
                 }
@@ -143,12 +282,25 @@ async fn monitor_kernel_events(app: AppHandle) {
                             if !action.session_id.is_empty() {
                                 t.session_id = Some(action.session_id.clone());
                             }
+
+                            // [NEW] Log Gate
+                            t.history.push(ChatMessage {
+                                role: "system".to_string(),
+                                text: format!("🛑 Policy Gate triggered for action: {}", action.target),
+                                timestamp: now(),
+                            });
                         });
                         windows::show_gate(app.clone());
                     } else if action.verdict == "BLOCK" {
                         update_task_state(&app, |t| {
                             t.phase = AgentPhase::Failed;
                             t.current_step = format!("Blocked by Firewall: {}", action.reason);
+                            // [NEW] Log Block
+                            t.history.push(ChatMessage {
+                                role: "system".to_string(),
+                                text: format!("⛔ Blocked action: {}", action.target),
+                                timestamp: now(),
+                            });
                         });
                     }
                 }
@@ -163,12 +315,101 @@ async fn monitor_kernel_events(app: AppHandle) {
 // -------------------------------------------------------------------------
 
 #[tauri::command]
+pub async fn get_session_history(
+    state: State<'_, Mutex<AppState>>,
+) -> Result<Vec<SessionSummary>, String> {
+    let mut client = get_rpc_client(&state).await?;
+    
+    // 1. Query the raw state key "agent::history"
+    // Note: We need to use the namespaced key if the service uses namespaces.
+    // Based on ioi-local.rs, the desktop_agent namespace is:
+    // _service_data::desktop_agent::
+    // So the full key is: _service_data::desktop_agent::agent::history
+    
+    // Helper to construct key
+    let ns_prefix = ioi_api::state::service_namespace_prefix("desktop_agent");
+    let key = [ns_prefix.as_slice(), b"agent::history"].concat();
+
+    let req = tonic::Request::new(QueryRawStateRequest { key });
+    
+    let resp = client.query_raw_state(req).await.map_err(|e| e.to_string())?.into_inner();
+    
+    if !resp.found || resp.value.is_empty() {
+        return Ok(Vec::new());
+    }
+
+    // Deserialize (using the IOI codec)
+    let raw_history = codec::from_bytes_canonical::<Vec<ioi_services::agentic::desktop::types::SessionSummary>>(&resp.value)
+        .map_err(|e| format!("Decode failed: {}", e))?;
+
+    // Map to Frontend Model (Hex encoding IDs)
+    let ui_history = raw_history.into_iter().map(|s| SessionSummary {
+        session_id: hex::encode(s.session_id),
+        title: s.title,
+        timestamp: s.timestamp,
+    }).collect();
+
+    Ok(ui_history)
+}
+
+#[tauri::command]
+pub async fn load_session(
+    state: State<'_, Mutex<AppState>>,
+    app: AppHandle,
+    session_id: String,
+) -> Result<AgentTask, String> {
+    let mut client = get_rpc_client(&state).await?;
+    
+    // 1. Rehydrate Trace History
+    let history = hydrate_session_history(&mut client, &session_id).await?;
+    
+    // 2. Reconstruct Task Object
+    // We don't have the full state here easily without querying "agent::state::{id}", 
+    // but for the UI, the history is the most important part.
+    
+    let task = AgentTask {
+        id: session_id.clone(),
+        intent: history.first().map(|m| m.text.clone()).unwrap_or("Restored Session".into()),
+        agent: "Restored".into(),
+        phase: AgentPhase::Complete, // Assume complete if loading from history
+        progress: history.len() as u32,
+        total_steps: history.len() as u32,
+        current_step: "Session loaded.".into(),
+        gate_info: None,
+        receipt: None,
+        visual_hash: None,
+        pending_request_hash: None,
+        session_id: Some(session_id),
+        history,
+        processed_steps: HashSet::new(),
+    };
+
+    // 3. Set as current task
+    {
+        let mut app_state = state.lock().map_err(|_| "Lock fail")?;
+        app_state.current_task = Some(task.clone());
+    }
+    
+    // 4. Notify UI
+    let _ = app.emit("task-started", &task);
+    
+    Ok(task)
+}
+
+#[tauri::command]
 pub fn start_task(
     state: State<Mutex<AppState>>,
     app: AppHandle,
     intent: String,
-    mode: String, // [NEW] Receive mode from frontend ("Chat" or "Agent")
+    mode: String, 
 ) -> Result<AgentTask, String> {
+    // [NEW] Initialize history with the user's intent
+    let history = vec![ChatMessage {
+        role: "user".to_string(),
+        text: intent.clone(),
+        timestamp: now(),
+    }];
+
     let task = AgentTask {
         id: uuid::Uuid::new_v4().to_string(),
         intent: intent.clone(),
@@ -182,6 +423,8 @@ pub fn start_task(
         visual_hash: None, 
         pending_request_hash: None,
         session_id: None,
+        history, // [NEW]
+        processed_steps: HashSet::new(), // [NEW]
     };
 
     {
@@ -215,6 +458,11 @@ pub fn start_task(
                 return;
             }
         };
+
+        // [NEW] Attempt Hydration (If this were a resume, we'd use task.id, 
+        // but here we are starting a NEW session, so history starts fresh. 
+        // Hydration is useful if we implement an 'attach' command later.)
+        // For now, we proceed to draft the new intent.
 
         println!("[Autopilot] Drafting intent: '{}' (Mode: {})", effective_intent, mode);
 
@@ -392,25 +640,7 @@ pub async fn gate_respond(
                 params: params_bytes,
             };
 
-            let mut client = {
-                let maybe_client = state.lock().map_err(|_| "Failed to lock state")?.rpc_client.clone();
-                
-                if let Some(c) = maybe_client {
-                    c
-                } else {
-                    println!("[Autopilot] RPC client not ready. Connecting now...");
-                    let channel = Channel::from_static("http://127.0.0.1:9000")
-                        .connect()
-                        .await
-                        .map_err(|e| format!("Failed to connect to Kernel: {}", e))?;
-                    let new_client = PublicApiClient::new(channel);
-                    
-                    if let Ok(mut s) = state.lock() {
-                        s.rpc_client = Some(new_client.clone());
-                    }
-                    new_client
-                }
-            };
+            let mut client = get_rpc_client(&state).await?;
 
             // FIX: Use nonce 0 for ephemeral/bootstrap accounts.
             // The kernel accepts unknown accounts only if nonce is 0.
@@ -482,6 +712,12 @@ pub async fn gate_respond(
                         t.gate_info = None;
                         t.pending_request_hash = None;
                         t.current_step = "Approval granted. Resuming agent...".to_string();
+                        // [NEW] Log Resumed
+                        t.history.push(ChatMessage {
+                            role: "system".to_string(),
+                            text: "✅ Approval Granted. Resuming...".to_string(),
+                            timestamp: now(),
+                        });
                     });
                 },
                 Err(e) => {
@@ -497,6 +733,12 @@ pub async fn gate_respond(
             t.phase = AgentPhase::Failed;
             t.current_step = "Action blocked by user".to_string();
             t.gate_info = None;
+             // [NEW] Log Denied
+             t.history.push(ChatMessage {
+                role: "system".to_string(),
+                text: "❌ Action Denied by User.".to_string(),
+                timestamp: now(),
+            });
         });
     }
     Ok(())
@@ -509,29 +751,7 @@ pub async fn get_context_blob(
 ) -> Result<ContextBlob, String> {
     use base64::{engine::general_purpose::STANDARD, Engine as _};
 
-    let cached_client = {
-        let s = state.lock().map_err(|_| "Failed to lock state")?;
-        s.rpc_client.clone()
-    };
-
-    let mut client = if let Some(c) = cached_client {
-        c
-    } else {
-        let channel = Channel::from_static("http://127.0.0.1:9000")
-            .connect()
-            .await
-            .map_err(|e| format!("Failed to connect to Kernel: {}", e))?;
-        let new_client = PublicApiClient::new(channel);
-
-        {
-            if let Ok(mut s) = state.lock() {
-                if s.rpc_client.is_none() {
-                    s.rpc_client = Some(new_client.clone());
-                }
-            }
-        }
-        new_client
-    };
+    let mut client = get_rpc_client(&state).await?;
 
     let request = tonic::Request::new(GetContextBlobRequest { blob_hash: hash });
 
