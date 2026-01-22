@@ -5,25 +5,36 @@ import time
 import hashlib
 import sys
 import os
+import importlib
+from types import ModuleType
+from typing import TYPE_CHECKING, Any, Optional, cast
+
+if TYPE_CHECKING:
+    from ioi_swarm.types import ActionRequest
 
 # Robust import strategy for generated protobufs
+public_pb2: Optional[ModuleType]
+public_pb2_grpc: Optional[ModuleType]
+
 try:
     # 1. Try absolute import (works when installed as package 'ioi_swarm')
-    from ioi_swarm.proto import public_pb2, public_pb2_grpc
+    from ioi_swarm.proto import public_pb2 as public_pb2
+    from ioi_swarm.proto import public_pb2_grpc as public_pb2_grpc
 except ImportError:
     try:
         # 2. Try relative import (works during local development within the package)
-        from .proto import public_pb2, public_pb2_grpc
+        from ..proto import public_pb2 as public_pb2
+        from ..proto import public_pb2_grpc as public_pb2_grpc
     except ImportError as e:
         # 3. Last resort: Manually add the proto directory to sys.path
         # This fixes issues where the generated code tries to import 'blockchain_pb2' directly
         proto_path = os.path.join(os.path.dirname(__file__), 'proto')
         if proto_path not in sys.path:
             sys.path.append(proto_path)
-        
+
         try:
-            import public_pb2
-            import public_pb2_grpc
+            public_pb2 = importlib.import_module("public_pb2")
+            public_pb2_grpc = importlib.import_module("public_pb2_grpc")
         except ImportError as e2:
             print(f"[IOI-Swarm] CRITICAL IMPORT ERROR: {e}")
             print(f"[IOI-Swarm] SECONDARY IMPORT ERROR: {e2}")
@@ -37,7 +48,8 @@ class IoiClient:
         self.channel = grpc.insecure_channel(address)
         
         if public_pb2_grpc:
-            self.stub = public_pb2_grpc.PublicApiStub(self.channel)
+            public_pb2_grpc_any = cast(Any, public_pb2_grpc)
+            self.stub = public_pb2_grpc_any.PublicApiStub(self.channel)
         else:
             self.stub = None
 
@@ -49,12 +61,12 @@ class IoiClient:
         # Ensure tight packing (no spaces) and sorted keys
         return json.dumps(data, separators=(',', ':'), sort_keys=True).encode('utf-8')
 
-    def submit_action(self, request: 'ActionRequest', signer_key: str = None) -> str:
+    def submit_action(self, request: 'ActionRequest', signer_key: Optional[str] = None) -> str:
         """
         Submits an ActionRequest to the local Orchestrator via gRPC.
         Maps to Whitepaper §2.4.1.
         """
-        if not self.stub:
+        if not self.stub or public_pb2 is None:
             print("[IOI-Swarm] Error: Client not initialized (missing protos).")
             return "0x0000"
 
@@ -79,7 +91,8 @@ class IoiClient:
         # 2. Call the Node
         try:
             # Wrap the payload in the protobuf request object
-            req = public_pb2.SubmitTransactionRequest(transaction_bytes=canonical_bytes)
+            public_pb2_any = cast(Any, public_pb2)
+            req = public_pb2_any.SubmitTransactionRequest(transaction_bytes=canonical_bytes)
             
             response = self.stub.SubmitTransaction(req)
             
@@ -101,12 +114,14 @@ class IoiClient:
         """
         Polls the Orchestrator for transaction status (Whitepaper §13.1.1).
         """
-        if not self.stub: return
+        if not self.stub or public_pb2 is None:
+            return
 
         start = time.time()
         while time.time() - start < timeout:
             try:
-                req = public_pb2.GetTransactionStatusRequest(tx_hash=tx_hash)
+                public_pb2_any = cast(Any, public_pb2)
+                req = public_pb2_any.GetTransactionStatusRequest(tx_hash=tx_hash)
                 status_resp = self.stub.GetTransactionStatus(req)
                 
                 # Map Enum: UNKNOWN=0, PENDING=1, IN_MEMPOOL=2, COMMITTED=3, REJECTED=4

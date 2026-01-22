@@ -1,4 +1,4 @@
-// crates/drivers/src/terminal.rs
+// crates/drivers/src/terminal/mod.rs
 
 use anyhow::{anyhow, Result};
 use std::process::Command;

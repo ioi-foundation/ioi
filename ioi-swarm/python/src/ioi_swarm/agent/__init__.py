@@ -1,6 +1,6 @@
 # sdk/python/src/ioi/agent.py
 from typing import List, Callable
-from .tools import tool
+from ..tools import tool
 
 class Agent:
     def __init__(self, name: str, policy_id: str = "default"):
