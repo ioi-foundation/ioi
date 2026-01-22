@@ -32,10 +32,20 @@ use super::keys::{get_state_key, SKILL_INDEX_PREFIX};
 use super::tools::discover_tools;
 use super::types::*;
 use super::utils::{compute_phash, goto_trace_log};
+use ioi_types::app::agentic::LlmToolDefinition; // Added import for merge_tools helper
 
 // Constants
 const CHARS_PER_TOKEN: u64 = 4;
 const AGENT_POLICY_PREFIX: &[u8] = b"agent::policy::";
+
+// Helper to deduplicate tools
+// MCP tools take precedence over hardcoded ones.
+fn merge_tools(base: Vec<LlmToolDefinition>, extra: Vec<LlmToolDefinition>) -> Vec<LlmToolDefinition> {
+    let mut map = std::collections::HashMap::new();
+    for t in base { map.insert(t.name.clone(), t); }
+    for t in extra { map.insert(t.name.clone(), t); } 
+    map.into_values().collect()
+}
 
 pub struct DesktopAgentService {
     gui: Arc<dyn GuiDriver>,
@@ -49,6 +59,7 @@ pub struct DesktopAgentService {
     scs: Option<Arc<Mutex<SovereignContextStore>>>,
     event_sender: Option<tokio::sync::broadcast::Sender<KernelEvent>>,
     os_driver: Option<Arc<dyn ioi_api::vm::drivers::os::OsDriver>>,
+    workspace_path: String,
 }
 
 impl DesktopAgentService {
@@ -73,6 +84,7 @@ impl DesktopAgentService {
             scs: None,
             event_sender: None,
             os_driver: None,
+            workspace_path: "./ioi-data".to_string(),
         }
     }
 
@@ -98,7 +110,13 @@ impl DesktopAgentService {
             scs: None,
             event_sender: None,
             os_driver: None,
+            workspace_path: "./ioi-data".to_string(),
         }
+    }
+    
+    pub fn with_workspace_path(mut self, path: String) -> Self {
+        self.workspace_path = path;
+        self
     }
 
     pub fn with_mcp_manager(mut self, manager: Arc<McpManager>) -> Self {
@@ -385,10 +403,18 @@ impl BlockchainService for DesktopAgentService {
                     }
                 }
 
+                // [CHANGED] Initialize with structured User Prompt in History
+                let initial_message = ioi_types::app::agentic::ChatMessage {
+                    role: "user".to_string(),
+                    content: p.goal.clone(),
+                    timestamp: SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_millis() as u64,
+                    trace_hash: None,
+                };
+
                 let agent_state = AgentState {
                     session_id: p.session_id,
                     goal: p.goal.clone(),
-                    history: Vec::new(),
+                    history: vec![initial_message], // [FIX] Start with history
                     status: AgentStatus::Running,
                     step_count: 0,
                     max_steps: p.max_steps,
@@ -455,9 +481,19 @@ impl BlockchainService for DesktopAgentService {
                             
                         agent_state.pending_approval = Some(token);
                         
-                        agent_state.history.push("System: Authorization GRANTED. You may retry the action immediately.".to_string());
+                        agent_state.history.push(ioi_types::app::agentic::ChatMessage {
+                             role: "system".to_string(),
+                             content: "Authorization GRANTED. You may retry the action immediately.".to_string(),
+                             timestamp: SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_millis() as u64,
+                             trace_hash: None,
+                        });
                     } else {
-                        agent_state.history.push("System: Resumed by user/controller without specific approval.".to_string());
+                        agent_state.history.push(ioi_types::app::agentic::ChatMessage {
+                             role: "system".to_string(),
+                             content: "Resumed by user/controller without specific approval.".to_string(),
+                             timestamp: SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_millis() as u64,
+                             trace_hash: None,
+                        });
                     }
 
                     // Reset failure counters so the retry doesn't trip the circuit breaker
@@ -576,18 +612,18 @@ impl BlockchainService for DesktopAgentService {
                 }
 
                 // [MODIFIED] Tool Discovery based on Mode
-                // [FIX] Use immutable variable
                 let available_tools = if agent_state.mode == AgentMode::Chat {
                     // Chat Mode: No tools available. Pure conversation.
                     Vec::new()
                 } else {
                     // Agent Mode: Full tool access
-                    let mut tools = discover_tools(state);
+                    let base_tools = discover_tools(state);
                     if let Some(mcp) = &self.mcp {
                         let mcp_tools = mcp.get_all_tools().await;
-                        tools.extend(mcp_tools);
+                        merge_tools(base_tools, mcp_tools)
+                    } else {
+                        base_tools
                     }
-                    tools
                 };
 
                 let skills = self.recall_skills(state, &agent_state.goal).await?;
@@ -605,8 +641,9 @@ impl BlockchainService for DesktopAgentService {
                 // Inject Workspace Context
                 let workspace_context = format!(
                     "You are running in a secure sandbox.\n\
-                     Current Working Directory: ./ioi-data\n\
-                     Allowed Paths: ./ioi-data/*"
+                     Current Working Directory: {}\n\
+                     Allowed Paths: {}/*",
+                     self.workspace_path, self.workspace_path
                 );
 
                 // [MODIFIED] System Prompt Construction based on Mode
@@ -660,7 +697,9 @@ impl BlockchainService for DesktopAgentService {
                         agent_state.goal,
                         workspace_context, 
                         serde_json::to_string_pretty(&available_tools).unwrap_or_default(),
-                        agent_state.history,
+                        // [FIX] Serialize ChatMessage history appropriately for the LLM
+                        // We might need a helper to format this nicely as "Role: Content"
+                        agent_state.history.iter().map(|m| format!("{}: {}", m.role, m.content)).collect::<Vec<_>>(),
                         tree_xml
                     )
                 };
@@ -728,7 +767,14 @@ impl BlockchainService for DesktopAgentService {
                             if *last == signature {
                                  // Loop detected
                                  let err_msg = "System: Repetitive Action Detected. Stop or change parameters.";
-                                 agent_state.history.push(err_msg.to_string());
+                                 
+                                 agent_state.history.push(ioi_types::app::agentic::ChatMessage {
+                                    role: "system".to_string(),
+                                    content: err_msg.to_string(),
+                                    timestamp: SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_millis() as u64,
+                                    trace_hash: None,
+                                 });
+
                                  agent_state.consecutive_failures += 1;
                                  
                                  // Emit Step for UI visibility
@@ -758,7 +804,13 @@ impl BlockchainService for DesktopAgentService {
                     }
                 }
 
-                agent_state.history.push(format!("Action: {}", output_str));
+                // [CHANGED] Log Thought/Action to structured history
+                agent_state.history.push(ioi_types::app::agentic::ChatMessage {
+                    role: "agent".to_string(),
+                    content: output_str.clone(),
+                    timestamp: SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_millis() as u64,
+                    trace_hash: None,
+                });
 
                 let mut action_success = false;
                 let mut action_error = None;
@@ -799,7 +851,13 @@ impl BlockchainService for DesktopAgentService {
                                 action_success = success;
                                 action_error = error;
                                 if let Some(entry) = history_entry {
-                                    agent_state.history.push(entry);
+                                    // [CHANGED] Structured Tool Output
+                                    agent_state.history.push(ioi_types::app::agentic::ChatMessage {
+                                        role: "tool".to_string(),
+                                        content: entry,
+                                        timestamp: SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_millis() as u64,
+                                        trace_hash: None,
+                                    });
                                 }
                                 
                                 if success {
@@ -808,6 +866,18 @@ impl BlockchainService for DesktopAgentService {
                                     }
                                     if agent_state.pending_tool_call.is_some() {
                                         agent_state.pending_tool_call = None;
+                                    }
+
+                                    // [FIX] Explicitly handle completion tool
+                                    if name == "agent__complete" {
+                                        agent_state.status = AgentStatus::Completed(Some("Task completed successfully.".into()));
+                                        
+                                        completion_event = Some(KernelEvent::AgentActionResult {
+                                            session_id: p.session_id,
+                                            step_index: agent_state.step_count,
+                                            tool_name: "agent__complete".to_string(),
+                                            output: "Task completed.".to_string(),
+                                        });
                                     }
                                     
                                     // [1.2] Heuristic Auto-Termination
@@ -838,6 +908,9 @@ impl BlockchainService for DesktopAgentService {
                                 };
 
                                 if is_pending_approval {
+                                    // [FIX] Pop the action from recent_actions so the retry isn't flagged as repetitive
+                                    agent_state.recent_actions.pop();
+
                                     agent_state.status = AgentStatus::Paused("Waiting for User Approval".into());
                                     
                                     let mut real_request_hash = [0u8; 32];
@@ -857,10 +930,13 @@ impl BlockchainService for DesktopAgentService {
 
                                     agent_state.pending_tool_call = Some(output_str.clone());
                                     
-                                    agent_state.history.push(format!(
-                                        "System: Action '{}' halted by Agency Firewall. Requesting authorization.", 
-                                        action_type
-                                    ));
+                                    let msg = format!("System: Action '{}' halted by Agency Firewall. Requesting authorization.", action_type);
+                                    agent_state.history.push(ioi_types::app::agentic::ChatMessage {
+                                        role: "system".to_string(),
+                                        content: msg,
+                                        timestamp: SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_millis() as u64,
+                                        trace_hash: None,
+                                    });
                                     
                                     if let Some(tx) = &self.event_sender {
                                          let _ = tx.send(KernelEvent::FirewallInterception {
@@ -875,10 +951,13 @@ impl BlockchainService for DesktopAgentService {
                                     return Ok(()); 
                                 } 
                                 else if err_str.contains("Blocked by Policy") {
-                                    agent_state.history.push(format!(
-                                        "System: Action '{}' was BLOCKED by security policy. Do not retry this exact action.", 
-                                        action_type
-                                    ));
+                                    let msg = format!("System: Action '{}' was BLOCKED by security policy. Do not retry this exact action.", action_type);
+                                    agent_state.history.push(ioi_types::app::agentic::ChatMessage {
+                                        role: "system".to_string(),
+                                        content: msg,
+                                        timestamp: SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_millis() as u64,
+                                        trace_hash: None,
+                                    });
                                     agent_state.consecutive_failures += 1;
                                     action_error = Some("Blocked by Policy".into());
                                     action_success = false;
@@ -891,12 +970,22 @@ impl BlockchainService for DesktopAgentService {
                         }
                     } else {
                         // [MODIFIED] Chat Mode handling fallback or unexpected JSON
-                        agent_state.history.push(format!("Thought (JSON): {}", output_str));
+                         agent_state.history.push(ioi_types::app::agentic::ChatMessage {
+                            role: "agent".to_string(),
+                            content: format!("Thought (JSON): {}", output_str),
+                            timestamp: SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_millis() as u64,
+                            trace_hash: None,
+                        });
                         action_success = true;
                     }
                 } else {
                     // Fallback: Plain Text (Chat Mode) or VLM
-                    agent_state.history.push(format!("Thought: {}", output_str));
+                    agent_state.history.push(ioi_types::app::agentic::ChatMessage {
+                        role: "agent".to_string(),
+                        content: output_str.clone(),
+                        timestamp: SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_millis() as u64,
+                        trace_hash: None,
+                    });
                     action_success = true;
 
                     // [NEW] If Chat Mode, complete immediately after response

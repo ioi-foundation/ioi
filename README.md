@@ -174,7 +174,7 @@ IOI is designed for **Industrial Assurance**.
 ## 📄 License
 
 This project is licensed under the **BBSL** (Business Source License) as defined in the `LICENSE-BBSL` file.
-*   Free for non-production and development use.
-*   Production use requires a license (or converts to Open Source after a set period).
+*   Free for non-competition use.
+*   Converts to Open Source after a set period.
 
 *Copyright © 2026 IOI Foundation.*
