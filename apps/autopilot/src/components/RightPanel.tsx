@@ -10,12 +10,31 @@ const PlayIcon = () => <svg width="10" height="10" viewBox="0 0 24 24" fill="cur
 const ShieldIcon = () => <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>;
 const BrainIcon = () => <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9.5 2A2.5 2.5 0 0 1 12 4.5v15a2.5 2.5 0 0 1-4.96.44 2.5 2.5 0 0 1-2.96-3.08 3 3 0 0 1-.34-5.58 2.5 2.5 0 0 1 1.32-4.24 2.5 2.5 0 0 1 1.98-3A2.5 2.5 0 0 1 9.5 2Z"/><path d="M14.5 2A2.5 2.5 0 0 0 12 4.5v15a2.5 2.5 0 0 0 4.96.44 2.5 2.5 0 0 0 2.96-3.08 3 3 0 0 0 .34-5.58 2.5 2.5 0 0 0-1.32-4.24 2.5 2.5 0 0 0-1.98-3A2.5 2.5 0 0 0 14.5 2Z"/></svg>;
 const TerminalIcon = () => <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>;
+const GlobeIcon = () => <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>;
+const SettingsIcon = () => <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>;
+
+// --- TYPES ---
+export interface GraphGlobalConfig {
+  env: string; // JSON string for global variables
+  policy: {
+    maxBudget: number;
+    maxSteps: number;
+    timeoutMs: number;
+  };
+  meta: {
+    name: string;
+    description: string;
+  };
+}
 
 interface RightPanelProps {
   width: number;
   selectedNode: Node | null;
   // Updater function passed from StudioWindow to sync ReactFlow state
   onUpdateNode?: (nodeId: string, section: 'logic' | 'law', updates: Partial<NodeLogic> | Partial<NodeLaw>) => void;
+  // [NEW] Global Graph Config Props
+  graphConfig?: GraphGlobalConfig;
+  onUpdateGraph?: (updates: Partial<GraphGlobalConfig> | any) => void; // Using any for nested partials flexibility
   // [NEW] Upstream data from the Orchestrator for Context-Aware Debugging
   upstreamData?: string;
   // [NEW] Callback for stateful debugging - updates graph state on successful run
@@ -23,8 +42,9 @@ interface RightPanelProps {
 }
 
 type InspectorTab = "LOGIC" | "LAW" | "SIM";
+type GraphTab = "ENV" | "POLICY" | "META";
 
-// [NEW] Helper to extract variables {{var_name}} from template strings
+// Helper to extract variables {{var_name}} from template strings
 function extractVariables(template: string): string[] {
   const regex = /{{([^}]+)}}/g;
   const matches = new Set<string>();
@@ -35,32 +55,193 @@ function extractVariables(template: string): string[] {
   return Array.from(matches);
 }
 
-export function RightPanel({ width, selectedNode, onUpdateNode, upstreamData, onRunComplete }: RightPanelProps) {
+// Default Global Config if none provided
+const DEFAULT_GRAPH_CONFIG: GraphGlobalConfig = {
+  env: '{\n  "env": "production",\n  "api_base": "https://api.example.com"\n}',
+  policy: { maxBudget: 5.0, maxSteps: 50, timeoutMs: 30000 },
+  meta: { name: "Untitled Graph", description: "No description" }
+};
+
+export function RightPanel({ 
+  width, 
+  selectedNode, 
+  onUpdateNode, 
+  graphConfig = DEFAULT_GRAPH_CONFIG,
+  onUpdateGraph,
+  upstreamData, 
+  onRunComplete 
+}: RightPanelProps) {
+  
+  // State for Node Inspector
   const [activeTab, setActiveTab] = useState<InspectorTab>("LOGIC");
+  
+  // State for Graph Inspector (Root)
+  const [activeGraphTab, setActiveGraphTab] = useState<GraphTab>("ENV");
 
   useEffect(() => {
     // Reset to Logic when selecting a new node
-    setActiveTab("LOGIC");
+    if (selectedNode) setActiveTab("LOGIC");
   }, [selectedNode?.id]);
 
+  // Helper wrapper for updates
+  const handleUpdate = (section: 'logic' | 'law', updates: any) => {
+    if (selectedNode && onUpdateNode) {
+      onUpdateNode(selectedNode.id, section, updates);
+    }
+  };
+
+  // Helper for graph updates
+  const handleGraphUpdate = (section: keyof GraphGlobalConfig, updates: any) => {
+    if (onUpdateGraph) {
+      onUpdateGraph({ [section]: { ...graphConfig[section], ...updates } });
+    }
+  };
+
+  // --- RENDER GRAPH ROOT CONFIG (If no node selected) ---
   if (!selectedNode) {
     return (
-      <aside className="right-panel empty" style={{ width }}>
-        <div className="panel-empty">
-          <div className="empty-text">No Selection</div>
-          <div className="empty-hint">Select a node to edit Logic or Law</div>
+      <aside className="right-panel" style={{ width }}>
+        {/* GRAPH HEADER */}
+        <div className="panel-header">
+          <div className="panel-title">
+            <span className="panel-node-type" style={{background: '#4B5563', color: '#E5E7EB'}}>ROOT</span>
+            <span className="panel-node-name">System Constitution</span>
+          </div>
+        </div>
+
+        {/* GRAPH TABS */}
+        <div className="inspector-tabs">
+          <button 
+            className={`inspector-tab ${activeGraphTab === "ENV" ? "active" : ""}`}
+            onClick={() => setActiveGraphTab("ENV")}
+          >
+            <GlobeIcon /> Env
+          </button>
+          <button 
+            className={`inspector-tab ${activeGraphTab === "POLICY" ? "active" : ""}`}
+            onClick={() => setActiveGraphTab("POLICY")}
+          >
+            <ShieldIcon /> Policy
+          </button>
+          <button 
+            className={`inspector-tab ${activeGraphTab === "META" ? "active" : ""}`}
+            onClick={() => setActiveGraphTab("META")}
+          >
+            <SettingsIcon /> Meta
+          </button>
+        </div>
+
+        {/* GRAPH CONTENT */}
+        <div className="panel-content">
+          {activeGraphTab === "ENV" && (
+            <div className="properties-container">
+              <div className="panel-section">
+                <div className="section-title-row">
+                  <span className="section-title">Global Context</span>
+                  <span className="badge">JSON</span>
+                </div>
+                <div className="config-field">
+                  <label className="config-label">Environment Variables</label>
+                  <textarea 
+                    className="input code-editor" 
+                    rows={12}
+                    value={graphConfig.env}
+                    onChange={(e) => handleGraphUpdate('env', e.target.value)} // String replacement for env
+                    spellCheck={false}
+                  />
+                  <div className="approval-hint" style={{marginLeft: 0, marginTop: 8}}>
+                    These variables are injected into every node's execution context.
+                    Access them using <code>{`{{key}}`}</code>.
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {activeGraphTab === "POLICY" && (
+            <div className="policy-view">
+              <div className="law-card">
+                <div className="capability-row">
+                  <div className="cap-header">
+                    <span className="cap-name">TOTAL_BUDGET_CAP</span>
+                  </div>
+                  <div className="cap-body">
+                    <label className="cap-label">Max Spend Per Run</label>
+                    <div className="budget-control">
+                      <input 
+                        type="range" 
+                        className="budget-slider" 
+                        min="0" max="20" step="0.5"
+                        value={graphConfig.policy.maxBudget}
+                        onChange={(e) => handleGraphUpdate('policy', { maxBudget: parseFloat(e.target.value) })}
+                      />
+                      <span className="budget-value">${graphConfig.policy.maxBudget.toFixed(2)}</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="capability-row">
+                  <div className="cap-header">
+                    <span className="cap-name">MAX_STEPS</span>
+                  </div>
+                  <div className="cap-body">
+                    <label className="cap-label">Recursion Limit</label>
+                    <input 
+                      type="number" 
+                      className="cap-input code"
+                      value={graphConfig.policy.maxSteps}
+                      onChange={(e) => handleGraphUpdate('policy', { maxSteps: parseInt(e.target.value) })}
+                    />
+                  </div>
+                </div>
+
+                <div className="capability-row">
+                  <div className="cap-header">
+                    <span className="cap-name">TIMEOUT</span>
+                  </div>
+                  <div className="cap-body">
+                    <label className="cap-label">Global Timeout (ms)</label>
+                    <input 
+                      type="number" 
+                      className="cap-input code"
+                      value={graphConfig.policy.timeoutMs}
+                      onChange={(e) => handleGraphUpdate('policy', { timeoutMs: parseInt(e.target.value) })}
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {activeGraphTab === "META" && (
+            <div className="properties-container">
+              <div className="panel-section">
+                <div className="config-field">
+                  <label className="config-label">Graph Name</label>
+                  <input 
+                    className="input"
+                    value={graphConfig.meta.name}
+                    onChange={(e) => handleGraphUpdate('meta', { name: e.target.value })}
+                  />
+                </div>
+                <div className="config-field">
+                  <label className="config-label">Description</label>
+                  <textarea 
+                    className="input"
+                    rows={4}
+                    value={graphConfig.meta.description}
+                    onChange={(e) => handleGraphUpdate('meta', { description: e.target.value })}
+                  />
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </aside>
     );
   }
 
-  // Helper wrapper for updates
-  const handleUpdate = (section: 'logic' | 'law', updates: any) => {
-    if (onUpdateNode) {
-      onUpdateNode(selectedNode.id, section, updates);
-    }
-  };
-
+  // --- RENDER NODE INSPECTOR (Existing Logic) ---
   return (
     <aside className="right-panel" style={{ width }}>
       {/* HEADER */}
@@ -74,7 +255,7 @@ export function RightPanel({ width, selectedNode, onUpdateNode, upstreamData, on
         )}
       </div>
 
-      {/* 3-WAY TAB SWITCHER: The Core of "Constitution Editor" */}
+      {/* 3-WAY TAB SWITCHER */}
       <div className="inspector-tabs">
         <button 
           className={`inspector-tab ${activeTab === "LOGIC" ? "active" : ""}`}
