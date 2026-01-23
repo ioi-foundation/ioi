@@ -1,10 +1,22 @@
 import { useState, useCallback, useEffect, useRef } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
+import { 
+  ReactFlowProvider, 
+  useReactFlow, 
+  useNodesState, 
+  useEdgesState, 
+  addEdge,
+  Connection,
+  Edge as FlowEdge,
+  Node as FlowNode
+} from "@xyflow/react"; 
+import "@xyflow/react/dist/style.css"; 
+
 import { initEventListeners, useAgentStore } from "../store/agentStore";
 
 // Import Shared Types from the central types file
-import { Node, Edge, SwarmAgent } from "../types";
+import { Node as IOINode, Edge as IOIEdge, SwarmAgent, AgentConfiguration, NodeLogic, NodeLaw } from "../types";
 
 // Import components
 import { ActivityBar } from "../components/ActivityBar";
@@ -12,7 +24,7 @@ import { IDEHeader, InterfaceMode } from "../components/IDEHeader";
 import { ExplorerPanel } from "../components/ExplorerPanel";
 import { Canvas } from "../components/Canvas";
 import { RightPanel } from "../components/RightPanel";
-import { DataPanel } from "../components/DataPanel";
+import { BottomDrawer, DrawerTab } from "../components/BottomDrawer"; // [UPDATED]
 import { CommandPalette } from "../components/CommandPalette";
 import { BuilderView } from "../components/BuilderView";
 import { StatusBar } from "../components/StatusBar";
@@ -30,7 +42,7 @@ import "../components/Canvas.css";
 import "../components/CanvasNode.css";
 import "../components/CanvasEdge.css";
 import "../components/RightPanel.css";
-import "../components/DataPanel.css";
+import "../components/BottomDrawer.css"; // [UPDATED]
 import "../components/CommandPalette.css";
 import "../components/BuilderView.css";
 import "../components/StatusBar.css";
@@ -39,6 +51,21 @@ import "../components/AgentInstallModal.css";
 import "../components/VisionHUD.css";
 import "../components/FleetView.css";
 import "./StudioWindow.css";
+
+// =========================================
+// TYPES
+// =========================================
+
+// Structure to store real execution results from the Kernel
+interface NodeArtifact {
+  output?: string;
+  metrics?: any;
+  timestamp: number;
+}
+
+interface NodeArtifacts {
+  [nodeId: string]: NodeArtifact;
+}
 
 // =========================================
 // ICONS — Minimal, 14x14, stroke 2
@@ -76,7 +103,7 @@ const MessageIcon = () => (
 
 const BotIcon = () => (
   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-    <rect x="3" y="11" width="18" height="10" rx="2"/>
+    <rect x="3" y="3" width="18" height="10" rx="2"/>
     <circle cx="12" cy="5" r="2"/>
     <path d="M12 7v4"/>
     <circle cx="8" cy="16" r="1" fill="currentColor"/>
@@ -126,181 +153,444 @@ const ChevronIcon = () => (
 // SAMPLE PIPELINE DATA
 // =========================================
 
-const initialNodes: Node[] = [
-  { id: "n-1", type: "trigger", name: "Cron Trigger", x: 100, y: 150, status: "success", outputs: ["out"], ioTypes: {in: "—", out: "Signal"} },
-  { id: "n-2", type: "action", name: "Read Invoices", x: 400, y: 150, status: "success", inputs: ["in"], outputs: ["out"], ioTypes: {in: "Signal", out: "PDF[]"} },
-  { id: "n-3", type: "action", name: "Parse + Classify", x: 700, y: 150, status: "idle", inputs: ["in"], outputs: ["out"], ioTypes: {in: "PDF[]", out: "Invoice[]"}, metrics: { records: 300, time: "1.2s" } },
-  { id: "n-4", type: "gate", name: "Policy Gate", x: 1000, y: 150, status: "idle", inputs: ["in"], outputs: ["out"], ioTypes: {in: "Invoice[]", out: "Invoice[]"} },
-  { id: "n-5", type: "receipt", name: "Receipt Logger", x: 1300, y: 150, status: "idle", inputs: ["in"], ioTypes: {in: "Invoice[]", out: "Log"} },
+// Config objects initialized here to prevent "Amnesiac Editor" issues
+const initialIOINodes: IOINode[] = [
+  { 
+    id: "n-1", type: "trigger", name: "Cron Trigger", x: 100, y: 150, status: "idle", 
+    outputs: ["out"], ioTypes: {in: "—", out: "Signal"},
+    config: { 
+      logic: { cronSchedule: "*/5 * * * *" }, 
+      law: {} 
+    } 
+  },
+  { 
+    id: "n-2", type: "action", name: "Read Invoices", x: 400, y: 150, status: "idle", 
+    inputs: ["in"], outputs: ["out"], ioTypes: {in: "Signal", out: "PDF[]"},
+    config: { 
+      logic: { method: "GET", endpoint: "https://api.invoicing.com/v1/list" }, 
+      law: { privacyLevel: "masked" } 
+    }
+  },
+  { 
+    id: "n-3", type: "model", name: "Parse + Classify", x: 700, y: 150, status: "idle", 
+    inputs: ["in"], outputs: ["out"], ioTypes: {in: "PDF[]", out: "Invoice[]"}, 
+    metrics: { records: 300, time: "1.2s" },
+    config: { 
+      logic: { model: "local-llm", temperature: 0.2, systemPrompt: "Extract vendor and total." }, 
+      law: { budgetCap: 0.50 } 
+    }
+  },
+  { 
+    id: "n-4", type: "gate", name: "Policy Gate", x: 1000, y: 150, status: "idle", 
+    inputs: ["in"], outputs: ["out"], ioTypes: {in: "Invoice[]", out: "Invoice[]"},
+    config: { 
+      logic: { conditionScript: "risk < 0.5" }, 
+      law: { requireHumanGate: true } 
+    }
+  },
+  { 
+    id: "n-5", type: "receipt", name: "Receipt Logger", x: 1300, y: 150, status: "idle", 
+    inputs: ["in"], ioTypes: {in: "Invoice[]", out: "Log"},
+    config: { logic: {}, law: {} }
+  },
 ];
 
-const initialEdges: Edge[] = [
+const initialIOIEdges: IOIEdge[] = [
   { id: "e-1", from: "n-1", to: "n-2", fromPort: "out", toPort: "in", type: "control", active: false },
   { id: "e-2", from: "n-2", to: "n-3", fromPort: "out", toPort: "in", type: "data", active: false, volume: 5 },
   { id: "e-3", from: "n-3", to: "n-4", fromPort: "out", toPort: "in", type: "data", active: false, volume: 5 },
   { id: "e-4", from: "n-4", to: "n-5", fromPort: "out", toPort: "in", type: "control", active: false },
 ];
 
+// Mapper: IOI Node -> ReactFlow Node
+const toFlowNode = (n: IOINode): FlowNode => ({
+  id: n.id,
+  type: n.type,
+  position: { x: n.x, y: n.y },
+  data: { ...n }
+});
+
+// Mapper: IOI Edge -> ReactFlow Edge
+const toFlowEdge = (e: IOIEdge): FlowEdge => ({
+  id: e.id,
+  source: e.from,
+  target: e.to,
+  sourceHandle: e.fromPort,
+  targetHandle: e.toPort,
+  animated: e.active,
+  style: { stroke: e.active ? '#3D85C6' : '#2E333D', strokeWidth: 2 },
+});
+
 // =========================================
-// MAIN STUDIO WINDOW COMPONENT
+// STUDIO WINDOW CONTAINER
 // =========================================
 
 export function StudioWindow() {
+  return (
+    <ReactFlowProvider>
+      <StudioLayout />
+    </ReactFlowProvider>
+  );
+}
+
+// =========================================
+// STUDIO LAYOUT (Inner Component)
+// =========================================
+
+function StudioLayout() {
   const [interfaceMode, setInterfaceMode] = useState<InterfaceMode>("COMPOSE");
   const [activeView, setActiveView] = useState("compose");
 
-  const [nodes, setNodes] = useState<Node[]>(initialNodes);
-  const [edges, setEdges] = useState<Edge[]>(initialEdges);
+  // ReactFlow State
+  const [nodes, setNodes, onNodesChange] = useNodesState(initialIOINodes.map(toFlowNode));
+  const [edges, setEdges, onEdgesChange] = useEdgesState(initialIOIEdges.map(toFlowEdge));
+  const { screenToFlowPosition, fitView, zoomIn, zoomOut } = useReactFlow();
+
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
+
+  // --- Execution State ---
+  const [nodeArtifacts, setNodeArtifacts] = useState<NodeArtifacts>({});
+  const [executionLogs, setExecutionLogs] = useState<any[]>([]);
+  const [executionSteps, setExecutionSteps] = useState<any[]>([]);
 
   // Layout State
   const [explorerWidth] = useState(240);
   const [inspectorWidth] = useState(300);
-  const [dataPanelHeight, setDataPanelHeight] = useState(300);
-  const [dataPanelCollapsed, setDataPanelCollapsed] = useState(false);
-
-  // Canvas State
-  const [canvasTransform, setCanvasTransform] = useState({ x: 50, y: 50, scale: 1 });
+  const [drawerHeight, setDrawerHeight] = useState(300);
+  const [drawerCollapsed, setDrawerCollapsed] = useState(false);
+  const [activeDrawerTab, setActiveDrawerTab] = useState<DrawerTab>("console");
 
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
-  
-  // Install Modal State
   const [installModalOpen, setInstallModalOpen] = useState(false);
   const [selectedAgent, setSelectedAgent] = useState<any>(null);
 
-  const { startTask, task } = useAgentStore();
+  const { task } = useAgentStore();
 
   useEffect(() => {
     initEventListeners();
-
     const unlistenPromise = listen<string>("request-studio-view", (event) => {
-      console.log("Studio received view request:", event.payload);
       setActiveView(event.payload);
     });
-
-    return () => {
-      unlistenPromise.then((unlisten) => unlisten());
-    };
+    return () => { unlistenPromise.then((unlisten) => unlisten()); };
   }, []);
 
-  // --- Live Simulation Logic Mapping ---
+  // --- LOCAL GRAPH RUNTIME HOOK ---
+  // Listens for execution events from Rust Orchestrator to animate graph AND update BottomDrawer
   useEffect(() => {
-    if (!task) return;
-
-    if (task.phase === "Running" && task.progress === 0) {
-      setNodes(nds => nds.map(n => ({ ...n, status: "idle" })));
-      setEdges(eds => eds.map(e => ({ ...e, active: false })));
-    }
-
-    let activeNodeId = "";
-    if (task.current_step.includes("Parsing") || task.current_step.includes("Identifying")) {
-      activeNodeId = "n-3";
-    } else if (task.phase === "Gate") {
-      activeNodeId = "n-4";
-    } else if (task.current_step.includes("Executing") || task.current_step.includes("Verifying")) {
-      activeNodeId = "n-5";
-    }
-
-    if (activeNodeId) {
-      setNodes(prev => prev.map(n => {
-        if (n.id === activeNodeId) return { ...n, status: task.phase === "Gate" ? "running" : "running" }; 
-        if (n.id < activeNodeId) return { ...n, status: "success" };
+    const unlisten = listen<any>("graph-event", (event) => {
+      const { node_id, status, result } = event.payload;
+      const timestamp = new Date().toISOString();
+      const nodeName = nodes.find(n => n.id === node_id)?.data?.name || node_id;
+      
+      // 1. Update Node Status (Visuals)
+      setNodes((nds) => nds.map((n) => {
+        if (n.id === node_id) {
+          return { 
+            ...n, 
+            data: { ...n.data, status }
+          };
+        }
         return n;
       }));
 
-      setEdges(prev => prev.map(e => {
-        if (e.to === activeNodeId) return { ...e, active: true };
-        if (e.to < activeNodeId) return { ...e, active: false };
-        return e;
-      }));
+      // 2. Log to Console
+      const logLevel = status === "error" || status === "failed" ? "error" : status === "blocked" ? "warn" : "info";
+      setExecutionLogs(prev => [...prev, {
+        id: `log-${Date.now()}-${Math.random()}`,
+        timestamp,
+        level: logLevel,
+        source: nodeName,
+        message: result?.output || `Status update: ${status}`
+      }]);
+
+      // 3. Update Timeline
+      setExecutionSteps(prev => {
+        // Update existing or add new
+        const existing = prev.findIndex(s => s.id === node_id);
+        const step = {
+            id: node_id,
+            name: nodeName,
+            status,
+            timestamp,
+            duration: result?.metrics?.latency_ms ? `${result.metrics.latency_ms}ms` : undefined,
+            dataCount: result?.output?.length
+        };
+        
+        if (existing >= 0) {
+            const newSteps = [...prev];
+            newSteps[existing] = step;
+            return newSteps;
+        }
+        return [...prev, step];
+      });
+
+      // 4. Capture Artifacts (Data Plane)
+      if (result) {
+        setNodeArtifacts(prev => ({
+          ...prev,
+          [node_id]: {
+            output: result.output,
+            metrics: result.metrics,
+            timestamp: Date.now()
+          }
+        }));
+      }
+
+      // 5. Animate Edges
+      if (status === "success") {
+        setEdges((eds) => eds.map((e) => {
+          if (e.source === node_id) {
+            return { 
+              ...e, 
+              animated: true, 
+              style: { stroke: '#3D85C6', strokeWidth: 3 }
+            };
+          }
+          return e;
+        }));
+      }
+    });
+
+    return () => { unlisten.then(f => f()); };
+  }, [setNodes, setEdges, nodes]); // Depend on nodes to resolve names
+
+  // --- RUN GRAPH HANDLER ---
+  const handleRunGraph = async () => {
+    // 1. Reset Visual State & Data
+    setNodeArtifacts({}); 
+    setExecutionLogs([]);
+    setExecutionSteps([]);
+    setNodes(nds => nds.map(n => ({ ...n, data: { ...n.data, status: "idle" } })));
+    setEdges(eds => eds.map(e => ({ ...e, animated: false, style: { stroke: '#2E333D', strokeWidth: 2 } })));
+    
+    // Switch to console to see execution start
+    setActiveDrawerTab("console");
+    setDrawerCollapsed(false);
+
+    // 2. Serialize Graph for Rust Orchestrator
+    const payload = {
+      nodes: nodes.map(n => ({
+        id: n.id,
+        type: n.type || "action",
+        // Pass the actual config edited in the RightPanel
+        config: (n.data as IOINode).config || { logic: {}, law: {} }
+      })),
+      edges: edges.map(e => ({
+        source: e.source,
+        target: e.target,
+        // Pass semantic handles for governance routing
+        sourceHandle: e.sourceHandle 
+      }))
+    };
+
+    // 3. Invoke Rust Command
+    try {
+      await invoke("run_studio_graph", { payload });
+    } catch (e) {
+      console.error("Graph execution failed:", e);
+      setExecutionLogs(prev => [...prev, {
+          id: `err-${Date.now()}`,
+          timestamp: new Date().toISOString(),
+          level: "error",
+          source: "Orchestrator",
+          message: `Failed to start graph: ${e}`
+      }]);
+    }
+  };
+
+  // --- UPSTREAM CONTEXT INJECTION ---
+  const getUpstreamContext = useCallback((targetNodeId: string): string => {
+    // 1. Find incoming edges
+    const incomingEdges = edges.filter(e => e.target === targetNodeId);
+    
+    if (incomingEdges.length === 0) {
+      return ""; // Root node, no upstream context
     }
 
-    if (task.phase === "Complete") {
-      setNodes(prev => prev.map(n => ({ ...n, status: "success" })));
-      setEdges(prev => prev.map(e => ({ ...e, active: false })));
-    }
-  }, [task]);
+    // 2. Aggregate outputs from source nodes
+    const inputs = incomingEdges.map(edge => {
+      const sourceArtifact = nodeArtifacts[edge.source];
+      return sourceArtifact?.output || "";
+    }).filter(Boolean);
+
+    // 3. Join logic
+    if (inputs.length === 0) return "";
+    return inputs.join("\n---\n");
+  }, [edges, nodeArtifacts]);
+
+  // --- SINGLE NODE RUN HANDLER (Stateful Debugging) ---
+  const handleNodeRunComplete = useCallback((nodeId: string, result: any) => {
+    // 1. Update Artifacts (Data Plane)
+    setNodeArtifacts(prev => ({
+      ...prev,
+      [nodeId]: {
+        output: result.output,
+        metrics: result.metrics,
+        timestamp: Date.now()
+      }
+    }));
+    
+    // Add single unit test log
+    setExecutionLogs(prev => [...prev, {
+        id: `unit-${Date.now()}`,
+        timestamp: new Date().toISOString(),
+        level: "info",
+        source: "Unit Test",
+        message: `Manually executed node ${nodeId}`
+    }]);
+
+    // 2. Visual Feedback (Update Status to Success)
+    setNodes((nds) => nds.map((n) => {
+      if (n.id === nodeId) {
+        return { 
+          ...n, 
+          data: { ...n.data, status: "success" }
+        };
+      }
+      return n;
+    }));
+
+    // 3. Animate Outgoing Edges
+    setEdges((eds) => eds.map((e) => {
+      if (e.source === nodeId) {
+        return { 
+          ...e, 
+          animated: true, 
+          style: { stroke: '#3D85C6', strokeWidth: 3 }
+        };
+      }
+      return e;
+    }));
+  }, [setNodes, setEdges]);
 
   // --- Ghost Mode Logic ---
   useEffect(() => {
     if (interfaceMode === "GHOST") {
       const timer = setTimeout(() => {
-        const ghostNode: Node = {
+        const ghostNode: IOINode = {
           id: "n-ghost", type: "action", name: "Verify Stripe", x: 1000, y: 350,
           status: "idle", ioTypes: { in: "Invoice", out: "Bool" }, isGhost: true
         };
-        setNodes(prev => { if (prev.find(n => n.id === "n-ghost")) return prev; return [...prev, ghostNode]; });
+        setNodes(prev => { 
+          if (prev.find(n => n.id === "n-ghost")) return prev; 
+          return [...prev, toFlowNode(ghostNode)]; 
+        });
         
-        const ghostEdge: Edge = {
+        const ghostEdge: IOIEdge = {
           id: "e-ghost", from: "n-3", to: "n-ghost", fromPort: "out", toPort: "in", type: "data", active: true
         };
-        setEdges(prev => { if (prev.find(e => e.id === "e-ghost")) return prev; return [...prev, ghostEdge]; });
+        setEdges(prev => { 
+          if (prev.find(e => e.id === "e-ghost")) return prev; 
+          return [...prev, toFlowEdge(ghostEdge)]; 
+        });
       }, 1500);
       return () => clearTimeout(timer);
     } else {
-      setNodes(prev => prev.filter(n => !n.isGhost));
+      setNodes(prev => prev.filter(n => n.id !== "n-ghost"));
       setEdges(prev => prev.filter(e => e.id !== "e-ghost"));
     }
-  }, [interfaceMode]);
+  }, [interfaceMode, setNodes, setEdges]);
+
+  const onConnect = useCallback(
+    (params: Connection) => setEdges((eds) => addEdge({ ...params, animated: true, style: { stroke: '#2E333D', strokeWidth: 2 } }, eds)),
+    [setEdges],
+  );
 
   const handleNodeSelect = useCallback((nodeId: string | null) => {
     setSelectedNodeId(nodeId);
   }, []);
 
-  const handleNodeMove = useCallback((nodeId: string, x: number, y: number) => {
-    setNodes((prev) => prev.map((n) => (n.id === nodeId ? { ...n, x, y } : n)));
-  }, []);
+  // --- Node Configuration Updater ---
+  const handleNodeUpdate = useCallback((nodeId: string, section: 'logic' | 'law', updates: Partial<NodeLogic> | Partial<NodeLaw>) => {
+    setNodes((nds) => nds.map((node) => {
+      if (node.id === nodeId) {
+        const currentData = node.data as unknown as IOINode;
+        // Ensure config structure exists
+        const currentConfig = currentData.config || { logic: {}, law: {} };
+        
+        return {
+          ...node,
+          data: {
+            ...currentData,
+            config: {
+              ...currentConfig,
+              [section]: { 
+                ...(currentConfig[section] || {}), 
+                ...updates 
+              }
+            }
+          },
+        };
+      }
+      return node;
+    }));
+  }, [setNodes]);
 
+  // --- Drag & Drop Handler ---
   const handleCanvasDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault();
     try {
-      const data = e.dataTransfer.getData("application/json");
-      if (!data) return;
-      const item = JSON.parse(data);
+      const dataStr = e.dataTransfer.getData("application/json");
+      if (!dataStr) return;
+      const item = JSON.parse(dataStr); // { nodeId, nodeName } from ExplorerPanel
       
-      const rect = e.currentTarget.getBoundingClientRect();
-      const dropX = (e.clientX - rect.left - canvasTransform.x) / canvasTransform.scale;
-      const dropY = (e.clientY - rect.top - canvasTransform.y) / canvasTransform.scale;
+      const position = screenToFlowPosition({ x: e.clientX, y: e.clientY });
 
-      const newNode: Node = {
-        id: `n-${Date.now()}`, type: item.type, name: item.name, x: dropX - 110, y: dropY - 20,
-        status: "idle", ioTypes: { in: "Any", out: "Any" }, inputs: ["in"], outputs: ["out"],
+      const newNodeData: IOINode = {
+        id: item.nodeId ? `${item.nodeId}-${Date.now()}` : `n-${Date.now()}`,
+        type: "action",
+        name: item.nodeName || "New Node",
+        x: position.x, 
+        y: position.y,
+        status: "idle", 
+        ioTypes: { in: "Any", out: "Any" }, 
+        inputs: ["in"], 
+        outputs: ["out"],
+        // Initialize config so editor works immediately
+        config: { logic: {}, law: {} }
       };
 
-      setNodes(prev => [...prev, newNode]);
-      setSelectedNodeId(newNode.id);
+      const flowNode = toFlowNode(newNodeData);
+      setNodes(prev => [...prev, flowNode]);
+      setSelectedNodeId(flowNode.id);
     } catch (err) {
       console.error("Drop failed", err);
     }
-  }, [canvasTransform]);
+  }, [screenToFlowPosition, setNodes]);
 
-  const selectedNode = nodes.find((n) => n.id === selectedNodeId) ?? null;
-
-  const handleRun = async () => {
-    if (dataPanelCollapsed) setDataPanelCollapsed(false);
-    setNodes(initialNodes);
-    setEdges(initialEdges);
-    await startTask("Manual Run: Invoice Guard Workflow");
+  // --- Builder Handoff ---
+  const handleBuilderHandoff = (config: AgentConfiguration) => {
+    const agentNode = toFlowNode({
+        id: `n-agent-${Date.now()}`,
+        type: "model",
+        name: config.name,
+        x: 600, y: 300,
+        status: "idle", ioTypes: {in: "Q", out: "A"}, inputs:["in"], outputs:["out"],
+        config: {
+          logic: { 
+            systemPrompt: config.instructions, 
+            temperature: config.temperature,
+            model: config.model 
+          },
+          law: { budgetCap: 1.0 } // Default budget
+        }
+    });
+    setNodes([agentNode]);
+    setEdges([]);
+    setActiveView("compose");
+    setInterfaceMode("COMPOSE");
   };
 
-  const handleInstallAgent = (agent: any) => {
-    setSelectedAgent(agent);
-    setInstallModalOpen(true);
-  };
-
-  const handleZoomIn = () => setCanvasTransform(t => ({ ...t, scale: Math.min(2, t.scale * 1.2) }));
-  const handleZoomOut = () => setCanvasTransform(t => ({ ...t, scale: Math.max(0.2, t.scale / 1.2) }));
-  const handleFit = () => setCanvasTransform({ x: 50, y: 50, scale: 1 });
+  // Convert selected ReactFlow Node back to IOINode for the RightPanel
+  const selectedNodeData = nodes.find(n => n.id === selectedNodeId)?.data as IOINode | undefined;
+  const selectedNode = selectedNodeData || null;
 
   return (
     <div className="studio-window">
-      <ActivityBar 
-        activeView={activeView} 
-        onViewChange={setActiveView}
-      />
+      <ActivityBar activeView={activeView} onViewChange={setActiveView} />
 
       <div className="studio-main">
-        {/* IDE Header: Hidden in Copilot/Marketplace/Fleet for immersion */}
+        {/* IDE Header */}
         {activeView !== "marketplace" && activeView !== "copilot" && activeView !== "fleet" && (
           <IDEHeader
             projectPath="Personal"
@@ -310,19 +600,22 @@ export function StudioWindow() {
             onModeChange={setInterfaceMode}
             isComposeView={activeView === "compose"}
             onSave={() => console.log("Save")}
-            onRun={handleRun}
-            onZoomIn={handleZoomIn}
-            onZoomOut={handleZoomOut}
-            onFit={handleFit}
+            
+            /* Hook up local graph runner */
+            onRun={handleRunGraph} 
+            
+            onZoomIn={() => zoomIn()}
+            onZoomOut={() => zoomOut()}
+            onFit={() => fitView()}
           />
         )}
 
         <div className="studio-content">
           {activeView === "marketplace" ? (
-            <MarketplaceView onInstallAgent={handleInstallAgent} />
+            <MarketplaceView onInstallAgent={(a) => { setSelectedAgent(a); setInstallModalOpen(true); }} />
           ) : activeView === "agent-builder" ? (
             <div className="studio-center-area">
-              <BuilderView onSwitchToCompose={() => setActiveView("compose")} />
+              <BuilderView onSwitchToCompose={handleBuilderHandoff} />
             </div>
           ) : activeView === "copilot" ? (
             <StudioCopilotView />
@@ -338,8 +631,7 @@ export function StudioWindow() {
                   onDragOver={(e) => e.preventDefault()}
                   onDrop={handleCanvasDrop}
                 >
-                  <div className="canvas-container" style={{ bottom: dataPanelCollapsed ? 32 : dataPanelHeight }}>
-                    {/* GHOST MODE */}
+                  <div className="canvas-container" style={{ bottom: drawerCollapsed ? 32 : drawerHeight }}>
                     {interfaceMode === "GHOST" && (
                       <>
                         <div className="ghost-overlay">
@@ -353,19 +645,27 @@ export function StudioWindow() {
                     )}
 
                     <Canvas
-                      nodes={nodes} edges={edges} selectedNodeId={selectedNodeId}
-                      onNodeSelect={handleNodeSelect} onNodeMove={handleNodeMove}
-                      transform={canvasTransform} onTransformChange={setCanvasTransform}
+                      nodes={nodes}
+                      edges={edges}
+                      onNodesChange={onNodesChange}
+                      onEdgesChange={onEdgesChange}
+                      onConnect={onConnect}
+                      onNodeSelect={handleNodeSelect}
                     />
                   </div>
                   
-                  <DataPanel
-                    height={dataPanelHeight}
-                    collapsed={dataPanelCollapsed}
-                    onToggleCollapse={() => setDataPanelCollapsed(!dataPanelCollapsed)}
-                    onResize={setDataPanelHeight}
-                    selectedNodeName={selectedNode?.name}
-                    isRunning={task?.phase === "Running" || task?.phase === "Gate"}
+                  {/* [UPDATED] Replaced DataPanel with BottomDrawer */}
+                  <BottomDrawer
+                    height={drawerHeight}
+                    collapsed={drawerCollapsed}
+                    onToggleCollapse={() => setDrawerCollapsed(!drawerCollapsed)}
+                    onResize={setDrawerHeight}
+                    activeTab={activeDrawerTab}
+                    onTabChange={setActiveDrawerTab}
+                    logs={executionLogs}
+                    steps={executionSteps}
+                    selectedNodeId={selectedNodeId}
+                    selectedArtifact={selectedNodeId ? nodeArtifacts[selectedNodeId] : null}
                   />
                 </div>
               </div>
@@ -373,22 +673,25 @@ export function StudioWindow() {
                 {interfaceMode === "GHOST" ? (
                   <GhostChatPanel />
                 ) : (
-                  <RightPanel width={inspectorWidth} selectedNode={selectedNode} />
+                  // Pass the update handler, upstream data, AND the completion handler
+                  <RightPanel 
+                    width={inspectorWidth} 
+                    selectedNode={selectedNode} 
+                    onUpdateNode={handleNodeUpdate}
+                    // @ts-ignore
+                    upstreamData={selectedNodeId ? getUpstreamContext(selectedNodeId) : ""}
+                    onRunComplete={handleNodeRunComplete}
+                  />
                 )}
               </div>
             </>
           )}
         </div>
         
-        <StatusBar 
-          metrics={{ cost: 0.42, privacy: 0.15, risk: 0.6 }} 
-          status={task ? task.phase : "Ready"} 
-        />
+        <StatusBar metrics={{ cost: 0.42, privacy: 0.15, risk: 0.6 }} status={task ? task.phase : "Ready"} />
       </div>
 
-      {commandPaletteOpen && (
-        <CommandPalette onClose={() => setCommandPaletteOpen(false)} />
-      )}
+      {commandPaletteOpen && <CommandPalette onClose={() => setCommandPaletteOpen(false)} />}
       
       {installModalOpen && selectedAgent && (
         <AgentInstallModal 
@@ -435,7 +738,6 @@ function StudioCopilotView() {
   const [intent, setIntent] = useState("");
   const [swarmState, setSwarmState] = useState<SwarmAgent[]>([]);
   
-  // Dropdown State
   const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
   const [agentMode, setAgentMode] = useState("Swarm");
   const [selectedModel, setSelectedModel] = useState("GPT-4o");
@@ -447,7 +749,6 @@ function StudioCopilotView() {
 
   const showSwarmPanel = agentMode === "Swarm";
 
-  // Auto-initialize swarm for demo
   useEffect(() => {
     setSwarmState([
       { 
@@ -473,7 +774,7 @@ function StudioCopilotView() {
       setAgentMode("Swarm");
     }
     
-    await startTask(intent);
+    await startTask(intent, agentMode);
   };
 
   const handleApprove = (id: string) => {

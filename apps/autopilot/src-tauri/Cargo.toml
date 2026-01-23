@@ -25,6 +25,13 @@ serde_json = "1"
 uuid = { version = "1", features = ["v4"] }
 tokio = { version = "=1.42.0", features = ["full"] }
 
+# [NEW] Added for ephemeral node execution (HTTP/LLM calls)
+reqwest = { version = "0.11", features = ["json"] }
+# [NEW] Added for parsing tool endpoints and policy firewall checks
+url = "2.5"
+# [NEW] Added for Receipt timestamping in execution.rs
+chrono = { version = "0.4", features = ["serde"] }
+
 # IOI Kernel Integration
 ioi-ipc = { path = "../../../crates/ipc" }
 ioi-types = { path = "../../../crates/types" }
@@ -36,9 +43,9 @@ ioi-services = { path = "../../../crates/services" }
 # [NEW] Add parity-scale-codec for raw state decoding
 parity-scale-codec = { workspace = true, features = ["derive", "std"] }
 
-# [NEW] Add tonic dependency for gRPC client
+# [NEW] Add tonic dependency for gRPC client to Kernel
 tonic = { version = "0.11", features = ["transport"] }
 
-# [FIX] Add base64 dependency
+# [FIX] Utilities for Session ID / Context Blob handling
 base64 = "0.21"
 hex = "0.4"

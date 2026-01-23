@@ -10,9 +10,12 @@ use tauri_plugin_global_shortcut::{Code, GlobalShortcutExt, Modifiers, Shortcut,
 mod models;
 mod windows;
 mod kernel;
+mod execution;
+mod orchestrator; 
 
 use models::{AppState, GateInfo, AgentPhase, AgentTask, GhostInputEvent, Receipt, ChatMessage};
 use windows::{show_gate};
+// orchestrator::GraphPayload import removed as it's not needed here directly anymore
 
 // Kernel Integration
 use ioi_ipc::public::public_api_client::PublicApiClient;
@@ -87,17 +90,11 @@ async fn monitor_kernel_events(app: tauri::AppHandle) {
                         if !thought.session_id.is_empty() {
                             t.session_id = Some(thought.session_id.clone());
                         }
-                        
-                        // Thoughts are ephemeral status updates. 
-                        // We do NOT push them to history in Chat Mode to avoid duplication 
-                        // with the final ActionResult.
                     });
                 }
                 ChainEventEnum::ActionResult(res) => {
                     update_task_state_local(&app, |t| {
-                        // [FIX] Deduplication using Composite Key (Index + Tool)
-                        // This ensures 'filesystem__write_file' (Step 0) AND 'system::auto_complete' (Step 0)
-                        // are both processed, allowing the phase transition to Complete.
+                        // Deduplication using Composite Key (Index + Tool)
                         let dedup_key = format!("{}:{}", res.step_index, res.tool_name);
 
                         if t.processed_steps.contains(&dedup_key) {
@@ -110,7 +107,7 @@ async fn monitor_kernel_events(app: tauri::AppHandle) {
                             t.session_id = Some(res.session_id.clone());
                         }
                         
-                        // [FIX] Added system::auto_complete to the check
+                        // Check for completion signals
                         if res.tool_name == "agent__complete" || res.tool_name == "system::max_steps_reached" || res.tool_name == "system::auto_complete" {
                              t.phase = AgentPhase::Complete;
                              t.receipt = Some(Receipt {
@@ -164,7 +161,7 @@ async fn monitor_kernel_events(app: tauri::AppHandle) {
                     update_task_state_local(&app, |t| {
                         if matches!(t.phase, AgentPhase::Running) {
                              t.current_step = format!("User Input: {}", input.description);
-                             // [NEW] Log Ghost Input
+                             // Log Ghost Input
                              t.history.push(ChatMessage {
                                  role: "user".to_string(),
                                  text: format!("[Ghost] {}", input.description),
@@ -202,12 +199,11 @@ async fn monitor_kernel_events(app: tauri::AppHandle) {
                                 
                                 t.pending_request_hash = Some(action.reason.clone());
 
-                                // [FIX] Capture session ID from event if present
                                 if !action.session_id.is_empty() {
                                     t.session_id = Some(action.session_id.clone());
                                 }
                                 
-                                // [NEW] Log Gate
+                                // Log Gate
                                 t.history.push(ChatMessage {
                                     role: "system".to_string(),
                                     text: format!("🛑 Policy Gate triggered for action: {}", action.target),
@@ -222,7 +218,7 @@ async fn monitor_kernel_events(app: tauri::AppHandle) {
                         update_task_state_local(&app, |t| {
                              t.current_step = format!("⛔ Action Blocked: {}", action.target);
                              t.phase = AgentPhase::Failed;
-                             // [NEW] Log Block
+                             // Log Block
                              t.history.push(ChatMessage {
                                  role: "system".to_string(),
                                  text: format!("⛔ Blocked action: {}", action.target),
@@ -236,6 +232,9 @@ async fn monitor_kernel_events(app: tauri::AppHandle) {
         }
     }
 }
+
+// [FIX] REMOVED duplicate async fn run_studio_graph here. 
+// It is already defined in `kernel.rs` and will be referenced via the `kernel::` module in the handler list.
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -330,6 +329,7 @@ pub fn run() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
+            // Window Management
             windows::show_spotlight,
             windows::hide_spotlight,
             windows::set_spotlight_mode,
@@ -340,17 +340,28 @@ pub fn run() {
             windows::hide_gate,
             windows::show_studio,
             windows::hide_studio,
+            
+            // Kernel / Agent Logic
             kernel::start_task,
             kernel::update_task,
             kernel::complete_task,
             kernel::dismiss_task,
             kernel::get_current_task,
+            
+            // Governance
             kernel::gate_respond,
             kernel::get_gate_response,
             kernel::clear_gate_response,
+            
+            // Data / Context
             kernel::get_context_blob,
             kernel::get_session_history,
             kernel::load_session,
+            
+            // Studio Inspector & Execution
+            kernel::test_node_execution,
+            // [FIX] Use the command defined in kernel.rs, not the removed local one
+            kernel::run_studio_graph, 
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

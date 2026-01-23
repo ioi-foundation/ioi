@@ -1,5 +1,5 @@
 /* ============================================
-   DataPanel — Workbook Diff View
+   DataPanel — Execution Artifact Inspector
    ============================================ */
 
 .data-panel {
@@ -25,6 +25,21 @@
   border-bottom: 1px solid #2E333D;
   padding: 0 8px;
   overflow: hidden;
+}
+
+.panel-context-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: #E5E7EB;
+  padding: 0 12px;
+  white-space: nowrap;
+}
+
+.vertical-sep {
+  width: 1px;
+  height: 16px;
+  background: #3F4652;
+  margin-right: 8px;
 }
 
 .panel-tab {
@@ -62,153 +77,78 @@
   color: #D1D5DB;
 }
 
-/* Diff View Layout */
-.diff-container {
-  display: grid;
-  grid-template-columns: 1fr 1px 1fr;
-  height: 100%;
-  overflow: hidden;
-}
-
-.diff-divider {
-  background: #2E333D;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 1;
-}
-
-.diff-arrow {
-  background: #181B21;
-  border: 1px solid #2E333D;
-  color: #5F6B7C;
-  border-radius: 50%;
-  width: 20px;
-  height: 20px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+.panel-metric {
   font-size: 10px;
-}
-
-/* Data Table */
-.diff-pane {
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  background: #181B21;
-}
-
-.pane-header {
-  padding: 6px 12px;
-  background: #1F2329;
-  border-bottom: 1px solid #2E333D;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.pane-title {
-  font-size: 10px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
   color: #8A9BA8;
-}
-
-.pane-title.output {
-  color: #34D399;
-}
-
-.pane-count {
-  font-size: 10px;
-  color: #5F6B7C;
-}
-
-.data-table-wrapper {
-  flex: 1;
-  overflow: auto;
-}
-
-.data-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 11px;
-}
-
-.data-table th {
-  position: sticky;
-  top: 0;
-  background: #252A33;
-  color: #8A9BA8;
-  text-align: left;
-  padding: 4px 8px;
-  font-weight: 500;
-  border-bottom: 1px solid #2E333D;
-  border-right: 1px solid #2E333D;
-}
-
-.data-table td {
-  padding: 4px 8px;
-  border-bottom: 1px solid #26292E;
-  border-right: 1px solid #26292E;
-  color: #D1D5DB;
+  margin-right: 12px;
+  font-family: "JetBrains Mono", monospace;
   white-space: nowrap;
 }
 
-.data-table tr:hover td {
-  background: #23272E;
+.metric-val {
+  color: #3D85C6;
 }
 
-/* Diff Highlighting & Animation */
-.diff-added {
-  background: rgba(52, 211, 153, 0.05) !important;
+/* Content Area */
+.panel-content {
+  flex: 1;
+  overflow: hidden;
+  background: #181B21;
+  position: relative;
 }
 
-.diff-added td:first-child {
-  border-left: 2px solid #34D399;
-}
-
-.status-cell {
-  display: inline-flex;
+/* --- Empty State --- */
+.empty-panel-state {
+  display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 2px 6px;
-  border-radius: 4px;
-  font-weight: 600;
-  font-size: 10px;
-}
-
-.status-cell.pending {
-  background: rgba(148, 163, 184, 0.1);
-  color: #94A3B8;
-}
-
-.status-cell.processing {
-  background: rgba(61, 133, 198, 0.15);
-  color: #60A5FA;
-}
-
-.status-cell.processing::before {
-  content: "";
-  width: 6px;
-  height: 6px;
-  border: 1px solid #60A5FA;
-  border-top-color: transparent;
-  border-radius: 50%;
-  animation: spin 0.8s linear infinite;
-}
-
-.status-cell.approved {
-  background: rgba(52, 211, 153, 0.15);
-  color: #34D399;
-}
-
-@keyframes spin { to { transform: rotate(360deg); } }
-
-.cell-null {
+  justify-content: center;
+  height: 100%;
   color: #5F6B7C;
   font-style: italic;
+  font-size: 12px;
+  padding: 20px;
+  text-align: center;
+}
+
+/* --- JSON Inspector --- */
+.json-tree-view {
+  padding: 12px;
+  overflow: auto;
+  height: 100%;
+  color: #A78BFA; /* Purple for JSON syntax */
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.json-tree-view pre {
+  margin: 0;
+  font-family: inherit;
+}
+
+/* --- Raw Text View --- */
+.raw-text-view {
+  padding: 12px;
+  overflow: auto;
+  height: 100%;
+  white-space: pre-wrap;
+  color: #D1D5DB;
+  font-family: "JetBrains Mono", monospace;
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.raw-output-area {
+  width: 100%;
+  height: 100%;
+  background: #111418;
+  border: none;
+  color: #9CA3AF;
+  padding: 12px;
+  font-family: "JetBrains Mono", monospace;
+  font-size: 11px;
+  resize: none;
+  outline: none;
+  line-height: 1.5;
 }
 
 /* Resize Handle */

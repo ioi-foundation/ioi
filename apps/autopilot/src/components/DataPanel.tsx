@@ -1,3 +1,4 @@
+// src/components/DataPanel.tsx
 import { useState, useEffect } from "react";
 import "./DataPanel.css";
 
@@ -7,15 +8,15 @@ interface DataPanelProps {
   onToggleCollapse: () => void;
   onResize: (height: number) => void;
   selectedNodeName?: string;
-  isRunning?: boolean; // Prop to drive animation
+  // [NEW] Real execution artifact from Rust kernel
+  artifact?: {
+    output?: string;
+    metrics?: any;
+    timestamp: number;
+  };
+  // Keeping for backward compatibility if needed, though unused in new logic
+  isRunning?: boolean; 
 }
-
-// Initial Data
-const initialInputData = [
-  { id: "INV-001", vendor: "Acme Corp", amount: 12500.00, status: "PENDING" },
-  { id: "INV-002", vendor: "Globex", amount: 450.00, status: "PENDING" },
-  { id: "INV-003", vendor: "Soylent", amount: 3200.50, status: "PENDING" },
-];
 
 export function DataPanel({
   height,
@@ -23,77 +24,67 @@ export function DataPanel({
   onToggleCollapse,
   onResize,
   selectedNodeName,
-  isRunning = false,
+  artifact,
 }: DataPanelProps) {
-  const [activeTab, setActiveTab] = useState("diff");
-  const [outputData, setOutputData] = useState<any[]>(initialInputData);
+  const [activeTab, setActiveTab] = useState("inspector");
 
-  // Simulate Row-by-Row Processing
-  useEffect(() => {
-    if (!isRunning) {
-      // Reset when stopped
-      setOutputData(initialInputData.map(r => ({ ...r, status: "PENDING", risk: null })));
-      return;
-    }
+  const handleResizeStart = (e: React.MouseEvent) => {
+    e.preventDefault();
+    const startY = e.clientY;
+    const startHeight = height;
 
-    const processRow = (index: number) => {
-      if (index >= outputData.length) return;
-
-      // 1. Mark Processing
-      setOutputData(prev => prev.map((r, i) => 
-        i === index ? { ...r, status: "PROCESSING" } : r
-      ));
-
-      // 2. Mark Complete after delay
-      setTimeout(() => {
-        setOutputData(prev => prev.map((r, i) => {
-          if (i === index) {
-            const risk = r.amount > 5000 ? "LOW" : r.amount > 1000 ? "NONE" : "HIGH";
-            return { ...r, status: "APPROVED", risk };
-          }
-          return r;
-        }));
-        
-        // Trigger next row
-        setTimeout(() => processRow(index + 1), 300);
-      }, 800);
+    const handleMouseMove = (ev: MouseEvent) => {
+      const delta = startY - ev.clientY;
+      const newHeight = Math.max(100, Math.min(startHeight + delta, 600));
+      onResize(newHeight);
     };
 
-    // Start sequence
-    processRow(0);
+    const handleMouseUp = () => {
+      document.removeEventListener("mousemove", handleMouseMove);
+      document.removeEventListener("mouseup", handleMouseUp);
+    };
 
-  }, [isRunning]);
+    document.addEventListener("mousemove", handleMouseMove);
+    document.addEventListener("mouseup", handleMouseUp);
+  };
+
+  // Safe parsing of JSON outputs
+  const parsedOutput = artifact?.output ? tryParseJson(artifact.output) : null;
 
   return (
     <div
       className="data-panel"
       style={{ height: collapsed ? 32 : height }}
     >
-      <div className="panel-resize-handle" onMouseDown={(e) => { /* reuse resize logic */ }} />
+      <div className="panel-resize-handle" onMouseDown={handleResizeStart} />
 
       {/* Header */}
       <div className="panel-tabbar">
+        <div className="panel-context-label">
+            {selectedNodeName ? `Node: ${selectedNodeName}` : "No Node Selected"}
+        </div>
+        <div className="vertical-sep" />
         <button
-          className={`panel-tab ${activeTab === "diff" ? "active" : ""}`}
-          onClick={() => setActiveTab("diff")}
+          className={`panel-tab ${activeTab === "inspector" ? "active" : ""}`}
+          onClick={() => setActiveTab("inspector")}
         >
-          <span>Workbook Diff</span>
-          <span className="tab-badge">Live</span>
+          <span>Data Inspector</span>
+          {artifact && <span className="tab-badge">Updated</span>}
         </button>
         <button
-          className={`panel-tab ${activeTab === "schema" ? "active" : ""}`}
-          onClick={() => setActiveTab("schema")}
+          className={`panel-tab ${activeTab === "raw" ? "active" : ""}`}
+          onClick={() => setActiveTab("raw")}
         >
-          <span>Schema</span>
-        </button>
-        <button
-          className={`panel-tab ${activeTab === "logs" ? "active" : ""}`}
-          onClick={() => setActiveTab("logs")}
-        >
-          <span>System Logs</span>
+          <span>Raw Output</span>
         </button>
         
         <div style={{ flex: 1 }} />
+        
+        {artifact?.metrics && (
+            <div className="panel-metric">
+                Latency: <span className="metric-val">{artifact.metrics.latency_ms}ms</span>
+            </div>
+        )}
         
         <button className="panel-tab" onClick={onToggleCollapse}>
           {collapsed ? "▲" : "▼"}
@@ -102,9 +93,15 @@ export function DataPanel({
 
       {/* Content */}
       {!collapsed && (
-        <div className="panel-content" style={{ height: "100%" }}>
-          {activeTab === "diff" && (
-            <DataDiffView input={initialInputData} output={outputData} />
+        <div className="panel-content" style={{ height: "100%", overflow: "hidden" }}>
+          {!selectedNodeName ? (
+             <div className="empty-panel-state">Select a node to inspect its data artifacts.</div>
+          ) : !artifact ? (
+             <div className="empty-panel-state">No execution data available. Run the graph to generate artifacts.</div>
+          ) : activeTab === "inspector" ? (
+             <JsonInspector data={parsedOutput || artifact.output} />
+          ) : (
+             <RawViewer text={artifact.output || ""} />
           )}
         </div>
       )}
@@ -112,84 +109,28 @@ export function DataPanel({
   );
 }
 
-function DataDiffView({ input, output }: { input: any[], output: any[] }) {
-  return (
-    <div className="diff-container">
-      {/* Input Side */}
-      <div className="diff-pane">
-        <div className="pane-header">
-          <span className="pane-title">Input Stream</span>
-          <span className="pane-count">{input.length} Objects</span>
-        </div>
-        <DataTable data={input} />
-      </div>
-
-      {/* Center Divider */}
-      <div className="diff-divider">
-        <div className="diff-arrow">→</div>
-      </div>
-
-      {/* Output Side */}
-      <div className="diff-pane">
-        <div className="pane-header">
-          <span className="pane-title output">Transformed Output</span>
-          <span className="pane-count">{output.length} Objects</span>
-        </div>
-        <DataTable data={output} highlightDiff />
-      </div>
-    </div>
-  );
+function tryParseJson(str: string) {
+    try { return JSON.parse(str); } catch { return null; }
 }
 
-function DataTable({ data, highlightDiff }: { data: any[], highlightDiff?: boolean }) {
-  if (data.length === 0) return null;
-  const cols = Object.keys(data[0]);
+function JsonInspector({ data }: { data: any }) {
+    if (typeof data === 'string') {
+        return <div className="raw-text-view">{data}</div>;
+    }
 
-  return (
-    <div className="data-table-wrapper">
-      <table className="data-table">
-        <thead>
-          <tr>
-            {cols.map((col) => (
-              <th key={col}>{col}</th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {data.map((row, idx) => {
-            const isApproved = row.status === "APPROVED";
-            const isProcessing = row.status === "PROCESSING";
-            
-            return (
-              <tr key={idx} className={isApproved && highlightDiff ? "diff-added" : ""}>
-                {cols.map((col) => {
-                  let val = row[col];
-                  
-                  // Render Status Badge
-                  if (col === "status") {
-                    val = (
-                      <span className={`status-cell ${row.status.toLowerCase()}`}>
-                        {row.status}
-                      </span>
-                    );
-                  }
-                  
-                  // Render Risk (Diff Highlight)
-                  if (col === "risk" && highlightDiff && val) {
-                     // Keep simple text for risk
-                  }
+    return (
+        <div className="json-tree-view">
+            <pre>{JSON.stringify(data, null, 2)}</pre>
+        </div>
+    );
+}
 
-                  return (
-                    <td key={col}>
-                      {val ?? <span className="cell-null">null</span>}
-                    </td>
-                  );
-                })}
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
-    </div>
-  );
+function RawViewer({ text }: { text: string }) {
+    return (
+        <textarea 
+            readOnly 
+            className="raw-output-area" 
+            value={text} 
+        />
+    );
 }
