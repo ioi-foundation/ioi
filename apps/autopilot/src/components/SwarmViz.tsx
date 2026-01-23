@@ -519,13 +519,11 @@ function AgentDetailPanel({ agent, activityLog, onClose, onApprove, onReject, on
           </div>
         )}
 
-        {/* RESTORED: Policy Identity */}
         <div className="detail-section">
           <div className="section-label">Policy Identity</div>
           <div className="policy-row"><div className="policy-identicon" /><div className="policy-hash"><code>{agent.policy_hash}</code></div></div>
         </div>
 
-        {/* RESTORED: Artifacts Count */}
         <div className="detail-section">
           <div className="section-label">Artifacts Produced</div>
           <div className="artifacts-count">
@@ -534,7 +532,6 @@ function AgentDetailPanel({ agent, activityLog, onClose, onApprove, onReject, on
           </div>
         </div>
 
-        {/* RESTORED: Requisition Estimate Box */}
         {agent.status === 'requisition' && (
           <div className="detail-section">
             <div className="section-label">Estimated Cost</div>

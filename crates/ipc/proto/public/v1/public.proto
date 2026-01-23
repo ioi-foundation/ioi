@@ -2,7 +2,8 @@
 syntax = "proto3";
 package ioi.public.v1;
 
-import "blockchain.proto";
+// FIX: Updated import path to match new directory structure relative to 'crates/ipc/proto'
+import "blockchain/v1/blockchain.proto";
 
 service PublicApi {
   // Submit a transaction to the mempool/ingestion queue.

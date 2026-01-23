@@ -4,7 +4,7 @@
    ============================================ */
 
 .canvas-node {
-  position: absolute;
+  /* ReactFlow positions nodes absolutely via wrapper, so this is relative to that */
   width: 220px;
   background: #1F2329; /* Technical dark background */
   border: 1px solid #3F4652;
@@ -16,19 +16,19 @@
   flex-direction: column;
   transition: box-shadow 0.15s, border-color 0.15s, transform 0.1s, opacity 0.3s;
   font-family: "JetBrains Mono", "SF Mono", monospace;
+  position: relative; 
+}
+
+/* ReactFlow selection state is passed as a prop, but we can also use this if we add the class manually */
+.canvas-node.selected {
+  border-color: #3D85C6; /* Foundry Blue */
+  box-shadow: 0 0 0 1px #3D85C6, 0 4px 12px rgba(0, 0, 0, 0.5);
   z-index: 10;
 }
 
 .canvas-node:hover {
   border-color: #5F6B7C;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
-  z-index: 20;
-}
-
-.canvas-node.selected {
-  border-color: #3D85C6; /* Foundry Blue */
-  box-shadow: 0 0 0 1px #3D85C6, 0 4px 12px rgba(0, 0, 0, 0.5);
-  z-index: 30;
 }
 
 /* --- Ghost Mode (Inferred Logic) --- */
@@ -76,6 +76,7 @@
 .status-running { background: #3D85C6; animation: blink 0.5s infinite; }
 .status-error { background: #f87171; }
 .status-idle { background: #4B5563; }
+.status-blocked { background: #F59E0B; box-shadow: 0 0 4px rgba(245, 158, 11, 0.4); }
 
 @keyframes blink { 
   0% { opacity: 1; transform: scale(1); }
@@ -93,6 +94,7 @@
   gap: 8px;
   height: 32px;
   transition: background 0.3s;
+  border-radius: 1px 1px 0 0;
 }
 
 .node-icon {
@@ -137,6 +139,7 @@
   display: flex;
   flex-direction: column;
   justify-content: center;
+  padding-right: 12px; /* Make space for stacked handles */
 }
 
 /* Live Activity Indicator inside body */
@@ -167,29 +170,6 @@
   font-weight: 500;
 }
 
-/* --- Ports --- */
-.node-port {
-  position: absolute;
-  top: 50%;
-  transform: translateY(-50%);
-  width: 10px;
-  height: 10px;
-  background: #3F4652;
-  border: 1px solid #1F2329;
-  border-radius: 50%; /* Revert to circles for standard look */
-  transition: all 0.15s;
-  z-index: 5;
-}
-
-.node-port:hover {
-  background: #3D85C6;
-  border-color: #FFFFFF;
-  transform: translateY(-50%) scale(1.4);
-}
-
-.port-in { left: -5px; }
-.port-out { right: -5px; }
-
 /* --- Footer --- */
 .node-footer {
   padding: 4px 8px;
@@ -200,15 +180,123 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
+  border-radius: 0 0 1px 1px;
 }
 
-.footer-btn {
-  background: none;
-  border: none;
-  color: #8A9BA8;
-  cursor: pointer;
-  padding: 0;
-  font-size: 9px;
+/* ============================================
+   ReactFlow Handle Overrides (Ports)
+   ============================================ */
+
+/* Base Handle Style */
+.react-flow__handle {
+  width: 8px !important;
+  height: 8px !important;
+  border-radius: 50% !important;
+  transition: all 0.15s ease !important;
+  z-index: 10;
+  /* Reset default border to be cleaner */
+  border: 1px solid #1F2329 !important;
 }
 
-.footer-btn:hover { color: #FFFFFF; }
+/* Hide the dot inside the handle provided by default styles */
+.react-flow__handle::after {
+  display: none !important;
+}
+
+.react-flow__handle:hover {
+  transform: scale(1.4);
+  border-color: #FFFFFF !important;
+}
+
+/* Connection Valid styling (when dragging edge) */
+.react-flow__handle-connecting {
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.2);
+}
+
+/* --- Semantic Ports Styling --- */
+
+/* Input Port (Left) */
+.node-port.port-in {
+  background: #8A9BA8 !important;
+  left: -4px !important;
+}
+
+.node-port.port-in:hover {
+  background: #D1D5DB !important;
+}
+
+/* Output Ports (Right Stack) */
+.node-ports-stack {
+  position: absolute;
+  top: 32px; /* Start below header */
+  right: -4px;
+  bottom: 24px; /* Stop above footer */
+  display: flex;
+  flex-direction: column;
+  pointer-events: none; /* Let clicks pass through, handles catch pointer events */
+}
+
+/* Port Wrappers help align the visual labels */
+.port-wrapper {
+  position: absolute;
+  right: 0;
+  pointer-events: auto; /* Enable interaction with handles */
+}
+
+/* Success Port (Standard) */
+.node-port.port-out.success {
+  background: #3D85C6 !important;
+  right: -4px !important;
+}
+
+.node-port.port-out.success:hover {
+  background: #60A5FA !important;
+}
+
+/* Blocked Port (Governance) */
+.node-port.port-out.blocked {
+  background: #F59E0B !important; /* Amber */
+  right: -4px !important;
+  border-radius: 2px !important; /* Square for blockage */
+}
+
+.node-port.port-out.blocked:hover {
+  background: #FCD34D !important;
+}
+
+/* Error Port (Runtime) */
+.node-port.port-out.error {
+  background: #EF4444 !important; /* Red */
+  right: -4px !important;
+}
+
+.node-port.port-out.error:hover {
+  background: #F87171 !important;
+}
+
+/* Port Labels (Icons next to handles) */
+.port-label {
+  position: absolute;
+  right: 12px;
+  top: 0;
+  font-size: 8px;
+  line-height: 8px;
+  pointer-events: none;
+  opacity: 0.7;
+}
+
+.port-label.gov {
+  top: 32px;
+  color: #F59E0B;
+}
+
+.port-label.err {
+  top: 52px; /* Varies based on governance presence, logic handled in TSX via prop usually, but here fixed for simplicity */
+  color: #EF4444;
+  font-weight: bold;
+}
+
+/* Adjust labels dynamically if governance is present */
+.canvas-node:not(:has(.port-out.blocked)) .port-label.err {
+  top: 32px;
+}

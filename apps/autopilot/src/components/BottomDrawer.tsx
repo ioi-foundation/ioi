@@ -1,5 +1,25 @@
-import { DrawerTab } from "../App";
+import { useEffect, useRef } from "react";
 import "./BottomDrawer.css";
+
+// Shared types from the backend events
+interface ExecutionLog {
+  id: string;
+  timestamp: string;
+  level: "info" | "warn" | "error" | "debug";
+  message: string;
+  source: string;
+}
+
+interface ExecutionStep {
+  id: string;
+  name: string;
+  status: "running" | "success" | "blocked" | "error" | "idle";
+  duration?: string;
+  dataCount?: number;
+  timestamp: string;
+}
+
+export type DrawerTab = "timeline" | "receipts" | "diff" | "console";
 
 interface BottomDrawerProps {
   height: number;
@@ -8,23 +28,13 @@ interface BottomDrawerProps {
   onTabChange: (tab: DrawerTab) => void;
   onToggleCollapse: () => void;
   onResize: (height: number) => void;
+  
+  // [NEW] Real Data Props
+  logs: ExecutionLog[];
+  steps: ExecutionStep[];
+  selectedNodeId: string | null;
+  selectedArtifact: any | null;
 }
-
-// Mock execution data
-const mockExecution = {
-  runId: 128,
-  timestamp: "2026-01-02 19:52:04",
-  mode: "Local→Session",
-  result: "success" as const,
-  steps: [
-    { id: 1, name: "Trigger: Cron", time: "00:00.0", status: "success", duration: "12ms", dataCount: 1 },
-    { id: 2, name: "Read Invoices", time: "00:00.2", status: "success", duration: "240ms", dataCount: 3 },
-    { id: 3, name: "Parse + Classify", time: "00:01.1", status: "success", duration: "1.2s", dataCount: 3 },
-    { id: 4, name: "Policy Gate", time: "00:01.8", status: "success", duration: "8ms", dataCount: 1 },
-    { id: 5, name: "Burst Router", time: "00:02.0", status: "success", duration: "340ms", dataCount: 1 },
-    { id: 6, name: "Slack Alert", time: "00:03.4", status: "success", duration: "180ms", dataCount: 1 },
-  ],
-};
 
 export function BottomDrawer({
   height,
@@ -33,6 +43,10 @@ export function BottomDrawer({
   onTabChange,
   onToggleCollapse,
   onResize,
+  logs,
+  steps,
+  selectedNodeId,
+  selectedArtifact,
 }: BottomDrawerProps) {
   const handleResizeStart = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -41,7 +55,7 @@ export function BottomDrawer({
 
     const handleMouseMove = (e: MouseEvent) => {
       const delta = startY - e.clientY;
-      const newHeight = Math.max(100, Math.min(startHeight + delta, 500));
+      const newHeight = Math.max(100, Math.min(startHeight + delta, 600));
       onResize(newHeight);
     };
 
@@ -59,7 +73,6 @@ export function BottomDrawer({
       className={`bottom-drawer ${collapsed ? "collapsed" : ""}`}
       style={{ height: collapsed ? 32 : height }}
     >
-      {/* Resize handle */}
       {!collapsed && (
         <div className="drawer-resize-handle" onMouseDown={handleResizeStart} />
       )}
@@ -81,6 +94,11 @@ export function BottomDrawer({
               {tab === "diff" && "⎇"}
               {tab === "console" && "▸"}
               <span>{tab.charAt(0).toUpperCase() + tab.slice(1)}</span>
+              {tab === "console" && logs.length > 0 && (
+                <span className="tab-badge" style={{background: '#3F4652', fontSize: 9, padding: '0 4px', borderRadius: 4, marginLeft: 4}}>
+                  {logs.length}
+                </span>
+              )}
             </button>
           ))}
         </div>
@@ -104,41 +122,38 @@ export function BottomDrawer({
       {/* Content */}
       {!collapsed && (
         <div className="drawer-content">
-          {activeTab === "timeline" && <TimelineContent />}
-          {activeTab === "receipts" && <ReceiptsContent />}
+          {activeTab === "timeline" && <TimelineContent steps={steps} />}
+          {activeTab === "receipts" && <ReceiptsContent nodeId={selectedNodeId} artifact={selectedArtifact} />}
           {activeTab === "diff" && <DiffContent />}
-          {activeTab === "console" && <ConsoleContent />}
+          {activeTab === "console" && <ConsoleContent logs={logs} />}
         </div>
       )}
     </div>
   );
 }
 
-function TimelineContent() {
+function TimelineContent({ steps }: { steps: ExecutionStep[] }) {
+  if (steps.length === 0) {
+    return (
+      <div className="empty-panel-state">
+        Run the graph to generate an execution timeline.
+      </div>
+    );
+  }
+
   return (
     <div className="timeline-content">
-      {/* Execution Bar */}
       <div className="execution-bar">
         <div className="execution-status">
           <span className="exec-status-dot success" />
-          <span className="exec-status-text">Run #{mockExecution.runId} Complete</span>
-          <span className="exec-timestamp">{mockExecution.timestamp}</span>
-          <span className="exec-mode-badge">{mockExecution.mode}</span>
+          <span className="exec-status-text">Latest Run</span>
+          <span className="exec-timestamp">{steps[steps.length - 1]?.timestamp}</span>
         </div>
         <div className="execution-controls">
-          <button className="exec-btn">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M1 4v6h6M23 20v-6h-6" />
-              <path d="M20.49 9A9 9 0 0 0 5.64 5.64L1 10m22 4l-4.64 4.36A9 9 0 0 1 3.51 15" />
-            </svg>
-            Replay
-          </button>
-          <button className="exec-btn">Export</button>
-          <button className="exec-btn primary">Promote to Settlement</button>
+          <button className="exec-btn">Export Trace</button>
         </div>
       </div>
 
-      {/* Data Grid (Palantir-style) */}
       <div className="data-grid">
         <div className="grid-header">
           <div className="grid-cell cell-id">#</div>
@@ -148,18 +163,16 @@ function TimelineContent() {
           <div className="grid-cell cell-data">Data</div>
           <div className="grid-cell cell-status">Status</div>
         </div>
-        {mockExecution.steps.map((step, idx) => (
-          <div key={step.id} className={`grid-row row-${step.status}`}>
+        {steps.map((step, idx) => (
+          <div key={step.id + idx} className={`grid-row row-${step.status}`}>
             <div className="grid-cell cell-id">{idx + 1}</div>
-            <div className="grid-cell cell-time">{step.time}</div>
+            <div className="grid-cell cell-time">{step.timestamp.split('T')[1]?.slice(0,12)}</div>
             <div className="grid-cell cell-node">{step.name}</div>
             <div className="grid-cell cell-duration">{step.duration || "—"}</div>
-            <div className="grid-cell cell-data">{step.dataCount || 0} obj</div>
+            <div className="grid-cell cell-data">{step.dataCount !== undefined ? `${step.dataCount} bytes` : "—"}</div>
             <div className="grid-cell cell-status">
               <span className={`status-badge status-${step.status}`}>
-                {step.status === "success" && "✓"}
-                {step.status === "error" && "✗"}
-                {step.status === "running" && "●"}
+                {step.status.toUpperCase()}
               </span>
             </div>
           </div>
@@ -169,38 +182,45 @@ function TimelineContent() {
   );
 }
 
-function ReceiptsContent() {
+function ReceiptsContent({ nodeId, artifact }: { nodeId: string | null, artifact: any }) {
+  if (!nodeId || !artifact) {
+    return (
+      <div className="empty-panel-state">
+        Select a node with execution results to view its Receipt.
+      </div>
+    );
+  }
+
+  const outputStr = typeof artifact.output === 'string' ? artifact.output : JSON.stringify(artifact.output, null, 2);
+  const metrics = artifact.metrics || {};
+
   return (
     <div className="receipts-content">
       <div className="receipt-detail">
         <div className="receipt-detail-header">
-          <span className="receipt-detail-title">Receipt: Parse + Classify</span>
-          <span className="receipt-detail-meta">NodeID: n-42 • Hash: 0xabc… • Signed: ✅</span>
+          <span className="receipt-detail-title">Receipt: {nodeId}</span>
+          <span className="receipt-detail-meta">
+            Timestamp: {new Date(artifact.timestamp).toLocaleString()} • Latency: {metrics.latency_ms || 0}ms
+          </span>
         </div>
         <div className="receipt-detail-grid">
           <div className="receipt-detail-section">
-            <h4>Inputs</h4>
-            <code>invoice.pdf hash: 0x111…</code>
+            <h4>Output Artifact</h4>
+            <div className="raw-text-view" style={{ maxHeight: 200, overflow: 'auto' }}>
+                {outputStr}
+            </div>
           </div>
           <div className="receipt-detail-section">
-            <h4>Outputs</h4>
-            <code>vendor: "ACME" amount: 2400 risk: medium</code>
-          </div>
-          <div className="receipt-detail-section">
-            <h4>Effects (scoped)</h4>
-            <div>files:read /Invoices/inbox (3)</div>
-            <div>network: none</div>
-            <div>spend: none</div>
-          </div>
-          <div className="receipt-detail-section">
-            <h4>Privacy</h4>
-            <div>leak budget used: 0.12</div>
+            <h4>Telemetry & Governance</h4>
+            <div>Status: <span style={{color: '#34D399'}}>Success</span></div>
+            <div>Signed: ✅ (Simulated)</div>
+            {metrics.risk && <div>Risk Score: {metrics.risk}</div>}
+            {metrics.eval_count !== undefined && <div>Tokens: {metrics.eval_count}</div>}
           </div>
         </div>
         <div className="receipt-detail-actions">
           <button className="btn btn-ghost">Copy JSON</button>
-          <button className="btn btn-ghost">Export Receipt</button>
-          <button className="btn btn-ghost">Pin as Evidence</button>
+          <button className="btn btn-ghost">Verify Signature</button>
         </div>
       </div>
     </div>
@@ -210,81 +230,36 @@ function ReceiptsContent() {
 function DiffContent() {
   return (
     <div className="diff-content">
-      <div className="diff-header">
-        <span>Compare Run #128 vs #127</span>
-      </div>
-      <div className="diff-changes">
-        <div className="diff-section">
-          <h4>Changed nodes:</h4>
-          <div className="diff-item">
-            <span className="diff-bullet">•</span>
-            <span>Provider Select: tier </span>
-            <span className="diff-old">verified</span>
-            <span> → </span>
-            <span className="diff-new">community</span>
-          </div>
-          <div className="diff-item">
-            <span className="diff-bullet">•</span>
-            <span>Parse + Classify: model local LLM </span>
-            <span className="diff-old">v2</span>
-            <span> → </span>
-            <span className="diff-new">v3</span>
-          </div>
-        </div>
-        <div className="diff-section">
-          <h4>Changed artifacts:</h4>
-          <div className="diff-item">
-            <span className="diff-bullet">•</span>
-            <span>Receipt n-42 output risk: </span>
-            <span className="diff-old">low</span>
-            <span> → </span>
-            <span className="diff-new">medium</span>
-          </div>
-        </div>
-      </div>
-      <div className="diff-actions">
-        <button className="btn btn-ghost">Revert Node Version</button>
-        <button className="btn btn-ghost">Lock Provider Tier</button>
-        <button className="btn btn-ghost">Require Approval on change</button>
+      <div className="empty-panel-state" style={{ padding: 40 }}>
+        Comparison not available in Local Mode. 
+        <br/><br/>
+        Connect to IOI Kernel History to compare runs.
       </div>
     </div>
   );
 }
 
-function ConsoleContent() {
+function ConsoleContent({ logs }: { logs: ExecutionLog[] }) {
+  const endRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    endRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [logs]);
+
   return (
     <div className="console-content">
       <div className="console-output">
-        <div className="console-line">
-          <span className="console-time">[19:52:04]</span>
-          <span className="console-level level-info">INFO</span>
-          <span className="console-msg">Workflow started: Invoice Guard</span>
-        </div>
-        <div className="console-line">
-          <span className="console-time">[19:52:04]</span>
-          <span className="console-level level-debug">DEBUG</span>
-          <span className="console-msg">Trigger fired: Cron</span>
-        </div>
-        <div className="console-line">
-          <span className="console-time">[19:52:04]</span>
-          <span className="console-level level-info">INFO</span>
-          <span className="console-msg">Read 3 files from /Invoices/inbox</span>
-        </div>
-        <div className="console-line">
-          <span className="console-time">[19:52:05]</span>
-          <span className="console-level level-info">INFO</span>
-          <span className="console-msg">Model inference complete: local LLM v3</span>
-        </div>
-        <div className="console-line">
-          <span className="console-time">[19:52:05]</span>
-          <span className="console-level level-info">INFO</span>
-          <span className="console-msg">Policy gate passed: Spend? → NO</span>
-        </div>
-        <div className="console-line">
-          <span className="console-time">[19:52:07]</span>
-          <span className="console-level level-info">INFO</span>
-          <span className="console-msg">Workflow completed successfully</span>
-        </div>
+        {logs.map((log) => (
+          <div key={log.id} className="console-line">
+            <span className="console-time">[{log.timestamp.split('T')[1]?.slice(0,8)}]</span>
+            <span className={`console-level level-${log.level}`}>{log.level.toUpperCase()}</span>
+            <span className="console-msg">
+                <span style={{opacity: 0.6, marginRight: 8}}>{log.source}:</span>
+                {log.message}
+            </span>
+          </div>
+        ))}
+        <div ref={endRef} />
       </div>
     </div>
   );
