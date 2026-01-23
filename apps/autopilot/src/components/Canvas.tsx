@@ -4,25 +4,24 @@ import {
   Background, 
   Controls, 
   MiniMap,
-  addEdge,
-  Connection,
   Edge as FlowEdge,
   Node as FlowNode,
   BackgroundVariant,
   NodeTypes,
-  OnNodesChange,
-  OnEdgesChange,
-  OnConnect
+  type OnNodesChange,
+  type OnEdgesChange,
+  type OnConnect
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css'; 
 
 import { CanvasNode } from './CanvasNode';
+import type { Node as IOINode } from '../types';
 import "./Canvas.css";
 
 interface CanvasProps {
-  nodes: FlowNode[];
+  nodes: FlowNode<IOINode>[];
   edges: FlowEdge[];
-  onNodesChange: OnNodesChange;
+  onNodesChange: OnNodesChange<FlowNode<IOINode>>;
   onEdgesChange: OnEdgesChange;
   onConnect: OnConnect;
   onNodeSelect: (nodeId: string | null) => void;
@@ -37,7 +36,7 @@ export function Canvas({
   onNodeSelect 
 }: CanvasProps) {
 
-  const handleSelectionChange = useCallback(({ nodes }: { nodes: FlowNode[] }) => {
+  const handleSelectionChange = useCallback(({ nodes }: { nodes: FlowNode<IOINode>[] }) => {
     if (nodes.length > 0) {
       onNodeSelect(nodes[0].id);
     } else {

@@ -46,7 +46,7 @@ export interface NodeLaw {
 // Graph & Canvas Types (Studio View)
 // ============================================
 
-export interface Node {
+export interface Node extends Record<string, unknown> {
   id: string;
   type: string;
   name: string;
@@ -83,6 +83,19 @@ export interface Edge {
   type: "data" | "control";
   active?: boolean;
   volume?: number;
+}
+
+// ============================================
+// Builder Configuration Types
+// ============================================
+
+export interface AgentConfiguration {
+  name: string;
+  description: string;
+  instructions: string;
+  model: string;
+  temperature: number;
+  tools: { id: string; name: string; desc: string; icon: string }[];
 }
 
 // ============================================

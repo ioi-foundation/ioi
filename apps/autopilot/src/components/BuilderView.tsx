@@ -1,19 +1,10 @@
 import { useState } from "react";
+import type { AgentConfiguration } from "../types";
 import "./BuilderView.css";
 
 // =========================================
 // TYPES
 // =========================================
-
-// Exported for use in StudioWindow to hydrate the graph
-export interface AgentConfiguration {
-  name: string;
-  description: string;
-  instructions: string;
-  model: string;
-  temperature: number;
-  tools: { id: string; name: string; desc: string; icon: string; }[];
-}
 
 interface BuilderViewProps {
   // Callback now accepts the configuration payload
