@@ -27,6 +27,23 @@ export interface NodeLogic {
   tool_name?: string;     // e.g. "filesystem__write_file"
   arguments?: Record<string, any>; // Dynamic args based on schema
 
+  // --- [NEW] Code / Function Block ---
+  language?: "python" | "javascript" | "typescript" | "shell";
+  code?: string; // The raw script to execute
+
+  // --- [NEW] Flow Control (Router) ---
+  routes?: string[];   // For Router Block (e.g. ["refund", "support", "sales"])
+  routerInstruction?: string; // Guidance for the classifier
+
+  // --- [NEW] Flow Control (Wait) ---
+  durationMs?: number; // For Wait Block
+
+  // --- [NEW] Context / Variables ---
+  variables?: Record<string, string>; // Key-Value pairs to set in Context
+
+  // --- [NEW] RSS Feed ---
+  rssUrl?: string; // For RSS Monitor Block
+
   // --- Trigger/Logic Nodes ---
   cronSchedule?: string;  // e.g., "*/5 * * * *"
   conditionScript?: string; // e.g., "input.risk > 0.5"

@@ -72,7 +72,13 @@ export function useGraphExecution(
       if (result) {
         setNodeArtifacts((prev: NodeArtifacts) => ({
           ...prev,
-          [node_id]: { output: result.output, metrics: result.metrics, timestamp: Date.now() }
+          [node_id]: { 
+              output: result.output, 
+              metrics: result.metrics, 
+              timestamp: Date.now(),
+              // [NEW] Capture the input snapshot for observability
+              input_snapshot: result.input_snapshot 
+          }
         }));
       }
 
@@ -180,7 +186,13 @@ export function useGraphExecution(
   const handleNodeRunComplete = useCallback((nodeId: string, result: any) => {
     setNodeArtifacts((prev: NodeArtifacts) => ({
       ...prev,
-      [nodeId]: { output: result.output, metrics: result.metrics, timestamp: Date.now() }
+      [nodeId]: { 
+          output: result.output, 
+          metrics: result.metrics, 
+          timestamp: Date.now(),
+          // [NEW] Capture input snapshot from unit tests too
+          input_snapshot: result.input_snapshot 
+      }
     }));
     
     setExecutionLogs((prev: ExecutionLog[]) => [...prev, {
@@ -198,7 +210,6 @@ export function useGraphExecution(
     setEdges((eds: any[]) => eds.map((e) => {
         if (e.source === nodeId) {
              // For unit tests, we default to success path unless result implies otherwise
-             // Note: Unit tests might not have full context to trigger "blocked", but we handle "success"
              if (e.sourceHandle === 'out') {
                 return { 
                     ...e, 
@@ -211,7 +222,7 @@ export function useGraphExecution(
     }));
   }, [setNodes, setEdges]);
 
-  // [REFACTORED] Context-Aware Data Hydration
+  // Context-Aware Data Hydration
   // Transforms upstream artifacts into a JSON object that matches the Rust Orchestrator's behavior.
   const getUpstreamContext = useCallback((targetNodeId: string): string => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -309,11 +320,10 @@ function mapStepToSpan(step: ExecutionStep): TraceSpan {
   let status: "running" | "success" | "error" = "success";
   if (step.status === "running") status = "running";
   if (step.status === "error") status = "error";
-  // Map "blocked" (Governance) to "error" for visual attention, or handle separately if TraceViewer supports it
+  // Map "blocked" (Governance) to "error" for visual attention
   if (step.status === "blocked") status = "error"; 
 
   // Guess type based on name or ID if not explicitly provided
-  // In a real app, ExecutionStep should carry the node type
   const type = step.name.toLowerCase().includes("gate") ? "tool" : "agent";
 
   return {
@@ -324,7 +334,6 @@ function mapStepToSpan(step: ExecutionStep): TraceSpan {
     startTime: start,
     endTime: start + duration,
     metadata: {
-      // If we had more inputs/outputs in ExecutionStep, we'd map them here
       outputs: { dataCount: step.dataCount }
     }
   };
@@ -332,7 +341,6 @@ function mapStepToSpan(step: ExecutionStep): TraceSpan {
 
 function parseDuration(dur?: string): number {
   if (!dur) return 100; // Default visual width
-  // Handle "100ms", "1.2s", etc.
   if (dur.endsWith("ms")) return parseInt(dur);
   if (dur.endsWith("s")) return parseFloat(dur) * 1000;
   return 100;

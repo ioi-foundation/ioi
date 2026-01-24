@@ -131,6 +131,8 @@ export function useGraphState() {
     try {
       const nodeId = e.dataTransfer.getData("nodeId"); 
       const nodeName = e.dataTransfer.getData("nodeName");
+      // [NEW] Retrieve Schema from drag payload
+      const schemaStr = e.dataTransfer.getData("nodeSchema");
       
       const position = screenToFlowPosition({ x: e.clientX, y: e.clientY });
       
@@ -151,8 +153,29 @@ export function useGraphState() {
           config: JSON.parse(JSON.stringify(template.defaultConfig))
         };
       } else if (nodeId.includes("__")) {
-        // [NEW] Dynamic MCP Tool Detection
-        // ID format: "server__tool"
+        // [NEW] Dynamic MCP Tool Scaffolding
+        
+        // Scaffold default arguments based on Schema so the UI isn't blank
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const scaffoldedArgs: Record<string, any> = {};
+        if (schemaStr) {
+            try {
+                const schema = JSON.parse(schemaStr);
+                if (schema.properties) {
+                    // Pre-fill keys with sensible defaults
+                    Object.keys(schema.properties).forEach(key => {
+                        const type = schema.properties[key].type;
+                        if (type === 'integer' || type === 'number') scaffoldedArgs[key] = 0;
+                        else if (type === 'boolean') scaffoldedArgs[key] = false;
+                        else if (type === 'array') scaffoldedArgs[key] = [];
+                        else scaffoldedArgs[key] = "";
+                    });
+                }
+            } catch (err) {
+                console.warn("Failed to parse tool schema during drop:", err);
+            }
+        }
+
         newNodeData = {
           id: `${nodeId}-${Date.now()}`,
           type: "tool", // Generic tool type
@@ -163,31 +186,20 @@ export function useGraphState() {
           ioTypes: { in: "Any", out: "Result" },
           inputs: ["in"], 
           outputs: ["out"],
-          // [FIX] Inject schema from sidebar drag payload (if we added it to dataTransfer)
-          // Since dataTransfer is string-only, we rely on the fact that we can't easily pass the full schema obj.
-          // Instead, we might need to fetch it again or rely on the RightPanel to fetch it if missing.
-          // BUT, we can just init arguments as empty.
+          // Inject schema into node data for the Inspector to use later
+          schema: schemaStr || undefined,
           config: { 
             logic: { 
               // This field tells execution.rs to use run_mcp_tool
               // @ts-ignore - dynamic property
               tool_name: nodeId, 
-              arguments: {} // Empty args by default, to be filled in Inspector
+              arguments: scaffoldedArgs // [NEW] Pre-populated args
             }, 
             law: {
               requireHumanGate: true // Default safety for new tools
             } 
           }
         };
-        
-        // [HACK] To get the schema into the node data, we need a way to look it up.
-        // Ideally we'd have a global tool registry store. 
-        // For now, let's assume the RightPanel will re-fetch or we passed it via a side-channel?
-        // Actually, we can just attach it if we modify ContextSidebar to JSON.stringify the schema into dataTransfer.
-        const schemaStr = e.dataTransfer.getData("nodeSchema");
-        if (schemaStr) {
-            newNodeData.schema = schemaStr;
-        }
 
       } else {
         newNodeData = {
