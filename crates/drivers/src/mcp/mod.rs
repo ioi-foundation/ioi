@@ -1,3 +1,5 @@
+// Path: crates/drivers/src/mcp/mod.rs
+
 pub mod protocol;
 pub mod transport;
 
@@ -9,7 +11,7 @@ use std::path::PathBuf;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
-use self::transport::McpTransport;
+use self::transport::{McpTransport, McpToolInfo};
 
 /// Configuration for an external MCP server.
 #[derive(Debug, Clone, serde::Deserialize)]
@@ -26,6 +28,8 @@ pub struct McpManager {
     /// Flattened map of "tool_name" -> "server_name" for routing.
     /// e.g. "filesystem_read_file" -> "filesystem"
     tool_routing_table: RwLock<HashMap<String, String>>,
+    /// Cache of tool definitions to prevent repeated IPC calls to child processes.
+    tool_cache: RwLock<HashMap<String, Vec<LlmToolDefinition>>>,
 }
 
 impl McpManager {
@@ -33,6 +37,7 @@ impl McpManager {
         Self {
             servers: RwLock::new(HashMap::new()),
             tool_routing_table: RwLock::new(HashMap::new()),
+            tool_cache: RwLock::new(HashMap::new()),
         }
     }
 
@@ -50,17 +55,31 @@ impl McpManager {
         transport.initialize().await?;
 
         // 2. List Tools (Server -> Client)
+        // We do this ONCE at startup and cache the result.
         let tools = transport.list_tools().await?;
         
-        // 3. Update Routing Table
+        // 3. Update Routing Table & Cache
         let mut table = self.tool_routing_table.write().await;
+        let mut cache = self.tool_cache.write().await;
+        
+        let mut cached_definitions = Vec::new();
+
         for tool in tools {
             // Namespace the tool: "server_name__tool_name"
             // This prevents collision between "stripe::get" and "aws::get"
             let namespaced_name = format!("{}__{}", name, tool.name);
             table.insert(namespaced_name.clone(), name.to_string());
+            
+            cached_definitions.push(LlmToolDefinition {
+                name: namespaced_name.clone(),
+                description: tool.description.unwrap_or_default(),
+                parameters: tool.input_schema.to_string(), // Raw JSON schema string
+            });
+
             log::debug!("Registered MCP Tool: {}", namespaced_name);
         }
+
+        cache.insert(name.to_string(), cached_definitions);
 
         let mut servers = self.servers.write().await;
         servers.insert(name.to_string(), Arc::new(transport));
@@ -70,23 +89,17 @@ impl McpManager {
 
     /// Discovers all tools exposed by connected MCP servers.
     /// This is aggregated into the System Prompt for the AI.
+    /// 
+    /// OPTIMIZATION: Returns cached definitions instead of querying child processes.
     pub async fn get_all_tools(&self) -> Vec<LlmToolDefinition> {
-        let servers = self.servers.read().await;
-        let mut definitions = Vec::new();
+        let cache = self.tool_cache.read().await;
+        let mut all_tools = Vec::new();
 
-        for (server_name, transport) in servers.iter() {
-            if let Ok(tools) = transport.list_tools().await {
-                for tool in tools {
-                    let namespaced_name = format!("{}__{}", server_name, tool.name);
-                    definitions.push(LlmToolDefinition {
-                        name: namespaced_name,
-                        description: tool.description.unwrap_or_default(),
-                        parameters: tool.input_schema.to_string(), // Raw JSON schema string
-                    });
-                }
-            }
+        for tools in cache.values() {
+            all_tools.extend(tools.clone());
         }
-        definitions
+
+        all_tools
     }
 
     /// Routes a tool execution request to the correct underlying process.
@@ -99,8 +112,9 @@ impl McpManager {
 
         // 2. Extract Raw Tool Name (remove prefix)
         // "stripe__refund" -> "refund"
-        let raw_tool_name = namespaced_tool.strip_prefix(&format!("{}__{}", server_name, ""))
-            .unwrap_or(namespaced_tool); // Should logically handle split, fallback for safety
+        let prefix = format!("{}__{}", server_name, "");
+        let raw_tool_name = namespaced_tool.strip_prefix(&prefix)
+            .unwrap_or(namespaced_tool); 
 
         let servers = self.servers.read().await;
         let transport = servers.get(server_name)
