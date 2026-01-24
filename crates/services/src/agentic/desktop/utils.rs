@@ -1,6 +1,6 @@
-// Path: crates/services/src/agentic/desktop/service/utils.rs
+// Path: crates/services/src/agentic/desktop/utils.rs
 
-use crate::agentic::desktop::keys::TRACE_PREFIX;
+use crate::agentic::desktop::keys::{TRACE_PREFIX};
 use ioi_api::state::StateAccess;
 use ioi_types::app::agentic::StepTrace;
 use ioi_types::app::KernelEvent;
@@ -49,6 +49,9 @@ pub fn goto_trace_log(
         raw_output: output_str,
         success: action_success,
         error: action_error.clone(),
+        // [FIX] Initialize new evolutionary fields
+        cost_incurred: 0,
+        fitness_score: None,
         timestamp: SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .unwrap()
@@ -68,10 +71,6 @@ pub fn goto_trace_log(
 
     if let Some(_e) = action_error {
         agent_state.consecutive_failures += 1;
-        // [REFACTORED] Removed direct history append.
-        // System error messages are now written to SCS by the caller (handle_step) 
-        // to ensure the transcript root is updated correctly before this function is called,
-        // or the UI relies on the StepTrace error field.
     } else {
         agent_state.consecutive_failures = 0;
     }

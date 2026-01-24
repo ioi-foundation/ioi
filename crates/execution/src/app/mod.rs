@@ -148,8 +148,6 @@ fn signer_from_tx(tx: &ChainTransaction) -> AccountId {
             | ioi_types::app::ApplicationTransaction::CallContract { header, .. } => {
                 header.account_id
             }
-            // UTXO variant removed
-            _ => AccountId::default(),
         },
         // Semantic transactions are signed by a committee aggregate, not a single account.
         // Return default AccountId as there is no single "signer".
@@ -280,6 +278,9 @@ where
                         activated_at: 0,
                         methods: policy.methods,
                         allowed_system_prefixes: policy.allowed_system_prefixes,
+                        // [FIX] Initialize new evolutionary fields
+                        generation_id: 0,
+                        parent_hash: None,
                     };
                     let meta_bytes = codec::to_bytes_canonical(&meta)
                         .map_err(|e| ChainError::Transaction(e.to_string()))?;

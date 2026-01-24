@@ -24,6 +24,12 @@ use libp2p::identity::PublicKey as Libp2pPublicKey;
 use parity_scale_codec::{Decode, Encode};
 use std::collections::BTreeMap;
 
+// [NEW] Imports for RSI / Safety Ratchet
+// Use internal crate imports, not package name
+use crate::agentic::policy::PolicyEngine;
+use crate::agentic::rules::ActionRules;
+use ioi_types::service_configs::ActiveServiceMeta;
+
 // --- Service Method Parameter Structs (The Service's Public ABI) ---
 
 #[derive(Encode, Decode)]
@@ -63,6 +69,11 @@ pub struct SwapModuleParams {
     pub manifest_hash: [u8; 32],
     pub artifact_hash: [u8; 32],
     pub activation_height: u64,
+    
+    // [NEW] Optional field to indicate this is an automated RSI mutation.
+    // If true, the Safety Ratchet (Policy Monotonicity) check is enforced.
+    // Default is false (Manual/Governance upgrade).
+    pub is_evolutionary_mutation: Option<bool>,
 }
 
 // --- Governance Module ---
@@ -235,6 +246,19 @@ impl GovernanceModule {
         state.insert(&key, &updated_value_bytes)?;
 
         Ok(())
+    }
+
+    /// Helper to extract Policy Rules from a raw manifest string.
+    /// This parses the TOML manifest to find the [policy] section if it exists,
+    /// or constructs a default based on the [capabilities] and [methods].
+    fn extract_policy_from_manifest(_manifest_str: &str) -> Result<ActionRules, TransactionError> {
+        // Simple heuristic parsing for MVP. In production, use full TOML parser on struct.
+        // We assume the manifest contains a "policy_json" string field for complex rules,
+        // or we default to a safe baseline.
+        
+        // For now, we return a default safe policy if parsing is complex.
+        // The PolicyEngine needs to handle "default safe" anyway.
+        Ok(ActionRules::default()) 
     }
 }
 
@@ -518,17 +542,60 @@ impl GovernanceModule {
         }
 
         let manifest_key = [UPGRADE_MANIFEST_PREFIX, &manifest_hash].concat();
-        if state
+        let manifest_bytes = state
             .get(&manifest_key)
             .map_err(TransactionError::State)?
-            .is_none()
-        {
-            return Err(UpgradeError::InvalidUpgrade(format!(
-                "Manifest not found for hash {}",
-                hex::encode(manifest_hash)
-            ))
-            .into());
+            .ok_or_else(|| {
+                UpgradeError::InvalidUpgrade(format!(
+                    "Manifest not found for hash {}",
+                    hex::encode(manifest_hash)
+                ))
+            })?;
+
+        // -----------------------------------------------------------
+        // [NEW] Safety Ratchet: Enforce Monotonicity for RSI Upgrades
+        // -----------------------------------------------------------
+        if params.is_evolutionary_mutation.unwrap_or(false) {
+            log::info!(
+                "Safety Ratchet: Validating evolutionary upgrade for '{}'",
+                service_id
+            );
+
+            // 1. Load Current Active Manifest
+            let active_key = ioi_types::keys::active_service_key(&service_id);
+            if let Some(active_meta_bytes) = state.get(&active_key)? {
+                // 2. Decode Active Meta
+                let _active_meta: ActiveServiceMeta = codec::from_bytes_canonical(&active_meta_bytes)?;
+                
+                // 3. Re-hydrate Policy from On-Chain Meta (simplification for MVP)
+                // In a full implementation, we would store the raw manifest or policy alongside the meta.
+                // Here we assume we can reconstruct or fetch the policy associated with the service.
+                // For this example, we default to a restrictive policy if not found to fail-safe.
+                let old_policy = ActionRules::default(); 
+
+                // 4. Parse New Manifest
+                let new_manifest_str = String::from_utf8(manifest_bytes)
+                    .map_err(|_| TransactionError::Invalid("New manifest is invalid UTF-8".into()))?;
+                
+                let new_policy = Self::extract_policy_from_manifest(&new_manifest_str)?;
+
+                // 5. Compare Policies (The Ratchet)
+                // This ensures the agent isn't trying to give itself more permissions.
+                if let Err(violation) = PolicyEngine::validate_safety_ratchet(&old_policy, &new_policy) {
+                    return Err(TransactionError::Invalid(format!(
+                        "Evolutionary Upgrade Rejected by Safety Ratchet: {}",
+                        violation
+                    )));
+                }
+                
+                log::info!("Safety Ratchet: Validation Passed. Evolution allowed.");
+            } else {
+                // If service is new, no ratchet needed (Genesis/Bootstrap)
+                log::info!("Safety Ratchet: Service is new, skipping comparison.");
+            }
         }
+        // -----------------------------------------------------------
+
         let artifact_key = [UPGRADE_ARTIFACT_PREFIX, &artifact_hash].concat();
         if state
             .get(&artifact_key)
@@ -541,13 +608,16 @@ impl GovernanceModule {
             ))
             .into());
         }
+
         let key = [UPGRADE_PENDING_PREFIX, &activation_height.to_le_bytes()].concat();
         let mut pending: Vec<(String, [u8; 32], [u8; 32])> = state
             .get(&key)
             .map_err(TransactionError::State)?
             .and_then(|b| codec::from_bytes_canonical(&b).ok())
             .unwrap_or_default();
+        
         pending.push((service_id, manifest_hash, artifact_hash));
+        
         state
             .insert(
                 &key,

@@ -8,7 +8,7 @@ import {
   Node as FlowNode,
   Edge as FlowEdge
 } from "@xyflow/react";
-import { Node as IOINode, Edge as IOIEdge, NodeLogic, NodeLaw, AgentConfiguration } from "../../../types.ts";
+import { Node as IOINode, Edge as IOIEdge, NodeLogic, FirewallPolicy, AgentConfiguration } from "../../../types.ts";
 import { NODE_TEMPLATES } from "../templates";
 
 // --- Initial Data Helpers ---
@@ -92,7 +92,7 @@ export function useGraphState() {
     setSelectedNodeId(nodeId);
   }, []);
 
-  const handleNodeUpdate = useCallback((nodeId: string, section: 'logic' | 'law', updates: Partial<NodeLogic> | Partial<NodeLaw>) => {
+  const handleNodeUpdate = useCallback((nodeId: string, section: 'logic' | 'law', updates: Partial<NodeLogic> | Partial<FirewallPolicy>) => {
     setNodes((nds) => nds.map((node) => {
       if (node.id === nodeId) {
         const currentData = node.data as unknown as IOINode;

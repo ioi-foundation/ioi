@@ -67,6 +67,9 @@ impl OnChainManifest {
             activated_at,
             methods: perms,
             allowed_system_prefixes: self.allowed_system_prefixes,
+            // [FIX] Initialize new evolutionary fields
+            generation_id: 0,
+            parent_hash: None,
         })
     }
 }

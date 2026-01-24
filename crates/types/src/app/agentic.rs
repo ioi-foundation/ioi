@@ -128,7 +128,7 @@ pub struct AgentSkill {
 }
 
 /// A debug trace of a single agent step.
-/// This is the "Black Box Recording" used to debug failures.
+/// This is the "Black Box Recording" used to debug failures and drive evolution.
 #[derive(Debug, Clone, Serialize, Deserialize, Encode, Decode)]
 pub struct StepTrace {
     /// The unique session ID this step belongs to.
@@ -145,6 +145,14 @@ pub struct StepTrace {
     pub success: bool,
     /// Error message if the step failed.
     pub error: Option<String>,
+    
+    // [NEW] Evolutionary Fields (The Reward Signal)
+    /// The economic cost (Labor Gas) incurred for this specific step.
+    pub cost_incurred: u64,
+    /// A semantic success score (0.0 - 1.0) derived by the Evaluator/Verifier.
+    /// This score determines if the agent survives or is deprecated.
+    pub fitness_score: Option<f32>,
+
     /// UNIX timestamp of this step.
     pub timestamp: u64,
 }
@@ -157,4 +165,19 @@ pub struct ResumeAgentParams {
     /// Optional approval token to unblock a gated action.
     /// If provided, this token authorizes the action that caused the pause.
     pub approval_token: Option<ApprovalToken>, 
+}
+
+/// [NEW] Configuration for the "Law" (Firewall) of an agent.
+/// Defines the hard constraints and liabilities.
+#[derive(Debug, Clone, Serialize, Deserialize, Encode, Decode, Default)]
+pub struct FirewallPolicy {
+    /// Maximum USD spend per execution (converted to tokens).
+    pub budget_cap: f64,
+    /// List of allowed DNS domains (e.g. "*.stripe.com").
+    #[serde(default)]
+    pub network_allowlist: Vec<String>,
+    /// If true, execution halts for "Hold to Sign".
+    pub require_human_gate: bool,
+    /// Data egress policy ("none", "masked", "zero-knowledge").
+    pub privacy_level: Option<String>,
 }

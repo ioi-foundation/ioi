@@ -144,19 +144,15 @@ where
         block_height: u64,
         block_timestamp: u64,
     ) -> Result<(Vec<u8>, u64), ChainError> {
+        // [FIX] Removed wildcard match that caused unreachable pattern warnings
         let signer_account_id = match tx {
             ChainTransaction::System(s) => s.header.account_id,
-            // [FIX] Handle Settlement
             ChainTransaction::Settlement(s) => s.header.account_id,
             ChainTransaction::Application(a) => match a {
-                ioi_types::app::ApplicationTransaction::DeployContract { header, .. } => {
+                ioi_types::app::ApplicationTransaction::DeployContract { header, .. }
+                | ioi_types::app::ApplicationTransaction::CallContract { header, .. } => {
                     header.account_id
                 }
-                ioi_types::app::ApplicationTransaction::CallContract { header, .. } => {
-                    header.account_id
-                }
-                // UTXO removed
-                _ => AccountId::default(),
             },
             ChainTransaction::Semantic { header, .. } => header.account_id,
         };
@@ -698,7 +694,7 @@ where
             producer_account_id,
             producer_key_suite: suite,
             producer_pubkey_hash,
-            producer_pubkey,
+            producer_pubkey: producer_pubkey.to_vec(),
             signature: vec![],
             // [FIXED] Initialize new fields with default values.
             // The Oracle will overwrite these during the signing process.

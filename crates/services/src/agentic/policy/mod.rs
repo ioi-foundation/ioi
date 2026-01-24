@@ -10,6 +10,9 @@ use ioi_types::{codec, error::TransactionError, keys::active_service_key};
 use serde_json::Value;
 use std::sync::Arc;
 
+// [FIX] Renamed NodeLaw to FirewallPolicy
+use ioi_types::app::agentic::FirewallPolicy;
+
 /// The core engine for evaluating actions against firewall policies.
 pub struct PolicyEngine;
 
@@ -307,5 +310,95 @@ impl PolicyEngine {
         }
 
         Ok(())
+    }
+
+    // -------------------------------------------------------------------------
+    // [NEW] The Safety Ratchet (Evolutionary Filter)
+    // -------------------------------------------------------------------------
+    
+    /// Validates that a proposed policy mutation is monotonic (i.e., strictly safer or equal).
+    /// Used by the Optimizer Service during Recursive Self-Improvement cycles.
+    ///
+    /// # Rules
+    /// 1. Budget cannot increase.
+    /// 2. Network Allowlist cannot expand (must be a subset).
+    /// 3. Human Gate requirement cannot be removed.
+    pub fn validate_safety_ratchet(old_policy: &ActionRules, new_policy: &ActionRules) -> Result<(), String> {
+        let old_caps = Self::extract_caps(old_policy);
+        let new_caps = Self::extract_caps(new_policy);
+
+        // 1. Budget Constraint
+        if new_caps.budget_cap > old_caps.budget_cap {
+             return Err(format!(
+                 "Mutation rejected: Attempted to increase budget cap from {} to {}.", 
+                 old_caps.budget_cap, new_caps.budget_cap
+             ));
+        }
+
+        // 2. Network Constraint (Subset Check)
+        for domain in &new_caps.network_allowlist {
+            if !old_caps.network_allowlist.contains(domain) {
+                 return Err(format!(
+                     "Mutation rejected: Attempted to add new network domain '{}'.", 
+                     domain
+                 ));
+            }
+        }
+
+        // 3. Gate Constraint
+        if old_caps.require_human_gate && !new_caps.require_human_gate {
+             return Err("Mutation rejected: Attempted to remove Human Gate requirement.".into());
+        }
+
+        Ok(())
+    }
+
+    /// Helper to flatten ActionRules into a comparable FirewallPolicy struct.
+    fn extract_caps(rules: &ActionRules) -> FirewallPolicy {
+        let mut budget = 0.0;
+        let mut network = Vec::new();
+        let mut gate = false;
+
+        // Iterate rules to find constraints.
+        // This is a heuristic extraction for the ratchet check.
+        for rule in &rules.rules {
+            // Budget
+            if let Some(spend) = rule.conditions.max_spend {
+                // If multiple rules have limits, we take the MAX observed as the effective cap for comparison
+                // (or sum them if additive, but usually it's per-action). 
+                // For safety, let's assume the tightest constraint, but here we track the *allowance*.
+                // Let's take the max allowance found.
+                let amount = spend as f64 / 1000.0; // Convert back to currency units if needed or keep raw
+                if amount > budget {
+                    budget = amount;
+                }
+            }
+
+            // Network
+            if let Some(domains) = &rule.conditions.allow_domains {
+                for d in domains {
+                    if !network.contains(d) {
+                        network.push(d.clone());
+                    }
+                }
+            }
+
+            // Gate
+            if rule.action == Verdict::RequireApproval {
+                gate = true;
+            }
+        }
+        
+        // Handle defaults
+        if rules.defaults == DefaultPolicy::RequireApproval {
+            gate = true;
+        }
+
+        FirewallPolicy {
+            budget_cap: budget,
+            network_allowlist: network,
+            require_human_gate: gate,
+            privacy_level: None,
+        }
     }
 }
