@@ -21,6 +21,52 @@ export function useGraphExecution(
   const [executionSteps, setExecutionSteps] = useState<ExecutionStep[]>([]);
   const [isExecuting, setIsExecuting] = useState(false);
 
+  // [NEW] Cache Rehydration Effect
+  useEffect(() => {
+    // Debounce to avoid flooding IPC on every keystroke
+    const timer = setTimeout(() => {
+      nodes.forEach(async (node) => {
+        // Skip if we already have data
+        if (nodeArtifacts[node.id]) return;
+
+        try {
+          // Construct the same context input string the Orchestrator would use
+          // (Simplified for MVP: Empty context or default)
+          const inputStr = "{}"; // In full version, this needs to calculate upstream inputs
+          
+          const result = await invoke("check_node_cache", {
+             nodeId: node.id,
+             config: node.data.config.logic,
+             input: inputStr
+          });
+          
+          if (result) {
+             console.log(`[Cache] Rehydrated ${node.id}`);
+             setNodeArtifacts(prev => ({
+                 ...prev,
+                 [node.id]: {
+                     // @ts-ignore
+                     output: result.output,
+                     // @ts-ignore
+                     metrics: result.metrics,
+                     timestamp: Date.now(),
+                     // @ts-ignore
+                     input_snapshot: result.input_snapshot
+                 }
+             }));
+             
+             // Visual indication
+             // eslint-disable-next-line @typescript-eslint/no-explicit-any
+             setNodes((nds: any[]) => nds.map((n) => n.id === node.id ? { ...n, data: { ...n.data, status: 'success' } } : n));
+          }
+        } catch (e) {
+           // Ignore cache check errors
+        }
+      });
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [nodes.length]); // Re-run when node count changes (add/remove)
+
   // Listen for Rust backend events
   useEffect(() => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any

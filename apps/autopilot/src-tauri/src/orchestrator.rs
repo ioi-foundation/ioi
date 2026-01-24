@@ -5,11 +5,12 @@ use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::collections::HashMap;
 use std::time::{Instant, Duration};
-use std::sync::Mutex;
-use once_cell::sync::Lazy;
+use std::sync::{Arc, Mutex};
 use ioi_crypto::algorithms::hash::sha256;
+use ioi_scs::{SovereignContextStore, FrameType}; 
+use dcrypt::algorithms::ByteSerializable; // For copy_from_slice
+use hex; // Ensure hex is imported
 
-// [FIX] Added Serialize derive
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct GraphNode {
     pub id: String,
@@ -18,7 +19,6 @@ pub struct GraphNode {
     pub config: Option<Value>,
 }
 
-// [FIX] Added Serialize derive
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct GraphEdge {
     pub source: String,
@@ -31,24 +31,21 @@ pub struct GraphEdge {
 pub struct GraphPayload {
     pub nodes: Vec<GraphNode>,
     pub edges: Vec<GraphEdge>,
-    // The Global Constitution
     pub global_config: Option<Value>,
 }
 
-// [FIX] Derive Clone so we can emit it via Tauri Event
 #[derive(Serialize, Clone)]
 pub struct GraphEvent {
     pub node_id: String,
-    pub status: String, // "running", "success", "failed", "blocked", "cached"
+    pub status: String, 
     pub result: Option<ExecutionResult>,
-    // Added fields for evolution tracking
     pub fitness_score: Option<f32>,
     pub generation: Option<u64>,
 }
 
 // --- GLOBAL EXECUTION CACHE (Memoization Layer) ---
-// Maps hash(NodeID + Config + Input) -> ExecutionResult
-static GLOBAL_EXECUTION_CACHE: Lazy<Mutex<HashMap<String, ExecutionResult>>> = Lazy::new(|| {
+// Maps hex(hash(NodeID + Config + Input)) -> ExecutionResult
+static GLOBAL_EXECUTION_CACHE: once_cell::sync::Lazy<Mutex<HashMap<String, ExecutionResult>>> = once_cell::sync::Lazy::new(|| {
     Mutex::new(HashMap::new())
 });
 
@@ -76,39 +73,117 @@ fn merge_inputs(parent_outputs: Vec<Value>, global_env: &Value) -> Value {
     Value::Object(merged_map)
 }
 
-/// Computes a deterministic cache key for a node execution state.
-/// [MODIFIED] Made public to allow manual injection from unit tests (kernel.rs).
-pub fn compute_cache_key(node_id: &str, config: &Value, input_str: &str) -> String {
-    // 1. Serialize Config (Stable sort not guaranteed by serde_json::to_string, 
-    // but sufficient for local studio iteration where config objects are rebuilt deterministically by UI)
+/// Computes a deterministic cache key for a node execution state (SHA-256).
+pub fn compute_cache_key(node_id: &str, config: &Value, input_str: &str) -> [u8; 32] {
     let config_str = serde_json::to_string(config).unwrap_or_default();
-    
-    // 2. Construct Preimage: ID | Config | Input
     let preimage = format!("{}|{}|{}", node_id, config_str, input_str);
     
-    // 3. Hash
     match sha256(preimage.as_bytes()) {
-        Ok(digest) => hex::encode(digest),
-        Err(_) => format!("error-hashing-{}", node_id), // Fallback, shouldn't happen
+        Ok(digest) => {
+            let mut arr = [0u8; 32];
+            arr.copy_from_slice(digest.as_ref());
+            arr
+        },
+        Err(_) => [0u8; 32], // Fallback
     }
 }
 
+/// Retrieves a cached execution result from the persistent SCS.
+fn fetch_cached_result(
+    scs: &Arc<Mutex<SovereignContextStore>>,
+    cache_key: [u8; 32]
+) -> Option<ExecutionResult> {
+    let store = scs.lock().ok()?;
+    
+    // We abuse the `session_index` to look up frames by "Input Hash".
+    // In Studio mode, Session ID == Input Hash.
+    if let Some(frame_ids) = store.session_index.get(&cache_key) {
+        if let Some(&last_id) = frame_ids.last() {
+            if let Ok(payload) = store.read_frame_payload(last_id) {
+                if let Ok(result) = serde_json::from_slice::<ExecutionResult>(payload) {
+                    return Some(result);
+                }
+            }
+        }
+    }
+    None
+}
+
+/// Persists an execution result to the SCS.
+fn persist_execution_result(
+    scs: &Arc<Mutex<SovereignContextStore>>,
+    cache_key: [u8; 32],
+    result: &ExecutionResult
+) {
+    if let Ok(mut store) = scs.lock() {
+        if let Ok(bytes) = serde_json::to_vec(result) {
+            // Write as a System frame, tagged with the Input Hash as session_id
+            let _ = store.append_frame(
+                FrameType::System, 
+                &bytes, 
+                0, 
+                [0u8; 32], 
+                cache_key // This enables the lookup in fetch_cached_result
+            );
+        }
+    }
+}
+
+/// [NEW] Queries the cache for a specific node configuration.
+pub fn query_cache(
+    scs: &Arc<Mutex<SovereignContextStore>>,
+    node_id: String,
+    config: Value,
+    input_str: String,
+) -> Option<ExecutionResult> {
+    let key_bytes = compute_cache_key(&node_id, &config, &input_str);
+    let key_hex = hex::encode(key_bytes);
+    
+    // 1. Check RAM Cache (Fast Path)
+    {
+        let cache = GLOBAL_EXECUTION_CACHE.lock().unwrap();
+        if let Some(res) = cache.get(&key_hex) {
+            return Some(res.clone());
+        }
+    }
+
+    // 2. Check Persistent SCS (Cold Path)
+    let res = fetch_cached_result(scs, key_bytes);
+    
+    // If found in disk, warm up RAM cache
+    if let Some(r) = &res {
+        let mut cache = GLOBAL_EXECUTION_CACHE.lock().unwrap();
+        cache.insert(key_hex, r.clone());
+    }
+    
+    res
+}
+
 /// [NEW] Manually injects a successful execution result into the global cache.
-/// This bridges the gap between "Simulate Node" (Unit Test) and "Run Graph" (Integration Test).
 pub fn inject_execution_result(
+    scs: &Arc<Mutex<SovereignContextStore>>, // [MODIFIED] Accepts SCS
     node_id: String,
     config: Value,
     input_str: String,
     result: ExecutionResult
 ) {
-    let key = compute_cache_key(&node_id, &config, &input_str);
-    let mut cache = GLOBAL_EXECUTION_CACHE.lock().unwrap();
-    cache.insert(key, result);
-    println!("[Orchestrator] Injected cache for node: {}", node_id);
+    let key_bytes = compute_cache_key(&node_id, &config, &input_str);
+    let key_hex = hex::encode(key_bytes);
+
+    // 1. Update RAM
+    {
+        let mut cache = GLOBAL_EXECUTION_CACHE.lock().unwrap();
+        cache.insert(key_hex, result.clone());
+    }
+
+    // 2. Persist to Disk
+    persist_execution_result(scs, key_bytes, &result);
+    println!("[Orchestrator] Persisted result for node: {}", node_id);
 }
 
 /// Runs a topological sort execution of the graph defined in the Studio.
 pub async fn run_local_graph<F>(
+    scs: Arc<Mutex<SovereignContextStore>>, // [MODIFIED] Accepts SCS
     payload: GraphPayload, 
     emit_event: F
 ) -> Result<(), String> 
@@ -116,7 +191,6 @@ where F: Fn(GraphEvent) + Send + 'static
 {
     let globals = payload.global_config.unwrap_or(json!({}));
     
-    // Parse Env safely
     let global_env = if let Some(env_val) = globals.get("env") {
         if let Some(s) = env_val.as_str() {
             serde_json::from_str(s).unwrap_or(json!({}))
@@ -135,7 +209,6 @@ where F: Fn(GraphEvent) + Send + 'static
     let start_time = Instant::now();
     let mut step_count = 0;
 
-    // --- Graph Construction ---
     let mut adj: HashMap<String, Vec<(String, String)>> = HashMap::new();
     let mut reverse_adj: HashMap<String, Vec<String>> = HashMap::new();
     let mut in_degree: HashMap<String, usize> = HashMap::new();
@@ -154,7 +227,6 @@ where F: Fn(GraphEvent) + Send + 'static
         *in_degree.entry(edge.target.clone()).or_default() += 1;
     }
 
-    // --- Execution ---
     let mut queue: Vec<String> = node_map.keys()
         .filter(|k| *in_degree.get(*k).unwrap_or(&0) == 0)
         .cloned()
@@ -177,7 +249,6 @@ where F: Fn(GraphEvent) + Send + 'static
         step_count += 1;
         let node = node_map.get(&node_id).ok_or("Node missing")?;
         
-        // Resolve Inputs
         let mut parent_outputs = Vec::new();
         if let Some(parents) = reverse_adj.get(&node_id) {
             for parent_id in parents {
@@ -192,26 +263,16 @@ where F: Fn(GraphEvent) + Send + 'static
         let default_config = json!({});
         let config = node.config.as_ref().unwrap_or(&default_config);
         
-        // --- CACHE CHECK ---
-        let cache_key = compute_cache_key(&node_id, config, &input_str);
-        
-        // Try to retrieve from cache
-        let cached_result = {
-            let cache = GLOBAL_EXECUTION_CACHE.lock().unwrap();
-            cache.get(&cache_key).cloned()
-        };
+        // --- CACHE CHECK (Persistent) ---
+        let result_opt = query_cache(&scs, node_id.clone(), config.clone(), input_str.clone());
 
-        if let Some(mut result) = cached_result {
-            // [HIT] Skip Execution
-            // Propagate context
+        if let Some(mut result) = result_opt {
+            // [HIT]
             let output_val: Value = if let Some(data) = &result.data { data.clone() } else { json!({"raw": result.output}) };
             context.insert(node_id.clone(), output_val);
             
-            // [MODIFIED] Ensure the cached result carries the current context input snapshot
-            // Even if we cached the output, we want the UI to reflect the *current* input merging logic for debugging.
             result.input_snapshot = Some(effective_input.clone());
 
-            // Determine handle for flow logic
             let active_handle = match result.status.as_str() {
                 "success" => "out",       
                 "blocked" => "blocked",   
@@ -219,16 +280,14 @@ where F: Fn(GraphEvent) + Send + 'static
                 _ => "out",
             };
             
-            // Emit "Cached" Event to UI
             emit_event(GraphEvent { 
                 node_id: node_id.clone(), 
                 status: "cached".into(), 
                 result: Some(result),
-                fitness_score: None, // Cached events don't re-score
+                fitness_score: None,
                 generation: None
             });
             
-            // Propagate Flow (Copy-Paste of logic below)
             if let Some(children) = adj.get(&node_id) {
                 for (edge_handle, child_id) in children {
                     let is_active_path = edge_handle == active_handle 
@@ -245,18 +304,14 @@ where F: Fn(GraphEvent) + Send + 'static
                     }
                 }
             }
-            
-            continue; // Move to next node
+            continue; 
         }
 
-        // [MISS] Proceed with Execution
+        // [MISS] Execution
         emit_event(GraphEvent { node_id: node_id.clone(), status: "running".into(), result: None, fitness_score: None, generation: None });
 
-        // Execute
         match execution::execute_ephemeral_node(&node.node_type, config, &input_str).await {
             Ok(mut res) => {
-                // [MODIFIED] Explicitly attach the resolved input snapshot to the result
-                // This guarantees the UI sees exactly what the orchestrator merged.
                 res.input_snapshot = Some(effective_input.clone());
 
                 let output_val: Value = if let Some(data) = &res.data { data.clone() } else { json!({"raw": res.output}) };
@@ -269,16 +324,11 @@ where F: Fn(GraphEvent) + Send + 'static
                     _ => "out",
                 };
 
-                // Store in Cache
-                {
-                    let mut cache = GLOBAL_EXECUTION_CACHE.lock().unwrap();
-                    cache.insert(cache_key, res.clone());
-                }
+                // [MODIFIED] Persist to SCS using the public injection method to ensure consistency
+                inject_execution_result(&scs, node_id.clone(), config.clone(), input_str.clone(), res.clone());
                 
-                // Extract evolutionary metrics from execution result
                 let mut fitness_score = None;
                 let mut generation = None;
-                
                 if let Some(metrics) = &res.metrics {
                     if let Some(score) = metrics.get("fitness_score").and_then(|v| v.as_f64()) {
                         fitness_score = Some(score as f32);
@@ -296,10 +346,8 @@ where F: Fn(GraphEvent) + Send + 'static
                     generation
                 });
 
-                // Propagate
                 if let Some(children) = adj.get(&node_id) {
                     for (edge_handle, child_id) in children {
-                        // Semantic Branching Logic
                         let is_active_path = edge_handle == active_handle 
                             || (active_handle == "out" && (edge_handle == "source" || edge_handle == "out")); 
 
@@ -320,7 +368,6 @@ where F: Fn(GraphEvent) + Send + 'static
                 emit_event(GraphEvent { 
                     node_id: node_id.clone(), 
                     status: "error".into(), 
-                    // [MODIFIED] Even on error, try to return the input snapshot if possible for debugging context
                     result: Some(ExecutionResult { 
                         status: "error".into(), 
                         output: format!("Error: {}", e), 

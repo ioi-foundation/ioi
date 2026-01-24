@@ -66,6 +66,26 @@ fn default_safe_policy() -> ActionRules {
     }
 }
 
+// [FIX] Helper to sanitize LLM output by removing Markdown code blocks
+// This solves the issue where models return ```json ... ``` causing parse errors
+fn sanitize_llm_json(input: &str) -> String {
+    let trimmed = input.trim();
+    // Check for markdown code blocks
+    if trimmed.starts_with("```") {
+        let lines: Vec<&str> = trimmed.lines().collect();
+        // Remove first line (```json or ```) and last line (```) if valid
+        if lines.len() >= 2 && lines.last().unwrap().trim().starts_with("```") {
+            return lines[1..lines.len()-1].join("\n");
+        }
+    }
+    // Also handle raw strings that might just have the json prefix without backticks (rare but possible)
+    if let Some(json_start) = trimmed.strip_prefix("json") {
+         return json_start.to_string();
+    }
+    
+    input.to_string()
+}
+
 pub async fn handle_step(
     service: &DesktopAgentService,
     state: &mut dyn StateAccess,
@@ -303,8 +323,11 @@ pub async fn handle_step(
     };
 
     println!("[DesktopAgent] Brain Output: {}", output_str);
+    
+    // [FIX] Sanitize output string to remove Markdown code blocks before parsing
+    let sanitized_output = sanitize_llm_json(&output_str);
 
-    if let Ok(tool_call) = serde_json::from_str::<Value>(&output_str) {
+    if let Ok(tool_call) = serde_json::from_str::<Value>(&sanitized_output) {
         if let Some(name) = tool_call.get("name").and_then(|n| n.as_str()) {
             let signature_obj = json!({
                 "name": name,
@@ -328,7 +351,9 @@ pub async fn handle_step(
                             .as_millis() as u64,
                         trace_hash: None,
                     };
-                    let new_root = service.append_chat_to_scs(p.session_id, &sys_msg, ctx.block_height)?;
+                    
+                    // [FIX] Await async call
+                    let new_root = service.append_chat_to_scs(p.session_id, &sys_msg, ctx.block_height).await?;
                     agent_state.transcript_root = new_root;
 
                     agent_state.consecutive_failures += 1;
@@ -372,9 +397,10 @@ pub async fn handle_step(
             .duration_since(UNIX_EPOCH)
             .unwrap()
             .as_millis() as u64,
-        trace_hash: None,
+            trace_hash: None,
     };
-    let new_root = service.append_chat_to_scs(p.session_id, &thought_msg, ctx.block_height)?;
+    // [FIX] Await async call
+    let new_root = service.append_chat_to_scs(p.session_id, &thought_msg, ctx.block_height).await?;
     agent_state.transcript_root = new_root;
 
     let mut action_success = false;
@@ -394,7 +420,8 @@ pub async fn handle_step(
         service.event_sender.clone(),
     );
 
-    if let Ok(tool_call) = serde_json::from_str::<Value>(&output_str) {
+    // [FIX] Use sanitized output for parsing tool call
+    if let Ok(tool_call) = serde_json::from_str::<Value>(&sanitized_output) {
         if let Some(name) = tool_call.get("name").and_then(|n| n.as_str()) {
             action_type = name.to_string();
 
@@ -430,7 +457,8 @@ pub async fn handle_step(
                                 .as_millis() as u64,
                             trace_hash: None,
                         };
-                        let tool_root = service.append_chat_to_scs(p.session_id, &tool_msg, ctx.block_height)?;
+                        // [FIX] Await async call
+                        let tool_root = service.append_chat_to_scs(p.session_id, &tool_msg, ctx.block_height).await?;
                         agent_state.transcript_root = tool_root;
                     }
 
@@ -522,7 +550,8 @@ pub async fn handle_step(
                                 .as_millis() as u64,
                             trace_hash: None,
                         };
-                        let sys_root = service.append_chat_to_scs(p.session_id, &sys_msg, ctx.block_height)?;
+                        // [FIX] Await async call
+                        let sys_root = service.append_chat_to_scs(p.session_id, &sys_msg, ctx.block_height).await?;
                         agent_state.transcript_root = sys_root;
 
                         if let Some(tx) = &service.event_sender {
@@ -549,7 +578,8 @@ pub async fn handle_step(
                                 .as_millis() as u64,
                             trace_hash: None,
                         };
-                        let sys_root = service.append_chat_to_scs(p.session_id, &sys_msg, ctx.block_height)?;
+                        // [FIX] Await async call
+                        let sys_root = service.append_chat_to_scs(p.session_id, &sys_msg, ctx.block_height).await?;
                         agent_state.transcript_root = sys_root;
 
                         agent_state.consecutive_failures += 1;
@@ -571,7 +601,8 @@ pub async fn handle_step(
                     .as_millis() as u64,
                 trace_hash: None,
             };
-            let thought_root = service.append_chat_to_scs(p.session_id, &thought_msg, ctx.block_height)?;
+            // [FIX] Await async call
+            let thought_root = service.append_chat_to_scs(p.session_id, &thought_msg, ctx.block_height).await?;
             agent_state.transcript_root = thought_root;
             
             action_success = true;
@@ -586,7 +617,8 @@ pub async fn handle_step(
                 .as_millis() as u64,
             trace_hash: None,
         };
-        let thought_root = service.append_chat_to_scs(p.session_id, &thought_msg, ctx.block_height)?;
+        // [FIX] Await async call
+        let thought_root = service.append_chat_to_scs(p.session_id, &thought_msg, ctx.block_height).await?;
         agent_state.transcript_root = thought_root;
 
         action_success = true;

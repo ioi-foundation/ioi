@@ -1,16 +1,17 @@
 // Path: crates/services/src/agentic/desktop/service/utils.rs
 
 use super::DesktopAgentService;
-use crate::agentic::desktop::keys::{TRACE_PREFIX, SKILL_INDEX_PREFIX}; // [FIX] Updated import
+use crate::agentic::desktop::keys::{TRACE_PREFIX, SKILL_INDEX_PREFIX};
 use crate::agentic::desktop::types::AgentState;
 use ioi_api::state::StateAccess;
 use ioi_api::vm::inference::InferenceRuntime;
-use ioi_types::app::agentic::{AgentSkill, LlmToolDefinition, StepTrace}; // [FIX] Added StepTrace
+use ioi_types::app::agentic::{AgentSkill, LlmToolDefinition, StepTrace, SemanticFact, InferenceOptions}; // Added SemanticFact, InferenceOptions
 use ioi_types::codec;
 use ioi_types::error::TransactionError;
 use std::sync::Arc;
 use ioi_scs::FrameType;
 use ioi_types::app::agentic::ChatMessage;
+use crate::agentic::normaliser::OutputNormaliser; // Import Normaliser
 
 impl DesktopAgentService {
     pub(crate) async fn recall_skills(
@@ -132,38 +133,125 @@ impl DesktopAgentService {
         }
     }
 
-    /// Appends a chat message to the SCS and returns the new Frame Hash (Transcript Root).
-    pub(crate) fn append_chat_to_scs(
+    /// Internal helper to extract semantic facts from text using the reasoning model.
+    async fn extract_facts(&self, text: &str) -> Vec<SemanticFact> {
+        // Skip extraction for short messages to save compute
+        if text.len() < 20 { return vec![]; }
+
+        let prompt = format!(
+            "SYSTEM: Extract important facts from the text below as a JSON list of tuples.\n\
+             Schema: [{{\"subject\": \"string\", \"predicate\": \"string\", \"object\": \"string\"}}]\n\
+             Text: \"{}\"\n\
+             Output JSON only:",
+            text.replace('"', "\\\"")
+        );
+
+        let options = InferenceOptions {
+            temperature: 0.0, // Strict determinism for fact extraction
+            ..Default::default()
+        };
+
+        // Use reasoning model for high-quality extraction
+        // Use a zero hash for model_id (default)
+        let model_hash = [0u8; 32];
+        
+        match self.reasoning_inference.execute_inference(model_hash, prompt.as_bytes(), options).await {
+            Ok(bytes) => {
+                 let s = String::from_utf8_lossy(&bytes);
+                 // Robust JSON extraction (find first [ and last ])
+                 let start = s.find('[').unwrap_or(0);
+                 let end = s.rfind(']').map(|i| i + 1).unwrap_or(s.len());
+                 if start < end {
+                     serde_json::from_str(&s[start..end]).unwrap_or_default()
+                 } else {
+                     vec![]
+                 }
+            }
+            Err(_) => vec![]
+        }
+    }
+
+    /// Appends a chat message to the SCS and indexes its semantic content.
+    /// Returns the new Frame Hash (Transcript Root).
+    pub(crate) async fn append_chat_to_scs(
         &self, 
         session_id: [u8; 32], 
         msg: &ChatMessage, 
         block_height: u64
     ) -> Result<[u8; 32], TransactionError> {
         let scs_mutex = self.scs.as_ref()
-            // [FIX] Map internal error to TransactionError::Invalid
             .ok_or(TransactionError::Invalid("Internal: SCS not available".into()))?;
         
-        let mut store = scs_mutex.lock()
-            .map_err(|_| TransactionError::Invalid("Internal: SCS lock poisoned".into()))?;
+        // 1. Persist Raw Frame (The "Book of Record")
+        let (frame_id, checksum) = {
+            let mut store = scs_mutex.lock()
+                .map_err(|_| TransactionError::Invalid("Internal: SCS lock poisoned".into()))?;
 
-        let payload = codec::to_bytes_canonical(msg)
-            .map_err(|e| TransactionError::Serialization(e))?;
+            let payload = codec::to_bytes_canonical(msg)
+                .map_err(|e| TransactionError::Serialization(e))?;
 
-        // Append to store
-        // Note: You must update store.append_frame signature to accept session_id
-        let frame_id = store.append_frame(
-            FrameType::Thought, 
-            &payload,
-            block_height,
-            [0u8; 32], 
-            session_id, // Link to session
-        ).map_err(|e| TransactionError::Invalid(format!("Internal: {}", e)))?;
+            let id = store.append_frame(
+                FrameType::Thought, 
+                &payload,
+                block_height,
+                [0u8; 32], 
+                session_id,
+            ).map_err(|e| TransactionError::Invalid(format!("Internal: {}", e)))?;
+            
+            let frame = store.toc.frames.get(id as usize)
+                .ok_or(TransactionError::Invalid("Internal: Frame not found".into()))?;
+            
+            (id, frame.checksum)
+        };
 
-        // Return checksum as new root
-        let frame = store.toc.frames.get(frame_id as usize)
-            .ok_or(TransactionError::Invalid("Internal: Frame not found after write".into()))?;
+        // 2. Semantic Indexing (The "Reasoning-to-Vector" Bridge)
+        // We do this *outside* the store lock to allow parallelism (inference is slow)
         
-        Ok(frame.checksum)
+        // A. Extract Facts
+        let facts = self.extract_facts(&msg.content).await;
+        
+        // B. Canonicalize & Embed
+        let mut vectors = Vec::new();
+        
+        // Always index the raw text too (hybrid approach)
+        if let Ok(vec) = self.reasoning_inference.embed_text(&msg.content).await {
+            vectors.push(vec);
+        }
+
+        for fact in facts {
+            // Canonicalize the fact tuple into a deterministic string
+            // e.g. {"object":"50_USD","predicate":"is_limit","subject":"budget"}
+            if let Ok(json_str) = serde_json::to_string(&fact) {
+                if let Ok(_canonical_bytes) = OutputNormaliser::normalise_and_hash(&json_str) {
+                    // Embed the CANONICAL string representation
+                    // This ensures "budget is 50" and "50 budget" (if extracted to same fact) collide in vector space
+                    // or at least cluster very tightly.
+                    if let Ok(vec) = self.reasoning_inference.embed_text(&json_str).await {
+                        vectors.push(vec);
+                    }
+                }
+            }
+        }
+
+        // C. Insert into Index
+        // Re-acquire lock to write to index
+        if !vectors.is_empty() {
+             // We need to lock the store to access the lazy-loaded index
+             let store = scs_mutex.lock().map_err(|_| TransactionError::Invalid("SCS lock".into()))?;
+             if let Ok(index_arc) = store.get_vector_index() {
+                 let mut index = index_arc.lock().map_err(|_| TransactionError::Invalid("Index lock".into()))?;
+                 if let Some(idx) = index.as_mut() {
+                     for vec in vectors {
+                         // Insert into mHNSW
+                         if let Err(e) = idx.insert(frame_id, vec) {
+                             log::warn!("Failed to index vector for frame {}: {}", frame_id, e);
+                         }
+                     }
+                 }
+             }
+        }
+
+        Ok(checksum)
     }
 
     /// Reconstructs the full chat history from the SCS.

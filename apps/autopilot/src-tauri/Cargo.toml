@@ -20,23 +20,18 @@ tauri = { version = "2", features = ["tray-icon"] }
 tauri-plugin-opener = "2"
 tauri-plugin-global-shortcut = "2"
 tauri-plugin-notification = "2"
-tauri-plugin-dialog = "2" # [FIX] Added missing dependency
+tauri-plugin-dialog = "2" 
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 uuid = { version = "1", features = ["v4"] }
 tokio = { version = "=1.42.0", features = ["full"] }
 
-# [FIX] Added missing dependencies
 anyhow = { workspace = true }
 async-trait = { workspace = true }
 
-# [NEW] Added for ephemeral node execution (HTTP/LLM calls)
 reqwest = { version = "0.11", features = ["json"] }
-# [NEW] Added for parsing tool endpoints and policy firewall checks
 url = "2.5"
-# [NEW] Added for Receipt timestamping in execution.rs
 chrono = { version = "0.4", features = ["serde"] }
-# [FIX] Added missing dependency
 once_cell = "1.19"
 
 # IOI Kernel Integration
@@ -44,17 +39,15 @@ ioi-ipc = { path = "../../../crates/ipc" }
 ioi-types = { path = "../../../crates/types" }
 ioi-crypto = { path = "../../../crates/crypto" }
 ioi-api = { path = "../../../crates/api" }
-# [NEW] Add dependency for SessionSummary persistence
 ioi-services = { path = "../../../crates/services" }
-# [FIX] Added missing dependency for drivers
 ioi-drivers = { path = "../../../crates/drivers" }
+ioi-scs = { path = "../../../crates/scs" } # [FIX] Added missing dependency
 
-# [NEW] Add parity-scale-codec for raw state decoding
+# [FIX] Added dcrypt for ByteSerializable trait used in orchestrator
+dcrypt = { workspace = true }
+
 parity-scale-codec = { workspace = true, features = ["derive", "std"] }
-
-# [NEW] Add tonic dependency for gRPC client to Kernel
 tonic = { version = "0.11", features = ["transport"] }
 
-# [FIX] Utilities for Session ID / Context Blob handling
 base64 = "0.21"
 hex = "0.4"

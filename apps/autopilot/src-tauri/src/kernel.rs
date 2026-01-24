@@ -78,7 +78,7 @@ async fn get_rpc_client(state: &State<'_, Mutex<AppState>>) -> Result<PublicApiC
             .connect()
             .await
             .map_err(|e| format!("Failed to connect to Kernel: {}", e))?;
-        // [FIX] remove mut as it's not needed for new client creation, only later usage might need it but here we just return
+        // [FIX] remove mut as it's not needed for new client creation
         let new_client = PublicApiClient::new(channel);
         
         {
@@ -109,16 +109,9 @@ async fn hydrate_session_history(
     let resp = client.query_raw_state(req).await.map_err(|e| e.to_string())?.into_inner();
 
     if resp.found && !resp.value.is_empty() {
-        // We decode to check existence, but we cannot access history from here anymore.
         let _agent_state = codec::from_bytes_canonical::<ioi_services::agentic::desktop::AgentState>(&resp.value)
             .map_err(|e| format!("Failed to decode state: {}", e))?;
 
-        // [FIX] History has been moved to the Sovereign Context Substrate (SCS) and is no longer
-        // stored in the consensus state to prevent state bloat.
-        // 
-        // In a full implementation, this would call a new RPC endpoint (e.g., `GetSessionTranscript`)
-        // to fetch the history frames from the SCS. For now, we return a system message indicating
-        // that history is archived, ensuring the UI doesn't crash.
         return Ok(vec![ChatMessage {
             role: "system".to_string(),
             text: "Session history is archived in SCS (Offline Hydration pending).".to_string(),
@@ -138,17 +131,23 @@ async fn hydrate_session_history(
 /// Spawns an async task to prevent UI freezing.
 #[tauri::command]
 pub async fn run_studio_graph(
+    state: State<'_, Mutex<AppState>>,
     app: tauri::AppHandle,
     payload: GraphPayload,
 ) -> Result<(), String> {
     println!("[Studio] Received Graph with {} nodes. Starting local execution...", payload.nodes.len());
     
-    // Clone app handle for the event closure to emit UI updates (visualizing flow)
+    // [MODIFIED] Retrieve SCS handle
+    let scs = {
+        let guard = state.lock().map_err(|_| "Failed to lock state")?;
+        guard.studio_scs.clone().ok_or("Studio SCS not initialized")?
+    };
+
     let app_handle = app.clone();
     
     tauri::async_runtime::spawn(async move {
-        // Execute the graph logic (orchestrator.rs)
-        let result = orchestrator::run_local_graph(payload, move |event| {
+        // [MODIFIED] Pass SCS handle
+        let result = orchestrator::run_local_graph(scs, payload, move |event| {
             // Emit "graph-event" to update nodes (running/success/blocked) and animate edges
             let _ = app_handle.emit("graph-event", event);
         }).await;
@@ -167,7 +166,7 @@ pub async fn run_studio_graph(
 /// Allows the UI to "Run Test" on a specific node configuration.
 #[tauri::command]
 pub async fn test_node_execution(
-    _state: State<'_, Mutex<AppState>>,
+    state: State<'_, Mutex<AppState>>,
     node_type: String,
     config: serde_json::Value,
     input: serde_json::Value,
@@ -175,6 +174,12 @@ pub async fn test_node_execution(
     node_id: Option<String>,
 ) -> Result<serde_json::Value, String> {
     println!("[Studio] Running Ephemeral Execution: {} with config inputs", node_type);
+
+    // [MODIFIED] Retrieve SCS handle
+    let scs = {
+        let guard = state.lock().map_err(|_| "Failed to lock state")?;
+        guard.studio_scs.clone().ok_or("Studio SCS not initialized")?
+    };
 
     // Normalize input to string for the execution engine
     // If input is a JSON object, stringify it so logic (like LLM prompts) can read it as context
@@ -191,7 +196,9 @@ pub async fn test_node_execution(
             // [NEW] Cache Write-Through if node_id provided and successful
             if result.status == "success" {
                 if let Some(nid) = node_id {
+                    // [MODIFIED] Pass SCS handle
                     orchestrator::inject_execution_result(
+                        &scs,
                         nid, 
                         config, 
                         input_str, 
@@ -213,6 +220,22 @@ pub async fn test_node_execution(
             }))
         }
     }
+}
+
+/// [STUDIO] Check if a node result is already cached (Pre-flight)
+#[tauri::command]
+pub async fn check_node_cache(
+    state: State<'_, Mutex<AppState>>,
+    node_id: String,
+    config: serde_json::Value,
+    input: String,
+) -> Result<Option<execution::ExecutionResult>, String> {
+    let scs = {
+        let guard = state.lock().map_err(|_| "Failed to lock state")?;
+        guard.studio_scs.clone().ok_or("Studio SCS not initialized")?
+    };
+
+    Ok(orchestrator::query_cache(&scs, node_id, config, input))
 }
 
 // [NEW] Tool Discovery Command
@@ -319,10 +342,6 @@ pub async fn delete_session(
     // We assume the local signer (orchestration key) is valid for this system call
     // Note: In a real system, this should be signed by the user's key if authorization is needed
     // Here we reuse the standard SystemTransaction flow for brevity, assuming Local Keypair
-    
-    // TODO: Ideally refactor the signing logic from start_task/gate_respond into a helper
-    // For now, we omit the signing boilerplate to keep this snippet focused on the architectural flow.
-    // In production, you would retrieve the keypair from AppState or load it, sign the tx, and submit.
     
     // MOCK: Print success for now to satisfy the UI loop
     println!("[Kernel] MOCK: Session {} deletion transaction submitted.", session_id);
@@ -546,7 +565,6 @@ pub async fn gate_respond(
             request_hash_arr.copy_from_slice(&request_hash_bytes);
 
             // 2. Generate Approval Token (Simulated Signing Key for MVP)
-            // In prod, this would use the user's hardware wallet or secure enclave key
             let approver_kp = Ed25519KeyPair::generate().map_err(|e| e.to_string())?;
             let approver_pub = approver_kp.public_key();
             
@@ -714,7 +732,7 @@ pub async fn get_context_blob(
     };
 
     Ok(ContextBlob {
-        data_base64, // [FIX] Updated to match model
+        data_base64, 
         mime_type,
     })
 }

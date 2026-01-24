@@ -49,12 +49,12 @@ pub async fn handle_start(
         trace_hash: None,
     };
 
-    // [NEW] Write to SCS
+    // [FIX] Await async call
     let root_hash = service.append_chat_to_scs(
         p.session_id, 
         &initial_message, 
         0 // block height usually not available in handle_start unless passed in
-    )?;
+    ).await?;
 
     let agent_state = AgentState {
         session_id: p.session_id,
@@ -157,8 +157,8 @@ pub async fn handle_resume(
                 trace_hash: None,
             };
             
-            // [NEW] Write to SCS
-            let new_root = service.append_chat_to_scs(p.session_id, &msg, 0)?;
+            // [FIX] Await async call
+            let new_root = service.append_chat_to_scs(p.session_id, &msg, 0).await?;
             agent_state.transcript_root = new_root;
 
         } else {
@@ -171,8 +171,8 @@ pub async fn handle_resume(
                     .as_millis() as u64,
                 trace_hash: None,
             };
-            // [NEW] Write to SCS
-            let new_root = service.append_chat_to_scs(p.session_id, &msg, 0)?;
+            // [FIX] Await async call
+            let new_root = service.append_chat_to_scs(p.session_id, &msg, 0).await?;
             agent_state.transcript_root = new_root;
         }
 
