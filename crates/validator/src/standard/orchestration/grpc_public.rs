@@ -51,9 +51,6 @@ impl InferenceRuntime for SafetyModelAsInference {
     ) -> Result<Vec<u8>, VmError> {
         let input_str = String::from_utf8_lossy(input_context);
         
-        // [FIX] Return JSON that matches the schema expected by IntentResolver for "start_agent"
-        // IntentResolver expects: {"operation_id": "...", "params": {...}}
-        // For start_agent, params needs "goal".
         let mock_json = format!(
             r#"{{
             "operation_id": "start_agent",
@@ -381,7 +378,6 @@ where
                     }
 
                     Ok(kernel_event) = event_rx.recv() => {
-                         // [MODIFIED] Added debug log
                          tracing::info!(target: "rpc", "PublicAPI processing KernelEvent: {:?}", kernel_event);
 
                          let mapped_event = match kernel_event {
@@ -391,7 +387,6 @@ where
                                          session_id: hex::encode(step.session_id),
                                          content: step.raw_output,
                                          is_final: step.success,
-                                         // [NEW] Map the visual hash
                                          visual_hash: hex::encode(step.visual_hash),
                                      }
                                  ))
@@ -400,12 +395,11 @@ where
                                  Some(ChainEventEnum::Block(
                                      ioi_ipc::public::BlockCommitted {
                                          height,
-                                         state_root: "".into(), // Simplified for UI
+                                         state_root: "".into(), 
                                          tx_count: tx_count as u64,
                                      }
                                  ))
                              },
-                             // [NEW] Handle Ghost Inputs
                              ioi_types::app::KernelEvent::GhostInput { device, description } => {
                                  Some(ChainEventEnum::Ghost(
                                      ioi_ipc::public::GhostInput {
@@ -414,18 +408,16 @@ where
                                      }
                                  ))
                              },
-                             // [NEW] Handle Firewall Interceptions
                              ioi_types::app::KernelEvent::FirewallInterception { verdict, target, request_hash, session_id } => {
                                  Some(ChainEventEnum::Action(
                                      ioi_ipc::public::ActionIntercepted {
-                                         session_id: session_id.map(hex::encode).unwrap_or_default(), // [FIX] Map session ID
+                                         session_id: session_id.map(hex::encode).unwrap_or_default(),
                                          target,
                                          verdict,
                                          reason: hex::encode(request_hash),
                                      }
                                  ))
                              },
-                             // [NEW] Map AgentActionResult for UI feedback
                              ioi_types::app::KernelEvent::AgentActionResult { session_id, step_index, tool_name, output } => {
                                  Some(ChainEventEnum::ActionResult(
                                      ioi_ipc::public::AgentActionResult {
@@ -433,6 +425,19 @@ where
                                          step_index,
                                          tool_name,
                                          output,
+                                     }
+                                 ))
+                             },
+                             // [NEW] Map AgentSpawn event
+                             ioi_types::app::KernelEvent::AgentSpawn { parent_session_id, new_session_id, name, role, budget, goal } => {
+                                 Some(ChainEventEnum::Spawn(
+                                     ioi_ipc::public::AgentSpawn {
+                                         parent_session_id: hex::encode(parent_session_id),
+                                         new_session_id: hex::encode(new_session_id),
+                                         name,
+                                         role,
+                                         budget,
+                                         goal,
                                      }
                                  ))
                              },
@@ -457,8 +462,6 @@ where
         let req = request.into_inner();
         let ctx_arc = self.get_context().await?;
 
-        // 1. Resolve Dependencies & Nonce
-        // [FIX] Added workload_client to returned tuple
         let (chain_id, inference_runtime, keypair, nonce_manager, workload_client, account_id_bytes) = {
             let ctx = ctx_arc.lock().await;
             let account_id = account_id_from_key_material(
@@ -472,15 +475,13 @@ where
                 ctx.inference_runtime.clone(), 
                 ctx.local_keypair.clone(),
                 ctx.nonce_manager.clone(),
-                ctx.view_resolver.workload_client().clone(), // [NEW] Get client for state check
+                ctx.view_resolver.workload_client().clone(), 
                 account_id,
             )
         };
 
-        // [FIX] Hybrid Nonce Synchronization Logic
         let account_id = AccountId(account_id_bytes);
         
-        // 1. Query confirmed state nonce
         let nonce_key = [
             ioi_types::keys::ACCOUNT_NONCE_PREFIX,
             account_id.as_ref(),
@@ -492,36 +493,28 @@ where
              _ => 0,
         };
         
-        // 2. Sync with Memory Manager
-        // This ensures subsequent drafts or concurrent Agent actions don't collide
         let nonce = {
             let mut guard = nonce_manager.lock().await;
             let entry = guard.entry(account_id).or_insert(0);
             
-            // Fast-forward memory if state is ahead (e.g. after restart)
             if *entry < state_nonce {
                 *entry = state_nonce;
             }
             
             let use_nonce = *entry;
-            // Optimistically increment to reserve this nonce against AgentDriver
             *entry += 1;
             
             use_nonce
         };
 
-        // [FIX] Use the real runtime directly
         let resolver = IntentResolver::new(inference_runtime);
         let address_book = std::collections::HashMap::new();
 
-        // 2. Resolve Intent -> Unsigned Transaction Bytes
-        // Pass the fetched (and reserved) nonce here
         let tx_bytes = resolver
             .resolve_intent(&req.intent, chain_id, nonce, &address_book)
             .await
             .map_err(|e| Status::internal(e.to_string()))?;
 
-        // 3. Sign the Transaction for Mode 0 (User Node)
         let mut tx: ChainTransaction = codec::from_bytes_canonical(&tx_bytes)
             .map_err(|e| Status::internal(format!("Failed to deserialize draft: {}", e)))?;
 
@@ -564,8 +557,6 @@ where
                 ))
             }
         };
-
-        // Note: We already incremented the nonce manager optimistically above.
 
         Ok(Response::new(DraftTransactionResponse {
             transaction_bytes: signed_tx_bytes,

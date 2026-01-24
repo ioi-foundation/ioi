@@ -1,10 +1,13 @@
-// src-tauri/src/orchestrator.rs
+// apps/autopilot/src-tauri/src/orchestrator.rs
 
 use crate::execution::{self, ExecutionResult};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::collections::HashMap;
 use std::time::{Instant, Duration};
+use std::sync::Mutex;
+use once_cell::sync::Lazy;
+use ioi_crypto::algorithms::hash::sha256;
 
 #[derive(Debug, Deserialize, Clone)]
 pub struct GraphNode {
@@ -34,9 +37,15 @@ pub struct GraphPayload {
 #[derive(Serialize, Clone)]
 pub struct GraphEvent {
     pub node_id: String,
-    pub status: String, // "running", "success", "failed", "blocked"
+    pub status: String, // "running", "success", "failed", "blocked", "cached"
     pub result: Option<ExecutionResult>,
 }
+
+// --- GLOBAL EXECUTION CACHE (Memoization Layer) ---
+// Maps hash(NodeID + Config + Input) -> ExecutionResult
+static GLOBAL_EXECUTION_CACHE: Lazy<Mutex<HashMap<String, ExecutionResult>>> = Lazy::new(|| {
+    Mutex::new(HashMap::new())
+});
 
 /// Helper: Merges Global Environment variables with Parent Outputs.
 fn merge_inputs(parent_outputs: Vec<Value>, global_env: &Value) -> Value {
@@ -60,6 +69,37 @@ fn merge_inputs(parent_outputs: Vec<Value>, global_env: &Value) -> Value {
     }
 
     Value::Object(merged_map)
+}
+
+/// Computes a deterministic cache key for a node execution state.
+/// [MODIFIED] Made public to allow manual injection from unit tests (kernel.rs).
+pub fn compute_cache_key(node_id: &str, config: &Value, input_str: &str) -> String {
+    // 1. Serialize Config (Stable sort not guaranteed by serde_json::to_string, 
+    // but sufficient for local studio iteration where config objects are rebuilt deterministically by UI)
+    let config_str = serde_json::to_string(config).unwrap_or_default();
+    
+    // 2. Construct Preimage: ID | Config | Input
+    let preimage = format!("{}|{}|{}", node_id, config_str, input_str);
+    
+    // 3. Hash
+    match sha256(preimage.as_bytes()) {
+        Ok(digest) => hex::encode(digest),
+        Err(_) => format!("error-hashing-{}", node_id), // Fallback, shouldn't happen
+    }
+}
+
+/// [NEW] Manually injects a successful execution result into the global cache.
+/// This bridges the gap between "Simulate Node" (Unit Test) and "Run Graph" (Integration Test).
+pub fn inject_execution_result(
+    node_id: String,
+    config: Value,
+    input_str: String,
+    result: ExecutionResult
+) {
+    let key = compute_cache_key(&node_id, &config, &input_str);
+    let mut cache = GLOBAL_EXECUTION_CACHE.lock().unwrap();
+    cache.insert(key, result);
+    println!("[Orchestrator] Injected cache for node: {}", node_id);
 }
 
 /// Runs a topological sort execution of the graph defined in the Studio.
@@ -132,8 +172,6 @@ where F: Fn(GraphEvent) + Send + 'static
         step_count += 1;
         let node = node_map.get(&node_id).ok_or("Node missing")?;
         
-        emit_event(GraphEvent { node_id: node_id.clone(), status: "running".into(), result: None });
-
         // Resolve Inputs
         let mut parent_outputs = Vec::new();
         if let Some(parents) = reverse_adj.get(&node_id) {
@@ -149,10 +187,62 @@ where F: Fn(GraphEvent) + Send + 'static
         let default_config = json!({});
         let config = node.config.as_ref().unwrap_or(&default_config);
         
+        // --- CACHE CHECK ---
+        let cache_key = compute_cache_key(&node_id, config, &input_str);
+        
+        // Try to retrieve from cache
+        let cached_result = {
+            let cache = GLOBAL_EXECUTION_CACHE.lock().unwrap();
+            cache.get(&cache_key).cloned()
+        };
+
+        if let Some(result) = cached_result {
+            // [HIT] Skip Execution
+            // Propagate context
+            // [FIX] Add explicit type annotation to fix E0282
+            let output_val: Value = if let Some(data) = &result.data { data.clone() } else { json!({"raw": result.output}) };
+            context.insert(node_id.clone(), output_val);
+            
+            // Determine handle for flow logic
+            let active_handle = match result.status.as_str() {
+                "success" => "out",       
+                "blocked" => "blocked",   
+                "failed" | "error" => "error", 
+                _ => "out",
+            };
+            
+            // Emit "Cached" Event to UI
+            emit_event(GraphEvent { node_id: node_id.clone(), status: "cached".into(), result: Some(result) });
+            
+            // Propagate Flow (Copy-Paste of logic below)
+            if let Some(children) = adj.get(&node_id) {
+                for (edge_handle, child_id) in children {
+                    let is_active_path = edge_handle == active_handle 
+                        || (active_handle == "out" && (edge_handle == "source" || edge_handle == "out")); 
+                    if is_active_path {
+                        if let Some(degree) = in_degree.get_mut(child_id) {
+                            if *degree > 0 {
+                                *degree -= 1;
+                                if *degree == 0 {
+                                    queue.push(child_id.clone());
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            
+            continue; // Move to next node
+        }
+
+        // [MISS] Proceed with Execution
+        emit_event(GraphEvent { node_id: node_id.clone(), status: "running".into(), result: None });
+
         // Execute
         match execution::execute_ephemeral_node(&node.node_type, config, &input_str).await {
             Ok(res) => {
-                let output_val = if let Some(data) = &res.data { data.clone() } else { json!({"raw": res.output}) };
+                // [FIX] Add explicit type annotation
+                let output_val: Value = if let Some(data) = &res.data { data.clone() } else { json!({"raw": res.output}) };
                 context.insert(node_id.clone(), output_val);
                 
                 let active_handle = match res.status.as_str() {
@@ -161,6 +251,12 @@ where F: Fn(GraphEvent) + Send + 'static
                     "failed" | "error" => "error", 
                     _ => "out",
                 };
+
+                // Store in Cache
+                {
+                    let mut cache = GLOBAL_EXECUTION_CACHE.lock().unwrap();
+                    cache.insert(cache_key, res.clone());
+                }
 
                 emit_event(GraphEvent { node_id: node_id.clone(), status: res.status.clone(), result: Some(res.clone()) });
 

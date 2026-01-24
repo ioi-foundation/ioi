@@ -99,7 +99,8 @@ const libraryGroups: LibraryGroup[] = [
 ];
 
 export function ExplorerPanel({ width }: ExplorerPanelProps) {
-  const [activeTab, setActiveTab] = useState<Tab>("ONTOLOGY");
+  // [MODIFIED] Changed default to LIBRARY
+  const [activeTab, setActiveTab] = useState<Tab>("LIBRARY");
   const [tree, setTree] = useState(ontologyTree);
   const [selectedId, setSelectedId] = useState<string>("ot-invoice");
   const [searchQuery, setSearchQuery] = useState("");
@@ -120,7 +121,8 @@ export function ExplorerPanel({ width }: ExplorerPanelProps) {
   };
 
   const handleDragStart = (e: React.DragEvent, item: LibraryItem) => {
-    e.dataTransfer.setData("application/json", JSON.stringify(item));
+    e.dataTransfer.setData("nodeId", item.id);
+    e.dataTransfer.setData("nodeName", item.name);
     e.dataTransfer.effectAllowed = "copy";
   };
 
@@ -129,16 +131,16 @@ export function ExplorerPanel({ width }: ExplorerPanelProps) {
       {/* Tabs */}
       <div className="explorer-tabs">
         <button
-          className={`explorer-tab ${activeTab === "ONTOLOGY" ? "active" : ""}`}
-          onClick={() => setActiveTab("ONTOLOGY")}
-        >
-          Ontology
-        </button>
-        <button
           className={`explorer-tab ${activeTab === "LIBRARY" ? "active" : ""}`}
           onClick={() => setActiveTab("LIBRARY")}
         >
           Library
+        </button>
+        <button
+          className={`explorer-tab ${activeTab === "ONTOLOGY" ? "active" : ""}`}
+          onClick={() => setActiveTab("ONTOLOGY")}
+        >
+          Ontology
         </button>
       </div>
 

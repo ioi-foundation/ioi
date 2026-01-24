@@ -1,4 +1,78 @@
-/* Global styles - ensures transparency works */
+/* Global styles - Design System & Reset */
+
+:root {
+  /* --- Primitive Colors --- */
+  --bg-dark: #0a0a0b;
+  --bg-panel: #111418;
+  --bg-element: #1F2329;
+  --bg-hover: rgba(255, 255, 255, 0.05);
+
+  --accent-blue: #3D85C6;
+  --accent-blue-dim: rgba(61, 133, 198, 0.2);
+  --accent-blue-glow: rgba(61, 133, 198, 0.5);
+
+  --status-success: #34D399;
+  --status-warning: #F59E0B;
+  --status-error: #EF4444;
+
+  /* --- Semantic Surfaces --- */
+  --surface-0: #0a0a0b;       /* App Background */
+  --surface-1: #111418;       /* Panels / Sidebar */
+  --surface-2: #181B21;       /* Secondary Panels / Headers */
+  --surface-3: #252A33;       /* Cards / Inputs */
+  --surface-4: #2E333D;       /* Hover States */
+
+  /* --- Borders --- */
+  --border-subtle: #2E333D;
+  --border-default: #3F4652;
+  --border-strong: #5F6B7C;
+  --glass-border: 1px solid rgba(255, 255, 255, 0.08);
+
+  /* --- Typography --- */
+  --text-primary: #E5E7EB;    /* almost white */
+  --text-secondary: #9CA3AF;  /* gray */
+  --text-tertiary: #6B7280;   /* dark gray */
+
+  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --font-mono: "JetBrains Mono", "SF Mono", "Menlo", monospace;
+  --font-display: "SF Pro Display", var(--font-sans);
+
+  --text-xs: 11px;
+  --text-sm: 12px;
+  --text-md: 13px;
+  --text-lg: 14px;
+  --text-xl: 16px;
+
+  /* --- Spacing --- */
+  --spacing-xs: 4px;
+  --spacing-sm: 8px;
+  --spacing-md: 12px;
+  --spacing-lg: 16px;
+  --spacing-xl: 24px;
+
+  /* --- Branding --- */
+  --ioi-blue: var(--accent-blue);
+  --ioi-blue-glow: var(--accent-blue-glow);
+  --color-success: var(--status-success);
+  --color-warning: var(--status-warning);
+  --color-error: var(--status-error);
+
+  /* --- Z-Indices --- */
+  --z-drawer: 50;
+  --z-panel: 40;
+  --z-topbar: 60;
+  --z-modal: 1000;
+  --z-tooltip: 2000;
+
+  /* --- Animation --- */
+  --transition-fast: 0.15s ease;
+  --transition-normal: 0.25s ease;
+
+  /* --- Shadows --- */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.4);
+  --shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.5);
+}
 
 *, *::before, *::after {
   box-sizing: border-box;
@@ -9,12 +83,14 @@ html, body, #root {
   padding: 0;
   width: 100%;
   height: 100%;
-  background: transparent !important;
+  background: transparent !important; /* Allow Tauri transparency */
   overflow: hidden;
 }
 
 body {
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  font-family: var(--font-sans);
+  background-color: var(--surface-0);
+  color: var(--text-primary);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   user-select: none;
@@ -24,11 +100,13 @@ body {
 input, textarea {
   user-select: text;
   -webkit-user-select: text;
+  font-family: inherit;
+  color: inherit;
 }
 
 /* Focus styles */
 :focus-visible {
-  outline: 2px solid #4a9eff;
+  outline: 2px solid var(--ioi-blue);
   outline-offset: 2px;
 }
 
@@ -38,8 +116,8 @@ button:focus-visible {
 
 /* Scrollbar */
 ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 10px;
+  height: 10px;
 }
 
 ::-webkit-scrollbar-track {
@@ -47,12 +125,17 @@ button:focus-visible {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.15);
-  border-radius: 3px;
+  background: var(--surface-4);
+  border: 2px solid var(--surface-1); /* Creates padding effect */
+  border-radius: 5px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.25);
+  background: var(--border-strong);
+}
+
+::-webkit-scrollbar-corner {
+  background: transparent;
 }
 
 /* Draggable regions */

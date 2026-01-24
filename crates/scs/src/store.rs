@@ -42,6 +42,10 @@ pub struct SovereignContextStore {
     vec_index: Arc<Mutex<Option<VectorIndex>>>,
     /// In-memory index for fast lookup of frames by their visual hash (checksum).
     pub visual_index: HashMap<[u8; 32], FrameId>,
+    
+    /// In-memory index mapping Session ID -> List of Frame IDs.
+    /// Rebuilt on open from the TOC, enabling O(1) history hydration.
+    pub session_index: HashMap<[u8; 32], Vec<FrameId>>,
 }
 
 impl SovereignContextStore {
@@ -89,6 +93,7 @@ impl SovereignContextStore {
             mmap: None,
             vec_index: Arc::new(Mutex::new(None)),
             visual_index: HashMap::new(),
+            session_index: HashMap::new(),
         })
     }
 
@@ -114,11 +119,19 @@ impl SovereignContextStore {
         // Mmap the file for reading
         let mmap = unsafe { Mmap::map(&file)? };
 
-        // Rebuild visual index
+        // Rebuild visual index & session index
         let mut visual_index = HashMap::new();
+        let mut session_index = HashMap::new();
+
         for frame in &toc.frames {
             // Map checksum -> FrameId. This assumes payload checksum IS the visual hash for Observation frames.
             visual_index.insert(frame.checksum, frame.id);
+            
+            // Map Session ID -> Frame ID list
+            session_index
+                .entry(frame.session_id)
+                .or_insert_with(Vec::new)
+                .push(frame.id);
         }
 
         Ok(Self {
@@ -129,6 +142,7 @@ impl SovereignContextStore {
             mmap: Some(mmap),
             vec_index: Arc::new(Mutex::new(None)),
             visual_index,
+            session_index,
         })
     }
 
@@ -142,6 +156,8 @@ impl SovereignContextStore {
         // mhnsw_root is optional; if provided, it binds this frame to a specific index state.
         // Typically, this is the root of the index *after* adding any vectors from this frame.
         mhnsw_root: [u8; 32],
+        // [NEW] Session ID binding for efficient history hydration
+        session_id: [u8; 32],
     ) -> Result<FrameId> {
         // 1. Calculate Frame Metadata
         let next_id = self.toc.frames.len() as u64;
@@ -168,6 +184,7 @@ impl SovereignContextStore {
             frame_type,
             timestamp,
             block_height,
+            session_id, // [NEW]
             payload_offset: write_offset,
             payload_length,
             mhnsw_root,
@@ -176,8 +193,12 @@ impl SovereignContextStore {
         };
         self.toc.frames.push(frame);
 
-        // Update In-Memory Visual Index
+        // Update In-Memory Indices
         self.visual_index.insert(checksum_arr, next_id);
+        self.session_index
+            .entry(session_id)
+            .or_insert_with(Vec::new)
+            .push(next_id);
 
         // 5. Serialize and Append New TOC
         let toc_bytes = bincode::serialize(&self.toc)?;

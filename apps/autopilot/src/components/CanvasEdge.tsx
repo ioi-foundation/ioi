@@ -1,54 +1,61 @@
+// src/components/CanvasEdge.tsx
+import { BaseEdge, EdgeProps, getBezierPath } from '@xyflow/react';
 import "./CanvasEdge.css";
 
-interface Edge {
-  id: string;
-  from: string;
-  to: string;
-  type: "data" | "control";
-  active?: boolean;
-  volume?: number; // 1-10 scale representing data throughput
-}
+export function CanvasEdge({
+  id,
+  sourceX,
+  sourceY,
+  targetX,
+  targetY,
+  sourcePosition,
+  targetPosition,
+  style = {},
+  markerEnd,
+  data,
+}: EdgeProps) {
+  const [edgePath] = getBezierPath({
+    sourceX,
+    sourceY,
+    sourcePosition,
+    targetX,
+    targetY,
+    targetPosition,
+  });
 
-interface CanvasEdgeProps {
-  edge: Edge;
-  fromX: number;
-  fromY: number;
-  toX: number;
-  toY: number;
-}
+  const isActive = data?.active === true;
+  const status = (data?.status as string) || 'idle';
 
-export function CanvasEdge({ edge, fromX, fromY, toX, toY }: CanvasEdgeProps) {
-  // Bezier curve
-  const dx = Math.abs(toX - fromX);
-  const controlOffset = Math.max(dx * 0.5, 60);
-  
-  const path = `
-    M ${fromX} ${fromY}
-    C ${fromX + controlOffset} ${fromY},
-      ${toX - controlOffset} ${toY},
-      ${toX} ${toY}
-  `;
+  // Build semantic class names
+  let className = "canvas-edge";
+  if (isActive) {
+    className += " active";
+    if (status === 'blocked') className += " blocked";
+    else if (status === 'error' || status === 'failed') className += " error";
+    // Default 'active' is blue (success)
+  }
 
-  // Scale stroke width based on volume (logarithmic visualization)
-  const volume = edge.volume || 1;
-  const strokeWidth = Math.min(2 + Math.log(volume) * 2, 8);
+  // Dynamic stroke width simulation based on volume
+  const volume = (data?.volume as number) || 1;
+  // Base width 2, max 6 based on volume log
+  const strokeWidth = isActive ? 3 : Math.min(2 + Math.log(volume), 5);
 
   return (
-    <g>
-      {/* Invisible hitbox */}
-      <path
-        d={path}
-        fill="none"
-        stroke="transparent"
-        strokeWidth="16"
+    <>
+      {/* Invisible wide path for easier clicking */}
+      <BaseEdge 
+        path={edgePath} 
+        style={{ strokeWidth: 20, stroke: 'transparent', cursor: 'pointer' }} 
       />
-      {/* Visible Pipe */}
-      <path
-        className={`canvas-edge ${edge.active ? "active" : ""}`}
-        d={path}
-        style={{ "--edge-width": `${strokeWidth}px` } as React.CSSProperties}
+      
+      {/* Visible semantic path */}
+      <BaseEdge
+        id={id}
+        path={edgePath}
+        markerEnd={markerEnd}
+        style={{ ...style, strokeWidth }}
+        className={className}
       />
-      <circle cx={toX} cy={toY} r={3} fill={edge.active ? "#3D85C6" : "#2E333D"} />
-    </g>
+    </>
   );
 }

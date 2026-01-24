@@ -85,6 +85,11 @@ pub struct Frame {
     pub timestamp: u64,
     /// The block height of the blockchain at the time of capture.
     pub block_height: u64,
+    
+    /// The unique session ID this frame belongs to (0 if global).
+    /// Used for efficient history hydration without scanning payloads.
+    pub session_id: [u8; 32],
+
     /// The file offset where the raw payload (e.g., image bytes, JSON) begins.
     pub payload_offset: u64,
     /// The length of the payload in bytes.

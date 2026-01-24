@@ -10,7 +10,7 @@ use ioi_types::app::{ActionRequest, ContextSlice};
 use std::sync::{Arc, Mutex};
 
 // [FIX] Import AccessKit for cross-platform accessibility support
-use accesskit::{Node, NodeId, Role, TreeUpdate};
+// [FIX] Remove unused imports to fix warnings
 #[cfg(target_os = "macos")]
 use accesskit_macos::Adapter;
 #[cfg(target_os = "windows")]
@@ -169,12 +169,17 @@ impl SovereignSubstrateProvider for NativeSubstrateProvider {
         // This gives us a permanent record of what the agent saw.
         let mut store = self.scs.lock().map_err(|_| anyhow!("SCS lock poisoned"))?;
 
+        // Determine session ID context from the intent, or default to global (all zeros)
+        // if this is a background observation not tied to a specific agent session.
+        let session_id = intent.context.session_id.unwrap_or([0u8; 32]);
+
         // Placeholder: Assuming block height 0 for local captures if not synced from a service call
         let frame_id = store.append_frame(
             FrameType::Observation,
             &xml_data,
             0,
             [0u8; 32], // mHNSW root placeholder - would come from index update
+            session_id, // [FIX] Added session_id argument
         )?;
 
         // 4. Generate Provenance (Binding to the Store)

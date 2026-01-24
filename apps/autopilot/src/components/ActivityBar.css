@@ -1,3 +1,4 @@
+/* src/components/ActivityBar.css */
 /* ============================================
    ActivityBar — Primary Navigation Rail
    Foundry / Industrial Theme
@@ -133,6 +134,7 @@
 
 /* User Avatar */
 .user-section {
+  position: relative; /* Anchor for popover */
   margin-top: 8px;
   padding-top: 8px;
   border-top: 1px solid #2E333D;
@@ -153,4 +155,69 @@
   font-weight: 700;
   color: #111418;
   cursor: pointer;
+}
+
+/* User Menu Popover */
+.user-menu-popover {
+  position: absolute;
+  bottom: 0;
+  left: 60px; /* Offset to right of bar */
+  width: 180px;
+  background: #1F2329;
+  border: 1px solid #3F4652;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+  display: flex;
+  flex-direction: column;
+  padding: 4px;
+  z-index: 2000;
+  animation: slideRight 0.1s ease;
+}
+
+@keyframes slideRight {
+  from { opacity: 0; transform: translateX(-10px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+.menu-header {
+  padding: 8px 12px;
+}
+
+.user-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: #E5E7EB;
+}
+
+.user-role {
+  font-size: 11px;
+  color: #9CA3AF;
+}
+
+.menu-divider {
+  height: 1px;
+  background: #2E333D;
+  margin: 4px 0;
+}
+
+.menu-option {
+  text-align: left;
+  background: transparent;
+  border: none;
+  padding: 8px 12px;
+  color: #D1D5DB;
+  font-size: 12px;
+  cursor: pointer;
+  border-radius: 4px;
+  transition: background 0.1s;
+}
+
+.menu-option:hover {
+  background: #252A33;
+  color: #FFFFFF;
+}
+
+.menu-option.danger:hover {
+  background: rgba(239, 68, 68, 0.1);
+  color: #EF4444;
 }

@@ -172,6 +172,19 @@ async fn main() -> Result<()> {
                 conditions: Default::default(),
                 action: Verdict::Allow, 
              },
+             // [FIX] Allow agent meta-tools (pause/await)
+             Rule {
+                rule_id: Some("allow-pause".into()),
+                target: "agent__pause".into(), 
+                conditions: Default::default(),
+                action: Verdict::Allow, 
+             },
+             Rule {
+                rule_id: Some("allow-await".into()),
+                target: "agent__await_result".into(), 
+                conditions: Default::default(),
+                action: Verdict::Allow, 
+             },
              // Everything else (File Write, Network, Exec) hits the Default => RequireApproval
         ],
     };
@@ -619,6 +632,10 @@ async fn main() -> Result<()> {
     }
 
     println!("\nShutting down...");
+    
+    // [FIX] Explicitly abort the workload server to prevent hang
+    workload_server_handle.abort();
+
     Container::stop(&*orchestrator).await?;
     println!("Bye!");
 

@@ -1,4 +1,4 @@
-// Path: crates/services/src/agentic/desktop/utils.rs
+// Path: crates/services/src/agentic/desktop/service/utils.rs
 
 use crate::agentic::desktop::keys::TRACE_PREFIX;
 use ioi_api::state::StateAccess;
@@ -7,7 +7,6 @@ use ioi_types::app::KernelEvent;
 use ioi_types::codec;
 use ioi_types::error::TransactionError;
 
-// [FIX] Removed unused import ByteSerializable
 use image::load_from_memory;
 use image_hasher::{HashAlg, HasherConfig};
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -25,7 +24,6 @@ pub fn compute_phash(image_bytes: &[u8]) -> Result<[u8; 32], TransactionError> {
 
     let mut out = [0u8; 32];
     let len = hash_bytes.len().min(32);
-    // Use standard slice copy since ByteSerializable is removed
     out[..len].copy_from_slice(&hash_bytes[..len]);
     Ok(out)
 }
@@ -68,17 +66,12 @@ pub fn goto_trace_log(
         }
     }
 
-    if let Some(e) = action_error {
+    if let Some(_e) = action_error {
         agent_state.consecutive_failures += 1;
-        
-        // [FIX] Push structured ChatMessage
-        agent_state.history.push(ioi_types::app::agentic::ChatMessage {
-            role: "system".to_string(),
-            content: format!("System: Action Failed: {}", e),
-            timestamp: SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_millis() as u64,
-            trace_hash: None,
-        });
-        
+        // [REFACTORED] Removed direct history append.
+        // System error messages are now written to SCS by the caller (handle_step) 
+        // to ensure the transcript root is updated correctly before this function is called,
+        // or the UI relies on the StepTrace error field.
     } else {
         agent_state.consecutive_failures = 0;
     }
@@ -89,7 +82,7 @@ pub fn goto_trace_log(
     if agent_state.step_count >= agent_state.max_steps && agent_state.status == AgentStatus::Running {
         agent_state.status = AgentStatus::Completed(None);
         
-        // [FIX] Emit completion event so UI knows to stop when max steps reached
+        // Emit completion event so UI knows to stop when max steps reached
         if let Some(tx) = &event_sender {
              let _ = tx.send(KernelEvent::AgentActionResult {
                  session_id,

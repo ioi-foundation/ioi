@@ -1,4 +1,4 @@
-// Path: apps/autopilot/src-tauri/src/lib.rs
+// apps/autopilot/src-tauri/src/lib.rs
 use std::sync::Mutex;
 use tauri::{
     menu::{Menu, MenuItem},
@@ -13,7 +13,7 @@ mod kernel;
 mod execution;
 mod orchestrator; 
 
-use models::{AppState, GateInfo, AgentPhase, AgentTask, GhostInputEvent, Receipt, ChatMessage};
+use models::{AppState, GateInfo, AgentPhase, AgentTask, GhostInputEvent, Receipt, ChatMessage, SwarmAgent};
 use windows::{show_gate};
 // orchestrator::GraphPayload import removed as it's not needed here directly anymore
 
@@ -81,7 +81,18 @@ async fn monitor_kernel_events(app: tauri::AppHandle) {
             match event_enum {
                 ChainEventEnum::Thought(thought) => {
                     update_task_state_local(&app, |t| {
-                        t.current_step = thought.content.clone();
+                        // Update specific agent's thought in the swarm tree if found
+                        // We assume session_id maps to agent ID for simplicity in this flat structure,
+                        // or we look up the agent associated with the session.
+                        // For the MVP, session_id == agent_id for child agents.
+                        if let Some(agent) = t.swarm_tree.iter_mut().find(|a| a.id == thought.session_id) {
+                            agent.current_thought = Some(thought.content.clone());
+                            agent.status = "running".to_string();
+                        } else {
+                            // If root or unknown, update global pill
+                            t.current_step = thought.content.clone();
+                        }
+                        
                         t.phase = AgentPhase::Running;
                         t.progress += 1;
                         if !thought.visual_hash.is_empty() {
@@ -107,9 +118,20 @@ async fn monitor_kernel_events(app: tauri::AppHandle) {
                             t.session_id = Some(res.session_id.clone());
                         }
                         
+                        // Update swarm agent status/artifacts
+                        if let Some(agent) = t.swarm_tree.iter_mut().find(|a| a.id == res.session_id) {
+                            agent.artifacts_produced += 1;
+                        }
+
                         // Check for completion signals
                         if res.tool_name == "agent__complete" || res.tool_name == "system::max_steps_reached" || res.tool_name == "system::auto_complete" {
                              t.phase = AgentPhase::Complete;
+                             
+                             // Mark specific agent as complete
+                             if let Some(agent) = t.swarm_tree.iter_mut().find(|a| a.id == res.session_id) {
+                                 agent.status = "completed".to_string();
+                             }
+
                              t.receipt = Some(Receipt {
                                  duration: "Done".to_string(), 
                                  actions: t.progress,
@@ -209,15 +231,31 @@ async fn monitor_kernel_events(app: tauri::AppHandle) {
                                     text: format!("🛑 Policy Gate triggered for action: {}", action.target),
                                     timestamp: now(),
                                 });
+
+                                // Update agent status if identifiable
+                                if let Some(agent) = t.swarm_tree.iter_mut().find(|a| a.id == action.session_id) {
+                                    agent.status = "paused".to_string();
+                                }
                             });
                             
-                            show_gate(app.clone());
+                            // [REMOVED] show_gate(app.clone());
+                            // Instead, ensure the main window or spotlight grabs focus if in background
+                            if let Some(w) = app.get_webview_window("spotlight") {
+                                if w.is_visible().unwrap_or(false) {
+                                    let _ = w.set_focus();
+                                }
+                            }
                         }
                     } 
                     else if action.verdict == "BLOCK" {
                         update_task_state_local(&app, |t| {
                              t.current_step = format!("⛔ Action Blocked: {}", action.target);
                              t.phase = AgentPhase::Failed;
+                             
+                             if let Some(agent) = t.swarm_tree.iter_mut().find(|a| a.id == action.session_id) {
+                                 agent.status = "failed".to_string();
+                             }
+
                              // Log Block
                              t.history.push(ChatMessage {
                                  role: "system".to_string(),
@@ -227,14 +265,36 @@ async fn monitor_kernel_events(app: tauri::AppHandle) {
                         });
                     }
                 }
+                // [NEW] Handle AgentSpawn: Updates the swarm tree structure
+                ChainEventEnum::Spawn(spawn) => {
+                    update_task_state_local(&app, |t| {
+                        let agent = SwarmAgent {
+                            id: spawn.new_session_id.clone(),
+                            parent_id: if spawn.parent_session_id.is_empty() { None } else { Some(spawn.parent_session_id.clone()) },
+                            name: spawn.name.clone(),
+                            role: spawn.role.clone(),
+                            status: "running".to_string(), // Spawning implies immediate execution
+                            budget_used: 0.0,
+                            budget_cap: spawn.budget as f64,
+                            current_thought: Some(format!("Initialized goal: {}", spawn.goal)),
+                            artifacts_produced: 0,
+                            estimated_cost: 0.0,
+                            policy_hash: "".to_string(), // Populated if available
+                        };
+                        
+                        // Upsert logic: Update if exists (e.g. from requisition -> running), else insert
+                        if let Some(pos) = t.swarm_tree.iter().position(|a| a.id == agent.id) {
+                            t.swarm_tree[pos] = agent;
+                        } else {
+                            t.swarm_tree.push(agent);
+                        }
+                    });
+                }
                 _ => {}
             }
         }
     }
 }
-
-// [FIX] REMOVED duplicate async fn run_studio_graph here. 
-// It is already defined in `kernel.rs` and will be referenced via the `kernel::` module in the handler list.
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -245,6 +305,12 @@ pub fn run() {
         .manage(Mutex::new(AppState::default()))
         .setup(|app| {
             println!("[Autopilot] Initializing...");
+            
+            // [NEW] Initialize Local MCP Runtime for Studio
+            let handle = app.handle().clone();
+            tauri::async_runtime::spawn(async move {
+                execution::init_mcp_servers(handle).await;
+            });
             
             let show_spotlight_item = MenuItem::with_id(
                 app,

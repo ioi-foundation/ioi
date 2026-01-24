@@ -17,6 +17,21 @@ export interface Receipt {
   cost?: string;
 }
 
+// [NEW] Hierarchical agent structure for SwarmViz
+export interface SwarmAgent {
+    id: string;
+    parentId: string | null;
+    name: string;
+    role: string;
+    status: string; // "running", "completed", "failed", "requisition"
+    budget_used: number;
+    budget_cap: number;
+    current_thought?: string;
+    artifacts_produced: number;
+    estimated_cost: number;
+    policy_hash: string;
+}
+
 export interface AgentTask {
   id: string;
   intent: string;
@@ -28,6 +43,9 @@ export interface AgentTask {
   gate_info?: GateInfo;
   receipt?: Receipt;
   visual_hash?: string; // Added to match Rust backend
+  
+  // [NEW] Hierarchical Swarm State
+  swarm_tree: SwarmAgent[];
 }
 
 // Ghost Mode Trace Step

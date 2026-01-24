@@ -89,6 +89,7 @@ function StudioLayout() {
 
   const {
     nodeArtifacts, executionLogs, executionSteps,
+    traceData, // <--- Get the transformed trace data from the hook
     runGraph, handleNodeRunComplete, getUpstreamContext
   } = useGraphExecution(nodes, edges, setNodes, setEdges);
 
@@ -112,7 +113,7 @@ function StudioLayout() {
 
   // Wrapper for run
   const onRunGraph = async () => {
-    setActiveDrawerTab("console");
+    setActiveDrawerTab("timeline"); // Switch to timeline to show trace
     setDrawerCollapsed(false);
     await runGraph(graphConfig);
   };
@@ -194,7 +195,8 @@ function StudioLayout() {
                     activeTab={activeDrawerTab}
                     onTabChange={setActiveDrawerTab}
                     logs={executionLogs}
-                    steps={executionSteps}
+                    traceData={traceData} // <--- Pass real trace data
+                    steps={executionSteps} // Kept for legacy if needed, but unused in new component
                     selectedNodeId={selectedNodeId}
                     selectedArtifact={selectedNodeId ? nodeArtifacts[selectedNodeId] : null}
                   />

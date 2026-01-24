@@ -31,6 +31,8 @@ reqwest = { version = "0.11", features = ["json"] }
 url = "2.5"
 # [NEW] Added for Receipt timestamping in execution.rs
 chrono = { version = "0.4", features = ["serde"] }
+# [FIX] Added missing dependency
+once_cell = "1.19"
 
 # IOI Kernel Integration
 ioi-ipc = { path = "../../../crates/ipc" }
@@ -39,6 +41,8 @@ ioi-crypto = { path = "../../../crates/crypto" }
 ioi-api = { path = "../../../crates/api" }
 # [NEW] Add dependency for SessionSummary persistence
 ioi-services = { path = "../../../crates/services" }
+# [FIX] Added missing dependency for drivers
+ioi-drivers = { path = "../../../crates/drivers" }
 
 # [NEW] Add parity-scale-codec for raw state decoding
 parity-scale-codec = { workspace = true, features = ["derive", "std"] }

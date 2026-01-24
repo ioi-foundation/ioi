@@ -1,9 +1,17 @@
 // src-tauri/src/execution.rs
 
 use serde::{Deserialize, Serialize};
-use serde_json::Value;
+use serde_json::{json, Value};
 use std::error::Error;
 use url::Url;
+use once_cell::sync::Lazy;
+use std::sync::Arc;
+use std::collections::HashMap;
+
+// [NEW] Native Drivers & MCP
+use ioi_drivers::browser::BrowserDriver;
+use ioi_drivers::mcp::{McpManager, McpServerConfig};
+use tauri::Manager; // Required for path resolution in init
 
 // [FIX] Added Clone derive so GraphEvent can be cloned for Tauri events in orchestrator.rs
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -12,6 +20,49 @@ pub struct ExecutionResult {
     pub output: String,
     pub data: Option<Value>,
     pub metrics: Option<Value>,
+}
+
+// [NEW] Persistent Browser Driver for the Simulator
+// The driver internally manages the browser process via Arc<Mutex<...>>, so we can hold it statically.
+static BROWSER_DRIVER: Lazy<BrowserDriver> = Lazy::new(|| BrowserDriver::new());
+
+// [NEW] Persistent MCP Manager for the Simulator
+// This manages the lifecycle of child processes (like the filesystem server) for the Studio.
+static MCP_MANAGER: Lazy<Arc<McpManager>> = Lazy::new(|| {
+    Arc::new(McpManager::new())
+});
+
+/// Initializes default MCP servers for the local Studio environment.
+/// This allows "Run Unit Test" to access the local filesystem via the standard protocol.
+pub async fn init_mcp_servers(app_handle: tauri::AppHandle) {
+    // Resolve data directory (same as ioi-local)
+    let data_dir = app_handle.path().app_data_dir().unwrap_or_else(|_| std::path::PathBuf::from("./ioi-data"));
+    
+    // Ensure absolute path
+    let abs_data_dir = std::fs::canonicalize(&data_dir).unwrap_or_else(|_| {
+        std::fs::create_dir_all(&data_dir).ok();
+        data_dir.clone()
+    });
+    
+    // Default Filesystem Server
+    // We assume 'npx' is available. In a bundled app, we might bundle the binary directly.
+    let fs_config = McpServerConfig {
+        command: "npx".to_string(),
+        args: vec![
+            "-y".to_string(),
+            "@modelcontextprotocol/server-filesystem".to_string(),
+            abs_data_dir.to_string_lossy().to_string(),
+        ],
+        env: HashMap::new(),
+    };
+
+    println!("[Studio] Spawning Filesystem MCP at {:?}", abs_data_dir);
+    
+    if let Err(e) = MCP_MANAGER.start_server("filesystem", fs_config).await {
+        eprintln!("[Studio] Failed to start filesystem MCP: {}", e);
+    } else {
+        println!("[Studio] Filesystem MCP active.");
+    }
 }
 
 /// Helper: Basic Handlebars-style interpolation {{key}} -> value
@@ -61,9 +112,14 @@ fn enforce_law(node_type: &str, config: &Value, input_context: &str) -> Result<(
     let logic = config.get("logic").unwrap_or(&default_val);
 
     // 1. Network Policy Enforcement (Firewall)
-    if node_type == "tool" {
-        if let Some(endpoint) = logic.get("endpoint").and_then(|v| v.as_str()) {
-            if let Ok(url) = Url::parse(endpoint) {
+    if node_type == "tool" || node_type == "browser" {
+        // [FIX] Check for 'endpoint' (tool) OR 'url' (browser)
+        let target = logic.get("endpoint")
+            .or_else(|| logic.get("url"))
+            .and_then(|v| v.as_str());
+
+        if let Some(target_url) = target {
+            if let Ok(url) = Url::parse(target_url) {
                 if let Some(host) = url.host_str() {
                     let allowlist = law.get("networkAllowlist")
                         .and_then(|v| v.as_array())
@@ -111,7 +167,7 @@ pub async fn execute_ephemeral_node(
     // --- STEP 1: GOVERNANCE CHECK ---
     if let Err(violation) = enforce_law(node_type, full_config, input_json) {
         return Ok(ExecutionResult {
-            status: "blocked".into(),
+            status: "blocked".to_string(),
             output: violation,
             data: None,
             metrics: Some(serde_json::json!({ "risk": "high" })),
@@ -123,20 +179,158 @@ pub async fn execute_ephemeral_node(
 
     match node_type {
         "model" => run_llm_inference(logic_config, input_json).await,
-        "tool" => run_tool_execution(logic_config, input_json).await,
         "gate" => run_gate_execution(logic_config, input_json).await,
+        "browser" => run_browser_execution(logic_config, input_json).await,
+        // [UPDATED] Route "tool" to MCP if it's not a native HTTP tool
+        "tool" => {
+            let tool_name = logic_config.get("tool_name").and_then(|s| s.as_str());
+            if let Some(name) = tool_name {
+                // If it names a specific tool (e.g. "filesystem__read_file"), use MCP
+                run_mcp_tool(name, logic_config, input_json).await
+            } else {
+                // Fallback to legacy HTTP handler (if "endpoint" is present)
+                run_tool_execution(logic_config, input_json).await
+            }
+        },
         "receipt" => Ok(ExecutionResult {
-            status: "success".into(),
+            status: "success".to_string(),
             output: format!("Receipt Logged: {}", input_json.chars().take(50).collect::<String>()),
             data: Some(serde_json::json!({ "signed": true, "timestamp": chrono::Utc::now().to_rfc3339() })),
             metrics: None,
         }),
         _ => Ok(ExecutionResult {
-            status: "skipped".into(),
+            status: "skipped".to_string(),
             output: format!("Ephemeral execution not implemented for {}", node_type),
             data: None,
             metrics: None,
         }),
+    }
+}
+
+// [NEW] MCP Execution Handler
+async fn run_mcp_tool(tool_name: &str, config: &Value, input: &str) -> Result<ExecutionResult, Box<dyn Error>> {
+    let start = std::time::Instant::now();
+    let input_obj: Value = serde_json::from_str(input).unwrap_or(json!({}));
+    
+    // Merge config args with input args (Input takes precedence for variables)
+    // The Studio UI might store default arguments in config.
+    let mut args = config.get("arguments").cloned().unwrap_or(json!({}));
+    
+    if let Value::Object(ref mut map) = args {
+        if let Value::Object(input_map) = input_obj {
+            for (k, v) in input_map {
+                map.insert(k, v);
+            }
+        }
+    }
+
+    match MCP_MANAGER.execute_tool(tool_name, args).await {
+        Ok(output) => Ok(ExecutionResult {
+            status: "success".to_string(),
+            output: output.clone(),
+            // Wrap in "raw" if string, or parse if JSON for data inspector
+            data: match serde_json::from_str(&output) {
+                Ok(v) => Some(v),
+                Err(_) => Some(json!({ "raw": output })),
+            },
+            metrics: Some(json!({ "latency_ms": start.elapsed().as_millis() })),
+        }),
+        Err(e) => Ok(ExecutionResult {
+            status: "error".to_string(),
+            output: format!("MCP Error: {}", e),
+            data: None,
+            metrics: None,
+        })
+    }
+}
+
+// [NEW] Browser Execution Handler (Real Native Driver)
+async fn run_browser_execution(config: &Value, input: &str) -> Result<ExecutionResult, Box<dyn Error>> {
+    let start = std::time::Instant::now();
+    
+    // 1. Ensure Driver is Running
+    if let Err(e) = BROWSER_DRIVER.launch().await {
+        return Ok(ExecutionResult {
+            status: "error".to_string(),
+            output: format!("Failed to launch browser driver: {}", e),
+            data: None,
+            metrics: None
+        });
+    }
+
+    // 2. Parse Context & Config
+    let input_obj: Value = serde_json::from_str(input).unwrap_or(serde_json::json!({}));
+    
+    // Determine action type
+    let action = config.get("action").and_then(|v| v.as_str()).unwrap_or("navigate");
+    
+    match action {
+        "navigate" => {
+            // Get URL from config or input context
+            let url_template = config.get("url").and_then(|v| v.as_str()).ok_or("Missing 'url' in logic config")?;
+            let url = interpolate_template(url_template, &input_obj);
+            
+            match BROWSER_DRIVER.navigate(&url).await {
+                Ok(content) => {
+                    // let preview = if content.len() > 500 { format!("{}...", &content[..500]) } else { content.clone() };
+                    Ok(ExecutionResult {
+                        status: "success".to_string(),
+                        output: content.clone(),
+                        data: Some(serde_json::json!({ 
+                            "url": url,
+                            "title": "Page Loaded", // Driver could be updated to return title
+                            "content_length": content.len()
+                        })),
+                        metrics: Some(serde_json::json!({ "latency_ms": start.elapsed().as_millis() })),
+                    })
+                },
+                Err(e) => Ok(ExecutionResult {
+                    status: "error".to_string(),
+                    output: format!("Navigation failed: {}", e),
+                    data: None,
+                    metrics: Some(serde_json::json!({ "latency_ms": start.elapsed().as_millis() })),
+                })
+            }
+        },
+        "extract_dom" => {
+            match BROWSER_DRIVER.extract_dom().await {
+                Ok(dom) => Ok(ExecutionResult {
+                    status: "success".to_string(),
+                    output: dom.clone(),
+                    data: Some(serde_json::json!({ "dom_length": dom.len() })),
+                    metrics: Some(serde_json::json!({ "latency_ms": start.elapsed().as_millis() })),
+                }),
+                Err(e) => Ok(ExecutionResult {
+                    status: "error".to_string(),
+                    output: format!("DOM extraction failed: {}", e),
+                    data: None,
+                    metrics: None
+                })
+            }
+        },
+        "click" => {
+            let selector = config.get("selector").and_then(|v| v.as_str()).ok_or("Missing 'selector'")?;
+             match BROWSER_DRIVER.click_selector(selector).await {
+                Ok(_) => Ok(ExecutionResult {
+                    status: "success".to_string(),
+                    output: format!("Clicked element: {}", selector),
+                    data: Some(serde_json::json!({ "action": "click", "selector": selector })),
+                    metrics: Some(serde_json::json!({ "latency_ms": start.elapsed().as_millis() })),
+                }),
+                Err(e) => Ok(ExecutionResult {
+                    status: "error".to_string(),
+                    output: format!("Click failed: {}", e),
+                    data: None,
+                    metrics: None
+                })
+            }
+        },
+        _ => Ok(ExecutionResult {
+            status: "error".to_string(),
+            output: format!("Unknown browser action: {}", action),
+            data: None,
+            metrics: None
+        })
     }
 }
 
@@ -234,7 +428,7 @@ async fn run_gate_execution(config: &Value, input: &str) -> Result<ExecutionResu
 
     Ok(ExecutionResult {
         // [IMPORTANT] Map failure to "blocked" so Orchestrator routes to the "blocked" handle
-        status: if passed { "success".into() } else { "blocked".into() },
+        status: if passed { "success".to_string() } else { "blocked".to_string() },
         output: if passed { input.to_string() } else { format!("Gate Blocked: {}", reason) },
         data: Some(serde_json::json!({ 
             "condition": condition, 
@@ -256,6 +450,7 @@ async fn run_llm_inference(config: &Value, input_json: &str) -> Result<Execution
         .and_then(|v| v.as_str())
         .unwrap_or("llama3");
 
+    // [FIX] Correct variable name from `input` to `input_json`
     // Parse input to Value for interpolation
     let input_obj: Value = serde_json::from_str(input_json).unwrap_or(serde_json::json!({}));
 
@@ -273,9 +468,6 @@ async fn run_llm_inference(config: &Value, input_json: &str) -> Result<Execution
     let start = std::time::Instant::now();
     
     // Call Ollama (Local)
-    // In a real implementation, the 'system' field would be the Persona (static),
-    // and 'prompt' would be the dynamic data. Here we effectively merge them into the prompt
-    // if the user used the system prompt field for the template.
     let res = client.post("http://127.0.0.1:11434/api/generate")
         .json(&serde_json::json!({
             "model": model, 
@@ -295,7 +487,7 @@ async fn run_llm_inference(config: &Value, input_json: &str) -> Result<Execution
                 let response_text = body["response"].as_str().unwrap_or("No response content").to_string();
                 
                 Ok(ExecutionResult {
-                    status: "success".into(),
+                    status: "success".to_string(),
                     output: response_text,
                     data: Some(serde_json::json!({ "raw_response": body })),
                     metrics: Some(serde_json::json!({
@@ -307,7 +499,7 @@ async fn run_llm_inference(config: &Value, input_json: &str) -> Result<Execution
                 })
             } else {
                 Ok(ExecutionResult {
-                    status: "failed".into(),
+                    status: "failed".to_string(),
                     output: format!("LLM Provider Error: {}", response.status()),
                     data: None,
                     metrics: Some(serde_json::json!({ "latency_ms": duration.as_millis() })),
@@ -317,7 +509,7 @@ async fn run_llm_inference(config: &Value, input_json: &str) -> Result<Execution
         Err(e) => {
             // Simulation fallback if Ollama is not running
             Ok(ExecutionResult {
-                status: "simulated".into(),
+                status: "simulated".to_string(),
                 output: format!("[Simulated Output - Ollama Offline]\nModel: {}\nPrompt Used: {}\nError: {}", model, final_user_prompt.chars().take(150).collect::<String>(), e),
                 data: Some(serde_json::json!({ "final_prompt_snapshot": final_user_prompt })),
                 metrics: Some(serde_json::json!({ "latency_ms": 15, "error": e.to_string() })),
@@ -370,7 +562,7 @@ async fn run_tool_execution(config: &Value, input: &str) -> Result<ExecutionResu
             let text = response.text().await?;
             
             Ok(ExecutionResult {
-                status: if status.is_success() { "success".into() } else { "failed".into() },
+                status: if status.is_success() { "success".to_string() } else { "failed".to_string() },
                 output: text.clone(),
                 data: Some(serde_json::json!({ 
                     "status_code": status.as_u16(),
@@ -381,7 +573,7 @@ async fn run_tool_execution(config: &Value, input: &str) -> Result<ExecutionResu
         },
         Err(e) => {
             Ok(ExecutionResult {
-                status: "error".into(),
+                status: "error".to_string(),
                 output: format!("Network Request Failed: {}", e),
                 data: None,
                 metrics: Some(serde_json::json!({ "latency_ms": duration.as_millis() })),

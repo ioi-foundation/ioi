@@ -1,3 +1,5 @@
+// apps/autopilot/src/components/ActivityBar.tsx
+import React, { useState, useEffect } from "react";
 import { Logo } from "./Logo";
 import "./ActivityBar.css";
 
@@ -98,10 +100,36 @@ const observabilityItems = [
   }
 ];
 
+// [NEW] User Menu Component
+function UserMenu({ onLogout, onSettings }: any) {
+  return (
+    <div className="user-menu-popover">
+        <div className="menu-header">
+            <div className="user-name">Local User</div>
+            <div className="user-role">Administrator</div>
+        </div>
+        <div className="menu-divider" />
+        <button className="menu-option" onClick={onSettings}>Settings</button>
+        <button className="menu-option" onClick={() => console.log("Workspaces")}>Switch Workspace</button>
+        <div className="menu-divider" />
+        <button className="menu-option danger" onClick={onLogout}>Log Out</button>
+    </div>
+  );
+}
+
 export function ActivityBar({ 
   activeView, 
   onViewChange, 
 }: ActivityBarProps) {
+  const [showUserMenu, setShowUserMenu] = useState(false);
+
+  // Close menu on click outside
+  useEffect(() => {
+    const close = () => setShowUserMenu(false);
+    if (showUserMenu) window.addEventListener('click', close);
+    return () => window.removeEventListener('click', close);
+  }, [showUserMenu]);
+
   return (
     <div className="activity-bar">
       <div className="activity-top">
@@ -140,7 +168,16 @@ export function ActivityBar({
         
         {/* User Section */}
         <div className="user-section">
-          <div className="user-avatar">L</div>
+          <div 
+            className="user-avatar" 
+            onClick={(e) => { e.stopPropagation(); setShowUserMenu(!showUserMenu); }}
+          >
+            L
+          </div>
+          {/* Menu Popover */}
+          {showUserMenu && (
+             <UserMenu onSettings={() => console.log("Settings")} onLogout={() => console.log("Logout")} />
+          )}
         </div>
       </div>
     </div>

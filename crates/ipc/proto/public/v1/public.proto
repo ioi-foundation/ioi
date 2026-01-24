@@ -112,6 +112,9 @@ message ChainEvent {
 
         // The result of an executed action.
         AgentActionResult action_result = 6;
+
+        // [NEW] A new sub-agent was spawned (delegation).
+        AgentSpawn spawn = 7;
     }
 }
 
@@ -125,7 +128,7 @@ message AgentThought {
     string session_id = 1; // Hex
     string content = 2;    // The text token or reasoning step
     bool is_final = 3;     // True if this concludes the thought
-    // [NEW] The hash of the visual context (screenshot) associated with this step.
+    // The hash of the visual context (screenshot) associated with this step.
     string visual_hash = 4;
 }
 
@@ -146,12 +149,21 @@ message GhostInput {
     string description = 2; // "Click(100, 200)", "Type('hello')"
 }
 
-// [NEW] Message for action results
 message AgentActionResult {
     string session_id = 1; // Hex
     uint32 step_index = 2;
     string tool_name = 3;
     string output = 4;
+}
+
+// [NEW] Message for agent spawning
+message AgentSpawn {
+    string parent_session_id = 1; // Hex
+    string new_session_id = 2;    // Hex
+    string name = 3;
+    string role = 4;
+    uint64 budget = 5;
+    string goal = 6;
 }
 
 // --- Intent Drafting Types ---

@@ -1,10 +1,10 @@
-import { useState, useEffect, useCallback } from "react";
+// src/windows/StudioWindow/hooks/useGraphExecution.ts
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { listen } from "@tauri-apps/api/event";
 import { invoke } from "@tauri-apps/api/core";
-// Go up 3 levels: hooks -> StudioWindow -> windows -> src
 import { Node as IOINode } from "../../../types";
-// Go up 1 level: hooks -> StudioWindow (where types.ts resides)
 import { NodeArtifacts, ExecutionLog, ExecutionStep, GraphGlobalConfig } from "../types.ts";
+import { TraceSpan } from "../../../components/TraceViewer";
 
 export function useGraphExecution(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -19,6 +19,7 @@ export function useGraphExecution(
   const [nodeArtifacts, setNodeArtifacts] = useState<NodeArtifacts>({});
   const [executionLogs, setExecutionLogs] = useState<ExecutionLog[]>([]);
   const [executionSteps, setExecutionSteps] = useState<ExecutionStep[]>([]);
+  const [isExecuting, setIsExecuting] = useState(false);
 
   // Listen for Rust backend events
   useEffect(() => {
@@ -39,7 +40,6 @@ export function useGraphExecution(
       // 2. Logs
       const logLevel = status === "error" || status === "failed" ? "error" : status === "blocked" ? "warn" : "info";
       
-      // EXPLICIT TYPE ANNOTATION HERE
       setExecutionLogs((prev: ExecutionLog[]) => [...prev, {
         id: `log-${Date.now()}-${Math.random()}`,
         timestamp,
@@ -48,10 +48,9 @@ export function useGraphExecution(
         message: result?.output || `Status update: ${status}`
       }]);
 
-      // 3. Timeline
-      // EXPLICIT TYPE ANNOTATION HERE
+      // 3. Timeline Step
       setExecutionSteps((prev: ExecutionStep[]) => {
-        const existing = prev.findIndex(s => s.id === node_id);
+        const existingIdx = prev.findIndex(s => s.id === node_id);
         const step: ExecutionStep = {
             id: node_id,
             name: nodeName,
@@ -61,9 +60,9 @@ export function useGraphExecution(
             dataCount: result?.output?.length
         };
         
-        if (existing >= 0) {
+        if (existingIdx >= 0) {
             const newSteps = [...prev];
-            newSteps[existing] = step;
+            newSteps[existingIdx] = { ...newSteps[existingIdx], ...step };
             return newSteps;
         }
         return [...prev, step];
@@ -77,12 +76,36 @@ export function useGraphExecution(
         }));
       }
 
-      // 5. Edge Animation
-      if (status === "success") {
+      // 5. Semantic Edge Routing (Visual Traffic Control)
+      if (status === "success" || status === "blocked" || status === "error" || status === "failed") {
+        // Map execution status to the corresponding source handle ID
+        let targetHandleId = "out"; // Default success path
+        
+        if (status === "blocked") {
+            targetHandleId = "blocked"; // Governance/Policy path
+        } else if (status === "error" || status === "failed") {
+            targetHandleId = "error"; // Runtime Failure path
+        }
+
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         setEdges((eds: any[]) => eds.map((e) => {
+          // Only affect edges originating from this node
           if (e.source === node_id) {
-            return { ...e, animated: true, style: { stroke: '#3D85C6', strokeWidth: 3 } };
+            // Check if this edge is connected to the active handle
+            if (e.sourceHandle === targetHandleId) {
+              return { 
+                ...e, 
+                data: { ...e.data, active: true, status: status },
+                animated: true // Optional: ReactFlow marker
+              };
+            } else {
+              // Deactivate other paths (e.g., success path if blocked)
+              return { 
+                ...e, 
+                data: { ...e.data, active: false, status: 'idle' },
+                animated: false 
+              };
+            }
           }
           return e;
         }));
@@ -92,16 +115,28 @@ export function useGraphExecution(
     return () => { unlisten.then(f => f()); };
   }, [nodes, setNodes, setEdges]);
 
+  // Transform flat steps into hierarchical TraceSpans for the TraceViewer
+  const traceData = useMemo(() => {
+    return buildTraceTree(executionSteps);
+  }, [executionSteps]);
+
   // Run the Graph
   const runGraph = useCallback(async (graphConfig: GraphGlobalConfig) => {
+    setIsExecuting(true);
     // Reset state
     setNodeArtifacts({});
     setExecutionLogs([]);
     setExecutionSteps([]);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     setNodes((nds: any[]) => nds.map(n => ({ ...n, data: { ...n.data, status: "idle" } })));
+    
+    // Reset Edges to idle
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    setEdges((eds: any[]) => eds.map(e => ({ ...e, animated: false, style: { stroke: '#2E333D', strokeWidth: 2 } })));
+    setEdges((eds: any[]) => eds.map(e => ({ 
+      ...e, 
+      animated: false, 
+      data: { ...e.data, active: false, status: 'idle' }
+    })));
 
     const payload = {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -127,7 +162,6 @@ export function useGraphExecution(
       await invoke("run_studio_graph", { payload });
     } catch (e) {
       console.error("Execution failed:", e);
-      // EXPLICIT TYPE ANNOTATION HERE
       setExecutionLogs((prev: ExecutionLog[]) => [...prev, {
           id: `err-${Date.now()}`,
           timestamp: new Date().toISOString(),
@@ -135,6 +169,9 @@ export function useGraphExecution(
           source: "Orchestrator",
           message: `Failed to start: ${e}`
       }]);
+    } finally {
+      // Small delay to allow final events to settle
+      setTimeout(() => setIsExecuting(false), 500);
     }
   }, [nodes, edges, setNodes, setEdges]);
 
@@ -145,7 +182,7 @@ export function useGraphExecution(
       ...prev,
       [nodeId]: { output: result.output, metrics: result.metrics, timestamp: Date.now() }
     }));
-    // EXPLICIT TYPE ANNOTATION HERE
+    
     setExecutionLogs((prev: ExecutionLog[]) => [...prev, {
         id: `unit-${Date.now()}`,
         timestamp: new Date().toISOString(),
@@ -153,22 +190,150 @@ export function useGraphExecution(
         source: "Unit Test",
         message: `Manually executed node ${nodeId}`
     }]);
+    
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     setNodes((nds: any[]) => nds.map((n) => n.id === nodeId ? { ...n, data: { ...n.data, status: "success" } } : n));
+    
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    setEdges((eds: any[]) => eds.map((e) => e.source === nodeId ? { ...e, animated: true, style: { stroke: '#3D85C6', strokeWidth: 3 } } : e));
+    setEdges((eds: any[]) => eds.map((e) => {
+        if (e.source === nodeId) {
+             // For unit tests, we default to success path unless result implies otherwise
+             // Note: Unit tests might not have full context to trigger "blocked", but we handle "success"
+             if (e.sourceHandle === 'out') {
+                return { 
+                    ...e, 
+                    data: { ...e.data, active: true, status: 'success' },
+                    animated: true 
+                };
+             }
+        }
+        return e;
+    }));
   }, [setNodes, setEdges]);
 
+  // [REFACTORED] Context-Aware Data Hydration
+  // Transforms upstream artifacts into a JSON object that matches the Rust Orchestrator's behavior.
   const getUpstreamContext = useCallback((targetNodeId: string): string => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const incomingEdges = edges.filter((e: any) => e.target === targetNodeId);
+    
+    const mergedContext: Record<string, any> = {};
+    
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const inputs = incomingEdges.map((edge: any) => nodeArtifacts[edge.source]?.output || "").filter(Boolean);
-    return inputs.join("\n---\n");
+    incomingEdges.forEach((edge: any) => {
+      const artifact = nodeArtifacts[edge.source];
+      if (artifact?.output) {
+        try {
+          // 1. Try to treat upstream output as structured data (JSON)
+          const parsed = JSON.parse(artifact.output);
+          
+          if (typeof parsed === 'object' && parsed !== null && !Array.isArray(parsed)) {
+            // Flatten objects into the root context (simulating environment injection)
+            Object.assign(mergedContext, parsed);
+          } else {
+            // Arrays or Primitives get keyed by source ID to avoid root pollution
+            mergedContext[edge.source] = parsed;
+          }
+        } catch (e) {
+          // 2. Fallback: Raw text output (e.g. LLM prose)
+          // Key it by source ID so it can be referenced like {{n-123}}
+          mergedContext[edge.source] = artifact.output;
+        }
+      }
+    });
+
+    // Return empty string if no context, allowing the UI to fallback to variable scaffolding
+    if (Object.keys(mergedContext).length === 0) {
+      return "";
+    }
+
+    return JSON.stringify(mergedContext, null, 2);
   }, [edges, nodeArtifacts]);
 
   return {
-    nodeArtifacts, executionLogs, executionSteps,
-    runGraph, handleNodeRunComplete, getUpstreamContext
+    nodeArtifacts, 
+    executionLogs, 
+    executionSteps,
+    traceData, // Export the transformed tree
+    isExecuting,
+    runGraph, 
+    handleNodeRunComplete, 
+    getUpstreamContext
   };
+}
+
+// --- Helper: Trace Transformer ---
+function buildTraceTree(steps: ExecutionStep[]): TraceSpan[] {
+  if (steps.length === 0) return [];
+
+  // Sort by timestamp to ensure chronological order
+  const sortedSteps = [...steps].sort((a, b) => 
+    new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
+  );
+
+  const startSpan = sortedSteps[0];
+  const startTime = new Date(startSpan.timestamp).getTime();
+  
+  // Calculate end time based on the last step
+  const lastStep = sortedSteps[sortedSteps.length - 1];
+  const lastDuration = parseDuration(lastStep.duration);
+  const endTime = new Date(lastStep.timestamp).getTime() + lastDuration;
+
+  // Determine global status
+  const hasError = steps.some(s => s.status === "error");
+  const isRunning = steps.some(s => s.status === "running");
+  const status = hasError ? "error" : isRunning ? "running" : "success";
+
+  const rootSpan: TraceSpan = {
+    id: "run-root",
+    name: "Graph Execution",
+    type: "chain",
+    status,
+    startTime,
+    endTime,
+    metadata: {
+      model: "Orchestrator",
+      inputs: { nodeCount: steps.length }
+    },
+    children: sortedSteps.map(step => mapStepToSpan(step))
+  };
+
+  return [rootSpan];
+}
+
+function mapStepToSpan(step: ExecutionStep): TraceSpan {
+  const start = new Date(step.timestamp).getTime();
+  const duration = parseDuration(step.duration);
+  
+  // Map our internal status to TraceSpan status
+  let status: "running" | "success" | "error" = "success";
+  if (step.status === "running") status = "running";
+  if (step.status === "error") status = "error";
+  // Map "blocked" (Governance) to "error" for visual attention, or handle separately if TraceViewer supports it
+  if (step.status === "blocked") status = "error"; 
+
+  // Guess type based on name or ID if not explicitly provided
+  // In a real app, ExecutionStep should carry the node type
+  const type = step.name.toLowerCase().includes("gate") ? "tool" : "agent";
+
+  return {
+    id: step.id,
+    name: step.name,
+    type,
+    status,
+    startTime: start,
+    endTime: start + duration,
+    metadata: {
+      // If we had more inputs/outputs in ExecutionStep, we'd map them here
+      outputs: { dataCount: step.dataCount }
+    }
+  };
+}
+
+function parseDuration(dur?: string): number {
+  if (!dur) return 100; // Default visual width
+  // Handle "100ms", "1.2s", etc.
+  if (dur.endsWith("ms")) return parseInt(dur);
+  if (dur.endsWith("s")) return parseFloat(dur) * 1000;
+  return 100;
 }
