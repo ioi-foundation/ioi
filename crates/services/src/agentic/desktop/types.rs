@@ -28,11 +28,12 @@ pub struct AgentState {
     pub session_id: [u8; 32],
     pub goal: String,
     
-    /// The conversation history, stored as structured messages.
-    /// This serves as the context window for the LLM and the display data for the UI.
-    #[serde(default)]
-    pub history: Vec<ChatMessage>,
-    
+    // [REMOVED] pub history: Vec<ChatMessage>,
+
+    /// [NEW] The cryptographic commitment to the conversation history stored in SCS.
+    /// This is the hash of the most recent Frame added to this session.
+    pub transcript_root: [u8; 32],
+
     pub status: AgentStatus,
     pub step_count: u32,
     pub max_steps: u32,

@@ -1,12 +1,11 @@
 // src/components/RightPanel.tsx
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { Node, NodeLogic, NodeLaw } from "../types";
 import "./RightPanel.css";
 import "./PolicyInspector.css"; // Reuse existing styles
 
 // --- ICONS ---
-const PlayIcon = () => <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>;
 const ShieldIcon = () => <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>;
 const BrainIcon = () => <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9.5 2A2.5 2.5 0 0 1 12 4.5v15a2.5 2.5 0 0 1-4.96.44 2.5 2.5 0 0 1-2.96-3.08 3 3 0 0 1-.34-5.58 2.5 2.5 0 0 1 1.32-4.24 2.5 2.5 0 0 1 1.98-3A2.5 2.5 0 0 1 9.5 2Z"/><path d="M14.5 2A2.5 2.5 0 0 0 12 4.5v15a2.5 2.5 0 0 0 4.96.44 2.5 2.5 0 0 0 2.96-3.08 3 3 0 0 0 .34-5.58 2.5 2.5 0 0 0-1.32-4.24 2.5 2.5 0 0 0-1.98-3A2.5 2.5 0 0 0 14.5 2Z"/></svg>;
 const TerminalIcon = () => <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>;
@@ -92,9 +91,12 @@ export function RightPanel({
 
   // Helper for graph updates
   const handleGraphUpdate = (section: keyof GraphGlobalConfig, updates: any) => {
-    if (onUpdateGraph) {
-      onUpdateGraph({ [section]: { ...graphConfig[section], ...updates } });
+    if (!onUpdateGraph) return;
+    if (section === "env") {
+      onUpdateGraph({ env: updates });
+      return;
     }
+    onUpdateGraph({ [section]: { ...(graphConfig[section] as object), ...updates } });
   };
 
   // --- RENDER GRAPH ROOT CONFIG (If no node selected) ---
@@ -308,7 +310,7 @@ function LogicView({ node, onUpdate }: LogicViewProps) {
   
   // Auto-detect variables for UX feedback in the Logic tab
   const activeTemplate = config.systemPrompt || config.bodyTemplate || "";
-  const variables = extractVariables(activeTemplate);
+  const variables = useMemo(() => extractVariables(activeTemplate), [activeTemplate]);
 
   return (
     <div className="properties-container">
@@ -563,26 +565,45 @@ function SimulationView({
 
   // Detect variables from the node configuration logic
   const promptTemplate = node.config?.logic?.systemPrompt || node.config?.logic?.bodyTemplate || "";
-  const variables = extractVariables(promptTemplate);
+  const variables = useMemo(() => extractVariables(promptTemplate), [promptTemplate]);
 
   // Switch to Form view by default if variables exist
   useEffect(() => {
       if (variables.length > 0) setActiveTab('form');
   }, [variables.length]);
 
-  // [NEW] Context-Aware Debugging: Hydrate input from upstream artifacts
+  // [NEW] Intelligent Context Hydration
+  // Allows seamless transition from "Graph Run" to "Unit Test"
   useEffect(() => {
-    if (upstreamData && upstreamData.trim() !== "") {
-      setInputJson(upstreamData);
-    } else {
-      // If no upstream, try to scaffold the input based on variables
-      if (variables.length > 0) {
-          const scaffold: Record<string, string> = {};
-          variables.forEach(v => scaffold[v] = "");
-          setInputJson(JSON.stringify(scaffold, null, 2));
+    // Only auto-hydrate if the input is effectively empty or contains only scaffold placeholders
+    const isEmpty = !inputJson || inputJson.trim() === "" || inputJson === "{}" || inputJson === "{\n}";
+    
+    // Check if the current input is just a scaffold (keys exist, values are empty)
+    let isScaffold = false;
+    try {
+        const currentObj = JSON.parse(inputJson);
+        const keys = Object.keys(currentObj);
+        if (variables.length > 0 && keys.length > 0) {
+           isScaffold = variables.every(v => keys.includes(v) && (currentObj[v] === "" || currentObj[v] === "QUERY_UPSTREAM"));
+        }
+    } catch {}
+
+    if (upstreamData && (isEmpty || isScaffold)) {
+      try {
+        // Validate it's proper JSON before setting
+        const parsed = JSON.parse(upstreamData);
+        setInputJson(JSON.stringify(parsed, null, 2));
+      } catch {
+        // If upstream isn't JSON (e.g. raw LLM text), wrap it for safety so test logic doesn't break
+        setInputJson(JSON.stringify({ raw_input: upstreamData }, null, 2));
       }
+    } else if ((isEmpty || isScaffold) && variables.length > 0 && !upstreamData) {
+      // Fallback: Scaffold variables if no upstream data is available yet
+      const scaffold: Record<string, string> = {};
+      variables.forEach(v => scaffold[v] = ""); 
+      setInputJson(JSON.stringify(scaffold, null, 2));
     }
-  }, [upstreamData, node.id, variables.length]);
+  }, [upstreamData, node.id, variables]); 
 
   // Form Change Handlers
   const handleVarChange = (key: string, value: string) => {
@@ -621,6 +642,7 @@ function SimulationView({
       setOutput(JSON.stringify(result, null, 2));
 
       // [CRITICAL] Propagate result to Global Graph State if successful
+      // This enables "Chain Reaction" debugging: Fixing Node A updates Node B's context instantly
       if (result.status === "success" && onRunComplete) {
         onRunComplete(node.id, result);
       }

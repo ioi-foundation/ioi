@@ -1,0 +1,707 @@
+// Path: crates/services/src/agentic/desktop/service/step.rs
+
+use super::actions; 
+use super::DesktopAgentService;
+use super::utils::merge_tools;
+use crate::agentic::desktop::execution::ToolExecutor;
+use crate::agentic::desktop::keys::{get_state_key, AGENT_POLICY_PREFIX, TRACE_PREFIX};
+use crate::agentic::desktop::tools::discover_tools;
+use crate::agentic::desktop::types::{AgentMode, AgentState, AgentStatus, StepAgentParams};
+use crate::agentic::desktop::utils::{compute_phash, goto_trace_log};
+// [FIX] Import Verdict and Rule for default policy construction
+use crate::agentic::rules::{ActionRules, Rule, Verdict};
+use ioi_api::state::StateAccess;
+use ioi_api::transaction::context::TxContext;
+use ioi_drivers::mcp::McpManager;
+use ioi_scs::FrameType;
+use ioi_types::app::{ActionContext, ActionRequest, ActionTarget, InferenceOptions, KernelEvent};
+use ioi_types::codec;
+use ioi_types::error::TransactionError;
+use serde_json::{json, Value};
+use std::sync::Arc;
+use std::time::{SystemTime, UNIX_EPOCH};
+use crate::agentic::grounding::parse_vlm_action;
+
+const CHARS_PER_TOKEN: u64 = 4;
+
+// [NEW] Helper to create safe defaults if policy is missing
+fn default_safe_policy() -> ActionRules {
+    ActionRules {
+        policy_id: "default-safe".to_string(),
+        defaults: crate::agentic::rules::DefaultPolicy::RequireApproval,
+        rules: vec![
+             // Lifecycle / Meta-Tools
+             Rule {
+                rule_id: Some("allow-complete".into()),
+                target: "agent__complete".into(), 
+                conditions: Default::default(),
+                action: Verdict::Allow, 
+             },
+             Rule {
+                rule_id: Some("allow-pause".into()),
+                target: "agent__pause".into(), 
+                conditions: Default::default(),
+                action: Verdict::Allow, 
+             },
+             Rule {
+                rule_id: Some("allow-await".into()),
+                target: "agent__await_result".into(), 
+                conditions: Default::default(),
+                action: Verdict::Allow, 
+             },
+             // Read-Only Capability Defaults
+             Rule {
+                rule_id: Some("allow-ui-read".into()),
+                target: "gui::screenshot".into(),
+                conditions: Default::default(),
+                action: Verdict::Allow, 
+             },
+             Rule {
+                rule_id: Some("allow-browser-read".into()),
+                target: "browser::extract".into(),
+                conditions: Default::default(),
+                action: Verdict::Allow, 
+             },
+        ],
+    }
+}
+
+pub async fn handle_step(
+    service: &DesktopAgentService,
+    state: &mut dyn StateAccess,
+    p: StepAgentParams,
+    ctx: &mut TxContext<'_>,
+) -> Result<(), TransactionError> {
+    let key = get_state_key(&p.session_id);
+    let bytes = state
+        .get(&key)?
+        .ok_or(TransactionError::Invalid("Session not found".into()))?;
+    let mut agent_state: AgentState = codec::from_bytes_canonical(&bytes)?;
+
+    // Buffer for completion event to ensure correct ordering (Trace -> Result)
+    let mut completion_event: Option<KernelEvent> = None;
+
+    match agent_state.status {
+        AgentStatus::Running => {}
+        AgentStatus::Paused(ref r) => {
+            return Err(TransactionError::Invalid(format!("Agent is paused: {}", r)))
+        }
+        _ => return Err(TransactionError::Invalid("Agent not running".into())),
+    }
+
+    if agent_state.budget == 0 {
+        agent_state.status = AgentStatus::Failed("Budget Exhausted (Pre-check)".into());
+        state.insert(&key, &codec::to_bytes_canonical(&agent_state)?)?;
+        
+        // ... (Log error event) ...
+        return Ok(());
+    }
+
+    if agent_state.consecutive_failures >= 3 {
+        agent_state.status = AgentStatus::Failed("Too many consecutive failures".into());
+        state.insert(&key, &codec::to_bytes_canonical(&agent_state)?)?;
+        return Ok(());
+    }
+
+    let policy_key = [AGENT_POLICY_PREFIX, p.session_id.as_slice()].concat();
+    let rules: ActionRules = if let Some(bytes) = state.get(&policy_key)? {
+        codec::from_bytes_canonical(&bytes)
+            .map_err(|e| TransactionError::Invalid(format!("Invalid policy in state: {}", e)))?
+    } else {
+        let global_key = [AGENT_POLICY_PREFIX, [0u8; 32].as_slice()].concat();
+        if let Some(bytes) = state.get(&global_key)? {
+            codec::from_bytes_canonical(&bytes).map_err(|e| {
+                TransactionError::Invalid(format!("Invalid global policy in state: {}", e))
+            })?
+        } else {
+            // [FIX] Use robust default policy
+            default_safe_policy()
+        }
+    };
+    
+    // ... rest of the function remains the same ...
+    // (Ensure the rest of the file content from the previous correct version is preserved)
+    
+    let observation_intent = ActionRequest {
+        target: ActionTarget::GuiScreenshot,
+        params: agent_state.goal.as_bytes().to_vec(),
+        context: ActionContext {
+            agent_id: "desktop_agent".to_string(),
+            session_id: Some(p.session_id),
+            window_id: None,
+        },
+        nonce: agent_state.step_count as u64,
+    };
+
+    let context_slice = service.gui.capture_context(&observation_intent).await.map_err(|e| {
+        TransactionError::Invalid(format!("Substrate access failed: {}", e))
+    })?;
+
+    let mut tree_xml_bytes = Vec::new();
+    for chunk in &context_slice.chunks {
+        tree_xml_bytes.extend_from_slice(chunk);
+    }
+    let tree_xml = String::from_utf8_lossy(&tree_xml_bytes);
+
+    let screenshot_bytes = service.gui.capture_screen().await.map_err(|e| {
+        TransactionError::Invalid(format!("Visual capture failed: {}", e))
+    })?;
+
+    let visual_phash = compute_phash(&screenshot_bytes)?;
+
+    let content_digest = ioi_crypto::algorithms::hash::sha256(&screenshot_bytes)
+        .map_err(|e| TransactionError::Invalid(e.to_string()))?;
+    let mut content_hash = [0u8; 32];
+    content_hash.copy_from_slice(content_digest.as_ref());
+
+    if let Some(scs_arc) = &service.scs {
+        if let Ok(mut store) = scs_arc.lock() {
+            let _ = store.append_frame(
+                FrameType::Observation,
+                &screenshot_bytes,
+                ctx.block_height,
+                [0u8; 32],
+                p.session_id,
+            );
+        }
+    }
+
+    let available_tools = if agent_state.mode == AgentMode::Chat {
+        Vec::new()
+    } else {
+        let base_tools = discover_tools(state);
+        if let Some(mcp) = &service.mcp {
+            let mcp_tools = mcp.get_all_tools().await;
+            merge_tools(base_tools, mcp_tools)
+        } else {
+            base_tools
+        }
+    };
+
+    let skills = service.recall_skills(state, &agent_state.goal).await?;
+    let mut skills_prompt = String::new();
+    if !skills.is_empty() {
+        skills_prompt.push_str("\n### Relevant Agent Skills\n");
+        for skill in skills {
+            skills_prompt.push_str(&format!(
+                "\n#### Skill: {}\n{}\n",
+                skill.name, skill.content
+            ));
+        }
+    }
+
+    let workspace_context = format!(
+        "You are running in a secure sandbox.\n\
+         Current Working Directory: {}\n\
+         Allowed Paths: {}/*",
+        service.workspace_path, service.workspace_path
+    );
+
+    let history = service.hydrate_session_history(p.session_id)?;
+
+    let raw_user_prompt = if agent_state.mode == AgentMode::Chat {
+        format!(
+            "SYSTEM: You are a helpful AI assistant.
+            User Input: {}
+            
+            CONTEXT:
+            {}
+            
+            INSTRUCTIONS:
+            1. Answer the user's question directly.
+            2. Do NOT generate tool calls or JSON.
+            3. Be concise and helpful.
+            4. Note: PII has been scrubbed from your input for privacy.
+            ",
+            agent_state.goal,
+            tree_xml
+        )
+    } else {
+        format!(
+            "SYSTEM INSTRUCTION: You are an autonomous agent API.
+            Your Goal: {}
+            
+            ENVIRONMENT:
+            {}
+            
+            AVAILABLE TOOLS:
+            {}
+            
+            HISTORY:
+            {:?}
+            
+            CONTEXT:
+            {}
+            
+            CRITICAL RULES:
+            1. You MUST respond with a VALID JSON OBJECT representing the tool call.
+            2. When writing files, ALWAYS use paths starting with './ioi-data/' or absolute paths you have confirmed exist.
+            3. Do NOT use placeholders like '/path/to/file'.
+            4. If the user's specific request is satisfied by the previous action, you MUST call 'agent__complete' immediately.
+            
+            EXAMPLE RESPONSE:
+            {{
+                \"thought\": \"I will save the results to the data directory.\",
+                \"name\": \"filesystem__write_file\",
+                \"arguments\": {{ \"path\": \"./ioi-data/results.txt\", \"content\": \"...\" }}
+            }}
+            ",
+            agent_state.goal,
+            workspace_context,
+            serde_json::to_string_pretty(&available_tools).unwrap_or_default(),
+            history
+                .iter()
+                .map(|m| format!("{}: {}", m.role, m.content))
+                .collect::<Vec<_>>(),
+            tree_xml
+        )
+    };
+
+    let (scrubbed_prompt, _redaction_map) = service
+        .scrubber
+        .scrub(&raw_user_prompt)
+        .await
+        .map_err(|e| TransactionError::Invalid(format!("Scrubbing failed: {}", e)))?;
+    let user_prompt: String = scrubbed_prompt;
+
+    let model_hash = [0u8; 32];
+
+    let output_str = if let Some(stored_call) = &agent_state.pending_tool_call {
+        log::info!(
+            "Retrying pending tool call for session {}",
+            hex::encode(&p.session_id[0..4])
+        );
+        stored_call.clone()
+    } else {
+        let estimated_input_tokens = (user_prompt.len() as u64) / CHARS_PER_TOKEN;
+
+        let options = InferenceOptions {
+            tools: available_tools,
+            temperature: if agent_state.consecutive_failures > 0 {
+                0.5
+            } else {
+                0.0
+            },
+        };
+        let runtime = service.select_runtime(&agent_state);
+        let output_bytes = runtime
+            .execute_inference(model_hash, user_prompt.as_bytes(), options)
+            .await
+            .map_err(|e| TransactionError::Invalid(format!("Inference error: {}", e)))?;
+        let output_str = String::from_utf8_lossy(&output_bytes).to_string();
+
+        let estimated_output_tokens = (output_str.len() as u64) / CHARS_PER_TOKEN;
+        let total_cost = estimated_input_tokens + estimated_output_tokens;
+        agent_state.tokens_used += total_cost;
+        if agent_state.budget >= total_cost {
+            agent_state.budget -= total_cost;
+        } else {
+            agent_state.budget = 0;
+            agent_state.status = AgentStatus::Failed("Budget Exhausted during step".into());
+            state.insert(&key, &codec::to_bytes_canonical(&agent_state)?)?;
+            return Ok(());
+        }
+        output_str
+    };
+
+    println!("[DesktopAgent] Brain Output: {}", output_str);
+
+    if let Ok(tool_call) = serde_json::from_str::<Value>(&output_str) {
+        if let Some(name) = tool_call.get("name").and_then(|n| n.as_str()) {
+            let signature_obj = json!({
+                "name": name,
+                "arguments": tool_call["arguments"]
+            });
+
+            let signature = match serde_jcs::to_string(&signature_obj) {
+                Ok(s) => s,
+                Err(_) => signature_obj.to_string(),
+            };
+
+            if let Some(last) = agent_state.recent_actions.last() {
+                if *last == signature {
+                    let err_msg = "System: Repetitive Action Detected. Stop or change parameters.";
+                    let sys_msg = ioi_types::app::agentic::ChatMessage {
+                        role: "system".to_string(),
+                        content: err_msg.to_string(),
+                        timestamp: SystemTime::now()
+                            .duration_since(UNIX_EPOCH)
+                            .unwrap()
+                            .as_millis() as u64,
+                        trace_hash: None,
+                    };
+                    let new_root = service.append_chat_to_scs(p.session_id, &sys_msg, ctx.block_height)?;
+                    agent_state.transcript_root = new_root;
+
+                    agent_state.consecutive_failures += 1;
+
+                    if let Some(tx) = &service.event_sender {
+                        let _ = tx.send(KernelEvent::AgentStep(ioi_types::app::agentic::StepTrace {
+                            session_id: p.session_id,
+                            step_index: agent_state.step_count,
+                            visual_hash: visual_phash,
+                            full_prompt: user_prompt.clone(),
+                            raw_output: output_str.clone(),
+                            success: false,
+                            error: Some("Repetitive Action".into()),
+                            timestamp: SystemTime::now()
+                                .duration_since(UNIX_EPOCH)
+                                .unwrap()
+                                .as_secs(),
+                        }));
+                    }
+
+                    state.insert(&key, &codec::to_bytes_canonical(&agent_state)?)?;
+                    return Ok(());
+                }
+            }
+
+            if agent_state.recent_actions.len() >= 3 {
+                agent_state.recent_actions.remove(0);
+            }
+            agent_state.recent_actions.push(signature);
+        }
+    }
+
+    let thought_msg = ioi_types::app::agentic::ChatMessage {
+        role: "agent".to_string(),
+        content: output_str.clone(),
+        timestamp: SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_millis() as u64,
+            trace_hash: None,
+    };
+    let new_root = service.append_chat_to_scs(p.session_id, &thought_msg, ctx.block_height)?;
+    agent_state.transcript_root = new_root;
+
+    let mut action_success = false;
+    let mut action_error = None;
+    let mut action_type = "unknown".to_string();
+
+    let mcp_handle = service
+        .mcp
+        .clone()
+        .unwrap_or_else(|| Arc::new(McpManager::new()));
+
+    let executor = ToolExecutor::new(
+        service.gui.clone(),
+        service.terminal.clone(),
+        service.browser.clone(),
+        mcp_handle,
+        service.event_sender.clone(),
+    );
+
+    if let Ok(tool_call) = serde_json::from_str::<Value>(&output_str) {
+        if let Some(name) = tool_call.get("name").and_then(|n| n.as_str()) {
+            action_type = name.to_string();
+
+            let os_driver = service.os_driver.clone().ok_or_else(|| {
+                TransactionError::Invalid("OS Driver not configured for policy check".into())
+            })?;
+
+            let result = service
+                .handle_action_execution(
+                    &executor,
+                    name,
+                    &tool_call,
+                    p.session_id,
+                    agent_state.step_count,
+                    visual_phash,
+                    &rules,
+                    &agent_state,
+                    &os_driver,
+                )
+                .await;
+
+            match result {
+                Ok((success, history_entry, error)) => {
+                    action_success = success;
+                    action_error = error;
+                    if let Some(entry) = history_entry {
+                        let tool_msg = ioi_types::app::agentic::ChatMessage {
+                            role: "tool".to_string(),
+                            content: entry,
+                            timestamp: SystemTime::now()
+                                .duration_since(UNIX_EPOCH)
+                                .unwrap()
+                                .as_millis() as u64,
+                            trace_hash: None,
+                        };
+                        let tool_root = service.append_chat_to_scs(p.session_id, &tool_msg, ctx.block_height)?;
+                        agent_state.transcript_root = tool_root;
+                    }
+
+                    if success {
+                        if agent_state.pending_approval.is_some() {
+                            agent_state.pending_approval = None;
+                        }
+                        if agent_state.pending_tool_call.is_some() {
+                            agent_state.pending_tool_call = None;
+                        }
+
+                        if name == "agent__complete" {
+                            agent_state.status =
+                                AgentStatus::Completed(Some("Task completed successfully.".into()));
+
+                            completion_event = Some(KernelEvent::AgentActionResult {
+                                session_id: p.session_id,
+                                step_index: agent_state.step_count,
+                                tool_name: "agent__complete".to_string(),
+                                output: "Task completed.".to_string(),
+                            });
+                        }
+
+                        let is_mutator = match name {
+                            "filesystem__write_file"
+                            | "gui__click"
+                            | "sys__exec"
+                            | "browser__click" => true,
+                            _ => false,
+                        };
+
+                        if is_mutator && agent_state.goal.len() < 60 {
+                            agent_state.status = AgentStatus::Completed(Some(
+                                "Auto-terminated: Action successful.".into(),
+                            ));
+                            completion_event = Some(KernelEvent::AgentActionResult {
+                                session_id: p.session_id,
+                                step_index: agent_state.step_count,
+                                tool_name: "system::auto_complete".to_string(),
+                                output: "Goal likely satisfied. Terminating.".to_string(),
+                            });
+                        }
+                    }
+                }
+                Err(e) => {
+                    let err_str = e.to_string();
+                    let is_pending_approval = if let TransactionError::PendingApproval(_) = &e {
+                        true
+                    } else {
+                        err_str.contains("Approval required")
+                            || err_str.contains("PendingApproval")
+                    };
+
+                    if is_pending_approval {
+                        agent_state.recent_actions.pop();
+                        agent_state.status = AgentStatus::Paused("Waiting for User Approval".into());
+
+                        let mut real_request_hash = [0u8; 32];
+                        if let TransactionError::PendingApproval(hash) = e {
+                            if let Ok(hash_bytes) = hex::decode(&hash) {
+                                if let Ok(hash_arr) = hash_bytes.try_into() {
+                                    real_request_hash = hash_arr;
+                                    use ioi_types::app::action::{ApprovalScope, ApprovalToken};
+                                    agent_state.pending_approval = Some(ApprovalToken {
+                                        request_hash: hash_arr,
+                                        scope: Default::default(),
+                                        approver_sig: vec![],
+                                        approver_suite: Default::default(),
+                                    });
+                                }
+                            }
+                        }
+
+                        agent_state.pending_tool_call = Some(output_str.clone());
+
+                        let msg = format!(
+                            "System: Action '{}' halted by Agency Firewall. Requesting authorization.",
+                            action_type
+                        );
+                        
+                        let sys_msg = ioi_types::app::agentic::ChatMessage {
+                            role: "system".to_string(),
+                            content: msg,
+                            timestamp: SystemTime::now()
+                                .duration_since(UNIX_EPOCH)
+                                .unwrap()
+                                .as_millis() as u64,
+                            trace_hash: None,
+                        };
+                        let sys_root = service.append_chat_to_scs(p.session_id, &sys_msg, ctx.block_height)?;
+                        agent_state.transcript_root = sys_root;
+
+                        if let Some(tx) = &service.event_sender {
+                            let _ = tx.send(KernelEvent::FirewallInterception {
+                                verdict: "REQUIRE_APPROVAL".to_string(),
+                                target: action_type.clone(),
+                                request_hash: real_request_hash,
+                                session_id: Some(p.session_id),
+                            });
+                        }
+
+                        state.insert(&key, &codec::to_bytes_canonical(&agent_state)?)?;
+                        return Ok(());
+                    } else if err_str.contains("Blocked by Policy") {
+                        let msg = format!("System: Action '{}' was BLOCKED by security policy. Do not retry this exact action.", action_type);
+                        
+                        let sys_msg = ioi_types::app::agentic::ChatMessage {
+                            role: "system".to_string(),
+                            content: msg,
+                            timestamp: SystemTime::now()
+                                .duration_since(UNIX_EPOCH)
+                                .unwrap()
+                                .as_millis() as u64,
+                            trace_hash: None,
+                        };
+                        let sys_root = service.append_chat_to_scs(p.session_id, &sys_msg, ctx.block_height)?;
+                        agent_state.transcript_root = sys_root;
+
+                        agent_state.consecutive_failures += 1;
+                        action_error = Some("Blocked by Policy".into());
+                        action_success = false;
+                    } else {
+                        action_error = Some(err_str);
+                        action_success = false;
+                    }
+                }
+            }
+        } else {
+            let thought_msg = ioi_types::app::agentic::ChatMessage {
+                role: "agent".to_string(),
+                content: format!("Thought (JSON): {}", output_str),
+                timestamp: SystemTime::now()
+                    .duration_since(UNIX_EPOCH)
+                    .unwrap()
+                    .as_millis() as u64,
+                trace_hash: None,
+            };
+            let thought_root = service.append_chat_to_scs(p.session_id, &thought_msg, ctx.block_height)?;
+            agent_state.transcript_root = thought_root;
+            
+            action_success = true;
+        }
+    } else {
+        let thought_msg = ioi_types::app::agentic::ChatMessage {
+            role: "agent".to_string(),
+            content: output_str.clone(),
+            timestamp: SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap()
+                .as_millis() as u64,
+            trace_hash: None,
+        };
+        let thought_root = service.append_chat_to_scs(p.session_id, &thought_msg, ctx.block_height)?;
+        agent_state.transcript_root = thought_root;
+
+        action_success = true;
+
+        if agent_state.mode == AgentMode::Chat {
+            agent_state.status = AgentStatus::Completed(Some("Chat response sent.".into()));
+
+            completion_event = Some(KernelEvent::AgentActionResult {
+                session_id: p.session_id,
+                step_index: agent_state.step_count,
+                tool_name: "chat::reply".to_string(),
+                output: output_str.clone(),
+            });
+        } else if let Some(req) = parse_vlm_action(
+            &output_str,
+            1920,
+            1080,
+            "desktop-agent".into(),
+            Some(p.session_id),
+            agent_state.step_count as u64,
+            Some(visual_phash),
+        ) {
+            let params: serde_json::Value = serde_json::from_slice(&req.params).unwrap();
+            if req.target == ioi_types::app::ActionTarget::GuiClick {
+                action_type = "gui__click".to_string();
+
+                let call = json!({
+                    "name": "gui__click",
+                    "arguments": params
+                });
+
+                let os_driver = service.os_driver.clone().ok_or_else(|| {
+                    TransactionError::Invalid("OS Driver not configured".into())
+                })?;
+
+                let mcp_handle = service
+                    .mcp
+                    .clone()
+                    .unwrap_or_else(|| Arc::new(McpManager::new()));
+                let executor = ToolExecutor::new(
+                    service.gui.clone(),
+                    service.terminal.clone(),
+                    service.browser.clone(),
+                    mcp_handle,
+                    service.event_sender.clone(),
+                );
+
+                let result = service
+                    .handle_action_execution(
+                        &executor,
+                        "gui__click",
+                        &call,
+                        p.session_id,
+                        agent_state.step_count,
+                        visual_phash,
+                        &rules,
+                        &agent_state,
+                        &os_driver,
+                    )
+                    .await;
+
+                match result {
+                    Ok((success, _hist, error)) => {
+                        action_success = success;
+                        action_error = error;
+                    }
+                    Err(e) => {
+                        action_error = Some(e.to_string());
+                        action_success = false;
+                    }
+                }
+            }
+        }
+    }
+
+    if let Some(verifier) = &service.zk_verifier {
+        let mut preimage = Vec::new();
+        preimage.extend_from_slice(user_prompt.as_bytes());
+        let effective_output_bytes = output_str.as_bytes();
+
+        preimage.extend_from_slice(effective_output_bytes);
+        preimage.extend_from_slice(&model_hash);
+        let proof_hash = ioi_crypto::algorithms::hash::sha256(&preimage).unwrap();
+
+        let valid = verifier
+            .verify_inference(
+                proof_hash.as_ref(),
+                model_hash,
+                user_prompt.as_bytes(),
+                effective_output_bytes,
+            )
+            .await
+            .map_err(|e| TransactionError::Invalid(format!("ZK Verification error: {}", e)))?;
+
+        if !valid {
+            return Err(TransactionError::Invalid(
+                "ZK Proof of Inference Invalid".into(),
+            ));
+        }
+    }
+
+    goto_trace_log(
+        &mut agent_state,
+        state,
+        &key,
+        p.session_id,
+        content_hash,
+        user_prompt,
+        output_str,
+        action_success,
+        action_error,
+        action_type,
+        service.event_sender.clone(),
+    )?;
+
+    if let Some(event) = completion_event {
+        if let Some(tx) = &service.event_sender {
+            let _ = tx.send(event);
+        }
+    }
+
+    Ok(())
+}

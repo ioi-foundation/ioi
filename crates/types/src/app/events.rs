@@ -21,7 +21,7 @@ pub enum KernelEvent {
         /// The hash of the ActionRequest, used for signing ApprovalTokens.
         request_hash: [u8; 32],
         /// The session ID associated with this interception (if available).
-        session_id: Option<[u8; 32]>, // [NEW] Added session_id
+        session_id: Option<[u8; 32]>,
     },
 
     /// The user performed a physical input while in Ghost Mode (Recording).
@@ -40,7 +40,7 @@ pub enum KernelEvent {
         tx_count: u64,
     },
 
-    /// [NEW] The result of an agent action execution.
+    /// The result of an agent action execution.
     AgentActionResult {
         /// The session ID the action belongs to.
         session_id: [u8; 32],
@@ -50,5 +50,21 @@ pub enum KernelEvent {
         tool_name: String,
         /// The output/result of the execution (e.g. stdout).
         output: String,
+    },
+
+    /// [NEW] A new sub-agent was spawned (delegation).
+    AgentSpawn {
+        /// The session ID of the parent agent initiating the delegation.
+        parent_session_id: [u8; 32],
+        /// The unique session ID for the new child agent.
+        new_session_id: [u8; 32],
+        /// The human-readable name of the agent (e.g., "Researcher-1").
+        name: String,
+        /// The specialized role of the agent (e.g., "Browser", "Coder").
+        role: String,
+        /// The initial budget allocated to this agent (Labor Gas).
+        budget: u64,
+        /// The specific goal assigned to this agent.
+        goal: String,
     },
 }

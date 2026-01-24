@@ -9,6 +9,7 @@ import {
   Edge as FlowEdge
 } from "@xyflow/react";
 import { Node as IOINode, Edge as IOIEdge, NodeLogic, NodeLaw, AgentConfiguration } from "../../../types.ts";
+import { NODE_TEMPLATES } from "../templates";
 
 // --- Initial Data Helpers ---
 const toFlowNode = (n: IOINode): FlowNode<IOINode> => ({
@@ -24,8 +25,13 @@ const toFlowEdge = (e: IOIEdge): FlowEdge => ({
   target: e.to,
   sourceHandle: e.fromPort,
   targetHandle: e.toPort,
-  animated: e.active,
-  style: { stroke: e.active ? '#3D85C6' : '#2E333D', strokeWidth: 2 },
+  type: 'semantic', // Use our custom component
+  data: { 
+    active: e.active, 
+    volume: e.volume,
+    status: 'idle' // Default status
+  },
+  animated: e.active, // Keep for ReactFlow internal logic if needed
 });
 
 // Initial mock data
@@ -73,7 +79,12 @@ export function useGraphState() {
   const { screenToFlowPosition, fitView, zoomIn, zoomOut } = useReactFlow();
 
   const onConnect = useCallback(
-    (params: Connection) => setEdges((eds) => addEdge({ ...params, animated: true, style: { stroke: '#2E333D', strokeWidth: 2 } }, eds)),
+    (params: Connection) => setEdges((eds) => addEdge({ 
+      ...params, 
+      type: 'semantic', // Enforce custom type on new connections
+      animated: false,
+      data: { status: 'idle', active: false } 
+    }, eds)),
     [setEdges],
   );
 
@@ -104,21 +115,46 @@ export function useGraphState() {
   const handleCanvasDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault();
     try {
-      const dataStr = e.dataTransfer.getData("application/json");
-      if (!dataStr) return;
-      const item = JSON.parse(dataStr);
+      // Data set in LeftPanel.tsx handleDragStart
+      const nodeId = e.dataTransfer.getData("nodeId"); 
+      const nodeName = e.dataTransfer.getData("nodeName");
+      
       const position = screenToFlowPosition({ x: e.clientX, y: e.clientY });
       
-      const newNodeData: IOINode = {
-        id: item.nodeId ? `${item.nodeId}-${Date.now()}` : `n-${Date.now()}`,
-        type: "action",
-        name: item.nodeName || "New Node",
-        x: position.x, y: position.y,
-        status: "idle", 
-        ioTypes: { in: "Any", out: "Any" }, 
-        inputs: ["in"], outputs: ["out"],
-        config: { logic: {}, law: {} }
-      };
+      // 1. Look up Template from Registry
+      // This implements the "Standard Library" pattern where nodes come pre-configured
+      const template = NODE_TEMPLATES[nodeId];
+      let newNodeData: IOINode;
+
+      if (template) {
+        // Hydrate from Template (The "SimStudio" Magic)
+        // We deep copy config to ensure no reference sharing between nodes
+        newNodeData = {
+          id: `${nodeId}-${Date.now()}`,
+          type: template.type,
+          name: template.name, // Use template name
+          x: position.x, 
+          y: position.y,
+          status: "idle",
+          ioTypes: template.ioTypes,
+          inputs: ["in"], 
+          outputs: ["out"],
+          config: JSON.parse(JSON.stringify(template.defaultConfig))
+        };
+      } else {
+        // Fallback: Generic Node (Empty State)
+        newNodeData = {
+          id: `node-${Date.now()}`,
+          type: "action",
+          name: nodeName || "Generic Node",
+          x: position.x, 
+          y: position.y,
+          status: "idle", 
+          ioTypes: { in: "Any", out: "Any" }, 
+          inputs: ["in"], outputs: ["out"],
+          config: { logic: {}, law: {} }
+        };
+      }
 
       const flowNode = toFlowNode(newNodeData);
       setNodes(prev => [...prev, flowNode]);

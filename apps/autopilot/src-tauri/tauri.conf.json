@@ -50,21 +50,6 @@
         "height": 60
       },
       {
-        "label": "gate",
-        "title": "Autopilot Policy Gate",
-        "url": "/gate",
-        "transparent": true,
-        "decorations": false,
-        "alwaysOnTop": true,
-        "skipTaskbar": true,
-        "visible": false,
-        "resizable": false,
-        "width": 520,
-        "height": 520,
-        "center": true,
-        "focus": true
-      },
-      {
         "label": "studio",
         "title": "Autopilot Studio",
         "url": "/studio",

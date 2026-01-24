@@ -1,3 +1,4 @@
+// src/components/Canvas.tsx
 import { useCallback, useMemo } from 'react';
 import { 
   ReactFlow, 
@@ -8,6 +9,7 @@ import {
   Node as FlowNode,
   BackgroundVariant,
   NodeTypes,
+  EdgeTypes, // Added
   type OnNodesChange,
   type OnEdgesChange,
   type OnConnect
@@ -15,6 +17,7 @@ import {
 import '@xyflow/react/dist/style.css'; 
 
 import { CanvasNode } from './CanvasNode';
+import { CanvasEdge } from './CanvasEdge'; // Added
 import type { Node as IOINode } from '../types';
 import "./Canvas.css";
 
@@ -44,7 +47,7 @@ export function Canvas({
     }
   }, [onNodeSelect]);
 
-  // Memoize nodeTypes to prevent re-creation
+  // Memoize nodeTypes
   const nodeTypes: NodeTypes = useMemo(() => ({
     trigger: CanvasNode,
     action: CanvasNode,
@@ -52,6 +55,11 @@ export function Canvas({
     model: CanvasNode,
     tool: CanvasNode,
     receipt: CanvasNode
+  }), []);
+
+  // Memoize edgeTypes
+  const edgeTypes: EdgeTypes = useMemo(() => ({
+    semantic: CanvasEdge,
   }), []);
 
   return (
@@ -64,10 +72,12 @@ export function Canvas({
         onConnect={onConnect}
         onSelectionChange={handleSelectionChange}
         nodeTypes={nodeTypes}
+        edgeTypes={edgeTypes} // Added
         fitView
         snapToGrid
         snapGrid={[15, 15]}
-        defaultEdgeOptions={{ type: 'smoothstep', animated: false }}
+        // Default to our semantic edge
+        defaultEdgeOptions={{ type: 'semantic', animated: false }}
         minZoom={0.2}
       >
         <Background 

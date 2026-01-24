@@ -121,6 +121,41 @@ const IOIWatermark = () => (
   </svg>
 );
 
+// [NEW] Local Approval Card Definition (mirroring SharedUI)
+function SpotlightApprovalCard({ title, description, risk, onApprove, onDeny }: any) {
+    const riskColor = risk === 'high' ? '#EF4444' : risk === 'medium' ? '#F59E0B' : '#10B981';
+    return (
+        <div style={{
+            background: 'rgba(23, 26, 32, 0.95)',
+            border: `1px solid ${riskColor}40`,
+            borderRadius: 8,
+            padding: 12,
+            marginTop: 8,
+            marginBottom: 8,
+            borderLeft: `3px solid ${riskColor}`,
+            width: '100%',
+        }}>
+            <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6}}>
+                <span style={{fontSize: 12, fontWeight: 600, color: '#E5E7EB'}}>{title}</span>
+                <span style={{fontSize: 9, fontWeight: 700, color: riskColor, background: `${riskColor}15`, padding: '1px 5px', borderRadius: 3}}>
+                    {risk.toUpperCase()}
+                </span>
+            </div>
+            <div style={{fontSize: 11, color: '#9CA3AF', marginBottom: 10, lineHeight: 1.4}}>
+                {description}
+            </div>
+            <div style={{display: 'flex', gap: 6}}>
+                <button onClick={onApprove} style={{flex: 1, background: riskColor, color: 'white', border: 'none', borderRadius: 4, padding: '4px', fontSize: 11, fontWeight: 600, cursor: 'pointer'}}>
+                    Authorize
+                </button>
+                <button onClick={onDeny} style={{padding: '4px 8px', background: 'transparent', border: '1px solid #3F4652', color: '#9CA3AF', borderRadius: 4, fontSize: 11, cursor: 'pointer'}}>
+                    Deny
+                </button>
+            </div>
+        </div>
+    );
+}
+
 interface DropdownOption {
   value: string;
   label: string;
@@ -229,6 +264,9 @@ export function SpotlightWindow() {
   const [conversationMode, setConversationMode] = useState("Agent");
   const [selectedModel, setSelectedModel] = useState("GPT-4o");
   
+  // [NEW] Local state for chat stream including Gates
+  const [chatEvents, setChatEvents] = useState<{role: string, text: string, isGate?: boolean, gateData?: any}[]>([]);
+
   const inputRef = useRef<HTMLInputElement>(null);
   const chatAreaRef = useRef<HTMLDivElement>(null);
   
@@ -236,7 +274,6 @@ export function SpotlightWindow() {
 
   useEffect(() => {
     initEventListeners();
-    // [FIX] Correctly set mode to "sidebar" to trigger docking behavior in Rust backend
     invoke("set_spotlight_mode", { mode: "sidebar" }).catch(console.error);
     setTimeout(() => inputRef.current?.focus(), 150);
     
@@ -260,16 +297,28 @@ export function SpotlightWindow() {
     if (chatAreaRef.current) {
       chatAreaRef.current.scrollTop = chatAreaRef.current.scrollHeight;
     }
-  }, [activeHistory]); 
+  }, [activeHistory, chatEvents]); 
 
-  // Force scroll when task completes
+  // [UPDATED] Listen for Gate Phase
   useEffect(() => {
-    if (task && (task.phase === "Complete" || task.phase === "Failed")) {
-        if (chatAreaRef.current) {
-            chatAreaRef.current.scrollTop = chatAreaRef.current.scrollHeight;
+    if (task && task.phase === "Gate" && task.gate_info) {
+        // Prevent dupes
+        const last = chatEvents[chatEvents.length - 1];
+        if (!last || !last.isGate) {
+            setChatEvents(prev => [...prev, {
+                role: 'system',
+                text: '',
+                isGate: true,
+                gateData: task.gate_info
+            }]);
+            
+            // Scroll to bottom
+            setTimeout(() => {
+                if (chatAreaRef.current) chatAreaRef.current.scrollTop = chatAreaRef.current.scrollHeight;
+            }, 100);
         }
     }
-  }, [task?.phase]);
+  }, [task?.phase, task?.gate_info]);
 
   const openStudio = async (targetView: string = "compose") => {
     await emit("request-studio-view", targetView);
@@ -283,6 +332,19 @@ export function SpotlightWindow() {
     } catch (e) {
       console.error("Failed to load session:", e);
     }
+  };
+
+  const handleDeleteSession = async (e: React.MouseEvent, id: string) => {
+      e.stopPropagation(); // Prevent opening the session
+      if (!confirm("Are you sure? This action cannot be undone.")) return;
+
+      try {
+          await invoke("delete_session", { sessionId: id });
+          // Optimistic UI update
+          setSessions(prev => prev.filter(s => s.session_id !== id));
+      } catch (err) {
+          console.error("Failed to delete session:", err);
+      }
   };
 
   const handleSubmit = async (textOverride?: string) => {
@@ -308,30 +370,51 @@ export function SpotlightWindow() {
     }
   };
 
+  const handleApprove = async () => {
+      await invoke("gate_respond", { approved: true });
+      setChatEvents(prev => prev.map(m => m.isGate ? { ...m, isGate: false, text: "✅ Approved" } : m));
+  };
+
+  const handleDeny = async () => {
+      await invoke("gate_respond", { approved: false });
+      setChatEvents(prev => prev.map(m => m.isGate ? { ...m, isGate: false, text: "❌ Denied" } : m));
+  };
+
   const handleGlobalClick = () => {
     if (activeDropdown) setActiveDropdown(null);
   };
 
-  const hasContent = activeHistory.length > 0;
+  const hasContent = activeHistory.length > 0 || chatEvents.length > 0;
 
   return (
     <div className="spot-window" onClick={handleGlobalClick}>
       <div className="spot-container">
         
-        {/* Tasks List (Replaces Sidebar) */}
+        {/* Tasks List */}
         <div className="spot-tasks-bar">
           <span className="spot-tasks-title">Recent Tasks</span>
         </div>
         <div className="spot-tasks-list">
           {sessions.slice(0, 5).map(s => (
-            <button 
-                key={s.session_id} 
-                className="spot-task-item"
-                onClick={() => handleLoadSession(s.session_id)}
-            >
-              <span className="spot-task-title">{s.title}</span>
-              <span className="spot-task-age">{formatTimeAgo(s.timestamp)}</span>
-            </button>
+            <div key={s.session_id} className="spot-task-row-container" style={{display: 'flex', alignItems: 'center'}}>
+                <button 
+                    className="spot-task-item"
+                    onClick={() => handleLoadSession(s.session_id)}
+                >
+                  <span className="spot-task-title">{s.title}</span>
+                  <span className="spot-task-age">{formatTimeAgo(s.timestamp)}</span>
+                </button>
+                <button 
+                    className="spot-task-delete"
+                    onClick={(e) => handleDeleteSession(e, s.session_id)}
+                    title="Delete Session"
+                    style={{background: 'none', border: 'none', cursor: 'pointer', color: '#6B7280', padding: 8}}
+                >
+                   <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                     <polyline points="3 6 5 6 21 6" /><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                   </svg>
+                </button>
+            </div>
           ))}
           {sessions.length === 0 && (
               <div className="spot-task-item disabled" style={{opacity: 0.5}}>
@@ -351,10 +434,30 @@ export function SpotlightWindow() {
             </div>
           )}
 
-          {activeHistory.map((msg: ChatMessage, i: number) => (
+          {/* Render regular history first */}
+          {chatEvents.length === 0 && activeHistory.map((msg: ChatMessage, i: number) => (
             <div key={i} className={`spot-message ${msg.role}`}>
               {msg.text}
             </div>
+          ))}
+
+          {/* Render dynamic events (including gates) */}
+          {chatEvents.map((msg, i) => (
+              <div key={i} className={`spot-message-wrapper ${msg.role}`} style={{width: '100%', display: 'flex', justifyContent: msg.role === 'user' ? 'flex-end' : 'flex-start'}}>
+                  {msg.isGate ? (
+                      <SpotlightApprovalCard 
+                         title={msg.gateData.title}
+                         description={msg.gateData.description}
+                         risk={msg.gateData.risk}
+                         onApprove={handleApprove}
+                         onDeny={handleDeny}
+                      />
+                  ) : (
+                      <div className={`spot-message ${msg.role}`}>
+                          {msg.text}
+                      </div>
+                  )}
+              </div>
           ))}
 
           {task && task.phase === "Running" && (

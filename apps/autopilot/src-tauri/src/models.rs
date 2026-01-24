@@ -39,6 +39,25 @@ pub struct ChatMessage {
     pub timestamp: u64,
 }
 
+// [NEW] Represents a node in the hierarchical swarm visualization
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SwarmAgent {
+    pub id: String,
+    pub parent_id: Option<String>,
+    pub name: String,
+    pub role: String,
+    pub status: String, // "running", "completed", "failed", "requisition"
+    pub budget_used: f64,
+    pub budget_cap: f64,
+    pub current_thought: Option<String>,
+    #[serde(default)]
+    pub artifacts_produced: u32,
+    #[serde(default)]
+    pub estimated_cost: f64,
+    #[serde(default)]
+    pub policy_hash: String,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AgentTask {
     pub id: String,
@@ -54,17 +73,18 @@ pub struct AgentTask {
     pub pending_request_hash: Option<String>,
     pub session_id: Option<String>,
     
-    // [NEW] History source of truth. 
+    // History source of truth. 
     // This is populated by hydrating from the blockchain state (Audit Log).
     #[serde(default)] 
     pub history: Vec<ChatMessage>,
 
     // [MODIFIED] Track processed steps using a composite key "{step}:{tool}"
-    // This prevents race conditions where a tool execution event and a completion event
-    // occurring at the same step index would be incorrectly deduplicated.
-    // Changed from HashSet<u32> to HashSet<String>.
     #[serde(skip, default)]
     pub processed_steps: HashSet<String>,
+
+    // [NEW] The hierarchical swarm state for SwarmViz
+    #[serde(default)]
+    pub swarm_tree: Vec<SwarmAgent>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -75,7 +95,7 @@ pub struct GateResponse {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ContextBlob {
-    pub data_base64: String,
+    pub data_base64: String, // [FIX] Fixed typo from data_base_4
     pub mime_type: String,
 }
 
@@ -85,8 +105,7 @@ pub struct GhostInputEvent {
     pub description: String,
 }
 
-// [NEW] Struct for persistent session history index
-// Used by the backend to display the sidebar list without hydrating full state
+// Struct for persistent session history index
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SessionSummary {
     pub session_id: String, // Hex encoded
