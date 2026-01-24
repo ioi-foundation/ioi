@@ -13,6 +13,8 @@ interface DataPanelProps {
     output?: string;
     metrics?: any;
     timestamp: number;
+    // [NEW] Input Snapshot for Data Observability
+    input_snapshot?: any;
   };
   // Keeping for backward compatibility if needed, though unused in new logic
   isRunning?: boolean; 
@@ -26,6 +28,7 @@ export function DataPanel({
   selectedNodeName,
   artifact,
 }: DataPanelProps) {
+  // [MODIFIED] Added 'inputs' to tab state options
   const [activeTab, setActiveTab] = useState("inspector");
 
   const handleResizeStart = (e: React.MouseEvent) => {
@@ -64,6 +67,16 @@ export function DataPanel({
             {selectedNodeName ? `Node: ${selectedNodeName}` : "No Node Selected"}
         </div>
         <div className="vertical-sep" />
+        
+        {/* [NEW] Inputs Tab for Context Observability */}
+        <button
+          className={`panel-tab ${activeTab === "inputs" ? "active" : ""}`}
+          onClick={() => setActiveTab("inputs")}
+          title="Inspect the exact merged JSON input this node received"
+        >
+          <span>Context Inputs</span>
+        </button>
+
         <button
           className={`panel-tab ${activeTab === "inspector" ? "active" : ""}`}
           onClick={() => setActiveTab("inspector")}
@@ -98,6 +111,13 @@ export function DataPanel({
              <div className="empty-panel-state">Select a node to inspect its data artifacts.</div>
           ) : !artifact ? (
              <div className="empty-panel-state">No execution data available. Run the graph to generate artifacts.</div>
+          ) : activeTab === "inputs" ? (
+             // [NEW] Render Input Snapshot
+             artifact.input_snapshot ? (
+                <JsonInspector data={artifact.input_snapshot} />
+             ) : (
+                <div className="empty-panel-state">No input snapshot captured.</div>
+             )
           ) : activeTab === "inspector" ? (
              <JsonInspector data={parsedOutput || artifact.output} />
           ) : (

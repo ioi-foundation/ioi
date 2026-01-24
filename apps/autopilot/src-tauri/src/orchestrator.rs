@@ -39,7 +39,7 @@ pub struct GraphEvent {
     pub node_id: String,
     pub status: String, // "running", "success", "failed", "blocked", "cached"
     pub result: Option<ExecutionResult>,
-    // [NEW] Added fields for evolution tracking
+    // Added fields for evolution tracking
     pub fitness_score: Option<f32>,
     pub generation: Option<u64>,
 }
@@ -163,12 +163,12 @@ where F: Fn(GraphEvent) + Send + 'static
     while let Some(node_id) = queue.pop() {
         if step_count >= max_steps {
             let msg = format!("🚫 Max Steps ({}) Exceeded.", max_steps);
-            emit_event(GraphEvent { node_id: node_id.clone(), status: "error".into(), result: Some(ExecutionResult { status: "error".into(), output: msg, data: None, metrics: None }), fitness_score: None, generation: None });
+            emit_event(GraphEvent { node_id: node_id.clone(), status: "error".into(), result: Some(ExecutionResult { status: "error".into(), output: msg, data: None, metrics: None, input_snapshot: None }), fitness_score: None, generation: None });
             break;
         }
         if start_time.elapsed() > Duration::from_millis(timeout_ms) {
             let msg = format!("⏱️ Timeout ({}ms) Exceeded.", timeout_ms);
-            emit_event(GraphEvent { node_id: node_id.clone(), status: "error".into(), result: Some(ExecutionResult { status: "error".into(), output: msg, data: None, metrics: None }), fitness_score: None, generation: None });
+            emit_event(GraphEvent { node_id: node_id.clone(), status: "error".into(), result: Some(ExecutionResult { status: "error".into(), output: msg, data: None, metrics: None, input_snapshot: None }), fitness_score: None, generation: None });
             break;
         }
 
@@ -199,12 +199,16 @@ where F: Fn(GraphEvent) + Send + 'static
             cache.get(&cache_key).cloned()
         };
 
-        if let Some(result) = cached_result {
+        if let Some(mut result) = cached_result {
             // [HIT] Skip Execution
             // Propagate context
             let output_val: Value = if let Some(data) = &result.data { data.clone() } else { json!({"raw": result.output}) };
             context.insert(node_id.clone(), output_val);
             
+            // [MODIFIED] Ensure the cached result carries the current context input snapshot
+            // Even if we cached the output, we want the UI to reflect the *current* input merging logic for debugging.
+            result.input_snapshot = Some(effective_input.clone());
+
             // Determine handle for flow logic
             let active_handle = match result.status.as_str() {
                 "success" => "out",       
@@ -248,7 +252,11 @@ where F: Fn(GraphEvent) + Send + 'static
 
         // Execute
         match execution::execute_ephemeral_node(&node.node_type, config, &input_str).await {
-            Ok(res) => {
+            Ok(mut res) => {
+                // [MODIFIED] Explicitly attach the resolved input snapshot to the result
+                // This guarantees the UI sees exactly what the orchestrator merged.
+                res.input_snapshot = Some(effective_input.clone());
+
                 let output_val: Value = if let Some(data) = &res.data { data.clone() } else { json!({"raw": res.output}) };
                 context.insert(node_id.clone(), output_val);
                 
@@ -265,7 +273,7 @@ where F: Fn(GraphEvent) + Send + 'static
                     cache.insert(cache_key, res.clone());
                 }
                 
-                // [NEW] Extract evolutionary metrics from execution result
+                // Extract evolutionary metrics from execution result
                 let mut fitness_score = None;
                 let mut generation = None;
                 
@@ -310,7 +318,14 @@ where F: Fn(GraphEvent) + Send + 'static
                 emit_event(GraphEvent { 
                     node_id: node_id.clone(), 
                     status: "error".into(), 
-                    result: Some(ExecutionResult { status: "error".into(), output: format!("Error: {}", e), data: None, metrics: None }),
+                    // [MODIFIED] Even on error, try to return the input snapshot if possible for debugging context
+                    result: Some(ExecutionResult { 
+                        status: "error".into(), 
+                        output: format!("Error: {}", e), 
+                        data: None, 
+                        metrics: None,
+                        input_snapshot: Some(effective_input.clone()) 
+                    }),
                     fitness_score: None,
                     generation: None
                 });

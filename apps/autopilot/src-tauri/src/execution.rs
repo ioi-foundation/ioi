@@ -3,17 +3,16 @@
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::error::Error;
-// [FIX] Removed unused import: use url::Url;
 use once_cell::sync::Lazy;
 use std::sync::Arc;
 use std::collections::HashMap;
 
-// [NEW] Native Drivers & MCP
+// Native Drivers & MCP
 use ioi_drivers::browser::BrowserDriver;
 use ioi_drivers::mcp::{McpManager, McpServerConfig};
-use tauri::Manager; // Required for path resolution in init
+use tauri::Manager; 
 
-// [NEW] Governance & Policy Integration
+// Governance & Policy Integration
 use ioi_services::agentic::policy::PolicyEngine;
 use ioi_services::agentic::rules::{ActionRules, DefaultPolicy, Rule, RuleConditions, Verdict};
 use ioi_types::app::{ActionContext, ActionRequest, ActionTarget};
@@ -22,36 +21,40 @@ use ioi_drivers::os::NativeOsDriver;
 use ioi_api::vm::inference::{LocalSafetyModel, SafetyVerdict};
 use async_trait::async_trait;
 
-// [FIX] Added Clone derive so GraphEvent can be cloned for Tauri events in orchestrator.rs
+// [MODIFIED] Added `input_snapshot` field for Data Intimacy / Input Observability
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct ExecutionResult {
     pub status: String,
     pub output: String,
     pub data: Option<Value>,
     pub metrics: Option<Value>,
+    // [NEW] The exact JSON context state used during this execution
+    pub input_snapshot: Option<Value>,
 }
 
-// [NEW] Persistent Browser Driver for the Simulator
+// Persistent Browser Driver for the Simulator
 static BROWSER_DRIVER: Lazy<BrowserDriver> = Lazy::new(|| BrowserDriver::new());
 
-// [NEW] Persistent MCP Manager for the Simulator
+// Persistent MCP Manager for the Simulator
 static MCP_MANAGER: Lazy<Arc<McpManager>> = Lazy::new(|| {
     Arc::new(McpManager::new())
 });
 
-// [NEW] Native OS Driver for Policy Context
+// Public accessor for Kernel commands
+pub async fn get_active_mcp_tools() -> Vec<ioi_types::app::agentic::LlmToolDefinition> {
+    MCP_MANAGER.get_all_tools().await
+}
+
+// Native OS Driver for Policy Context
 static OS_DRIVER: Lazy<Arc<dyn OsDriver>> = Lazy::new(|| {
     Arc::new(NativeOsDriver::new())
 });
 
-// [NEW] Simulation Safety Model (Mock)
-// Required to satisfy PolicyEngine trait bounds without spinning up a full LLM for every UI click.
+// Simulation Safety Model (Mock)
 struct SimulationSafetyModel;
 #[async_trait]
 impl LocalSafetyModel for SimulationSafetyModel {
     async fn classify_intent(&self, _input: &str) -> anyhow::Result<SafetyVerdict> {
-        // In simulation/studio mode, we assume intents are safe unless explicitly flagged by the user
-        // via specific rule configuration.
         Ok(SafetyVerdict::Safe)
     }
     async fn detect_pii(&self, _input: &str) -> anyhow::Result<Vec<(usize, usize, String)>> {
@@ -64,16 +67,12 @@ static SAFETY_MODEL: Lazy<Arc<dyn LocalSafetyModel>> = Lazy::new(|| {
 
 /// Initializes default MCP servers for the local Studio environment.
 pub async fn init_mcp_servers(app_handle: tauri::AppHandle) {
-    // Resolve data directory (same as ioi-local)
     let data_dir = app_handle.path().app_data_dir().unwrap_or_else(|_| std::path::PathBuf::from("./ioi-data"));
-    
-    // Ensure absolute path
     let abs_data_dir = std::fs::canonicalize(&data_dir).unwrap_or_else(|_| {
         std::fs::create_dir_all(&data_dir).ok();
         data_dir.clone()
     });
     
-    // Default Filesystem Server
     let fs_config = McpServerConfig {
         command: "npx".to_string(),
         args: vec![
@@ -118,16 +117,13 @@ fn interpolate_template(template: &str, context: &Value) -> String {
     result
 }
 
-// [NEW] Governance Logic: Synthesize ActionRules from UI Config
+// Governance Logic: Synthesize ActionRules from UI Config
 fn synthesize_node_policy(node_type: &str, law_config: &Value) -> ActionRules {
     let mut rules = Vec::new();
     let mut conditions = RuleConditions::default();
 
-    // Map UI "Law" fields to RuleConditions
     if let Some(budget) = law_config.get("budgetCap").and_then(|v| v.as_f64()) {
         if budget > 0.0 {
-            // Budget in UI is dollars, backend usually uses tokens/gas. 
-            // For simulation, we map 1.0 USD = 1000 units for testing logic flows.
             conditions.max_spend = Some((budget * 1000.0) as u64);
         }
     }
@@ -141,17 +137,14 @@ fn synthesize_node_policy(node_type: &str, law_config: &Value) -> ActionRules {
         }
     }
 
-    // Determine Action Target based on Node Type
     let target = match node_type {
         "browser" => "browser::navigate",
-        "tool" => "net::fetch", // Default assumption, refined in actual request
+        "tool" => "net::fetch",
         "model" => "model::inference",
         "gate" => "gov::gate",
         _ => "*"
     };
 
-    // Construct Rule
-    // If "Require Human Gate" is checked, verdict is RequireApproval. Else Allow.
     let require_human = law_config.get("requireHumanGate").and_then(|v| v.as_bool()).unwrap_or(false);
     let action = if require_human { Verdict::RequireApproval } else { Verdict::Allow };
 
@@ -164,19 +157,15 @@ fn synthesize_node_policy(node_type: &str, law_config: &Value) -> ActionRules {
 
     ActionRules {
         policy_id: "studio-simulation".into(),
-        // If we have specific rules (like an allowlist), we deny everything else by default
-        // to ensure the allowlist is actually enforced.
         defaults: DefaultPolicy::DenyAll,
         rules,
     }
 }
 
-// [NEW] Governance Logic: Construct canonical ActionRequest
+// Governance Logic: Construct canonical ActionRequest
 fn map_to_action_request(node_type: &str, logic_config: &Value, input_json: &str) -> ActionRequest {
-    // 1. Determine Target
     let target = match node_type {
         "browser" => ActionTarget::BrowserNavigate,
-        // Detect tool type
         "tool" => {
             if let Some(endpoint) = logic_config.get("endpoint").and_then(|s| s.as_str()) {
                  if endpoint.starts_with("http") { ActionTarget::NetFetch } 
@@ -188,12 +177,7 @@ fn map_to_action_request(node_type: &str, logic_config: &Value, input_json: &str
         _ => ActionTarget::Custom(format!("node:{}", node_type))
     };
 
-    // 2. Construct Parameters
-    // We attempt to construct a JSON object that represents the call parameters
-    // so the PolicyEngine can inspect fields (like "url").
     let mut params_obj = json!({});
-
-    // Parse input context
     let input_ctx: Value = serde_json::from_str(input_json).unwrap_or(json!({}));
 
     if let Some(url_template) = logic_config.get("url").or_else(|| logic_config.get("endpoint")).and_then(|s| s.as_str()) {
@@ -219,29 +203,23 @@ fn map_to_action_request(node_type: &str, logic_config: &Value, input_json: &str
     }
 }
 
-/// The Governance Layer - REFACTORED
-/// Uses the canonical `PolicyEngine` to evaluate the node's configuration.
+/// The Governance Layer
 async fn check_governance(node_type: &str, config: &Value, input_context: &str) -> Result<(), String> {
     let default_val = serde_json::json!({});
     let law_config = config.get("law").unwrap_or(&default_val);
     let logic_config = config.get("logic").unwrap_or(&default_val);
 
-    // 1. Synthesize Policy from UI Config
     let policy = synthesize_node_policy(node_type, law_config);
-
-    // 2. Construct Canonical Action Request
     let request = map_to_action_request(node_type, logic_config, input_context);
 
-    // 3. Evaluate using Kernel Logic
     let verdict = PolicyEngine::evaluate(
         &policy,
         &request,
         &*SAFETY_MODEL,
         &*OS_DRIVER,
-        None // No approval token in simulation
+        None 
     ).await;
 
-    // 4. Handle Verdict
     match verdict {
         Verdict::Allow => Ok(()),
         Verdict::Block => Err("🛡️ BLOCKED: Policy violation (e.g., Domain not in allowlist)".into()),
@@ -256,13 +234,17 @@ pub async fn execute_ephemeral_node(
     input_json: &str,
 ) -> Result<ExecutionResult, Box<dyn Error>> {
     
-    // --- STEP 1: GOVERNANCE CHECK (Canonical) ---
+    // Parse input snapshot primarily for debugging visibility in blocked states
+    let input_snapshot: Option<Value> = serde_json::from_str(input_json).ok();
+
+    // --- STEP 1: GOVERNANCE CHECK ---
     if let Err(violation) = check_governance(node_type, full_config, input_json).await {
         return Ok(ExecutionResult {
             status: "blocked".to_string(),
             output: violation,
             data: None,
             metrics: Some(serde_json::json!({ "risk": "high" })),
+            input_snapshot, // [MODIFIED] Return input even on block so user can see what triggered it
         });
     }
 
@@ -286,29 +268,54 @@ pub async fn execute_ephemeral_node(
             output: format!("Receipt Logged: {}", input_json.chars().take(50).collect::<String>()),
             data: Some(serde_json::json!({ "signed": true, "timestamp": chrono::Utc::now().to_rfc3339() })),
             metrics: None,
+            input_snapshot,
         }),
         _ => Ok(ExecutionResult {
             status: "skipped".to_string(),
             output: format!("Ephemeral execution not implemented for {}", node_type),
             data: None,
             metrics: None,
+            input_snapshot,
         }),
     }
 }
 
-// ... [Existing implementations of run_mcp_tool, run_browser_execution, run_gate_execution, run_llm_inference, run_tool_execution follow unchanged]
-
-// [NEW] MCP Execution Handler
+// [MODIFIED] MCP Execution Handler with Input Snapshot
 async fn run_mcp_tool(tool_name: &str, config: &Value, input: &str) -> Result<ExecutionResult, Box<dyn Error>> {
     let start = std::time::Instant::now();
     let input_obj: Value = serde_json::from_str(input).unwrap_or(json!({}));
     
-    let mut args = config.get("arguments").cloned().unwrap_or(json!({}));
+    let raw_args = config.get("arguments").cloned().unwrap_or(json!({}));
+    
+    fn interpolate_recursive(val: &Value, ctx: &Value) -> Value {
+        match val {
+            Value::String(s) => {
+                if s.contains("{{") {
+                    Value::String(interpolate_template(s, ctx))
+                } else {
+                    val.clone()
+                }
+            },
+            Value::Array(arr) => {
+                Value::Array(arr.iter().map(|v| interpolate_recursive(v, ctx)).collect())
+            },
+            Value::Object(map) => {
+                let mut new_map = serde_json::Map::new();
+                for (k, v) in map {
+                    new_map.insert(k.clone(), interpolate_recursive(v, ctx));
+                }
+                Value::Object(new_map)
+            },
+            _ => val.clone(),
+        }
+    }
+
+    let mut args = interpolate_recursive(&raw_args, &input_obj);
     
     if let Value::Object(ref mut map) = args {
-        if let Value::Object(input_map) = input_obj {
+        if let Value::Object(input_map) = &input_obj {
             for (k, v) in input_map {
-                map.insert(k, v);
+                map.entry(k).or_insert(v.clone());
             }
         }
     }
@@ -322,29 +329,33 @@ async fn run_mcp_tool(tool_name: &str, config: &Value, input: &str) -> Result<Ex
                 Err(_) => Some(json!({ "raw": output })),
             },
             metrics: Some(json!({ "latency_ms": start.elapsed().as_millis() })),
+            input_snapshot: Some(input_obj), // [NEW] Capture
         }),
         Err(e) => Ok(ExecutionResult {
             status: "error".to_string(),
             output: format!("MCP Error: {}", e),
             data: None,
             metrics: None,
+            input_snapshot: Some(input_obj), // [NEW] Capture
         })
     }
 }
 
+// [MODIFIED] Browser Execution with Input Snapshot
 async fn run_browser_execution(config: &Value, input: &str) -> Result<ExecutionResult, Box<dyn Error>> {
     let start = std::time::Instant::now();
+    let input_obj: Value = serde_json::from_str(input).unwrap_or(serde_json::json!({}));
     
     if let Err(e) = BROWSER_DRIVER.launch().await {
         return Ok(ExecutionResult {
             status: "error".to_string(),
             output: format!("Failed to launch browser driver: {}", e),
             data: None,
-            metrics: None
+            metrics: None,
+            input_snapshot: Some(input_obj),
         });
     }
 
-    let input_obj: Value = serde_json::from_str(input).unwrap_or(serde_json::json!({}));
     let action = config.get("action").and_then(|v| v.as_str()).unwrap_or("navigate");
     
     match action {
@@ -363,6 +374,7 @@ async fn run_browser_execution(config: &Value, input: &str) -> Result<ExecutionR
                             "content_length": content.len()
                         })),
                         metrics: Some(serde_json::json!({ "latency_ms": start.elapsed().as_millis() })),
+                        input_snapshot: Some(input_obj), // [NEW] Capture
                     })
                 },
                 Err(e) => Ok(ExecutionResult {
@@ -370,6 +382,7 @@ async fn run_browser_execution(config: &Value, input: &str) -> Result<ExecutionR
                     output: format!("Navigation failed: {}", e),
                     data: None,
                     metrics: Some(serde_json::json!({ "latency_ms": start.elapsed().as_millis() })),
+                    input_snapshot: Some(input_obj), // [NEW] Capture
                 })
             }
         },
@@ -380,12 +393,14 @@ async fn run_browser_execution(config: &Value, input: &str) -> Result<ExecutionR
                     output: dom.clone(),
                     data: Some(serde_json::json!({ "dom_length": dom.len() })),
                     metrics: Some(serde_json::json!({ "latency_ms": start.elapsed().as_millis() })),
+                    input_snapshot: Some(input_obj),
                 }),
                 Err(e) => Ok(ExecutionResult {
                     status: "error".to_string(),
                     output: format!("DOM extraction failed: {}", e),
                     data: None,
-                    metrics: None
+                    metrics: None,
+                    input_snapshot: Some(input_obj),
                 })
             }
         },
@@ -397,12 +412,14 @@ async fn run_browser_execution(config: &Value, input: &str) -> Result<ExecutionR
                     output: format!("Clicked element: {}", selector),
                     data: Some(serde_json::json!({ "action": "click", "selector": selector })),
                     metrics: Some(serde_json::json!({ "latency_ms": start.elapsed().as_millis() })),
+                    input_snapshot: Some(input_obj),
                 }),
                 Err(e) => Ok(ExecutionResult {
                     status: "error".to_string(),
                     output: format!("Click failed: {}", e),
                     data: None,
-                    metrics: None
+                    metrics: None,
+                    input_snapshot: Some(input_obj),
                 })
             }
         },
@@ -410,11 +427,13 @@ async fn run_browser_execution(config: &Value, input: &str) -> Result<ExecutionR
             status: "error".to_string(),
             output: format!("Unknown browser action: {}", action),
             data: None,
-            metrics: None
+            metrics: None,
+            input_snapshot: Some(input_obj),
         })
     }
 }
 
+// [MODIFIED] Gate Execution with Input Snapshot
 async fn run_gate_execution(config: &Value, input: &str) -> Result<ExecutionResult, Box<dyn Error>> {
     let start = std::time::Instant::now();
     let condition = config.get("conditionScript")
@@ -503,9 +522,11 @@ async fn run_gate_execution(config: &Value, input: &str) -> Result<ExecutionResu
             "reason": reason
         })),
         metrics: Some(serde_json::json!({ "latency_ms": start.elapsed().as_millis() })),
+        input_snapshot: Some(input_obj), // [NEW] Capture
     })
 }
 
+// [MODIFIED] LLM Inference with Input Snapshot
 async fn run_llm_inference(config: &Value, input_json: &str) -> Result<ExecutionResult, Box<dyn Error>> {
     let system_prompt = config.get("systemPrompt")
         .or_else(|| config.get("system_prompt"))
@@ -554,6 +575,7 @@ async fn run_llm_inference(config: &Value, input_json: &str) -> Result<Execution
                         "eval_count": body.get("eval_count").unwrap_or(&serde_json::json!(0)),
                         "final_prompt_snapshot": final_user_prompt 
                     })),
+                    input_snapshot: Some(input_obj), // [NEW] Capture
                 })
             } else {
                 Ok(ExecutionResult {
@@ -561,6 +583,7 @@ async fn run_llm_inference(config: &Value, input_json: &str) -> Result<Execution
                     output: format!("LLM Provider Error: {}", response.status()),
                     data: None,
                     metrics: Some(serde_json::json!({ "latency_ms": duration.as_millis() })),
+                    input_snapshot: Some(input_obj), // [NEW] Capture
                 })
             }
         },
@@ -570,11 +593,13 @@ async fn run_llm_inference(config: &Value, input_json: &str) -> Result<Execution
                 output: format!("[Simulated Output - Ollama Offline]\nModel: {}\nPrompt Used: {}\nError: {}", model, final_user_prompt.chars().take(150).collect::<String>(), e),
                 data: Some(serde_json::json!({ "final_prompt_snapshot": final_user_prompt })),
                 metrics: Some(serde_json::json!({ "latency_ms": 15, "error": e.to_string() })),
+                input_snapshot: Some(input_obj), // [NEW] Capture
             })
         }
     }
 }
 
+// [MODIFIED] Tool Execution with Input Snapshot
 async fn run_tool_execution(config: &Value, input: &str) -> Result<ExecutionResult, Box<dyn Error>> {
     let url = config.get("endpoint")
         .or_else(|| config.get("url"))
@@ -622,6 +647,7 @@ async fn run_tool_execution(config: &Value, input: &str) -> Result<ExecutionResu
                     "body_preview": text.chars().take(500).collect::<String>() 
                 })),
                 metrics: Some(serde_json::json!({ "latency_ms": duration.as_millis() })),
+                input_snapshot: Some(input_obj), // [NEW] Capture
             })
         },
         Err(e) => {
@@ -630,6 +656,7 @@ async fn run_tool_execution(config: &Value, input: &str) -> Result<ExecutionResu
                 output: format!("Network Request Failed: {}", e),
                 data: None,
                 metrics: Some(serde_json::json!({ "latency_ms": duration.as_millis() })),
+                input_snapshot: Some(input_obj), // [NEW] Capture
             })
         }
     }
