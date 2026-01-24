@@ -1,3 +1,4 @@
+// src/components/CanvasNode.tsx
 import { memo } from 'react';
 import { Handle, Position, NodeProps } from '@xyflow/react';
 import { Node as IOINode, NodeLaw } from '../types'; 
@@ -12,6 +13,10 @@ const typeIcons: Record<string, string> = {
   model: "🧠",
   receipt: "🧾",
   tool: "🔧",
+  code: "💻", // [NEW] Icon for Code Block
+  router: "🔀", // [NEW] Icon for Router Block
+  wait: "⏳", // [NEW] Icon for Wait Block
+  context: "📦", // [NEW] Icon for Variables Block
 };
 
 export const CanvasNode = memo(({ data, selected }: NodeProps) => {
@@ -31,18 +36,23 @@ export const CanvasNode = memo(({ data, selected }: NodeProps) => {
     (law.requireHumanGate === true)
   );
 
+  // [NEW] Determine dynamic ports for Router nodes
+  const isRouter = type === "router";
+  // For Router: Use the 'routes' array from config, fallback to default if missing
+  // For others: Use standard single output unless specific logic requires more
+  const outputHandles = isRouter ? (config?.logic?.routes || ["out"]) : ["out"];
+
   return (
     <div className={`canvas-node ${selected ? "selected" : ""} ${ghostClass} ${activeClass}`}>
       
       {/* INPUT PORT */}
-      {nodeData.inputs && (
-        <Handle 
-          type="target" 
-          position={Position.Left} 
-          className="node-port port-in" 
-          id="in"
-        />
-      )}
+      {/* Most nodes accept input, except specific triggers maybe? Assuming yes for parity */}
+      <Handle 
+        type="target" 
+        position={Position.Left} 
+        className="node-port port-in" 
+        id="in"
+      />
 
       {/* STATUS DOT */}
       {!isGhost && <div className={`status-dot status-${statusClass}`} />}
@@ -76,48 +86,51 @@ export const CanvasNode = memo(({ data, selected }: NodeProps) => {
       </div>
 
       {/* OUTPUT PORTS (SEMANTIC) */}
-      {nodeData.outputs && (
-        <div className="node-ports-stack">
-          
-          {/* 1. Success (Standard) */}
-          <div className="port-wrapper success" title="Success Path">
+      <div className="node-ports-stack">
+        
+        {/* 1. Success Paths (Dynamic for Router) */}
+        {outputHandles.map((handleId: string, index: number) => (
+          <div key={handleId} className="port-wrapper success" title={isRouter ? `Route: ${handleId}` : "Success Path"} style={{ marginTop: index * 20 }}>
+            {/* Show label for Router paths so user knows which is which */}
+            {isRouter && <span className="port-label" style={{ right: 14, top: 0, fontSize: 9, color: '#3D85C6' }}>{handleId}</span>}
+            
             <Handle 
               type="source" 
               position={Position.Right} 
-              id="out" 
+              id={handleId} // Critical: ID matches route name
               className="node-port port-out success"
+              style={{ top: 12 }} // Adjust based on stacking if needed, simplistic here
+            />
+          </div>
+        ))}
+
+        {/* 2. Governance Blocked (Conditional) */}
+        {hasGovernance && (
+          <div className="port-wrapper blocked" title="Policy Blocked (Firewall/Budget)" style={{ marginTop: outputHandles.length * 20 }}>
+            <Handle 
+              type="source" 
+              position={Position.Right} 
+              id="blocked" 
+              className="node-port port-out blocked"
               style={{ top: 12 }}
             />
+            <span className="port-label gov">🛡️</span>
           </div>
+        )}
 
-          {/* 2. Governance Blocked (Conditional) */}
-          {hasGovernance && (
-            <div className="port-wrapper blocked" title="Policy Blocked (Firewall/Budget)">
-              <Handle 
-                type="source" 
-                position={Position.Right} 
-                id="blocked" 
-                className="node-port port-out blocked"
-                style={{ top: 32 }}
-              />
-              <span className="port-label gov">🛡️</span>
-            </div>
-          )}
-
-          {/* 3. Error (Always available for robustness) */}
-          <div className="port-wrapper error" title="Runtime Error / Failure">
-            <Handle 
-              type="source" 
-              position={Position.Right} 
-              id="error" 
-              className="node-port port-out error"
-              style={{ top: hasGovernance ? 52 : 32 }}
-            />
-            <span className="port-label err">!</span>
-          </div>
-
+        {/* 3. Error (Always available for robustness) */}
+        <div className="port-wrapper error" title="Runtime Error / Failure" style={{ marginTop: (outputHandles.length + (hasGovernance ? 1 : 0)) * 20 }}>
+          <Handle 
+            type="source" 
+            position={Position.Right} 
+            id="error" 
+            className="node-port port-out error"
+            style={{ top: 12 }}
+          />
+          <span className="port-label err">!</span>
         </div>
-      )}
+
+      </div>
 
       {/* FOOTER */}
       <div className="node-footer">

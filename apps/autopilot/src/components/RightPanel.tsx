@@ -510,13 +510,117 @@ function LogicView({ node, onUpdate }: LogicViewProps) {
           </div>
         </div>
       )}
+
+      {/* [NEW] New Logic Views for Competitor Parity */}
+      {node.type === "code" && <CodeLogicConfig node={node} />}
+      {node.type === "router" && <RouterLogicConfig node={node} />}
+      {node.type === "wait" && <WaitLogicConfig node={node} />}
+      {node.type === "context" && <VariableLogicConfig node={node} />}
       
       {/* Fallback for generic nodes */}
-      {!["model", "tool", "trigger"].includes(node.type) && (
+      {!["model", "tool", "trigger", "code", "router", "wait", "context"].includes(node.type) && (
         <div className="panel-empty" style={{ padding: 20 }}>
           <span className="empty-hint">No configurable logic for this node type.</span>
         </div>
       )}
+    </div>
+  );
+}
+
+// [NEW] Logic Config Components for Competitor Parity
+
+function CodeLogicConfig({ node }: { node: Node }) {
+  return (
+    <>
+      <div className="panel-section">
+        <div className="section-title-row"><span className="section-title">Code Execution</span></div>
+        <div className="config-field">
+          <label className="config-label">Runtime</label>
+          <select className="input" defaultValue={node.config?.logic?.language || "python"}>
+            <option value="python">Python 3 (Sandboxed)</option>
+            <option value="javascript">Node.js (Sandboxed)</option>
+            <option value="shell">System Shell (Unsafe)</option>
+          </select>
+        </div>
+        <div className="config-field">
+          <label className="config-label">Script</label>
+          <textarea 
+            className="input code-editor" 
+            rows={12}
+            defaultValue={node.config?.logic?.code}
+            placeholder="def main(input): ..."
+            style={{ fontFamily: 'monospace', fontSize: 11 }}
+          />
+          <div className="approval-hint" style={{marginLeft: 0, marginTop: 4, color: '#6B7280'}}>
+            Input available as <code>input</code> dictionary. Return JSON.
+          </div>
+        </div>
+      </div>
+    </>
+  );
+}
+
+function RouterLogicConfig({ node }: { node: Node }) {
+  const routes = node.config?.logic?.routes || [];
+  return (
+    <>
+      <div className="panel-section">
+        <div className="section-title-row"><span className="section-title">Semantic Routing</span></div>
+        <div className="config-field">
+          <label className="config-label">Instruction</label>
+          <textarea 
+            className="input" 
+            rows={2}
+            defaultValue={node.config?.logic?.routerInstruction}
+          />
+        </div>
+        <div className="config-field">
+          <label className="config-label">Routes (Outputs)</label>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            {routes.map((r: string, i: number) => (
+              <div key={i} style={{ display: 'flex', gap: 4 }}>
+                <input className="input" defaultValue={r} />
+                <button className="btn btn-primary" style={{ padding: '0 8px', background: 'transparent', border: '1px solid #3F4652', color: '#9CA3AF' }}>×</button>
+              </div>
+            ))}
+            <button className="btn btn-primary full-width" style={{background: 'transparent', border: '1px solid #3D85C6', color: '#3D85C6'}}>+ Add Route</button>
+          </div>
+        </div>
+      </div>
+    </>
+  );
+}
+
+function WaitLogicConfig({ node }: { node: Node }) {
+  return (
+    <div className="panel-section">
+      <div className="section-title-row"><span className="section-title">Delay</span></div>
+      <div className="config-field">
+        <label className="config-label">Duration (ms)</label>
+        <input type="number" className="input" defaultValue={node.config?.logic?.durationMs} />
+        <div className="approval-hint" style={{marginLeft: 0, marginTop: 4, color: '#6B7280'}}>
+          Workflow will suspend and resume automatically.
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function VariableLogicConfig({ node }: { node: Node }) {
+  return (
+    <div className="panel-section">
+      <div className="section-title-row"><span className="section-title">Context Variables</span></div>
+      <div className="config-field">
+        <label className="config-label">Key-Value Pairs (JSON)</label>
+        <textarea 
+          className="input code-editor" 
+          rows={6}
+          defaultValue={JSON.stringify(node.config?.logic?.variables || {}, null, 2)}
+        />
+        <div className="approval-hint" style={{marginLeft: 0, marginTop: 4, color: '#6B7280'}}>
+          Use <code>{`{{input.key}}`}</code> to map inputs to global context.
+        </div>
+      </div>
     </div>
   );
 }

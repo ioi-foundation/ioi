@@ -134,9 +134,13 @@ export function ContextSidebar({ width }: ContextSidebarProps) {
     );
   }, []);
 
-  const handleDragStart = (e: React.DragEvent, nodeId: string, nodeName: string) => {
+  // [MODIFIED] Added optional schema param to persist tool definition during drag
+  const handleDragStart = (e: React.DragEvent, nodeId: string, nodeName: string, schema?: string) => {
     e.dataTransfer.setData("nodeId", nodeId);
     e.dataTransfer.setData("nodeName", nodeName);
+    if (schema) {
+      e.dataTransfer.setData("nodeSchema", schema);
+    }
     e.dataTransfer.effectAllowed = "copy";
   };
 
@@ -282,7 +286,7 @@ interface InventoryViewProps {
   searchQuery: string;
   onSearchChange: (query: string) => void;
   onToggleCategory: (id: string) => void;
-  onDragStart: (e: React.DragEvent, nodeId: string, nodeName: string) => void;
+  onDragStart: (e: React.DragEvent, nodeId: string, nodeName: string, schema?: string) => void;
 }
 
 function InventoryView({
@@ -335,7 +339,8 @@ function InventoryView({
                     key={node.id}
                     className="node-item"
                     draggable
-                    onDragStart={(e) => onDragStart(e, node.id, node.name)}
+                    // [MODIFIED] Pass schema to handler
+                    onDragStart={(e) => onDragStart(e, node.id, node.name, node.schema)}
                   >
                     <span className="node-icon">{node.icon}</span>
                     <span className="node-name">{node.name}</span>

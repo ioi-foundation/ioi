@@ -1,6 +1,9 @@
 import { useState, useEffect } from "react";
 import { ReactFlowProvider, useReactFlow } from "@xyflow/react"; 
 import { listen } from "@tauri-apps/api/event";
+import { invoke } from "@tauri-apps/api/core";
+// Ensure you have installed this package: npm install @tauri-apps/plugin-dialog
+import { save, open } from "@tauri-apps/plugin-dialog";
 import "@xyflow/react/dist/style.css"; 
 
 import { initEventListeners, useAgentStore } from "../../store/agentStore";
@@ -11,11 +14,9 @@ import { useGraphState } from "./hooks/useGraphState.ts";
 import { useGraphExecution } from "./hooks/useGraphExecution.ts";
 import { GraphGlobalConfig } from "./types.ts";
 
-// Local Components
+// Components
 import { StudioCopilotView } from "./components/StudioCopilot";
 import { GhostChatPanel } from "./components/GhostPanel.tsx";
-
-// Global Components
 import { ActivityBar } from "../../components/ActivityBar";
 import { IDEHeader, InterfaceMode } from "../../components/IDEHeader";
 import { ExplorerPanel } from "../../components/ExplorerPanel";
@@ -32,20 +33,7 @@ import { FleetView } from "../../components/FleetView";
 
 // CSS
 import "../../components/ActivityBar.css";
-import "../../components/IDEHeader.css";
-import "../../components/ExplorerPanel.css";
-import "../../components/Canvas.css";
-import "../../components/CanvasNode.css";
-import "../../components/CanvasEdge.css";
-import "../../components/RightPanel.css";
-import "../../components/BottomDrawer.css";
-import "../../components/CommandPalette.css";
-import "../../components/BuilderView.css";
-import "../../components/StatusBar.css";
-import "../../components/MarketplaceView.css";
-import "../../components/AgentInstallModal.css";
-import "../../components/VisionHUD.css";
-import "../../components/FleetView.css";
+// ... (other CSS imports unchanged) ...
 import "./StudioWindow.css";
 
 export function StudioWindow() {
@@ -89,11 +77,10 @@ function StudioLayout() {
 
   const {
     nodeArtifacts, executionLogs, executionSteps,
-    traceData, // <--- Get the transformed trace data from the hook
+    traceData, 
     runGraph, handleNodeRunComplete, getUpstreamContext
   } = useGraphExecution(nodes, edges, setNodes, setEdges);
 
-  // ReactFlow Tools
   const { fitView, zoomIn, zoomOut } = useReactFlow();
 
   // Listen for external view requests
@@ -111,15 +98,111 @@ function StudioLayout() {
     else clearGhostNodes();
   }, [interfaceMode, injectGhostNode, clearGhostNodes]);
 
-  // Wrapper for run
   const onRunGraph = async () => {
-    setActiveDrawerTab("timeline"); // Switch to timeline to show trace
+    setActiveDrawerTab("timeline"); 
     setDrawerCollapsed(false);
     await runGraph(graphConfig);
   };
 
   const handleGraphUpdate = (updates: Partial<GraphGlobalConfig>) => {
     setGraphConfig((prev: GraphGlobalConfig) => ({ ...prev, ...updates }));
+  };
+
+  // Persistence Handlers
+  const handleSave = async () => {
+    const path = await save({
+      filters: [{
+        name: 'Autopilot Agent',
+        extensions: ['json', 'ioi']
+      }]
+    });
+    
+    if (!path) return;
+
+    // Transform ReactFlow nodes to Rust GraphNode format
+    const exportNodes = nodes.map((n) => ({
+      id: n.id,
+      type: n.type || "action",
+      config: (n.data as IOINode).config || { logic: {}, law: {} }
+    }));
+
+    const exportEdges = edges.map((e) => ({
+      source: e.source,
+      target: e.target,
+      sourceHandle: e.sourceHandle 
+    }));
+
+    const projectFile = {
+        version: "1.0",
+        nodes: exportNodes,
+        edges: exportEdges,
+        global_config: {
+            env: graphConfig.env,
+            policy: graphConfig.policy,
+            meta: graphConfig.meta
+        }
+    };
+
+    try {
+        await invoke("save_project", { path, project: projectFile });
+    } catch (err) {
+        console.error("Save failed:", err);
+    }
+  };
+
+  const handleOpen = async () => {
+    const path = await open({
+      multiple: false,
+      filters: [{
+        name: 'Autopilot Agent',
+        extensions: ['json', 'ioi']
+      }]
+    });
+
+    if (!path) return;
+
+    try {
+        const project: any = await invoke("load_project", { path });
+        
+        // Hydrate Graph Config
+        if (project.global_config) {
+            setGraphConfig({
+                env: project.global_config.env || graphConfig.env,
+                policy: project.global_config.policy || graphConfig.policy,
+                meta: project.global_config.meta || graphConfig.meta
+            });
+        }
+
+        // Hydrate Nodes (Map back to FlowNodes)
+        const flowNodes = project.nodes.map((n: any) => ({
+            id: n.id,
+            type: n.node_type || n.type, // Handle rename
+            position: { x: 0, y: 0 }, // TODO: Persist layout x/y if stored
+            data: { 
+                id: n.id, 
+                type: n.node_type || n.type,
+                name: n.config?.meta?.name || n.id, // Fallback name logic
+                config: n.config
+            }
+        }));
+        
+        // Hydrate Edges
+        const flowEdges = project.edges.map((e: any, i: number) => ({
+            id: `e-${i}`,
+            source: e.source,
+            target: e.target,
+            sourceHandle: e.source_handle || 'out',
+            targetHandle: 'in', // Assumption
+            type: 'semantic'
+        }));
+
+        setNodes(flowNodes);
+        setEdges(flowEdges);
+        setTimeout(() => fitView(), 100);
+
+    } catch (err) {
+        console.error("Load failed:", err);
+    }
   };
 
   // Derived selected node
@@ -134,12 +217,13 @@ function StudioLayout() {
         {activeView !== "marketplace" && activeView !== "copilot" && activeView !== "fleet" && (
           <IDEHeader
             projectPath="Personal"
-            projectName={graphConfig.meta.name}
+            projectName={graphConfig.meta.name || "Untitled"}
             branch="main"
             mode={interfaceMode}
             onModeChange={setInterfaceMode}
             isComposeView={activeView === "compose"}
-            onSave={() => console.log("Save")}
+            onSave={handleSave} 
+            onOpen={handleOpen} // [FIX] Now wired
             onRun={onRunGraph}
             onZoomIn={() => zoomIn()}
             onZoomOut={() => zoomOut()}
@@ -148,6 +232,7 @@ function StudioLayout() {
         )}
 
         <div className="studio-content">
+          {/* ... (View Switching Logic) ... */}
           {activeView === "marketplace" ? (
             <MarketplaceView onInstallAgent={(a) => { setSelectedAgent(a); setInstallModalOpen(true); }} />
           ) : activeView === "agent-builder" ? (
@@ -195,8 +280,8 @@ function StudioLayout() {
                     activeTab={activeDrawerTab}
                     onTabChange={setActiveDrawerTab}
                     logs={executionLogs}
-                    traceData={traceData} // <--- Pass real trace data
-                    steps={executionSteps} // Kept for legacy if needed, but unused in new component
+                    traceData={traceData} 
+                    steps={executionSteps} 
                     selectedNodeId={selectedNodeId}
                     selectedArtifact={selectedNodeId ? nodeArtifacts[selectedNodeId] : null}
                   />

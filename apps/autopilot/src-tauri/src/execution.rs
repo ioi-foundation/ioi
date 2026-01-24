@@ -142,6 +142,7 @@ fn synthesize_node_policy(node_type: &str, law_config: &Value) -> ActionRules {
         "tool" => "net::fetch",
         "model" => "model::inference",
         "gate" => "gov::gate",
+        "code" => "sys::exec", // [NEW] Code execution governance target
         _ => "*"
     };
 
@@ -270,6 +271,13 @@ pub async fn execute_ephemeral_node(
             metrics: None,
             input_snapshot,
         }),
+        
+        // --- [NEW] Competitor Parity Implementations ---
+        "code" => run_code_execution(logic_config, input_json).await,
+        "router" => run_router_execution(logic_config, input_json).await,
+        "wait" => run_wait_execution(logic_config).await,
+        "context" => run_context_execution(logic_config, input_json).await,
+
         _ => Ok(ExecutionResult {
             status: "skipped".to_string(),
             output: format!("Ephemeral execution not implemented for {}", node_type),
@@ -660,4 +668,80 @@ async fn run_tool_execution(config: &Value, input: &str) -> Result<ExecutionResu
             })
         }
     }
+}
+
+// [NEW] 1. Code Execution (Mocked via Shell for MVP)
+async fn run_code_execution(config: &Value, input: &str) -> Result<ExecutionResult, Box<dyn Error>> {
+    let language = config.get("language").and_then(|s| s.as_str()).unwrap_or("python");
+    let _code = config.get("code").and_then(|s| s.as_str()).unwrap_or("");
+    
+    // In a real app, write `code` to a temp file and execute via Command::new(python)
+    // For MVP, we simulate:
+    tokio::time::sleep(std::time::Duration::from_millis(500)).await;
+    
+    let input_obj: Value = serde_json::from_str(input).unwrap_or(json!({}));
+
+    Ok(ExecutionResult {
+        status: "success".into(),
+        output: format!("Executed {} code (Simulated)", language),
+        data: Some(serde_json::json!({ "processed": true, "result": "simulated_data" })),
+        metrics: None,
+        input_snapshot: Some(input_obj),
+    })
+}
+
+// [NEW] 2. Semantic Router (Simple Keyword/LLM based)
+async fn run_router_execution(config: &Value, input: &str) -> Result<ExecutionResult, Box<dyn Error>> {
+    let routes = config.get("routes").and_then(|v| v.as_array())
+        .ok_or("No routes defined")?;
+    
+    // Logic: Calls LLM or uses simple keyword matching to pick a route
+    // For MVP: Pick the first route that matches a keyword in input, or default to first
+    let input_lower = input.to_lowercase();
+    let mut selected_route = routes[0].as_str().unwrap_or("default").to_string();
+
+    for r in routes {
+        if let Some(route_str) = r.as_str() {
+            if input_lower.contains(&route_str.to_lowercase()) {
+                selected_route = route_str.to_string();
+                break;
+            }
+        }
+    }
+
+    Ok(ExecutionResult {
+        status: "success".into(),
+        output: selected_route.clone(), // The output IS the route name
+        data: Some(json!({ "route": selected_route })), // "route" key tells Orchestrator which handle to fire
+        metrics: None,
+        input_snapshot: Some(serde_json::from_str(input)?),
+    })
+}
+
+// [NEW] 3. Wait Execution
+async fn run_wait_execution(config: &Value) -> Result<ExecutionResult, Box<dyn Error>> {
+    let duration = config.get("durationMs").and_then(|v| v.as_u64()).unwrap_or(1000);
+    tokio::time::sleep(std::time::Duration::from_millis(duration)).await;
+    
+    Ok(ExecutionResult {
+        status: "success".into(),
+        output: format!("Waited {}ms", duration),
+        data: None,
+        metrics: None,
+        input_snapshot: None,
+    })
+}
+
+// [NEW] 4. Context/Variables Execution
+async fn run_context_execution(config: &Value, input: &str) -> Result<ExecutionResult, Box<dyn Error>> {
+    let vars = config.get("variables").cloned().unwrap_or(json!({}));
+    // In a real impl, we interpolate inputs into vars values
+    
+    Ok(ExecutionResult {
+        status: "success".into(),
+        output: "Context Updated".into(),
+        data: Some(vars), // Returning an object merges it into global context in Orchestrator
+        metrics: None,
+        input_snapshot: Some(serde_json::from_str(input)?),
+    })
 }

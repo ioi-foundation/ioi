@@ -3,7 +3,7 @@ import { NodeLaw, NodeLogic } from "../../types";
 
 export interface NodeTemplate {
   type: string;
-  name: string; // Display name
+  name: string;
   ioTypes: { in: string; out: string };
   defaultConfig: {
     logic: NodeLogic;
@@ -12,7 +12,88 @@ export interface NodeTemplate {
 }
 
 export const NODE_TEMPLATES: Record<string, NodeTemplate> = {
-  // --- GOVERNANCE PRIMITIVES ---
+  // === COMPETITOR PARITY: CORE BLOCKS ===
+
+  // 1. Function Block (Code Execution)
+  "code-python": {
+    type: "code",
+    name: "Python Worker",
+    ioTypes: { in: "JSON", out: "JSON" },
+    defaultConfig: {
+      logic: {
+        language: "python",
+        code: "def main(input):\n    # Transform data here\n    return {\"processed\": True, \"data\": input}",
+      },
+      law: {
+        // Governance: Code execution is dangerous, default to sandboxed + budget
+        budgetCap: 0.10, 
+        privacyLevel: "masked",
+      },
+    },
+  },
+
+  // 2. Condition/Router Block (Branching)
+  "semantic-router": {
+    type: "router",
+    name: "Semantic Router",
+    ioTypes: { in: "Text", out: "Dynamic" }, // 'Dynamic' signals the CanvasNode to render multiple ports
+    defaultConfig: {
+      logic: {
+        model: "local-embeddings",
+        routerInstruction: "Classify the intent of the input text.",
+        routes: ["Route A", "Route B"],
+      },
+      law: {},
+    },
+  },
+
+  // 3. Wait Block (Control Flow)
+  "wait-timer": {
+    type: "wait",
+    name: "Delay / Sleep",
+    ioTypes: { in: "Any", out: "Any" },
+    defaultConfig: {
+      logic: {
+        durationMs: 5000,
+      },
+      law: {},
+    },
+  },
+
+  // 4. Variables Block (Context State)
+  "set-variables": {
+    type: "context",
+    name: "Set Variables",
+    ioTypes: { in: "Any", out: "Context" },
+    defaultConfig: {
+      logic: {
+        variables: {
+          "user_status": "active",
+          "last_step": "{{input.step}}"
+        },
+      },
+      law: {},
+    },
+  },
+
+  // 5. RSS Feed (Trigger)
+  "rss-monitor": {
+    type: "trigger",
+    name: "RSS Monitor",
+    ioTypes: { in: "—", out: "Article" },
+    defaultConfig: {
+      logic: {
+        rssUrl: "https://news.ycombinator.com/rss",
+        cronSchedule: "*/15 * * * *", // Poll every 15m
+      },
+      law: {
+        networkAllowlist: ["news.ycombinator.com"],
+      },
+    },
+  },
+
+  // === IOI UNIQUE VALUE: GOVERNANCE BLOCKS ===
+
   "agency-firewall": {
     type: "gate",
     name: "Agency Firewall",
@@ -37,7 +118,7 @@ export const NODE_TEMPLATES: Record<string, NodeTemplate> = {
     },
   },
 
-  // --- TOOLS ---
+  // === TOOLS ===
   "stripe": {
     type: "tool",
     name: "Stripe API",
@@ -71,7 +152,7 @@ export const NODE_TEMPLATES: Record<string, NodeTemplate> = {
     },
   },
 
-  // --- MODELS ---
+  // === MODELS ===
   "local-llm": {
     type: "model",
     name: "Llama 3 (Local)",

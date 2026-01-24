@@ -9,7 +9,8 @@ use std::sync::Mutex;
 use once_cell::sync::Lazy;
 use ioi_crypto::algorithms::hash::sha256;
 
-#[derive(Debug, Deserialize, Clone)]
+// [FIX] Added Serialize derive
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct GraphNode {
     pub id: String,
     #[serde(rename = "type")]
@@ -17,7 +18,8 @@ pub struct GraphNode {
     pub config: Option<Value>,
 }
 
-#[derive(Debug, Deserialize, Clone)]
+// [FIX] Added Serialize derive
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct GraphEdge {
     pub source: String,
     pub target: String,

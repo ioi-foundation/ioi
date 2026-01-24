@@ -12,10 +12,10 @@ mod windows;
 mod kernel;
 mod execution;
 mod orchestrator; 
+mod project; // [NEW] Project Persistence Module
 
 use models::{AppState, GateInfo, AgentPhase, AgentTask, GhostInputEvent, Receipt, ChatMessage, SwarmAgent};
-// [FIX] Removed unused show_gate import
-use windows::{show_pill};
+// [FIX] Removed unused show_pill import
 // orchestrator::GraphPayload import removed as it's not needed here directly anymore
 
 // Kernel Integration
@@ -266,7 +266,7 @@ async fn monitor_kernel_events(app: tauri::AppHandle) {
                         });
                     }
                 }
-                // [NEW] Handle AgentSpawn: Updates the swarm tree structure
+                // Handle AgentSpawn: Updates the swarm tree structure
                 ChainEventEnum::Spawn(spawn) => {
                     update_task_state_local(&app, |t| {
                         let agent = SwarmAgent {
@@ -303,11 +303,12 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_global_shortcut::Builder::new().build())
         .plugin(tauri_plugin_notification::init())
-        .manage(Mutex::new(AppState::default()))
+        .plugin(tauri_plugin_dialog::init()) // [NEW] Added Dialog Plugin for Project Save/Load
+        .manage(Mutex::new(models::AppState::default()))
         .setup(|app| {
             println!("[Autopilot] Initializing...");
             
-            // [NEW] Initialize Local MCP Runtime for Studio
+            // Initialize Local MCP Runtime for Studio
             let handle = app.handle().clone();
             tauri::async_runtime::spawn(async move {
                 execution::init_mcp_servers(handle).await;
@@ -424,11 +425,16 @@ pub fn run() {
             kernel::get_context_blob,
             kernel::get_session_history,
             kernel::load_session,
+            kernel::delete_session, // [FIX] Added missing export
+            kernel::get_available_tools, // [FIX] Added missing export
             
             // Studio Inspector & Execution
             kernel::test_node_execution,
-            // [FIX] Use the command defined in kernel.rs, not the removed local one
             kernel::run_studio_graph, 
+
+            // [NEW] Project Persistence
+            project::save_project,
+            project::load_project
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
