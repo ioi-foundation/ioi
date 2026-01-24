@@ -1,3 +1,5 @@
+// Path: crates/services/src/agentic/desktop/tools.rs
+
 use ioi_api::state::StateAccess;
 use ioi_types::app::agentic::LlmToolDefinition;
 use ioi_types::codec;
@@ -8,7 +10,7 @@ use serde_json::json;
 pub fn discover_tools(state: &dyn StateAccess) -> Vec<LlmToolDefinition> {
     let mut tools = Vec::new();
     
-    // 1. Dynamic Service Tools
+    // 1. Dynamic Service Tools (On-Chain Services)
     if let Ok(iter) = state.prefix_scan(UPGRADE_ACTIVE_SERVICE_PREFIX) {
         for item in iter {
             if let Ok((_, val_bytes)) = item {
@@ -16,13 +18,16 @@ pub fn discover_tools(state: &dyn StateAccess) -> Vec<LlmToolDefinition> {
                     for (method, perm) in &meta.methods {
                         if *perm == ioi_types::service_configs::MethodPermission::User {
                             let simple_name = method.split('@').next().unwrap_or(method);
+                            // Namespace collision avoidance
                             let tool_name = format!("{}__{}", meta.id, simple_name);
+                            
                             let params_json = json!({
                                 "type": "object",
                                 "properties": {
                                     "params": { "type": "string", "description": "JSON encoded parameters" }
                                 }
                             });
+                            
                             tools.push(LlmToolDefinition {
                                 name: tool_name,
                                 description: format!("Call method {} on service {}", simple_name, meta.id),
@@ -35,7 +40,24 @@ pub fn discover_tools(state: &dyn StateAccess) -> Vec<LlmToolDefinition> {
         }
     }
 
-    // 2. Native Capabilities
+    // 2. Native Capabilities (Kernel Drivers)
+
+    // [NEW] Explicit Conversational Tool
+    // This unifies the "Action" paradigm. Even talking is a tool execution.
+    let chat_params = json!({
+        "type": "object",
+        "properties": {
+            "message": { "type": "string", "description": "The response text to show to the user." }
+        },
+        "required": ["message"]
+    });
+    tools.push(LlmToolDefinition {
+        name: "chat__reply".to_string(),
+        description: "Send a text message or answer to the user. Use this for all conversation/replies.".to_string(),
+        parameters: chat_params.to_string(),
+    });
+
+    // Browser Tools
     let nav_params = json!({
         "type": "object",
         "properties": {
@@ -73,6 +95,7 @@ pub fn discover_tools(state: &dyn StateAccess) -> Vec<LlmToolDefinition> {
         parameters: click_selector_params.to_string(),
     });
 
+    // GUI Tools
     let gui_params = json!({
         "type": "object",
         "properties": {
@@ -88,6 +111,7 @@ pub fn discover_tools(state: &dyn StateAccess) -> Vec<LlmToolDefinition> {
         parameters: gui_params.to_string(),
     });
 
+    // Meta Tools (Agent Control)
     let delegate_params = json!({
         "type": "object",
         "properties": {
@@ -141,6 +165,7 @@ pub fn discover_tools(state: &dyn StateAccess) -> Vec<LlmToolDefinition> {
         parameters: complete_params.to_string(),
     });
 
+    // Commerce Tools
     let checkout_params = json!({
         "type": "object",
         "properties": {
@@ -167,6 +192,7 @@ pub fn discover_tools(state: &dyn StateAccess) -> Vec<LlmToolDefinition> {
         parameters: checkout_params.to_string(),
     });
 
+    // System Tools
     let sys_params = json!({
         "type": "object",
         "properties": {
@@ -188,7 +214,7 @@ pub fn discover_tools(state: &dyn StateAccess) -> Vec<LlmToolDefinition> {
         parameters: sys_params.to_string(),
     });
 
-    // [NEW] Filesystem Write
+    // Filesystem Tools
     let fs_write_params = json!({
         "type": "object",
         "properties": {
@@ -201,6 +227,32 @@ pub fn discover_tools(state: &dyn StateAccess) -> Vec<LlmToolDefinition> {
         name: "filesystem__write_file".to_string(),
         description: "Write text content to a file on the local filesystem. Use this to save data.".to_string(),
         parameters: fs_write_params.to_string(),
+    });
+
+    let fs_read_params = json!({
+        "type": "object",
+        "properties": {
+            "path": { "type": "string", "description": "Absolute path to read" }
+        },
+        "required": ["path"]
+    });
+    tools.push(LlmToolDefinition {
+        name: "filesystem__read_file".to_string(),
+        description: "Read text content from a file.".to_string(),
+        parameters: fs_read_params.to_string(),
+    });
+
+    let fs_ls_params = json!({
+        "type": "object",
+        "properties": {
+            "path": { "type": "string", "description": "Directory path to list" }
+        },
+        "required": ["path"]
+    });
+    tools.push(LlmToolDefinition {
+        name: "filesystem__list_directory".to_string(),
+        description: "List files and directories at a given path.".to_string(),
+        parameters: fs_ls_params.to_string(),
     });
 
     tools

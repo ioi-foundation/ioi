@@ -176,6 +176,23 @@ impl ToolExecutor {
                     }
                 }
             }
+            // --- NEW: Chat Tool Handler ---
+            "chat__reply" => {
+                let msg = tool_call["arguments"]["message"].as_str().unwrap_or("...");
+                success = true;
+                history_entry = Some(format!("Replied: {}", msg));
+                
+                // Emit the specific event that the UI listens for to render chat bubbles
+                if let Some(tx) = &self.event_sender {
+                    let _ = tx.send(KernelEvent::AgentActionResult {
+                        session_id,
+                        step_index,
+                        tool_name: "chat::reply".to_string(), // Canonical UI event name
+                        output: msg.to_string(),
+                    });
+                }
+            }
+            // ------------------------------
             _ => {
                 // MCP Fallback for unknown tools
                 if name.contains("__") {
