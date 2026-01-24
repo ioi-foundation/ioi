@@ -39,6 +39,9 @@ pub struct GraphEvent {
     pub node_id: String,
     pub status: String, // "running", "success", "failed", "blocked", "cached"
     pub result: Option<ExecutionResult>,
+    // [NEW] Added fields for evolution tracking
+    pub fitness_score: Option<f32>,
+    pub generation: Option<u64>,
 }
 
 // --- GLOBAL EXECUTION CACHE (Memoization Layer) ---
@@ -160,12 +163,12 @@ where F: Fn(GraphEvent) + Send + 'static
     while let Some(node_id) = queue.pop() {
         if step_count >= max_steps {
             let msg = format!("🚫 Max Steps ({}) Exceeded.", max_steps);
-            emit_event(GraphEvent { node_id: node_id.clone(), status: "error".into(), result: Some(ExecutionResult { status: "error".into(), output: msg, data: None, metrics: None }) });
+            emit_event(GraphEvent { node_id: node_id.clone(), status: "error".into(), result: Some(ExecutionResult { status: "error".into(), output: msg, data: None, metrics: None }), fitness_score: None, generation: None });
             break;
         }
         if start_time.elapsed() > Duration::from_millis(timeout_ms) {
             let msg = format!("⏱️ Timeout ({}ms) Exceeded.", timeout_ms);
-            emit_event(GraphEvent { node_id: node_id.clone(), status: "error".into(), result: Some(ExecutionResult { status: "error".into(), output: msg, data: None, metrics: None }) });
+            emit_event(GraphEvent { node_id: node_id.clone(), status: "error".into(), result: Some(ExecutionResult { status: "error".into(), output: msg, data: None, metrics: None }), fitness_score: None, generation: None });
             break;
         }
 
@@ -199,7 +202,6 @@ where F: Fn(GraphEvent) + Send + 'static
         if let Some(result) = cached_result {
             // [HIT] Skip Execution
             // Propagate context
-            // [FIX] Add explicit type annotation to fix E0282
             let output_val: Value = if let Some(data) = &result.data { data.clone() } else { json!({"raw": result.output}) };
             context.insert(node_id.clone(), output_val);
             
@@ -212,7 +214,13 @@ where F: Fn(GraphEvent) + Send + 'static
             };
             
             // Emit "Cached" Event to UI
-            emit_event(GraphEvent { node_id: node_id.clone(), status: "cached".into(), result: Some(result) });
+            emit_event(GraphEvent { 
+                node_id: node_id.clone(), 
+                status: "cached".into(), 
+                result: Some(result),
+                fitness_score: None, // Cached events don't re-score
+                generation: None
+            });
             
             // Propagate Flow (Copy-Paste of logic below)
             if let Some(children) = adj.get(&node_id) {
@@ -236,12 +244,11 @@ where F: Fn(GraphEvent) + Send + 'static
         }
 
         // [MISS] Proceed with Execution
-        emit_event(GraphEvent { node_id: node_id.clone(), status: "running".into(), result: None });
+        emit_event(GraphEvent { node_id: node_id.clone(), status: "running".into(), result: None, fitness_score: None, generation: None });
 
         // Execute
         match execution::execute_ephemeral_node(&node.node_type, config, &input_str).await {
             Ok(res) => {
-                // [FIX] Add explicit type annotation
                 let output_val: Value = if let Some(data) = &res.data { data.clone() } else { json!({"raw": res.output}) };
                 context.insert(node_id.clone(), output_val);
                 
@@ -257,8 +264,27 @@ where F: Fn(GraphEvent) + Send + 'static
                     let mut cache = GLOBAL_EXECUTION_CACHE.lock().unwrap();
                     cache.insert(cache_key, res.clone());
                 }
+                
+                // [NEW] Extract evolutionary metrics from execution result
+                let mut fitness_score = None;
+                let mut generation = None;
+                
+                if let Some(metrics) = &res.metrics {
+                    if let Some(score) = metrics.get("fitness_score").and_then(|v| v.as_f64()) {
+                        fitness_score = Some(score as f32);
+                    }
+                    if let Some(gen) = metrics.get("generation").and_then(|v| v.as_u64()) {
+                        generation = Some(gen);
+                    }
+                }
 
-                emit_event(GraphEvent { node_id: node_id.clone(), status: res.status.clone(), result: Some(res.clone()) });
+                emit_event(GraphEvent { 
+                    node_id: node_id.clone(), 
+                    status: res.status.clone(), 
+                    result: Some(res.clone()),
+                    fitness_score,
+                    generation
+                });
 
                 // Propagate
                 if let Some(children) = adj.get(&node_id) {
@@ -281,7 +307,13 @@ where F: Fn(GraphEvent) + Send + 'static
                 }
             }
             Err(e) => {
-                emit_event(GraphEvent { node_id: node_id.clone(), status: "error".into(), result: Some(ExecutionResult { status: "error".into(), output: format!("Error: {}", e), data: None, metrics: None }) });
+                emit_event(GraphEvent { 
+                    node_id: node_id.clone(), 
+                    status: "error".into(), 
+                    result: Some(ExecutionResult { status: "error".into(), output: format!("Error: {}", e), data: None, metrics: None }),
+                    fitness_score: None,
+                    generation: None
+                });
             }
         }
     }

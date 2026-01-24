@@ -1,18 +1,16 @@
 // Path: crates/services/src/agentic/desktop/service/utils.rs
 
 use super::DesktopAgentService;
-use crate::agentic::desktop::keys::SKILL_INDEX_PREFIX;
-// [FIX] Removed unused SessionSummary import
+use crate::agentic::desktop::keys::{TRACE_PREFIX, SKILL_INDEX_PREFIX}; // [FIX] Updated import
 use crate::agentic::desktop::types::AgentState;
 use ioi_api::state::StateAccess;
 use ioi_api::vm::inference::InferenceRuntime;
-use ioi_types::app::agentic::{AgentSkill, LlmToolDefinition};
+use ioi_types::app::agentic::{AgentSkill, LlmToolDefinition, StepTrace}; // [FIX] Added StepTrace
 use ioi_types::codec;
 use ioi_types::error::TransactionError;
 use std::sync::Arc;
 use ioi_scs::FrameType;
 use ioi_types::app::agentic::ChatMessage;
-// [FIX] Removed unused imports: SystemTime, UNIX_EPOCH
 
 impl DesktopAgentService {
     pub(crate) async fn recall_skills(
@@ -201,6 +199,49 @@ impl DesktopAgentService {
         // Ensure chronological order
         history.sort_by_key(|m| m.timestamp);
         Ok(history)
+    }
+
+    // -------------------------------------------------------------------------
+    // [NEW] Evolutionary Support
+    // -------------------------------------------------------------------------
+
+    /// Fetches all failure traces for a given session from the SCS.
+    /// Used by the Optimizer Service to diagnose recurring errors.
+    pub(crate) fn fetch_failure_context(
+        &self, 
+        session_id: [u8; 32]
+    ) -> Result<Vec<StepTrace>, TransactionError> {
+        let scs_mutex = self.scs.as_ref()
+            .ok_or(TransactionError::Invalid("Internal: SCS not available".into()))?;
+        
+        let store = scs_mutex.lock()
+            .map_err(|_| TransactionError::Invalid("Internal: SCS lock poisoned".into()))?;
+
+        let mut failures = Vec::new();
+
+        // 1. Get all frames for session
+        if let Some(frame_ids) = store.session_index.get(&session_id) {
+            for &id in frame_ids {
+                let frame = store.toc.frames.get(id as usize).unwrap();
+                
+                // 2. Scan for System Frames which contain the canonical StepTrace logs
+                // Note: StepTraces are written as FrameType::System in step.rs to separate them from thoughts/observations.
+                if matches!(frame.frame_type, FrameType::System) {
+                    let payload = store.read_frame_payload(id)
+                        .map_err(|e| TransactionError::Invalid(format!("Internal: {}", e)))?;
+                    
+                    // Attempt to decode as StepTrace
+                    if let Ok(trace) = codec::from_bytes_canonical::<StepTrace>(payload) {
+                        // Filter for failed steps only
+                        if !trace.success {
+                            failures.push(trace);
+                        }
+                    }
+                }
+            }
+        }
+
+        Ok(failures)
     }
 }
 

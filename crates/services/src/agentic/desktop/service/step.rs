@@ -91,14 +91,14 @@ pub async fn handle_step(
 
     if agent_state.budget == 0 {
         agent_state.status = AgentStatus::Failed("Budget Exhausted (Pre-check)".into());
+        // [FIX] Borrow key for state insert
         state.insert(&key, &codec::to_bytes_canonical(&agent_state)?)?;
-        
-        // ... (Log error event) ...
         return Ok(());
     }
 
     if agent_state.consecutive_failures >= 3 {
         agent_state.status = AgentStatus::Failed("Too many consecutive failures".into());
+        // [FIX] Borrow key for state insert
         state.insert(&key, &codec::to_bytes_canonical(&agent_state)?)?;
         return Ok(());
     }
@@ -118,9 +118,6 @@ pub async fn handle_step(
             default_safe_policy()
         }
     };
-    
-    // ... rest of the function remains the same ...
-    // (Ensure the rest of the file content from the previous correct version is preserved)
     
     let observation_intent = ActionRequest {
         target: ActionTarget::GuiScreenshot,
@@ -298,6 +295,7 @@ pub async fn handle_step(
         } else {
             agent_state.budget = 0;
             agent_state.status = AgentStatus::Failed("Budget Exhausted during step".into());
+            // [FIX] Borrow key for state insert
             state.insert(&key, &codec::to_bytes_canonical(&agent_state)?)?;
             return Ok(());
         }
@@ -344,6 +342,9 @@ pub async fn handle_step(
                             raw_output: output_str.clone(),
                             success: false,
                             error: Some("Repetitive Action".into()),
+                            // [NEW] Default fitness fields
+                            cost_incurred: 0,
+                            fitness_score: None,
                             timestamp: SystemTime::now()
                                 .duration_since(UNIX_EPOCH)
                                 .unwrap()
@@ -351,6 +352,7 @@ pub async fn handle_step(
                         }));
                     }
 
+                    // [FIX] Borrow key for state insert
                     state.insert(&key, &codec::to_bytes_canonical(&agent_state)?)?;
                     return Ok(());
                 }
@@ -370,7 +372,7 @@ pub async fn handle_step(
             .duration_since(UNIX_EPOCH)
             .unwrap()
             .as_millis() as u64,
-            trace_hash: None,
+        trace_hash: None,
     };
     let new_root = service.append_chat_to_scs(p.session_id, &thought_msg, ctx.block_height)?;
     agent_state.transcript_root = new_root;
@@ -491,7 +493,9 @@ pub async fn handle_step(
                             if let Ok(hash_bytes) = hex::decode(&hash) {
                                 if let Ok(hash_arr) = hash_bytes.try_into() {
                                     real_request_hash = hash_arr;
-                                    use ioi_types::app::action::{ApprovalScope, ApprovalToken};
+                                    use ioi_types::app::action::{ApprovalToken};
+                                    // Removed ApprovalScope import and usage as it's not strictly needed for the struct construction if default is used or if fields are matched.
+                                    // The error was unused import.
                                     agent_state.pending_approval = Some(ApprovalToken {
                                         request_hash: hash_arr,
                                         scope: Default::default(),
@@ -530,6 +534,7 @@ pub async fn handle_step(
                             });
                         }
 
+                        // [FIX] Borrow key for state insert
                         state.insert(&key, &codec::to_bytes_canonical(&agent_state)?)?;
                         return Ok(());
                     } else if err_str.contains("Blocked by Policy") {
@@ -683,25 +688,79 @@ pub async fn handle_step(
         }
     }
 
-    goto_trace_log(
-        &mut agent_state,
-        state,
-        &key,
-        p.session_id,
-        content_hash,
-        user_prompt,
-        output_str,
-        action_success,
-        action_error,
-        action_type,
-        service.event_sender.clone(),
-    )?;
+    // [MODIFIED] Create StepTrace and persist to SCS for Evolutionary Loop
+    // [FIX] Added missing fields: cost_incurred and fitness_score
+    let trace = ioi_types::app::agentic::StepTrace {
+        session_id: p.session_id,
+        step_index: agent_state.step_count,
+        visual_hash: visual_phash,
+        full_prompt: user_prompt.clone(),
+        raw_output: output_str.clone(),
+        success: action_success,
+        error: action_error.clone(),
+        // [NEW] Default fitness fields
+        cost_incurred: 0,
+        fitness_score: None,
+        timestamp: SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_secs(),
+    };
 
-    if let Some(event) = completion_event {
-        if let Some(tx) = &service.event_sender {
-            let _ = tx.send(event);
+    // 1. Write trace to KV State (Legacy/Debug access)
+    let trace_key = [TRACE_PREFIX, p.session_id.as_slice(), &agent_state.step_count.to_le_bytes()].concat();
+    state.insert(&trace_key, &codec::to_bytes_canonical(&trace)?)?;
+
+    // 2. [NEW] Write trace to SCS (Introspection / Evolution access)
+    // We store it as a System Frame so it's queryable by the Optimizer
+    if let Some(scs_arc) = &service.scs {
+        if let Ok(mut store) = scs_arc.lock() {
+            let trace_bytes = codec::to_bytes_canonical(&trace)?;
+            let _ = store.append_frame(
+                FrameType::System, 
+                &trace_bytes,
+                ctx.block_height,
+                [0u8; 32], 
+                p.session_id
+            );
         }
     }
 
+    // 3. Emit Event
+    if let Some(tx) = &service.event_sender {
+        let event = KernelEvent::AgentStep(trace.clone());
+        let _ = tx.send(event);
+
+        if let Some(ce) = completion_event {
+            let _ = tx.send(ce);
+        }
+    }
+
+    // Update state failure counters
+    if let Some(_e) = action_error {
+        agent_state.consecutive_failures += 1;
+    } else {
+        agent_state.consecutive_failures = 0;
+    }
+
+    agent_state.step_count += 1;
+    agent_state.last_action_type = Some(action_type);
+
+    if agent_state.step_count >= agent_state.max_steps && agent_state.status == AgentStatus::Running {
+        agent_state.status = AgentStatus::Completed(None);
+        
+        // Emit completion event so UI knows to stop when max steps reached
+        if let Some(tx) = &service.event_sender {
+             let _ = tx.send(KernelEvent::AgentActionResult {
+                 session_id: p.session_id,
+                 step_index: agent_state.step_count,
+                 tool_name: "system::max_steps_reached".to_string(),
+                 output: "Max steps reached. Task completed.".to_string(),
+             });
+        }
+    }
+
+    // [FIX] Borrow key for state insert
+    state.insert(&key, &codec::to_bytes_canonical(&agent_state)?)?;
     Ok(())
 }

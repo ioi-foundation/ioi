@@ -1,7 +1,7 @@
-// src/components/RightPanel.tsx
+// apps/autopilot/src/components/RightPanel.tsx
 import { useState, useEffect, useMemo } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { Node, NodeLogic, NodeLaw } from "../types";
+import { Node, NodeLogic, FirewallPolicy } from "../types"; // Updated import
 import "./RightPanel.css";
 import "./PolicyInspector.css"; // Reuse existing styles
 
@@ -11,6 +11,7 @@ const BrainIcon = () => <svg width="12" height="12" viewBox="0 0 24 24" fill="no
 const TerminalIcon = () => <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>;
 const GlobeIcon = () => <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>;
 const SettingsIcon = () => <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>;
+const DnaIcon = () => <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M2 15c6.667-6 13.333 0 20-6"/><path d="M9 22c1.798-1.998 2.518-3.995 2.807-5.993"/><path d="M15 2c-1.798 1.998-2.518 3.995-2.807 5.993"/><path d="M17 22c-2.667-3.5-2.667-10.5 0-14"/><path d="M2 11c6.667 6 13.333 0 20 6"/><path d="M9 2c2.667 3.5 2.667 10.5 0 14"/></svg>;
 
 // --- TYPES ---
 export interface GraphGlobalConfig {
@@ -30,7 +31,7 @@ interface RightPanelProps {
   width: number;
   selectedNode: Node | null;
   // Updater function passed from StudioWindow to sync ReactFlow state
-  onUpdateNode?: (nodeId: string, section: 'logic' | 'law', updates: Partial<NodeLogic> | Partial<NodeLaw>) => void;
+  onUpdateNode?: (nodeId: string, section: 'logic' | 'law', updates: Partial<NodeLogic> | Partial<FirewallPolicy>) => void;
   // [NEW] Global Graph Config Props
   graphConfig?: GraphGlobalConfig;
   onUpdateGraph?: (updates: Partial<GraphGlobalConfig> | any) => void; // Using any for nested partials flexibility
@@ -40,7 +41,7 @@ interface RightPanelProps {
   onRunComplete?: (nodeId: string, artifact: any) => void;
 }
 
-type InspectorTab = "LOGIC" | "LAW" | "SIM";
+type InspectorTab = "LOGIC" | "LAW" | "SIM" | "DNA"; // [NEW] Added DNA tab
 type GraphTab = "ENV" | "POLICY" | "META";
 
 // Helper to extract variables {{var_name}} from template strings
@@ -257,7 +258,7 @@ export function RightPanel({
         )}
       </div>
 
-      {/* 3-WAY TAB SWITCHER */}
+      {/* 4-WAY TAB SWITCHER */}
       <div className="inspector-tabs">
         <button 
           className={`inspector-tab ${activeTab === "LOGIC" ? "active" : ""}`}
@@ -277,6 +278,14 @@ export function RightPanel({
         >
           <TerminalIcon /> Run
         </button>
+        {/* [NEW] DNA Tab */}
+        <button 
+          className={`inspector-tab ${activeTab === "DNA" ? "active" : ""}`}
+          onClick={() => setActiveTab("DNA")}
+          title="Evolutionary Lineage"
+        >
+          <DnaIcon /> DNA
+        </button>
       </div>
 
       {/* CONTENT AREA */}
@@ -289,6 +298,54 @@ export function RightPanel({
             upstreamData={upstreamData}
             onRunComplete={onRunComplete}
           />
+        )}
+        {/* [NEW] DNA View */}
+        {activeTab === "DNA" && (
+            <div className="lineage-view">
+                <div className="gene-header">
+                    <span className="gene-title">Current Generation</span>
+                    <span className="gene-badge">Gen 5</span>
+                </div>
+                <div className="mutation-log">
+                    <div className="mutation-entry success">
+                        <div className="mutation-meta">
+                            <span>Gen 4 → 5</span>
+                            <span className="timestamp">10m ago</span>
+                        </div>
+                        <div className="mutation-reason">Fixed JSON parsing error in `tool_call` regex.</div>
+                        <div className="mutation-score positive">+15% Success Rate</div>
+                    </div>
+                    
+                    <div className="mutation-entry success">
+                        <div className="mutation-meta">
+                            <span>Gen 3 → 4</span>
+                            <span className="timestamp">1h ago</span>
+                        </div>
+                        <div className="mutation-reason">Added `net::fetch` error handling retry logic.</div>
+                        <div className="mutation-score positive">+5% Success Rate</div>
+                    </div>
+                    
+                    <div className="mutation-entry failed">
+                        <div className="mutation-meta">
+                            <span>Gen 2 → 3</span>
+                            <span className="timestamp">2h ago</span>
+                        </div>
+                        <div className="mutation-reason">Attempted to remove budget cap.</div>
+                        <div className="mutation-score negative">REJECTED BY SAFETY RATCHET</div>
+                    </div>
+                </div>
+                
+                <div className="gene-stats">
+                    <div className="stat-box">
+                        <div className="stat-label">Total Earnings</div>
+                        <div className="stat-val">12.50 L-GAS</div>
+                    </div>
+                    <div className="stat-box">
+                        <div className="stat-label">Fitness Score</div>
+                        <div className="stat-val">0.92</div>
+                    </div>
+                </div>
+            </div>
         )}
       </div>
     </aside>
@@ -457,7 +514,7 @@ function LogicView({ node, onUpdate }: LogicViewProps) {
 
 interface PolicyViewProps {
   node: Node;
-  onUpdate: (section: 'law', data: Partial<NodeLaw>) => void;
+  onUpdate: (section: 'law', data: Partial<FirewallPolicy>) => void;
 }
 
 function PolicyView({ node, onUpdate }: PolicyViewProps) {

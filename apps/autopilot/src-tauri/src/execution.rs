@@ -1,9 +1,9 @@
-// src-tauri/src/execution.rs
+// apps/autopilot/src-tauri/src/execution.rs
 
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::error::Error;
-use url::Url;
+// [FIX] Removed unused import: use url::Url;
 use once_cell::sync::Lazy;
 use std::sync::Arc;
 use std::collections::HashMap;
@@ -12,6 +12,15 @@ use std::collections::HashMap;
 use ioi_drivers::browser::BrowserDriver;
 use ioi_drivers::mcp::{McpManager, McpServerConfig};
 use tauri::Manager; // Required for path resolution in init
+
+// [NEW] Governance & Policy Integration
+use ioi_services::agentic::policy::PolicyEngine;
+use ioi_services::agentic::rules::{ActionRules, DefaultPolicy, Rule, RuleConditions, Verdict};
+use ioi_types::app::{ActionContext, ActionRequest, ActionTarget};
+use ioi_api::vm::drivers::os::OsDriver;
+use ioi_drivers::os::NativeOsDriver;
+use ioi_api::vm::inference::{LocalSafetyModel, SafetyVerdict};
+use async_trait::async_trait;
 
 // [FIX] Added Clone derive so GraphEvent can be cloned for Tauri events in orchestrator.rs
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -23,17 +32,37 @@ pub struct ExecutionResult {
 }
 
 // [NEW] Persistent Browser Driver for the Simulator
-// The driver internally manages the browser process via Arc<Mutex<...>>, so we can hold it statically.
 static BROWSER_DRIVER: Lazy<BrowserDriver> = Lazy::new(|| BrowserDriver::new());
 
 // [NEW] Persistent MCP Manager for the Simulator
-// This manages the lifecycle of child processes (like the filesystem server) for the Studio.
 static MCP_MANAGER: Lazy<Arc<McpManager>> = Lazy::new(|| {
     Arc::new(McpManager::new())
 });
 
+// [NEW] Native OS Driver for Policy Context
+static OS_DRIVER: Lazy<Arc<dyn OsDriver>> = Lazy::new(|| {
+    Arc::new(NativeOsDriver::new())
+});
+
+// [NEW] Simulation Safety Model (Mock)
+// Required to satisfy PolicyEngine trait bounds without spinning up a full LLM for every UI click.
+struct SimulationSafetyModel;
+#[async_trait]
+impl LocalSafetyModel for SimulationSafetyModel {
+    async fn classify_intent(&self, _input: &str) -> anyhow::Result<SafetyVerdict> {
+        // In simulation/studio mode, we assume intents are safe unless explicitly flagged by the user
+        // via specific rule configuration.
+        Ok(SafetyVerdict::Safe)
+    }
+    async fn detect_pii(&self, _input: &str) -> anyhow::Result<Vec<(usize, usize, String)>> {
+        Ok(vec![])
+    }
+}
+static SAFETY_MODEL: Lazy<Arc<dyn LocalSafetyModel>> = Lazy::new(|| {
+    Arc::new(SimulationSafetyModel)
+});
+
 /// Initializes default MCP servers for the local Studio environment.
-/// This allows "Run Unit Test" to access the local filesystem via the standard protocol.
 pub async fn init_mcp_servers(app_handle: tauri::AppHandle) {
     // Resolve data directory (same as ioi-local)
     let data_dir = app_handle.path().app_data_dir().unwrap_or_else(|_| std::path::PathBuf::from("./ioi-data"));
@@ -45,7 +74,6 @@ pub async fn init_mcp_servers(app_handle: tauri::AppHandle) {
     });
     
     // Default Filesystem Server
-    // We assume 'npx' is available. In a bundled app, we might bundle the binary directly.
     let fs_config = McpServerConfig {
         command: "npx".to_string(),
         args: vec![
@@ -66,36 +94,22 @@ pub async fn init_mcp_servers(app_handle: tauri::AppHandle) {
 }
 
 /// Helper: Basic Handlebars-style interpolation {{key}} -> value
-/// This enforces data discipline: only explicitly bound variables enter the context.
 fn interpolate_template(template: &str, context: &Value) -> String {
     let mut result = template.to_string();
-    
-    // Simple parser to find {{key}} patterns
     let mut start_idx = 0;
     while let Some(open) = result[start_idx..].find("{{") {
         let actual_open = start_idx + open;
         if let Some(close) = result[actual_open..].find("}}") {
             let actual_close = actual_open + close;
-            // Extract key, e.g., "vendor_name"
             let key = &result[actual_open + 2..actual_close].trim();
             
-            // Resolve key from JSON context (supports top-level keys for now)
-            // If the value is a string, unwrap it to avoid extra quotes in the prompt.
-            // If it's a number/object, serialize it.
             let replacement = if let Some(val) = context.get(key) {
-                if let Some(s) = val.as_str() { 
-                    s.to_string() 
-                } else { 
-                    val.to_string() 
-                }
+                if let Some(s) = val.as_str() { s.to_string() } else { val.to_string() }
             } else {
                 format!("<<MISSING:{}>>", key)
             };
 
-            // Replace {{key}} with value
             result.replace_range(actual_open..actual_close + 2, &replacement);
-            
-            // Move search index forward to handle multiple occurrences
             start_idx = actual_open + replacement.len();
         } else {
             break;
@@ -104,57 +118,135 @@ fn interpolate_template(template: &str, context: &Value) -> String {
     result
 }
 
-/// The Governance Layer
-/// Checks constraints defined in the "Law" tab before Logic execution.
-fn enforce_law(node_type: &str, config: &Value, input_context: &str) -> Result<(), String> {
-    let default_val = serde_json::json!({});
-    let law = config.get("law").unwrap_or(&default_val);
-    let logic = config.get("logic").unwrap_or(&default_val);
+// [NEW] Governance Logic: Synthesize ActionRules from UI Config
+fn synthesize_node_policy(node_type: &str, law_config: &Value) -> ActionRules {
+    let mut rules = Vec::new();
+    let mut conditions = RuleConditions::default();
 
-    // 1. Network Policy Enforcement (Firewall)
-    if node_type == "tool" || node_type == "browser" {
-        // [FIX] Check for 'endpoint' (tool) OR 'url' (browser)
-        let target = logic.get("endpoint")
-            .or_else(|| logic.get("url"))
-            .and_then(|v| v.as_str());
+    // Map UI "Law" fields to RuleConditions
+    if let Some(budget) = law_config.get("budgetCap").and_then(|v| v.as_f64()) {
+        if budget > 0.0 {
+            // Budget in UI is dollars, backend usually uses tokens/gas. 
+            // For simulation, we map 1.0 USD = 1000 units for testing logic flows.
+            conditions.max_spend = Some((budget * 1000.0) as u64);
+        }
+    }
 
-        if let Some(target_url) = target {
-            if let Ok(url) = Url::parse(target_url) {
-                if let Some(host) = url.host_str() {
-                    let allowlist = law.get("networkAllowlist")
-                        .and_then(|v| v.as_array())
-                        .map(|arr| arr.iter().filter_map(|v| v.as_str()).collect::<Vec<&str>>())
-                        .unwrap_or_default();
+    if let Some(allowlist) = law_config.get("networkAllowlist").and_then(|v| v.as_array()) {
+        let domains: Vec<String> = allowlist.iter()
+            .filter_map(|v| v.as_str().map(|s| s.to_string()))
+            .collect();
+        if !domains.is_empty() {
+            conditions.allow_domains = Some(domains);
+        }
+    }
 
-                    if !allowlist.is_empty() {
-                        let mut allowed = false;
-                        for pattern in allowlist {
-                            if pattern.starts_with("*.") {
-                                let suffix: &str = &pattern[2..];
-                                if host.ends_with(suffix) { allowed = true; break; }
-                            } else if host == pattern {
-                                allowed = true; break;
-                            }
-                        }
-                        if !allowed {
-                            return Err(format!("🛡️ BLOCKED: Domain '{}' is not in the Network Allowlist.", host));
-                        }
-                    }
-                }
+    // Determine Action Target based on Node Type
+    let target = match node_type {
+        "browser" => "browser::navigate",
+        "tool" => "net::fetch", // Default assumption, refined in actual request
+        "model" => "model::inference",
+        "gate" => "gov::gate",
+        _ => "*"
+    };
+
+    // Construct Rule
+    // If "Require Human Gate" is checked, verdict is RequireApproval. Else Allow.
+    let require_human = law_config.get("requireHumanGate").and_then(|v| v.as_bool()).unwrap_or(false);
+    let action = if require_human { Verdict::RequireApproval } else { Verdict::Allow };
+
+    rules.push(Rule {
+        rule_id: Some("studio-rule-1".into()),
+        target: target.to_string(),
+        conditions,
+        action,
+    });
+
+    ActionRules {
+        policy_id: "studio-simulation".into(),
+        // If we have specific rules (like an allowlist), we deny everything else by default
+        // to ensure the allowlist is actually enforced.
+        defaults: DefaultPolicy::DenyAll,
+        rules,
+    }
+}
+
+// [NEW] Governance Logic: Construct canonical ActionRequest
+fn map_to_action_request(node_type: &str, logic_config: &Value, input_json: &str) -> ActionRequest {
+    // 1. Determine Target
+    let target = match node_type {
+        "browser" => ActionTarget::BrowserNavigate,
+        // Detect tool type
+        "tool" => {
+            if let Some(endpoint) = logic_config.get("endpoint").and_then(|s| s.as_str()) {
+                 if endpoint.starts_with("http") { ActionTarget::NetFetch } 
+                 else { ActionTarget::Custom("tool:generic".into()) }
+            } else {
+                 ActionTarget::Custom("tool:generic".into())
             }
-        }
+        },
+        _ => ActionTarget::Custom(format!("node:{}", node_type))
+    };
+
+    // 2. Construct Parameters
+    // We attempt to construct a JSON object that represents the call parameters
+    // so the PolicyEngine can inspect fields (like "url").
+    let mut params_obj = json!({});
+
+    // Parse input context
+    let input_ctx: Value = serde_json::from_str(input_json).unwrap_or(json!({}));
+
+    if let Some(url_template) = logic_config.get("url").or_else(|| logic_config.get("endpoint")).and_then(|s| s.as_str()) {
+        let final_url = interpolate_template(url_template, &input_ctx);
+        params_obj["url"] = json!(final_url);
+    }
+    
+    if let Some(budget) = logic_config.get("cost").and_then(|v| v.as_u64()) {
+        params_obj["total_amount"] = json!(budget);
     }
 
-    // 2. Budget/Risk Simulation
-    if let Some(budget_cap) = law.get("budgetCap").and_then(|v| v.as_f64()) {
-        // Simple heuristic: If input context is massive (likely expensive LLM processing) 
-        // and budget is tiny, block it.
-        if input_context.len() > 10_000 && budget_cap < 0.05 {
-             return Err(format!("🛡️ BLOCKED: Input size ({} chars) likely exceeds Budget Cap (${})", input_context.len(), budget_cap));
-        }
-    }
+    let params_bytes = serde_json::to_vec(&params_obj).unwrap_or_default();
 
-    Ok(())
+    ActionRequest {
+        target,
+        params: params_bytes,
+        context: ActionContext {
+            agent_id: "studio-simulator".into(),
+            session_id: None,
+            window_id: None,
+        },
+        nonce: 0,
+    }
+}
+
+/// The Governance Layer - REFACTORED
+/// Uses the canonical `PolicyEngine` to evaluate the node's configuration.
+async fn check_governance(node_type: &str, config: &Value, input_context: &str) -> Result<(), String> {
+    let default_val = serde_json::json!({});
+    let law_config = config.get("law").unwrap_or(&default_val);
+    let logic_config = config.get("logic").unwrap_or(&default_val);
+
+    // 1. Synthesize Policy from UI Config
+    let policy = synthesize_node_policy(node_type, law_config);
+
+    // 2. Construct Canonical Action Request
+    let request = map_to_action_request(node_type, logic_config, input_context);
+
+    // 3. Evaluate using Kernel Logic
+    let verdict = PolicyEngine::evaluate(
+        &policy,
+        &request,
+        &*SAFETY_MODEL,
+        &*OS_DRIVER,
+        None // No approval token in simulation
+    ).await;
+
+    // 4. Handle Verdict
+    match verdict {
+        Verdict::Allow => Ok(()),
+        Verdict::Block => Err("🛡️ BLOCKED: Policy violation (e.g., Domain not in allowlist)".into()),
+        Verdict::RequireApproval => Err("🛡️ PAUSED: Execution requires Human Approval (Gate)".into()),
+    }
 }
 
 /// Main entry point for executing a node in the local environment.
@@ -164,8 +256,8 @@ pub async fn execute_ephemeral_node(
     input_json: &str,
 ) -> Result<ExecutionResult, Box<dyn Error>> {
     
-    // --- STEP 1: GOVERNANCE CHECK ---
-    if let Err(violation) = enforce_law(node_type, full_config, input_json) {
+    // --- STEP 1: GOVERNANCE CHECK (Canonical) ---
+    if let Err(violation) = check_governance(node_type, full_config, input_json).await {
         return Ok(ExecutionResult {
             status: "blocked".to_string(),
             output: violation,
@@ -181,14 +273,11 @@ pub async fn execute_ephemeral_node(
         "model" => run_llm_inference(logic_config, input_json).await,
         "gate" => run_gate_execution(logic_config, input_json).await,
         "browser" => run_browser_execution(logic_config, input_json).await,
-        // [UPDATED] Route "tool" to MCP if it's not a native HTTP tool
         "tool" => {
             let tool_name = logic_config.get("tool_name").and_then(|s| s.as_str());
             if let Some(name) = tool_name {
-                // If it names a specific tool (e.g. "filesystem__read_file"), use MCP
                 run_mcp_tool(name, logic_config, input_json).await
             } else {
-                // Fallback to legacy HTTP handler (if "endpoint" is present)
                 run_tool_execution(logic_config, input_json).await
             }
         },
@@ -207,13 +296,13 @@ pub async fn execute_ephemeral_node(
     }
 }
 
+// ... [Existing implementations of run_mcp_tool, run_browser_execution, run_gate_execution, run_llm_inference, run_tool_execution follow unchanged]
+
 // [NEW] MCP Execution Handler
 async fn run_mcp_tool(tool_name: &str, config: &Value, input: &str) -> Result<ExecutionResult, Box<dyn Error>> {
     let start = std::time::Instant::now();
     let input_obj: Value = serde_json::from_str(input).unwrap_or(json!({}));
     
-    // Merge config args with input args (Input takes precedence for variables)
-    // The Studio UI might store default arguments in config.
     let mut args = config.get("arguments").cloned().unwrap_or(json!({}));
     
     if let Value::Object(ref mut map) = args {
@@ -228,7 +317,6 @@ async fn run_mcp_tool(tool_name: &str, config: &Value, input: &str) -> Result<Ex
         Ok(output) => Ok(ExecutionResult {
             status: "success".to_string(),
             output: output.clone(),
-            // Wrap in "raw" if string, or parse if JSON for data inspector
             data: match serde_json::from_str(&output) {
                 Ok(v) => Some(v),
                 Err(_) => Some(json!({ "raw": output })),
@@ -244,11 +332,9 @@ async fn run_mcp_tool(tool_name: &str, config: &Value, input: &str) -> Result<Ex
     }
 }
 
-// [NEW] Browser Execution Handler (Real Native Driver)
 async fn run_browser_execution(config: &Value, input: &str) -> Result<ExecutionResult, Box<dyn Error>> {
     let start = std::time::Instant::now();
     
-    // 1. Ensure Driver is Running
     if let Err(e) = BROWSER_DRIVER.launch().await {
         return Ok(ExecutionResult {
             status: "error".to_string(),
@@ -258,27 +344,22 @@ async fn run_browser_execution(config: &Value, input: &str) -> Result<ExecutionR
         });
     }
 
-    // 2. Parse Context & Config
     let input_obj: Value = serde_json::from_str(input).unwrap_or(serde_json::json!({}));
-    
-    // Determine action type
     let action = config.get("action").and_then(|v| v.as_str()).unwrap_or("navigate");
     
     match action {
         "navigate" => {
-            // Get URL from config or input context
             let url_template = config.get("url").and_then(|v| v.as_str()).ok_or("Missing 'url' in logic config")?;
             let url = interpolate_template(url_template, &input_obj);
             
             match BROWSER_DRIVER.navigate(&url).await {
                 Ok(content) => {
-                    // let preview = if content.len() > 500 { format!("{}...", &content[..500]) } else { content.clone() };
                     Ok(ExecutionResult {
                         status: "success".to_string(),
                         output: content.clone(),
                         data: Some(serde_json::json!({ 
                             "url": url,
-                            "title": "Page Loaded", // Driver could be updated to return title
+                            "title": "Page Loaded", 
                             "content_length": content.len()
                         })),
                         metrics: Some(serde_json::json!({ "latency_ms": start.elapsed().as_millis() })),
@@ -334,47 +415,36 @@ async fn run_browser_execution(config: &Value, input: &str) -> Result<ExecutionR
     }
 }
 
-// [UPDATED] Gate Logic Evaluator with robust JSON Pointer support
 async fn run_gate_execution(config: &Value, input: &str) -> Result<ExecutionResult, Box<dyn Error>> {
     let start = std::time::Instant::now();
     let condition = config.get("conditionScript")
         .or_else(|| config.get("condition"))
         .and_then(|v| v.as_str())
-        .unwrap_or("true"); // Default to pass if no condition
+        .unwrap_or("true");
 
-    // Parse Input JSON to check fields
     let input_obj: Value = serde_json::from_str(input).unwrap_or(serde_json::json!({}));
-
-    // Logic Evaluation
     let passed; 
     let mut reason = "Condition met".to_string();
-
-    // 1. Clean string
     let cond = condition.trim().to_string();
     
     if cond == "true" {
         passed = true;
     } else {
-        // Basic parser: splits by spaces.
-        // E.g. "input.risk_score > 0.5" or "input.vendor == 'ACME'"
         let parts: Vec<&str> = cond.split_whitespace().collect();
         
         if parts.len() >= 3 {
-            let key_path = parts[0]; // e.g. "input.risk_score"
-            let op = parts[1];       // e.g. ">"
-            let target_val_str = parts[2]; // e.g. "0.5"
+            let key_path = parts[0]; 
+            let op = parts[1];       
+            let target_val_str = parts[2];
 
-            // Convert "input.a.b" -> "/a/b" for serde pointer
             let json_pointer = if key_path.starts_with("input.") {
                 key_path.replace("input.", "/").replace(".", "/")
             } else {
                 format!("/{}", key_path.replace(".", "/"))
             };
 
-            // Resolve value from input object
             let actual_val_opt = input_obj.pointer(&json_pointer);
             
-            // Perform comparison
             if let Some(val) = actual_val_opt {
                 if let Some(num_val) = val.as_f64() {
                     let target_num = target_val_str.parse::<f64>().unwrap_or(0.0);
@@ -390,7 +460,6 @@ async fn run_gate_execution(config: &Value, input: &str) -> Result<ExecutionResu
                         reason = format!("Field '{}' ({}) is not {} {}", key_path, num_val, op, target_num);
                     }
                 } else if let Some(str_val) = val.as_str() {
-                    // String comparison
                     let target_clean = target_val_str.trim_matches('"').trim_matches('\'');
                     match op {
                         "==" => passed = str_val == target_clean,
@@ -420,14 +489,12 @@ async fn run_gate_execution(config: &Value, input: &str) -> Result<ExecutionResu
                 reason = format!("Field '{}' not found in input data", key_path);
             }
         } else {
-            // Fallback for complex scripts not yet supported locally
             reason = "Complex script syntax not supported in Local Mode. Use 'input.field > value'".to_string();
             passed = false; 
         }
     }
 
     Ok(ExecutionResult {
-        // [IMPORTANT] Map failure to "blocked" so Orchestrator routes to the "blocked" handle
         status: if passed { "success".to_string() } else { "blocked".to_string() },
         output: if passed { input.to_string() } else { format!("Gate Blocked: {}", reason) },
         data: Some(serde_json::json!({ 
@@ -439,7 +506,6 @@ async fn run_gate_execution(config: &Value, input: &str) -> Result<ExecutionResu
     })
 }
 
-// [UPDATED] LLM Inference with Strict Templating Support
 async fn run_llm_inference(config: &Value, input_json: &str) -> Result<ExecutionResult, Box<dyn Error>> {
     let system_prompt = config.get("systemPrompt")
         .or_else(|| config.get("system_prompt"))
@@ -450,24 +516,17 @@ async fn run_llm_inference(config: &Value, input_json: &str) -> Result<Execution
         .and_then(|v| v.as_str())
         .unwrap_or("llama3");
 
-    // [FIX] Correct variable name from `input` to `input_json`
-    // Parse input to Value for interpolation
     let input_obj: Value = serde_json::from_str(input_json).unwrap_or(serde_json::json!({}));
 
-    // [GOVERNANCE] Strict Context Construction
-    // If the system prompt contains templating {{...}}, we ONLY use the templated variables.
-    // If not, we fallback to the "Context Dump" mode (Legacy support).
     let final_user_prompt = if system_prompt.contains("{{") {
         interpolate_template(system_prompt, &input_obj)
     } else {
-        // Fallback: Dump everything (Lazy Mode)
         format!("Context Data:\n{}\n\nTask: Analyze this data based on system instructions.", input_json)
     };
 
     let client = reqwest::Client::new();
     let start = std::time::Instant::now();
     
-    // Call Ollama (Local)
     let res = client.post("http://127.0.0.1:11434/api/generate")
         .json(&serde_json::json!({
             "model": model, 
@@ -493,7 +552,6 @@ async fn run_llm_inference(config: &Value, input_json: &str) -> Result<Execution
                     metrics: Some(serde_json::json!({
                         "latency_ms": duration.as_millis(),
                         "eval_count": body.get("eval_count").unwrap_or(&serde_json::json!(0)),
-                        // Return the prompt we actually used for debugging transparency
                         "final_prompt_snapshot": final_user_prompt 
                     })),
                 })
@@ -507,7 +565,6 @@ async fn run_llm_inference(config: &Value, input_json: &str) -> Result<Execution
             }
         },
         Err(e) => {
-            // Simulation fallback if Ollama is not running
             Ok(ExecutionResult {
                 status: "simulated".to_string(),
                 output: format!("[Simulated Output - Ollama Offline]\nModel: {}\nPrompt Used: {}\nError: {}", model, final_user_prompt.chars().take(150).collect::<String>(), e),
@@ -518,7 +575,6 @@ async fn run_llm_inference(config: &Value, input_json: &str) -> Result<Execution
     }
 }
 
-// [UPDATED] Tool Execution with Strict Templating Support
 async fn run_tool_execution(config: &Value, input: &str) -> Result<ExecutionResult, Box<dyn Error>> {
     let url = config.get("endpoint")
         .or_else(|| config.get("url"))
@@ -531,7 +587,6 @@ async fn run_tool_execution(config: &Value, input: &str) -> Result<ExecutionResu
     let client = reqwest::Client::new();
     let start = std::time::Instant::now();
 
-    // Parse input once
     let input_obj: Value = serde_json::from_str(input).unwrap_or(serde_json::json!({}));
 
     let mut builder = match method.as_str() {
@@ -542,10 +597,8 @@ async fn run_tool_execution(config: &Value, input: &str) -> Result<ExecutionResu
     };
 
     if !body_template.is_empty() && (method == "POST" || method == "PUT") {
-        // Use the unified interpolator logic
         let final_body = interpolate_template(body_template, &input_obj);
         
-        // Try to send as JSON if valid, else raw text
         if let Ok(json_body) = serde_json::from_str::<Value>(&final_body) {
             builder = builder.json(&json_body);
         } else {

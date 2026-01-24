@@ -30,6 +30,14 @@ export interface SwarmAgent {
     artifacts_produced: number;
     estimated_cost: number;
     policy_hash: string;
+    // [NEW] Evolutionary Status
+    generation?: number;
+}
+
+export interface ChatMessage {
+  role: string;
+  text: string;
+  timestamp: number;
 }
 
 export interface AgentTask {
@@ -46,6 +54,14 @@ export interface AgentTask {
   
   // [NEW] Hierarchical Swarm State
   swarm_tree: SwarmAgent[];
+  
+  // History source of truth
+  history: ChatMessage[];
+  
+  // [NEW] Evolutionary Metadata
+  generation: number;    // The current generation count (0 = Genesis)
+  lineage_id: string;    // Unique hash of the agent's evolutionary branch
+  fitness_score: number; // 0.0 - 1.0 score of the agent's performance
 }
 
 // Ghost Mode Trace Step
@@ -83,6 +99,11 @@ export const useAgentStore = create<AgentStore>((set) => ({
   startTask: async (intent: string, mode: string = "Agent"): Promise<AgentTask | null> => {
     try {
       const task = await invoke<AgentTask>("start_task", { intent, mode });
+      // Initialize evolutionary fields if missing from backend response (backward compat)
+      if (task.generation === undefined) task.generation = 0;
+      if (task.fitness_score === undefined) task.fitness_score = 0.0;
+      if (!task.lineage_id) task.lineage_id = "genesis";
+      
       set({ task });
       return task;
     } catch (e) {
@@ -126,7 +147,13 @@ export async function initEventListeners() {
   // Load current task
   try {
     const task = await invoke<AgentTask | null>("get_current_task");
-    if (task) useAgentStore.setState({ task });
+    if (task) {
+        // Initialize evolutionary fields if missing from backend response (backward compat)
+        if (task.generation === undefined) task.generation = 0;
+        if (task.fitness_score === undefined) task.fitness_score = 0.0;
+        if (!task.lineage_id) task.lineage_id = "genesis";
+        useAgentStore.setState({ task });
+    }
   } catch (e) {
     console.error("Failed to load task:", e);
   }

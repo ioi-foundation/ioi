@@ -51,7 +51,7 @@ use ioi_drivers::os::NativeOsDriver;
 use ioi_services::agentic::desktop::DesktopAgentService;
 
 // [FIX] Removed unused RuleConditions import to silence warning
-use ioi_services::agentic::rules::{ActionRules, DefaultPolicy, Rule, Verdict, RuleConditions};
+use ioi_services::agentic::rules::{ActionRules, DefaultPolicy, Rule, Verdict};
 use ioi_types::codec;
 
 #[derive(Parser, Debug)]
@@ -128,6 +128,9 @@ async fn main() -> Result<()> {
         activated_at: 0,
         methods: agent_methods,
         allowed_system_prefixes: vec![],
+        // [FIX] Initialize new evolutionary fields
+        generation_id: 0,
+        parent_hash: None,
     };
 
     // 2. Agency Firewall Rules (The Policy)
@@ -392,6 +395,9 @@ async fn main() -> Result<()> {
             activated_at: 0,
             methods: market_methods,
             allowed_system_prefixes: vec![],
+            // [FIX] Initialize new evolutionary fields
+            generation_id: 0,
+            parent_hash: None,
         };
         let market_key = ioi_types::keys::active_service_key("compute_market");
         insert_raw(&market_key, to_bytes_canonical(&market_meta).unwrap());
@@ -586,7 +592,7 @@ async fn main() -> Result<()> {
     
     // Inject into ExecutionMachine (Hot Swap)
     {
-        use ioi_api::services::UpgradableService;
+        // use ioi_api::services::UpgradableService; // Removed unused import
         let mut machine_guard = machine.lock().await;
         let service_arc = Arc::new(agent);
         if let Err(e) = machine_guard.service_manager.register_service(service_arc) {

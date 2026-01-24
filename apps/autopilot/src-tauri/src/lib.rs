@@ -14,7 +14,8 @@ mod execution;
 mod orchestrator; 
 
 use models::{AppState, GateInfo, AgentPhase, AgentTask, GhostInputEvent, Receipt, ChatMessage, SwarmAgent};
-use windows::{show_gate};
+// [FIX] Removed unused show_gate import
+use windows::{show_pill};
 // orchestrator::GraphPayload import removed as it's not needed here directly anymore
 
 // Kernel Integration

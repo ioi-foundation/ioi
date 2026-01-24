@@ -1,3 +1,5 @@
+// apps/autopilot/src/types.ts
+
 // ============================================
 // Node Configuration Schemas (The Constitution)
 // ============================================
@@ -27,11 +29,11 @@ export interface NodeLogic {
 }
 
 /**
- * NodeLaw: The "Firewall" of the node.
+ * FirewallPolicy (formerly NodeLaw): The "Firewall" of the node.
  * Defines the hard constraints and liabilities.
  * This is what the Agent is *allowed* to do.
  */
-export interface NodeLaw {
+export interface FirewallPolicy {
   budgetCap?: number;           // Max USD spend per execution
   networkAllowlist?: string[];  // List of allowed DNS domains (e.g. "*.stripe.com")
   requireHumanGate?: boolean;   // If true, execution halts for "Hold to Sign"
@@ -41,6 +43,9 @@ export interface NodeLaw {
     backoffMs: number;
   };
 }
+
+// Deprecated alias for backward compatibility
+export type NodeLaw = FirewallPolicy;
 
 // ============================================
 // Graph & Canvas Types (Studio View)
@@ -57,7 +62,7 @@ export interface Node extends Record<string, unknown> {
   // Optional to maintain backward compatibility with existing mock data
   config?: {
     logic: NodeLogic;
-    law: NodeLaw;
+    law: FirewallPolicy; // Renamed
   };
 
   // Execution Runtime State
@@ -141,6 +146,11 @@ export interface AgentTask {
   gate_info?: any;
   // History of the conversation/execution trace
   history: ChatMessage[];
+  
+  // [NEW] Evolutionary Metadata
+  generation: number;    // The current generation count (0 = Genesis)
+  lineage_id: string;    // Unique hash of the agent's evolutionary branch
+  fitness_score: number; // 0.0 - 1.0 score of the agent's performance
 }
 
 // Whitepaper Section 14.1: Manager-Worker Hierarchy
@@ -166,6 +176,9 @@ export interface SwarmAgent {
   // Real-time Visibility (Visual Sovereignty)
   current_thought?: string;
   artifacts_produced: number;
+  
+  // [NEW] Evolutionary Status
+  generation?: number;
 }
 
 // Session Summary for sidebar list
@@ -173,4 +186,57 @@ export interface SessionSummary {
     session_id: string;
     title: string;
     timestamp: number;
+}
+
+// [NEW] Mutation Log Entry for DNA Tab
+export interface MutationLogEntry {
+    generation: number;
+    parent_hash: string;
+    child_hash: string;
+    diff_summary: string;
+    rationale: string;
+    score_delta: number; // e.g. +0.05
+    timestamp: number;
+}
+
+// ============================================
+// IPC Types (Shared with Rust)
+// ============================================
+
+export interface NodeArtifacts {
+  [nodeId: string]: {
+    output?: string;
+    metrics?: any;
+    timestamp: number;
+  };
+}
+
+export interface ExecutionLog {
+  id: string;
+  timestamp: string;
+  level: "info" | "warn" | "error" | "debug";
+  source: string;
+  message: string;
+}
+
+export interface ExecutionStep {
+  id: string;
+  name: string;
+  status: "running" | "success" | "blocked" | "error" | "idle";
+  timestamp: string;
+  duration?: string;
+  dataCount?: number;
+}
+
+export interface GraphGlobalConfig {
+  env: string;
+  policy: {
+    maxBudget: number;
+    maxSteps: number;
+    timeoutMs: number;
+  };
+  meta: {
+    name: string;
+    description: string;
+  };
 }
