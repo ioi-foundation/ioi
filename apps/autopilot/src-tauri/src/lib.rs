@@ -1,9 +1,9 @@
 // apps/autopilot/src-tauri/src/lib.rs
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex};
 use tauri::{
     menu::{Menu, MenuItem},
     tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
-    Emitter, Manager,
+    Emitter, Manager, State
 };
 use tauri_plugin_global_shortcut::{Code, GlobalShortcutExt, Modifiers, Shortcut, ShortcutState};
 
@@ -12,17 +12,16 @@ mod windows;
 mod kernel;
 mod execution;
 mod orchestrator; 
-mod project; // [NEW] Project Persistence Module
+mod project;
 
 use models::{AppState, GateInfo, AgentPhase, AgentTask, GhostInputEvent, Receipt, ChatMessage, SwarmAgent};
-// [FIX] Removed unused show_pill import
-// orchestrator::GraphPayload import removed as it's not needed here directly anymore
 
 // Kernel Integration
 use ioi_ipc::public::public_api_client::PublicApiClient;
 use ioi_ipc::public::{
     chain_event::Event as ChainEventEnum, SubscribeEventsRequest
 };
+use ioi_scs::{SovereignContextStore, StoreConfig}; // [NEW]
 
 // Helper to get current timestamp
 fn now() -> u64 {
@@ -303,12 +302,38 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_global_shortcut::Builder::new().build())
         .plugin(tauri_plugin_notification::init())
-        .plugin(tauri_plugin_dialog::init()) // [NEW] Added Dialog Plugin for Project Save/Load
+        .plugin(tauri_plugin_dialog::init())
         .manage(Mutex::new(models::AppState::default()))
         .setup(|app| {
             println!("[Autopilot] Initializing...");
             
-            // Initialize Local MCP Runtime for Studio
+            let app_handle = app.handle();
+            let data_dir = app_handle.path().app_data_dir().unwrap_or_else(|_| std::path::PathBuf::from("./ioi-data"));
+            
+            // 1. Initialize Studio SCS
+            let scs_path = data_dir.join("studio.scs");
+            let studio_scs = if scs_path.exists() {
+                println!("[Studio] Opening existing execution store at {:?}", scs_path);
+                SovereignContextStore::open(&scs_path).ok()
+            } else {
+                std::fs::create_dir_all(&data_dir).ok();
+                println!("[Studio] Creating new execution store at {:?}", scs_path);
+                SovereignContextStore::create(&scs_path, StoreConfig {
+                    chain_id: 0,
+                    owner_id: [0u8; 32], // Local Studio User
+                }).ok()
+            };
+
+            if let Some(scs) = studio_scs {
+                let state: State<Mutex<AppState>> = app_handle.state();
+                // [FIX] Handle lock result safely without if let temporary
+                let mut s = state.lock().expect("Failed to lock app state during init");
+                s.studio_scs = Some(Arc::new(Mutex::new(scs)));
+            } else {
+                eprintln!("[Studio] Failed to initialize SCS. Persistence disabled.");
+            }
+
+            // 2. Initialize Local MCP Runtime
             let handle = app.handle().clone();
             tauri::async_runtime::spawn(async move {
                 execution::init_mcp_servers(handle).await;
@@ -425,14 +450,14 @@ pub fn run() {
             kernel::get_context_blob,
             kernel::get_session_history,
             kernel::load_session,
-            kernel::delete_session, // [FIX] Added missing export
-            kernel::get_available_tools, // [FIX] Added missing export
+            kernel::delete_session, 
+            kernel::get_available_tools, 
             
             // Studio Inspector & Execution
             kernel::test_node_execution,
             kernel::run_studio_graph, 
 
-            // [NEW] Project Persistence
+            // Project Persistence
             project::save_project,
             project::load_project
         ])

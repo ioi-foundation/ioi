@@ -3,6 +3,8 @@ use serde::{Deserialize, Serialize};
 use ioi_ipc::public::public_api_client::PublicApiClient;
 use tonic::transport::Channel;
 use std::collections::HashSet;
+use ioi_scs::SovereignContextStore; // [NEW]
+use std::sync::{Arc, Mutex}; // [NEW]
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub enum AgentPhase {
@@ -95,7 +97,7 @@ pub struct GateResponse {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ContextBlob {
-    pub data_base64: String, // [FIX] Fixed typo from data_base_4
+    pub data_base64: String, 
     pub mime_type: String,
 }
 
@@ -119,4 +121,7 @@ pub struct AppState {
     pub gate_response: Option<GateResponse>,
     pub is_simulating: bool,
     pub rpc_client: Option<PublicApiClient<Channel>>,
+    
+    // [NEW] Persistent Store for Studio execution artifacts
+    pub studio_scs: Option<Arc<Mutex<SovereignContextStore>>>,
 }

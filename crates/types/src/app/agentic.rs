@@ -181,3 +181,17 @@ pub struct FirewallPolicy {
     /// Data egress policy ("none", "masked", "zero-knowledge").
     pub privacy_level: Option<String>,
 }
+
+/// A structured, immutable fact extracted from an agent's thought or observation.
+/// Used for the "Canonical Semantic Model" RAG system.
+#[derive(Debug, Clone, Serialize, Deserialize, Encode, Decode, PartialEq, Eq)]
+pub struct SemanticFact {
+    /// The subject of the fact (e.g., "user_budget").
+    pub subject: String,
+    /// The relationship (e.g., "is_limited_to").
+    pub predicate: String,
+    /// The value/object (e.g., "50_USD").
+    pub object: String,
+    // Note: We don't store context_hash here typically, as the Fact is embedded *into* the Index
+    // which points to the Frame.
+}
