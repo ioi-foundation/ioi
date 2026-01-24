@@ -23,6 +23,10 @@ export interface NodeLogic {
   bodyTemplate?: string;  // JSON string with handlebars {{variable}} support
   timeoutMs?: number;
 
+  // --- [NEW] Dynamic MCP Tools ---
+  tool_name?: string;     // e.g. "filesystem__write_file"
+  arguments?: Record<string, any>; // Dynamic args based on schema
+
   // --- Trigger/Logic Nodes ---
   cronSchedule?: string;  // e.g., "*/5 * * * *"
   conditionScript?: string; // e.g., "input.risk > 0.5"
@@ -64,6 +68,9 @@ export interface Node extends Record<string, unknown> {
     logic: NodeLogic;
     law: FirewallPolicy; // Renamed
   };
+
+  // [NEW] Dynamic Schema for MCP Tools
+  schema?: string; // JSON Schema string
 
   // Execution Runtime State
   status?: "idle" | "running" | "success" | "error";
@@ -120,7 +127,10 @@ export type LiabilityMode = "none" | "optional" | "required";
 // Chat message structure for persistent history
 export interface ChatMessage {
   role: string; // 'user', 'agent', 'system', 'tool'
+
+  // [NOTE] We map backend `content` to frontend `text` for compatibility with UI components
   text: string;
+  
   timestamp: number;
 }
 
@@ -197,6 +207,13 @@ export interface MutationLogEntry {
     rationale: string;
     score_delta: number; // e.g. +0.05
     timestamp: number;
+}
+
+// [NEW] Tool Definition from Backend (matches LlmToolDefinition)
+export interface LlmToolDefinition {
+    name: string;
+    description: string;
+    parameters: string; // JSON Schema string
 }
 
 // ============================================

@@ -2,6 +2,9 @@ export interface NodeArtifact {
   output?: string;
   metrics?: any;
   timestamp: number;
+  // [NEW] Explicit Input Snapshot for Data Observability
+  // Stores the merged input context (JSON) this node received at execution time
+  input_snapshot?: any;
 }
 
 export interface NodeArtifacts {

@@ -1,4 +1,5 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
+import { invoke } from "@tauri-apps/api/core";
 import "./ContextSidebar.css";
 
 interface ContextSidebarProps {
@@ -16,6 +17,8 @@ interface NodeCategory {
     id: string;
     name: string;
     icon: string;
+    description?: string;
+    schema?: string; // [NEW] Added schema
   }[];
 }
 
@@ -78,6 +81,50 @@ export function ContextSidebar({ width }: ContextSidebarProps) {
   const [categories, setCategories] = useState(nodeCategories);
   const [searchQuery, setSearchQuery] = useState("");
   const [isDragOver, setIsDragOver] = useState(false);
+
+  // [NEW] Fetch Dynamic Tools from Kernel
+  useEffect(() => {
+    const fetchTools = async () => {
+      try {
+        // LlmToolDefinition: { name, description, parameters }
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const tools = await invoke<any[]>("get_available_tools");
+        
+        if (tools && tools.length > 0) {
+          const dynamicNodes = tools.map(t => {
+            // MCP tools are namespaced like "filesystem__write_file"
+            // We want to display "write_file" but keep full ID
+            const displayName = t.name.includes("__") ? t.name.split("__")[1] : t.name;
+            return {
+              id: t.name, // Full ID: "filesystem__write_file"
+              name: displayName.replace(/_/g, ' '), // "write file"
+              icon: "🔧",
+              description: t.description,
+              schema: t.parameters // JSON schema string
+            };
+          });
+
+          setCategories(prev => prev.map(cat => {
+            if (cat.id === "tools") {
+              return {
+                ...cat,
+                // Merge static tools with dynamic ones, avoiding duplicates if any
+                nodes: [
+                  ...cat.nodes.filter(n => !dynamicNodes.some(dn => dn.id === n.id)), 
+                  ...dynamicNodes
+                ]
+              };
+            }
+            return cat;
+          }));
+        }
+      } catch (e) {
+        console.error("Failed to fetch MCP tools:", e);
+      }
+    };
+
+    fetchTools();
+  }, []);
 
   const toggleCategory = useCallback((categoryId: string) => {
     setCategories((prev) =>

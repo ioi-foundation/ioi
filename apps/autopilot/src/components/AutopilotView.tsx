@@ -1,7 +1,8 @@
 import { useState, useEffect } from "react";
+import { useAgentStore } from "../store/agentStore";
 import "./AutopilotView.css";
 
-type AgentPhase = "idle" | "running" | "gate" | "complete" | "failed";
+type AgentPhase = "Idle" | "Running" | "Gate" | "Complete" | "Failed";
 
 interface AgentTask {
   id: string;
@@ -42,6 +43,7 @@ export function AutopilotView({ onOpenStudio }: AutopilotViewProps) {
   // Spotlight state
   const [spotlightOpen, setSpotlightOpen] = useState(false);
   const [intent, setIntent] = useState("");
+  const { startTask } = useAgentStore();
   
   // Active task
   const [activeTask, setActiveTask] = useState<AgentTask | null>(null);
@@ -95,7 +97,7 @@ export function AutopilotView({ onOpenStudio }: AutopilotViewProps) {
     // We don't manually creating the task state here anymore.
     // We call the backend, and let the event stream update the UI.
     try {
-        await startTask(intent);
+        await startTask(intent, "Agent");
         setSpotlightOpen(false);
         setIntent("");
     } catch (e) {
@@ -110,7 +112,7 @@ export function AutopilotView({ onOpenStudio }: AutopilotViewProps) {
   const handleGateDeny = () => {
     setActiveTask(prev => prev ? {
       ...prev,
-      phase: "failed",
+      phase: "Failed",
       currentStep: "Cancelled by user (Policy Denied)",
     } : null);
   };
@@ -222,16 +224,16 @@ export function AutopilotView({ onOpenStudio }: AutopilotViewProps) {
       )}
 
       {/* Floating Pill (when task is running) */}
-      {activeTask && activeTask.phase !== "gate" && (
+      {activeTask && activeTask.phase !== "Gate" && (
         <div 
           className={`floating-pill ${pillExpanded ? "expanded" : ""} ${activeTask.phase}`}
           onClick={() => setPillExpanded(!pillExpanded)}
         >
           <div className="pill-header">
             <div className="pill-status">
-              {activeTask.phase === "running" && <div className="status-spinner" />}
-              {activeTask.phase === "complete" && <div className="status-check">✓</div>}
-              {activeTask.phase === "failed" && <div className="status-fail">✗</div>}
+              {activeTask.phase === "Running" && <div className="status-spinner" />}
+              {activeTask.phase === "Complete" && <div className="status-check">✓</div>}
+              {activeTask.phase === "Failed" && <div className="status-fail">✗</div>}
             </div>
             <div className="pill-info">
               <div className="pill-agent">{activeTask.agent}</div>
@@ -256,7 +258,7 @@ export function AutopilotView({ onOpenStudio }: AutopilotViewProps) {
               </div>
 
               {/* Receipt (if complete) */}
-              {activeTask.phase === "complete" && activeTask.receipt && (
+              {activeTask.phase === "Complete" && activeTask.receipt && (
                 <div className="pill-receipt">
                   <div className="receipt-row">
                     <span>Duration</span>
@@ -277,12 +279,12 @@ export function AutopilotView({ onOpenStudio }: AutopilotViewProps) {
 
               {/* Actions */}
               <div className="pill-actions">
-                {activeTask.phase === "running" && (
+                {activeTask.phase === "Running" && (
                   <button className="pill-btn cancel" onClick={(e) => { e.stopPropagation(); handleDismissTask(); }}>
                     Cancel
                   </button>
                 )}
-                {(activeTask.phase === "complete" || activeTask.phase === "failed") && (
+                {(activeTask.phase === "Complete" || activeTask.phase === "Failed") && (
                   <>
                     <button className="pill-btn" onClick={(e) => { e.stopPropagation(); console.log("View receipt"); }}>
                       View Details
@@ -299,7 +301,7 @@ export function AutopilotView({ onOpenStudio }: AutopilotViewProps) {
       )}
 
       {/* Gate Popup (demands attention) */}
-      {activeTask && activeTask.phase === "gate" && activeTask.gateInfo && (
+      {activeTask && activeTask.phase === "Gate" && activeTask.gateInfo && (
         <div className="gate-overlay">
           <div className="gate-popup">
             <div className={`gate-header ${activeTask.gateInfo.risk}`}>

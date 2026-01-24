@@ -97,13 +97,27 @@ export function useGraphState() {
       if (node.id === nodeId) {
         const currentData = node.data as unknown as IOINode;
         const currentConfig = currentData.config || { logic: {}, law: {} };
+        
+        // Deep merge logic for arguments if present
+        let newSectionData = { ...(currentConfig[section] || {}), ...updates };
+        
+        if (section === 'logic' && 'arguments' in updates) {
+            const currentArgs = (currentConfig.logic as NodeLogic)?.arguments || {};
+            // @ts-ignore
+            const newArgs = updates.arguments || {};
+            newSectionData = {
+                ...newSectionData,
+                arguments: { ...currentArgs, ...newArgs }
+            };
+        }
+
         return {
           ...node,
           data: {
             ...currentData,
             config: {
               ...currentConfig,
-              [section]: { ...(currentConfig[section] || {}), ...updates }
+              [section]: newSectionData
             }
           },
         };
@@ -115,24 +129,19 @@ export function useGraphState() {
   const handleCanvasDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault();
     try {
-      // Data set in LeftPanel.tsx handleDragStart
       const nodeId = e.dataTransfer.getData("nodeId"); 
       const nodeName = e.dataTransfer.getData("nodeName");
       
       const position = screenToFlowPosition({ x: e.clientX, y: e.clientY });
       
-      // 1. Look up Template from Registry
-      // This implements the "Standard Library" pattern where nodes come pre-configured
       const template = NODE_TEMPLATES[nodeId];
       let newNodeData: IOINode;
 
       if (template) {
-        // Hydrate from Template (The "SimStudio" Magic)
-        // We deep copy config to ensure no reference sharing between nodes
         newNodeData = {
           id: `${nodeId}-${Date.now()}`,
           type: template.type,
-          name: template.name, // Use template name
+          name: template.name,
           x: position.x, 
           y: position.y,
           status: "idle",
@@ -141,8 +150,46 @@ export function useGraphState() {
           outputs: ["out"],
           config: JSON.parse(JSON.stringify(template.defaultConfig))
         };
+      } else if (nodeId.includes("__")) {
+        // [NEW] Dynamic MCP Tool Detection
+        // ID format: "server__tool"
+        newNodeData = {
+          id: `${nodeId}-${Date.now()}`,
+          type: "tool", // Generic tool type
+          name: nodeName || nodeId,
+          x: position.x, 
+          y: position.y,
+          status: "idle",
+          ioTypes: { in: "Any", out: "Result" },
+          inputs: ["in"], 
+          outputs: ["out"],
+          // [FIX] Inject schema from sidebar drag payload (if we added it to dataTransfer)
+          // Since dataTransfer is string-only, we rely on the fact that we can't easily pass the full schema obj.
+          // Instead, we might need to fetch it again or rely on the RightPanel to fetch it if missing.
+          // BUT, we can just init arguments as empty.
+          config: { 
+            logic: { 
+              // This field tells execution.rs to use run_mcp_tool
+              // @ts-ignore - dynamic property
+              tool_name: nodeId, 
+              arguments: {} // Empty args by default, to be filled in Inspector
+            }, 
+            law: {
+              requireHumanGate: true // Default safety for new tools
+            } 
+          }
+        };
+        
+        // [HACK] To get the schema into the node data, we need a way to look it up.
+        // Ideally we'd have a global tool registry store. 
+        // For now, let's assume the RightPanel will re-fetch or we passed it via a side-channel?
+        // Actually, we can just attach it if we modify ContextSidebar to JSON.stringify the schema into dataTransfer.
+        const schemaStr = e.dataTransfer.getData("nodeSchema");
+        if (schemaStr) {
+            newNodeData.schema = schemaStr;
+        }
+
       } else {
-        // Fallback: Generic Node (Empty State)
         newNodeData = {
           id: `node-${Date.now()}`,
           type: "action",

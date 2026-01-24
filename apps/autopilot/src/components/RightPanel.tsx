@@ -10,7 +10,7 @@ const ShieldIcon = () => <svg width="12" height="12" viewBox="0 0 24 24" fill="n
 const BrainIcon = () => <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9.5 2A2.5 2.5 0 0 1 12 4.5v15a2.5 2.5 0 0 1-4.96.44 2.5 2.5 0 0 1-2.96-3.08 3 3 0 0 1-.34-5.58 2.5 2.5 0 0 1 1.32-4.24 2.5 2.5 0 0 1 1.98-3A2.5 2.5 0 0 1 9.5 2Z"/><path d="M14.5 2A2.5 2.5 0 0 0 12 4.5v15a2.5 2.5 0 0 0 4.96.44 2.5 2.5 0 0 0 2.96-3.08 3 3 0 0 0 .34-5.58 2.5 2.5 0 0 0-1.32-4.24 2.5 2.5 0 0 0-1.98-3A2.5 2.5 0 0 0 14.5 2Z"/></svg>;
 const TerminalIcon = () => <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>;
 const GlobeIcon = () => <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>;
-const SettingsIcon = () => <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>;
+const SettingsIcon = () => <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>;
 const DnaIcon = () => <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M2 15c6.667-6 13.333 0 20-6"/><path d="M9 22c1.798-1.998 2.518-3.995 2.807-5.993"/><path d="M15 2c-1.798 1.998-2.518 3.995-2.807 5.993"/><path d="M17 22c-2.667-3.5-2.667-10.5 0-14"/><path d="M2 11c6.667 6 13.333 0 20 6"/><path d="M9 2c2.667 3.5 2.667 10.5 0 14"/></svg>;
 
 // --- TYPES ---
@@ -368,6 +368,10 @@ function LogicView({ node, onUpdate }: LogicViewProps) {
   // Auto-detect variables for UX feedback in the Logic tab
   const activeTemplate = config.systemPrompt || config.bodyTemplate || "";
   const variables = useMemo(() => extractVariables(activeTemplate), [activeTemplate]);
+  
+  // [NEW] Dynamic MCP Tool Handling
+  // We use node.schema to detect if it's a dynamic tool
+  const isDynamicTool = node.type === "tool" && !!node.schema;
 
   return (
     <div className="properties-container">
@@ -429,7 +433,17 @@ function LogicView({ node, onUpdate }: LogicViewProps) {
         </div>
       )}
 
-      {node.type === "tool" && (
+      {/* [NEW] Dynamic Tool Config */}
+      {isDynamicTool && node.schema && (
+        <DynamicToolConfig 
+          schemaStr={node.schema} 
+          // @ts-ignore - arguments is dynamic
+          currentArgs={config.arguments || {}}
+          onChange={(newArgs) => onUpdate('logic', { arguments: newArgs })}
+        />
+      )}
+
+      {!isDynamicTool && node.type === "tool" && (
         <div className="panel-section">
           <div className="section-title-row"><span className="section-title">Tool Config</span></div>
           
@@ -503,6 +517,72 @@ function LogicView({ node, onUpdate }: LogicViewProps) {
           <span className="empty-hint">No configurable logic for this node type.</span>
         </div>
       )}
+    </div>
+  );
+}
+
+// [NEW] Dynamic Tool Config Component
+function DynamicToolConfig({ schemaStr, currentArgs, onChange }: { schemaStr: string, currentArgs: Record<string, any>, onChange: (args: any) => void }) {
+  let schema;
+  try {
+    schema = JSON.parse(schemaStr);
+  } catch {
+    return <div className="panel-empty"><span className="empty-hint">Invalid Schema</span></div>;
+  }
+
+  const properties = schema.properties || {};
+  const required = schema.required || [];
+
+  const handleChange = (key: string, val: any) => {
+    onChange({ ...currentArgs, [key]: val });
+  };
+
+  return (
+    <div className="panel-section">
+      <div className="section-title-row">
+        <span className="section-title">Dynamic Tool Config</span>
+      </div>
+      
+      {Object.keys(properties).map((key) => {
+        const prop = properties[key];
+        const isRequired = required.includes(key);
+        
+        return (
+          <div key={key} className="config-field">
+            <label className="config-label">
+              {key} {isRequired && <span style={{color: '#F87171'}}>*</span>}
+            </label>
+            
+            {prop.type === "boolean" ? (
+               <select 
+                 className="input"
+                 value={currentArgs[key] === true ? "true" : "false"}
+                 onChange={(e) => handleChange(key, e.target.value === "true")}
+               >
+                 <option value="true">True</option>
+                 <option value="false">False</option>
+               </select>
+            ) : (
+               <input 
+                 className="input code-editor"
+                 type={prop.type === "integer" || prop.type === "number" ? "number" : "text"}
+                 value={currentArgs[key] || ""}
+                 onChange={(e) => {
+                    let val: any = e.target.value;
+                    if (prop.type === "integer" || prop.type === "number") val = parseFloat(val);
+                    handleChange(key, val);
+                 }}
+                 placeholder={prop.description || ""}
+               />
+            )}
+            {prop.description && (
+              <div className="approval-hint" style={{marginLeft: 0, marginTop: 4, color: '#6B7280'}}>
+                {prop.description}
+              </div>
+            )}
+          </div>
+        );
+      })}
     </div>
   );
 }
@@ -693,7 +773,8 @@ function SimulationView({
       const result = await invoke<any>("test_node_execution", {
         nodeType: node.type,
         config: configPayload, 
-        input: inputJson
+        input: inputJson,
+        nodeId: node.id
       });
       
       setOutput(JSON.stringify(result, null, 2));

@@ -31,6 +31,9 @@ use ioi_types::app::{ChainTransaction, SignHeader, SignatureProof, SystemPayload
 use ioi_types::app::{AccountId, ChainId, account_id_from_key_material}; 
 use ioi_types::codec;
 
+// [NEW] Use the shared type from ioi-types
+use ioi_types::app::agentic::LlmToolDefinition;
+
 // Helper to get current timestamp
 fn now() -> u64 {
     SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default().as_millis() as u64
@@ -210,6 +213,14 @@ pub async fn test_node_execution(
             }))
         }
     }
+}
+
+// [NEW] Tool Discovery Command
+// Returns the list of active MCP tools available in the backend execution environment.
+#[tauri::command]
+pub async fn get_available_tools() -> Result<Vec<LlmToolDefinition>, String> {
+    // Access the MCP_MANAGER exposed via execution.rs
+    Ok(execution::get_active_mcp_tools().await)
 }
 
 // --- Session Management ---
