@@ -1,6 +1,7 @@
 // apps/autopilot/src-tauri/src/orchestrator.rs
 
 use crate::execution::{self, ExecutionResult};
+use crate::models::{AgentTask, SessionSummary}; 
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::collections::HashMap;
@@ -8,8 +9,8 @@ use std::time::{Instant, Duration};
 use std::sync::{Arc, Mutex};
 use ioi_crypto::algorithms::hash::sha256;
 use ioi_scs::{SovereignContextStore, FrameType}; 
-use dcrypt::algorithms::ByteSerializable; // For copy_from_slice
-use hex; // Ensure hex is imported
+use hex;
+use ioi_api::vm::inference::InferenceRuntime;
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct GraphNode {
@@ -32,6 +33,7 @@ pub struct GraphPayload {
     pub nodes: Vec<GraphNode>,
     pub edges: Vec<GraphEdge>,
     pub global_config: Option<Value>,
+    pub session_id: Option<String>,
 }
 
 #[derive(Serialize, Clone)]
@@ -43,13 +45,34 @@ pub struct GraphEvent {
     pub generation: Option<u64>,
 }
 
-// --- GLOBAL EXECUTION CACHE (Memoization Layer) ---
-// Maps hex(hash(NodeID + Config + Input)) -> ExecutionResult
 static GLOBAL_EXECUTION_CACHE: once_cell::sync::Lazy<Mutex<HashMap<String, ExecutionResult>>> = once_cell::sync::Lazy::new(|| {
     Mutex::new(HashMap::new())
 });
 
-/// Helper: Merges Global Environment variables with Parent Outputs.
+fn interpolate_template(template: &str, context: &Value) -> String {
+    let mut result = template.to_string();
+    let mut start_idx = 0;
+    while let Some(open) = result[start_idx..].find("{{") {
+        let actual_open = start_idx + open;
+        if let Some(close) = result[actual_open..].find("}}") {
+            let actual_close = actual_open + close;
+            let key = &result[actual_open + 2..actual_close].trim();
+            
+            let replacement = if let Some(val) = context.get(key) {
+                if let Some(s) = val.as_str() { s.to_string() } else { val.to_string() }
+            } else {
+                format!("<<MISSING:{}>>", key)
+            };
+
+            result.replace_range(actual_open..actual_close + 2, &replacement);
+            start_idx = actual_open + replacement.len();
+        } else {
+            break;
+        }
+    }
+    result
+}
+
 fn merge_inputs(parent_outputs: Vec<Value>, global_env: &Value) -> Value {
     let mut merged_map = if let Value::Object(map) = global_env {
         map.clone()
@@ -73,7 +96,6 @@ fn merge_inputs(parent_outputs: Vec<Value>, global_env: &Value) -> Value {
     Value::Object(merged_map)
 }
 
-/// Computes a deterministic cache key for a node execution state (SHA-256).
 pub fn compute_cache_key(node_id: &str, config: &Value, input_str: &str) -> [u8; 32] {
     let config_str = serde_json::to_string(config).unwrap_or_default();
     let preimage = format!("{}|{}|{}", node_id, config_str, input_str);
@@ -84,19 +106,12 @@ pub fn compute_cache_key(node_id: &str, config: &Value, input_str: &str) -> [u8;
             arr.copy_from_slice(digest.as_ref());
             arr
         },
-        Err(_) => [0u8; 32], // Fallback
+        Err(_) => [0u8; 32],
     }
 }
 
-/// Retrieves a cached execution result from the persistent SCS.
-fn fetch_cached_result(
-    scs: &Arc<Mutex<SovereignContextStore>>,
-    cache_key: [u8; 32]
-) -> Option<ExecutionResult> {
+fn fetch_cached_result(scs: &Arc<Mutex<SovereignContextStore>>, cache_key: [u8; 32]) -> Option<ExecutionResult> {
     let store = scs.lock().ok()?;
-    
-    // We abuse the `session_index` to look up frames by "Input Hash".
-    // In Studio mode, Session ID == Input Hash.
     if let Some(frame_ids) = store.session_index.get(&cache_key) {
         if let Some(&last_id) = frame_ids.last() {
             if let Ok(payload) = store.read_frame_payload(last_id) {
@@ -109,37 +124,18 @@ fn fetch_cached_result(
     None
 }
 
-/// Persists an execution result to the SCS.
-fn persist_execution_result(
-    scs: &Arc<Mutex<SovereignContextStore>>,
-    cache_key: [u8; 32],
-    result: &ExecutionResult
-) {
+fn persist_execution_result(scs: &Arc<Mutex<SovereignContextStore>>, cache_key: [u8; 32], result: &ExecutionResult) {
     if let Ok(mut store) = scs.lock() {
         if let Ok(bytes) = serde_json::to_vec(result) {
-            // Write as a System frame, tagged with the Input Hash as session_id
-            let _ = store.append_frame(
-                FrameType::System, 
-                &bytes, 
-                0, 
-                [0u8; 32], 
-                cache_key // This enables the lookup in fetch_cached_result
-            );
+            let _ = store.append_frame(FrameType::System, &bytes, 0, [0u8; 32], cache_key);
         }
     }
 }
 
-/// [NEW] Queries the cache for a specific node configuration.
-pub fn query_cache(
-    scs: &Arc<Mutex<SovereignContextStore>>,
-    node_id: String,
-    config: Value,
-    input_str: String,
-) -> Option<ExecutionResult> {
+pub fn query_cache(scs: &Arc<Mutex<SovereignContextStore>>, node_id: String, config: Value, input_str: String) -> Option<ExecutionResult> {
     let key_bytes = compute_cache_key(&node_id, &config, &input_str);
     let key_hex = hex::encode(key_bytes);
     
-    // 1. Check RAM Cache (Fast Path)
     {
         let cache = GLOBAL_EXECUTION_CACHE.lock().unwrap();
         if let Some(res) = cache.get(&key_hex) {
@@ -147,49 +143,146 @@ pub fn query_cache(
         }
     }
 
-    // 2. Check Persistent SCS (Cold Path)
     let res = fetch_cached_result(scs, key_bytes);
-    
-    // If found in disk, warm up RAM cache
     if let Some(r) = &res {
         let mut cache = GLOBAL_EXECUTION_CACHE.lock().unwrap();
         cache.insert(key_hex, r.clone());
     }
-    
     res
 }
 
-/// [NEW] Manually injects a successful execution result into the global cache.
-pub fn inject_execution_result(
-    scs: &Arc<Mutex<SovereignContextStore>>, // [MODIFIED] Accepts SCS
-    node_id: String,
-    config: Value,
-    input_str: String,
-    result: ExecutionResult
-) {
+pub fn inject_execution_result(scs: &Arc<Mutex<SovereignContextStore>>, node_id: String, config: Value, input_str: String, result: ExecutionResult) {
     let key_bytes = compute_cache_key(&node_id, &config, &input_str);
     let key_hex = hex::encode(key_bytes);
-
-    // 1. Update RAM
     {
         let mut cache = GLOBAL_EXECUTION_CACHE.lock().unwrap();
         cache.insert(key_hex, result.clone());
     }
-
-    // 2. Persist to Disk
     persist_execution_result(scs, key_bytes, &result);
-    println!("[Orchestrator] Persisted result for node: {}", node_id);
 }
 
-/// Runs a topological sort execution of the graph defined in the Studio.
+pub const SESSION_INDEX_KEY: [u8; 32] = [
+    0x53, 0x45, 0x53, 0x53, 0x49, 0x4F, 0x4E, 0x5F, 0x49, 0x4E, 0x44, 0x45, 0x58, 0x00, 0x00, 0x00,
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01
+];
+
+pub fn get_local_sessions(scs: &Arc<Mutex<SovereignContextStore>>) -> Vec<SessionSummary> {
+    if let Ok(store) = scs.lock() {
+        if let Some(frame_ids) = store.session_index.get(&SESSION_INDEX_KEY) {
+            if let Some(&last_id) = frame_ids.last() {
+                if let Ok(payload) = store.read_frame_payload(last_id) {
+                    if let Ok(list) = serde_json::from_slice::<Vec<SessionSummary>>(payload) {
+                        return list;
+                    }
+                }
+            }
+        }
+    }
+    Vec::new()
+}
+
+pub fn save_local_session_summary(scs: &Arc<Mutex<SovereignContextStore>>, summary: SessionSummary) {
+    let mut sessions = get_local_sessions(scs);
+    if let Some(pos) = sessions.iter().position(|s| s.session_id == summary.session_id) {
+        sessions[pos] = summary;
+    } else {
+        sessions.push(summary);
+    }
+    sessions.sort_by(|a, b| b.timestamp.cmp(&a.timestamp));
+
+    if let Ok(bytes) = serde_json::to_vec(&sessions) {
+        if let Ok(mut store) = scs.lock() {
+            let _ = store.append_frame(
+                FrameType::System,
+                &bytes,
+                0,
+                [0u8; 32],
+                SESSION_INDEX_KEY
+            );
+        }
+    }
+}
+
+fn get_session_storage_key(session_id: &str) -> Option<[u8; 32]> {
+    if session_id.len() == 64 {
+        if let Ok(bytes) = hex::decode(session_id) {
+            let mut arr = [0u8; 32];
+            arr.copy_from_slice(&bytes);
+            return Some(arr);
+        }
+    }
+    match sha256(session_id.as_bytes()) {
+        Ok(digest) => {
+            let mut arr = [0u8; 32];
+            arr.copy_from_slice(digest.as_ref());
+            Some(arr)
+        },
+        Err(_) => None
+    }
+}
+
+pub fn save_local_task_state(scs: &Arc<Mutex<SovereignContextStore>>, task: &AgentTask) {
+    let sid = task.session_id.as_deref().unwrap_or(&task.id);
+    let key = match get_session_storage_key(sid) {
+        Some(k) => k,
+        None => return,
+    };
+
+    if let Ok(bytes) = serde_json::to_vec(task) {
+        if let Ok(mut store) = scs.lock() {
+            let _ = store.append_frame(
+                FrameType::System,
+                &bytes,
+                0,
+                [0u8; 32],
+                key
+            );
+        }
+    }
+}
+
+pub fn load_local_task(scs: &Arc<Mutex<SovereignContextStore>>, session_id: &str) -> Option<AgentTask> {
+    let key = get_session_storage_key(session_id)?;
+
+    if let Ok(store) = scs.lock() {
+        if let Some(frame_ids) = store.session_index.get(&key) {
+            if let Some(&last_id) = frame_ids.last() {
+                if let Ok(payload) = store.read_frame_payload(last_id) {
+                    if let Ok(task) = serde_json::from_slice::<AgentTask>(payload) {
+                        return Some(task);
+                    }
+                }
+            }
+        }
+    }
+    None
+}
+
 pub async fn run_local_graph<F>(
-    scs: Arc<Mutex<SovereignContextStore>>, // [MODIFIED] Accepts SCS
+    scs: Arc<Mutex<SovereignContextStore>>, 
+    inference: Arc<dyn InferenceRuntime>,
     payload: GraphPayload, 
     emit_event: F
 ) -> Result<(), String> 
 where F: Fn(GraphEvent) + Send + 'static 
 {
+    if let Some(sid) = &payload.session_id {
+        let meta = payload.global_config.as_ref()
+            .and_then(|g| g.get("meta"))
+            .and_then(|m| m.get("name"))
+            .and_then(|s| s.as_str())
+            .unwrap_or("Graph Execution");
+            
+        let summary = SessionSummary {
+            session_id: sid.clone(),
+            title: meta.to_string(),
+            timestamp: std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_millis() as u64,
+        };
+        save_local_session_summary(&scs, summary);
+    }
+
     let globals = payload.global_config.unwrap_or(json!({}));
+    let active_session_id = payload.session_id.clone();
     
     let global_env = if let Some(env_val) = globals.get("env") {
         if let Some(s) = env_val.as_str() {
@@ -237,12 +330,38 @@ where F: Fn(GraphEvent) + Send + 'static
     while let Some(node_id) = queue.pop() {
         if step_count >= max_steps {
             let msg = format!("🚫 Max Steps ({}) Exceeded.", max_steps);
-            emit_event(GraphEvent { node_id: node_id.clone(), status: "error".into(), result: Some(ExecutionResult { status: "error".into(), output: msg, data: None, metrics: None, input_snapshot: None }), fitness_score: None, generation: None });
+            emit_event(GraphEvent { 
+                node_id: node_id.clone(), 
+                status: "error".into(), 
+                result: Some(ExecutionResult { 
+                    status: "error".into(), 
+                    output: msg, 
+                    data: None, 
+                    metrics: None, 
+                    input_snapshot: None,
+                    context_slice: None // [FIX] Added missing field
+                }), 
+                fitness_score: None, 
+                generation: None 
+            });
             break;
         }
         if start_time.elapsed() > Duration::from_millis(timeout_ms) {
             let msg = format!("⏱️ Timeout ({}ms) Exceeded.", timeout_ms);
-            emit_event(GraphEvent { node_id: node_id.clone(), status: "error".into(), result: Some(ExecutionResult { status: "error".into(), output: msg, data: None, metrics: None, input_snapshot: None }), fitness_score: None, generation: None });
+            emit_event(GraphEvent { 
+                node_id: node_id.clone(), 
+                status: "error".into(), 
+                result: Some(ExecutionResult { 
+                    status: "error".into(), 
+                    output: msg, 
+                    data: None, 
+                    metrics: None, 
+                    input_snapshot: None,
+                    context_slice: None // [FIX] Added missing field
+                }), 
+                fitness_score: None, 
+                generation: None 
+            });
             break;
         }
 
@@ -267,10 +386,8 @@ where F: Fn(GraphEvent) + Send + 'static
         let result_opt = query_cache(&scs, node_id.clone(), config.clone(), input_str.clone());
 
         if let Some(mut result) = result_opt {
-            // [HIT]
             let output_val: Value = if let Some(data) = &result.data { data.clone() } else { json!({"raw": result.output}) };
             context.insert(node_id.clone(), output_val);
-            
             result.input_snapshot = Some(effective_input.clone());
 
             let active_handle = match result.status.as_str() {
@@ -307,13 +424,18 @@ where F: Fn(GraphEvent) + Send + 'static
             continue; 
         }
 
-        // [MISS] Execution
         emit_event(GraphEvent { node_id: node_id.clone(), status: "running".into(), result: None, fitness_score: None, generation: None });
 
-        match execution::execute_ephemeral_node(&node.node_type, config, &input_str).await {
+        match execution::execute_ephemeral_node(
+            &node.node_type, 
+            config, 
+            &input_str, 
+            active_session_id.clone(), 
+            scs.clone(), 
+            inference.clone() // [FIX] Passed inference
+        ).await {
             Ok(mut res) => {
                 res.input_snapshot = Some(effective_input.clone());
-
                 let output_val: Value = if let Some(data) = &res.data { data.clone() } else { json!({"raw": res.output}) };
                 context.insert(node_id.clone(), output_val);
                 
@@ -324,7 +446,6 @@ where F: Fn(GraphEvent) + Send + 'static
                     _ => "out",
                 };
 
-                // [MODIFIED] Persist to SCS using the public injection method to ensure consistency
                 inject_execution_result(&scs, node_id.clone(), config.clone(), input_str.clone(), res.clone());
                 
                 let mut fitness_score = None;
@@ -373,7 +494,8 @@ where F: Fn(GraphEvent) + Send + 'static
                         output: format!("Error: {}", e), 
                         data: None, 
                         metrics: None,
-                        input_snapshot: Some(effective_input.clone()) 
+                        input_snapshot: Some(effective_input.clone()),
+                        context_slice: None // [FIX] Added missing field
                     }),
                     fitness_score: None,
                     generation: None

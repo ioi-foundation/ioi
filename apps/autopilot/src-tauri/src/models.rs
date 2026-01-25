@@ -3,8 +3,9 @@ use serde::{Deserialize, Serialize};
 use ioi_ipc::public::public_api_client::PublicApiClient;
 use tonic::transport::Channel;
 use std::collections::HashSet;
-use ioi_scs::SovereignContextStore; // [NEW]
-use std::sync::{Arc, Mutex}; // [NEW]
+use ioi_scs::SovereignContextStore; 
+use std::sync::{Arc, Mutex}; 
+use ioi_api::vm::inference::InferenceRuntime; // [NEW] Import
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub enum AgentPhase {
@@ -122,6 +123,10 @@ pub struct AppState {
     pub is_simulating: bool,
     pub rpc_client: Option<PublicApiClient<Channel>>,
     
-    // [NEW] Persistent Store for Studio execution artifacts
+    // Persistent Store for Studio execution artifacts
     pub studio_scs: Option<Arc<Mutex<SovereignContextStore>>>,
+
+    // [NEW] Shared Inference Runtime for Embedding/Indexing commands
+    // Used by `ingest_file` to generate vectors for uploaded documents.
+    pub inference_runtime: Option<Arc<dyn InferenceRuntime>>,
 }

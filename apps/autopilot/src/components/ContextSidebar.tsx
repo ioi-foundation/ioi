@@ -1,3 +1,5 @@
+// apps/autopilot/src/components/ContextSidebar.tsx
+
 import { useState, useCallback, useEffect } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import "./ContextSidebar.css";
@@ -68,19 +70,46 @@ const nodeCategories: NodeCategory[] = [
       { id: "policy-gate", name: "Policy Gate", icon: "📋" },
     ],
   },
+  // [NEW] Added memory category with retrieval-rag
+  {
+    id: "memory",
+    name: "Memory",
+    expanded: false,
+    nodes: [
+      { id: "retrieval-rag", name: "Knowledge Search", icon: "🧠", description: "Query the vector store" }, // [NEW]
+      { id: "local-vault", name: "Local Vault", icon: "🔒" },
+      { id: "vector-store", name: "Vector Store", icon: "📊" },
+    ],
+  },
 ];
 
-// Mock memory items
-const memoryItems = [
-  { id: "m1", name: "invoices_q3.pdf", chunks: 128, type: "pdf" },
-  { id: "m2", name: "vendor_list.csv", chunks: 42, type: "csv" },
-];
+// Define interface for memory items locally or import if shared
+interface MemoryItem {
+    id: string;
+    name: string;
+    chunks: number;
+    type: string;
+}
+
+// [UPDATED] Interface matching the Rust IngestionResult struct
+interface IngestionResult {
+    file_name: string;
+    total_size: number;
+    chunks_created: number;
+    frame_ids: number[];
+}
 
 export function ContextSidebar({ width }: ContextSidebarProps) {
   const [activeTab, setActiveTab] = useState<SidebarTab>("INVENTORY");
   const [categories, setCategories] = useState(nodeCategories);
   const [searchQuery, setSearchQuery] = useState("");
   const [isDragOver, setIsDragOver] = useState(false);
+  
+  // [NEW] State for memory items, initialized with mocks but mutable
+  const [memoryItems, setMemoryItems] = useState<MemoryItem[]>([
+      { id: "m1", name: "invoices_q3.pdf", chunks: 128, type: "pdf" },
+      { id: "m2", name: "vendor_list.csv", chunks: 42, type: "csv" },
+  ]);
 
   // [NEW] Fetch Dynamic Tools from Kernel
   useEffect(() => {
@@ -144,12 +173,45 @@ export function ContextSidebar({ width }: ContextSidebarProps) {
     e.dataTransfer.effectAllowed = "copy";
   };
 
-  const handleFileDrop = (e: React.DragEvent) => {
+  const handleFileDrop = async (e: React.DragEvent) => {
     e.preventDefault();
     setIsDragOver(false);
-    // Handle file ingestion
+    
+    // The DataTransferItemList interface allows accessing files
     const files = Array.from(e.dataTransfer.files);
-    console.log("Ingesting files:", files.map(f => f.name));
+    
+    for (const file of files) {
+        // Tauri injects the absolute path into the File object in the webview
+        // @ts-ignore
+        const path = file.path; // Tauri injected property
+
+        if (!path) {
+            console.error("File path not found. Are you running in Tauri?");
+            continue;
+        }
+
+        try {
+            console.log(`Ingesting ${file.name} from ${path}...`);
+            
+            // [UPDATED] Call the real backend command
+            const result = await invoke<IngestionResult>("ingest_file", { filePath: path });
+            
+            console.log("Ingestion Success:", result);
+
+            // [UPDATED] Update UI with real data from kernel
+            setMemoryItems(prev => [{
+                id: `frame-${result.frame_ids[0]}`, // Use first frame ID as unique key base
+                name: result.file_name,
+                chunks: result.chunks_created,
+                type: result.file_name.split('.').pop() || 'dat'
+            }, ...prev]);
+
+        } catch (err) {
+            console.error(`Failed to ingest ${file.name}:`, err);
+            // In a real app, show a toast here
+            alert(`Failed to ingest ${file.name}: ${err}`);
+        }
+    }
   };
 
   const filteredCategories = categories.map((cat) => ({
@@ -183,7 +245,7 @@ export function ContextSidebar({ width }: ContextSidebarProps) {
       <div className="sidebar-content">
         {activeTab === "MEMORY" ? (
           <MemoryView 
-            items={memoryItems}
+            items={memoryItems} // [FIX] Pass state variable
             isDragOver={isDragOver}
             onDragOver={(e) => { e.preventDefault(); setIsDragOver(true); }}
             onDragLeave={() => setIsDragOver(false)}
@@ -225,7 +287,7 @@ export function ContextSidebar({ width }: ContextSidebarProps) {
 }
 
 interface MemoryViewProps {
-  items: typeof memoryItems;
+  items: MemoryItem[];
   isDragOver: boolean;
   onDragOver: (e: React.DragEvent) => void;
   onDragLeave: () => void;

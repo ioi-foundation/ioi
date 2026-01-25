@@ -1,5 +1,6 @@
 // apps/autopilot/src/store/agentStore.ts
 import { create } from "zustand";
+import type { AgentStatus } from "../types";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 
@@ -23,7 +24,7 @@ export interface SwarmAgent {
     parentId: string | null;
     name: string;
     role: string;
-    status: string; // "running", "completed", "failed", "requisition"
+    status: AgentStatus; // "running", "completed", "failed", "requisition", etc.
     budget_used: number;
     budget_cap: number;
     current_thought?: string;
@@ -42,6 +43,7 @@ export interface ChatMessage {
 
 export interface AgentTask {
   id: string;
+  session_id?: string;
   intent: string;
   agent: string;
   phase: AgentPhase;

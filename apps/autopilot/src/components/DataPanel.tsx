@@ -8,16 +8,14 @@ interface DataPanelProps {
   onToggleCollapse: () => void;
   onResize: (height: number) => void;
   selectedNodeName?: string;
-  // [NEW] Real execution artifact from Rust kernel
   artifact?: {
     output?: string;
     metrics?: any;
     timestamp: number;
-    // [NEW] Input Snapshot for Data Observability
     input_snapshot?: any;
+    // [NEW] Explicit context slice from retrieval nodes
+    context_slice?: any; 
   };
-  // Keeping for backward compatibility if needed, though unused in new logic
-  isRunning?: boolean; 
 }
 
 export function DataPanel({
@@ -28,8 +26,18 @@ export function DataPanel({
   selectedNodeName,
   artifact,
 }: DataPanelProps) {
-  // [MODIFIED] Added 'inputs' to tab state options
+  // [MODIFIED] Added 'context' to tab state options
   const [activeTab, setActiveTab] = useState("inspector");
+
+  // Auto-switch to context tab if it's a retrieval node and context is available
+  useEffect(() => {
+    if (artifact?.context_slice) {
+        setActiveTab("context");
+    } else {
+        // Reset if switching nodes
+        setActiveTab("inspector");
+    }
+  }, [artifact?.context_slice, selectedNodeName]);
 
   const handleResizeStart = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -68,11 +76,22 @@ export function DataPanel({
         </div>
         <div className="vertical-sep" />
         
-        {/* [NEW] Inputs Tab for Context Observability */}
+        {/* [NEW] Context Tab */}
+        {artifact?.context_slice && (
+            <button
+            className={`panel-tab ${activeTab === "context" ? "active" : ""}`}
+            onClick={() => setActiveTab("context")}
+            >
+            <span>Retrieved Context</span>
+            <span className="tab-badge" style={{background: '#34D399', color: '#064E3B'}}>
+                {Array.isArray(artifact.context_slice) ? artifact.context_slice.length : 0} Docs
+            </span>
+            </button>
+        )}
+
         <button
           className={`panel-tab ${activeTab === "inputs" ? "active" : ""}`}
           onClick={() => setActiveTab("inputs")}
-          title="Inspect the exact merged JSON input this node received"
         >
           <span>Context Inputs</span>
         </button>
@@ -82,7 +101,6 @@ export function DataPanel({
           onClick={() => setActiveTab("inspector")}
         >
           <span>Data Inspector</span>
-          {artifact && <span className="tab-badge">Updated</span>}
         </button>
         <button
           className={`panel-tab ${activeTab === "raw" ? "active" : ""}`}
@@ -111,8 +129,10 @@ export function DataPanel({
              <div className="empty-panel-state">Select a node to inspect its data artifacts.</div>
           ) : !artifact ? (
              <div className="empty-panel-state">No execution data available. Run the graph to generate artifacts.</div>
+          ) : activeTab === "context" ? (
+             // [NEW] Context Viewer
+             <ContextViewer docs={artifact.context_slice} />
           ) : activeTab === "inputs" ? (
-             // [NEW] Render Input Snapshot
              artifact.input_snapshot ? (
                 <JsonInspector data={artifact.input_snapshot} />
              ) : (
@@ -152,5 +172,56 @@ function RawViewer({ text }: { text: string }) {
             className="raw-output-area" 
             value={text} 
         />
+    );
+}
+
+// [NEW] Context Viewer Component
+interface RetrievedDoc {
+    content: string;
+    score: number;
+    frame_id: number;
+    source?: string; // Optional metadata
+}
+
+function ContextViewer({ docs }: { docs: any }) {
+    const docList = Array.isArray(docs) ? docs as RetrievedDoc[] : [];
+
+    if (docList.length === 0) {
+        return <div className="empty-panel-state">No documents retrieved.</div>;
+    }
+
+    return (
+        <div className="context-viewer" style={{padding: 16, overflowY: 'auto', height: '100%'}}>
+            {docList.map((doc, i) => (
+                <div key={i} style={{marginBottom: 16, background: '#1F2329', border: '1px solid #2E333D', borderRadius: 6, overflow: 'hidden'}}>
+                    <div style={{
+                        padding: '8px 12px', 
+                        background: '#252A33', 
+                        borderBottom: '1px solid #2E333D',
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center'
+                    }}>
+                        <div style={{display: 'flex', gap: 8, alignItems: 'center'}}>
+                            <span style={{fontSize: 12, fontWeight: 600, color: '#E5E7EB'}}>Result #{i + 1}</span>
+                            <span style={{fontSize: 10, fontFamily: 'monospace', color: '#6B7280'}}>Frame: {doc.frame_id}</span>
+                        </div>
+                        <div style={{
+                            fontSize: 10, 
+                            fontWeight: 600, 
+                            color: doc.score > 0.8 ? '#34D399' : '#F59E0B',
+                            background: doc.score > 0.8 ? 'rgba(52, 211, 153, 0.1)' : 'rgba(245, 158, 11, 0.1)',
+                            padding: '2px 6px',
+                            borderRadius: 4
+                        }}>
+                            {(doc.score * 100).toFixed(1)}% Match
+                        </div>
+                    </div>
+                    <div style={{padding: 12, fontSize: 11, fontFamily: 'monospace', color: '#D1D5DB', whiteSpace: 'pre-wrap', lineHeight: 1.5}}>
+                        {doc.content}
+                    </div>
+                </div>
+            ))}
+        </div>
     );
 }
