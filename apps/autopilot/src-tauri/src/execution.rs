@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::error::Error;
 use once_cell::sync::Lazy;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 use std::collections::HashMap;
 
 // Native Drivers & MCP
@@ -18,8 +18,11 @@ use ioi_services::agentic::rules::{ActionRules, DefaultPolicy, Rule, RuleConditi
 use ioi_types::app::{ActionContext, ActionRequest, ActionTarget};
 use ioi_api::vm::drivers::os::OsDriver;
 use ioi_drivers::os::NativeOsDriver;
-use ioi_api::vm::inference::{LocalSafetyModel, SafetyVerdict};
+use ioi_api::vm::inference::{LocalSafetyModel, SafetyVerdict, InferenceRuntime}; // [FIX] Added InferenceRuntime
 use async_trait::async_trait;
+
+// [NEW] SCS Integration
+use ioi_scs::SovereignContextStore;
 
 // [MODIFIED] Added `input_snapshot` field for Data Intimacy / Input Observability
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -28,8 +31,9 @@ pub struct ExecutionResult {
     pub output: String,
     pub data: Option<Value>,
     pub metrics: Option<Value>,
-    // [NEW] The exact JSON context state used during this execution
     pub input_snapshot: Option<Value>,
+    // [NEW] Explicit context slice for UI visualization
+    pub context_slice: Option<Value>,
 }
 
 // Persistent Browser Driver for the Simulator
@@ -142,7 +146,7 @@ fn synthesize_node_policy(node_type: &str, law_config: &Value) -> ActionRules {
         "tool" => "net::fetch",
         "model" => "model::inference",
         "gate" => "gov::gate",
-        "code" => "sys::exec", // [NEW] Code execution governance target
+        "code" => "sys::exec", 
         _ => "*"
     };
 
@@ -163,8 +167,13 @@ fn synthesize_node_policy(node_type: &str, law_config: &Value) -> ActionRules {
     }
 }
 
-// Governance Logic: Construct canonical ActionRequest
-fn map_to_action_request(node_type: &str, logic_config: &Value, input_json: &str) -> ActionRequest {
+// [MODIFIED] Governance Logic: Construct canonical ActionRequest with Session Context
+fn map_to_action_request(
+    node_type: &str, 
+    logic_config: &Value, 
+    input_json: &str,
+    session_id: Option<String> 
+) -> ActionRequest {
     let target = match node_type {
         "browser" => ActionTarget::BrowserNavigate,
         "tool" => {
@@ -192,12 +201,24 @@ fn map_to_action_request(node_type: &str, logic_config: &Value, input_json: &str
 
     let params_bytes = serde_json::to_vec(&params_obj).unwrap_or_default();
 
+    // [FIXED] Correctly convert Vec<u8> from hex::decode into [u8; 32]
+    let session_id_bytes: Option<[u8; 32]> = session_id.and_then(|s| {
+        let vec = hex::decode(s).ok()?;
+        if vec.len() == 32 {
+            let mut arr = [0u8; 32];
+            arr.copy_from_slice(&vec);
+            Some(arr)
+        } else {
+            None
+        }
+    });
+
     ActionRequest {
         target,
         params: params_bytes,
         context: ActionContext {
             agent_id: "studio-simulator".into(),
-            session_id: None,
+            session_id: session_id_bytes, 
             window_id: None,
         },
         nonce: 0,
@@ -205,14 +226,20 @@ fn map_to_action_request(node_type: &str, logic_config: &Value, input_json: &str
 }
 
 /// The Governance Layer
-async fn check_governance(node_type: &str, config: &Value, input_context: &str) -> Result<(), String> {
+async fn check_governance(
+    node_type: &str, 
+    config: &Value, 
+    input_context: &str,
+    session_id: Option<String> 
+) -> Result<(), String> {
     let default_val = serde_json::json!({});
     let law_config = config.get("law").unwrap_or(&default_val);
     let logic_config = config.get("logic").unwrap_or(&default_val);
 
     let policy = synthesize_node_policy(node_type, law_config);
-    let request = map_to_action_request(node_type, logic_config, input_context);
+    let request = map_to_action_request(node_type, logic_config, input_context, session_id);
 
+    // Evaluate against policy + current OS state (which includes pending approvals in mem/disk)
     let verdict = PolicyEngine::evaluate(
         &policy,
         &request,
@@ -229,23 +256,28 @@ async fn check_governance(node_type: &str, config: &Value, input_context: &str) 
 }
 
 /// Main entry point for executing a node in the local environment.
+/// [MODIFIED] Added `scs` and `inference` arguments
 pub async fn execute_ephemeral_node(
     node_type: &str,
     full_config: &Value, 
     input_json: &str,
+    session_id: Option<String>,
+    scs: Arc<Mutex<SovereignContextStore>>, // [NEW]
+    inference: Arc<dyn InferenceRuntime>,   // [NEW]
 ) -> Result<ExecutionResult, Box<dyn Error>> {
     
     // Parse input snapshot primarily for debugging visibility in blocked states
     let input_snapshot: Option<Value> = serde_json::from_str(input_json).ok();
 
     // --- STEP 1: GOVERNANCE CHECK ---
-    if let Err(violation) = check_governance(node_type, full_config, input_json).await {
+    if let Err(violation) = check_governance(node_type, full_config, input_json, session_id.clone()).await {
         return Ok(ExecutionResult {
             status: "blocked".to_string(),
             output: violation,
             data: None,
             metrics: Some(serde_json::json!({ "risk": "high" })),
-            input_snapshot, // [MODIFIED] Return input even on block so user can see what triggered it
+            input_snapshot,
+            context_slice: None,
         });
     }
 
@@ -264,15 +296,17 @@ pub async fn execute_ephemeral_node(
                 run_tool_execution(logic_config, input_json).await
             }
         },
+        // [NEW] Semantic Retrieval
+        "retrieval" => run_retrieval_execution(logic_config, input_json, scs, inference).await,
+        
         "receipt" => Ok(ExecutionResult {
             status: "success".to_string(),
             output: format!("Receipt Logged: {}", input_json.chars().take(50).collect::<String>()),
             data: Some(serde_json::json!({ "signed": true, "timestamp": chrono::Utc::now().to_rfc3339() })),
             metrics: None,
             input_snapshot,
+            context_slice: None,
         }),
-        
-        // --- [NEW] Competitor Parity Implementations ---
         "code" => run_code_execution(logic_config, input_json).await,
         "router" => run_router_execution(logic_config, input_json).await,
         "wait" => run_wait_execution(logic_config).await,
@@ -284,11 +318,11 @@ pub async fn execute_ephemeral_node(
             data: None,
             metrics: None,
             input_snapshot,
+            context_slice: None,
         }),
     }
 }
 
-// [MODIFIED] MCP Execution Handler with Input Snapshot
 async fn run_mcp_tool(tool_name: &str, config: &Value, input: &str) -> Result<ExecutionResult, Box<dyn Error>> {
     let start = std::time::Instant::now();
     let input_obj: Value = serde_json::from_str(input).unwrap_or(json!({}));
@@ -337,19 +371,20 @@ async fn run_mcp_tool(tool_name: &str, config: &Value, input: &str) -> Result<Ex
                 Err(_) => Some(json!({ "raw": output })),
             },
             metrics: Some(json!({ "latency_ms": start.elapsed().as_millis() })),
-            input_snapshot: Some(input_obj), // [NEW] Capture
+            input_snapshot: Some(input_obj),
+            context_slice: None,
         }),
         Err(e) => Ok(ExecutionResult {
             status: "error".to_string(),
             output: format!("MCP Error: {}", e),
             data: None,
             metrics: None,
-            input_snapshot: Some(input_obj), // [NEW] Capture
+            input_snapshot: Some(input_obj),
+            context_slice: None,
         })
     }
 }
 
-// [MODIFIED] Browser Execution with Input Snapshot
 async fn run_browser_execution(config: &Value, input: &str) -> Result<ExecutionResult, Box<dyn Error>> {
     let start = std::time::Instant::now();
     let input_obj: Value = serde_json::from_str(input).unwrap_or(serde_json::json!({}));
@@ -361,6 +396,7 @@ async fn run_browser_execution(config: &Value, input: &str) -> Result<ExecutionR
             data: None,
             metrics: None,
             input_snapshot: Some(input_obj),
+            context_slice: None,
         });
     }
 
@@ -382,7 +418,8 @@ async fn run_browser_execution(config: &Value, input: &str) -> Result<ExecutionR
                             "content_length": content.len()
                         })),
                         metrics: Some(serde_json::json!({ "latency_ms": start.elapsed().as_millis() })),
-                        input_snapshot: Some(input_obj), // [NEW] Capture
+                        input_snapshot: Some(input_obj),
+                        context_slice: None,
                     })
                 },
                 Err(e) => Ok(ExecutionResult {
@@ -390,7 +427,8 @@ async fn run_browser_execution(config: &Value, input: &str) -> Result<ExecutionR
                     output: format!("Navigation failed: {}", e),
                     data: None,
                     metrics: Some(serde_json::json!({ "latency_ms": start.elapsed().as_millis() })),
-                    input_snapshot: Some(input_obj), // [NEW] Capture
+                    input_snapshot: Some(input_obj),
+                    context_slice: None,
                 })
             }
         },
@@ -402,6 +440,7 @@ async fn run_browser_execution(config: &Value, input: &str) -> Result<ExecutionR
                     data: Some(serde_json::json!({ "dom_length": dom.len() })),
                     metrics: Some(serde_json::json!({ "latency_ms": start.elapsed().as_millis() })),
                     input_snapshot: Some(input_obj),
+                    context_slice: None,
                 }),
                 Err(e) => Ok(ExecutionResult {
                     status: "error".to_string(),
@@ -409,6 +448,7 @@ async fn run_browser_execution(config: &Value, input: &str) -> Result<ExecutionR
                     data: None,
                     metrics: None,
                     input_snapshot: Some(input_obj),
+                    context_slice: None,
                 })
             }
         },
@@ -421,6 +461,7 @@ async fn run_browser_execution(config: &Value, input: &str) -> Result<ExecutionR
                     data: Some(serde_json::json!({ "action": "click", "selector": selector })),
                     metrics: Some(serde_json::json!({ "latency_ms": start.elapsed().as_millis() })),
                     input_snapshot: Some(input_obj),
+                    context_slice: None,
                 }),
                 Err(e) => Ok(ExecutionResult {
                     status: "error".to_string(),
@@ -428,6 +469,7 @@ async fn run_browser_execution(config: &Value, input: &str) -> Result<ExecutionR
                     data: None,
                     metrics: None,
                     input_snapshot: Some(input_obj),
+                    context_slice: None,
                 })
             }
         },
@@ -437,11 +479,11 @@ async fn run_browser_execution(config: &Value, input: &str) -> Result<ExecutionR
             data: None,
             metrics: None,
             input_snapshot: Some(input_obj),
+            context_slice: None,
         })
     }
 }
 
-// [MODIFIED] Gate Execution with Input Snapshot
 async fn run_gate_execution(config: &Value, input: &str) -> Result<ExecutionResult, Box<dyn Error>> {
     let start = std::time::Instant::now();
     let condition = config.get("conditionScript")
@@ -530,11 +572,38 @@ async fn run_gate_execution(config: &Value, input: &str) -> Result<ExecutionResu
             "reason": reason
         })),
         metrics: Some(serde_json::json!({ "latency_ms": start.elapsed().as_millis() })),
-        input_snapshot: Some(input_obj), // [NEW] Capture
+        input_snapshot: Some(input_obj),
+        context_slice: None,
     })
 }
 
-// [MODIFIED] LLM Inference with Input Snapshot
+// [NEW] Helper to format retrieval results into LLM-friendly text
+fn format_context_for_llm(input_obj: &Value) -> String {
+    let mut context_str = String::new();
+
+    // Check for "results" array (output from retrieval node)
+    if let Some(results) = input_obj.get("results").and_then(|v| v.as_array()) {
+        context_str.push_str("\n\n### Retrieved Context:\n");
+        for (i, doc) in results.iter().enumerate() {
+            let content = doc["content"].as_str().unwrap_or("").trim();
+            let score = doc["score"].as_f64().unwrap_or(0.0);
+            if !content.is_empty() {
+                context_str.push_str(&format!(
+                    "--- Doc {} (Score: {:.2}) ---\n{}\n", 
+                    i + 1, score, content
+                ));
+            }
+        }
+    }
+    
+    // Check for direct "context" field
+    if let Some(ctx) = input_obj.get("context").and_then(|v| v.as_str()) {
+        context_str.push_str(&format!("\n\n### Additional Context:\n{}\n", ctx));
+    }
+
+    context_str
+}
+
 async fn run_llm_inference(config: &Value, input_json: &str) -> Result<ExecutionResult, Box<dyn Error>> {
     let system_prompt = config.get("systemPrompt")
         .or_else(|| config.get("system_prompt"))
@@ -547,11 +616,25 @@ async fn run_llm_inference(config: &Value, input_json: &str) -> Result<Execution
 
     let input_obj: Value = serde_json::from_str(input_json).unwrap_or(serde_json::json!({}));
 
-    let final_user_prompt = if system_prompt.contains("{{") {
+    // [MODIFIED] Intelligent Context Injection
+    // 1. Interpolate variables as before
+    let mut interpolated_prompt = if system_prompt.contains("{{") {
         interpolate_template(system_prompt, &input_obj)
     } else {
-        format!("Context Data:\n{}\n\nTask: Analyze this data based on system instructions.", input_json)
+        // Default behavior if no template: append input
+        format!("System: {}\n\nUser Input: {}", system_prompt, input_json)
     };
+
+    // 2. Append formatted RAG context if present (and not already interpolated)
+    let rag_context = format_context_for_llm(&input_obj);
+    if !rag_context.is_empty() && !interpolated_prompt.contains("Retrieved Context") {
+        interpolated_prompt.push_str(&rag_context);
+        
+        // Add instruction to use context if not present
+        if !interpolated_prompt.to_lowercase().contains("context") {
+             interpolated_prompt.push_str("\n\nINSTRUCTION: Answer the user's request using the Retrieved Context above.");
+        }
+    }
 
     let client = reqwest::Client::new();
     let start = std::time::Instant::now();
@@ -560,7 +643,7 @@ async fn run_llm_inference(config: &Value, input_json: &str) -> Result<Execution
         .json(&serde_json::json!({
             "model": model, 
             "system": "You are an automated agent executing a specific task based on the provided context.",
-            "prompt": final_user_prompt,
+            "prompt": interpolated_prompt, // Use enriched prompt
             "stream": false
         }))
         .send()
@@ -581,9 +664,10 @@ async fn run_llm_inference(config: &Value, input_json: &str) -> Result<Execution
                     metrics: Some(serde_json::json!({
                         "latency_ms": duration.as_millis(),
                         "eval_count": body.get("eval_count").unwrap_or(&serde_json::json!(0)),
-                        "final_prompt_snapshot": final_user_prompt 
+                        "final_prompt_snapshot": interpolated_prompt // Capture full prompt for debug
                     })),
-                    input_snapshot: Some(input_obj), // [NEW] Capture
+                    input_snapshot: Some(input_obj),
+                    context_slice: None,
                 })
             } else {
                 Ok(ExecutionResult {
@@ -591,23 +675,24 @@ async fn run_llm_inference(config: &Value, input_json: &str) -> Result<Execution
                     output: format!("LLM Provider Error: {}", response.status()),
                     data: None,
                     metrics: Some(serde_json::json!({ "latency_ms": duration.as_millis() })),
-                    input_snapshot: Some(input_obj), // [NEW] Capture
+                    input_snapshot: Some(input_obj),
+                    context_slice: None,
                 })
             }
         },
         Err(e) => {
             Ok(ExecutionResult {
                 status: "simulated".to_string(),
-                output: format!("[Simulated Output - Ollama Offline]\nModel: {}\nPrompt Used: {}\nError: {}", model, final_user_prompt.chars().take(150).collect::<String>(), e),
-                data: Some(serde_json::json!({ "final_prompt_snapshot": final_user_prompt })),
+                output: format!("[Simulated Output - Ollama Offline]\nModel: {}\nPrompt Used: {}\nError: {}", model, interpolated_prompt.chars().take(150).collect::<String>(), e),
+                data: Some(serde_json::json!({ "final_prompt_snapshot": interpolated_prompt })),
                 metrics: Some(serde_json::json!({ "latency_ms": 15, "error": e.to_string() })),
-                input_snapshot: Some(input_obj), // [NEW] Capture
+                input_snapshot: Some(input_obj),
+                context_slice: None,
             })
         }
     }
 }
 
-// [MODIFIED] Tool Execution with Input Snapshot
 async fn run_tool_execution(config: &Value, input: &str) -> Result<ExecutionResult, Box<dyn Error>> {
     let url = config.get("endpoint")
         .or_else(|| config.get("url"))
@@ -655,7 +740,8 @@ async fn run_tool_execution(config: &Value, input: &str) -> Result<ExecutionResu
                     "body_preview": text.chars().take(500).collect::<String>() 
                 })),
                 metrics: Some(serde_json::json!({ "latency_ms": duration.as_millis() })),
-                input_snapshot: Some(input_obj), // [NEW] Capture
+                input_snapshot: Some(input_obj),
+                context_slice: None,
             })
         },
         Err(e) => {
@@ -664,19 +750,17 @@ async fn run_tool_execution(config: &Value, input: &str) -> Result<ExecutionResu
                 output: format!("Network Request Failed: {}", e),
                 data: None,
                 metrics: Some(serde_json::json!({ "latency_ms": duration.as_millis() })),
-                input_snapshot: Some(input_obj), // [NEW] Capture
+                input_snapshot: Some(input_obj),
+                context_slice: None,
             })
         }
     }
 }
 
-// [NEW] 1. Code Execution (Mocked via Shell for MVP)
 async fn run_code_execution(config: &Value, input: &str) -> Result<ExecutionResult, Box<dyn Error>> {
     let language = config.get("language").and_then(|s| s.as_str()).unwrap_or("python");
     let _code = config.get("code").and_then(|s| s.as_str()).unwrap_or("");
     
-    // In a real app, write `code` to a temp file and execute via Command::new(python)
-    // For MVP, we simulate:
     tokio::time::sleep(std::time::Duration::from_millis(500)).await;
     
     let input_obj: Value = serde_json::from_str(input).unwrap_or(json!({}));
@@ -687,16 +771,14 @@ async fn run_code_execution(config: &Value, input: &str) -> Result<ExecutionResu
         data: Some(serde_json::json!({ "processed": true, "result": "simulated_data" })),
         metrics: None,
         input_snapshot: Some(input_obj),
+        context_slice: None,
     })
 }
 
-// [NEW] 2. Semantic Router (Simple Keyword/LLM based)
 async fn run_router_execution(config: &Value, input: &str) -> Result<ExecutionResult, Box<dyn Error>> {
     let routes = config.get("routes").and_then(|v| v.as_array())
         .ok_or("No routes defined")?;
     
-    // Logic: Calls LLM or uses simple keyword matching to pick a route
-    // For MVP: Pick the first route that matches a keyword in input, or default to first
     let input_lower = input.to_lowercase();
     let mut selected_route = routes[0].as_str().unwrap_or("default").to_string();
 
@@ -711,14 +793,14 @@ async fn run_router_execution(config: &Value, input: &str) -> Result<ExecutionRe
 
     Ok(ExecutionResult {
         status: "success".into(),
-        output: selected_route.clone(), // The output IS the route name
-        data: Some(json!({ "route": selected_route })), // "route" key tells Orchestrator which handle to fire
+        output: selected_route.clone(), 
+        data: Some(json!({ "route": selected_route })), 
         metrics: None,
         input_snapshot: Some(serde_json::from_str(input)?),
+        context_slice: None,
     })
 }
 
-// [NEW] 3. Wait Execution
 async fn run_wait_execution(config: &Value) -> Result<ExecutionResult, Box<dyn Error>> {
     let duration = config.get("durationMs").and_then(|v| v.as_u64()).unwrap_or(1000);
     tokio::time::sleep(std::time::Duration::from_millis(duration)).await;
@@ -729,19 +811,118 @@ async fn run_wait_execution(config: &Value) -> Result<ExecutionResult, Box<dyn E
         data: None,
         metrics: None,
         input_snapshot: None,
+        context_slice: None,
     })
 }
 
-// [NEW] 4. Context/Variables Execution
 async fn run_context_execution(config: &Value, input: &str) -> Result<ExecutionResult, Box<dyn Error>> {
     let vars = config.get("variables").cloned().unwrap_or(json!({}));
-    // In a real impl, we interpolate inputs into vars values
     
     Ok(ExecutionResult {
         status: "success".into(),
         output: "Context Updated".into(),
-        data: Some(vars), // Returning an object merges it into global context in Orchestrator
+        data: Some(vars), 
         metrics: None,
         input_snapshot: Some(serde_json::from_str(input)?),
+        context_slice: None,
+    })
+}
+
+// [NEW] Semantic Retrieval Implementation
+async fn run_retrieval_execution(
+    config: &Value, 
+    input: &str,
+    scs: Arc<Mutex<SovereignContextStore>>,
+    inference: Arc<dyn InferenceRuntime>
+) -> Result<ExecutionResult, Box<dyn Error>> {
+    let start = std::time::Instant::now();
+    
+    // 1. Resolve Query
+    // Either from config "query" template or raw input
+    let input_obj: Value = serde_json::from_str(input).unwrap_or(json!({}));
+    let query_template = config.get("query").and_then(|s| s.as_str()).unwrap_or("{{input}}");
+    let query = interpolate_template(query_template, &input_obj);
+    
+    if query.trim().is_empty() {
+         return Ok(ExecutionResult {
+            status: "error".into(),
+            output: "Empty query".into(),
+            data: None,
+            metrics: None,
+            input_snapshot: Some(input_obj),
+            context_slice: None,
+        });
+    }
+
+    // 2. Generate Embedding
+    let embedding = match inference.embed_text(&query).await {
+        Ok(vec) => vec,
+        Err(e) => return Ok(ExecutionResult {
+            status: "error".into(),
+            output: format!("Embedding failed: {}", e),
+            data: None,
+            metrics: None,
+            input_snapshot: Some(input_obj),
+            context_slice: None,
+        }),
+    };
+
+    // 3. Search SCS
+    let limit = config.get("limit").and_then(|v| v.as_u64()).unwrap_or(3) as usize;
+    
+    // Search logic requires unlocking SCS
+    let results = {
+        let store = scs.lock().map_err(|_| "SCS lock poisoned")?;
+        
+        // We need to access the index. Since get_vector_index returns a mutex, we must handle it.
+        // In ioi-scs crate, get_vector_index returns Result<Arc<Mutex<Option<VectorIndex>>>>.
+        
+        let index_arc = store.get_vector_index().map_err(|e| format!("Failed to get index: {}", e))?;
+        let index_guard = index_arc.lock().map_err(|_| "Index lock poisoned")?;
+        
+        if let Some(index) = index_guard.as_ref() {
+            match index.search(&embedding, limit) {
+                Ok(hits) => {
+                    let mut docs = Vec::new();
+                    for (frame_id, dist) in hits {
+                        // Read payload
+                        if let Ok(payload) = store.read_frame_payload(frame_id) {
+                            // Try UTF-8
+                             if let Ok(text) = String::from_utf8(payload.to_vec()) {
+                                 docs.push(json!({
+                                     "content": text,
+                                     "score": 1.0 - dist,
+                                     "frame_id": frame_id
+                                 }));
+                             }
+                        }
+                    }
+                    docs
+                },
+                Err(e) => return Err(format!("Index search failed: {}", e).into())
+            }
+        } else {
+            // No index loaded/created yet
+            Vec::new()
+        }
+    };
+
+    // 4. Format Output
+    let context_str = results.iter()
+        .map(|d| d["content"].as_str().unwrap_or(""))
+        .collect::<Vec<_>>()
+        .join("\n\n---\n\n");
+
+    Ok(ExecutionResult {
+        status: "success".into(),
+        output: context_str,
+        data: Some(json!({ "results": results })),
+        metrics: Some(json!({ 
+            "latency_ms": start.elapsed().as_millis(),
+            "hits": results.len()
+        })),
+        input_snapshot: Some(input_obj),
+        // [NEW] Populate context_slice with the raw results array
+        context_slice: Some(json!(results)), 
     })
 }

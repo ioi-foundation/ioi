@@ -265,7 +265,7 @@ export function useGraphState() {
   }, [setNodes, setEdges]);
 
   return {
-    nodes, edges, selectedNodeId,
+    nodes, edges, selectedNodeId, setSelectedNodeId,
     setNodes, setEdges, onNodesChange, onEdgesChange, onConnect,
     handleNodeSelect, handleNodeUpdate, handleCanvasDrop,
     handleBuilderHandoff, injectGhostNode, clearGhostNodes,

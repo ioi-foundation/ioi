@@ -188,6 +188,13 @@ async fn main() -> Result<()> {
                 conditions: Default::default(),
                 action: Verdict::Allow, 
              },
+             // [NEW] Allow conversational replies without gate
+             Rule {
+                rule_id: Some("allow-chat".into()),
+                target: "chat__reply".into(), 
+                conditions: Default::default(),
+                action: Verdict::Allow, 
+             },
              // Everything else (File Write, Network, Exec) hits the Default => RequireApproval
         ],
     };

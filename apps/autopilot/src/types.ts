@@ -43,6 +43,10 @@ export interface NodeLogic {
 
   // --- [NEW] RSS Feed ---
   rssUrl?: string; // For RSS Monitor Block
+  
+  // --- [NEW] Retrieval ---
+  query?: string; // Vector search query template
+  limit?: number; // Max results (Top K)
 
   // --- Trigger/Logic Nodes ---
   cronSchedule?: string;  // e.g., "*/5 * * * *"
@@ -112,6 +116,7 @@ export interface Edge {
   type: "data" | "control";
   active?: boolean;
   volume?: number;
+  data?: Record<string, unknown>;
 }
 
 // ============================================

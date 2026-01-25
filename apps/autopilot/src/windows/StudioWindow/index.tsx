@@ -1,3 +1,4 @@
+// apps/autopilot/src/windows/StudioWindow/index.tsx
 import { useState, useEffect } from "react";
 import { ReactFlowProvider, useReactFlow } from "@xyflow/react"; 
 import { listen } from "@tauri-apps/api/event";
@@ -7,7 +8,7 @@ import { save, open } from "@tauri-apps/plugin-dialog";
 import "@xyflow/react/dist/style.css"; 
 
 import { initEventListeners, useAgentStore } from "../../store/agentStore";
-import { Node as IOINode } from "../../types";
+import { Node as IOINode, Edge as IOIEdge } from "../../types";
 
 // Local Hooks
 import { useGraphState } from "./hooks/useGraphState.ts";
@@ -60,6 +61,9 @@ function StudioLayout() {
   const [installModalOpen, setInstallModalOpen] = useState(false);
   const [selectedAgent, setSelectedAgent] = useState<any>(null);
 
+  // [NEW] Edge Selection State for Inspection
+  const [selectedEdgeId, setSelectedEdgeId] = useState<string | null>(null);
+
   // --- Graph Global State ---
   const [graphConfig, setGraphConfig] = useState<GraphGlobalConfig>({
     env: '{\n  "ENV": "local",\n  "API_URL": "http://localhost:3000"\n}',
@@ -69,7 +73,7 @@ function StudioLayout() {
 
   // --- Hooks ---
   const { 
-    nodes, edges, selectedNodeId,
+    nodes, edges, selectedNodeId, setSelectedNodeId,
     setNodes, setEdges, onNodesChange, onEdgesChange, onConnect,
     handleNodeSelect, handleNodeUpdate, handleCanvasDrop,
     handleBuilderHandoff, injectGhostNode, clearGhostNodes
@@ -209,6 +213,22 @@ function StudioLayout() {
   const selectedNodeData = nodes.find((n) => n.id === selectedNodeId)?.data as IOINode | undefined;
   const selectedNode = selectedNodeData || null;
 
+  // [NEW] Derived selected edge & throughput data
+  const flowEdge = edges.find((e) => e.id === selectedEdgeId);
+  const selectedEdge: IOIEdge | null = flowEdge ? {
+      id: flowEdge.id,
+      from: flowEdge.source,
+      to: flowEdge.target,
+      fromPort: flowEdge.sourceHandle || "out",
+      toPort: flowEdge.targetHandle || "in",
+      type: "data", // Defaulting, would need storage in data payload
+      // @ts-ignore
+      data: flowEdge.data
+  } : null;
+
+  // The throughput is the output of the source node
+  const edgeThroughput = selectedEdge ? nodeArtifacts[selectedEdge.from]?.output : null;
+
   return (
     <div className="studio-window">
       <ActivityBar activeView={activeView} onViewChange={setActiveView} />
@@ -223,7 +243,7 @@ function StudioLayout() {
             onModeChange={setInterfaceMode}
             isComposeView={activeView === "compose"}
             onSave={handleSave} 
-            onOpen={handleOpen} // [FIX] Now wired
+            onOpen={handleOpen} 
             onRun={onRunGraph}
             onZoomIn={() => zoomIn()}
             onZoomOut={() => zoomOut()}
@@ -268,7 +288,19 @@ function StudioLayout() {
                     <Canvas
                       nodes={nodes} edges={edges}
                       onNodesChange={onNodesChange} onEdgesChange={onEdgesChange}
-                      onConnect={onConnect} onNodeSelect={handleNodeSelect}
+                      onConnect={onConnect} 
+                      onNodeSelect={handleNodeSelect}
+                      // [NEW] Wire up edge clicks
+                      /* @ts-ignore - ReactFlow's onEdgeClick signature */
+                      onEdgeClick={(_, edge) => {
+                        setSelectedNodeId(null);
+                        setSelectedEdgeId(edge.id);
+                      }}
+                      /* @ts-ignore - ReactFlow's onNodeClick signature */
+                      onNodeClick={(_, node) => {
+                        setSelectedEdgeId(null);
+                        setSelectedNodeId(node.id);
+                      }}
                     />
                   </div>
                   
@@ -294,12 +326,26 @@ function StudioLayout() {
                   <RightPanel 
                     width={inspectorWidth} 
                     selectedNode={selectedNode} 
+                    // [NEW] Pass graph state
+                    nodes={nodes.map(n => n.data as IOINode)}
+                    edges={edges.map(e => ({
+                        id: e.id, from: e.source, to: e.target, 
+                        fromPort: e.sourceHandle || 'out', toPort: e.targetHandle || 'in', 
+                        type: 'data'
+                    }))}
                     onUpdateNode={handleNodeUpdate}
                     graphConfig={graphConfig}
                     onUpdateGraph={handleGraphUpdate}
                     // @ts-ignore
                     upstreamData={selectedNodeId ? getUpstreamContext(selectedNodeId) : ""}
                     onRunComplete={handleNodeRunComplete}
+                    // [NEW] Pass Edge props
+                    selectedEdge={selectedEdge}
+                    edgeThroughput={edgeThroughput}
+                    onUpdateEdge={(id, data) => {
+                        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                        setEdges((eds: any[]) => eds.map(e => e.id === id ? { ...e, data: { ...e.data, ...data } } : e));
+                    }}
                   />
                 )}
               </div>

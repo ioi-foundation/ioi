@@ -1,4 +1,4 @@
-// FILE: src/windows/StudioWindow/templates.ts
+// apps/autopilot/src/windows/StudioWindow/templates.ts
 import { NodeLaw, NodeLogic } from "../../types";
 
 export interface NodeTemplate {
@@ -88,6 +88,25 @@ export const NODE_TEMPLATES: Record<string, NodeTemplate> = {
       },
       law: {
         networkAllowlist: ["news.ycombinator.com"],
+      },
+    },
+  },
+
+  // [NEW] Semantic Retrieval (RAG)
+  "retrieval-rag": {
+    type: "retrieval",
+    name: "Knowledge Search",
+    ioTypes: { in: "Query", out: "Context" },
+    defaultConfig: {
+      logic: {
+        // Default to passing the raw input as the search query
+        // User can change this to "{{input.question}}" etc.
+        query: "{{input}}", 
+        limit: 3,
+      },
+      law: {
+        // Safe by default: Read-only access to local memory
+        privacyLevel: "zero-knowledge", 
       },
     },
   },
