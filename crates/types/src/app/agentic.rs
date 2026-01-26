@@ -110,6 +110,12 @@ pub struct InferenceOptions {
 
     /// Controls randomness in output generation.
     pub temperature: f32,
+
+    /// [NEW] Enforce valid JSON output (e.g., OpenAI "json_object" mode).
+    /// This ensures the model output can be parsed even if it includes Chain-of-Thought
+    /// embedded within JSON fields (e.g., "thought": "...").
+    #[serde(default)]
+    pub json_mode: bool,
 }
 
 /// A structured representation of an Agent Skill following the agentskills.io standard.

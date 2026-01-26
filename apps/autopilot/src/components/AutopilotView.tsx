@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useAgentStore } from "../store/agentStore";
+import { useAgentStore, PolicyContext } from "../store/agentStore";
 import "./AutopilotView.css";
 
 type AgentPhase = "Idle" | "Running" | "Gate" | "Complete" | "Failed";
@@ -23,6 +23,7 @@ interface AgentTask {
     actions: number;
     cost?: string;
   };
+  is_secure_session?: boolean;
 }
 
 interface Receipt {
@@ -51,6 +52,16 @@ export function AutopilotView({ onOpenStudio }: AutopilotViewProps) {
   // UI state
   const [pillExpanded, setPillExpanded] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
+  
+  // [NEW] Mocking Policy Data for Demo (In real app, comes from backend)
+  const mockPolicy: PolicyContext = {
+    name: "Finance Safe",
+    mode: "strict",
+    constraints: ["Read-Only: Filesystem", "Max Spend: $0.00", "Domain: *.stripe.com"]
+  };
+
+  // [NEW] Mocking JIT Gate for Demo
+  const [showMicroGate, setShowMicroGate] = useState(false);
   
   // Mock receipts
   const [receipts] = useState<Receipt[]>([
@@ -91,15 +102,17 @@ export function AutopilotView({ onOpenStudio }: AutopilotViewProps) {
   }, []);
 
   // Handle user intent submission
+  // Modified Submit to inject mock secure state
   const handleSubmit = async () => {
     if (!intent.trim()) return;
     
-    // We don't manually creating the task state here anymore.
-    // We call the backend, and let the event stream update the UI.
     try {
         await startTask(intent, "Agent");
         setSpotlightOpen(false);
         setIntent("");
+        
+        // [DEMO ONLY] Trigger JIT Gate simulation
+        setTimeout(() => setShowMicroGate(true), 2500); 
     } catch (e) {
         console.error("Failed to start task:", e);
     }
@@ -226,21 +239,44 @@ export function AutopilotView({ onOpenStudio }: AutopilotViewProps) {
       {/* Floating Pill (when task is running) */}
       {activeTask && activeTask.phase !== "Gate" && (
         <div 
-          className={`floating-pill ${pillExpanded ? "expanded" : ""} ${activeTask.phase}`}
+          className={`floating-pill ${pillExpanded ? "expanded" : ""} ${activeTask.phase} ${activeTask.is_secure_session ? 'secure-session' : ''}`}
           onClick={() => setPillExpanded(!pillExpanded)}
         >
+          {/* [NEW] JIT Permission Modal (Micro-Gate) */}
+          {showMicroGate && (
+            <div className="micro-gate" onClick={e => e.stopPropagation()}>
+              <div className="micro-gate-header">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                <span>Permission Request</span>
+              </div>
+              <div className="micro-gate-body">
+                Agent requests control of window <span className="micro-gate-target">Stripe Dashboard</span>.
+              </div>
+              <div className="micro-gate-actions">
+                <button className="micro-btn deny" onClick={() => setShowMicroGate(false)}>Deny</button>
+                <button className="micro-btn allow" onClick={() => setShowMicroGate(false)}>Allow Once</button>
+              </div>
+            </div>
+          )}
+
           <div className="pill-header">
             <div className="pill-status">
               {activeTask.phase === "Running" && <div className="status-spinner" />}
               {activeTask.phase === "Complete" && <div className="status-check">✓</div>}
               {activeTask.phase === "Failed" && <div className="status-fail">✗</div>}
             </div>
+            
             <div className="pill-info">
               <div className="pill-agent">{activeTask.agent}</div>
               <div className="pill-step">{activeTask.currentStep}</div>
             </div>
-            <div className="pill-progress">
-              {activeTask.progress}/{activeTask.totalSteps}
+
+            {/* [NEW] Policy Badge inside Header */}
+            <div className={`policy-badge ${mockPolicy.mode}`} title="Active Policy Constraints">
+                <svg className="shield-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
+                    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+                </svg>
+                {pillExpanded && <span className="policy-name">{mockPolicy.name}</span>}
             </div>
           </div>
           
@@ -249,8 +285,17 @@ export function AutopilotView({ onOpenStudio }: AutopilotViewProps) {
             <div className="pill-expanded">
               <div className="pill-intent">"{activeTask.intent}"</div>
               
+              {/* [NEW] Explicit Constraints Visualization */}
+              <div className={`policy-details ${mockPolicy.mode}`}>
+                 {mockPolicy.constraints.map((c, i) => (
+                    <div key={i} className="constraint-item">
+                        <span className="constraint-check">✓</span> {c}
+                    </div>
+                 ))}
+              </div>
+
               {/* Progress Bar */}
-              <div className="pill-progress-bar">
+              <div className="pill-progress-bar" style={{ marginTop: 12 }}>
                 <div 
                   className="pill-progress-fill" 
                   style={{ width: `${(activeTask.progress / activeTask.totalSteps) * 100}%` }}
