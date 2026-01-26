@@ -24,7 +24,8 @@ use ioi_api::{
 };
 use ioi_client::WorkloadClient;
 use ioi_crypto::sign::dilithium::MldsaKeyPair;
-use ioi_networking::libp2p::{Libp2pSync, NetworkEvent, SwarmCommand};
+// [FIX] Removed unused Libp2pSync import
+use ioi_networking::libp2p::{NetworkEvent, SwarmCommand};
 use ioi_networking::traits::NodeState;
 use ioi_networking::BlockSync;
 use ioi_tx::unified::UnifiedTransactionModel;
@@ -99,7 +100,7 @@ use events::handle_network_event;
 /// A struct to hold the numerous dependencies for the Orchestrator.
 pub struct OrchestrationDependencies<CE, V> {
     /// The network synchronization engine.
-    pub syncer: Arc<Libp2pSync>,
+    pub syncer: Arc<dyn BlockSync>, 
     /// The receiver for incoming network events.
     pub network_event_receiver: mpsc::Receiver<NetworkEvent>,
     /// The sender for commands to the network swarm.
@@ -122,13 +123,13 @@ pub struct OrchestrationDependencies<CE, V> {
     pub batch_verifier: Arc<dyn BatchVerifier>,
     /// The local safety model for semantic firewall.
     pub safety_model: Arc<dyn LocalSafetyModel>,
-    /// [NEW] The primary inference runtime.
+    /// The primary inference runtime.
     pub inference_runtime: Arc<dyn InferenceRuntime>,
     /// The OS driver for context-aware policy enforcement.
     pub os_driver: Arc<dyn OsDriver>,
     /// The Sovereign Context Store handle (optional, for local nodes).
     pub scs: Option<Arc<std::sync::Mutex<SovereignContextStore>>>,
-    /// [NEW] Shared event broadcaster
+    /// Shared event broadcaster
     pub event_broadcaster: Option<tokio::sync::broadcast::Sender<ioi_types::app::KernelEvent>>,
 }
 
@@ -163,7 +164,7 @@ where
     workload_client: Arc<OnceCell<Arc<WorkloadClient>>>,
     /// Local transaction pool.
     pub tx_pool: Arc<Mempool>,
-    syncer: Arc<Libp2pSync>,
+    syncer: Arc<dyn BlockSync>, 
     swarm_command_sender: mpsc::Sender<SwarmCommand>,
     network_event_receiver: NetworkEventReceiver,
     consensus_engine: Arc<Mutex<CE>>,
@@ -177,7 +178,7 @@ where
     is_quarantined: Arc<AtomicBool>,
     proof_cache: ProofCache,
     verifier: V,
-    /// [FIX] Made public to allow access from ioi-local
+    /// Reference to the main loop context, accessible for external triggers.
     pub main_loop_context: Arc<Mutex<Option<Arc<Mutex<MainLoopContext<CS, ST, CE, V>>>>>>,
     consensus_kick_tx: mpsc::UnboundedSender<()>,
     consensus_kick_rx: ConsensusKickReceiver,
@@ -191,13 +192,13 @@ where
     scheme: CS,
     /// Safety model for semantic checks.
     pub safety_model: Arc<dyn LocalSafetyModel>,
-    /// [NEW] Primary inference runtime.
+    /// The primary inference runtime.
     pub inference_runtime: Arc<dyn InferenceRuntime>,
-    /// OS driver for context-aware policy.
+    /// The OS driver for context-aware policy enforcement.
     pub os_driver: Arc<dyn OsDriver>,
-    /// Sovereign Context Store handle.
+    /// The Sovereign Context Store handle.
     pub scs: Option<Arc<std::sync::Mutex<SovereignContextStore>>>,
-    /// [NEW] Shared event broadcaster
+    /// Shared event broadcaster.
     pub event_broadcaster: Option<tokio::sync::broadcast::Sender<ioi_types::app::KernelEvent>>,
 }
 
@@ -265,13 +266,17 @@ where
             batch_verifier: deps.batch_verifier,
             scheme,
             safety_model: deps.safety_model,
-            inference_runtime: deps.inference_runtime, // [NEW]
+            inference_runtime: deps.inference_runtime,
             os_driver: deps.os_driver,
             scs: deps.scs, 
-            event_broadcaster: deps.event_broadcaster, // [NEW]
+            event_broadcaster: deps.event_broadcaster,
         })
     }
 
+    // ... (rest of implementation remains mostly unchanged, relying on trait methods)
+    
+    // [Truncated for brevity - standard implementation of start_internal/stop_internal etc.]
+    // ...
     /// Sets the `Chain` and `WorkloadClient` references initialized after container creation.
     pub fn set_chain_and_workload_client(
         &self,
@@ -395,10 +400,10 @@ where
         mut kick_rx: mpsc::UnboundedReceiver<()>,
         mut shutdown_rx: watch::Receiver<bool>,
     ) {
-        eprintln!("[Consensus] Ticker task spawned. Acquiring context lock..."); // [DEBUG]
+        eprintln!("[Consensus] Ticker task spawned. Acquiring context lock..."); 
         let interval_secs = {
             let ctx = context_arc.lock().await;
-            eprintln!("[Consensus] Context lock acquired."); // [DEBUG]
+            eprintln!("[Consensus] Context lock acquired."); 
             std::env::var("ORCH_BLOCK_INTERVAL_SECS")
                 .ok()
                 .and_then(|s| s.parse::<u64>().ok())
@@ -427,7 +432,7 @@ where
         loop {
             tokio::select! {
                 _ = ticker.tick() => {
-                    eprintln!("[Consensus] Timer Tick"); // [DEBUG]
+                    // eprintln!("[Consensus] Timer Tick"); // Too noisy
                     let cause = "timer";
                     let is_quarantined = context_arc.lock().await.is_quarantined.load(Ordering::SeqCst);
                     if is_quarantined {
@@ -436,7 +441,7 @@ where
                     last_tick = tokio::time::Instant::now();
                     let result = AssertUnwindSafe(drive_consensus_tick(&context_arc, cause)).catch_unwind().await;
                     if let Err(e) = result.map_err(|e| anyhow!("Consensus tick panicked: {:?}", e)).and_then(|res| res) {
-                        eprintln!("[Consensus] Tick Error: {:?}", e); // [DEBUG]
+                        eprintln!("[Consensus] Tick Error: {:?}", e); 
                         tracing::error!(target: "consensus", "[Orch Tick] Consensus tick panicked: {:?}. Continuing loop.", e);
                     }
                 }
@@ -451,7 +456,7 @@ where
                     last_tick = tokio::time::Instant::now();
                     let result = AssertUnwindSafe(drive_consensus_tick(&context_arc, cause)).catch_unwind().await;
                      if let Err(e) = result.map_err(|e| anyhow!("Kicked consensus tick panicked: {:?}", e)).and_then(|res| res) {
-                        eprintln!("[Consensus] Kick Error: {:?}", e); // [DEBUG]
+                        eprintln!("[Consensus] Kick Error: {:?}", e); 
                         tracing::error!(target: "consensus", "[Orch Tick] Kicked panicked: {:?}.", e);
                     }
                 }
@@ -622,7 +627,6 @@ where
                 }
             }
             Err(e) => {
-                // If we can't get status, we can't safely start consensus on a potentially existing chain.
                 return Err(ValidatorError::Other(format!(
                     "Failed to get initial chain status: {}",
                     e
@@ -634,7 +638,6 @@ where
         let tx_model = Arc::new(UnifiedTransactionModel::new(self.scheme.clone()));
         let (tx_ingest_tx, tx_ingest_rx) = mpsc::channel(50_000);
         
-        // Initialize tip_tx with the recovered state if available
         let initial_tip = if let Some(b) = &initial_block {
              ChainTipInfo {
                 height: b.header.height,
@@ -646,7 +649,7 @@ where
         } else {
              ChainTipInfo {
                 height: 0,
-                timestamp: 0, // Should read genesis time? 0 is fine for bootstrap.
+                timestamp: 0, 
                 gas_used: 0,
                 state_root: vec![],
                 genesis_root: self.genesis_hash.to_vec(),
@@ -692,7 +695,6 @@ where
         let mut handles = self.task_handles.lock().await;
         handles.push(rpc_handle);
 
-        // [MODIFIED] Use stored broadcaster or create new
         let (event_tx, _event_rx_guard) = if let Some(tx) = &self.event_broadcaster {
             (tx.clone(), None)
         } else {
@@ -700,7 +702,6 @@ where
             (tx, Some(rx))
         };
 
-        // Spawn Ingestion Worker (moved down to use clones)
         let ingestion_handle = tokio::spawn(run_ingestion_worker(
             tx_ingest_rx,
             workload_client.clone(),
@@ -712,9 +713,9 @@ where
             tx_status_cache.clone(),
             receipt_map.clone(),
             self.safety_model.clone(),
-            self.os_driver.clone(), // [NEW] Pass OsDriver
+            self.os_driver.clone(),
             IngestionConfig::default(),
-            event_tx.clone(), // [MODIFIED] Pass the broadcaster
+            event_tx.clone(),
         ));
         handles.push(ingestion_handle);
 
@@ -780,7 +781,6 @@ where
             .await
             .insert(local_account_id, initial_nonce);
 
-        // [MODIFIED] Use event_tx in MainLoopContext
         let context = MainLoopContext::<CS, ST, CE, V> {
             chain_ref: chain,
             tx_pool_ref: self.tx_pool.clone(),
@@ -796,9 +796,7 @@ where
             genesis_hash: self.genesis_hash,
             is_quarantined: self.is_quarantined.clone(),
             pending_attestations: std::collections::HashMap::new(),
-            // --- MODIFIED: Use the recovered block ---
             last_committed_block: initial_block,
-            // -----------------------------------------
             consensus_kick_tx: self.consensus_kick_tx.clone(),
             sync_progress: None,
             nonce_manager: self.nonce_manager.clone(),
@@ -808,10 +806,10 @@ where
             tip_sender: tip_tx,
             receipt_map: receipt_map.clone(),
             safety_model: self.safety_model.clone(),
-            inference_runtime: self.inference_runtime.clone(), // [NEW]
-            os_driver: self.os_driver.clone(), // [NEW] Added field
+            inference_runtime: self.inference_runtime.clone(),
+            os_driver: self.os_driver.clone(),
             scs: self.scs.clone(),
-            event_broadcaster: event_tx, // [MODIFIED] Use the unified broadcaster
+            event_broadcaster: event_tx, 
         };
 
         let mut receiver_opt = self.network_event_receiver.lock().await;
@@ -878,7 +876,6 @@ where
     }
 }
 
-// [ADDITION] Implement Container trait for Orchestrator
 #[async_trait]
 impl<CS, ST, CE, V> Container for Orchestrator<CS, ST, CE, V>
 where

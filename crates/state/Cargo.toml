@@ -1,3 +1,4 @@
+# Path: crates/state/Cargo.toml
 [package]
 name = "ioi-state"
 version = "0.1.0"
@@ -29,6 +30,8 @@ prost = { workspace = true }
 # [NEW] Parallel processing for JMT hashing
 rayon = "1.8"
 async-trait = { workspace = true }
+# [NEW] Direct Redb dependency for Flat Store
+redb = "1.4.1"
 
 [dev-dependencies]
 proptest = "1.2.0"

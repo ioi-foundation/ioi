@@ -74,6 +74,12 @@ atty = "0.2"
 ahash = "0.8"
 parking_lot = "0.12"
 
+# [FIX] Added missing Candle dependencies
+candle-core = { version = "0.3.3", optional = true }
+candle-nn = { version = "0.3.3", optional = true }
+candle-transformers = { version = "0.3.3", optional = true }
+tokenizers = { version = "0.15.2", optional = true }
+
 [dev-dependencies]
 tempfile = "3.3"
 
@@ -85,9 +91,9 @@ validator-bins = [
     "dep:clap",
     "dep:env_logger",
     "ioi-consensus/admft", 
-    "dep:ioi-vm-wasm",
-    "ioi-validator/vm-wasm", # <--- ADD THIS LINE to propagate feature to lib
-    "ioi-validator/validator-bins", # <--- Ensure base features are on
+    "vm-wasm",
+    "ioi-validator/vm-wasm", 
+    "ioi-validator/validator-bins", 
 ]
 
 # This feature is for building the special malicious workload binary for testing.
@@ -118,7 +124,6 @@ commitment-kzg = ["ioi-state/commitment-kzg", "ioi-validator/commitment-kzg"]
 consensus-admft = ["ioi-validator/consensus-admft", "ioi-consensus/admft"]
 
 # VM Features
-# [FIX] Propagate vm-wasm to ioi-validator
 vm-wasm = ["dep:ioi-vm-wasm", "ioi-validator/vm-wasm"]
 
 # Service Features
@@ -129,6 +134,47 @@ ethereum-zk = [
     "ioi-services/ethereum-zk",
     "dep:zk-driver-succinct",
     "ioi-validator/ethereum-zk",
+]
+
+real-ai = [
+    "dep:candle-core",
+    "dep:candle-nn",
+    "dep:candle-transformers",
+    "dep:tokenizers",
+]
+
+# --- Distribution Profiles (Binary Modes) ---
+
+# 1. Local Mode (Desktop App)
+local-mode = [
+    "dep:clap",
+    "dep:env_logger",
+    "vm-wasm",
+    "ioi-validator/validator-bins",
+    "commitment-hash", 
+]
+
+# 2. Validator Mode (Mainnet Node)
+validator-mode = [
+    "dep:clap",
+    "dep:env_logger",
+    "vm-wasm",
+    "ioi-validator/validator-bins",
+    "consensus-admft",
+    "state-iavl", 
+    "ibc-deps",
+]
+
+# 3. Provider Mode (Compute Node)
+provider-mode = [
+    "dep:clap",
+    "dep:env_logger",
+    "vm-wasm",
+    "ioi-validator/validator-bins",
+    "consensus-admft", 
+    "state-iavl",      
+    "real-ai",         
+    "ethereum-zk",     
 ]
 
 
@@ -161,7 +207,17 @@ required-features = ["validator-bins"]
 name = "ioi-local"
 path = "src/bin/ioi-local.rs"
 required-features = [
-    "validator-bins",
+    "local-mode",
     "state-iavl",
     "consensus-admft",
 ]
+
+[[bin]]
+name = "ioi-validator"
+path = "src/bin/ioi-validator.rs"
+required-features = ["validator-mode"]
+
+[[bin]]
+name = "ioi-provider"
+path = "src/bin/ioi-provider.rs"
+required-features = ["provider-mode"]
