@@ -31,43 +31,64 @@ pub fn set_spotlight_mode(app: AppHandle, mode: String) {
     if let Some(window) = app.get_webview_window("spotlight") {
         println!("[Autopilot] Received set_spotlight_mode request: {}", mode);
 
-        // Robust monitor detection with fallback
-        let monitor_opt = window.primary_monitor().ok().flatten();
+        // [FIX] Robust monitor detection
+        // 1. Try current monitor of spotlight
+        // 2. Try current monitor of studio (if spotlight is hidden/unmapped)
+        // 3. Fallback to primary
+        let mut monitor_opt = window.current_monitor().ok().flatten();
+
         if monitor_opt.is_none() {
-            eprintln!("[Autopilot] WARN: Could not detect primary monitor. Using default dimensions.");
+            if let Some(studio) = app.get_webview_window("studio") {
+                monitor_opt = studio.current_monitor().ok().flatten();
+            }
+        }
+        
+        if monitor_opt.is_none() {
+            monitor_opt = window.primary_monitor().ok().flatten();
         }
 
         let scale = monitor_opt.as_ref().map(|m| m.scale_factor()).unwrap_or(1.0);
-        let screen_w = monitor_opt.as_ref().map(|m| m.size().width as f64 / scale).unwrap_or(1920.0);
-        let screen_h = monitor_opt.as_ref().map(|m| m.size().height as f64 / scale).unwrap_or(1080.0);
+        let screen_size = monitor_opt.as_ref().map(|m| m.size());
+        let screen_w = screen_size.map(|s| s.width as f64 / scale).unwrap_or(1920.0);
+        let screen_h = screen_size.map(|s| s.height as f64 / scale).unwrap_or(1080.0);
+        
+        // [NEW] Get monitor position offset (important for secondary monitors)
+        let monitor_pos = monitor_opt.as_ref().map(|m| m.position());
+        let monitor_x = monitor_pos.map(|p| p.x as f64 / scale).unwrap_or(0.0);
+        let monitor_y = monitor_pos.map(|p| p.y as f64 / scale).unwrap_or(0.0);
 
-        // [FIX] Removed window.hide() to prevent flicker/freeze issues
-        // [FIX] Ensure decorations are FALSE to support transparency and custom UI
+        // Ensure decorations are FALSE
         let _ = window.set_decorations(false);
         let _ = window.set_shadow(true);
         let _ = window.set_always_on_top(true);
 
+        // [FIX] Force un-maximize to ensure set_position works reliably
+        if window.is_maximized().unwrap_or(false) {
+            let _ = window.unmaximize();
+        }
+
         if mode == "spotlight" {
             // Center large window
             let _ = window.set_resizable(true);
-            let _ = window.set_maximizable(true);
             
-            let width = 1200.0;
-            let height = 800.0;
-            let x = (screen_w - width) / 2.0;
-            let y = (screen_h - height) / 2.0;
+            let width = 800.0;
+            let height = 600.0;
+            let x = monitor_x + (screen_w - width) / 2.0;
+            let y = monitor_y + (screen_h - height) / 2.0;
             
             let _ = window.set_size(tauri::Size::Logical(tauri::LogicalSize { width, height }));
             let _ = window.set_position(tauri::Position::Logical(tauri::LogicalPosition { x, y }));
         } else {
             // Sidebar docked right
             let _ = window.set_resizable(true); 
-            let _ = window.set_maximizable(false);
             
             let width = 450.0;
             let height = screen_h - 40.0; 
-            let x = screen_w - width;
-            let y = 0.0;
+            
+            // [FIX] Calculate X relative to the monitor's origin
+            // This ensures it docks to the right edge of the CORRECT monitor
+            let x = monitor_x + screen_w - width;
+            let y = monitor_y + 0.0; 
             
             let _ = window.set_size(tauri::Size::Logical(tauri::LogicalSize { width, height }));
             let _ = window.set_position(tauri::Position::Logical(tauri::LogicalPosition { x, y }));
@@ -83,21 +104,30 @@ pub fn set_spotlight_mode(app: AppHandle, mode: String) {
     }
 }
 
-// ... (rest of file remains the same: show_pill, hide_pill, etc.)
 #[tauri::command]
 pub fn show_pill(app: AppHandle) {
     if let Some(window) = app.get_webview_window("pill") {
+        // [FIX] Ensure pill appears on the correct monitor (same logic as above could be applied, 
+        // but typically pill follows primary or active cursor. Primary is safe default for MVP.)
         if let Ok(Some(monitor)) = window.primary_monitor() {
             let size = monitor.size();
             let scale = monitor.scale_factor();
             let screen_w = size.width as f64 / scale;
             let screen_h = size.height as f64 / scale;
+            
+            // Monitor offset
+            let pos = monitor.position();
+            let monitor_x = pos.x as f64 / scale;
+            let monitor_y = pos.y as f64 / scale;
+
             let win_w = 310.0;
             let win_h = 60.0;
             let margin = 16.0;
             let taskbar = 48.0;
-            let x = screen_w - win_w - margin;
-            let y = screen_h - win_h - margin - taskbar;
+            
+            let x = monitor_x + screen_w - win_w - margin;
+            let y = monitor_y + screen_h - win_h - margin - taskbar;
+            
             let _ = window.set_position(tauri::Position::Logical(tauri::LogicalPosition { x, y }));
             let _ = window.set_always_on_top(true);
         }

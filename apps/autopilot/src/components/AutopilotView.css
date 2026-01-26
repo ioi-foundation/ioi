@@ -799,3 +799,179 @@
   color: var(--text-tertiary);
   flex-wrap: wrap;
 }
+
+/* ============================================
+   VISUAL SOVEREIGNTY: Secure Session
+   ============================================ */
+
+/* The "Incognito" / Secure Container Look */
+.floating-pill.secure-session {
+  border: 1px solid #F59E0B; /* Amber Warning/Secure Color */
+  box-shadow: 
+    0 0 0 1px rgba(245, 158, 11, 0.1),
+    0 8px 32px rgba(0, 0, 0, 0.6);
+}
+
+.floating-pill.secure-session::before {
+  content: "IOI SECURE ENCLAVE";
+  position: absolute;
+  top: -10px;
+  right: 12px;
+  background: #F59E0B;
+  color: #000;
+  font-size: 8px;
+  font-weight: 800;
+  padding: 1px 6px;
+  border-radius: 2px;
+  letter-spacing: 0.05em;
+  z-index: 600;
+}
+
+/* ============================================
+   VISUAL SOVEREIGNTY: Policy Badge
+   ============================================ */
+
+.policy-badge {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  border-radius: 6px;
+  background: rgba(52, 211, 153, 0.1);
+  border: 1px solid rgba(52, 211, 153, 0.2);
+  cursor: help;
+  transition: all 0.2s;
+}
+
+.policy-badge.strict {
+  background: rgba(52, 211, 153, 0.1);
+  border-color: rgba(52, 211, 153, 0.3);
+  color: #34D399;
+}
+
+.policy-badge.elevated {
+  background: rgba(239, 68, 68, 0.1);
+  border-color: rgba(239, 68, 68, 0.3);
+  color: #EF4444;
+}
+
+.shield-icon {
+  width: 12px;
+  height: 12px;
+}
+
+.policy-name {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+/* Expanded Policy Details */
+.policy-details {
+  margin-top: 8px;
+  padding: 8px 10px;
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 6px;
+  border-left: 2px solid #34D399;
+}
+
+.policy-details.elevated {
+  border-left-color: #EF4444;
+}
+
+.constraint-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 10px;
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+  margin-bottom: 2px;
+}
+
+.constraint-check {
+  color: var(--text-tertiary);
+}
+
+/* ============================================
+   VISUAL SOVEREIGNTY: JIT Micro-Gate
+   ============================================ */
+
+/* Replaces the large modal for quick actions */
+.micro-gate {
+  position: absolute;
+  bottom: 100%;
+  right: 0;
+  margin-bottom: 12px;
+  width: 280px;
+  background: var(--surface-1);
+  border: 1px solid var(--border-default);
+  border-left: 4px solid #3D85C6;
+  border-radius: 8px;
+  padding: 12px;
+  box-shadow: 0 4px 24px rgba(0,0,0,0.4);
+  animation: slideUpFade 0.2s ease-out;
+  z-index: 2000;
+}
+
+@keyframes slideUpFade {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.micro-gate-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+  font-size: 11px;
+  font-weight: 700;
+  color: #3D85C6;
+  text-transform: uppercase;
+}
+
+.micro-gate-body {
+  font-size: 12px;
+  color: var(--text-primary);
+  margin-bottom: 12px;
+  line-height: 1.4;
+}
+
+.micro-gate-target {
+  font-family: var(--font-mono);
+  background: rgba(255,255,255,0.1);
+  padding: 2px 4px;
+  border-radius: 4px;
+}
+
+.micro-gate-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.micro-btn {
+  flex: 1;
+  padding: 6px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  border: none;
+}
+
+.micro-btn.allow {
+  background: #3D85C6;
+  color: white;
+}
+
+.micro-btn.deny {
+  background: transparent;
+  border: 1px solid var(--border-default);
+  color: var(--text-secondary);
+}
+
+.micro-btn.deny:hover {
+  border-color: #EF4444;
+  color: #EF4444;
+}

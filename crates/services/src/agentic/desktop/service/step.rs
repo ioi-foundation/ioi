@@ -300,13 +300,18 @@ pub async fn handle_step(
     } else {
         let estimated_input_tokens = (user_prompt.len() as u64) / CHARS_PER_TOKEN;
 
+        // [FIX] Use JSON Mode ("Structured Output") instead of Native Tools.
+        // 1. tools: vec![] -> Disables the provider's native function calling (which hides reasoning).
+        // 2. json_mode: true -> Forces the provider to output valid JSON.
+        // 3. The Prompt (already constructed) defines the schema and tools for the model to "hallucinate" correctly.
         let options = InferenceOptions {
-            tools: available_tools,
+            tools: vec![], // Pass empty to prevent native tool calling conflict
             temperature: if agent_state.consecutive_failures > 0 {
                 0.5
             } else {
                 0.0
             },
+            json_mode: true, // Enforce structured output via HTTP adapter
         };
         let runtime = service.select_runtime(&agent_state);
 

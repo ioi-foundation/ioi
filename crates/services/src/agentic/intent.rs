@@ -110,6 +110,7 @@ impl IntentResolver {
         let model_hash = [0u8; 32]; 
         let options = InferenceOptions {
             temperature: 0.0,
+            json_mode: true, // [FIX] Enforce JSON mode for reliable intent parsing
             ..Default::default()
         };
 

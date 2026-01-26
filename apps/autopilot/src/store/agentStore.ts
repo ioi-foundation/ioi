@@ -18,7 +18,14 @@ export interface Receipt {
   cost?: string;
 }
 
-// [NEW] Hierarchical agent structure for SwarmViz
+// [NEW] Sovereignty Context: Defines the active constraints on the agent
+export interface PolicyContext {
+  name: string; // e.g., "Finance Safe"
+  mode: "strict" | "standard" | "elevated";
+  constraints: string[]; // e.g., ["Read-Only", "Max Spend $0"]
+}
+
+// Hierarchical agent structure for SwarmViz
 export interface SwarmAgent {
     id: string;
     parentId: string | null;
@@ -31,7 +38,7 @@ export interface SwarmAgent {
     artifacts_produced: number;
     estimated_cost: number;
     policy_hash: string;
-    // [NEW] Evolutionary Status
+    // Evolutionary Status
     generation?: number;
 }
 
@@ -54,13 +61,19 @@ export interface AgentTask {
   receipt?: Receipt;
   visual_hash?: string; // Added to match Rust backend
   
-  // [NEW] Hierarchical Swarm State
+  // [NEW] Active Policy Snapshot for UI Badge
+  policy?: PolicyContext; 
+  
+  // [NEW] Visual State Flag for "Secure Enclave" Border
+  is_secure_session?: boolean; 
+  
+  // Hierarchical Swarm State
   swarm_tree: SwarmAgent[];
   
   // History source of truth
   history: ChatMessage[];
   
-  // [NEW] Evolutionary Metadata
+  // Evolutionary Metadata
   generation: number;    // The current generation count (0 = Genesis)
   lineage_id: string;    // Unique hash of the agent's evolutionary branch
   fitness_score: number; // 0.0 - 1.0 score of the agent's performance
@@ -79,7 +92,7 @@ interface AgentStore {
   // Ghost Mode Trace
   ghostTrace: GhostStep[];
   
-  startTask: (intent: string, mode: string) => Promise<AgentTask | null>; // [FIX] Add mode param
+  startTask: (intent: string, mode: string) => Promise<AgentTask | null>;
   updateTask: (task: AgentTask) => void;
   dismissTask: () => Promise<void>;
   showSpotlight: () => Promise<void>;
@@ -97,7 +110,7 @@ export const useAgentStore = create<AgentStore>((set) => ({
   receipts: [],
   ghostTrace: [],
 
-  // [FIX] Pass mode to backend, default to "Agent" if not provided
+  // Pass mode to backend, default to "Agent" if not provided
   startTask: async (intent: string, mode: string = "Agent"): Promise<AgentTask | null> => {
     try {
       const task = await invoke<AgentTask>("start_task", { intent, mode });

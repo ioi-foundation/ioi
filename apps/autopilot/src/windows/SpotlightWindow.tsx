@@ -435,7 +435,7 @@ export function SpotlightWindow() {
           )}
 
           {/* Render regular history first */}
-          {chatEvents.length === 0 && activeHistory.map((msg: ChatMessage, i: number) => (
+          {activeHistory.map((msg: ChatMessage, i: number) => (
             <div key={i} className={`spot-message ${msg.role}`}>
               {msg.text}
             </div>

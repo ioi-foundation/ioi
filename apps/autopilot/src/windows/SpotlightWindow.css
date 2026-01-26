@@ -242,6 +242,30 @@ html, body, #root {
   padding: 0 4px;
 }
 
+.spot-message.tool {
+  align-self: flex-start;
+  color: #F59E0B;
+  font-family: "JetBrains Mono", monospace;
+  font-size: 12px;
+  background: rgba(245, 158, 11, 0.1);
+  padding: 6px 10px;
+  border-radius: 6px;
+  border: 1px solid rgba(245, 158, 11, 0.2);
+  margin: 4px 0;
+  max-width: 90%;
+}
+
+.spot-message.system {
+  align-self: center;
+  color: var(--spot-text-muted);
+  font-size: 11px;
+  font-style: italic;
+  margin: 8px 0;
+  background: rgba(255, 255, 255, 0.03);
+  padding: 4px 12px;
+  border-radius: 12px;
+}
+
 /* --- Thinking Indicator --- */
 .spot-thinking {
   display: flex;

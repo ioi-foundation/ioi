@@ -37,6 +37,13 @@ impl HttpInferenceRuntime {
 
 // --- OpenAI API Request/Response Structures ---
 
+// [NEW] Structure for enforcing JSON output (Structured Generation)
+#[derive(Serialize)]
+struct ResponseFormat {
+    #[serde(rename = "type")]
+    type_: String, // "text" or "json_object"
+}
+
 #[derive(Serialize)]
 struct ChatCompletionRequest {
     model: String,
@@ -45,6 +52,9 @@ struct ChatCompletionRequest {
     temperature: f32,
     #[serde(skip_serializing_if = "std::ops::Not::not")]
     stream: bool, // [NEW] Enable streaming
+    // [NEW] Support for Structured Outputs (JSON Mode)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    response_format: Option<ResponseFormat>,
 }
 
 #[derive(Serialize)]
@@ -169,6 +179,15 @@ impl InferenceRuntime for HttpInferenceRuntime {
             )
         };
 
+        // [NEW] Configure Response Format
+        let response_format = if options.json_mode {
+            Some(ResponseFormat {
+                type_: "json_object".to_string(),
+            })
+        } else {
+            None
+        };
+
         // 3. Construct Request
         let stream_mode = token_stream.is_some();
         let request_body = ChatCompletionRequest {
@@ -180,6 +199,7 @@ impl InferenceRuntime for HttpInferenceRuntime {
             tools,
             temperature: options.temperature,
             stream: stream_mode,
+            response_format, // [NEW] Inject the format directive
         };
 
         // 4. Execute HTTP Call
