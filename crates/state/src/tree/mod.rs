@@ -1,4 +1,4 @@
-// Path: crates/commitment/src/tree/mod.rs
+// Path: crates/state/src/tree/mod.rs
 //! # IOI Kernel State Tree Crate Lints
 //!
 //! This module enforces a strict set of lints to ensure high-quality,
@@ -25,3 +25,6 @@ pub mod verkle;
 pub mod jellyfish;
 
 pub mod mhnsw;
+
+// [NEW] Export Flat Store
+pub mod flat;

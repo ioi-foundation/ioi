@@ -1,4 +1,5 @@
-// Path: crates/consensus/src/lib.rs
+// crates/consensus/src/lib.rs
+
 #![cfg_attr(
     not(test),
     deny(
@@ -15,6 +16,7 @@
 pub mod admft;
 pub mod common;
 pub mod service;
+pub mod solo; // [NEW]
 pub mod util;
 
 use async_trait::async_trait;
@@ -32,8 +34,9 @@ use libp2p::PeerId;
 use std::collections::HashSet;
 use std::fmt::Debug;
 
-// Export the new engine
+// Export the engines
 use admft::AdmftEngine;
+use solo::SoloEngine; // [NEW]
 
 pub use service::PenaltiesService;
 
@@ -47,10 +50,10 @@ pub trait PenaltyEngine: Send + Sync {
 }
 
 /// An enum that wraps the various consensus engine implementations.
-/// Currently only A-DMFT is supported as the canonical engine.
 #[derive(Debug, Clone)]
 pub enum Consensus<T: Clone> {
     Admft(AdmftEngine),
+    Solo(SoloEngine), // [NEW]
     #[doc(hidden)]
     _Phantom(std::marker::PhantomData<T>),
 }
@@ -58,7 +61,8 @@ pub enum Consensus<T: Clone> {
 impl<T: Clone> Consensus<T> {
     pub fn consensus_type(&self) -> ConsensusType {
         match self {
-            Consensus::Admft(_) => ConsensusType::Admft, // Map A-DMFT to PoA config for now
+            Consensus::Admft(_) => ConsensusType::Admft,
+            Consensus::Solo(_) => ConsensusType::Admft, // Map Solo to Admft (Authority) config for compatibility
             Consensus::_Phantom(_) => unreachable!(),
         }
     }
@@ -76,6 +80,7 @@ where
     ) -> Result<(), TransactionError> {
         match self {
             Consensus::Admft(e) => e.apply_penalty(state, report).await,
+            Consensus::Solo(e) => e.apply_penalty(state, report).await,
             Consensus::_Phantom(_) => unreachable!(),
         }
     }
@@ -89,6 +94,7 @@ impl<T: Clone + Send + Sync + 'static> PenaltyEngine for Consensus<T> {
     ) -> Result<(), TransactionError> {
         match self {
             Consensus::Admft(e) => e.apply(sys, report),
+            Consensus::Solo(e) => e.apply(sys, report),
             Consensus::_Phantom(_) => unreachable!(),
         }
     }
@@ -112,6 +118,10 @@ where
                 e.decide(our_account_id, height, view, parent_view, known_peers)
                     .await
             }
+            Consensus::Solo(e) => {
+                e.decide(our_account_id, height, view, parent_view, known_peers)
+                    .await
+            }
             Consensus::_Phantom(_) => unreachable!(),
         }
     }
@@ -127,6 +137,7 @@ where
     {
         match self {
             Consensus::Admft(e) => e.handle_block_proposal(block, chain_view).await,
+            Consensus::Solo(e) => e.handle_block_proposal(block, chain_view).await,
             Consensus::_Phantom(_) => unreachable!(),
         }
     }
@@ -138,8 +149,10 @@ where
     ) -> Result<(), ConsensusError> {
         match self {
             Consensus::Admft(e) => {
-                // [FIX] Use fully qualified path for disambiguation and match correct signature
                 <AdmftEngine as ConsensusEngine<T>>::handle_view_change(e, from, proof_bytes).await
+            }
+            Consensus::Solo(e) => {
+                 <SoloEngine as ConsensusEngine<T>>::handle_view_change(e, from, proof_bytes).await
             }
             Consensus::_Phantom(_) => unreachable!(),
         }
@@ -148,8 +161,10 @@ where
     fn reset(&mut self, height: u64) {
         match self {
             Consensus::Admft(e) => {
-                // [FIX] Use fully qualified path for disambiguation
                 <AdmftEngine as ConsensusEngine<T>>::reset(e, height)
+            }
+            Consensus::Solo(e) => {
+                <SoloEngine as ConsensusEngine<T>>::reset(e, height)
             }
             Consensus::_Phantom(_) => unreachable!(),
         }

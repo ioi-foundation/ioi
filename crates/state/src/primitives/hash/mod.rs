@@ -53,6 +53,21 @@ pub struct HashProof {
     pub additional_data: Vec<u8>,
 }
 
+// [FIX] Implement From<Vec<u8>> for HashProof to satisfy trait bounds
+impl From<Vec<u8>> for HashProof {
+    fn from(v: Vec<u8>) -> Self {
+        // Since we don't have a canonical serialization format specified for the Vec<u8> -> HashProof conversion 
+        // in the trait definition (it's opaque bytes), we assume the bytes ARE the value 
+        // (e.g. for a flat store dummy proof) or attempt to decode if it was encoded.
+        // For RedbFlatStore, we just return a dummy proof wrapper around the bytes.
+        HashProof {
+            value: v,
+            selector: Selector::None,
+            additional_data: vec![],
+        }
+    }
+}
+
 impl AsRef<[u8]> for HashProof {
     fn as_ref(&self) -> &[u8] {
         &self.value

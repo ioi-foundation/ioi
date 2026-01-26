@@ -5,16 +5,18 @@ use anyhow::{anyhow, Result};
 use clap::Parser;
 use ioi_api::crypto::SerializableKey;
 use ioi_api::state::service_namespace_prefix;
-// [FIX] Add StateAccess and StateManager imports for hot-patching logic
 use ioi_api::state::{StateAccess, StateManager};
 use ioi_api::validator::container::Container;
-use ioi_consensus::util::engine_from_config;
+use ioi_consensus::solo::SoloEngine;
+
 use ioi_crypto::sign::eddsa::Ed25519PrivateKey;
 use ioi_drivers::browser::BrowserDriver;
 use ioi_drivers::gui::IoiGuiDriver;
 use ioi_scs::{SovereignContextStore, StoreConfig};
 use ioi_state::primitives::hash::HashCommitmentScheme;
-use ioi_state::tree::iavl::IAVLTree;
+use ioi_state::tree::flat::RedbFlatStore;
+use ioi_state::tree::flat::verifier::FlatVerifier;
+
 use ioi_types::app::{
     account_id_from_key_material, AccountId, ActiveKeyRecord, SignatureSuite,
     ValidatorSetV1, ValidatorSetsV1, ValidatorV1, ChainTransaction,
@@ -24,7 +26,6 @@ use ioi_types::config::{
 };
 use ioi_types::service_configs::MigrationConfig;
 use ioi_validator::common::{GuardianContainer, LocalSigner};
-use ioi_validator::standard::orchestration::verifier_select::DefaultVerifier;
 use ioi_validator::standard::orchestration::OrchestrationDependencies;
 use ioi_validator::standard::workload::setup::setup_workload;
 use ioi_validator::standard::Orchestrator;
@@ -46,13 +47,13 @@ use ioi_consensus::Consensus;
 use ioi_api::vm::inference::{HttpInferenceRuntime, InferenceRuntime, LocalSafetyModel};
 use ioi_services::agentic::scrub_adapter::RuntimeAsSafetyModel;
 use ioi_drivers::os::NativeOsDriver;
-
-// [FIX] Add missing import
 use ioi_services::agentic::desktop::DesktopAgentService;
-
-// [FIX] Removed unused RuleConditions import to silence warning
 use ioi_services::agentic::rules::{ActionRules, DefaultPolicy, Rule, Verdict};
 use ioi_types::codec;
+
+// [NEW] Import for SwarmCommand
+use ioi_networking::libp2p::SwarmCommand;
+use ioi_networking::noop::NoOpBlockSync; // [NEW]
 
 #[derive(Parser, Debug)]
 #[clap(name = "ioi-local", about = "IOI User Node (Mode 0)")]
@@ -70,7 +71,6 @@ async fn main() -> Result<()> {
     let opts = LocalOpts::parse();
     fs::create_dir_all(&opts.data_dir)?;
     
-    // [FIX] Use absolute path for data dir to ensure MCP compatibility
     let abs_data_dir = fs::canonicalize(&opts.data_dir)?;
     let abs_data_dir_str = abs_data_dir.to_string_lossy().to_string();
 
@@ -108,12 +108,7 @@ async fn main() -> Result<()> {
     };
     let scs_arc: Arc<Mutex<SovereignContextStore>> = Arc::new(Mutex::new(scs));
 
-    // -------------------------------------------------------------------------
-    // DEFINITIONS: Dynamic Policy & Metadata
-    // We define these here so they can be used for BOTH Genesis Generation AND Hot-Patching
-    // -------------------------------------------------------------------------
-    
-    // 1. Desktop Agent Service Metadata
+    // ... (Metadata Definitions Omitted for Brevity - Same as before) ...
     let mut agent_methods = std::collections::BTreeMap::new();
     agent_methods.insert("start@v1".to_string(), MethodPermission::User);
     agent_methods.insert("step@v1".to_string(), MethodPermission::User);
@@ -128,25 +123,18 @@ async fn main() -> Result<()> {
         activated_at: 0,
         methods: agent_methods,
         allowed_system_prefixes: vec![],
-        // [FIX] Initialize new evolutionary fields
         generation_id: 0,
         parent_hash: None,
     };
 
-    // 2. Agency Firewall Rules (The Policy)
-    // Instead of hardcoding capabilities, we set the default to RequireApproval.
-    // The Agent creates the intent -> The Kernel pauses -> The UI asks You -> You Sign -> Agent Acts.
     let session_id = [0u8; 32];
     let local_policy = ActionRules {
         policy_id: "interactive-mode".to_string(),
-        // [FIX] This enables the dynamic behavior.
-        // Unknown actions aren't banned; they trigger the Gate Window for approval.
         defaults: DefaultPolicy::RequireApproval, 
         rules: vec![
-             // We only strictly ALLOW things that are purely internal/safe to reduce UI noise.
              Rule {
                 rule_id: Some("allow-ui-read".into()),
-                target: "gui::screenshot".into(), // Passive observation is allowed
+                target: "gui::screenshot".into(),
                 conditions: Default::default(),
                 action: Verdict::Allow, 
              },
@@ -168,14 +156,12 @@ async fn main() -> Result<()> {
                 conditions: Default::default(),
                 action: Verdict::Allow, 
              },
-             // [FIX] Allow agent completion without gate
              Rule {
                 rule_id: Some("allow-complete".into()),
                 target: "agent__complete".into(), 
                 conditions: Default::default(),
                 action: Verdict::Allow, 
              },
-             // [FIX] Allow agent meta-tools (pause/await)
              Rule {
                 rule_id: Some("allow-pause".into()),
                 target: "agent__pause".into(), 
@@ -188,14 +174,12 @@ async fn main() -> Result<()> {
                 conditions: Default::default(),
                 action: Verdict::Allow, 
              },
-             // [NEW] Allow conversational replies without gate
              Rule {
                 rule_id: Some("allow-chat".into()),
                 target: "chat__reply".into(), 
                 conditions: Default::default(),
                 action: Verdict::Allow, 
              },
-             // Everything else (File Write, Network, Exec) hits the Default => RequireApproval
         ],
     };
 
@@ -219,10 +203,7 @@ async fn main() -> Result<()> {
         tokenizer_path: None,
     };
 
-    // Service Policies (ACLs)
     let mut service_policies = ioi_types::config::default_service_policies();
-
-    // Use the same metadata definitions for policy consistency
     service_policies.insert("desktop_agent".to_string(), ioi_types::config::ServicePolicy {
         methods: agent_meta.methods.clone(),
         allowed_system_prefixes: vec![],
@@ -237,10 +218,9 @@ async fn main() -> Result<()> {
         allowed_system_prefixes: vec![],
     });
 
-    // Inference Configuration
+    // Inference Config
     let openai_key = std::env::var("OPENAI_API_KEY").ok();
     let local_url = std::env::var("LOCAL_LLM_URL").ok();
-
     let (provider, api_url, api_key, model_name) = if let Some(key) = openai_key {
         let model = std::env::var("OPENAI_MODEL").unwrap_or("gpt-4o".to_string());
         println!("🤖 OpenAI API Key detected.");
@@ -250,16 +230,13 @@ async fn main() -> Result<()> {
         ("local", url, None, "llama3".to_string())
     } else {
         println!("🤖 No API Key found. Using MOCK BRAIN for deterministic testing.");
-        println!("   (Set OPENAI_API_KEY or LOCAL_LLM_URL to use real AI)");
         ("mock", "".to_string(), None, "mock-model".to_string())
     };
     
-    // Resolve User Home for MCP mounts
     let user_home = std::env::var("HOME").unwrap_or_else(|_| ".".to_string());
     println!("📂 Mounting User Space (Gated): {}", user_home);
 
     let mut mcp_servers = std::collections::HashMap::new();
-
     mcp_servers.insert(
         "filesystem".to_string(),
         ioi_types::config::McpConfigEntry {
@@ -267,9 +244,7 @@ async fn main() -> Result<()> {
             args: vec![
                 "-y".to_string(),
                 "@modelcontextprotocol/server-filesystem".to_string(),
-                // Mount internal data (scratchpad)
                 abs_data_dir_str.clone(), 
-                // Mount User Home (so it can be useful)
                 user_home.clone(), 
             ],
             env: std::collections::HashMap::new(),
@@ -278,14 +253,11 @@ async fn main() -> Result<()> {
 
     let workload_config = WorkloadConfig {
         runtimes: vec!["wasm".to_string()],
-        state_tree: ioi_types::config::StateTreeType::IAVL,
+        // State Tree Type is just metadata here, we inject FlatStore manually
+        state_tree: ioi_types::config::StateTreeType::IAVL, 
         commitment_scheme: ioi_types::config::CommitmentSchemeType::Hash,
         consensus_type: ConsensusType::Admft,
-        genesis_file: opts
-            .data_dir
-            .join("genesis.json")
-            .to_string_lossy()
-            .to_string(),
+        genesis_file: opts.data_dir.join("genesis.json").to_string_lossy().to_string(),
         state_file: opts.data_dir.join("state.db").to_string_lossy().to_string(),
         srs_file_path: None,
         fuel_costs: Default::default(),
@@ -306,7 +278,6 @@ async fn main() -> Result<()> {
         epoch_size: 1000,
         gc_interval_secs: 3600,
         zk_config: Default::default(),
-        
         inference: ioi_types::config::InferenceConfig {
             provider: provider.to_string(),
             api_url: Some(api_url.clone()),
@@ -320,9 +291,7 @@ async fn main() -> Result<()> {
         mcp_servers, 
     };
 
-    // -------------------------------------------------------------------------
     // 4. Genesis Generation
-    // -------------------------------------------------------------------------
     if !Path::new(&workload_config.genesis_file).exists() {
         println!("Generating new genesis file for local mode...");
         use base64::{engine::general_purpose::STANDARD as BASE64, Engine};
@@ -349,8 +318,7 @@ async fn main() -> Result<()> {
             service_namespace_prefix("identity_hub").as_slice(),
             IDENTITY_CREDENTIALS_PREFIX,
             local_account_id.as_ref(),
-        ]
-        .concat();
+        ].concat();
         insert_raw(&creds_key, to_bytes_canonical(&[Some(cred), None]).unwrap());
         insert_raw(
             &[ACCOUNT_ID_TO_PUBKEY_PREFIX, local_account_id.as_ref()].concat(),
@@ -377,18 +345,15 @@ async fn main() -> Result<()> {
             GOVERNANCE_KEY,
             to_bytes_canonical(&GovernancePolicy {
                 signer: GovernanceSigner::Single(local_account_id),
-            })
-            .unwrap(),
+            }).unwrap(),
         );
 
-        // --- INSERT THE AGENT METADATA & POLICY INTO GENESIS ---
         let agent_key = ioi_types::keys::active_service_key("desktop_agent");
         insert_raw(&agent_key, to_bytes_canonical(&agent_meta).unwrap());
         
         let policy_key = [b"agent::policy::", session_id.as_slice()].concat();
         insert_raw(&policy_key, to_bytes_canonical(&local_policy).unwrap());
 
-        // Service Metadata: Compute Market
         let mut market_methods = std::collections::BTreeMap::new();
         market_methods.insert("request_task@v1".to_string(), MethodPermission::User);
         market_methods.insert("finalize_provisioning@v1".to_string(), MethodPermission::User);
@@ -402,7 +367,6 @@ async fn main() -> Result<()> {
             activated_at: 0,
             methods: market_methods,
             allowed_system_prefixes: vec![],
-            // [FIX] Initialize new evolutionary fields
             generation_id: 0,
             parent_hash: None,
         };
@@ -410,90 +374,76 @@ async fn main() -> Result<()> {
         insert_raw(&market_key, to_bytes_canonical(&market_meta).unwrap());
 
         let json = serde_json::json!({ "genesis_state": genesis_state });
-        fs::write(
-            &workload_config.genesis_file,
-            serde_json::to_string_pretty(&json)?,
-        )?;
+        fs::write(&workload_config.genesis_file, serde_json::to_string_pretty(&json)?)?;
     }
 
-    // -------------------------------------------------------------------------
     // 5. Driver Instantiation
-    // -------------------------------------------------------------------------
     let (event_tx, _event_rx) = tokio::sync::broadcast::channel(1000);
-
     let os_driver = Arc::new(NativeOsDriver::new());
-
-    let gui_driver = Arc::new(
-        IoiGuiDriver::new()
-            .with_event_sender(event_tx.clone())
-            .with_scs(scs_arc.clone()) 
-    );
-    println!("   - Native GUI Driver: Initialized (enigo/xcap/accesskit) + Event Loop + SCS Persistence");
-
+    let gui_driver = Arc::new(IoiGuiDriver::new().with_event_sender(event_tx.clone()).with_scs(scs_arc.clone()));
     let browser_driver = Arc::new(BrowserDriver::new());
-    println!("   - Browser Driver: Initialized (chromiumoxide)");
 
+    println!("   - State: Redb Flat Store (Zero Hashing)");
     let scheme = HashCommitmentScheme::new();
-    let tree = IAVLTree::new(scheme.clone());
+    let flat_db_path = opts.data_dir.join("state_flat.redb");
+    let tree = RedbFlatStore::new(&flat_db_path, scheme.clone())
+        .map_err(|e| anyhow!("Failed to open flat store: {}", e))?;
     
-    // Setup Workload with drivers
+    // [FIX] Add explicit type annotations
     let (workload_container, machine) = setup_workload(
         tree,
         scheme.clone(),
         workload_config.clone(),
-        Some(gui_driver.clone()), // [FIX] Clone
-        Some(browser_driver.clone()), // [FIX] Clone
+        Some(gui_driver.clone()), 
+        Some(browser_driver.clone()), 
         Some(scs_arc.clone()), 
         Some(event_tx.clone()), 
         Some(os_driver.clone()), 
     )
     .await?;
 
-    // -------------------------------------------------------------------------
-    // [NEW] HOT-PATCH STATE: Force Update Policy & Meta
-    // This ensures that code changes apply even if state.db exists.
-    // -------------------------------------------------------------------------
+    // Hot-Patch Policy & Meta
     {
         println!("Applying active security policy to state...");
-        let state_tree = workload_container.state_tree();
+        // [FIX] Explicitly type the state variable
+        let state_tree: Arc<tokio::sync::RwLock<RedbFlatStore<HashCommitmentScheme>>> = workload_container.state_tree();
         let mut state = state_tree.write().await;
         
-        // 1. Patch Policy
         let policy_key = [b"agent::policy::", session_id.as_slice()].concat();
-        // [FIX] Explicitly type error conversion
         let policy_bytes = codec::to_bytes_canonical(&local_policy).map_err(|e| anyhow!(e))?;
-        state.insert(&policy_key, &policy_bytes).map_err(|e| anyhow!(e.to_string()))?;
+        // [FIX] Use type annotation for error
+        state.insert(&policy_key, &policy_bytes).map_err(|e: ioi_types::error::StateError| anyhow!(e.to_string()))?;
 
-        // 2. Patch Service Meta
         let agent_key = ioi_types::keys::active_service_key("desktop_agent");
-        // [FIX] Explicitly type error conversion
         let meta_bytes = codec::to_bytes_canonical(&agent_meta).map_err(|e| anyhow!(e))?;
-        state.insert(&agent_key, &meta_bytes).map_err(|e| anyhow!(e.to_string()))?;
+        state.insert(&agent_key, &meta_bytes).map_err(|e: ioi_types::error::StateError| anyhow!(e.to_string()))?;
         
-        // Commit these changes immediately so they are available for the first transaction
-        // [FIX] Explicitly type error conversion
-        let _ = state.commit_version(0).map_err(|e| anyhow!(e.to_string()))?;
+        let _ = state.commit_version(0).map_err(|e: ioi_types::error::StateError| anyhow!(e.to_string()))?;
     }
 
-    // -------------------------------------------------------------------------
     // 6. Runtime Execution
-    // -------------------------------------------------------------------------
     let workload_ipc_addr = "127.0.0.1:8555";
     std::env::set_var("IPC_SERVER_ADDR", workload_ipc_addr);
 
-    let server_workload = workload_container.clone();
+    // [FIX] Explicitly type the clones to ensure they are interpreted correctly
+    let server_workload: Arc<ioi_api::validator::WorkloadContainer<RedbFlatStore<HashCommitmentScheme>>> = workload_container.clone();
     let server_machine = machine.clone();
     let server_addr = workload_ipc_addr.to_string();
 
     let mut workload_server_handle = tokio::spawn(async move {
-        let server = ioi_validator::standard::workload::ipc::WorkloadIpcServer::new(
+        // [FIX] Explicitly specify generic types for WorkloadIpcServer::new
+        let server = ioi_validator::standard::workload::ipc::WorkloadIpcServer::<
+            RedbFlatStore<HashCommitmentScheme>, 
+            HashCommitmentScheme
+        >::new(
             server_addr,
             server_workload,
             server_machine,
         )
         .await
         .map_err(|e| anyhow!(e))?;
-        server.run().await.map_err(|e| anyhow!(e))
+        // [FIX] Use explicit type annotation for error map
+        server.run().await.map_err(|e: anyhow::Error| anyhow!(e))
     });
 
     tokio::time::sleep(Duration::from_millis(500)).await;
@@ -512,13 +462,22 @@ async fn main() -> Result<()> {
         .await?,
     );
 
-    let (syncer, swarm_commander, network_events) = ioi_networking::libp2p::Libp2pSync::new(
-        local_key.clone(),
-        "/ip4/127.0.0.1/tcp/0".parse()?,
-        None,
-    )?;
+    // [MODIFIED] Use NoOpBlockSync for local mode (Strip libp2p)
+    let syncer = Arc::new(NoOpBlockSync::new());
+    
+    // Create Dummy Channels for Network (Blackhole)
+    let (swarm_commander, mut swarm_rx) = tokio::sync::mpsc::channel::<SwarmCommand>(100);
+    // Drain swarm commands to prevent channel full errors
+    tokio::spawn(async move {
+        while let Some(_) = swarm_rx.recv().await {}
+    });
 
-    let consensus_engine = engine_from_config(&config)?;
+    // Create Dummy Receiver for Network Events (Empty stream)
+    let (_dummy_tx, network_events) = tokio::sync::mpsc::channel(100);
+
+    println!("   - Consensus: Solo (Lite Mode)");
+    let consensus_engine = ioi_consensus::Consensus::Solo(SoloEngine::new());
+    
     let sk_bytes = local_key.clone().try_into_ed25519()?.secret();
     let internal_sk = Ed25519PrivateKey::from_bytes(sk_bytes.as_ref())?;
     let internal_kp = ioi_crypto::sign::eddsa::Ed25519KeyPair::from_private_key(&internal_sk)?;
@@ -527,7 +486,6 @@ async fn main() -> Result<()> {
     let inference_runtime: Arc<dyn InferenceRuntime> = if let Some(key) = &workload_config.inference.api_key {
         let model_name = workload_config.inference.model_name.clone().unwrap_or("gpt-4o".to_string());
         let api_url = workload_config.inference.api_url.clone().unwrap_or("https://api.openai.com/v1/chat/completions".to_string());
-        
         Arc::new(HttpInferenceRuntime::new(api_url, key.clone(), model_name))
     } else if workload_config.inference.provider == "mock" {
          Arc::new(ioi_api::vm::inference::mock::MockInferenceRuntime)
@@ -541,6 +499,8 @@ async fn main() -> Result<()> {
         RuntimeAsSafetyModel::new(inference_runtime.clone())
     );
 
+    let verifier = FlatVerifier::default();
+
     let deps = OrchestrationDependencies {
         syncer,
         network_event_receiver: network_events,
@@ -550,21 +510,25 @@ async fn main() -> Result<()> {
         pqc_keypair: None,
         is_quarantined: Arc::new(AtomicBool::new(false)),
         genesis_hash: [0; 32],
-        verifier: DefaultVerifier::default(),
+        verifier,
         signer,
         batch_verifier: Arc::new(ioi_crypto::sign::batch::CpuBatchVerifier::new()),
         safety_model: safety_model,
-        
         inference_runtime: inference_runtime.clone(),
-        
         os_driver: os_driver.clone(),
-
         scs: Some(scs_arc.clone()),
         event_broadcaster: Some(event_tx.clone()),
     };
 
-    let orchestrator = Arc::new(Orchestrator::new(&config, deps, scheme)?);
-    orchestrator.set_chain_and_workload_client(machine.clone(), workload_client); // [FIX] Clone machine Arc
+    // [FIX] Explicitly type the orchestrator construction
+    let orchestrator = Arc::new(Orchestrator::<
+        HashCommitmentScheme,
+        RedbFlatStore<HashCommitmentScheme>,
+        Consensus<ChainTransaction>,
+        FlatVerifier
+    >::new(&config, deps, scheme)?);
+    
+    orchestrator.set_chain_and_workload_client(machine.clone(), workload_client); 
 
     println!("\n✅ IOI User Node (Mode 0) configuration is valid.");
     println!("   - Agency Firewall: User-in-the-Loop Mode (Interactive Gates)");
@@ -579,11 +543,11 @@ async fn main() -> Result<()> {
     );
     println!("Starting main components (press Ctrl+C to exit)...");
 
+    // [FIX] Coerce to trait object for Container call
     Container::start(&*orchestrator, &config.rpc_listen_address)
         .await
         .map_err(|e| anyhow!("Failed to start: {}", e))?;
         
-    // [MODIFIED] Create and Inject Enhanced DesktopAgentService
     let agent = DesktopAgentService::new_hybrid(
         gui_driver,
         Arc::new(ioi_drivers::terminal::TerminalDriver::new()),
@@ -597,9 +561,8 @@ async fn main() -> Result<()> {
     .with_event_sender(event_tx.clone())
     .with_os_driver(os_driver.clone());
     
-    // Inject into ExecutionMachine (Hot Swap)
     {
-        // use ioi_api::services::UpgradableService; // Removed unused import
+        // [FIX] Explicit type for error handling
         let mut machine_guard = machine.lock().await;
         let service_arc = Arc::new(agent);
         if let Err(e) = machine_guard.service_manager.register_service(service_arc) {
@@ -626,17 +589,34 @@ async fn main() -> Result<()> {
                 }
             }
             _ = operator_ticker.tick() => {
+                // [FIX] Explicitly type the context guard
                 let ctx_opt_guard = orchestrator.main_loop_context.lock().await;
-                let ctx_opt: &Option<Arc<TokioMutex<MainLoopContext<HashCommitmentScheme, IAVLTree<HashCommitmentScheme>, Consensus<ChainTransaction>, DefaultVerifier>>>> = &*ctx_opt_guard;
+                let ctx_opt: &Option<Arc<TokioMutex<MainLoopContext<
+                    HashCommitmentScheme, 
+                    RedbFlatStore<HashCommitmentScheme>, 
+                    Consensus<ChainTransaction>, 
+                    FlatVerifier
+                >>>> = &*ctx_opt_guard;
                 
                 if let Some(ctx) = ctx_opt {
                     let ctx_guard = ctx.lock().await;
                     
-                    if let Err(e) = run_oracle_operator_task(&*ctx_guard).await {
+                    // [FIX] Explicit generic params for task calls
+                    if let Err(e) = run_oracle_operator_task::<
+                        HashCommitmentScheme,
+                        RedbFlatStore<HashCommitmentScheme>,
+                        Consensus<ChainTransaction>,
+                        FlatVerifier
+                    >(&*ctx_guard).await {
                          tracing::error!(target: "operator_task", "Oracle operator failed: {}", e);
                     }
 
-                    if let Err(e) = run_agent_driver_task(&*ctx_guard).await {
+                    if let Err(e) = run_agent_driver_task::<
+                        HashCommitmentScheme,
+                        RedbFlatStore<HashCommitmentScheme>,
+                        Consensus<ChainTransaction>,
+                        FlatVerifier
+                    >(&*ctx_guard).await {
                          tracing::error!(target: "operator_task", "Agent driver failed: {}", e);
                     }
                 }
@@ -645,12 +625,9 @@ async fn main() -> Result<()> {
     }
 
     println!("\nShutting down...");
-    
-    // [FIX] Explicitly abort the workload server to prevent hang
     workload_server_handle.abort();
-
+    // [FIX] Coerce to trait object for Container call
     Container::stop(&*orchestrator).await?;
     println!("Bye!");
-
     Ok(())
 }

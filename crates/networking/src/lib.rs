@@ -1,4 +1,4 @@
-// Path: crates/network/src/lib.rs
+// Path: crates/networking/src/lib.rs
 #![cfg_attr(
     not(test),
     deny(
@@ -16,11 +16,12 @@
 //! This crate provides traits and implementations for block synchronization
 //! and network communication logic.
 
-// The libp2p implementation is now a module with sub-modules.
 pub mod libp2p;
 pub mod metrics;
 pub mod traits;
+pub mod noop; // [NEW] Export noop module
 
 // Re-export the public interface for consumers of the crate.
 pub use self::libp2p::Libp2pSync;
 pub use traits::{BlockSync, MempoolGossip, SyncError};
+pub use noop::NoOpBlockSync; // [NEW] Re-export NoOpBlockSync
