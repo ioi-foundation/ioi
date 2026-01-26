@@ -36,7 +36,9 @@ prost = { workspace = true }
 byte-slice-cast = "1.2"
 bincode = { workspace = true }
 dcrypt = { workspace = true }
-tokio = { workspace = true, features = ["sync"] }
+
+# [FIX] Added 'rt' feature for tokio::spawn
+tokio = { workspace = true, features = ["sync", "rt"] }
 # [FIX] Added rand dependency
 rand = { workspace = true }
 

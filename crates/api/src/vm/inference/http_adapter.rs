@@ -8,6 +8,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::json;
 use std::path::Path;
 use std::time::Duration;
+use tokio::sync::mpsc::Sender;
 
 use super::InferenceRuntime;
 
@@ -42,6 +43,8 @@ struct ChatCompletionRequest {
     messages: Vec<Message>,
     tools: Option<Vec<Tool>>,
     temperature: f32,
+    #[serde(skip_serializing_if = "std::ops::Not::not")]
+    stream: bool, // [NEW] Enable streaming
 }
 
 #[derive(Serialize)]
@@ -92,6 +95,21 @@ struct FunctionCall {
     arguments: String,
 }
 
+// [NEW] Structures for Streaming Responses
+#[derive(Deserialize)]
+struct ChatCompletionChunk {
+    choices: Vec<ChunkChoice>,
+}
+#[derive(Deserialize)]
+struct ChunkChoice {
+    delta: ChunkDelta,
+}
+#[derive(Deserialize)]
+struct ChunkDelta {
+    content: Option<String>,
+    // For MVP, we don't stream partial tool calls, we just buffer them implicitly or ignore
+}
+
 // [NEW] Structures for Embedding API response
 #[derive(Deserialize)]
 struct EmbeddingResponse {
@@ -107,9 +125,20 @@ struct EmbeddingData {
 impl InferenceRuntime for HttpInferenceRuntime {
     async fn execute_inference(
         &self,
-        _model_hash: [u8; 32], // Ignored for HTTP adapter, we trust the endpoint
+        model_hash: [u8; 32],
         input_context: &[u8],
         options: InferenceOptions,
+    ) -> Result<Vec<u8>, VmError> {
+        // Delegate to streaming implementation with no stream channel
+        self.execute_inference_streaming(model_hash, input_context, options, None).await
+    }
+
+    async fn execute_inference_streaming(
+        &self,
+        _model_hash: [u8; 32],
+        input_context: &[u8],
+        options: InferenceOptions,
+        token_stream: Option<Sender<String>>,
     ) -> Result<Vec<u8>, VmError> {
         // 1. Decode Input
         let prompt_str = String::from_utf8(input_context.to_vec())
@@ -124,9 +153,8 @@ impl InferenceRuntime for HttpInferenceRuntime {
                     .tools
                     .into_iter()
                     .map(|t| {
-                        // [FIX] Parse the string back to Value for the API
                         let params_val: serde_json::Value =
-                            serde_json::from_str(&t.parameters).unwrap_or(json!({})); // Fallback if invalid JSON
+                            serde_json::from_str(&t.parameters).unwrap_or(json!({})); 
 
                         Tool {
                             tool_type: "function".to_string(),
@@ -142,6 +170,7 @@ impl InferenceRuntime for HttpInferenceRuntime {
         };
 
         // 3. Construct Request
+        let stream_mode = token_stream.is_some();
         let request_body = ChatCompletionRequest {
             model: self.model_name.clone(),
             messages: vec![Message {
@@ -150,11 +179,11 @@ impl InferenceRuntime for HttpInferenceRuntime {
             }],
             tools,
             temperature: options.temperature,
+            stream: stream_mode,
         };
 
         // 4. Execute HTTP Call
-        // [FIX] Explicitly handle the Response future
-        let response = self
+        let mut response = self
             .client
             .post(&self.api_url)
             .header("Authorization", format!("Bearer {}", self.api_key))
@@ -171,32 +200,68 @@ impl InferenceRuntime for HttpInferenceRuntime {
             return Err(VmError::HostError(format!("API Error: {}", error_text)));
         }
 
-        // [FIX] Explicitly deserialize into ChatCompletionResponse
-        let response_body: ChatCompletionResponse = response
-            .json::<ChatCompletionResponse>()
-            .await
-            .map_err(|e| VmError::HostError(format!("Failed to parse response: {}", e)))?;
+        // 5. Handle Response (Streaming vs Blocking)
+        if stream_mode {
+            let mut full_content = String::new();
+            let mut buffer = String::new();
+            let sender = token_stream.unwrap();
 
-        // 5. Map Response back to Kernel Format
-        let choice = response_body
-            .choices
-            .first()
-            .ok_or_else(|| VmError::HostError("No choices returned".into()))?;
+            while let Ok(Some(chunk)) = response.chunk().await {
+                let chunk_str = String::from_utf8_lossy(&chunk);
+                buffer.push_str(&chunk_str);
 
-        if let Some(tool_calls) = &choice.message.tool_calls {
-            // [FIX] Handle tool_calls being potentially empty but Some
-            if let Some(first_call) = tool_calls.first() {
-                let output_json = json!({
-                    "name": first_call.function.name,
-                    "arguments": serde_json::from_str::<serde_json::Value>(&first_call.function.arguments)
-                        .unwrap_or(serde_json::Value::Null)
-                });
-                return Ok(output_json.to_string().into_bytes());
+                while let Some(line_end) = buffer.find('\n') {
+                    let line = buffer[..line_end].trim();
+                    if line.starts_with("data: ") {
+                        let data = &line[6..];
+                        if data != "[DONE]" {
+                            if let Ok(chunk_data) = serde_json::from_str::<ChatCompletionChunk>(data) {
+                                if let Some(choice) = chunk_data.choices.first() {
+                                    if let Some(content) = &choice.delta.content {
+                                        // Emit to UI
+                                        let _ = sender.send(content.clone()).await;
+                                        // Accumulate
+                                        full_content.push_str(content);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    // Remove processed line plus newline
+                    let next_start = line_end + 1;
+                    buffer = buffer[next_start..].to_string();
+                }
             }
-        }
+            // For Beta MVP: If full_content is empty (e.g. pure tool call), we assume text-heavy tasks or buffer tool calls later.
+            // Returning empty bytes if no content was accumulated.
+            
+            Ok(full_content.into_bytes())
+        } else {
+            // Blocking Mode
+            let response_body: ChatCompletionResponse = response
+                .json::<ChatCompletionResponse>()
+                .await
+                .map_err(|e| VmError::HostError(format!("Failed to parse response: {}", e)))?;
 
-        let content = choice.message.content.clone().unwrap_or_default();
-        Ok(content.into_bytes())
+            let choice = response_body
+                .choices
+                .first()
+                .ok_or_else(|| VmError::HostError("No choices returned".into()))?;
+
+            if let Some(tool_calls) = &choice.message.tool_calls {
+                if let Some(first_call) = tool_calls.first() {
+                    let output_json = json!({
+                        "name": first_call.function.name,
+                        "arguments": serde_json::from_str::<serde_json::Value>(&first_call.function.arguments)
+                            .unwrap_or(serde_json::Value::Null)
+                    });
+                    return Ok(output_json.to_string().into_bytes());
+                }
+            }
+
+            let content = choice.message.content.clone().unwrap_or_default();
+            Ok(content.into_bytes())
+        }
     }
 
     // [NEW] Implementation of embed_text

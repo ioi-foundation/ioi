@@ -4,6 +4,7 @@ use async_trait::async_trait;
 use ioi_types::app::agentic::InferenceOptions;
 use ioi_types::error::VmError;
 use std::path::Path;
+use tokio::sync::mpsc::Sender;
 
 pub mod driver;
 pub mod http_adapter;
@@ -22,6 +23,18 @@ pub trait InferenceRuntime: Send + Sync {
         input_context: &[u8],
         options: InferenceOptions,
     ) -> Result<Vec<u8>, VmError>;
+
+    /// Executes inference, optionally streaming partial tokens to the provided channel.
+    /// The default implementation delegates to `execute_inference` and ignores the channel.
+    async fn execute_inference_streaming(
+        &self,
+        model_hash: [u8; 32],
+        input_context: &[u8],
+        options: InferenceOptions,
+        _token_stream: Option<Sender<String>>,
+    ) -> Result<Vec<u8>, VmError> {
+        self.execute_inference(model_hash, input_context, options).await
+    }
 
     /// Generates a vector embedding for a given text input.
     async fn embed_text(&self, _text: &str) -> Result<Vec<f32>, VmError> {
