@@ -180,6 +180,9 @@ pub async fn test_node_execution(
 
     let input_str = if let Some(s) = input.as_str() { s.to_string() } else { input.to_string() };
 
+    // [NEW] Unit tests default to Silent/Local governance to allow testing logic without blocking
+    let tier = execution::GovernanceTier::Silent; 
+
     // [MODIFIED] Pass arguments to execution
     match execution::execute_ephemeral_node(
         &node_type, 
@@ -187,7 +190,8 @@ pub async fn test_node_execution(
         &input_str, 
         session_id, 
         scs.clone(), 
-        inference
+        inference,
+        tier // [NEW] Pass tier
     ).await {
         Ok(result) => {
             if result.status == "success" {
@@ -740,7 +744,7 @@ pub async fn get_context_blob(
     })
 }
 
-// [NEW] Monitor Kernel Events (Moved from lib.rs)
+// Monitor Kernel Events (Moved from lib.rs)
 pub async fn monitor_kernel_events(app: tauri::AppHandle) {
     let mut client = loop {
         match PublicApiClient::connect("http://127.0.0.1:9000").await {

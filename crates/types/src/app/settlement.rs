@@ -67,4 +67,17 @@ pub enum SettlementPayload {
         /// The receipt proving the agent generated this intent correctly under policy.
         receipt: Receipt,
     },
+
+    /// [NEW] UpgradeLiability Payload
+    /// Allows upgrading a prior receipt or action to a higher liability level (Tier 2->3).
+    UpgradeLiability {
+        /// The receipt of the action to upgrade.
+        receipt: Receipt,
+        /// The target liability level (e.g., 3 for Cross-Chain).
+        target_level: u8,
+        /// Optional additional bond amount required for the upgrade.
+        bond_amount: Option<u128>,
+        /// Optional ZK proof verifying the validity of the upgrade.
+        zk_proof: Option<Vec<u8>>,
+    },
 }

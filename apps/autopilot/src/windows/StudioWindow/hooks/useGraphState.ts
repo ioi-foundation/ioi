@@ -1,3 +1,4 @@
+// src/windows/StudioWindow/hooks/useGraphState.ts
 import { useState, useCallback } from "react";
 import { 
   useNodesState, 
@@ -10,6 +11,7 @@ import {
 } from "@xyflow/react";
 import { Node as IOINode, Edge as IOIEdge, NodeLogic, FirewallPolicy, AgentConfiguration } from "../../../types.ts";
 import { NODE_TEMPLATES } from "../templates";
+import { compileAgentToGraph } from "../utils/agentCompiler";
 
 // --- Initial Data Helpers ---
 const toFlowNode = (n: IOINode): FlowNode<IOINode> => ({
@@ -25,13 +27,13 @@ const toFlowEdge = (e: IOIEdge): FlowEdge => ({
   target: e.to,
   sourceHandle: e.fromPort,
   targetHandle: e.toPort,
-  type: 'semantic', // Use our custom component
+  type: 'semantic', 
   data: { 
     active: e.active, 
     volume: e.volume,
-    status: 'idle' // Default status
+    status: 'idle' 
   },
-  animated: e.active, // Keep for ReactFlow internal logic if needed
+  animated: e.active,
 });
 
 // Initial mock data
@@ -98,7 +100,6 @@ export function useGraphState() {
         const currentData = node.data as unknown as IOINode;
         const currentConfig = currentData.config || { logic: {}, law: {} };
         
-        // Deep merge logic for arguments if present
         let newSectionData = { ...(currentConfig[section] || {}), ...updates };
         
         if (section === 'logic' && 'arguments' in updates) {
@@ -131,7 +132,7 @@ export function useGraphState() {
     try {
       const nodeId = e.dataTransfer.getData("nodeId"); 
       const nodeName = e.dataTransfer.getData("nodeName");
-      // [NEW] Retrieve Schema from drag payload
+      const nodeType = e.dataTransfer.getData("nodeType");
       const schemaStr = e.dataTransfer.getData("nodeSchema");
       
       const position = screenToFlowPosition({ x: e.clientX, y: e.clientY });
@@ -152,55 +153,52 @@ export function useGraphState() {
           outputs: ["out"],
           config: JSON.parse(JSON.stringify(template.defaultConfig))
         };
-      } else if (nodeId.includes("__")) {
-        // [NEW] Dynamic MCP Tool Scaffolding
-        
-        // Scaffold default arguments based on Schema so the UI isn't blank
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const scaffoldedArgs: Record<string, any> = {};
-        if (schemaStr) {
-            try {
-                const schema = JSON.parse(schemaStr);
-                if (schema.properties) {
-                    // Pre-fill keys with sensible defaults
-                    Object.keys(schema.properties).forEach(key => {
-                        const type = schema.properties[key].type;
-                        if (type === 'integer' || type === 'number') scaffoldedArgs[key] = 0;
-                        else if (type === 'boolean') scaffoldedArgs[key] = false;
-                        else if (type === 'array') scaffoldedArgs[key] = [];
-                        else scaffoldedArgs[key] = "";
-                    });
-                }
-            } catch (err) {
-                console.warn("Failed to parse tool schema during drop:", err);
-            }
-        }
-
+      } else if (nodeType === "agent") {
         newNodeData = {
-          id: `${nodeId}-${Date.now()}`,
-          type: "tool", // Generic tool type
-          name: nodeName || nodeId,
-          x: position.x, 
+          id: `agent-${Date.now()}`,
+          type: "model", 
+          name: nodeName || "Nested Agent",
+          x: position.x,
           y: position.y,
           status: "idle",
-          ioTypes: { in: "Any", out: "Result" },
-          inputs: ["in"], 
+          ioTypes: { in: "Task", out: "Result" },
+          inputs: ["in"],
           outputs: ["out"],
-          // Inject schema into node data for the Inspector to use later
-          schema: schemaStr || undefined,
-          config: { 
-            logic: { 
-              // This field tells execution.rs to use run_mcp_tool
-              // @ts-ignore - dynamic property
-              tool_name: nodeId, 
-              arguments: scaffoldedArgs // [NEW] Pre-populated args
-            }, 
-            law: {
-              requireHumanGate: true // Default safety for new tools
-            } 
+          config: {
+            logic: {
+              model: "nested-agent", 
+              systemPrompt: `Execute the agent: ${nodeName}`,
+            },
+            law: { 
+                budgetCap: 5.0 
+            }
           }
         };
-
+      } else if (nodeId.includes("__")) {
+        // Dynamic MCP Tool Scaffolding
+        newNodeData = {
+          id: `tool-${Date.now()}`,
+          type: "tool",
+          name: nodeName || "MCP Tool",
+          x: position.x,
+          y: position.y,
+          status: "idle",
+          ioTypes: { in: "Args", out: "Data" },
+          inputs: ["in"],
+          outputs: ["out"],
+          // Store schema for UI generation
+          schema: schemaStr,
+          config: {
+            logic: {
+              tool_name: nodeId, // "filesystem__read_file"
+              // Arguments will be populated via UI
+              arguments: {}
+            },
+            law: {
+              requireHumanGate: true // Default safe
+            }
+          }
+        };
       } else {
         newNodeData = {
           id: `node-${Date.now()}`,
@@ -223,21 +221,29 @@ export function useGraphState() {
     }
   }, [screenToFlowPosition, setNodes]);
 
-  const handleBuilderHandoff = useCallback((config: AgentConfiguration) => {
-    const agentNode = toFlowNode({
-        id: `n-agent-${Date.now()}`,
-        type: "model",
-        name: config.name,
-        x: 600, y: 300,
-        status: "idle", ioTypes: {in: "Q", out: "A"}, inputs:["in"], outputs:["out"],
-        config: {
-          logic: { systemPrompt: config.instructions, temperature: config.temperature, model: config.model },
-          law: { budgetCap: 1.0 }
-        }
-    });
-    setNodes([agentNode]);
-    setEdges([]);
-  }, [setNodes, setEdges]);
+  // [UPDATED] Adds the agent as a comprehensive subgraph via Compiler
+  const addAgentToGraph = useCallback((config: AgentConfiguration) => {
+    // 1. Compile the config into a subgraph
+    const { nodes: newIOINodes, edges: newIOIEdges } = compileAgentToGraph(config);
+
+    // 2. Convert to ReactFlow format
+    const newFlowNodes = newIOINodes.map(toFlowNode);
+    const newFlowEdges = newIOIEdges.map(toFlowEdge);
+
+    // 3. Replace existing graph (Builder Handoff implies new workspace context)
+    setNodes(newFlowNodes);
+    setEdges(newFlowEdges);
+    
+    // 4. Select the core model node for immediate inspection
+    const coreNode = newFlowNodes.find(n => n.data.type === "model");
+    if (coreNode) {
+        setSelectedNodeId(coreNode.id);
+    }
+    
+    // 5. Fit view after render cycle
+    setTimeout(() => fitView({ duration: 800 }), 100);
+
+  }, [setNodes, setEdges, setSelectedNodeId, fitView]);
 
   // Handle Ghost Mode inference (Mock)
   const injectGhostNode = useCallback(() => {
@@ -268,7 +274,8 @@ export function useGraphState() {
     nodes, edges, selectedNodeId, setSelectedNodeId,
     setNodes, setEdges, onNodesChange, onEdgesChange, onConnect,
     handleNodeSelect, handleNodeUpdate, handleCanvasDrop,
-    handleBuilderHandoff, injectGhostNode, clearGhostNodes,
+    addAgentToGraph, // Handles Builder -> Graph compilation
+    injectGhostNode, clearGhostNodes,
     fitView, zoomIn, zoomOut
   };
 }

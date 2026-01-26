@@ -30,6 +30,8 @@ interface BottomDrawerProps {
   onTabChange: (tab: DrawerTab) => void;
   onToggleCollapse: () => void;
   onResize: (height: number) => void;
+  onTraceClick?: (spanId: string) => void;
+  onTraceHover?: (spanId: string | null) => void;
   
   // Real Data Props
   logs: ExecutionLog[];
@@ -46,6 +48,8 @@ export function BottomDrawer({
   onTabChange,
   onToggleCollapse,
   onResize,
+  onTraceClick,
+  onTraceHover,
   logs,
   traceData,
   selectedNodeId,
@@ -125,7 +129,13 @@ export function BottomDrawer({
       {/* Content */}
       {!collapsed && (
         <div className="drawer-content">
-          {activeTab === "timeline" && <TimelineContent traceData={traceData} />}
+          {activeTab === "timeline" && (
+            <TimelineContent
+              traceData={traceData}
+              onTraceClick={onTraceClick}
+              onTraceHover={onTraceHover}
+            />
+          )}
           {activeTab === "receipts" && <ReceiptsContent nodeId={selectedNodeId} artifact={selectedArtifact} />}
           {activeTab === "console" && <ConsoleContent logs={logs} />}
         </div>
@@ -134,7 +144,15 @@ export function BottomDrawer({
   );
 }
 
-function TimelineContent({ traceData }: { traceData: TraceSpan[] }) {
+function TimelineContent({
+  traceData,
+  onTraceClick,
+  onTraceHover,
+}: {
+  traceData: TraceSpan[];
+  onTraceClick?: (spanId: string) => void;
+  onTraceHover?: (spanId: string | null) => void;
+}) {
   const [selectedSpan, setSelectedSpan] = useState<TraceSpan | null>(null);
   const hasData = traceData.length > 0;
 
@@ -165,8 +183,12 @@ function TimelineContent({ traceData }: { traceData: TraceSpan[] }) {
             {hasData ? (
                 <TraceViewer 
                     spans={traceData} 
-                    onSelectSpan={setSelectedSpan}
+                    onSelectSpan={(span) => {
+                      setSelectedSpan(span);
+                      onTraceClick?.(span.id);
+                    }}
                     selectedSpanId={selectedSpan?.id}
+                    onHoverSpan={onTraceHover}
                 />
             ) : (
                 <div className="empty-panel-state">

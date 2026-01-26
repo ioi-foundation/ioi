@@ -35,6 +35,11 @@ export interface GraphGlobalConfig {
     maxSteps: number;
     timeoutMs: number;
   };
+  contract: {
+    developerBond: number;
+    adjudicationRubric: string;
+    validationSchema?: string;
+  };
   meta: {
     name: string;
     description: string;

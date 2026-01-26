@@ -213,9 +213,7 @@ where
                     }
                     Ok((UnifiedProof::Application, output.gas_used))
                 }
-                _ => Err(TransactionError::Unsupported(
-                    "Legacy application transaction".into(),
-                )),
+                // [FIX] Removed unreachable `_ => Err(...)` as CallContract is exhaustive for current app txs
             },
             ChainTransaction::System(sys_tx) => {
                 ctx.signer_account_id = sys_tx.header.account_id;

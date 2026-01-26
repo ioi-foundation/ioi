@@ -1,12 +1,19 @@
+// apps/autopilot/src/components/RightPanel/views/GraphConfigView.tsx
+
 import { GraphGlobalConfig } from "../types";
 
 interface GraphConfigViewProps {
-  activeTab: "ENV" | "POLICY" | "META";
+  // [UPDATED] Added CONTRACT to literal type
+  activeTab: "ENV" | "POLICY" | "CONTRACT" | "META";
   config: GraphGlobalConfig;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   onUpdate: (section: keyof GraphGlobalConfig, updates: any) => void;
 }
 
 export function GraphConfigView({ activeTab, config, onUpdate }: GraphConfigViewProps) {
+  // Ensure contract object exists (migration safety)
+  const contractConfig = config.contract || { developerBond: 0, adjudicationRubric: "" };
+
   return (
     <>
       {activeTab === "ENV" && (
@@ -83,6 +90,60 @@ export function GraphConfigView({ activeTab, config, onUpdate }: GraphConfigView
                   value={config.policy.timeoutMs}
                   onChange={(e) => onUpdate('policy', { timeoutMs: parseInt(e.target.value) })}
                 />
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* [NEW] CONTRACT TAB */}
+      {activeTab === "CONTRACT" && (
+        <div className="properties-container">
+          
+          {/* Section: Bond (Liability) */}
+          <div className="panel-section">
+            <div className="section-title-row">
+              <span className="section-title">Liability & Staking</span>
+              <span className="badge" style={{background: 'rgba(245, 158, 11, 0.15)', color: '#F59E0B'}}>Tier 2</span>
+            </div>
+            
+            <div className="config-field">
+              <label className="config-label">Developer Bond (IOI)</label>
+              <div className="budget-control">
+                  <input 
+                    type="number" 
+                    className="input code-editor"
+                    value={contractConfig.developerBond}
+                    onChange={(e) => onUpdate('contract', { ...contractConfig, developerBond: parseFloat(e.target.value) })}
+                    placeholder="0.00"
+                  />
+                  <div className="approval-hint" style={{marginLeft: 0, marginTop: 4}}>
+                    Amount staked to underwrite this agent. Slashed if arbitration fails.
+                  </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Section: Rubric (Arbitration) */}
+          <div className="panel-section">
+            <div className="section-title-row">
+              <span className="section-title">Adjudication Rubric</span>
+              <span className="badge" style={{background: 'rgba(52, 211, 153, 0.15)', color: '#34D399'}}>Tier 4</span>
+            </div>
+            
+            <div className="config-field">
+              <label className="config-label">Success Criteria (Natural Language)</label>
+              <textarea 
+                className="input code-editor" 
+                rows={12}
+                value={contractConfig.adjudicationRubric}
+                onChange={(e) => onUpdate('contract', { ...contractConfig, adjudicationRubric: e.target.value })}
+                placeholder="- Output must be valid JSON&#10;- Tone must be professional&#10;- Must not hallucinate URLs"
+              />
+              <div className="approval-hint" style={{marginLeft: 0, marginTop: 8}}>
+                Instructions for the <strong>Arbitration Node</strong> (LLM Judge) to decide disputes.
+                <br/><br/>
+                <em>Note: Agents with clear rubrics qualify for the "Fast Path" arbitration lane.</em>
               </div>
             </div>
           </div>

@@ -1,7 +1,7 @@
+// src/components/TraceViewer.tsx
 import type { ReactElement } from "react";
 import "./TraceViewer.css";
 
-// --- Types ---
 export interface TraceSpan {
   id: string;
   parentId?: string;
@@ -26,9 +26,11 @@ interface TraceViewerProps {
   spans: TraceSpan[];
   onSelectSpan: (span: TraceSpan) => void;
   selectedSpanId?: string;
+  // [NEW] Hover Interaction
+  onHoverSpan?: (spanId: string | null) => void;
 }
 
-// --- Icons ---
+// --- Icons (Existing map preserved) ---
 const Icons: Record<TraceSpan["type"], ReactElement> = {
   agent: (
     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -61,36 +63,44 @@ const Icons: Record<TraceSpan["type"], ReactElement> = {
   ),
 };
 
-export function TraceViewer({ spans, onSelectSpan, selectedSpanId }: TraceViewerProps) {
-  // Flatten tree for calculation, but keep structure for rendering logic if needed
-  // For simplicity, assuming spans is already a tree or we process it here.
-  // Here we assume 'spans' is a flat list that we need to tree-ify or it's a tree root.
+export function TraceViewer({ spans, onSelectSpan, selectedSpanId, onHoverSpan }: TraceViewerProps) {
+  // Calculate global time range for relative width
+  // Flatten tree to find min/max
+  const getAllSpans = (nodes: TraceSpan[]): TraceSpan[] => {
+      let acc: TraceSpan[] = [];
+      for (const node of nodes) {
+          acc.push(node);
+          if (node.children) acc = acc.concat(getAllSpans(node.children));
+      }
+      return acc;
+  };
   
-  // Calculate relative timing
-  const rootStart = Math.min(...spans.map(s => s.startTime));
-  const rootEnd = Math.max(...spans.map(s => s.endTime || Date.now()));
-  const totalDuration = Math.max(rootEnd - rootStart, 1); // Avoid div by zero
+  const allSpans = getAllSpans(spans);
+  const rootStart = allSpans.length > 0 ? Math.min(...allSpans.map(s => s.startTime)) : Date.now();
+  const rootEnd = allSpans.length > 0 ? Math.max(...allSpans.map(s => s.endTime || Date.now())) : Date.now();
+  const totalDuration = Math.max(rootEnd - rootStart, 100); // Minimum 100ms scope
 
   const renderRow = (span: TraceSpan, depth: number) => {
     const duration = (span.endTime || Date.now()) - span.startTime;
     const startPct = ((span.startTime - rootStart) / totalDuration) * 100;
-    const widthPct = Math.max((duration / totalDuration) * 100, 0.5); // Min width 0.5%
+    const widthPct = Math.max((duration / totalDuration) * 100, 0.5); // Min width 0.5% for visibility
 
-    // Color logic
     const barColor = span.status === "error" ? "#EF4444" : 
                      span.type === "agent" ? "#3D85C6" : 
                      span.type === "tool" ? "#A78BFA" : "#34D399";
 
     return (
-      <div key={span.id} className="trace-row-container">
+      <div key={span.id} className="trace-row-wrapper">
         <div 
           className={`trace-row ${selectedSpanId === span.id ? "selected" : ""}`}
           onClick={() => onSelectSpan(span)}
+          onMouseEnter={() => onHoverSpan?.(span.id)}
+          onMouseLeave={() => onHoverSpan?.(null)}
         >
           {/* Left: Name Tree */}
           <div className="trace-cell name" style={{ paddingLeft: `${depth * 16 + 8}px` }}>
             <span className="trace-icon">{Icons[span.type] || Icons.agent}</span>
-            <span className="trace-name">{span.name}</span>
+            <span className="trace-name" title={span.name}>{span.name}</span>
             <span className="trace-duration-text">{duration}ms</span>
           </div>
 
@@ -100,8 +110,18 @@ export function TraceViewer({ spans, onSelectSpan, selectedSpanId }: TraceViewer
               className="timeline-bar-track" 
               style={{ left: `${startPct}%`, width: `${widthPct}%` }}
             >
-              <div className="timeline-bar" style={{ background: barColor }} />
+              <div 
+                className="timeline-bar" 
+                style={{ background: barColor }} 
+                title={`${span.name}: ${duration}ms`}
+              />
             </div>
+          </div>
+          
+          {/* [NEW] Quick Actions (Hover visible via CSS) */}
+          <div className="trace-actions">
+             <button className="icon-btn" title="Replay Step">⟲</button>
+             <button className="icon-btn" title="View Source">code</button>
           </div>
         </div>
         
@@ -115,7 +135,7 @@ export function TraceViewer({ spans, onSelectSpan, selectedSpanId }: TraceViewer
     <div className="trace-viewer">
       <div className="trace-header">
         <div className="header-cell name">Span Name</div>
-        <div className="header-cell timeline">Timeline</div>
+        <div className="header-cell timeline">Execution Timeline</div>
       </div>
       <div className="trace-body">
         {spans.map(s => renderRow(s, 0))}
