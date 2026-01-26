@@ -774,12 +774,22 @@ pub async fn monitor_kernel_events(app: tauri::AppHandle) {
         if let Some(event_enum) = event_msg.event {
             match event_enum {
                 ChainEventEnum::Thought(thought) => {
+                    // [UPDATED] Accumulate thought tokens instead of overwriting
                     update_task_state(&app, |t| {
                         if let Some(agent) = t.swarm_tree.iter_mut().find(|a| a.id == thought.session_id) {
-                            agent.current_thought = Some(thought.content.clone());
+                            if let Some(existing) = &agent.current_thought {
+                                agent.current_thought = Some(format!("{}{}", existing, thought.content));
+                            } else {
+                                agent.current_thought = Some(thought.content.clone());
+                            }
                             agent.status = "running".to_string();
                         } else {
-                            t.current_step = thought.content.clone();
+                            // Legacy behavior for main agent task
+                            if t.current_step == "Initializing..." || t.current_step.starts_with("Executed") {
+                                 t.current_step = thought.content.clone();
+                            } else {
+                                 t.current_step.push_str(&thought.content);
+                            }
                         }
                         
                         t.phase = AgentPhase::Running;

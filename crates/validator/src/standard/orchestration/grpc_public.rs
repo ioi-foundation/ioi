@@ -381,12 +381,22 @@ where
                          tracing::info!(target: "rpc", "PublicAPI processing KernelEvent: {:?}", kernel_event);
 
                          let mapped_event = match kernel_event {
+                             ioi_types::app::KernelEvent::AgentThought { session_id, token } => {
+                                 Some(ChainEventEnum::Thought(
+                                     ioi_ipc::public::AgentThought {
+                                         session_id: hex::encode(session_id),
+                                         content: token,
+                                         is_final: false,
+                                         visual_hash: "".to_string(), // Optional or current
+                                     }
+                                 ))
+                             },
                              ioi_types::app::KernelEvent::AgentStep(step) => {
                                  Some(ChainEventEnum::Thought(
                                      ioi_ipc::public::AgentThought {
                                          session_id: hex::encode(step.session_id),
                                          content: step.raw_output,
-                                         is_final: step.success,
+                                         is_final: true, // Final step result
                                          visual_hash: hex::encode(step.visual_hash),
                                      }
                                  ))

@@ -1,13 +1,12 @@
 // Path: crates/services/src/agentic/desktop/service/step.rs
 
-use super::actions; 
 use super::DesktopAgentService;
 use super::utils::merge_tools;
 use crate::agentic::desktop::execution::ToolExecutor;
 use crate::agentic::desktop::keys::{get_state_key, AGENT_POLICY_PREFIX, TRACE_PREFIX};
 use crate::agentic::desktop::tools::discover_tools;
 use crate::agentic::desktop::types::{AgentMode, AgentState, AgentStatus, StepAgentParams};
-use crate::agentic::desktop::utils::{compute_phash, goto_trace_log};
+use crate::agentic::desktop::utils::compute_phash;
 // [FIX] Import Verdict and Rule for default policy construction
 use crate::agentic::rules::{ActionRules, Rule, Verdict};
 use ioi_api::state::StateAccess;
@@ -21,6 +20,7 @@ use serde_json::{json, Value};
 use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
 use crate::agentic::grounding::parse_vlm_action;
+use tokio::sync::mpsc;
 
 const CHARS_PER_TOKEN: u64 = 4;
 
@@ -309,8 +309,30 @@ pub async fn handle_step(
             },
         };
         let runtime = service.select_runtime(&agent_state);
+
+        // [NEW] Setup streaming channel if event_sender is present
+        let token_tx = if let Some(sender) = &service.event_sender {
+             let (tx, mut rx) = mpsc::channel::<String>(100);
+             let sender_clone = sender.clone();
+             let session_id_clone = p.session_id;
+             
+             // Spawn a task to forward tokens to UI
+             tokio::spawn(async move {
+                 while let Some(token) = rx.recv().await {
+                     let _ = sender_clone.send(KernelEvent::AgentThought {
+                          session_id: session_id_clone,
+                          token,
+                     });
+                 }
+             });
+             
+             Some(tx)
+        } else {
+             None
+        };
+
         let output_bytes = runtime
-            .execute_inference(model_hash, user_prompt.as_bytes(), options)
+            .execute_inference_streaming(model_hash, user_prompt.as_bytes(), options, token_tx)
             .await
             .map_err(|e| TransactionError::Invalid(format!("Inference error: {}", e)))?;
         let output_str = String::from_utf8_lossy(&output_bytes).to_string();
@@ -611,13 +633,11 @@ pub async fn handle_step(
             agent_state.step_count as u64,
             Some(visual_phash),
         ) {
-            // ... VLM Action Handling (Same as before) ...
-            // [Omitting redundant VLM code block for brevity as it was correct in previous turn]
-            // Just copying the essential structure:
-            let params: serde_json::Value = serde_json::from_slice(&req.params).unwrap();
-            if req.target == ioi_types::app::ActionTarget::GuiClick {
-                // ... Execute GUI Click ...
-                // If success, action_success = true;
+            // Check if VLM action is valid
+            let _params: serde_json::Value = serde_json::from_slice(&req.params).unwrap();
+            if req.target == ActionTarget::GuiClick {
+                // If we parsed a VLM action successfully, mark it
+                action_success = true;
             }
         } else {
             // [FIX] Fallback for Agent mode producing raw text (Treat as a reply)

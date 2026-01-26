@@ -96,6 +96,9 @@ use futures::FutureExt;
 use ingestion::{run_ingestion_worker, ChainTipInfo, IngestionConfig};
 use operator_tasks::run_oracle_operator_task;
 use events::handle_network_event; 
+use ioi_types::error::VmError;
+use ioi_types::app::agentic::InferenceOptions;
+use std::path::Path;
 
 /// A struct to hold the numerous dependencies for the Orchestrator.
 pub struct OrchestrationDependencies<CE, V> {
@@ -136,6 +139,52 @@ pub struct OrchestrationDependencies<CE, V> {
 type ProofCache = Arc<Mutex<LruCache<(Vec<u8>, Vec<u8>), Option<Vec<u8>>>>>;
 type NetworkEventReceiver = Mutex<Option<mpsc::Receiver<NetworkEvent>>>;
 type ConsensusKickReceiver = Mutex<Option<mpsc::UnboundedReceiver<()>>>;
+
+// Wrapper for inference runtime to implement correct trait
+struct RuntimeWrapper {
+    inner: Arc<dyn InferenceRuntime>,
+}
+
+#[async_trait]
+impl InferenceRuntime for RuntimeWrapper {
+    async fn execute_inference(
+        &self,
+        model_hash: [u8; 32],
+        input_context: &[u8],
+        options: InferenceOptions,
+    ) -> Result<Vec<u8>, VmError> {
+        self.inner
+            .execute_inference(model_hash, input_context, options)
+            .await
+    }
+
+    async fn execute_inference_streaming(
+        &self,
+        model_hash: [u8; 32],
+        input_context: &[u8],
+        options: InferenceOptions,
+        token_stream: Option<tokio::sync::mpsc::Sender<String>>,
+    ) -> Result<Vec<u8>, VmError> {
+        self.inner
+            .execute_inference_streaming(model_hash, input_context, options, token_stream)
+            .await
+    }
+
+    async fn load_model(
+        &self,
+        model_hash: [u8; 32],
+        path: &Path,
+    ) -> Result<(), VmError> {
+        self.inner.load_model(model_hash, path).await
+    }
+
+    async fn unload_model(
+        &self,
+        model_hash: [u8; 32],
+    ) -> Result<(), VmError> {
+        self.inner.unload_model(model_hash).await
+    }
+}
 
 /// The Orchestrator is the central component of a validator node.
 pub struct Orchestrator<CS, ST, CE, V>
@@ -806,7 +855,9 @@ where
             tip_sender: tip_tx,
             receipt_map: receipt_map.clone(),
             safety_model: self.safety_model.clone(),
-            inference_runtime: self.inference_runtime.clone(),
+            inference_runtime: Arc::new(RuntimeWrapper {
+                inner: self.inference_runtime.clone()
+            }), // [FIX] Use wrapped runtime
             os_driver: self.os_driver.clone(),
             scs: self.scs.clone(),
             event_broadcaster: event_tx, 
