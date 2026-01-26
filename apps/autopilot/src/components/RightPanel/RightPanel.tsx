@@ -2,7 +2,8 @@
 import { useState, useEffect } from "react";
 import { RightPanelProps, InspectorTab, GraphTab } from "./types";
 import { DEFAULT_GRAPH_CONFIG } from "./utils";
-import { ShieldIcon, BrainIcon, TerminalIcon, GlobeIcon, SettingsIcon, DnaIcon } from "./icons";
+// [UPDATED] Import ContractIcon
+import { ShieldIcon, BrainIcon, TerminalIcon, GlobeIcon, SettingsIcon, DnaIcon, ContractIcon } from "./icons";
 import { Edge } from "../../types";
 
 // Views
@@ -129,6 +130,15 @@ export function RightPanel({
           >
             <ShieldIcon /> Policy
           </button>
+          
+          {/* [NEW] CONTRACT TAB BUTTON */}
+          <button 
+            className={`inspector-tab ${activeGraphTab === "CONTRACT" ? "active" : ""}`}
+            onClick={() => setActiveGraphTab("CONTRACT")}
+          >
+            <ContractIcon /> SLA
+          </button>
+          
           <button 
             className={`inspector-tab ${activeGraphTab === "META" ? "active" : ""}`}
             onClick={() => setActiveGraphTab("META")}
@@ -210,7 +220,9 @@ export function RightPanel({
             onRunComplete={onRunComplete}
           />
         )}
-        {activeTab === "DNA" && <DnaView />}
+        {activeTab === "DNA" && (
+            <DnaView node={selectedNode} /> 
+        )}
       </div>
     </aside>
   );

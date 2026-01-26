@@ -1,4 +1,5 @@
-import { ExecutionMode, LiabilityMode } from "../types";
+// apps/autopilot/src/components/TopBar.tsx
+import { ExecutionMode, LiabilityLevel } from "../types";
 import { Logo } from "./Logo";
 import "./TopBar.css";
 
@@ -6,7 +7,8 @@ interface TopBarProps {
   projectName: string;
   projectPath: string;
   mode: ExecutionMode;
-  liability: LiabilityMode;
+  // [UPDATED] Use LiabilityLevel instead of LiabilityMode
+  liabilityLevel: LiabilityLevel;
   receiptsEnabled: boolean;
   metrics: {
     cost: number;
@@ -14,7 +16,8 @@ interface TopBarProps {
     risk: number;
   };
   onModeChange: (mode: ExecutionMode) => void;
-  onLiabilityChange: (liability: LiabilityMode) => void;
+  // [UPDATED] onLiabilityChange now accepts LiabilityLevel
+  onLiabilityChange: (level: LiabilityLevel) => void;
   onReceiptsToggle: () => void;
   onRun: () => void;
   onPause: () => void;
@@ -26,7 +29,7 @@ export function TopBar({
   projectName,
   projectPath,
   mode,
-  liability,
+  liabilityLevel, // Renamed prop
   receiptsEnabled,
   metrics,
   onModeChange,
@@ -114,16 +117,19 @@ export function TopBar({
                 <option value="settlement">Settlement</option>
               </select>
             </label>
+            
+            {/* [UPDATED] Liability Level Selector */}
             <label className="topbar-selector">
-              <span className="selector-label">Liability:</span>
+              <span className="selector-label">Guarantee:</span>
               <select
                 className="select"
-                value={liability}
-                onChange={(e) => onLiabilityChange(e.target.value as LiabilityMode)}
+                value={liabilityLevel}
+                onChange={(e) => onLiabilityChange(e.target.value as LiabilityLevel)}
               >
-                <option value="none">None</option>
-                <option value="optional">Optional</option>
-                <option value="required">Required</option>
+                <option value="none">None (Fastest)</option>
+                <option value="auditable">Auditable (Receipts)</option>
+                <option value="insured">Insured (Bonded)</option>
+                <option value="proven">Proven (ZK Proof)</option>
               </select>
             </label>
           </div>

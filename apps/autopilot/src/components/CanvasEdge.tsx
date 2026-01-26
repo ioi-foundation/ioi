@@ -25,6 +25,7 @@ export function CanvasEdge({
 
   const isActive = data?.active === true;
   const status = (data?.status as string) || 'idle';
+  const volume = (data?.volume as number) || 1;
 
   // Build semantic class names
   let className = "canvas-edge";
@@ -32,13 +33,14 @@ export function CanvasEdge({
     className += " active";
     if (status === 'blocked') className += " blocked";
     else if (status === 'error' || status === 'failed') className += " error";
-    // Default 'active' is blue (success)
   }
 
-  // Dynamic stroke width simulation based on volume
-  const volume = (data?.volume as number) || 1;
-  // Base width 2, max 6 based on volume log
-  const strokeWidth = isActive ? 3 : Math.min(2 + Math.log(volume), 5);
+  // Dynamic stroke width based on data volume (logarithmic scale)
+  // Base width 2, max 6
+  const strokeWidth = isActive ? Math.min(2 + Math.log(volume + 1), 6) : 2;
+  
+  // Animation speed inverse to duration (higher volume = faster flow visually)
+  const animationDuration = Math.max(0.5, 2.0 - Math.log(volume + 1) * 0.2);
 
   return (
     <>
@@ -53,9 +55,25 @@ export function CanvasEdge({
         id={id}
         path={edgePath}
         markerEnd={markerEnd}
-        style={{ ...style, strokeWidth }}
+        style={{ 
+            ...style, 
+            strokeWidth,
+            animationDuration: isActive ? `${animationDuration}s` : undefined
+        }}
         className={className}
       />
+
+      {/* [NEW] Data Packet Particle */}
+      {isActive && (
+        <circle r="4" fill={status === 'blocked' ? '#F59E0B' : status === 'error' ? '#EF4444' : '#3D85C6'}>
+          <animateMotion 
+            dur={`${animationDuration * 1.5}s`} 
+            repeatCount="indefinite"
+            path={edgePath}
+            rotate="auto"
+          />
+        </circle>
+      )}
     </>
   );
 }

@@ -1,5 +1,5 @@
 // apps/autopilot/src/components/RightPanel/views/LogicView.tsx
-import { useMemo } from "react";
+import { useMemo, useRef } from "react";
 import { Node, NodeLogic } from "../../../types";
 import { extractVariables } from "../utils";
 
@@ -9,14 +9,66 @@ interface LogicViewProps {
   upstreamNodes?: Node[];
 }
 
-export function LogicView({ node, onUpdate, upstreamNodes: _upstreamNodes = [] }: LogicViewProps) {
+export function LogicView({ node, onUpdate, upstreamNodes = [] }: LogicViewProps) {
   const config = node.config?.logic || {};
-  const activeTemplate = config.systemPrompt || config.bodyTemplate || config.query || ""; // Added config.query
-  const variables = useMemo(() => extractVariables(activeTemplate), [activeTemplate]);
+  
+  // Track the last active text area to know where to insert variables
+  const lastActiveInputRef = useRef<"systemPrompt" | "bodyTemplate" | "query" | null>(null);
+
+  // Helper to insert variable into the active field
+  const insertVariable = (varName: string) => {
+    const targetField = lastActiveInputRef.current || (node.type === "model" ? "systemPrompt" : "bodyTemplate");
+    // @ts-ignore
+    const currentVal = config[targetField] || "";
+    const newVal = currentVal + ` {{${varName}}} `;
+    onUpdate('logic', { [targetField]: newVal });
+  };
+
+  const activeTemplate = config.systemPrompt || config.bodyTemplate || config.query || "";
+  const usedVariables = useMemo(() => extractVariables(activeTemplate), [activeTemplate]);
   const isDynamicTool = node.type === "tool" && !!node.schema;
+
+  // Derive available variables from upstream nodes
+  const availableContext = useMemo(() => {
+    return upstreamNodes.map(n => ({
+      id: n.id,
+      name: n.name || n.id,
+      // Default output key for now, could be dynamic based on ioTypes
+      varKey: `${n.id}` // Using ID directly as per backend orchestrator map
+    }));
+  }, [upstreamNodes]);
 
   return (
     <div className="properties-container">
+      {/* --- Context Source Strip (SimStudio DX) --- */}
+      {availableContext.length > 0 && (
+        <div className="panel-section" style={{ borderBottom: '1px solid #2E333D', paddingBottom: 12 }}>
+          <div className="section-title-row">
+            <span className="section-title">Available Context</span>
+            <span className="badge">{availableContext.length} Sources</span>
+          </div>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+            {availableContext.map(ctx => (
+              <button
+                key={ctx.id}
+                className="btn"
+                style={{ 
+                  fontSize: 10, 
+                  padding: '4px 8px', 
+                  background: '#1F2329', 
+                  border: '1px solid #3F4652',
+                  color: '#A78BFA'
+                }}
+                onClick={() => insertVariable(ctx.varKey)}
+                title={`Insert output from ${ctx.name}`}
+              >
+                + {ctx.name}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
       {node.type === "model" && (
         <div className="panel-section">
           <div className="section-title-row">
@@ -40,22 +92,38 @@ export function LogicView({ node, onUpdate, upstreamNodes: _upstreamNodes = [] }
           <div className="config-field">
             <label className="config-label">
                 System Prompt
-                {variables.length > 0 && <span className="badge" style={{marginLeft: 8}}>{variables.length} vars</span>}
             </label>
             <textarea 
               className="input code-editor" 
               rows={8}
               value={config.systemPrompt || ""}
+              onFocus={() => lastActiveInputRef.current = "systemPrompt"}
               onChange={(e) => onUpdate('logic', { systemPrompt: e.target.value })}
-              placeholder="You are an expert analyst. Analyze the input: {{user_input}}..."
+              placeholder="You are an expert analyst. Analyze the input: {{input}}..."
             />
-            {variables.length > 0 && (
-                <div style={{display: 'flex', gap: 4, flexWrap: 'wrap', marginTop: 4}}>
-                    {variables.map(v => (
-                        <span key={v} style={{fontSize: 10, background: 'rgba(167, 139, 250, 0.1)', padding: '2px 6px', borderRadius: 4, color: '#A78BFA'}}>
-                            {v}
-                        </span>
-                    ))}
+            {/* Variable Validation Badges */}
+            {usedVariables.length > 0 && (
+                <div style={{display: 'flex', gap: 4, flexWrap: 'wrap', marginTop: 6}}>
+                    {usedVariables.map(v => {
+                        // Check if variable exists in upstream context or standard inputs
+                        const isBound = v === "input" || availableContext.some(c => c.varKey === v);
+                        return (
+                            <span 
+                                key={v} 
+                                style={{
+                                    fontSize: 9, 
+                                    background: isBound ? 'rgba(52, 211, 153, 0.1)' : 'rgba(248, 113, 113, 0.1)', 
+                                    border: `1px solid ${isBound ? 'rgba(52, 211, 153, 0.2)' : 'rgba(248, 113, 113, 0.3)'}`,
+                                    padding: '2px 6px', 
+                                    borderRadius: 4, 
+                                    color: isBound ? '#34D399' : '#F87171'
+                                }}
+                                title={isBound ? "Linked to valid source" : "Variable source missing"}
+                            >
+                                {v} {isBound ? '✓' : '?'}
+                            </span>
+                        );
+                    })}
                 </div>
             )}
           </div>
@@ -113,12 +181,12 @@ export function LogicView({ node, onUpdate, upstreamNodes: _upstreamNodes = [] }
           <div className="config-field">
             <label className="config-label">
                 Body Template (JSON)
-                {variables.length > 0 && <span className="badge" style={{marginLeft: 8}}>{variables.length} vars</span>}
             </label>
             <textarea 
               className="input code-editor" 
               rows={5}
               value={config.bodyTemplate || ""}
+              onFocus={() => lastActiveInputRef.current = "bodyTemplate"}
               onChange={(e) => onUpdate('logic', { bodyTemplate: e.target.value })}
               placeholder='{"query": "{{input}}"}'
             />
@@ -142,14 +210,20 @@ export function LogicView({ node, onUpdate, upstreamNodes: _upstreamNodes = [] }
       )}
 
       {/* [NEW] Retrieval Logic */}
-      {node.type === "retrieval" && <RetrievalLogicConfig node={node} onUpdate={onUpdate} variables={variables} />}
+      {node.type === "retrieval" && (
+        <RetrievalLogicConfig 
+            node={node} 
+            onUpdate={onUpdate} 
+            variables={usedVariables}
+            onFocus={() => lastActiveInputRef.current = "query"} 
+        />
+      )}
 
       {node.type === "code" && <CodeLogicConfig node={node} />}
       {node.type === "router" && <RouterLogicConfig node={node} />}
       {node.type === "wait" && <WaitLogicConfig node={node} />}
       {node.type === "context" && <VariableLogicConfig node={node} />}
       
-      {/* Updated fallback check */}
       {!["model", "tool", "trigger", "code", "router", "wait", "context", "retrieval"].includes(node.type) && !isDynamicTool && (
         <div className="panel-empty" style={{ padding: 20 }}>
           <span className="empty-hint">No configurable logic for this node type.</span>
@@ -226,9 +300,6 @@ function WaitLogicConfig({ node }: { node: Node }) {
       <div className="config-field">
         <label className="config-label">Duration (ms)</label>
         <input type="number" className="input" defaultValue={node.config?.logic?.durationMs} />
-        <div className="approval-hint" style={{marginLeft: 0, marginTop: 4, color: '#6B7280'}}>
-          Workflow will suspend and resume automatically.
-        </div>
       </div>
     </div>
   );
@@ -245,9 +316,6 @@ function VariableLogicConfig({ node }: { node: Node }) {
           rows={6}
           defaultValue={JSON.stringify(node.config?.logic?.variables || {}, null, 2)}
         />
-        <div className="approval-hint" style={{marginLeft: 0, marginTop: 4, color: '#6B7280'}}>
-          Use <code>{`{{input.key}}`}</code> to map inputs to global context.
-        </div>
       </div>
     </div>
   );
@@ -319,7 +387,7 @@ function DynamicToolConfig({ schemaStr, currentArgs, onChange }: { schemaStr: st
 }
 
 // [NEW] Retrieval Logic Config Component
-function RetrievalLogicConfig({ node, onUpdate, variables }: { node: Node, onUpdate: any, variables: string[] }) {
+function RetrievalLogicConfig({ node, onUpdate, variables, onFocus }: { node: Node, onUpdate: any, variables: string[], onFocus: () => void }) {
   const logic = node.config?.logic || {};
 
   return (
@@ -332,12 +400,12 @@ function RetrievalLogicConfig({ node, onUpdate, variables }: { node: Node, onUpd
       <div className="config-field">
         <label className="config-label">
             Search Query Template
-            {variables.length > 0 && <span className="badge" style={{marginLeft: 8}}>{variables.length} vars</span>}
         </label>
         <textarea 
           className="input code-editor" 
           rows={3}
           value={logic.query || ""}
+          onFocus={onFocus}
           onChange={(e) => onUpdate('logic', { query: e.target.value })}
           placeholder="{{input.question}}"
         />
@@ -361,13 +429,6 @@ function RetrievalLogicConfig({ node, onUpdate, variables }: { node: Node, onUpd
                 {logic.limit || 3}
             </span>
         </div>
-      </div>
-
-      <div className="config-field">
-         <label className="config-label">Collection</label>
-         <select className="input" disabled>
-             <option>Global Context (Default)</option>
-         </select>
       </div>
     </div>
   );

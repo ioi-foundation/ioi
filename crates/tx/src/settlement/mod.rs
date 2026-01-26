@@ -10,7 +10,7 @@ use ioi_types::app::{SettlementPayload, SettlementTransaction};
 use ioi_types::codec;
 use ioi_types::error::TransactionError;
 use parity_scale_codec::{Decode, Encode};
-use serde::{Deserialize, Serialize}; // [FIX] Kept Serialize, removed Deserialize warning if unused but types derive it
+use serde::Serialize;
 use std::fmt::Debug;
 
 #[derive(Clone, Debug)]
@@ -205,6 +205,47 @@ where
                 let bond_val = state.get(&bond_key)?.unwrap();
                 state.delete(&bond_key)?;
                 state.insert(&dispute_key, &bond_val)?;
+            }
+            
+            // [NEW] UpgradeLiability Payload
+            // Allows upgrading a prior receipt or action to a higher liability level (Tier 2->3).
+            SettlementPayload::UpgradeLiability {
+                receipt,
+                target_level: _,
+                bond_amount,
+                zk_proof,
+            } => {
+                // 1. Check if the receipt is valid and not already disputed
+                // (Simplified: check if receipt hash exists in a local log or recent blocks cache)
+                
+                // 2. Process Bond (if target_level requires it)
+                if let Some(amount) = bond_amount {
+                     let sender = ctx.signer_account_id;
+                     let sender_key = [b"balance::", sender.as_ref()].concat();
+                     let sender_bal: u128 = state
+                        .get(&sender_key)?
+                        .and_then(|b| codec::from_bytes_canonical(&b).ok())
+                        .unwrap_or(0);
+
+                    if sender_bal < *amount {
+                        return Err(TransactionError::InsufficientFunds);
+                    }
+                    
+                    let new_sender_bal = sender_bal - amount;
+                    state.insert(&sender_key, &codec::to_bytes_canonical(&new_sender_bal).unwrap())?;
+                    
+                    // Store the upgrade bond
+                    let upgrade_key = [b"liability::upgrade::", receipt.canonical_payload_hash.as_ref()].concat();
+                    state.insert(&upgrade_key, &codec::to_bytes_canonical(amount).unwrap())?;
+                }
+                
+                // 3. Process ZK Proof (if target_level requires it)
+                if let Some(proof) = zk_proof {
+                     // In a real implementation, this would invoke the verifier registry.
+                     // For now, we just log that a proof was submitted.
+                     let proof_key = [b"liability::proof::", receipt.canonical_payload_hash.as_ref()].concat();
+                     state.insert(&proof_key, &proof)?;
+                }
             }
 
             // [FIX] Correctly ignore unused field

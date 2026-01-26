@@ -83,14 +83,13 @@ export interface Node extends Record<string, unknown> {
   x: number;
   y: number;
 
-  // [NEW] The Sovereign Configuration
-  // Optional to maintain backward compatibility with existing mock data
+  // The Sovereign Configuration
   config?: {
     logic: NodeLogic;
     law: FirewallPolicy; // Renamed
   };
 
-  // [NEW] Dynamic Schema for MCP Tools
+  // Dynamic Schema for MCP Tools
   schema?: string; // JSON Schema string
 
   // Execution Runtime State
@@ -139,8 +138,13 @@ export interface AgentConfiguration {
 // Whitepaper Section 2.4: Execution Modes
 export type ExecutionMode = "local" | "session" | "settlement";
 
-// Whitepaper Section 12.3: Liability & bonding
-export type LiabilityMode = "none" | "optional" | "required";
+// [UPDATED] Refactored to LiabilityLevel per Whitepaper pivot
+// Defines the economic guarantee backing the execution.
+export type LiabilityLevel = 
+  | "none"       // Tier 0: Best Effort (No Receipts)
+  | "auditable"  // Tier 1: Receipt (Reputational Liability)
+  | "insured"    // Tier 2: Bonded (Financial Liability)
+  | "proven";    // Tier 3/4: Certificate (Mathematical Liability)
 
 // ============================================
 // Swarm & Multi-Agent Types (Spotlight View)
@@ -149,16 +153,13 @@ export type LiabilityMode = "none" | "optional" | "required";
 // Chat message structure for persistent history
 export interface ChatMessage {
   role: string; // 'user', 'agent', 'system', 'tool'
-
-  // [NOTE] We map backend `content` to frontend `text` for compatibility with UI components
   text: string;
-  
   timestamp: number;
 }
 
 // Lifecycle states for an autonomous agent in the swarm
 export type AgentStatus = 
-  | 'requisition'  // NEW: A "Hiring Request" waiting for User Signature (Delegation Certificate)
+  | 'requisition'  // A "Hiring Request" waiting for User Signature (Delegation Certificate)
   | 'pending'      // Waiting for budget/approval
   | 'negotiating'  // Handshaking with Provider (Mode 1)
   | 'running'      // Active execution
@@ -176,13 +177,20 @@ export interface AgentTask {
   current_step: string;
   receipt?: { duration: string; actions: number; cost?: string };
   gate_info?: any;
-  // History of the conversation/execution trace
   history: ChatMessage[];
   
-  // [NEW] Evolutionary Metadata
+  // [UPDATED] Replaced verification_tier with liability_level
+  liability_level?: LiabilityLevel;
+  
+  // Evolutionary Metadata
   generation: number;    // The current generation count (0 = Genesis)
   lineage_id: string;    // Unique hash of the agent's evolutionary branch
   fitness_score: number; // 0.0 - 1.0 score of the agent's performance
+  
+  swarm_tree: SwarmAgent[];
+  
+  // Track processed steps using a composite key "{step}:{tool}"
+  processed_steps: Set<string>;
 }
 
 // Whitepaper Section 14.1: Manager-Worker Hierarchy
@@ -209,7 +217,7 @@ export interface SwarmAgent {
   current_thought?: string;
   artifacts_produced: number;
   
-  // [NEW] Evolutionary Status
+  // Evolutionary Status
   generation?: number;
 }
 
@@ -220,7 +228,7 @@ export interface SessionSummary {
     timestamp: number;
 }
 
-// [NEW] Mutation Log Entry for DNA Tab
+// Mutation Log Entry for DNA Tab
 export interface MutationLogEntry {
     generation: number;
     parent_hash: string;
@@ -231,7 +239,7 @@ export interface MutationLogEntry {
     timestamp: number;
 }
 
-// [NEW] Tool Definition from Backend (matches LlmToolDefinition)
+// Tool Definition from Backend (matches LlmToolDefinition)
 export interface LlmToolDefinition {
     name: string;
     description: string;
@@ -247,6 +255,8 @@ export interface NodeArtifacts {
     output?: string;
     metrics?: any;
     timestamp: number;
+    // Explicit Input Snapshot for Data Observability
+    input_snapshot?: any;
   };
 }
 
@@ -273,6 +283,18 @@ export interface GraphGlobalConfig {
     maxBudget: number;
     maxSteps: number;
     timeoutMs: number;
+  };
+  // [UPDATED] Liability Configuration (The Contract)
+  // Replaces the generic 'contract' field with specific liability settings
+  liability: {
+    // The level of insurance/guarantee required (Tier 0-4)
+    level: LiabilityLevel;
+    
+    // Amount staked by the developer (if level >= insured)
+    developerBond: number;
+    
+    // Success criteria for arbitration (if level >= proven)
+    adjudicationRubric: string;
   };
   meta: {
     name: string;

@@ -22,6 +22,7 @@ export function useGraphExecution(
   const [isExecuting, setIsExecuting] = useState(false);
 
   // [NEW] Cache Rehydration Effect
+  // Checks if backend has cached results for current node configs to show "ready" state immediately
   useEffect(() => {
     // Debounce to avoid flooding IPC on every keystroke
     const timer = setTimeout(() => {
@@ -41,23 +42,34 @@ export function useGraphExecution(
           });
           
           if (result) {
+             // @ts-ignore
+             const res = result as any;
              console.log(`[Cache] Rehydrated ${node.id}`);
              setNodeArtifacts(prev => ({
                  ...prev,
                  [node.id]: {
-                     // @ts-ignore
-                     output: result.output,
-                     // @ts-ignore
-                     metrics: result.metrics,
+                     output: res.output,
+                     metrics: res.metrics,
                      timestamp: Date.now(),
-                     // @ts-ignore
-                     input_snapshot: result.input_snapshot
+                     input_snapshot: res.input_snapshot
                  }
              }));
              
              // Visual indication
              // eslint-disable-next-line @typescript-eslint/no-explicit-any
-             setNodes((nds: any[]) => nds.map((n) => n.id === node.id ? { ...n, data: { ...n.data, status: 'success' } } : n));
+             setNodes((nds: any[]) => nds.map((n) => {
+                if (n.id === node.id) {
+                    return { 
+                        ...n, 
+                        data: { 
+                            ...n.data, 
+                            status: 'success',
+                            metrics: res.metrics // Hydrate metrics from cache
+                        } 
+                    };
+                }
+                return n;
+             }));
           }
         } catch (e) {
            // Ignore cache check errors
@@ -71,15 +83,33 @@ export function useGraphExecution(
   useEffect(() => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const unlisten = listen<any>("graph-event", (event) => {
-      const { node_id, status, result } = event.payload;
+      const { node_id, status, result, fitness_score, generation } = event.payload;
       const timestamp = new Date().toISOString();
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const nodeName = nodes.find((n: any) => n.id === node_id)?.data?.name || node_id;
       
-      // 1. Visual Status Update
+      // 1. Visual Status & Metrics Update
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       setNodes((nds: any[]) => nds.map((n) => {
-        if (n.id === node_id) return { ...n, data: { ...n.data, status } };
+        if (n.id === node_id) {
+            const currentMetrics = n.data.metrics || {};
+            // Merge new metrics if available (including evolutionary data)
+            const newMetrics = {
+              ...currentMetrics,
+              ...(result?.metrics || {}),
+              ...(fitness_score !== undefined ? { fitness_score } : {}),
+              ...(generation !== undefined ? { generation } : {})
+            };
+
+            return { 
+                ...n, 
+                data: { 
+                    ...n.data, 
+                    status,
+                    metrics: newMetrics
+                } 
+            };
+        }
         return n;
       }));
 
@@ -250,7 +280,15 @@ export function useGraphExecution(
     }]);
     
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    setNodes((nds: any[]) => nds.map((n) => n.id === nodeId ? { ...n, data: { ...n.data, status: "success" } } : n));
+    setNodes((nds: any[]) => nds.map((n) => n.id === nodeId ? { 
+        ...n, 
+        data: { 
+            ...n.data, 
+            status: "success",
+            // Merge metrics from unit test result
+            metrics: { ...n.data.metrics, ...(result.metrics || {}) }
+        } 
+    } : n));
     
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     setEdges((eds: any[]) => eds.map((e) => {

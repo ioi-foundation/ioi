@@ -7,6 +7,7 @@ use std::fs;
 use std::path::Path;
 use std::sync::{Arc, Mutex};
 use tauri::State;
+use ioi_crypto::algorithms::hash::sha256; // [NEW] Import for hashing
 
 const CHUNK_SIZE: usize = 4096;
 
@@ -54,20 +55,24 @@ pub async fn ingest_file(
     // We lock SCS for the batch to ensure consistency
     {
         let mut store = scs_arc.lock().map_err(|_| "Failed to lock SCS")?;
-        let session_id = [0u8; 32];
         let block_height = 0;
         let mhnsw_root = [0u8; 32];
 
         for chunk in &chunks {
+            // [NEW] Calculate content hash for integrity/deduplication
+            let hash_res = sha256(chunk).map_err(|e| format!("Hash failed: {}", e))?;
+            let mut content_hash = [0u8; 32];
+            content_hash.copy_from_slice(hash_res.as_ref());
+
             // A. Store Raw Frame
             // We use a zero-hash for mhnsw_root initially; typically updated after commit.
-            // For MVP, we commit the index at the END of the batch.
+            // We use the content hash as the session_id/context identifier.
             let frame_id = store.append_frame(
                 FrameType::Observation,
                 chunk,
                 block_height,
                 mhnsw_root,
-                session_id,
+                content_hash,
             ).map_err(|e| format!("Failed to write frame: {}", e))?;
 
             frame_ids.push(frame_id);

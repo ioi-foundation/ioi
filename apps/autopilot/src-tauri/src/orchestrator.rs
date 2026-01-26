@@ -1,6 +1,6 @@
 // apps/autopilot/src-tauri/src/orchestrator.rs
 
-use crate::execution::{self, ExecutionResult};
+use crate::execution::{self, ExecutionResult, GovernanceTier}; // [NEW] Import GovernanceTier
 use crate::models::{AgentTask, SessionSummary}; 
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
@@ -299,6 +299,16 @@ where F: Fn(GraphEvent) + Send + 'static
     let max_steps = policy.get("maxSteps").and_then(|v| v.as_u64()).unwrap_or(50);
     let timeout_ms = policy.get("timeoutMs").and_then(|v| v.as_u64()).unwrap_or(30_000);
 
+    // [NEW] Extract Governance Tier from Global Policy
+    let liability_mode = policy.get("liability").and_then(|s| s.as_str()).unwrap_or("optional");
+    let tier = match liability_mode {
+        "none" => GovernanceTier::None,
+        "required" => GovernanceTier::Strict,
+        _ => GovernanceTier::Silent, // Default to "Optional" / Silent
+    };
+
+    println!("[Orchestrator] Running graph with Governance Tier: {:?}", tier);
+
     let start_time = Instant::now();
     let mut step_count = 0;
 
@@ -432,7 +442,8 @@ where F: Fn(GraphEvent) + Send + 'static
             &input_str, 
             active_session_id.clone(), 
             scs.clone(), 
-            inference.clone() // [FIX] Passed inference
+            inference.clone(), // [FIX] Passed inference
+            tier // [NEW] Pass tier
         ).await {
             Ok(mut res) => {
                 res.input_snapshot = Some(effective_input.clone());

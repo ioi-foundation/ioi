@@ -18,13 +18,20 @@ use ioi_services::agentic::rules::{ActionRules, DefaultPolicy, Rule, RuleConditi
 use ioi_types::app::{ActionContext, ActionRequest, ActionTarget};
 use ioi_api::vm::drivers::os::OsDriver;
 use ioi_drivers::os::NativeOsDriver;
-use ioi_api::vm::inference::{LocalSafetyModel, SafetyVerdict, InferenceRuntime}; // [FIX] Added InferenceRuntime
+use ioi_api::vm::inference::{LocalSafetyModel, SafetyVerdict, InferenceRuntime};
 use async_trait::async_trait;
 
-// [NEW] SCS Integration
+// SCS Integration
 use ioi_scs::SovereignContextStore;
 
-// [MODIFIED] Added `input_snapshot` field for Data Intimacy / Input Observability
+// [NEW] Governance Tiers for Execution Context
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum GovernanceTier {
+    None,     // "God Mode" - No checks, raw execution
+    Silent,   // "Local" - Log policies but auto-allow unless critical
+    Strict,   // "Settlement" - Full policy enforcement + Gates
+}
+
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct ExecutionResult {
     pub status: String,
@@ -32,7 +39,6 @@ pub struct ExecutionResult {
     pub data: Option<Value>,
     pub metrics: Option<Value>,
     pub input_snapshot: Option<Value>,
-    // [NEW] Explicit context slice for UI visualization
     pub context_slice: Option<Value>,
 }
 
@@ -167,7 +173,7 @@ fn synthesize_node_policy(node_type: &str, law_config: &Value) -> ActionRules {
     }
 }
 
-// [MODIFIED] Governance Logic: Construct canonical ActionRequest with Session Context
+// Governance Logic: Construct canonical ActionRequest with Session Context
 fn map_to_action_request(
     node_type: &str, 
     logic_config: &Value, 
@@ -201,7 +207,6 @@ fn map_to_action_request(
 
     let params_bytes = serde_json::to_vec(&params_obj).unwrap_or_default();
 
-    // [FIXED] Correctly convert Vec<u8> from hex::decode into [u8; 32]
     let session_id_bytes: Option<[u8; 32]> = session_id.and_then(|s| {
         let vec = hex::decode(s).ok()?;
         if vec.len() == 32 {
@@ -230,8 +235,15 @@ async fn check_governance(
     node_type: &str, 
     config: &Value, 
     input_context: &str,
-    session_id: Option<String> 
+    session_id: Option<String>,
+    tier: GovernanceTier // [NEW] Accept Tier
 ) -> Result<(), String> {
+    
+    // 1. "God Mode" Bypass
+    if tier == GovernanceTier::None {
+        return Ok(());
+    }
+
     let default_val = serde_json::json!({});
     let law_config = config.get("law").unwrap_or(&default_val);
     let logic_config = config.get("logic").unwrap_or(&default_val);
@@ -239,7 +251,7 @@ async fn check_governance(
     let policy = synthesize_node_policy(node_type, law_config);
     let request = map_to_action_request(node_type, logic_config, input_context, session_id);
 
-    // Evaluate against policy + current OS state (which includes pending approvals in mem/disk)
+    // Evaluate against policy + current OS state
     let verdict = PolicyEngine::evaluate(
         &policy,
         &request,
@@ -250,27 +262,41 @@ async fn check_governance(
 
     match verdict {
         Verdict::Allow => Ok(()),
-        Verdict::Block => Err("🛡️ BLOCKED: Policy violation (e.g., Domain not in allowlist)".into()),
-        Verdict::RequireApproval => Err("🛡️ PAUSED: Execution requires Human Approval (Gate)".into()),
+        Verdict::Block => {
+            // 2. Silent Mode: Only block if it's a "Hard" violation (e.g. key access), 
+            // otherwise allow but log warning.
+            // For MVP, we treat Block as Block, but in production this would differ.
+            Err("🛡️ BLOCKED: Policy violation (e.g., Domain not in allowlist)".into())
+        },
+        Verdict::RequireApproval => {
+            // 3. Silent Mode: Auto-approve "Soft" gates
+            if tier == GovernanceTier::Silent {
+                // Log the bypass
+                println!("[Governance] Auto-approving gate for {} (Silent Mode)", node_type);
+                Ok(())
+            } else {
+                Err("🛡️ PAUSED: Execution requires Human Approval (Gate)".into())
+            }
+        },
     }
 }
 
 /// Main entry point for executing a node in the local environment.
-/// [MODIFIED] Added `scs` and `inference` arguments
 pub async fn execute_ephemeral_node(
     node_type: &str,
     full_config: &Value, 
     input_json: &str,
     session_id: Option<String>,
-    scs: Arc<Mutex<SovereignContextStore>>, // [NEW]
-    inference: Arc<dyn InferenceRuntime>,   // [NEW]
+    scs: Arc<Mutex<SovereignContextStore>>,
+    inference: Arc<dyn InferenceRuntime>,
+    // [NEW] Configurable Governance Tier
+    tier: GovernanceTier 
 ) -> Result<ExecutionResult, Box<dyn Error>> {
     
-    // Parse input snapshot primarily for debugging visibility in blocked states
     let input_snapshot: Option<Value> = serde_json::from_str(input_json).ok();
 
     // --- STEP 1: GOVERNANCE CHECK ---
-    if let Err(violation) = check_governance(node_type, full_config, input_json, session_id.clone()).await {
+    if let Err(violation) = check_governance(node_type, full_config, input_json, session_id.clone(), tier).await {
         return Ok(ExecutionResult {
             status: "blocked".to_string(),
             output: violation,
@@ -296,7 +322,6 @@ pub async fn execute_ephemeral_node(
                 run_tool_execution(logic_config, input_json).await
             }
         },
-        // [NEW] Semantic Retrieval
         "retrieval" => run_retrieval_execution(logic_config, input_json, scs, inference).await,
         
         "receipt" => Ok(ExecutionResult {
@@ -453,8 +478,12 @@ async fn run_browser_execution(config: &Value, input: &str) -> Result<ExecutionR
             }
         },
         "click" => {
-            let selector = config.get("selector").and_then(|v| v.as_str()).ok_or("Missing 'selector'")?;
-             match BROWSER_DRIVER.click_selector(selector).await {
+            let selector_template = config.get("selector").and_then(|v| v.as_str()).ok_or("Missing 'selector'")?;
+            
+            // [UPDATED] Interpolate the selector string
+            let selector = interpolate_template(selector_template, &input_obj);
+
+             match BROWSER_DRIVER.click_selector(&selector).await {
                 Ok(_) => Ok(ExecutionResult {
                     status: "success".to_string(),
                     output: format!("Clicked element: {}", selector),
@@ -465,7 +494,7 @@ async fn run_browser_execution(config: &Value, input: &str) -> Result<ExecutionR
                 }),
                 Err(e) => Ok(ExecutionResult {
                     status: "error".to_string(),
-                    output: format!("Click failed: {}", e),
+                    output: format!("Click failed for '{}': {}", selector, e),
                     data: None,
                     metrics: None,
                     input_snapshot: Some(input_obj),
@@ -577,7 +606,7 @@ async fn run_gate_execution(config: &Value, input: &str) -> Result<ExecutionResu
     })
 }
 
-// [NEW] Helper to format retrieval results into LLM-friendly text
+// Helper to format retrieval results into LLM-friendly text
 fn format_context_for_llm(input_obj: &Value) -> String {
     let mut context_str = String::new();
 
@@ -616,7 +645,7 @@ async fn run_llm_inference(config: &Value, input_json: &str) -> Result<Execution
 
     let input_obj: Value = serde_json::from_str(input_json).unwrap_or(serde_json::json!({}));
 
-    // [MODIFIED] Intelligent Context Injection
+    // Intelligent Context Injection
     // 1. Interpolate variables as before
     let mut interpolated_prompt = if system_prompt.contains("{{") {
         interpolate_template(system_prompt, &input_obj)
@@ -828,7 +857,7 @@ async fn run_context_execution(config: &Value, input: &str) -> Result<ExecutionR
     })
 }
 
-// [NEW] Semantic Retrieval Implementation
+// Semantic Retrieval Implementation
 async fn run_retrieval_execution(
     config: &Value, 
     input: &str,

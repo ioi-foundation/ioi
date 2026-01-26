@@ -9,15 +9,17 @@ import {
   Node as FlowNode,
   BackgroundVariant,
   NodeTypes,
-  EdgeTypes, // Added
+  EdgeTypes, 
   type OnNodesChange,
   type OnEdgesChange,
-  type OnConnect
+  type OnConnect,
+  type NodeMouseHandler,
+  type EdgeMouseHandler
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css'; 
 
 import { CanvasNode } from './CanvasNode';
-import { CanvasEdge } from './CanvasEdge'; // Added
+import { CanvasEdge } from './CanvasEdge'; 
 import type { Node as IOINode } from '../types';
 import "./Canvas.css";
 
@@ -28,6 +30,8 @@ interface CanvasProps {
   onEdgesChange: OnEdgesChange;
   onConnect: OnConnect;
   onNodeSelect: (nodeId: string | null) => void;
+  onNodeClick?: NodeMouseHandler;
+  onEdgeClick?: EdgeMouseHandler;
 }
 
 export function Canvas({ 
@@ -36,7 +40,9 @@ export function Canvas({
   onNodesChange, 
   onEdgesChange, 
   onConnect,
-  onNodeSelect 
+  onNodeSelect,
+  onNodeClick,
+  onEdgeClick
 }: CanvasProps) {
 
   const handleSelectionChange = useCallback(({ nodes }: { nodes: FlowNode<IOINode>[] }) => {
@@ -47,17 +53,21 @@ export function Canvas({
     }
   }, [onNodeSelect]);
 
-  // Memoize nodeTypes
+  // [FIX] Added missing node types here
   const nodeTypes: NodeTypes = useMemo(() => ({
     trigger: CanvasNode,
     action: CanvasNode,
     gate: CanvasNode,
     model: CanvasNode,
     tool: CanvasNode,
-    receipt: CanvasNode
+    receipt: CanvasNode,
+    retrieval: CanvasNode, // Required for agent compiler
+    code: CanvasNode,
+    router: CanvasNode,
+    wait: CanvasNode,
+    context: CanvasNode,
   }), []);
 
-  // Memoize edgeTypes
   const edgeTypes: EdgeTypes = useMemo(() => ({
     semantic: CanvasEdge,
   }), []);
@@ -71,12 +81,13 @@ export function Canvas({
         onEdgesChange={onEdgesChange}
         onConnect={onConnect}
         onSelectionChange={handleSelectionChange}
+        onNodeClick={onNodeClick}
+        onEdgeClick={onEdgeClick}
         nodeTypes={nodeTypes}
-        edgeTypes={edgeTypes} // Added
+        edgeTypes={edgeTypes}
         fitView
         snapToGrid
         snapGrid={[15, 15]}
-        // Default to our semantic edge
         defaultEdgeOptions={{ type: 'semantic', animated: false }}
         minZoom={0.2}
       >

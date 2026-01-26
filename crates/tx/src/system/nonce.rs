@@ -26,8 +26,7 @@ fn get_tx_details(tx: &ChainTransaction) -> Option<(AccountId, u64)> {
             | ioi_types::app::ApplicationTransaction::CallContract { header, .. } => {
                 Some((header.account_id, header.nonce))
             }
-            // UTXO removed from types
-            _ => None,
+            // [FIX] Removed unreachable `_ => None` pattern as Deploy and Call are the only variants
         },
         ChainTransaction::Semantic { .. } => None,
     }
