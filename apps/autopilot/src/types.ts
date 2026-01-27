@@ -163,6 +163,7 @@ export type AgentStatus =
   | 'pending'      // Waiting for budget/approval
   | 'negotiating'  // Handshaking with Provider (Mode 1)
   | 'running'      // Active execution
+  | 'paused'       // [FIX] Added 'paused' status
   | 'reviewing'    // Waiting for Manager/User feedback
   | 'completed'    // Task finished, receipt generated
   | 'failed';      // Policy breach or runtime error

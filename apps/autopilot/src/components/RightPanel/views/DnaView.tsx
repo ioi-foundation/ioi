@@ -1,7 +1,19 @@
 import { Node } from "../../../types";
+import { useState, useEffect } from "react";
+import { listen } from "@tauri-apps/api/event";
 
 interface DnaViewProps {
   node?: Node | null;
+}
+
+// [NEW] Interface for mutation events
+interface MutationEvent {
+  generation: number;
+  reason: string;
+  score_delta: number;
+  // Screenshot hash that triggered this learning event
+  trigger_visual_hash?: string;
+  timestamp: number;
 }
 
 export function DnaView({ node }: DnaViewProps) {
@@ -10,6 +22,17 @@ export function DnaView({ node }: DnaViewProps) {
   const metrics = node?.metrics as any || {};
   const generation = metrics.generation ?? 0;
   const fitness = metrics.fitness_score ?? 0.0;
+  
+  // Local state for live mutations
+  const [mutations, setMutations] = useState<MutationEvent[]>([]);
+
+  // Listen for evolution events
+  useEffect(() => {
+      const unlisten = listen<MutationEvent>("agent-mutation", (e) => {
+          setMutations(prev => [e.payload, ...prev]);
+      });
+      return () => { unlisten.then(f => f()); };
+  }, []);
   
   // Previous generation reference (Mock logic for UI demo, would normally come from history)
   const prevGen = Math.max(0, generation - 1);
@@ -38,6 +61,28 @@ export function DnaView({ node }: DnaViewProps) {
         <span className="section-title" style={{marginBottom: 8, display: 'block'}}>Mutation Log</span>
 
         <div className="mutation-log">
+            {/* Live Mutations */}
+            {mutations.map((mut, i) => (
+                <div key={i} className="mutation-entry success live">
+                    <div className="mutation-meta">
+                        <span>Gen {mut.generation - 1} → {mut.generation}</span>
+                        <span className="timestamp">Live</span>
+                    </div>
+                    <div className="mutation-reason">
+                        {mut.reason}
+                    </div>
+                    {mut.trigger_visual_hash && (
+                        <div className="visual-trigger" title="Learned from this screen state">
+                            <span className="trigger-icon">👁️</span> Visual Context
+                        </div>
+                    )}
+                    <div className="mutation-score positive">
+                        +{mut.score_delta.toFixed(2)} Fitness
+                    </div>
+                </div>
+            ))}
+
+            {/* Historical State */}
             {generation > 0 ? (
                 <div className="mutation-entry success">
                     <div className="mutation-meta">

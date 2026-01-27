@@ -20,6 +20,15 @@ const CheckIcon = () => (<svg width="12" height="12" viewBox="0 0 24 24" fill="n
 const TreeIcon = () => (<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 3v18"/><path d="M8 7l4-4 4 4"/><path d="M8 21H4a2 2 0 0 1-2-2v-4"/><path d="M16 21h4a2 2 0 0 0 2-2v-4"/></svg>);
 const TimelineIcon = () => (<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="12" y1="20" x2="12" y2="10"/><line x1="18" y1="20" x2="18" y2="4"/><line x1="6" y1="20" x2="6" y2="16"/><line x1="12" y1="4" x2="12" y2="4"/></svg>);
 
+// [NEW] Memory Bulb Icon
+const BulbIcon = () => (
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <path d="M9 22h6c.5 0 1-.4 1-1v-2H8v2c0 .6.4 1 1 1Z"/>
+      <path d="M18 10a6 6 0 0 0-12 0c0 4 2 5 2 9h8c0-4 2-5 2-9Z"/>
+      <line x1="10" x2="14" y1="2" y2="2"/>
+    </svg>
+);
+
 // Role emoji mapping
 const getRoleEmoji = (role: string): string => {
   const map: Record<string, string> = {
@@ -345,6 +354,9 @@ function AgentNode({
   const isRunning = agent.status === 'running';
   
   const budgetPercent = agent.budget_cap > 0 ? Math.min((agent.budget_used / agent.budget_cap) * 100, 100) : 0;
+  
+  // [NEW] Memory usage heuristic
+  const usedMemory = agent.current_thought && agent.current_thought.includes("[SKILL]");
 
   return (
     <div className={`agent-node-v2 depth-${Math.min(depth, 3)}`} style={{ '--depth': isSquadMember ? 0 : depth } as React.CSSProperties}>
@@ -367,6 +379,8 @@ function AgentNode({
           <div className="agent-name-row">
             <span className="agent-name">{agent.name}</span>
             <span className="agent-role-badge">{agent.role}</span>
+            {/* [NEW] Memory Indicator */}
+            {usedMemory && <span className="memory-badge" title="Using retrieved memory"><BulbIcon /></span>}
           </div>
           <div className="agent-status-row">
             <span className={`status-badge ${agent.status}`}>

@@ -69,6 +69,9 @@ pub enum FrameType {
     Action,
     /// System metadata or checkpoints (e.g., Vector Index snapshot).
     System,
+    /// [NEW] A crystallized capability learned from successful execution.
+    /// Contains a structured workflow or tool definition (JSON/WASM).
+    Skill,
 }
 
 /// Metadata for a single unit of memory (a Frame).

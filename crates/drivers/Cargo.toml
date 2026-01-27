@@ -30,6 +30,12 @@ enigo = "0.2.1"
 # Replacement for Screenshot-desktop (Vision)
 xcap = { version = "0.0.14", default-features = false }
 image = "0.25"
+
+# [NEW] Visual Grounding Dependencies (Set-of-Marks)
+# Required to draw bounding boxes and IDs on screenshots for the VLM to achieve high-fidelity targeting.
+imageproc = "0.25"
+rusttype = "0.9"
+
 image_hasher = "2.0"
 
 # Replacement for DOM/Accessibility Parsing
