@@ -17,6 +17,7 @@ use ioi_scs::SovereignContextStore;
 use ioi_services::{
     agentic::desktop::DesktopAgentService, governance::GovernanceModule, identity::IdentityHub,
     provider_registry::ProviderRegistryService,
+    agentic::optimizer::OptimizerService, // [NEW] Import Optimizer
 };
 use ioi_storage::RedbEpochStore;
 use ioi_tx::unified::UnifiedTransactionModel;
@@ -39,8 +40,10 @@ use crate::standard::workload::hydration::ModelHydrator;
 use crate::standard::workload::runtime::StandardInferenceRuntime;
 
 use ioi_api::vm::inference::{mock::MockInferenceRuntime, HttpInferenceRuntime};
+use ioi_api::vm::inference::LocalSafetyModel; // [FIX] Import for Optimizer safety model
 
 use crate::standard::workload::drivers::verified_http::VerifiedHttpRuntime;
+use ioi_services::agentic::scrub_adapter::RuntimeAsSafetyModel; // [FIX] Import Safety Model adapter
 
 use tonic::transport::{Certificate, Channel, ClientTlsConfig, Identity};
 
@@ -434,6 +437,20 @@ where
             }
         }
     }
+
+    // [NEW] Instantiate Optimizer Service
+    // The optimizer requires an InferenceRuntime and a LocalSafetyModel.
+    // We use the reasoning_runtime for high-quality mutation and wrap the fast_runtime for safety checks.
+    let safety_adapter: Arc<dyn LocalSafetyModel> = Arc::new(RuntimeAsSafetyModel::new(fast_runtime.clone()));
+    
+    let optimizer_service = OptimizerService::new(
+        reasoning_runtime.clone(),
+        safety_adapter.clone(),
+    );
+    
+    // Register Optimizer
+    initial_services.push(Arc::new(optimizer_service) as Arc<dyn UpgradableService>);
+    tracing::info!(target: "workload", event = "service_init", name = "Optimizer", impl="native", capabilities="RSI_Engine");
 
     if let Some(gui) = gui_driver {
         tracing::info!(target: "workload", event = "service_init", name = "DesktopAgent", impl="native");

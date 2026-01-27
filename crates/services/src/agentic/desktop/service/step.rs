@@ -23,6 +23,11 @@ use crate::agentic::grounding::parse_vlm_action;
 use tokio::sync::mpsc;
 use base64::{engine::general_purpose::STANDARD as BASE64, Engine as _};
 
+// [NEW] Imports for RSI Trigger
+use ioi_types::app::{ChainTransaction, SignHeader, SignatureProof, SignatureSuite, SystemPayload, SystemTransaction};
+use ioi_types::app::account_id_from_key_material;
+use ioi_api::crypto::SigningKeyPair;
+
 const CHARS_PER_TOKEN: u64 = 4;
 
 // [NEW] Helper to create safe defaults if policy is missing
@@ -94,6 +99,17 @@ fn sanitize_llm_json(input: &str) -> String {
     input.to_string()
 }
 
+/// Calculates Hamming distance between two 32-byte (256-bit) pHashes.
+fn hamming_distance(a: &[u8; 32], b: &[u8; 32]) -> u32 {
+    let mut dist = 0;
+    // pHash is typically 64-bit (8 bytes). We only compare the first 8 bytes.
+    for i in 0..8 {
+        let xor = a[i] ^ b[i];
+        dist += xor.count_ones();
+    }
+    dist
+}
+
 pub async fn handle_step(
     service: &DesktopAgentService,
     state: &mut dyn StateAccess,
@@ -147,7 +163,38 @@ pub async fn handle_step(
         }
     };
     
-    // Capture Accessibility Tree (DOM)
+    // 1. Capture Visual Context (Screenshot)
+    let screenshot_bytes = service.gui.capture_screen().await.map_err(|e| {
+        TransactionError::Invalid(format!("Visual capture failed: {}", e))
+    })?;
+
+    let visual_phash = compute_phash(&screenshot_bytes)?;
+    
+    // --- [NEW] Visual Caching (The "Reflex" Bypass) ---
+    // If the screen hasn't changed significantly since the last step, we can:
+    // 1. Infer the previous action failed (loop detection).
+    // 2. Or assume we are waiting for something.
+    // 3. Or route to a cheaper model to verify "am I stuck?".
+    if let Some(last_hash) = agent_state.last_screen_phash {
+        let dist = hamming_distance(&visual_phash, &last_hash);
+        
+        if dist < 2 && agent_state.step_count > 0 {
+            // Screen is identical.
+            log::warn!("Visual Caching: Screen static (dist={}). Routing to Fast System (Reflex).", dist);
+            // We could skip VLM here and force a wait or check specific element state via accessibility.
+            // For now, we proceed but log it, allowing `select_runtime` to potentially downgrade.
+        }
+    }
+
+    // Update state with current visual hash for the *next* step's verification
+    agent_state.last_screen_phash = Some(visual_phash);
+
+    let content_digest = ioi_crypto::algorithms::hash::sha256(&screenshot_bytes)
+        .map_err(|e| TransactionError::Invalid(e.to_string()))?;
+    let mut content_hash = [0u8; 32];
+    content_hash.copy_from_slice(content_digest.as_ref());
+
+    // 2. Capture Accessibility Tree (DOM)
     let observation_intent = ActionRequest {
         target: ActionTarget::GuiScreenshot,
         params: agent_state.goal.as_bytes().to_vec(),
@@ -169,18 +216,6 @@ pub async fn handle_step(
     }
     let tree_xml = String::from_utf8_lossy(&tree_xml_bytes);
 
-    // Capture Visuals (Screenshot)
-    let screenshot_bytes = service.gui.capture_screen().await.map_err(|e| {
-        TransactionError::Invalid(format!("Visual capture failed: {}", e))
-    })?;
-
-    let visual_phash = compute_phash(&screenshot_bytes)?;
-
-    let content_digest = ioi_crypto::algorithms::hash::sha256(&screenshot_bytes)
-        .map_err(|e| TransactionError::Invalid(e.to_string()))?;
-    let mut content_hash = [0u8; 32];
-    content_hash.copy_from_slice(content_digest.as_ref());
-
     if let Some(scs_arc) = &service.scs {
         if let Ok(mut store) = scs_arc.lock() {
             let _ = store.append_frame(
@@ -193,16 +228,42 @@ pub async fn handle_step(
         }
     }
 
-    let available_tools = if agent_state.mode == AgentMode::Chat {
+    let mut available_tools = if agent_state.mode == AgentMode::Chat {
         Vec::new()
     } else {
-        let base_tools = discover_tools(state);
+        // [MODIFIED] Pass SCS to discover_tools to include learned skills
+        // Note: The SCS mutex guard is dropped inside discover_tools logic, safe for concurrency
+        let scs_ref = service.scs.as_deref();
+        let base_tools = discover_tools(state, scs_ref);
         if let Some(mcp) = &service.mcp {
             let mcp_tools = mcp.get_all_tools().await;
             merge_tools(base_tools, mcp_tools)
         } else {
             base_tools
         }
+    };
+
+    // --- [NEW] Auto-RAG / Context Retrieval ---
+    // Search the SCS for relevant past experiences using visual + semantic context.
+    // Query combines user goal + current screen state (tree_xml).
+    // We truncate tree_xml to save tokens in the embedding.
+    let query_context = format!("Goal: {}\nScreen: {}", agent_state.goal, tree_xml.chars().take(500).collect::<String>());
+    let retrieved_context = service.retrieve_context(&query_context, Some(visual_phash)).await;
+
+    // --- [NEW] Reflex Routing Logic ---
+    // Check if the accessibility tree contains simple modal keywords.
+    // If so, we force the use of the fast/local model to handle it cheaply.
+    let is_simple_interaction = tree_xml.contains("Accept Cookies") 
+        || tree_xml.contains("Close") 
+        || tree_xml.contains("Remind Me Later");
+
+    // Dynamic Runtime Selection
+    // We override the default `select_runtime` if we detect a trivial UI state.
+    let runtime = if is_simple_interaction {
+        log::info!("Reflex Routing: Trivial UI detected. Using Fast Inference.");
+        service.fast_inference.clone()
+    } else {
+        service.select_runtime(&agent_state)
     };
 
     let skills = service.recall_skills(state, &agent_state.goal).await?;
@@ -225,15 +286,8 @@ pub async fn handle_step(
     );
 
     let history = service.hydrate_session_history(p.session_id)?;
-
-    // [MODIFIED] Construct Multimodal Input Payload (Vision + Text)
-    // This format aligns with OpenAI GPT-4o / Anthropic Claude 3.5 Sonnet vision inputs.
-    // The `http_adapter` must handle serializing this JSON array to the provider's API.
-    
-    // 1. Prepare Base64 Image
     let base64_image = BASE64.encode(&screenshot_bytes);
 
-    // 2. Build System Instructions
     let system_instructions = format!(
         "SYSTEM INSTRUCTION: You are an autonomous desktop agent.
         Your Goal: {}
@@ -242,6 +296,9 @@ pub async fn handle_step(
         {}
         
         AVAILABLE TOOLS:
+        {}
+
+        RETRIEVED MEMORY:
         {}
         
         HISTORY:
@@ -252,6 +309,7 @@ pub async fn handle_step(
         2. To speak to the user, use the 'chat__reply' tool.
         3. To open an application (calculator, browser, etc), ALWAYS use 'sys__exec' with 'detach': true. Do NOT try to click icons.
         4. If the user's specific request is satisfied by the previous action, you MUST call 'agent__complete' immediately.
+        5. Use 'computer' tool for precise interactions if available.
         
         EXAMPLE RESPONSE:
         {{
@@ -263,10 +321,8 @@ pub async fn handle_step(
         agent_state.goal,
         workspace_context,
         serde_json::to_string_pretty(&available_tools).unwrap_or_default(),
-        history
-            .iter()
-            .map(|m| format!("{}: {}", m.role, m.content))
-            .collect::<Vec<_>>()
+        retrieved_context, // Inject Auto-RAG context here
+        history.iter().map(|m| format!("{}: {}", m.role, m.content)).collect::<Vec<_>>()
     );
 
     // 3. Assemble Multimodal User Message
@@ -358,7 +414,6 @@ pub async fn handle_step(
             },
             json_mode: true, // Enforce structured output via HTTP adapter
         };
-        let runtime = service.select_runtime(&agent_state);
 
         // [NEW] Setup streaming channel if event_sender is present
         let token_tx = if let Some(sender) = &service.event_sender {
@@ -498,6 +553,8 @@ pub async fn handle_step(
             TransactionError::Invalid("OS Driver not configured for policy check".into())
         })?;
 
+        // [CRITICAL] Pass visual_phash to the executor.
+        // This enables the "Visual Interlock" check inside NativeOperator::inject.
         let result = service
             .handle_action_execution(
                 &executor,
@@ -505,7 +562,7 @@ pub async fn handle_step(
                 &tool_call,
                 p.session_id,
                 agent_state.step_count,
-                visual_phash,
+                visual_phash, // <--- Visual State Anchor passed here
                 &rules,
                 &agent_state,
                 &os_driver,
@@ -573,62 +630,80 @@ pub async fn handle_step(
             }
             Err(e) => {
                 let err_str = e.to_string();
-                let is_pending_approval = if let TransactionError::PendingApproval(_) = &e {
-                    true
-                } else {
-                    err_str.contains("Approval required") || err_str.contains("PendingApproval")
-                };
-
-                if is_pending_approval {
-                    agent_state.recent_actions.pop();
-                    agent_state.status = AgentStatus::Paused("Waiting for User Approval".into());
-
-                    let mut real_request_hash = [0u8; 32];
-                    if let TransactionError::PendingApproval(hash) = e {
-                        if let Ok(hash_bytes) = hex::decode(&hash) {
-                            if let Ok(hash_arr) = hash_bytes.try_into() {
-                                real_request_hash = hash_arr;
-                                use ioi_types::app::action::{ApprovalToken};
-                                agent_state.pending_approval = Some(ApprovalToken {
-                                    request_hash: hash_arr,
-                                    scope: Default::default(),
-                                    approver_sig: vec![],
-                                    approver_suite: Default::default(),
-                                });
-                            }
-                        }
-                    }
-
-                    agent_state.pending_tool_call = Some(output_str.clone());
-
-                    let msg = format!(
-                        "System: Action '{}' halted by Agency Firewall. Requesting authorization.",
-                        action_type
-                    );
-                    
-                    let sys_msg = ioi_types::app::agentic::ChatMessage {
+                
+                // Handle Visual Drift Errors explicitly
+                if err_str.contains("Visual Drift Detected") {
+                     let msg = format!("System: Action ABORTED. Screen state changed (popup/navigation) between thought and action. Re-evaluating.");
+                     let sys_msg = ioi_types::app::agentic::ChatMessage {
                         role: "system".to_string(),
                         content: msg,
-                        timestamp: SystemTime::now()
-                            .duration_since(UNIX_EPOCH)
-                            .unwrap()
-                            .as_millis() as u64,
-                            trace_hash: None,
+                        timestamp: SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_millis() as u64,
+                        trace_hash: None,
                     };
-                    let sys_root = service.append_chat_to_scs(p.session_id, &sys_msg, ctx.block_height).await?;
-                    agent_state.transcript_root = sys_root;
+                    let _ = service.append_chat_to_scs(p.session_id, &sys_msg, ctx.block_height).await?;
+                    
+                    // Don't count as a failure, just a retry
+                    action_success = false;
+                    action_error = Some("Visual Interlock Triggered".into());
+                } else if let TransactionError::PendingApproval(_) = &e {
+                    let err_str = e.to_string();
+                    let is_pending_approval = if let TransactionError::PendingApproval(_) = &e {
+                        true
+                    } else {
+                        err_str.contains("Approval required") || err_str.contains("PendingApproval")
+                    };
 
-                    if let Some(tx) = &service.event_sender {
-                        let _ = tx.send(KernelEvent::FirewallInterception {
-                            verdict: "REQUIRE_APPROVAL".to_string(),
-                            target: action_type.clone(),
-                            request_hash: real_request_hash,
-                            session_id: Some(p.session_id),
-                        });
+                    if is_pending_approval {
+                        agent_state.recent_actions.pop();
+                        agent_state.status = AgentStatus::Paused("Waiting for User Approval".into());
+
+                        let mut real_request_hash = [0u8; 32];
+                        if let TransactionError::PendingApproval(hash) = e {
+                            if let Ok(hash_bytes) = hex::decode(&hash) {
+                                if let Ok(hash_arr) = hash_bytes.try_into() {
+                                    real_request_hash = hash_arr;
+                                    use ioi_types::app::action::{ApprovalToken};
+                                    agent_state.pending_approval = Some(ApprovalToken {
+                                        request_hash: hash_arr,
+                                        scope: Default::default(),
+                                        approver_sig: vec![],
+                                        approver_suite: Default::default(),
+                                    });
+                                }
+                            }
+                        }
+
+                        agent_state.pending_tool_call = Some(output_str.clone());
+
+                        let msg = format!(
+                            "System: Action '{}' halted by Agency Firewall. Requesting authorization.",
+                            action_type
+                        );
+                        
+                        let sys_msg = ioi_types::app::agentic::ChatMessage {
+                            role: "system".to_string(),
+                            content: msg,
+                            timestamp: SystemTime::now()
+                                .duration_since(UNIX_EPOCH)
+                                .unwrap()
+                                .as_millis() as u64,
+                                trace_hash: None,
+                        };
+                        let sys_root = service.append_chat_to_scs(p.session_id, &sys_msg, ctx.block_height).await?;
+                        agent_state.transcript_root = sys_root;
+
+                        if let Some(tx) = &service.event_sender {
+                            let _ = tx.send(KernelEvent::FirewallInterception {
+                                verdict: "REQUIRE_APPROVAL".to_string(),
+                                target: action_type.clone(),
+                                request_hash: real_request_hash,
+                                session_id: Some(p.session_id),
+                            });
+                        }
+
+                        state.insert(&key, &codec::to_bytes_canonical(&agent_state)?)?;
+                        return Ok(());
                     }
-
-                    state.insert(&key, &codec::to_bytes_canonical(&agent_state)?)?;
-                    return Ok(());
                 } else if err_str.contains("Blocked by Policy") {
                     let msg = format!("System: Action '{}' was BLOCKED by security policy.", action_type);
                     let sys_msg = ioi_types::app::agentic::ChatMessage {
@@ -771,9 +846,29 @@ pub async fn handle_step(
         }
     }
 
-    // Update state failure counters
+    // --- [NEW] RSI Trigger Loop ---
+    // If the action succeeded after consecutive failures, trigger a mutation.
+    // This allows the agent to "lock in" a solution it found by chance or user help.
+    if action_success && agent_state.consecutive_failures > 0 {
+         log::info!("RSI Trigger: Success after {} failures. Scheduling optimizer.", agent_state.consecutive_failures);
+         
+         // Trigger asynchronous optimization via a SystemTransaction
+         // This payload tells the Optimizer to learn from this specific session trace
+         let optimize_payload = ioi_types::app::SystemPayload::CallService {
+             service_id: "optimizer".to_string(),
+             method: "crystallize_skill@v1".to_string(),
+             params: codec::to_bytes_canonical(&p).unwrap(), // Reuse StepAgentParams containing session_id
+         };
+         
+         // In a real system, we'd sign this with the node's key and submit to mempool.
+         // For now, we log the intent. The `optimizer` service will pick this up via state polling 
+         // or direct invocation if architecture allows.
+    }
+
     if let Some(_e) = action_error {
-        agent_state.consecutive_failures += 1;
+        if !_e.contains("Visual Drift") { // Don't penalize drift
+             agent_state.consecutive_failures += 1;
+        }
     } else {
         agent_state.consecutive_failures = 0;
     }

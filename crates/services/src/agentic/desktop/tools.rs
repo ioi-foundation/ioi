@@ -6,8 +6,14 @@ use ioi_types::codec;
 use ioi_types::keys::UPGRADE_ACTIVE_SERVICE_PREFIX;
 use ioi_types::service_configs::ActiveServiceMeta;
 use serde_json::json;
+use ioi_scs::SovereignContextStore; // [NEW]
+use ioi_types::app::agentic::AgentMacro; // [NEW]
 
-pub fn discover_tools(state: &dyn StateAccess) -> Vec<LlmToolDefinition> {
+// [MODIFIED] Added optional SCS reference for skill discovery
+pub fn discover_tools(
+    state: &dyn StateAccess,
+    scs: Option<&std::sync::Mutex<SovereignContextStore>>
+) -> Vec<LlmToolDefinition> {
     let mut tools = Vec::new();
     
     // 1. Dynamic Service Tools (On-Chain Services)
@@ -18,7 +24,6 @@ pub fn discover_tools(state: &dyn StateAccess) -> Vec<LlmToolDefinition> {
                     for (method, perm) in &meta.methods {
                         if *perm == ioi_types::service_configs::MethodPermission::User {
                             let simple_name = method.split('@').next().unwrap_or(method);
-                            // Namespace collision avoidance
                             let tool_name = format!("{}__{}", meta.id, simple_name);
                             
                             let params_json = json!({
@@ -42,7 +47,35 @@ pub fn discover_tools(state: &dyn StateAccess) -> Vec<LlmToolDefinition> {
 
     // 2. Native Capabilities (Kernel Drivers)
 
-    // Explicit Conversational Tool
+    // Computer Use Tool
+    let computer_params = json!({
+        "name": "computer",
+        "type": "tool_use",
+        "tool_use_id": "tool_u_placeholder",
+        "content": {
+            "action": { 
+                "type": "string", 
+                "enum": ["key", "type", "mouse_move", "left_click", "left_click_drag", "cursor_position", "screenshot"] 
+            },
+            "coordinate": { 
+                "type": "array", 
+                "items": { "type": "integer" },
+                "minItems": 2,
+                "maxItems": 2,
+                "description": "[x, y] coordinates"
+            },
+            "text": { "type": "string", "description": "Text to type or key to press" }
+        },
+        "required": ["action"]
+    });
+    
+    tools.push(LlmToolDefinition {
+        name: "computer".to_string(),
+        description: "Control the computer (mouse/keyboard). Supports: mouse_move, left_click, left_click_drag (requires start/end coords), type, key, screenshot.".to_string(),
+        parameters: computer_params.to_string(),
+    });
+
+    // Chat Tool
     let chat_params = json!({
         "type": "object",
         "properties": {
@@ -94,7 +127,7 @@ pub fn discover_tools(state: &dyn StateAccess) -> Vec<LlmToolDefinition> {
         parameters: click_selector_params.to_string(),
     });
 
-    // GUI Tools
+    // Legacy GUI Tools (Kept for compatibility/granularity)
     let gui_params = json!({
         "type": "object",
         "properties": {
@@ -106,7 +139,7 @@ pub fn discover_tools(state: &dyn StateAccess) -> Vec<LlmToolDefinition> {
     });
     tools.push(LlmToolDefinition {
         name: "gui__click".to_string(),
-        description: "Click on UI element at coordinates".to_string(),
+        description: "Click on UI element at coordinates (Legacy)",
         parameters: gui_params.to_string(),
     });
 
@@ -213,7 +246,6 @@ pub fn discover_tools(state: &dyn StateAccess) -> Vec<LlmToolDefinition> {
     });
     tools.push(LlmToolDefinition {
         name: "sys__exec".to_string(),
-        // Updated description to encourage use for launching apps
         description: "Execute a terminal command or launch an application on the local system. Use 'detach: true' for GUI apps (calculators, browsers) so they stay open.".to_string(),
         parameters: sys_params.to_string(),
     });
@@ -258,6 +290,22 @@ pub fn discover_tools(state: &dyn StateAccess) -> Vec<LlmToolDefinition> {
         description: "List files and directories at a given path.".to_string(),
         parameters: fs_ls_params.to_string(),
     });
+    
+    // 3. [NEW] Skill Discovery from SCS (Learned Capabilities)
+    // If the SCS is available, scan for "Skill" frames and inject them as tools.
+    if let Some(store_mutex) = scs {
+        if let Ok(store) = store_mutex.lock() {
+            let skill_payloads = store.scan_skills();
+            
+            for payload in skill_payloads {
+                // Deserialize payload into AgentMacro
+                // Note: The payload format for Skill frames is serialized AgentMacro struct.
+                if let Ok(skill_macro) = codec::from_bytes_canonical::<AgentMacro>(&payload) {
+                    tools.push(skill_macro.definition);
+                }
+            }
+        }
+    }
 
     tools
 }

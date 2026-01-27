@@ -1,135 +1,164 @@
 import { useState, useEffect, useRef } from "react";
+import { listen } from "@tauri-apps/api/event";
 import "./VisionHUD.css";
 
-interface BBox {
+// Represents a raw user action captured by the kernel drivers
+interface GhostEvent {
   id: string;
-  x: number;
-  y: number;
-  w: number;
-  h: number;
-  label: string;
+  timestamp: number;
+  type: "click" | "type" | "scroll" | "navigation";
+  description: string;
+  // Bounding box of the element interacted with (Visual Grounding)
+  bbox?: { x: number, y: number, w: number, h: number };
+  // The resulting graph node ID if synthesized
+  synthesizedNodeId?: string;
+  status: "capturing" | "analyzing" | "synthesized";
 }
-
-interface LogEntry {
-  id: string;
-  ts: string;
-  tag: string;
-  msg: string;
-}
-
-const SIMULATED_LOGS = [
-  { tag: "VIS", msg: "Scanning viewport (1920x1080)" },
-  { tag: "DOM", msg: "Detected input field: #email" },
-  { tag: "POL", msg: "Inferring context: User Login" },
-  { tag: "NET", msg: "Observed XHR: POST /api/auth" },
-  { tag: "VIS", msg: "Tracking cursor movement..." },
-  { tag: "DOM", msg: "Click detected: button.submit" },
-  { tag: "GEN", msg: "Synthesizing Policy Rule #4..." },
-];
 
 export function VisionHUD() {
-  const [logs, setLogs] = useState<LogEntry[]>([]);
-  const [activeBox, setActiveBox] = useState<BBox | null>(null);
-  const [confidence, setConfidence] = useState(85);
-  
-  // Simulate "Scanning" behavior
+  const [events, setEvents] = useState<GhostEvent[]>([]);
+  const [isRecording, setIsRecording] = useState(true);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const [activeInterlock, setActiveInterlock] = useState<{ x: number, y: number } | null>(null);
+
+  // Listen for raw inputs captured by the Kernel (enigo/hooks)
   useEffect(() => {
-    let step = 0;
-    
-    const interval = setInterval(() => {
-      // Add Log
-      const now = new Date();
-      const ts = `${now.getHours()}:${now.getMinutes()}:${now.getSeconds()}.${Math.floor(now.getMilliseconds()/100)}`;
-      const logData = SIMULATED_LOGS[step % SIMULATED_LOGS.length];
-      
-      setLogs(prev => [...prev.slice(-4), { // Keep last 5 lines
-        id: `log-${Date.now()}`,
-        ts,
-        tag: logData.tag,
-        msg: logData.msg
-      }]);
+    // 1. Ghost Input (User Action)
+    const unlistenInput = listen<{ device: string, description: string }>("ghost-input", (e) => {
+        if (!isRecording) return;
+        
+        let type: GhostEvent['type'] = "click";
+        if (e.payload.device === "keyboard") type = "type";
+        
+        const newEvent: GhostEvent = {
+            id: `evt-${Date.now()}`,
+            timestamp: Date.now(),
+            type,
+            description: e.payload.description,
+            status: "capturing",
+            bbox: { x: 0, y: 0, w: 0, h: 0 } 
+        };
 
-      // Move Bounding Box (Simulate eye tracking)
-      const mockBoxes = [
-        { id: "b1", x: 20, y: 30, w: 40, h: 15, label: "INPUT" },
-        { id: "b2", x: 65, y: 70, w: 20, h: 10, label: "BTN" },
-        { id: "b3", x: 10, y: 10, w: 80, h: 80, label: "FORM" },
-      ];
-      setActiveBox(mockBoxes[step % mockBoxes.length]);
+        setEvents(prev => [...prev, newEvent]);
 
-      // Fluctuate confidence
-      setConfidence(prev => Math.min(99, Math.max(70, prev + (Math.random() * 10 - 5))));
+        // Simulate the "Synthesis" delay (Kernel mapping Action -> Graph Node)
+        setTimeout(() => {
+            setEvents(prev => prev.map(ev => 
+                ev.id === newEvent.id 
+                ? { ...ev, status: "synthesized", synthesizedNodeId: `node-${Math.floor(Math.random()*1000)}` } 
+                : ev
+            ));
+        }, 800);
+    });
 
-      step++;
-    }, 1200);
+    // 2. Visual Interlock (Kernel Intervention)
+    // This event fires when the Kernel BLOCKS a click due to visual drift (TOCTOU).
+    const unlistenInterlock = listen<{ verdict: string, request_hash: number[] }>("firewall-interception", (e) => {
+         if (e.payload.verdict === "BLOCK" || e.payload.verdict === "VISUAL_DRIFT") {
+             // Flash the viewport to show the user the kernel saved them
+             setActiveInterlock({ x: 50, y: 50 }); // Center for now, real event would have coords
+             setTimeout(() => setActiveInterlock(null), 1000);
+         }
+    });
 
-    return () => clearInterval(interval);
-  }, []);
+    return () => { 
+        unlistenInput.then(f => f()); 
+        unlistenInterlock.then(f => f());
+    };
+  }, [isRecording]);
+
+  // Auto-scroll the timeline
+  useEffect(() => {
+    if (scrollRef.current) {
+        scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    }
+  }, [events]);
+
+  const activeEvent = events[events.length - 1];
 
   return (
     <div className="vision-hud-container">
-      {/* Header */}
-      <div className="vision-header">
+      {/* 1. STATUS HEADER */}
+      <div className={`vision-header ${activeInterlock ? 'interlock-active' : 'recording'}`}>
         <div className="vision-title">
-          <div className="rec-dot" />
-          <span>GHOST_VISION_V1</span>
+          <div className={`rec-dot ${isRecording ? 'pulse' : ''}`} />
+          <span>{activeInterlock ? "VISUAL_LOCK_ENGAGED" : "GHOST_RECORDER_ACTIVE"}</span>
         </div>
-        <div className="vision-confidence">
-          CONFIDENCE: {confidence.toFixed(0)}%
+        <div className="vision-stats">
+          <span>{events.length} ACTIONS CAPTURED</span>
         </div>
       </div>
 
-      {/* Viewport (The Eye) */}
+      {/* 2. VISUAL OVERLAY (The "Targeting System") */}
       <div className="vision-viewport">
         <div className="scanline" />
         
-        {/* Simulated Screen Content (Abstract) */}
-        <div style={{ padding: 20, opacity: 0.3, filter: 'blur(1px)' }}>
-           <div style={{ width: '60%', height: 10, background: '#333', marginBottom: 10 }} />
-           <div style={{ width: '40%', height: 10, background: '#333', marginBottom: 20 }} />
-           <div style={{ display: 'flex', gap: 10 }}>
-              <div style={{ width: 80, height: 60, background: '#222' }} />
-              <div style={{ flex: 1, height: 60, background: '#222' }} />
-           </div>
-        </div>
-
-        {/* Active Bounding Box Overlay */}
-        {activeBox && (
-          <div 
-            className="bbox"
-            style={{
-              left: `${activeBox.x}%`,
-              top: `${activeBox.y}%`,
-              width: `${activeBox.w}%`,
-              height: `${activeBox.h}%`
-            }}
-          >
-            <div className="bbox-label">{activeBox.label} {confidence > 90 ? "99%" : ""}</div>
-          </div>
+        {/* Visual feedback for the *latest* user interaction */}
+        {activeEvent && activeEvent.status === "capturing" && (
+           <div className="interaction-ping" />
         )}
-
-        {/* Minimap */}
-        <div className="vision-minimap">
-           {activeBox && (
-             <div 
-                className="minimap-dot" 
-                style={{ left: `${activeBox.x}%`, top: `${activeBox.y}%` }} 
-             />
-           )}
+        
+        {/* [NEW] Visual Interlock Feedback */}
+        {activeInterlock && (
+            <div className="interlock-overlay">
+                <div className="lock-icon">🔒</div>
+                <div className="lock-msg">Click Blocked: Screen Changed</div>
+            </div>
+        )}
+        
+        <div className="som-overlay-placeholder">
+            <span className="som-hint">Visual Grounding Active</span>
         </div>
       </div>
 
-      {/* Inference Log (The Brain) */}
-      <div className="vision-log">
-        {logs.map((log, i) => (
-          <div key={log.id} className={`log-entry ${i === logs.length - 1 ? "active" : ""}`}>
-            <span className="log-ts">{log.ts}</span>
-            <span className="log-tag">[{log.tag}]</span>
-            {log.msg}
-          </div>
-        ))}
-        <div className="log-entry active">
-           <span className="log-cursor" />
+      {/* 3. SYNTHESIS STREAM (The "Translation Layer") */}
+      <div className="synthesis-panel">
+        <div className="synthesis-header">
+            <span>Workflow Translation</span>
+        </div>
+        <div className="synthesis-stream" ref={scrollRef}>
+            {events.length === 0 && (
+                <div className="empty-state">
+                    Perform actions on your desktop to generate graph nodes...
+                </div>
+            )}
+            {events.map((evt, i) => (
+                <div key={evt.id} className={`synthesis-step ${evt.status}`}>
+                    {/* Step Connector Line */}
+                    {i < events.length - 1 && <div className="step-line" />}
+                    
+                    {/* Icon */}
+                    <div className="step-icon">
+                        {evt.type === 'click' && '🖱️'}
+                        {evt.type === 'type' && '⌨️'}
+                    </div>
+
+                    {/* Content */}
+                    <div className="step-content">
+                        <div className="step-raw">{evt.description}</div>
+                        
+                        {evt.status === "synthesized" && (
+                            <div className="step-node">
+                                <span className="node-badge">Action Node</span>
+                                <span className="node-id">{evt.synthesizedNodeId}</span>
+                            </div>
+                        )}
+                        
+                        {evt.status === "analyzing" && (
+                            <div className="step-analyzing">Aligning with DOM...</div>
+                        )}
+                    </div>
+
+                    {/* Status Indicator */}
+                    <div className="step-status">
+                        {evt.status === "synthesized" ? (
+                            <span className="status-check">✓</span>
+                        ) : (
+                            <span className="status-spinner" />
+                        )}
+                    </div>
+                </div>
+            ))}
         </div>
       </div>
     </div>

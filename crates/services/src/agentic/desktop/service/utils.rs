@@ -12,6 +12,10 @@ use std::sync::Arc;
 use ioi_scs::FrameType;
 use ioi_types::app::agentic::ChatMessage;
 use crate::agentic::normaliser::OutputNormaliser; // Import Normaliser
+use super::types::AgentStatus; // [FIX] Added import
+use ioi_types::app::KernelEvent; // [FIX] Added import
+use std::time::{SystemTime, UNIX_EPOCH}; // [FIX] Added import
+use serde_json::json;
 
 impl DesktopAgentService {
     pub(crate) async fn recall_skills(
@@ -40,12 +44,22 @@ impl DesktopAgentService {
         Ok(relevant_skills)
     }
 
-    pub(crate) async fn retrieve_memory(&self, query: &str) -> String {
+    /// [UPDATED] Semantic Retrieval of Episodic Memory
+    /// Searches the SCS based on the current context (e.g., accessibility tree)
+    /// to find relevant past actions. This enables the agent to "remember" how it
+    /// solved similar UI states before.
+    pub(crate) async fn retrieve_context(
+        &self, 
+        query: &str,
+        visual_phash: Option<[u8; 32]>
+    ) -> String {
         let scs_mutex = match &self.scs {
             Some(m) => m,
             None => return "".to_string(),
         };
 
+        // Use the reasoning model (or fast model if preferred) to embed the query
+        // The query here is typically the Accessibility Tree XML or a summary of it.
         let embedding_res = self.reasoning_inference.embed_text(query).await;
 
         let embedding = match embedding_res {
@@ -76,7 +90,8 @@ impl DesktopAgentService {
             };
 
             if let Some(index) = idx.as_ref() {
-                index.search(&embedding, 3)
+                // [NEW] Use Hybrid Search to get metadata (Type, VisualHash)
+                index.search_hybrid(&embedding, 5)
             } else {
                 Ok(vec![])
             }
@@ -96,6 +111,7 @@ impl DesktopAgentService {
 
         let mut context_str = String::new();
         context_str.push_str("\n### Relevant Memories\n");
+        let mut skill_found = false;
 
         {
             let scs = match scs_mutex.lock() {
@@ -103,20 +119,53 @@ impl DesktopAgentService {
                 Err(_) => return "".to_string(),
             };
 
-            for (frame_id, dist) in matches {
+            // Hamming distance helper
+            fn dist(a: &[u8], b: &[u8]) -> u32 {
+                a.iter().zip(b.iter()).map(|(x, y)| (x ^ y).count_ones()).sum()
+            }
+
+            for (frame_id, similarity, f_type, f_hash) in matches {
+                // [NEW] Filter by Visual Hash if provided
+                if let Some(current_hash) = visual_phash {
+                    let d = dist(&current_hash, &f_hash);
+                    // Only include visual matches if they are somewhat similar (e.g. < 10 bits difference)
+                    // If FrameType is Skill/Thought, visual hash might be zero or irrelevant, so we skip check.
+                    if f_type == FrameType::Observation && d > 10 {
+                        continue; 
+                    }
+                }
+
+                // Fetch the payload for the matched frame
                 if let Ok(payload) = scs.read_frame_payload(frame_id) {
                     if let Ok(text) = String::from_utf8(payload.to_vec()) {
-                        let snippet = if text.len() > 200 {
-                            format!("{}...", &text[..200])
+                        
+                        if f_type == FrameType::Skill {
+                            skill_found = true;
+                            context_str.push_str(&format!(
+                                "- [SKILL] (Sim: {:.2}) Found applicable skill: {}\n", 
+                                1.0 - similarity, text
+                            ));
                         } else {
-                            text
-                        };
-                        context_str
-                            .push_str(&format!("- (Sim: {:.2}) {}\n", 1.0 - dist, snippet));
+                             // Truncate to avoid context overflow
+                            let snippet = if text.len() > 300 {
+                                format!("{}...", &text[..300])
+                            } else {
+                                text
+                            };
+                            context_str.push_str(&format!(
+                                "- [{:?}] (Sim: {:.2}) {}\n", 
+                                f_type, 1.0 - similarity, snippet
+                            ));
+                        }
                     }
                 }
             }
         }
+        
+        if skill_found {
+            context_str.push_str("\n[SYSTEM HINT] A crystallized skill matches this context. Prefer using the logic described above.");
+        }
+        
         context_str
     }
 
@@ -243,7 +292,8 @@ impl DesktopAgentService {
                  if let Some(idx) = index.as_mut() {
                      for vec in vectors {
                          // Insert into mHNSW
-                         if let Err(e) = idx.insert(frame_id, vec) {
+                         // [FIX] Use insert_with_metadata to store type info
+                         if let Err(e) = idx.insert_with_metadata(frame_id, vec, FrameType::Thought, [0u8; 32]) {
                              log::warn!("Failed to index vector for frame {}: {}", frame_id, e);
                          }
                      }
@@ -345,4 +395,91 @@ pub(crate) fn merge_tools(
         map.insert(t.name.clone(), t);
     }
     map.into_values().collect()
+}
+
+pub fn goto_trace_log(
+    agent_state: &mut AgentState,
+    state: &mut dyn StateAccess,
+    key: &[u8],
+    session_id: [u8; 32],
+    visual_hash_arr: [u8; 32],
+    user_prompt: String,
+    output_str: String,
+    action_success: bool,
+    action_error: Option<String>,
+    action_type: String,
+    event_sender: Option<tokio::sync::broadcast::Sender<KernelEvent>>,
+) -> Result<(), TransactionError> {
+    let trace = StepTrace {
+        session_id,
+        step_index: agent_state.step_count,
+        visual_hash: visual_hash_arr,
+        full_prompt: user_prompt,
+        raw_output: output_str,
+        success: action_success,
+        error: action_error.clone(),
+        // [FIX] Initialize new evolutionary fields
+        cost_incurred: 0,
+        fitness_score: None,
+        timestamp: SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_secs(),
+    };
+    
+    let trace_key = [TRACE_PREFIX, session_id.as_slice(), &agent_state.step_count.to_le_bytes()].concat();
+    state.insert(&trace_key, &codec::to_bytes_canonical(&trace)?)?;
+
+    if let Some(tx) = &event_sender {
+        let event = KernelEvent::AgentStep(trace.clone());
+        match tx.send(event) {
+            Ok(count) => log::info!(target: "agent_driver", "Emitted AgentStep event to {} subscribers. Step: {}", count, trace.step_index),
+            Err(_) => log::warn!(target: "agent_driver", "Failed to emit AgentStep event (no subscribers)"),
+        }
+    }
+
+    if let Some(_e) = action_error {
+        agent_state.consecutive_failures += 1;
+    } else {
+        agent_state.consecutive_failures = 0;
+    }
+
+    agent_state.step_count += 1;
+    agent_state.last_action_type = Some(action_type);
+
+    if agent_state.step_count >= agent_state.max_steps && agent_state.status == AgentStatus::Running {
+        agent_state.status = AgentStatus::Completed(None);
+        
+        // Emit completion event so UI knows to stop when max steps reached
+        if let Some(tx) = &event_sender {
+             let _ = tx.send(KernelEvent::AgentActionResult {
+                 session_id: p.session_id, // [FIX] p is not in scope here. Need to pass session_id or remove this if logic is redundant with step.rs
+                 step_index: agent_state.step_count,
+                 tool_name: "system::max_steps_reached".to_string(),
+                 output: "Max steps reached. Task completed.".to_string(),
+             });
+        }
+    }
+
+    state.insert(key, &codec::to_bytes_canonical(&agent_state)?)?;
+    Ok(())
+}
+
+pub fn compute_phash(image_bytes: &[u8]) -> Result<[u8; 32], TransactionError> {
+    use image::load_from_memory;
+    use image_hasher::{HashAlg, HasherConfig};
+    use dcrypt::algorithms::ByteSerializable;
+
+    let img = load_from_memory(image_bytes)
+        .map_err(|e| TransactionError::Invalid(format!("Image decode failed: {}", e)))?;
+    let hasher = HasherConfig::new()
+        .hash_alg(HashAlg::Gradient)
+        .to_hasher();
+    let hash = hasher.hash_image(&img);
+    let hash_bytes = hash.as_bytes();
+
+    let mut out = [0u8; 32];
+    let len = hash_bytes.len().min(32);
+    out[..len].copy_from_slice(&hash_bytes[..len]);
+    Ok(out)
 }

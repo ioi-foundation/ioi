@@ -26,6 +26,18 @@ pub enum InputEvent {
         /// This enforces the "Atomic Vision-Action Lock" to prevent visual drift (TOCTOU).
         expected_visual_hash: Option<[u8; 32]>,
     },
+    /// Press a mouse button down at specific coordinates (start of drag).
+    MouseDown {
+        button: MouseButton,
+        x: u32,
+        y: u32,
+    },
+    /// Release a mouse button at specific coordinates (end of drag).
+    MouseUp {
+        button: MouseButton,
+        x: u32,
+        y: u32,
+    },
     /// Type text string.
     Type { text: String },
     /// Press a specific key (e.g., "Enter", "Ctrl").

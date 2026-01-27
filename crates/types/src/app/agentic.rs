@@ -101,6 +101,25 @@ pub struct LlmToolDefinition {
     pub parameters: String,
 }
 
+// [NEW] Structure for a "Learned Skill" (Macro).
+// This is the executable logic that backs a dynamic LlmToolDefinition.
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Encode, Decode)]
+pub struct AgentMacro {
+    /// The definition of the tool (interface).
+    pub definition: LlmToolDefinition,
+    
+    /// The sequence of atomic actions to execute when this tool is called.
+    /// The `params` in these requests are templates (e.g. "{{url}}") that are interpolated
+    /// with the arguments provided by the LLM at runtime.
+    pub steps: Vec<crate::app::ActionRequest>,
+    
+    /// The hash of the session/trace that generated this skill (Provenance).
+    pub source_trace_hash: [u8; 32],
+    
+    /// The fitness score of this skill (Evolutionary quality).
+    pub fitness: f32,
+}
+
 /// Defines the configuration for a single inference request, including tool availability.
 #[derive(Serialize, Deserialize, Debug, Clone, Default, Encode, Decode)]
 pub struct InferenceOptions {

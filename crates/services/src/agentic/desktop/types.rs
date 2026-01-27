@@ -51,6 +51,13 @@ pub struct AgentState {
     // [NEW] Track the mode in state
     #[serde(default)]
     pub mode: AgentMode,
+
+    // [NEW] Visual Interlock State
+    // Stores the perceptual hash of the screen state from the *previous* step (Thought Phase).
+    // The Executor uses this to verify the screen hasn't changed before executing a click (Action Phase).
+    // This prevents TOCTOU (Time-of-Check Time-of-Use) attacks or race conditions (popups).
+    #[serde(default)]
+    pub last_screen_phash: Option<[u8; 32]>,
 }
 
 #[derive(Encode, Decode)]

@@ -1,6 +1,6 @@
 // Path: crates/scs/src/index.rs
 
-use crate::format::FrameId;
+use crate::format::{FrameId, FrameType}; // [FIX] Import FrameType
 use anyhow::{anyhow, Result};
 use ioi_api::state::{ProofProvider, VerifiableState};
 use ioi_state::primitives::hash::HashCommitmentScheme;
@@ -57,9 +57,41 @@ impl VectorIndex {
     /// * `frame_id` - The ID of the frame this vector belongs to.
     /// * `vector` - The float vector embedding.
     pub fn insert(&mut self, frame_id: FrameId, vector: Vec<f32>) -> Result<()> {
+        // [COMPATIBILITY] Delegate to insert_with_metadata with default (Observation) type.
+        self.insert_with_metadata(frame_id, vector, FrameType::Observation, [0u8; 32])
+    }
+
+    /// [NEW] Inserts a vector embedding with rich metadata (FrameType + Visual Hash).
+    /// This enables "Hybrid Search" (filtering by type or visual similarity).
+    ///
+    /// The payload stored in the graph is:
+    /// [FrameId (8)] || [FrameType (1)] || [VisualHash (32)]
+    /// Total: 41 bytes.
+    pub fn insert_with_metadata(
+        &mut self, 
+        frame_id: FrameId, 
+        vector: Vec<f32>, 
+        frame_type: FrameType,
+        visual_hash: [u8; 32]
+    ) -> Result<()> {
         let vec = Vector(vector);
-        // Payload is just the FrameId (u64 le bytes) for mapping back.
-        let payload = frame_id.to_le_bytes().to_vec();
+        
+        let mut payload = Vec::with_capacity(41);
+        payload.extend_from_slice(&frame_id.to_le_bytes());
+        
+        // Encode FrameType as u8. Assuming basic enum without data variants matches `as u8` or simple match.
+        // FrameType implements Encode (SCALE), so we use that for stability.
+        // Actually, for compact index, manual byte packing is safer/smaller.
+        let type_byte = match frame_type {
+            FrameType::Observation => 0,
+            FrameType::Thought => 1,
+            FrameType::Action => 2,
+            FrameType::System => 3,
+            FrameType::Skill => 4, // [NEW]
+        };
+        payload.push(type_byte);
+        
+        payload.extend_from_slice(&visual_hash);
 
         self.inner
             .insert_vector(vec, payload)
@@ -78,14 +110,57 @@ impl VectorIndex {
 
         let mut mapped_results = Vec::with_capacity(results.len());
         for (payload, dist) in results {
-            if payload.len() != 8 {
+            // [FIX] Update parser to handle new expanded payload (41 bytes) OR legacy (8 bytes)
+            if payload.len() == 8 {
+                let frame_id = FrameId::from_le_bytes(payload.try_into().unwrap());
+                mapped_results.push((frame_id, dist));
+            } else if payload.len() == 41 {
+                let frame_id = FrameId::from_le_bytes(payload[0..8].try_into().unwrap());
+                mapped_results.push((frame_id, dist));
+            } else {
                 return Err(anyhow!(
-                    "Corrupt index payload: expected 8 bytes, got {}",
+                    "Corrupt index payload: expected 8 or 41 bytes, got {}",
                     payload.len()
                 ));
             }
-            let frame_id = FrameId::from_le_bytes(payload.try_into().unwrap());
-            mapped_results.push((frame_id, dist));
+        }
+        Ok(mapped_results)
+    }
+    
+    /// [NEW] Performs a Hybrid Search, returning detailed metadata.
+    /// Used by `retrieve_context` to filter results.
+    ///
+    /// Returns: (FrameId, Distance, FrameType, VisualHash)
+    pub fn search_hybrid(&self, query: &[f32], k: usize) -> Result<Vec<(FrameId, f32, FrameType, [u8; 32])>> {
+        let q_vec = Vector(query.to_vec());
+        let results = self
+            .inner
+            .search(&q_vec, k)
+            .map_err(|e| anyhow!("mHNSW search failed: {}", e))?;
+
+        let mut mapped_results = Vec::with_capacity(results.len());
+        for (payload, dist) in results {
+            if payload.len() == 41 {
+                let frame_id = FrameId::from_le_bytes(payload[0..8].try_into().unwrap());
+                let type_byte = payload[8];
+                let mut visual_hash = [0u8; 32];
+                visual_hash.copy_from_slice(&payload[9..41]);
+                
+                let frame_type = match type_byte {
+                    0 => FrameType::Observation,
+                    1 => FrameType::Thought,
+                    2 => FrameType::Action,
+                    3 => FrameType::System,
+                    4 => FrameType::Skill,
+                    _ => FrameType::Observation, // Fallback
+                };
+                
+                mapped_results.push((frame_id, dist, frame_type, visual_hash));
+            } else if payload.len() == 8 {
+                 // Legacy fallback
+                 let frame_id = FrameId::from_le_bytes(payload.try_into().unwrap());
+                 mapped_results.push((frame_id, dist, FrameType::Observation, [0u8; 32]));
+            }
         }
         Ok(mapped_results)
     }

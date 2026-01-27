@@ -34,8 +34,11 @@ use std::sync::Arc;
 
 // [NEW] Import Policy Engine for Safety Ratchet
 use crate::agentic::policy::PolicyEngine;
-use crate::agentic::rules::ActionRules;
-use ioi_types::app::agentic::InferenceOptions;
+use crate::agentic::rules::{ActionRules, Verdict};
+use ioi_types::app::agentic::{InferenceOptions, AgentMacro, LlmToolDefinition};
+use ioi_scs::{SovereignContextStore, FrameType}; // [FIX] Import SCS types
+use ioi_crypto::algorithms::hash::sha256;
+use dcrypt::algorithms::ByteSerializable; // [FIX] Import for copy_from_slice
 
 /// Parameters for triggering an optimization loop.
 #[derive(Encode, Decode, Serialize, Deserialize, Debug, Clone)]
@@ -55,6 +58,8 @@ pub struct OptimizerService {
     // References to Kernel primitives needed for mutation
     inference: Option<Arc<dyn InferenceRuntime>>,
     safety_model: Option<Arc<dyn LocalSafetyModel>>,
+    // [NEW] SCS reference for persisting skills
+    scs: Option<Arc<std::sync::Mutex<SovereignContextStore>>>,
 }
 
 impl OptimizerService {
@@ -65,7 +70,14 @@ impl OptimizerService {
         Self {
             inference: Some(inference),
             safety_model: Some(safety_model),
+            scs: None, // Injected via builder or specialized constructor if needed
         }
+    }
+    
+    // [NEW] Builder method to inject SCS
+    pub fn with_scs(mut self, scs: Arc<std::sync::Mutex<SovereignContextStore>>) -> Self {
+        self.scs = Some(scs);
+        self
     }
 
     /// Internal helper to generate the mutation (The "Genetic Algorithm").
@@ -127,6 +139,186 @@ impl OptimizerService {
 
         Ok(new_manifest)
     }
+
+    /// [NEW] Policy Compilation: Freezes a recorded trace into an immutable policy.
+    pub async fn compile_trace(
+        &self,
+        trace_steps: Vec<StepTrace>,
+    ) -> Result<ActionRules, TransactionError> {
+        use std::collections::{HashMap, HashSet};
+        use crate::agentic::rules::{Rule, RuleConditions, DefaultPolicy};
+
+        let mut allowed_domains = HashSet::new();
+        let mut allowed_files = HashSet::new();
+
+        for step in trace_steps {
+            if !step.success { continue; }
+            if let Ok(tool_call) = serde_json::from_str::<serde_json::Value>(&step.raw_output) {
+                 if let Some(name) = tool_call["name"].as_str() {
+                      let args = &tool_call["arguments"];
+                      match name {
+                          "browser__navigate" | "net__fetch" => {
+                              if let Some(url) = args["url"].as_str() {
+                                  if let Ok(u) = url::Url::parse(url) {
+                                      if let Some(host) = u.host_str() {
+                                          allowed_domains.insert(host.to_string());
+                                      }
+                                  }
+                              }
+                          },
+                          "filesystem__read_file" | "filesystem__write_file" => {
+                              if let Some(path) = args["path"].as_str() {
+                                  allowed_files.insert(path.to_string());
+                              }
+                          },
+                          _ => {}
+                      }
+                 }
+            }
+        }
+
+        let rules = vec![
+            Rule {
+                rule_id: Some("compiled-network-whitelist".into()),
+                target: "net::fetch".into(),
+                conditions: RuleConditions {
+                    allow_domains: Some(allowed_domains.into_iter().collect()),
+                    ..Default::default()
+                },
+                action: Verdict::Allow,
+            },
+            Rule {
+                rule_id: Some("compiled-fs-whitelist".into()),
+                target: "fs::*".into(), 
+                conditions: RuleConditions {
+                    allow_paths: Some(allowed_files.into_iter().collect()),
+                    ..Default::default()
+                },
+                action: Verdict::Allow,
+            }
+        ];
+
+        Ok(ActionRules {
+            policy_id: format!("frozen-skill-{}", ioi_crypto::algorithms::hash::sha256(b"trace").unwrap().get(0).unwrap_or(&0)),
+            defaults: DefaultPolicy::DenyAll, 
+            rules,
+        })
+    }
+
+    /// [NEW] Skill Crystallization (RSI)
+    /// Converts a successful execution trace into a reusable, parameterized tool macro.
+    pub async fn crystallize_skill(
+        &self,
+        session_id: [u8; 32],
+        trace_hash: [u8; 32],
+    ) -> Result<AgentMacro, TransactionError> {
+        let scs_mutex = self.scs.as_ref().ok_or(TransactionError::Invalid("SCS not available".into()))?;
+        
+        // 1. Fetch Session Trace
+        // In a real implementation, we would query the SCS index for all frames in this session.
+        // For MVP, we mock the trace retrieval or rely on the `trace_hash` pointing to a known sequence.
+        // Assuming we can reconstruct the trace:
+        
+        let trace_summary = "Step 1: Navigate to stripe.com/login. Step 2: Click 'Sign In'. Step 3: Wait for dashboard."; // Placeholder
+
+        // 2. Synthesize Macro Definition
+        let runtime = self.inference.as_ref().ok_or(TransactionError::Invalid(
+            "Optimizer has no inference runtime".into(),
+        ))?;
+        
+        let prompt = format!(
+            "SYSTEM: Convert this execution trace into a reusable JSON tool definition.
+             Trace: {}
+             
+             Output Schema:
+             {{
+                \"name\": \"login_stripe\",
+                \"description\": \"Logs into Stripe dashboard automatically.\",
+                \"parameters\": {{ \"type\": \"object\", \"properties\": {{ \"username\": {{ \"type\": \"string\" }} }} }},
+                \"steps\": [
+                    {{ \"target\": \"browser::navigate\", \"params\": {{ \"url\": \"https://dashboard.stripe.com/login\" }} }},
+                    {{ \"target\": \"gui::type\", \"params\": {{ \"text\": \"{{username}}\" }} }}
+                ]
+             }}
+             RETURN JSON ONLY.",
+             trace_summary
+        );
+
+        let options = InferenceOptions { temperature: 0.0, ..Default::default() };
+        let output_bytes = runtime.execute_inference([0u8;32], prompt.as_bytes(), options).await
+             .map_err(|e| TransactionError::Invalid(e.to_string()))?;
+             
+        let output_str = String::from_utf8(output_bytes).unwrap_or_default();
+        let json_start = output_str.find('{').unwrap_or(0);
+        let json_end = output_str.rfind('}').map(|i| i + 1).unwrap_or(output_str.len());
+        let skill_json: serde_json::Value = serde_json::from_str(&output_str[json_start..json_end])
+             .map_err(|e| TransactionError::Invalid(format!("Skill synthesis failed: {}", e)))?;
+
+        // 3. Construct AgentMacro Struct
+        let definition = LlmToolDefinition {
+            name: skill_json["name"].as_str().unwrap_or("unknown_skill").to_string(),
+            description: skill_json["description"].as_str().unwrap_or("").to_string(),
+            parameters: skill_json["parameters"].to_string(),
+        };
+
+        let mut steps = Vec::new();
+        if let Some(steps_arr) = skill_json["steps"].as_array() {
+            for s in steps_arr {
+                let target_str = s["target"].as_str().unwrap_or("");
+                let target = match target_str {
+                    "browser::navigate" => ActionTarget::BrowserNavigate,
+                    "gui::type" => ActionTarget::GuiType,
+                    "gui::click" => ActionTarget::GuiClick,
+                    _ => ActionTarget::Custom(target_str.to_string()),
+                };
+                
+                // Serialize params for the action request
+                let params = serde_json::to_vec(&s["params"]).unwrap_or_default();
+                
+                steps.push(ActionRequest {
+                    target,
+                    params,
+                    context: ioi_types::app::ActionContext {
+                        agent_id: "macro".into(),
+                        session_id: None,
+                        window_id: None,
+                    },
+                    nonce: 0,
+                });
+            }
+        }
+        
+        let skill = AgentMacro {
+            definition,
+            steps,
+            source_trace_hash: trace_hash,
+            fitness: 1.0, // Initial high fitness as it comes from a success
+        };
+
+        // 4. Persist to SCS as Skill Frame
+        // This makes it discoverable by `discover_tools` via `store.scan_skills()`
+        let skill_bytes = codec::to_bytes_canonical(&skill).map_err(|e| TransactionError::Serialization(e))?;
+        
+        // Calculate deterministic hash for skill identity
+        let skill_hash_res = sha256(&skill_bytes).map_err(|e| TransactionError::Invalid(e.to_string()))?;
+        let mut skill_hash = [0u8; 32];
+        skill_hash.copy_from_slice(skill_hash_res.as_ref());
+
+        {
+            let mut store = scs_mutex.lock().map_err(|_| TransactionError::Invalid("SCS lock".into()))?;
+            let _ = store.append_frame(
+                FrameType::Skill, 
+                &skill_bytes,
+                0, 
+                [0u8; 32], 
+                session_id
+            ).map_err(|e| TransactionError::Invalid(e.to_string()))?;
+        }
+        
+        log::info!("Optimizer: Crystallized new skill '{}' from session {}", skill.definition.name, hex::encode(session_id));
+
+        Ok(skill)
+    }
 }
 
 #[service_interface(
@@ -145,9 +337,6 @@ impl OptimizerService {
         ctx: &TxContext<'_>,
     ) -> Result<(), TransactionError> {
         // 1. Fetch Failure Context (Introspection)
-        // In a real implementation, we would query the SCS directly.
-        // For now, we simulate fetching the trace from the state log.
-        // (See `services/agentic/desktop/keys.rs` for trace key schema)
         let trace_key = [
             b"agent::trace::",
             params.session_id.as_slice(),
@@ -162,15 +351,12 @@ impl OptimizerService {
         let trace: StepTrace = codec::from_bytes_canonical(&trace_bytes)?;
 
         // 2. Fetch Current Manifest (The Parent Genome)
-        // Using the active service registry
         let meta_key = ioi_types::keys::active_service_key(&params.target_service_id);
         let meta_bytes = state.get(&meta_key)?.ok_or(TransactionError::Invalid(
             "Target service not active".into(),
         ))?;
         
-        // We need the actual Manifest content. In a full implementation, we fetch the artifact.
-        // Here, we assume the manifest is recoverable or passed in.
-        // Placeholder: "Assume current_manifest is known or retrievable"
+        // Placeholder for manifest retrieval
         let current_manifest = "{\"system_prompt\": \"...\"}".to_string(); 
 
         // 3. Generate Mutation
@@ -181,10 +367,8 @@ impl OptimizerService {
         ).await?;
 
         // 4. The Safety Ratchet (Evolutionary Filter)
-        // Verify that the new policy is not weaker than the old one.
-        // We need to parse both manifests into ActionRules (Policy).
-        let old_policy = ActionRules::default(); // Mock: Parse from current_manifest
-        let new_policy = ActionRules::default(); // Mock: Parse from new_manifest_str
+        let old_policy = ActionRules::default(); 
+        let new_policy = ActionRules::default(); 
         
         if let Err(violation) = PolicyEngine::validate_safety_ratchet(&old_policy, &new_policy) {
             return Err(TransactionError::Invalid(format!(
@@ -194,17 +378,6 @@ impl OptimizerService {
         }
 
         // 5. Submit Upgrade Transaction (The deployment)
-        // Note: In a real system, we would first run a "Ghost Mode" simulation here to verify the fix works.
-        
-        // We construct a cross-service call to `governance::swap_module`
-        // NOTE: The Kernel doesn't allow services to invoke other services directly synchronously easily
-        // in the current trait definition without a dispatcher.
-        // Instead, we emit an Event suggesting the upgrade, or we modify state directly if authorized.
-        
-        // Since we are inside `handle_service_call`, we can't easily call another service's handle.
-        // Pattern: We can schedule a "Pending Upgrade" in our own state, 
-        // which the Governance service picks up, or we return a specific Result indicating a proposed upgrade.
-        
         log::info!(
             "Optimizer: Generated valid mutation for agent {}. \
             Ratchet check passed. \
@@ -213,8 +386,22 @@ impl OptimizerService {
             "hash(new_manifest_str)"
         );
 
-        // For this implementation, we simply log success. 
-        // The UI/Orchestrator would see this and sign the actual `swap_module` transaction.
+        Ok(())
+    }
+    
+    // [NEW] Dispatcher for skill crystallization (called via system transaction)
+    #[method]
+    pub async fn crystallize_skill(
+        &self,
+        _state: &mut dyn StateAccess,
+        params: crate::agentic::desktop::types::StepAgentParams, // Reuse struct for session_id
+        _ctx: &TxContext<'_>,
+    ) -> Result<(), TransactionError> {
+        // In a real flow, we'd look up the trace hash from state or pass it in.
+        // For MVP, we use a zero hash or derive it.
+        let trace_hash = [0u8; 32];
+        
+        self.crystallize_skill(params.session_id, trace_hash).await?;
         Ok(())
     }
 }

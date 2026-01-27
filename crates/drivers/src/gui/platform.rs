@@ -11,8 +11,7 @@ use std::sync::{Arc, Mutex};
 use async_trait::async_trait;
 use dcrypt::algorithms::ByteSerializable;
 
-// [FIX] Import AccessKit for cross-platform accessibility support
-// [FIX] Remove unused imports to fix warnings
+// Windows Dependencies
 #[cfg(target_os = "windows")]
 use accesskit_windows::UiaTree;
 
@@ -96,29 +95,85 @@ mod windows_impl {
     }
 }
 
+// [NEW] Native Linux Implementation using AT-SPI
+// This replaces the previous stub with a real accessibility tree crawler.
 #[cfg(target_os = "linux")]
 mod linux_impl {
     use super::*;
-    // Stub implementation to satisfy the function signature
+    use atspi::connection::AccessibilityConnection;
+    use atspi::proxy::accessible::AccessibleProxy;
+    use atspi::CoordType;
+    use futures::future::BoxFuture;
+    use futures::FutureExt;
+
     pub async fn fetch_tree() -> Result<AccessibilityNode> {
-         Ok(AccessibilityNode {
-            id: "linux-stub".to_string(),
-            role: "desktop".to_string(),
-            name: Some("Linux Desktop (AT-SPI Pending)".to_string()),
-            value: None,
-            rect: Rect { x: 0, y: 0, width: 1920, height: 1080 },
-            children: vec![],
-            is_visible: true,
-        })
+        // 1. Connect to the Accessibility Bus
+        let conn = AccessibilityConnection::open().await?;
+        
+        // 2. Get the desktop root
+        // The standard root for AT-SPI is at this bus name and path.
+        let root = AccessibleProxy::builder(conn.clone())
+            .destination("org.a11y.atspi.Registry")?
+            .path("/org/a11y/atspi/accessible/root")?
+            .build()
+            .await?;
+            
+        // 3. Recursive crawl
+        crawl_atspi_node(&root, 0).await
+    }
+
+    fn crawl_atspi_node<'a>(proxy: &'a AccessibleProxy<'a>, depth: usize) -> BoxFuture<'a, Result<AccessibilityNode>> {
+        async move {
+            if depth > 50 { return Err(anyhow!("Max depth reached")); }
+
+            let name = proxy.name().await.unwrap_or_default();
+            // Map the role enum to a string.
+            let role = proxy.get_role().await.map(|r| format!("{:?}", r)).unwrap_or("unknown".into());
+            
+            // Get coordinates (Component Interface)
+            // tuple return: (x, y, width, height)
+            let ext = proxy.get_extents(CoordType::Screen).await.unwrap_or((0, 0, 0, 0));
+            
+            let rect = Rect {
+                x: ext.0,
+                y: ext.1,
+                width: ext.2,
+                height: ext.3,
+            };
+
+            // Fetch children
+            let child_count = proxy.child_count().await.unwrap_or(0);
+            let mut children = Vec::new();
+            
+            // Limit fan-out to prevent hanging on massive trees (e.g. complex web pages)
+            for i in 0..child_count.min(100) { 
+                if let Ok(child) = proxy.get_child_at_index(i).await {
+                    if let Ok(child_node) = crawl_atspi_node(&child, depth + 1).await {
+                        children.push(child_node);
+                    }
+                }
+            }
+
+            // [TODO] Check StateSet for VISIBLE. For now, we assume if it's in the tree it's relevant.
+            Ok(AccessibilityNode {
+                // Generate a stable-ish ID based on path + index to allow referencing
+                id: format!("atspi_{}_{}", proxy.name().await.unwrap_or("unk".into()), depth), 
+                role,
+                name: if name.is_empty() { None } else { Some(name) },
+                value: None, 
+                rect,
+                children,
+                is_visible: true,
+            })
+        }.boxed()
     }
 }
 
-// [FIX] Fallback for non-Windows (e.g. Linux CI environment) to avoid compile errors
+// Fallback for non-Windows/Linux (e.g. MacOS if accesskit not ready)
 #[cfg(all(not(target_os = "windows"), not(target_os = "linux")))]
 mod stub_impl {
     use super::*;
     pub fn fetch_tree() -> Result<AccessibilityNode> {
-        // Return a minimal valid tree to pass tests on CI
         Ok(AccessibilityNode {
             id: "root-stub".to_string(),
             role: "window".to_string(),
@@ -127,8 +182,8 @@ mod stub_impl {
             rect: Rect {
                 x: 0,
                 y: 0,
-                width: 800,
-                height: 600,
+                width: 1920,
+                height: 1080,
             },
             is_visible: true,
             children: vec![],

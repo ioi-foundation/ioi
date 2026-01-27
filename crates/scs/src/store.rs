@@ -20,6 +20,7 @@ use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 use std::time::{SystemTime, UNIX_EPOCH};
 use std::collections::HashMap;
+use dcrypt::algorithms::ByteSerializable; // [FIX] Import for copy_from_slice
 
 /// Configuration for opening or creating a store.
 #[derive(Debug, Clone)]
@@ -46,6 +47,10 @@ pub struct SovereignContextStore {
     /// In-memory index mapping Session ID -> List of Frame IDs.
     /// Rebuilt on open from the TOC, enabling O(1) history hydration.
     pub session_index: HashMap<[u8; 32], Vec<FrameId>>,
+
+    /// [NEW] In-memory index for Skill Frames (O(1) access to learned capabilities).
+    /// Maps Checksum -> FrameId.
+    pub skill_index: HashMap<[u8; 32], FrameId>,
 }
 
 impl SovereignContextStore {
@@ -94,6 +99,7 @@ impl SovereignContextStore {
             vec_index: Arc::new(Mutex::new(None)),
             visual_index: HashMap::new(),
             session_index: HashMap::new(),
+            skill_index: HashMap::new(),
         })
     }
 
@@ -122,6 +128,7 @@ impl SovereignContextStore {
         // Rebuild visual index & session index
         let mut visual_index = HashMap::new();
         let mut session_index = HashMap::new();
+        let mut skill_index = HashMap::new();
 
         for frame in &toc.frames {
             // Map checksum -> FrameId. This assumes payload checksum IS the visual hash for Observation frames.
@@ -132,6 +139,11 @@ impl SovereignContextStore {
                 .entry(frame.session_id)
                 .or_insert_with(Vec::new)
                 .push(frame.id);
+
+            // [NEW] Map Skills
+            if frame.frame_type == FrameType::Skill {
+                skill_index.insert(frame.checksum, frame.id);
+            }
         }
 
         Ok(Self {
@@ -143,6 +155,7 @@ impl SovereignContextStore {
             vec_index: Arc::new(Mutex::new(None)),
             visual_index,
             session_index,
+            skill_index,
         })
     }
 
@@ -199,6 +212,11 @@ impl SovereignContextStore {
             .entry(session_id)
             .or_insert_with(Vec::new)
             .push(next_id);
+            
+        // [NEW] Update Skill Index
+        if frame_type == FrameType::Skill {
+            self.skill_index.insert(checksum_arr, next_id);
+        }
 
         // 5. Serialize and Append New TOC
         let toc_bytes = bincode::serialize(&self.toc)?;
@@ -237,6 +255,20 @@ impl SovereignContextStore {
         } else {
             Err(anyhow!("Memory map not initialized"))
         }
+    }
+    
+    /// [NEW] Scans all known skills and returns their payloads.
+    /// Used by `DesktopAgentService` to re-hydrate the skill library on startup/update.
+    pub fn scan_skills(&self) -> Vec<Vec<u8>> {
+        let mut skills = Vec::new();
+        if let Some(mmap) = &self.mmap {
+            for &id in self.skill_index.values() {
+                 if let Ok(payload) = self.read_frame_payload(id) {
+                     skills.push(payload.to_vec());
+                 }
+            }
+        }
+        skills
     }
 
     /// Saves the current vector index to the file as a special "System" frame (or embedded segment).
