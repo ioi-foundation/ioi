@@ -145,10 +145,11 @@ Run specific end-to-end tests to verify kernel components:
 
 ```bash
 # Core Infrastructure
-cargo test -p ioi-cli --test infra_e2e --features "consensus-admft,vm-wasm,state-iavl" -- --nocapture
+cargo test -p ioi-cli --test infra_e2e --features "consensus-admft,vm-wasm,state-iavl" -- --nocapture --test-threads=1
+RUST_LOG=info,consensus=info cargo test -p ioi-cli --test admft_e2e --features "consensus-admft,vm-wasm,state-iavl" -- --nocapture
 
 # Agentic Capabilities (Budget, Policy, Scrubbing)
-cargo test -p ioi-cli --test agent_budget_e2e --features "consensus-admft,vm-wasm,state-iavl"
+cargo test -p ioi-cli --test agent_budget_e2e --features "consensus-admft,vm-wasm,state-iavl" 
 cargo test -p ioi-cli --test agent_scrub_e2e --features "consensus-admft,vm-wasm,state-iavl"
 cargo test -p ioi-cli --test agent_rag_and_policy_e2e --features "consensus-admft,vm-wasm,state-iavl"
 

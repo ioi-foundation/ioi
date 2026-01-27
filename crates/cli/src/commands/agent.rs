@@ -2,7 +2,8 @@
 
 use anyhow::{anyhow, Context, Result};
 use clap::Parser;
-use ioi_services::agentic::desktop::{StartAgentParams, StepAgentParams};
+// [FIX] Import AgentMode
+use ioi_services::agentic::desktop::{StartAgentParams, StepAgentParams, AgentMode};
 use ioi_types::app::{SystemPayload, ChainTransaction};
 use crate::util::create_cli_tx;
 
@@ -40,6 +41,8 @@ pub async fn run(args: AgentArgs) -> Result<()> {
         max_steps: args.steps,
         parent_session_id: None,
         initial_budget: 1000, // Default budget
+        // [FIX] Added mode field
+        mode: AgentMode::Agent,
     };
 
     let payload = SystemPayload::CallService {

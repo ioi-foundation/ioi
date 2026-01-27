@@ -9,12 +9,10 @@ use ioi_api::{
     state::{StateManager, Verifier},
 };
 
-// [FIX] REMOVED unused MldsaKeyPair import
-// use ioi_crypto::sign::dilithium::MldsaKeyPair;
-
 use ioi_networking::libp2p::NetworkEvent;
 use ioi_networking::traits::NodeState;
-use ioi_types::app::{account_id_from_key_material, ChainTransaction, SignatureSuite};
+use ioi_types::app::{account_id_from_key_material, ChainTransaction, SignatureSuite, ConsensusVote}; 
+use ioi_types::codec; // [FIX] Added missing import
 use serde::Serialize;
 use std::fmt::Debug;
 use std::sync::Arc;
@@ -98,11 +96,6 @@ pub async fn handle_network_event<CS, ST, CE, V>(
                     .unwrap_or_default();
 
                 let pqc_id_opt = ctx.pqc_signer.as_ref().map(|kp| {
-                    // [FIX] Explicit generic typing for public_key if needed, but remove if MldsaKeyPair is not imported
-                    // MldsaKeyPair was unused in imports, so we need to access trait method via fully qualified path or rely on inference.
-                    // Since MldsaKeyPair impls SigningKeyPair, we can use that trait.
-                    // But we removed the import. If `pqc_signer` is `Option<MldsaKeyPair>`, we need `MldsaKeyPair` in scope or `SigningKeyPair`.
-                    // We kept `SigningKeyPair` in imports.
                     let pqc_pk: Vec<u8> = SigningKeyPair::public_key(kp).to_bytes();
                     account_id_from_key_material(SignatureSuite::ML_DSA_44, &pqc_pk)
                         .unwrap_or_default()
@@ -129,6 +122,56 @@ pub async fn handle_network_event<CS, ST, CE, V>(
             let mut ctx = context_arc.lock().await;
             gossip::handle_gossip_block(&mut ctx, block, mirror_id).await
         }
+
+        NetworkEvent::ConsensusVoteReceived { vote, from } => {
+            let (engine_ref, kick_tx) = {
+                let ctx = context_arc.lock().await;
+                (ctx.consensus_engine_ref.clone(), ctx.consensus_kick_tx.clone())
+            };
+
+            let mut engine = engine_ref.lock().await;
+            
+            tracing::debug!(target: "consensus", 
+                event = "vote_received", 
+                %from, 
+                height = vote.height, 
+                view = vote.view, 
+                block = hex::encode(&vote.block_hash[..4])
+            );
+
+            if let Err(e) = engine.handle_vote(vote).await {
+                tracing::warn!(target: "consensus", "Failed to handle incoming vote from {}: {}", from, e);
+            } else {
+                let _ = kick_tx.send(());
+            }
+        }
+        
+        // [NEW] Handle incoming View Change votes (Timeout TC)
+        NetworkEvent::ViewChangeVoteReceived { vote, from } => {
+             let (engine_ref, kick_tx) = {
+                let ctx = context_arc.lock().await;
+                (ctx.consensus_engine_ref.clone(), ctx.consensus_kick_tx.clone())
+            };
+            
+            let mut engine = engine_ref.lock().await;
+            
+            // Serialize for engine (engine expects bytes for generic interface compatibility)
+            // Now that `codec` is imported, this will work.
+            match codec::to_bytes_canonical(&vote) {
+                 Ok(vote_blob) => {
+                      if let Err(e) = engine.handle_view_change(from, &vote_blob).await {
+                           tracing::warn!(target: "consensus", "Failed to handle view change from {}: {}", from, e);
+                      } else {
+                           // If we formed a TC, we advanced the view. Kick the loop to propose in new view.
+                           let _ = kick_tx.send(());
+                      }
+                 }
+                 Err(e) => {
+                      tracing::warn!(target: "consensus", "Failed to serialize incoming view change vote: {}", e);
+                 }
+            }
+        }
+
         NetworkEvent::ConnectionEstablished(peer_id) => {
             let mut ctx = context_arc.lock().await;
             peer_management::handle_connection_established(&mut ctx, peer_id).await

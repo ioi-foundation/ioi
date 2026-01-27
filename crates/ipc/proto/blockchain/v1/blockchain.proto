@@ -101,6 +101,15 @@ message SharedMemoryHandle {
 
 // --- ChainControl Messages ---
 
+// BFT Voting Proof (QC)
+message QuorumCertificate {
+  uint64 height = 1;
+  uint64 view = 2;
+  bytes block_hash = 3;
+  // List of (Validator ID, Signature) tuples, SCALE encoded
+  bytes signatures = 4; 
+}
+
 message ProcessBlockRequest {
   // Hybrid payload: Use 'inline' for small blocks, 'shmem' for bulk/heavy blocks.
   oneof payload {

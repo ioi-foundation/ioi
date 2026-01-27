@@ -11,8 +11,10 @@ use ioi_ipc::public::TxStatus;
 use ioi_networking::libp2p::SwarmCommand;
 use ioi_networking::traits::NodeState;
 use ioi_types::{
-    // REMOVED: app::{Block, ChainTransaction, TxHash},
-    app::{Block, ChainTransaction},
+    app::{
+        account_id_from_key_material, to_root_hash, AccountId, Block, ChainTransaction,
+        ConsensusVote, SignatureSuite,
+    },
     codec,
 };
 use serde::Serialize;
@@ -125,6 +127,53 @@ where
         );
     } else {
         tracing::debug!(target: "consensus", "Committed empty block #{}", final_block.header.height);
+    }
+
+    // [FIX] Self-Vote Logic for the Leader/Producer
+    // The producer must vote for their own block to ensure Quorum is reached.
+    if final_block.header.height > 0 {
+        let (local_keypair, swarm_sender) = {
+            let ctx = context_arc.lock().await;
+            (ctx.local_keypair.clone(), ctx.swarm_commander.clone())
+        };
+
+        let vote_height = final_block.header.height;
+        let vote_view = final_block.header.view;
+        let vote_hash_vec = final_block.header.hash().unwrap_or(vec![0u8; 32]);
+        let vote_hash = to_root_hash(&vote_hash_vec).unwrap_or([0u8; 32]);
+
+        let our_pk = local_keypair.public().encode_protobuf();
+        if let Ok(our_id_hash) = account_id_from_key_material(SignatureSuite::ED25519, &our_pk) {
+            let our_id = AccountId(our_id_hash);
+
+            let vote_payload = (vote_height, vote_view, vote_hash);
+            if let Ok(vote_bytes) = codec::to_bytes_canonical(&vote_payload) {
+                if let Ok(sig) = local_keypair.sign(&vote_bytes) {
+                    let vote = ConsensusVote {
+                        height: vote_height,
+                        view: vote_view,
+                        block_hash: vote_hash,
+                        voter: our_id,
+                        signature: sig,
+                    };
+
+                    if let Ok(vote_blob) = codec::to_bytes_canonical(&vote) {
+                        // 1. Broadcast to network
+                        let _ = swarm_sender
+                            .send(SwarmCommand::BroadcastVote(vote_blob))
+                            .await;
+
+                        // 2. Feed back to local engine (so we track our own contribution to the QC)
+                        let mut engine = consensus_engine_ref.lock().await;
+                        if let Err(e) = engine.handle_vote(vote).await {
+                            tracing::warn!(target: "consensus", "Failed to handle own vote: {}", e);
+                        }
+
+                        tracing::info!(target: "consensus", "Self-Voted for block {} (H={} V={})", hex::encode(&vote_hash[..4]), vote_height, vote_view);
+                    }
+                }
+            }
+        }
     }
 
     Ok(())

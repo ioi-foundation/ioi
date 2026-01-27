@@ -12,7 +12,7 @@ use crate::traits::NodeState;
 use futures::StreamExt;
 use ioi_api::transaction::TransactionModel;
 use ioi_tx::unified::UnifiedTransactionModel;
-use ioi_types::app::{Block, ChainId, ChainTransaction, OracleAttestation};
+use ioi_types::app::{Block, ChainId, ChainTransaction, OracleAttestation, ConsensusVote}; // Added ConsensusVote
 use ioi_types::codec;
 use libp2p::{
     gossipsub, identity, noise,
@@ -32,6 +32,9 @@ use libp2p::gossipsub::{Behaviour as GossipsubBehaviour, PublishError};
 use std::collections::VecDeque;
 use tokio::time::interval;
 // --- FIX END ---
+
+// [NEW] Import ViewChangeVote
+use ioi_consensus::admft::ViewChangeVote;
 
 // Re-export concrete types from submodules for a cleaner public API.
 pub use self::sync::{SyncCodec, SyncRequest, SyncResponse};
@@ -69,6 +72,8 @@ pub enum SwarmCommand {
     Dial(Multiaddr),
     PublishBlock(Vec<u8>),
     PublishTransaction(Vec<u8>),
+    BroadcastVote(Vec<u8>), // [NEW] Broadcast a consensus vote (QC)
+    BroadcastViewChange(Vec<u8>), // [NEW] Broadcast a view change vote (TC)
     SendStatusRequest(PeerId),
     SendBlocksRequest {
         peer: PeerId,
@@ -106,6 +111,14 @@ pub enum NetworkEvent {
         mirror_id: u8, // 0 for Mirror A, 1 for Mirror B
     },
     GossipTransaction(Box<ChainTransaction>),
+    ConsensusVoteReceived { // [NEW] Vote received
+        vote: ConsensusVote,
+        from: PeerId,
+    },
+    ViewChangeVoteReceived { // [NEW] View change vote received
+        vote: ViewChangeVote,
+        from: PeerId,
+    },
     StatusRequest(PeerId, ResponseChannel<SyncResponse>),
     BlocksRequest {
         peer: PeerId,
@@ -152,6 +165,8 @@ enum SwarmInternalEvent {
     // MODIFIED: Added `mirror_id`
     GossipBlock(Vec<u8>, PeerId, u8),
     GossipTransaction(Vec<u8>, PeerId),
+    ConsensusVoteReceived(Vec<u8>, PeerId), // [NEW] Internal event
+    ViewChangeVoteReceived(Vec<u8>, PeerId), // [NEW] Internal event for TC
     StatusRequest(PeerId, ResponseChannel<SyncResponse>),
     BlocksRequest {
         peer: PeerId,
@@ -345,6 +360,24 @@ impl Libp2pSync {
                             }
                         }
                     }
+                    SwarmInternalEvent::ConsensusVoteReceived(data, source) => { 
+                        match codec::from_bytes_canonical::<ConsensusVote>(&data) {
+                            Ok(vote) => Some(NetworkEvent::ConsensusVoteReceived { vote, from: source }),
+                            Err(e) => {
+                                tracing::warn!(target: "gossip", event = "deser_fail", kind = "consensus_vote", error = %e);
+                                None
+                            }
+                        }
+                    }
+                    SwarmInternalEvent::ViewChangeVoteReceived(data, source) => { // [NEW] Handle ViewChange
+                        match codec::from_bytes_canonical::<ViewChangeVote>(&data) {
+                            Ok(vote) => Some(NetworkEvent::ViewChangeVoteReceived { vote, from: source }),
+                            Err(e) => {
+                                tracing::warn!(target: "gossip", event = "deser_fail", kind = "view_change_vote", error = %e);
+                                None
+                            }
+                        }
+                    }
                     SwarmInternalEvent::OutboundFailure(peer) => {
                         Some(NetworkEvent::OutboundFailure(peer))
                     }
@@ -381,9 +414,16 @@ impl Libp2pSync {
                     .send(SwarmCommand::Listen(listen_addr_clone))
                     .await
                     .ok();
+                
+                // Retry loop for bootnodes
+                // Try to dial every 2 seconds for 30 seconds
                 if let Some(addrs) = dial_addrs_owned {
-                    for addr in addrs {
-                        cmd_sender.send(SwarmCommand::Dial(addr)).await.ok();
+                    for _ in 0..15 { 
+                        for addr in &addrs {
+                             // Ignore send errors (channel closed)
+                            let _ = cmd_sender.send(SwarmCommand::Dial(addr.clone())).await;
+                        }
+                        tokio::time::sleep(Duration::from_secs(2)).await;
                     }
                 }
             }
@@ -452,6 +492,8 @@ impl Libp2pSync {
         let block_topic_b = gossipsub::IdentTopic::new("blocks_mirror_b");
         
         let tx_topic = gossipsub::IdentTopic::new("transactions");
+        let vote_topic = gossipsub::IdentTopic::new("consensus_votes"); // For QC votes
+        let timeout_topic = gossipsub::IdentTopic::new("consensus_timeouts"); // [NEW] For TC votes
         let oracle_attestations_topic = gossipsub::IdentTopic::new("oracle-attestations");
         let agentic_vote_topic = gossipsub::IdentTopic::new("agentic-votes");
 
@@ -460,7 +502,7 @@ impl Libp2pSync {
         let mut retry_interval = interval(Duration::from_millis(500));
         retry_interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
 
-        // SUBSCRIBE TO BOTH MIRRORS
+        // SUBSCRIBE TO ALL TOPICS
         if let Err(e) = swarm.behaviour_mut().gossipsub.subscribe(&block_topic_a) {
             tracing::warn!(error=%e, "Failed to subscribe to blocks_mirror_a");
         }
@@ -469,6 +511,12 @@ impl Libp2pSync {
         }
         if let Err(e) = swarm.behaviour_mut().gossipsub.subscribe(&tx_topic) {
             tracing::warn!(error=%e, "Failed to subscribe to gossipsub topic: transactions");
+        }
+        if let Err(e) = swarm.behaviour_mut().gossipsub.subscribe(&vote_topic) {
+            tracing::warn!(error=%e, "Failed to subscribe to gossipsub topic: consensus_votes");
+        }
+        if let Err(e) = swarm.behaviour_mut().gossipsub.subscribe(&timeout_topic) { // [NEW]
+            tracing::warn!(error=%e, "Failed to subscribe to gossipsub topic: consensus_timeouts");
         }
         if let Err(e) = swarm
             .behaviour_mut()
@@ -527,6 +575,10 @@ impl Libp2pSync {
                                 "blocks"
                             } else if message.topic == tx_topic.hash() {
                                 "transactions"
+                            } else if message.topic == vote_topic.hash() {
+                                "consensus_votes"
+                            } else if message.topic == timeout_topic.hash() {
+                                "consensus_timeouts" // [NEW] Metric label
                             } else if message.topic == oracle_attestations_topic.hash() {
                                 "oracle-attestations"
                             } else if message.topic == agentic_vote_topic.hash() {
@@ -541,11 +593,13 @@ impl Libp2pSync {
                                     event_sender.send(SwarmInternalEvent::GossipBlock(message.data, source, mid)).await.ok();
                                 } else if message.topic == tx_topic.hash() {
                                     event_sender.send(SwarmInternalEvent::GossipTransaction(message.data, source)).await.ok();
-                                }
-                                else if message.topic == oracle_attestations_topic.hash() {
+                                } else if message.topic == vote_topic.hash() {
+                                    event_sender.send(SwarmInternalEvent::ConsensusVoteReceived(message.data, source)).await.ok();
+                                } else if message.topic == timeout_topic.hash() { // [NEW] Handle Timeout
+                                    event_sender.send(SwarmInternalEvent::ViewChangeVoteReceived(message.data, source)).await.ok();
+                                } else if message.topic == oracle_attestations_topic.hash() {
                                     event_sender.send(SwarmInternalEvent::GossipOracleAttestation(message.data, source)).await.ok();
-                                }
-                                else if message.topic == agentic_vote_topic.hash() {
+                                } else if message.topic == agentic_vote_topic.hash() {
                                     if let Ok((prompt_hash, vote_hash)) = codec::from_bytes_canonical::<(String, Vec<u8>)>(&message.data) {
                                         event_sender.send(SwarmInternalEvent::AgenticConsensusVote { from: source, prompt_hash, vote_hash }).await.ok();
                                     }
@@ -619,6 +673,16 @@ impl Libp2pSync {
                                 tracing::warn!(error = %e, "Failed to publish transaction to gossipsub");
                             }
                         }
+                        SwarmCommand::BroadcastVote(data) => { // Broadcast QC vote
+                            if let Err(e) = swarm.behaviour_mut().gossipsub.publish(vote_topic.clone(), data) {
+                                tracing::warn!(error = %e, "Failed to publish vote to gossipsub");
+                            }
+                        }
+                        SwarmCommand::BroadcastViewChange(data) => { // [NEW] Broadcast TC vote
+                            if let Err(e) = swarm.behaviour_mut().gossipsub.publish(timeout_topic.clone(), data) {
+                                tracing::warn!(error = %e, "Failed to publish view change to gossipsub");
+                            }
+                        }
                         SwarmCommand::GossipOracleAttestation(data) => {
                              if let Err(e) = swarm.behaviour_mut().gossipsub.publish(oracle_attestations_topic.clone(), data) {
                                  tracing::warn!(error = %e, "Failed to publish oracle attestation to gossipsub");
@@ -666,7 +730,8 @@ impl Libp2pSync {
     }
 }
 
-// --- FIX START: Add helper functions for gossip retry logic ---
+// ... [Keep enqueue_block and drain_pending_blocks] ...
+
 const PENDING_BLOCK_OUTBOX_MAX: usize = 128;
 
 /// Enqueues a block for later gossiping, dropping the oldest if the outbox is full.
@@ -719,4 +784,3 @@ fn drain_pending_blocks(
         }
     });
 }
-// --- FIX END ---

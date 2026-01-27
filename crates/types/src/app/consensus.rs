@@ -147,3 +147,51 @@ pub struct CompactBlock {
     /// Full bytes of transactions that the proposer predicts peers might miss (optional).
     pub prefilled_txs: Vec<ChainTransaction>,
 }
+
+// --- BFT Voting Structures ---
+
+/// A vote for a specific block hash at a specific height/view.
+/// This is the message broadcast by validators to attest to a block's validity.
+/// 
+/// [MODIFIED] Now uses generic Vec<u8> which can hold either a classical Ed25519 signature
+/// OR a BLS signature share depending on the active scheme.
+#[derive(Debug, Clone, PartialEq, Eq, Encode, Decode, Serialize, Deserialize)]
+pub struct ConsensusVote {
+    /// The block height this vote is for.
+    pub height: u64,
+    /// The consensus view/round this vote is for.
+    pub view: u64,
+    /// The hash of the block being voted for.
+    pub block_hash: [u8; 32],
+    /// The Account ID of the validator casting the vote.
+    pub voter: AccountId,
+    /// The cryptographic signature (Ed25519 or BLS Share).
+    pub signature: Vec<u8>, 
+}
+
+/// A cryptographic proof that a quorum (2/3+1) of validators approved a block.
+/// This certificate allows a block to be considered finalized (or committed) by the network.
+///
+/// [MODIFIED] Added `aggregated_signature` and `signers_bitfield` for BLS optimization.
+/// The `signatures` field remains for legacy/Ed25519 compatibility or as a fallback.
+#[derive(Debug, Clone, PartialEq, Eq, Encode, Decode, Serialize, Deserialize, Default)]
+pub struct QuorumCertificate {
+    /// The height of the certified block.
+    pub height: u64,
+    /// The view of the certified block.
+    pub view: u64,
+    /// The hash of the certified block.
+    pub block_hash: [u8; 32],
+    
+    // --- Legacy / Ed25519 (Explicit List) ---
+    /// The individual signatures proving the quorum.
+    pub signatures: Vec<(AccountId, Vec<u8>)>,
+
+    // --- Scalable / BLS (Aggregated) ---
+    /// The aggregated BLS signature.
+    #[serde(default)]
+    pub aggregated_signature: Vec<u8>,
+    /// A bitfield representing which validators from the canonical set signed.
+    #[serde(default)]
+    pub signers_bitfield: Vec<u8>,
+}

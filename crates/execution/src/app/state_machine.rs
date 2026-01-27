@@ -26,7 +26,7 @@ use ioi_tx::unified::UnifiedProof;
 use ioi_tx::unified::UnifiedTransactionModel;
 use ioi_types::app::{
     account_id_from_key_material, read_validator_sets, to_root_hash, AccountId, Membership,
-    SignatureSuite, StateRoot,
+    SignatureSuite, StateRoot, QuorumCertificate, // [FIX] Import QuorumCertificate
 };
 use ioi_types::codec;
 use ioi_types::config::ConsensusType;
@@ -700,6 +700,7 @@ where
             // The Oracle will overwrite these during the signing process.
             oracle_counter: 0,
             oracle_trace_hash: [0u8; 32],
+            parent_qc: QuorumCertificate::default(), // [FIX] Added field
         };
 
         let preimage = header

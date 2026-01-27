@@ -6,7 +6,7 @@ use ioi_api::chain::{AnchoredStateView, ChainView};
 use ioi_api::commitment::CommitmentScheme;
 use ioi_api::state::{StateAccess, StateManager};
 use ioi_system::SystemState;
-use ioi_types::app::{AccountId, Block, ChainStatus, FailureReport};
+use ioi_types::app::{AccountId, Block, ChainStatus, FailureReport, ConsensusVote, QuorumCertificate}; // Added ConsensusVote, QuorumCertificate
 use ioi_types::codec;
 use ioi_types::error::{ConsensusError, TransactionError};
 use ioi_types::keys::STATUS_KEY;
@@ -81,6 +81,7 @@ impl<T: Clone + Send + 'static + parity_scale_codec::Encode> ConsensusEngine<T> 
             transactions: vec![], // Transactions are injected by the Orchestrator mempool logic
             expected_timestamp_secs,
             view,
+            parent_qc: QuorumCertificate::default(), // <--- Populate default
         }
     }
 
@@ -94,6 +95,14 @@ impl<T: Clone + Send + 'static + parity_scale_codec::Encode> ConsensusEngine<T> 
         ST: StateManager<Commitment = CS::Commitment, Proof = CS::Proof> + Send + Sync + 'static,
     {
         // Solo engine accepts everything valid, but typically won't receive gossip in Mode 0.
+        Ok(())
+    }
+
+    async fn handle_vote(
+        &mut self,
+        _vote: ConsensusVote,
+    ) -> Result<(), ConsensusError> {
+        // Solo mode does not process votes from peers.
         Ok(())
     }
 

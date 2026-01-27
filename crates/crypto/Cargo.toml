@@ -23,7 +23,8 @@ tokio-rustls = { workspace = true }
 rustls = { workspace = true }
 zeroize = { workspace = true, features = ["alloc"] }
 rayon = "1.8"
-libp2p = { workspace = true }                        # [FIX] Added missing dependency
+libp2p = { workspace = true }
+subtle = "2.4"  # [FIX] Added subtle dependency
 
 [features]
 default = []
