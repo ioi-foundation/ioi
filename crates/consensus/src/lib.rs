@@ -27,7 +27,7 @@ use ioi_api::{
     state::{StateAccess, StateManager},
 };
 use ioi_system::SystemState;
-use ioi_types::app::{AccountId, Block, FailureReport};
+use ioi_types::app::{AccountId, Block, ConsensusVote, FailureReport}; // Added ConsensusVote
 use ioi_types::config::ConsensusType;
 use ioi_types::error::{ConsensusError, TransactionError};
 use libp2p::PeerId;
@@ -138,6 +138,18 @@ where
         match self {
             Consensus::Admft(e) => e.handle_block_proposal(block, chain_view).await,
             Consensus::Solo(e) => e.handle_block_proposal(block, chain_view).await,
+            Consensus::_Phantom(_) => unreachable!(),
+        }
+    }
+
+    async fn handle_vote(
+        &mut self,
+        vote: ConsensusVote,
+    ) -> Result<(), ConsensusError> {
+        match self {
+            // [FIX] Use fully qualified syntax to resolve type inference
+            Consensus::Admft(e) => <AdmftEngine as ConsensusEngine<T>>::handle_vote(e, vote).await,
+            Consensus::Solo(e) => <SoloEngine as ConsensusEngine<T>>::handle_vote(e, vote).await,
             Consensus::_Phantom(_) => unreachable!(),
         }
     }

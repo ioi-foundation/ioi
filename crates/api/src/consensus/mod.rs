@@ -6,7 +6,7 @@ use crate::chain::{AnchoredStateView, ChainView};
 use crate::commitment::CommitmentScheme;
 use crate::state::{StateAccess, StateManager};
 use async_trait::async_trait;
-use ioi_types::app::{AccountId, Block};
+use ioi_types::app::{AccountId, Block, ConsensusVote, QuorumCertificate}; // Added QuorumCertificate
 use ioi_types::error::{ConsensusError, TransactionError};
 use libp2p::PeerId;
 use std::collections::HashSet;
@@ -22,6 +22,20 @@ pub enum ConsensusDecision<T> {
         transactions: Vec<T>,
         expected_timestamp_secs: u64,
         view: u64, // <--- NEW
+        parent_qc: QuorumCertificate, // <--- NEW
+    },
+    /// The node needs to cast a vote for a valid block proposal.
+    /// This signals the orchestrator to sign and broadcast the vote.
+    Vote {
+        block_hash: [u8; 32],
+        height: u64,
+        view: u64,
+    },
+    /// The node has detected a local timeout for the current view.
+    /// This signals the orchestrator to broadcast a ViewChangeVote and reset local timers.
+    Timeout {
+        view: u64,
+        height: u64,
     },
     /// The node is not the leader and should wait for a block proposal from a peer.
     WaitForBlock,
@@ -62,7 +76,7 @@ pub trait ConsensusEngine<T: Clone + parity_scale_codec::Encode>:
     PenaltyMechanism + Send + Sync
 {
     /// Makes a consensus decision for the current round, determining if the local node should
-    /// produce a block, wait, or propose a view change.
+    /// produce a block, wait, vote, or propose a view change.
     async fn decide(
         &mut self,
         our_account_id: &AccountId,
@@ -83,6 +97,13 @@ pub trait ConsensusEngine<T: Clone + parity_scale_codec::Encode>:
     where
         CS: CommitmentScheme + Send + Sync,
         ST: StateManager<Commitment = CS::Commitment, Proof = CS::Proof> + Send + Sync + 'static;
+
+    /// Handles a vote from a peer.
+    /// This is used to aggregate votes towards a Quorum Certificate (QC).
+    async fn handle_vote(
+        &mut self,
+        vote: ConsensusVote,
+    ) -> Result<(), ConsensusError>;
 
     /// Handles a view change proposal from a peer, which is part of liveness mechanisms
     /// in BFT-style consensus algorithms.

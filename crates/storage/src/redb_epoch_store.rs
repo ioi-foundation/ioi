@@ -12,8 +12,7 @@ use std::collections::HashMap;
 use std::path::Path;
 use std::sync::{Arc, RwLock};
 use std::thread;
-use tokio::sync::{mpsc, Mutex};
-use tracing; // [FIX] Added import
+use tokio::sync::{mpsc, oneshot, Mutex};
 
 /// ---- Table definitions (single DB, prefix-encoded keys) ----
 /// Global - Keys are fixed-size arrays
@@ -77,8 +76,8 @@ struct AsyncCommit {
 /// Enum to multiplex different persistence operations on the same background channel.
 #[derive(Debug)]
 enum PersistenceOp {
-    CommitState(AsyncCommit),
-    WriteBlock(Height, Vec<u8>),
+    CommitState(AsyncCommit, oneshot::Sender<Result<(), String>>),
+    WriteBlock(Height, Vec<u8>, oneshot::Sender<Result<(), String>>),
 }
 
 #[derive(Clone)]
@@ -137,6 +136,88 @@ impl RedbEpochStore {
                 .map_err(|e| StorageError::Backend(e.to_string()))?;
         }
 
+        // --- WAL Replay Logic ---
+        if wal_path.exists() {
+             let db_head_height = {
+                 let r = db.begin_read().map_err(|e| StorageError::Backend(e.to_string()))?;
+                 // [FIX] Scoped block to ensure table `t` is dropped before `r`
+                 let res = if let Ok(t) = r.open_table(HEAD) {
+                     if let Ok(Some(v)) = t.get(&key_head()) {
+                          let bytes = v.value();
+                          let (h_bytes, _) = bytes.split_at(8);
+                          parse_u64(h_bytes)
+                     } else { 0 }
+                 } else { 0 };
+                 res
+             };
+             
+             eprintln!("[Storage] Replaying WAL from height > {}", db_head_height);
+             
+             let iter = crate::wal::WalIterator::new(&wal_path).map_err(|e| StorageError::Backend(e.to_string()))?;
+             
+             let mut replayed_count = 0;
+             // We use a single write transaction for the replay batch for speed
+             let w = db.begin_write().map_err(|e| StorageError::Backend(e.to_string()))?;
+             
+             {
+                 let mut nodes_tbl = w.open_table(NODES).map_err(|e| StorageError::Backend(e.to_string()))?;
+                 let mut refs_tbl = w.open_table(REFS).map_err(|e| StorageError::Backend(e.to_string()))?;
+                 let mut ch = w.open_table(CHANGES).map_err(|e| StorageError::Backend(e.to_string()))?;
+                 let mut ver = w.open_table(VERSIONS).map_err(|e| StorageError::Backend(e.to_string()))?;
+                 let mut ri = w.open_table(ROOT_INDEX).map_err(|e| StorageError::Backend(e.to_string()))?;
+                 let mut t_head = w.open_table(HEAD).map_err(|e| StorageError::Backend(e.to_string()))?;
+
+                 for item in iter {
+                     // Log errors but try to continue or break? 
+                     // Failing replay is critical.
+                     let (height, root, diff) = item.map_err(|e| StorageError::Backend(format!("WAL Read Error: {}", e)))?;
+                     
+                     if height <= db_head_height {
+                         continue;
+                     }
+                     
+                     let epoch = if epoch_size == 0 { 0 } else { height / epoch_size };
+                     
+                     // Apply Diff
+                     for (nh, bytes) in diff.new_nodes {
+                         let nh_wrapper = NodeHash(nh);
+                         let k = k_nodes(epoch, &nh_wrapper);
+                         if nodes_tbl.get(k.as_slice()).map_err(|e| StorageError::Backend(e.to_string()))?.is_none() {
+                             nodes_tbl.insert(k.as_slice(), bytes.as_slice()).map_err(|e| StorageError::Backend(e.to_string()))?;
+                             let rk = k_refs(epoch, &nh_wrapper);
+                             refs_tbl.insert(rk.as_slice(), &v_u64(1)).map_err(|e| StorageError::Backend(e.to_string()))?;
+                         }
+                     }
+                     
+                     for (i, nh) in diff.touched_nodes.iter().enumerate() {
+                         let nh_wrapper = NodeHash(*nh);
+                         ch.insert(k_changes(epoch, height, i as u32).as_slice(), &nh_wrapper.0).map_err(|e| StorageError::Backend(e.to_string()))?;
+                     }
+                     
+                     // Update Version/Root
+                     let root_wrapper = RootHash(root);
+                     ver.insert(k_versions(epoch, height).as_slice(), &root_wrapper.0).map_err(|e| StorageError::Backend(e.to_string()))?;
+                     
+                     let mut meta = [0u8; 16];
+                     meta[..8].copy_from_slice(&enc_epoch(epoch));
+                     meta[8..].copy_from_slice(&enc_height(height));
+                     ri.insert(&root_wrapper.0, &meta).map_err(|e| StorageError::Backend(e.to_string()))?;
+
+                     // Update Head
+                     let mut head_buf = [0u8; 16];
+                     head_buf[..8].copy_from_slice(&enc_height(height));
+                     head_buf[8..].copy_from_slice(&enc_epoch(epoch));
+                     t_head.insert(&key_head(), &head_buf).map_err(|e| StorageError::Backend(e.to_string()))?;
+                     
+                     replayed_count += 1;
+                 }
+             }
+             w.commit().map_err(|e| StorageError::Backend(e.to_string()))?;
+             if replayed_count > 0 {
+                 eprintln!("[Storage] WAL Replay complete. Applied {} blocks.", replayed_count);
+             }
+        }
+
         // Setup Async Persistence with Bounded Channel.
         // INCREASED BUFFER: Raised from 256 to 1024 to absorb I/O spikes during high throughput.
         let (tx, mut rx) = mpsc::channel::<PersistenceOp>(1024);
@@ -156,7 +237,9 @@ impl RedbEpochStore {
             eprintln!("[Storage] Background persistence thread started"); // [DEBUG]
             while let Some(op) = rx.blocking_recv() {
                 match op {
-                    PersistenceOp::CommitState(commit) => {
+                    PersistenceOp::CommitState(commit, ack_tx) => {
+                        let mut result = Ok(());
+
                         // 1. Prepare Diff for WAL
                         let diff = StateDiff {
                             new_nodes: commit
@@ -171,6 +254,7 @@ impl RedbEpochStore {
                         if let Err(e) = wal_clone.append_block(commit.height, commit.root.0, &diff)
                         {
                             eprintln!("[Storage] Async WAL Write Failed: {}", e);
+                            result = Err(e.to_string());
                         }
 
                         let epoch = if epoch_size_clone == 0 {
@@ -180,56 +264,61 @@ impl RedbEpochStore {
                         };
 
                         // Perform Redb write
-                        let write_res = (|| -> Result<(), redb::Error> {
-                            let w = db_clone.begin_write()?;
-                            {
-                                let mut nodes_tbl = w.open_table(NODES)?;
-                                let mut refs_tbl = w.open_table(REFS)?;
+                        // Only proceed with DB write if WAL write succeeded (or if we want best effort)
+                        // Here we proceed but track error.
+                        if result.is_ok() {
+                            let write_res = (|| -> Result<(), redb::Error> {
+                                let w = db_clone.begin_write()?;
+                                {
+                                    let mut nodes_tbl = w.open_table(NODES)?;
+                                    let mut refs_tbl = w.open_table(REFS)?;
 
-                                for (nh, bytes) in &commit.new_nodes {
-                                    let k = k_nodes(epoch, nh);
-                                    // Only insert if not present (dedup)
-                                    if nodes_tbl.get(k.as_slice())?.is_none() {
-                                        nodes_tbl.insert(k.as_slice(), bytes.as_slice())?;
-                                        let rk = k_refs(epoch, nh);
-                                        // Init refcount 1
-                                        refs_tbl.insert(rk.as_slice(), &v_u64(1))?;
+                                    for (nh, bytes) in &commit.new_nodes {
+                                        let k = k_nodes(epoch, nh);
+                                        // Only insert if not present (dedup)
+                                        if nodes_tbl.get(k.as_slice())?.is_none() {
+                                            nodes_tbl.insert(k.as_slice(), bytes.as_slice())?;
+                                            let rk = k_refs(epoch, nh);
+                                            // Init refcount 1
+                                            refs_tbl.insert(rk.as_slice(), &v_u64(1))?;
+                                        }
                                     }
-                                }
 
-                                let mut ch = w.open_table(CHANGES)?;
-                                for (i, nh) in commit.unique_nodes.iter().enumerate() {
-                                    ch.insert(
-                                        k_changes(epoch, commit.height, i as u32).as_slice(),
-                                        &nh.0,
+                                    let mut ch = w.open_table(CHANGES)?;
+                                    for (i, nh) in commit.unique_nodes.iter().enumerate() {
+                                        ch.insert(
+                                            k_changes(epoch, commit.height, i as u32).as_slice(),
+                                            &nh.0,
+                                        )?;
+                                    }
+
+                                    let mut ver = w.open_table(VERSIONS)?;
+                                    ver.insert(
+                                        k_versions(epoch, commit.height).as_slice(),
+                                        &commit.root.0,
                                     )?;
+
+                                    let mut ri = w.open_table(ROOT_INDEX)?;
+                                    let mut meta = [0u8; 16];
+                                    meta[..8].copy_from_slice(&enc_epoch(epoch));
+                                    meta[8..].copy_from_slice(&enc_height(commit.height));
+                                    ri.insert(&commit.root.0, &meta)?;
+
+                                    // Write head
+                                    let mut head_buf = [0u8; 16];
+                                    head_buf[..8].copy_from_slice(&enc_height(commit.height));
+                                    head_buf[8..].copy_from_slice(&enc_epoch(epoch));
+                                    let mut t_head = w.open_table(HEAD)?;
+                                    t_head.insert(&key_head(), &head_buf)?;
                                 }
+                                w.commit()?;
+                                Ok(())
+                            })();
 
-                                let mut ver = w.open_table(VERSIONS)?;
-                                ver.insert(
-                                    k_versions(epoch, commit.height).as_slice(),
-                                    &commit.root.0,
-                                )?;
-
-                                let mut ri = w.open_table(ROOT_INDEX)?;
-                                let mut meta = [0u8; 16];
-                                meta[..8].copy_from_slice(&enc_epoch(epoch));
-                                meta[8..].copy_from_slice(&enc_height(commit.height));
-                                ri.insert(&commit.root.0, &meta)?;
-
-                                // Write head
-                                let mut head_buf = [0u8; 16];
-                                head_buf[..8].copy_from_slice(&enc_height(commit.height));
-                                head_buf[8..].copy_from_slice(&enc_epoch(epoch));
-                                let mut t_head = w.open_table(HEAD)?;
-                                t_head.insert(&key_head(), &head_buf)?;
+                            if let Err(e) = write_res {
+                                eprintln!("[Storage] Async DB Write Failed (State): {}", e);
+                                result = Err(e.to_string());
                             }
-                            w.commit()?;
-                            Ok(())
-                        })();
-
-                        if let Err(e) = write_res {
-                            eprintln!("[Storage] Async DB Write Failed (State): {}", e);
                         }
 
                         // Cleanup memtable
@@ -245,8 +334,11 @@ impl RedbEpochStore {
                             let mut guard = pending_roots_clone.write().unwrap();
                             guard.remove(&commit.root);
                         }
+
+                        // Acknowledge completion
+                        let _ = ack_tx.send(result);
                     }
-                    PersistenceOp::WriteBlock(height, block_bytes) => {
+                    PersistenceOp::WriteBlock(height, block_bytes, ack_tx) => {
                         let write_res = (|| -> Result<(), redb::Error> {
                             let w = db_clone.begin_write()?;
                             {
@@ -257,14 +349,20 @@ impl RedbEpochStore {
                             Ok(())
                         })();
 
-                        if let Err(e) = write_res {
+                        let result = if let Err(e) = write_res {
                             eprintln!("[Storage] Async DB Write Failed (Block): {}", e);
-                        }
+                            Err(e.to_string())
+                        } else {
+                            Ok(())
+                        };
+
                         // Cleanup pending_blocks
                         {
                             let mut guard = pending_blocks_clone.write().unwrap();
                             guard.remove(&height);
                         }
+                        
+                        let _ = ack_tx.send(result);
                     }
                 }
             }
@@ -332,12 +430,6 @@ impl RedbEpochStore {
         Ok(())
     }
 
-    /// Safely drops a sealed epoch, ensuring no pinned heights are deleted.
-    /// This requires the caller (Workload) to pass in the set of excluded (pinned) heights.
-    ///
-    /// Note: The trait definition for `drop_sealed_epoch` takes only `epoch`.
-    /// To support safety, we rely on `prune_batch` for granular cleanup,
-    /// and `drop_sealed_epoch` for bulk cleanup ONLY when we are sure the WHOLE epoch is dead.
     pub fn safe_drop_epoch(&self, epoch: Epoch, pins: &[Height]) -> Result<bool, StorageError> {
         let start_height = epoch * self.epoch_size;
         let end_height = (epoch + 1) * self.epoch_size;
@@ -470,7 +562,6 @@ impl NodeStore for RedbEpochStore {
         Ok(result)
     }
 
-    /// Async Commit with Backpressure
     async fn commit_block(&self, input: CommitInput) -> Result<(), StorageError> {
         let bytes_written: u64 = input
             .new_nodes
@@ -493,8 +584,10 @@ impl NodeStore for RedbEpochStore {
             guard.insert(input.root, input.height);
         }
 
+        // Setup ack channel
+        let (ack_tx, ack_rx) = oneshot::channel();
+
         // Queue Redb + WAL Write (Async)
-        // Convert input into owned AsyncCommit struct
         let commit_task = AsyncCommit {
             height: input.height,
             root: input.root,
@@ -502,13 +595,17 @@ impl NodeStore for RedbEpochStore {
             unique_nodes: input.unique_nodes_for_height,
         };
 
-        // Send to background thread, applying backpressure if full.
         self.tx_sender
-            .send(PersistenceOp::CommitState(commit_task))
+            .send(PersistenceOp::CommitState(commit_task, ack_tx))
             .await
             .map_err(|e| StorageError::Backend(format!("Failed to queue async commit: {}", e)))?;
 
-        Ok(())
+        // Wait for durability acknowledgment
+        match ack_rx.await {
+            Ok(Ok(())) => Ok(()),
+            Ok(Err(e)) => Err(StorageError::Backend(format!("Commit failed in background: {}", e))),
+            Err(e) => Err(StorageError::Backend(format!("Persistence channel closed: {}", e))),
+        }
     }
 
     async fn put_block(&self, height: u64, block_bytes: &[u8]) -> Result<(), StorageError> {
@@ -518,15 +615,20 @@ impl NodeStore for RedbEpochStore {
             guard.insert(height, block_bytes.to_vec());
         }
 
-        // Offload block write to the same background thread to avoid lock contention.
-        let op = PersistenceOp::WriteBlock(height, block_bytes.to_vec());
+        let (ack_tx, ack_rx) = oneshot::channel();
+        let op = PersistenceOp::WriteBlock(height, block_bytes.to_vec(), ack_tx);
 
         self.tx_sender
             .send(op)
             .await
             .map_err(|e| StorageError::Backend(format!("Failed to queue block write: {}", e)))?;
 
-        Ok(())
+        // Wait for durability acknowledgment
+        match ack_rx.await {
+             Ok(Ok(())) => Ok(()),
+             Ok(Err(e)) => Err(StorageError::Backend(format!("Block write failed in background: {}", e))),
+             Err(e) => Err(StorageError::Backend(format!("Persistence channel closed: {}", e))),
+        }
     }
 
     fn get_block_by_height(

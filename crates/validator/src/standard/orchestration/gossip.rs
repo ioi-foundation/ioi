@@ -8,7 +8,7 @@ use ioi_api::chain::{AnchoredStateView, StateRef, WorkloadClientApi};
 use ioi_api::commitment::CommitmentScheme;
 use ioi_api::consensus::{ConsensusEngine, PenaltyMechanism};
 use ioi_api::state::{StateAccess, StateManager, Verifier};
-use ioi_ipc::public::TxStatus; // [FIX] Added import
+use ioi_ipc::public::TxStatus; 
 use ioi_networking::traits::NodeState;
 use ioi_types::{
     app::{AccountId, Block, ChainTransaction, FailureReport, StateRoot},
@@ -23,6 +23,11 @@ use std::sync::Arc;
 use tokio::sync::Mutex;
 
 use crate::metrics::rpc_metrics as metrics;
+
+// [FIX] Added imports for voting
+use ioi_networking::libp2p::SwarmCommand;
+use ioi_types::app::{ConsensusVote, account_id_from_key_material, SignatureSuite, to_root_hash};
+use ioi_types::codec;
 
 type ProofCache = Arc<Mutex<LruCache<(Vec<u8>, Vec<u8>), Option<Vec<u8>>>>>;
 
@@ -110,7 +115,7 @@ where
 
 /// Prunes the mempool by removing committed transactions and updating account nonces.
 pub fn prune_mempool(
-    pool: &Mempool, // [FIX] Now takes an immutable reference
+    pool: &Mempool, 
     processed_block: &Block<ChainTransaction>,
 ) -> Result<(), anyhow::Error> {
     let mut max_nonce_in_block: HashMap<AccountId, u64> = HashMap::new();
@@ -127,7 +132,6 @@ pub fn prune_mempool(
     }
 
     // Bulk update account nonces using the batched API
-    // This acquires shards locks only once per shard instead of once per account
     let updates: HashMap<AccountId, u64> = max_nonce_in_block
         .into_iter()
         .map(|(acct, max_nonce)| (acct, max_nonce + 1))
@@ -157,7 +161,7 @@ fn get_tx_nonce(tx: &ChainTransaction) -> Option<(AccountId, u64)> {
 pub async fn handle_gossip_block<CS, ST, CE, V>(
     context: &mut MainLoopContext<CS, ST, CE, V>,
     block: Block<ChainTransaction>,
-    mirror_id: u8, // [NEW] Added mirror_id
+    mirror_id: u8, 
 ) where
     CS: CommitmentScheme + Clone + Send + Sync + 'static,
     ST: StateManager<Commitment = CS::Commitment, Proof = CS::Proof>
@@ -212,12 +216,7 @@ pub async fn handle_gossip_block<CS, ST, CE, V>(
         )
     };
 
-    // A-DMFT Divergence Detection Hook
     tracing::debug!(target: "admft", "Received block {} on Mirror {}", block.header.height, if mirror_id == 0 { "A" } else { "B" });
-
-    // Note: To fully implement divergence detection, we would track received blocks by height/view/mirror
-    // in the Consensus Engine state and trigger a view change if we see conflicting valid blocks.
-    // For now, we pass the block to the engine which verifies the signature/counter validity.
 
     if let Err(e) = engine_ref
         .lock()
@@ -248,9 +247,6 @@ pub async fn handle_gossip_block<CS, ST, CE, V>(
                 status.latest_timestamp = processed_block.header.timestamp;
             }
 
-            // [FIX] Update Tx Status for locally tracked transactions
-            // This ensures clients polling this node (which didn't produce the block)
-            // see the transaction as COMMITTED.
             {
                 let receipt_guard = context.receipt_map.lock().await;
                 let mut status_guard = context.tx_status_cache.lock().await;
@@ -268,9 +264,47 @@ pub async fn handle_gossip_block<CS, ST, CE, V>(
                 }
             }
 
-            // [FIX] No lock needed for sharded mempool
             if let Err(e) = prune_mempool(&context.tx_pool_ref, &processed_block) {
                 tracing::error!(target: "gossip", event="mempool_prune_fail", error=%e);
+            }
+
+            // [FIX] Broadcast Vote for the successfully committed block
+            if processed_block.header.height > 0 {
+                let vote_height = processed_block.header.height;
+                let vote_view = processed_block.header.view;
+                let vote_hash_vec = processed_block.header.hash().unwrap_or(vec![0u8; 32]);
+                let vote_hash = to_root_hash(&vote_hash_vec).unwrap_or([0u8; 32]);
+                
+                // Get our ID
+                let our_pk = context.local_keypair.public().encode_protobuf();
+                let our_id = AccountId(account_id_from_key_material(SignatureSuite::ED25519, &our_pk).unwrap_or([0u8; 32]));
+
+                // Sign Vote
+                let vote_payload = (vote_height, vote_view, vote_hash);
+                if let Ok(vote_bytes) = codec::to_bytes_canonical(&vote_payload) {
+                    if let Ok(sig) = context.local_keypair.sign(&vote_bytes) {
+                        let vote = ConsensusVote {
+                            height: vote_height,
+                            view: vote_view,
+                            block_hash: vote_hash,
+                            voter: our_id,
+                            signature: sig,
+                        };
+                        
+                        if let Ok(vote_blob) = codec::to_bytes_canonical(&vote) {
+                             // Broadcast to network
+                             let _ = context.swarm_commander.send(SwarmCommand::BroadcastVote(vote_blob)).await;
+                             
+                             // Loopback to local engine to ensure we count our own vote
+                             let mut engine = engine_ref.lock().await;
+                             if let Err(e) = engine.handle_vote(vote).await {
+                                 tracing::warn!(target: "consensus", "Failed to handle own vote: {}", e);
+                             }
+                             
+                             tracing::info!(target: "consensus", "Voted for block {} (H={} V={})", hex::encode(&vote_hash[..4]), vote_height, vote_view);
+                        }
+                    }
+                }
             }
 
             if *context.node_state.lock().await == NodeState::Syncing {

@@ -251,6 +251,12 @@ pub struct BlockHeader {
     /// Links this block signature to the previous signature history.
     pub oracle_trace_hash: [u8; 32],
     // ------------------------------------------
+
+    /// Proof that the PARENT block was accepted by the network.
+    /// This provides the "chaining" of security in Chained BFT.
+    /// A valid QC proves that >= 2/3 of validators voted for parent_hash.
+    pub parent_qc: QuorumCertificate,
+
     /// The signature of the block header's canonical preimage.
     /// Signed payload is: Preimage || oracle_counter || oracle_trace_hash
     pub signature: Vec<u8>,
@@ -302,6 +308,7 @@ impl BlockHeader {
             &self.producer_key_suite,
             &self.producer_pubkey_hash,
             &self.producer_pubkey,
+            &self.parent_qc, // Include QC in signature preimage
         ))
         .map_err(CoreError::Custom)
     }

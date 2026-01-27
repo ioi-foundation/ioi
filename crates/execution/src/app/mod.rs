@@ -27,6 +27,7 @@ use ioi_tx::system::{nonce, validation};
 use ioi_tx::unified::UnifiedTransactionModel;
 use ioi_types::app::{
     AccountId, BlockTimingParams, BlockTimingRuntime, ChainId, FailureReport, StateRoot,
+    QuorumCertificate, // [FIX] Import QuorumCertificate
 };
 use ioi_types::codec;
 use ioi_types::config::ServicePolicy;
@@ -370,6 +371,7 @@ where
                         signature: vec![],
                         oracle_counter: 0,
                         oracle_trace_hash: [0u8; 32],
+                        parent_qc: QuorumCertificate::default(), // [FIX] Added field
                     },
                     transactions: vec![],
                 };

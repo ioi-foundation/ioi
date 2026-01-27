@@ -322,10 +322,6 @@ where
         })
     }
 
-    // ... (rest of implementation remains mostly unchanged, relying on trait methods)
-    
-    // [Truncated for brevity - standard implementation of start_internal/stop_internal etc.]
-    // ...
     /// Sets the `Chain` and `WorkloadClient` references initialized after container creation.
     pub fn set_chain_and_workload_client(
         &self,
@@ -449,15 +445,16 @@ where
         mut kick_rx: mpsc::UnboundedReceiver<()>,
         mut shutdown_rx: watch::Receiver<bool>,
     ) {
-        eprintln!("[Consensus] Ticker task spawned. Acquiring context lock..."); 
+        // [INSTRUMENTATION] Log ticker start
+        tracing::info!(target: "consensus", "Consensus ticker task started. Waiting for context lock...");
         let interval_secs = {
             let ctx = context_arc.lock().await;
-            eprintln!("[Consensus] Context lock acquired."); 
             std::env::var("ORCH_BLOCK_INTERVAL_SECS")
                 .ok()
                 .and_then(|s| s.parse::<u64>().ok())
                 .unwrap_or_else(|| ctx.config.block_production_interval_secs)
         };
+        tracing::info!(target: "consensus", "Consensus ticker acquired config. Interval: {}s", interval_secs);
 
         if interval_secs == 0 {
             tracing::info!(target: "consensus", "Consensus ticker disabled (interval=0).");
@@ -465,11 +462,6 @@ where
             return;
         }
 
-        tracing::info!(
-            target: "consensus",
-            "Consensus ticker started ({}s interval).",
-            interval_secs
-        );
         let mut ticker = time::interval(Duration::from_secs(interval_secs));
         ticker.set_missed_tick_behavior(MissedTickBehavior::Skip);
 
@@ -481,17 +473,19 @@ where
         loop {
             tokio::select! {
                 _ = ticker.tick() => {
-                    // eprintln!("[Consensus] Timer Tick"); // Too noisy
                     let cause = "timer";
                     let is_quarantined = context_arc.lock().await.is_quarantined.load(Ordering::SeqCst);
                     if is_quarantined {
                         continue;
                     }
                     last_tick = tokio::time::Instant::now();
+                    
+                    // [INSTRUMENTATION] Log tick trigger
+                    tracing::info!(target: "consensus", "Consensus timer tick triggered.");
+                    
                     let result = AssertUnwindSafe(drive_consensus_tick(&context_arc, cause)).catch_unwind().await;
                     if let Err(e) = result.map_err(|e| anyhow!("Consensus tick panicked: {:?}", e)).and_then(|res| res) {
-                        eprintln!("[Consensus] Tick Error: {:?}", e); 
-                        tracing::error!(target: "consensus", "[Orch Tick] Consensus tick panicked: {:?}. Continuing loop.", e);
+                        tracing::error!(target: "consensus", "[Orch Tick] Consensus tick failed: {:?}. Continuing loop.", e);
                     }
                 }
                 Some(()) = kick_rx.recv() => {
@@ -503,10 +497,13 @@ where
                          continue;
                     }
                     last_tick = tokio::time::Instant::now();
+                    
+                    // [INSTRUMENTATION] Log kick trigger
+                    tracing::debug!(target: "consensus", "Consensus kicked.");
+                    
                     let result = AssertUnwindSafe(drive_consensus_tick(&context_arc, cause)).catch_unwind().await;
                      if let Err(e) = result.map_err(|e| anyhow!("Kicked consensus tick panicked: {:?}", e)).and_then(|res| res) {
-                        eprintln!("[Consensus] Kick Error: {:?}", e); 
-                        tracing::error!(target: "consensus", "[Orch Tick] Kicked panicked: {:?}.", e);
+                        tracing::error!(target: "consensus", "[Orch Tick] Kicked failed: {:?}.", e);
                     }
                 }
                  _ = shutdown_rx.changed() => {
