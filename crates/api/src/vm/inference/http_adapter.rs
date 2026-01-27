@@ -57,10 +57,11 @@ struct ChatCompletionRequest {
     response_format: Option<ResponseFormat>,
 }
 
-#[derive(Serialize)]
+// [MODIFIED] Content can be a string or a complex array (multimodal)
+#[derive(Serialize, Deserialize, Debug, Clone)]
 struct Message {
     role: String,
-    content: String,
+    content: serde_json::Value,
 }
 
 #[derive(Serialize)]
@@ -151,8 +152,28 @@ impl InferenceRuntime for HttpInferenceRuntime {
         token_stream: Option<Sender<String>>,
     ) -> Result<Vec<u8>, VmError> {
         // 1. Decode Input
-        let prompt_str = String::from_utf8(input_context.to_vec())
-            .map_err(|e| VmError::InvalidBytecode(format!("Input context must be UTF-8: {}", e)))?;
+        // [MODIFIED] Handle Multimodal / Complex Inputs
+        // The input_context might be a JSON array of messages (for history/vision) OR a plain string.
+        let messages: Vec<Message> = if let Ok(json_val) = serde_json::from_slice::<serde_json::Value>(input_context) {
+             // If it parses as JSON, check if it's already a list of messages.
+             if let Ok(msgs) = serde_json::from_value::<Vec<Message>>(json_val.clone()) {
+                 msgs
+             } else {
+                 // If it's valid JSON but not a message list (e.g. an array of content parts), wrap it in a user message.
+                 vec![Message {
+                     role: "user".to_string(),
+                     content: json_val,
+                 }]
+             }
+        } else {
+             // Fallback: Treat as plain UTF-8 string content.
+             let prompt_str = String::from_utf8(input_context.to_vec())
+                 .map_err(|e| VmError::InvalidBytecode(format!("Input context must be UTF-8: {}", e)))?;
+             vec![Message {
+                 role: "user".to_string(),
+                 content: serde_json::Value::String(prompt_str),
+             }]
+        };
 
         // 2. Map Tools
         let tools = if options.tools.is_empty() {
@@ -192,10 +213,7 @@ impl InferenceRuntime for HttpInferenceRuntime {
         let stream_mode = token_stream.is_some();
         let request_body = ChatCompletionRequest {
             model: self.model_name.clone(),
-            messages: vec![Message {
-                role: "user".to_string(),
-                content: prompt_str,
-            }],
+            messages,
             tools,
             temperature: options.temperature,
             stream: stream_mode,

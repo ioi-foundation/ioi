@@ -572,7 +572,7 @@ async fn main() -> Result<()> {
         }
     }
 
-    let mut operator_ticker = tokio::time::interval(Duration::from_secs(1));
+    let mut operator_ticker = tokio::time::interval(Duration::from_millis(500)); // [MODIFIED] Increased poll rate
     operator_ticker.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
 
     loop {
@@ -611,13 +611,24 @@ async fn main() -> Result<()> {
                          tracing::error!(target: "operator_task", "Oracle operator failed: {}", e);
                     }
 
-                    if let Err(e) = run_agent_driver_task::<
+                    // [MODIFIED] Tight autonomy loop
+                    // If the driver performed work, we skip sleeping and loop faster
+                    match run_agent_driver_task::<
                         HashCommitmentScheme,
                         RedbFlatStore<HashCommitmentScheme>,
                         Consensus<ChainTransaction>,
                         FlatVerifier
                     >(&*ctx_guard).await {
-                         tracing::error!(target: "operator_task", "Agent driver failed: {}", e);
+                        Ok(true) => {
+                             // Work was done, reset ticker immediately to process next step
+                             operator_ticker.reset();
+                        },
+                        Ok(false) => {
+                             // Idle, wait for next tick
+                        },
+                        Err(e) => {
+                             tracing::error!(target: "operator_task", "Agent driver failed: {}", e);
+                        }
                     }
                 }
             }

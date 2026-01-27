@@ -13,6 +13,7 @@ use std::time::Duration;
 // [NEW] Import for events
 use ioi_types::app::KernelEvent;
 use tokio::sync::broadcast::Sender;
+use xcap::Monitor; // [NEW] For DPI awareness
 
 /// A native driver for controlling mouse and keyboard input.
 pub struct NativeOperator {
@@ -45,6 +46,8 @@ impl NativeOperator {
 
         let mut out = [0u8; 32];
         let len = hash_bytes.len().min(32);
+        // dcrypt is available in dev-deps or deps, assuming available via ioi-crypto re-export or direct use
+        // If not, we use manual copy.
         out[..len].copy_from_slice(&hash_bytes[..len]);
         Ok(out)
     }
@@ -66,11 +69,29 @@ impl NativeOperator {
             .enigo
             .lock()
             .map_err(|_| anyhow!("Enigo lock poisoned"))?;
+        
+        // [FIX] Removed scale factor multiplication.
+        // The LLM sees the raw screenshot pixels (physical resolution).
+        // enigo (on Linux/X11/Wayland) typically expects physical coordinates or handles scaling internally.
+        // Double-applying the scale factor causes clicks to drift off-target.
+        // We log the dimensions for debugging.
+        let monitors = Monitor::all().unwrap_or_default();
+        if let Some(m) = monitors.first() {
+             log::debug!(target: "driver", "Primary Monitor: {}x{} (Scale: {})", m.width(), m.height(), m.scale_factor());
+        }
+
+        // We act on pixels 1:1.
+        let scale_factor = 1.0; 
 
         match event {
             InputEvent::MouseMove { x, y } => {
+                let abs_x = (*x as f64 * scale_factor) as i32;
+                let abs_y = (*y as f64 * scale_factor) as i32;
+
+                log::info!(target: "driver", "MouseMove -> {}, {}", abs_x, abs_y);
+
                 enigo
-                    .move_mouse(*x as i32, *y as i32, Coordinate::Abs)
+                    .move_mouse(abs_x, abs_y, Coordinate::Abs)
                     .map_err(|e| anyhow!("Mouse move failed: {:?}", e))?;
             }
             InputEvent::Click {
@@ -96,9 +117,14 @@ impl NativeOperator {
                     }
                 }
 
-                // 2. Move to target
+                // 2. Move to target with scaling
+                let abs_x = (*x as f64 * scale_factor) as i32;
+                let abs_y = (*y as f64 * scale_factor) as i32;
+
+                log::info!(target: "driver", "Click -> {}, {} (Button: {:?})", abs_x, abs_y, button);
+
                 enigo
-                    .move_mouse(*x as i32, *y as i32, Coordinate::Abs)
+                    .move_mouse(abs_x, abs_y, Coordinate::Abs)
                     .map_err(|e| anyhow!("Mouse move failed: {:?}", e))?;
 
                 // 3. Perform Click
@@ -112,11 +138,13 @@ impl NativeOperator {
                     .map_err(|e| anyhow!("Click failed: {:?}", e))?;
             }
             InputEvent::Type { text } => {
+                log::info!(target: "driver", "Type -> \"{}\"", text);
                 enigo
                     .text(text)
                     .map_err(|e| anyhow!("Type failed: {:?}", e))?;
             }
             InputEvent::KeyPress { key } => {
+                log::info!(target: "driver", "KeyPress -> {}", key);
                 if key == "Enter" {
                     enigo
                         .key(Key::Return, Direction::Click)

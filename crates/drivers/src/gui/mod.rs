@@ -106,6 +106,7 @@ impl GuiDriver for IoiGuiDriver {
 
         self.substrate
             .get_intent_constrained_slice(intent, monitor_handle)
+            .await // [FIX] Await the async result
             .map_err(|e| VmError::HostError(format!("Substrate error: {}", e)))
     }
 

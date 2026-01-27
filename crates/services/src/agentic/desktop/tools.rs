@@ -42,8 +42,7 @@ pub fn discover_tools(state: &dyn StateAccess) -> Vec<LlmToolDefinition> {
 
     // 2. Native Capabilities (Kernel Drivers)
 
-    // [NEW] Explicit Conversational Tool
-    // This unifies the "Action" paradigm. Even talking is a tool execution.
+    // Explicit Conversational Tool
     let chat_params = json!({
         "type": "object",
         "properties": {
@@ -198,19 +197,24 @@ pub fn discover_tools(state: &dyn StateAccess) -> Vec<LlmToolDefinition> {
         "properties": {
             "command": { 
                 "type": "string", 
-                "description": "The binary to execute (e.g., 'ls', 'netstat', 'ping')" 
+                "description": "The binary to execute (e.g., 'ls', 'netstat', 'ping', 'gnome-calculator', 'firefox')" 
             },
             "args": { 
                 "type": "array", 
                 "items": { "type": "string" },
                 "description": "Arguments for the command" 
+            },
+            "detach": {
+                "type": "boolean",
+                "description": "Set to true if launching a GUI application or long-running process that should stay open. Default is false (waits 5s)."
             }
         },
         "required": ["command"]
     });
     tools.push(LlmToolDefinition {
         name: "sys__exec".to_string(),
-        description: "Execute a terminal command on the local system and return the output.".to_string(),
+        // Updated description to encourage use for launching apps
+        description: "Execute a terminal command or launch an application on the local system. Use 'detach: true' for GUI apps (calculators, browsers) so they stay open.".to_string(),
         parameters: sys_params.to_string(),
     });
 
