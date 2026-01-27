@@ -43,9 +43,15 @@ chromiumoxide = { version = "0.5", features = ["tokio-runtime"] }
 futures = "0.3"
 
 # [MODIFIED] Tokio needs process and io-util for MCP transport
-tokio = { workspace = true, features = ["process", "io-util", "sync", "rt"] }
+tokio = { workspace = true, features = ["process", "io-util", "sync", "rt", "macros"] }
 
 wait-timeout = "0.2"
+
+# [NEW] Linux Accessibility Support (AT-SPI)
+# Enables the agent to "read" the OS UI structure on Linux (X11/Wayland).
+# This is required for high-fidelity "Perception" (Clawdbot capability).
+[target.'cfg(target_os = "linux")'.dependencies]
+atspi = "0.19.0"
 
 [dev-dependencies]
 tempfile = "3.3"

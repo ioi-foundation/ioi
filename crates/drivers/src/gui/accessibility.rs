@@ -5,6 +5,7 @@ use serde::{Deserialize, Serialize};
 use ioi_types::app::{ActionRequest, ContextSlice}; 
 use ioi_crypto::algorithms::hash::sha256;
 use dcrypt::algorithms::ByteSerializable; // [FIX] Required for copy_from_slice
+use async_trait::async_trait;
 
 /// A simplified, VLM-friendly representation of a UI element.
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -114,9 +115,10 @@ fn escape_xml(s: &str) -> String {
 
 /// The interface for the Sovereign Context Substrate (SCS).
 /// Unlike a passive file system, the SCS actively filters data based on agentic intent.
+#[async_trait]
 pub trait SovereignSubstrateProvider: Send + Sync {
     /// Retrieves a context slice authorized and filtered by the provided intent.
-    fn get_intent_constrained_slice(
+    async fn get_intent_constrained_slice(
         &self, 
         intent: &ActionRequest, 
         monitor_handle: u32
@@ -126,8 +128,9 @@ pub trait SovereignSubstrateProvider: Send + Sync {
 // --- Mock Implementation for Development/Testing ---
 pub struct MockSubstrateProvider;
 
+#[async_trait]
 impl SovereignSubstrateProvider for MockSubstrateProvider {
-    fn get_intent_constrained_slice(
+    async fn get_intent_constrained_slice(
         &self, 
         intent: &ActionRequest, 
         _monitor_handle: u32

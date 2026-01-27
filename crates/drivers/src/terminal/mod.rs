@@ -1,9 +1,9 @@
-// crates/drivers/src/terminal/mod.rs
+// Path: crates/drivers/src/terminal/mod.rs
 
 use anyhow::{anyhow, Result};
 use std::process::Command;
 use std::time::Duration;
-use wait_timeout::ChildExt; // You may need to add 'wait-timeout' to drivers/Cargo.toml
+use wait_timeout::ChildExt;
 
 pub struct TerminalDriver;
 
@@ -12,17 +12,33 @@ impl TerminalDriver {
         Self
     }
 
-    /// Executes a command and returns stdout/stderr.
-    /// Includes a timeout to prevent the agent from hanging the Kernel.
-    pub async fn execute(&self, command: &str, args: &[String]) -> Result<String> {
+    /// Executes a command. 
+    /// If `detach` is true, it spawns the process and returns immediately (for GUI apps).
+    /// If `detach` is false, it waits up to 5 seconds for the command to finish.
+    pub async fn execute(&self, command: &str, args: &[String], detach: bool) -> Result<String> {
+        let mut cmd = Command::new(command);
+        cmd.args(args);
+
         // Security: In a real production build, this is where you would sandbox the process.
-        // For local mode, we run it directly but enforce a timeout.
+        // For local mode, we run it directly but enforce a timeout or detach policy.
         
-        let mut child = Command::new(command)
-            .args(args)
-            .stdout(std::process::Stdio::piped())
-            .stderr(std::process::Stdio::piped())
-            .spawn()
+        if detach {
+            // Detached mode: Spawn and forget (letting it run in background)
+            // Redirect stdout/stderr to null to avoid holding pipe handles which might hang the parent
+            cmd.stdout(std::process::Stdio::null());
+            cmd.stderr(std::process::Stdio::null());
+            cmd.stdin(std::process::Stdio::null());
+            
+            let child = cmd.spawn().map_err(|e| anyhow!("Failed to spawn detached command '{}': {}", command, e))?;
+            let pid = child.id();
+            return Ok(format!("Launched background process '{}' (PID: {})", command, pid));
+        }
+
+        // Standard blocking mode (with timeout)
+        cmd.stdout(std::process::Stdio::piped());
+        cmd.stderr(std::process::Stdio::piped());
+        
+        let mut child = cmd.spawn()
             .map_err(|e| anyhow!("Failed to spawn command '{}': {}", command, e))?;
 
         let timeout = Duration::from_secs(5);
@@ -42,7 +58,7 @@ impl TerminalDriver {
             None => {
                 child.kill()?;
                 child.wait()?;
-                Err(anyhow!("Command timed out after 5 seconds"))
+                Err(anyhow!("Command timed out after 5 seconds. Use 'detach: true' for long-running apps."))
             }
         }
     }

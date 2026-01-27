@@ -232,9 +232,10 @@ where
 // This acts as the "System 2" loop for the User Node, driving agents forward.
 /// Runs the background task for the Agent driver.
 /// Scans for active agents and triggers steps if needed.
+/// Returns `true` if any agent action was taken, allowing the main loop to speed up.
 pub async fn run_agent_driver_task<CS, ST, CE, V>(
     context: &MainLoopContext<CS, ST, CE, V>,
-) -> Result<()>
+) -> Result<bool>
 where
     CS: CommitmentScheme + Clone + Send + Sync + 'static,
     ST: StateManager<Commitment = CS::Commitment, Proof = CS::Proof>
@@ -255,6 +256,7 @@ where
     <CS as CommitmentScheme>::Commitment: Send + Sync + Debug,
 {
     let workload_client = context.view_resolver.workload_client();
+    let mut work_performed = false;
 
     // 1. Scan for agent states
     // The canonical prefix for AgentState is b"agent::state::"
@@ -268,13 +270,13 @@ where
         Ok(k) => k,
         Err(e) => {
             tracing::warn!(target: "agent_driver", "Prefix scan failed: {}", e);
-            return Ok(());
+            return Ok(false);
         }
     };
 
     if kvs.is_empty() {
         tracing::debug!(target: "agent_driver", "No agent states found under prefix.");
-        return Ok(());
+        return Ok(false);
     }
     tracing::info!(
         target: "agent_driver",
@@ -425,6 +427,7 @@ where
                         state.step_count,
                         nonce
                     );
+                    work_performed = true;
                 }
             }
         } else {
@@ -437,7 +440,7 @@ where
         }
     }
 
-    Ok(())
+    Ok(work_performed)
 }
 
 // Helper for selecting a provider from the registry

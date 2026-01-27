@@ -43,6 +43,18 @@ impl ToolExecutor {
         }
     }
 
+    /// Helper to safely extract arguments regardless of whether they are under "arguments" or "parameters"
+    fn get_args<'a>(&self, tool_call: &'a Value) -> &'a Value {
+        if tool_call.get("arguments").is_some() {
+            &tool_call["arguments"]
+        } else if tool_call.get("parameters").is_some() {
+            &tool_call["parameters"]
+        } else {
+            // Fallback: assume the tool_call itself might be the args if flattened (unlikely but safe default)
+            tool_call
+        }
+    }
+
     pub async fn execute(
         &self,
         name: &str,
@@ -55,10 +67,12 @@ impl ToolExecutor {
         let mut error = None;
         let mut history_entry = None;
 
+        let args = self.get_args(tool_call);
+
         match name {
             "gui__click" => {
-                let x = tool_call["arguments"]["x"].as_u64().unwrap_or(0) as u32;
-                let y = tool_call["arguments"]["y"].as_u64().unwrap_or(0) as u32;
+                let x = args["x"].as_u64().unwrap_or(0) as u32;
+                let y = args["y"].as_u64().unwrap_or(0) as u32;
                 match self.gui.inject_input(InputEvent::Click {
                     button: ApiButton::Left,
                     x,
@@ -70,38 +84,46 @@ impl ToolExecutor {
                 }
             }
             "sys__exec" => {
-                let cmd = tool_call["arguments"]["command"].as_str().unwrap_or("");
-                let args: Vec<String> = tool_call["arguments"]["args"]
+                let cmd = args["command"].as_str().unwrap_or("");
+                let cmd_args: Vec<String> = args["args"]
                     .as_array()
                     .map(|arr| arr.iter().map(|v| v.as_str().unwrap_or("").to_string()).collect())
                     .unwrap_or_default();
 
-                match self.terminal.execute(cmd, &args).await {
-                    Ok(output) => {
-                        success = true;
-                        let safe_output: String = if output.len() > 1000 {
-                            format!("{}... (truncated)", &output[..1000])
-                        } else {
-                            output
-                        };
-                        history_entry = Some(format!("System Output: {}", safe_output));
+                // [FIX] Parse detach flag (default false)
+                let detach = args["detach"].as_bool().unwrap_or(false);
 
-                        if let Some(tx) = &self.event_sender {
-                            let _ = tx.send(KernelEvent::AgentActionResult {
-                                session_id,
-                                step_index,
-                                tool_name: "sys__exec".to_string(),
-                                output: safe_output,
-                            });
+                if cmd.is_empty() {
+                    error = Some("Command is empty. Check if LLM output 'arguments' or 'parameters' key.".to_string());
+                } else {
+                    // [FIX] Pass detach argument
+                    match self.terminal.execute(cmd, &cmd_args, detach).await {
+                        Ok(output) => {
+                            success = true;
+                            let safe_output: String = if output.len() > 1000 {
+                                format!("{}... (truncated)", &output[..1000])
+                            } else {
+                                output
+                            };
+                            history_entry = Some(format!("System Output: {}", safe_output));
+
+                            if let Some(tx) = &self.event_sender {
+                                let _ = tx.send(KernelEvent::AgentActionResult {
+                                    session_id,
+                                    step_index,
+                                    tool_name: "sys__exec".to_string(),
+                                    output: safe_output,
+                                });
+                            }
                         }
-                    }
-                    Err(e) => {
-                        error = Some(e.to_string());
+                        Err(e) => {
+                            error = Some(e.to_string());
+                        }
                     }
                 }
             }
             "browser__navigate" => {
-                let url = tool_call["arguments"]["url"].as_str().unwrap_or("");
+                let url = args["url"].as_str().unwrap_or("");
                 if url.is_empty() {
                     error = Some("URL argument is missing".to_string());
                 } else {
@@ -154,7 +176,7 @@ impl ToolExecutor {
                 }
             }
             "browser__click" => {
-                let selector = tool_call["arguments"]["selector"].as_str().unwrap_or("");
+                let selector = args["selector"].as_str().unwrap_or("");
                 if selector.is_empty() {
                     error = Some("Selector argument is missing".to_string());
                 } else {
@@ -178,7 +200,7 @@ impl ToolExecutor {
             }
             // --- NEW: Chat Tool Handler ---
             "chat__reply" => {
-                let msg = tool_call["arguments"]["message"].as_str().unwrap_or("...");
+                let msg = args["message"].as_str().unwrap_or("...");
                 success = true;
                 history_entry = Some(format!("Replied: {}", msg));
                 
@@ -196,8 +218,8 @@ impl ToolExecutor {
             _ => {
                 // MCP Fallback for unknown tools
                 if name.contains("__") {
-                    let args = tool_call["arguments"].clone();
-                    match self.mcp.execute_tool(name, args).await {
+                    let mcp_args = args.clone();
+                    match self.mcp.execute_tool(name, mcp_args).await {
                         Ok(output) => {
                             success = true;
                             // [FIX] Include output content in history log

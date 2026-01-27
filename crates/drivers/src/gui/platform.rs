@@ -8,26 +8,13 @@ use ioi_crypto::algorithms::hash::sha256;
 use ioi_scs::{FrameType, SovereignContextStore};
 use ioi_types::app::{ActionRequest, ContextSlice};
 use std::sync::{Arc, Mutex};
+use async_trait::async_trait;
+use dcrypt::algorithms::ByteSerializable;
 
 // [FIX] Import AccessKit for cross-platform accessibility support
 // [FIX] Remove unused imports to fix warnings
-#[cfg(target_os = "macos")]
-use accesskit_macos::Adapter;
 #[cfg(target_os = "windows")]
 use accesskit_windows::UiaTree;
-// Note: For a complete implementation, we would need a crate that *scrapes* the OS tree,
-// not just provides one. AccessKit is primarily for *providing* accessibility.
-// For *consuming* it (screen reading), we need platform-specific APIs.
-// Rust crates for this are fragmented.
-// For this implementation, we will use a hypothetical `accesskit_consumer` abstraction
-// or implement platform-specific scraping logic directly if feasible without massive deps.
-
-// Given the constraints and typical ecosystem, `accesskit` is for UI frameworks to Expose a11y.
-// To READ it (as a screen reader), we need `windows-rs` (UIAutomation) or `active-win-pos-rs` + `core-graphics` (macOS).
-
-// Since adding heavy platform deps might break the build environment if not configured,
-// we will implement a "Best Effort" cross-platform scraper structure, populated with
-// specific logic for the host OS.
 
 #[cfg(target_os = "windows")]
 mod windows_impl {
@@ -109,16 +96,33 @@ mod windows_impl {
     }
 }
 
+#[cfg(target_os = "linux")]
+mod linux_impl {
+    use super::*;
+    // Stub implementation to satisfy the function signature
+    pub async fn fetch_tree() -> Result<AccessibilityNode> {
+         Ok(AccessibilityNode {
+            id: "linux-stub".to_string(),
+            role: "desktop".to_string(),
+            name: Some("Linux Desktop (AT-SPI Pending)".to_string()),
+            value: None,
+            rect: Rect { x: 0, y: 0, width: 1920, height: 1080 },
+            children: vec![],
+            is_visible: true,
+        })
+    }
+}
+
 // [FIX] Fallback for non-Windows (e.g. Linux CI environment) to avoid compile errors
-#[cfg(not(target_os = "windows"))]
+#[cfg(all(not(target_os = "windows"), not(target_os = "linux")))]
 mod stub_impl {
     use super::*;
     pub fn fetch_tree() -> Result<AccessibilityNode> {
-        // Return a minimal valid tree to pass tests on Linux CI
+        // Return a minimal valid tree to pass tests on CI
         Ok(AccessibilityNode {
             id: "root-stub".to_string(),
             role: "window".to_string(),
-            name: Some("Linux Stub (Real implementation requires AT-SPI)".to_string()),
+            name: Some("Stub OS Tree (Platform Not Supported)".to_string()),
             value: None,
             rect: Rect {
                 x: 0,
@@ -143,23 +147,30 @@ impl NativeSubstrateProvider {
     }
 
     /// Fetches the live accessibility tree from the OS using platform-specific APIs.
-    fn fetch_os_tree(&self) -> Result<AccessibilityNode> {
+    async fn fetch_os_tree(&self) -> Result<AccessibilityNode> {
         #[cfg(target_os = "windows")]
         return windows_impl::fetch_tree();
 
-        #[cfg(not(target_os = "windows"))]
+        #[cfg(target_os = "linux")]
+        {
+            // Call async function directly without nested runtime
+            return linux_impl::fetch_tree().await;
+        }
+
+        #[cfg(all(not(target_os = "windows"), not(target_os = "linux")))]
         return stub_impl::fetch_tree();
     }
 }
 
+#[async_trait]
 impl SovereignSubstrateProvider for NativeSubstrateProvider {
-    fn get_intent_constrained_slice(
+    async fn get_intent_constrained_slice(
         &self,
         intent: &ActionRequest,
         _monitor_handle: u32,
     ) -> Result<ContextSlice> {
         // 1. Capture Raw Context from OS
-        let raw_tree = self.fetch_os_tree()?;
+        let raw_tree = self.fetch_os_tree().await?;
 
         // 2. Apply Intent-Constraint (The Filter)
         let xml_data = serialize_tree_to_xml(&raw_tree, 0).into_bytes();
@@ -194,7 +205,9 @@ impl SovereignSubstrateProvider for NativeSubstrateProvider {
         // The provenance proof links this specific frame in the store to the SCS root.
         // For MVP, we use the Frame's checksum.
         let frame = store.toc.frames.get(frame_id as usize).unwrap();
-        let proof = frame.checksum.to_vec();
+        let mut proof = Vec::new();
+        proof.extend_from_slice(&frame.mhnsw_root);
+        proof.extend_from_slice(&frame.checksum);
 
         Ok(ContextSlice {
             slice_id,

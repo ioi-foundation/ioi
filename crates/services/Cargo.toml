@@ -36,6 +36,8 @@ prost = { workspace = true }
 byte-slice-cast = "1.2"
 bincode = { workspace = true }
 dcrypt = { workspace = true }
+# [FIX] Add base64 dependency
+base64 = { workspace = true }
 
 # [FIX] Added 'rt' feature for tokio::spawn
 tokio = { workspace = true, features = ["sync", "rt"] }

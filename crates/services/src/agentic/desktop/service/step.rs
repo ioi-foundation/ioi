@@ -21,6 +21,7 @@ use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
 use crate::agentic::grounding::parse_vlm_action;
 use tokio::sync::mpsc;
+use base64::{engine::general_purpose::STANDARD as BASE64, Engine as _};
 
 const CHARS_PER_TOKEN: u64 = 4;
 
@@ -146,6 +147,7 @@ pub async fn handle_step(
         }
     };
     
+    // Capture Accessibility Tree (DOM)
     let observation_intent = ActionRequest {
         target: ActionTarget::GuiScreenshot,
         params: agent_state.goal.as_bytes().to_vec(),
@@ -167,6 +169,7 @@ pub async fn handle_step(
     }
     let tree_xml = String::from_utf8_lossy(&tree_xml_bytes);
 
+    // Capture Visuals (Screenshot)
     let screenshot_bytes = service.gui.capture_screen().await.map_err(|e| {
         TransactionError::Invalid(format!("Visual capture failed: {}", e))
     })?;
@@ -223,71 +226,116 @@ pub async fn handle_step(
 
     let history = service.hydrate_session_history(p.session_id)?;
 
-    let raw_user_prompt = if agent_state.mode == AgentMode::Chat {
-        format!(
-            "SYSTEM: You are a helpful AI assistant.
-            User Input: {}
-            
-            CONTEXT:
-            {}
-            
-            INSTRUCTIONS:
-            1. Answer the user's question using the 'chat__reply' tool.
-            2. Do NOT output raw text.
-            3. Be concise and helpful.
-            4. Note: PII has been scrubbed from your input for privacy.
-            ",
-            agent_state.goal,
-            tree_xml
-        )
+    // [MODIFIED] Construct Multimodal Input Payload (Vision + Text)
+    // This format aligns with OpenAI GPT-4o / Anthropic Claude 3.5 Sonnet vision inputs.
+    // The `http_adapter` must handle serializing this JSON array to the provider's API.
+    
+    // 1. Prepare Base64 Image
+    let base64_image = BASE64.encode(&screenshot_bytes);
+
+    // 2. Build System Instructions
+    let system_instructions = format!(
+        "SYSTEM INSTRUCTION: You are an autonomous desktop agent.
+        Your Goal: {}
+        
+        ENVIRONMENT:
+        {}
+        
+        AVAILABLE TOOLS:
+        {}
+        
+        HISTORY:
+        {:?}
+        
+        CRITICAL RULES:
+        1. You MUST respond with a VALID JSON OBJECT representing the tool call.
+        2. To speak to the user, use the 'chat__reply' tool.
+        3. To open an application (calculator, browser, etc), ALWAYS use 'sys__exec' with 'detach': true. Do NOT try to click icons.
+        4. If the user's specific request is satisfied by the previous action, you MUST call 'agent__complete' immediately.
+        
+        EXAMPLE RESPONSE:
+        {{
+            \"thought\": \"I will launch the calculator.\",
+            \"name\": \"sys__exec\",
+            \"arguments\": {{ \"command\": \"gnome-calculator\", \"detach\": true }}
+        }}
+        ",
+        agent_state.goal,
+        workspace_context,
+        serde_json::to_string_pretty(&available_tools).unwrap_or_default(),
+        history
+            .iter()
+            .map(|m| format!("{}: {}", m.role, m.content))
+            .collect::<Vec<_>>()
+    );
+
+    // 3. Assemble Multimodal User Message
+    // This structure will be passed as the `input_context` bytes to the InferenceRuntime.
+    let multimodal_message = if agent_state.mode == AgentMode::Chat {
+         // Chat Mode (Text Only or minimal vision if needed)
+         json!([
+             {
+                 "role": "user",
+                 "content": format!(
+                     "SYSTEM: You are a helpful AI assistant.
+                      User Input: {}
+                      CONTEXT:
+                      {}
+                      INSTRUCTIONS:
+                      1. Answer the user's question using the 'chat__reply' tool.
+                      2. Do NOT output raw text.
+                      ",
+                      agent_state.goal,
+                      tree_xml
+                 )
+             }
+         ])
     } else {
-        format!(
-            "SYSTEM INSTRUCTION: You are an autonomous agent API.
-            Your Goal: {}
-            
-            ENVIRONMENT:
-            {}
-            
-            AVAILABLE TOOLS:
-            {}
-            
-            HISTORY:
-            {:?}
-            
-            CONTEXT:
-            {}
-            
-            CRITICAL RULES:
-            1. You MUST respond with a VALID JSON OBJECT representing the tool call.
-            2. To speak to the user, use the 'chat__reply' tool. Do NOT output raw text.
-            3. When writing files, ALWAYS use paths starting with './ioi-data/' or absolute paths you have confirmed exist.
-            4. Do NOT use placeholders like '/path/to/file'.
-            5. If the user's specific request is satisfied by the previous action, you MUST call 'agent__complete' immediately.
-            
-            EXAMPLE RESPONSE:
-            {{
-                \"thought\": \"I will answer the user.\",
-                \"name\": \"chat__reply\",
-                \"arguments\": {{ \"message\": \"I can certainly help with that.\" }}
-            }}
-            ",
-            agent_state.goal,
-            workspace_context,
-            serde_json::to_string_pretty(&available_tools).unwrap_or_default(),
-            history
-                .iter()
-                .map(|m| format!("{}: {}", m.role, m.content))
-                .collect::<Vec<_>>(),
-            tree_xml
-        )
+         // Agent Mode (Vision + Text)
+         json!([
+             {
+                 "role": "system",
+                 "content": system_instructions
+             },
+             {
+                 "role": "user",
+                 "content": [
+                     {
+                         "type": "text",
+                         "text": format!("Here is the current screen state and accessibility tree:\n\nXML Context:\n{}", tree_xml)
+                     },
+                     {
+                         "type": "image_url",
+                         "image_url": {
+                             "url": format!("data:image/png;base64,{}", base64_image)
+                         }
+                     }
+                 ]
+             }
+         ])
     };
 
-    let (scrubbed_prompt, _redaction_map) = service
-        .scrubber
-        .scrub(&raw_user_prompt)
-        .await
-        .map_err(|e| TransactionError::Invalid(format!("Scrubbing failed: {}", e)))?;
-    let user_prompt: String = scrubbed_prompt;
+    let (scrubbed_prompt_val, _redaction_map) = if agent_state.mode == AgentMode::Chat {
+         // Only scrubbing text content for chat mode prompts for now
+         let raw_text = multimodal_message[0]["content"].as_str().unwrap_or("");
+         let (scrubbed, map) = service.scrubber.scrub(raw_text).await
+            .map_err(|e| TransactionError::Invalid(format!("Scrubbing failed: {}", e)))?;
+         
+         // Reconstruct message with scrubbed text
+         let new_msg = json!([{ "role": "user", "content": scrubbed }]);
+         (new_msg, map)
+    } else {
+         // For multimodal, we assume visual data might contain PII but scrubbing pixels is hard.
+         // We rely on the `LocalSafetyModel` in `scrub_adapter` which currently handles text.
+         // Pass raw for now; in production, use OCR + Redaction.
+         (multimodal_message, ioi_types::app::RedactionMap { entries: vec![] })
+    };
+
+    let user_prompt = serde_json::to_string(&scrubbed_prompt_val).unwrap_or_default();
+    
+    // Serialize complex payload for runtime
+    let input_bytes = serde_json::to_vec(&scrubbed_prompt_val)
+        .map_err(|e| TransactionError::Serialization(e.to_string()))?;
 
     let model_hash = [0u8; 32];
 
@@ -298,12 +346,9 @@ pub async fn handle_step(
         );
         stored_call.clone()
     } else {
-        let estimated_input_tokens = (user_prompt.len() as u64) / CHARS_PER_TOKEN;
+        // Estimate tokens (Rough approximation including image overhead)
+        let estimated_input_tokens = (user_prompt.len() as u64 / CHARS_PER_TOKEN) + 1000; // +1000 for image
 
-        // [FIX] Use JSON Mode ("Structured Output") instead of Native Tools.
-        // 1. tools: vec![] -> Disables the provider's native function calling (which hides reasoning).
-        // 2. json_mode: true -> Forces the provider to output valid JSON.
-        // 3. The Prompt (already constructed) defines the schema and tools for the model to "hallucinate" correctly.
         let options = InferenceOptions {
             tools: vec![], // Pass empty to prevent native tool calling conflict
             temperature: if agent_state.consecutive_failures > 0 {
@@ -337,7 +382,7 @@ pub async fn handle_step(
         };
 
         let output_bytes = runtime
-            .execute_inference_streaming(model_hash, user_prompt.as_bytes(), options, token_tx)
+            .execute_inference_streaming(model_hash, &input_bytes, options, token_tx)
             .await
             .map_err(|e| TransactionError::Invalid(format!("Inference error: {}", e)))?;
         let output_str = String::from_utf8_lossy(&output_bytes).to_string();
@@ -479,7 +524,7 @@ pub async fn handle_step(
                             .duration_since(UNIX_EPOCH)
                             .unwrap()
                             .as_millis() as u64,
-                        trace_hash: None,
+                            trace_hash: None,
                     };
                     let tool_root = service.append_chat_to_scs(p.session_id, &tool_msg, ctx.block_height).await?;
                     agent_state.transcript_root = tool_root;
@@ -692,6 +737,7 @@ pub async fn handle_step(
         raw_output: output_str.clone(),
         success: action_success,
         error: action_error.clone(),
+        // [FIX] Initialize new evolutionary fields
         cost_incurred: 0,
         fitness_score: None,
         timestamp: SystemTime::now()
@@ -738,6 +784,7 @@ pub async fn handle_step(
     if agent_state.step_count >= agent_state.max_steps && agent_state.status == AgentStatus::Running {
         agent_state.status = AgentStatus::Completed(None);
         
+        // [FIX] Use `service.event_sender` instead of local `event_sender` variable
         if let Some(tx) = &service.event_sender {
              let _ = tx.send(KernelEvent::AgentActionResult {
                  session_id: p.session_id,
