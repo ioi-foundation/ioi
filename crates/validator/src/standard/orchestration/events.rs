@@ -11,8 +11,9 @@ use ioi_api::{
 
 use ioi_networking::libp2p::NetworkEvent;
 use ioi_networking::traits::NodeState;
-use ioi_types::app::{account_id_from_key_material, ChainTransaction, SignatureSuite, ConsensusVote}; 
-use ioi_types::codec; // [FIX] Added missing import
+// [FIX] Removed unused ConsensusVote
+use ioi_types::app::{account_id_from_key_material, ChainTransaction, SignatureSuite}; 
+use ioi_types::codec; 
 use serde::Serialize;
 use std::fmt::Debug;
 use std::sync::Arc;

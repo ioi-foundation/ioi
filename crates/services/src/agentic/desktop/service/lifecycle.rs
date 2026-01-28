@@ -74,6 +74,8 @@ pub async fn handle_start(
         pending_tool_call: None,
         recent_actions: Vec::new(),
         mode: p.mode,
+        // [FIX] Initialize last_screen_phash
+        last_screen_phash: None,
     };
     state.insert(&key, &codec::to_bytes_canonical(&agent_state)?)?;
 

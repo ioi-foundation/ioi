@@ -62,7 +62,8 @@ impl NativeOperator {
     pub fn get_scale_factor() -> f64 {
         let monitors = Monitor::all().unwrap_or_default();
         if let Some(m) = monitors.first() {
-            return m.scale_factor();
+            // [FIX] Explicit cast from f32 to f64
+            return m.scale_factor() as f64;
         }
         1.0
     }

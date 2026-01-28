@@ -190,28 +190,30 @@ pub fn run() {
             windows::hide_studio,
             
             // Kernel / Agent Logic
-            kernel::start_task,
-            kernel::update_task,
-            kernel::complete_task,
-            kernel::dismiss_task,
-            kernel::get_current_task,
+            kernel::task::start_task,
+            kernel::task::update_task,
+            kernel::task::complete_task,
+            kernel::task::dismiss_task,
+            kernel::task::get_current_task,
             
             // Governance
-            kernel::gate_respond,
-            kernel::get_gate_response,
-            kernel::clear_gate_response,
+            kernel::governance::gate_respond,
+            kernel::governance::get_gate_response,
+            kernel::governance::clear_gate_response,
             
             // Data / Context
-            kernel::get_context_blob,
-            kernel::get_session_history,
-            kernel::load_session,
-            kernel::delete_session, 
-            kernel::get_available_tools, 
+            kernel::data::get_context_blob,
+            kernel::data::get_available_tools, 
+            
+            // Session
+            kernel::session::get_session_history,
+            kernel::session::load_session,
+            kernel::session::delete_session, 
             
             // Studio Inspector & Execution
-            kernel::test_node_execution,
-            kernel::run_studio_graph, 
-            kernel::check_node_cache,
+            kernel::graph::test_node_execution,
+            kernel::graph::run_studio_graph, 
+            kernel::graph::check_node_cache,
             
             // Ingestion
             ingestion::ingest_file,

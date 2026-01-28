@@ -28,9 +28,7 @@ use ioi_api::vm::inference::{LocalSafetyModel, InferenceRuntime}; // [FIX] Added
 // [NEW] Import OsDriver trait
 use ioi_api::vm::drivers::os::OsDriver;
 use ioi_scs::SovereignContextStore;
-// [NEW] Import Pacemaker
-use ioi_consensus::admft::pacemaker::Pacemaker;
-
+// [FIX] Removed unused Pacemaker import
 
 /// Type alias for the thread-safe reference to the chain state machine.
 pub type ChainFor<CS, ST> = Arc<

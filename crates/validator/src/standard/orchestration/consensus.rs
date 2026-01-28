@@ -17,11 +17,12 @@ use ioi_api::chain::StateRef;
 use ioi_crypto::sign::dilithium::MldsaKeyPair;
 
 use ioi_networking::traits::NodeState;
+// [FIX] Removed unused QuorumCertificate
+// [FIX] Added StateRoot import
 use ioi_types::{
     app::{
         account_id_from_key_material, to_root_hash, AccountId, Block, BlockHeader,
         ChainTransaction, ConsensusVote, SignatureSuite, StateAnchor, StateRoot, TxHash,
-        QuorumCertificate,
     },
     keys::VALIDATOR_SET_KEY,
     codec,
@@ -344,7 +345,6 @@ where
     Ok(())
 }
 
-// ... [Remainder of file unchanged] ...
 async fn resolve_parent_ref_and_anchor<V>(
     last_committed_block_opt: &Option<Block<ChainTransaction>>,
     view_resolver: &dyn ioi_api::chain::ViewResolver<Verifier = V>,

@@ -146,6 +146,7 @@ real-ai = [
 # --- Distribution Profiles (Binary Modes) ---
 
 # 1. Local Mode (Desktop App)
+# [REMOVED] "ibc-deps" to speed up local dev loop and reduce binary size
 local-mode = [
     "dep:clap",
     "dep:env_logger",

@@ -1,7 +1,8 @@
+// Path: crates/services/src/agentic/desktop/service/mod.rs
 pub mod actions;
 pub mod builder;
 pub mod lifecycle;
-pub mod step;
+pub mod step; 
 pub mod utils;
 
 use async_trait::async_trait;
@@ -26,7 +27,9 @@ use ioi_api::ibc::AgentZkVerifier;
 use ioi_api::vm::drivers::os::OsDriver;
 
 use self::lifecycle::{handle_delete_session, handle_resume, handle_start};
+// [MODIFIED] Import handle_step from the new module location
 use self::step::handle_step;
+use crate::agentic::desktop::types::StepAgentParams; 
 
 pub struct DesktopAgentService {
     // Fields are pub(crate) so submodules can access them
@@ -89,7 +92,8 @@ impl BlockchainService for DesktopAgentService {
                 handle_resume(self, state, p).await
             }
             "step@v1" => {
-                let p = codec::from_bytes_canonical(params)?;
+                // [FIX] Explicit type annotation to satisfy compiler inference and future compatibility
+                let p: StepAgentParams = codec::from_bytes_canonical(params)?;
                 handle_step(self, state, p, ctx).await
             }
             "delete_session@v1" => handle_delete_session(self, state, params).await,

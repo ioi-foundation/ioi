@@ -141,8 +141,8 @@ pub fn service_interface(args: TokenStream, input: TokenStream) -> TokenStream {
 
             if is_service_method {
                 let method_name = &method.sig.ident;
-                // We expect the standard v1 versioning pattern: name + "@v1"
                 let method_str = format!("{}@v1", method_name);
+                let is_async = method.sig.asyncness.is_some(); // Check asyncness
 
                 // Inspect arguments to determine param type
                 // Signature expected: fn name(&self, state: &mut dyn StateAccess, params: Type, ctx: &TxContext)
@@ -157,27 +157,47 @@ pub fn service_interface(args: TokenStream, input: TokenStream) -> TokenStream {
                 }
 
                 if let Some(p_type) = param_type {
-                    // [MODIFIED] Changed .map_err(...) to .map_err(ioi_types::error::TransactionError::from)
-                    // This allows the method to return Result<(), TransactionError> directly,
-                    // or Result<(), String> which converts to TransactionError::Invalid(String).
-                    match_arms.push(quote! {
-                        #method_str => {
-                            let p: #p_type = ioi_types::codec::from_bytes_canonical(params)?;
-                            self.#method_name(state, p, ctx)
-                                .map_err(ioi_types::error::TransactionError::from)?;
-                            Ok(())
-                        }
-                    });
+                    if is_async {
+                         match_arms.push(quote! {
+                            #method_str => {
+                                let p: #p_type = ioi_types::codec::from_bytes_canonical(params)?;
+                                self.#method_name(state, p, ctx)
+                                    .await
+                                    .map_err(ioi_types::error::TransactionError::from)?;
+                                Ok(())
+                            }
+                        });
+                    } else {
+                        match_arms.push(quote! {
+                            #method_str => {
+                                let p: #p_type = ioi_types::codec::from_bytes_canonical(params)?;
+                                self.#method_name(state, p, ctx)
+                                    .map_err(ioi_types::error::TransactionError::from)?;
+                                Ok(())
+                            }
+                        });
+                    }
                 } else {
                     // Method with no params argument?
                     // If signature is (&self, state, ctx)
-                    match_arms.push(quote! {
-                        #method_str => {
-                             self.#method_name(state, ctx)
-                                .map_err(ioi_types::error::TransactionError::from)?;
-                            Ok(())
-                        }
-                    });
+                    if is_async {
+                         match_arms.push(quote! {
+                            #method_str => {
+                                 self.#method_name(state, ctx)
+                                    .await
+                                    .map_err(ioi_types::error::TransactionError::from)?;
+                                Ok(())
+                            }
+                        });
+                    } else {
+                        match_arms.push(quote! {
+                            #method_str => {
+                                 self.#method_name(state, ctx)
+                                    .map_err(ioi_types::error::TransactionError::from)?;
+                                Ok(())
+                            }
+                        });
+                    }
                 }
             }
         }

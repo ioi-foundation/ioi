@@ -309,9 +309,8 @@ pub async fn run_ingestion_worker<CS>(
                         nonce: 0, 
                     };
 
-                    // [FIX] Load active policy from state (Global Fallback)
-                    // We query the raw state for the global policy key (zero address)
-                    // This matches the ioi-local setup.
+                    // Load active policy from state (Global Fallback)
+                    // We use the global policy key (zero session ID) defined in `ioi-local.rs`.
                     let global_policy_key = [b"agent::policy::".as_slice(), &[0u8; 32]].concat();
                     
                     let rules = match workload_client.query_raw_state(&global_policy_key).await {
@@ -346,7 +345,7 @@ pub async fn run_ingestion_worker<CS>(
                                 verdict: "BLOCK".to_string(),
                                 target: method.clone(),
                                 request_hash: p_tx.canonical_hash,
-                                session_id: None, // [FIX] Added session_id (None for ingestion context)
+                                session_id: None, // session_id unavailable at this level
                             });
 
                             status_guard.put(
@@ -359,25 +358,21 @@ pub async fn run_ingestion_worker<CS>(
                             );
                         },
                         Verdict::RequireApproval => {
-                            is_safe = false;
+                            // [FIX] Allow the transaction into mempool so it can execute and transition state to Paused.
+                            is_safe = true;
+                            
                             let reason = "Manual approval required";
-                            warn!(target: "ingestion", "Transaction halted: {}", reason);
+                            warn!(target: "ingestion", "Transaction halted (Policy Gate): {}. Allowing for state transition.", reason);
 
                             let _ = event_broadcaster.send(KernelEvent::FirewallInterception {
                                 verdict: "REQUIRE_APPROVAL".to_string(),
                                 target: method.clone(),
                                 request_hash: p_tx.canonical_hash,
-                                session_id: None, // [FIX] Added session_id (None for ingestion context)
+                                session_id: None, 
                             });
-
-                            status_guard.put(
-                                p_tx.receipt_hash_hex.clone(),
-                                TxStatusEntry {
-                                    status: TxStatus::Rejected, // Effectively rejected from mempool until resubmitted with token
-                                    error: Some(format!("Policy: {}", reason)),
-                                    block_height: None,
-                                },
-                            );
+                            
+                            // Note: We don't set status to Rejected here anymore.
+                            // It will be set to Pending/InMempool if it passes downstream checks.
                         }
                     }
 
@@ -401,7 +396,7 @@ pub async fn run_ingestion_worker<CS>(
                                         verdict: verdict_str.to_string(),
                                         target: method.clone(),
                                         request_hash: p_tx.canonical_hash,
-                                        session_id: None, // [FIX] Added session_id (None for ingestion context)
+                                        session_id: None, 
                                     });
 
                                     status_guard.put(
@@ -466,67 +461,75 @@ pub async fn run_ingestion_worker<CS>(
         for (res_idx, result) in check_results.into_iter().enumerate() {
             let original_idx = semantically_valid_indices[res_idx];
             let p_tx = &processed_batch[original_idx];
+            
+            // [FIX] Handle "Approval required" error string as success for ingestion
+            let is_approval_error = if let Err(e) = &result {
+                e.contains("Approval required for request")
+            } else {
+                false
+            };
 
-            match result {
-                Ok(_) => {
-                    let tx_info = p_tx.account_id.map(|acc| (acc, p_tx.nonce.unwrap()));
-                    let committed_nonce = p_tx
-                        .account_id
-                        .and_then(|acc| nonce_cache.get(&acc).copied())
-                        .unwrap_or(0);
+            let validation_ok = result.is_ok() || is_approval_error;
 
-                    match tx_pool.add(
-                        p_tx.tx.clone(),
-                        p_tx.canonical_hash,
-                        tx_info,
-                        committed_nonce,
-                    ) {
-                        AddResult::Ready | AddResult::Future => {
-                            accepted_count += 1;
-                            status_guard.put(
-                                p_tx.receipt_hash_hex.clone(),
-                                TxStatusEntry {
-                                    status: TxStatus::InMempool,
-                                    error: None,
-                                    block_height: None,
-                                },
-                            );
-                            receipt_guard.put(p_tx.canonical_hash, p_tx.receipt_hash_hex.clone());
+            if validation_ok {
+                let tx_info = p_tx.account_id.map(|acc| (acc, p_tx.nonce.unwrap()));
+                let committed_nonce = p_tx
+                    .account_id
+                    .and_then(|acc| nonce_cache.get(&acc).copied())
+                    .unwrap_or(0);
 
-                            info!(
-                                target: "ingestion",
-                                "Added transaction to mempool: {}",
-                                p_tx.receipt_hash_hex
-                            );
+                match tx_pool.add(
+                    p_tx.tx.clone(),
+                    p_tx.canonical_hash,
+                    tx_info,
+                    committed_nonce,
+                ) {
+                    AddResult::Ready | AddResult::Future => {
+                        accepted_count += 1;
+                        status_guard.put(
+                            p_tx.receipt_hash_hex.clone(),
+                            TxStatusEntry {
+                                status: TxStatus::InMempool,
+                                error: None,
+                                block_height: None,
+                            },
+                        );
+                        receipt_guard.put(p_tx.canonical_hash, p_tx.receipt_hash_hex.clone());
 
-                            let _ = swarm_sender
-                                .send(SwarmCommand::PublishTransaction(p_tx.raw_bytes.clone()))
-                                .await;
-                        }
-                        AddResult::Rejected(r) => {
-                            warn!(target: "ingestion", "Mempool rejected transaction {}: {}", p_tx.receipt_hash_hex, r);
-                            status_guard.put(
-                                p_tx.receipt_hash_hex.clone(),
-                                TxStatusEntry {
-                                    status: TxStatus::Rejected,
-                                    error: Some(format!("Mempool: {}", r)),
-                                    block_height: None,
-                                },
-                            );
-                        }
+                        info!(
+                            target: "ingestion",
+                            "Added transaction to mempool: {}",
+                            p_tx.receipt_hash_hex
+                        );
+
+                        let _ = swarm_sender
+                            .send(SwarmCommand::PublishTransaction(p_tx.raw_bytes.clone()))
+                            .await;
+                    }
+                    AddResult::Rejected(r) => {
+                        warn!(target: "ingestion", "Mempool rejected transaction {}: {}", p_tx.receipt_hash_hex, r);
+                        status_guard.put(
+                            p_tx.receipt_hash_hex.clone(),
+                            TxStatusEntry {
+                                status: TxStatus::Rejected,
+                                error: Some(format!("Mempool: {}", r)),
+                                block_height: None,
+                            },
+                        );
                     }
                 }
-                Err(e) => {
-                    warn!(target: "ingestion", "Validation failed for transaction {}: {}", p_tx.receipt_hash_hex, e);
-                    status_guard.put(
-                        p_tx.receipt_hash_hex.clone(),
-                        TxStatusEntry {
-                            status: TxStatus::Rejected,
-                            error: Some(format!("Validation: {}", e)),
-                            block_height: None,
-                        },
-                    );
-                }
+            } else {
+                // Real error
+                let e = result.unwrap_err();
+                warn!(target: "ingestion", "Validation failed for transaction {}: {}", p_tx.receipt_hash_hex, e);
+                status_guard.put(
+                    p_tx.receipt_hash_hex.clone(),
+                    TxStatusEntry {
+                        status: TxStatus::Rejected,
+                        error: Some(format!("Validation: {}", e)),
+                        block_height: None,
+                    },
+                );
             }
         }
 
