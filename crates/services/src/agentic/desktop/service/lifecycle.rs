@@ -4,12 +4,14 @@ use super::DesktopAgentService;
 use crate::agentic::desktop::keys::{get_state_key, AGENT_POLICY_PREFIX};
 // [FIX] Removed missing keys
 use crate::agentic::desktop::types::{
-    AgentMode, AgentState, AgentStatus, ResumeAgentParams, SessionSummary, StartAgentParams,
+    AgentMode, AgentState, AgentStatus, PostMessageParams, ResumeAgentParams, SessionSummary, StartAgentParams,
 };
 use ioi_api::state::StateAccess;
+use ioi_api::transaction::context::TxContext;
 use ioi_types::codec;
 use ioi_types::error::TransactionError;
 use std::time::{SystemTime, UNIX_EPOCH};
+use hex;
 
 pub async fn handle_start(
     service: &DesktopAgentService,
@@ -121,6 +123,53 @@ pub async fn handle_start(
     }
 
     state.insert(&history_key, &codec::to_bytes_canonical(&history)?)?;
+
+    Ok(())
+}
+
+// [NEW] Canonical Input Handler (Inbox Pattern)
+pub async fn handle_post_message(
+    service: &DesktopAgentService,
+    state: &mut dyn StateAccess,
+    p: PostMessageParams,
+    ctx: &TxContext<'_>,
+) -> Result<(), TransactionError> {
+    // 1. Write to Kernel SCS (SSOT)
+    let msg = ioi_types::app::agentic::ChatMessage {
+        role: p.role,
+        content: p.content,
+        timestamp: SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_millis() as u64,
+        trace_hash: None,
+    };
+    
+    // We persist the message to the verifiable log
+    let new_root = service.append_chat_to_scs(p.session_id, &msg, ctx.block_height).await?;
+    
+    // 2. Wake Up Agent (Set Status to Running)
+    let key = get_state_key(&p.session_id);
+    if let Some(bytes) = state.get(&key)? {
+        let mut agent_state: AgentState = codec::from_bytes_canonical(&bytes)?;
+        
+        // Update root hash pointer
+        agent_state.transcript_root = new_root;
+        
+        // Wake up if dormant
+        if agent_state.status != AgentStatus::Running {
+            log::info!(
+                "Auto-resuming agent session {} due to new message", 
+                hex::encode(&p.session_id[..4])
+            );
+            agent_state.status = AgentStatus::Running;
+            agent_state.consecutive_failures = 0; // Reset error backoff
+        }
+        
+        state.insert(&key, &codec::to_bytes_canonical(&agent_state)?)?;
+    } else {
+        return Err(TransactionError::Invalid("Session not found".into()));
+    }
 
     Ok(())
 }

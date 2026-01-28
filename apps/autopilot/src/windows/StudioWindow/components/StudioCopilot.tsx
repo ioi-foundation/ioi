@@ -25,7 +25,7 @@ type DisplayMessage = {
 
 export function StudioCopilotView() {
   // --- Global State (Source of Truth) ---
-  const { startTask, task } = useAgentStore();
+  const { startTask, continueTask, resetSession, task } = useAgentStore();
   
   // --- Local UI State ---
   const [intent, setIntent] = useState("");
@@ -97,9 +97,18 @@ export function StudioCopilotView() {
     const intentToSend = intent;
     setIntent(""); // Clear input immediately
     
-    // The backend `start_task` will emit "task-started" which populates the store.
-    // We don't need to manually setChatHistory here.
-    await startTask(intentToSend, agentMode);
+    try {
+        // Logic Branch: New vs Continue
+        if (task && task.id && task.phase !== "Failed") {
+            // If we have an active task/session, append to it
+            await continueTask(task.id, intentToSend);
+        } else {
+            // Otherwise, start a fresh session
+            await startTask(intentToSend, agentMode);
+        }
+    } catch (e) {
+        console.error("Task error:", e);
+    }
   };
 
   const handleApprove = async () => {
@@ -109,6 +118,11 @@ export function StudioCopilotView() {
 
   const handleReject = async () => {
      await invoke("gate_respond", { approved: false });
+  };
+  
+  const handleNewChat = () => {
+      resetSession();
+      setTimeout(() => inputRef.current?.focus(), 50);
   };
 
   const handleLoadSession = async (id: string) => {
@@ -133,7 +147,10 @@ export function StudioCopilotView() {
 
   return (
     <div className="copilot-layout" onClick={handleGlobalClick}>
-      <ChatHistorySidebar onSelectSession={handleLoadSession} />
+      <ChatHistorySidebar 
+        onSelectSession={handleLoadSession} 
+        onNewChat={handleNewChat} // Pass handler
+      />
 
       <div className={`copilot-chat ${!showSwarmPanel ? 'expanded' : ''}`}>
         <div className="copilot-chat-header">
@@ -240,9 +257,10 @@ export function StudioCopilotView() {
 
 interface ChatHistorySidebarProps {
     onSelectSession: (id: string) => void;
+    onNewChat: () => void;
 }
 
-function ChatHistorySidebar({ onSelectSession }: ChatHistorySidebarProps) {
+function ChatHistorySidebar({ onSelectSession, onNewChat }: ChatHistorySidebarProps) {
   const [sessions, setSessions] = useState<SessionSummary[]>([]);
 
   useEffect(() => {
@@ -278,7 +296,7 @@ function ChatHistorySidebar({ onSelectSession }: ChatHistorySidebarProps) {
   return (
     <div className="copilot-sidebar">
       <div className="copilot-sidebar-header">
-        <button className="copilot-new-btn">
+        <button className="copilot-new-btn" onClick={onNewChat}>
           <PlusIcon /> New Chat
         </button>
         <button className="copilot-dock-btn" onClick={dockOut} title="Pop out to Sidebar">

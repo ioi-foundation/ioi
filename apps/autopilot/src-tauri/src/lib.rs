@@ -191,6 +191,7 @@ pub fn run() {
             
             // Kernel / Agent Logic
             kernel::task::start_task,
+            kernel::task::continue_task, // [NEW] Register here
             kernel::task::update_task,
             kernel::task::complete_task,
             kernel::task::dismiss_task,

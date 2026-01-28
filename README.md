@@ -4,65 +4,29 @@
 ![License](https://img.shields.io/badge/license-BBSL-blue)
 ![Architecture](https://img.shields.io/badge/architecture-runtime--first-green)
 
-**IOI is the Operating System for Agency.**
+**The Operating System for Agency.** 
 
-It is a runtime-first protocol that democratizes **Web4: The capacity to Act.** While Web3 democratized value, IOI provides the verifiable infrastructure for software agents to interpret intent, orchestrate resources, and execute economic actions across the open economy.
+A Web4 infrastructure framework enabling "Read-Write-Own-Act" by bridging probabilistic AI with deterministic blockchain settlement.
 
-IOI transforms probabilistic AI inference into **Deterministic Agentic Finality**. By treating the blockchain not as the CPU for cognition, but as the "High Court" for enforcement, IOI creates a global marketplace where autonomous systems can be trusted with value, rights, and liability.
-
----
-
-## 📚 Table of Contents
-
-- [Core Concepts](#-core-concepts)
-- [Architecture](#-architecture)
-    - [The Triadic Kernel](#the-triadic-kernel)
-    - [Fractal Topology](#fractal-topology)
-- [Repository Structure](#-repository-structure)
-- [Getting Started](#-getting-started)
-    - [Prerequisites](#prerequisites)
-    - [Running the Full Stack (Kernel + UI)](#running-the-full-stack-kernel--ui)
-- [The "Human-in-the-Loop" Workflow](#-the-human-in-the-loop-workflow)
-- [Developing Agents](#-developing-agents)
-    - [Test Suite](#test-suite)
-- [Cryptography & Security](#-cryptography--security)
-- [License](#-license)
+IOI is a **fractal runtime**: it runs locally on user devices to provide free, private desktop automation (Mode 0), and scales to a global validator network for high-stakes financial settlement (Mode 2), without changing the underlying agent code.
 
 ---
 
-## 💡 Core Concepts
+## 🏗 The Architecture
 
-The IOI protocol solves the **"Sandboxing Paradox"**—where agents are either safe but useless (trapped in a browser) or useful but dangerous (running as root scripts).
+IOI solves the "Trust Gap" in AI—users can't trust agents with wallets, and agents can't trust each other with data. We solve this by wrapping the AI model in a **Secure Hypervisor** that enforces policy before an agent can touch the network, filesystem, or wallet.
 
-1.  **Agency Firewall:** A deterministic policy engine that intercepts agent I/O (`net::fetch`, `fs::write`, `wallet::sign`), enforcing user-defined constraints before execution.
-2.  **Verification Ladder:** A spectrum of trust. Agents execute locally for free (**Rung 0**), execute optimistically in sessions (**Rung 1**), and escalate to on-chain ZK proofs or arbitration only when high-value settlement is required (**Rung 3/4**).
-3.  **Labor Gas:** The currency of the network. Unlike blockspace gas, Labor Gas pays for *inference*, *readiness*, and *liability insurance*.
-4.  **Sovereign Context Substrate (SCS):** Privacy-preserving context injection. Agents work against encrypted slices of user data, ensuring the full corpus never leaves the device.
-
----
-
-## 🏗 Architecture
-
-### The Triadic Kernel
-Every node in the IOI network (User, Provider, or Validator) runs the **Triadic Kernel**, a user-space hypervisor composed of three isolated processes:
-
-1.  **Guardian (`crates/node/src/bin/guardian.rs`):**
-    *   Hardware-anchored root of trust (TEE/TPM).
-    *   Holds identity keys and enforces **Non-Equivocation** via monotonic counters.
-    *   Signs the audit log of all actions.
-2.  **Orchestrator (`crates/node/src/bin/orchestration.rs`):**
-    *   The control plane and **Agency Firewall**.
-    *   Manages the mempool, networking, and policy enforcement.
-    *   Routes intents to local hardware or the Burst Network.
-3.  **Workload (`crates/node/src/bin/workload.rs`):**
-    *   The ephemeral sandbox where "Alien Intelligence" (AI Models/Scripts) runs.
-    *   Communicates via Shared Memory (Zero-Copy) for high throughput.
+### The Stack
+*   **The Brain (Workload):** Executes AI logic (Wasm/Python) and manages vector memory.
+*   **The Hands (Drivers):** Native bindings for Mouse/Keyboard, Browsers (CDP), and MCP servers.
+*   **The Conscience (Firewall):** A deterministic policy engine that blocks dangerous actions *before* execution.
+*   **The Judge (Consensus):** A-DMFT consensus engine for settling disputes and enforcing liability bonds.
 
 ---
 
 ## 📂 Repository Structure
 
-The codebase is organized as a Rust workspace with an Agent SDK in Python.
+The codebase is organized as a Rust workspace with an Agent SDK in Python. This monorepo contains the entire stack, from the kernel to the frontend.
 
 | Crate | Description |
 | :--- | :--- |
@@ -73,7 +37,7 @@ The codebase is organized as a Rust workspace with an Agent SDK in Python.
 | **`execution`** | The execution environment, including **Block-STM**-style parallel execution (`mv_memory`). |
 | **`ibc-host`** | Universal Interoperability implementation (ICS-23, ICS-24, ICS-26). |
 | **`ipc`** | Inter-Process Communication using **gRPC** (Control) and **rkyv** (Shared Memory Data Plane). |
-| **`drivers`** | Native hardware drivers (GUI, Browser, MCP) for agent interaction. |
+| **`drivers`** | Native hardware drivers (GUI, Browser, Terminal, MCP) for agent interaction. |
 | **`node`** | Entry points for the binaries (`ioi-local`, `guardian`, `workload`). |
 | **`services`** | Native WASM modules: `Governance`, `IdentityHub`, `ProviderRegistry`, `IBC`. |
 | **`state`** | Pluggable state trees: **IAVL**, **Jellyfish**, **Verkle**, **mHNSW**. |
@@ -173,9 +137,5 @@ IOI is designed for **Industrial Assurance**.
 ---
 
 ## 📄 License
-
-This project is licensed under the **BBSL** (Business Source License) as defined in the `LICENSE-BBSL` file.
-*   Free for non-competition use.
-*   Converts to Open Source after a set period.
-
-*Copyright © 2026 IOI Foundation.*
+*   **Core Interfaces (`ioi-api`, `ioi-types`):** MIT / Apache 2.0 (Permissive).
+*   **Kernel Engine (`ioi-consensus`, `ioi-validator`):** Business Source License (BSL) 1.1. Free for non-commercial and development use. Converts to Open Source after 3 years.

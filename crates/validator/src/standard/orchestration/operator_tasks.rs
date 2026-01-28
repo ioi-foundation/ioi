@@ -331,6 +331,7 @@ where
             // 4. Construct Step Transaction
             let params = StepAgentParams {
                 session_id: state.session_id,
+                // [FIX] Removed user_input field as it was removed from StepAgentParams struct
             };
 
             let payload = SystemPayload::CallService {

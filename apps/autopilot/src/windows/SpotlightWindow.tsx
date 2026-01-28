@@ -100,6 +100,11 @@ const icons = {
       <path d="M9 18l6-6-6-6"/>
     </svg>
   ),
+  new_chat: (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <path d="M12 5v14M5 12h14"/>
+    </svg>
+  ),
 };
 
 // IOI Logo Watermark Component
@@ -270,7 +275,7 @@ export function SpotlightWindow() {
   const inputRef = useRef<HTMLInputElement>(null);
   const chatAreaRef = useRef<HTMLDivElement>(null);
   
-  const { task, startTask } = useAgentStore();
+  const { task, startTask, continueTask, resetSession } = useAgentStore();
 
   useEffect(() => {
     initEventListeners();
@@ -347,24 +352,28 @@ export function SpotlightWindow() {
       }
   };
 
+  // [REVISED] Submit Handler with Session Continuity
   const handleSubmit = async (textOverride?: string) => {
     const text = textOverride || intent;
     if (!text.trim()) return;
 
     setIntent("");
     
-    // Optimistic add to local history if no task active
-    if (!task) {
-        setLocalHistory(prev => [...prev, { role: 'user', text, timestamp: Date.now() }]);
-    }
-    
+    // Prevent double-submit if already running
     if (task && task.phase === "Running") return;
 
     try {
-      if (text.toLowerCase().includes("swarm") || text.toLowerCase().includes("team")) {
-        await openStudio("copilot");
+      // Logic Branch: New vs Continue
+      if (task && task.id && task.phase !== "Failed") {
+          // If we have an active task/session, append to it
+          await continueTask(task.id, text);
+      } else {
+          // Otherwise, start a fresh session
+          if (text.toLowerCase().includes("swarm") || text.toLowerCase().includes("team")) {
+            await openStudio("copilot");
+          }
+          await startTask(text, conversationMode);
       }
-      await startTask(text, conversationMode);
     } catch (e) {
       console.error(e);
     }
@@ -382,6 +391,14 @@ export function SpotlightWindow() {
 
   const handleGlobalClick = () => {
     if (activeDropdown) setActiveDropdown(null);
+  };
+  
+  // [NEW] Handle New Chat
+  const handleNewChat = () => {
+      resetSession();
+      setLocalHistory([]);
+      setChatEvents([]);
+      setTimeout(() => inputRef.current?.focus(), 50);
   };
 
   const hasContent = activeHistory.length > 0 || chatEvents.length > 0;
@@ -539,6 +556,18 @@ export function SpotlightWindow() {
 
         {/* Header Actions */}
         <div className="spot-header-actions">
+          {/* [NEW] New Chat Button */}
+          <button 
+            className="spot-icon-btn" 
+            onClick={handleNewChat} 
+            title="New Chat (Clear Context)"
+            style={{color: '#3D85C6'}}
+          >
+            {icons.new_chat}
+          </button>
+          
+          <div className="divider-vertical" style={{width: 1, height: 14, background: 'rgba(255,255,255,0.1)', margin: '0 4px'}} />
+
           <button className="spot-icon-btn" onClick={() => openStudio("history")} title="History">{icons.history}</button>
           <button className="spot-icon-btn" onClick={() => openStudio("settings")} title="Settings">{icons.settings}</button>
           <button className="spot-icon-btn" onClick={() => openStudio("copilot")} title="Expand">{icons.expand}</button>
