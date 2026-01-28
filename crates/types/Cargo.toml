@@ -19,6 +19,9 @@ parity-scale-codec = { workspace = true }
 prost = { workspace = true }
 bitflags = { workspace = true }
 
+# [NEW] Added for Type-Safe Agentic Tools
+schemars = "0.8"
+
 [dev-dependencies]
 toml = { workspace = true }
 

@@ -28,6 +28,23 @@ impl TerminalDriver {
             cmd.stdout(std::process::Stdio::null());
             cmd.stderr(std::process::Stdio::null());
             cmd.stdin(std::process::Stdio::null());
+
+            // [FIX] On Unix, create a new session to prevent the child from receiving 
+            // SIGINT when the parent (ioi-local) is Ctrl+C'd.
+            #[cfg(unix)]
+            {
+                use std::os::unix::process::CommandExt;
+                unsafe {
+                    cmd.pre_exec(|| {
+                        // setsid() creates a new session. The process becomes the session leader 
+                        // of a new process group and has no controlling terminal.
+                        if libc::setsid() == -1 {
+                            return Err(std::io::Error::last_os_error());
+                        }
+                        Ok(())
+                    });
+                }
+            }
             
             let child = cmd.spawn().map_err(|e| anyhow!("Failed to spawn detached command '{}': {}", command, e))?;
             let pid = child.id();

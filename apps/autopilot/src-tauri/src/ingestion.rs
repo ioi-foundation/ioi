@@ -1,13 +1,12 @@
 // apps/autopilot/src-tauri/src/ingestion.rs
 
 use crate::models::AppState;
-use ioi_scs::{FrameType, SovereignContextStore, VectorIndex};
-use ioi_api::vm::inference::InferenceRuntime; // [FIX] Import trait for embed_text
+use ioi_scs::{FrameType, VectorIndex};
 use std::fs;
 use std::path::Path;
-use std::sync::{Arc, Mutex};
+use std::sync::Mutex; // [FIX] Removed Arc
 use tauri::State;
-use ioi_crypto::algorithms::hash::sha256; // [NEW] Import for hashing
+use ioi_crypto::algorithms::hash::sha256; 
 
 const CHUNK_SIZE: usize = 4096;
 

@@ -14,6 +14,7 @@ use rand::RngCore;
 use serde::Deserialize;
 use serde_json::Value;
 use std::sync::Arc;
+use hex; // [FIX] Required for decoding session ID
 
 /// A service to translate natural language user intent into a canonical, signable transaction.
 pub struct IntentResolver {
@@ -83,6 +84,7 @@ impl IntentResolver {
         let context_str = format!("Address Book: {:?}", address_book);
         
         // [MODIFIED] Update prompt to handle explicit "Chat Mode" prefix and schema examples
+        // Also added instruction for Session ID extraction from prompt if present (e.g., re-launching context)
         let header = format!(
             "You are a secure blockchain intent resolver. Your job is to map natural language to a transaction JSON.\n\
             Allowed Operations: {:?}\n\
@@ -103,7 +105,8 @@ impl IntentResolver {
             2. Do NOT use Markdown formatting (no ```json ... ```).\n\
             3. The root object MUST have an 'operation_id' field.\n\
             4. If input starts with 'MODE:CHAT', set params.mode='Chat'. Default mode is 'Agent'.\n\
-            5. 'gas_ceiling' is optional.";
+            5. If input contains 'SESSION:<hex_id>', extract it into params.session_id_hex.\n\
+            6. 'gas_ceiling' is optional.";
 
         let prompt = format!("{}\n\n{}\n\n{}", header, body, footer);
 
@@ -193,8 +196,21 @@ impl IntentResolver {
                     _ => AgentMode::Agent,
                 };
 
+                // [NEW] Check for explicit session ID in params (e.g. resumption context)
                 let mut session_id = [0u8; 32];
-                rand::thread_rng().fill_bytes(&mut session_id);
+                if let Some(sid_hex) = plan.params.get("session_id_hex").and_then(|v| v.as_str()) {
+                    if let Ok(bytes) = hex::decode(sid_hex) {
+                        if bytes.len() == 32 {
+                            session_id.copy_from_slice(&bytes);
+                        } else {
+                            rand::thread_rng().fill_bytes(&mut session_id);
+                        }
+                    } else {
+                        rand::thread_rng().fill_bytes(&mut session_id);
+                    }
+                } else {
+                    rand::thread_rng().fill_bytes(&mut session_id);
+                }
 
                 let params = StartAgentParams {
                     session_id,
@@ -202,7 +218,7 @@ impl IntentResolver {
                     max_steps: 10,
                     parent_session_id: None,
                     initial_budget: 10_000_000, 
-                    mode, // [NEW] Set the mode
+                    mode, 
                 };
                 
                 let params_bytes = codec::to_bytes_canonical(&params)

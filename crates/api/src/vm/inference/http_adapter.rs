@@ -12,8 +12,6 @@ use tokio::sync::mpsc::Sender;
 
 use super::InferenceRuntime;
 
-/// A generic HTTP adapter for OpenAI-compatible inference APIs.
-/// This allows the IOI Kernel to drive external models (GPT-4, Claude, vLLM, Ollama).
 pub struct HttpInferenceRuntime {
     client: Client,
     api_url: String,
@@ -25,7 +23,7 @@ impl HttpInferenceRuntime {
     pub fn new(api_url: String, api_key: String, model_name: String) -> Self {
         Self {
             client: Client::builder()
-                .timeout(Duration::from_secs(60)) // Generous timeout for chain-of-thought
+                .timeout(Duration::from_secs(60))
                 .build()
                 .expect("Failed to build HTTP client"),
             api_url,
@@ -35,29 +33,25 @@ impl HttpInferenceRuntime {
     }
 }
 
-// --- OpenAI API Request/Response Structures ---
-
-// [NEW] Structure for enforcing JSON output (Structured Generation)
 #[derive(Serialize)]
 struct ResponseFormat {
     #[serde(rename = "type")]
-    type_: String, // "text" or "json_object"
+    type_: String, 
 }
 
 #[derive(Serialize)]
 struct ChatCompletionRequest {
     model: String,
     messages: Vec<Message>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     tools: Option<Vec<Tool>>,
     temperature: f32,
     #[serde(skip_serializing_if = "std::ops::Not::not")]
-    stream: bool, // [NEW] Enable streaming
-    // [NEW] Support for Structured Outputs (JSON Mode)
+    stream: bool, 
     #[serde(skip_serializing_if = "Option::is_none")]
     response_format: Option<ResponseFormat>,
 }
 
-// [MODIFIED] Content can be a string or a complex array (multimodal)
 #[derive(Serialize, Deserialize, Debug, Clone)]
 struct Message {
     role: String,
@@ -67,11 +61,10 @@ struct Message {
 #[derive(Serialize)]
 struct Tool {
     #[serde(rename = "type")]
-    tool_type: String, // Always "function"
-    function: ToolFunction, // [CHANGED] Use a local struct for API mapping
+    tool_type: String, 
+    function: ToolFunction, 
 }
 
-// [NEW] Local struct to map LlmToolDefinition to OpenAI API format
 #[derive(Serialize)]
 struct ToolFunction {
     name: String,
@@ -106,7 +99,6 @@ struct FunctionCall {
     arguments: String,
 }
 
-// [NEW] Structures for Streaming Responses
 #[derive(Deserialize)]
 struct ChatCompletionChunk {
     choices: Vec<ChunkChoice>,
@@ -118,10 +110,8 @@ struct ChunkChoice {
 #[derive(Deserialize)]
 struct ChunkDelta {
     content: Option<String>,
-    // For MVP, we don't stream partial tool calls, we just buffer them implicitly or ignore
 }
 
-// [NEW] Structures for Embedding API response
 #[derive(Deserialize)]
 struct EmbeddingResponse {
     data: Vec<EmbeddingData>,
@@ -140,7 +130,6 @@ impl InferenceRuntime for HttpInferenceRuntime {
         input_context: &[u8],
         options: InferenceOptions,
     ) -> Result<Vec<u8>, VmError> {
-        // Delegate to streaming implementation with no stream channel
         self.execute_inference_streaming(model_hash, input_context, options, None).await
     }
 
@@ -151,22 +140,16 @@ impl InferenceRuntime for HttpInferenceRuntime {
         options: InferenceOptions,
         token_stream: Option<Sender<String>>,
     ) -> Result<Vec<u8>, VmError> {
-        // 1. Decode Input
-        // [MODIFIED] Handle Multimodal / Complex Inputs
-        // The input_context might be a JSON array of messages (for history/vision) OR a plain string.
         let messages: Vec<Message> = if let Ok(json_val) = serde_json::from_slice::<serde_json::Value>(input_context) {
-             // If it parses as JSON, check if it's already a list of messages.
              if let Ok(msgs) = serde_json::from_value::<Vec<Message>>(json_val.clone()) {
                  msgs
              } else {
-                 // If it's valid JSON but not a message list (e.g. an array of content parts), wrap it in a user message.
                  vec![Message {
                      role: "user".to_string(),
                      content: json_val,
                  }]
              }
         } else {
-             // Fallback: Treat as plain UTF-8 string content.
              let prompt_str = String::from_utf8(input_context.to_vec())
                  .map_err(|e| VmError::InvalidBytecode(format!("Input context must be UTF-8: {}", e)))?;
              vec![Message {
@@ -175,7 +158,6 @@ impl InferenceRuntime for HttpInferenceRuntime {
              }]
         };
 
-        // 2. Map Tools
         let tools = if options.tools.is_empty() {
             None
         } else {
@@ -200,7 +182,6 @@ impl InferenceRuntime for HttpInferenceRuntime {
             )
         };
 
-        // [NEW] Configure Response Format
         let response_format = if options.json_mode {
             Some(ResponseFormat {
                 type_: "json_object".to_string(),
@@ -209,7 +190,6 @@ impl InferenceRuntime for HttpInferenceRuntime {
             None
         };
 
-        // 3. Construct Request
         let stream_mode = token_stream.is_some();
         let request_body = ChatCompletionRequest {
             model: self.model_name.clone(),
@@ -217,10 +197,9 @@ impl InferenceRuntime for HttpInferenceRuntime {
             tools,
             temperature: options.temperature,
             stream: stream_mode,
-            response_format, // [NEW] Inject the format directive
+            response_format, 
         };
 
-        // 4. Execute HTTP Call
         let mut response = self
             .client
             .post(&self.api_url)
@@ -238,7 +217,6 @@ impl InferenceRuntime for HttpInferenceRuntime {
             return Err(VmError::HostError(format!("API Error: {}", error_text)));
         }
 
-        // 5. Handle Response (Streaming vs Blocking)
         if stream_mode {
             let mut full_content = String::new();
             let mut buffer = String::new();
@@ -256,26 +234,38 @@ impl InferenceRuntime for HttpInferenceRuntime {
                             if let Ok(chunk_data) = serde_json::from_str::<ChatCompletionChunk>(data) {
                                 if let Some(choice) = chunk_data.choices.first() {
                                     if let Some(content) = &choice.delta.content {
-                                        // Emit to UI
                                         let _ = sender.send(content.clone()).await;
-                                        // Accumulate
                                         full_content.push_str(content);
                                     }
                                 }
                             }
                         }
                     }
-                    // Remove processed line plus newline
-                    let next_start = line_end + 1;
-                    buffer = buffer[next_start..].to_string();
+                    // [FIX] Correct buffer slicing to discard processed line
+                    buffer = buffer[line_end + 1..].to_string();
                 }
             }
-            // For Beta MVP: If full_content is empty (e.g. pure tool call), we assume text-heavy tasks or buffer tool calls later.
-            // Returning empty bytes if no content was accumulated.
+            
+            // [FIX] Process residual buffer (The Fix for Data Loss)
+            if !buffer.trim().is_empty() {
+                let line = buffer.trim();
+                 if line.starts_with("data: ") {
+                        let data = &line[6..];
+                        if data != "[DONE]" {
+                            if let Ok(chunk_data) = serde_json::from_str::<ChatCompletionChunk>(data) {
+                                if let Some(choice) = chunk_data.choices.first() {
+                                    if let Some(content) = &choice.delta.content {
+                                        let _ = sender.send(content.clone()).await;
+                                        full_content.push_str(content);
+                                    }
+                                }
+                            }
+                        }
+                 }
+            }
             
             Ok(full_content.into_bytes())
         } else {
-            // Blocking Mode
             let response_body: ChatCompletionResponse = response
                 .json::<ChatCompletionResponse>()
                 .await
@@ -302,23 +292,17 @@ impl InferenceRuntime for HttpInferenceRuntime {
         }
     }
 
-    // [NEW] Implementation of embed_text
     async fn embed_text(&self, text: &str) -> Result<Vec<f32>, VmError> {
-        // Heuristic to derive embeddings URL from the configured chat URL.
-        // We look for standard OpenAI paths and replace them.
-        // E.g. /v1/chat/completions -> /v1/embeddings
         let embedding_url = if self.api_url.contains("/chat/completions") {
             self.api_url.replace("/chat/completions", "/embeddings")
         } else if self.api_url.contains("/completions") {
             self.api_url.replace("/completions", "/embeddings")
         } else {
             return Err(VmError::HostError(
-                "Cannot determine embeddings URL from configured API URL. Ensure API URL contains '/chat/completions' or '/completions'".into(),
+                "Cannot determine embeddings URL from configured API URL.".into(),
             ));
         };
 
-        // FIX: Chat models (gpt-*) cannot generate embeddings.
-        // Automatically switch to a standard embedding model if a chat model is configured.
         let model_to_use = if self.model_name.starts_with("gpt-") || self.model_name.starts_with("chat")
         {
             "text-embedding-3-small"

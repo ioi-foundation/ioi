@@ -41,7 +41,11 @@ ioi-crypto = { path = "../../../crates/crypto" }
 ioi-api = { path = "../../../crates/api" }
 ioi-services = { path = "../../../crates/services" }
 ioi-drivers = { path = "../../../crates/drivers" }
-ioi-scs = { path = "../../../crates/scs" } # [FIX] Added missing dependency
+ioi-scs = { path = "../../../crates/scs" }
+
+# [FIX] Added validator for key loading and libp2p for key types
+ioi-validator = { path = "../../../crates/validator" }
+libp2p = { workspace = true }
 
 # [FIX] Added dcrypt for ByteSerializable trait used in orchestrator
 dcrypt = { workspace = true }

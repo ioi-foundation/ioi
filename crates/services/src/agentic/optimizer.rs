@@ -14,18 +14,15 @@
 //! 5. **Deploy:** Submit `swap_module` transaction to the Governance service.
 
 use async_trait::async_trait;
-use ioi_api::services::{BlockchainService, UpgradableService};
+use ioi_api::services::{UpgradableService}; // [FIX] Removed BlockchainService
 use ioi_api::state::StateAccess;
 use ioi_api::transaction::context::TxContext;
 use ioi_api::vm::inference::{InferenceRuntime, LocalSafetyModel};
 use ioi_macros::service_interface;
-use ioi_types::app::{
-    ActionRequest, ActionTarget, AgentState, ChainTransaction, KernelEvent, StepTrace,
-    SystemPayload, SystemTransaction,
-};
+// [FIX] Clean imports
+use ioi_types::app::{StepTrace, ActionRequest, ActionTarget, ActionContext}; // [FIX] Added ActionRequest, etc
 use ioi_types::codec;
 use ioi_types::error::{TransactionError, UpgradeError};
-use ioi_types::service_configs::{ActiveServiceMeta, Capabilities};
 use parity_scale_codec::{Decode, Encode};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
@@ -36,9 +33,11 @@ use std::sync::Arc;
 use crate::agentic::policy::PolicyEngine;
 use crate::agentic::rules::{ActionRules, Verdict};
 use ioi_types::app::agentic::{InferenceOptions, AgentMacro, LlmToolDefinition};
-use ioi_scs::{SovereignContextStore, FrameType}; // [FIX] Import SCS types
+use ioi_scs::{SovereignContextStore, FrameType}; 
 use ioi_crypto::algorithms::hash::sha256;
-use dcrypt::algorithms::ByteSerializable; // [FIX] Import for copy_from_slice
+use dcrypt::algorithms::ByteSerializable; 
+use std::fmt;
+use reqwest::Url; 
 
 /// Parameters for triggering an optimization loop.
 #[derive(Encode, Decode, Serialize, Deserialize, Debug, Clone)]
@@ -53,13 +52,24 @@ pub struct OptimizeAgentParams {
     pub feedback_hint: Option<String>,
 }
 
-#[derive(Default, Debug)]
+#[derive(Default)]
 pub struct OptimizerService {
     // References to Kernel primitives needed for mutation
     inference: Option<Arc<dyn InferenceRuntime>>,
     safety_model: Option<Arc<dyn LocalSafetyModel>>,
     // [NEW] SCS reference for persisting skills
     scs: Option<Arc<std::sync::Mutex<SovereignContextStore>>>,
+}
+
+// [FIX] Manual Debug implementation
+impl fmt::Debug for OptimizerService {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("OptimizerService")
+            .field("inference", &self.inference.is_some())
+            .field("safety_model", &self.safety_model.is_some())
+            .field("scs", &self.scs.is_some())
+            .finish()
+    }
 }
 
 impl OptimizerService {
@@ -70,7 +80,7 @@ impl OptimizerService {
         Self {
             inference: Some(inference),
             safety_model: Some(safety_model),
-            scs: None, // Injected via builder or specialized constructor if needed
+            scs: None, 
         }
     }
     
@@ -152,6 +162,7 @@ impl OptimizerService {
         let mut allowed_files = HashSet::new();
 
         for step in trace_steps {
+            // Only learn from successful steps
             if !step.success { continue; }
             if let Ok(tool_call) = serde_json::from_str::<serde_json::Value>(&step.raw_output) {
                  if let Some(name) = tool_call["name"].as_str() {
@@ -159,7 +170,8 @@ impl OptimizerService {
                       match name {
                           "browser__navigate" | "net__fetch" => {
                               if let Some(url) = args["url"].as_str() {
-                                  if let Ok(u) = url::Url::parse(url) {
+                                  // [FIX] Use Url from reqwest
+                                  if let Ok(u) = Url::parse(url) {
                                       if let Some(host) = u.host_str() {
                                           allowed_domains.insert(host.to_string());
                                       }
@@ -177,6 +189,7 @@ impl OptimizerService {
             }
         }
 
+        // Convert map to Vec<Rule>
         let rules = vec![
             Rule {
                 rule_id: Some("compiled-network-whitelist".into()),
@@ -199,7 +212,7 @@ impl OptimizerService {
         ];
 
         Ok(ActionRules {
-            policy_id: format!("frozen-skill-{}", ioi_crypto::algorithms::hash::sha256(b"trace").unwrap().get(0).unwrap_or(&0)),
+            policy_id: format!("frozen-skill-{}", hex::encode(ioi_crypto::algorithms::hash::sha256(b"trace").unwrap())),
             defaults: DefaultPolicy::DenyAll, 
             rules,
         })
@@ -207,7 +220,8 @@ impl OptimizerService {
 
     /// [NEW] Skill Crystallization (RSI)
     /// Converts a successful execution trace into a reusable, parameterized tool macro.
-    pub async fn crystallize_skill(
+    // [FIX] Renamed to internal helper to avoid conflict with service method
+    pub async fn crystallize_skill_internal(
         &self,
         session_id: [u8; 32],
         trace_hash: [u8; 32],
@@ -266,15 +280,16 @@ impl OptimizerService {
             for s in steps_arr {
                 let target_str = s["target"].as_str().unwrap_or("");
                 let target = match target_str {
-                    "browser::navigate" => ActionTarget::BrowserNavigate,
-                    "gui::type" => ActionTarget::GuiType,
-                    "gui::click" => ActionTarget::GuiClick,
-                    _ => ActionTarget::Custom(target_str.to_string()),
+                    "browser::navigate" => ioi_types::app::ActionTarget::BrowserNavigate,
+                    "gui::type" => ioi_types::app::ActionTarget::GuiType,
+                    "gui::click" => ioi_types::app::ActionTarget::GuiClick,
+                    _ => ioi_types::app::ActionTarget::Custom(target_str.to_string()),
                 };
                 
                 // Serialize params for the action request
                 let params = serde_json::to_vec(&s["params"]).unwrap_or_default();
                 
+                // [FIX] Correctly construct ActionRequest
                 steps.push(ActionRequest {
                     target,
                     params,
@@ -334,7 +349,7 @@ impl OptimizerService {
         &self,
         state: &mut dyn StateAccess,
         params: OptimizeAgentParams,
-        ctx: &TxContext<'_>,
+        _ctx: &TxContext<'_>,
     ) -> Result<(), TransactionError> {
         // 1. Fetch Failure Context (Introspection)
         let trace_key = [
@@ -352,7 +367,7 @@ impl OptimizerService {
 
         // 2. Fetch Current Manifest (The Parent Genome)
         let meta_key = ioi_types::keys::active_service_key(&params.target_service_id);
-        let meta_bytes = state.get(&meta_key)?.ok_or(TransactionError::Invalid(
+        let _meta_bytes = state.get(&meta_key)?.ok_or(TransactionError::Invalid(
             "Target service not active".into(),
         ))?;
         
@@ -360,7 +375,7 @@ impl OptimizerService {
         let current_manifest = "{\"system_prompt\": \"...\"}".to_string(); 
 
         // 3. Generate Mutation
-        let new_manifest_str = self.synthesize_mutation(
+        let _new_manifest_str = self.synthesize_mutation(
             &current_manifest, 
             &trace, 
             params.feedback_hint.as_ref()
@@ -401,7 +416,8 @@ impl OptimizerService {
         // For MVP, we use a zero hash or derive it.
         let trace_hash = [0u8; 32];
         
-        self.crystallize_skill(params.session_id, trace_hash).await?;
+        // [FIX] Call the renamed internal helper
+        self.crystallize_skill_internal(params.session_id, trace_hash).await?;
         Ok(())
     }
 }

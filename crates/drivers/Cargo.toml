@@ -35,6 +35,8 @@ image = "0.25"
 # Required to draw bounding boxes and IDs on screenshots for the VLM to achieve high-fidelity targeting.
 imageproc = "0.25"
 rusttype = "0.9"
+# [FIX] Added ab_glyph for font handling compatible with imageproc
+ab_glyph = "0.2" 
 
 image_hasher = "2.0"
 
@@ -52,6 +54,9 @@ futures = "0.3"
 tokio = { workspace = true, features = ["process", "io-util", "sync", "rt", "macros"] }
 
 wait-timeout = "0.2"
+
+# [FIX] Added libc for process detachment (setsid)
+libc = "0.2"
 
 # [NEW] Linux Accessibility Support (AT-SPI)
 # Enables the agent to "read" the OS UI structure on Linux (X11/Wayland).

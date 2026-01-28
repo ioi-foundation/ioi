@@ -30,7 +30,7 @@ service PublicApi {
   rpc SubscribeEvents (SubscribeEventsRequest) returns (stream ChainEvent);
 
   // [NEW] Converts a natural language intent into a signable transaction payload.
-  // This powers the "God Mode" search bar in the GUI.
+  // This powers the "Commander Mode" search bar in the GUI.
   rpc DraftTransaction (DraftTransactionRequest) returns (DraftTransactionResponse);
 
   // [NEW] Retrieve a raw context chunk (e.g. screenshot PNG) by its hash/ID from the SCS.

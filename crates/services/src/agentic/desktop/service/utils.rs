@@ -12,12 +12,14 @@ use std::sync::Arc;
 use ioi_scs::FrameType;
 use ioi_types::app::agentic::ChatMessage;
 use crate::agentic::normaliser::OutputNormaliser; // Import Normaliser
-use super::types::AgentStatus; // [FIX] Added import
+// [FIX] Correct path to types
+use crate::agentic::desktop::types::AgentStatus; 
 use ioi_types::app::KernelEvent; // [FIX] Added import
 use std::time::{SystemTime, UNIX_EPOCH}; // [FIX] Added import
-use serde_json::json;
+// [FIX] Removed unused json import
 
 impl DesktopAgentService {
+    // Searches the state for skills that match the agent's goal.
     pub(crate) async fn recall_skills(
         &self,
         state: &dyn StateAccess,
@@ -145,8 +147,19 @@ impl DesktopAgentService {
                                 "- [SKILL] (Sim: {:.2}) Found applicable skill: {}\n", 
                                 1.0 - similarity, text
                             ));
+                        } else if f_type == FrameType::Observation {
+                            // [NEW] UI Memory Hit
+                            // Instead of dumping the potentially huge XML, we note that a relevant UI element was found.
+                            // In a real prod system, we'd extract the specific element snippet.
+                            // For this MVP fix, we just indicate a hit to keep context small.
+                            context_str.push_str(&format!(
+                                "- [UI Memory] (Sim: {:.2}) Found relevant UI element in history: {}\n", 
+                                1.0 - similarity, 
+                                // Show a tiny snippet if possible, or just the frame ID for reference
+                                if text.len() < 100 { text } else { format!("{}...", &text[..100]) }
+                            ));
                         } else {
-                             // Truncate to avoid context overflow
+                             // Truncate to avoid context overflow for Thoughts/Actions
                             let snippet = if text.len() > 300 {
                                 format!("{}...", &text[..300])
                             } else {
@@ -453,7 +466,7 @@ pub fn goto_trace_log(
         // Emit completion event so UI knows to stop when max steps reached
         if let Some(tx) = &event_sender {
              let _ = tx.send(KernelEvent::AgentActionResult {
-                 session_id: p.session_id, // [FIX] p is not in scope here. Need to pass session_id or remove this if logic is redundant with step.rs
+                 session_id: session_id, // [FIX] Use session_id argument directly
                  step_index: agent_state.step_count,
                  tool_name: "system::max_steps_reached".to_string(),
                  output: "Max steps reached. Task completed.".to_string(),

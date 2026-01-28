@@ -1,15 +1,14 @@
 // Path: crates/services/src/agentic/desktop/tools.rs
 
 use ioi_api::state::StateAccess;
-use ioi_types::app::agentic::LlmToolDefinition;
+use ioi_types::app::agentic::{LlmToolDefinition, AgentTool}; // [FIX] Import AgentTool
 use ioi_types::codec;
 use ioi_types::keys::UPGRADE_ACTIVE_SERVICE_PREFIX;
 use ioi_types::service_configs::ActiveServiceMeta;
 use serde_json::json;
-use ioi_scs::SovereignContextStore; // [NEW]
-use ioi_types::app::agentic::AgentMacro; // [NEW]
+use ioi_scs::SovereignContextStore; 
+use ioi_types::app::agentic::AgentMacro; 
 
-// [MODIFIED] Added optional SCS reference for skill discovery
 pub fn discover_tools(
     state: &dyn StateAccess,
     scs: Option<&std::sync::Mutex<SovereignContextStore>>
@@ -45,33 +44,39 @@ pub fn discover_tools(
         }
     }
 
-    // 2. Native Capabilities (Kernel Drivers)
+    // 2. Native Capabilities (Kernel Drivers) - Derived from AgentTool Schema
 
-    // Computer Use Tool
+    // Computer Use Tool (Manual Schema to satisfy OpenAI)
+    // The "computer" tool accepts an object that matches the ComputerAction enum structure.
+    // Since ComputerAction is tagged with "action", the JSON looks like { "action": "type", "text": "..." }.
+    // OpenAI requires the root to be type: object.
+    
     let computer_params = json!({
-        "name": "computer",
-        "type": "tool_use",
-        "tool_use_id": "tool_u_placeholder",
-        "content": {
-            "action": { 
-                "type": "string", 
-                "enum": ["key", "type", "mouse_move", "left_click", "left_click_drag", "cursor_position", "screenshot"] 
+        "type": "object",
+        "properties": {
+            "action": {
+                "type": "string",
+                "enum": ["type", "key", "mouse_move", "left_click", "left_click_drag", "screenshot", "cursor_position"],
+                "description": "The specific action to perform."
             },
-            "coordinate": { 
-                "type": "array", 
+            "coordinate": {
+                "type": "array",
                 "items": { "type": "integer" },
                 "minItems": 2,
                 "maxItems": 2,
-                "description": "[x, y] coordinates"
+                "description": "(x, y) coordinates for mouse operations. Required for mouse_move, left_click_drag."
             },
-            "text": { "type": "string", "description": "Text to type or key to press" }
+            "text": {
+                "type": "string",
+                "description": "Text to type or key to press. Required for type, key."
+            }
         },
         "required": ["action"]
     });
-    
+
     tools.push(LlmToolDefinition {
         name: "computer".to_string(),
-        description: "Control the computer (mouse/keyboard). Supports: mouse_move, left_click, left_click_drag (requires start/end coords), type, key, screenshot.".to_string(),
+        description: "Control the computer (mouse/keyboard).".to_string(),
         parameters: computer_params.to_string(),
     });
 
@@ -83,6 +88,7 @@ pub fn discover_tools(
         },
         "required": ["message"]
     });
+    // [FIX] Ensure the tool name is consistently "chat__reply" to match execution logic
     tools.push(LlmToolDefinition {
         name: "chat__reply".to_string(),
         description: "Send a text message or answer to the user. Use this for all conversation/replies.".to_string(),
@@ -139,8 +145,21 @@ pub fn discover_tools(
     });
     tools.push(LlmToolDefinition {
         name: "gui__click".to_string(),
-        description: "Click on UI element at coordinates (Legacy)",
+        description: "Click on UI element at coordinates (Legacy)".to_string(),
         parameters: gui_params.to_string(),
+    });
+
+    let gui_type_params = json!({
+        "type": "object",
+        "properties": {
+            "text": { "type": "string" }
+        },
+        "required": ["text"]
+    });
+    tools.push(LlmToolDefinition {
+        name: "gui__type".to_string(),
+        description: "Type text (Legacy)".to_string(),
+        parameters: gui_type_params.to_string(),
     });
 
     // Meta Tools (Agent Control)
@@ -291,7 +310,7 @@ pub fn discover_tools(
         parameters: fs_ls_params.to_string(),
     });
     
-    // 3. [NEW] Skill Discovery from SCS (Learned Capabilities)
+    // 3. Skill Discovery from SCS (Learned Capabilities)
     // If the SCS is available, scan for "Skill" frames and inject them as tools.
     if let Some(store_mutex) = scs {
         if let Ok(store) = store_mutex.lock() {

@@ -7,11 +7,11 @@ use anyhow::{anyhow, Result};
 use ioi_types::app::agentic::LlmToolDefinition;
 use serde_json::Value;
 use std::collections::HashMap;
-use std::path::PathBuf;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
-use self::transport::{McpTransport, McpToolInfo};
+// [FIX] Removed unused McpToolInfo import
+use self::transport::McpTransport;
 
 /// Configuration for an external MCP server.
 #[derive(Debug, Clone, serde::Deserialize)]

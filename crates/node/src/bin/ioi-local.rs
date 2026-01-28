@@ -217,6 +217,20 @@ async fn main() -> Result<()> {
         methods: market_methods_policy,
         allowed_system_prefixes: vec![],
     });
+    
+    // [FIX] Add Optimizer Policy
+    let mut optimizer_methods = std::collections::BTreeMap::new();
+    optimizer_methods.insert("optimize_agent@v1".to_string(), MethodPermission::User);
+    optimizer_methods.insert("crystallize_skill@v1".to_string(), MethodPermission::User);
+
+    service_policies.insert("optimizer".to_string(), ioi_types::config::ServicePolicy {
+        methods: optimizer_methods,
+        allowed_system_prefixes: vec![
+            // Optimizer needs to read agent traces and active service metadata
+            "agent::trace::".to_string(),
+            "upgrade::active::".to_string(),
+        ],
+    });
 
     // Inference Config
     let openai_key = std::env::var("OPENAI_API_KEY").ok();
@@ -271,6 +285,7 @@ async fn main() -> Result<()> {
             }),
             InitialServiceConfig::Governance(Default::default()),
             InitialServiceConfig::Oracle(Default::default()),
+            // [REMOVED] InitialServiceConfig::Ibc(...)
         ],
         service_policies, 
         min_finality_depth: 0,

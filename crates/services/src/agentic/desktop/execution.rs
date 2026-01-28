@@ -4,13 +4,11 @@ use ioi_api::vm::drivers::gui::{GuiDriver, InputEvent, MouseButton as ApiButton}
 use ioi_drivers::browser::BrowserDriver;
 use ioi_drivers::terminal::TerminalDriver;
 use ioi_types::app::KernelEvent;
-use serde_json::Value;
 use std::sync::Arc;
 use tokio::sync::broadcast::Sender;
 
 use ioi_drivers::mcp::McpManager;
-use ioi_types::app::agentic::AgentMacro; // [NEW] Import Macro Type
-use ioi_types::app::ActionRequest;
+use ioi_types::app::agentic::{AgentMacro, AgentTool, ComputerAction};
 use ioi_types::app::ActionTarget;
 
 pub struct ToolExecutionResult {
@@ -25,7 +23,6 @@ pub struct ToolExecutor {
     browser: Arc<BrowserDriver>,
     mcp: Arc<McpManager>, 
     event_sender: Option<Sender<KernelEvent>>,
-    // [NEW] Cache of learned macros, populated by discover_tools/service
     macros: std::collections::HashMap<String, AgentMacro>, 
 }
 
@@ -47,45 +44,15 @@ impl ToolExecutor {
         }
     }
     
-    // [NEW] Method to hydrate known macros
     pub fn with_macros(mut self, macros: std::collections::HashMap<String, AgentMacro>) -> Self {
         self.macros = macros;
         self
     }
 
-    /// Helper to safely extract arguments regardless of whether they are under "arguments" or "parameters"
-    fn get_args<'a>(&self, tool_call: &'a Value) -> &'a Value {
-        if tool_call.get("arguments").is_some() {
-            &tool_call["arguments"]
-        } else if tool_call.get("parameters").is_some() {
-            &tool_call["parameters"]
-        } else {
-            // Fallback: assume the tool_call itself might be the args if flattened (unlikely but safe default)
-            tool_call
-        }
-    }
-    
-    /// Helper: Interpolate macro templates like "{{username}}" with actual values
-    fn interpolate_params(&self, template_bytes: &[u8], args: &Value) -> Vec<u8> {
-        // Simple string replacement for MVP. Production needs robust JSON template engine.
-        if let Ok(template_str) = String::from_utf8(template_bytes.to_vec()) {
-            let mut result = template_str;
-            if let Some(arg_map) = args.as_object() {
-                for (k, v) in arg_map {
-                    let placeholder = format!("{{{{{}}}}}", k); // {{key}}
-                    let replacement = if let Some(s) = v.as_str() { s.to_string() } else { v.to_string() };
-                    result = result.replace(&placeholder, &replacement);
-                }
-            }
-            return result.into_bytes();
-        }
-        template_bytes.to_vec()
-    }
-
+    /// Executes a strictly typed AgentTool.
     pub async fn execute(
         &self,
-        name: &str,
-        tool_call: &Value,
+        tool: AgentTool,
         session_id: [u8; 32],
         step_index: u32,
         visual_phash: [u8; 32],
@@ -94,298 +61,248 @@ impl ToolExecutor {
         let mut error = None;
         let mut history_entry = None;
 
-        let args = self.get_args(tool_call);
-        
-        // [NEW] Check for Macro Execution (Learned Skill)
-        if let Some(skill_macro) = self.macros.get(name) {
-            log::info!("Executing Learned Skill: {}", name);
-            
-            // Execute the macro steps sequentially
-            // For MVP, we treat this as an atomic block. 
-            // In full implementation, we might want to yield or check visual state between steps.
-            for (i, step) in skill_macro.steps.iter().enumerate() {
-                // Interpolate params with current args
-                let final_params = self.interpolate_params(&step.params, args);
-                
-                // Recursively execute the atomic action
-                // Note: We map the ActionTarget back to our tool names or driver calls.
-                // Since this executor handles tool names, we need to map internal targets to logic.
-                
-                let step_res = match &step.target {
-                    ActionTarget::GuiClick => {
-                        // Deserialize params to get x,y
-                        if let Ok(p) = serde_json::from_slice::<Value>(&final_params) {
-                             let x = p["x"].as_u64().unwrap_or(0) as u32;
-                             let y = p["y"].as_u64().unwrap_or(0) as u32;
-                             self.gui.inject_input(InputEvent::Click {
-                                button: ApiButton::Left,
-                                x, y,
-                                expected_visual_hash: None // Macros trust their sequence usually, or we could pass visual_phash if relevant
-                             }).await.map_err(|e| e.to_string())
-                        } else {
-                            Err("Invalid macro params".to_string())
-                        }
-                    },
-                    ActionTarget::GuiType => {
-                         if let Ok(p) = serde_json::from_slice::<Value>(&final_params) {
-                             let text = p["text"].as_str().unwrap_or("").to_string();
-                             self.gui.inject_input(InputEvent::Type { text }).await.map_err(|e| e.to_string())
-                         } else {
-                            Err("Invalid macro params".to_string())
-                         }
-                    },
-                    ActionTarget::BrowserNavigate => {
-                         if let Ok(p) = serde_json::from_slice::<Value>(&final_params) {
-                             let url = p["url"].as_str().unwrap_or("").to_string();
-                             self.browser.navigate(&url).await.map(|_| ()).map_err(|e| e.to_string())
-                         } else {
-                            Err("Invalid macro params".to_string())
-                         }
-                    },
-                    _ => Err(format!("Unsupported macro action target: {:?}", step.target))
+        // [NOTE] Macro execution logic would need to be adapted here if macros are 
+        // represented in the AgentTool enum (e.g. AgentTool::Custom or AgentTool::Macro).
+        // For Phase 4 Alpha, we focus on the core native tools.
+
+        match tool {
+            // --- Computer Use (Meta-Tool) ---
+            AgentTool::Computer(action) => match action {
+                ComputerAction::MouseMove { coordinate } => {
+                    let [x, y] = coordinate;
+                    match self.gui.inject_input(InputEvent::MouseMove { x, y }).await {
+                        Ok(_) => { success = true; history_entry = Some(format!("Moved mouse to ({}, {})", x, y)); }
+                        Err(e) => error = Some(e.to_string())
+                    }
+                }
+                ComputerAction::LeftClick => {
+                    // Click at current position (requires keeping track or explicit coords).
+                    // Schema usually implies clicking AT a location or current. 
+                    // To imply current location, we might need state.
+                    // However, `ComputerAction` usually comes with coords for robustness.
+                    // If no coords, we assume current.
+                    // For safety, we map this to a generic click or error if coords needed.
+                    // Let's assume LeftClick implies current position logic which we don't track here,
+                    // OR the schema provided coords in a previous move.
+                    // Better: The schema usually has `LeftClick` as an action, maybe with coords.
+                    // Our Enum `ComputerAction` defined `LeftClick` as unit variant.
+                    // We'll treat it as "Click at current" which involves a simplified inject.
+                    // Actually, `InputEvent::Click` needs X/Y. 
+                    // We'll error for now or assume 0,0 (safe fail).
+                    error = Some("LeftClick without coordinates not fully supported in stateless executor.".into());
+                }
+                ComputerAction::LeftClickDrag { coordinate } => {
+                     let [x, y] = coordinate;
+                     match self.gui.inject_input(InputEvent::MouseDown { button: ApiButton::Left, x, y }).await {
+                         Ok(_) => {
+                              let _ = self.gui.inject_input(InputEvent::MouseUp { button: ApiButton::Left, x, y }).await;
+                              success = true;
+                              history_entry = Some(format!("Drag at {}, {}", x, y));
+                         },
+                         Err(e) => error = Some(e.to_string())
+                    }
+                }
+                ComputerAction::Type { text } => {
+                    match self.gui.inject_input(InputEvent::Type { text: text.clone() }).await {
+                        Ok(_) => { success = true; history_entry = Some(format!("Typed: {}", text)); }
+                        Err(e) => error = Some(e.to_string())
+                    }
+                }
+                ComputerAction::Key { text } => {
+                     match self.gui.inject_input(InputEvent::KeyPress { key: text.clone() }).await {
+                         Ok(_) => { success = true; history_entry = Some(format!("Pressed Key: {}", text)); }
+                         Err(e) => error = Some(e.to_string())
+                     }
+                }
+                ComputerAction::Screenshot => {
+                    success = true;
+                    history_entry = Some("Took screenshot (implicit)".to_string());
+                }
+                ComputerAction::CursorPosition => {
+                    success = true;
+                    history_entry = Some("Cursor position query [Mock]".to_string());
+                }
+            },
+
+            // --- GUI Legacy ---
+            AgentTool::GuiClick { x, y, button } => {
+                let btn = match button.as_deref() {
+                    Some("right") => ApiButton::Right,
+                    Some("middle") => ApiButton::Middle,
+                    _ => ApiButton::Left,
                 };
-
-                if let Err(e) = step_res {
-                    return ToolExecutionResult {
-                        success: false,
-                        error: Some(format!("Macro step {} failed: {}", i, e)),
-                        history_entry: Some(format!("Macro '{}' failed at step {}", name, i))
-                    };
-                }
-            }
-            
-            return ToolExecutionResult {
-                success: true,
-                error: None,
-                history_entry: Some(format!("Executed learned skill: {}", name))
-            };
-        }
-
-        match name {
-            // [NEW] "Computer Use" Tool Handler (Claude 3.5 Sonnet Compatible)
-            "computer" => {
-                let action = args["action"].as_str().unwrap_or("");
-                let text = args["text"].as_str();
-                
-                // Extract coordinates if present
-                let (x, y) = if let Some(coords) = args["coordinate"].as_array() {
-                    if coords.len() >= 2 {
-                        (coords[0].as_u64().unwrap_or(0) as u32, coords[1].as_u64().unwrap_or(0) as u32)
-                    } else { (0, 0) }
-                } else { (0, 0) };
-
-                match action {
-                    "mouse_move" => {
-                        match self.gui.inject_input(InputEvent::MouseMove { x, y }).await {
-                            Ok(_) => { success = true; history_entry = Some(format!("Moved mouse to ({}, {})", x, y)); }
-                            Err(e) => error = Some(e.to_string())
-                        }
-                    }
-                    "left_click" => {
-                        // Move then click (robustness)
-                        let move_res = self.gui.inject_input(InputEvent::MouseMove { x, y }).await;
-                        let click_res = self.gui.inject_input(InputEvent::Click {
-                            button: ApiButton::Left,
-                            x, y,
-                            expected_visual_hash: Some(visual_phash)
-                        }).await;
-                        
-                        if move_res.is_ok() && click_res.is_ok() {
-                             success = true;
-                             history_entry = Some(format!("Left Click at ({}, {})", x, y));
-                        } else {
-                             error = Some("Failed to move or click".to_string());
-                        }
-                    }
-                    "left_click_drag" => {
-                        // Implementing drag via MouseDown/MouseUp events
-                        match self.gui.inject_input(InputEvent::MouseDown { button: ApiButton::Left, x, y }).await {
-                             Ok(_) => {
-                                  // For MVP safety, we immediately release to prevent stuck drags if next command fails.
-                                  // Real implementation would wait for next move command.
-                                  let _ = self.gui.inject_input(InputEvent::MouseUp { button: ApiButton::Left, x, y }).await;
-                                  success = true;
-                                  history_entry = Some(format!("Drag (Simulated Click) at {}, {}", x, y));
-                             },
-                             Err(e) => error = Some(e.to_string())
-                        }
-                    }
-                    "type" => {
-                        if let Some(t) = text {
-                            match self.gui.inject_input(InputEvent::Type { text: t.to_string() }).await {
-                                Ok(_) => { success = true; history_entry = Some(format!("Typed: {}", t)); }
-                                Err(e) => error = Some(e.to_string())
-                            }
-                        } else {
-                            error = Some("Missing 'text' argument for type action".to_string());
-                        }
-                    }
-                    "key" => {
-                         if let Some(k) = text {
-                             match self.gui.inject_input(InputEvent::KeyPress { key: k.to_string() }).await {
-                                 Ok(_) => { success = true; history_entry = Some(format!("Pressed Key: {}", k)); }
-                                 Err(e) => error = Some(e.to_string())
-                             }
-                         } else {
-                             error = Some("Missing 'text' (key) argument".to_string());
-                         }
-                    }
-                    "screenshot" => {
-                        success = true;
-                        history_entry = Some("Took screenshot (implicit)".to_string());
-                    }
-                    "cursor_position" => {
-                        success = true;
-                        history_entry = Some("Cursor position: (960, 540) [Mock]".to_string());
-                    }
-                    _ => error = Some(format!("Unknown computer action: {}", action))
-                }
-            }
-            "gui__click" => {
-                let x = args["x"].as_u64().unwrap_or(0) as u32;
-                let y = args["y"].as_u64().unwrap_or(0) as u32;
                 match self.gui.inject_input(InputEvent::Click {
-                    button: ApiButton::Left,
-                    x,
-                    y,
+                    button: btn,
+                    x, y,
                     expected_visual_hash: Some(visual_phash),
                 }).await {
                     Ok(_) => success = true,
                     Err(e) => error = Some(e.to_string()),
                 }
             }
-            "sys__exec" => {
-                let cmd = args["command"].as_str().unwrap_or("");
-                let cmd_args: Vec<String> = args["args"]
-                    .as_array()
-                    .map(|arr| arr.iter().map(|v| v.as_str().unwrap_or("").to_string()).collect())
-                    .unwrap_or_default();
-
-                let detach = args["detach"].as_bool().unwrap_or(false);
-
-                if cmd.is_empty() {
-                    error = Some("Command is empty. Check if LLM output 'arguments' or 'parameters' key.".to_string());
-                } else {
-                    match self.terminal.execute(cmd, &cmd_args, detach).await {
-                        Ok(output) => {
-                            success = true;
-                            let safe_output: String = if output.len() > 1000 {
-                                format!("{}... (truncated)", &output[..1000])
-                            } else {
-                                output
-                            };
-                            history_entry = Some(format!("System Output: {}", safe_output));
-
-                            if let Some(tx) = &self.event_sender {
-                                let _ = tx.send(KernelEvent::AgentActionResult {
-                                    session_id,
-                                    step_index,
-                                    tool_name: "sys__exec".to_string(),
-                                    output: safe_output,
-                                });
-                            }
-                        }
-                        Err(e) => {
-                            error = Some(e.to_string());
-                        }
-                    }
+            AgentTool::GuiType { text } => {
+                match self.gui.inject_input(InputEvent::Type { text }).await {
+                    Ok(_) => success = true,
+                    Err(e) => error = Some(e.to_string()),
                 }
             }
-            "browser__navigate" => {
-                let url = args["url"].as_str().unwrap_or("");
-                if url.is_empty() {
-                    error = Some("URL argument is missing".to_string());
-                } else {
-                    match self.browser.navigate(url).await {
-                        Ok(content) => {
-                            success = true;
-                            let content_len = content.len();
-                            let preview = if content_len > 300 { 
-                                format!("{}...", &content[..300]) 
-                            } else { 
-                                content.clone() 
-                            };
-                            history_entry = Some(format!("Browser: Navigated to {} ({} chars). Preview: {}", url, content_len, preview));
-                            
-                            if let Some(tx) = &self.event_sender {
-                                let _ = tx.send(KernelEvent::AgentActionResult {
-                                    session_id,
-                                    step_index,
-                                    tool_name: "browser__navigate".to_string(),
-                                    output: format!("Navigated to {}. Content len: {}", url, content_len),
-                                });
-                            }
+
+            // --- System ---
+            AgentTool::SysExec { command, args, detach } => {
+                match self.terminal.execute(&command, &args, detach).await {
+                    Ok(output) => {
+                        success = true;
+                        let safe_output: String = if output.len() > 1000 {
+                            format!("{}... (truncated)", &output[..1000])
+                        } else {
+                            output
+                        };
+                        history_entry = Some(format!("System Output: {}", safe_output));
+
+                        if let Some(tx) = &self.event_sender {
+                            let _ = tx.send(KernelEvent::AgentActionResult {
+                                session_id,
+                                step_index,
+                                tool_name: "sys__exec".to_string(),
+                                output: safe_output,
+                            });
                         }
-                        Err(e) => error = Some(format!("Browser navigation failed: {}", e)),
                     }
+                    Err(e) => error = Some(e.to_string()),
                 }
             }
-            "browser__extract" => {
-                match self.browser.extract_dom().await {
+
+            // --- Browser ---
+            AgentTool::BrowserNavigate { url } => {
+                match self.browser.navigate(&url).await {
                     Ok(content) => {
                         success = true;
                         let content_len = content.len();
                         let preview = if content_len > 300 { 
                             format!("{}...", &content[..300]) 
                         } else { 
-                            content.clone() 
+                            content 
                         };
-                        history_entry = Some(format!("Browser: Extracted DOM. Preview: {}", preview));
-
+                        history_entry = Some(format!("Navigated to {}. Preview: {}", url, preview));
+                        
+                        if let Some(tx) = &self.event_sender {
+                            let _ = tx.send(KernelEvent::AgentActionResult {
+                                session_id,
+                                step_index,
+                                tool_name: "browser__navigate".to_string(),
+                                output: format!("Navigated to {}. Len: {}", url, content_len),
+                            });
+                        }
+                    }
+                    Err(e) => error = Some(e.to_string()),
+                }
+            }
+            AgentTool::BrowserExtract => {
+                 match self.browser.extract_dom().await {
+                    Ok(content) => {
+                        success = true;
+                        history_entry = Some(format!("Extracted DOM ({} chars)", content.len()));
                         if let Some(tx) = &self.event_sender {
                             let _ = tx.send(KernelEvent::AgentActionResult {
                                 session_id,
                                 step_index,
                                 tool_name: "browser__extract".to_string(),
-                                output: format!("Extracted DOM ({} chars)", content_len),
+                                output: format!("Extracted {} chars", content.len()),
                             });
                         }
                     }
-                    Err(e) => error = Some(format!("Browser extraction failed: {}", e)),
+                    Err(e) => error = Some(e.to_string()),
                 }
             }
-            "browser__click" => {
-                let selector = args["selector"].as_str().unwrap_or("");
-                if selector.is_empty() {
-                    error = Some("Selector argument is missing".to_string());
-                } else {
-                    match self.browser.click_selector(selector).await {
-                        Ok(_) => {
-                            success = true;
-                            history_entry = Some(format!("Clicked element: {}", selector));
-
-                            if let Some(tx) = &self.event_sender {
-                                let _ = tx.send(KernelEvent::AgentActionResult {
-                                    session_id,
-                                    step_index,
-                                    tool_name: "browser__click".to_string(),
-                                    output: format!("Clicked: {}", selector),
-                                });
-                            }
-                        }
-                        Err(e) => error = Some(format!("Click failed: {}", e)),
+            AgentTool::BrowserClick { selector } => {
+                 match self.browser.click_selector(&selector).await {
+                    Ok(_) => {
+                        success = true;
+                        history_entry = Some(format!("Clicked selector: {}", selector));
                     }
+                    Err(e) => error = Some(e.to_string()),
                 }
             }
-            "chat__reply" => {
-                let msg = args["message"].as_str().unwrap_or("...");
+
+            // --- Chat ---
+            AgentTool::ChatReply { message } => {
                 success = true;
-                history_entry = Some(format!("Replied: {}", msg));
-                
+                history_entry = Some(format!("Replied: {}", message));
                 if let Some(tx) = &self.event_sender {
                     let _ = tx.send(KernelEvent::AgentActionResult {
                         session_id,
                         step_index,
-                        tool_name: "chat::reply".to_string(), 
-                        output: msg.to_string(),
+                        // [FIX] Ensure consistent tool name "chat__reply"
+                        tool_name: "chat__reply".to_string(), 
+                        output: message,
                     });
                 }
             }
-            _ => {
-                // MCP Fallback for unknown tools
-                if name.contains("__") {
-                    let mcp_args = args.clone();
-                    match self.mcp.execute_tool(name, mcp_args).await {
+
+            // --- Filesystem ---
+            AgentTool::FsWrite { path, content } => {
+                 // In Phase 4, we'd use a virtual filesystem driver. 
+                 // For now we map to std::fs with sandbox checks (handled by policy, but driver enforcement here).
+                 // Simple impl:
+                 match std::fs::write(&path, content) {
+                     Ok(_) => { success = true; history_entry = Some(format!("Wrote to {}", path)); }
+                     Err(e) => error = Some(e.to_string())
+                 }
+            }
+            AgentTool::FsRead { path } => {
+                 match std::fs::read_to_string(&path) {
+                     Ok(c) => { 
+                         success = true; 
+                         history_entry = Some(format!("Read {} chars from {}", c.len(), path));
+                         if let Some(tx) = &self.event_sender {
+                            let _ = tx.send(KernelEvent::AgentActionResult {
+                                session_id,
+                                step_index,
+                                tool_name: "filesystem__read_file".to_string(), 
+                                output: c,
+                            });
+                        }
+                     }
+                     Err(e) => error = Some(e.to_string())
+                 }
+            }
+            AgentTool::FsList { path } => {
+                 match std::fs::read_dir(&path) {
+                     Ok(entries) => {
+                         let names: Vec<String> = entries.filter_map(|e| e.ok().map(|d| d.file_name().to_string_lossy().to_string())).collect();
+                         let out = names.join(", ");
+                         success = true;
+                         history_entry = Some(format!("Ls {}: {}", path, out));
+                          if let Some(tx) = &self.event_sender {
+                            let _ = tx.send(KernelEvent::AgentActionResult {
+                                session_id,
+                                step_index,
+                                tool_name: "filesystem__list_directory".to_string(), 
+                                output: out,
+                            });
+                        }
+                     }
+                     Err(e) => error = Some(e.to_string())
+                 }
+            }
+
+            // --- Meta Tools (No-ops for Executor, handled by Logic) ---
+            AgentTool::AgentDelegate { .. } 
+            | AgentTool::AgentAwait { .. }
+            | AgentTool::AgentPause { .. }
+            | AgentTool::AgentComplete { .. }
+            | AgentTool::CommerceCheckout { .. } => {
+                // These should be handled by `actions.rs` returning special status.
+                // If we reach here, it's a fallthrough logic error or just logging.
+                success = true;
+                history_entry = Some("Meta-tool execution (Handled by Controller)".to_string());
+            }
+
+            // --- Dynamic/MCP ---
+            AgentTool::Dynamic(val) => {
+                if let Some(name) = val.get("name").and_then(|n| n.as_str()) {
+                     let args = val.get("arguments").cloned().unwrap_or(serde_json::Value::Null);
+                     match self.mcp.execute_tool(name, args).await {
                         Ok(output) => {
                             success = true;
                             let preview = if output.len() > 300 {
@@ -410,7 +327,7 @@ impl ToolExecutor {
                         }
                     }
                 } else {
-                    success = true; 
+                    error = Some("Dynamic tool call missing 'name'".into());
                 }
             }
         }

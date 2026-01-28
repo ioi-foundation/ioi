@@ -53,21 +53,43 @@ pub fn serialize_tree_to_xml(node: &AccessibilityNode, depth: usize) -> String {
         return String::new();
     }
 
+    // [FIX] Enforce hard depth limit to prevent deep recursion in complex UIs (e.g. IDEs, Webviews)
+    if depth > 15 {
+        return String::new();
+    }
+
     // 2. Recursively serialize children first.
     // This allows us to detect if a container has interesting content.
+    // [FIX] Limit the number of children to prevent context explosion in lists/tables.
     let mut children_xml = String::new();
-    for child in &node.children {
+    let max_children = 25;
+
+    for (i, child) in node.children.iter().enumerate() {
+        if i >= max_children {
+            let indent = "  ".repeat(depth + 1);
+            children_xml.push_str(&format!("{}<!-- truncated {} siblings -->\n", indent, node.children.len() - max_children));
+            break;
+        }
         children_xml.push_str(&serialize_tree_to_xml(child, depth + 1));
     }
 
     // 3. Semantic Filter Logic
     // Keep node IF:
     // - It is interactive (button, input)
-    // - OR it has text content
+    // - OR it has text content (AND that content isn't huge/spammy)
     // - OR it is a structural root (window)
     // - OR it has interesting children (non-empty children_xml)
+    
+    // Heuristic: If a node has > 200 chars of text, it's likely a document/log/code block.
+    // Unless we are explicitly reading text, treat it as "Content" and summary-tag it to save tokens.
+    let content_len = node.value.as_ref().map(|s| s.len()).unwrap_or(0) 
+                    + node.name.as_ref().map(|s| s.len()).unwrap_or(0);
+
+    let is_bulk_text = content_len > 200;
+
+    // Only recurse if it's a structural element or a small interactive control.
     let is_interesting = node.is_interactive() 
-        || node.has_content() 
+        || (node.has_content() && !is_bulk_text) 
         || !children_xml.is_empty() 
         || node.role == "window" 
         || node.role == "root";
@@ -80,13 +102,23 @@ pub fn serialize_tree_to_xml(node: &AccessibilityNode, depth: usize) -> String {
     // 4. Construct XML
     let indent = "  ".repeat(depth);
     
+    // [FIX] Helper to truncate long attribute values to save tokens
+    let truncate = |s: &str, max_len: usize| -> String {
+        if s.len() > max_len {
+            format!("{}...", &s[..max_len])
+        } else {
+            s.to_string()
+        }
+    };
+
     // Only include name/value attributes if they exist
+    // [FIX] Apply truncation (max 100 chars per attribute)
     let name_attr = node.name.as_ref()
-        .map(|n| format!(" name=\"{}\"", escape_xml(n)))
+        .map(|n| format!(" name=\"{}\"", escape_xml(&truncate(n, 100))))
         .unwrap_or_default();
     
     let value_attr = node.value.as_ref()
-        .map(|v| format!(" value=\"{}\"", escape_xml(v)))
+        .map(|v| format!(" value=\"{}\"", escape_xml(&truncate(v, 100))))
         .unwrap_or_default();
         
     // Compact coordinate string to save tokens

@@ -44,6 +44,12 @@ tokio = { workspace = true, features = ["sync", "rt"] }
 # [FIX] Added rand dependency
 rand = { workspace = true }
 
+# [FIX] Added url dependency
+url = "2.5"
+
+# [NEW] Added schemars for schema generation
+schemars = "0.8"
+
 # Visual Perceptual Hashing for Desktop Agent
 image = "0.25"
 image_hasher = "2.0"

@@ -2,6 +2,7 @@
 use parity_scale_codec::{Decode, Encode};
 use serde::{Deserialize, Serialize};
 use crate::app::action::ApprovalToken; 
+use schemars::JsonSchema; 
 
 /// The cryptographic proof that a distributed committee converged on a specific meaning.
 /// This forms the "Proof of Meaning" verified by Type A (Consensus) validators.
@@ -101,9 +102,9 @@ pub struct LlmToolDefinition {
     pub parameters: String,
 }
 
-// [NEW] Structure for a "Learned Skill" (Macro).
-// This is the executable logic that backs a dynamic LlmToolDefinition.
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Encode, Decode)]
+/// Structure for a "Learned Skill" (Macro).
+/// This is the executable logic that backs a dynamic LlmToolDefinition.
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Encode, Decode)]
 pub struct AgentMacro {
     /// The definition of the tool (interface).
     pub definition: LlmToolDefinition,
@@ -219,4 +220,243 @@ pub struct SemanticFact {
     pub object: String,
     // Note: We don't store context_hash here typically, as the Fact is embedded *into* the Index
     // which points to the Frame.
+}
+
+// -----------------------------------------------------------------------------
+// [NEW] Type-Safe Agent Tools (Phase 4)
+// -----------------------------------------------------------------------------
+
+/// The single source of truth for all Agent Capabilities.
+#[derive(Debug, Serialize, Deserialize, JsonSchema, Clone)]
+#[serde(tag = "name", content = "arguments", rename_all = "snake_case")]
+pub enum AgentTool {
+    /// Meta-tool for computer control (Claude 3.5 Sonnet style)
+    #[serde(rename = "computer")]
+    Computer(ComputerAction),
+
+    /// Writes content to a file.
+    #[serde(rename = "filesystem__write_file")]
+    FsWrite { 
+        /// Path to the file.
+        path: String, 
+        /// Content to write.
+        content: String 
+    },
+
+    /// Reads content from a file.
+    #[serde(rename = "filesystem__read_file")]
+    FsRead { 
+        /// Path to the file.
+        path: String 
+    },
+    
+    /// Lists directory contents.
+    #[serde(rename = "filesystem__list_directory")]
+    FsList { 
+        /// Path to the directory.
+        path: String 
+    },
+
+    /// Executes a system command.
+    #[serde(rename = "sys__exec")]
+    SysExec { 
+        /// Command to execute.
+        command: String, 
+        /// Arguments for the command.
+        #[serde(default)]
+        args: Vec<String>, 
+        /// Whether to detach the process.
+        #[serde(default)]
+        detach: bool 
+    },
+
+    /// Navigates the browser to a URL.
+    #[serde(rename = "browser__navigate")]
+    BrowserNavigate { 
+        /// URL to navigate to.
+        url: String 
+    },
+
+    /// Extracts content from the browser.
+    #[serde(rename = "browser__extract")]
+    BrowserExtract,
+
+    /// Clicks an element in the browser.
+    #[serde(rename = "browser__click")]
+    BrowserClick { 
+        /// CSS selector of element to click.
+        selector: String 
+    },
+
+    /// Legacy GUI click tool.
+    #[serde(rename = "gui__click")]
+    GuiClick { 
+        /// X coordinate.
+        x: u32, 
+        /// Y coordinate.
+        y: u32, 
+        /// Mouse button (left/right/middle).
+        button: Option<String> 
+    },
+
+    /// Legacy GUI typing tool.
+    #[serde(rename = "gui__type")]
+    GuiType { 
+        /// Text to type.
+        text: String 
+    },
+
+    /// Sends a reply in the chat.
+    #[serde(rename = "chat__reply")]
+    ChatReply { 
+        /// Message content.
+        message: String 
+    },
+    
+    /// Meta Tool: Delegates a task to a sub-agent.
+    #[serde(rename = "agent__delegate")]
+    AgentDelegate { 
+        /// Goal for the sub-agent.
+        goal: String, 
+        /// Budget allocated.
+        budget: u64 
+    },
+    
+    /// Meta Tool: Awaits result from a sub-agent.
+    #[serde(rename = "agent__await_result")]
+    AgentAwait { 
+        /// Session ID of the child agent.
+        child_session_id_hex: String 
+    },
+    
+    /// Meta Tool: Pauses execution.
+    #[serde(rename = "agent__pause")]
+    AgentPause { 
+        /// Reason for pausing.
+        reason: String 
+    },
+    
+    /// Meta Tool: Completes the task.
+    #[serde(rename = "agent__complete")]
+    AgentComplete { 
+        /// Final result description.
+        result: String 
+    },
+    
+    /// Commerce Tool: Initiates a checkout.
+    #[serde(rename = "commerce__checkout")]
+    CommerceCheckout { 
+        /// Merchant URL.
+        merchant_url: String, 
+        /// Items to purchase.
+        items: Vec<CommerceItem>,
+        /// Total amount.
+        total_amount: f64,
+        /// Currency code.
+        currency: String,
+        /// Buyer email address.
+        buyer_email: Option<String>
+    },
+
+    /// Catch-all for dynamic/unknown tools (e.g. MCP extensions) not yet strictly typed
+    #[serde(untagged)]
+    Dynamic(serde_json::Value),
+}
+
+/// An item in a commerce transaction.
+#[derive(Debug, Serialize, Deserialize, JsonSchema, Clone)]
+pub struct CommerceItem {
+    /// Item ID.
+    pub id: String,
+    /// Quantity.
+    pub quantity: u32,
+}
+
+/// Actions available via the Computer meta-tool.
+#[derive(Debug, Serialize, Deserialize, JsonSchema, Clone)]
+#[serde(tag = "action", rename_all = "snake_case")]
+pub enum ComputerAction {
+    /// Type text.
+    #[serde(rename = "type")]
+    Type { 
+        /// Text to type.
+        text: String 
+    },
+    
+    /// Press a key.
+    #[serde(rename = "key")]
+    Key { 
+        /// Key name.
+        text: String 
+    },
+
+    /// Move mouse cursor.
+    MouseMove { 
+        /// Coordinates [x, y].
+        coordinate: [u32; 2] 
+    },
+    
+    /// Click left mouse button.
+    LeftClick,
+    
+    /// Click and drag.
+    LeftClickDrag { 
+        /// Coordinates [x, y].
+        coordinate: [u32; 2] 
+    },
+    
+    /// Take a screenshot.
+    Screenshot,
+    
+    /// Get cursor position.
+    CursorPosition,
+}
+
+/// Trait to map high-level tools to Kernel Security Scopes
+impl AgentTool {
+    /// Maps the tool to its corresponding `ActionTarget` for policy enforcement.
+    pub fn target(&self) -> crate::app::ActionTarget {
+        match self {
+            AgentTool::FsWrite { .. } => crate::app::ActionTarget::FsWrite,
+            AgentTool::FsRead { .. } | AgentTool::FsList { .. } => crate::app::ActionTarget::FsRead,
+            
+            AgentTool::SysExec { .. } => crate::app::ActionTarget::SysExec,
+            
+            AgentTool::BrowserNavigate { .. } => crate::app::ActionTarget::BrowserNavigate,
+            AgentTool::BrowserExtract => crate::app::ActionTarget::BrowserExtract,
+            AgentTool::BrowserClick { .. } => crate::app::ActionTarget::Custom("browser::click".into()), // Not a standard target yet
+
+            AgentTool::GuiClick { .. } => crate::app::ActionTarget::GuiClick,
+            AgentTool::GuiType { .. } => crate::app::ActionTarget::GuiType,
+            
+            // [FIX] Changed from "chat::reply" to "chat__reply" to match policy rule
+            AgentTool::ChatReply { .. } => crate::app::ActionTarget::Custom("chat__reply".into()),
+
+            AgentTool::Computer(action) => match action {
+                ComputerAction::Type { .. } | ComputerAction::Key { .. } => crate::app::ActionTarget::GuiType,
+                ComputerAction::MouseMove { .. } => crate::app::ActionTarget::GuiMouseMove,
+                ComputerAction::LeftClick => crate::app::ActionTarget::GuiClick,
+                ComputerAction::LeftClickDrag { .. } => crate::app::ActionTarget::GuiClick, 
+                ComputerAction::Screenshot => crate::app::ActionTarget::GuiScreenshot,
+                ComputerAction::CursorPosition => crate::app::ActionTarget::Custom("computer::cursor".into()),
+            },
+            
+            AgentTool::CommerceCheckout { .. } => crate::app::ActionTarget::CommerceCheckout,
+
+            // Meta-tools map to custom targets
+            AgentTool::AgentDelegate { .. } => crate::app::ActionTarget::Custom("agent__delegate".into()),
+            AgentTool::AgentAwait { .. } => crate::app::ActionTarget::Custom("agent__await_result".into()),
+            AgentTool::AgentPause { .. } => crate::app::ActionTarget::Custom("agent__pause".into()),
+            AgentTool::AgentComplete { .. } => crate::app::ActionTarget::Custom("agent__complete".into()),
+            
+            AgentTool::Dynamic(val) => {
+                 // Try to infer name if possible, else unknown
+                 if let Some(name) = val.get("name").and_then(|n| n.as_str()) {
+                     crate::app::ActionTarget::Custom(name.to_string())
+                 } else {
+                     crate::app::ActionTarget::Custom("unknown".into())
+                 }
+            }
+        }
+    }
 }

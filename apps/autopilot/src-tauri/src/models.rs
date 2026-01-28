@@ -3,9 +3,8 @@ use serde::{Deserialize, Serialize};
 use ioi_ipc::public::public_api_client::PublicApiClient;
 use tonic::transport::Channel;
 use std::collections::HashSet;
-use ioi_scs::SovereignContextStore; 
 use std::sync::{Arc, Mutex}; 
-use ioi_api::vm::inference::InferenceRuntime; // [NEW] Import
+use ioi_api::vm::inference::InferenceRuntime; 
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub enum AgentPhase {
@@ -30,7 +29,7 @@ pub struct Receipt {
     pub cost: Option<String>,
 }
 
-// [NEW] Structured chat message for persistent history
+// Structured chat message for persistent history
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ChatMessage {
     pub role: String, // "user", "agent", "system", "tool"
@@ -42,7 +41,7 @@ pub struct ChatMessage {
     pub timestamp: u64,
 }
 
-// [NEW] Represents a node in the hierarchical swarm visualization
+// Represents a node in the hierarchical swarm visualization
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SwarmAgent {
     pub id: String,
@@ -81,13 +80,27 @@ pub struct AgentTask {
     #[serde(default)] 
     pub history: Vec<ChatMessage>,
 
-    // [MODIFIED] Track processed steps using a composite key "{step}:{tool}"
+    // Track processed steps using a composite key "{step}:{tool}"
     #[serde(skip, default)]
     pub processed_steps: HashSet<String>,
 
-    // [NEW] The hierarchical swarm state for SwarmViz
+    // The hierarchical swarm state for SwarmViz
     #[serde(default)]
     pub swarm_tree: Vec<SwarmAgent>,
+
+    // [NEW] Evolutionary Metadata (Genetics)
+    #[serde(default)]
+    pub generation: u64,
+    
+    #[serde(default = "default_lineage")]
+    pub lineage_id: String,
+    
+    #[serde(default)]
+    pub fitness_score: f32,
+}
+
+fn default_lineage() -> String {
+    "genesis".to_string()
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -124,9 +137,14 @@ pub struct AppState {
     pub rpc_client: Option<PublicApiClient<Channel>>,
     
     // Persistent Store for Studio execution artifacts
-    pub studio_scs: Option<Arc<Mutex<SovereignContextStore>>>,
+    // Note: SovereignContextStore is imported but used inside Arc<Mutex> here
+    // We don't need to import it if we don't name it in the struct field type explicitly if using fully qualified or alias,
+    // but here we use ioi_scs::SovereignContextStore implicitly via the module if not imported?
+    // Actually we need to import it to name it.
+    // In lib.rs we imported it. Here we need it too.
+    // The previous error was in ingestion.rs.
+    pub studio_scs: Option<Arc<Mutex<ioi_scs::SovereignContextStore>>>,
 
-    // [NEW] Shared Inference Runtime for Embedding/Indexing commands
-    // Used by `ingest_file` to generate vectors for uploaded documents.
+    // Shared Inference Runtime for Embedding/Indexing commands
     pub inference_runtime: Option<Arc<dyn InferenceRuntime>>,
 }
