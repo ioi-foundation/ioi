@@ -74,6 +74,15 @@ pub struct StartAgentParams {
 #[derive(Encode, Decode)]
 pub struct StepAgentParams {
     pub session_id: [u8; 32],
+    // [FIX] Removed optional user input, now handled via PostMessageParams
+}
+
+// [NEW] Params for posting a message to the session (Inbox Pattern)
+#[derive(Encode, Decode)]
+pub struct PostMessageParams {
+    pub session_id: [u8; 32],
+    pub role: String, // "user"
+    pub content: String,
 }
 
 #[derive(Encode, Decode)]

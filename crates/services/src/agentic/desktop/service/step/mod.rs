@@ -24,6 +24,7 @@ use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
 use tokio::sync::mpsc;
 use base64::{engine::general_purpose::STANDARD as BASE64, Engine as _};
+use hex;
 
 use crate::agentic::desktop::middleware;
 
@@ -31,6 +32,9 @@ use self::helpers::{default_safe_policy};
 use self::visual::hamming_distance;
 
 const CHARS_PER_TOKEN: u64 = 4;
+// [NEW] Safety Limits for Prompt Construction
+const MAX_CONTEXT_CHARS: usize = 8000; // Limit RAG output
+const MAX_HISTORY_ITEMS: usize = 10;   // Limit chat history depth
 
 pub async fn handle_step(
     service: &DesktopAgentService,
@@ -172,7 +176,14 @@ pub async fn handle_step(
 
     // 3. [NEW] Retrieval (The "Read" Path)
     let window_list = crate::agentic::desktop::service::step::helpers::extract_window_titles(&full_tree_xml);
-    let relevant_context = service.retrieve_context(&agent_state.goal, Some(visual_phash)).await;
+    let relevant_context_raw = service.retrieve_context(&agent_state.goal, Some(visual_phash)).await;
+    
+    // [FIX] Strict cap on context length
+    let relevant_context = if relevant_context_raw.len() > MAX_CONTEXT_CHARS {
+        format!("{}... [TRUNCATED {} chars]", &relevant_context_raw[..MAX_CONTEXT_CHARS], relevant_context_raw.len() - MAX_CONTEXT_CHARS)
+    } else {
+        relevant_context_raw
+    };
 
     let available_tools = if agent_state.mode == AgentMode::Chat {
         vec![
@@ -209,7 +220,14 @@ pub async fn handle_step(
         service.select_runtime(&agent_state)
     };
 
-    let history = service.hydrate_session_history(p.session_id)?;
+    let full_history = service.hydrate_session_history(p.session_id)?;
+    // [FIX] Limit history to most recent items to save context window
+    let history = if full_history.len() > MAX_HISTORY_ITEMS {
+        full_history[full_history.len() - MAX_HISTORY_ITEMS..].to_vec()
+    } else {
+        full_history
+    };
+    
     let base64_image = BASE64.encode(&screenshot_bytes);
 
     let workspace_context = format!(
@@ -218,6 +236,13 @@ pub async fn handle_step(
          Allowed Paths: {}/*",
         service.workspace_path, service.workspace_path
     );
+
+    // [FIX] Optimized prompt injection: Only list tool names/descriptions in system text.
+    // The full schema is passed via `options.tools`.
+    // This dramatically reduces prompt size (O(1) vs O(N) where N is schema complexity).
+    let tool_summaries: Vec<String> = available_tools.iter()
+        .map(|t| format!("- {}: {}", t.name, t.description))
+        .collect();
 
     let system_instructions = format!(
         "SYSTEM INSTRUCTION: You are an autonomous desktop agent.
@@ -231,11 +256,9 @@ pub async fn handle_step(
 
         CURRENT CONTEXT:
         - Open Windows: {}
-        
-        RELEVANT UI ELEMENTS (Search Results):
-        {}
+        - Relevant Details (Search): {}
 
-        HISTORY:
+        HISTORY (Last {}):
         {:?}
         
         CRITICAL RULES:
@@ -245,14 +268,14 @@ pub async fn handle_step(
         3. To open an application, ALWAYS use 'sys__exec' with 'detach': true.
         4. If goal is satisfied, use 'agent__complete'.
         5. Use 'computer' tool for precise interactions if available.
-        6. Use the 'RELEVANT UI ELEMENTS' to identify target IDs or coordinates.
-        7. If the element you need is not listed, use the 'window' list to orient yourself.
+        6. Use the 'Relevant Details' to identify target IDs or coordinates.
         ",
         agent_state.goal,
         workspace_context,
-        serde_json::to_string_pretty(&available_tools).unwrap_or_default(),
+        tool_summaries.join("\n"), // [FIX] Summary only
         window_list,
         relevant_context,
+        history.len(),
         history.iter().map(|m| format!("{}: {}", m.role, m.content)).collect::<Vec<_>>()
     );
 
@@ -325,6 +348,8 @@ pub async fn handle_step(
     } else {
         let estimated_input_tokens = (user_prompt.len() as u64 / CHARS_PER_TOKEN) + 1000;
 
+        // [NOTE] Tools are passed here to the runtime, which handles the protocol-specific injection
+        // (e.g. `tools` param for OpenAI, or custom prompt engineering for Local)
         let options = InferenceOptions {
             tools: available_tools.clone(), 
             temperature: if agent_state.consecutive_failures > 0 { 0.5 } else { 0.0 },

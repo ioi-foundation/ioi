@@ -9,6 +9,18 @@ use std::collections::HashSet;
 use std::sync::Mutex;
 use tauri::{AppHandle, Emitter, Manager, State};
 
+// [NEW] Imports for continue_task
+use ioi_services::agentic::desktop::types::PostMessageParams; // [FIX] Updated import
+use ioi_scs::FrameType;
+use dcrypt::algorithms::ByteSerializable;
+use ioi_types::codec;
+// [FIX] Import KernelChatMessage to resolve Encode trait issue
+use ioi_types::app::agentic::ChatMessage as KernelChatMessage;
+use ioi_types::app::{
+    account_id_from_key_material, ChainId, ChainTransaction, SignHeader, SignatureProof,
+    SignatureSuite, SystemPayload, SystemTransaction, AccountId
+};
+
 #[tauri::command]
 pub fn start_task(
     state: State<Mutex<AppState>>,
@@ -46,7 +58,7 @@ pub fn start_task(
         fitness_score: 0.0,
     };
 
-    let mut scs_handle = None;
+    let scs_handle;
 
     {
         let mut app_state = state.lock().map_err(|_| "Failed to lock state")?;
@@ -124,6 +136,138 @@ pub fn start_task(
     });
 
     Ok(task)
+}
+
+// [NEW] Command: Continue Task (Inbox Pattern)
+// Sends a new user message to the Kernel via `post_message@v1`.
+#[tauri::command]
+pub async fn continue_task(
+    state: State<'_, Mutex<AppState>>,
+    app: AppHandle,
+    session_id: String,
+    user_input: String,
+) -> Result<(), String> {
+    
+    // 1. Optimistic UI Update
+    // We update the local UI state immediately for responsiveness, but do NOT write to local SCS.
+    // The Kernel will stream back the definitive history update shortly.
+    let user_msg_ui = ChatMessage {
+        role: "user".to_string(),
+        text: user_input.clone(),
+        timestamp: crate::kernel::state::now(),
+    };
+    
+    update_task_state(&app, move |t| {
+        t.history.push(user_msg_ui.clone()); 
+        t.current_step = "Sending message...".to_string();
+        t.phase = crate::models::AgentPhase::Running;
+    });
+
+    // 2. Prepare Transaction Data
+    let session_bytes = hex::decode(&session_id).map_err(|_| "Invalid session ID hex")?;
+    let mut session_arr = [0u8; 32];
+    session_arr.copy_from_slice(&session_bytes);
+
+    let params = PostMessageParams {
+        session_id: session_arr,
+        role: "user".to_string(),
+        content: user_input,
+    };
+    
+    let params_bytes = codec::to_bytes_canonical(&params).map_err(|e| e.to_string())?;
+    
+    // 3. Async Kernel Call
+    let app_clone = app.clone();
+    
+    tauri::async_runtime::spawn(async move {
+        // Re-acquire client in async context
+        let mut client = match PublicApiClient::connect("http://127.0.0.1:9000").await {
+            Ok(c) => c,
+            Err(e) => {
+                eprintln!("[Autopilot] Failed to connect for continue_task: {}", e);
+                return;
+            }
+        };
+        
+        // Load Key (Same logic as delete_session)
+        let data_dir = app_clone.path().app_data_dir().unwrap_or_else(|_| std::path::PathBuf::from("./ioi-data"));
+        let key_path = data_dir.join("identity.key");
+        if std::env::var("IOI_GUARDIAN_KEY_PASS").is_err() {
+             unsafe { std::env::set_var("IOI_GUARDIAN_KEY_PASS", "local-mode"); }
+        }
+        
+        let raw_key = match ioi_validator::common::GuardianContainer::load_encrypted_file(&key_path) {
+            Ok(k) => k,
+            Err(e) => { eprintln!("[Autopilot] Failed to load key: {}", e); return; }
+        };
+        
+        let keypair = match libp2p::identity::Keypair::from_protobuf_encoding(&raw_key) {
+            Ok(k) => k,
+            Err(e) => { eprintln!("[Autopilot] Invalid key: {}", e); return; }
+        };
+        
+        let pk_bytes = keypair.public().encode_protobuf();
+        let account_id = AccountId(
+             account_id_from_key_material(SignatureSuite::ED25519, &pk_bytes).unwrap()
+        );
+        
+        // Fetch Nonce
+        let nonce_key = [ioi_types::keys::ACCOUNT_NONCE_PREFIX, account_id.as_ref()].concat();
+        let nonce = match client.query_raw_state(tonic::Request::new(ioi_ipc::blockchain::QueryRawStateRequest { key: nonce_key })).await {
+             Ok(resp) => {
+                 let val = resp.into_inner().value;
+                 if val.is_empty() { 0 } else {
+                     codec::from_bytes_canonical::<u64>(&val).unwrap_or(0)
+                 }
+             },
+             Err(_) => 0,
+        };
+
+        // Construct Transaction
+        // [FIX] Use post_message@v1
+        let payload = SystemPayload::CallService {
+            service_id: "desktop_agent".to_string(),
+            method: "post_message@v1".to_string(),
+            params: params_bytes,
+        };
+        
+        let mut sys_tx = SystemTransaction {
+            header: SignHeader {
+                account_id,
+                nonce,
+                chain_id: ChainId(0),
+                tx_version: 1,
+                session_auth: None,
+            },
+            payload,
+            signature_proof: SignatureProof::default(),
+        };
+        
+        let sign_bytes = sys_tx.to_sign_bytes().unwrap();
+        let sig = keypair.sign(&sign_bytes).unwrap();
+        
+        sys_tx.signature_proof = SignatureProof {
+            suite: SignatureSuite::ED25519,
+            public_key: pk_bytes,
+            signature: sig,
+        };
+        
+        let tx = ChainTransaction::System(Box::new(sys_tx));
+        let tx_bytes = codec::to_bytes_canonical(&tx).unwrap();
+        
+        // Submit
+        if let Err(e) = client.submit_transaction(tonic::Request::new(
+             ioi_ipc::public::SubmitTransactionRequest { transaction_bytes: tx_bytes }
+        )).await {
+             eprintln!("[Autopilot] Failed to submit message tx: {}", e);
+             update_task_state(&app_clone, |t| {
+                t.phase = AgentPhase::Failed;
+                t.current_step = format!("Message Error: {}", e);
+            });
+        }
+    });
+
+    Ok(())
 }
 
 #[tauri::command]

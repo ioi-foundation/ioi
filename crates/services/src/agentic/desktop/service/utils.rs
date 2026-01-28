@@ -2,21 +2,18 @@
 
 use super::DesktopAgentService;
 use crate::agentic::desktop::keys::{TRACE_PREFIX, SKILL_INDEX_PREFIX};
-use crate::agentic::desktop::types::AgentState;
+use crate::agentic::desktop::types::{AgentState, AgentStatus};
 use ioi_api::state::StateAccess;
 use ioi_api::vm::inference::InferenceRuntime;
-use ioi_types::app::agentic::{AgentSkill, LlmToolDefinition, StepTrace, SemanticFact, InferenceOptions}; // Added SemanticFact, InferenceOptions
+use ioi_types::app::agentic::{AgentSkill, LlmToolDefinition, StepTrace, SemanticFact, InferenceOptions}; 
 use ioi_types::codec;
 use ioi_types::error::TransactionError;
 use std::sync::Arc;
 use ioi_scs::FrameType;
 use ioi_types::app::agentic::ChatMessage;
-use crate::agentic::normaliser::OutputNormaliser; // Import Normaliser
-// [FIX] Correct path to types
-use crate::agentic::desktop::types::AgentStatus; 
-use ioi_types::app::KernelEvent; // [FIX] Added import
-use std::time::{SystemTime, UNIX_EPOCH}; // [FIX] Added import
-// [FIX] Removed unused json import
+use crate::agentic::normaliser::OutputNormaliser; 
+use ioi_types::app::KernelEvent; 
+use std::time::{SystemTime, UNIX_EPOCH};
 
 impl DesktopAgentService {
     // Searches the state for skills that match the agent's goal.
@@ -47,9 +44,10 @@ impl DesktopAgentService {
     }
 
     /// [UPDATED] Semantic Retrieval of Episodic Memory
-    /// Searches the SCS based on the current context (e.g., accessibility tree)
-    /// to find relevant past actions. This enables the agent to "remember" how it
-    /// solved similar UI states before.
+    /// Searches the SCS based on the current context to find relevant past actions.
+    /// 
+    /// **SOTA FIX:** Implements Relevance Thresholding to prevent Context Poisoning
+    /// and Dynamic Budgeting to maximize context quality within token limits.
     pub(crate) async fn retrieve_context(
         &self, 
         query: &str,
@@ -60,8 +58,7 @@ impl DesktopAgentService {
             None => return "".to_string(),
         };
 
-        // Use the reasoning model (or fast model if preferred) to embed the query
-        // The query here is typically the Accessibility Tree XML or a summary of it.
+        // Use reasoning model to embed the query
         let embedding_res = self.reasoning_inference.embed_text(query).await;
 
         let embedding = match embedding_res {
@@ -92,7 +89,7 @@ impl DesktopAgentService {
             };
 
             if let Some(index) = idx.as_ref() {
-                // [NEW] Use Hybrid Search to get metadata (Type, VisualHash)
+                // Use Hybrid Search to get metadata (Type, VisualHash)
                 index.search_hybrid(&embedding, 5)
             } else {
                 Ok(vec![])
@@ -114,6 +111,11 @@ impl DesktopAgentService {
         let mut context_str = String::new();
         context_str.push_str("\n### Relevant Memories\n");
         let mut skill_found = false;
+        
+        // [FIX] Dynamic Token Budgeting
+        // Allow up to ~4000 chars total for retrieval.
+        let mut total_chars = 0;
+        const MAX_RETRIEVAL_CHARS: usize = 4000;
 
         {
             let scs = match scs_mutex.lock() {
@@ -121,55 +123,59 @@ impl DesktopAgentService {
                 Err(_) => return "".to_string(),
             };
 
-            // Hamming distance helper
             fn dist(a: &[u8], b: &[u8]) -> u32 {
                 a.iter().zip(b.iter()).map(|(x, y)| (x ^ y).count_ones()).sum()
             }
 
-            for (frame_id, similarity, f_type, f_hash) in matches {
-                // [NEW] Filter by Visual Hash if provided
+            for (frame_id, distance, f_type, f_hash) in matches {
+                // [FIX] Relevance Threshold (SOTA)
+                // Cosine Distance: 0.0 = Identical, 1.0 = Orthogonal.
+                // If distance > 0.35 (Similarity < 0.65), it's likely noise for this query.
+                // This prevents "Calculator" XML from polluting "Do you like humans?" chat.
+                if distance > 0.35 {
+                    continue;
+                }
+
+                // Filter by Visual Hash if provided
                 if let Some(current_hash) = visual_phash {
                     let d = dist(&current_hash, &f_hash);
-                    // Only include visual matches if they are somewhat similar (e.g. < 10 bits difference)
-                    // If FrameType is Skill/Thought, visual hash might be zero or irrelevant, so we skip check.
                     if f_type == FrameType::Observation && d > 10 {
                         continue; 
                     }
+                }
+                
+                // Stop if we hit the token budget
+                if total_chars >= MAX_RETRIEVAL_CHARS {
+                    break;
                 }
 
                 // Fetch the payload for the matched frame
                 if let Ok(payload) = scs.read_frame_payload(frame_id) {
                     if let Ok(text) = String::from_utf8(payload.to_vec()) {
                         
-                        if f_type == FrameType::Skill {
-                            skill_found = true;
-                            context_str.push_str(&format!(
-                                "- [SKILL] (Sim: {:.2}) Found applicable skill: {}\n", 
-                                1.0 - similarity, text
-                            ));
-                        } else if f_type == FrameType::Observation {
-                            // [NEW] UI Memory Hit
-                            // Instead of dumping the potentially huge XML, we note that a relevant UI element was found.
-                            // In a real prod system, we'd extract the specific element snippet.
-                            // For this MVP fix, we just indicate a hit to keep context small.
-                            context_str.push_str(&format!(
-                                "- [UI Memory] (Sim: {:.2}) Found relevant UI element in history: {}\n", 
-                                1.0 - similarity, 
-                                // Show a tiny snippet if possible, or just the frame ID for reference
-                                if text.len() < 100 { text } else { format!("{}...", &text[..100]) }
-                            ));
+                        // [FIX] Smart Truncation
+                        // Instead of hard 400 char limit, use remaining budget.
+                        let remaining = MAX_RETRIEVAL_CHARS - total_chars;
+                        // But cap individual snippets to 800 to ensure diversity.
+                        let snippet_limit = 800.min(remaining);
+                        
+                        let safe_text = if text.len() > snippet_limit {
+                            format!("{}... [truncated]", &text[..snippet_limit])
                         } else {
-                             // Truncate to avoid context overflow for Thoughts/Actions
-                            let snippet = if text.len() > 300 {
-                                format!("{}...", &text[..300])
-                            } else {
-                                text
-                            };
-                            context_str.push_str(&format!(
-                                "- [{:?}] (Sim: {:.2}) {}\n", 
-                                f_type, 1.0 - similarity, snippet
-                            ));
-                        }
+                            text
+                        };
+                        
+                        let entry = if f_type == FrameType::Skill {
+                            skill_found = true;
+                            format!("- [SKILL] (Conf: {:.2}) Found applicable skill: {}\n", 1.0 - distance, safe_text)
+                        } else if f_type == FrameType::Observation {
+                            format!("- [UI Memory] (Conf: {:.2}) Found relevant UI element: {}\n", 1.0 - distance, safe_text)
+                        } else {
+                            format!("- [{:?}] (Conf: {:.2}) {}\n", f_type, 1.0 - distance, safe_text)
+                        };
+                        
+                        total_chars += entry.len();
+                        context_str.push_str(&entry);
                     }
                 }
             }
@@ -177,6 +183,11 @@ impl DesktopAgentService {
         
         if skill_found {
             context_str.push_str("\n[SYSTEM HINT] A crystallized skill matches this context. Prefer using the logic described above.");
+        }
+        
+        // If nothing passed the threshold, return empty string to keep prompt clean
+        if total_chars == 0 {
+            return "".to_string();
         }
         
         context_str
@@ -195,9 +206,7 @@ impl DesktopAgentService {
         }
     }
 
-    /// Internal helper to extract semantic facts from text using the reasoning model.
     async fn extract_facts(&self, text: &str) -> Vec<SemanticFact> {
-        // Skip extraction for short messages to save compute
         if text.len() < 20 { return vec![]; }
 
         let prompt = format!(
@@ -209,18 +218,15 @@ impl DesktopAgentService {
         );
 
         let options = InferenceOptions {
-            temperature: 0.0, // Strict determinism for fact extraction
+            temperature: 0.0, 
             ..Default::default()
         };
 
-        // Use reasoning model for high-quality extraction
-        // Use a zero hash for model_id (default)
         let model_hash = [0u8; 32];
         
         match self.reasoning_inference.execute_inference(model_hash, prompt.as_bytes(), options).await {
             Ok(bytes) => {
                  let s = String::from_utf8_lossy(&bytes);
-                 // Robust JSON extraction (find first [ and last ])
                  let start = s.find('[').unwrap_or(0);
                  let end = s.rfind(']').map(|i| i + 1).unwrap_or(s.len());
                  if start < end {
@@ -233,8 +239,6 @@ impl DesktopAgentService {
         }
     }
 
-    /// Appends a chat message to the SCS and indexes its semantic content.
-    /// Returns the new Frame Hash (Transcript Root).
     pub(crate) async fn append_chat_to_scs(
         &self, 
         session_id: [u8; 32], 
@@ -244,7 +248,7 @@ impl DesktopAgentService {
         let scs_mutex = self.scs.as_ref()
             .ok_or(TransactionError::Invalid("Internal: SCS not available".into()))?;
         
-        // 1. Persist Raw Frame (The "Book of Record")
+        // 1. Persist Raw Frame
         let (frame_id, checksum) = {
             let mut store = scs_mutex.lock()
                 .map_err(|_| TransactionError::Invalid("Internal: SCS lock poisoned".into()))?;
@@ -266,28 +270,17 @@ impl DesktopAgentService {
             (id, frame.checksum)
         };
 
-        // 2. Semantic Indexing (The "Reasoning-to-Vector" Bridge)
-        // We do this *outside* the store lock to allow parallelism (inference is slow)
-        
-        // A. Extract Facts
+        // 2. Semantic Indexing
         let facts = self.extract_facts(&msg.content).await;
-        
-        // B. Canonicalize & Embed
         let mut vectors = Vec::new();
         
-        // Always index the raw text too (hybrid approach)
         if let Ok(vec) = self.reasoning_inference.embed_text(&msg.content).await {
             vectors.push(vec);
         }
 
         for fact in facts {
-            // Canonicalize the fact tuple into a deterministic string
-            // e.g. {"object":"50_USD","predicate":"is_limit","subject":"budget"}
             if let Ok(json_str) = serde_json::to_string(&fact) {
                 if let Ok(_canonical_bytes) = OutputNormaliser::normalise_and_hash(&json_str) {
-                    // Embed the CANONICAL string representation
-                    // This ensures "budget is 50" and "50 budget" (if extracted to same fact) collide in vector space
-                    // or at least cluster very tightly.
                     if let Ok(vec) = self.reasoning_inference.embed_text(&json_str).await {
                         vectors.push(vec);
                     }
@@ -296,16 +289,12 @@ impl DesktopAgentService {
         }
 
         // C. Insert into Index
-        // Re-acquire lock to write to index
         if !vectors.is_empty() {
-             // We need to lock the store to access the lazy-loaded index
              let store = scs_mutex.lock().map_err(|_| TransactionError::Invalid("SCS lock".into()))?;
              if let Ok(index_arc) = store.get_vector_index() {
                  let mut index = index_arc.lock().map_err(|_| TransactionError::Invalid("Index lock".into()))?;
                  if let Some(idx) = index.as_mut() {
                      for vec in vectors {
-                         // Insert into mHNSW
-                         // [FIX] Use insert_with_metadata to store type info
                          if let Err(e) = idx.insert_with_metadata(frame_id, vec, FrameType::Thought, [0u8; 32]) {
                              log::warn!("Failed to index vector for frame {}: {}", frame_id, e);
                          }
@@ -317,7 +306,6 @@ impl DesktopAgentService {
         Ok(checksum)
     }
 
-    /// Reconstructs the full chat history from the SCS.
     pub(crate) fn hydrate_session_history(
         &self, 
         session_id: [u8; 32]
@@ -330,12 +318,10 @@ impl DesktopAgentService {
 
         let mut history = Vec::new();
 
-        // Use the new O(1) session index
         if let Some(frame_ids) = store.session_index.get(&session_id) {
             for &id in frame_ids {
                 let frame = store.toc.frames.get(id as usize).unwrap();
                 
-                // Filter for Thought/Chat frames
                 if matches!(frame.frame_type, FrameType::Thought) {
                     let payload = store.read_frame_payload(id)
                         .map_err(|e| TransactionError::Invalid(format!("Internal: {}", e)))?;
@@ -347,17 +333,10 @@ impl DesktopAgentService {
             }
         }
 
-        // Ensure chronological order
         history.sort_by_key(|m| m.timestamp);
         Ok(history)
     }
 
-    // -------------------------------------------------------------------------
-    // [NEW] Evolutionary Support
-    // -------------------------------------------------------------------------
-
-    /// Fetches all failure traces for a given session from the SCS.
-    /// Used by the Optimizer Service to diagnose recurring errors.
     pub(crate) fn fetch_failure_context(
         &self, 
         session_id: [u8; 32]
@@ -370,20 +349,15 @@ impl DesktopAgentService {
 
         let mut failures = Vec::new();
 
-        // 1. Get all frames for session
         if let Some(frame_ids) = store.session_index.get(&session_id) {
             for &id in frame_ids {
                 let frame = store.toc.frames.get(id as usize).unwrap();
                 
-                // 2. Scan for System Frames which contain the canonical StepTrace logs
-                // Note: StepTraces are written as FrameType::System in step.rs to separate them from thoughts/observations.
                 if matches!(frame.frame_type, FrameType::System) {
                     let payload = store.read_frame_payload(id)
                         .map_err(|e| TransactionError::Invalid(format!("Internal: {}", e)))?;
                     
-                    // Attempt to decode as StepTrace
                     if let Ok(trace) = codec::from_bytes_canonical::<StepTrace>(payload) {
-                        // Filter for failed steps only
                         if !trace.success {
                             failures.push(trace);
                         }
@@ -431,7 +405,6 @@ pub fn goto_trace_log(
         raw_output: output_str,
         success: action_success,
         error: action_error.clone(),
-        // [FIX] Initialize new evolutionary fields
         cost_incurred: 0,
         fitness_score: None,
         timestamp: SystemTime::now()
@@ -463,10 +436,9 @@ pub fn goto_trace_log(
     if agent_state.step_count >= agent_state.max_steps && agent_state.status == AgentStatus::Running {
         agent_state.status = AgentStatus::Completed(None);
         
-        // Emit completion event so UI knows to stop when max steps reached
         if let Some(tx) = &event_sender {
              let _ = tx.send(KernelEvent::AgentActionResult {
-                 session_id: session_id, // [FIX] Use session_id argument directly
+                 session_id: session_id, 
                  step_index: agent_state.step_count,
                  tool_name: "system::max_steps_reached".to_string(),
                  output: "Max steps reached. Task completed.".to_string(),

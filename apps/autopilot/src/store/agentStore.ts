@@ -103,9 +103,17 @@ interface AgentStore {
   // Ghost Mode Actions
   addGhostStep: (step: GhostStep) => void;
   clearGhostTrace: () => void;
+
+  // [NEW] Continue existing session
+  continueTask: (sessionId: string, input: string) => Promise<void>;
+
+  // [NEW] Reset state for a new conversation
+  resetSession: () => void;
+  // [NEW] Trigger new chat UI flow explicitly
+  startNewSession: () => void;
 }
 
-export const useAgentStore = create<AgentStore>((set) => ({
+export const useAgentStore = create<AgentStore>((set, get) => ({
   task: null,
   receipts: [],
   ghostTrace: [],
@@ -142,6 +150,32 @@ export const useAgentStore = create<AgentStore>((set) => ({
   // Ghost Mode Implementation
   addGhostStep: (step) => set((state) => ({ ghostTrace: [...state.ghostTrace, step] })),
   clearGhostTrace: () => set({ ghostTrace: [] }),
+
+  // [NEW] Continue existing session
+  continueTask: async (sessionId: string, input: string) => {
+    try {
+      // Optimistic UI update
+      const currentTask = get().task;
+      if (currentTask) {
+        const newHistory = [...currentTask.history, { role: "user", text: input, timestamp: Date.now() }];
+        set({ task: { ...currentTask, history: newHistory, phase: "Running" } });
+      }
+      
+      await invoke("continue_task", { sessionId, userInput: input });
+    } catch (e) {
+      console.error("Failed to continue task:", e);
+    }
+  },
+
+  // [NEW] Reset state for a new conversation
+  resetSession: () => {
+    set({ task: null, receipts: [], ghostTrace: [] });
+  },
+  
+  // [NEW] Alias for clarity in UI components
+  startNewSession: () => {
+     get().resetSession();
+  }
 }));
 
 export async function initEventListeners() {

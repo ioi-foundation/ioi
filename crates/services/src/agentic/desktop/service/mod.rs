@@ -5,6 +5,9 @@ pub mod lifecycle;
 pub mod step; 
 pub mod utils;
 
+// [FIX] Removed 'pub mod middleware' because it is defined in the parent module.
+// [FIX] Removed invalid 'pub use' statements that referenced non-existent submodules.
+
 use async_trait::async_trait;
 use ioi_api::services::{BlockchainService, UpgradableService};
 use ioi_api::state::StateAccess;
@@ -26,10 +29,10 @@ use crate::agentic::scrubber::SemanticScrubber;
 use ioi_api::ibc::AgentZkVerifier;
 use ioi_api::vm::drivers::os::OsDriver;
 
-use self::lifecycle::{handle_delete_session, handle_resume, handle_start};
-// [MODIFIED] Import handle_step from the new module location
+use self::lifecycle::{handle_delete_session, handle_resume, handle_start, handle_post_message};
 use self::step::handle_step;
-use crate::agentic::desktop::types::StepAgentParams; 
+// [FIX] Import types from super::types or crate::agentic::desktop::types
+use crate::agentic::desktop::types::{StepAgentParams, PostMessageParams}; 
 
 pub struct DesktopAgentService {
     // Fields are pub(crate) so submodules can access them
@@ -92,9 +95,12 @@ impl BlockchainService for DesktopAgentService {
                 handle_resume(self, state, p).await
             }
             "step@v1" => {
-                // [FIX] Explicit type annotation to satisfy compiler inference and future compatibility
                 let p: StepAgentParams = codec::from_bytes_canonical(params)?;
                 handle_step(self, state, p, ctx).await
+            }
+            "post_message@v1" => {
+                let p: PostMessageParams = codec::from_bytes_canonical(params)?;
+                handle_post_message(self, state, p, ctx).await
             }
             "delete_session@v1" => handle_delete_session(self, state, params).await,
             _ => Err(TransactionError::Unsupported(method.into())),
