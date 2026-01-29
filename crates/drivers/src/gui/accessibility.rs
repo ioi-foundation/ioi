@@ -54,43 +54,24 @@ pub fn serialize_tree_to_xml(node: &AccessibilityNode, depth: usize) -> String {
     }
 
     // [FIX] Enforce hard depth limit to prevent deep recursion in complex UIs (e.g. IDEs, Webviews)
-    if depth > 15 {
+    // Decreased from 15 to 10 for tighter context control
+    if depth > 10 {
         return String::new();
     }
 
-    // 2. Recursively serialize children first.
-    // This allows us to detect if a container has interesting content.
-    // [FIX] Limit the number of children to prevent context explosion in lists/tables.
-    let mut children_xml = String::new();
-    let max_children = 25;
-
-    for (i, child) in node.children.iter().enumerate() {
-        if i >= max_children {
-            let indent = "  ".repeat(depth + 1);
-            children_xml.push_str(&format!("{}<!-- truncated {} siblings -->\n", indent, node.children.len() - max_children));
-            break;
-        }
-        children_xml.push_str(&serialize_tree_to_xml(child, depth + 1));
-    }
-
-    // 3. Semantic Filter Logic
-    // Keep node IF:
-    // - It is interactive (button, input)
-    // - OR it has text content (AND that content isn't huge/spammy)
-    // - OR it is a structural root (window)
-    // - OR it has interesting children (non-empty children_xml)
+    // 2. Semantic Filter Logic (Early Exit)
+    // Check if the node is "interesting" enough to render or recurse.
+    let is_container = !node.children.is_empty();
     
     // Heuristic: If a node has > 200 chars of text, it's likely a document/log/code block.
     // Unless we are explicitly reading text, treat it as "Content" and summary-tag it to save tokens.
     let content_len = node.value.as_ref().map(|s| s.len()).unwrap_or(0) 
                     + node.name.as_ref().map(|s| s.len()).unwrap_or(0);
-
     let is_bulk_text = content_len > 200;
 
-    // Only recurse if it's a structural element or a small interactive control.
     let is_interesting = node.is_interactive() 
         || (node.has_content() && !is_bulk_text) 
-        || !children_xml.is_empty() 
+        || is_container // Must traverse containers to find interactive children
         || node.role == "window" 
         || node.role == "root";
 
@@ -99,12 +80,34 @@ pub fn serialize_tree_to_xml(node: &AccessibilityNode, depth: usize) -> String {
         return String::new();
     }
 
-    // 4. Construct XML
-    let indent = "  ".repeat(depth);
+    // 3. Recursively serialize children.
+    // [FIX] Limit the number of children to prevent context explosion in lists/tables.
+    let mut children_xml = String::new();
+    let max_children = 25; // Strict limit
+
+    let indent = "  ".repeat(depth + 1);
+
+    for (i, child) in node.children.iter().enumerate() {
+        if i >= max_children {
+            children_xml.push_str(&format!("{}<!-- ... {} siblings truncated ... -->\n", indent, node.children.len() - max_children));
+            break;
+        }
+        children_xml.push_str(&serialize_tree_to_xml(child, depth + 1));
+    }
+
+    // 4. Post-recursion prune: If a container has no interesting children and isn't interesting itself, return empty.
+    // Exception: Keep windows/roots to maintain structure.
+    if !node.is_interactive() && !node.has_content() && children_xml.is_empty() && node.role != "window" && node.role != "root" {
+        return String::new();
+    }
+
+    // 5. Construct XML
+    let indent_self = "  ".repeat(depth);
     
     // [FIX] Helper to truncate long attribute values to save tokens
     let truncate = |s: &str, max_len: usize| -> String {
         if s.len() > max_len {
+            // Reduced to 50 chars to be ultra-conservative for safety/tokens
             format!("{}...", &s[..max_len])
         } else {
             s.to_string()
@@ -112,26 +115,26 @@ pub fn serialize_tree_to_xml(node: &AccessibilityNode, depth: usize) -> String {
     };
 
     // Only include name/value attributes if they exist
-    // [FIX] Apply truncation (max 100 chars per attribute)
+    // [FIX] Apply truncation (max 50 chars per attribute)
     let name_attr = node.name.as_ref()
-        .map(|n| format!(" name=\"{}\"", escape_xml(&truncate(n, 100))))
+        .map(|n| format!(" name=\"{}\"", escape_xml(&truncate(n, 50))))
         .unwrap_or_default();
     
     let value_attr = node.value.as_ref()
-        .map(|v| format!(" value=\"{}\"", escape_xml(&truncate(v, 100))))
+        .map(|v| format!(" value=\"{}\"", escape_xml(&truncate(v, 50))))
         .unwrap_or_default();
         
     // Compact coordinate string to save tokens
     let coords_attr = format!(" rect=\"{},{},{},{}\"", node.rect.x, node.rect.y, node.rect.width, node.rect.height);
     
-    let mut output = format!("{}<{} id=\"{}\"{}{}{}", indent, node.role, node.id, name_attr, value_attr, coords_attr);
+    let mut output = format!("{}<{} id=\"{}\"{}{}{}", indent_self, node.role, node.id, name_attr, value_attr, coords_attr);
 
     if children_xml.is_empty() {
         output.push_str(" />\n");
     } else {
         output.push_str(">\n");
         output.push_str(&children_xml);
-        output.push_str(&format!("{}</{}>\n", indent, node.role));
+        output.push_str(&format!("{}</{}>\n", indent_self, node.role));
     }
 
     output

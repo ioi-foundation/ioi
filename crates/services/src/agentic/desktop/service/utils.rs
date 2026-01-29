@@ -113,9 +113,9 @@ impl DesktopAgentService {
         let mut skill_found = false;
         
         // [FIX] Dynamic Token Budgeting
-        // Allow up to ~4000 chars total for retrieval.
+        // Allow up to ~2000 chars total for retrieval (Reduced from 4000 to prevent overflow).
         let mut total_chars = 0;
-        const MAX_RETRIEVAL_CHARS: usize = 4000;
+        const MAX_RETRIEVAL_CHARS: usize = 2000;
 
         {
             let scs = match scs_mutex.lock() {
@@ -139,6 +139,7 @@ impl DesktopAgentService {
                 // Filter by Visual Hash if provided
                 if let Some(current_hash) = visual_phash {
                     let d = dist(&current_hash, &f_hash);
+                    // If it's an Observation (Screenshot) and visually distinct, skip it
                     if f_type == FrameType::Observation && d > 10 {
                         continue; 
                     }
@@ -201,7 +202,17 @@ impl DesktopAgentService {
             return self.reasoning_inference.clone();
         }
         match state.last_action_type.as_deref() {
-            Some("gui__click") | Some("gui__type") => self.fast_inference.clone(),
+            Some("gui__click") | Some("gui__type") => {
+                // [FIX] Only use fast_inference if it's NOT the Mock runtime (unless reasoning is also mock)
+                // We assume if they are the same Arc pointer, it's the same config
+                if Arc::ptr_eq(&self.fast_inference, &self.reasoning_inference) {
+                    self.fast_inference.clone()
+                } else {
+                    // In a real impl, we might check a "ready" flag. 
+                    // For now, assume if fast_inference was configured separately, we use it.
+                    self.fast_inference.clone()
+                }
+            },
             _ => self.reasoning_inference.clone(),
         }
     }

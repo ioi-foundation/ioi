@@ -16,6 +16,11 @@ impl ToolNormalizer {
     /// Input: Raw, potentially hallucinated JSON from LLM.
     /// Output: Strict Rust Type or Error.
     pub fn normalize(raw_llm_output: &str) -> Result<AgentTool> {
+        // [FIX] Fast fail on empty input
+        if raw_llm_output.trim().is_empty() {
+            return Err(anyhow!("LLM returned empty output (Possible Refusal/Filter)"));
+        }
+
         // 1. Sanitize (Remove markdown blocks, fix trailing commas)
         let json_str = Self::sanitize_json(raw_llm_output); 
 
@@ -168,6 +173,12 @@ mod tests {
     fn test_schema_violation_fails() {
         // Missing required field
         let input = r#"{"name": "browser__navigate", "arguments": {}}"#;
+        assert!(ToolNormalizer::normalize(input).is_err());
+    }
+    
+    #[test]
+    fn test_empty_input_fails() {
+        let input = "   ";
         assert!(ToolNormalizer::normalize(input).is_err());
     }
 }
