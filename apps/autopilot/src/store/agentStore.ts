@@ -92,7 +92,9 @@ interface AgentStore {
   // Ghost Mode Trace
   ghostTrace: GhostStep[];
   
-  startTask: (intent: string, mode: string) => Promise<AgentTask | null>;
+  // [MODIFIED] Removed 'mode' argument
+  startTask: (intent: string) => Promise<AgentTask | null>;
+  
   updateTask: (task: AgentTask) => void;
   dismissTask: () => Promise<void>;
   showSpotlight: () => Promise<void>;
@@ -118,10 +120,10 @@ export const useAgentStore = create<AgentStore>((set, get) => ({
   receipts: [],
   ghostTrace: [],
 
-  // Pass mode to backend, default to "Agent" if not provided
-  startTask: async (intent: string, mode: string = "Agent"): Promise<AgentTask | null> => {
+  // [MODIFIED] Removed mode param. Defaults to "Agent" internally in backend.
+  startTask: async (intent: string): Promise<AgentTask | null> => {
     try {
-      const task = await invoke<AgentTask>("start_task", { intent, mode });
+      const task = await invoke<AgentTask>("start_task", { intent });
       // Initialize evolutionary fields if missing from backend response (backward compat)
       if (task.generation === undefined) task.generation = 0;
       if (task.fitness_score === undefined) task.fitness_score = 0.0;
@@ -153,17 +155,29 @@ export const useAgentStore = create<AgentStore>((set, get) => ({
 
   // [NEW] Continue existing session
   continueTask: async (sessionId: string, input: string) => {
-    try {
-      // Optimistic UI update
-      const currentTask = get().task;
-      if (currentTask) {
+    // 1. Optimistic Update
+    const currentTask = get().task;
+    if (currentTask) {
         const newHistory = [...currentTask.history, { role: "user", text: input, timestamp: Date.now() }];
+        // Set phase to Running so spinner appears
         set({ task: { ...currentTask, history: newHistory, phase: "Running" } });
-      }
-      
+    }
+    
+    try {
       await invoke("continue_task", { sessionId, userInput: input });
     } catch (e) {
       console.error("Failed to continue task:", e);
+      // 2. Rollback / Error State on Failure
+      const task = get().task;
+      if (task) {
+          set({ 
+              task: { 
+                  ...task, 
+                  phase: "Failed", 
+                  current_step: `Failed to send: ${e}` 
+              } 
+          });
+      }
     }
   },
 

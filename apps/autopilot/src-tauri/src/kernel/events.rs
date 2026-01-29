@@ -106,16 +106,16 @@ pub async fn monitor_kernel_events(app: tauri::AppHandle) {
                              }
                         }
                         
-                        // [FIX] Match against sanitized tool name "chat__reply"
+                        // [FIX] Handle chat__reply as a completion trigger for the UI spinner
                         if res.tool_name == "chat::reply" || res.tool_name == "chat__reply" {
+                             // Mark phase as Complete to stop the spinner.
+                             // The backend remains Running, so next input wakes it up.
                              t.phase = AgentPhase::Complete;
-                             t.current_step = res.output.clone(); 
-                             t.receipt = Some(Receipt {
-                                 duration: "Done".to_string(), 
-                                 actions: 1,
-                                 cost: Some("$0.00".to_string()),
-                             });
                              
+                             // [FIX] Reset current step to Ready to indicate idle state
+                             t.current_step = "Ready for input".to_string();
+                             
+                             // Add to history if not duplicate (using dedup_key implicitly ensures strictness)
                              let duplicate = t.history.last().map(|m| m.text == res.output).unwrap_or(false);
                              if !duplicate {
                                  t.history.push(ChatMessage {
@@ -125,6 +125,7 @@ pub async fn monitor_kernel_events(app: tauri::AppHandle) {
                                  });
                              }
                         } else if res.tool_name != "agent__complete" && res.tool_name != "system::max_steps_reached" && res.tool_name != "system::auto_complete" {
+                             // Standard tool output (e.g. sys__exec result)
                              t.history.push(ChatMessage {
                                  role: "tool".to_string(),
                                  text: format!("Tool Output ({}): {}", res.tool_name, res.output),

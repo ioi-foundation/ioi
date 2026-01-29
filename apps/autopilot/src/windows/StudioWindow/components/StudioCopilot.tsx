@@ -104,7 +104,7 @@ export function StudioCopilotView() {
             await continueTask(task.id, intentToSend);
         } else {
             // Otherwise, start a fresh session
-            await startTask(intentToSend, agentMode);
+            await startTask(intentToSend); // [FIX] No mode param
         }
     } catch (e) {
         console.error("Task error:", e);
