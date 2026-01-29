@@ -109,7 +109,16 @@ impl McpTransport {
             "capabilities": { "roots": { "listChanged": true } },
             "clientInfo": { "name": "ioi-kernel", "version": "0.1.0" }
         });
-        self.send_request("initialize", params).await?;
+        
+        // [FIX] Increase timeout for initialization to 60s (handles npx installs)
+        let init_fut = self.send_request("initialize", params);
+        
+        match tokio::time::timeout(std::time::Duration::from_secs(60), init_fut).await {
+            Ok(Ok(_)) => {},
+            Ok(Err(e)) => return Err(anyhow!("MCP Initialize failed: {}", e)),
+            Err(_) => return Err(anyhow!("MCP Initialize timed out (60s). Check npx/network.")),
+        }
+
         // Required notification after init
         let notify = json!({
             "jsonrpc": "2.0",

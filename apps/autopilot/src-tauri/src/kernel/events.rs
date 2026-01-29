@@ -54,7 +54,13 @@ pub async fn monitor_kernel_events(app: tauri::AppHandle) {
                             }
                         }
                         
-                        t.phase = AgentPhase::Running;
+                        // [FIX] Prevent trace logs from reverting a completion state.
+                        // If the task successfully completed in the previous microsecond (via ActionResult),
+                        // this subsequent trace log shouldn't switch it back to Running.
+                        if t.phase != AgentPhase::Complete && t.phase != AgentPhase::Failed {
+                            t.phase = AgentPhase::Running;
+                        }
+
                         t.progress += 1;
                         if !thought.visual_hash.is_empty() {
                             t.visual_hash = Some(thought.visual_hash.clone());

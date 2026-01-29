@@ -72,28 +72,32 @@ struct ToolFunction {
     parameters: serde_json::Value,
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Debug)]
 struct ChatCompletionResponse {
     choices: Vec<Choice>,
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Debug)]
 struct Choice {
     message: ResponseMessage,
+    // [NEW] Capture finish_reason for debugging (e.g. "content_filter", "length")
+    finish_reason: Option<String>,
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Debug)]
 struct ResponseMessage {
     content: Option<String>,
     tool_calls: Option<Vec<ToolCall>>,
+    // [FIX] Capture refusal field (OpenAI specific safety mechanism)
+    refusal: Option<String>,
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Debug)]
 struct ToolCall {
     function: FunctionCall,
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Debug)]
 struct FunctionCall {
     name: String,
     arguments: String,
@@ -103,13 +107,29 @@ struct FunctionCall {
 struct ChatCompletionChunk {
     choices: Vec<ChunkChoice>,
 }
+
 #[derive(Deserialize)]
 struct ChunkChoice {
     delta: ChunkDelta,
 }
-#[derive(Deserialize)]
+
+// [FIX] Expanded to support tool calls in streaming mode
+#[derive(Deserialize, Debug)]
 struct ChunkDelta {
     content: Option<String>,
+    tool_calls: Option<Vec<ChunkToolCall>>,
+}
+
+#[derive(Deserialize, Debug)]
+struct ChunkToolCall {
+    index: u64,
+    function: Option<ChunkFunction>,
+}
+
+#[derive(Deserialize, Debug)]
+struct ChunkFunction {
+    name: Option<String>,
+    arguments: Option<String>,
 }
 
 #[derive(Deserialize)]
@@ -209,18 +229,27 @@ impl InferenceRuntime for HttpInferenceRuntime {
             .await
             .map_err(|e| VmError::HostError(format!("HTTP Request failed: {}", e)))?;
 
+        // [FIX] Explicit Error Logging
         if !response.status().is_success() {
+            let status = response.status();
             let error_text = response
                 .text()
                 .await
-                .unwrap_or_else(|_| "Unknown error".into());
-            return Err(VmError::HostError(format!("API Error: {}", error_text)));
+                .unwrap_or_else(|_| "Unknown error/No body".into());
+            
+            log::error!("LLM Provider Error: HTTP {} - Body: {}", status, error_text);
+            return Err(VmError::HostError(format!("Provider Error {}: {}", status, error_text)));
         }
 
         if stream_mode {
             let mut full_content = String::new();
             let mut buffer = String::new();
             let sender = token_stream.unwrap();
+            
+            // [FIX] Buffers for tool call reconstruction
+            let mut tool_name = String::new();
+            let mut tool_args = String::new();
+            let mut is_tool_call = false;
 
             while let Ok(Some(chunk)) = response.chunk().await {
                 let chunk_str = String::from_utf8_lossy(&chunk);
@@ -233,20 +262,37 @@ impl InferenceRuntime for HttpInferenceRuntime {
                         if data != "[DONE]" {
                             if let Ok(chunk_data) = serde_json::from_str::<ChatCompletionChunk>(data) {
                                 if let Some(choice) = chunk_data.choices.first() {
+                                    // Handle Content (Thoughts)
                                     if let Some(content) = &choice.delta.content {
                                         let _ = sender.send(content.clone()).await;
                                         full_content.push_str(content);
+                                    }
+
+                                    // [FIX] Handle Tool Calls (Action)
+                                    if let Some(calls) = &choice.delta.tool_calls {
+                                        is_tool_call = true;
+                                        if let Some(call) = calls.first() {
+                                            if let Some(func) = &call.function {
+                                                if let Some(n) = &func.name {
+                                                    tool_name.push_str(n);
+                                                }
+                                                if let Some(a) = &func.arguments {
+                                                    tool_args.push_str(a);
+                                                    // Stream arguments as tokens so UI sees activity
+                                                    let _ = sender.send(a.clone()).await;
+                                                }
+                                            }
+                                        }
                                     }
                                 }
                             }
                         }
                     }
-                    // [FIX] Correct buffer slicing to discard processed line
                     buffer = buffer[line_end + 1..].to_string();
                 }
             }
             
-            // [FIX] Process residual buffer (The Fix for Data Loss)
+            // Process residual buffer (data often comes in split packets)
             if !buffer.trim().is_empty() {
                 let line = buffer.trim();
                  if line.starts_with("data: ") {
@@ -258,23 +304,55 @@ impl InferenceRuntime for HttpInferenceRuntime {
                                         let _ = sender.send(content.clone()).await;
                                         full_content.push_str(content);
                                     }
+                                    if let Some(calls) = &choice.delta.tool_calls {
+                                        is_tool_call = true;
+                                        if let Some(call) = calls.first() {
+                                            if let Some(func) = &call.function {
+                                                if let Some(n) = &func.name { tool_name.push_str(n); }
+                                                if let Some(a) = &func.arguments { tool_args.push_str(a); let _ = sender.send(a.clone()).await; }
+                                            }
+                                        }
+                                    }
                                 }
                             }
                         }
                  }
             }
+
+            // [FIX] If we accumulated a tool call, format it as the JSON the Kernel expects.
+            if is_tool_call {
+                // OpenAI tool args are usually a JSON string. We ensure it's valid JSON, 
+                // or wrap it if it's malformed (though it usually isn't).
+                let args_value: serde_json::Value = serde_json::from_str(&tool_args)
+                    .unwrap_or(serde_json::Value::String(tool_args));
+                
+                let tool_json = json!({
+                    "name": tool_name,
+                    "arguments": args_value
+                });
+                return Ok(tool_json.to_string().into_bytes());
+            }
             
             Ok(full_content.into_bytes())
         } else {
-            let response_body: ChatCompletionResponse = response
-                .json::<ChatCompletionResponse>()
-                .await
-                .map_err(|e| VmError::HostError(format!("Failed to parse response: {}", e)))?;
+            // [FIX] Read response as text first to allow logging raw body on error
+            let response_text = response.text().await
+                .map_err(|e| VmError::HostError(format!("Failed to read response text: {}", e)))?;
+
+            let response_body: ChatCompletionResponse = serde_json::from_str(&response_text)
+                .map_err(|e| VmError::HostError(format!("Failed to parse response JSON: {} | Raw: {:.1000}", e, response_text)))?;
 
             let choice = response_body
                 .choices
                 .first()
                 .ok_or_else(|| VmError::HostError("No choices returned".into()))?;
+
+            // [FIX] Explicitly check for refusal field (OpenAI)
+            // Use a specific error prefix 'LLM_REFUSAL:' so the service logic can catch it
+            // and pause the agent instead of retrying indefinitely.
+            if let Some(refusal) = &choice.message.refusal {
+                return Err(VmError::HostError(format!("LLM_REFUSAL: {}", refusal)));
+            }
 
             if let Some(tool_calls) = &choice.message.tool_calls {
                 if let Some(first_call) = tool_calls.first() {
@@ -288,6 +366,25 @@ impl InferenceRuntime for HttpInferenceRuntime {
             }
 
             let content = choice.message.content.clone().unwrap_or_default();
+            
+            // [FIX] Detect empty content and treat as error unless finish_reason explains it.
+            // If content is empty and it wasn't a tool call, the model likely refused or hit a filter
+            // but didn't populate the `refusal` field (rare but possible).
+            if content.trim().is_empty() {
+                 let reason = choice.finish_reason.clone().unwrap_or("unknown".to_string());
+                 
+                 // If reason is "stop" or "content_filter" but content is empty, treat as refusal.
+                 if reason == "content_filter" || reason == "stop" || reason == "length" {
+                     return Err(VmError::HostError(format!("LLM_REFUSAL: Empty content with finish_reason='{}'", reason)));
+                 }
+                 
+                 // If no tool call, no content, and unknown reason, it's a generic host error.
+                 return Err(VmError::HostError(format!(
+                     "LLM_REFUSAL: Empty content. Finish Reason: {}. Raw Response: {:.500}", 
+                     reason, response_text
+                 )));
+            }
+
             Ok(content.into_bytes())
         }
     }

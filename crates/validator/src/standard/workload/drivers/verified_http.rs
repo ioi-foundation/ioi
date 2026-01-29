@@ -106,9 +106,16 @@ impl VerifiedHttpRuntime {
         match self.provider.as_str() {
             "openai" => {
                 let content = json["choices"][0]["message"]["content"]
-                    .as_str()
-                    .ok_or_else(|| VmError::HostError("OpenAI response missing content".into()))?;
-                Ok(content.as_bytes().to_vec())
+                    .as_str();
+                
+                if let Some(c) = content {
+                    Ok(c.as_bytes().to_vec())
+                } else {
+                    // [FIX] Log the full error response from OpenAI for debugging
+                    let error_msg = format!("OpenAI response missing content. Payload: {}", json);
+                    log::error!("{}", error_msg);
+                    Err(VmError::HostError(error_msg))
+                }
             }
             "anthropic" => {
                 let content = json["content"][0]["text"].as_str().ok_or_else(|| {
