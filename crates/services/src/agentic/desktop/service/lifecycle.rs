@@ -135,6 +135,8 @@ pub async fn handle_post_message(
     ctx: &TxContext<'_>,
 ) -> Result<(), TransactionError> {
     // 1. Write to Kernel SCS (SSOT)
+    // We clone here because we might need p values for logic below, although 
+    // we can also use the constructed `msg` for checks.
     let msg = ioi_types::app::agentic::ChatMessage {
         role: p.role,
         content: p.content,
@@ -155,6 +157,14 @@ pub async fn handle_post_message(
         
         // Update root hash pointer
         agent_state.transcript_root = new_root;
+
+        // [FIX] Update Goal AND Reset Counters
+        // This ensures the agent treats this as a fresh start for a new sub-task.
+        if msg.role == "user" {
+            agent_state.goal = msg.content.clone();
+            agent_state.step_count = 0;           // <--- CRITICAL FIX
+            agent_state.last_action_type = None;  // <--- Clear action bias
+        }
         
         // Wake up if dormant
         if agent_state.status != AgentStatus::Running {

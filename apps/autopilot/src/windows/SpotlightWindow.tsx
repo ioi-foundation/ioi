@@ -230,12 +230,6 @@ const workspaceOptions: DropdownOption[] = [
   { value: "cloud", label: "Send to cloud", desc: "Use remote compute", icon: icons.cloud },
 ];
 
-const modeOptions: DropdownOption[] = [
-  { value: "Chat", label: "Chat", desc: "Simple conversation", icon: icons.chat },
-  { value: "Agent", label: "Agent", desc: "Autonomous actions", icon: icons.robot },
-  { value: "Swarm", label: "Swarm", desc: "Multi-agent team", icon: icons.swarm },
-];
-
 const modelOptions: DropdownOption[] = [
   { value: "GPT-4o", label: "GPT-4o", desc: "OpenAI flagship" },
   { value: "Claude 3.5", label: "Claude 3.5", desc: "Anthropic Sonnet" },
@@ -266,7 +260,6 @@ export function SpotlightWindow() {
   
   // Dropdown selections
   const [workspaceMode, setWorkspaceMode] = useState("local");
-  const [conversationMode, setConversationMode] = useState("Agent");
   const [selectedModel, setSelectedModel] = useState("GPT-4o");
   
   // [NEW] Local state for chat stream including Gates
@@ -372,7 +365,7 @@ export function SpotlightWindow() {
           if (text.toLowerCase().includes("swarm") || text.toLowerCase().includes("team")) {
             await openStudio("copilot");
           }
-          await startTask(text, conversationMode);
+          await startTask(text);
       }
     } catch (e) {
       console.error(e);
@@ -492,7 +485,7 @@ export function SpotlightWindow() {
             <input
               ref={inputRef}
               className="spot-input"
-              placeholder={conversationMode === "Chat" ? "Ask anything..." : "How can I help you today?"}
+              placeholder="How can I help you today?"
               value={intent}
               onChange={(e) => setIntent(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && handleSubmit()}
@@ -533,15 +526,6 @@ export function SpotlightWindow() {
               onSelect={setWorkspaceMode}
               isOpen={activeDropdown === "workspace"}
               onToggle={() => setActiveDropdown(activeDropdown === "workspace" ? null : "workspace")}
-            />
-            <Dropdown
-              icon={icons.chat}
-              options={modeOptions}
-              selected={conversationMode}
-              onSelect={setConversationMode}
-              isOpen={activeDropdown === "conversation"}
-              onToggle={() => setActiveDropdown(activeDropdown === "conversation" ? null : "conversation")}
-              footer={{ label: "Open Studio...", onClick: () => openStudio("compose") }}
             />
             <Dropdown
               icon={icons.cube}
