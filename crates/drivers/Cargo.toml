@@ -8,6 +8,7 @@ license-file = "../../LICENSE-BBSL"
 repository = "https://github.com/ioi-foundation/ioi"
 
 [dependencies]
+uuid = { version = "1.8.0", features = ["v4"] }
 # Core IOI Dependencies
 ioi-api = { path = "../api" }
 ioi-types = { path = "../types" }

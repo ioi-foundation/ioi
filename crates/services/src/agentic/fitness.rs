@@ -10,12 +10,11 @@
 //! the deterministic `IntentContract` rubric.
 
 use async_trait::async_trait;
-use ioi_api::vm::inference::{InferenceRuntime, SafetyVerdict};
+use ioi_api::vm::inference::{InferenceRuntime};
 use ioi_types::app::agentic::{InferenceOptions, StepTrace};
-use ioi_types::app::{IntentContract, OutcomeType};
+use ioi_types::app::{IntentContract};
 use ioi_types::error::TransactionError;
 use serde::{Deserialize, Serialize};
-use serde_json::json;
 use std::sync::Arc;
 
 // --- Data Structures ---

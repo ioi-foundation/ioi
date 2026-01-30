@@ -4,7 +4,7 @@ use anyhow::{anyhow, Result};
 use serde::{Deserialize, Serialize};
 use ioi_types::app::{ActionRequest, ContextSlice}; 
 use ioi_crypto::algorithms::hash::sha256;
-use dcrypt::algorithms::ByteSerializable; // [FIX] Required for copy_from_slice
+// [FIX] Removed unused ByteSerializable
 use async_trait::async_trait;
 
 /// A simplified, VLM-friendly representation of a UI element.
@@ -220,11 +220,15 @@ impl SovereignSubstrateProvider for MockSubstrateProvider {
         
         let proof = sha256(&proof_input).map_err(|e| anyhow!("Provenance generation failed: {}", e))?;
         let mut proof_arr = [0u8; 32];
-        proof_arr.copy_from_slice(proof.as_ref());
+        // [FIX] Manually copy bytes since ByteSerializable is removed
+        let len = proof.as_ref().len().min(32);
+        proof_arr[..len].copy_from_slice(&proof.as_ref()[..len]);
         
         let slice_id = sha256(&xml_data).map_err(|e| anyhow!("Slice ID gen failed: {}", e))?;
         let mut slice_id_arr = [0u8; 32];
-        slice_id_arr.copy_from_slice(slice_id.as_ref());
+        // [FIX] Manually copy bytes
+        let len = slice_id.as_ref().len().min(32);
+        slice_id_arr[..len].copy_from_slice(&slice_id.as_ref()[..len]);
 
         Ok(ContextSlice {
             slice_id: slice_id_arr,

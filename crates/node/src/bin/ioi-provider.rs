@@ -41,9 +41,13 @@ use ioi_drivers::os::NativeOsDriver;
 use ioi_networking::libp2p::Libp2pSync;
 
 // [FIX] Compute Specific Drivers
-use crate::standard::workload::drivers::cpu::CpuDriver;
-use crate::standard::workload::hydration::ModelHydrator;
-use crate::standard::workload::runtime::StandardInferenceRuntime;
+use ioi_validator::standard::workload::drivers::cpu::CpuDriver;
+use ioi_validator::standard::workload::hydration::ModelHydrator;
+use ioi_validator::standard::workload::runtime::StandardInferenceRuntime;
+
+// [NEW] Provider API
+use ioi_validator::standard::provider::{ProviderController, server::run_provider_server};
+use std::net::SocketAddr;
 
 #[derive(Parser, Debug)]
 #[clap(name = "ioi-provider", about = "IOI Compute Provider (Type B)")]
@@ -148,14 +152,6 @@ async fn main() -> Result<()> {
         Some(os_driver.clone()),
     )
     .await?;
-
-    // Inject our Heavy Runtime into the workload via internal mutability if possible
-    // or rely on setup_workload to have used the configuration.
-    // Since we called setup_workload with default inference config, it created a mock or http runtime.
-    // For the Provider binary, we ideally want to inject the `inference_runtime` created above.
-    // The current `setup_workload` signature doesn't accept an `InferenceRuntime` override.
-    // **Action:** We would technically modify `setup_workload` or `WorkloadConfig` to support this injection.
-    // For now, we assume the config points to "standard" provider which setup_workload handles.
     
     // 6. Start Runtime
     let workload_ipc_addr = "127.0.0.1:8555";
@@ -207,8 +203,27 @@ async fn main() -> Result<()> {
     let sk_bytes = local_key.clone().try_into_ed25519()?.secret();
     let internal_sk = Ed25519PrivateKey::from_bytes(sk_bytes.as_ref())?;
     let internal_kp = ioi_crypto::sign::eddsa::Ed25519KeyPair::from_private_key(&internal_sk)?;
-    let signer = Arc::new(LocalSigner::new(internal_kp));
+    
+    // Using Arc<LocalSigner> concrete type for ProviderController constructor
+    let local_signer_struct = LocalSigner::new(internal_kp);
+    let local_signer_arc = Arc::new(local_signer_struct);
+    
+    // Cast to trait object for Orchestrator dependencies
+    let signer: Arc<dyn ioi_validator::common::GuardianSigner> = local_signer_arc.clone();
 
+    // --- NEW: Start Provider API Server ---
+    let public_endpoint = format!("http://{}:9090", "127.0.0.1"); // Default local
+    let controller = Arc::new(ProviderController::new(local_signer_arc, public_endpoint));
+    
+    let api_addr: SocketAddr = "0.0.0.0:9090".parse()?;
+    
+    // Spawn server in background
+    tokio::spawn(async move {
+        run_provider_server(controller, api_addr).await;
+    });
+    
+    println!("   - Provider API: Active on port 9090");
+    
     let deps = OrchestrationDependencies {
         syncer,
         network_event_receiver: network_events,

@@ -9,7 +9,7 @@ use ioi_scs::{FrameType, SovereignContextStore};
 use ioi_types::app::{ActionRequest, ContextSlice};
 use std::sync::{Arc, Mutex};
 use async_trait::async_trait;
-use dcrypt::algorithms::ByteSerializable;
+// [FIX] Removed unused ByteSerializable
 
 // Windows Dependencies
 #[cfg(target_os = "windows")]
@@ -272,7 +272,9 @@ impl SovereignSubstrateProvider for NativeSubstrateProvider {
         // The slice_id is the hash of the data.
         let slice_id_digest = sha256(&xml_data)?;
         let mut slice_id = [0u8; 32];
-        slice_id.copy_from_slice(slice_id_digest.as_ref());
+        // [FIX] Manually copy bytes
+        let len = slice_id_digest.as_ref().len().min(32);
+        slice_id[..len].copy_from_slice(&slice_id_digest.as_ref()[..len]);
 
         // The intent_hash binds this slice to the specific request.
         let intent_hash = intent.hash();

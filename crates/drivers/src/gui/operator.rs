@@ -12,7 +12,7 @@ use std::time::Duration;
 use ioi_types::app::KernelEvent;
 use tokio::sync::broadcast::Sender;
 use xcap::Monitor;
-use dcrypt::algorithms::ByteSerializable;
+// [FIX] Removed unused ByteSerializable
 
 /// A native driver for controlling mouse and keyboard input.
 pub struct NativeOperator {

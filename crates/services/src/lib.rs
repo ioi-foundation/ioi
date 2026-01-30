@@ -2,7 +2,7 @@
 #![forbid(unsafe_code)]
 
 pub mod agentic;
-pub mod compute_market;
+pub mod market;
 pub mod governance;
 
 #[cfg(feature = "ibc-deps")]

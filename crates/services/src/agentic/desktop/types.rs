@@ -1,7 +1,7 @@
 // Path: crates/services/src/agentic/desktop/types.rs
 
 use ioi_types::app::action::ApprovalToken;
-use ioi_types::app::agentic::ChatMessage;
+// [FIX] Removed unused ChatMessage import
 use parity_scale_codec::{Decode, Encode};
 use serde::{Deserialize, Serialize};
 

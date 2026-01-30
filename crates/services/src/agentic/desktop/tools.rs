@@ -1,7 +1,7 @@
 // Path: crates/services/src/agentic/desktop/tools.rs
 
 use ioi_api::state::StateAccess;
-use ioi_types::app::agentic::{LlmToolDefinition, AgentTool}; // [FIX] Import AgentTool
+use ioi_types::app::agentic::{LlmToolDefinition}; // [FIX] Removed unused AgentTool import
 use ioi_types::codec;
 use ioi_types::keys::UPGRADE_ACTIVE_SERVICE_PREFIX;
 use ioi_types::service_configs::ActiveServiceMeta;
@@ -88,7 +88,7 @@ pub fn discover_tools(
         },
         "required": ["message"]
     });
-    // [FIX] Ensure the tool name is consistently "chat__reply" to match execution logic
+    // [FIX] Ensure consistent tool name "chat__reply"
     tools.push(LlmToolDefinition {
         name: "chat__reply".to_string(),
         description: "Send a text message or answer to the user. Use this for all conversation/replies.".to_string(),

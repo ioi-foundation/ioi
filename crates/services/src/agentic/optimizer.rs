@@ -14,30 +14,34 @@
 //! 5. **Deploy:** Submit `swap_module` transaction to the Governance service.
 
 use async_trait::async_trait;
-use ioi_api::services::{UpgradableService}; // [FIX] Removed BlockchainService
+use ioi_api::services::{UpgradableService};
 use ioi_api::state::StateAccess;
 use ioi_api::transaction::context::TxContext;
 use ioi_api::vm::inference::{InferenceRuntime, LocalSafetyModel};
 use ioi_macros::service_interface;
-// [FIX] Clean imports
-use ioi_types::app::{StepTrace, ActionRequest, ActionTarget, ActionContext}; // [FIX] Added ActionRequest, etc
+use ioi_types::app::{StepTrace}; 
 use ioi_types::codec;
 use ioi_types::error::{TransactionError, UpgradeError};
 use parity_scale_codec::{Decode, Encode};
 use serde::{Deserialize, Serialize};
-use serde_json::json;
-use std::any::Any;
+use std::fmt;
 use std::sync::Arc;
 
 // [NEW] Import Policy Engine for Safety Ratchet
 use crate::agentic::policy::PolicyEngine;
-use crate::agentic::rules::{ActionRules, Verdict};
-use ioi_types::app::agentic::{InferenceOptions, AgentMacro, LlmToolDefinition};
+use crate::agentic::rules::{ActionRules};
+use ioi_types::app::agentic::{
+    InferenceOptions, AgentMacro, LlmToolDefinition, IntelligenceAsset, AgentManifest,
+    RuntimeEnvironment, ResourceRequirements 
+};
 use ioi_scs::{SovereignContextStore, FrameType}; 
 use ioi_crypto::algorithms::hash::sha256;
-use dcrypt::algorithms::ByteSerializable; 
-use std::fmt;
+// [FIX] Removed unused import
+// use dcrypt::algorithms::ByteSerializable; 
 use reqwest::Url; 
+
+// [NEW] Import Market Service types
+use crate::market::{PublishAssetParams}; 
 
 /// Parameters for triggering an optimization loop.
 #[derive(Encode, Decode, Serialize, Deserialize, Debug, Clone)]
@@ -155,8 +159,8 @@ impl OptimizerService {
         &self,
         trace_steps: Vec<StepTrace>,
     ) -> Result<ActionRules, TransactionError> {
-        use std::collections::{HashMap, HashSet};
-        use crate::agentic::rules::{Rule, RuleConditions, DefaultPolicy};
+        use std::collections::{HashSet};
+        use crate::agentic::rules::{Rule, RuleConditions, DefaultPolicy, Verdict};
 
         let mut allowed_domains = HashSet::new();
         let mut allowed_files = HashSet::new();
@@ -220,7 +224,6 @@ impl OptimizerService {
 
     /// [NEW] Skill Crystallization (RSI)
     /// Converts a successful execution trace into a reusable, parameterized tool macro.
-    // [FIX] Renamed to internal helper to avoid conflict with service method
     pub async fn crystallize_skill_internal(
         &self,
         session_id: [u8; 32],
@@ -228,12 +231,8 @@ impl OptimizerService {
     ) -> Result<AgentMacro, TransactionError> {
         let scs_mutex = self.scs.as_ref().ok_or(TransactionError::Invalid("SCS not available".into()))?;
         
-        // 1. Fetch Session Trace
-        // In a real implementation, we would query the SCS index for all frames in this session.
-        // For MVP, we mock the trace retrieval or rely on the `trace_hash` pointing to a known sequence.
-        // Assuming we can reconstruct the trace:
-        
-        let trace_summary = "Step 1: Navigate to stripe.com/login. Step 2: Click 'Sign In'. Step 3: Wait for dashboard."; // Placeholder
+        // 1. Fetch Session Trace (Mocked)
+        let trace_summary = "Step 1: Navigate to stripe.com/login. Step 2: Click 'Sign In'. Step 3: Wait for dashboard."; 
 
         // 2. Synthesize Macro Definition
         let runtime = self.inference.as_ref().ok_or(TransactionError::Invalid(
@@ -290,7 +289,7 @@ impl OptimizerService {
                 let params = serde_json::to_vec(&s["params"]).unwrap_or_default();
                 
                 // [FIX] Correctly construct ActionRequest
-                steps.push(ActionRequest {
+                steps.push(ioi_types::app::ActionRequest {
                     target,
                     params,
                     context: ioi_types::app::ActionContext {
@@ -317,7 +316,10 @@ impl OptimizerService {
         // Calculate deterministic hash for skill identity
         let skill_hash_res = sha256(&skill_bytes).map_err(|e| TransactionError::Invalid(e.to_string()))?;
         let mut skill_hash = [0u8; 32];
-        skill_hash.copy_from_slice(skill_hash_res.as_ref());
+        // [FIX] Use copy_from_slice via local binding or manual copy if ByteSerializable not imported
+        // Since we removed ByteSerializable, we can't use copy_from_slice from the trait.
+        // Array implements copy_from_slice natively on slice, so this works if we have the slice.
+        skill_hash[..32].copy_from_slice(&skill_hash_res.as_ref()[..32]);
 
         {
             let mut store = scs_mutex.lock().map_err(|_| TransactionError::Invalid("SCS lock".into()))?;
@@ -333,6 +335,77 @@ impl OptimizerService {
         log::info!("Optimizer: Crystallized new skill '{}' from session {}", skill.definition.name, hex::encode(session_id));
 
         Ok(skill)
+    }
+
+    /// [NEW] Converts a successful agent session into a tradeable Agent Manifest and submits it to the market.
+    pub async fn package_agent_for_market(
+        &self,
+        state: &mut dyn StateAccess,
+        // Using OptimizeAgentParams to carry session_id
+        params: OptimizeAgentParams, 
+        ctx: &TxContext<'_>,
+    ) -> Result<(), TransactionError> {
+        // 1. Retrieve Agent State
+        let ns_prefix = ioi_api::state::service_namespace_prefix("desktop_agent");
+        let full_key = [ns_prefix.as_slice(), b"agent::state::", params.session_id.as_slice()].concat();
+        
+        let state_bytes = state.get(&full_key)?.ok_or(TransactionError::Invalid("Agent state not found".into()))?;
+        // [FIX] Correctly refer to the AgentState type via the crate root
+        let agent_state: crate::agentic::desktop::AgentState = codec::from_bytes_canonical(&state_bytes)?;
+
+        // 2. Discover Skills Used
+        // We scan the trace to see which skills/tools were actually effective.
+        // For MVP, we'll just grab all skills crystallized in this session.
+        let scs_mutex = self.scs.as_ref().ok_or(TransactionError::Invalid("SCS not available".into()))?;
+        let store = scs_mutex.lock().map_err(|_| TransactionError::Invalid("SCS lock".into()))?;
+        
+        // [FIX] E0716: Bind empty vec to extend lifetime
+        let empty_vec = Vec::new();
+        let session_frames = store.session_index.get(&params.session_id).unwrap_or(&empty_vec);
+        
+        let mut skill_hashes = Vec::new();
+        for &fid in session_frames {
+            let frame = store.toc.frames.get(fid as usize).unwrap();
+            if frame.frame_type == ioi_scs::FrameType::Skill {
+                skill_hashes.push(frame.checksum);
+            }
+        }
+
+        // 3. Construct Manifest
+        // "Package" the agent configuration
+        let manifest = AgentManifest {
+            name: format!("Agent-{}", hex::encode(&params.session_id[0..4])),
+            description: format!("Auto-packaged agent trained on goal: '{}'", agent_state.goal),
+            system_prompt: "You are a specialized agent...".to_string(), // In real impl, fetch from config
+            model_selector: "gpt-4o".to_string(), // In real impl, fetch from config
+            skills: skill_hashes,
+            default_policy_hash: [0u8; 32], // Default policy
+            author: ctx.signer_account_id,
+            price: 500, // Default price
+            tags: vec!["auto-packaged".into()],
+            version: "0.1.0".to_string(),
+            // [FIX] Initialize new fields
+            runtime: RuntimeEnvironment::Native,
+            resources: ResourceRequirements {
+                min_vram_gb: 0,
+                min_ram_gb: 4,
+                min_cpus: 2,
+                network_access: "public".to_string(),
+                provider_preference: "any".to_string(),
+            },
+        };
+
+        // 4. Submit to Market (via Intent)
+        let intent_key = [b"optimizer::publish_intent::", params.session_id.as_slice()].concat();
+        let publish_params = PublishAssetParams {
+            asset: IntelligenceAsset::Agent(manifest),
+        };
+        
+        // This blob is what the UI will sign and send to "market::publish_asset"
+        state.insert(&intent_key, &codec::to_bytes_canonical(&publish_params)?)?;
+        
+        log::info!("Optimizer: Packaged agent session {} for market.", hex::encode(&params.session_id[0..4]));
+        Ok(())
     }
 }
 
@@ -419,6 +492,18 @@ impl OptimizerService {
         // [FIX] Call the renamed internal helper
         self.crystallize_skill_internal(params.session_id, trace_hash).await?;
         Ok(())
+    }
+
+    /// [NEW] Dispatcher for deploying an agent to the market (called via system transaction)
+    #[method]
+    pub async fn deploy_skill(
+        &self,
+        state: &mut dyn StateAccess,
+        params: OptimizeAgentParams, 
+        ctx: &TxContext<'_>,
+    ) -> Result<(), TransactionError> {
+        // Delegate to the internal packager
+        self.package_agent_for_market(state, params, ctx).await
     }
 }
 

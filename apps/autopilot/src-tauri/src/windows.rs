@@ -79,14 +79,12 @@ pub fn set_spotlight_mode(app: AppHandle, mode: String) {
             let _ = window.set_size(tauri::Size::Logical(tauri::LogicalSize { width, height }));
             let _ = window.set_position(tauri::Position::Logical(tauri::LogicalPosition { x, y }));
         } else {
-            // Sidebar docked right
+            // Sidebar docked right (Legacy support, might be unused in Glass Box)
             let _ = window.set_resizable(true); 
             
             let width = 450.0;
             let height = screen_h - 40.0; 
             
-            // [FIX] Calculate X relative to the monitor's origin
-            // This ensures it docks to the right edge of the CORRECT monitor
             let x = monitor_x + screen_w - width;
             let y = monitor_y + 0.0; 
             
@@ -104,52 +102,12 @@ pub fn set_spotlight_mode(app: AppHandle, mode: String) {
     }
 }
 
+// [NEW] Consolidated Resizing Logic for Glass Box Architecture
+// Handles transition between Pill (Compact) and Chat (Expanded)
 #[tauri::command]
-pub fn show_pill(app: AppHandle) {
-    if let Some(window) = app.get_webview_window("pill") {
-        // [FIX] Ensure pill appears on the correct monitor (same logic as above could be applied, 
-        // but typically pill follows primary or active cursor. Primary is safe default for MVP.)
-        if let Ok(Some(monitor)) = window.primary_monitor() {
-            let size = monitor.size();
-            let scale = monitor.scale_factor();
-            let screen_w = size.width as f64 / scale;
-            let screen_h = size.height as f64 / scale;
-            
-            // Monitor offset
-            let pos = monitor.position();
-            let monitor_x = pos.x as f64 / scale;
-            let monitor_y = pos.y as f64 / scale;
-
-            let win_w = 310.0;
-            let win_h = 60.0;
-            let margin = 16.0;
-            let taskbar = 48.0;
-            
-            let x = monitor_x + screen_w - win_w - margin;
-            let y = monitor_y + screen_h - win_h - margin - taskbar;
-            
-            let _ = window.set_position(tauri::Position::Logical(tauri::LogicalPosition { x, y }));
-            let _ = window.set_always_on_top(true);
-        }
-        let _ = window.show();
-    }
-}
-
-#[tauri::command]
-pub fn hide_pill(app: AppHandle) {
-    if let Some(window) = app.get_webview_window("pill") {
-        let _ = window.hide();
-    }
-}
-
-#[tauri::command]
-pub fn resize_pill(app: AppHandle, expanded: bool) {
-    if let Some(window) = app.get_webview_window("pill") {
-        let height = if expanded { 160.0 } else { 60.0 };
-        let _ = window.set_size(tauri::Size::Logical(tauri::LogicalSize {
-            width: 310.0,
-            height,
-        }));
+pub fn resize_spotlight(app: AppHandle, width: f64, height: f64) {
+    if let Some(window) = app.get_webview_window("spotlight") {
+        let _ = window.set_size(tauri::Size::Logical(tauri::LogicalSize { width, height }));
     }
 }
 

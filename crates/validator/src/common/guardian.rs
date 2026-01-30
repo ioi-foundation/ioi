@@ -57,7 +57,8 @@ pub trait GuardianSigner: Send + Sync {
 /// Local implementation for development/testing.
 /// Mimics the Oracle's interface but uses an in-memory keypair and zeroed metadata.
 pub struct LocalSigner {
-    keypair: ioi_crypto::sign::eddsa::Ed25519KeyPair,
+    /// [FIX] Made public to allow direct access by ProviderController for non-consensus signing.
+    pub keypair: ioi_crypto::sign::eddsa::Ed25519KeyPair,
     // [FIX] Added monotonic counter to satisfy A-DMFT invariants in tests
     counter: std::sync::atomic::AtomicU64,
 }

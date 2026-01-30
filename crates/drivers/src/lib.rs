@@ -1,15 +1,12 @@
 // Path: crates/drivers/src/lib.rs
-//! # IOI Hardware Drivers
-//! 
-//! This crate provides the "Body" for the IOI Kernel. It implements the
-//! `ioi_api::vm::drivers` traits using native OS calls, replacing external
-//! scripts like UI-TARS with secure, deterministic Rust code.
+// Removed #![forbid(unsafe_code)] to allow terminal process detachment (setsid)
 
 pub mod gui;
 pub mod browser;
 pub mod ucp; 
 pub mod os;  
 pub mod terminal;
-
-// [NEW] Export MCP Host
 pub mod mcp;
+
+// Export Provisioning (AWS, Akash)
+pub mod provisioning;
