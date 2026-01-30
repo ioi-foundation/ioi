@@ -4,7 +4,6 @@ pub mod helpers;
 pub mod visual;
 
 use super::DesktopAgentService;
-use super::utils::merge_tools;
 use crate::agentic::desktop::execution::ToolExecutor;
 use crate::agentic::desktop::keys::{get_state_key, AGENT_POLICY_PREFIX, TRACE_PREFIX};
 use crate::agentic::desktop::tools::discover_tools;
@@ -14,22 +13,19 @@ use crate::agentic::rules::{ActionRules};
 use ioi_api::state::StateAccess;
 use ioi_api::transaction::context::TxContext;
 use ioi_drivers::mcp::McpManager;
-use ioi_scs::FrameType;
-use ioi_types::app::agentic::{AgentTool, LlmToolDefinition}; 
-use ioi_types::app::{ActionContext, ActionRequest, ActionTarget, InferenceOptions, KernelEvent};
+use ioi_types::app::agentic::AgentTool; 
+use ioi_types::app::{ActionContext, ActionRequest, InferenceOptions, KernelEvent};
 use ioi_types::codec;
 use ioi_types::error::TransactionError;
-use serde_json::{json, Value}; 
+use serde_json::json; 
 use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
-use tokio::sync::mpsc;
 use base64::{engine::general_purpose::STANDARD as BASE64, Engine as _};
 use hex;
 use image::ImageFormat;
 use std::io::Cursor;
 use crate::agentic::desktop::middleware;
 use self::helpers::default_safe_policy;
-use self::visual::hamming_distance;
 use serde::Deserialize;
 
 const CHARS_PER_TOKEN: u64 = 4;
@@ -52,7 +48,7 @@ enum AttentionMode {
 impl DesktopAgentService {
     /// The "System 1" Router. 
     /// Classifies the immediate next step requirement based on goal, history, and latest input.
-    async fn determine_attention_mode(&self, latest_input: &str, goal: &str, step: u32, last_output: Option<&str>) -> AttentionMode {
+    async fn determine_attention_mode(&self, latest_input: &str, goal: &str, _step: u32, last_output: Option<&str>) -> AttentionMode {
         // 1. Heuristic: Check for explicit output from previous step asking for vision
         if let Some(out) = last_output {
             if out.contains("I need to see") || out.contains("screenshot") {
@@ -517,7 +513,7 @@ pub async fn handle_step(
         }
         Err(e) => {
              error_msg = Some(format!("Failed to parse tool call: {}", e));
-             success = false; 
+             // [FIX] Removed redundant success assignment
         }
     }
 

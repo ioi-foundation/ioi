@@ -5,7 +5,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import "./styles/global.css";
 
 import { SpotlightWindow } from "./windows/SpotlightWindow";
-import { PillWindow } from "./windows/PillWindow";
+// [REMOVED] import { PillWindow } from "./windows/PillWindow";
 // [REMOVED] import { GateWindow } from "./windows/GateWindow";
 import { StudioWindow } from "./windows/StudioWindow";
 
@@ -14,7 +14,7 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
     <BrowserRouter>
       <Routes>
         <Route path="/spotlight" element={<SpotlightWindow />} />
-        <Route path="/pill" element={<PillWindow />} />
+        {/* [REMOVED] <Route path="/pill" element={<PillWindow />} /> */}
         {/* [REMOVED] <Route path="/gate" element={<GateWindow />} /> */}
         <Route path="/studio" element={<StudioWindow />} />
         {/* Default to spotlight for dev */}

@@ -37,19 +37,6 @@
         "focus": true
       },
       {
-        "label": "pill",
-        "title": "Autopilot Agent",
-        "url": "/pill",
-        "transparent": true,
-        "decorations": false,
-        "alwaysOnTop": true,
-        "skipTaskbar": false,
-        "visible": false,
-        "resizable": false,
-        "width": 310,
-        "height": 60
-      },
-      {
         "label": "studio",
         "title": "Autopilot Studio",
         "url": "/studio",
@@ -61,6 +48,21 @@
         "minWidth": 1000,
         "minHeight": 600,
         "center": true
+      },
+      {
+        "label": "gate",
+        "title": "Autopilot Gate",
+        "url": "/gate",
+        "transparent": true,
+        "decorations": false,
+        "alwaysOnTop": true,
+        "skipTaskbar": true,
+        "visible": false,
+        "resizable": false,
+        "width": 420,
+        "height": 500,
+        "center": true,
+        "focus": true
       }
     ],
     "trayIcon": {

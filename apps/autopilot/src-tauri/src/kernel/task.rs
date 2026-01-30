@@ -80,14 +80,13 @@ pub fn start_task(
 
     let _ = app.emit("task-started", &task);
     
-    windows::show_pill(app.clone());
+    // [MODIFIED] Show Spotlight instead of Pill (Glass Box Migration)
+    crate::windows::show_spotlight(app.clone());
 
     let app_clone = app.clone();
     let intent_clone = intent.clone();
     
     // [MODIFIED] Unified Intent Construction
-    // We no longer prepend MODE:CHAT. The backend IntentResolver defaults to 'AgentMode::Agent',
-    // which allows the Cognitive Router (step/mod.rs) to decide per-step whether to chat or act.
     let session_hex = hex::encode(uuid::Uuid::parse_str(&task_id).unwrap().as_bytes());
     let effective_intent = format!("SESSION:{} {}", session_hex, intent_clone);
 
@@ -359,7 +358,8 @@ pub fn dismiss_task(state: State<Mutex<AppState>>, app: AppHandle) -> Result<(),
         app_state.current_task = None;
         app_state.gate_response = None;
     }
-    windows::hide_pill(app.clone());
+    // [MODIFIED] Removed hide_pill call
+    windows::hide_spotlight(app.clone());
     windows::hide_gate(app.clone());
     let _ = app.emit("task-dismissed", ());
     Ok(())

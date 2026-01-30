@@ -37,6 +37,7 @@ use ioi_types::error::VmError;
 
 use ioi_api::chain::WorkloadClientApi;
 
+#[allow(dead_code)] // [FIX] Suppress unused warning for struct
 struct SafetyModelAsInference {
     model: Arc<dyn LocalSafetyModel>,
 }

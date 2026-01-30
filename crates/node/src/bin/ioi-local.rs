@@ -51,6 +51,9 @@ use ioi_services::agentic::desktop::DesktopAgentService;
 use ioi_services::agentic::rules::{ActionRules, DefaultPolicy, Rule, Verdict};
 use ioi_types::codec;
 
+// [UPDATED] Import Market Service types
+use ioi_services::market::{MarketService, PublishAssetParams}; 
+
 // [NEW] Import for SwarmCommand
 use ioi_networking::libp2p::SwarmCommand;
 use ioi_networking::noop::NoOpBlockSync; // [NEW]
@@ -108,7 +111,7 @@ async fn main() -> Result<()> {
     };
     let scs_arc: Arc<Mutex<SovereignContextStore>> = Arc::new(Mutex::new(scs));
 
-    // ... (Metadata Definitions Omitted for Brevity - Same as before) ...
+    // Agent Meta
     let mut agent_methods = std::collections::BTreeMap::new();
     agent_methods.insert("start@v1".to_string(), MethodPermission::User);
     agent_methods.insert("step@v1".to_string(), MethodPermission::User);
@@ -209,12 +212,15 @@ async fn main() -> Result<()> {
         allowed_system_prefixes: vec![],
     });
 
-    let mut market_methods_policy = std::collections::BTreeMap::new();
-    market_methods_policy.insert("request_task@v1".to_string(), MethodPermission::User);
-    market_methods_policy.insert("finalize_provisioning@v1".to_string(), MethodPermission::User);
+    // [MODIFIED] Rename Compute Market to Market Service
+    let mut market_methods = std::collections::BTreeMap::new();
+    market_methods.insert("request_compute@v1".to_string(), MethodPermission::User);
+    market_methods.insert("settle_compute@v1".to_string(), MethodPermission::User);
+    market_methods.insert("publish_asset@v1".to_string(), MethodPermission::User);
+    market_methods.insert("purchase_license@v1".to_string(), MethodPermission::User);
 
-    service_policies.insert("compute_market".to_string(), ioi_types::config::ServicePolicy {
-        methods: market_methods_policy,
+    service_policies.insert("market".to_string(), ioi_types::config::ServicePolicy {
+        methods: market_methods.clone(),
         allowed_system_prefixes: vec![],
     });
     
@@ -222,6 +228,8 @@ async fn main() -> Result<()> {
     let mut optimizer_methods = std::collections::BTreeMap::new();
     optimizer_methods.insert("optimize_agent@v1".to_string(), MethodPermission::User);
     optimizer_methods.insert("crystallize_skill@v1".to_string(), MethodPermission::User);
+    // Add deployment intent capability
+    optimizer_methods.insert("deploy_skill@v1".to_string(), MethodPermission::User);
 
     service_policies.insert("optimizer".to_string(), ioi_types::config::ServicePolicy {
         methods: optimizer_methods,
@@ -369,12 +377,9 @@ async fn main() -> Result<()> {
         let policy_key = [b"agent::policy::", session_id.as_slice()].concat();
         insert_raw(&policy_key, to_bytes_canonical(&local_policy).unwrap());
 
-        let mut market_methods = std::collections::BTreeMap::new();
-        market_methods.insert("request_task@v1".to_string(), MethodPermission::User);
-        market_methods.insert("finalize_provisioning@v1".to_string(), MethodPermission::User);
-        
+        // [MODIFIED] Register the Unified Market Service (replacing compute_market)
         let market_meta = ActiveServiceMeta {
-            id: "compute_market".to_string(),
+            id: "market".to_string(), // Rebranded ID
             abi_version: 1,
             state_schema: "v1".to_string(),
             caps: Capabilities::empty(),
@@ -385,7 +390,7 @@ async fn main() -> Result<()> {
             generation_id: 0,
             parent_hash: None,
         };
-        let market_key = ioi_types::keys::active_service_key("compute_market");
+        let market_key = ioi_types::keys::active_service_key("market");
         insert_raw(&market_key, to_bytes_canonical(&market_meta).unwrap());
 
         let json = serde_json::json!({ "genesis_state": genesis_state });
@@ -552,6 +557,7 @@ async fn main() -> Result<()> {
     println!("   - GUI Automation: Enabled");
     println!("   - Browser Automation: Enabled");
     println!("   - MCP: Enabled (Filesystem)");
+    println!("   - Market: Active (Universal Asset Ledger)");
     println!(
         "   - RPC will listen on http://{}",
         config.rpc_listen_address
@@ -584,6 +590,14 @@ async fn main() -> Result<()> {
              eprintln!("Failed to register enhanced DesktopAgentService: {}", e);
         } else {
              println!("✅ Enhanced DesktopAgentService (MCP+Path) registered via Hot Swap.");
+        }
+        
+        // [NEW] Register the Universal Market Service
+        let market_service = Arc::new(MarketService::default());
+        if let Err(e) = machine_guard.service_manager.register_service(market_service) {
+             eprintln!("Failed to register MarketService: {}", e);
+        } else {
+             println!("✅ MarketService active (Skills, Agents, Compute).");
         }
     }
 

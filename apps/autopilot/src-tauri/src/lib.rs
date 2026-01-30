@@ -180,10 +180,8 @@ pub fn run() {
             // Window Management
             windows::show_spotlight,
             windows::hide_spotlight,
+            windows::resize_spotlight,
             windows::set_spotlight_mode,
-            windows::show_pill,
-            windows::hide_pill,
-            windows::resize_pill,
             windows::show_gate,
             windows::hide_gate,
             windows::show_studio,

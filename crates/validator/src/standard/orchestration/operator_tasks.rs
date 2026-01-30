@@ -11,7 +11,8 @@ use ioi_api::{
 };
 use ioi_crypto::algorithms::hash::sha256;
 use ioi_crypto::sign::eddsa::{Ed25519PublicKey, Ed25519Signature};
-use ioi_services::compute_market::{JobTicket, ProvisioningReceipt};
+// [FIX] Updated import path to `ioi_services::market`
+use ioi_services::market::{JobTicket, ProvisioningReceipt};
 use ioi_types::{
     app::{
         account_id_from_key_material, AccountId, ChainTransaction, SignHeader, SignatureProof,

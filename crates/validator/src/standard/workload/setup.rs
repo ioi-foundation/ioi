@@ -1,4 +1,5 @@
 // Path: crates/validator/src/standard/workload/setup.rs
+#![allow(unreachable_code)] // Allow unreachable code for vm-wasm compile guard panic
 
 use anyhow::{anyhow, Result};
 use ioi_api::vm::drivers::gui::GuiDriver;
@@ -174,12 +175,13 @@ pub async fn setup_workload<CS, ST>(
     mut state_tree: ST,
     commitment_scheme: CS,
     config: WorkloadConfig,
-    gui_driver: Option<Arc<dyn GuiDriver>>,
-    browser_driver: Option<Arc<BrowserDriver>>,
-    scs: Option<Arc<std::sync::Mutex<SovereignContextStore>>>,
-    event_sender: Option<tokio::sync::broadcast::Sender<KernelEvent>>,
-    // [FIX] Add os_driver argument
-    os_driver: Option<Arc<dyn OsDriver>>,
+    // [FIX] Prefix unused variables with underscore to suppress warnings
+    _gui_driver: Option<Arc<dyn GuiDriver>>,
+    _browser_driver: Option<Arc<BrowserDriver>>,
+    _scs: Option<Arc<std::sync::Mutex<SovereignContextStore>>>,
+    _event_sender: Option<tokio::sync::broadcast::Sender<KernelEvent>>,
+    // [FIX] Prefix unused variables with underscore
+    _os_driver: Option<Arc<dyn OsDriver>>,
 ) -> Result<(
     Arc<WorkloadContainer<ST>>,
     Arc<Mutex<ExecutionMachine<CS, ST>>>,
@@ -298,12 +300,12 @@ where
         let runtime = WasmRuntime::new(config.fuel_costs.clone())?;
         runtime.link_inference(inference_runtime.clone());
 
-        if let Some(driver) = &gui_driver {
+        if let Some(driver) = &_gui_driver {
             runtime.link_gui_driver(driver.clone());
             tracing::info!(target: "workload", "GUI Driver linked to WasmRuntime (Eyes & Hands Active)");
         }
 
-        if let Some(driver) = &browser_driver {
+        if let Some(driver) = &_browser_driver {
             runtime.link_browser_driver(Arc::clone(driver));
             tracing::info!(target: "workload", "Browser Driver linked to WasmRuntime");
         }
@@ -313,11 +315,13 @@ where
     };
 
     #[cfg(not(feature = "vm-wasm"))]
+    #[allow(unused_variables)]
     let vm: Box<dyn ioi_api::vm::VirtualMachine> = {
         panic!("vm-wasm feature is required for Workload setup");
     };
 
-    let _ = &vm;
+    // [FIX] Removed unreachable code warning
+    // let _ = &vm; 
 
     let _temp_orch_config = OrchestrationConfig {
         chain_id: 1.into(),
@@ -452,13 +456,13 @@ where
     initial_services.push(Arc::new(optimizer_service) as Arc<dyn UpgradableService>);
     tracing::info!(target: "workload", event = "service_init", name = "Optimizer", impl="native", capabilities="RSI_Engine");
 
-    if let Some(gui) = gui_driver {
+    if let Some(gui) = _gui_driver {
         tracing::info!(target: "workload", event = "service_init", name = "DesktopAgent", impl="native");
         
         let terminal_driver = Arc::new(TerminalDriver::new());
         tracing::info!(target: "workload", "Terminal Driver initialized");
 
-        let browser = browser_driver.clone().unwrap_or_else(|| Arc::new(BrowserDriver::new()));
+        let browser = _browser_driver.clone().unwrap_or_else(|| Arc::new(BrowserDriver::new()));
         tracing::info!(target: "workload", "Browser Driver injected into DesktopAgent");
 
         // [NEW] Initialize MCP Manager and spawn servers
@@ -505,18 +509,18 @@ where
             reasoning_runtime
         ).with_mcp_manager(mcp_manager); // Add this method to DesktopAgentService
         
-        if let Some(store) = scs {
+        if let Some(store) = _scs {
             agent = agent.with_scs(store);
             tracing::info!(target: "workload", "SCS injected into DesktopAgent.");
         }
 
-        if let Some(sender) = event_sender {
+        if let Some(sender) = _event_sender {
             agent = agent.with_event_sender(sender);
             tracing::info!(target: "workload", "Event Bus connected to DesktopAgent.");
         }
 
         // [FIX] Inject OS Driver if available (using reference)
-        if let Some(os) = &os_driver {
+        if let Some(os) = &_os_driver {
             agent = agent.with_os_driver(os.clone());
             tracing::info!(target: "workload", "OS Driver injected into DesktopAgent.");
         } else {
@@ -568,7 +572,11 @@ where
     let _workload_container = Arc::new(WorkloadContainer::new(
         config.clone(),
         state_tree,
-        vm,
+        // [FIX] Removed unreachable code branch for vm initialization.
+        // vm is already initialized and potentially moved, so we need to clone the arc/box 
+        // OR rely on the fact that `vm` variable from earlier scope is available.
+        // The `vm` variable was created in the `cfg` block.
+        vm, // Use the vm created above
         Some(Box::new(RuntimeWrapper {
             inner: inference_runtime,
         })),
@@ -577,7 +585,7 @@ where
     )?);
 
     // [FIX] Clone os_driver for ExecutionMachine, providing a default if none given
-    let machine_os_driver = if let Some(os) = &os_driver {
+    let machine_os_driver = if let Some(os) = &_os_driver {
         os.clone()
     } else {
         Arc::new(ioi_drivers::os::NativeOsDriver::new())

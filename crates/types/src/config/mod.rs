@@ -177,8 +177,10 @@ fn default_inference_provider() -> String {
 pub struct ConnectorConfig {
     /// Whether the connector is enabled.
     pub enabled: bool,
-    /// The filename of the encrypted key in the certs directory (e.g. "openai_primary").
+    /// The filename of the encrypted key in the certs directory (e.g. "openai_primary.key").
     pub key_ref: String,
+    /// Optional endpoint or region override.
+    pub region: Option<String>,
 }
 
 /// Configuration for an external MCP server process.
@@ -257,6 +259,13 @@ pub struct WorkloadConfig {
     pub reasoning_inference: Option<InferenceConfig>,
 
     /// Connectors for secure egress (internal drivers).
+    /// Used by both Inference (OpenAI) and Provisioning (AWS, Akash).
+    ///
+    /// Example:
+    /// [connectors.aws_primary]
+    /// enabled = true
+    /// key_ref = "aws_access"
+    /// region = "us-east-1"
     #[serde(default)]
     pub connectors: HashMap<String, ConnectorConfig>,
 
@@ -386,6 +395,22 @@ pub fn default_service_policies() -> BTreeMap<String, ServicePolicy> {
         "penalties".to_string(),
         ServicePolicy {
             methods: pen_methods,
+            allowed_system_prefixes: vec![],
+        },
+    );
+    
+    // [NEW] Market Service
+    let mut market_methods = BTreeMap::new();
+    market_methods.insert("publish_asset@v1".into(), MethodPermission::User);
+    market_methods.insert("purchase_license@v1".into(), MethodPermission::User);
+    market_methods.insert("request_compute@v1".into(), MethodPermission::User);
+    market_methods.insert("settle_compute@v1".into(), MethodPermission::User);
+    market_methods.insert("deploy_agent@v1".into(), MethodPermission::User);
+
+    map.insert(
+        "market".to_string(),
+        ServicePolicy {
+            methods: market_methods,
             allowed_system_prefixes: vec![],
         },
     );

@@ -99,8 +99,10 @@ interface AgentStore {
   dismissTask: () => Promise<void>;
   showSpotlight: () => Promise<void>;
   hideSpotlight: () => Promise<void>;
+  
+  // [MODIFIED] Replaces showPill/resizePill with unified window management
+  resizeSpotlight: (width: number, height: number) => Promise<void>;
   showStudio: () => Promise<void>;
-  resizePill: (expanded: boolean) => Promise<void>;
   
   // Ghost Mode Actions
   addGhostStep: (step: GhostStep) => void;
@@ -146,8 +148,13 @@ export const useAgentStore = create<AgentStore>((set, get) => ({
 
   showSpotlight: async () => invoke("show_spotlight"),
   hideSpotlight: async () => invoke("hide_spotlight"),
+  
+  // [NEW] Consolidated Resizing Logic
+  resizeSpotlight: async (width: number, height: number) => {
+    await invoke("resize_spotlight", { width, height });
+  },
+
   showStudio: async () => invoke("show_studio"),
-  resizePill: async (expanded: boolean) => invoke("resize_pill", { expanded }),
 
   // Ghost Mode Implementation
   addGhostStep: (step) => set((state) => ({ ghostTrace: [...state.ghostTrace, step] })),

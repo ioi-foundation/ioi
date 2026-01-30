@@ -1,8 +1,8 @@
 // Path: crates/services/src/agentic/desktop/service/lifecycle.rs
 
 use super::DesktopAgentService;
-use crate::agentic::desktop::keys::{get_state_key, AGENT_POLICY_PREFIX};
-// [FIX] Removed missing keys
+use crate::agentic::desktop::keys::{get_state_key};
+// [FIX] Removed unused keys
 use crate::agentic::desktop::types::{
     AgentMode, AgentState, AgentStatus, PostMessageParams, ResumeAgentParams, SessionSummary, StartAgentParams,
 };

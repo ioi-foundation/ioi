@@ -1,11 +1,16 @@
 // Path: crates/services/src/agentic/scrubber/mod.rs
 
 use anyhow::Result;
-use dcrypt::algorithms::ByteSerializable; // Required for copy_from_slice
+// [FIX] Removed unused import
+// use dcrypt::algorithms::ByteSerializable;
 use ioi_api::vm::inference::LocalSafetyModel;
 use ioi_crypto::algorithms::hash::sha256;
 use ioi_types::app::{RedactionEntry, RedactionMap, RedactionType};
 use std::sync::Arc;
+// [FIX] Added import for copy_from_slice via ByteSerializable if needed, but array method works for u8 array copies.
+// Wait, if ByteSerializable was used for `copy_from_slice` on an array, we might need it or just rely on native `copy_from_slice` if it's a slice method.
+// Actually, `copy_from_slice` is a standard slice method. `ByteSerializable` is from `dcrypt` which might add it to other types.
+// Standard `[T]::copy_from_slice` works on `[u8; 32]`. 
 
 /// The Semantic Scrubber acts as the "Airlock" for data leaving the Orchestrator.
 /// It uses the local safety model to identify and redact sensitive information.

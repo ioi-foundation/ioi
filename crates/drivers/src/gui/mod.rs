@@ -15,13 +15,15 @@ use ioi_types::error::VmError;
 
 use self::accessibility::{MockSubstrateProvider, SovereignSubstrateProvider};
 use self::platform::NativeSubstrateProvider;
-use self::som::overlay_accessibility_tree;
+
+// [FIX] Removed unused import self::som::overlay_accessibility_tree
 
 use ioi_scs::SovereignContextStore;
 use ioi_types::app::KernelEvent;
 use std::sync::{Arc, Mutex};
 use tokio::sync::broadcast::Sender;
-use image::{load_from_memory, ImageFormat};
+// [FIX] Removed unused ImageFormat and load_from_memory
+// use image::{load_from_memory, ImageFormat};
 
 /// The concrete implementation of the IOI GUI Driver.
 /// This replaces the UI-TARS Electron app.

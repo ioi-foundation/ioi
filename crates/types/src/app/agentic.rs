@@ -1,8 +1,177 @@
 // Path: crates/types/src/app/agentic.rs
+
+use crate::app::action::ApprovalToken;
+use crate::app::AccountId;
 use parity_scale_codec::{Decode, Encode};
+use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
-use crate::app::action::ApprovalToken; 
-use schemars::JsonSchema; 
+
+// =============================================================================
+// MARKET LAYER: Assets & Licensing (The "Society")
+// =============================================================================
+
+/// The classification of the intelligence asset.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Encode, Decode)]
+pub enum AssetType {
+    /// A single executable capability (e.g., "Stripe Login").
+    Skill,
+    /// An autonomous worker with persona, tools, and policy (e.g., "Invoice Analyst").
+    Agent,
+    /// A coordinated graph of agents (e.g., "Finance Department").
+    Swarm,
+}
+
+/// A tradeable unit of intelligence.
+/// Wraps the specific manifest type for polymorphic storage in the Market Registry.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Encode, Decode)]
+pub enum IntelligenceAsset {
+    /// A single executable capability (e.g., "Stripe Login").
+    Skill(SkillManifest),
+    /// An autonomous worker with persona, tools, and policy (e.g., "Invoice Analyst").
+    Agent(AgentManifest),
+    /// A coordinated graph of agents (e.g., "Finance Department").
+    Swarm(SwarmManifest),
+}
+
+/// Represents a listing for a single atomic capability.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Encode, Decode)]
+pub struct SkillManifest {
+    /// Unique hash of the AgentMacro (definition + steps) stored in SCS.
+    pub skill_hash: [u8; 32],
+    /// Human-readable name (e.g. "Stripe Login v2").
+    pub name: String,
+    /// Detailed description of capabilities.
+    pub description: String,
+    /// The author/developer of this skill.
+    pub author: AccountId,
+    /// Price per license in Labor Gas (IOI Tokens).
+    pub price: u64,
+    /// Semantic tags for discovery (e.g. ["finance", "browser"]).
+    pub tags: Vec<String>,
+    /// Minimum compatible Kernel ABI version.
+    pub min_kernel_version: u32,
+    /// Version string (e.g., "1.0.2").
+    pub version: String,
+}
+
+// [NEW] Runtime Definitions for "Hyper-Agents"
+// This allows an agent to be more than just a prompt; it can be a full container.
+
+/// Defines the execution environment required by the agent.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Encode, Decode)]
+pub enum RuntimeEnvironment {
+    /// Standard IOI Sandbox (WASM + Native Drivers). Safe, fast, zero-setup.
+    Native,
+    /// A custom Docker container image.
+    /// Used for agents needing specific system libs (ffmpeg, python-pandas).
+    Docker {
+        /// The Content Identifier (CID) of the tarball/image on Filecoin/IPFS.
+        image_cid: String,
+        /// SHA-256 hash of the uncompressed image for verification.
+        image_hash: [u8; 32],
+        /// Entrypoint command.
+        entrypoint: Vec<String>,
+        /// Environment variables required (keys only, values from Vault).
+        required_env_vars: Vec<String>,
+    },
+    /// A Unikernel or VM image (e.g. Firecracker).
+    Unikernel {
+        /// The Content Identifier (CID) of the kernel image.
+        kernel_cid: String,
+        /// The Content Identifier (CID) of the initrd (optional).
+        initrd_cid: Option<String>,
+    },
+}
+
+/// Hardware requirements for the agent.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Encode, Decode)]
+pub struct ResourceRequirements {
+    /// Minimum VRAM in GB (for local models).
+    pub min_vram_gb: u32,
+    /// Minimum RAM in GB.
+    pub min_ram_gb: u32,
+    /// Number of vCPUs.
+    pub min_cpus: u32,
+    /// Network access requirements ("none", "public", "p2p-only").
+    pub network_access: String,
+    /// Preferred provider type (e.g. "akash", "aws", "any").
+    pub provider_preference: String,
+}
+
+/// Represents a listing for a fully configured autonomous worker.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Encode, Decode)]
+pub struct AgentManifest {
+    /// The human-readable name of the agent.
+    pub name: String,
+    /// A description of the agent's purpose and capabilities.
+    pub description: String,
+    /// The "Persona" or System Prompt template.
+    pub system_prompt: String,
+    /// Recommended model class (e.g., "gpt-4-turbo", "llama-3-70b").
+    pub model_selector: String,
+    /// List of Skill hashes this agent comes equipped with.
+    pub skills: Vec<[u8; 32]>,
+
+    // [NEW] Runtime & Resources
+    /// Defines HOW this agent runs (WASM vs Docker).
+    pub runtime: RuntimeEnvironment,
+    /// Defines WHERE this agent can run (Hardware constraints).
+    pub resources: ResourceRequirements,
+
+    /// Hash of the default safety policy (Firewall rules).
+    pub default_policy_hash: [u8; 32],
+    /// The author of this agent configuration.
+    pub author: AccountId,
+    /// Licensing fee (e.g., Hourly rate or One-time fee).
+    pub price: u64,
+    /// Semantic tags for discovery.
+    pub tags: Vec<String>,
+    /// The version string of the agent manifest.
+    pub version: String,
+}
+
+/// Represents a listing for a coordinated team of agents.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Encode, Decode)]
+pub struct SwarmManifest {
+    /// The human-readable name of the swarm.
+    pub name: String,
+    /// A description of the swarm's collective purpose.
+    pub description: String,
+    /// The agents that make up this swarm.
+    /// Key: Role Name (e.g. "Manager"), Value: AgentManifest Hash.
+    pub roster: Vec<(String, [u8; 32])>,
+    /// The delegation graph (Adjacency List).
+    /// e.g. ("Manager", "Researcher"), ("Manager", "Writer")
+    pub delegation_flow: Vec<(String, String)>,
+    /// The author/developer of this swarm configuration.
+    pub author: AccountId,
+    /// Licensing fee for the swarm.
+    pub price: u64,
+    /// Semantic tags for discovery.
+    pub tags: Vec<String>,
+    /// The version string of the swarm manifest.
+    pub version: String,
+}
+
+/// Proof of purchase for a specific intelligence asset.
+/// Required by the Kernel to load a remote skill or agent into the runtime.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Encode, Decode)]
+pub struct AssetLicense {
+    /// The unique hash of the asset being licensed.
+    pub asset_hash: [u8; 32],
+    /// The type of asset (Skill, Agent, Swarm).
+    pub asset_type: AssetType,
+    /// The account that purchased the license.
+    pub licensee: AccountId,
+    /// The block height when the license was purchased.
+    pub purchase_height: u64,
+    /// Expiry block height (0 = Permanent/Lifetime).
+    pub expiry: u64,
+}
+
+// =============================================================================
+// EXECUTION LAYER: Runtime & State (The "Mind")
+// =============================================================================
 
 /// The cryptographic proof that a distributed committee converged on a specific meaning.
 /// This forms the "Proof of Meaning" verified by Type A (Consensus) validators.
@@ -75,13 +244,15 @@ pub struct RedactionMap {
 pub struct ChatMessage {
     /// The entity that generated the message: "user", "agent", "system", "tool".
     pub role: String,
-    
+
     /// The text content of the message (input prompt, thought, or tool output).
+    /// Note: mapped to `text` in some UI contexts.
+    #[serde(alias = "content")]
     pub content: String,
-    
+
     /// UNIX timestamp (milliseconds) when the message was created.
     pub timestamp: u64,
-    
+
     /// Optional: The hash of the specific execution trace step this message corresponds to.
     /// This allows linking the conversation view back to the high-resolution Audit Log.
     pub trace_hash: Option<[u8; 32]>,
@@ -108,15 +279,15 @@ pub struct LlmToolDefinition {
 pub struct AgentMacro {
     /// The definition of the tool (interface).
     pub definition: LlmToolDefinition,
-    
+
     /// The sequence of atomic actions to execute when this tool is called.
     /// The `params` in these requests are templates (e.g. "{{url}}") that are interpolated
     /// with the arguments provided by the LLM at runtime.
     pub steps: Vec<crate::app::ActionRequest>,
-    
+
     /// The hash of the session/trace that generated this skill (Provenance).
     pub source_trace_hash: [u8; 32],
-    
+
     /// The fitness score of this skill (Evolutionary quality).
     pub fitness: f32,
 }
@@ -131,7 +302,7 @@ pub struct InferenceOptions {
     /// Controls randomness in output generation.
     pub temperature: f32,
 
-    /// [NEW] Enforce valid JSON output (e.g., OpenAI "json_object" mode).
+    /// Enforce valid JSON output (e.g., OpenAI "json_object" mode).
     /// This ensures the model output can be parsed even if it includes Chain-of-Thought
     /// embedded within JSON fields (e.g., "thought": "...").
     #[serde(default)]
@@ -171,7 +342,7 @@ pub struct StepTrace {
     pub success: bool,
     /// Error message if the step failed.
     pub error: Option<String>,
-    
+
     // [NEW] Evolutionary Fields (The Reward Signal)
     /// The economic cost (Labor Gas) incurred for this specific step.
     pub cost_incurred: u64,
@@ -190,10 +361,10 @@ pub struct ResumeAgentParams {
     pub session_id: [u8; 32],
     /// Optional approval token to unblock a gated action.
     /// If provided, this token authorizes the action that caused the pause.
-    pub approval_token: Option<ApprovalToken>, 
+    pub approval_token: Option<ApprovalToken>,
 }
 
-/// [NEW] Configuration for the "Law" (Firewall) of an agent.
+/// Configuration for the "Law" (Firewall) of an agent.
 /// Defines the hard constraints and liabilities.
 #[derive(Debug, Clone, Serialize, Deserialize, Encode, Decode, Default)]
 pub struct FirewallPolicy {
@@ -218,12 +389,10 @@ pub struct SemanticFact {
     pub predicate: String,
     /// The value/object (e.g., "50_USD").
     pub object: String,
-    // Note: We don't store context_hash here typically, as the Fact is embedded *into* the Index
-    // which points to the Frame.
 }
 
 // -----------------------------------------------------------------------------
-// [NEW] Type-Safe Agent Tools (Phase 4)
+// NATIVE DRIVER LAYER: Type-Safe Tools
 // -----------------------------------------------------------------------------
 
 /// The single source of truth for all Agent Capabilities.
@@ -236,45 +405,45 @@ pub enum AgentTool {
 
     /// Writes content to a file.
     #[serde(rename = "filesystem__write_file")]
-    FsWrite { 
+    FsWrite {
         /// Path to the file.
-        path: String, 
+        path: String,
         /// Content to write.
-        content: String 
+        content: String,
     },
 
     /// Reads content from a file.
     #[serde(rename = "filesystem__read_file")]
-    FsRead { 
+    FsRead {
         /// Path to the file.
-        path: String 
+        path: String,
     },
-    
+
     /// Lists directory contents.
     #[serde(rename = "filesystem__list_directory")]
-    FsList { 
+    FsList {
         /// Path to the directory.
-        path: String 
+        path: String,
     },
 
     /// Executes a system command.
     #[serde(rename = "sys__exec")]
-    SysExec { 
+    SysExec {
         /// Command to execute.
-        command: String, 
+        command: String,
         /// Arguments for the command.
         #[serde(default)]
-        args: Vec<String>, 
+        args: Vec<String>,
         /// Whether to detach the process.
         #[serde(default)]
-        detach: bool 
+        detach: bool,
     },
 
     /// Navigates the browser to a URL.
     #[serde(rename = "browser__navigate")]
-    BrowserNavigate { 
+    BrowserNavigate {
         /// URL to navigate to.
-        url: String 
+        url: String,
     },
 
     /// Extracts content from the browser.
@@ -283,71 +452,71 @@ pub enum AgentTool {
 
     /// Clicks an element in the browser.
     #[serde(rename = "browser__click")]
-    BrowserClick { 
+    BrowserClick {
         /// CSS selector of element to click.
-        selector: String 
+        selector: String,
     },
 
     /// Legacy GUI click tool.
     #[serde(rename = "gui__click")]
-    GuiClick { 
+    GuiClick {
         /// X coordinate.
-        x: u32, 
+        x: u32,
         /// Y coordinate.
-        y: u32, 
+        y: u32,
         /// Mouse button (left/right/middle).
-        button: Option<String> 
+        button: Option<String>,
     },
 
     /// Legacy GUI typing tool.
     #[serde(rename = "gui__type")]
-    GuiType { 
+    GuiType {
         /// Text to type.
-        text: String 
+        text: String,
     },
 
     /// Sends a reply in the chat.
     #[serde(rename = "chat__reply")]
-    ChatReply { 
+    ChatReply {
         /// Message content.
-        message: String 
+        message: String,
     },
-    
+
     /// Meta Tool: Delegates a task to a sub-agent.
     #[serde(rename = "agent__delegate")]
-    AgentDelegate { 
+    AgentDelegate {
         /// Goal for the sub-agent.
-        goal: String, 
+        goal: String,
         /// Budget allocated.
-        budget: u64 
+        budget: u64,
     },
-    
+
     /// Meta Tool: Awaits result from a sub-agent.
     #[serde(rename = "agent__await_result")]
-    AgentAwait { 
+    AgentAwait {
         /// Session ID of the child agent.
-        child_session_id_hex: String 
+        child_session_id_hex: String,
     },
-    
+
     /// Meta Tool: Pauses execution.
     #[serde(rename = "agent__pause")]
-    AgentPause { 
+    AgentPause {
         /// Reason for pausing.
-        reason: String 
+        reason: String,
     },
-    
+
     /// Meta Tool: Completes the task.
     #[serde(rename = "agent__complete")]
-    AgentComplete { 
+    AgentComplete {
         /// Final result description.
-        result: String 
+        result: String,
     },
-    
+
     /// Commerce Tool: Initiates a checkout.
     #[serde(rename = "commerce__checkout")]
-    CommerceCheckout { 
+    CommerceCheckout {
         /// Merchant URL.
-        merchant_url: String, 
+        merchant_url: String,
         /// Items to purchase.
         items: Vec<CommerceItem>,
         /// Total amount.
@@ -355,7 +524,7 @@ pub enum AgentTool {
         /// Currency code.
         currency: String,
         /// Buyer email address.
-        buyer_email: Option<String>
+        buyer_email: Option<String>,
     },
 
     /// Catch-all for dynamic/unknown tools (e.g. MCP extensions) not yet strictly typed
@@ -378,36 +547,36 @@ pub struct CommerceItem {
 pub enum ComputerAction {
     /// Type text.
     #[serde(rename = "type")]
-    Type { 
+    Type {
         /// Text to type.
-        text: String 
+        text: String,
     },
-    
+
     /// Press a key.
     #[serde(rename = "key")]
-    Key { 
+    Key {
         /// Key name.
-        text: String 
+        text: String,
     },
 
     /// Move mouse cursor.
-    MouseMove { 
+    MouseMove {
         /// Coordinates [x, y].
-        coordinate: [u32; 2] 
+        coordinate: [u32; 2],
     },
-    
+
     /// Click left mouse button.
     LeftClick,
-    
+
     /// Click and drag.
-    LeftClickDrag { 
+    LeftClickDrag {
         /// Coordinates [x, y].
-        coordinate: [u32; 2] 
+        coordinate: [u32; 2],
     },
-    
+
     /// Take a screenshot.
     Screenshot,
-    
+
     /// Get cursor position.
     CursorPosition,
 }
@@ -419,43 +588,56 @@ impl AgentTool {
         match self {
             AgentTool::FsWrite { .. } => crate::app::ActionTarget::FsWrite,
             AgentTool::FsRead { .. } | AgentTool::FsList { .. } => crate::app::ActionTarget::FsRead,
-            
+
             AgentTool::SysExec { .. } => crate::app::ActionTarget::SysExec,
-            
+
             AgentTool::BrowserNavigate { .. } => crate::app::ActionTarget::BrowserNavigate,
             AgentTool::BrowserExtract => crate::app::ActionTarget::BrowserExtract,
-            AgentTool::BrowserClick { .. } => crate::app::ActionTarget::Custom("browser::click".into()), // Not a standard target yet
+            AgentTool::BrowserClick { .. } => {
+                crate::app::ActionTarget::Custom("browser::click".into())
+            }
 
             AgentTool::GuiClick { .. } => crate::app::ActionTarget::GuiClick,
             AgentTool::GuiType { .. } => crate::app::ActionTarget::GuiType,
-            
-            // [FIX] Changed from "chat::reply" to "chat__reply" to match policy rule
+
             AgentTool::ChatReply { .. } => crate::app::ActionTarget::Custom("chat__reply".into()),
 
             AgentTool::Computer(action) => match action {
-                ComputerAction::Type { .. } | ComputerAction::Key { .. } => crate::app::ActionTarget::GuiType,
+                ComputerAction::Type { .. } | ComputerAction::Key { .. } => {
+                    crate::app::ActionTarget::GuiType
+                }
                 ComputerAction::MouseMove { .. } => crate::app::ActionTarget::GuiMouseMove,
                 ComputerAction::LeftClick => crate::app::ActionTarget::GuiClick,
-                ComputerAction::LeftClickDrag { .. } => crate::app::ActionTarget::GuiClick, 
+                ComputerAction::LeftClickDrag { .. } => crate::app::ActionTarget::GuiClick,
                 ComputerAction::Screenshot => crate::app::ActionTarget::GuiScreenshot,
-                ComputerAction::CursorPosition => crate::app::ActionTarget::Custom("computer::cursor".into()),
+                ComputerAction::CursorPosition => {
+                    crate::app::ActionTarget::Custom("computer::cursor".into())
+                }
             },
-            
+
             AgentTool::CommerceCheckout { .. } => crate::app::ActionTarget::CommerceCheckout,
 
             // Meta-tools map to custom targets
-            AgentTool::AgentDelegate { .. } => crate::app::ActionTarget::Custom("agent__delegate".into()),
-            AgentTool::AgentAwait { .. } => crate::app::ActionTarget::Custom("agent__await_result".into()),
-            AgentTool::AgentPause { .. } => crate::app::ActionTarget::Custom("agent__pause".into()),
-            AgentTool::AgentComplete { .. } => crate::app::ActionTarget::Custom("agent__complete".into()),
-            
+            AgentTool::AgentDelegate { .. } => {
+                crate::app::ActionTarget::Custom("agent__delegate".into())
+            }
+            AgentTool::AgentAwait { .. } => {
+                crate::app::ActionTarget::Custom("agent__await_result".into())
+            }
+            AgentTool::AgentPause { .. } => {
+                crate::app::ActionTarget::Custom("agent__pause".into())
+            }
+            AgentTool::AgentComplete { .. } => {
+                crate::app::ActionTarget::Custom("agent__complete".into())
+            }
+
             AgentTool::Dynamic(val) => {
-                 // Try to infer name if possible, else unknown
-                 if let Some(name) = val.get("name").and_then(|n| n.as_str()) {
-                     crate::app::ActionTarget::Custom(name.to_string())
-                 } else {
-                     crate::app::ActionTarget::Custom("unknown".into())
-                 }
+                // Try to infer name if possible, else unknown
+                if let Some(name) = val.get("name").and_then(|n| n.as_str()) {
+                    crate::app::ActionTarget::Custom(name.to_string())
+                } else {
+                    crate::app::ActionTarget::Custom("unknown".into())
+                }
             }
         }
     }

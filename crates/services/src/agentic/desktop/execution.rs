@@ -9,7 +9,7 @@ use tokio::sync::broadcast::Sender;
 
 use ioi_drivers::mcp::McpManager;
 use ioi_types::app::agentic::{AgentMacro, AgentTool, ComputerAction};
-use ioi_types::app::ActionTarget;
+// Removed unused ActionTarget import
 
 pub struct ToolExecutionResult {
     pub success: bool,
@@ -76,19 +76,7 @@ impl ToolExecutor {
                     }
                 }
                 ComputerAction::LeftClick => {
-                    // Click at current position (requires keeping track or explicit coords).
-                    // Schema usually implies clicking AT a location or current. 
-                    // To imply current location, we might need state.
-                    // However, `ComputerAction` usually comes with coords for robustness.
-                    // If no coords, we assume current.
-                    // For safety, we map this to a generic click or error if coords needed.
-                    // Let's assume LeftClick implies current position logic which we don't track here,
-                    // OR the schema provided coords in a previous move.
-                    // Better: The schema usually has `LeftClick` as an action, maybe with coords.
-                    // Our Enum `ComputerAction` defined `LeftClick` as unit variant.
-                    // We'll treat it as "Click at current" which involves a simplified inject.
-                    // Actually, `InputEvent::Click` needs X/Y. 
-                    // We'll error for now or assume 0,0 (safe fail).
+                    // Click at current position logic omitted for brevity
                     error = Some("LeftClick without coordinates not fully supported in stateless executor.".into());
                 }
                 ComputerAction::LeftClickDrag { coordinate } => {

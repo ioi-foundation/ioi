@@ -4,11 +4,10 @@ use super::DesktopAgentService;
 use crate::agentic::desktop::keys::{TRACE_PREFIX, SKILL_INDEX_PREFIX};
 use crate::agentic::desktop::types::{AgentState, AgentStatus};
 use ioi_api::state::StateAccess;
-use ioi_api::vm::inference::InferenceRuntime;
-use ioi_types::app::agentic::{AgentSkill, LlmToolDefinition, StepTrace, SemanticFact, InferenceOptions}; 
+// [FIX] Removed unused ByteSerializable
+use ioi_types::app::agentic::{AgentSkill, StepTrace, SemanticFact}; 
 use ioi_types::codec;
 use ioi_types::error::TransactionError;
-use std::sync::Arc;
 use ioi_scs::FrameType;
 use ioi_types::app::agentic::ChatMessage;
 use crate::agentic::normaliser::OutputNormaliser; 
@@ -194,7 +193,7 @@ impl DesktopAgentService {
         context_str
     }
 
-    pub(crate) fn select_runtime(&self, state: &AgentState) -> Arc<dyn InferenceRuntime> {
+    pub(crate) fn select_runtime(&self, state: &AgentState) -> std::sync::Arc<dyn ioi_api::vm::inference::InferenceRuntime> {
         if state.consecutive_failures > 0 {
             return self.reasoning_inference.clone();
         }
@@ -205,7 +204,7 @@ impl DesktopAgentService {
             Some("gui__click") | Some("gui__type") => {
                 // [FIX] Only use fast_inference if it's NOT the Mock runtime (unless reasoning is also mock)
                 // We assume if they are the same Arc pointer, it's the same config
-                if Arc::ptr_eq(&self.fast_inference, &self.reasoning_inference) {
+                if std::sync::Arc::ptr_eq(&self.fast_inference, &self.reasoning_inference) {
                     self.fast_inference.clone()
                 } else {
                     // In a real impl, we might check a "ready" flag. 
@@ -228,7 +227,7 @@ impl DesktopAgentService {
             text.replace('"', "\\\"")
         );
 
-        let options = InferenceOptions {
+        let options = ioi_types::app::agentic::InferenceOptions {
             temperature: 0.0, 
             ..Default::default()
         };
@@ -381,20 +380,6 @@ impl DesktopAgentService {
     }
 }
 
-pub(crate) fn merge_tools(
-    base: Vec<LlmToolDefinition>,
-    extra: Vec<LlmToolDefinition>,
-) -> Vec<LlmToolDefinition> {
-    let mut map = std::collections::HashMap::new();
-    for t in base {
-        map.insert(t.name.clone(), t);
-    }
-    for t in extra {
-        map.insert(t.name.clone(), t);
-    }
-    map.into_values().collect()
-}
-
 pub fn goto_trace_log(
     agent_state: &mut AgentState,
     state: &mut dyn StateAccess,
@@ -416,6 +401,7 @@ pub fn goto_trace_log(
         raw_output: output_str,
         success: action_success,
         error: action_error.clone(),
+        // [FIX] Initialize new evolutionary fields
         cost_incurred: 0,
         fitness_score: None,
         timestamp: SystemTime::now()
@@ -447,6 +433,7 @@ pub fn goto_trace_log(
     if agent_state.step_count >= agent_state.max_steps && agent_state.status == AgentStatus::Running {
         agent_state.status = AgentStatus::Completed(None);
         
+        // Emit completion event so UI knows to stop when max steps reached
         if let Some(tx) = &event_sender {
              let _ = tx.send(KernelEvent::AgentActionResult {
                  session_id: session_id, 
@@ -459,23 +446,4 @@ pub fn goto_trace_log(
 
     state.insert(key, &codec::to_bytes_canonical(&agent_state)?)?;
     Ok(())
-}
-
-pub fn compute_phash(image_bytes: &[u8]) -> Result<[u8; 32], TransactionError> {
-    use image::load_from_memory;
-    use image_hasher::{HashAlg, HasherConfig};
-    use dcrypt::algorithms::ByteSerializable;
-
-    let img = load_from_memory(image_bytes)
-        .map_err(|e| TransactionError::Invalid(format!("Image decode failed: {}", e)))?;
-    let hasher = HasherConfig::new()
-        .hash_alg(HashAlg::Gradient)
-        .to_hasher();
-    let hash = hasher.hash_image(&img);
-    let hash_bytes = hash.as_bytes();
-
-    let mut out = [0u8; 32];
-    let len = hash_bytes.len().min(32);
-    out[..len].copy_from_slice(&hash_bytes[..len]);
-    Ok(out)
 }
