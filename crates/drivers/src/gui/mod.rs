@@ -13,17 +13,18 @@ use ioi_api::vm::drivers::gui::{GuiDriver, InputEvent};
 use ioi_types::app::{ActionRequest, ContextSlice};
 use ioi_types::error::VmError;
 
-use self::accessibility::{MockSubstrateProvider, SovereignSubstrateProvider};
+use self::accessibility::{MockSubstrateProvider, SovereignSubstrateProvider, Rect};
 use self::platform::NativeSubstrateProvider;
 
-// [FIX] Removed unused import self::som::overlay_accessibility_tree
+use self::som::overlay_accessibility_tree;
 
 use ioi_scs::SovereignContextStore;
 use ioi_types::app::KernelEvent;
 use std::sync::{Arc, Mutex};
 use tokio::sync::broadcast::Sender;
-// [FIX] Removed unused ImageFormat and load_from_memory
-// use image::{load_from_memory, ImageFormat};
+use image::{load_from_memory, ImageFormat};
+use std::io::Cursor;
+use std::collections::HashMap;
 
 /// The concrete implementation of the IOI GUI Driver.
 /// This replaces the UI-TARS Electron app.
@@ -32,6 +33,8 @@ pub struct IoiGuiDriver {
     substrate: Box<dyn SovereignSubstrateProvider + Send + Sync>,
     // [NEW] Flag to enable visual grounding overlay
     enable_som: bool,
+    // [NEW] Cache for SoM ID -> Rect mapping
+    som_cache: Arc<Mutex<HashMap<u32, Rect>>>,
 }
 
 impl IoiGuiDriver {
@@ -45,6 +48,7 @@ impl IoiGuiDriver {
             operator: NativeOperator::new(),
             substrate,
             enable_som: false, // Disabled by default for clean screenshots
+            som_cache: Arc::new(Mutex::new(HashMap::new())),
         }
     }
 
@@ -72,58 +76,53 @@ impl GuiDriver for IoiGuiDriver {
     async fn capture_screen(&self) -> Result<Vec<u8>, VmError> {
         let enable_som = self.enable_som;
 
-        // Offload to a blocking thread when a Tokio runtime is available.
-        if let Ok(handle) = tokio::runtime::Handle::try_current() {
-             // We need to clone the substrate to use inside spawn_blocking if we want to fetch the tree there.
-             // However, `substrate` is a Box<dyn Trait>, not easily cloneable without `dyn Clone`.
-             // For now, we capture raw screen first, then if SOM is enabled, we fetch tree (async) and modify.
-             
-             // 1. Capture Raw Screenshot (Blocking OS Call)
-             let raw_bytes = handle
+        // 1. Capture Raw Screenshot (Blocking OS Call)
+        // Offload to blocking thread when a Tokio runtime is available.
+        let raw_bytes = if let Ok(handle) = tokio::runtime::Handle::try_current() {
+            handle
                 .spawn_blocking(|| {
                     NativeVision::capture_primary()
                         .map_err(|e| VmError::HostError(format!("Vision failure: {}", e)))
                 })
                 .await
-                .map_err(|e| VmError::HostError(format!("Task join error: {}", e)))??;
+                .map_err(|e| VmError::HostError(format!("Task join error: {}", e)))??
+        } else {
+            // Fallback for non-Tokio worker threads (e.g., parallel execution pool).
+            NativeVision::capture_primary()
+                .map_err(|e| VmError::HostError(format!("Vision failure: {}", e)))?
+        };
 
-            if enable_som {
-                // 2. Fetch Accessibility Tree (Async)
-                // We use a dummy request to access the tree fetching logic in the provider.
-                // In a cleaner refactor, `fetch_os_tree` would be exposed directly on the driver struct.
-                // Here we rely on `capture_tree` which calls `capture_context`.
-                // Actually, `NativeSubstrateProvider` has `fetch_os_tree` but it's private.
-                // We will use `capture_tree` to get the XML, but that's serialised.
-                // 
-                // BETTER: Just use the platform specific fetch directly here if we are native.
-                // But we abstracted that away.
-                //
-                // Workaround: We proceed without SOM overlay in this specific call path if architectural
-                // constraints prevent easy access to the raw tree object.
-                // 
-                // Correction: The `drivers` crate has access to `platform::fetch_tree` (via re-exports or module visibility).
-                // Let's assume we can call the platform fetcher directly if we are on the native driver.
-                //
-                // Since `platform::fetch_tree` returns `AccessibilityNode`, we can use it.
-                // It is async on Linux, sync on Windows. 
-                // `NativeSubstrateProvider` handles this difference.
-                //
-                // For simplicity in this implementation step, we only apply SOM if we can easily get the tree.
-                // Let's assume we skip SOM for the `capture_screen` raw API to keep it clean, 
-                // and agents who want SOM use a dedicated tool/method or we modify this logic later
-                // to call the async tree fetcher.
-                
-                // [TODO] Implement SOM overlay logic here by decoding PNG, fetching tree, drawing, re-encoding.
-                // For now, return raw to satisfy trait signature without heavy re-architecture.
-                return Ok(raw_bytes);
-            }
-            
+        if !enable_som {
             return Ok(raw_bytes);
         }
 
-        // Fallback for non-Tokio worker threads (e.g., parallel execution pool).
-        NativeVision::capture_primary()
-            .map_err(|e| VmError::HostError(format!("Vision failure: {}", e)))
+        // 2. Fetch Accessibility Tree (Async)
+        // [FIX] Correct module path: 'crate' refers to the root of 'ioi-drivers'
+        // Since we are in 'gui/mod.rs', 'platform' is a submodule of 'gui'.
+        // So we access it via `self::platform` or `crate::gui::platform`.
+        let tree = self::platform::fetch_tree_direct().await
+            .map_err(|e| VmError::HostError(format!("Failed to fetch tree for SoM: {}", e)))?;
+
+        // 3. Render Overlay
+        let mut img = load_from_memory(&raw_bytes)
+            .map_err(|e| VmError::HostError(format!("Image decode failed: {}", e)))?
+            .to_rgba8();
+
+        // [NEW] Get map back from overlay function
+        let map = overlay_accessibility_tree(&mut img, &tree);
+        
+        // [NEW] Update cache
+        {
+            let mut cache = self.som_cache.lock().unwrap();
+            *cache = map;
+        }
+
+        // 4. Encode back to PNG
+        let mut out_bytes: Vec<u8> = Vec::new();
+        img.write_to(&mut Cursor::new(&mut out_bytes), ImageFormat::Png)
+            .map_err(|e| VmError::HostError(format!("Image re-encoding failed: {}", e)))?;
+
+        Ok(out_bytes)
     }
 
     async fn capture_tree(&self) -> Result<String, VmError> {
@@ -169,6 +168,19 @@ impl GuiDriver for IoiGuiDriver {
         match op {
             Ok(_) => Ok(()),
             Err(e) => Err(VmError::HostError(format!("Input injection failed: {}", e))),
+        }
+    }
+
+    // [NEW] Implementation
+    async fn get_element_center(&self, id: u32) -> Result<Option<(u32, u32)>, VmError> {
+        let cache = self.som_cache.lock().unwrap();
+        if let Some(rect) = cache.get(&id) {
+            let cx = rect.x + (rect.width / 2);
+            let cy = rect.y + (rect.height / 2);
+            // Ensure non-negative
+            Ok(Some((cx.max(0) as u32, cy.max(0) as u32)))
+        } else {
+            Ok(None)
         }
     }
 }

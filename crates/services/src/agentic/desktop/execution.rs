@@ -1,7 +1,7 @@
 // Path: crates/services/src/agentic/desktop/execution.rs
 
-use ioi_api::vm::drivers::gui::{GuiDriver, InputEvent, MouseButton as ApiButton};
-use ioi_drivers::browser::BrowserDriver;
+use ioi_api::vm::drivers::gui::{GuiDriver, InputEvent, AtomicInput, MouseButton as ApiButton};
+use ioi_drivers::browser::{BrowserDriver, BrowserError}; // Added BrowserError import
 use ioi_drivers::terminal::TerminalDriver;
 use ioi_types::app::KernelEvent;
 use std::sync::Arc;
@@ -9,7 +9,16 @@ use tokio::sync::broadcast::Sender;
 
 use ioi_drivers::mcp::McpManager;
 use ioi_types::app::agentic::{AgentMacro, AgentTool, ComputerAction};
-// Removed unused ActionTarget import
+
+/// Helper to safely truncate strings by character count (not bytes) to avoid UTF-8 panics.
+fn safe_truncate(s: &str, max_chars: usize) -> String {
+    let mut chars = s.chars();
+    let mut result: String = chars.by_ref().take(max_chars).collect();
+    if chars.next().is_some() {
+        result.push_str("...");
+    }
+    result
+}
 
 pub struct ToolExecutionResult {
     pub success: bool,
@@ -61,13 +70,34 @@ impl ToolExecutor {
         let mut error = None;
         let mut history_entry = None;
 
-        // [NOTE] Macro execution logic would need to be adapted here if macros are 
-        // represented in the AgentTool enum (e.g. AgentTool::Custom or AgentTool::Macro).
-        // For Phase 4 Alpha, we focus on the core native tools.
-
         match tool {
             // --- Computer Use (Meta-Tool) ---
             AgentTool::Computer(action) => match action {
+                ComputerAction::LeftClickId { id } => {
+                    // Resolve ID to Coords using the GuiDriver interface
+                    match self.gui.get_element_center(id).await {
+                        Ok(Some((x, y))) => {
+                            // Inject Move + Click
+                            match self.gui.inject_input(InputEvent::MouseMove { x, y }).await {
+                                Ok(_) => {
+                                    // Click
+                                    match self.gui.inject_input(InputEvent::Click { 
+                                        button: ApiButton::Left, x, y, expected_visual_hash: Some(visual_phash) 
+                                    }).await {
+                                        Ok(_) => {
+                                            success = true;
+                                            history_entry = Some(format!("Clicked Element ID #{} at ({}, {})", id, x, y));
+                                        },
+                                        Err(e) => error = Some(format!("Click failed: {}", e))
+                                    }
+                                },
+                                Err(e) => error = Some(format!("Approach move failed: {}", e))
+                            }
+                        },
+                        Ok(None) => error = Some(format!("Element ID {} not found in current visual state. Screen may have changed.", id)),
+                        Err(e) => error = Some(format!("Failed to resolve element ID: {}", e))
+                    }
+                },
                 ComputerAction::MouseMove { coordinate } => {
                     let [x, y] = coordinate;
                     match self.gui.inject_input(InputEvent::MouseMove { x, y }).await {
@@ -75,21 +105,49 @@ impl ToolExecutor {
                         Err(e) => error = Some(e.to_string())
                     }
                 }
-                ComputerAction::LeftClick => {
-                    // Click at current position logic omitted for brevity
-                    error = Some("LeftClick without coordinates not fully supported in stateless executor.".into());
+                
+                // [FIX] Handle LeftClick with optional coordinates
+                ComputerAction::LeftClick { coordinate } => {
+                    if let Some([x, y]) = coordinate {
+                        // Stateless: Explicit Move then Click
+                        match self.gui.inject_input(InputEvent::MouseMove { x, y }).await {
+                            Ok(_) => {
+                                match self.gui.inject_input(InputEvent::Click { 
+                                    button: ApiButton::Left, x, y, expected_visual_hash: Some(visual_phash) 
+                                }).await {
+                                    Ok(_) => { success = true; history_entry = Some(format!("Clicked at ({}, {})", x, y)); }
+                                    Err(e) => error = Some(e.to_string())
+                                }
+                            },
+                            Err(e) => error = Some(format!("Failed to move to coords: {}", e))
+                        }
+                    } else {
+                        // Stateful: Click at current position (requires driver support or 0,0 hack if relative)
+                        error = Some("Stateless execution requires explicit coordinates for 'left_click'.".into());
+                    }
                 }
+                
+                // [MODIFIED] Use AtomicSequence for Drag
                 ComputerAction::LeftClickDrag { coordinate } => {
                      let [x, y] = coordinate;
-                     match self.gui.inject_input(InputEvent::MouseDown { button: ApiButton::Left, x, y }).await {
+                     
+                     let sequence = vec![
+                         AtomicInput::MouseDown { button: ApiButton::Left },
+                         AtomicInput::Wait { millis: 50 }, // Debounce
+                         AtomicInput::MouseMove { x, y },
+                         AtomicInput::Wait { millis: 50 }, // Debounce
+                         AtomicInput::MouseUp { button: ApiButton::Left },
+                     ];
+
+                     match self.gui.inject_input(InputEvent::AtomicSequence(sequence)).await {
                          Ok(_) => {
-                              let _ = self.gui.inject_input(InputEvent::MouseUp { button: ApiButton::Left, x, y }).await;
                               success = true;
-                              history_entry = Some(format!("Drag at {}, {}", x, y));
+                              history_entry = Some(format!("Dragged to ({}, {})", x, y));
                          },
                          Err(e) => error = Some(e.to_string())
                     }
                 }
+                
                 ComputerAction::Type { text } => {
                     match self.gui.inject_input(InputEvent::Type { text: text.clone() }).await {
                         Ok(_) => { success = true; history_entry = Some(format!("Typed: {}", text)); }
@@ -111,7 +169,7 @@ impl ToolExecutor {
                     history_entry = Some("Cursor position query [Mock]".to_string());
                 }
             },
-
+            
             // --- GUI Legacy ---
             AgentTool::GuiClick { x, y, button } => {
                 let btn = match button.as_deref() {
@@ -140,11 +198,8 @@ impl ToolExecutor {
                 match self.terminal.execute(&command, &args, detach).await {
                     Ok(output) => {
                         success = true;
-                        let safe_output: String = if output.len() > 1000 {
-                            format!("{}... (truncated)", &output[..1000])
-                        } else {
-                            output
-                        };
+                        // [FIX] Use safe_truncate for output preview
+                        let safe_output = safe_truncate(&output, 1000);
                         history_entry = Some(format!("System Output: {}", safe_output));
 
                         if let Some(tx) = &self.event_sender {
@@ -165,12 +220,8 @@ impl ToolExecutor {
                 match self.browser.navigate(&url).await {
                     Ok(content) => {
                         success = true;
-                        let content_len = content.len();
-                        let preview = if content_len > 300 { 
-                            format!("{}...", &content[..300]) 
-                        } else { 
-                            content 
-                        };
+                        // [FIX] Use safe_truncate
+                        let preview = safe_truncate(&content, 300);
                         history_entry = Some(format!("Navigated to {}. Preview: {}", url, preview));
                         
                         if let Some(tx) = &self.event_sender {
@@ -178,14 +229,15 @@ impl ToolExecutor {
                                 session_id,
                                 step_index,
                                 tool_name: "browser__navigate".to_string(),
-                                output: format!("Navigated to {}. Len: {}", url, content_len),
+                                output: format!("Navigated to {}. Len: {}", url, content.len()),
                             });
                         }
                     }
                     Err(e) => error = Some(e.to_string()),
                 }
             }
-            AgentTool::BrowserExtract => {
+            
+            AgentTool::BrowserExtract {} => {
                  match self.browser.extract_dom().await {
                     Ok(content) => {
                         success = true;
@@ -199,9 +251,40 @@ impl ToolExecutor {
                             });
                         }
                     }
+                    Err(BrowserError::NoActivePage) => {
+                        // [FIX] Auto-Repair Logic
+                        // If no page is open, navigate to about:blank and try again once.
+                        match self.browser.navigate("about:blank").await {
+                            Ok(_) => match self.browser.extract_dom().await {
+                                Ok(content) => {
+                                    success = true;
+                                    history_entry = Some(format!(
+                                        "Auto-repaired (opened about:blank), then extracted DOM ({} chars)",
+                                        content.len()
+                                    ));
+                                    
+                                    if let Some(tx) = &self.event_sender {
+                                        let _ = tx.send(KernelEvent::AgentActionResult {
+                                            session_id,
+                                            step_index,
+                                            tool_name: "browser__extract".to_string(),
+                                            output: format!("Auto-repaired (opened about:blank). Extracted {} chars", content.len()),
+                                        });
+                                    }
+                                }
+                                Err(e2) => {
+                                    error = Some(format!("BrowserExtract failed after auto-repair: {}", e2));
+                                }
+                            },
+                            Err(e_nav) => {
+                                error = Some(format!("Auto-repair failed to open about:blank: {}", e_nav));
+                            }
+                        }
+                    }
                     Err(e) => error = Some(e.to_string()),
                 }
             }
+            
             AgentTool::BrowserClick { selector } => {
                  match self.browser.click_selector(&selector).await {
                     Ok(_) => {
@@ -212,7 +295,6 @@ impl ToolExecutor {
                 }
             }
 
-            // --- Chat ---
             AgentTool::ChatReply { message } => {
                 success = true;
                 history_entry = Some(format!("Replied: {}", message));
@@ -220,23 +302,19 @@ impl ToolExecutor {
                     let _ = tx.send(KernelEvent::AgentActionResult {
                         session_id,
                         step_index,
-                        // [FIX] Ensure consistent tool name "chat__reply"
                         tool_name: "chat__reply".to_string(), 
                         output: message,
                     });
                 }
             }
 
-            // --- Filesystem ---
             AgentTool::FsWrite { path, content } => {
-                 // In Phase 4, we'd use a virtual filesystem driver. 
-                 // For now we map to std::fs with sandbox checks (handled by policy, but driver enforcement here).
-                 // Simple impl:
                  match std::fs::write(&path, content) {
                      Ok(_) => { success = true; history_entry = Some(format!("Wrote to {}", path)); }
                      Err(e) => error = Some(e.to_string())
                  }
             }
+
             AgentTool::FsRead { path } => {
                  match std::fs::read_to_string(&path) {
                      Ok(c) => { 
@@ -254,6 +332,7 @@ impl ToolExecutor {
                      Err(e) => error = Some(e.to_string())
                  }
             }
+
             AgentTool::FsList { path } => {
                  match std::fs::read_dir(&path) {
                      Ok(entries) => {
@@ -273,19 +352,7 @@ impl ToolExecutor {
                      Err(e) => error = Some(e.to_string())
                  }
             }
-
-            // --- Meta Tools (No-ops for Executor, handled by Logic) ---
-            AgentTool::AgentDelegate { .. } 
-            | AgentTool::AgentAwait { .. }
-            | AgentTool::AgentPause { .. }
-            | AgentTool::AgentComplete { .. }
-            | AgentTool::CommerceCheckout { .. } => {
-                // These should be handled by `actions.rs` returning special status.
-                // If we reach here, it's a fallthrough logic error or just logging.
-                success = true;
-                history_entry = Some("Meta-tool execution (Handled by Controller)".to_string());
-            }
-
+            
             // --- Dynamic/MCP ---
             AgentTool::Dynamic(val) => {
                 if let Some(name) = val.get("name").and_then(|n| n.as_str()) {
@@ -293,11 +360,8 @@ impl ToolExecutor {
                      match self.mcp.execute_tool(name, args).await {
                         Ok(output) => {
                             success = true;
-                            let preview = if output.len() > 300 {
-                                format!("{}...", &output[..300])
-                            } else {
-                                output.clone()
-                            };
+                            // [FIX] Use safe_truncate
+                            let preview = safe_truncate(&output, 300);
                             
                             history_entry = Some(format!("Tool '{}' executed via MCP. Output: {}", name, preview));
                             
@@ -317,6 +381,12 @@ impl ToolExecutor {
                 } else {
                     error = Some("Dynamic tool call missing 'name'".into());
                 }
+            }
+            
+            _ => { 
+                // Meta tools handled by controller
+                success = true;
+                history_entry = Some("Meta-tool execution (Handled by Controller)".to_string());
             }
         }
 

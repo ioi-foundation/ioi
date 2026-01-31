@@ -1,9 +1,8 @@
 // Path: crates/api/src/transaction/context.rs
 //! Defines the stable context for transaction execution.
 
-// FIX: Add the ibc_primitives::Timestamp import to resolve the type error.
-
-use ibc_primitives::Timestamp;
+// [FIX] Removed ibc_primitives dependency to lighten the core build.
+// use ibc_primitives::Timestamp;
 use crate::services::access::ServiceDirectory;
 use ioi_types::app::{AccountId, ChainId};
 
@@ -12,9 +11,9 @@ use ioi_types::app::{AccountId, ChainId};
 pub struct TxContext<'a> {
     /// The current block height being processed.
     pub block_height: u64,
-    /// The deterministic timestamp of the current block, taken from its header.
-    /// This is crucial for IBC and other time-sensitive logic. Now uses the canonical type.
-    pub block_timestamp: Timestamp,
+    /// The deterministic timestamp of the current block in **nanoseconds** since UNIX EPOCH.
+    /// This replaces the heavy `ibc_primitives::Timestamp` dependency.
+    pub block_timestamp: u64, 
     /// The unique identifier of the chain for replay protection.
     pub chain_id: ChainId,
     /// The `AccountId` of the entity that signed the current transaction.
@@ -29,6 +28,4 @@ pub struct TxContext<'a> {
     /// and is permitted to call methods with `Internal` permission. For user-initiated
     /// transactions, this must always be `false`.
     pub is_internal: bool,
-    // Future fields like gas accounting can be added here.
-    // pub gas_left: u64,
 }

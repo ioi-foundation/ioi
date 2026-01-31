@@ -2,6 +2,7 @@
 
 pub mod protocol;
 pub mod transport;
+pub mod compression; // [NEW] Register module
 
 use anyhow::{anyhow, Result};
 use ioi_types::app::agentic::LlmToolDefinition;

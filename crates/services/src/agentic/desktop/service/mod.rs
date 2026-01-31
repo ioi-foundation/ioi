@@ -5,8 +5,8 @@ pub mod lifecycle;
 pub mod step; 
 pub mod utils;
 
-// [FIX] Removed 'pub mod middleware' because it is defined in the parent module.
-// [FIX] Removed invalid 'pub use' statements that referenced non-existent submodules.
+// [FIX] Removed 'pub mod middleware;' - it is defined in desktop/mod.rs
+// We use it via the crate path instead.
 
 use async_trait::async_trait;
 use ioi_api::services::{BlockchainService, UpgradableService};
@@ -26,16 +26,16 @@ use std::any::Any;
 use std::sync::{Arc, Mutex};
 
 use crate::agentic::scrubber::SemanticScrubber;
+use crate::agentic::fitness::Evaluator;
+use crate::agentic::optimizer::OptimizerService;
 use ioi_api::ibc::AgentZkVerifier;
 use ioi_api::vm::drivers::os::OsDriver;
 
 use self::lifecycle::{handle_delete_session, handle_resume, handle_start, handle_post_message};
 use self::step::handle_step;
-// [FIX] Import types from super::types or crate::agentic::desktop::types
 use crate::agentic::desktop::types::{StepAgentParams, PostMessageParams}; 
 
 pub struct DesktopAgentService {
-    // Fields are pub(crate) so submodules can access them
     pub(crate) gui: Arc<dyn GuiDriver>,
     pub(crate) terminal: Arc<TerminalDriver>,
     pub(crate) browser: Arc<BrowserDriver>,
@@ -43,11 +43,16 @@ pub struct DesktopAgentService {
     pub(crate) fast_inference: Arc<dyn InferenceRuntime>,
     pub(crate) reasoning_inference: Arc<dyn InferenceRuntime>,
     pub(crate) scrubber: SemanticScrubber,
+    
+    pub(crate) evaluator: Option<Arc<dyn Evaluator>>,
+    pub(crate) optimizer: Option<Arc<OptimizerService>>,
+
     pub(crate) zk_verifier: Option<Arc<dyn AgentZkVerifier>>,
     pub(crate) scs: Option<Arc<Mutex<SovereignContextStore>>>,
     pub(crate) event_sender: Option<tokio::sync::broadcast::Sender<KernelEvent>>,
     pub(crate) os_driver: Option<Arc<dyn OsDriver>>,
     pub(crate) workspace_path: String,
+    pub(crate) enable_som: bool,
 }
 
 #[async_trait]

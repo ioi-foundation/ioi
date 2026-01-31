@@ -61,7 +61,7 @@ The codebase is organized as a Rust workspace with an Agent SDK in Python. This 
 In a **terminal**, first build and initialize the local node to generate identity keys and genesis state:
 
 ```bash
-cargo run --bin ioi-local --features "local-mode state-iavl consensus-admft"
+cargo run --bin ioi-local --features "local-mode" 
 ```
 
 Once the node starts and prints the logs, **stop it (Ctrl+C)**.

@@ -98,6 +98,45 @@ pub struct ResourceRequirements {
     pub provider_preference: String,
 }
 
+// [NEW] Structures for Passive Context / Static Knowledge (RSI)
+
+/// The classification of a static knowledge chunk.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Encode, Decode)]
+pub enum KnowledgeKind {
+    /// A compressed file tree or directory map.
+    FileIndex,
+    /// Specific API documentation or framework patterns.
+    ApiDocs,
+    /// User-defined rules or preferences (AGENTS.md content).
+    ProjectRules,
+    /// A crystallized cheat-sheet from previous failures.
+    LearnedPattern,
+}
+
+/// A structured unit of static context.
+/// Allows the Optimizer to manage the "Long Term RAM" of the agent.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Encode, Decode)]
+pub struct StaticKnowledgeChunk {
+    /// Unique identifier or path (e.g., "docs/api/v1.md" or "project_root").
+    /// Used for deduplication/replacement.
+    pub source: String,
+
+    /// The type of knowledge.
+    pub kind: KnowledgeKind,
+
+    /// The actual content (compressed/minified).
+    pub content: String,
+
+    /// SHA-256 hash of the content for change detection.
+    pub content_hash: [u8; 32],
+
+    /// Block height when this chunk was last updated.
+    pub updated_at: u64,
+
+    /// Optional: Block height when this chunk expires (for cache invalidation).
+    pub ttl: Option<u64>,
+}
+
 /// Represents a listing for a fully configured autonomous worker.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Encode, Decode)]
 pub struct AgentManifest {
@@ -128,6 +167,11 @@ pub struct AgentManifest {
     pub tags: Vec<String>,
     /// The version string of the agent manifest.
     pub version: String,
+
+    /// [NEW] Structured static knowledge injected into context every turn.
+    /// Replaces the reliance on the agent "deciding" to query RAG for core facts.
+    #[serde(default)]
+    pub static_knowledge: Vec<StaticKnowledgeChunk>,
 }
 
 /// Represents a listing for a coordinated team of agents.
@@ -448,7 +492,7 @@ pub enum AgentTool {
 
     /// Extracts content from the browser.
     #[serde(rename = "browser__extract")]
-    BrowserExtract,
+    BrowserExtract {},
 
     /// Clicks an element in the browser.
     #[serde(rename = "browser__click")]
@@ -566,7 +610,19 @@ pub enum ComputerAction {
     },
 
     /// Click left mouse button.
-    LeftClick,
+    #[serde(rename = "left_click")]
+    LeftClick {
+        /// Optional coordinates for stateless execution.
+        #[serde(default)]
+        coordinate: Option<[u32; 2]>,
+    },
+
+    /// [NEW] Click a specific element by its Set-of-Marks ID.
+    #[serde(rename = "left_click_id")]
+    LeftClickId {
+        /// The unique ID of the element from the visual overlay.
+        id: u32
+    },
 
     /// Click and drag.
     LeftClickDrag {
@@ -592,7 +648,7 @@ impl AgentTool {
             AgentTool::SysExec { .. } => crate::app::ActionTarget::SysExec,
 
             AgentTool::BrowserNavigate { .. } => crate::app::ActionTarget::BrowserNavigate,
-            AgentTool::BrowserExtract => crate::app::ActionTarget::BrowserExtract,
+            AgentTool::BrowserExtract { .. } => crate::app::ActionTarget::BrowserExtract,
             AgentTool::BrowserClick { .. } => {
                 crate::app::ActionTarget::Custom("browser::click".into())
             }
@@ -603,11 +659,12 @@ impl AgentTool {
             AgentTool::ChatReply { .. } => crate::app::ActionTarget::Custom("chat__reply".into()),
 
             AgentTool::Computer(action) => match action {
+                ComputerAction::LeftClickId { .. } => crate::app::ActionTarget::GuiClick, // Maps to generic click
                 ComputerAction::Type { .. } | ComputerAction::Key { .. } => {
                     crate::app::ActionTarget::GuiType
                 }
                 ComputerAction::MouseMove { .. } => crate::app::ActionTarget::GuiMouseMove,
-                ComputerAction::LeftClick => crate::app::ActionTarget::GuiClick,
+                ComputerAction::LeftClick { .. } => crate::app::ActionTarget::GuiClick,
                 ComputerAction::LeftClickDrag { .. } => crate::app::ActionTarget::GuiClick,
                 ComputerAction::Screenshot => crate::app::ActionTarget::GuiScreenshot,
                 ComputerAction::CursorPosition => {

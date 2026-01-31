@@ -388,7 +388,7 @@ where
                                          session_id: hex::encode(session_id),
                                          content: token,
                                          is_final: false,
-                                         visual_hash: "".to_string(), // Optional or current
+                                         visual_hash: "".to_string(), 
                                      }
                                  ))
                              },
@@ -397,7 +397,7 @@ where
                                      ioi_ipc::public::AgentThought {
                                          session_id: hex::encode(step.session_id),
                                          content: step.raw_output,
-                                         is_final: true, // Final step result
+                                         is_final: true, 
                                          visual_hash: hex::encode(step.visual_hash),
                                      }
                                  ))
@@ -439,7 +439,6 @@ where
                                      }
                                  ))
                              },
-                             // [NEW] Map AgentSpawn event
                              ioi_types::app::KernelEvent::AgentSpawn { parent_session_id, new_session_id, name, role, budget, goal } => {
                                  Some(ChainEventEnum::Spawn(
                                      ioi_ipc::public::AgentSpawn {
@@ -449,6 +448,15 @@ where
                                          role,
                                          budget,
                                          goal,
+                                     }
+                                 ))
+                             },
+                             // [FIX] Handle SystemUpdate event
+                             ioi_types::app::KernelEvent::SystemUpdate { component, status } => {
+                                 Some(ChainEventEnum::System(
+                                     ioi_ipc::public::SystemUpdate {
+                                         component,
+                                         status,
                                      }
                                  ))
                              },

@@ -5,14 +5,13 @@ use anyhow::{anyhow, Result};
 use enigo::{Axis, Button, Coordinate, Direction, Enigo, Key, Keyboard, Mouse, Settings};
 use image::load_from_memory;
 use image_hasher::{HashAlg, HasherConfig};
-use ioi_api::vm::drivers::gui::{InputEvent, MouseButton as ApiButton};
+use ioi_api::vm::drivers::gui::{InputEvent, AtomicInput, MouseButton as ApiButton}; // [FIX] Import AtomicInput
 use std::sync::Mutex;
 use std::thread;
 use std::time::Duration;
 use ioi_types::app::KernelEvent;
 use tokio::sync::broadcast::Sender;
 use xcap::Monitor;
-// [FIX] Removed unused ByteSerializable
 
 /// A native driver for controlling mouse and keyboard input.
 pub struct NativeOperator {
@@ -84,12 +83,6 @@ impl NativeOperator {
             .lock()
             .map_err(|_| anyhow!("Enigo lock poisoned"))?;
         
-        // [FIX] Apply DPI Scaling
-        // Coordinates from LLM/VLM are usually based on the screenshot pixels (physical).
-        // OS Input APIs vary:
-        // - macOS: Uses Logical points (Pixels / Scale).
-        // - Windows/Linux: Often physical pixels, but depends on DE.
-        // We normalize to the OS expected coordinate system here.
         let scale = Self::get_scale_factor();
 
         let normalize_coord = |val: u32| -> i32 {
@@ -205,6 +198,57 @@ impl NativeOperator {
                 enigo
                     .scroll(*dy, Axis::Vertical)
                     .map_err(|e| anyhow!("Scroll failed: {:?}", e))?;
+            }
+            
+            // [NEW] Atomic Sequence Execution
+            InputEvent::AtomicSequence(steps) => {
+                log::info!(target: "driver", "Executing Atomic Sequence ({} steps)", steps.len());
+                for step in steps {
+                    match step {
+                        AtomicInput::MouseMove { x, y } => {
+                            let abs_x = normalize_coord(*x);
+                            let abs_y = normalize_coord(*y);
+                            enigo.move_mouse(abs_x, abs_y, Coordinate::Abs).map_err(|e| anyhow!(e))?;
+                        },
+                        AtomicInput::MouseDown { button } => {
+                            let btn = Self::map_button(*button);
+                            enigo.button(btn, Direction::Press).map_err(|e| anyhow!(e))?;
+                        },
+                        AtomicInput::MouseUp { button } => {
+                            let btn = Self::map_button(*button);
+                            enigo.button(btn, Direction::Release).map_err(|e| anyhow!(e))?;
+                        },
+                        AtomicInput::KeyPress { key } => {
+                            let k = match key.as_str() {
+                                "Enter" | "Return" => Key::Return,
+                                "Tab" => Key::Tab,
+                                "Escape" => Key::Escape,
+                                "Backspace" => Key::Backspace,
+                                "Control" => Key::Control,
+                                "Shift" => Key::Shift,
+                                "Alt" => Key::Alt,
+                                "Meta" | "Command" | "Windows" => Key::Meta,
+                                _ => {
+                                    if key.len() == 1 {
+                                        // Fallback for single char key press
+                                        enigo.key(Key::Unicode(key.chars().next().unwrap()), Direction::Click).map_err(|e| anyhow!(e))?;
+                                        continue;
+                                    }
+                                    Key::Unicode(' ') // Dummy fallback, or error?
+                                }
+                            };
+                            enigo.key(k, Direction::Click).map_err(|e| anyhow!(e))?;
+                        },
+                        AtomicInput::Type { text } => {
+                             enigo.text(text).map_err(|e| anyhow!(e))?;
+                        },
+                        AtomicInput::Wait { millis } => {
+                             thread::sleep(Duration::from_millis(*millis));
+                        }
+                    }
+                    // Small micro-sleep between atomic steps to ensure OS event loop catch-up
+                    thread::sleep(Duration::from_millis(5));
+                }
             }
         }
 

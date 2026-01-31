@@ -11,3 +11,4 @@ pub mod query;
 pub mod scaffold;
 pub mod test_cmd;
 pub mod trace;
+pub mod dev; // [NEW]

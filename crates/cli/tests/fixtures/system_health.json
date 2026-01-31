@@ -1,0 +1,26 @@
+{
+  "name": "system_health_check",
+  "description": "Performs a standard system health check sequence (CPU, Memory).",
+  "steps": [
+    {
+      "tool": "sys__exec",
+      "params": {
+        "command": "echo",
+        "args": ["[HealthCheck] CPU: OK"]
+      }
+    },
+    {
+      "tool": "sys__exec",
+      "params": {
+        "command": "echo",
+        "args": ["[HealthCheck] RAM: OK"]
+      }
+    },
+    {
+      "tool": "agent__complete",
+      "params": {
+        "result": "System health check passed."
+      }
+    }
+  ]
+}

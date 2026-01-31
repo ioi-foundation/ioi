@@ -9,7 +9,6 @@ use ioi_scs::{FrameType, SovereignContextStore};
 use ioi_types::app::{ActionRequest, ContextSlice};
 use std::sync::{Arc, Mutex};
 use async_trait::async_trait;
-// [FIX] Removed unused ByteSerializable
 
 // Windows Dependencies
 #[cfg(target_os = "windows")]
@@ -102,12 +101,9 @@ mod linux_impl {
     use super::*;
     use atspi::connection::AccessibilityConnection;
     use atspi::proxy::accessible::AccessibleProxy;
-    // [FIX] Removed invalid Component import. 
-    // We will use a fallback or dynamic dispatch if possible, or just skip extents if the trait is hard to find.
-    // For now, we assume we can't easily get Component trait in this version without guessing paths.
-    // use atspi::Component; 
-    // [FIX] Removed unused CoordType import since get_extents is disabled
-    // use atspi::CoordType;
+    // [FIX] Correct path for Component trait/proxy
+    use atspi::proxy::component::ComponentProxy;
+    use atspi::CoordType;
     use futures::future::BoxFuture;
     use futures::FutureExt;
 
@@ -141,10 +137,19 @@ mod linux_impl {
             // Map the role enum to a string.
             let role = proxy.get_role().await.map(|r| format!("{:?}", r)).unwrap_or("unknown".into());
             
-            // [FIX] Disabled get_extents call because Component trait import is unstable/unknown in this version.
-            // Returning 0 rect for linux build stability.
-            // let ext = proxy.get_extents(CoordType::Screen).await.unwrap_or((0, 0, 0, 0));
-            let ext = (0, 0, 0, 0); 
+            // [FIX] Retrieve real coordinates from AT-SPI
+            // AccessibleProxy does not implement Component, so we must cast/build a ComponentProxy
+            let ext = {
+                 let comp_builder = ComponentProxy::builder(&conn.connection().clone())
+                    .destination(proxy.destination().to_owned())
+                    .expect("Invalid destination"); // Should be valid from proxy
+                 
+                 if let Ok(comp_builder) = comp_builder.path(proxy.path().to_owned()) {
+                     if let Ok(comp) = comp_builder.build().await {
+                         comp.get_extents(CoordType::Screen).await.unwrap_or((0,0,0,0))
+                     } else { (0,0,0,0) }
+                 } else { (0,0,0,0) }
+            };
             
             let rect = Rect {
                 x: ext.0,
@@ -158,7 +163,7 @@ mod linux_impl {
             let mut children = Vec::new();
             
             // Limit fan-out to prevent hanging on massive trees (e.g. complex web pages)
-            for i in 0..child_count.min(100) { 
+            for i in 0..child_count.min(50) { 
                 if let Ok(child_ref) = proxy.get_child_at_index(i).await {
                     // [FIX] Borrow the connection for the builder
                     if let Ok(child_proxy) = AccessibleProxy::builder(&conn.connection().clone())
@@ -211,6 +216,19 @@ mod stub_impl {
     }
 }
 
+/// Public wrapper to fetch the raw accessibility tree.
+/// Used by the GUI driver for Visual Grounding (Set-of-Marks) overlay.
+pub async fn fetch_tree_direct() -> Result<AccessibilityNode> {
+    #[cfg(target_os = "windows")]
+    return windows_impl::fetch_tree();
+
+    #[cfg(target_os = "linux")]
+    return linux_impl::fetch_tree().await;
+
+    #[cfg(all(not(target_os = "windows"), not(target_os = "linux")))]
+    return stub_impl::fetch_tree();
+}
+
 /// A real, persistent substrate provider backed by `ioi-scs`.
 pub struct NativeSubstrateProvider {
     scs: Arc<Mutex<SovereignContextStore>>,
@@ -223,17 +241,7 @@ impl NativeSubstrateProvider {
 
     /// Fetches the live accessibility tree from the OS using platform-specific APIs.
     async fn fetch_os_tree(&self) -> Result<AccessibilityNode> {
-        #[cfg(target_os = "windows")]
-        return windows_impl::fetch_tree();
-
-        #[cfg(target_os = "linux")]
-        {
-            // Call async function directly without nested runtime
-            return linux_impl::fetch_tree().await;
-        }
-
-        #[cfg(all(not(target_os = "windows"), not(target_os = "linux")))]
-        return stub_impl::fetch_tree();
+        fetch_tree_direct().await
     }
 }
 

@@ -263,10 +263,8 @@ where
             // [FIX] Removed mut keyword here
             let ctx = ioi_api::transaction::context::TxContext {
                 block_height: height + 1,
-                // Approximate timestamp for check
-                block_timestamp: ibc_primitives::Timestamp::from_nanoseconds(
-                    req.expected_timestamp_secs * 1_000_000_000,
-                ),
+                // [FIX] Convert seconds to nanoseconds (u64)
+                block_timestamp: req.expected_timestamp_secs.saturating_mul(1_000_000_000),
                 chain_id,
                 signer_account_id: ioi_types::app::AccountId::default(), // Will be set by apply/verify
                 services: &services,
@@ -604,6 +602,7 @@ where
         }))
     }
 
+    // [FIX] Corrected method name: check_And_tally_proposals -> check_and_tally_proposals
     async fn check_and_tally_proposals(
         &self,
         _: Request<CheckAndTallyProposalsRequest>,
@@ -645,4 +644,5 @@ where
             nodes_deleted: s.nodes_deleted as u64,
         }))
     }
+
 }

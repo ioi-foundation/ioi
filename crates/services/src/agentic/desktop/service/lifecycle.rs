@@ -2,7 +2,6 @@
 
 use super::DesktopAgentService;
 use crate::agentic::desktop::keys::{get_state_key};
-// [FIX] Removed unused keys
 use crate::agentic::desktop::types::{
     AgentMode, AgentState, AgentStatus, PostMessageParams, ResumeAgentParams, SessionSummary, StartAgentParams,
 };
@@ -40,7 +39,6 @@ pub async fn handle_start(
         }
     }
 
-    // Initialize with structured User Prompt in SCS
     let initial_message = ioi_types::app::agentic::ChatMessage {
         role: "user".to_string(),
         content: p.goal.clone(),
@@ -51,17 +49,15 @@ pub async fn handle_start(
         trace_hash: None,
     };
 
-    // [FIX] Await async call
     let root_hash = service.append_chat_to_scs(
         p.session_id, 
         &initial_message, 
-        0 // block height usually not available in handle_start unless passed in
+        0
     ).await?;
 
     let agent_state = AgentState {
         session_id: p.session_id,
         goal: p.goal.clone(),
-        // [FIX] Use transcript_root
         transcript_root: root_hash,
         status: AgentStatus::Running,
         step_count: 0,
@@ -76,8 +72,9 @@ pub async fn handle_start(
         pending_tool_call: None,
         recent_actions: Vec::new(),
         mode: p.mode,
-        // [FIX] Initialize last_screen_phash
         last_screen_phash: None,
+        // [FIX] Initialize execution_queue
+        execution_queue: Vec::new(),
     };
     state.insert(&key, &codec::to_bytes_canonical(&agent_state)?)?;
 
@@ -89,13 +86,11 @@ pub async fn handle_start(
         Vec::new()
     };
 
-    // Prepend new session (newest first)
     history.insert(
         0,
         SessionSummary {
             session_id: p.session_id,
             title: if agent_state.mode == AgentMode::Chat {
-                // Truncate long prompts for titles
                 let t = p.goal.lines().next().unwrap_or("New Chat");
                 if t.len() > 30 {
                     format!("{}...", &t[..30])
@@ -117,7 +112,6 @@ pub async fn handle_start(
         },
     );
 
-    // Keep last 50
     if history.len() > 50 {
         history.truncate(50);
     }
@@ -127,16 +121,12 @@ pub async fn handle_start(
     Ok(())
 }
 
-// [NEW] Canonical Input Handler (Inbox Pattern)
 pub async fn handle_post_message(
     service: &DesktopAgentService,
     state: &mut dyn StateAccess,
     p: PostMessageParams,
     ctx: &TxContext<'_>,
 ) -> Result<(), TransactionError> {
-    // 1. Write to Kernel SCS (SSOT)
-    // We clone here because we might need p values for logic below, although 
-    // we can also use the constructed `msg` for checks.
     let msg = ioi_types::app::agentic::ChatMessage {
         role: p.role,
         content: p.content,
@@ -147,33 +137,27 @@ pub async fn handle_post_message(
         trace_hash: None,
     };
     
-    // We persist the message to the verifiable log
     let new_root = service.append_chat_to_scs(p.session_id, &msg, ctx.block_height).await?;
     
-    // 2. Wake Up Agent (Set Status to Running)
     let key = get_state_key(&p.session_id);
     if let Some(bytes) = state.get(&key)? {
         let mut agent_state: AgentState = codec::from_bytes_canonical(&bytes)?;
         
-        // Update root hash pointer
         agent_state.transcript_root = new_root;
 
-        // [FIX] Update Goal AND Reset Counters
-        // This ensures the agent treats this as a fresh start for a new sub-task.
         if msg.role == "user" {
             agent_state.goal = msg.content.clone();
-            agent_state.step_count = 0;           // <--- CRITICAL FIX
-            agent_state.last_action_type = None;  // <--- Clear action bias
+            agent_state.step_count = 0;           
+            agent_state.last_action_type = None;  
         }
         
-        // Wake up if dormant
         if agent_state.status != AgentStatus::Running {
             log::info!(
                 "Auto-resuming agent session {} due to new message", 
                 hex::encode(&p.session_id[..4])
             );
             agent_state.status = AgentStatus::Running;
-            agent_state.consecutive_failures = 0; // Reset error backoff
+            agent_state.consecutive_failures = 0; 
         }
         
         state.insert(&key, &codec::to_bytes_canonical(&agent_state)?)?;
@@ -198,7 +182,6 @@ pub async fn handle_resume(
     if let AgentStatus::Paused(_) = agent_state.status {
         agent_state.status = AgentStatus::Running;
 
-        // Store the Approval Token provided by the UI
         if let Some(token) = p.approval_token {
             log::info!(
                 "Resuming session {} with Approval Token for hash {:?}",
@@ -218,7 +201,6 @@ pub async fn handle_resume(
                 trace_hash: None,
             };
             
-            // [FIX] Await async call
             let new_root = service.append_chat_to_scs(p.session_id, &msg, 0).await?;
             agent_state.transcript_root = new_root;
 
@@ -232,12 +214,10 @@ pub async fn handle_resume(
                     .as_millis() as u64,
                 trace_hash: None,
             };
-            // [FIX] Await async call
             let new_root = service.append_chat_to_scs(p.session_id, &msg, 0).await?;
             agent_state.transcript_root = new_root;
         }
 
-        // Reset failure counters so the retry doesn't trip the circuit breaker
         agent_state.consecutive_failures = 0;
 
         state.insert(&key, &codec::to_bytes_canonical(&agent_state)?)?;
@@ -256,16 +236,13 @@ pub async fn handle_delete_session(
         .try_into()
         .map_err(|_| TransactionError::Invalid("Invalid session ID".into()))?;
 
-    // 1. Remove from Agent State
     let state_key = get_state_key(&session_id);
     state.delete(&state_key)?;
 
-    // 2. Remove from History Index
     let history_key = b"agent::history".to_vec();
     if let Some(bytes) = state.get(&history_key)? {
         let mut history: Vec<SessionSummary> = codec::from_bytes_canonical(&bytes)?;
 
-        // Remove the target session
         let len_before = history.len();
         history.retain(|s| s.session_id != session_id);
 
@@ -274,12 +251,9 @@ pub async fn handle_delete_session(
         }
     }
 
-    // 3. Scrub Context Store (SCS)
-    // This physically deletes or zeroes the frames associated with the session.
     if let Some(scs_arc) = &service.scs {
         if let Ok(_store) = scs_arc.lock() {
-            // Placeholder: store.prune_session(session_id);
-            // In a real impl, this would iterate session_index and zero the payloads.
+            // Placeholder for physical cleanup
         }
     }
 

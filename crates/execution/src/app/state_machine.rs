@@ -6,7 +6,7 @@ use crate::mv_memory::MVMemory;
 use crate::scheduler::{Scheduler, Task};
 use async_trait::async_trait;
 use dashmap::DashMap;
-use ibc_primitives::Timestamp;
+// REMOVED: use ibc_primitives::Timestamp;
 use ioi_api::app::{Block, BlockHeader, ChainStatus, ChainTransaction};
 use ioi_api::chain::{AnchoredStateView, ChainStateMachine, ChainView, PreparedBlock, StateRef};
 use ioi_api::commitment::CommitmentScheme;
@@ -157,14 +157,15 @@ where
             ChainTransaction::Semantic { header, .. } => header.account_id,
         };
 
+        // [FIX] Update timestamp handling
+        let block_timestamp_ns = (block_timestamp as u128)
+            .saturating_mul(1_000_000_000)
+            .try_into()
+            .map_err(|_| ChainError::Transaction("Timestamp overflow".to_string()))?;
+
         let mut tx_ctx = TxContext {
             block_height,
-            block_timestamp: Timestamp::from_nanoseconds(
-                (block_timestamp as u128)
-                    .saturating_mul(1_000_000_000)
-                    .try_into()
-                    .map_err(|_| ChainError::Transaction("Timestamp overflow".to_string()))?,
-            ),
+            block_timestamp: block_timestamp_ns,
             chain_id: self.chain_id,
             signer_account_id,
             services: &self.services,
@@ -556,15 +557,15 @@ where
                 }
             }
 
+            // [FIX] Update timestamp handling
+            let ts_ns: u64 = (block.header.timestamp as u128)
+                .saturating_mul(1_000_000_000)
+                .try_into()
+                .map_err(|_| ChainError::Transaction("Timestamp overflow".to_string()))?;
+
             let end_block_ctx = TxContext {
                 block_height: block.header.height,
-                block_timestamp: {
-                    let ts_ns: u64 = (block.header.timestamp as u128)
-                        .saturating_mul(1_000_000_000)
-                        .try_into()
-                        .map_err(|_| ChainError::Transaction("Timestamp overflow".to_string()))?;
-                    Timestamp::from_nanoseconds(ts_ns)
-                },
+                block_timestamp: ts_ns,
                 chain_id: self.state.chain_id,
                 signer_account_id: AccountId::default(),
                 services: &self.services,

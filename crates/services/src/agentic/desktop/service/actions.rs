@@ -9,6 +9,7 @@ use ioi_types::app::agentic::AgentTool;
 use ioi_types::app::{ActionContext, ActionRequest, KernelEvent};
 use ioi_types::error::TransactionError;
 use std::sync::Arc;
+use serde_jcs; // [FIX] Import Canonical JSON serializer
 
 impl DesktopAgentService {
 
@@ -28,8 +29,10 @@ impl DesktopAgentService {
         let target = tool.target();
         
         // 2. Canonicalize Parameters (Serialize the Enum itself)
-        // This ensures the policy engine sees exactly what the executor sees.
-        let request_params = serde_json::to_vec(&tool).unwrap_or_default();
+        // [FIX] Use Canonical JSON (RFC 8785). This ensures the hash remains stable
+        // even if the LLM output keys in a different order upon resume.
+        let request_params = serde_jcs::to_vec(&tool)
+            .map_err(|e| TransactionError::Serialization(e.to_string()))?;
 
         let dummy_request = ActionRequest {
             target: target.clone(),

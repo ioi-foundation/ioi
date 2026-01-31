@@ -76,6 +76,9 @@ enum Commands {
         #[clap(subcommand)]
         command: ghost::GhostCommands,
     },
+
+    /// [NEW] Developer tools (Injection, Debugging).
+    Dev(dev::DevArgs),
 }
 
 #[tokio::main]
@@ -119,5 +122,8 @@ async fn main() -> Result<()> {
 
         // --- Ghost ---
         Commands::Ghost { command } => ghost::run(command).await,
+
+        // --- Dev ---
+        Commands::Dev(args) => dev::run(args).await,
     }
 }

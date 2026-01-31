@@ -1,7 +1,7 @@
 // Path: crates/services/src/agentic/desktop/types.rs
 
 use ioi_types::app::action::ApprovalToken;
-// [FIX] Removed unused ChatMessage import
+use ioi_types::app::ActionRequest; // [NEW] Import ActionRequest for execution queue
 use parity_scale_codec::{Decode, Encode};
 use serde::{Deserialize, Serialize};
 
@@ -30,7 +30,7 @@ pub struct AgentState {
     
     // [REMOVED] pub history: Vec<ChatMessage>,
 
-    /// [NEW] The cryptographic commitment to the conversation history stored in SCS.
+    /// The cryptographic commitment to the conversation history stored in SCS.
     /// This is the hash of the most recent Frame added to this session.
     pub transcript_root: [u8; 32],
 
@@ -58,6 +58,13 @@ pub struct AgentState {
     // This prevents TOCTOU (Time-of-Check Time-of-Use) attacks or race conditions (popups).
     #[serde(default)]
     pub last_screen_phash: Option<[u8; 32]>,
+
+    // [NEW] Queue for multi-step macro execution.
+    // Drained FIFO (First-In, First-Out).
+    // This allows a single "Skill Tool Call" to expand into multiple atomic system actions
+    // that are executed sequentially over multiple ticks/blocks, subject to individual policy checks.
+    #[serde(default)]
+    pub execution_queue: Vec<ActionRequest>,
 }
 
 #[derive(Encode, Decode)]

@@ -1,19 +1,38 @@
 // Path: crates/api/src/vm/drivers/gui.rs
 
 use async_trait::async_trait;
-use ioi_types::app::{ActionRequest, ContextSlice}; // [FIX] Import ContextSlice
+use ioi_types::app::{ActionRequest, ContextSlice};
 use ioi_types::error::VmError;
+use serde::{Deserialize, Serialize};
 
 /// Represents the type of mouse button.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum MouseButton {
     Left,
     Right,
     Middle,
 }
 
+/// Lightweight input primitives for batch execution.
+/// These are designed to be executed in a tight loop without IPC overhead per step.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub enum AtomicInput {
+    /// Move mouse to absolute coordinates.
+    MouseMove { x: u32, y: u32 },
+    /// Press a mouse button.
+    MouseDown { button: MouseButton },
+    /// Release a mouse button.
+    MouseUp { button: MouseButton },
+    /// Press a specific key (including modifiers like "Control", "Shift").
+    KeyPress { key: String },
+    /// Type a string of text.
+    Type { text: String },
+    /// Wait for a specified duration in milliseconds.
+    Wait { millis: u64 },
+}
+
 /// Represents a physical input event to be injected into the OS.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum InputEvent {
     /// Move mouse to absolute coordinates (x, y).
     MouseMove { x: u32, y: u32 },
@@ -44,6 +63,10 @@ pub enum InputEvent {
     KeyPress { key: String },
     /// Scroll the view by dx, dy.
     Scroll { dx: i32, dy: i32 },
+
+    /// [NEW] Execute a sequence of inputs atomically (e.g., Drag-and-Drop, Copy-Paste).
+    /// This ensures the sequence completes without interruption or latency gaps.
+    AtomicSequence(Vec<AtomicInput>),
 }
 
 /// Abstract interface for an OS-level GUI driver (The "Eyes & Hands").
@@ -55,11 +78,15 @@ pub trait GuiDriver: Send + Sync {
     /// Captures the semantic state (Accessibility Tree) for grounding.
     async fn capture_tree(&self) -> Result<String, VmError>;
 
-    /// [NEW] Captures an intent-constrained slice of the context.
+    /// Captures an intent-constrained slice of the context.
     /// This is the primary "Observe" method for the SCS.
     async fn capture_context(&self, intent: &ActionRequest) -> Result<ContextSlice, VmError>;
 
     /// Executes a physical input.
     /// MUST be gated by the Agency Firewall before calling.
     async fn inject_input(&self, event: InputEvent) -> Result<(), VmError>;
+
+    /// Resolves a Set-of-Marks ID from the last capture to screen coordinates.
+    /// Returns (x, y) center point of the element.
+    async fn get_element_center(&self, id: u32) -> Result<Option<(u32, u32)>, VmError>;
 }

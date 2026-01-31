@@ -47,7 +47,8 @@ impl AkashProvider {
 impl CloudProvider for AkashProvider {
     fn id(&self) -> &str { "akash" }
 
-    async fn estimate_cost(&self, spec: &InstanceSpec) -> Result<f64> {
+    // [FIX] Renamed unused variable spec to _spec
+    async fn estimate_cost(&self, _spec: &InstanceSpec) -> Result<f64> {
         // Akash is typically 80% cheaper than AWS
         Ok(0.45) // Approx flat rate for GPU
     }
