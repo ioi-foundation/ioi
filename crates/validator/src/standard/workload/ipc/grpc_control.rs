@@ -22,6 +22,9 @@ use std::path::Path;
 use std::sync::{Arc, RwLock};
 use tonic::{Request, Response, Status};
 
+// [FIX] Import SystemTime for timestamp generation
+use std::time::{SystemTime, UNIX_EPOCH};
+
 /// Implementation of the `WorkloadControl` gRPC service.
 ///
 /// This service handles high-frequency control plane commands from the Orchestrator,
@@ -168,7 +171,11 @@ where
 
                     let mut tx_ctx = ioi_api::transaction::context::TxContext {
                         block_height: current_height,
-                        block_timestamp: ibc_primitives::Timestamp::now(),
+                        // [FIX] Use raw u64 nanoseconds for timestamp
+                        block_timestamp: SystemTime::now()
+                            .duration_since(UNIX_EPOCH)
+                            .unwrap_or_default()
+                            .as_nanos() as u64,
                         chain_id: 1.into(),
                         signer_account_id: AccountId::default(),
                         services: &self.ctx.workload.services(),

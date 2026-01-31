@@ -46,6 +46,14 @@ pub fn default_safe_policy() -> ActionRules {
                 conditions: Default::default(),
                 action: Verdict::Allow, 
              },
+             // [NEW] Allow Echo for testing/feedback
+             // The PolicyEngine's internal allowlist ensures this is safe (only allows safe commands)
+             Rule {
+                rule_id: Some("allow-sys-exec-echo".into()),
+                target: "sys::exec".into(), 
+                conditions: Default::default(),
+                action: Verdict::Allow, 
+             },
         ],
     }
 }

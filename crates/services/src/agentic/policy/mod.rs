@@ -60,6 +60,10 @@ impl PolicyEngine {
             ActionTarget::GuiType => "gui::type",
             ActionTarget::GuiScreenshot => "gui::screenshot",
             ActionTarget::GuiScroll => "gui::scroll",
+            
+            // [NEW] Map Sequence target
+            ActionTarget::GuiSequence => "gui::sequence",
+            
             ActionTarget::BrowserNavigate => "browser::navigate",
             ActionTarget::BrowserExtract => "browser::extract",
 
@@ -161,7 +165,7 @@ impl PolicyEngine {
         // 1. Context Check: Allowed Apps (GUI Isolation)
         if let Some(allowed_apps) = &conditions.allow_apps {
             match target {
-                ActionTarget::GuiClick | ActionTarget::GuiType | ActionTarget::GuiScroll => {
+                ActionTarget::GuiClick | ActionTarget::GuiType | ActionTarget::GuiScroll | ActionTarget::GuiSequence => {
                     // Use the injected OS driver instead of mock
                     let active_app_opt = os_driver.get_active_window_title().await.unwrap_or(None);
                     

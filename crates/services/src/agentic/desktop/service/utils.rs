@@ -5,7 +5,7 @@ use crate::agentic::desktop::keys::{TRACE_PREFIX, SKILL_INDEX_PREFIX};
 use crate::agentic::desktop::types::{AgentState, AgentStatus};
 use ioi_api::state::StateAccess;
 // [FIX] Removed unused ByteSerializable
-use ioi_types::app::agentic::{AgentSkill, StepTrace, SemanticFact}; 
+use ioi_types::app::agentic::{AgentSkill, StepTrace, SemanticFact, AgentMacro}; 
 use ioi_types::codec;
 use ioi_types::error::TransactionError;
 use ioi_scs::FrameType;
@@ -13,6 +13,7 @@ use ioi_types::app::agentic::ChatMessage;
 use crate::agentic::normaliser::OutputNormaliser; 
 use ioi_types::app::KernelEvent; 
 use std::time::{SystemTime, UNIX_EPOCH};
+use serde_json::Value; // [NEW] Import for JSON interpolation
 
 impl DesktopAgentService {
     // Searches the state for skills that match the agent's goal.
@@ -42,14 +43,12 @@ impl DesktopAgentService {
         Ok(relevant_skills)
     }
 
-    /// [UPDATED] Semantic Retrieval of Episodic Memory
-    /// Searches the SCS based on the current context to find relevant past actions.
-    /// 
-    /// **SOTA FIX:** Implements Relevance Thresholding to prevent Context Poisoning
-    /// and Dynamic Budgeting to maximize context quality within token limits.
-    pub(crate) async fn retrieve_context(
+    /// [UPDATED] Hybrid Retrieval of Episodic Memory
+    /// Returns context pointers and the top-1 snippet to reduce context bloat.
+    /// This replaces the previous `retrieve_context` which injected full content.
+    pub(crate) async fn retrieve_context_hybrid(
         &self, 
-        query: &str,
+        query: &str, 
         visual_phash: Option<[u8; 32]>
     ) -> String {
         let scs_mutex = match &self.scs {
@@ -107,90 +106,44 @@ impl DesktopAgentService {
             return "".to_string();
         }
 
-        let mut context_str = String::new();
-        context_str.push_str("\n### Relevant Memories\n");
-        let mut skill_found = false;
-        
-        // [FIX] Dynamic Token Budgeting
-        // Allow up to ~2000 chars total for retrieval (Reduced from 4000 to prevent overflow).
-        let mut total_chars = 0;
-        const MAX_RETRIEVAL_CHARS: usize = 2000;
+        let mut output = String::new();
+        let mut top_snippet_included = false;
 
-        {
-            let scs = match scs_mutex.lock() {
-                Ok(s) => s,
-                Err(_) => return "".to_string(),
-            };
+        let scs = match scs_mutex.lock() {
+             Ok(s) => s,
+             Err(_) => return "".to_string(),
+        };
 
-            fn dist(a: &[u8], b: &[u8]) -> u32 {
-                a.iter().zip(b.iter()).map(|(x, y)| (x ^ y).count_ones()).sum()
-            }
+        for (i, (frame_id, distance, f_type, _)) in matches.iter().enumerate() {
+            if *distance > 0.35 { continue; } // Relevance threshold
 
-            for (frame_id, distance, f_type, f_hash) in matches {
-                // [FIX] Relevance Threshold (SOTA)
-                // Cosine Distance: 0.0 = Identical, 1.0 = Orthogonal.
-                // If distance > 0.35 (Similarity < 0.65), it's likely noise for this query.
-                // This prevents "Calculator" XML from polluting "Do you like humans?" chat.
-                if distance > 0.35 {
-                    continue;
-                }
-
-                // Filter by Visual Hash if provided
-                if let Some(current_hash) = visual_phash {
-                    let d = dist(&current_hash, &f_hash);
-                    // If it's an Observation (Screenshot) and visually distinct, skip it
-                    if f_type == FrameType::Observation && d > 10 {
-                        continue; 
-                    }
-                }
-                
-                // Stop if we hit the token budget
-                if total_chars >= MAX_RETRIEVAL_CHARS {
-                    break;
-                }
-
-                // Fetch the payload for the matched frame
-                if let Ok(payload) = scs.read_frame_payload(frame_id) {
-                    if let Ok(text) = String::from_utf8(payload.to_vec()) {
-                        
-                        // [FIX] Smart Truncation
-                        // Instead of hard 400 char limit, use remaining budget.
-                        let remaining = MAX_RETRIEVAL_CHARS - total_chars;
-                        // But cap individual snippets to 800 to ensure diversity.
-                        let snippet_limit = 800.min(remaining);
-                        
-                        let safe_text = if text.len() > snippet_limit {
-                            format!("{}... [truncated]", &text[..snippet_limit])
-                        } else {
-                            text
-                        };
-                        
-                        let entry = if f_type == FrameType::Skill {
-                            skill_found = true;
-                            format!("- [SKILL] (Conf: {:.2}) Found applicable skill: {}\n", 1.0 - distance, safe_text)
-                        } else if f_type == FrameType::Observation {
-                            format!("- [UI Memory] (Conf: {:.2}) Found relevant UI element: {}\n", 1.0 - distance, safe_text)
-                        } else {
-                            format!("- [{:?}] (Conf: {:.2}) {}\n", f_type, 1.0 - distance, safe_text)
-                        };
-                        
-                        total_chars += entry.len();
-                        context_str.push_str(&entry);
-                    }
-                }
+            // Read metadata only for list
+            // For MVP we read payload, but in prod we'd read header only.
+            // Since we don't have separate header read yet, we read payload and truncate.
+            if let Ok(payload) = scs.read_frame_payload(*frame_id) {
+                 if let Ok(text) = String::from_utf8(payload.to_vec()) {
+                     let confidence = (1.0 - distance) * 100.0;
+                     let type_str = format!("{:?}", f_type);
+                     
+                     // Pointer Entry
+                     output.push_str(&format!("- [ID:{}] Kind:{} Conf:{:.0}% | ", frame_id, type_str, confidence));
+                     
+                     // Micro-Snippet Logic
+                     if i == 0 && !top_snippet_included {
+                         // Include first 3 lines of top result
+                         let snippet: String = text.lines().take(3).collect::<Vec<_>>().join(" ");
+                         output.push_str(&format!("Snippet: \"{}...\"\n", snippet));
+                         top_snippet_included = true;
+                     } else {
+                         // Just the first 60 chars (Header/Summary)
+                         let summary = if text.len() > 60 { format!("{}...", &text[..60]) } else { text };
+                         output.push_str(&format!("Summary: \"{}\"\n", summary));
+                     }
+                 }
             }
         }
         
-        if skill_found {
-            context_str.push_str("\n[SYSTEM HINT] A crystallized skill matches this context. Prefer using the logic described above.");
-        }
-        
-        // If nothing passed the threshold, return empty string to keep prompt clean
-        if total_chars == 0 {
-            return "".to_string();
-        }
-        
-        context_str
+        output
     }
 
     pub(crate) fn select_runtime(&self, state: &AgentState) -> std::sync::Arc<dyn ioi_api::vm::inference::InferenceRuntime> {
@@ -378,6 +331,91 @@ impl DesktopAgentService {
 
         Ok(failures)
     }
+
+    // [NEW] Fetch a specific skill macro by its tool name.
+    pub(crate) fn fetch_skill_macro(
+        &self,
+        tool_name: &str,
+    ) -> Option<AgentMacro> {
+        // Access SCS to find the skill
+        if let Some(store_mutex) = &self.scs {
+            if let Ok(store) = store_mutex.lock() {
+                // In a real optimized system, we'd have a name->hash index.
+                // For now, we scan the loaded skill cache or re-scan skills.
+                // Since `discover_tools` scans, we can reuse that logic or optimize.
+                // Here we linear scan the skill payloads for exact name match.
+                let payloads = store.scan_skills();
+                for p in payloads {
+                    if let Ok(skill) = codec::from_bytes_canonical::<AgentMacro>(&p) {
+                         // Check if tool name matches (handling namespacing if necessary)
+                         if skill.definition.name == tool_name || skill.definition.name.ends_with(&format!("__{}", tool_name)) {
+                             return Some(skill);
+                         }
+                    }
+                }
+            }
+        }
+        None
+    }
+
+    // [NEW] Expand a macro by substituting arguments into its steps.
+    pub(crate) fn expand_macro(
+        &self,
+        skill: &AgentMacro,
+        args: &serde_json::Map<String, Value>,
+    ) -> Result<Vec<ioi_types::app::ActionRequest>, TransactionError> {
+        let mut expanded_steps = Vec::new();
+
+        for step in &skill.steps {
+            // 1. Deserialize the step's params template
+            let mut params_json: Value = serde_json::from_slice(&step.params)
+                .map_err(|e| TransactionError::Serialization(e.to_string()))?;
+
+            // 2. Recursive substitution
+            Self::interpolate_values(&mut params_json, args);
+
+            // 3. Re-serialize
+            let new_params = serde_json::to_vec(&params_json)
+                .map_err(|e| TransactionError::Serialization(e.to_string()))?;
+
+            let mut new_step = step.clone();
+            new_step.params = new_params;
+            // Ensure nonce/context are reset or set by caller context later
+            new_step.nonce = 0; 
+            
+            expanded_steps.push(new_step);
+        }
+
+        Ok(expanded_steps)
+    }
+
+    fn interpolate_values(target: &mut Value, args: &serde_json::Map<String, Value>) {
+        match target {
+            Value::String(s) => {
+                // Check for exact matches first: "{{arg}}" -> replace with type-preserved value
+                if s.starts_with("{{") && s.ends_with("}}") {
+                    let key = &s[2..s.len()-2];
+                    if let Some(val) = args.get(key) {
+                        *target = val.clone();
+                        return;
+                    }
+                }
+                // Partial interpolation (string only): "Hello {{name}}"
+                // (Implementation omitted for brevity, assuming full replacement for params)
+            },
+            Value::Array(arr) => {
+                for item in arr {
+                    Self::interpolate_values(item, args);
+                }
+            },
+            Value::Object(map) => {
+                for val in map.values_mut() {
+                    Self::interpolate_values(val, args);
+                }
+            },
+            _ => {}
+        }
+    }
 }
 
 pub fn goto_trace_log(
@@ -431,16 +469,17 @@ pub fn goto_trace_log(
     agent_state.last_action_type = Some(action_type);
 
     if agent_state.step_count >= agent_state.max_steps && agent_state.status == AgentStatus::Running {
-        agent_state.status = AgentStatus::Completed(None);
-        
-        // Emit completion event so UI knows to stop when max steps reached
-        if let Some(tx) = &event_sender {
-             let _ = tx.send(KernelEvent::AgentActionResult {
-                 session_id: session_id, 
-                 step_index: agent_state.step_count,
-                 tool_name: "system::max_steps_reached".to_string(),
-                 output: "Max steps reached. Task completed.".to_string(),
-             });
+        // [FIX] Only complete if queue is also empty
+        if agent_state.execution_queue.is_empty() {
+             agent_state.status = AgentStatus::Completed(None);
+             if let Some(tx) = &event_sender {
+                  let _ = tx.send(KernelEvent::AgentActionResult {
+                      session_id: session_id, 
+                      step_index: agent_state.step_count,
+                      tool_name: "system::max_steps_reached".to_string(),
+                      output: "Max steps reached. Task completed.".to_string(),
+                  });
+             }
         }
     }
 

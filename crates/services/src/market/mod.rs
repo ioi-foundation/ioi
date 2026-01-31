@@ -15,21 +15,25 @@ use ioi_types::{
 use parity_scale_codec::{Decode, Encode};
 use serde::{Deserialize, Serialize};
 use ioi_crypto::algorithms::hash::sha256;
-// [FIX] Removed unused import
-// use dcrypt::algorithms::ByteSerializable;
 
 // --- Storage Prefixes ---
 // Consolidated namespace for all market activities
 const ASSET_REGISTRY_PREFIX: &[u8] = b"market::asset::";
+// [NEW] Prefix for storing the actual executable content (Blob)
+const ASSET_PAYLOAD_PREFIX: &[u8] = b"market::payload::";
 const LICENSE_PREFIX: &[u8] = b"market::license::";
-const TICKET_PREFIX: &[u8] = b"market::ticket::"; // Formerly compute_market tickets
+const TICKET_PREFIX: &[u8] = b"market::ticket::"; 
 const BALANCE_PREFIX: &[u8] = b"balance::";
 
 // --- Service Parameters ---
 
 #[derive(Encode, Decode)]
 pub struct PublishAssetParams {
+    /// The metadata manifest (Pricing, Author, Tags).
     pub asset: IntelligenceAsset,
+    /// The raw executable content (e.g. serialized AgentMacro, or WASM bytes).
+    /// This is what gets "Installed" by the buyer.
+    pub payload: Vec<u8>,
 }
 
 #[derive(Encode, Decode)]
@@ -58,7 +62,6 @@ pub struct JobTicket {
 }
 
 // Re-use ProvisioningReceipt for compute settlement compatibility
-// In a full refactor, this would be generalized to `ServiceReceipt`.
 #[derive(Encode, Decode, Serialize, Deserialize, Debug, Clone)]
 pub struct ProvisioningReceipt {
     pub request_id: u64,
@@ -69,11 +72,9 @@ pub struct ProvisioningReceipt {
     pub provider_signature: Vec<u8>,
 }
 
-// [NEW] Struct to request deployment of a licensed agent
 #[derive(Encode, Decode)]
 pub struct DeployAgentParams {
     pub asset_hash: [u8; 32],
-    // Optional overrides (e.g. "Run on AWS even if it prefers Akash")
     pub provider_override: Option<String>,
 }
 
@@ -105,15 +106,15 @@ impl MarketService {
         params: PublishAssetParams,
         ctx: &TxContext,
     ) -> Result<(), TransactionError> {
-        // 1. Compute Asset Identity
+        // 1. Compute Asset Identity from Manifest
         let asset_bytes = codec::to_bytes_canonical(&params.asset)?;
         let asset_hash_res = sha256(&asset_bytes)?;
         let mut asset_hash = [0u8; 32];
         asset_hash.copy_from_slice(asset_hash_res.as_ref());
 
         // 2. Check Collision
-        let key = [ASSET_REGISTRY_PREFIX, &asset_hash].concat();
-        if state.get(&key)?.is_some() {
+        let registry_key = [ASSET_REGISTRY_PREFIX, &asset_hash].concat();
+        if state.get(&registry_key)?.is_some() {
             return Err(TransactionError::Invalid("Asset already registered".into()));
         }
 
@@ -127,11 +128,33 @@ impl MarketService {
         if author != ctx.signer_account_id {
             return Err(TransactionError::Invalid("Signer must be asset author".into()));
         }
-
-        // 4. Persist
-        state.insert(&key, &asset_bytes)?;
         
-        log::info!("Market: Published new {:?} with hash 0x{}", asset_type, hex::encode(&asset_hash));
+        // 4. Verify Payload Integrity
+        // The manifest must refer to this payload.
+        // For Skills: The SkillManifest.skill_hash must match SHA256(payload).
+        // The payload is expected to be a serialized `AgentMacro`.
+        if let IntelligenceAsset::Skill(m) = &params.asset {
+             let payload_hash = sha256(&params.payload)?;
+             if payload_hash.as_ref() != m.skill_hash {
+                 return Err(TransactionError::Invalid(format!(
+                     "Payload integrity failed. Manifest expects {}, got {}",
+                     hex::encode(m.skill_hash), hex::encode(payload_hash)
+                 )));
+             }
+        }
+
+        // 5. Persist Manifest
+        state.insert(&registry_key, &asset_bytes)?;
+        
+        // 6. Persist Payload (The "Install File")
+        let payload_key = [ASSET_PAYLOAD_PREFIX, &asset_hash].concat();
+        state.insert(&payload_key, &params.payload)?;
+        
+        log::info!("Market: Published new {:?} with hash 0x{} (Payload: {} bytes)", 
+            asset_type, 
+            hex::encode(&asset_hash),
+            params.payload.len()
+        );
         Ok(())
     }
 
@@ -188,7 +211,6 @@ impl MarketService {
     }
 
     /// [NEW] Deploys an Agent to Cloud Infrastructure.
-    /// This replaces the old `request_compute`.
     #[method]
     pub fn deploy_agent(
         &self,
@@ -214,21 +236,15 @@ impl MarketService {
             .ok_or(TransactionError::Invalid("Asset manifest not found".into()))?;
         let asset: IntelligenceAsset = codec::from_bytes_canonical(&asset_bytes)?;
 
-        // Ensure it's an Agent (can't deploy a Skill or Swarm directly yet without orchestration)
+        // Ensure it's an Agent
         match asset {
             IntelligenceAsset::Agent(_) => {},
             _ => return Err(TransactionError::Invalid("Asset is not directly deployable (not an Agent)".into())),
         };
 
-        // 3. Dispatch to Router (via Ticket State)
-        // We write a marker that the infrastructure solver will read.
-        
+        // 3. Dispatch to Router
         let ticket_id = self.next_id(state)?;
         let ticket_key = [TICKET_PREFIX, &ticket_id.to_be_bytes()].concat();
-        
-        // We persist the deployment intent. The background task `run_infra_solver_task`
-        // will pick this up, resolve the provider, and execute the provisioning.
-        // We store the asset_bytes as the payload for now.
         state.insert(&ticket_key, &asset_bytes)?; 
         
         log::info!("Market: Deployment ticket #{} created for agent 0x{}", ticket_id, hex::encode(&params.asset_hash));
@@ -238,7 +254,6 @@ impl MarketService {
 
     // --- INFRASTRUCTURE ASSETS (Hardware/Compute) ---
     
-    /// Requests hardware provisioning (Legacy "Compute Market" functionality).
     #[method]
     pub fn request_compute(
         &self,
@@ -261,7 +276,6 @@ impl MarketService {
         Ok(())
     }
 
-    /// Settles a completed hardware provisioning request.
     #[method]
     pub fn settle_compute(
         &self,
@@ -270,12 +284,9 @@ impl MarketService {
         _ctx: &TxContext,
     ) -> Result<(), TransactionError> {
         let key = [TICKET_PREFIX, &params.request_id.to_be_bytes()].concat();
-        
-        // Atomic settlement: ticket is removed when provisioning is finalized.
         if state.get(&key)?.is_none() {
             return Err(TransactionError::Invalid("Ticket not found or already settled".into()));
         }
-        
         state.delete(&key)?;
         Ok(())
     }
@@ -295,7 +306,6 @@ impl MarketService {
         Ok(id)
     }
 
-    /// Atomic transfer of funds between two accounts.
     fn transfer_funds(&self, state: &mut dyn StateAccess, from: AccountId, to: AccountId, amount: u64) -> Result<(), TransactionError> {
         let from_key = [BALANCE_PREFIX, from.as_ref()].concat();
         let to_key = [BALANCE_PREFIX, to.as_ref()].concat();

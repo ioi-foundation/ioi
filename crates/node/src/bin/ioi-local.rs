@@ -53,10 +53,16 @@ use ioi_types::codec;
 
 // [UPDATED] Import Market Service types
 use ioi_services::market::{MarketService, PublishAssetParams}; 
+// [FIX] Import OptimizerService
+use ioi_services::agentic::optimizer::OptimizerService;
 
 // [NEW] Import for SwarmCommand
 use ioi_networking::libp2p::SwarmCommand;
-use ioi_networking::noop::NoOpBlockSync; // [NEW]
+use ioi_networking::noop::NoOpBlockSync; 
+
+// [NEW] Import for Skill Injection
+// [FIX] Used in commented out blocks or future extensions, keeping to avoid churn if needed
+use ioi_types::app::agentic::{AgentMacro, LlmToolDefinition};
 
 #[derive(Parser, Debug)]
 #[clap(name = "ioi-local", about = "IOI User Node (Mode 0)")]
@@ -128,6 +134,7 @@ async fn main() -> Result<()> {
         allowed_system_prefixes: vec![],
         generation_id: 0,
         parent_hash: None,
+        author: Some(local_account_id), // [FIX] User owns their agent
     };
 
     let session_id = [0u8; 32];
@@ -183,6 +190,13 @@ async fn main() -> Result<()> {
                 conditions: Default::default(),
                 action: Verdict::Allow, 
              },
+             // Allow echo for the test macro
+             Rule {
+                rule_id: Some("allow-sys-exec-echo".into()),
+                target: "sys::exec".into(), 
+                conditions: Default::default(),
+                action: Verdict::Allow, 
+             },
         ],
     };
 
@@ -212,7 +226,6 @@ async fn main() -> Result<()> {
         allowed_system_prefixes: vec![],
     });
 
-    // [MODIFIED] Rename Compute Market to Market Service
     let mut market_methods = std::collections::BTreeMap::new();
     market_methods.insert("request_compute@v1".to_string(), MethodPermission::User);
     market_methods.insert("settle_compute@v1".to_string(), MethodPermission::User);
@@ -224,17 +237,16 @@ async fn main() -> Result<()> {
         allowed_system_prefixes: vec![],
     });
     
-    // [FIX] Add Optimizer Policy
     let mut optimizer_methods = std::collections::BTreeMap::new();
     optimizer_methods.insert("optimize_agent@v1".to_string(), MethodPermission::User);
     optimizer_methods.insert("crystallize_skill@v1".to_string(), MethodPermission::User);
-    // Add deployment intent capability
     optimizer_methods.insert("deploy_skill@v1".to_string(), MethodPermission::User);
+    // [NEW] Allow import_skill via CLI
+    optimizer_methods.insert("import_skill@v1".to_string(), MethodPermission::User);
 
     service_policies.insert("optimizer".to_string(), ioi_types::config::ServicePolicy {
         methods: optimizer_methods,
         allowed_system_prefixes: vec![
-            // Optimizer needs to read agent traces and active service metadata
             "agent::trace::".to_string(),
             "upgrade::active::".to_string(),
         ],
@@ -251,7 +263,7 @@ async fn main() -> Result<()> {
         println!("🤖 LOCAL_LLM_URL detected.");
         ("local", url, None, "llama3".to_string())
     } else {
-        println!("🤖 No API Key found. Using MOCK BRAIN for deterministic testing.");
+        println!("⚠️ No API Key found. Fallback to Mock.");
         ("mock", "".to_string(), None, "mock-model".to_string())
     };
     
@@ -275,8 +287,7 @@ async fn main() -> Result<()> {
 
     let workload_config = WorkloadConfig {
         runtimes: vec!["wasm".to_string()],
-        // State Tree Type is just metadata here, we inject FlatStore manually
-        state_tree: ioi_types::config::StateTreeType::IAVL, 
+        state_tree: ioi_types::config::StateTreeType::IAVL,
         commitment_scheme: ioi_types::config::CommitmentSchemeType::Hash,
         consensus_type: ConsensusType::Admft,
         genesis_file: opts.data_dir.join("genesis.json").to_string_lossy().to_string(),
@@ -293,7 +304,6 @@ async fn main() -> Result<()> {
             }),
             InitialServiceConfig::Governance(Default::default()),
             InitialServiceConfig::Oracle(Default::default()),
-            // [REMOVED] InitialServiceConfig::Ibc(...)
         ],
         service_policies, 
         min_finality_depth: 0,
@@ -377,9 +387,8 @@ async fn main() -> Result<()> {
         let policy_key = [b"agent::policy::", session_id.as_slice()].concat();
         insert_raw(&policy_key, to_bytes_canonical(&local_policy).unwrap());
 
-        // [MODIFIED] Register the Unified Market Service (replacing compute_market)
         let market_meta = ActiveServiceMeta {
-            id: "market".to_string(), // Rebranded ID
+            id: "market".to_string(), 
             abi_version: 1,
             state_schema: "v1".to_string(),
             caps: Capabilities::empty(),
@@ -389,6 +398,7 @@ async fn main() -> Result<()> {
             allowed_system_prefixes: vec![],
             generation_id: 0,
             parent_hash: None,
+            author: None, // [FIX] System service has no specific owner
         };
         let market_key = ioi_types::keys::active_service_key("market");
         insert_raw(&market_key, to_bytes_canonical(&market_meta).unwrap());
@@ -409,7 +419,6 @@ async fn main() -> Result<()> {
     let tree = RedbFlatStore::new(&flat_db_path, scheme.clone())
         .map_err(|e| anyhow!("Failed to open flat store: {}", e))?;
     
-    // [FIX] Add explicit type annotations
     let (workload_container, machine) = setup_workload(
         tree,
         scheme.clone(),
@@ -425,13 +434,11 @@ async fn main() -> Result<()> {
     // Hot-Patch Policy & Meta
     {
         println!("Applying active security policy to state...");
-        // [FIX] Explicitly type the state variable
         let state_tree: Arc<tokio::sync::RwLock<RedbFlatStore<HashCommitmentScheme>>> = workload_container.state_tree();
         let mut state = state_tree.write().await;
         
         let policy_key = [b"agent::policy::", session_id.as_slice()].concat();
         let policy_bytes = codec::to_bytes_canonical(&local_policy).map_err(|e| anyhow!(e))?;
-        // [FIX] Use type annotation for error
         state.insert(&policy_key, &policy_bytes).map_err(|e: ioi_types::error::StateError| anyhow!(e.to_string()))?;
 
         let agent_key = ioi_types::keys::active_service_key("desktop_agent");
@@ -445,13 +452,11 @@ async fn main() -> Result<()> {
     let workload_ipc_addr = "127.0.0.1:8555";
     std::env::set_var("IPC_SERVER_ADDR", workload_ipc_addr);
 
-    // [FIX] Explicitly type the clones to ensure they are interpreted correctly
     let server_workload: Arc<ioi_api::validator::WorkloadContainer<RedbFlatStore<HashCommitmentScheme>>> = workload_container.clone();
     let server_machine = machine.clone();
     let server_addr = workload_ipc_addr.to_string();
 
     let mut workload_server_handle = tokio::spawn(async move {
-        // [FIX] Explicitly specify generic types for WorkloadIpcServer::new
         let server = ioi_validator::standard::workload::ipc::WorkloadIpcServer::<
             RedbFlatStore<HashCommitmentScheme>, 
             HashCommitmentScheme
@@ -462,7 +467,6 @@ async fn main() -> Result<()> {
         )
         .await
         .map_err(|e| anyhow!(e))?;
-        // [FIX] Use explicit type annotation for error map
         server.run().await.map_err(|e: anyhow::Error| anyhow!(e))
     });
 
@@ -482,17 +486,13 @@ async fn main() -> Result<()> {
         .await?,
     );
 
-    // [MODIFIED] Use NoOpBlockSync for local mode (Strip libp2p)
     let syncer = Arc::new(NoOpBlockSync::new());
     
-    // Create Dummy Channels for Network (Blackhole)
     let (swarm_commander, mut swarm_rx) = tokio::sync::mpsc::channel::<SwarmCommand>(100);
-    // Drain swarm commands to prevent channel full errors
     tokio::spawn(async move {
         while let Some(_) = swarm_rx.recv().await {}
     });
 
-    // Create Dummy Receiver for Network Events (Empty stream)
     let (_dummy_tx, network_events) = tokio::sync::mpsc::channel(100);
 
     println!("   - Consensus: Solo (Lite Mode)");
@@ -540,7 +540,6 @@ async fn main() -> Result<()> {
         event_broadcaster: Some(event_tx.clone()),
     };
 
-    // [FIX] Explicitly type the orchestrator construction
     let orchestrator = Arc::new(Orchestrator::<
         HashCommitmentScheme,
         RedbFlatStore<HashCommitmentScheme>,
@@ -564,7 +563,6 @@ async fn main() -> Result<()> {
     );
     println!("Starting main components (press Ctrl+C to exit)...");
 
-    // [FIX] Coerce to trait object for Container call
     Container::start(&*orchestrator, &config.rpc_listen_address)
         .await
         .map_err(|e| anyhow!("Failed to start: {}", e))?;
@@ -582,8 +580,18 @@ async fn main() -> Result<()> {
     .with_event_sender(event_tx.clone())
     .with_os_driver(os_driver.clone());
     
+    // Configure Optimizer with SCS access
+    let safety_adapter: Arc<dyn LocalSafetyModel> = Arc::new(RuntimeAsSafetyModel::new(inference_runtime.clone()));
+    let optimizer_service = OptimizerService::new(
+        inference_runtime.clone(),
+        safety_adapter.clone(),
+    ).with_scs(scs_arc.clone());
+    let optimizer_arc = Arc::new(optimizer_service);
+
+    // Inject Optimizer into Agent Service for RSI
+    let agent = agent.with_optimizer(optimizer_arc.clone());
+    
     {
-        // [FIX] Explicit type for error handling
         let mut machine_guard = machine.lock().await;
         let service_arc = Arc::new(agent);
         if let Err(e) = machine_guard.service_manager.register_service(service_arc) {
@@ -592,16 +600,22 @@ async fn main() -> Result<()> {
              println!("✅ Enhanced DesktopAgentService (MCP+Path) registered via Hot Swap.");
         }
         
-        // [NEW] Register the Universal Market Service
         let market_service = Arc::new(MarketService::default());
         if let Err(e) = machine_guard.service_manager.register_service(market_service) {
              eprintln!("Failed to register MarketService: {}", e);
         } else {
              println!("✅ MarketService active (Skills, Agents, Compute).");
         }
+        
+        // Register Optimizer
+        if let Err(e) = machine_guard.service_manager.register_service(optimizer_arc) {
+             eprintln!("Failed to register OptimizerService: {}", e);
+        } else {
+             println!("✅ OptimizerService active (Skill Injection Enabled).");
+        }
     }
 
-    let mut operator_ticker = tokio::time::interval(Duration::from_millis(500)); // [MODIFIED] Increased poll rate
+    let mut operator_ticker = tokio::time::interval(Duration::from_millis(500)); 
     operator_ticker.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
 
     loop {
@@ -618,7 +632,6 @@ async fn main() -> Result<()> {
                 }
             }
             _ = operator_ticker.tick() => {
-                // [FIX] Explicitly type the context guard
                 let ctx_opt_guard = orchestrator.main_loop_context.lock().await;
                 let ctx_opt: &Option<Arc<TokioMutex<MainLoopContext<
                     HashCommitmentScheme, 
@@ -630,7 +643,6 @@ async fn main() -> Result<()> {
                 if let Some(ctx) = ctx_opt {
                     let ctx_guard = ctx.lock().await;
                     
-                    // [FIX] Explicit generic params for task calls
                     if let Err(e) = run_oracle_operator_task::<
                         HashCommitmentScheme,
                         RedbFlatStore<HashCommitmentScheme>,
@@ -640,8 +652,6 @@ async fn main() -> Result<()> {
                          tracing::error!(target: "operator_task", "Oracle operator failed: {}", e);
                     }
 
-                    // [MODIFIED] Tight autonomy loop
-                    // If the driver performed work, we skip sleeping and loop faster
                     match run_agent_driver_task::<
                         HashCommitmentScheme,
                         RedbFlatStore<HashCommitmentScheme>,
@@ -649,11 +659,9 @@ async fn main() -> Result<()> {
                         FlatVerifier
                     >(&*ctx_guard).await {
                         Ok(true) => {
-                             // Work was done, reset ticker immediately to process next step
                              operator_ticker.reset();
                         },
                         Ok(false) => {
-                             // Idle, wait for next tick
                         },
                         Err(e) => {
                              tracing::error!(target: "operator_task", "Agent driver failed: {}", e);
@@ -666,7 +674,6 @@ async fn main() -> Result<()> {
 
     println!("\nShutting down...");
     workload_server_handle.abort();
-    // [FIX] Coerce to trait object for Container call
     Container::stop(&*orchestrator).await?;
     println!("Bye!");
     Ok(())

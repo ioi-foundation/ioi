@@ -110,13 +110,13 @@ impl McpTransport {
             "clientInfo": { "name": "ioi-kernel", "version": "0.1.0" }
         });
         
-        // [FIX] Increase timeout for initialization to 60s (handles npx installs)
+        // [FIX] Increase timeout to 180s to handle high-load startup scenarios
         let init_fut = self.send_request("initialize", params);
         
-        match tokio::time::timeout(std::time::Duration::from_secs(60), init_fut).await {
+        match tokio::time::timeout(std::time::Duration::from_secs(180), init_fut).await {
             Ok(Ok(_)) => {},
             Ok(Err(e)) => return Err(anyhow!("MCP Initialize failed: {}", e)),
-            Err(_) => return Err(anyhow!("MCP Initialize timed out (60s). Check npx/network.")),
+            Err(_) => return Err(anyhow!("MCP Initialize timed out (180s). Check npx/network.")),
         }
 
         // Required notification after init
@@ -128,9 +128,10 @@ impl McpTransport {
         Ok(())
     }
 
-    pub async fn list_tools(&self) -> Result<Vec<McpToolInfo>> {
+    pub async fn list_tools(&self) -> Result<Vec<super::protocol::Tool>> {
+        // Note: Using protocol::Tool for return type here to match mod.rs usage
         let res = self.send_request("tools/list", json!({})).await?;
-        // Parse `res["tools"]` into Vec<McpToolInfo>
+        // Parse `res["tools"]` into Vec<super::protocol::Tool>
         serde_json::from_value(res["tools"].clone()).map_err(|e| anyhow!(e))
     }
 

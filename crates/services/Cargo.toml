@@ -95,10 +95,14 @@ zk-driver-succinct = { path = "../zk-driver-succinct", optional = true }
 ioi-drivers = { path = "../drivers" }
 
 [features]
-default = ["ibc-deps"]
+# [FIX] Default is now empty. Consumers must explicitly opt-in to "ibc-deps".
+default = [] 
+
 gas-escrow = []
 agentic = ["gas-escrow"]
 ethereum-zk = ["dep:zk-driver-succinct"]
+
+# Feature group for IBC
 ibc-deps = [
     "dep:ibc-client-tendermint",
     "dep:ibc-core-client-types",

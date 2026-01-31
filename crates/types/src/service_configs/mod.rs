@@ -155,7 +155,7 @@ pub struct ActiveServiceMeta {
     // [NEW] Evolutionary Metadata (Genetics)
     
     /// The generation number of this service version (Genesis = 0).
-    /// Incremented on every successful `swap_module` transaction.
+    /// Incremented on every successful `swap_module` or `evolve` transaction.
     #[serde(default)]
     pub generation_id: u64,
     
@@ -163,4 +163,10 @@ pub struct ActiveServiceMeta {
     /// Used to reconstruct the full genealogical tree (Lineage).
     #[serde(default)]
     pub parent_hash: Option<[u8; 32]>,
+
+    // [NEW] Sovereign Ownership
+    /// The Account ID of the user/entity that controls this service.
+    /// Only this account can authorize evolutionary upgrades for this agent.
+    #[serde(default)]
+    pub author: Option<AccountId>, 
 }

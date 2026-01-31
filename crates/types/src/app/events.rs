@@ -76,4 +76,12 @@ pub enum KernelEvent {
         /// The specific goal assigned to this agent.
         goal: String,
     },
+    
+    /// [NEW] A system-level component status update (e.g. Optimizer, P2P).
+    SystemUpdate {
+        /// The component identifier (e.g., "Optimizer", "P2P").
+        component: String,
+        /// The status message or value.
+        status: String,
+    },
 }

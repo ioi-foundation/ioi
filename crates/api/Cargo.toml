@@ -27,9 +27,8 @@ parity-scale-codec = { workspace = true, features = ["derive", "std"] }
 zeroize = { workspace = true, features = ["alloc"] }
 anyhow = { workspace = true }
 
-# FIX: Add the missing dependency on ibc-primitives.
-# This is required because TxContext now contains an ibc_primitives::Timestamp.
-ibc-primitives = { workspace = true }
+# [FIX] Removed ibc-primitives to break dependency on IBC stack for local mode.
+# ibc-primitives = { workspace = true }
 
 # [FIX] Added 'stream' feature for chunked responses
 reqwest = { version = "0.11", features = ["json", "stream"] }

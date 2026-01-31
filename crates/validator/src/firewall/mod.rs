@@ -68,11 +68,10 @@ pub async fn enforce_firewall(
 
     // 2. Context
     let next_timestamp_ns = (expected_timestamp_secs as u128).saturating_mul(1_000_000_000u128);
-    let next_timestamp = Timestamp::from_nanoseconds(
-        next_timestamp_ns
-            .try_into()
-            .map_err(|_| TransactionError::Invalid("Timestamp overflow".to_string()))?,
-    );
+    // [FIX] Use raw u64
+    let next_timestamp = next_timestamp_ns
+        .try_into()
+        .map_err(|_| TransactionError::Invalid("Timestamp overflow".to_string()))?;
 
     let tx_ctx = TxContext {
         block_height: next_block_height,

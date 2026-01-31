@@ -21,7 +21,10 @@ ioi-tx = { path = "../tx" }
 ioi-validator = { path = "../validator", default-features = false }
 ioi-crypto = { path = "../crypto" }
 ioi-vm-wasm = { path = "../vm/wasm", optional = true }
-ioi-services = { path = "../services" }
+
+# [FIX] Disable default features to keep local-mode lightweight (No IBC by default)
+ioi-services = { path = "../services", default-features = false }
+
 ioi-test-utils = { path = "../test_utils" }
 ioi-client = { path = "../client" }
 ioi-telemetry = { path = "../telemetry" }
@@ -127,6 +130,7 @@ consensus-admft = ["ioi-validator/consensus-admft", "ioi-consensus/admft"]
 vm-wasm = ["dep:ioi-vm-wasm", "ioi-validator/vm-wasm"]
 
 # Service Features
+# [FIX] Now explicitly enables ibc-deps in services since default is off
 ibc-deps = ["ioi-services/ibc-deps", "ioi-validator/ibc-deps"]
 
 # Ethereum ZK Light Client Support
@@ -146,16 +150,19 @@ real-ai = [
 # --- Distribution Profiles (Binary Modes) ---
 
 # 1. Local Mode (Desktop App)
-# [REMOVED] "ibc-deps" to speed up local dev loop and reduce binary size
+# [UPDATED] Lightweight: No IBC, No ZK, No heavy GPU deps.
 local-mode = [
     "dep:clap",
     "dep:env_logger",
     "vm-wasm",
     "ioi-validator/validator-bins",
-    "commitment-hash", 
+    "commitment-hash",
+    "state-iavl",      
+    "consensus-admft",
 ]
 
 # 2. Validator Mode (Mainnet Node)
+# [UPDATED] Full feature set including IBC
 validator-mode = [
     "dep:clap",
     "dep:env_logger",
@@ -177,7 +184,6 @@ provider-mode = [
     "real-ai",         
     "ethereum-zk",     
 ]
-
 
 [[bin]]
 name = "orchestration"
@@ -209,8 +215,6 @@ name = "ioi-local"
 path = "src/bin/ioi-local.rs"
 required-features = [
     "local-mode",
-    "state-iavl",
-    "consensus-admft",
 ]
 
 [[bin]]

@@ -1,6 +1,11 @@
+// Path: crates/services/src/agentic/desktop/service/builder.rs
 use super::DesktopAgentService;
 use crate::agentic::scrub_adapter::RuntimeAsSafetyModel;
 use crate::agentic::scrubber::SemanticScrubber;
+// [NEW] Import Evaluator impl
+use crate::agentic::fitness::LlmEvaluator;
+use crate::agentic::optimizer::OptimizerService;
+
 use ioi_api::ibc::AgentZkVerifier;
 use ioi_api::vm::drivers::gui::GuiDriver;
 use ioi_api::vm::drivers::os::OsDriver;
@@ -21,6 +26,9 @@ impl DesktopAgentService {
     ) -> Self {
         let safety_adapter = Arc::new(RuntimeAsSafetyModel::new(inference.clone()));
         let scrubber = SemanticScrubber::new(safety_adapter);
+        
+        // Default Evaluator uses the same inference runtime
+        let evaluator = Arc::new(LlmEvaluator::new(inference.clone()));
 
         Self {
             gui,
@@ -30,11 +38,14 @@ impl DesktopAgentService {
             fast_inference: inference.clone(),
             reasoning_inference: inference,
             scrubber,
+            evaluator: Some(evaluator),
+            optimizer: None,
             zk_verifier: None,
             scs: None,
             event_sender: None,
             os_driver: None,
             workspace_path: "./ioi-data".to_string(),
+            enable_som: false,
         }
     }
 
@@ -48,6 +59,9 @@ impl DesktopAgentService {
         let safety_adapter = Arc::new(RuntimeAsSafetyModel::new(fast_inference.clone()));
         let scrubber = SemanticScrubber::new(safety_adapter);
 
+        // Use reasoning model for evaluation (System 2)
+        let evaluator = Arc::new(LlmEvaluator::new(reasoning_inference.clone()));
+
         Self {
             gui,
             terminal,
@@ -56,11 +70,14 @@ impl DesktopAgentService {
             fast_inference,
             reasoning_inference,
             scrubber,
+            evaluator: Some(evaluator),
+            optimizer: None,
             zk_verifier: None,
             scs: None,
             event_sender: None,
             os_driver: None,
             workspace_path: "./ioi-data".to_string(),
+            enable_som: false,
         }
     }
 
@@ -76,6 +93,12 @@ impl DesktopAgentService {
 
     pub fn with_zk_verifier(mut self, verifier: Arc<dyn AgentZkVerifier>) -> Self {
         self.zk_verifier = Some(verifier);
+        self
+    }
+    
+    // [NEW] Inject Optimizer
+    pub fn with_optimizer(mut self, optimizer: Arc<OptimizerService>) -> Self {
+        self.optimizer = Some(optimizer);
         self
     }
 
@@ -94,6 +117,11 @@ impl DesktopAgentService {
 
     pub fn with_os_driver(mut self, driver: Arc<dyn OsDriver>) -> Self {
         self.os_driver = Some(driver);
+        self
+    }
+    
+    pub fn with_som(mut self, enabled: bool) -> Self {
+        self.enable_som = enabled;
         self
     }
 }

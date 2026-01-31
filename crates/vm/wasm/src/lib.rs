@@ -328,14 +328,14 @@ impl ioi::system::host::Host for HostState {
                         let content = driver
                             .navigate(url)
                             .await
-                            .map_err(|e: anyhow::Error| e.to_string())?;
+                            .map_err(|e| e.to_string())?; // [FIX] Removed explicit type annotation
                         Ok(content.into_bytes())
                     }
                     "extract_dom" => {
                         let dom = driver
                             .extract_dom()
                             .await
-                            .map_err(|e: anyhow::Error| e.to_string())?;
+                            .map_err(|e| e.to_string())?; // [FIX] Removed explicit type annotation
                         Ok(dom.into_bytes())
                     }
                     "click_selector" => {
@@ -343,7 +343,7 @@ impl ioi::system::host::Host for HostState {
                         driver
                             .click_selector(selector)
                             .await
-                            .map_err(|e: anyhow::Error| e.to_string())?;
+                            .map_err(|e| e.to_string())?; // [FIX] Removed explicit type annotation
                         Ok(vec![])
                     }
                     _ => Err(format!("Unknown Browser action: {}", action)),

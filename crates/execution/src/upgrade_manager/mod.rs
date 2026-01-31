@@ -5,7 +5,11 @@ use ioi_api::services::{BlockchainService, UpgradableService};
 use ioi_api::state::{StateAccess, VmStateAccessor};
 use ioi_api::vm::VirtualMachine;
 use ioi_types::codec;
-use ioi_types::error::{CoreError, StateError, UpgradeError};
+use ioi_types::error::{CoreError, UpgradeError};
+// [FIX] Removed StateError from here if we use qualified path, or keep it.
+// Let's keep it and see.
+use ioi_types::error::StateError; 
+
 use ioi_types::keys::{
     active_service_key, UPGRADE_ARTIFACT_PREFIX, UPGRADE_MANIFEST_PREFIX, UPGRADE_PENDING_PREFIX,
 };
@@ -15,6 +19,8 @@ use std::collections::{BTreeMap, HashMap};
 use std::fmt;
 use std::sync::Arc;
 use toml;
+// [FIX] Import AccountId
+use ioi_types::app::AccountId;
 
 /// An intermediate struct that matches the schema of a service's on-chain TOML manifest.
 #[derive(serde::Deserialize, Debug, Clone)]
@@ -29,6 +35,10 @@ struct OnChainManifest {
     methods: BTreeMap<String, String>, // e.g., "ante_handle@v1" = "Internal"
     #[serde(default)]
     allowed_system_prefixes: Vec<String>,
+    
+    // [NEW] Allow author field in TOML
+    #[serde(default)]
+    author: Option<String>, // Hex encoded account ID
 }
 
 impl OnChainManifest {
@@ -57,6 +67,20 @@ impl OnChainManifest {
             };
             perms.insert(name, mp);
         }
+        
+        // [FIX] Parse author from hex string if present
+        let author_id = if let Some(hex_str) = self.author {
+             let bytes = hex::decode(hex_str.trim_start_matches("0x"))
+                .map_err(|e| CoreError::Upgrade(UpgradeError::InvalidUpgrade(format!("Invalid author hex: {}", e))))?;
+             if bytes.len() != 32 {
+                 return Err(CoreError::Upgrade(UpgradeError::InvalidUpgrade("Author ID must be 32 bytes".into())));
+             }
+             let mut arr = [0u8; 32];
+             arr.copy_from_slice(&bytes);
+             Some(AccountId(arr))
+        } else {
+             None
+        };
 
         Ok(ActiveServiceMeta {
             id: self.id,
@@ -67,14 +91,14 @@ impl OnChainManifest {
             activated_at,
             methods: perms,
             allowed_system_prefixes: self.allowed_system_prefixes,
-            // [FIX] Initialize new evolutionary fields
             generation_id: 0,
             parent_hash: None,
+            author: author_id, // [FIX] Initialized
         })
     }
 }
 
-/// Validates that a service ID conforms to the `[a-z0-9_]+` format.
+// ... [validate_service_id function] ...
 fn validate_service_id(id: &str) -> Result<(), CoreError> {
     if id.is_empty()
         || !id
@@ -316,7 +340,6 @@ impl ServiceUpgradeManager {
         })?;
         if stored_val != embedded_val {
             // This is a hard failure: the code claims to be a different service than what was scheduled.
-            // Log the hashes to aid debugging.
             let s_hash = ioi_crypto::algorithms::hash::sha256(manifest_str.as_bytes())
                 .map(|h| hex::encode(h))
                 .unwrap_or_else(|_| "<hash-error>".into());
@@ -464,8 +487,6 @@ impl ServiceUpgradeManager {
     }
 }
 
-/// A dummy, no-op state accessor for use in contexts where state access is not expected,
-/// such as calling a pure `manifest()` function on a WASM service artifact.
 struct NullStateAccessor;
 
 #[async_trait::async_trait]

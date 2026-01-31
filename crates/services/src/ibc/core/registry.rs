@@ -28,6 +28,8 @@ use std::mem;
 use std::sync::{Arc, RwLock};
 use tracing;
 
+use ibc_primitives::Timestamp;
+
 struct RouterBox {
     modules: BTreeMap<ModuleId, Box<dyn Module>>,
     port_to_module: BTreeMap<PortId, ModuleId>,
@@ -208,7 +210,9 @@ impl BlockchainService for VerifierRegistry {
                 // 2) Host metadata
                 let host_height = Height::new(0, ctx.block_height)
                     .map_err(|e| TransactionError::Invalid(e.to_string()))?;
-                let host_timestamp = ctx.block_timestamp;
+                    
+                // [FIX] Convert raw u64 nanoseconds back to ibc_primitives::Timestamp for internal IBC logic
+                let host_timestamp = Timestamp::from_nanoseconds(ctx.block_timestamp);
 
                 // 3) Decode TxBody with IBC Any messages
                 let tx_body = TxBody::decode(params)

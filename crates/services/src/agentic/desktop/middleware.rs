@@ -35,6 +35,14 @@ impl ToolNormalizer {
         let mut needs_wrap_nav = false;
 
         if let Some(map) = raw_val.as_object_mut() {
+            // [FIX] Handle "recipient_name" hallucination (common in some fine-tunes)
+            // Some models output {"recipient_name": "functions.computer", ...} instead of {"name": ...}
+            if !map.contains_key("name") {
+                if let Some(rn) = map.remove("recipient_name") {
+                    map.insert("name".to_string(), rn);
+                }
+            }
+
             // [FIX] Handle "functions." prefix hallucination (e.g. "functions.chat__reply")
             if let Some(name_val) = map.get("name") {
                 if let Some(name_str) = name_val.as_str() {
@@ -152,6 +160,17 @@ mod tests {
         match tool {
             AgentTool::ChatReply { message } => assert_eq!(message, "hello"),
             _ => panic!("Wrong tool type or failed to strip prefix"),
+        }
+    }
+
+    #[test]
+    fn test_normalize_recipient_name() {
+        // LLM outputs "recipient_name" instead of "name"
+        let input = r#"{"recipient_name": "functions.computer", "parameters": {"action": "screenshot"}}"#;
+        let tool = ToolNormalizer::normalize(input).unwrap();
+        match tool {
+            AgentTool::Computer(ComputerAction::Screenshot) => {},
+            _ => panic!("Wrong tool type or failed to handle recipient_name"),
         }
     }
     

@@ -52,6 +52,11 @@ pub enum ActionTarget {
     #[serde(rename = "gui::scroll")]
     GuiScroll,
 
+    /// [NEW] Execute a composite input sequence (e.g. Drag, Key Chord).
+    /// This targets batch operations for atomic execution.
+    #[serde(rename = "gui::sequence")]
+    GuiSequence,
+
     // --- New Browser Primitives (CDP) ---
     /// Navigate the controlled browser to a specific URL.
     #[serde(rename = "browser::navigate")]

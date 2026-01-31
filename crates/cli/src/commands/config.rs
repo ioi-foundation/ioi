@@ -3,7 +3,7 @@
 use anyhow::Result;
 use clap::{Parser, Subcommand};
 use ioi_types::config::{
-    CommitmentSchemeType, ConsensusType, ConnectorConfig, InferenceConfig, InitialServiceConfig,
+    CommitmentSchemeType, ConsensusType, ConnectorConfig, InferenceConfig,
     OrchestrationConfig, RpcHardeningConfig, StateTreeType, ValidatorRole, VmFuelCosts,
     WorkloadConfig, ZkConfig, McpConfigEntry,
 };
@@ -55,6 +55,7 @@ pub fn run(args: ConfigCmdArgs) -> Result<()> {
                 ConnectorConfig {
                     enabled: true,
                     key_ref: "openai".to_string(),
+                    region: None, // [FIX] Initialize region
                 },
             );
 
@@ -76,24 +77,6 @@ pub fn run(args: ConfigCmdArgs) -> Result<()> {
                     env: HashMap::new(),
                 }
             );
-
-            // Example: Brave Search MCP (Commented out in logic, but structure ready)
-            // Users would need to provide BRAVE_API_KEY in the vault.
-            /*
-            let mut brave_env = HashMap::new();
-            brave_env.insert("BRAVE_API_KEY".to_string(), "env:brave_search_key".to_string());
-            mcp_servers.insert(
-                "brave_search".to_string(),
-                McpConfigEntry {
-                    command: "npx".to_string(),
-                    args: vec![
-                        "-y".to_string(),
-                        "@modelcontextprotocol/server-brave-search".to_string(),
-                    ],
-                    env: brave_env,
-                }
-            );
-            */
 
             let workload_cfg = WorkloadConfig {
                 runtimes: vec!["wasm".into()],

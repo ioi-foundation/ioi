@@ -1,17 +1,24 @@
 // Path: crates/services/src/agentic/desktop/tools.rs
 
 use ioi_api::state::StateAccess;
-use ioi_types::app::agentic::{LlmToolDefinition}; // [FIX] Removed unused AgentTool import
+use ioi_types::app::agentic::{LlmToolDefinition}; 
 use ioi_types::codec;
 use ioi_types::keys::UPGRADE_ACTIVE_SERVICE_PREFIX;
 use ioi_types::service_configs::ActiveServiceMeta;
 use serde_json::json;
-use ioi_scs::SovereignContextStore; 
+use ioi_scs::{SovereignContextStore, FrameType}; 
 use ioi_types::app::agentic::AgentMacro; 
+use std::sync::Arc;
+use ioi_api::vm::inference::InferenceRuntime; 
 
-pub fn discover_tools(
+/// Discovers tools available to the agent.
+///
+/// [UPDATED] Uses semantic search for skills instead of full scan.
+pub async fn discover_tools(
     state: &dyn StateAccess,
-    scs: Option<&std::sync::Mutex<SovereignContextStore>>
+    scs: Option<&std::sync::Mutex<SovereignContextStore>>,
+    query: &str,
+    runtime: Arc<dyn InferenceRuntime>,
 ) -> Vec<LlmToolDefinition> {
     let mut tools = Vec::new();
     
@@ -44,19 +51,14 @@ pub fn discover_tools(
         }
     }
 
-    // 2. Native Capabilities (Kernel Drivers) - Derived from AgentTool Schema
+    // 2. Native Capabilities (Hardcoded for stability)
 
-    // Computer Use Tool (Manual Schema to satisfy OpenAI)
-    // The "computer" tool accepts an object that matches the ComputerAction enum structure.
-    // Since ComputerAction is tagged with "action", the JSON looks like { "action": "type", "text": "..." }.
-    // OpenAI requires the root to be type: object.
-    
     let computer_params = json!({
         "type": "object",
         "properties": {
             "action": {
                 "type": "string",
-                "enum": ["type", "key", "mouse_move", "left_click", "left_click_drag", "screenshot", "cursor_position"],
+                "enum": ["type", "key", "mouse_move", "left_click", "left_click_id", "left_click_drag", "screenshot", "cursor_position"],
                 "description": "The specific action to perform."
             },
             "coordinate": {
@@ -64,11 +66,15 @@ pub fn discover_tools(
                 "items": { "type": "integer" },
                 "minItems": 2,
                 "maxItems": 2,
-                "description": "(x, y) coordinates for mouse operations. Required for mouse_move, left_click_drag."
+                "description": "(x, y) coordinates. Required for mouse_move, left_click_drag."
             },
             "text": {
                 "type": "string",
                 "description": "Text to type or key to press. Required for type, key."
+            },
+            "id": {
+                "type": "integer",
+                "description": "The Set-of-Marks ID tag to click. Required for left_click_id."
             }
         },
         "required": ["action"]
@@ -80,7 +86,6 @@ pub fn discover_tools(
         parameters: computer_params.to_string(),
     });
 
-    // Chat Tool
     let chat_params = json!({
         "type": "object",
         "properties": {
@@ -88,14 +93,12 @@ pub fn discover_tools(
         },
         "required": ["message"]
     });
-    // [FIX] Ensure consistent tool name "chat__reply"
     tools.push(LlmToolDefinition {
         name: "chat__reply".to_string(),
         description: "Send a text message or answer to the user. Use this for all conversation/replies.".to_string(),
         parameters: chat_params.to_string(),
     });
 
-    // Browser Tools
     let nav_params = json!({
         "type": "object",
         "properties": {
@@ -133,7 +136,6 @@ pub fn discover_tools(
         parameters: click_selector_params.to_string(),
     });
 
-    // Legacy GUI Tools (Kept for compatibility/granularity)
     let gui_params = json!({
         "type": "object",
         "properties": {
@@ -162,7 +164,6 @@ pub fn discover_tools(
         parameters: gui_type_params.to_string(),
     });
 
-    // Meta Tools (Agent Control)
     let delegate_params = json!({
         "type": "object",
         "properties": {
@@ -216,7 +217,6 @@ pub fn discover_tools(
         parameters: complete_params.to_string(),
     });
 
-    // Commerce Tools
     let checkout_params = json!({
         "type": "object",
         "properties": {
@@ -243,7 +243,6 @@ pub fn discover_tools(
         parameters: checkout_params.to_string(),
     });
 
-    // System Tools
     let sys_params = json!({
         "type": "object",
         "properties": {
@@ -269,7 +268,6 @@ pub fn discover_tools(
         parameters: sys_params.to_string(),
     });
 
-    // Filesystem Tools
     let fs_write_params = json!({
         "type": "object",
         "properties": {
@@ -309,20 +307,43 @@ pub fn discover_tools(
         description: "List files and directories at a given path.".to_string(),
         parameters: fs_ls_params.to_string(),
     });
-    
-    // 3. Skill Discovery from SCS (Learned Capabilities)
-    // If the SCS is available, scan for "Skill" frames and inject them as tools.
+
+    // 3. Skill Discovery via Semantic Search (O(log N))
     if let Some(store_mutex) = scs {
-        if let Ok(store) = store_mutex.lock() {
-            let skill_payloads = store.scan_skills();
-            
-            for payload in skill_payloads {
-                // Deserialize payload into AgentMacro
-                // Note: The payload format for Skill frames is serialized AgentMacro struct.
-                if let Ok(skill_macro) = codec::from_bytes_canonical::<AgentMacro>(&payload) {
-                    tools.push(skill_macro.definition);
+        // Generate embedding for the query (Goal + Context)
+        if let Ok(query_vec) = runtime.embed_text(query).await {
+            // Access Index
+            let search_results = {
+                if let Ok(store) = store_mutex.lock() {
+                    if let Ok(index_arc) = store.get_vector_index() {
+                        if let Ok(index) = index_arc.lock() {
+                             if let Some(idx) = index.as_ref() {
+                                 // Search top 5 relevant skills
+                                 idx.search_hybrid(&query_vec, 5).unwrap_or_default()
+                             } else { vec![] }
+                        } else { vec![] }
+                    } else { vec![] }
+                } else { vec![] }
+            };
+
+            // Retrieve and Deserialize
+            if !search_results.is_empty() {
+                if let Ok(store) = store_mutex.lock() {
+                     for (frame_id, distance, f_type, _) in search_results {
+                         // Relevance threshold: 0.4 distance in cosine similarity (0.0 is exact match)
+                         if f_type == FrameType::Skill && distance < 0.4 { 
+                             if let Ok(payload) = store.read_frame_payload(frame_id) {
+                                 if let Ok(skill) = codec::from_bytes_canonical::<AgentMacro>(payload) {
+                                     log::debug!("Injected relevant skill: {} (Dist: {:.2})", skill.definition.name, distance);
+                                     tools.push(skill.definition);
+                                 }
+                             }
+                         }
+                     }
                 }
             }
+        } else {
+             log::warn!("Failed to embed query for skill discovery. Skipping dynamic skills.");
         }
     }
 
