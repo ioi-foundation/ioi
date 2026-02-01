@@ -1,7 +1,7 @@
 // Path: crates/cli/src/testing/rpc.rs
 
 use anyhow::{anyhow, Result};
-use ioi_ipc::blockchain::{GetStatusRequest, QueryRawStateRequest};
+use ioi_ipc::blockchain::{GetStatusRequest, QueryRawStateRequest, GetStatusResponse}; // [FIX] Added GetStatusResponse
 use ioi_ipc::public::public_api_client::PublicApiClient;
 // [FIX] Removed unused imports
 use ioi_ipc::public::{
@@ -186,6 +186,14 @@ pub async fn get_chain_height(rpc_addr: &str) -> Result<u64> {
     let req = GetStatusRequest {};
     let status = client.get_status(req).await?.into_inner();
     Ok(status.height)
+}
+
+// [NEW] Get full status
+pub async fn get_status(rpc_addr: &str) -> Result<GetStatusResponse> {
+    let mut client = connect(rpc_addr).await?;
+    let req = GetStatusRequest {};
+    let status = client.get_status(req).await?.into_inner();
+    Ok(status)
 }
 
 /// Gets the latest on-chain UNIX timestamp (seconds).

@@ -1,4 +1,4 @@
-// Path: crates/network/src/traits.rs
+// Path: crates/networking/src/traits.rs
 //! Trait definitions for networking, including block synchronization and mempool gossip.
 
 use async_trait::async_trait;
@@ -25,6 +25,14 @@ pub enum NodeState {
     Initializing,
     Syncing,
     Synced,
+    // [NEW] Protocol Apex States
+    /// The Kill Switch has been triggered. The node has frozen Engine A (A-DMFT)
+    /// and is preparing to hand off state to Engine B. All standard block
+    /// production and voting is suspended.
+    Transitioning,
+    /// The node is operating in Asymptotic Mesh Fault Tolerance (A-PMFT) mode.
+    /// Consensus is probabilistic and partition-resilient.
+    SurvivalMode,
 }
 
 /// A trait for a standalone, pluggable block synchronization engine.

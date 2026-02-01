@@ -195,3 +195,96 @@ pub struct QuorumCertificate {
     #[serde(default)]
     pub signers_bitfield: Vec<u8>,
 }
+
+// --- Protocol Apex: A-DMFT Echo Protocol Structures ---
+
+/// An Echo message broadcast by validators upon receiving a valid proposal.
+/// Validates the leader's intent across Mirror partitions before voting.
+#[derive(Debug, Clone, PartialEq, Eq, Encode, Decode, Serialize, Deserialize)]
+pub struct EchoMessage {
+    /// The block height.
+    pub height: u64,
+    /// The consensus view.
+    pub view: u64,
+    /// The hash of the block proposal being echoed.
+    pub block_hash: [u8; 32],
+    /// The raw signature provided by the leader on the block header.
+    /// This proves the leader actually committed to this proposal.
+    pub leader_signature: Vec<u8>,
+    /// The oracle counter from the leader's header, ensuring monotonicity.
+    pub oracle_counter: u64,
+    /// The identity of the node sending this Echo.
+    pub sender_id: AccountId,
+    /// The sender's signature over the Echo payload:
+    /// H("ECHO_V1" || chain_id || height || view || block_hash || leader_sig)
+    pub signature: Vec<u8>,
+}
+
+/// Cryptographic evidence that a validator has equivocated (signed two different 
+/// payloads for the same slot). This implies a hardware TEE breach.
+#[derive(Debug, Clone, PartialEq, Eq, Encode, Decode, Serialize, Deserialize)]
+pub struct ProofOfDivergence {
+    /// The account ID of the equivocating validator.
+    pub offender: AccountId,
+    
+    /// The first conflicting block header (containing the signature).
+    pub evidence_a: BlockHeader,
+    
+    /// The second conflicting block header (containing the signature).
+    pub evidence_b: BlockHeader,
+}
+
+/// A high-priority interrupt signal broadcast when a divergence is detected.
+/// Triggers the network-wide transition to Engine B (A-PMFT).
+#[derive(Debug, Clone, PartialEq, Eq, Encode, Decode, Serialize, Deserialize)]
+pub struct PanicMessage {
+    /// The cryptographic proof of the hardware violation.
+    pub proof: ProofOfDivergence,
+    /// Signature of the node raising the alarm (to prevent griefing).
+    pub sender_sig: Vec<u8>,
+}
+
+// --- Protocol Apex: A-PMFT (Engine B) Structures ---
+
+/// A probabilistic vote for a chain tip in the Asymptotic Mesh.
+#[derive(Debug, Clone, PartialEq, Eq, Encode, Decode, Serialize, Deserialize)]
+pub struct ConfidenceVote {
+    /// The hash of the block being voted for (the preferred tip).
+    pub block_hash: [u8; 32],
+    /// The block height.
+    pub height: u64,
+    /// The local confidence score (C_B) for this block.
+    pub confidence: u32,
+    /// The VRF proof authorizing this vote (Anti-Sybil).
+    pub vrf_proof: Vec<u8>,
+    /// The voter's signature.
+    pub signature: Vec<u8>,
+}
+
+/// A request to sample a peer's preferred tip (Polling Loop).
+#[derive(Debug, Clone, PartialEq, Eq, Encode, Decode, Serialize, Deserialize)]
+pub struct SampleRequest {
+    /// The height we are querying about.
+    pub height: u64,
+}
+
+/// The response to a SampleRequest.
+#[derive(Debug, Clone, PartialEq, Eq, Encode, Decode, Serialize, Deserialize)]
+pub struct SampleResponse {
+    /// The responder's preferred block hash at that height.
+    pub block_hash: [u8; 32],
+    /// The responder's current confidence score.
+    pub confidence: u32,
+}
+
+// --- Protocol Apex: Lazarus Recovery Structures ---
+
+/// A specific governance payload to authorize a Lazarus Epoch transition.
+/// This resets the Guardian monotonic counters and establishes a new Epoch ID.
+#[derive(Debug, Clone, PartialEq, Eq, Encode, Decode, Serialize, Deserialize)]
+pub struct LazarusUpgrade {
+    /// The new Epoch ID.
+    pub new_epoch: u64,
+    /// List of BootAttestations from patched Guardians.
+    pub attestations: Vec<crate::app::BootAttestation>,
+}

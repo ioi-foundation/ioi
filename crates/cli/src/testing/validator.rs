@@ -28,6 +28,11 @@ use tokio::sync::{broadcast, Mutex};
 use tokio::task::JoinHandle;
 use tokio::time::Duration;
 
+// [FIX] Removed unused imports
+// use ioi_types::app::PanicMessage;
+// use ioi_networking::libp2p::SwarmCommand;
+// use ioi_types::codec;
+
 const WORKLOAD_READY_TIMEOUT: Duration = Duration::from_secs(120);
 
 // BinaryFeatureConfig helps resolve the feature string for building the node binary.
@@ -93,7 +98,7 @@ pub struct TestValidator {
     pub workload_ipc_addr: String,
     pub orchestration_telemetry_addr: String,
     pub workload_telemetry_addr: String,
-    pub p2p_addr: Multiaddr,
+    pub p2p_addr: Multiaddr, // This is now the full address including /p2p/PEER_ID
     pub certs_dir_path: PathBuf,
     _temp_dir: Arc<TempDir>,
     pub backend: Box<dyn TestBackend>,
@@ -102,6 +107,13 @@ pub struct TestValidator {
     guardian_log_tx: Option<broadcast::Sender<String>>,
     pub log_drain_handles: Arc<Mutex<Vec<JoinHandle<()>>>>,
     pub signing_oracle_guard: Option<SigningOracleGuard>,
+    
+    // [NEW] Access to swarm commander for whitebox testing
+    // We can't easily expose the mpsc::Sender because it's buried in the backend process for ProcessBackend.
+    // However, for the test harness, we mostly interact via RPC or logs.
+    // The `ValidatorGuard` exposes methods that might use RPC.
+    // The `Libp2pSync` holds the sender, but that is inside the running process, not here in the test driver.
+    // NOTE: This struct represents the *driver* of the test process, not the internal state of the node.
 }
 
 #[must_use = "ValidatorGuard must be explicitly shut down to prevent resource leaks"]
@@ -137,6 +149,12 @@ impl ValidatorGuard {
         self.disarmed = true;
         Ok(())
     }
+
+    // [NEW] Helper to inject a panic via the P2P layer (simulated)
+    // Since we can't access the internal `mpsc::Sender` of the running process from here (it's in a child process),
+    // we must rely on the integration test to spin up a separate P2P node to broadcast, OR
+    // we assume the test setup includes a mechanism for this.
+    // For this codebase, we will omit the implementation here as it requires IPC back into the running node process.
 }
 
 impl Drop for ValidatorGuard {
@@ -262,10 +280,37 @@ impl TestValidator {
             Some(MldsaScheme::new(ioi_crypto::security::SecurityLevel::Level2).generate_keypair())
                 .transpose()?;
 
-        let p2p_port = portpicker::pick_unused_port().unwrap_or(base_port);
-        let rpc_port = portpicker::pick_unused_port().unwrap_or(base_port + 1);
-        let p2p_addr_str = format!("/ip4/127.0.0.1/tcp/{}", p2p_port);
-        let p2p_addr: Multiaddr = p2p_addr_str.parse()?;
+        // [FIX] Ensure all ports for this validator are distinct to prevent bind collisions.
+        // We use deterministic port assignment based on `base_port` instead of `portpicker`.
+        // `portpicker` is prone to race conditions during concurrent node startup (TOCTOU),
+        // where multiple nodes grab the same "free" port before binding.
+        // The cluster builder ensures `base_port` is spaced by 100 (5000, 5100, etc.),
+        // providing ample room for the ~7 ports needed per node.
+        let mut used_ports = std::collections::HashSet::new();
+        let mut pick_distinct_port = |fallback: u16| {
+            let mut p = fallback;
+            while used_ports.contains(&p) {
+                p = p.wrapping_add(1);
+            }
+            used_ports.insert(p);
+            p
+        };
+
+        let p2p_port = pick_distinct_port(base_port);
+        let rpc_port = pick_distinct_port(base_port + 1);
+        let ipc_port_workload = pick_distinct_port(base_port + 2);
+        let guardian_port = pick_distinct_port(base_port + 3);
+        let workload_telemetry_port = pick_distinct_port(base_port + 4);
+        let orchestration_telemetry_port = pick_distinct_port(base_port + 5);
+        let guardian_telemetry_port = pick_distinct_port(base_port + 6);
+        
+        // Construct the bind address (for listening)
+        let bind_addr_str = format!("/ip4/127.0.0.1/tcp/{}", p2p_port);
+        let bind_addr: Multiaddr = bind_addr_str.parse()?;
+        
+        // FIX: Construct the full address (for others to dial), including PeerID
+        let full_p2p_addr = bind_addr.clone().with(libp2p::multiaddr::Protocol::P2p(peer_id.into()));
+        
         let rpc_addr = format!("127.0.0.1:{}", rpc_port);
 
         let keypair_path = temp_dir.path().join("identity.key");
@@ -423,8 +468,8 @@ impl TestValidator {
         let orchestration_telemetry_addr;
         let workload_telemetry_addr;
 
-        let mut signing_oracle_guard = None;
-        let mut oracle_url_arg = None;
+        let signing_oracle_guard;
+        let oracle_url_arg;
 
         if !use_docker {
             let ed_kp = keypair
@@ -435,6 +480,9 @@ impl TestValidator {
             let guard = SigningOracleGuard::spawn(Some(secret.as_ref()))?;
             oracle_url_arg = Some(guard.url.clone());
             signing_oracle_guard = Some(guard);
+        } else {
+            signing_oracle_guard = None;
+            oracle_url_arg = None;
         }
 
         let shmem_id = format!("ioi_shmem_{}", base_port);
@@ -442,7 +490,7 @@ impl TestValidator {
         let mut backend: Box<dyn TestBackend> = if use_docker {
             let docker_config = DockerBackendConfig {
                 rpc_addr: rpc_addr.clone(),
-                p2p_addr: p2p_addr.clone(),
+                p2p_addr: full_p2p_addr.clone(), // Use full addr but docker ignores PeerID on listen
                 agentic_model_path: agentic_model_path.map(PathBuf::from),
                 temp_dir: temp_dir.clone(),
                 config_dir_path: config_dir_path.clone(),
@@ -457,20 +505,10 @@ impl TestValidator {
         } else {
             generate_certificates_if_needed(&certs_dir_path)?;
 
-            let ipc_port_workload = portpicker::pick_unused_port().unwrap_or(base_port + 2);
-            let guardian_addr = format!(
-                "127.0.0.1:{}",
-                portpicker::pick_unused_port().unwrap_or(base_port + 3)
-            );
+            let guardian_addr = format!("127.0.0.1:{}", guardian_port);
             let initial_workload_ipc_addr = format!("127.0.0.1:{}", ipc_port_workload);
-            workload_telemetry_addr = format!(
-                "127.0.0.1:{}",
-                portpicker::pick_unused_port().unwrap_or(base_port + 4)
-            );
-            orchestration_telemetry_addr = format!(
-                "127.0.0.1:{}",
-                portpicker::pick_unused_port().unwrap_or(base_port + 5)
-            );
+            workload_telemetry_addr = format!("127.0.0.1:{}", workload_telemetry_port);
+            orchestration_telemetry_addr = format!("127.0.0.1:{}", orchestration_telemetry_port);
 
             let node_binary_path = Path::new(env!("CARGO_MANIFEST_DIR"))
                 .parent()
@@ -481,7 +519,7 @@ impl TestValidator {
 
             let mut pb = ProcessBackend::new(
                 rpc_addr.clone(),
-                p2p_addr.clone(),
+                full_p2p_addr.clone(),
                 node_binary_path.clone(),
                 workload_config_path.clone(),
                 initial_workload_ipc_addr,
@@ -493,10 +531,7 @@ impl TestValidator {
             pb.workload_telemetry_addr = Some(workload_telemetry_addr.clone());
 
             if let Some(model_path) = agentic_model_path {
-                let telemetry_addr_guard = format!(
-                    "127.0.0.1:{}",
-                    portpicker::pick_unused_port().unwrap_or(base_port + 6)
-                );
+                let telemetry_addr_guard = format!("127.0.0.1:{}", guardian_telemetry_port);
                 let process = TokioCommand::new(node_binary_path.join("guardian"))
                     .args([
                         "--config-dir",
@@ -539,7 +574,7 @@ impl TestValidator {
                 "--identity-key-file".to_string(),
                 keypair_path.to_string_lossy().to_string(),
                 "--listen-address".to_string(),
-                p2p_addr_str.clone(),
+                bind_addr_str.clone(), // LISTEN ONLY ON BIND ADDR
             ];
             if let Some(addrs) = bootnode_addrs {
                 for addr in addrs {
@@ -553,7 +588,7 @@ impl TestValidator {
             }
             if let Some(url) = oracle_url_arg {
                 orch_args.push("--oracle-url".to_string());
-                oracle_url_arg = Some(url.clone()); // Shadow to keep handle
+                // [FIX] Removed unused shadow assignment
                 orch_args.push(url);
             }
 
@@ -703,7 +738,7 @@ impl TestValidator {
             workload_ipc_addr,
             orchestration_telemetry_addr,
             workload_telemetry_addr,
-            p2p_addr,
+            p2p_addr: full_p2p_addr, // Store the FULL address here
             certs_dir_path,
             _temp_dir: temp_dir,
             backend,

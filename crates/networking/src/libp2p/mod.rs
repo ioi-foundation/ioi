@@ -2,209 +2,37 @@
 
 //! A libp2p-based implementation of the network traits.
 
-// Declare submodules for sync and mempool logic.
+// Declare submodules
+pub mod behaviour;
 pub mod mempool;
+pub mod swarm;
 pub mod sync;
+pub mod transport;
+pub mod types;
 
-use crate::metrics::metrics;
 use crate::traits::NodeState;
-// [FIX] Added StreamExt for select_next_some
-use futures::StreamExt;
 use ioi_api::transaction::TransactionModel;
 use ioi_tx::unified::UnifiedTransactionModel;
-use ioi_types::app::{Block, ChainId, ChainTransaction, OracleAttestation, ConsensusVote}; // Added ConsensusVote
+// [FIX] Removed unused Block and ChainTransaction imports
+use ioi_types::app::{ConsensusVote, EchoMessage, OracleAttestation, PanicMessage, ConfidenceVote};
 use ioi_types::codec;
-use libp2p::{
-    gossipsub, identity, noise,
-    request_response::{self, ResponseChannel},
-    swarm::{NetworkBehaviour, SwarmEvent},
-    tcp, yamux, Multiaddr, PeerId, Swarm, SwarmBuilder, Transport,
-};
-use std::{collections::HashSet, iter, sync::Arc};
+use libp2p::{identity, Multiaddr, PeerId};
+use std::{collections::HashSet, sync::Arc};
 use tokio::{
     sync::{mpsc, watch, Mutex},
     task::JoinHandle,
     time::Duration,
 };
 
-// --- FIX START: Add imports for gossip retry logic ---
-use libp2p::gossipsub::{Behaviour as GossipsubBehaviour, PublishError};
-use std::collections::VecDeque;
-use tokio::time::interval;
-// --- FIX END ---
+// Re-export specific types
+pub use self::sync::{SyncCodec, SyncRequest, SyncResponse};
+pub use self::types::{NetworkEvent, SwarmCommand, SwarmInternalEvent};
+pub use self::behaviour::{SyncBehaviour, SyncBehaviourEvent};
 
-// [NEW] Import ViewChangeVote
+// Import ViewChangeVote for use in forwarder
 use ioi_consensus::admft::ViewChangeVote;
 
-// Re-export concrete types from submodules for a cleaner public API.
-pub use self::sync::{SyncCodec, SyncRequest, SyncResponse};
-
-// --- Core Network Behaviour and Event/Command Types ---
-
-#[derive(NetworkBehaviour)]
-#[behaviour(to_swarm = "SyncBehaviourEvent")]
-pub struct SyncBehaviour {
-    pub gossipsub: gossipsub::Behaviour,
-    pub request_response: request_response::Behaviour<SyncCodec>,
-}
-
-#[derive(Debug)]
-pub enum SyncBehaviourEvent {
-    Gossipsub(gossipsub::Event),
-    RequestResponse(request_response::Event<SyncRequest, SyncResponse>),
-}
-
-impl From<gossipsub::Event> for SyncBehaviourEvent {
-    fn from(event: gossipsub::Event) -> Self {
-        SyncBehaviourEvent::Gossipsub(event)
-    }
-}
-
-impl From<request_response::Event<SyncRequest, SyncResponse>> for SyncBehaviourEvent {
-    fn from(event: request_response::Event<SyncRequest, SyncResponse>) -> Self {
-        SyncBehaviourEvent::RequestResponse(event)
-    }
-}
-
-#[derive(Debug)]
-pub enum SwarmCommand {
-    Listen(Multiaddr),
-    Dial(Multiaddr),
-    PublishBlock(Vec<u8>),
-    PublishTransaction(Vec<u8>),
-    BroadcastVote(Vec<u8>), // [NEW] Broadcast a consensus vote (QC)
-    BroadcastViewChange(Vec<u8>), // [NEW] Broadcast a view change vote (TC)
-    SendStatusRequest(PeerId),
-    SendBlocksRequest {
-        peer: PeerId,
-        since: u64,
-        max_blocks: u32,
-        max_bytes: u32,
-    },
-    SendStatusResponse {
-        channel: ResponseChannel<SyncResponse>,
-        height: u64,
-        head_hash: [u8; 32],
-        chain_id: ChainId,
-        genesis_root: Vec<u8>,
-    },
-    SendBlocksResponse(ResponseChannel<SyncResponse>, Vec<Block<ChainTransaction>>),
-    BroadcastToCommittee(Vec<PeerId>, String),
-    AgenticConsensusVote(String, Vec<u8>),
-    SendAgenticAck(ResponseChannel<SyncResponse>),
-    SimulateAgenticTx,
-    GossipOracleAttestation(Vec<u8>),
-    /// [NEW] Requests missing transactions for Compact Block reconstruction.
-    RequestMissingTxs {
-        peer: PeerId,
-        indices: Vec<u32>, // Changed to u32
-    },
-}
-
-#[derive(Debug)]
-pub enum NetworkEvent {
-    ConnectionEstablished(PeerId),
-    ConnectionClosed(PeerId),
-    // MODIFIED: Added `mirror_id` field to GossipBlock for A-DMFT Mirror Channel support
-    GossipBlock {
-        block: Block<ChainTransaction>,
-        mirror_id: u8, // 0 for Mirror A, 1 for Mirror B
-    },
-    GossipTransaction(Box<ChainTransaction>),
-    ConsensusVoteReceived { // [NEW] Vote received
-        vote: ConsensusVote,
-        from: PeerId,
-    },
-    ViewChangeVoteReceived { // [NEW] View change vote received
-        vote: ViewChangeVote,
-        from: PeerId,
-    },
-    StatusRequest(PeerId, ResponseChannel<SyncResponse>),
-    BlocksRequest {
-        peer: PeerId,
-        since: u64,
-        max_blocks: u32,
-        max_bytes: u32,
-        channel: ResponseChannel<SyncResponse>,
-    },
-    StatusResponse {
-        peer: PeerId,
-        height: u64,
-        head_hash: [u8; 32],
-        chain_id: ChainId,
-        genesis_root: Vec<u8>,
-    },
-    BlocksResponse(PeerId, Vec<Block<ChainTransaction>>),
-    AgenticPrompt {
-        from: PeerId,
-        prompt: String,
-    },
-    AgenticConsensusVote {
-        from: PeerId,
-        prompt_hash: String,
-        vote_hash: Vec<u8>,
-    },
-    OracleAttestationReceived {
-        from: PeerId,
-        attestation: OracleAttestation,
-    },
-    OutboundFailure(PeerId),
-    /// [NEW] Request from a peer for specific transactions they are missing.
-    RequestMissingTxs {
-        peer: PeerId,
-        indices: Vec<u32>, // Changed to u32
-        channel: ResponseChannel<SyncResponse>,
-    },
-}
-
-// Internal event type for swarm -> forwarder communication
-#[derive(Debug)]
-enum SwarmInternalEvent {
-    ConnectionEstablished(PeerId),
-    ConnectionClosed(PeerId),
-    // MODIFIED: Added `mirror_id`
-    GossipBlock(Vec<u8>, PeerId, u8),
-    GossipTransaction(Vec<u8>, PeerId),
-    ConsensusVoteReceived(Vec<u8>, PeerId), // [NEW] Internal event
-    ViewChangeVoteReceived(Vec<u8>, PeerId), // [NEW] Internal event for TC
-    StatusRequest(PeerId, ResponseChannel<SyncResponse>),
-    BlocksRequest {
-        peer: PeerId,
-        since: u64,
-        max_blocks: u32,
-        max_bytes: u32,
-        channel: ResponseChannel<SyncResponse>,
-    },
-    StatusResponse {
-        peer: PeerId,
-        height: u64,
-        head_hash: [u8; 32],
-        chain_id: ChainId,
-        genesis_root: Vec<u8>,
-    },
-    BlocksResponse(PeerId, Vec<Block<ChainTransaction>>),
-    AgenticPrompt {
-        from: PeerId,
-        prompt: String,
-        channel: ResponseChannel<SyncResponse>,
-    },
-    AgenticConsensusVote {
-        from: PeerId,
-        prompt_hash: String,
-        vote_hash: Vec<u8>,
-    },
-    GossipOracleAttestation(Vec<u8>, PeerId),
-    OutboundFailure(PeerId),
-    /// [NEW] Internal event for missing txs request
-    RequestMissingTxs {
-        peer: PeerId,
-        indices: Vec<u32>, // Changed to u32
-        channel: ResponseChannel<SyncResponse>,
-    },
-}
-
-// --- Libp2pSync Implementation ---
-
+/// The main networking struct.
 pub struct Libp2pSync {
     swarm_command_sender: mpsc::Sender<SwarmCommand>,
     shutdown_sender: Arc<watch::Sender<bool>>,
@@ -233,8 +61,9 @@ impl Libp2pSync {
         let node_state = Arc::new(Mutex::new(NodeState::Initializing));
         let known_peers = Arc::new(Mutex::new(HashSet::new()));
 
-        let swarm = Self::build_swarm(local_key.clone())?;
-        let swarm_task = tokio::spawn(Self::run_swarm_loop(
+        let swarm = self::transport::build_swarm(local_key.clone())?;
+        
+        let swarm_task = tokio::spawn(self::swarm::run_swarm_loop(
             swarm,
             swarm_command_receiver,
             internal_event_sender,
@@ -242,165 +71,78 @@ impl Libp2pSync {
         ));
 
         let swarm_command_sender_clone = swarm_command_sender.clone();
+        
+        // Event Forwarder: Translates SwarmInternalEvent -> NetworkEvent and handles internal logic
         let event_forwarder_task = tokio::spawn(async move {
             while let Some(event) = internal_event_receiver.recv().await {
-                if let SwarmInternalEvent::AgenticPrompt {
-                    from,
-                    prompt,
-                    channel,
-                } = event
-                {
-                    let translated_event = NetworkEvent::AgenticPrompt { from, prompt };
-                    if network_event_sender.send(translated_event).await.is_err() {
-                        tracing::info!(target: "network", event = "shutdown", reason = "event channel closed", component="forwarder");
-                        break;
-                    }
-                    if swarm_command_sender_clone
-                        .send(SwarmCommand::SendAgenticAck(channel))
-                        .await
-                        .is_err()
-                    {
-                        tracing::warn!(target: "network", event = "send_fail", command = "AgenticAck");
-                    }
+                
+                // Handle complex translations and acks
+                if let SwarmInternalEvent::AgenticPrompt { from, prompt, channel } = event {
+                    let translated = NetworkEvent::AgenticPrompt { from, prompt };
+                    if network_event_sender.send(translated).await.is_err() { break; }
+                    let _ = swarm_command_sender_clone.send(SwarmCommand::SendAgenticAck(channel)).await;
                     continue;
                 }
-                if let SwarmInternalEvent::AgenticConsensusVote {
-                    from,
-                    prompt_hash,
-                    vote_hash,
-                } = event
-                {
-                    let translated_event = NetworkEvent::AgenticConsensusVote {
-                        from,
-                        prompt_hash,
-                        vote_hash,
-                    };
-                    if network_event_sender.send(translated_event).await.is_err() {
-                        tracing::info!(target: "network", event = "shutdown", reason = "event channel closed", component="forwarder");
-                        break;
-                    }
+                
+                if let SwarmInternalEvent::AgenticConsensusVote { from, prompt_hash, vote_hash } = event {
+                    let translated = NetworkEvent::AgenticConsensusVote { from, prompt_hash, vote_hash };
+                    if network_event_sender.send(translated).await.is_err() { break; }
                     continue;
                 }
 
                 if let SwarmInternalEvent::GossipOracleAttestation(data, from) = event {
-                    match codec::from_bytes_canonical::<OracleAttestation>(&data) {
-                        Ok(attestation) => {
-                            if network_event_sender
-                                .send(NetworkEvent::OracleAttestationReceived { from, attestation })
-                                .await
-                                .is_err()
-                            {
-                                break;
-                            }
-                        }
-                        Err(e) => {
-                            tracing::warn!(target: "gossip", event = "deser_fail", kind = "oracle_attestation", error = %e)
-                        }
+                    if let Ok(attestation) = codec::from_bytes_canonical::<OracleAttestation>(&data) {
+                        let _ = network_event_sender.send(NetworkEvent::OracleAttestationReceived { from, attestation }).await;
                     }
                     continue;
                 }
 
+                // Standard Translations
                 let translated_event = match event {
-                    SwarmInternalEvent::ConnectionEstablished(p) => {
-                        Some(NetworkEvent::ConnectionEstablished(p))
-                    }
-                    SwarmInternalEvent::ConnectionClosed(p) => {
-                        Some(NetworkEvent::ConnectionClosed(p))
-                    }
-                    SwarmInternalEvent::StatusRequest(p, c) => {
-                        Some(NetworkEvent::StatusRequest(p, c))
-                    }
-                    SwarmInternalEvent::BlocksRequest {
-                        peer,
-                        since,
-                        max_blocks,
-                        max_bytes,
-                        channel,
-                    } => Some(NetworkEvent::BlocksRequest {
-                        peer,
-                        since,
-                        max_blocks,
-                        max_bytes,
-                        channel,
-                    }),
-                    SwarmInternalEvent::StatusResponse {
-                        peer,
-                        height,
-                        head_hash,
-                        chain_id,
-                        genesis_root,
-                    } => Some(NetworkEvent::StatusResponse {
-                        peer,
-                        height,
-                        head_hash,
-                        chain_id,
-                        genesis_root,
-                    }),
-                    SwarmInternalEvent::BlocksResponse(p, b) => {
-                        Some(NetworkEvent::BlocksResponse(p, b))
-                    }
+                    SwarmInternalEvent::ConnectionEstablished(p) => Some(NetworkEvent::ConnectionEstablished(p)),
+                    SwarmInternalEvent::ConnectionClosed(p) => Some(NetworkEvent::ConnectionClosed(p)),
+                    SwarmInternalEvent::StatusRequest(p, c) => Some(NetworkEvent::StatusRequest(p, c)),
+                    SwarmInternalEvent::BlocksRequest { peer, since, max_blocks, max_bytes, channel } 
+                        => Some(NetworkEvent::BlocksRequest { peer, since, max_blocks, max_bytes, channel }),
+                    SwarmInternalEvent::StatusResponse { peer, height, head_hash, chain_id, genesis_root } 
+                        => Some(NetworkEvent::StatusResponse { peer, height, head_hash, chain_id, genesis_root }),
+                    SwarmInternalEvent::BlocksResponse(p, b) => Some(NetworkEvent::BlocksResponse(p, b)),
+                    
                     SwarmInternalEvent::GossipBlock(data, _source, mirror_id) => {
-                        match codec::from_bytes_canonical(&data) {
-                            Ok(block) => Some(NetworkEvent::GossipBlock { block, mirror_id }),
-                            Err(e) => {
-                                tracing::warn!(target: "gossip", event = "deser_fail", kind = "block", error = %e);
-                                None
-                            }
-                        }
-                    }
+                        codec::from_bytes_canonical(&data).ok().map(|block| NetworkEvent::GossipBlock { block, mirror_id })
+                    },
                     SwarmInternalEvent::GossipTransaction(data, _source) => {
-                        let dummy_model = UnifiedTransactionModel::new(
-                            ioi_state::primitives::hash::HashCommitmentScheme::new(),
-                        );
-                        match dummy_model.deserialize_transaction(&data) {
-                            Ok(tx) => Some(NetworkEvent::GossipTransaction(Box::new(tx))),
-                            Err(e) => {
-                                tracing::warn!(target: "gossip", event = "deser_fail", kind = "transaction", error = %e);
-                                None
-                            }
-                        }
-                    }
-                    SwarmInternalEvent::ConsensusVoteReceived(data, source) => { 
-                        match codec::from_bytes_canonical::<ConsensusVote>(&data) {
-                            Ok(vote) => Some(NetworkEvent::ConsensusVoteReceived { vote, from: source }),
-                            Err(e) => {
-                                tracing::warn!(target: "gossip", event = "deser_fail", kind = "consensus_vote", error = %e);
-                                None
-                            }
-                        }
-                    }
-                    SwarmInternalEvent::ViewChangeVoteReceived(data, source) => { // [NEW] Handle ViewChange
-                        match codec::from_bytes_canonical::<ViewChangeVote>(&data) {
-                            Ok(vote) => Some(NetworkEvent::ViewChangeVoteReceived { vote, from: source }),
-                            Err(e) => {
-                                tracing::warn!(target: "gossip", event = "deser_fail", kind = "view_change_vote", error = %e);
-                                None
-                            }
-                        }
-                    }
-                    SwarmInternalEvent::OutboundFailure(peer) => {
-                        Some(NetworkEvent::OutboundFailure(peer))
-                    }
-                    // [NEW] Map internal request to NetworkEvent
-                    SwarmInternalEvent::RequestMissingTxs {
-                        peer,
-                        indices,
-                        channel,
-                    } => Some(NetworkEvent::RequestMissingTxs {
-                        peer,
-                        indices,
-                        channel,
-                    }),
-                    SwarmInternalEvent::AgenticPrompt { .. } => unreachable!(),
-                    SwarmInternalEvent::AgenticConsensusVote { .. } => unreachable!(),
-                    SwarmInternalEvent::GossipOracleAttestation(..) => unreachable!(),
+                        let dummy = UnifiedTransactionModel::new(ioi_state::primitives::hash::HashCommitmentScheme::new());
+                        dummy.deserialize_transaction(&data).ok().map(|tx| NetworkEvent::GossipTransaction(Box::new(tx)))
+                    },
+                    SwarmInternalEvent::ConsensusVoteReceived(data, source) => {
+                        codec::from_bytes_canonical::<ConsensusVote>(&data).ok().map(|vote| NetworkEvent::ConsensusVoteReceived { vote, from: source })
+                    },
+                    SwarmInternalEvent::ViewChangeVoteReceived(data, source) => {
+                        codec::from_bytes_canonical::<ViewChangeVote>(&data).ok().map(|vote| NetworkEvent::ViewChangeVoteReceived { vote, from: source })
+                    },
+                    SwarmInternalEvent::EchoReceived(data, source) => {
+                        codec::from_bytes_canonical::<EchoMessage>(&data).ok().map(|echo| NetworkEvent::EchoReceived { echo, from: source })
+                    },
+                    SwarmInternalEvent::PanicReceived(data, source) => {
+                        codec::from_bytes_canonical::<PanicMessage>(&data).ok().map(|panic| NetworkEvent::PanicReceived { panic, from: source })
+                    },
+                    SwarmInternalEvent::SampleRequest(peer, height, channel) => Some(NetworkEvent::SampleRequestReceived { peer, height, channel }),
+                    SwarmInternalEvent::SampleResponse(peer, block_hash, confidence) => Some(NetworkEvent::SampleResponseReceived { peer, block_hash, confidence }),
+                    SwarmInternalEvent::ConfidenceVoteReceived(data, _source) => {
+                        codec::from_bytes_canonical::<ConfidenceVote>(&data).ok().map(NetworkEvent::ConfidenceVoteReceived)
+                    },
+                    SwarmInternalEvent::OutboundFailure(peer) => Some(NetworkEvent::OutboundFailure(peer)),
+                    SwarmInternalEvent::RequestMissingTxs { peer, indices, channel } => Some(NetworkEvent::RequestMissingTxs { peer, indices, channel }),
+                    
+                    // Already handled above or unreachable
+                    SwarmInternalEvent::AgenticPrompt { .. } => None,
+                    SwarmInternalEvent::AgenticConsensusVote { .. } => None,
+                    SwarmInternalEvent::GossipOracleAttestation(..) => None,
                 };
 
-                if let Some(event) = translated_event {
-                    if network_event_sender.send(event).await.is_err() {
-                        tracing::info!(target: "network", event = "shutdown", reason = "event channel closed", component="forwarder");
-                        break;
-                    }
+                if let Some(ev) = translated_event {
+                    if network_event_sender.send(ev).await.is_err() { break; }
                 }
             }
         });
@@ -410,17 +152,10 @@ impl Libp2pSync {
             let listen_addr_clone = listen_addr.clone();
             let dial_addrs_owned = dial_addrs.map(|s| s.to_vec());
             async move {
-                cmd_sender
-                    .send(SwarmCommand::Listen(listen_addr_clone))
-                    .await
-                    .ok();
-                
-                // Retry loop for bootnodes
-                // Try to dial every 2 seconds for 30 seconds
+                let _ = cmd_sender.send(SwarmCommand::Listen(listen_addr_clone)).await;
                 if let Some(addrs) = dial_addrs_owned {
-                    for _ in 0..15 { 
+                    for _ in 0..100 { 
                         for addr in &addrs {
-                             // Ignore send errors (channel closed)
                             let _ = cmd_sender.send(SwarmCommand::Dial(addr.clone())).await;
                         }
                         tokio::time::sleep(Duration::from_secs(2)).await;
@@ -444,343 +179,4 @@ impl Libp2pSync {
 
         Ok((sync_service, swarm_command_sender, network_event_receiver))
     }
-
-    fn build_swarm(local_key: identity::Keypair) -> anyhow::Result<Swarm<SyncBehaviour>> {
-        let swarm = SwarmBuilder::with_existing_identity(local_key)
-            .with_tokio()
-            .with_other_transport(|key| {
-                let noise_config = noise::Config::new(key)?;
-                let transport = tcp::tokio::Transport::new(tcp::Config::default())
-                    .upgrade(libp2p::core::upgrade::Version::V1Lazy)
-                    .authenticate(noise_config)
-                    .multiplex(yamux::Config::default())
-                    .timeout(Duration::from_secs(20))
-                    .boxed();
-                Ok(transport)
-            })?
-            .with_behaviour(|key| {
-                let gossipsub = gossipsub::Behaviour::new(
-                    gossipsub::MessageAuthenticity::Signed(key.clone()),
-                    gossipsub::Config::default(),
-                )?;
-                // [FIX] Use builder pattern instead of deprecated setter
-                let cfg = request_response::Config::default()
-                    .with_request_timeout(Duration::from_secs(30));
-
-                let request_response = request_response::Behaviour::new(
-                    iter::once(("/ioi/sync/2", request_response::ProtocolSupport::Full)),
-                    cfg,
-                );
-                Ok(SyncBehaviour {
-                    gossipsub,
-                    request_response,
-                })
-            })?
-            .build();
-        Ok(swarm)
-    }
-
-    async fn run_swarm_loop(
-        mut swarm: Swarm<SyncBehaviour>,
-        mut command_receiver: mpsc::Receiver<SwarmCommand>,
-        event_sender: mpsc::Sender<SwarmInternalEvent>,
-        mut shutdown_receiver: watch::Receiver<bool>,
-    ) {
-        eprintln!("[Network] Swarm loop started."); // [DEBUG]
-        // DEFINE MIRROR TOPICS FOR A-DMFT
-        let block_topic_a = gossipsub::IdentTopic::new("blocks_mirror_a");
-        let block_topic_b = gossipsub::IdentTopic::new("blocks_mirror_b");
-        
-        let tx_topic = gossipsub::IdentTopic::new("transactions");
-        let vote_topic = gossipsub::IdentTopic::new("consensus_votes"); // For QC votes
-        let timeout_topic = gossipsub::IdentTopic::new("consensus_timeouts"); // [NEW] For TC votes
-        let oracle_attestations_topic = gossipsub::IdentTopic::new("oracle-attestations");
-        let agentic_vote_topic = gossipsub::IdentTopic::new("agentic-votes");
-
-        // --- Outbox for resilient block publishing ---
-        let mut pending_blocks: VecDeque<Vec<u8>> = VecDeque::new();
-        let mut retry_interval = interval(Duration::from_millis(500));
-        retry_interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
-
-        // SUBSCRIBE TO ALL TOPICS
-        if let Err(e) = swarm.behaviour_mut().gossipsub.subscribe(&block_topic_a) {
-            tracing::warn!(error=%e, "Failed to subscribe to blocks_mirror_a");
-        }
-        if let Err(e) = swarm.behaviour_mut().gossipsub.subscribe(&block_topic_b) {
-            tracing::warn!(error=%e, "Failed to subscribe to blocks_mirror_b");
-        }
-        if let Err(e) = swarm.behaviour_mut().gossipsub.subscribe(&tx_topic) {
-            tracing::warn!(error=%e, "Failed to subscribe to gossipsub topic: transactions");
-        }
-        if let Err(e) = swarm.behaviour_mut().gossipsub.subscribe(&vote_topic) {
-            tracing::warn!(error=%e, "Failed to subscribe to gossipsub topic: consensus_votes");
-        }
-        if let Err(e) = swarm.behaviour_mut().gossipsub.subscribe(&timeout_topic) { // [NEW]
-            tracing::warn!(error=%e, "Failed to subscribe to gossipsub topic: consensus_timeouts");
-        }
-        if let Err(e) = swarm
-            .behaviour_mut()
-            .gossipsub
-            .subscribe(&oracle_attestations_topic)
-        {
-            tracing::warn!(error=%e, "Failed to subscribe to gossipsub topic: oracle-attestations");
-        }
-        if let Err(e) = swarm
-            .behaviour_mut()
-            .gossipsub
-            .subscribe(&agentic_vote_topic)
-        {
-            tracing::warn!(error=%e, "Failed to subscribe to gossipsub topic: agentic-votes");
-        }
-
-        loop {
-            tokio::select! {
-                _ = retry_interval.tick() => {
-                    drain_pending_blocks(
-                        &mut pending_blocks,
-                        &mut swarm.behaviour_mut().gossipsub,
-                        &block_topic_a,
-                        &block_topic_b,
-                    );
-                },
-                _ = shutdown_receiver.changed() => if *shutdown_receiver.borrow() { break; },
-                event = swarm.select_next_some() => match event {
-                    SwarmEvent::NewListenAddr { address, .. } => { tracing::info!(target: "network", event = "listening", %address); }
-                    SwarmEvent::ConnectionEstablished { peer_id, .. } => {
-                        metrics().inc_connected_peers();
-                        event_sender.send(SwarmInternalEvent::ConnectionEstablished(peer_id)).await.ok();
-                        drain_pending_blocks(
-                            &mut pending_blocks,
-                            &mut swarm.behaviour_mut().gossipsub,
-                            &block_topic_a,
-                            &block_topic_b,
-                        );
-                    }
-                    SwarmEvent::ConnectionClosed { peer_id, .. } => {
-                        metrics().dec_connected_peers();
-                        event_sender.send(SwarmInternalEvent::ConnectionClosed(peer_id)).await.ok();
-                    }
-                    SwarmEvent::Behaviour(event) => match event {
-                        SyncBehaviourEvent::Gossipsub(gossipsub::Event::Message { message, .. }) => {
-                             // DETERMINE SOURCE MIRROR
-                            let mirror_id = if message.topic == block_topic_a.hash() {
-                                Some(0u8)
-                            } else if message.topic == block_topic_b.hash() {
-                                Some(1u8)
-                            } else {
-                                None
-                            };
-
-                            let topic_name = if mirror_id.is_some() {
-                                "blocks"
-                            } else if message.topic == tx_topic.hash() {
-                                "transactions"
-                            } else if message.topic == vote_topic.hash() {
-                                "consensus_votes"
-                            } else if message.topic == timeout_topic.hash() {
-                                "consensus_timeouts" // [NEW] Metric label
-                            } else if message.topic == oracle_attestations_topic.hash() {
-                                "oracle-attestations"
-                            } else if message.topic == agentic_vote_topic.hash() {
-                                "agentic-votes"
-                            } else {
-                                "unknown"
-                            };
-                            metrics().inc_gossip_messages_received(topic_name);
-
-                            if let Some(source) = message.source {
-                                if let Some(mid) = mirror_id {
-                                    event_sender.send(SwarmInternalEvent::GossipBlock(message.data, source, mid)).await.ok();
-                                } else if message.topic == tx_topic.hash() {
-                                    event_sender.send(SwarmInternalEvent::GossipTransaction(message.data, source)).await.ok();
-                                } else if message.topic == vote_topic.hash() {
-                                    event_sender.send(SwarmInternalEvent::ConsensusVoteReceived(message.data, source)).await.ok();
-                                } else if message.topic == timeout_topic.hash() { // [NEW] Handle Timeout
-                                    event_sender.send(SwarmInternalEvent::ViewChangeVoteReceived(message.data, source)).await.ok();
-                                } else if message.topic == oracle_attestations_topic.hash() {
-                                    event_sender.send(SwarmInternalEvent::GossipOracleAttestation(message.data, source)).await.ok();
-                                } else if message.topic == agentic_vote_topic.hash() {
-                                    if let Ok((prompt_hash, vote_hash)) = codec::from_bytes_canonical::<(String, Vec<u8>)>(&message.data) {
-                                        event_sender.send(SwarmInternalEvent::AgenticConsensusVote { from: source, prompt_hash, vote_hash }).await.ok();
-                                    }
-                                }
-                            }
-                        }
-                        SyncBehaviourEvent::RequestResponse(event) => match event {
-                            request_response::Event::Message { peer, message } => match message {
-                                request_response::Message::Request { request, channel, .. } => match request {
-                                    SyncRequest::GetStatus => { event_sender.send(SwarmInternalEvent::StatusRequest(peer, channel)).await.ok(); }
-                                    SyncRequest::GetBlocks { since, max_blocks, max_bytes } => { event_sender.send(SwarmInternalEvent::BlocksRequest { peer, since, max_blocks, max_bytes, channel }).await.ok(); }
-                                    SyncRequest::AgenticPrompt(prompt) => {
-                                        tracing::info!(target: "network", event = "request_received", kind="AgenticPrompt", %peer);
-                                        event_sender.send(SwarmInternalEvent::AgenticPrompt { from: peer, prompt, channel }).await.ok();
-                                    }
-                                    // [NEW] Handle request for missing txs
-                                    SyncRequest::RequestMissingTxs(indices) => {
-                                        event_sender.send(SwarmInternalEvent::RequestMissingTxs { peer, indices, channel }).await.ok();
-                                    }
-                                },
-                                request_response::Message::Response { response, .. } => match response {
-                                    SyncResponse::Status { height, head_hash, chain_id, genesis_root } => { event_sender.send(SwarmInternalEvent::StatusResponse { peer, height, head_hash, chain_id, genesis_root }).await.ok(); }
-                                    SyncResponse::Blocks(blocks) => { event_sender.send(SwarmInternalEvent::BlocksResponse(peer, blocks)).await.ok(); }
-                                    SyncResponse::AgenticAck => {
-                                        tracing::info!(target: "network", event = "response_received", kind="AgenticAck", %peer);
-                                    }
-                                    // [NEW] Handle missing txs response - typically treated as Block/Tx response logic
-                                    SyncResponse::MissingTxs(txs) => {
-                                        // For simplicity in this diff, we aren't adding a specific event,
-                                        // but logic would route this to block reconstruction.
-                                        // Here we assume it's handled similarly or just logged.
-                                        tracing::debug!("Received missing txs: count={}", txs.len());
-                                    }
-                                }
-                            },
-                            request_response::Event::OutboundFailure { peer, error, .. } => {
-                                tracing::warn!(target: "network", event = "outbound_failure", %peer, ?error);
-                                event_sender.send(SwarmInternalEvent::OutboundFailure(peer)).await.ok();
-                            },
-                            request_response::Event::InboundFailure { peer, error, .. } => {
-                                tracing::warn!(target: "network", event = "inbound_failure", %peer, ?error);
-                            }
-                            _ => {}
-                        },
-                        _ => {}
-                    }
-                    _ => {}
-                },
-                command = command_receiver.recv() => match command {
-                    Some(cmd) => match cmd {
-                        SwarmCommand::Listen(addr) => { swarm.listen_on(addr).ok(); }
-                        SwarmCommand::Dial(addr) => { swarm.dial(addr).ok(); }
-                        SwarmCommand::PublishBlock(data) => {
-                            // DUAL BROADCAST: Publish to BOTH mirrors
-                            let res_a = swarm.behaviour_mut().gossipsub.publish(block_topic_a.clone(), data.clone());
-                            let res_b = swarm.behaviour_mut().gossipsub.publish(block_topic_b.clone(), data.clone());
-
-                            match (res_a, res_b) {
-                                (Ok(_), Ok(_)) => { /* Success on both */ },
-                                (Err(PublishError::InsufficientPeers), _) | (_, Err(PublishError::InsufficientPeers)) => {
-                                    tracing::warn!(target: "gossip", "Insufficient peers on one or more mirrors, queueing.");
-                                    enqueue_block(&mut pending_blocks, data);
-                                }
-                                (Err(e), _) | (_, Err(e)) => {
-                                    tracing::warn!(error = %e, "Failed to publish block to at least one mirror");
-                                }
-                            }
-                        }
-                        SwarmCommand::PublishTransaction(data) => {
-                            if let Err(e) = swarm.behaviour_mut().gossipsub.publish(tx_topic.clone(), data) {
-                                tracing::warn!(error = %e, "Failed to publish transaction to gossipsub");
-                            }
-                        }
-                        SwarmCommand::BroadcastVote(data) => { // Broadcast QC vote
-                            if let Err(e) = swarm.behaviour_mut().gossipsub.publish(vote_topic.clone(), data) {
-                                tracing::warn!(error = %e, "Failed to publish vote to gossipsub");
-                            }
-                        }
-                        SwarmCommand::BroadcastViewChange(data) => { // [NEW] Broadcast TC vote
-                            if let Err(e) = swarm.behaviour_mut().gossipsub.publish(timeout_topic.clone(), data) {
-                                tracing::warn!(error = %e, "Failed to publish view change to gossipsub");
-                            }
-                        }
-                        SwarmCommand::GossipOracleAttestation(data) => {
-                             if let Err(e) = swarm.behaviour_mut().gossipsub.publish(oracle_attestations_topic.clone(), data) {
-                                 tracing::warn!(error = %e, "Failed to publish oracle attestation to gossipsub");
-                             }
-                        }
-                        SwarmCommand::SendStatusRequest(p) => { swarm.behaviour_mut().request_response.send_request(&p, SyncRequest::GetStatus); }
-                        SwarmCommand::SendBlocksRequest { peer, since, max_blocks, max_bytes } => { swarm.behaviour_mut().request_response.send_request(&peer, SyncRequest::GetBlocks { since, max_blocks, max_bytes }); }
-                        SwarmCommand::SendStatusResponse { channel, height, head_hash, chain_id, genesis_root } => { swarm.behaviour_mut().request_response.send_response(channel, SyncResponse::Status { height, head_hash, chain_id, genesis_root }).ok(); }
-                        SwarmCommand::SendBlocksResponse(c, blocks) => { swarm.behaviour_mut().request_response.send_response(c, SyncResponse::Blocks(blocks)).ok(); }
-                        SwarmCommand::SimulateAgenticTx => {
-                            // This is a test-only command to trigger a log cascade.
-                            // It does not interact with the network.
-                        }
-                        SwarmCommand::BroadcastToCommittee(peers, prompt) => {
-                            tracing::info!(target: "network", event = "broadcast", kind="AgenticPrompt", committee_size=peers.len());
-                            for peer_id in peers {
-                                let request = SyncRequest::AgenticPrompt(prompt.clone());
-                                swarm.behaviour_mut().request_response.send_request(&peer_id, request);
-                            }
-                        }
-                        SwarmCommand::AgenticConsensusVote(prompt_hash, vote_hash) => {
-                            match codec::to_bytes_canonical(&(prompt_hash, vote_hash)) {
-                                Ok(data) => {
-                                    if let Err(e) = swarm.behaviour_mut().gossipsub.publish(agentic_vote_topic.clone(), data) {
-                                        tracing::warn!(error = %e, "Failed to publish agentic consensus vote");
-                                    }
-                                }
-                                Err(e) => {
-                                    tracing::error!(error = %e, "Failed to serialize agentic consensus vote");
-                                }
-                            }
-                        }
-                        SwarmCommand::SendAgenticAck(channel) => {
-                            swarm.behaviour_mut().request_response.send_response(channel, SyncResponse::AgenticAck).ok();
-                        }
-                        // [NEW] Handle RequestMissingTxs command
-                        SwarmCommand::RequestMissingTxs { peer, indices } => {
-                            swarm.behaviour_mut().request_response.send_request(&peer, SyncRequest::RequestMissingTxs(indices));
-                        }
-                    },
-                    None => { return; }
-                }
-            }
-        }
-    }
-}
-
-// ... [Keep enqueue_block and drain_pending_blocks] ...
-
-const PENDING_BLOCK_OUTBOX_MAX: usize = 128;
-
-/// Enqueues a block for later gossiping, dropping the oldest if the outbox is full.
-fn enqueue_block(pending: &mut VecDeque<Vec<u8>>, data: Vec<u8>) {
-    if pending.len() >= PENDING_BLOCK_OUTBOX_MAX {
-        pending.pop_front(); // Drop oldest to prevent unbounded growth.
-        tracing::warn!(
-            target: "gossip",
-            "outbox full; dropping oldest pending block"
-        );
-    }
-    pending.push_back(data);
-}
-
-/// Attempts to drain the queue of pending blocks by publishing them to the gossipsub mesh.
-fn drain_pending_blocks(
-    pending: &mut VecDeque<Vec<u8>>,
-    gossipsub: &mut GossipsubBehaviour,
-    block_topic_a: &gossipsub::IdentTopic,
-    block_topic_b: &gossipsub::IdentTopic,
-) {
-    if pending.is_empty() {
-        return;
-    }
-
-    // Check if we have peers on EITHER topic to attempt flush
-    let peers_a = gossipsub.mesh_peers(&block_topic_a.hash()).count();
-    let peers_b = gossipsub.mesh_peers(&block_topic_b.hash()).count();
-    
-    if peers_a == 0 && peers_b == 0 { return; }
-
-    tracing::info!(
-        target: "gossip",
-        "Attempting to drain {} pending blocks from outbox.",
-        pending.len()
-    );
-
-    // Use retain to efficiently re-queue items that still fail to send.
-    pending.retain(|block_data| {
-        let ok_a = gossipsub.publish(block_topic_a.clone(), block_data.clone()).is_ok();
-        let ok_b = gossipsub.publish(block_topic_b.clone(), block_data.clone()).is_ok();
-        
-        if ok_a || ok_b {
-            tracing::info!(target: "gossip", event = "published_queued_block", mirror_a=ok_a, mirror_b=ok_b);
-            false // Remove from queue
-        } else {
-            // Log error if both failed
-            tracing::warn!("Failed to publish queued block to both mirrors, retrying later");
-            true // Keep in queue
-        }
-    });
 }

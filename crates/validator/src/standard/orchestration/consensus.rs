@@ -17,12 +17,11 @@ use ioi_api::chain::StateRef;
 use ioi_crypto::sign::dilithium::MldsaKeyPair;
 
 use ioi_networking::traits::NodeState;
-// [FIX] Removed unused QuorumCertificate
-// [FIX] Added StateRoot import
 use ioi_types::{
     app::{
         account_id_from_key_material, to_root_hash, AccountId, Block, BlockHeader,
         ChainTransaction, ConsensusVote, SignatureSuite, StateAnchor, StateRoot, TxHash,
+        QuorumCertificate,
     },
     keys::VALIDATOR_SET_KEY,
     codec,
@@ -97,6 +96,13 @@ where
     };
 
     let node_state: NodeState = node_state_arc.lock().await.clone();
+    
+    // [MODIFIED] Reject tick if in Panic/Transition/Survival modes
+    if matches!(node_state, NodeState::Transitioning | NodeState::SurvivalMode) {
+         tracing::info!(target: "consensus", "Consensus halted: Node is in {:?} state.", node_state);
+         return Ok(());
+    }
+
     let parent_h = last_committed_block_opt
         .as_ref()
         .map_or(0, |b: &Block<ChainTransaction>| b.header.height); 
@@ -143,7 +149,30 @@ where
     };
 
     match decision {
-        // [NEW] Handle Timeout decision -> Broadcast ViewChangeVote
+        // [NEW] Handle Panic Decision (Kill Switch Trigger)
+        ioi_api::consensus::ConsensusDecision::Panic(proof) => {
+             tracing::error!(target: "consensus", "CRITICAL: Engine Triggered Panic! Hardware Divergence Detected.");
+             
+             // 1. Sign Panic Message (to bind our identity to the alert and prevent griefing)
+             let proof_bytes = codec::to_bytes_canonical(&proof)
+                .map_err(|e| anyhow!("Failed to serialize proof: {}", e))?;
+             let sig = local_keypair.sign(&proof_bytes)?;
+             
+             let panic_msg = ioi_types::app::PanicMessage {
+                 proof: proof.clone(),
+                 sender_sig: sig,
+             };
+             
+             let panic_bytes = codec::to_bytes_canonical(&panic_msg)
+                .map_err(|e| anyhow!("Failed to serialize PanicMessage: {}", e))?;
+
+             // 2. Broadcast immediately
+             let _ = swarm_commander.send(SwarmCommand::BroadcastPanic(panic_bytes)).await;
+             
+             // 3. Execute Local Transition (Freeze A-DMFT)
+             crate::standard::orchestration::transition::execute_kill_switch(context_arc, proof).await?;
+        }
+
         ioi_api::consensus::ConsensusDecision::Timeout { view, height } => {
             tracing::warn!(target: "consensus", "Consensus timeout at H={} View={}. Broadcasting ViewChange.", height, view);
             
@@ -151,7 +180,6 @@ where
             
             // Sign the (height, view) tuple to authenticate the vote
             let sign_payload = (height, view);
-            // [FIX] Map error
             let sign_bytes = codec::to_bytes_canonical(&sign_payload)
                 .map_err(|e| anyhow!("Failed to serialize vote payload: {}", e))?;
                 
@@ -164,14 +192,12 @@ where
                 signature: sig,
             };
             
-            // [FIX] Map error
             let vote_blob = codec::to_bytes_canonical(&signed_vote)
                 .map_err(|e| anyhow!("Failed to serialize ViewChangeVote: {}", e))?;
             
             // Re-acquire lock to feed back to engine (so we track our own vote)
             {
                  let mut engine = consensus_engine_ref.lock().await;
-                 // [FIX] Use local_keypair directly to get PeerId
                  let local_peer_id = local_keypair.public().to_peer_id();
                  engine.handle_view_change(
                      local_peer_id,
@@ -181,15 +207,12 @@ where
 
             // Broadcast on the DEDICATED view change topic
             let _ = swarm_commander.send(SwarmCommand::BroadcastViewChange(vote_blob)).await;
-            tracing::info!(target: "consensus", "Broadcasting ViewChangeVote via swarm.");
         }
         
-        // [NEW] Node decides to cast a vote for a valid block it has verified
         ioi_api::consensus::ConsensusDecision::Vote { block_hash, height, view } => {
             tracing::info!(target: "consensus", "Voting for block {} (H={} V={})", hex::encode(&block_hash[..4]), height, view);
             // Sign the vote
             let vote_payload = (height, view, block_hash);
-            // [FIX] Map error
             let vote_bytes = codec::to_bytes_canonical(&vote_payload)
                 .map_err(|e| anyhow!("Failed to serialize vote payload: {}", e))?;
                 
@@ -203,23 +226,25 @@ where
                 signature,
             };
 
-            // [FIX] Map error
             let vote_blob = codec::to_bytes_canonical(&vote)
                 .map_err(|e| anyhow!("Failed to serialize ConsensusVote: {}", e))?;
 
             // Broadcast vote to peers
             let _ = swarm_commander.send(SwarmCommand::BroadcastVote(vote_blob)).await;
             
-            // Also feed it back to our own engine (loopback) to ensure we count our own vote
-            // We do this via the internal engine method since we hold the lock, or fire an event.
-            // Since we released the lock above (decision block), we must re-acquire or dispatch.
-            // Dispatching via swarm loopback is safer for concurrency.
+            // Loopback to local engine to ensure we count our own vote
+            {
+                let mut engine = consensus_engine_ref.lock().await;
+                if let Err(e) = engine.handle_vote(vote).await {
+                    tracing::warn!(target: "consensus", "Failed to handle own vote: {}", e);
+                }
+            }
         }
 
         ioi_api::consensus::ConsensusDecision::ProduceBlock {
             expected_timestamp_secs,
             view,
-            parent_qc, // <--- Destructure new field
+            parent_qc, 
             ..
         } => {
             tracing::info!(target: "consensus", "Decision: ProduceBlock for H={} V={}", producing_h, view);
@@ -298,7 +323,7 @@ where
                     signature: vec![],
                     oracle_counter: 0,
                     oracle_trace_hash: [0u8; 32],
-                    parent_qc, // <--- Use provided QC
+                    parent_qc,
                 },
                 transactions: valid_txs.clone(),
             };

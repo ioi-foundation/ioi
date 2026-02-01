@@ -93,3 +93,8 @@ pub const IDENTITY_ROTATION_NONCE_PREFIX: &[u8] = b"identity::nonce::rotation::"
 pub const IDENTITY_PROMOTION_INDEX_PREFIX: &[u8] = b"identity::index::promotion::";
 /// State key prefix for the AccountId -> libp2p PublicKey mapping.
 pub const ACCOUNT_ID_TO_PUBKEY_PREFIX: &[u8] = b"identity::pubkey::";
+
+// --- Protocol Apex Keys ---
+/// The state key for the current security epoch (Lazarus Protocol).
+/// Used to coordinate the transition back from A-PMFT to A-DMFT.
+pub const CURRENT_EPOCH_KEY: &[u8] = b"system::epoch";

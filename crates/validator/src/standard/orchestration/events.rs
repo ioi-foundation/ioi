@@ -9,9 +9,8 @@ use ioi_api::{
     state::{StateManager, Verifier},
 };
 
-use ioi_networking::libp2p::NetworkEvent;
+use ioi_networking::libp2p::{NetworkEvent, SwarmCommand}; // [FIX] Added SwarmCommand import
 use ioi_networking::traits::NodeState;
-// [FIX] Removed unused ConsensusVote
 use ioi_types::app::{account_id_from_key_material, ChainTransaction, SignatureSuite}; 
 use ioi_types::codec; 
 use serde::Serialize;
@@ -19,6 +18,11 @@ use std::fmt::Debug;
 use std::sync::Arc;
 use tokio::sync::Mutex;
 use parity_scale_codec::{Decode, Encode};
+
+// [NEW] Import verification logic and transition handler
+use ioi_consensus::admft::divergence::verify_divergence_proof;
+use crate::standard::orchestration::transition::execute_kill_switch;
+use ioi_types::app::PanicMessage;
 
 pub async fn handle_network_event<CS, ST, CE, V>(
     event: NetworkEvent,
@@ -79,6 +83,13 @@ pub async fn handle_network_event<CS, ST, CE, V>(
         }
         NetworkEvent::GossipBlock { block, mirror_id } => {
             let node_state = { context_arc.lock().await.node_state.lock().await.clone() };
+            
+            // [MODIFIED] Reject standard blocks if in Panic/Transition/Survival modes
+            if matches!(node_state, NodeState::Transitioning | NodeState::SurvivalMode) {
+                 tracing::debug!(target: "gossip", "Block ignored: Node is in {:?} state.", node_state);
+                 return;
+            }
+            
             if node_state == NodeState::Syncing {
                 tracing::debug!(
                     target: "gossip",
@@ -125,6 +136,12 @@ pub async fn handle_network_event<CS, ST, CE, V>(
         }
 
         NetworkEvent::ConsensusVoteReceived { vote, from } => {
+             // [MODIFIED] Ignore votes if panicked
+            let node_state = { context_arc.lock().await.node_state.lock().await.clone() };
+            if matches!(node_state, NodeState::Transitioning | NodeState::SurvivalMode) {
+                 return;
+            }
+
             let (engine_ref, kick_tx) = {
                 let ctx = context_arc.lock().await;
                 (ctx.consensus_engine_ref.clone(), ctx.consensus_kick_tx.clone())
@@ -147,8 +164,13 @@ pub async fn handle_network_event<CS, ST, CE, V>(
             }
         }
         
-        // [NEW] Handle incoming View Change votes (Timeout TC)
         NetworkEvent::ViewChangeVoteReceived { vote, from } => {
+            // [MODIFIED] Ignore view changes if panicked
+            let node_state = { context_arc.lock().await.node_state.lock().await.clone() };
+            if matches!(node_state, NodeState::Transitioning | NodeState::SurvivalMode) {
+                 return;
+            }
+            
              let (engine_ref, kick_tx) = {
                 let ctx = context_arc.lock().await;
                 (ctx.consensus_engine_ref.clone(), ctx.consensus_kick_tx.clone())
@@ -156,14 +178,11 @@ pub async fn handle_network_event<CS, ST, CE, V>(
             
             let mut engine = engine_ref.lock().await;
             
-            // Serialize for engine (engine expects bytes for generic interface compatibility)
-            // Now that `codec` is imported, this will work.
             match codec::to_bytes_canonical(&vote) {
                  Ok(vote_blob) => {
                       if let Err(e) = engine.handle_view_change(from, &vote_blob).await {
                            tracing::warn!(target: "consensus", "Failed to handle view change from {}: {}", from, e);
                       } else {
-                           // If we formed a TC, we advanced the view. Kick the loop to propose in new view.
                            let _ = kick_tx.send(());
                       }
                  }
@@ -171,6 +190,83 @@ pub async fn handle_network_event<CS, ST, CE, V>(
                       tracing::warn!(target: "consensus", "Failed to serialize incoming view change vote: {}", e);
                  }
             }
+        }
+
+        // [NEW] Handle Protocol Apex Panic (Kill Switch)
+        NetworkEvent::PanicReceived { panic, from } => {
+             tracing::warn!(target: "orchestration", "Received Panic Message from peer {}", from);
+             
+             // 1. Verify Divergence Proof
+             match verify_divergence_proof(&panic.proof) {
+                 Ok(true) => {
+                     tracing::error!(target: "orchestration", "Panic Validated! Hardware Compromise Confirmed.");
+                     
+                     // 2. Trigger Kill Switch (Transition Node State)
+                     if let Err(e) = execute_kill_switch(context_arc, panic.proof.clone()).await {
+                         tracing::error!(target: "orchestration", "Failed to execute Kill Switch: {}", e);
+                     }
+                     
+                     // 3. Re-gossip (Epidemic Propagation)
+                     if let Ok(data) = codec::to_bytes_canonical(&panic) {
+                         // Must unlock context to get commander, but execute_kill_switch already used it.
+                         // We re-acquire briefly.
+                         let swarm_sender = context_arc.lock().await.swarm_commander.clone();
+                         let _ = swarm_sender.send(SwarmCommand::BroadcastPanic(data)).await;
+                     }
+                 },
+                 Ok(false) => {
+                     tracing::warn!(target: "orchestration", "Panic invalid: Proof does not show divergence.");
+                 },
+                 Err(e) => {
+                     tracing::warn!(target: "orchestration", "Panic malformed: {}", e);
+                 }
+             }
+        }
+        
+        // [NEW] Echo Handler
+        NetworkEvent::EchoReceived { echo, from } => {
+            // [MODIFIED] Ignore echoes if panicked
+            let node_state = { context_arc.lock().await.node_state.lock().await.clone() };
+            if matches!(node_state, NodeState::Transitioning | NodeState::SurvivalMode) {
+                 return;
+            }
+
+            tracing::debug!(target: "consensus", "Echo received from {} (H={} V={})", from, echo.height, echo.view);
+            // In a full integration, we'd call `engine.handle_echo(echo)`.
+            // For now, assume engine handles internal gossip or we extend trait later.
+        }
+
+        // [NEW] Handle A-PMFT Sample Request
+        NetworkEvent::SampleRequestReceived { peer, height: _, channel } => {
+            let (engine_ref, swarm_sender) = {
+                let ctx = context_arc.lock().await;
+                (ctx.consensus_engine_ref.clone(), ctx.swarm_commander.clone())
+            };
+            
+            // We lock the engine via the Consensus wrapper helper
+            let mut engine = engine_ref.lock().await;
+            
+            // This method `get_apmft_tip` is defined on the `Consensus` enum wrapper in `consensus/src/lib.rs`
+            // It safely downcasts/matches the internal engine variant.
+            // If the engine is A-DMFT, it returns None.
+            if let Some((block_hash, confidence)) = engine.get_apmft_tip() {
+                 tracing::debug!(target: "apmft", "Replying to sample from {}: {:?} (C={})", peer, block_hash, confidence);
+                 let _ = swarm_sender.send(SwarmCommand::SendSampleResponse {
+                    channel,
+                    block_hash,
+                    confidence
+                }).await;
+            }
+        }
+        
+        // [NEW] Handle A-PMFT Sample Response
+        NetworkEvent::SampleResponseReceived { peer, block_hash, confidence } => {
+             let engine_ref = context_arc.lock().await.consensus_engine_ref.clone();
+             let mut engine = engine_ref.lock().await;
+             
+             // Feed sample back to engine
+             tracing::debug!(target: "apmft", "Sample received from {}: {:?} (C={})", peer, block_hash, confidence);
+             engine.feed_apmft_sample(block_hash);
         }
 
         NetworkEvent::ConnectionEstablished(peer_id) => {

@@ -18,7 +18,7 @@ use ioi_api::crypto::BatchVerifier;
 use ioi_api::{
     chain::WorkloadClientApi,
     commitment::CommitmentScheme,
-    consensus::ConsensusEngine,
+    consensus::{ConsensusEngine, ConsensusControl}, // [FIX] Added ConsensusControl import
     state::{StateManager, Verifier},
     validator::container::Container,
 };
@@ -88,6 +88,9 @@ mod view_resolver;
 
 mod events;
 mod finalize;
+
+/// Transition logic
+pub mod transition;
 
 use crate::config::OrchestrationConfig;
 use consensus::drive_consensus_tick;
@@ -260,7 +263,7 @@ where
         + 'static
         + Clone
         + Debug,
-    CE: ConsensusEngine<ChainTransaction> + Send + Sync + 'static,
+    CE: ConsensusEngine<ChainTransaction> + ConsensusControl + Send + Sync + 'static, // [FIX] Added ConsensusControl bound
     V: Verifier<Commitment = CS::Commitment, Proof = CS::Proof>
         + Clone
         + Send
@@ -446,7 +449,8 @@ where
         mut shutdown_rx: watch::Receiver<bool>,
     ) {
         // [INSTRUMENTATION] Log ticker start
-        tracing::info!(target: "consensus", "Consensus ticker task started. Waiting for context lock...");
+        tracing::info!(target: "consensus", "DEBUG: Consensus ticker thread spawned.");
+
         let interval_secs = {
             let ctx = context_arc.lock().await;
             std::env::var("ORCH_BLOCK_INTERVAL_SECS")
@@ -454,7 +458,7 @@ where
                 .and_then(|s| s.parse::<u64>().ok())
                 .unwrap_or_else(|| ctx.config.block_production_interval_secs)
         };
-        tracing::info!(target: "consensus", "Consensus ticker acquired config. Interval: {}s", interval_secs);
+        tracing::info!(target: "consensus", "DEBUG: Consensus Ticker interval: {}s", interval_secs);
 
         if interval_secs == 0 {
             tracing::info!(target: "consensus", "Consensus ticker disabled (interval=0).");
@@ -469,23 +473,69 @@ where
         let mut last_tick = tokio::time::Instant::now()
             .checked_sub(min_block_time)
             .unwrap();
+            
+        // Track the epoch we last saw
+        let mut last_seen_epoch = 0;
 
         loop {
             tokio::select! {
                 _ = ticker.tick() => {
-                    let cause = "timer";
-                    let is_quarantined = context_arc.lock().await.is_quarantined.load(Ordering::SeqCst);
-                    if is_quarantined {
-                        continue;
-                    }
-                    last_tick = tokio::time::Instant::now();
-                    
-                    // [INSTRUMENTATION] Log tick trigger
-                    tracing::info!(target: "consensus", "Consensus timer tick triggered.");
-                    
-                    let result = AssertUnwindSafe(drive_consensus_tick(&context_arc, cause)).catch_unwind().await;
-                    if let Err(e) = result.map_err(|e| anyhow!("Consensus tick panicked: {:?}", e)).and_then(|res| res) {
-                        tracing::error!(target: "consensus", "[Orch Tick] Consensus tick failed: {:?}. Continuing loop.", e);
+                    // [FIX] Split lock and clone to avoid holding lock across await or creating temporary with bad lifetime
+                    let (is_quarantined, node_state) = {
+                        let ctx = context_arc.lock().await;
+                        let q = ctx.is_quarantined.load(Ordering::SeqCst);
+                        let ns = ctx.node_state.lock().await.clone();
+                        (q, ns)
+                    };
+
+                    if is_quarantined { continue; }
+
+                    // [NEW] Lazarus Recovery Check
+                    if node_state == NodeState::SurvivalMode {
+                         // Poll for epoch change
+                         let client = { context_arc.lock().await.view_resolver.workload_client().clone() };
+                         let key = ioi_types::keys::CURRENT_EPOCH_KEY;
+                         
+                         if let Ok(Some(bytes)) = client.query_raw_state(key).await {
+                             if let Ok(current_epoch) = ioi_types::codec::from_bytes_canonical::<u64>(&bytes) {
+                                 if current_epoch > last_seen_epoch {
+                                     tracing::info!(target: "orchestration", "Lazarus Recovery: Epoch {} detected (was {}). Restoring A-DMFT.", current_epoch, last_seen_epoch);
+                                     last_seen_epoch = current_epoch;
+                                     
+                                     let ctx = context_arc.lock().await;
+                                     *ctx.node_state.lock().await = NodeState::Synced;
+                                     
+                                     // Switch Engine back to A-DMFT
+                                     let mut engine = ctx.consensus_engine_ref.lock().await;
+                                     engine.switch_to_admft();
+                                     
+                                     // Resume normal operation
+                                     continue;
+                                 }
+                             }
+                         }
+                         
+                         // Continue A-PMFT sampling loop while in Survival Mode
+                         let cause = "apmft_tick";
+                         // A-PMFT decide will trigger sampling (Stall with sampling side-effects or a new Decision)
+                         // Currently engine returns Stall, but events loop drives sampling.
+                         // But we should call decide() to allow state machine to update round/preference.
+                         let result = AssertUnwindSafe(drive_consensus_tick(&context_arc, cause)).catch_unwind().await;
+                         if let Err(e) = result.map_err(|e| anyhow!("A-PMFT tick panicked: {:?}", e)).and_then(|res| res) {
+                            tracing::error!(target: "consensus", "[Orch Tick] A-PMFT tick failed: {:?}.", e);
+                         }
+                    } else {
+                         // Standard A-DMFT
+                        last_tick = tokio::time::Instant::now();
+                        
+                        // [INSTRUMENTATION] Log tick trigger
+                        tracing::info!(target: "consensus", "Consensus timer tick triggered.");
+                        
+                        let cause = "timer";
+                        let result = AssertUnwindSafe(drive_consensus_tick(&context_arc, cause)).catch_unwind().await;
+                        if let Err(e) = result.map_err(|e| anyhow!("Consensus tick panicked: {:?}", e)).and_then(|res| res) {
+                            tracing::error!(target: "consensus", "[Orch Tick] Consensus tick failed: {:?}. Continuing loop.", e);
+                        }
                     }
                 }
                 Some(()) = kick_rx.recv() => {
@@ -854,7 +904,7 @@ where
             safety_model: self.safety_model.clone(),
             inference_runtime: Arc::new(RuntimeWrapper {
                 inner: self.inference_runtime.clone()
-            }), // [FIX] Use wrapped runtime
+            }), 
             os_driver: self.os_driver.clone(),
             scs: self.scs.clone(),
             event_broadcaster: event_tx, 
@@ -934,7 +984,7 @@ where
         + 'static
         + Clone
         + Debug,
-    CE: ConsensusEngine<ChainTransaction> + Send + Sync + 'static,
+    CE: ConsensusEngine<ChainTransaction> + ConsensusControl + Send + Sync + 'static, // [FIX] Added ConsensusControl bound
     V: Verifier<Commitment = CS::Commitment, Proof = CS::Proof>
         + Clone
         + Send
