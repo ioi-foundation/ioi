@@ -4,9 +4,10 @@ use crate::{ConsensusDecision, ConsensusEngine, PenaltyEngine, PenaltyMechanism}
 use async_trait::async_trait;
 use ioi_api::chain::{AnchoredStateView, ChainView};
 use ioi_api::commitment::CommitmentScheme;
+use ioi_api::consensus::ConsensusControl; // [NEW] Import trait
 use ioi_api::state::{StateAccess, StateManager};
 use ioi_system::SystemState;
-use ioi_types::app::{AccountId, Block, ChainStatus, FailureReport, ConsensusVote, QuorumCertificate}; // Added ConsensusVote, QuorumCertificate
+use ioi_types::app::{AccountId, Block, ChainStatus, FailureReport, ConsensusVote, QuorumCertificate};
 use ioi_types::codec;
 use ioi_types::error::{ConsensusError, TransactionError};
 use ioi_types::keys::STATUS_KEY;
@@ -22,6 +23,22 @@ pub struct SoloEngine;
 impl SoloEngine {
     pub fn new() -> Self {
         Self
+    }
+}
+
+// [NEW] Implement ConsensusControl for SoloEngine
+impl ConsensusControl for SoloEngine {
+    fn switch_to_apmft(&mut self) {
+        // No-op for Solo mode (no hardware failure possible in local dev)
+    }
+    fn switch_to_admft(&mut self) {
+        // No-op
+    }
+    fn get_apmft_tip(&self) -> Option<([u8; 32], u32)> {
+        None
+    }
+    fn feed_apmft_sample(&mut self, _hash: [u8; 32]) {
+        // No-op
     }
 }
 

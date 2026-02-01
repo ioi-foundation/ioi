@@ -29,6 +29,10 @@ pub enum SyncRequest {
     // [NEW] Request missing transactions for compact block reconstruction
     // Changed usize to u32 for deterministic SCALE encoding
     RequestMissingTxs(Vec<u32>),
+    
+    // [NEW] Protocol Apex: A-PMFT Sampling
+    /// Request the peer's preferred block hash and confidence for a given height.
+    SamplePreference(u64), 
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Encode, Decode)]
@@ -43,6 +47,14 @@ pub enum SyncResponse {
     AgenticAck,
     // [NEW] Response with missing transactions
     MissingTxs(Vec<ChainTransaction>),
+    
+    // [NEW] Protocol Apex: A-PMFT Sampling Response
+    SampleResult {
+        /// The peer's preferred block hash.
+        block_hash: [u8; 32],
+        /// The peer's local confidence score for this block.
+        confidence: u32,
+    },
 }
 
 #[derive(Debug, Clone, Default)]

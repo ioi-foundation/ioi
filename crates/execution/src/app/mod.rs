@@ -116,6 +116,8 @@ where
     }
 }
 
+// [FIX] Allow dead code for legacy function
+#[allow(dead_code)]
 fn signer_from_tx(tx: &ChainTransaction) -> AccountId {
     match tx {
         ChainTransaction::System(s) => s.header.account_id,
@@ -148,11 +150,12 @@ where
         service_policies: BTreeMap<String, ServicePolicy>,
         os_driver: Arc<dyn OsDriver>,
     ) -> Result<Self, CoreError> {
+        // [FIX] Initialize as running=true so the API reports correct status immediately
         let status = ChainStatus {
             height: 0,
             latest_timestamp: 0,
             total_transactions: 0,
-            is_running: false,
+            is_running: true,
         };
 
         let services_for_dir: Vec<Arc<dyn BlockchainService>> = initial_services
@@ -198,8 +201,12 @@ where
 
         match state.get(STATUS_KEY) {
             Ok(Some(ref status_bytes)) => {
-                let status: ChainStatus =
+                let mut status: ChainStatus =
                     codec::from_bytes_canonical(status_bytes).map_err(ChainError::Transaction)?;
+                
+                // [FIX] Ensure we report running after a restart/recovery
+                status.is_running = true;
+
                 tracing::info!(target: "execution", event = "status_loaded", height = status.height, "Successfully loaded existing chain status from state manager.");
                 self.state.status = status;
                 let root = state.root_commitment().as_ref().to_vec();
@@ -300,6 +307,9 @@ where
                         .map_err(|e| ChainError::Transaction(e.to_string()))?;
                 }
 
+                // [FIX] Explicitly set running before saving genesis status
+                self.state.status.is_running = true;
+
                 let status_bytes = ioi_types::codec::to_bytes_canonical(&self.state.status)
                     .map_err(ChainError::Transaction)?;
                 state
@@ -361,8 +371,8 @@ where
         Ok(())
     }
 
-    // ... (rest of the file remains unchanged, omitted for brevity)
-    // [FIX] Ensure process_transaction is included
+    // [FIX] Allow dead code for sequential processor (replaced by parallel version in state_machine.rs)
+    #[allow(dead_code)]
     async fn process_transaction(
         &self,
         tx: &ChainTransaction,

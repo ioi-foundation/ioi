@@ -18,7 +18,6 @@ use ioi_types::keys::active_service_key;
 use ioi_types::service_configs::{ActiveServiceMeta, Capabilities};
 use parity_scale_codec::{Decode, Encode};
 use serde::{Deserialize, Serialize};
-use std::any::Any;
 
 /// Parameters to evolve a specific agent.
 #[derive(Encode, Decode, Serialize, Deserialize, Debug, Clone)]

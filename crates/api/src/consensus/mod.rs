@@ -6,7 +6,8 @@ use crate::chain::{AnchoredStateView, ChainView};
 use crate::commitment::CommitmentScheme;
 use crate::state::{StateAccess, StateManager};
 use async_trait::async_trait;
-use ioi_types::app::{AccountId, Block, ConsensusVote, QuorumCertificate}; // Added QuorumCertificate
+// [MODIFIED] Added ProofOfDivergence to imports
+use ioi_types::app::{AccountId, Block, ConsensusVote, QuorumCertificate, ProofOfDivergence}; 
 use ioi_types::error::{ConsensusError, TransactionError};
 use libp2p::PeerId;
 use std::collections::HashSet;
@@ -43,6 +44,12 @@ pub enum ConsensusDecision<T> {
     ProposeViewChange,
     /// The node is unable to make a decision and should stall, neither producing nor waiting.
     Stall,
+    
+    // [NEW] Protocol Apex: Kill Switch Trigger
+    /// The node has detected a hardware compromise via a Proof of Divergence.
+    /// The Orchestrator MUST immediately broadcast a Panic message, halt A-DMFT, 
+    /// and initialize the State Handoff to Engine B.
+    Panic(ProofOfDivergence),
 }
 
 /// Defines the logic for applying penalties for misbehavior, specific to a consensus type.
@@ -70,10 +77,32 @@ impl<T: PenaltyMechanism + ?Sized> PenaltyMechanism for &T {
     }
 }
 
+// [NEW] Protocol Apex: Control Interface
+// This trait allows the Orchestrator to force a mode switch without knowing the concrete engine type.
+pub trait ConsensusControl: Send + Sync {
+    /// Switches the active engine from A-DMFT (Deterministic) to A-PMFT (Probabilistic).
+    fn switch_to_apmft(&mut self);
+    
+    /// Switches the active engine from A-PMFT back to A-DMFT (Deterministic).
+    /// Used after the Lazarus Recovery Protocol is complete.
+    fn switch_to_admft(&mut self);
+
+    // [NEW] A-PMFT Accessors
+    // These allow the Orchestrator to query probabilistic state regardless of the active engine.
+    // If the active engine is A-DMFT, these should return None/No-op.
+    
+    /// Returns the current preferred tip and confidence if in A-PMFT mode.
+    fn get_apmft_tip(&self) -> Option<([u8; 32], u32)>;
+    
+    /// Feeds a sample response into the A-PMFT engine.
+    fn feed_apmft_sample(&mut self, hash: [u8; 32]);
+}
+
 /// The core trait for a pluggable consensus engine, defining the interface for block production and validation.
+// [MODIFIED] Added ConsensusControl supertrait
 #[async_trait]
 pub trait ConsensusEngine<T: Clone + parity_scale_codec::Encode>:
-    PenaltyMechanism + Send + Sync
+    PenaltyMechanism + ConsensusControl + Send + Sync
 {
     /// Makes a consensus decision for the current round, determining if the local node should
     /// produce a block, wait, vote, or propose a view change.

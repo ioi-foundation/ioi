@@ -1,4 +1,4 @@
-# Path: crates/network/Cargo.toml
+# Path: crates/networking/Cargo.toml
 [package]
 name = "ioi-networking"
 version = "0.1.0"
@@ -25,7 +25,8 @@ serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
 serde_bytes = { workspace = true }
 tokio = { workspace = true, features = ["full"] }
-libp2p = { workspace = true }
+# [FIX] Added 'ping' feature to support connection keep-alive
+libp2p = { workspace = true, features = ["ping"] }
 futures = { workspace = true }
 async-trait = { workspace = true }
 

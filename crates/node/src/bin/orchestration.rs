@@ -604,6 +604,8 @@ where
     }
 
     orchestration.start(&config.rpc_listen_address).await?;
+    
+    // [FIX] Explicitly log startup complete here to stderr
     eprintln!("ORCHESTRATION_STARTUP_COMPLETE");
 
     tokio::select! {

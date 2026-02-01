@@ -1,5 +1,4 @@
 # Path: crates/cli/Cargo.toml
-
 [package]
 name = "ioi-cli"
 version = "0.1.0"
@@ -38,6 +37,8 @@ ioi-client = { path = "../client" }
 ioi-tx = { path = "../tx" }
 ioi-ipc = { path = "../ipc" }
 ioi-services = { path = "../services" }
+ioi-networking = { path = "../networking" }
+
 toml = { workspace = true }
 
 # Dependencies for testing helpers that are now part of the library
@@ -77,10 +78,9 @@ rkyv = { version = "0.7", features = ["validation", "std", "alloc"] }
 [dev-dependencies]
 ioi-relayer = { path = "../relayer" }
 ioi-execution = { path = "../execution" }
-ioi-networking = { path = "../networking" }
-# [FIX] Add ioi-scs dependency for agent_rag_and_policy_e2e test
+# [NEW] Add ioi-consensus for E2E tests verification logic
+ioi-consensus = { path = "../consensus", features = ["admft"] }
 ioi-scs = { path = "../scs" }
-# [FIX] Add ioi-drivers for agentic_e2e tests
 ioi-drivers = { path = "../drivers" }
 
 once_cell = { workspace = true }
