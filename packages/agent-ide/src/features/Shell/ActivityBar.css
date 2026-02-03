@@ -1,0 +1,136 @@
+/* packages/agent-ide/src/features/Shell/ActivityBar.css */
+
+.shell-activity-bar {
+  width: 50px;
+  min-width: 50px;
+  height: 100%; /* Fill parent height */
+  background: var(--surface-1);
+  border-right: 1px solid var(--border-subtle);
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  z-index: 100;
+  user-select: none;
+  box-sizing: border-box; 
+}
+
+.activity-top {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  gap: 8px;
+  padding-top: 12px;
+}
+
+.activity-logo {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 40px;
+  margin-bottom: 8px;
+}
+
+.activity-nav {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+/* Renamed to avoid collision with potential global progress bars */
+.shell-activity-item {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 50px;
+  height: 44px;
+  background: transparent;
+  border: none;
+  color: var(--text-tertiary);
+  cursor: pointer;
+  transition: all 0.15s;
+  padding: 0;
+}
+
+.shell-activity-item:hover {
+  color: var(--text-primary);
+}
+
+.shell-activity-item.active {
+  color: #FFFFFF;
+}
+
+.shell-activity-item.active::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 8px;
+  bottom: 8px;
+  width: 3px;
+  background: var(--accent-blue);
+  border-radius: 0 2px 2px 0;
+}
+
+.activity-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+}
+
+.activity-icon svg {
+  width: 20px;
+  height: 20px;
+  stroke-width: 2;
+}
+
+.activity-badge {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  min-width: 14px;
+  height: 14px;
+  background: var(--accent-blue);
+  color: white;
+  font-size: 8px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 7px;
+  padding: 0 3px;
+  box-shadow: 0 0 0 2px var(--surface-1);
+}
+
+.activity-bottom {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding-bottom: 12px;
+  gap: 4px;
+}
+
+.user-section {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border-subtle);
+  width: 100%;
+  display: flex;
+  justify-content: center;
+}
+
+.user-avatar {
+  width: 28px;
+  height: 28px;
+  background: var(--status-success);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--bg-dark);
+  cursor: pointer;
+}

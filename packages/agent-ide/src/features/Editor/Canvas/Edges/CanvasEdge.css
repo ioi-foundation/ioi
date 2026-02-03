@@ -1,0 +1,59 @@
+/* packages/agent-ide/src/features/Editor/Canvas/Edges/CanvasEdge.css */
+
+/* Base style applied via BaseEdge className or path */
+.canvas-edge {
+  fill: none;
+  stroke: var(--border-subtle); 
+  stroke-width: 2px;
+  stroke-linecap: round;
+  transition: stroke 0.3s ease, stroke-width 0.2s, stroke-opacity 0.2s;
+  cursor: pointer;
+}
+
+/* Hover state */
+.react-flow__edge:hover .canvas-edge {
+  stroke: var(--border-strong);
+  stroke-width: 4px;
+}
+
+/* --- Active / Flowing States --- */
+
+/* Standard Data Flow (Success) */
+.canvas-edge.active {
+  stroke: var(--accent-blue);
+  stroke-dasharray: 8 4;
+  animation: flow 0.8s linear infinite;
+  stroke-opacity: 1;
+  stroke-width: 3px;
+}
+
+/* Governance Blocked (Firewall Divert) */
+.canvas-edge.active.blocked {
+  stroke: var(--status-warning);
+  stroke-dasharray: 4 4; /* Tighter "warning" dash */
+  animation: flow-slow 1.5s linear infinite; /* Slower "caution" flow */
+}
+
+/* Runtime Error (Failure) */
+.canvas-edge.active.error {
+  stroke: var(--status-error);
+  stroke-dasharray: 0; /* Solid line for stop/error */
+  animation: pulse-error 1s ease-in-out infinite;
+}
+
+/* --- Animations --- */
+
+@keyframes flow {
+  from { stroke-dashoffset: 12; }
+  to { stroke-dashoffset: 0; }
+}
+
+@keyframes flow-slow {
+  from { stroke-dashoffset: 8; }
+  to { stroke-dashoffset: 0; }
+}
+
+@keyframes pulse-error {
+  0%, 100% { stroke-opacity: 1; stroke-width: 3px; }
+  50% { stroke-opacity: 0.6; stroke-width: 2px; }
+}

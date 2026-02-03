@@ -1,0 +1,21 @@
+{
+  "name": "ioi-network-monorepo",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "install:all": "npm install",
+    "dev:desktop": "npm run tauri dev --workspace=apps/autopilot",
+    "dev:web": "npm run dev --workspace=apps/agent-studio",
+    "build:ide": "npm run build --workspace=@ioi/agent-ide",
+    "build:all": "npm run build --workspaces --if-present",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "lint": "npm run lint --workspaces --if-present"
+  },
+  "devDependencies": {
+    "typescript": "^5.3.3",
+    "prettier": "^3.2.5"
+  }
+}

@@ -2,7 +2,7 @@ import React from "react";
 import ReactDOM from "react-dom/client";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 
-import "./styles/global.css";
+import "@ioi/agent-ide/dist/style.css"; // Use shared theme
 
 import { SpotlightWindow } from "./windows/SpotlightWindow";
 // [REMOVED] import { PillWindow } from "./windows/PillWindow";

@@ -1,0 +1,279 @@
+/* packages/agent-ide/src/features/Editor/Canvas/Nodes/CanvasNode.css */
+
+.canvas-node {
+  width: 220px;
+  background: var(--bg-element); 
+  border: 1px solid var(--border-default);
+  border-radius: 2px; 
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.4);
+  cursor: grab;
+  user-select: none;
+  display: flex;
+  flex-direction: column;
+  transition: box-shadow 0.15s, border-color 0.15s, transform 0.1s, opacity 0.3s;
+  font-family: var(--font-mono);
+  position: relative; 
+}
+
+.canvas-node.selected {
+  border-color: var(--accent-blue);
+  box-shadow: 0 0 0 1px var(--accent-blue), 0 4px 12px rgba(0, 0, 0, 0.5);
+  z-index: 10;
+}
+
+.canvas-node:hover {
+  border-color: var(--border-strong);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+}
+
+/* --- Ghost Mode --- */
+.canvas-node.ghost {
+  background: rgba(31, 35, 41, 0.6);
+  border: 1px dashed var(--status-warning);
+  backdrop-filter: blur(4px);
+  animation: ghostPulse 2s infinite;
+}
+
+.canvas-node.ghost .node-header {
+  background: rgba(245, 158, 11, 0.1);
+  color: var(--status-warning);
+}
+
+@keyframes ghostPulse {
+  0% { box-shadow: 0 0 0 0 rgba(245, 158, 11, 0); }
+  50% { box-shadow: 0 0 10px 0 rgba(245, 158, 11, 0.3); }
+  100% { box-shadow: 0 0 0 0 rgba(245, 158, 11, 0); }
+}
+
+/* --- Active Execution State --- */
+.canvas-node.active {
+  border-color: var(--status-success);
+  box-shadow: 0 0 15px rgba(52, 211, 153, 0.15);
+}
+
+.canvas-node.active .node-header {
+  background: rgba(52, 211, 153, 0.1);
+  color: var(--status-success);
+}
+
+/* --- Status Dot --- */
+.status-dot {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  z-index: 15;
+}
+
+.status-success { background: var(--status-success); box-shadow: 0 0 4px rgba(52, 211, 153, 0.4); }
+.status-running { background: var(--accent-blue); animation: blink 0.5s infinite; }
+.status-error { background: var(--status-error); }
+.status-idle { background: var(--text-tertiary); }
+.status-blocked { background: var(--status-warning); box-shadow: 0 0 4px rgba(245, 158, 11, 0.4); }
+
+@keyframes blink { 
+  0% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.5; transform: scale(0.8); }
+  100% { opacity: 1; transform: scale(1); }
+}
+
+/* --- Header --- */
+.node-header {
+  padding: 6px 8px;
+  background: var(--surface-3);
+  border-bottom: 1px solid var(--border-subtle);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 32px;
+  transition: background 0.3s;
+  border-radius: 1px 1px 0 0;
+}
+
+.node-icon {
+  font-size: 14px;
+  opacity: 0.8;
+}
+
+.node-title {
+  font-size: 11px;
+  font-weight: 600;
+  color: inherit;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  letter-spacing: -0.01em;
+}
+
+/* --- IO Strip --- */
+.node-io {
+  display: flex;
+  justify-content: space-between;
+  padding: 2px 4px;
+  background: var(--surface-2);
+  border-bottom: 1px solid var(--border-subtle);
+  font-size: 9px;
+  color: var(--text-tertiary);
+  height: 18px;
+  align-items: center;
+}
+
+.io-pill {
+  padding: 0 4px;
+  border-radius: 2px;
+  text-transform: uppercase;
+}
+
+/* --- Body --- */
+.node-body {
+  padding: 8px;
+  position: relative;
+  min-height: 40px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding-right: 12px;
+}
+
+.activity-bar {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  height: 2px;
+  background: var(--status-success);
+  width: 0%;
+  transition: width 0.2s linear;
+}
+
+.canvas-node.active .activity-bar {
+  width: 100%;
+  transition: width 1.5s ease-out;
+}
+
+.node-stat {
+  font-size: 10px;
+  color: var(--text-tertiary);
+  display: flex;
+  justify-content: space-between;
+}
+
+.node-stat-val {
+  color: var(--text-primary);
+  font-weight: 500;
+}
+
+/* --- Footer --- */
+.node-footer {
+  padding: 4px 8px;
+  background: var(--surface-3);
+  border-top: 1px solid var(--border-subtle);
+  font-size: 9px;
+  color: var(--text-tertiary);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-radius: 0 0 1px 1px;
+}
+
+/* ReactFlow Handle Overrides */
+.react-flow__handle {
+  width: 8px !important;
+  height: 8px !important;
+  border-radius: 50% !important;
+  transition: all 0.15s ease !important;
+  z-index: 10;
+  border: 1px solid var(--bg-element) !important;
+}
+
+.react-flow__handle::after {
+  display: none !important;
+}
+
+.react-flow__handle:hover {
+  transform: scale(1.4);
+  border-color: #FFFFFF !important;
+}
+
+.react-flow__handle-connecting {
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.2);
+}
+
+.node-port.port-in {
+  background: var(--text-secondary) !important;
+  left: -4px !important;
+}
+
+.node-port.port-in:hover {
+  background: var(--text-primary) !important;
+}
+
+.node-ports-stack {
+  position: absolute;
+  top: 32px;
+  right: -4px;
+  bottom: 24px;
+  display: flex;
+  flex-direction: column;
+  pointer-events: none;
+}
+
+.port-wrapper {
+  position: absolute;
+  right: 0;
+  pointer-events: auto;
+}
+
+.node-port.port-out.success {
+  background: var(--accent-blue) !important;
+  right: -4px !important;
+}
+
+.node-port.port-out.success:hover {
+  background: var(--accent-blue-glow) !important;
+}
+
+.node-port.port-out.blocked {
+  background: var(--status-warning) !important;
+  right: -4px !important;
+  border-radius: 2px !important;
+}
+
+.node-port.port-out.blocked:hover {
+  background: #FCD34D !important;
+}
+
+.node-port.port-out.error {
+  background: var(--status-error) !important;
+  right: -4px !important;
+}
+
+.node-port.port-out.error:hover {
+  background: #F87171 !important;
+}
+
+.port-label {
+  position: absolute;
+  right: 12px;
+  top: 0;
+  font-size: 8px;
+  line-height: 8px;
+  pointer-events: none;
+  opacity: 0.7;
+}
+
+.port-label.gov {
+  top: 32px;
+  color: var(--status-warning);
+}
+
+.port-label.err {
+  top: 52px;
+  color: var(--status-error);
+  font-weight: bold;
+}
+
+.canvas-node:not(:has(.port-out.blocked)) .port-label.err {
+  top: 32px;
+}

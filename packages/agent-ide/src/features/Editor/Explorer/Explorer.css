@@ -1,0 +1,220 @@
+/* packages/agent-ide/src/features/Editor/Explorer/Explorer.css */
+
+.explorer-panel {
+  background: var(--surface-1);
+  border-right: 1px solid var(--border-subtle);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  flex-shrink: 0;
+  font-family: var(--font-sans);
+  height: 100%;
+}
+
+/* Tabs */
+.explorer-tabs {
+  display: flex;
+  background: var(--surface-2);
+  border-bottom: 1px solid var(--border-subtle);
+  padding: 0 4px;
+  flex-shrink: 0; 
+}
+
+.explorer-tab {
+  flex: 1;
+  padding: 10px 0;
+  background: transparent; 
+  border: none; 
+  border-bottom: 2px solid transparent; 
+  color: var(--text-tertiary);
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  text-align: center; 
+  
+  /* [FIX] Force flat style */
+  border-radius: 0; 
+}
+
+.explorer-tab:hover {
+  color: var(--text-primary);
+  background: var(--surface-3); 
+}
+
+.explorer-tab.active {
+  color: var(--accent-blue); 
+  border-bottom-color: var(--accent-blue);
+  background: var(--surface-1); 
+}
+
+/* Search */
+.explorer-search {
+  padding: 8px;
+  border-bottom: 1px solid var(--border-subtle);
+  background: var(--surface-1);
+}
+
+.search-input {
+  width: 100%;
+  padding: 6px 8px;
+  background: var(--surface-3);
+  border: 1px solid var(--border-default);
+  border-radius: 4px;
+  color: var(--text-primary);
+  font-size: 11px;
+  outline: none;
+}
+
+.search-input:focus {
+  border-color: var(--accent-blue);
+}
+
+/* Content */
+.explorer-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px;
+}
+
+/* Library Items */
+.explorer-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  margin-bottom: 2px;
+  border-radius: 4px;
+  cursor: grab;
+  transition: all 0.1s;
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
+.explorer-item:hover {
+  background: var(--surface-3);
+  color: var(--text-primary);
+}
+
+.explorer-item:active {
+  cursor: grabbing;
+  background: var(--surface-4);
+}
+
+.explorer-item-icon {
+  font-size: 14px;
+  width: 16px;
+  text-align: center;
+  color: var(--text-tertiary);
+}
+
+/* Tree View */
+.tree-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 0;
+  cursor: pointer;
+  color: var(--text-secondary);
+  font-size: 11px;
+  border-radius: 4px;
+}
+
+.tree-item:hover {
+  background: var(--surface-3);
+  color: var(--text-primary);
+}
+
+.tree-arrow {
+  width: 12px;
+  text-align: center;
+  font-size: 8px;
+  transition: transform 0.1s;
+  color: var(--text-tertiary);
+}
+
+.tree-arrow.expanded {
+  transform: rotate(90deg);
+}
+
+.tree-meta {
+  margin-left: auto;
+  font-size: 9px;
+  color: var(--text-tertiary);
+  background: var(--surface-3);
+  padding: 1px 4px;
+  border-radius: 3px;
+  margin-right: 8px;
+}
+
+/* Memory View */
+.memory-view {
+  padding: 12px;
+}
+
+.drop-zone {
+  border: 2px dashed var(--border-default);
+  border-radius: 6px;
+  padding: 20px;
+  text-align: center;
+  margin-bottom: 16px;
+  color: var(--text-tertiary);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.drop-zone:hover {
+  border-color: var(--accent-blue);
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.drop-icon {
+  font-size: 24px;
+  margin-bottom: 8px;
+}
+
+.drop-text {
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.section-title {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--text-tertiary);
+  margin-bottom: 8px;
+  text-transform: uppercase;
+}
+
+.memory-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.memory-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  background: var(--surface-2);
+  border-radius: 4px;
+}
+
+.file-name {
+  flex: 1;
+  font-size: 11px;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.file-meta {
+  font-size: 10px;
+  color: var(--text-tertiary);
+  font-family: var(--font-mono);
+}

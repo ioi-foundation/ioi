@@ -1,0 +1,256 @@
+/* packages/agent-ide/src/features/Editor/Inspector/Inspector.css */
+
+.inspector-panel {
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-panel);
+  border-left: 1px solid var(--border-subtle);
+  height: 100%;
+  font-family: var(--font-sans);
+}
+
+.inspector-header {
+  padding: 12px;
+  background: var(--surface-1);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.node-identity {
+  margin-bottom: 12px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.node-type {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: var(--accent-blue);
+  background: var(--accent-blue-dim);
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.node-id {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--text-tertiary);
+}
+
+.inspector-tabs {
+  display: flex;
+  gap: 2px;
+  background: var(--surface-2);
+  padding: 2px;
+  border-radius: 6px;
+}
+
+.inspector-tabs button {
+  flex: 1;
+  padding: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  border-radius: 4px;
+  transition: all 0.1s;
+}
+
+.inspector-tabs button:hover {
+  color: var(--text-primary);
+}
+
+.inspector-tabs button.active {
+  background: var(--surface-3);
+  color: var(--text-primary);
+  box-shadow: 0 1px 2px rgba(0,0,0,0.2);
+}
+
+.inspector-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px;
+}
+
+/* Empty State */
+.inspector-panel.empty {
+  align-items: center;
+  justify-content: center;
+}
+
+.empty-msg {
+  color: var(--text-tertiary);
+  font-size: 12px;
+  font-style: italic;
+}
+
+/* Form Styles */
+.form-group {
+  margin-bottom: 16px;
+}
+
+.form-group label {
+  display: block;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  margin-bottom: 6px;
+}
+
+/* Force Input Styling */
+.form-group input,
+.form-group select,
+.form-group textarea,
+.cap-body input {
+  width: 100%;
+  background-color: var(--surface-2) !important; /* Force override user agent */
+  border: 1px solid var(--border-default) !important;
+  border-radius: 4px;
+  padding: 8px 10px; /* More breathing room */
+  color: var(--text-primary);
+  font-size: 12px;
+  font-family: var(--font-sans);
+  line-height: 1.4;
+  outline: none;
+  transition: border-color 0.15s;
+}
+
+.form-group input:focus,
+.form-group select:focus,
+.form-group textarea:focus,
+.cap-body input:focus {
+  border-color: var(--accent-blue) !important;
+  background-color: var(--surface-1) !important; /* Slightly lighter on focus */
+}
+
+.form-group textarea.code-editor {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+/* Fix "Global Config" section header spacing */
+.inspector-view .section-header {
+  padding: 0 4px 12px 4px; /* Add visual separation */
+  margin-bottom: 12px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+/* Law Card (Policy View) */
+.law-card {
+  background: var(--surface-2);
+  border: 1px solid var(--border-default);
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.capability-row {
+  padding: 12px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.capability-row:last-child {
+  border-bottom: none;
+}
+
+.cap-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.cap-icon {
+  font-size: 12px;
+}
+
+.cap-title {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+}
+
+.cap-body {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.cap-body textarea {
+  flex: 1;
+  background: var(--surface-3);
+  border: 1px solid var(--border-subtle);
+  border-radius: 4px;
+  padding: 6px;
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  resize: vertical;
+}
+
+.unit {
+  font-size: 10px;
+  color: var(--text-tertiary);
+  font-weight: 600;
+}
+
+.checkbox-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--text-primary);
+  cursor: pointer;
+  width: 100%;
+}
+
+.checkbox-row input {
+  cursor: pointer;
+}
+
+/* Budget Slider Styling */
+.budget-slider {
+  -webkit-appearance: none;
+  width: 100%;
+  background: transparent; /* Reset for track styling */
+  height: 16px; /* Touch target */
+  margin: 0;
+  margin-right: 12px;
+}
+
+/* Track */
+.budget-slider::-webkit-slider-runnable-track {
+  width: 100%;
+  height: 4px;
+  background: linear-gradient(to right, var(--status-success) 0%, var(--status-warning) 50%, var(--status-error) 100%);
+  border-radius: 2px;
+}
+
+/* Thumb */
+.budget-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  height: 12px;
+  width: 12px;
+  border-radius: 50%;
+  background: #ffffff;
+  cursor: pointer;
+  margin-top: -4px; /* Center on track */
+  box-shadow: 0 1px 3px rgba(0,0,0,0.5);
+  border: 1px solid var(--border-default);
+}
+
+.budget-value {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-primary);
+  background: var(--surface-4);
+  padding: 2px 6px;
+  border-radius: 4px;
+  min-width: 48px;
+  text-align: center;
+}

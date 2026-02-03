@@ -1,0 +1,83 @@
+/* packages/agent-ide/src/features/Editor/BottomPanel/Console.css */
+
+.console-panel {
+  height: 100%;
+  background: var(--surface-1); 
+  border-top: 1px solid var(--border-subtle);
+  display: flex;
+  flex-direction: column;
+  font-family: var(--font-sans);
+}
+
+.console-tabs {
+  display: flex;
+  border-bottom: 1px solid var(--border-subtle);
+  background: var(--surface-2); 
+  padding: 0 4px; 
+  flex-shrink: 0;
+}
+
+.console-tab {
+  padding: 10px 16px;
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: var(--text-tertiary);
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  
+  /* [FIX] Force flat style override global button radius */
+  border-radius: 0;
+}
+
+.console-tab:hover {
+  color: var(--text-primary);
+  background: var(--surface-3);
+}
+
+.console-tab.active {
+  color: var(--accent-blue);
+  border-bottom-color: var(--accent-blue);
+  background: var(--surface-1);
+}
+
+.console-content {
+  flex: 1;
+  overflow: auto;
+  padding: 8px;
+}
+
+.log-entry {
+  margin-bottom: 4px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  line-height: 1.4;
+  color: var(--text-secondary);
+}
+
+.log-entry.error {
+  color: var(--status-error);
+}
+
+.log-time {
+  opacity: 0.5;
+  margin-right: 8px;
+}
+
+.log-source {
+  font-weight: 600;
+  margin-right: 8px;
+}
+
+.empty-logs {
+  color: var(--text-tertiary);
+  font-style: italic;
+  padding: 8px;
+}
