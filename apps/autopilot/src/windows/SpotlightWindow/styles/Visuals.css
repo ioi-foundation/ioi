@@ -1,0 +1,135 @@
+/* Visual Artifacts */
+.visual-artifact {
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  overflow: hidden;
+  background: #000;
+  margin-top: 8px;
+}
+
+.artifact-browser-bar {
+  background: #1F2329;
+  padding: 8px 12px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.artifact-traffic-dots {
+  display: flex;
+  gap: 6px;
+}
+
+.dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+}
+
+.dot.close { background: #EF4444; }
+.dot.minimize { background: #F59E0B; }
+.dot.maximize { background: #10B981; }
+
+.artifact-url-bar {
+  flex: 1;
+  background: #111418;
+  border-radius: 4px;
+  padding: 4px 10px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  color: #9CA3AF;
+}
+
+.artifact-external {
+  background: transparent;
+  border: none;
+  color: #6B7280;
+  cursor: pointer;
+}
+
+.artifact-viewport {
+  height: 200px;
+  position: relative;
+  background: #111418;
+}
+
+.artifact-screenshot {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* Skeleton Loader */
+.artifact-skeleton {
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.skel-header {
+  display: flex;
+  justify-content: space-between;
+}
+
+.skel-logo {
+  width: 32px;
+  height: 32px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 4px;
+}
+
+.skel-nav span {
+  display: inline-block;
+  width: 40px;
+  height: 12px;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 2px;
+  margin-left: 8px;
+}
+
+.skel-hero {
+  height: 80px;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 4px;
+}
+
+/* Activity Cursor */
+.artifact-cursor {
+  position: absolute;
+  pointer-events: none;
+  transition: all 0.3s ease-out;
+  filter: drop-shadow(0 2px 4px rgba(0,0,0,0.5));
+}
+
+.artifact-cursor.clicking {
+  transform: scale(0.8);
+}
+
+.artifact-activity {
+  background: #1F2329;
+  padding: 8px 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  color: #9CA3AF;
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.activity-pulse {
+  width: 6px;
+  height: 6px;
+  background: #3D85C6;
+  border-radius: 50%;
+  animation: pulse 1.5s infinite;
+}
+
+@keyframes pulse {
+  0% { opacity: 1; }
+  50% { opacity: 0.5; }
+  100% { opacity: 1; }
+}
