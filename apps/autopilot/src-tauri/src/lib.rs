@@ -7,7 +7,11 @@ use tauri::{
 };
 use tauri_plugin_global_shortcut::{Code, GlobalShortcutExt, Modifiers, Shortcut, ShortcutState};
 
-// Declare modules
+#[cfg(target_os = "macos")]
+use window_vibrancy::{apply_vibrancy, NSVisualEffectMaterial, NSVisualEffectState};
+#[cfg(target_os = "windows")]
+use window_vibrancy::apply_mica;
+
 mod models;
 mod windows;
 mod kernel;
@@ -17,13 +21,31 @@ mod project;
 mod ingestion; 
 
 use models::AppState;
-
-// Import types for initialization
 use ioi_scs::{SovereignContextStore, StoreConfig};
 use ioi_api::vm::inference::{HttpInferenceRuntime, InferenceRuntime};
 
+/// Initialize X11 for multi-threaded access (Linux only)
+/// MUST be called before any GTK/X11 operations
+#[cfg(target_os = "linux")]
+fn init_x11_threads() {
+    let result = unsafe { x11::xlib::XInitThreads() };
+    if result == 0 {
+        eprintln!("[Autopilot] Warning: XInitThreads failed");
+    } else {
+        println!("[Autopilot] X11 threading initialized");
+    }
+}
+
+#[cfg(not(target_os = "linux"))]
+fn init_x11_threads() {
+    // No-op on non-Linux platforms
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    // Initialize X11 threading BEFORE anything else on Linux
+    init_x11_threads();
+    
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_global_shortcut::Builder::new().build())
@@ -32,52 +54,79 @@ pub fn run() {
         .manage(Mutex::new(models::AppState::default()))
         .setup(|app| {
             println!("[Autopilot] Initializing...");
-            
             let app_handle = app.handle();
+
+            // --- APPLY NATIVE WINDOW EFFECTS ---
+            if let Some(window) = app_handle.get_webview_window("spotlight") {
+                #[cfg(target_os = "macos")]
+                let _ = apply_vibrancy(
+                    &window, 
+                    NSVisualEffectMaterial::UnderWindowBackground, 
+                    Some(NSVisualEffectState::Active), 
+                    Some(12.0)
+                );
+                
+                #[cfg(target_os = "windows")]
+                let _ = apply_mica(&window, None);
+
+                #[cfg(target_os = "linux")]
+                kernel::linux_blur::setup_kwin_blur(&window);
+            }
+
+            if let Some(window) = app_handle.get_webview_window("gate") {
+                #[cfg(target_os = "macos")]
+                let _ = apply_vibrancy(
+                    &window, 
+                    NSVisualEffectMaterial::UnderWindowBackground, 
+                    Some(NSVisualEffectState::Active), 
+                    Some(12.0)
+                );
+                
+                #[cfg(target_os = "windows")]
+                let _ = apply_mica(&window, None);
+
+                #[cfg(target_os = "linux")]
+                kernel::linux_blur::setup_kwin_blur(&window);
+            }
+            // -----------------------------------
+            
             let data_dir = app_handle.path().app_data_dir().unwrap_or_else(|_| std::path::PathBuf::from("./ioi-data"));
             
             // 1. Initialize Studio SCS
             let scs_path = data_dir.join("studio.scs");
             let studio_scs = if scs_path.exists() {
-                println!("[Studio] Opening existing execution store at {:?}", scs_path);
                 SovereignContextStore::open(&scs_path).ok()
             } else {
                 std::fs::create_dir_all(&data_dir).ok();
-                println!("[Studio] Creating new execution store at {:?}", scs_path);
                 SovereignContextStore::create(&scs_path, StoreConfig {
                     chain_id: 0,
-                    owner_id: [0u8; 32], // Local Studio User
+                    owner_id: [0u8; 32], 
                 }).ok()
             };
 
             if let Some(scs) = studio_scs {
                 let state: State<Mutex<AppState>> = app_handle.state();
-                // We use expect here because if we can't lock state at startup, we are in trouble.
                 let mut s = state.lock().expect("Failed to lock app state during init");
                 s.studio_scs = Some(Arc::new(Mutex::new(scs)));
             } else {
                 eprintln!("[Studio] Failed to initialize SCS. Persistence disabled.");
             }
 
-            // 2. Initialize Local Inference Runtime for Studio
+            // 2. Initialize Local Inference Runtime
             let openai_key = std::env::var("OPENAI_API_KEY").ok();
             let local_url = std::env::var("LOCAL_LLM_URL").ok();
 
             let inference_runtime: Arc<dyn InferenceRuntime> = if let Some(key) = openai_key {
                 let model = std::env::var("OPENAI_MODEL").unwrap_or("gpt-4o".to_string());
                 let api_url = "https://api.openai.com/v1/chat/completions".to_string();
-                println!("[Studio] Using OpenAI Inference: {}", model);
                 Arc::new(HttpInferenceRuntime::new(api_url, key, model))
             } else if let Some(url) = local_url {
-                 println!("[Studio] Using Local Inference: {}", url);
                  let model = "llama3".to_string(); 
                  Arc::new(HttpInferenceRuntime::new(url, "".to_string(), model))
             } else {
-                 println!("[Studio] Using Mock Inference (Set OPENAI_API_KEY for real embeddings)");
                  Arc::new(ioi_api::vm::inference::mock::MockInferenceRuntime)
             };
 
-            // Store in AppState
             {
                 let state: State<Mutex<AppState>> = app.handle().state();
                 let mut s = state.lock().expect("Failed to lock app state");
@@ -151,7 +200,6 @@ pub fn run() {
                 }
             });
             
-            // 6. Startup Behavior (Show Spotlight after delay on non-mac)
             #[cfg(not(target_os = "macos"))]
             {
                 let handle = app.handle().clone();
@@ -182,6 +230,10 @@ pub fn run() {
             windows::hide_spotlight,
             windows::resize_spotlight,
             windows::set_spotlight_mode,
+            windows::toggle_spotlight_sidebar,
+            windows::toggle_spotlight_artifact_panel,
+            windows::dock_spotlight_right,
+            windows::get_spotlight_layout,
             windows::show_gate,
             windows::hide_gate,
             windows::show_studio,
@@ -189,7 +241,7 @@ pub fn run() {
             
             // Kernel / Agent Logic
             kernel::task::start_task,
-            kernel::task::continue_task, // [NEW] Register here
+            kernel::task::continue_task,
             kernel::task::update_task,
             kernel::task::complete_task,
             kernel::task::dismiss_task,

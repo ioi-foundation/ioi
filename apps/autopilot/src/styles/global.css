@@ -124,16 +124,6 @@ button:focus-visible {
   background: transparent;
 }
 
-::-webkit-scrollbar-thumb {
-  background: var(--surface-4);
-  border: 2px solid var(--surface-1); /* Creates padding effect */
-  border-radius: 5px;
-}
-
-::-webkit-scrollbar-thumb:hover {
-  background: var(--border-strong);
-}
-
 ::-webkit-scrollbar-corner {
   background: transparent;
 }

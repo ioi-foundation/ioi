@@ -1,0 +1,280 @@
+/* ============================================
+   SPOTLIGHT OVERRIDES - FINAL POLISH
+   High specificity rules for consistency
+   ============================================ */
+
+/* ============================================
+   SCROLLBAR OVERRIDES
+   ============================================ */
+.spot-window ::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+  background: transparent;
+}
+
+.spot-window ::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.spot-window ::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 3px;
+}
+
+.spot-window ::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.15);
+}
+
+/* ============================================
+   BACKGROUND OVERRIDES
+   ============================================ */
+.spot-window.spot-window.spot-window {
+  background: transparent !important;
+}
+
+.spot-container.spot-container.spot-container {
+  background: rgba(12, 12, 14, 0.92) !important;
+}
+
+.spot-main.spot-main.spot-main {
+  background: transparent !important;
+}
+
+.spot-chat.spot-chat.spot-chat {
+  background: transparent !important;
+}
+
+/* ============================================
+   SIDEBAR OVERRIDES
+   ============================================ */
+.history-sidebar.history-sidebar.history-sidebar {
+  background: rgba(12, 12, 14, 0.6) !important;
+}
+
+.sidebar-header.sidebar-header.sidebar-header {
+  background: transparent !important;
+}
+
+.sidebar-new-btn.sidebar-new-btn.sidebar-new-btn {
+  background: var(--spot-accent) !important;
+}
+
+.sidebar-new-btn.sidebar-new-btn.sidebar-new-btn:hover {
+  background: var(--spot-accent-hover) !important;
+}
+
+.sidebar-dock-btn.sidebar-dock-btn.sidebar-dock-btn {
+  background: rgba(255, 255, 255, 0.03) !important;
+}
+
+.sidebar-dock-btn.sidebar-dock-btn.sidebar-dock-btn:hover {
+  background: rgba(255, 255, 255, 0.06) !important;
+}
+
+/* ============================================
+   INPUT OVERRIDES
+   ============================================ */
+.spot-input-section.spot-input-section.spot-input-section {
+  background: 
+    linear-gradient(to top, rgba(12, 12, 14, 0.98) 60%, transparent 100%),
+    rgba(12, 12, 14, 0.98) !important;
+}
+
+.spot-input-wrapper.spot-input-wrapper.spot-input-wrapper {
+  background: var(--spot-bg-secondary) !important;
+}
+
+.spot-input-wrapper.spot-input-wrapper:focus-within {
+  background: var(--spot-bg-tertiary) !important;
+}
+
+/* ============================================
+   HEADER OVERRIDES
+   ============================================ */
+.spot-header-actions.spot-header-actions.spot-header-actions {
+  background: transparent !important;
+}
+
+/* ============================================
+   DROPDOWN OVERRIDES
+   ============================================ */
+.spot-dropdown-menu.spot-dropdown-menu.spot-dropdown-menu {
+  background: var(--spot-bg-primary) !important;
+}
+
+.spot-dropdown-item.spot-dropdown-item.spot-dropdown-item {
+  background: transparent !important;
+}
+
+.spot-dropdown-item.spot-dropdown-item.spot-dropdown-item:hover {
+  background: rgba(255, 255, 255, 0.06) !important;
+}
+
+.spot-dropdown-item.spot-dropdown-item.spot-dropdown-item.selected {
+  background: var(--spot-accent-subtle) !important;
+}
+
+.spot-toggle.spot-toggle.spot-toggle {
+  background: transparent !important;
+}
+
+.spot-toggle.spot-toggle.spot-toggle:hover {
+  background: rgba(255, 255, 255, 0.04) !important;
+}
+
+.spot-toggle.spot-toggle.spot-toggle.open {
+  background: rgba(255, 255, 255, 0.06) !important;
+}
+
+.spot-dropdown-footer-btn.spot-dropdown-footer-btn.spot-dropdown-footer-btn {
+  background: transparent !important;
+}
+
+.spot-dropdown-footer-btn.spot-dropdown-footer-btn.spot-dropdown-footer-btn:hover {
+  background: var(--spot-accent-subtle) !important;
+}
+
+/* ============================================
+   BUTTON OVERRIDES
+   ============================================ */
+.spot-icon-btn.spot-icon-btn.spot-icon-btn {
+  background: transparent !important;
+}
+
+.spot-icon-btn.spot-icon-btn.spot-icon-btn:hover {
+  background: rgba(255, 255, 255, 0.06) !important;
+}
+
+.spot-icon-btn.close.close.close:hover {
+  background: rgba(248, 113, 113, 0.15) !important;
+}
+
+.spot-action-btn.spot-action-btn.spot-action-btn {
+  background: transparent !important;
+}
+
+.spot-action-btn.spot-action-btn.spot-action-btn:hover {
+  background: rgba(255, 255, 255, 0.06) !important;
+}
+
+.spot-context-btn.spot-context-btn.spot-context-btn {
+  background: transparent !important;
+}
+
+.spot-context-btn.spot-context-btn.spot-context-btn:hover {
+  background: rgba(255, 255, 255, 0.04) !important;
+}
+
+.spot-context-btn.active.active.active {
+  background: var(--spot-accent-subtle) !important;
+}
+
+.spot-stop-btn.spot-stop-btn.spot-stop-btn {
+  background: rgba(255, 255, 255, 0.06) !important;
+}
+
+.spot-stop-btn.spot-stop-btn.spot-stop-btn:hover {
+  background: rgba(255, 255, 255, 0.1) !important;
+}
+
+/* ============================================
+   LIST OVERRIDES
+   ============================================ */
+.history-item.history-item.history-item {
+  background: transparent !important;
+}
+
+.history-item.history-item.history-item:hover {
+  background: rgba(255, 255, 255, 0.04) !important;
+}
+
+.history-item.active.active.active {
+  background: var(--spot-accent-subtle) !important;
+}
+
+.search-box.search-box.search-box {
+  background: rgba(0, 0, 0, 0.2) !important;
+}
+
+.search-box.search-box.search-box:focus-within {
+  background: rgba(0, 0, 0, 0.3) !important;
+}
+
+/* ============================================
+   THOUGHT CHAIN OVERRIDES - Minimal Style
+   ============================================ */
+.thought-header.thought-header.thought-header {
+  background: transparent !important;
+  border: none !important;
+}
+
+/* ============================================
+   GATE CARD OVERRIDES
+   ============================================ */
+.spot-gate-card.spot-gate-card.spot-gate-card {
+  background: var(--spot-bg-secondary) !important;
+}
+
+.gate-btn.secondary.secondary.secondary {
+  background: transparent !important;
+}
+
+.gate-btn.secondary.secondary.secondary:hover {
+  background: rgba(255, 255, 255, 0.04) !important;
+}
+
+/* ============================================
+   MESSAGE ACTION OVERRIDES
+   ============================================ */
+.message-action-btn.message-action-btn.message-action-btn {
+  background: rgba(255, 255, 255, 0.04) !important;
+}
+
+.message-action-btn.message-action-btn.message-action-btn:hover {
+  background: rgba(255, 255, 255, 0.08) !important;
+}
+
+/* ============================================
+   SCROLL BUTTON OVERRIDES
+   ============================================ */
+.scroll-to-bottom.scroll-to-bottom.scroll-to-bottom {
+  background: var(--spot-bg-elevated) !important;
+}
+
+.scroll-to-bottom.scroll-to-bottom.scroll-to-bottom:hover {
+  background: var(--spot-bg-tertiary) !important;
+}
+
+/* ============================================
+   SUGGESTION OVERRIDES
+   ============================================ */
+.spot-suggestion.spot-suggestion.spot-suggestion {
+  background: rgba(255, 255, 255, 0.03) !important;
+}
+
+.spot-suggestion.spot-suggestion.spot-suggestion:hover {
+  background: rgba(255, 255, 255, 0.06) !important;
+}
+
+/* ============================================
+   ARTIFACT PANEL OVERRIDES
+   ============================================ */
+.artifact-panel.artifact-panel.artifact-panel {
+  background: var(--spot-bg-primary) !important;
+}
+
+.artifact-header.artifact-header.artifact-header {
+  background: rgba(255, 255, 255, 0.01) !important;
+}
+
+.artifact-content.artifact-content.artifact-content {
+  background: rgba(0, 0, 0, 0.2) !important;
+}
+
+.artifact-action-btn.artifact-action-btn.artifact-action-btn {
+  background: transparent !important;
+}
+
+.artifact-action-btn.artifact-action-btn.artifact-action-btn:hover {
+  background: rgba(255, 255, 255, 0.06) !important;
+}

@@ -1,114 +1,203 @@
-/* Sidebar (History) */
+/* ============================================
+   SIDEBAR - REFINED HISTORY PANEL
+   Clean list with subtle interactions
+   ============================================ */
+
 .history-sidebar {
   width: 260px;
-  background: rgba(17, 20, 24, 0.5);
-  border-right: 1px solid rgba(255, 255, 255, 0.08);
   display: flex;
   flex-direction: column;
+  background: rgba(12, 12, 14, 0.6);
+  border-right: 1px solid var(--spot-border-subtle);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  flex-shrink: 0;
 }
 
+/* ============================================
+   SIDEBAR HEADER
+   ============================================ */
 .sidebar-header {
-  padding: 12px 16px;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.sidebar-new-btn {
+  padding: 12px;
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 8px 12px;
-  background: #3D85C6;
+  flex-shrink: 0;
+}
+
+/* New Chat Button */
+.sidebar-new-btn {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 34px;
+  padding: 0 14px;
+  background: var(--spot-accent);
   border: none;
-  border-radius: 6px;
+  border-radius: var(--spot-radius-sm);
   color: white;
   font-size: 13px;
   font-weight: 500;
   cursor: pointer;
-  transition: opacity 0.15s;
+  transition: all var(--spot-transition);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
 }
 
 .sidebar-new-btn:hover {
-  opacity: 0.9;
+  background: var(--spot-accent-hover);
+  box-shadow: var(--spot-shadow-sm), 0 0 16px var(--spot-accent-glow);
+  transform: translateY(-1px);
 }
 
+.sidebar-new-btn:active {
+  transform: translateY(0);
+}
+
+/* Dock/Toggle Button */
 .sidebar-dock-btn {
-  background: transparent;
-  border: none;
-  color: #6B7280;
+  width: 34px;
+  height: 34px;
+  flex-shrink: 0;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--spot-border-subtle);
+  color: var(--spot-text-muted);
   cursor: pointer;
-  padding: 6px;
-  border-radius: 4px;
+  border-radius: var(--spot-radius-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all var(--spot-transition-fast);
 }
 
 .sidebar-dock-btn:hover {
-  background: rgba(255, 255, 255, 0.05);
-  color: #E5E7EB;
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--spot-text-secondary);
+  border-color: var(--spot-border);
 }
 
+/* ============================================
+   SEARCH BOX
+   ============================================ */
 .sidebar-search {
   padding: 0 12px 12px;
+  flex-shrink: 0;
 }
 
 .search-box {
   display: flex;
   align-items: center;
   gap: 8px;
-  background: rgba(255, 255, 255, 0.03);
+  background: rgba(0, 0, 0, 0.2);
   padding: 8px 10px;
-  border-radius: 6px;
-  border: 1px solid rgba(255, 255, 255, 0.05);
-  color: #9CA3AF;
+  border-radius: var(--spot-radius-sm);
+  border: 1px solid transparent;
+  color: var(--spot-text-muted);
+  transition: all var(--spot-transition);
+  height: 34px;
+}
+
+.search-box:focus-within {
+  background: rgba(0, 0, 0, 0.3);
+  border-color: var(--spot-border);
 }
 
 .search-box input {
   background: transparent;
   border: none;
   outline: none;
-  color: white;
+  color: var(--spot-text-primary);
   font-size: 13px;
   width: 100%;
 }
 
+.search-box input::placeholder {
+  color: var(--spot-text-dim);
+}
+
+/* ============================================
+   HISTORY LIST
+   ============================================ */
 .sidebar-history {
   flex: 1;
   overflow-y: auto;
-  padding: 0 12px;
+  padding: 8px 8px 16px;
+  
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.08) transparent;
 }
 
+.sidebar-history::-webkit-scrollbar {
+  width: 5px;
+}
+
+.sidebar-history::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.sidebar-history::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 3px;
+}
+
+.sidebar-history::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.15);
+}
+
+/* History Groups */
 .history-group {
   margin-bottom: 16px;
 }
 
-.history-label {
-  font-size: 11px;
-  font-weight: 600;
-  color: #6B7280;
-  margin-bottom: 6px;
-  padding-left: 8px;
+.history-group:last-child {
+  margin-bottom: 0;
 }
 
+.history-label {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--spot-text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 6px;
+  padding-left: 10px;
+}
+
+/* History Items */
 .history-item {
   display: flex;
   justify-content: space-between;
   align-items: center;
   width: 100%;
-  padding: 8px;
+  padding: 9px 10px;
   background: transparent;
   border: none;
-  border-radius: 6px;
-  color: #D1D5DB;
+  border-radius: var(--spot-radius-sm);
+  color: var(--spot-text-secondary);
   cursor: pointer;
   text-align: left;
+  transition: all var(--spot-transition-fast);
+  margin-bottom: 2px;
 }
 
 .history-item:hover {
-  background: rgba(255, 255, 255, 0.05);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--spot-text-primary);
+}
+
+.history-item:active {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.history-item.active {
+  background: var(--spot-accent-subtle);
+  color: var(--spot-accent);
 }
 
 .history-title {
   font-size: 13px;
+  font-weight: 400;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -117,12 +206,16 @@
 
 .history-time {
   font-size: 10px;
-  color: #6B7280;
+  color: var(--spot-text-dim);
+  flex-shrink: 0;
+  margin-left: 8px;
+  font-variant-numeric: tabular-nums;
 }
 
+/* Empty State */
 .history-empty {
-  padding: 20px;
+  padding: 24px 16px;
   text-align: center;
-  color: #6B7280;
+  color: var(--spot-text-dim);
   font-size: 13px;
 }

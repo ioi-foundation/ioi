@@ -1,9 +1,9 @@
 // apps/autopilot/src-tauri/src/kernel/task.rs
-use crate::kernel::state::{get_rpc_client, now, update_task_state};
+use crate::kernel::state::update_task_state;
 use crate::models::{AgentPhase, AgentTask, AppState, ChatMessage, SessionSummary};
 use crate::orchestrator;
 use crate::windows;
-use ioi_ipc::public::{DraftTransactionRequest, SubmitTransactionRequest, GetTransactionStatusRequest};
+use ioi_ipc::public::{DraftTransactionRequest, SubmitTransactionRequest};
 use ioi_ipc::public::public_api_client::PublicApiClient;
 use std::collections::HashSet;
 use std::sync::Mutex;
@@ -11,8 +11,6 @@ use tauri::{AppHandle, Emitter, Manager, State};
 
 // [NEW] Imports for continue_task
 use ioi_services::agentic::desktop::types::PostMessageParams;
-use ioi_scs::FrameType;
-use dcrypt::algorithms::ByteSerializable;
 use ioi_types::codec;
 use ioi_types::app::{
     account_id_from_key_material, ChainId, ChainTransaction, SignHeader, SignatureProof,
@@ -25,12 +23,11 @@ pub fn start_task(
     state: State<Mutex<AppState>>,
     app: AppHandle,
     intent: String,
-    // [REMOVED] mode: String, -- Unified Interface
 ) -> Result<AgentTask, String> {
     let history = vec![ChatMessage {
         role: "user".to_string(),
         text: intent.clone(),
-        timestamp: now(),
+        timestamp: crate::kernel::state::now(),
     }];
 
     let task_id = uuid::Uuid::new_v4().to_string();
@@ -72,7 +69,7 @@ pub fn start_task(
         let summary = SessionSummary {
             session_id: task_id.clone(),
             title: if intent.len() > 30 { format!("{}...", &intent[0..27]) } else { intent.clone() },
-            timestamp: now(),
+            timestamp: crate::kernel::state::now(),
         };
         orchestrator::save_local_session_summary(&scs, summary);
         orchestrator::save_local_task_state(&scs, &task);
@@ -134,11 +131,9 @@ pub fn start_task(
     Ok(task)
 }
 
-// [UPDATED] Command: Continue Task with Convergent Nonce Logic
-// Sends a new user message to the Kernel via `post_message@v1`.
 #[tauri::command]
 pub async fn continue_task(
-    state: State<'_, Mutex<AppState>>,
+    _state: State<'_, Mutex<AppState>>, // [FIX] Renamed to _state to suppress warning
     app: AppHandle,
     session_id: String,
     user_input: String,
@@ -224,7 +219,7 @@ pub async fn continue_task(
         let mut backoff_ms = 100;
         let mut nonce_offset = 0;
         let mut last_state_nonce: Option<u64> = None;
-        let mut success = false; // [FIX] Defined flag
+        let mut success = false;
         let mut last_error: Option<String> = None;
 
         while attempts < max_retries {
@@ -287,7 +282,7 @@ pub async fn continue_task(
             )).await {
                 Ok(_) => {
                     println!("[Autopilot] Message sent successfully (Nonce: {})", nonce);
-                    success = true; // [FIX] Set flag
+                    success = true;
                     break; 
                 }
                 Err(e) => {
@@ -299,10 +294,8 @@ pub async fn continue_task(
                     if msg.contains("already exists") || msg.contains("too low") {
                         // Collision: Increment and retry
                         println!("[Autopilot] Nonce {} collision/low. Incrementing...", nonce);
-                        // [FIX] Explicit saturating add and clamp
                         nonce_offset = nonce_offset.saturating_add(1);
                         
-                        // [FIX] Cap offset and force reset/backoff if we hit ceiling
                         if nonce_offset >= 32 {
                             nonce_offset = 0;
                             tokio::time::sleep(std::time::Duration::from_millis(backoff_ms)).await;
@@ -358,7 +351,6 @@ pub fn dismiss_task(state: State<Mutex<AppState>>, app: AppHandle) -> Result<(),
         app_state.current_task = None;
         app_state.gate_response = None;
     }
-    // [MODIFIED] Removed hide_pill call
     windows::hide_spotlight(app.clone());
     windows::hide_gate(app.clone());
     let _ = app.emit("task-dismissed", ());

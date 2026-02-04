@@ -10,9 +10,18 @@ interface HistorySidebarProps {
   onNewChat: () => void;
   searchQuery: string;
   onSearchChange: (q: string) => void;
+  onClose?: () => void;
+  onToggle: () => void;
 }
 
-export function HistorySidebar({ sessions, onSelectSession, onNewChat, searchQuery, onSearchChange }: HistorySidebarProps) {
+export function HistorySidebar({ 
+  sessions, 
+  onSelectSession, 
+  onNewChat, 
+  searchQuery, 
+  onSearchChange,
+  onToggle
+}: HistorySidebarProps) {
   const filtered = sessions.filter(s => 
     s.title.toLowerCase().includes(searchQuery.toLowerCase())
   );
@@ -20,16 +29,22 @@ export function HistorySidebar({ sessions, onSelectSession, onNewChat, searchQue
 
   return (
     <div className="history-sidebar">
+      {/* Header */}
       <div className="sidebar-header">
         <button className="sidebar-new-btn" onClick={onNewChat}>
           {icons.plus}
           <span>New Chat</span>
         </button>
-        <button className="sidebar-dock-btn" title="Collapse sidebar">
+        <button 
+          className="sidebar-dock-btn" 
+          onClick={onToggle} 
+          title="Hide sidebar (⌘K)"
+        >
           {icons.sidebar}
         </button>
       </div>
 
+      {/* Search */}
       <div className="sidebar-search">
         <div className="search-box">
           {icons.search}
@@ -41,6 +56,7 @@ export function HistorySidebar({ sessions, onSelectSession, onNewChat, searchQue
         </div>
       </div>
 
+      {/* History List */}
       <div className="sidebar-history">
         {grouped.map((group) => (
           <div key={group.label} className="history-group">
@@ -57,6 +73,7 @@ export function HistorySidebar({ sessions, onSelectSession, onNewChat, searchQue
             ))}
           </div>
         ))}
+        
         {filtered.length === 0 && (
           <div className="history-empty">
             {searchQuery ? "No matches found" : "No chats yet"}
