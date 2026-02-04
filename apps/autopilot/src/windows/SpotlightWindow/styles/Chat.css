@@ -1,223 +1,371 @@
-/* Chat Area */
+/* ============================================
+   CHAT AREA - REFINED MESSAGES
+   Clean bubbles with smooth interactions
+   ============================================ */
+
+/* Chat Container */
 .spot-chat {
   flex: 1;
   overflow-y: auto;
-  padding: 20px;
+  overflow-x: hidden;
+  padding: 20px 16px 8px;
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 12px;
   scroll-behavior: smooth;
   position: relative;
+  background: transparent;
+  
+  /* Refined scrollbar */
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.08) transparent;
 }
 
-/* Messages */
+.spot-chat::-webkit-scrollbar {
+  width: 6px;
+}
+
+.spot-chat::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.spot-chat::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 3px;
+}
+
+.spot-chat::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.15);
+}
+
+/* ============================================
+   MESSAGE BUBBLES - Modern & Clean
+   ============================================ */
 .spot-message {
-  max-width: 90%;
-  line-height: 1.5;
+  max-width: 88%;
+  line-height: 1.6;
   font-size: 14px;
   position: relative;
+  animation: messageSlide 280ms var(--spot-spring);
 }
 
+@keyframes messageSlide {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* User Message - Accent Gradient */
 .spot-message.user {
   align-self: flex-end;
-  background: #3D85C6;
+  background: linear-gradient(135deg, var(--spot-accent) 0%, #4A7AFF 100%);
   color: white;
   padding: 10px 14px;
-  border-radius: 12px 12px 2px 12px;
+  border-radius: 16px 16px 4px 16px;
+  box-shadow: 0 2px 12px var(--spot-accent-glow);
 }
 
+/* Agent Message - Minimal */
 .spot-message.agent {
   align-self: flex-start;
-  color: #E5E7EB;
-  padding: 0 4px;
+  color: var(--spot-text-primary);
+  padding: 0;
 }
 
-/* Message Actions */
+.message-content {
+  word-wrap: break-word;
+  white-space: pre-wrap;
+}
+
+/* Code Styling */
+.spot-message code {
+  background: rgba(0, 0, 0, 0.25);
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-family: 'SF Mono', 'JetBrains Mono', 'Fira Code', monospace;
+  font-size: 13px;
+  letter-spacing: -0.02em;
+}
+
+.spot-message pre {
+  background: rgba(0, 0, 0, 0.35);
+  padding: 12px 14px;
+  border-radius: var(--spot-radius-sm);
+  overflow-x: auto;
+  margin: 8px 0;
+  border: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+.spot-message pre code {
+  background: transparent;
+  padding: 0;
+}
+
+/* Message Actions - Appear on Hover */
 .message-actions {
   display: flex;
   gap: 4px;
-  margin-top: 6px;
+  margin-top: 8px;
   opacity: 0;
-  transition: opacity 0.2s;
+  transform: translateY(4px);
+  transition: all var(--spot-transition);
 }
 
 .spot-message:hover .message-actions {
   opacity: 1;
+  transform: translateY(0);
 }
 
 .message-action-btn {
-  width: 24px;
-  height: 24px;
+  width: 26px;
+  height: 26px;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(255, 255, 255, 0.05);
-  border: none;
-  border-radius: 4px;
-  color: #9CA3AF;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--spot-border-subtle);
+  border-radius: var(--spot-radius-sm);
+  color: var(--spot-text-muted);
   cursor: pointer;
+  transition: all var(--spot-transition-fast);
 }
 
 .message-action-btn:hover {
-  background: rgba(255, 255, 255, 0.1);
-  color: white;
+  background: rgba(255, 255, 255, 0.08);
+  border-color: var(--spot-border);
+  color: var(--spot-text-primary);
+}
+
+.message-action-btn:active {
+  transform: scale(0.92);
 }
 
 .message-action-btn.active {
-  color: #3D85C6;
+  color: var(--spot-accent);
+  background: var(--spot-accent-subtle);
+  border-color: rgba(99, 144, 255, 0.2);
 }
 
 .message-action-btn.success {
-  color: #10B981;
+  color: var(--spot-success);
 }
 
-/* Thought Chain */
+/* ============================================
+   THOUGHT CHAIN - Refined Status Card
+   ============================================ */
+/* ============================================
+   THOUGHT CHAIN - Minimal Claude-Style Disclosure
+   Clean, collapsible thinking indicator
+   ============================================ */
 .thought-chain {
   align-self: flex-start;
   width: 100%;
-  background: rgba(31, 35, 41, 0.4);
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  border-radius: 8px;
-  overflow: hidden;
+  max-width: 100%;
+  animation: messageSlide 280ms var(--spot-spring);
 }
 
+/* Minimal Header Button */
 .thought-header {
-  width: 100%;
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  padding: 10px 12px;
+  width: 100%;
+  padding: 8px 0;
   background: transparent;
   border: none;
   cursor: pointer;
-  color: #E5E7EB;
+  text-align: left;
+  color: var(--spot-text-muted);
+  transition: color 150ms ease;
 }
 
 .thought-header:hover {
-  background: rgba(255, 255, 255, 0.02);
+  color: var(--spot-text-secondary);
 }
 
-.thought-title-group {
-  display: flex;
+.thought-header-inner {
+  display: inline-flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
+  min-width: 0;
 }
 
-.thought-icon {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 16px;
-  height: 16px;
+/* Pulsing Dot for Active State */
+.thought-pulse {
+  width: 6px;
+  height: 6px;
   border-radius: 50%;
+  background: var(--spot-accent);
+  flex-shrink: 0;
+  position: relative;
 }
 
-.thought-icon.success { background: rgba(16, 185, 129, 0.2); color: #10B981; }
-.thought-icon.error { background: rgba(239, 68, 68, 0.2); color: #EF4444; }
+.thought-pulse::before {
+  content: "";
+  position: absolute;
+  inset: -4px;
+  border-radius: 50%;
+  background: var(--spot-accent);
+  opacity: 0.3;
+  animation: pulseRing 2s ease-in-out infinite;
+}
 
-.thought-title {
+@keyframes pulseRing {
+  0%, 100% {
+    transform: scale(0.8);
+    opacity: 0.3;
+  }
+  50% {
+    transform: scale(1.2);
+    opacity: 0;
+  }
+}
+
+/* Summary Text */
+.thought-summary {
   font-size: 13px;
-  font-weight: 500;
+  font-weight: 400;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transition: color 150ms ease;
 }
 
+.thought-summary.active {
+  color: var(--spot-text-secondary);
+}
+
+/* Chevron Icon */
+.thought-chevron {
+  display: inline-flex;
+  transition: transform 200ms ease;
+  flex-shrink: 0;
+  transform: rotate(-90deg);
+  opacity: 0.6;
+}
+
+.thought-chevron.expanded {
+  transform: rotate(0deg);
+}
+
+/* Expandable Content */
+.thought-content {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 200ms ease;
+  overflow: hidden;
+}
+
+.thought-content.open {
+  grid-template-rows: 1fr;
+}
+
+.thought-content > * {
+  overflow: hidden;
+}
+
+/* Metadata Row */
 .thought-meta {
   font-size: 11px;
-  color: #6B7280;
-  margin-right: 8px;
+  color: var(--spot-text-dim);
+  font-family: var(--spot-font-mono);
+  padding: 8px 0 12px;
+  letter-spacing: 0.01em;
 }
 
-.thought-chevron {
-  color: #6B7280;
-  transition: transform 0.2s;
-}
-
-.thought-chevron.open {
-  transform: rotate(90deg);
-}
-
-.thought-content {
-  display: none;
-  padding: 0 12px 12px;
-}
-
-.thought-chain.expanded .thought-content {
-  display: block;
-}
-
-.thought-timeline {
+/* Steps List */
+.thought-steps {
   display: flex;
   flex-direction: column;
+  gap: 8px;
+  padding-bottom: 8px;
 }
 
 .thought-step {
   display: flex;
-  gap: 12px;
+  align-items: flex-start;
+  gap: 10px;
   font-size: 12px;
+  color: var(--spot-text-secondary);
+  line-height: 1.5;
 }
 
-.step-connector {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  width: 16px;
+.thought-step.current {
+  color: var(--spot-text-primary);
 }
 
-.step-dot {
-  width: 6px;
-  height: 6px;
-  background: #4B5563;
+/* Step Indicator Dot */
+.thought-step-indicator {
+  width: 5px;
+  height: 5px;
   border-radius: 50%;
+  background: var(--spot-text-dim);
   margin-top: 6px;
+  flex-shrink: 0;
+  opacity: 0.5;
 }
 
-.step-line {
-  flex: 1;
-  width: 1px;
-  background: #374151;
-  min-height: 16px;
+.thought-step-indicator.current {
+  background: var(--spot-accent);
+  opacity: 1;
 }
 
-.step-content {
-  padding-bottom: 12px;
-  color: #9CA3AF;
-  line-height: 1.4;
+.thought-step-text {
+  font-family: var(--spot-font-mono);
+  word-break: break-word;
+  opacity: 0.8;
 }
 
-.step-role {
-  font-weight: 600;
-  color: #6B7280;
-  margin-right: 6px;
-  text-transform: uppercase;
-  font-size: 10px;
+.thought-step.current .thought-step-text {
+  opacity: 1;
 }
 
-/* Gate Card */
+/* ============================================
+   GATE CARD - Approval Request
+   ============================================ */
 .spot-gate-card {
   align-self: flex-start;
   width: 100%;
-  border-radius: 8px;
-  border: 1px solid var(--gate-color);
-  background: rgba(31, 35, 41, 0.8);
+  border-radius: var(--spot-radius-md);
+  border: 1px solid var(--gate-color, var(--spot-border));
+  background: var(--spot-bg-secondary);
   overflow: hidden;
   display: flex;
-  margin-top: 8px;
+  animation: gateSlide 300ms var(--spot-spring);
+}
+
+@keyframes gateSlide {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
 }
 
 .gate-indicator {
-  width: 4px;
+  width: 3px;
   background: var(--gate-color);
+  flex-shrink: 0;
 }
 
 .gate-content {
   flex: 1;
-  padding: 12px 16px;
+  padding: 14px 16px;
 }
 
 .gate-header {
   display: flex;
   justify-content: space-between;
-  align-items: center;
-  margin-bottom: 8px;
+  align-items: flex-start;
+  margin-bottom: 10px;
+  gap: 12px;
 }
 
 .gate-title-row {
@@ -226,27 +374,30 @@
   gap: 8px;
   color: var(--gate-color);
   font-weight: 600;
+  font-size: 14px;
 }
 
 .gate-badge {
-  font-size: 10px;
+  font-size: 9px;
   font-weight: 700;
-  padding: 2px 6px;
+  padding: 3px 7px;
   border-radius: 4px;
   background: var(--gate-bg);
   color: var(--gate-color);
+  letter-spacing: 0.5px;
+  flex-shrink: 0;
 }
 
 .gate-desc {
   font-size: 13px;
-  color: #D1D5DB;
-  margin: 0 0 12px;
-  line-height: 1.4;
+  color: var(--spot-text-secondary);
+  margin: 0 0 14px;
+  line-height: 1.5;
 }
 
 .gate-actions {
   display: flex;
-  gap: 10px;
+  gap: 8px;
 }
 
 .gate-btn {
@@ -255,25 +406,37 @@
   align-items: center;
   justify-content: center;
   gap: 6px;
-  padding: 8px;
-  border-radius: 6px;
-  font-size: 12px;
+  padding: 9px 14px;
+  border-radius: var(--spot-radius-sm);
+  font-size: 13px;
   font-weight: 600;
   cursor: pointer;
+  transition: all var(--spot-transition-fast);
+}
+
+.gate-btn:active {
+  transform: scale(0.97);
 }
 
 .gate-btn.primary {
   background: var(--gate-color);
   color: white;
   border: none;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+.gate-btn.primary:hover {
+  filter: brightness(1.1);
 }
 
 .gate-btn.secondary {
   background: transparent;
-  border: 1px solid #3F4652;
-  color: #9CA3AF;
+  border: 1px solid var(--spot-border);
+  color: var(--spot-text-secondary);
 }
 
 .gate-btn.secondary:hover {
-  background: rgba(255, 255, 255, 0.05);
+  background: rgba(255, 255, 255, 0.04);
+  border-color: var(--spot-border);
+  color: var(--spot-text-primary);
 }

@@ -1,22 +1,24 @@
+// apps/autopilot/src/windows/SpotlightWindow/index.tsx
+
 import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { emit } from "@tauri-apps/api/event";
 import { useAgentStore, initEventListeners } from "../../store/agentStore";
 import { AgentTask, ChatMessage, SessionSummary } from "../../types";
 import { formatTimeAgo } from "./utils";
+import { useSpotlightLayout } from "./hooks/useSpotlightLayout";
 
 // Sub-components
 import { icons } from "./components/Icons";
-import { ThinkingOrb } from "./components/ThinkingOrb";
 import { IOIWatermark } from "./components/IOIWatermark";
 import { MessageActions } from "./components/MessageActions";
 import { ScrollToBottom } from "./components/ScrollToBottom";
 import { VisualArtifact } from "./components/VisualArtifact";
-import { ResizeHandle } from "./components/ResizeHandle";
 import { HistorySidebar } from "./components/HistorySidebar";
 import { SpotlightApprovalCard } from "./components/SpotlightApprovalCard";
 import { ThoughtChain } from "./components/ThoughtChain";
 import { Dropdown, DropdownOption } from "./components/SpotlightDropdown";
+import { ArtifactPanel } from "./components/ArtifactPanel";
 
 // Styles
 import "./styles/Layout.css";
@@ -24,6 +26,12 @@ import "./styles/Chat.css";
 import "./styles/Sidebar.css";
 import "./styles/Components.css";
 import "./styles/Visuals.css";
+import "./styles/ArtifactPanel.css";
+import "./styles/Overrides.css";
+
+// ============================================
+// CONSTANTS
+// ============================================
 
 const workspaceOptions: DropdownOption[] = [
   { value: "local", label: "Local", desc: "On-device", icon: icons.laptop },
@@ -36,10 +44,28 @@ const modelOptions: DropdownOption[] = [
   { value: "Llama 3", label: "Llama 3", desc: "Meta" },
 ];
 
-type ChatEvent = ChatMessage & { isGate?: boolean; gateData?: any; isArtifact?: boolean; artifactData?: any; };
-const LAYOUT_WIDE_THRESHOLD = 600;
+type ChatEvent = ChatMessage & { 
+  isGate?: boolean; 
+  gateData?: any; 
+  isArtifact?: boolean; 
+  artifactData?: any; 
+};
+
+// ============================================
+// MAIN COMPONENT
+// ============================================
 
 export function SpotlightWindow() {
+  // Layout management (synced with Tauri backend)
+  const { 
+    layout, 
+    toggleSidebar, 
+    toggleArtifactPanel, 
+    dockRight,
+    setDockPosition 
+  } = useSpotlightLayout();
+
+  // Core state
   const [intent, setIntent] = useState("");
   const [localHistory, setLocalHistory] = useState<ChatMessage[]>([]);
   const [autoContext, setAutoContext] = useState(true);
@@ -48,36 +74,65 @@ export function SpotlightWindow() {
   const [workspaceMode, setWorkspaceMode] = useState("local");
   const [selectedModel, setSelectedModel] = useState("GPT-4o");
   const [chatEvents, setChatEvents] = useState<ChatEvent[]>([]);
+  
+  // UI state
   const [inputFocused, setInputFocused] = useState(false);
-  const [containerWidth, setContainerWidth] = useState(400);
   const [searchQuery, setSearchQuery] = useState("");
   const [showScrollButton, setShowScrollButton] = useState(false);
   const [isDraggingFile, setIsDraggingFile] = useState(false);
+  
+  // Artifact state
+  const [currentArtifact, setCurrentArtifact] = useState<{name: string, content: string} | null>(null);
 
+  // Refs
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const chatAreaRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
   const { task, startTask, continueTask, resetSession } = useAgentStore();
 
-  // Track container width
+  // ============================================
+  // INITIALIZATION
+  // ============================================
+
   useEffect(() => {
-    if (!containerRef.current) return;
-    const observer = new ResizeObserver((entries) => {
-      for (const entry of entries) setContainerWidth(entry.contentRect.width);
-    });
-    observer.observe(containerRef.current);
-    return () => observer.disconnect();
+    initEventListeners();
+    
+    // Set initial dock mode
+    invoke("set_spotlight_mode", { mode: "right" }).catch(console.error);
+    
+    // Focus input after mount
+    const timer = setTimeout(() => inputRef.current?.focus(), 150);
+    return () => clearTimeout(timer);
   }, []);
 
-  // Scroll detection
+  // Load session history
+  useEffect(() => {
+    const loadHistory = async () => {
+      try {
+        const history = await invoke<SessionSummary[]>("get_session_history");
+        setSessions(history);
+      } catch (e) { 
+        console.error("Failed to load history:", e); 
+      }
+    };
+    
+    loadHistory();
+    const interval = setInterval(loadHistory, 5000);
+    return () => clearInterval(interval);
+  }, []);
+
+  // ============================================
+  // SCROLL MANAGEMENT
+  // ============================================
+
   useEffect(() => {
     const chatArea = chatAreaRef.current;
     if (!chatArea) return;
 
     const handleScroll = () => {
       const { scrollTop, scrollHeight, clientHeight } = chatArea;
-      const isNearBottom = scrollHeight - scrollTop - clientHeight < 100;
+      const isNearBottom = scrollHeight - scrollTop - clientHeight < 80;
       setShowScrollButton(!isNearBottom);
     };
 
@@ -85,70 +140,151 @@ export function SpotlightWindow() {
     return () => chatArea.removeEventListener("scroll", handleScroll);
   }, []);
 
+  // Auto-scroll on new messages
+  const activeHistory: ChatMessage[] = (task as AgentTask | null)?.history || localHistory;
+  
+  useEffect(() => {
+    if (chatAreaRef.current) {
+      const { scrollTop, scrollHeight, clientHeight } = chatAreaRef.current;
+      const isNearBottom = scrollHeight - scrollTop - clientHeight < 150;
+      
+      if (isNearBottom) {
+        chatAreaRef.current.scrollTo({ 
+          top: chatAreaRef.current.scrollHeight, 
+          behavior: "smooth" 
+        });
+      }
+    }
+  }, [activeHistory, chatEvents]);
+
   const scrollToBottom = useCallback(() => {
     if (chatAreaRef.current) {
-      chatAreaRef.current.scrollTo({ top: chatAreaRef.current.scrollHeight, behavior: "smooth" });
+      chatAreaRef.current.scrollTo({ 
+        top: chatAreaRef.current.scrollHeight, 
+        behavior: "smooth" 
+      });
     }
   }, []);
 
-  const isWideMode = containerWidth >= LAYOUT_WIDE_THRESHOLD;
+  // ============================================
+  // ARTIFACT/GATE EVENTS
+  // ============================================
 
-  useEffect(() => {
-    initEventListeners();
-    invoke("set_spotlight_mode", { mode: "sidebar" }).catch(console.error);
-    setTimeout(() => inputRef.current?.focus(), 150);
-
-    const loadHistory = async () => {
-      try {
-        const history = await invoke<SessionSummary[]>("get_session_history");
-        setSessions(history);
-      } catch (e) { console.error("Failed to load history:", e); }
-    };
-    loadHistory();
-    const interval = setInterval(loadHistory, 5000);
-    return () => clearInterval(interval);
-  }, []);
-
-  // Listen for gate events and artifact events
   useEffect(() => {
     if (task && task.phase === "Gate" && task.gate_info) {
       const last = chatEvents[chatEvents.length - 1];
       if (!last || !last.isGate) {
-        setChatEvents((prev) => [...prev, { role: "system", text: "", timestamp: Date.now(), isGate: true, gateData: task.gate_info }]);
+        setChatEvents((prev) => [...prev, { 
+          role: "system", 
+          text: "", 
+          timestamp: Date.now(), 
+          isGate: true, 
+          gateData: task.gate_info 
+        }]);
       }
     }
-    // Add artifact when browsing
+    
+    // Handle code artifacts
+    if (task && task.phase === "Running" && task.current_step?.toLowerCase().includes("code")) {
+      if (!currentArtifact) {
+        setCurrentArtifact({
+          name: "generated_script.ts",
+          content: `// Automatically generated by Autopilot
+import { Tool } from "@ioi/sdk";
+
+export const myTool = new Tool({
+  name: "demo",
+  handler: async () => {
+    console.log("Hello World");
+  }
+});`
+        });
+        // Auto-show artifact panel
+        toggleArtifactPanel(true);
+      }
+    }
+    
+    // Handle browsing artifacts
     if (task && task.phase === "Running" && task.current_step?.toLowerCase().includes("brows")) {
       const hasArtifact = chatEvents.some(e => e.isArtifact);
       if (!hasArtifact) {
         setChatEvents((prev) => [...prev, { 
-          role: "system", text: "", timestamp: Date.now(), 
+          role: "system", 
+          text: "", 
+          timestamp: Date.now(), 
           isArtifact: true, 
           artifactData: { url: "loading...", isActive: true } 
         }]);
       }
     }
-  }, [task?.phase, task?.gate_info, task?.current_step]);
+  }, [task?.phase, task?.gate_info, task?.current_step, toggleArtifactPanel]);
 
-  // Update artifact when step changes
+  // Update artifact URL when step changes
   useEffect(() => {
     if (task?.current_step) {
       setChatEvents((prev) => prev.map(e => 
-        e.isArtifact ? { ...e, artifactData: { ...e.artifactData, url: task.current_step, title: task.current_step, isActive: task.phase === "Running" } } : e
+        e.isArtifact 
+          ? { 
+              ...e, 
+              artifactData: { 
+                ...e.artifactData, 
+                url: task.current_step, 
+                title: task.current_step, 
+                isActive: task.phase === "Running" 
+              } 
+            } 
+          : e
       ));
     }
   }, [task?.current_step, task?.phase]);
 
-  const activeHistory: ChatMessage[] = (task as AgentTask | null)?.history || localHistory;
+  // ============================================
+  // KEYBOARD SHORTCUTS
+  // ============================================
 
   useEffect(() => {
-    if (chatAreaRef.current) chatAreaRef.current.scrollTop = chatAreaRef.current.scrollHeight;
-  }, [activeHistory, chatEvents]);
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Escape to close/dismiss
+      if (e.key === "Escape") {
+        if (activeDropdown) {
+          setActiveDropdown(null);
+        } else if (layout.artifactPanelVisible) {
+          toggleArtifactPanel(false);
+        } else {
+          invoke("hide_spotlight").catch(console.error);
+        }
+        return;
+      }
 
-  const handleResize = useCallback((delta: number) => {
-    setContainerWidth((prev) => Math.max(320, Math.min(1200, prev + delta)));
-    invoke("resize_spotlight", { width: containerWidth + delta }).catch(console.error);
-  }, [containerWidth]);
+      // Cmd/Ctrl + K to toggle sidebar
+      if ((e.metaKey || e.ctrlKey) && e.key === "k") {
+        e.preventDefault();
+        toggleSidebar();
+        return;
+      }
+
+      // Cmd/Ctrl + N for new chat
+      if ((e.metaKey || e.ctrlKey) && e.key === "n") {
+        e.preventDefault();
+        handleNewChat();
+        return;
+      }
+
+      // Cmd/Ctrl + D to re-dock
+      if ((e.metaKey || e.ctrlKey) && e.key === "d") {
+        e.preventDefault();
+        dockRight();
+        return;
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [activeDropdown, layout.artifactPanelVisible, toggleSidebar, toggleArtifactPanel, dockRight]);
+
+  // ============================================
+  // HANDLERS
+  // ============================================
 
   const openStudio = useCallback(async (targetView: string = "compose") => {
     await emit("request-studio-view", targetView);
@@ -157,159 +293,315 @@ export function SpotlightWindow() {
   }, []);
 
   const handleLoadSession = useCallback(async (id: string) => {
-    try { await invoke("load_session", { sessionId: id }); } catch (e) { console.error("Failed to load session:", e); }
+    try { 
+      await invoke("load_session", { sessionId: id }); 
+    } catch (e) { 
+      console.error("Failed to load session:", e); 
+    }
   }, []);
 
   const handleSubmit = useCallback(async () => {
-    if (!intent.trim()) return;
-    const text = intent;
+    const text = intent.trim();
+    if (!text) return;
+    
     setIntent("");
+    
+    // Reset textarea height
+    if (inputRef.current) {
+      inputRef.current.style.height = 'auto';
+    }
+    
     if (task && task.phase === "Running") return;
+    
     try {
       if (task && task.id && task.phase !== "Failed") {
         await continueTask(task.id, text);
       } else {
-        if (text.toLowerCase().includes("swarm") || text.toLowerCase().includes("team")) await openStudio("copilot");
+        if (text.toLowerCase().includes("swarm") || text.toLowerCase().includes("team")) {
+          await openStudio("copilot");
+        }
         await startTask(text);
       }
-    } catch (e) { console.error(e); }
+    } catch (e) { 
+      console.error(e); 
+    }
   }, [intent, task, continueTask, startTask, openStudio]);
 
   const handleApprove = useCallback(async () => {
     await invoke("gate_respond", { approved: true });
-    setChatEvents((prev) => prev.map((m) => (m.isGate ? { ...m, isGate: false, text: "✓ Authorized" } : m)));
+    setChatEvents((prev) => prev.map((m) => 
+      m.isGate ? { ...m, isGate: false, text: "✓ Authorized" } : m
+    ));
   }, []);
 
   const handleDeny = useCallback(async () => {
     await invoke("gate_respond", { approved: false });
-    setChatEvents((prev) => prev.map((m) => (m.isGate ? { ...m, isGate: false, text: "✗ Denied" } : m)));
+    setChatEvents((prev) => prev.map((m) => 
+      m.isGate ? { ...m, isGate: false, text: "✗ Denied" } : m
+    ));
   }, []);
 
   const handleNewChat = useCallback(() => {
     resetSession();
     setLocalHistory([]);
     setChatEvents([]);
+    setCurrentArtifact(null);
+    toggleArtifactPanel(false);
     setTimeout(() => inputRef.current?.focus(), 50);
-  }, [resetSession]);
+  }, [resetSession, toggleArtifactPanel]);
 
   const handleGlobalClick = useCallback(() => {
     if (activeDropdown) setActiveDropdown(null);
   }, [activeDropdown]);
 
-  // Render chat stream
-  const renderChatStream = useMemo(() => {
-    const combined: ChatEvent[] = [...activeHistory.map((m) => ({ ...m, isGate: false, gateData: null })), ...chatEvents];
-    const groups: Array<{ type: "message" | "chain" | "gate" | "artifact"; content: any }> = [];
+  const handleInputChange = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    setIntent(e.target.value);
+    // Auto-resize textarea
+    e.target.style.height = 'auto';
+    e.target.style.height = Math.min(e.target.scrollHeight, 120) + 'px';
+  }, []);
+
+  const handleInputKeyDown = useCallback((e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      handleSubmit();
+    }
+  }, [handleSubmit]);
+
+  // ============================================
+  // COMPUTED VALUES
+  // ============================================
+
+  const isRunning = task?.phase === "Running";
+  const isGated = task?.phase === "Gate";
+  const hasContent = task || localHistory.length > 0 || chatEvents.length > 0;
+  const isFloating = layout.dockPosition === "float";
+
+  // ============================================
+  // RENDER CHAT STREAM
+  // ============================================
+
+  const { chatElements, hasChainContent } = useMemo(() => {
+    const combined: ChatEvent[] = [
+      ...activeHistory.map((m) => ({ ...m, isGate: false, gateData: null })), 
+      ...chatEvents
+    ];
+    
+    const groups: Array<{ 
+      type: "message" | "chain" | "gate" | "artifact"; 
+      content: any 
+    }> = [];
+    
     let currentChain: ChatMessage[] = [];
+    let foundChain = false;
 
     combined.forEach((msg) => {
       if (msg.isArtifact) {
-        if (currentChain.length > 0) { groups.push({ type: "chain", content: [...currentChain] }); currentChain = []; }
+        if (currentChain.length > 0) { 
+          groups.push({ type: "chain", content: [...currentChain] }); 
+          foundChain = true;
+          currentChain = []; 
+        }
         groups.push({ type: "artifact", content: msg.artifactData });
       } else if (msg.role === "tool" || (msg.role === "system" && !msg.isGate)) {
         currentChain.push(msg);
       } else if (msg.isGate) {
-        if (currentChain.length > 0) { groups.push({ type: "chain", content: [...currentChain] }); currentChain = []; }
+        if (currentChain.length > 0) { 
+          groups.push({ type: "chain", content: [...currentChain] }); 
+          foundChain = true;
+          currentChain = []; 
+        }
         groups.push({ type: "gate", content: msg.gateData });
       } else {
-        if (currentChain.length > 0) { groups.push({ type: "chain", content: [...currentChain] }); currentChain = []; }
+        if (currentChain.length > 0) { 
+          groups.push({ type: "chain", content: [...currentChain] }); 
+          foundChain = true;
+          currentChain = []; 
+        }
         groups.push({ type: "message", content: msg });
       }
     });
-    if (currentChain.length > 0) groups.push({ type: "chain", content: currentChain });
+    
+    if (currentChain.length > 0) {
+      groups.push({ type: "chain", content: currentChain });
+      foundChain = true;
+    }
 
-    return groups.map((g, i) => (
+    const elements = groups.map((g, i) => (
       <React.Fragment key={i}>
         {g.type === "message" && (
           <div className={`spot-message ${g.content.role === "user" ? "user" : "agent"}`}>
             <div className="message-content">{g.content.text}</div>
             {g.content.role !== "user" && (
-              <MessageActions text={g.content.text} showRetry={true} onRetry={() => {}} />
+              <MessageActions 
+                text={g.content.text} 
+                showRetry={true} 
+                onRetry={() => {}} 
+              />
             )}
           </div>
         )}
-        {g.type === "chain" && <ThoughtChain messages={g.content} isThinking={false} />}
-        {g.type === "gate" && <SpotlightApprovalCard title={g.content.title} description={g.content.description} risk={g.content.risk} onApprove={handleApprove} onDeny={handleDeny} />}
-        {g.type === "artifact" && <VisualArtifact url={g.content.url} title={g.content.title} isActive={g.content.isActive} screenshot={g.content.screenshot} />}
+        
+        {g.type === "chain" && (
+          <ThoughtChain 
+            messages={g.content} 
+            activeStep={(isRunning && i === groups.length - 1) ? task?.current_step : null} 
+            agentName={task?.agent}
+            generation={task?.generation}
+            progress={task?.progress}
+            totalSteps={task?.total_steps}
+          />
+        )}
+        
+        {g.type === "gate" && (
+          <SpotlightApprovalCard 
+            title={g.content.title} 
+            description={g.content.description} 
+            risk={g.content.risk} 
+            onApprove={handleApprove} 
+            onDeny={handleDeny} 
+          />
+        )}
+        
+        {g.type === "artifact" && (
+          <VisualArtifact 
+            url={g.content.url} 
+            title={g.content.title} 
+            isActive={g.content.isActive} 
+            screenshot={g.content.screenshot} 
+          />
+        )}
       </React.Fragment>
     ));
-  }, [activeHistory, chatEvents, handleApprove, handleDeny]);
 
-  const isRunning = task?.phase === "Running";
-  const isGated = task?.phase === "Gate";
-  const hasContent = task || localHistory.length > 0 || chatEvents.length > 0;
-  const progressPercent = task ? (task.progress / Math.max(task.total_steps, 1)) * 100 : 0;
+    return { chatElements: elements, hasChainContent: foundChain };
+  }, [activeHistory, chatEvents, handleApprove, handleDeny, isRunning, task]);
+
+  // Only show initial loader if running AND no chain content exists yet
+  const showInitialLoader = isRunning && !hasChainContent;
+
+  // ============================================
+  // RENDER
+  // ============================================
 
   return (
-    <div className="spot-window" onClick={handleGlobalClick} ref={containerRef}>
-      <div className={`spot-container ${isWideMode ? "wide-mode" : ""}`}>
+    <div 
+      className={`spot-window ${isFloating ? "floating" : ""}`} 
+      onClick={handleGlobalClick} 
+      ref={containerRef}
+    >
+      <div className={`spot-container ${layout.sidebarVisible ? "sidebar-open" : ""}`}>
         
-        {/* History Sidebar (wide mode only) */}
-        {isWideMode && (
+        {/* Left Sidebar */}
+        {layout.sidebarVisible && (
           <HistorySidebar
             sessions={sessions}
             onSelectSession={handleLoadSession}
             onNewChat={handleNewChat}
             searchQuery={searchQuery}
             onSearchChange={setSearchQuery}
+            onClose={() => invoke("hide_spotlight")}
+            onToggle={() => toggleSidebar(false)} 
           />
         )}
 
-        {/* Resize Handle */}
-        <ResizeHandle onResize={handleResize} />
-
-        {/* Main Chat Panel */}
+        {/* Main Panel */}
         <div className="spot-main">
-          {/* Header Actions */}
+          {/* Header */}
           <div className="spot-header-actions">
-            {!isWideMode && <button className="spot-icon-btn" onClick={handleNewChat} title="New Chat">{icons.plus}</button>}
-            {!isWideMode && <div className="divider-vertical" />}
-            <button className="spot-icon-btn" onClick={() => openStudio("history")} title="History">{icons.history}</button>
-            <button className="spot-icon-btn" onClick={() => openStudio("settings")} title="Settings">{icons.settings}</button>
-            <button className="spot-icon-btn" onClick={() => openStudio("copilot")} title="Expand">{icons.expand}</button>
-            <button className="spot-icon-btn close" onClick={() => invoke("hide_spotlight")} title="Close">{icons.close}</button>
+            {/* Left side controls */}
+            {!layout.sidebarVisible && (
+              <>
+                <button 
+                  className="spot-icon-btn" 
+                  onClick={() => toggleSidebar(true)} 
+                  title="Toggle Sidebar (⌘K)"
+                  style={{ marginRight: "auto" }} 
+                >
+                  {icons.sidebar}
+                </button>
+                <button 
+                  className="spot-icon-btn" 
+                  onClick={handleNewChat} 
+                  title="New Chat (⌘N)"
+                >
+                  {icons.plus}
+                </button>
+                <div className="divider-vertical" />
+              </>
+            )}
+            
+            {/* Floating indicator / re-dock button */}
+            {isFloating && (
+              <button 
+                className="spot-icon-btn dock-btn"
+                onClick={dockRight}
+                title="Dock to right (⌘D)"
+              >
+                {icons.sidebar}
+              </button>
+            )}
+            
+            {/* Artifact panel toggle */}
+            {currentArtifact && (
+              <button 
+                className={`spot-icon-btn ${layout.artifactPanelVisible ? 'active' : ''}`}
+                onClick={() => toggleArtifactPanel()}
+                title="View Code"
+              >
+                {icons.code}
+              </button>
+            )}
+            
+            <button 
+              className="spot-icon-btn" 
+              onClick={() => openStudio("history")} 
+              title="History"
+            >
+              {icons.history}
+            </button>
+            <button 
+              className="spot-icon-btn" 
+              onClick={() => openStudio("settings")} 
+              title="Settings"
+            >
+              {icons.settings}
+            </button>
+            <button 
+              className="spot-icon-btn" 
+              onClick={() => openStudio("copilot")} 
+              title="Expand"
+            >
+              {icons.expand}
+            </button>
+            <button 
+              className="spot-icon-btn close" 
+              onClick={() => invoke("hide_spotlight")} 
+              title="Close (Esc)"
+            >
+              {icons.close}
+            </button>
           </div>
-
-          {/* Tasks Section (narrow mode only) */}
-          {!isWideMode && (
-            <div className="spot-tasks-section">
-              <div className="spot-tasks-bar">
-                <span className="spot-tasks-title">Recent</span>
-                {sessions.length > 3 && <button className="spot-tasks-more" onClick={() => openStudio("history")}>View all</button>}
-              </div>
-              <div className="spot-tasks-list">
-                {sessions.slice(0, 3).map((s) => (
-                  <button key={s.session_id} className="spot-task-item" onClick={() => handleLoadSession(s.session_id)}>
-                    <span className="spot-task-title">{s.title}</span>
-                    <span className="spot-task-age">{formatTimeAgo(s.timestamp)}</span>
-                  </button>
-                ))}
-                {sessions.length === 0 && <div className="spot-task-empty">No recent tasks</div>}
-              </div>
-            </div>
-          )}
-
-          {/* Status Header */}
-          {task && task.phase !== "Idle" && (
-            <div className={`spot-status-header ${task.phase.toLowerCase()}`}>
-              <div className="status-progress-rail"><div className="status-progress-fill" style={{ width: `${progressPercent}%` }} /></div>
-              <div className="status-content">
-                <div className={`status-beacon ${isRunning ? "pulse" : ""} ${task.phase === "Failed" ? "error" : ""} ${task.phase === "Complete" ? "success" : ""}`} />
-                <div className="status-info">
-                  <span className="status-step">{task.current_step}</span>
-                  <span className="status-meta">{task.agent} · Gen {task.generation} · {task.progress}/{task.total_steps}</span>
-                </div>
-              </div>
-            </div>
-          )}
 
           {/* Chat Area */}
           <div className="spot-chat" ref={chatAreaRef}>
-            {!hasContent && <IOIWatermark onSuggestionClick={(text) => setIntent(text)} />}
-            {renderChatStream}
-            {isRunning && !chatEvents.some(e => e.isArtifact) && (
-              <div className="spot-thinking-indicator"><ThinkingOrb isActive /><span className="thinking-label">Processing...</span></div>
+            {!hasContent && (
+              <IOIWatermark onSuggestionClick={(text) => setIntent(text)} />
             )}
+            
+            {chatElements}
+            
+            {showInitialLoader && (
+              <ThoughtChain 
+                messages={[]} 
+                activeStep={task?.current_step || "Initializing..."} 
+                agentName={task?.agent || "Autopilot"}
+                generation={task?.generation || 0}
+                progress={0}
+                totalSteps={task?.total_steps || 10}
+              />
+            )}
+            
             <ScrollToBottom visible={showScrollButton} onClick={scrollToBottom} />
           </div>
 
@@ -321,47 +613,60 @@ export function SpotlightWindow() {
                 className="spot-input"
                 placeholder="How can I help you today?"
                 value={intent}
-                onChange={(e) => {
-                  setIntent(e.target.value);
-                  // Auto-resize
-                  e.target.style.height = 'auto';
-                  e.target.style.height = Math.min(e.target.scrollHeight, 120) + 'px';
-                }}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" && !e.shiftKey) {
-                    e.preventDefault();
-                    handleSubmit();
-                  }
-                }}
+                onChange={handleInputChange}
+                onKeyDown={handleInputKeyDown}
                 onFocus={() => setInputFocused(true)}
                 onBlur={() => setInputFocused(false)}
                 disabled={isGated}
                 rows={1}
               />
-            </div>
-            <div className="spot-controls">
-              <div className="spot-controls-left">
-                <button className="spot-action-btn" title="Attach (⌘U)">{icons.paperclip}</button>
-                <button className="spot-action-btn" title="Commands (/)">{icons.slash}</button>
-                <button className={`spot-context-btn ${autoContext ? "active" : ""}`} onClick={() => setAutoContext(!autoContext)} title="Auto context (⌘.)">
-                  {icons.sparkles}<span>Context</span>
-                </button>
+              
+              <div className="spot-controls">
+                <div className="spot-controls-left">
+                  <button 
+                    className="spot-action-btn" 
+                    title="Attach file (⌘U)"
+                  >
+                    {icons.paperclip}
+                  </button>
+                  <button 
+                    className="spot-action-btn" 
+                    title="Commands (/)"
+                  >
+                    {icons.slash}
+                  </button>
+                  <button 
+                    className={`spot-context-btn ${autoContext ? "active" : ""}`} 
+                    onClick={() => setAutoContext(!autoContext)} 
+                    title="Auto context (⌘.)"
+                  >
+                    {icons.sparkles}
+                    <span>Context</span>
+                  </button>
+                </div>
+                
+                {isRunning ? (
+                  <button 
+                    className="spot-stop-btn" 
+                    onClick={() => invoke("cancel_task").catch(console.error)} 
+                    title="Stop (Esc)"
+                  >
+                    {icons.stop}
+                    <span>Stop</span>
+                  </button>
+                ) : (
+                  <button 
+                    className="spot-send-btn" 
+                    onClick={handleSubmit} 
+                    disabled={!intent.trim()} 
+                    title="Send (⏎)"
+                  >
+                    {icons.send}
+                  </button>
+                )}
               </div>
-              {isRunning ? (
-                <button 
-                  className="spot-stop-btn" 
-                  onClick={() => invoke("cancel_task").catch(console.error)} 
-                  title="Stop (Esc)"
-                >
-                  {icons.stop}
-                  <span>Stop</span>
-                </button>
-              ) : (
-                <button className="spot-send-btn" onClick={handleSubmit} disabled={!intent.trim()} title="Send (⏎)">
-                  {icons.send}
-                </button>
-              )}
             </div>
+            
             <div className="spot-toggles">
               <Dropdown 
                 icon={icons.laptop} 
@@ -369,7 +674,9 @@ export function SpotlightWindow() {
                 selected={workspaceMode} 
                 onSelect={setWorkspaceMode} 
                 isOpen={activeDropdown === "workspace"} 
-                onToggle={() => setActiveDropdown(activeDropdown === "workspace" ? null : "workspace")} 
+                onToggle={() => setActiveDropdown(
+                  activeDropdown === "workspace" ? null : "workspace"
+                )} 
               />
               <Dropdown 
                 icon={icons.cube} 
@@ -377,15 +684,26 @@ export function SpotlightWindow() {
                 selected={selectedModel} 
                 onSelect={setSelectedModel} 
                 isOpen={activeDropdown === "model"} 
-                onToggle={() => setActiveDropdown(activeDropdown === "model" ? null : "model")}
+                onToggle={() => setActiveDropdown(
+                  activeDropdown === "model" ? null : "model"
+                )}
                 footer={{
-                    label: "Manage Models...",
-                    onClick: () => openStudio("settings")
+                  label: "Manage Models...",
+                  onClick: () => openStudio("settings")
                 }}
               />
             </div>
           </div>
         </div>
+
+        {/* Artifact Panel */}
+        {layout.artifactPanelVisible && currentArtifact && (
+          <ArtifactPanel 
+            fileName={currentArtifact.name}
+            content={currentArtifact.content}
+            onClose={() => toggleArtifactPanel(false)}
+          />
+        )}
       </div>
     </div>
   );

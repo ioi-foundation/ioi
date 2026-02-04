@@ -1,235 +1,202 @@
-/* Shared Components */
+/* ============================================
+   COMPONENTS - REFINED ELEMENTS
+   Polished dropdowns, watermarks, utilities
+   ============================================ */
 
-/* Thinking Orb */
-.thinking-orb {
-  width: 24px;
-  height: 24px;
-  position: relative;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.orb-core {
-  width: 8px;
-  height: 8px;
-  background: #3D85C6;
-  border-radius: 50%;
-  z-index: 2;
-  box-shadow: 0 0 10px #3D85C6;
-}
-
-.orb-ring {
-  position: absolute;
-  border: 1px solid rgba(61, 133, 198, 0.5);
-  border-radius: 50%;
-  animation: orbit 2s linear infinite;
-}
-
-.orb-ring:nth-child(1) { width: 100%; height: 100%; animation-duration: 3s; }
-.orb-ring:nth-child(2) { width: 70%; height: 70%; animation-duration: 2s; animation-direction: reverse; }
-.orb-ring:nth-child(3) { width: 140%; height: 40%; animation-duration: 4s; }
-
-@keyframes orbit { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
-
-/* Watermark */
+/* ============================================
+   WATERMARK - Elegant Empty State
+   ============================================ */
 .spot-watermark-container {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   height: 100%;
-  opacity: 0.6;
+  padding: 32px 24px;
+  text-align: center;
 }
 
 .spot-watermark {
-  width: 80px;
-  height: 80px;
-  color: rgba(255, 255, 255, 0.1);
-  margin-bottom: 16px;
+  width: 64px;
+  height: 64px;
+  color: rgba(255, 255, 255, 0.04);
+  margin-bottom: 24px;
+  animation: watermarkFloat 6s ease-in-out infinite;
+}
+
+@keyframes watermarkFloat {
+  0%, 100% {
+    transform: translateY(0);
+    opacity: 0.5;
+  }
+  50% {
+    transform: translateY(-4px);
+    opacity: 0.7;
+  }
 }
 
 .spot-watermark-hint {
   font-size: 16px;
   font-weight: 500;
-  color: #6B7280;
+  color: var(--spot-text-secondary);
   margin-bottom: 24px;
+  letter-spacing: -0.01em;
 }
 
+/* Suggestion Pills - Interactive */
 .spot-suggestions {
   display: flex;
   flex-wrap: wrap;
   justify-content: center;
   gap: 8px;
-  max-width: 400px;
+  max-width: 360px;
 }
 
 .spot-suggestion {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 8px 12px;
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.05);
-  border-radius: 20px;
-  color: #D1D5DB;
-  font-size: 12px;
+  padding: 10px 14px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--spot-border-subtle);
+  border-radius: var(--spot-radius-full);
+  color: var(--spot-text-muted);
+  font-size: 13px;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: all var(--spot-transition);
 }
 
 .spot-suggestion:hover {
-  background: rgba(255, 255, 255, 0.1);
-  border-color: rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.06);
+  border-color: var(--spot-border);
+  color: var(--spot-text-secondary);
+  transform: translateY(-2px);
+  box-shadow: var(--spot-shadow-sm);
 }
 
+.spot-suggestion:active {
+  transform: translateY(0);
+}
+
+.suggestion-icon {
+  color: var(--spot-text-dim);
+  transition: color var(--spot-transition-fast);
+}
+
+.spot-suggestion:hover .suggestion-icon {
+  color: var(--spot-text-muted);
+}
+
+/* Keyboard Hint */
 .spot-shortcut-hint {
   margin-top: 32px;
   font-size: 11px;
-  color: #4B5563;
+  color: var(--spot-text-dim);
+  display: flex;
+  align-items: center;
+  gap: 4px;
 }
 
 .spot-shortcut-hint kbd {
-  background: rgba(255, 255, 255, 0.1);
-  padding: 2px 6px;
-  border-radius: 4px;
-  margin: 0 2px;
+  background: rgba(255, 255, 255, 0.05);
+  padding: 3px 7px;
+  border-radius: 5px;
   font-family: inherit;
+  font-size: 10px;
+  border: 1px solid var(--spot-border-subtle);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
 }
 
-/* Resize Handle */
+/* ============================================
+   RESIZE HANDLE - Subtle Grip
+   ============================================ */
 .resize-handle {
-  width: 4px;
+  width: 8px;
   cursor: col-resize;
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: background 0.2s;
+  transition: all var(--spot-transition-fast);
+  position: relative;
+  flex-shrink: 0;
 }
 
 .resize-handle:hover {
-  background: rgba(61, 133, 198, 0.3);
-}
-
-.resize-handle:hover .resize-line {
-  background: #3D85C6;
+  background: rgba(99, 144, 255, 0.08);
 }
 
 .resize-line {
   width: 1px;
   height: 100%;
-  background: rgba(255, 255, 255, 0.05);
+  background: var(--spot-border-subtle);
+  transition: background var(--spot-transition-fast);
+}
+
+.resize-handle:hover .resize-line {
+  background: var(--spot-accent);
 }
 
 .resize-grip {
   position: absolute;
-  width: 4px;
-  height: 24px;
-  background: rgba(255, 255, 255, 0.2);
+  width: 3px;
+  height: 28px;
+  background: rgba(255, 255, 255, 0.1);
   border-radius: 2px;
   opacity: 0;
+  transition: opacity var(--spot-transition-fast);
 }
 
-.resize-handle:hover .resize-grip { opacity: 1; }
+.resize-handle:hover .resize-grip {
+  opacity: 1;
+}
 
-/* Scroll To Bottom FAB */
+/* ============================================
+   SCROLL TO BOTTOM - Floating Action
+   ============================================ */
 .scroll-to-bottom {
   position: absolute;
-  bottom: 20px;
-  right: 20px;
+  bottom: 12px;
+  right: 12px;
   width: 32px;
   height: 32px;
-  border-radius: 50%;
-  background: rgba(31, 35, 41, 0.9);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  color: #E5E7EB;
+  border-radius: var(--spot-radius-full);
+  background: var(--spot-bg-elevated);
+  border: 1px solid var(--spot-border);
+  color: var(--spot-text-secondary);
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-  z-index: 10;
+  box-shadow: var(--spot-shadow-md);
+  z-index: 15;
+  transition: all var(--spot-transition);
+  animation: fadeInUp 200ms ease-out;
 }
 
-/* Status Header */
-.spot-status-header {
-  background: #1F2329;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-  padding: 8px 16px;
-  position: relative;
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
-.status-progress-rail {
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  height: 2px;
-  background: transparent;
+.scroll-to-bottom:hover {
+  background: var(--spot-bg-tertiary);
+  transform: translateY(-2px);
+  box-shadow: var(--spot-shadow-lg);
 }
 
-.status-progress-fill {
-  height: 100%;
-  background: #3D85C6;
-  transition: width 0.3s ease;
+.scroll-to-bottom:active {
+  transform: translateY(0);
 }
 
-.status-content {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.status-beacon {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: #6B7280;
-}
-
-.status-beacon.pulse { background: #3D85C6; animation: beaconPulse 1.5s infinite; }
-.status-beacon.error { background: #EF4444; }
-.status-beacon.success { background: #10B981; }
-
-@keyframes beaconPulse {
-  0% { box-shadow: 0 0 0 0 rgba(61, 133, 198, 0.7); }
-  70% { box-shadow: 0 0 0 6px rgba(61, 133, 198, 0); }
-  100% { box-shadow: 0 0 0 0 rgba(61, 133, 198, 0); }
-}
-
-.status-info {
-  display: flex;
-  flex-direction: column;
-}
-
-.status-step {
-  font-size: 12px;
-  font-weight: 500;
-  color: #E5E7EB;
-}
-
-.status-meta {
-  font-size: 10px;
-  color: #9CA3AF;
-}
-
-/* Thinking Indicator */
-.spot-thinking-indicator {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 10px 14px;
-  background: rgba(255, 255, 255, 0.03);
-  border-radius: 8px;
-  width: fit-content;
-}
-
-.thinking-label {
-  font-size: 12px;
-  color: #9CA3AF;
-}
-
-/* Dropdown Container */
+/* ============================================
+   DROPDOWN - Refined Flyout Menu
+   ============================================ */
 .spot-dropdown {
   position: relative;
   display: inline-block;
@@ -239,122 +206,247 @@
 .spot-toggle {
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 4px 8px;
-  background: transparent;
+  gap: 5px;
+  padding: 5px 10px;
   border: 1px solid transparent;
-  border-radius: 6px;
-  color: #9CA3AF;
+  border-radius: var(--spot-radius-full);
+  background: transparent;
+  color: var(--spot-text-muted);
   cursor: pointer;
-  font-size: 11px;
+  font-size: 12px;
+  font-weight: 500;
   white-space: nowrap;
+  transition: all var(--spot-transition-fast);
 }
 
 .spot-toggle:hover {
-  background: rgba(255, 255, 255, 0.05);
-  color: #E5E7EB;
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--spot-text-secondary);
 }
 
 .spot-toggle.open {
-  background: rgba(255, 255, 255, 0.1);
-  color: #E5E7EB;
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--spot-text-primary);
+}
+
+.toggle-icon {
+  display: flex;
+  align-items: center;
+  opacity: 0.65;
+}
+
+.toggle-label {
+  max-width: 72px;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .toggle-chevron {
-  opacity: 0.5;
+  opacity: 0.45;
+  transition: transform var(--spot-transition);
+  margin-left: 2px;
 }
 
-/* Dropdown Menu (Popup) */
+.spot-toggle.open .toggle-chevron {
+  transform: rotate(180deg);
+}
+
+/* Dropdown Menu */
 .spot-dropdown-menu {
   position: absolute;
   bottom: calc(100% + 6px);
   left: 0;
-  width: 200px;
-  background: #1F2329;
-  border: 1px solid #3F4652;
-  border-radius: 8px;
-  padding: 4px 0;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+  min-width: 200px;
+  border-radius: var(--spot-radius-md);
+  padding: 5px;
   z-index: 1000;
   display: flex;
   flex-direction: column;
+  background: var(--spot-bg-primary);
+  border: 1px solid var(--spot-border);
+  box-shadow: var(--spot-shadow-lg), 0 0 0 1px rgba(255, 255, 255, 0.04) inset;
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  animation: dropdownSlide 150ms ease-out;
 }
 
-/* Scrollable Option List */
+@keyframes dropdownSlide {
+  from {
+    opacity: 0;
+    transform: translateY(6px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* Option List */
 .spot-dropdown-list {
   display: flex;
   flex-direction: column;
-  max-height: 240px;
+  max-height: 260px;
   overflow-y: auto;
-  padding: 0 4px;
+  gap: 1px;
 }
 
+/* Dropdown Item */
 .spot-dropdown-item {
   display: flex;
   align-items: center;
   gap: 10px;
   width: 100%;
-  padding: 8px;
-  background: transparent;
+  padding: 9px 10px;
   border: none;
-  border-radius: 4px;
-  color: #D1D5DB;
+  border-radius: var(--spot-radius-sm);
+  background: transparent;
+  color: var(--spot-text-secondary);
   cursor: pointer;
   text-align: left;
+  transition: all var(--spot-transition-fast);
 }
 
 .spot-dropdown-item:hover {
-  background: rgba(255, 255, 255, 0.05);
-  color: white;
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--spot-text-primary);
 }
 
 .spot-dropdown-item.selected {
-  background: rgba(61, 133, 198, 0.1);
-  color: #3D85C6;
+  background: var(--spot-accent-subtle);
+  color: var(--spot-accent);
+}
+
+.spot-dropdown-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  color: var(--spot-text-dim);
+}
+
+.spot-dropdown-item.selected .spot-dropdown-icon {
+  color: var(--spot-accent);
+}
+
+.spot-dropdown-item:hover .spot-dropdown-icon {
+  color: var(--spot-text-muted);
 }
 
 .spot-dropdown-content {
   flex: 1;
   display: flex;
   flex-direction: column;
+  gap: 1px;
+  min-width: 0;
 }
 
 .spot-dropdown-label {
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 500;
 }
 
 .spot-dropdown-desc {
-  font-size: 10px;
-  color: #6B7280;
+  font-size: 11px;
+  color: var(--spot-text-dim);
 }
 
 .spot-dropdown-check {
-  color: #3D85C6;
+  color: var(--spot-accent);
+  flex-shrink: 0;
+  opacity: 0;
+  transform: scale(0.8);
+  transition: all var(--spot-transition-fast);
+}
+
+.spot-dropdown-item.selected .spot-dropdown-check {
+  opacity: 1;
+  transform: scale(1);
 }
 
 /* Footer Section */
 .spot-dropdown-footer {
   margin-top: 4px;
-  padding: 4px 4px 0 4px;
-  border-top: 1px solid #2E333D;
-  display: block;
+  padding-top: 4px;
+  border-top: 1px solid var(--spot-border-subtle);
 }
 
 .spot-dropdown-footer-btn {
   width: 100%;
   text-align: left;
-  padding: 8px 10px;
-  background: transparent;
+  padding: 9px 10px;
   border: none;
-  border-radius: 4px;
-  color: #0EA5E9; /* Bright Blue/Cyan */
-  font-size: 11px;
+  border-radius: var(--spot-radius-sm);
+  background: transparent;
+  color: var(--spot-accent);
+  font-size: 12px;
   font-weight: 500;
   cursor: pointer;
-  transition: background 0.15s;
+  transition: all var(--spot-transition-fast);
 }
 
 .spot-dropdown-footer-btn:hover {
-  background: rgba(14, 165, 233, 0.1);
+  background: var(--spot-accent-subtle);
+}
+
+/* ============================================
+   THINKING INDICATOR - Minimal Loader
+   ============================================ */
+.spot-thinking-indicator {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  border-radius: var(--spot-radius-md);
+  width: fit-content;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid var(--spot-border-subtle);
+}
+
+.thinking-label {
+  font-size: 13px;
+  color: var(--spot-text-muted);
+}
+
+/* Thinking Orb */
+.thinking-orb {
+  width: 20px;
+  height: 20px;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.orb-core {
+  width: 6px;
+  height: 6px;
+  background: var(--spot-accent);
+  border-radius: 50%;
+  z-index: 2;
+  box-shadow: 0 0 10px var(--spot-accent);
+}
+
+.orb-ring {
+  position: absolute;
+  border: 1px solid rgba(99, 144, 255, 0.3);
+  border-radius: 50%;
+  animation: orbit 2s linear infinite;
+}
+
+.orb-ring:nth-child(1) {
+  width: 100%;
+  height: 100%;
+  animation-duration: 3s;
+}
+
+.orb-ring:nth-child(2) {
+  width: 70%;
+  height: 70%;
+  animation-duration: 2s;
+  animation-direction: reverse;
+}
+
+@keyframes orbit {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
 }

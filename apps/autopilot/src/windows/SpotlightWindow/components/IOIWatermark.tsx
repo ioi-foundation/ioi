@@ -2,15 +2,32 @@ import React from "react";
 import { icons } from "./Icons";
 import "../styles/Components.css";
 
-export const IOIWatermark = ({ onSuggestionClick }: { onSuggestionClick?: (text: string) => void }) => {
-  const suggestions = [
-    { icon: icons.globe, text: "Search the web for..." },
-    { icon: icons.laptop, text: "Open an app..." },
-    { icon: icons.cube, text: "Analyze this data..." },
-  ];
+interface WatermarkProps {
+  onSuggestionClick?: (text: string) => void;
+}
 
+const suggestions = [
+  { 
+    icon: icons.globe, 
+    text: "Search the web for...",
+    description: "Find information online"
+  },
+  { 
+    icon: icons.laptop, 
+    text: "Open an app...",
+    description: "Launch applications"
+  },
+  { 
+    icon: icons.cube, 
+    text: "Analyze this data...",
+    description: "Process & understand data"
+  },
+];
+
+export const IOIWatermark = ({ onSuggestionClick }: WatermarkProps) => {
   return (
     <div className="spot-watermark-container">
+      {/* Logo Mark */}
       <svg className="spot-watermark" viewBox="108.97 89.47 781.56 706.06" fill="none">
         <g stroke="currentColor" strokeWidth="1" strokeLinejoin="round" strokeLinecap="round">
           <path d="M295.299 434.631L295.299 654.116 485.379 544.373z" />
@@ -26,12 +43,19 @@ export const IOIWatermark = ({ onSuggestionClick }: { onSuggestionClick?: (text:
           <path d="M500 552.815L500 780.741 697.39 666.778z" />
         </g>
       </svg>
+      
+      {/* Greeting */}
       <span className="spot-watermark-hint">What can I help you with?</span>
       
+      {/* Suggestion Pills */}
       {onSuggestionClick && (
         <div className="spot-suggestions">
           {suggestions.map((s, i) => (
-            <button key={i} className="spot-suggestion" onClick={() => onSuggestionClick(s.text)}>
+            <button 
+              key={i} 
+              className="spot-suggestion" 
+              onClick={() => onSuggestionClick(s.text)}
+            >
               <span className="suggestion-icon">{s.icon}</span>
               <span className="suggestion-text">{s.text}</span>
             </button>
@@ -39,8 +63,9 @@ export const IOIWatermark = ({ onSuggestionClick }: { onSuggestionClick?: (text:
         </div>
       )}
       
+      {/* Keyboard Hint */}
       <div className="spot-shortcut-hint">
-        <kbd>⌘</kbd><kbd>K</kbd> to open anytime
+        <kbd>⌘</kbd><kbd>K</kbd> to toggle sidebar
       </div>
     </div>
   );

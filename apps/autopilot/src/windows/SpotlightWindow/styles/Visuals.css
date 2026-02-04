@@ -1,135 +1,286 @@
-/* Visual Artifacts */
+/* ============================================
+   VISUAL ARTIFACTS - BROWSER PREVIEW
+   Mac-style chrome with animated cursor
+   ============================================ */
+
 .visual-artifact {
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 8px;
+  border: 1px solid var(--spot-border);
+  border-radius: var(--spot-radius-md);
   overflow: hidden;
-  background: #000;
-  margin-top: 8px;
+  background: #0A0A0C;
+  margin-top: 12px;
+  animation: artifactFade 300ms ease-out;
 }
 
+@keyframes artifactFade {
+  from {
+    opacity: 0;
+    transform: scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.visual-artifact.active {
+  border-color: rgba(99, 144, 255, 0.25);
+  box-shadow: 0 0 0 1px rgba(99, 144, 255, 0.1),
+              var(--spot-shadow-md);
+}
+
+/* ============================================
+   BROWSER CHROME - macOS Style
+   ============================================ */
 .artifact-browser-bar {
-  background: #1F2329;
-  padding: 8px 12px;
+  background: linear-gradient(180deg, #2A2A2E 0%, #232326 100%);
+  padding: 10px 12px;
   display: flex;
   align-items: center;
   gap: 12px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.3);
 }
 
+/* Traffic Light Buttons */
 .artifact-traffic-dots {
   display: flex;
-  gap: 6px;
+  gap: 7px;
 }
 
 .dot {
-  width: 10px;
-  height: 10px;
+  width: 11px;
+  height: 11px;
   border-radius: 50%;
+  position: relative;
+  border: 0.5px solid rgba(0, 0, 0, 0.2);
 }
 
-.dot.close { background: #EF4444; }
-.dot.minimize { background: #F59E0B; }
-.dot.maximize { background: #10B981; }
+.dot::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.4) 0%, transparent 50%);
+}
 
+.dot.close {
+  background: linear-gradient(180deg, #FF605C 0%, #E64942 100%);
+}
+
+.dot.minimize {
+  background: linear-gradient(180deg, #FFBD44 0%, #DFA422 100%);
+}
+
+.dot.maximize {
+  background: linear-gradient(180deg, #00CA4E 0%, #1EAD31 100%);
+}
+
+/* URL Bar */
 .artifact-url-bar {
   flex: 1;
-  background: #111418;
-  border-radius: 4px;
-  padding: 4px 10px;
+  background: rgba(0, 0, 0, 0.25);
+  border-radius: 5px;
+  padding: 5px 10px;
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   font-size: 11px;
-  color: #9CA3AF;
+  color: var(--spot-text-muted);
+  border: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+.artifact-lock {
+  color: var(--spot-success);
+  display: flex;
+}
+
+.artifact-url {
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .artifact-external {
   background: transparent;
   border: none;
-  color: #6B7280;
+  color: var(--spot-text-dim);
   cursor: pointer;
+  padding: 3px;
+  border-radius: 3px;
+  display: flex;
+  align-items: center;
+  transition: all var(--spot-transition-fast);
 }
 
+.artifact-external:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--spot-text-secondary);
+}
+
+/* ============================================
+   VIEWPORT AREA
+   ============================================ */
 .artifact-viewport {
   height: 200px;
   position: relative;
-  background: #111418;
+  background: #111114;
+  overflow: hidden;
 }
 
 .artifact-screenshot {
   width: 100%;
   height: 100%;
   object-fit: cover;
+  object-position: top;
 }
 
-/* Skeleton Loader */
+/* ============================================
+   SKELETON LOADER
+   ============================================ */
 .artifact-skeleton {
-  padding: 20px;
+  padding: 18px;
   display: flex;
   flex-direction: column;
   gap: 16px;
+  height: 100%;
 }
 
 .skel-header {
   display: flex;
   justify-content: space-between;
+  align-items: center;
 }
 
 .skel-logo {
   width: 32px;
   height: 32px;
-  background: rgba(255, 255, 255, 0.1);
-  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: 6px;
+  animation: skeletonPulse 1.8s ease-in-out infinite;
+}
+
+@keyframes skeletonPulse {
+  0%, 100% { opacity: 0.4; }
+  50% { opacity: 0.7; }
+}
+
+.skel-nav {
+  display: flex;
+  gap: 10px;
 }
 
 .skel-nav span {
   display: inline-block;
   width: 40px;
-  height: 12px;
-  background: rgba(255, 255, 255, 0.05);
-  border-radius: 2px;
-  margin-left: 8px;
+  height: 10px;
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 3px;
+  animation: skeletonPulse 1.8s ease-in-out infinite;
 }
+
+.skel-nav span:nth-child(2) { animation-delay: 0.1s; }
+.skel-nav span:nth-child(3) { animation-delay: 0.2s; }
 
 .skel-hero {
-  height: 80px;
-  background: rgba(255, 255, 255, 0.05);
-  border-radius: 4px;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
 }
 
-/* Activity Cursor */
+.skel-title {
+  width: 55%;
+  height: 20px;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 4px;
+  animation: skeletonPulse 1.8s ease-in-out infinite;
+}
+
+.skel-subtitle {
+  width: 35%;
+  height: 12px;
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 3px;
+  animation: skeletonPulse 1.8s ease-in-out infinite;
+  animation-delay: 0.15s;
+}
+
+.skel-cta {
+  width: 90px;
+  height: 28px;
+  background: rgba(99, 144, 255, 0.15);
+  border-radius: 5px;
+  margin-top: 6px;
+  animation: skeletonPulse 1.8s ease-in-out infinite;
+  animation-delay: 0.3s;
+}
+
+.skel-cards {
+  display: flex;
+  gap: 10px;
+}
+
+.skel-cards span {
+  flex: 1;
+  height: 40px;
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 5px;
+  animation: skeletonPulse 1.8s ease-in-out infinite;
+}
+
+.skel-cards span:nth-child(2) { animation-delay: 0.1s; }
+.skel-cards span:nth-child(3) { animation-delay: 0.2s; }
+
+/* ============================================
+   ANIMATED CURSOR
+   ============================================ */
 .artifact-cursor {
   position: absolute;
   pointer-events: none;
-  transition: all 0.3s ease-out;
-  filter: drop-shadow(0 2px 4px rgba(0,0,0,0.5));
+  transition: left 0.5s cubic-bezier(0.4, 0, 0.2, 1),
+              top 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.4));
+  z-index: 10;
 }
 
 .artifact-cursor.clicking {
-  transform: scale(0.8);
+  transform: scale(0.85);
+  transition: transform 80ms ease-out;
 }
 
+/* ============================================
+   ACTIVITY FOOTER
+   ============================================ */
 .artifact-activity {
-  background: #1F2329;
-  padding: 8px 12px;
+  background: linear-gradient(180deg, #1C1C1F 0%, #161618 100%);
+  padding: 9px 12px;
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 9px;
   font-size: 11px;
-  color: #9CA3AF;
-  border-top: 1px solid rgba(255, 255, 255, 0.05);
+  color: var(--spot-text-muted);
+  border-top: 1px solid rgba(255, 255, 255, 0.04);
 }
 
 .activity-pulse {
-  width: 6px;
-  height: 6px;
-  background: #3D85C6;
+  width: 7px;
+  height: 7px;
+  background: var(--spot-accent);
   border-radius: 50%;
-  animation: pulse 1.5s infinite;
+  animation: activityGlow 1.5s ease-in-out infinite;
+  box-shadow: 0 0 6px var(--spot-accent);
 }
 
-@keyframes pulse {
-  0% { opacity: 1; }
-  50% { opacity: 0.5; }
-  100% { opacity: 1; }
+@keyframes activityGlow {
+  0%, 100% {
+    opacity: 1;
+    box-shadow: 0 0 6px var(--spot-accent);
+  }
+  50% {
+    opacity: 0.6;
+    box-shadow: 0 0 2px var(--spot-accent);
+  }
 }
