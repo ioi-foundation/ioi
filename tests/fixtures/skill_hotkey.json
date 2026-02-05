@@ -1,0 +1,11 @@
+{
+  "name": "copy_clipboard",
+  "description": "Copies selection",
+  "steps": [{
+    "tool": "computer",
+    "params": {
+      "action": "hotkey",
+      "keys": ["Control", "c"]
+    }
+  }]
+}

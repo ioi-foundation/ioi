@@ -5,53 +5,59 @@
 
 /* CSS Custom Properties - Design Tokens */
 .spot-window {
-  /* Core Colors */
-  --spot-bg-primary: rgba(12, 12, 14, 0.92);
-  --spot-bg-secondary: rgba(22, 22, 26, 0.85);
-  --spot-bg-tertiary: rgba(32, 32, 38, 0.75);
-  --spot-bg-elevated: rgba(38, 38, 44, 0.9);
+  /* Core Colors - Darker, more opaque */
+  --spot-bg-primary: rgba(8, 8, 10, 0.96);
+  --spot-bg-secondary: rgba(16, 16, 20, 0.95);
+  --spot-bg-tertiary: rgba(28, 28, 34, 0.9);
+  --spot-bg-elevated: rgba(32, 32, 40, 0.95);
+  --spot-bg-surface: rgba(20, 20, 26, 0.98);
   
-  /* Borders */
-  --spot-border: rgba(255, 255, 255, 0.08);
-  --spot-border-subtle: rgba(255, 255, 255, 0.04);
-  --spot-border-focus: rgba(99, 144, 255, 0.4);
+  /* Borders - Slightly more visible */
+  --spot-border: rgba(255, 255, 255, 0.1);
+  --spot-border-subtle: rgba(255, 255, 255, 0.06);
+  --spot-border-strong: rgba(255, 255, 255, 0.14);
+  --spot-border-focus: rgba(99, 144, 255, 0.5);
   
-  /* Text */
-  --spot-text-primary: #F4F4F5;
-  --spot-text-secondary: #A1A1AA;
-  --spot-text-muted: #63636B;
-  --spot-text-dim: #4A4A52;
+  /* Text - Better contrast */
+  --spot-text-primary: #F8F8FA;
+  --spot-text-secondary: #B0B0B8;
+  --spot-text-muted: #6E6E78;
+  --spot-text-dim: #505058;
   
-  /* Accent */
-  --spot-accent: #6390FF;
+  /* Accent - Slightly more saturated */
+  --spot-accent: #5B8AFF;
   --spot-accent-hover: #4A7AFF;
-  --spot-accent-glow: rgba(99, 144, 255, 0.25);
-  --spot-accent-subtle: rgba(99, 144, 255, 0.08);
+  --spot-accent-muted: #4A6FCC;
+  --spot-accent-glow: rgba(91, 138, 255, 0.3);
+  --spot-accent-subtle: rgba(91, 138, 255, 0.1);
   
   /* Status Colors */
   --spot-success: #34D399;
   --spot-warning: #FBBF24;
   --spot-error: #F87171;
+  --spot-error-subtle: rgba(248, 113, 113, 0.12);
   
   /* Radii */
   --spot-radius-xs: 4px;
-  --spot-radius-sm: 8px;
-  --spot-radius-md: 12px;
-  --spot-radius-lg: 16px;
-  --spot-radius-xl: 20px;
+  --spot-radius-sm: 6px;
+  --spot-radius-md: 10px;
+  --spot-radius-lg: 14px;
+  --spot-radius-xl: 18px;
   --spot-radius-full: 9999px;
   
-  /* Shadows */
-  --spot-shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.15);
-  --spot-shadow-md: 0 4px 16px rgba(0, 0, 0, 0.2);
-  --spot-shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.3);
-  --spot-shadow-elevated: 0 20px 60px -15px rgba(0, 0, 0, 0.5);
-  --spot-shadow-glow: 0 0 20px var(--spot-accent-glow);
+  /* Shadows - More depth */
+  --spot-shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.2);
+  --spot-shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.25);
+  --spot-shadow-md: 0 4px 16px rgba(0, 0, 0, 0.3);
+  --spot-shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.4);
+  --spot-shadow-elevated: 0 20px 60px -15px rgba(0, 0, 0, 0.6);
+  --spot-shadow-glow: 0 0 24px var(--spot-accent-glow);
+  --spot-shadow-inset: inset 0 1px 0 0 rgba(255, 255, 255, 0.04);
   
   /* Transitions */
-  --spot-transition-fast: 120ms cubic-bezier(0.4, 0, 0.2, 1);
-  --spot-transition: 200ms cubic-bezier(0.4, 0, 0.2, 1);
-  --spot-transition-slow: 300ms cubic-bezier(0.4, 0, 0.2, 1);
+  --spot-transition-fast: 100ms cubic-bezier(0.4, 0, 0.2, 1);
+  --spot-transition: 180ms cubic-bezier(0.4, 0, 0.2, 1);
+  --spot-transition-slow: 280ms cubic-bezier(0.4, 0, 0.2, 1);
   --spot-spring: 400ms cubic-bezier(0.34, 1.56, 0.64, 1);
 
   /* Layout */
@@ -70,12 +76,14 @@
 /* Main Container - Glass Effect */
 .spot-container {
   display: flex;
+  flex-direction: column;
   width: 100%;
   height: 100%;
   overflow: hidden;
   background: var(--spot-bg-primary);
   border: 1px solid var(--spot-border);
-  border-radius: var(--spot-radius-lg);
+  border-right: none;
+  border-radius: var(--spot-radius-lg) 0 0 var(--spot-radius-lg);
   box-shadow: var(--spot-shadow-elevated);
   position: relative;
 }
@@ -89,6 +97,7 @@
   opacity: 0.03;
   pointer-events: none;
   background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
+  z-index: 0;
 }
 
 /* Inner Glow */
@@ -99,6 +108,66 @@
   border-radius: inherit;
   pointer-events: none;
   box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.05);
+  z-index: 0;
+}
+
+/* ============================================
+   UNIFIED HEADER - Window Controls Only
+   ============================================ */
+.spot-header {
+  display: flex;
+  align-items: center;
+  height: 44px;
+  padding: 0 8px 0 12px;
+  background: linear-gradient(180deg, rgba(255,255,255,0.02) 0%, transparent 100%);
+  border-bottom: 1px solid var(--spot-border-subtle);
+  flex-shrink: 0;
+  position: relative;
+  z-index: 20;
+}
+
+/* Drag region fills available space */
+.spot-header-drag {
+  flex: 1;
+  height: 100%;
+  -webkit-app-region: drag;
+}
+
+/* Right section with window controls */
+.spot-header-right {
+  display: flex;
+  align-items: center;
+  gap: 1px;
+  flex-shrink: 0;
+}
+
+/* Divider between action buttons and window controls */
+.spot-header-divider {
+  width: 1px;
+  height: 20px;
+  background: var(--spot-border);
+  margin: 0 8px;
+}
+
+/* Window control group (minimize, maximize, close) */
+.spot-header-window-controls {
+  display: flex;
+  align-items: center;
+  gap: 1px;
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: var(--spot-radius-sm);
+  padding: 2px;
+}
+
+/* ============================================
+   CONTENT AREA - Below Header
+   ============================================ */
+.spot-content {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  position: relative;
+  z-index: 1;
 }
 
 /* Main Content Panel */
@@ -112,39 +181,45 @@
   isolation: isolate;
 }
 
-/* ============================================
-   HEADER ACTIONS - Minimal & Clean
-   ============================================ */
-.spot-header-actions {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  padding: 10px 14px;
-  gap: 4px;
-  -webkit-app-region: drag;
-  background: transparent;
-  border-bottom: 1px solid var(--spot-border-subtle);
-  position: relative;
-  z-index: 20;
-  flex-shrink: 0;
-}
-
-/* Fade gradient below header */
-.spot-header-actions::after {
-  content: "";
+/* Sidebar Toggle - Floating in top-left of chat */
+.spot-sidebar-toggle {
   position: absolute;
-  left: 0;
-  right: 0;
-  bottom: -24px;
-  height: 24px;
-  background: linear-gradient(to bottom, var(--spot-bg-primary), transparent);
-  pointer-events: none;
-  z-index: 10;
-}
-
-.spot-icon-btn {
+  top: 10px;
+  left: 10px;
+  z-index: 15;
   width: 30px;
   height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--spot-radius-sm);
+  border: 1px solid var(--spot-border);
+  background: var(--spot-bg-surface);
+  color: var(--spot-text-muted);
+  cursor: pointer;
+  transition: all var(--spot-transition-fast);
+  box-shadow: var(--spot-shadow-sm);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+.spot-sidebar-toggle:hover {
+  background: var(--spot-bg-elevated);
+  color: var(--spot-text-primary);
+  border-color: var(--spot-border-strong);
+  box-shadow: var(--spot-shadow-md);
+}
+
+.spot-sidebar-toggle:active {
+  transform: scale(0.94);
+}
+
+/* ============================================
+   ICON BUTTONS - Unified Style
+   ============================================ */
+.spot-icon-btn {
+  width: 28px;
+  height: 28px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -158,12 +233,13 @@
 }
 
 .spot-icon-btn:hover {
-  background: rgba(255, 255, 255, 0.06);
-  color: var(--spot-text-secondary);
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--spot-text-primary);
 }
 
 .spot-icon-btn:active {
-  transform: scale(0.95);
+  transform: scale(0.92);
+  background: rgba(255, 255, 255, 0.1);
 }
 
 .spot-icon-btn.active {
@@ -171,16 +247,47 @@
   background: var(--spot-accent-subtle);
 }
 
+.spot-icon-btn.active:hover {
+  background: rgba(91, 138, 255, 0.15);
+}
+
+/* Close button - red hover */
 .spot-icon-btn.close:hover {
-  background: rgba(248, 113, 113, 0.15);
+  background: var(--spot-error-subtle);
   color: var(--spot-error);
 }
 
-.divider-vertical {
-  width: 1px;
-  height: 16px;
-  background: var(--spot-border);
-  margin: 0 4px;
+.spot-icon-btn.close:active {
+  background: rgba(248, 113, 113, 0.2);
+}
+
+/* Dock button indicator */
+.spot-icon-btn.dock-btn {
+  position: relative;
+  color: var(--spot-accent);
+}
+
+.spot-icon-btn.dock-btn::after {
+  content: "";
+  position: absolute;
+  bottom: 3px;
+  right: 3px;
+  width: 5px;
+  height: 5px;
+  background: var(--spot-accent);
+  border-radius: 50%;
+  animation: dockPulse 2s ease-in-out infinite;
+}
+
+@keyframes dockPulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.5; transform: scale(0.8); }
+}
+
+/* Action buttons (settings, code view) - slightly larger */
+.spot-header-right > .spot-icon-btn:not(.close) {
+  width: 30px;
+  height: 30px;
 }
 
 /* ============================================
@@ -380,34 +487,33 @@
 }
 
 /* ============================================
-   FLOATING STATE
+   FLOATING STATE - Full border radius restored
    ============================================ */
 .spot-window.floating .spot-container {
   border-radius: var(--spot-radius-lg);
+  border-right: 1px solid var(--spot-border);
   box-shadow: 
     0 25px 80px -20px rgba(0, 0, 0, 0.5),
     0 0 0 1px var(--spot-border);
 }
 
-/* Dock button indicator */
-.spot-icon-btn.dock-btn {
-  position: relative;
-  color: var(--spot-accent);
+/* ============================================
+   RESIZE THRESHOLD ZONES - Visual Feedback
+   ============================================ */
+.spot-container.threshold-minimize {
+  opacity: calc(1 - (var(--threshold-progress, 0) * 0.4));
+  border-color: var(--spot-warning);
+  box-shadow: 
+    var(--spot-shadow-elevated),
+    inset 0 0 0 1px rgba(251, 191, 36, calc(var(--threshold-progress, 0) * 0.3));
+  transition: opacity 150ms ease, border-color 150ms ease, box-shadow 150ms ease;
 }
 
-.spot-icon-btn.dock-btn::after {
-  content: "";
-  position: absolute;
-  bottom: 2px;
-  right: 2px;
-  width: 6px;
-  height: 6px;
-  background: var(--spot-accent);
-  border-radius: 50%;
-  animation: dockPulse 2s ease-in-out infinite;
-}
-
-@keyframes dockPulse {
-  0%, 100% { opacity: 1; transform: scale(1); }
-  50% { opacity: 0.5; transform: scale(0.8); }
+.spot-container.threshold-maximize {
+  border-color: var(--spot-accent);
+  box-shadow: 
+    var(--spot-shadow-elevated),
+    inset 0 0 0 1px rgba(99, 144, 255, calc(var(--threshold-progress, 0) * 0.3)),
+    0 0 calc(var(--threshold-progress, 0) * 20px) rgba(99, 144, 255, 0.2);
+  transition: border-color 150ms ease, box-shadow 150ms ease;
 }

@@ -23,8 +23,12 @@ pub enum AtomicInput {
     MouseDown { button: MouseButton },
     /// Release a mouse button.
     MouseUp { button: MouseButton },
-    /// Press a specific key (including modifiers like "Control", "Shift").
+    /// Press a specific key (click: down + up).
     KeyPress { key: String },
+    /// [NEW] Hold a key down (for chords).
+    KeyDown { key: String },
+    /// [NEW] Release a key.
+    KeyUp { key: String },
     /// Type a string of text.
     Type { text: String },
     /// Wait for a specified duration in milliseconds.
@@ -41,7 +45,7 @@ pub enum InputEvent {
         button: MouseButton,
         x: u32,
         y: u32,
-        /// NEW: Hash of the screen region expected at these coordinates.
+        /// Hash of the screen region expected at these coordinates.
         /// This enforces the "Atomic Vision-Action Lock" to prevent visual drift (TOCTOU).
         expected_visual_hash: Option<[u8; 32]>,
     },
@@ -64,7 +68,7 @@ pub enum InputEvent {
     /// Scroll the view by dx, dy.
     Scroll { dx: i32, dy: i32 },
 
-    /// [NEW] Execute a sequence of inputs atomically (e.g., Drag-and-Drop, Copy-Paste).
+    /// Execute a sequence of inputs atomically (e.g., Drag-and-Drop, Copy-Paste).
     /// This ensures the sequence completes without interruption or latency gaps.
     AtomicSequence(Vec<AtomicInput>),
 }

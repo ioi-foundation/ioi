@@ -4,7 +4,8 @@ pub mod accessibility;
 pub mod operator;
 pub mod platform;
 pub mod vision;
-pub mod som; // [NEW] Set-of-Marks module
+pub mod som; 
+pub mod lenses; // [NEW] Register lenses module
 
 use self::operator::NativeOperator;
 use self::vision::NativeVision;
@@ -13,10 +14,11 @@ use ioi_api::vm::drivers::gui::{GuiDriver, InputEvent};
 use ioi_types::app::{ActionRequest, ContextSlice};
 use ioi_types::error::VmError;
 
-use self::accessibility::{MockSubstrateProvider, SovereignSubstrateProvider, Rect};
+use self::accessibility::{MockSubstrateProvider, SovereignSubstrateProvider, Rect, serialize_tree_to_xml};
 use self::platform::NativeSubstrateProvider;
 
 use self::som::overlay_accessibility_tree;
+use self::lenses::{LensRegistry, react::ReactLens};
 
 use ioi_scs::SovereignContextStore;
 use ioi_types::app::KernelEvent;
@@ -31,10 +33,12 @@ use std::collections::HashMap;
 pub struct IoiGuiDriver {
     operator: NativeOperator,
     substrate: Box<dyn SovereignSubstrateProvider + Send + Sync>,
-    // [NEW] Flag to enable visual grounding overlay
+    // Flag to enable visual grounding overlay
     enable_som: bool,
-    // [NEW] Cache for SoM ID -> Rect mapping
+    // Cache for SoM ID -> Rect mapping
     som_cache: Arc<Mutex<HashMap<u32, Rect>>>,
+    // [NEW] Lens Registry for Application Lenses ("LiDAR")
+    lens_registry: LensRegistry,
 }
 
 impl IoiGuiDriver {
@@ -44,27 +48,32 @@ impl IoiGuiDriver {
         let substrate: Box<dyn SovereignSubstrateProvider + Send + Sync> =
             Box::new(MockSubstrateProvider);
 
+        let mut lens_registry = LensRegistry::new();
+        // [NEW] Register the React Lens by default for Electron/Web apps
+        lens_registry.register(Box::new(ReactLens)); 
+
         Self {
             operator: NativeOperator::new(),
             substrate,
             enable_som: false, // Disabled by default for clean screenshots
             som_cache: Arc::new(Mutex::new(HashMap::new())),
+            lens_registry,
         }
     }
 
-    // [NEW] Builder method to inject event sender into operator
+    // Builder method to inject event sender into operator
     pub fn with_event_sender(mut self, sender: Sender<KernelEvent>) -> Self {
         self.operator = self.operator.with_event_sender(sender);
         self
     }
 
-    // [NEW] Builder method to inject SCS and switch to Native provider
+    // Builder method to inject SCS and switch to Native provider
     pub fn with_scs(mut self, scs: Arc<Mutex<SovereignContextStore>>) -> Self {
         self.substrate = Box::new(NativeSubstrateProvider::new(scs));
         self
     }
     
-    // [NEW] Builder method to enable Set-of-Marks overlay
+    // Builder method to enable Set-of-Marks overlay
     pub fn with_som(mut self) -> Self {
         self.enable_som = true;
         self
@@ -97,9 +106,7 @@ impl GuiDriver for IoiGuiDriver {
         }
 
         // 2. Fetch Accessibility Tree (Async)
-        // [FIX] Correct module path: 'crate' refers to the root of 'ioi-drivers'
-        // Since we are in 'gui/mod.rs', 'platform' is a submodule of 'gui'.
-        // So we access it via `self::platform` or `crate::gui::platform`.
+        // Correct module path for platform
         let tree = self::platform::fetch_tree_direct().await
             .map_err(|e| VmError::HostError(format!("Failed to fetch tree for SoM: {}", e)))?;
 
@@ -108,10 +115,8 @@ impl GuiDriver for IoiGuiDriver {
             .map_err(|e| VmError::HostError(format!("Image decode failed: {}", e)))?
             .to_rgba8();
 
-        // [NEW] Get map back from overlay function
         let map = overlay_accessibility_tree(&mut img, &tree);
         
-        // [NEW] Update cache
         {
             let mut cache = self.som_cache.lock().unwrap();
             *cache = map;
@@ -152,13 +157,67 @@ impl GuiDriver for IoiGuiDriver {
 
     // Implementation of the Substrate access method
     async fn capture_context(&self, intent: &ActionRequest) -> Result<ContextSlice, VmError> {
-        // In a real implementation, we would determine the active monitor handle here.
-        let monitor_handle = 0;
+        // [NEW] Refactored to apply Lenses *before* committing to Substrate.
+        // The NativeSubstrateProvider (platform.rs) does raw capture + storage.
+        // We need to intercept here to apply the Lens transformation.
+        
+        // 1. Fetch raw tree from platform directly
+        // We bypass substrate.get_intent_constrained_slice initially to get the struct.
+        // But the trait doesn't expose the raw struct.
+        // We need to cast or access the platform fetcher directly.
+        // Since we are in the same crate, we can use the platform module helper.
+        let raw_tree = self::platform::fetch_tree_direct().await
+             .map_err(|e| VmError::HostError(format!("Failed to fetch raw tree: {}", e)))?;
 
-        self.substrate
-            .get_intent_constrained_slice(intent, monitor_handle)
-            .await 
-            .map_err(|e| VmError::HostError(format!("Substrate error: {}", e)))
+        // 2. Identify Active Window for Lens Selection
+        let window_title = raw_tree.name.as_deref().unwrap_or("");
+
+        // 3. Apply Lens
+        let xml_content = if let Some(lens) = self.lens_registry.select(window_title) {
+            log::info!("Applying Application Lens: {}", lens.name());
+            if let Some(transformed) = lens.transform(&raw_tree) {
+                lens.render(&transformed, 0)
+            } else {
+                String::new() // Filtered out
+            }
+        } else {
+            // Fallback to standard serializer
+            serialize_tree_to_xml(&raw_tree, 0)
+        };
+
+        // 4. Manually commit to Substrate (replicating logic from NativeSubstrateProvider)
+        // We do this here because we modified the data (Lensed XML instead of Raw XML).
+        // If we used the trait method, we'd get the raw XML.
+        // Note: Ideally, the Substrate provider should accept an optional transformer.
+        // For now, we assume `self.substrate` is `NativeSubstrateProvider` and we use its underlying SCS.
+        // Since we can't downcast easily without Any, we rely on the fact that we constructed it
+        // and we have access to `ioi_scs` types.
+        
+        // BUT: The trait `SovereignSubstrateProvider` handles the commit.
+        // To avoid code duplication, we should update the trait or provider to accept content.
+        // Given constraints, we will reconstruct the ContextSlice manually here and commit if we have the SCS handle.
+        // However, IoiGuiDriver doesn't hold the SCS handle directly in a public way, only inside the `substrate` box.
+        // Wait, `with_scs` sets `self.substrate = Box::new(NativeSubstrateProvider::new(scs))`.
+        
+        // Strategy: We will accept that for this phase, `capture_context` via `self.substrate` returns RAW data,
+        // and we overwrite the payload in the slice.
+        // This means the SCS stores the RAW data (good for audit), but the Agent sees the LENSED data.
+        
+        let mut slice = self.substrate
+            .get_intent_constrained_slice(intent, 0)
+            .await
+            .map_err(|e| VmError::HostError(format!("Substrate error: {}", e)))?;
+
+        // Replace the chunks with our Lensed XML
+        slice.chunks = vec![xml_content.into_bytes()];
+
+        // Note: The slice_id and provenance proof in `slice` point to the RAW data stored in SCS.
+        // The Agent gets Lensed data. This is actually correct:
+        // - SCS stores "What really happened" (Raw Truth).
+        // - Agent sees "What matters" (Semantic View).
+        // - Provenance verifies the Raw Truth.
+        
+        Ok(slice)
     }
 
     async fn inject_input(&self, event: InputEvent) -> Result<(), VmError> {
@@ -171,13 +230,11 @@ impl GuiDriver for IoiGuiDriver {
         }
     }
 
-    // [NEW] Implementation
     async fn get_element_center(&self, id: u32) -> Result<Option<(u32, u32)>, VmError> {
         let cache = self.som_cache.lock().unwrap();
         if let Some(rect) = cache.get(&id) {
             let cx = rect.x + (rect.width / 2);
             let cy = rect.y + (rect.height / 2);
-            // Ensure non-negative
             Ok(Some((cx.max(0) as u32, cy.max(0) as u32)))
         } else {
             Ok(None)
