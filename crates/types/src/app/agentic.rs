@@ -602,6 +602,13 @@ pub enum ComputerAction {
         /// Key name.
         text: String,
     },
+    
+    /// [NEW] Execute a keyboard shortcut (Chord).
+    #[serde(rename = "hotkey")]
+    Hotkey {
+        /// Sequence of keys to press. Modifiers first.
+        keys: Vec<String>,
+    },
 
     /// Move mouse cursor.
     MouseMove {
@@ -624,10 +631,19 @@ pub enum ComputerAction {
         id: u32
     },
 
-    /// Click and drag.
+    /// Click and drag (Stateful/Relative).
     LeftClickDrag {
         /// Coordinates [x, y].
         coordinate: [u32; 2],
+    },
+    
+    /// [NEW] Explicit Drag and Drop (Stateless/Absolute).
+    #[serde(rename = "drag_drop")]
+    DragDrop {
+        /// Start coordinates [x, y].
+        from: [u32; 2],
+        /// End coordinates [x, y].
+        to: [u32; 2],
     },
 
     /// Take a screenshot.
@@ -660,12 +676,12 @@ impl AgentTool {
 
             AgentTool::Computer(action) => match action {
                 ComputerAction::LeftClickId { .. } => crate::app::ActionTarget::GuiClick, // Maps to generic click
-                ComputerAction::Type { .. } | ComputerAction::Key { .. } => {
+                ComputerAction::Type { .. } | ComputerAction::Key { .. } | ComputerAction::Hotkey { .. } => {
                     crate::app::ActionTarget::GuiType
                 }
                 ComputerAction::MouseMove { .. } => crate::app::ActionTarget::GuiMouseMove,
                 ComputerAction::LeftClick { .. } => crate::app::ActionTarget::GuiClick,
-                ComputerAction::LeftClickDrag { .. } => crate::app::ActionTarget::GuiClick,
+                ComputerAction::LeftClickDrag { .. } | ComputerAction::DragDrop { .. } => crate::app::ActionTarget::GuiClick,
                 ComputerAction::Screenshot => crate::app::ActionTarget::GuiScreenshot,
                 ComputerAction::CursorPosition => {
                     crate::app::ActionTarget::Custom("computer::cursor".into())

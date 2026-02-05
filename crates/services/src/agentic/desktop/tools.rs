@@ -13,7 +13,7 @@ use ioi_api::vm::inference::InferenceRuntime;
 
 /// Discovers tools available to the agent.
 ///
-/// [UPDATED] Uses semantic search for skills instead of full scan.
+/// Uses semantic search for skills instead of full scan.
 pub async fn discover_tools(
     state: &dyn StateAccess,
     scs: Option<&std::sync::Mutex<SovereignContextStore>>,
@@ -58,7 +58,12 @@ pub async fn discover_tools(
         "properties": {
             "action": {
                 "type": "string",
-                "enum": ["type", "key", "mouse_move", "left_click", "left_click_id", "left_click_drag", "screenshot", "cursor_position"],
+                "enum": [
+                    "type", "key", "hotkey", 
+                    "mouse_move", "left_click", "left_click_id", 
+                    "left_click_drag", "drag_drop", 
+                    "screenshot", "cursor_position"
+                ],
                 "description": "The specific action to perform."
             },
             "coordinate": {
@@ -66,11 +71,30 @@ pub async fn discover_tools(
                 "items": { "type": "integer" },
                 "minItems": 2,
                 "maxItems": 2,
-                "description": "(x, y) coordinates. Required for mouse_move, left_click_drag."
+                "description": "(x, y) coordinates."
+            },
+            "from": {
+                 "type": "array",
+                 "items": { "type": "integer" },
+                 "minItems": 2,
+                 "maxItems": 2,
+                 "description": "Start coordinates for drag_drop."
+            },
+            "to": {
+                 "type": "array",
+                 "items": { "type": "integer" },
+                 "minItems": 2,
+                 "maxItems": 2,
+                 "description": "End coordinates for drag_drop."
             },
             "text": {
                 "type": "string",
-                "description": "Text to type or key to press. Required for type, key."
+                "description": "Text to type or key name."
+            },
+            "keys": {
+                "type": "array",
+                "items": { "type": "string" },
+                "description": "Array of keys for hotkey chord (e.g. ['Control', 'c'])."
             },
             "id": {
                 "type": "integer",
@@ -82,7 +106,7 @@ pub async fn discover_tools(
 
     tools.push(LlmToolDefinition {
         name: "computer".to_string(),
-        description: "Control the computer (mouse/keyboard).".to_string(),
+        description: "Control the computer (mouse/keyboard/hotkeys).".to_string(),
         parameters: computer_params.to_string(),
     });
 

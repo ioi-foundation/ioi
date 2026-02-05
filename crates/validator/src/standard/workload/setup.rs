@@ -18,7 +18,7 @@ use ioi_scs::SovereignContextStore;
 use ioi_services::{
     agentic::desktop::DesktopAgentService, governance::GovernanceModule, identity::IdentityHub,
     provider_registry::ProviderRegistryService,
-    agentic::optimizer::OptimizerService, // [NEW] Import Optimizer
+    agentic::optimizer::OptimizerService, // Import Optimizer
 };
 use ioi_storage::RedbEpochStore;
 use ioi_tx::unified::UnifiedTransactionModel;
@@ -41,10 +41,10 @@ use crate::standard::workload::hydration::ModelHydrator;
 use crate::standard::workload::runtime::StandardInferenceRuntime;
 
 use ioi_api::vm::inference::{mock::MockInferenceRuntime, HttpInferenceRuntime};
-use ioi_api::vm::inference::LocalSafetyModel; // [FIX] Import for Optimizer safety model
+use ioi_api::vm::inference::LocalSafetyModel; 
 
 use crate::standard::workload::drivers::verified_http::VerifiedHttpRuntime;
-use ioi_services::agentic::scrub_adapter::RuntimeAsSafetyModel; // [FIX] Import Safety Model adapter
+use ioi_services::agentic::scrub_adapter::RuntimeAsSafetyModel; 
 
 use tonic::transport::{Certificate, Channel, ClientTlsConfig, Identity};
 
@@ -63,10 +63,8 @@ use {
 
 use ioi_drivers::terminal::TerminalDriver; 
 use ioi_types::app::KernelEvent;
-// [FIX] Import OsDriver trait
 use ioi_api::vm::drivers::os::OsDriver;
 
-// [NEW] MCP Imports
 use ioi_drivers::mcp::{McpManager, McpServerConfig};
 use std::collections::HashMap;
 
@@ -175,12 +173,10 @@ pub async fn setup_workload<CS, ST>(
     mut state_tree: ST,
     commitment_scheme: CS,
     config: WorkloadConfig,
-    // [FIX] Prefix unused variables with underscore to suppress warnings
     _gui_driver: Option<Arc<dyn GuiDriver>>,
     _browser_driver: Option<Arc<BrowserDriver>>,
     _scs: Option<Arc<std::sync::Mutex<SovereignContextStore>>>,
     _event_sender: Option<tokio::sync::broadcast::Sender<KernelEvent>>,
-    // [FIX] Prefix unused variables with underscore
     _os_driver: Option<Arc<dyn OsDriver>>,
 ) -> Result<(
     Arc<WorkloadContainer<ST>>,
@@ -320,9 +316,6 @@ where
         panic!("vm-wasm feature is required for Workload setup");
     };
 
-    // [FIX] Removed unreachable code warning
-    // let _ = &vm; 
-
     let _temp_orch_config = OrchestrationConfig {
         chain_id: 1.into(),
         config_schema_version: 0,
@@ -443,14 +436,18 @@ where
     }
 
     // [NEW] Instantiate Optimizer Service
-    // The optimizer requires an InferenceRuntime and a LocalSafetyModel.
-    // We use the reasoning_runtime for high-quality mutation and wrap the fast_runtime for safety checks.
     let safety_adapter: Arc<dyn LocalSafetyModel> = Arc::new(RuntimeAsSafetyModel::new(fast_runtime.clone()));
     
-    let optimizer_service = OptimizerService::new(
+    let mut optimizer_service = OptimizerService::new(
         reasoning_runtime.clone(),
         safety_adapter.clone(),
     );
+
+    // [FIX] Inject SCS if available
+    if let Some(store) = &_scs {
+        optimizer_service = optimizer_service.with_scs(store.clone());
+        tracing::info!(target: "workload", "SCS injected into OptimizerService.");
+    }
     
     // Register Optimizer
     initial_services.push(Arc::new(optimizer_service) as Arc<dyn UpgradableService>);
@@ -468,12 +465,10 @@ where
         // [NEW] Initialize MCP Manager and spawn servers
         let mcp_manager = Arc::new(McpManager::new());
         
-        // Spawn configured MCP servers asynchronously
         for (name, server_cfg) in &config.mcp_servers {
             let manager_clone = mcp_manager.clone();
             let name_clone = name.clone();
             
-            // Resolve ENV secrets (simulated for now, would use Guardian/Vault in full impl)
             let mut resolved_env = HashMap::new();
             for (k, v) in &server_cfg.env {
                 if let Some(secret_ref) = v.strip_prefix("env:") {
@@ -490,7 +485,6 @@ where
                 env: resolved_env,
             };
 
-            // Don't block startup on MCP spawning
             tokio::spawn(async move {
                 if let Err(e) = manager_clone.start_server(&name_clone, mcp_cfg).await {
                     tracing::error!(target: "mcp", "Failed to start MCP server '{}': {}", name_clone, e);
@@ -507,19 +501,18 @@ where
             browser, 
             fast_runtime,
             reasoning_runtime
-        ).with_mcp_manager(mcp_manager); // Add this method to DesktopAgentService
+        ).with_mcp_manager(mcp_manager); 
         
-        if let Some(store) = _scs {
-            agent = agent.with_scs(store);
+        if let Some(store) = &_scs {
+            agent = agent.with_scs(store.clone());
             tracing::info!(target: "workload", "SCS injected into DesktopAgent.");
         }
 
         if let Some(sender) = _event_sender {
-            agent = agent.with_event_sender(sender);
+            agent = agent.with_event_sender(sender.clone());
             tracing::info!(target: "workload", "Event Bus connected to DesktopAgent.");
         }
 
-        // [FIX] Inject OS Driver if available (using reference)
         if let Some(os) = &_os_driver {
             agent = agent.with_os_driver(os.clone());
             tracing::info!(target: "workload", "OS Driver injected into DesktopAgent.");
@@ -572,11 +565,7 @@ where
     let _workload_container = Arc::new(WorkloadContainer::new(
         config.clone(),
         state_tree,
-        // [FIX] Removed unreachable code branch for vm initialization.
-        // vm is already initialized and potentially moved, so we need to clone the arc/box 
-        // OR rely on the fact that `vm` variable from earlier scope is available.
-        // The `vm` variable was created in the `cfg` block.
-        vm, // Use the vm created above
+        vm, 
         Some(Box::new(RuntimeWrapper {
             inner: inference_runtime,
         })),
@@ -584,7 +573,6 @@ where
         store,
     )?);
 
-    // [FIX] Clone os_driver for ExecutionMachine, providing a default if none given
     let machine_os_driver = if let Some(os) = &_os_driver {
         os.clone()
     } else {

@@ -11,6 +11,7 @@ use std::path::{Path, PathBuf};
 use std::fs;
 use std::io::Read;
 use thiserror::Error;
+use std::collections::HashMap; // [NEW] Import HashMap
 
 // Reuse the kernel's canonical Accessibility types
 use crate::gui::accessibility::{AccessibilityNode, Rect};
@@ -404,6 +405,12 @@ impl BrowserDriver {
         let id_string: String = ax_node.node_id.clone().into();
         let rect = Rect { x: 0, y: 0, width: 0, height: 0 }; 
 
+        // [NEW] Capture attributes from CDP node.
+        // For basic AX support, we can pull additional properties into the map.
+        // For this implementation, we initialize an empty map as CDP AX properties map poorly to raw string attributes.
+        // In a fuller implementation, we would iterate properties.
+        let attributes = HashMap::new();
+
         AccessibilityNode {
             id: id_string,
             role,
@@ -412,6 +419,7 @@ impl BrowserDriver {
             rect,
             children,
             is_visible,
+            attributes, // [NEW] Added attributes field
         }
     }
 

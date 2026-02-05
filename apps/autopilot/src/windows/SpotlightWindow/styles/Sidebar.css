@@ -7,10 +7,10 @@
   width: 260px;
   display: flex;
   flex-direction: column;
-  background: rgba(12, 12, 14, 0.6);
+  background: rgba(6, 6, 8, 0.7);
   border-right: 1px solid var(--spot-border-subtle);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
   flex-shrink: 0;
 }
 
@@ -18,14 +18,14 @@
    SIDEBAR HEADER
    ============================================ */
 .sidebar-header {
-  padding: 12px;
+  padding: 10px 10px 8px;
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   flex-shrink: 0;
 }
 
-/* New Chat Button */
+/* New Chat Button - Primary CTA */
 .sidebar-new-btn {
   flex: 1;
   display: flex;
@@ -38,50 +38,55 @@
   border: none;
   border-radius: var(--spot-radius-sm);
   color: white;
-  font-size: 13px;
-  font-weight: 500;
+  font-size: 12.5px;
+  font-weight: 550;
   cursor: pointer;
   transition: all var(--spot-transition);
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2), inset 0 1px 0 rgba(255,255,255,0.1);
 }
 
 .sidebar-new-btn:hover {
   background: var(--spot-accent-hover);
-  box-shadow: var(--spot-shadow-sm), 0 0 16px var(--spot-accent-glow);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25), 0 0 20px var(--spot-accent-glow);
   transform: translateY(-1px);
 }
 
 .sidebar-new-btn:active {
   transform: translateY(0);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
 }
 
-/* Dock/Toggle Button */
-.sidebar-dock-btn {
+/* Sidebar Toggle Button */
+.sidebar-toggle-btn {
   width: 34px;
   height: 34px;
   flex-shrink: 0;
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid var(--spot-border-subtle);
-  color: var(--spot-text-muted);
-  cursor: pointer;
-  border-radius: var(--spot-radius-sm);
   display: flex;
   align-items: center;
   justify-content: center;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--spot-border-subtle);
+  border-radius: var(--spot-radius-sm);
+  color: var(--spot-text-muted);
+  cursor: pointer;
   transition: all var(--spot-transition-fast);
 }
 
-.sidebar-dock-btn:hover {
-  background: rgba(255, 255, 255, 0.06);
-  color: var(--spot-text-secondary);
+.sidebar-toggle-btn:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--spot-text-primary);
   border-color: var(--spot-border);
+}
+
+.sidebar-toggle-btn:active {
+  transform: scale(0.94);
 }
 
 /* ============================================
    SEARCH BOX
    ============================================ */
 .sidebar-search {
-  padding: 0 12px 12px;
+  padding: 6px 10px 10px;
   flex-shrink: 0;
 }
 
@@ -89,18 +94,19 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  background: rgba(0, 0, 0, 0.2);
-  padding: 8px 10px;
+  background: rgba(0, 0, 0, 0.25);
+  padding: 7px 10px;
   border-radius: var(--spot-radius-sm);
   border: 1px solid transparent;
   color: var(--spot-text-muted);
   transition: all var(--spot-transition);
-  height: 34px;
+  height: 32px;
 }
 
 .search-box:focus-within {
-  background: rgba(0, 0, 0, 0.3);
+  background: rgba(0, 0, 0, 0.35);
   border-color: var(--spot-border);
+  box-shadow: 0 0 0 2px rgba(91, 138, 255, 0.1);
 }
 
 .search-box input {
@@ -108,7 +114,7 @@
   border: none;
   outline: none;
   color: var(--spot-text-primary);
-  font-size: 13px;
+  font-size: 12.5px;
   width: 100%;
 }
 
@@ -122,14 +128,14 @@
 .sidebar-history {
   flex: 1;
   overflow-y: auto;
-  padding: 8px 8px 16px;
+  padding: 0 6px 14px;
   
   scrollbar-width: thin;
   scrollbar-color: rgba(255, 255, 255, 0.08) transparent;
 }
 
 .sidebar-history::-webkit-scrollbar {
-  width: 5px;
+  width: 4px;
 }
 
 .sidebar-history::-webkit-scrollbar-track {
@@ -138,7 +144,7 @@
 
 .sidebar-history::-webkit-scrollbar-thumb {
   background: rgba(255, 255, 255, 0.08);
-  border-radius: 3px;
+  border-radius: 2px;
 }
 
 .sidebar-history::-webkit-scrollbar-thumb:hover {
@@ -147,7 +153,7 @@
 
 /* History Groups */
 .history-group {
-  margin-bottom: 16px;
+  margin-bottom: 14px;
 }
 
 .history-group:last-child {
@@ -159,9 +165,9 @@
   font-weight: 600;
   color: var(--spot-text-dim);
   text-transform: uppercase;
-  letter-spacing: 0.5px;
-  margin-bottom: 6px;
-  padding-left: 10px;
+  letter-spacing: 0.6px;
+  margin-bottom: 4px;
+  padding-left: 8px;
 }
 
 /* History Items */
@@ -170,7 +176,7 @@
   justify-content: space-between;
   align-items: center;
   width: 100%;
-  padding: 9px 10px;
+  padding: 8px 8px;
   background: transparent;
   border: none;
   border-radius: var(--spot-radius-sm);
@@ -178,16 +184,16 @@
   cursor: pointer;
   text-align: left;
   transition: all var(--spot-transition-fast);
-  margin-bottom: 2px;
+  margin-bottom: 1px;
 }
 
 .history-item:hover {
-  background: rgba(255, 255, 255, 0.04);
+  background: rgba(255, 255, 255, 0.05);
   color: var(--spot-text-primary);
 }
 
 .history-item:active {
-  background: rgba(255, 255, 255, 0.06);
+  background: rgba(255, 255, 255, 0.07);
 }
 
 .history-item.active {
@@ -195,8 +201,12 @@
   color: var(--spot-accent);
 }
 
+.history-item.active:hover {
+  background: rgba(91, 138, 255, 0.15);
+}
+
 .history-title {
-  font-size: 13px;
+  font-size: 12.5px;
   font-weight: 400;
   white-space: nowrap;
   overflow: hidden;
@@ -217,5 +227,5 @@
   padding: 24px 16px;
   text-align: center;
   color: var(--spot-text-dim);
-  font-size: 13px;
+  font-size: 12.5px;
 }

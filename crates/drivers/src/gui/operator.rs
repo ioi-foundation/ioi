@@ -5,7 +5,7 @@ use anyhow::{anyhow, Result};
 use enigo::{Axis, Button, Coordinate, Direction, Enigo, Key, Keyboard, Mouse, Settings};
 use image::load_from_memory;
 use image_hasher::{HashAlg, HasherConfig};
-use ioi_api::vm::drivers::gui::{InputEvent, AtomicInput, MouseButton as ApiButton}; // [FIX] Import AtomicInput
+use ioi_api::vm::drivers::gui::{InputEvent, AtomicInput, MouseButton as ApiButton};
 use std::sync::Mutex;
 use std::thread;
 use std::time::Duration;
@@ -28,7 +28,7 @@ impl NativeOperator {
         }
     }
 
-    // [NEW] Builder method to inject sender
+    // Builder method to inject sender
     pub fn with_event_sender(mut self, sender: Sender<KernelEvent>) -> Self {
         self.event_sender = Some(sender);
         self
@@ -61,7 +61,6 @@ impl NativeOperator {
     pub fn get_scale_factor() -> f64 {
         let monitors = Monitor::all().unwrap_or_default();
         if let Some(m) = monitors.first() {
-            // [FIX] Explicit cast from f32 to f64
             return m.scale_factor() as f64;
         }
         1.0
@@ -73,6 +72,33 @@ impl NativeOperator {
             ApiButton::Left => Button::Left,
             ApiButton::Right => Button::Right,
             ApiButton::Middle => Button::Middle,
+        }
+    }
+
+    /// Helper to map string keys to Enigo Keys
+    fn map_key(key: &str) -> Result<Key> {
+        match key.to_lowercase().as_str() {
+            "enter" | "return" => Ok(Key::Return),
+            "tab" => Ok(Key::Tab),
+            "escape" | "esc" => Ok(Key::Escape),
+            "backspace" => Ok(Key::Backspace),
+            "control" | "ctrl" => Ok(Key::Control),
+            "shift" => Ok(Key::Shift),
+            "alt" | "option" => Ok(Key::Alt),
+            "meta" | "command" | "super" | "windows" => Ok(Key::Meta),
+            "delete" | "del" => Ok(Key::Delete),
+            "space" => Ok(Key::Space),
+            "up" => Ok(Key::UpArrow),
+            "down" => Ok(Key::DownArrow),
+            "left" => Ok(Key::LeftArrow),
+            "right" => Ok(Key::RightArrow),
+            _ => {
+                if key.len() == 1 {
+                     Ok(Key::Unicode(key.chars().next().unwrap()))
+                } else {
+                     Err(anyhow!("Unsupported key: {}", key))
+                }
+            }
         }
     }
 
@@ -111,27 +137,25 @@ impl NativeOperator {
                 expected_visual_hash,
             } => {
                 // 1. ATOMIC VISUAL INTERLOCK (Robust pHash)
-                // This prevents TOCTOU attacks where the UI changes between "Think" and "Act".
                 if let Some(expected) = expected_visual_hash {
                     // Capture FRESH state immediately before clicking
                     let full_screen_png = NativeVision::capture_primary()?;
                     let current_hash = Self::compute_phash(&full_screen_png)?;
                     let dist = Self::hamming_distance(&current_hash, expected);
 
-                    // Threshold: 5 bits out of 64 (allows for minor clock changes, cursor blink)
+                    // Threshold: 5 bits out of 64
                     if dist > 5 {
-                         // Emit "Blocked" event for visualization in VisionHUD
                          if let Some(tx) = &self.event_sender {
                              let _ = tx.send(KernelEvent::FirewallInterception {
                                  verdict: "BLOCK".to_string(),
                                  target: "gui::click".to_string(),
-                                 request_hash: [0u8; 32], // Dummy hash, this is a runtime check
+                                 request_hash: [0u8; 32], // Dummy hash
                                  session_id: None,
                              });
                          }
 
                         return Err(anyhow!(
-                            "Visual Drift Detected! Hamming distance {} > 5. Screen state changed too much (Popup? Ad? Navigation?). Aborting click for safety.", 
+                            "Visual Drift Detected! Hamming distance {} > 5. Aborting click.", 
                             dist
                         ));
                     }
@@ -177,21 +201,7 @@ impl NativeOperator {
             }
             InputEvent::KeyPress { key } => {
                 log::info!(target: "driver", "KeyPress -> {}", key);
-                // Basic mapping for common keys
-                let k = match key.as_str() {
-                    "Enter" | "Return" => Key::Return,
-                    "Tab" => Key::Tab,
-                    "Escape" => Key::Escape,
-                    "Backspace" => Key::Backspace,
-                    _ => {
-                        // If it's a single char, just text it
-                        if key.len() == 1 {
-                             enigo.text(key).map_err(|e| anyhow!(e))?;
-                             return Ok(());
-                        }
-                        return Err(anyhow!("Unsupported key: {}", key));
-                    }
-                };
+                let k = Self::map_key(key)?;
                 enigo.key(k, Direction::Click).map_err(|e| anyhow!("Key press failed: {:?}", e))?;
             }
             InputEvent::Scroll { dx: _, dy } => {
@@ -219,25 +229,18 @@ impl NativeOperator {
                             enigo.button(btn, Direction::Release).map_err(|e| anyhow!(e))?;
                         },
                         AtomicInput::KeyPress { key } => {
-                            let k = match key.as_str() {
-                                "Enter" | "Return" => Key::Return,
-                                "Tab" => Key::Tab,
-                                "Escape" => Key::Escape,
-                                "Backspace" => Key::Backspace,
-                                "Control" => Key::Control,
-                                "Shift" => Key::Shift,
-                                "Alt" => Key::Alt,
-                                "Meta" | "Command" | "Windows" => Key::Meta,
-                                _ => {
-                                    if key.len() == 1 {
-                                        // Fallback for single char key press
-                                        enigo.key(Key::Unicode(key.chars().next().unwrap()), Direction::Click).map_err(|e| anyhow!(e))?;
-                                        continue;
-                                    }
-                                    Key::Unicode(' ') // Dummy fallback, or error?
-                                }
-                            };
+                            let k = Self::map_key(key)?;
                             enigo.key(k, Direction::Click).map_err(|e| anyhow!(e))?;
+                        },
+                        // [NEW] Implement KeyDown
+                        AtomicInput::KeyDown { key } => {
+                            let k = Self::map_key(key)?;
+                            enigo.key(k, Direction::Press).map_err(|e| anyhow!(e))?;
+                        },
+                        // [NEW] Implement KeyUp
+                        AtomicInput::KeyUp { key } => {
+                            let k = Self::map_key(key)?;
+                            enigo.key(k, Direction::Release).map_err(|e| anyhow!(e))?;
                         },
                         AtomicInput::Type { text } => {
                              enigo.text(text).map_err(|e| anyhow!(e))?;

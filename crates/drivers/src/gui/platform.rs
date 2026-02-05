@@ -9,6 +9,7 @@ use ioi_scs::{FrameType, SovereignContextStore};
 use ioi_types::app::{ActionRequest, ContextSlice};
 use std::sync::{Arc, Mutex};
 use async_trait::async_trait;
+use std::collections::HashMap;
 
 // Windows Dependencies
 #[cfg(target_os = "windows")]
@@ -17,7 +18,7 @@ use accesskit_windows::UiaTree;
 #[cfg(target_os = "windows")]
 mod windows_impl {
     use super::*;
-    use windows::core::{IUnknown, Interface};
+    use windows::core::{IUnknown, Interface, BSTR};
     use windows::Win32::System::Com::*;
     use windows::Win32::UI::Accessibility::*;
 
@@ -52,6 +53,23 @@ mod windows_impl {
         let control_type = element.CurrentControlType()?;
         let role = map_control_type(control_type);
 
+        // [NEW] Capture attributes (AutomationId, ClassName, etc.)
+        let mut attributes = HashMap::new();
+        
+        if let Ok(auto_id) = element.CurrentAutomationId() {
+            let s = auto_id.to_string();
+            if !s.is_empty() { attributes.insert("automation_id".to_string(), s); }
+        }
+        
+        if let Ok(class_name) = element.CurrentClassName() {
+            let s = class_name.to_string();
+            if !s.is_empty() { attributes.insert("class".to_string(), s); }
+        }
+        
+        // Try to capture Value pattern if available
+        let mut value = None;
+        // (Simplified check - full impl would query ValuePattern)
+        
         // Walk children
         let walker = {
             let automation: IUIAutomation =
@@ -65,8 +83,7 @@ mod windows_impl {
         while let Ok(c) = &child {
             if c.is_none() {
                 break;
-            } // null check logic for Windows-rs variants
-              // Note: Error handling omitted for brevity in snippet logic
+            } 
             if let Ok(node) = crawl_element(c.as_ref().unwrap(), depth + 1) {
                 children.push(node);
             }
@@ -77,10 +94,11 @@ mod windows_impl {
             id: format!("{:p}", element.as_raw()), // Pointer as ID
             role,
             name: if name.is_empty() { None } else { Some(name) },
-            value: None, // Need ValuePattern for this
+            value, 
             rect,
             children,
-            is_visible: true, // Assuming tree walker only returns visible
+            is_visible: true,
+            attributes, // [NEW]
         })
     }
 
@@ -101,7 +119,6 @@ mod linux_impl {
     use super::*;
     use atspi::connection::AccessibilityConnection;
     use atspi::proxy::accessible::AccessibleProxy;
-    // [FIX] Correct path for Component trait/proxy
     use atspi::proxy::component::ComponentProxy;
     use atspi::CoordType;
     use futures::future::BoxFuture;
@@ -112,8 +129,6 @@ mod linux_impl {
         let conn = AccessibilityConnection::open().await?;
         
         // 2. Get the desktop root
-        // The standard root for AT-SPI is at this bus name and path.
-        // [FIX] Borrow the connection for the builder
         let root = AccessibleProxy::builder(&conn.connection().clone())
             .destination("org.a11y.atspi.Registry")?
             .path("/org/a11y/atspi/accessible/root")?
@@ -121,7 +136,6 @@ mod linux_impl {
             .await?;
             
         // 3. Recursive crawl
-        // Pass connection to recreate proxies for children
         crawl_atspi_node(&root, &conn, 0).await
     }
 
@@ -137,12 +151,11 @@ mod linux_impl {
             // Map the role enum to a string.
             let role = proxy.get_role().await.map(|r| format!("{:?}", r)).unwrap_or("unknown".into());
             
-            // [FIX] Retrieve real coordinates from AT-SPI
-            // AccessibleProxy does not implement Component, so we must cast/build a ComponentProxy
+            // Retrieve real coordinates from AT-SPI
             let ext = {
                  let comp_builder = ComponentProxy::builder(&conn.connection().clone())
                     .destination(proxy.destination().to_owned())
-                    .expect("Invalid destination"); // Should be valid from proxy
+                    .expect("Invalid destination"); 
                  
                  if let Ok(comp_builder) = comp_builder.path(proxy.path().to_owned()) {
                      if let Ok(comp) = comp_builder.build().await {
@@ -158,14 +171,33 @@ mod linux_impl {
                 height: ext.3,
             };
 
+            // [NEW] Capture detailed attributes for Application Lenses
+            let mut attributes = HashMap::new();
+
+            // 1. Get raw AT-SPI attributes
+            if let Ok(attrs) = proxy.get_attributes().await {
+                for (k, v) in attrs {
+                    attributes.insert(k, v);
+                }
+            }
+
+            // 2. Map standard fields if useful
+            if let Ok(desc) = proxy.description().await {
+                if !desc.is_empty() { 
+                    attributes.insert("description".into(), desc); 
+                }
+            }
+            
+            // 3. Try to get specific interface attributes (Value, Text, etc.)
+            // (Simplified for this snippet)
+
             // Fetch children
             let child_count = proxy.child_count().await.unwrap_or(0);
             let mut children = Vec::new();
             
-            // Limit fan-out to prevent hanging on massive trees (e.g. complex web pages)
+            // Limit fan-out
             for i in 0..child_count.min(50) { 
                 if let Ok(child_ref) = proxy.get_child_at_index(i).await {
-                    // [FIX] Borrow the connection for the builder
                     if let Ok(child_proxy) = AccessibleProxy::builder(&conn.connection().clone())
                         .destination(child_ref.name)?
                         .path(child_ref.path)?
@@ -179,7 +211,6 @@ mod linux_impl {
                 }
             }
 
-            // [TODO] Check StateSet for VISIBLE. For now, we assume if it's in the tree it's relevant.
             Ok(AccessibilityNode {
                 // Generate a stable-ish ID based on path + index to allow referencing
                 id: format!("atspi_{}_{}", proxy.name().await.unwrap_or("unk".into()), depth), 
@@ -189,6 +220,7 @@ mod linux_impl {
                 rect,
                 children,
                 is_visible: true,
+                attributes, // [NEW]
             })
         }.boxed()
     }
@@ -212,6 +244,7 @@ mod stub_impl {
             },
             is_visible: true,
             children: vec![],
+            attributes: HashMap::new(), // [NEW]
         })
     }
 }
@@ -240,7 +273,7 @@ impl NativeSubstrateProvider {
     }
 
     /// Fetches the live accessibility tree from the OS using platform-specific APIs.
-    async fn fetch_os_tree(&self) -> Result<AccessibilityNode> {
+    pub async fn get_raw_tree(&self) -> Result<AccessibilityNode> {
         fetch_tree_direct().await
     }
 }
@@ -253,9 +286,14 @@ impl SovereignSubstrateProvider for NativeSubstrateProvider {
         _monitor_handle: u32,
     ) -> Result<ContextSlice> {
         // 1. Capture Raw Context from OS
-        let raw_tree = self.fetch_os_tree().await?;
+        let raw_tree = self.get_raw_tree().await?;
 
         // 2. Apply Intent-Constraint (The Filter)
+        // Note: The caller (IoiGuiDriver) should have already applied any Lenses
+        // before calling this if they wanted custom XML.
+        // However, the trait expects this method to do the work.
+        // If we want Lenses to be applied, they should be integrated here or passed in.
+        // For now, we use the default serializer.
         let xml_data = serialize_tree_to_xml(&raw_tree, 0).into_bytes();
 
         // 3. Persist to Local SCS
@@ -273,14 +311,13 @@ impl SovereignSubstrateProvider for NativeSubstrateProvider {
             &xml_data,
             0,
             [0u8; 32], // mHNSW root placeholder - would come from index update
-            session_id, // [FIX] Added session_id argument
+            session_id, 
         )?;
 
         // 4. Generate Provenance (Binding to the Store)
         // The slice_id is the hash of the data.
         let slice_id_digest = sha256(&xml_data)?;
         let mut slice_id = [0u8; 32];
-        // [FIX] Manually copy bytes
         let len = slice_id_digest.as_ref().len().min(32);
         slice_id[..len].copy_from_slice(&slice_id_digest.as_ref()[..len]);
 
@@ -288,7 +325,6 @@ impl SovereignSubstrateProvider for NativeSubstrateProvider {
         let intent_hash = intent.hash();
 
         // The provenance proof links this specific frame in the store to the SCS root.
-        // For MVP, we use the Frame's checksum.
         let frame = store.toc.frames.get(frame_id as usize).unwrap();
         let mut proof = Vec::new();
         proof.extend_from_slice(&frame.mhnsw_root);

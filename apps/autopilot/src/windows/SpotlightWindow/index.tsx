@@ -492,45 +492,15 @@ export const myTool = new Tool({
     >
       <div className={`spot-container ${layout.sidebarVisible ? "sidebar-open" : ""}`}>
         
-        {/* Left Sidebar */}
-        {layout.sidebarVisible && (
-          <HistorySidebar
-            sessions={sessions}
-            onSelectSession={handleLoadSession}
-            onNewChat={handleNewChat}
-            searchQuery={searchQuery}
-            onSearchChange={setSearchQuery}
-            onClose={() => invoke("hide_spotlight")}
-            onToggle={() => toggleSidebar(false)} 
-          />
-        )}
+        {/* ============================================
+            UNIFIED HEADER - Window controls only
+            ============================================ */}
+        <header className="spot-header">
+          {/* Drag region (fills available space) */}
+          <div className="spot-header-drag" />
 
-        {/* Main Panel */}
-        <div className="spot-main">
-          {/* Header */}
-          <div className="spot-header-actions">
-            {/* Left side controls */}
-            {!layout.sidebarVisible && (
-              <>
-                <button 
-                  className="spot-icon-btn" 
-                  onClick={() => toggleSidebar(true)} 
-                  title="Toggle Sidebar (⌘K)"
-                  style={{ marginRight: "auto" }} 
-                >
-                  {icons.sidebar}
-                </button>
-                <button 
-                  className="spot-icon-btn" 
-                  onClick={handleNewChat} 
-                  title="New Chat (⌘N)"
-                >
-                  {icons.plus}
-                </button>
-                <div className="divider-vertical" />
-              </>
-            )}
-            
+          {/* Right section: Window controls */}
+          <div className="spot-header-right">
             {/* Floating indicator / re-dock button */}
             {isFloating && (
               <button 
@@ -555,155 +525,191 @@ export const myTool = new Tool({
             
             <button 
               className="spot-icon-btn" 
-              onClick={() => openStudio("history")} 
-              title="History"
-            >
-              {icons.history}
-            </button>
-            <button 
-              className="spot-icon-btn" 
               onClick={() => openStudio("settings")} 
               title="Settings"
             >
               {icons.settings}
             </button>
-            <button 
-              className="spot-icon-btn" 
-              onClick={() => openStudio("copilot")} 
-              title="Expand"
-            >
-              {icons.expand}
-            </button>
-            <button 
-              className="spot-icon-btn close" 
-              onClick={() => invoke("hide_spotlight")} 
-              title="Close (Esc)"
-            >
-              {icons.close}
-            </button>
+            
+            <div className="spot-header-divider" />
+            
+            <div className="spot-header-window-controls">
+              <button 
+                className="spot-icon-btn" 
+                onClick={() => invoke("hide_spotlight")} 
+                title="Minimize"
+              >
+                {icons.minimize}
+              </button>
+              <button 
+                className="spot-icon-btn" 
+                onClick={() => openStudio("copilot")} 
+                title="Expand"
+              >
+                {icons.expand}
+              </button>
+              <button 
+                className="spot-icon-btn close" 
+                onClick={() => invoke("hide_spotlight")} 
+                title="Close (Esc)"
+              >
+                {icons.close}
+              </button>
+            </div>
           </div>
+        </header>
 
-          {/* Chat Area */}
-          <div className="spot-chat" ref={chatAreaRef}>
-            {!hasContent && (
-              <IOIWatermark onSuggestionClick={(text) => setIntent(text)} />
-            )}
-            
-            {chatElements}
-            
-            {showInitialLoader && (
-              <ThoughtChain 
-                messages={[]} 
-                activeStep={task?.current_step || "Initializing..."} 
-                agentName={task?.agent || "Autopilot"}
-                generation={task?.generation || 0}
-                progress={0}
-                totalSteps={task?.total_steps || 10}
-              />
-            )}
-            
-            <ScrollToBottom visible={showScrollButton} onClick={scrollToBottom} />
-          </div>
+        {/* ============================================
+            CONTENT AREA - Below unified header
+            ============================================ */}
+        <div className="spot-content">
+          {/* Left Sidebar */}
+          {layout.sidebarVisible && (
+            <HistorySidebar
+              sessions={sessions}
+              onSelectSession={handleLoadSession}
+              onNewChat={handleNewChat}
+              searchQuery={searchQuery}
+              onSearchChange={setSearchQuery}
+              onToggleSidebar={() => toggleSidebar(false)}
+            />
+          )}
 
-          {/* Input Section */}
-          <div className={`spot-input-section ${inputFocused ? "focused" : ""} ${isDraggingFile ? "drag-active" : ""}`}>
-            <div className="spot-input-wrapper">
-              <textarea
-                ref={inputRef}
-                className="spot-input"
-                placeholder="How can I help you today?"
-                value={intent}
-                onChange={handleInputChange}
-                onKeyDown={handleInputKeyDown}
-                onFocus={() => setInputFocused(true)}
-                onBlur={() => setInputFocused(false)}
-                disabled={isGated}
-                rows={1}
-              />
+          {/* Main Panel */}
+          <div className="spot-main">
+            {/* Sidebar toggle - shown when sidebar is hidden */}
+            {!layout.sidebarVisible && (
+              <button 
+                className="spot-sidebar-toggle"
+                onClick={() => toggleSidebar(true)} 
+                title="Show Sidebar (⌘K)"
+              >
+                {icons.sidebar}
+              </button>
+            )}
+
+            {/* Chat Area */}
+            <div className="spot-chat" ref={chatAreaRef}>
+              {!hasContent && (
+                <IOIWatermark onSuggestionClick={(text) => setIntent(text)} />
+              )}
               
-              <div className="spot-controls">
-                <div className="spot-controls-left">
-                  <button 
-                    className="spot-action-btn" 
-                    title="Attach file (⌘U)"
-                  >
-                    {icons.paperclip}
-                  </button>
-                  <button 
-                    className="spot-action-btn" 
-                    title="Commands (/)"
-                  >
-                    {icons.slash}
-                  </button>
-                  <button 
-                    className={`spot-context-btn ${autoContext ? "active" : ""}`} 
-                    onClick={() => setAutoContext(!autoContext)} 
-                    title="Auto context (⌘.)"
-                  >
-                    {icons.sparkles}
-                    <span>Context</span>
-                  </button>
-                </div>
+              {chatElements}
+              
+              {showInitialLoader && (
+                <ThoughtChain 
+                  messages={[]} 
+                  activeStep={task?.current_step || "Initializing..."} 
+                  agentName={task?.agent || "Autopilot"}
+                  generation={task?.generation || 0}
+                  progress={0}
+                  totalSteps={task?.total_steps || 10}
+                />
+              )}
+              
+              <ScrollToBottom visible={showScrollButton} onClick={scrollToBottom} />
+            </div>
+
+            {/* Input Section */}
+            <div className={`spot-input-section ${inputFocused ? "focused" : ""} ${isDraggingFile ? "drag-active" : ""}`}>
+              <div className="spot-input-wrapper">
+                <textarea
+                  ref={inputRef}
+                  className="spot-input"
+                  placeholder="How can I help you today?"
+                  value={intent}
+                  onChange={handleInputChange}
+                  onKeyDown={handleInputKeyDown}
+                  onFocus={() => setInputFocused(true)}
+                  onBlur={() => setInputFocused(false)}
+                  disabled={isGated}
+                  rows={1}
+                />
                 
-                {isRunning ? (
-                  <button 
-                    className="spot-stop-btn" 
-                    onClick={() => invoke("cancel_task").catch(console.error)} 
-                    title="Stop (Esc)"
-                  >
-                    {icons.stop}
-                    <span>Stop</span>
-                  </button>
-                ) : (
-                  <button 
-                    className="spot-send-btn" 
-                    onClick={handleSubmit} 
-                    disabled={!intent.trim()} 
-                    title="Send (⏎)"
-                  >
-                    {icons.send}
-                  </button>
-                )}
+                <div className="spot-controls">
+                  <div className="spot-controls-left">
+                    <button 
+                      className="spot-action-btn" 
+                      title="Attach file (⌘U)"
+                    >
+                      {icons.paperclip}
+                    </button>
+                    <button 
+                      className="spot-action-btn" 
+                      title="Commands (/)"
+                    >
+                      {icons.slash}
+                    </button>
+                    <button 
+                      className={`spot-context-btn ${autoContext ? "active" : ""}`} 
+                      onClick={() => setAutoContext(!autoContext)} 
+                      title="Auto context (⌘.)"
+                    >
+                      {icons.sparkles}
+                      <span>Context</span>
+                    </button>
+                  </div>
+                  
+                  {isRunning ? (
+                    <button 
+                      className="spot-stop-btn" 
+                      onClick={() => invoke("cancel_task").catch(console.error)} 
+                      title="Stop (Esc)"
+                    >
+                      {icons.stop}
+                      <span>Stop</span>
+                    </button>
+                  ) : (
+                    <button 
+                      className="spot-send-btn" 
+                      onClick={handleSubmit} 
+                      disabled={!intent.trim()} 
+                      title="Send (⏎)"
+                    >
+                      {icons.send}
+                    </button>
+                  )}
+                </div>
+              </div>
+              
+              <div className="spot-toggles">
+                <Dropdown 
+                  icon={icons.laptop} 
+                  options={workspaceOptions} 
+                  selected={workspaceMode} 
+                  onSelect={setWorkspaceMode} 
+                  isOpen={activeDropdown === "workspace"} 
+                  onToggle={() => setActiveDropdown(
+                    activeDropdown === "workspace" ? null : "workspace"
+                  )} 
+                />
+                <Dropdown 
+                  icon={icons.cube} 
+                  options={modelOptions} 
+                  selected={selectedModel} 
+                  onSelect={setSelectedModel} 
+                  isOpen={activeDropdown === "model"} 
+                  onToggle={() => setActiveDropdown(
+                    activeDropdown === "model" ? null : "model"
+                  )}
+                  footer={{
+                    label: "Manage Models...",
+                    onClick: () => openStudio("settings")
+                  }}
+                />
               </div>
             </div>
-            
-            <div className="spot-toggles">
-              <Dropdown 
-                icon={icons.laptop} 
-                options={workspaceOptions} 
-                selected={workspaceMode} 
-                onSelect={setWorkspaceMode} 
-                isOpen={activeDropdown === "workspace"} 
-                onToggle={() => setActiveDropdown(
-                  activeDropdown === "workspace" ? null : "workspace"
-                )} 
-              />
-              <Dropdown 
-                icon={icons.cube} 
-                options={modelOptions} 
-                selected={selectedModel} 
-                onSelect={setSelectedModel} 
-                isOpen={activeDropdown === "model"} 
-                onToggle={() => setActiveDropdown(
-                  activeDropdown === "model" ? null : "model"
-                )}
-                footer={{
-                  label: "Manage Models...",
-                  onClick: () => openStudio("settings")
-                }}
-              />
-            </div>
           </div>
-        </div>
 
-        {/* Artifact Panel */}
-        {layout.artifactPanelVisible && currentArtifact && (
-          <ArtifactPanel 
-            fileName={currentArtifact.name}
-            content={currentArtifact.content}
-            onClose={() => toggleArtifactPanel(false)}
-          />
-        )}
+          {/* Artifact Panel */}
+          {layout.artifactPanelVisible && currentArtifact && (
+            <ArtifactPanel 
+              fileName={currentArtifact.name}
+              content={currentArtifact.content}
+              onClose={() => toggleArtifactPanel(false)}
+            />
+          )}
+        </div>
       </div>
     </div>
   );

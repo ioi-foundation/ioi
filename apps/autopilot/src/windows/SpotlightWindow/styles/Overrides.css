@@ -7,8 +7,8 @@
    SCROLLBAR OVERRIDES
    ============================================ */
 .spot-window ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 5px;
+  height: 5px;
   background: transparent;
 }
 
@@ -17,12 +17,12 @@
 }
 
 .spot-window ::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.08);
-  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 2px;
 }
 
 .spot-window ::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.15);
+  background: rgba(255, 255, 255, 0.18);
 }
 
 /* ============================================
@@ -33,7 +33,7 @@
 }
 
 .spot-container.spot-container.spot-container {
-  background: rgba(12, 12, 14, 0.92) !important;
+  background: rgba(8, 8, 10, 0.96) !important;
 }
 
 .spot-main.spot-main.spot-main {
@@ -45,10 +45,32 @@
 }
 
 /* ============================================
+   HEADER OVERRIDES
+   ============================================ */
+.spot-header.spot-header.spot-header {
+  background: linear-gradient(180deg, rgba(255,255,255,0.02) 0%, transparent 100%) !important;
+}
+
+.spot-header-window-controls.spot-header-window-controls {
+  background: rgba(255, 255, 255, 0.03) !important;
+}
+
+/* ============================================
+   SIDEBAR TOGGLE OVERRIDE
+   ============================================ */
+.spot-sidebar-toggle.spot-sidebar-toggle.spot-sidebar-toggle {
+  background: var(--spot-bg-surface) !important;
+}
+
+.spot-sidebar-toggle.spot-sidebar-toggle.spot-sidebar-toggle:hover {
+  background: var(--spot-bg-elevated) !important;
+}
+
+/* ============================================
    SIDEBAR OVERRIDES
    ============================================ */
 .history-sidebar.history-sidebar.history-sidebar {
-  background: rgba(12, 12, 14, 0.6) !important;
+  background: rgba(6, 6, 8, 0.7) !important;
 }
 
 .sidebar-header.sidebar-header.sidebar-header {
@@ -63,12 +85,12 @@
   background: var(--spot-accent-hover) !important;
 }
 
-.sidebar-dock-btn.sidebar-dock-btn.sidebar-dock-btn {
-  background: rgba(255, 255, 255, 0.03) !important;
+.sidebar-toggle-btn.sidebar-toggle-btn.sidebar-toggle-btn {
+  background: rgba(255, 255, 255, 0.04) !important;
 }
 
-.sidebar-dock-btn.sidebar-dock-btn.sidebar-dock-btn:hover {
-  background: rgba(255, 255, 255, 0.06) !important;
+.sidebar-toggle-btn.sidebar-toggle-btn.sidebar-toggle-btn:hover {
+  background: rgba(255, 255, 255, 0.08) !important;
 }
 
 /* ============================================
@@ -76,8 +98,8 @@
    ============================================ */
 .spot-input-section.spot-input-section.spot-input-section {
   background: 
-    linear-gradient(to top, rgba(12, 12, 14, 0.98) 60%, transparent 100%),
-    rgba(12, 12, 14, 0.98) !important;
+    linear-gradient(to top, rgba(8, 8, 10, 0.98) 60%, transparent 100%),
+    rgba(8, 8, 10, 0.98) !important;
 }
 
 .spot-input-wrapper.spot-input-wrapper.spot-input-wrapper {
@@ -86,13 +108,6 @@
 
 .spot-input-wrapper.spot-input-wrapper:focus-within {
   background: var(--spot-bg-tertiary) !important;
-}
-
-/* ============================================
-   HEADER OVERRIDES
-   ============================================ */
-.spot-header-actions.spot-header-actions.spot-header-actions {
-  background: transparent !important;
 }
 
 /* ============================================
@@ -107,7 +122,7 @@
 }
 
 .spot-dropdown-item.spot-dropdown-item.spot-dropdown-item:hover {
-  background: rgba(255, 255, 255, 0.06) !important;
+  background: rgba(255, 255, 255, 0.08) !important;
 }
 
 .spot-dropdown-item.spot-dropdown-item.spot-dropdown-item.selected {
@@ -119,11 +134,11 @@
 }
 
 .spot-toggle.spot-toggle.spot-toggle:hover {
-  background: rgba(255, 255, 255, 0.04) !important;
+  background: rgba(255, 255, 255, 0.05) !important;
 }
 
 .spot-toggle.spot-toggle.spot-toggle.open {
-  background: rgba(255, 255, 255, 0.06) !important;
+  background: rgba(255, 255, 255, 0.08) !important;
 }
 
 .spot-dropdown-footer-btn.spot-dropdown-footer-btn.spot-dropdown-footer-btn {
@@ -142,11 +157,15 @@
 }
 
 .spot-icon-btn.spot-icon-btn.spot-icon-btn:hover {
-  background: rgba(255, 255, 255, 0.06) !important;
+  background: rgba(255, 255, 255, 0.08) !important;
+}
+
+.spot-icon-btn.spot-icon-btn.spot-icon-btn.active {
+  background: var(--spot-accent-subtle) !important;
 }
 
 .spot-icon-btn.close.close.close:hover {
-  background: rgba(248, 113, 113, 0.15) !important;
+  background: var(--spot-error-subtle) !important;
 }
 
 .spot-action-btn.spot-action-btn.spot-action-btn {
@@ -154,7 +173,7 @@
 }
 
 .spot-action-btn.spot-action-btn.spot-action-btn:hover {
-  background: rgba(255, 255, 255, 0.06) !important;
+  background: rgba(255, 255, 255, 0.08) !important;
 }
 
 .spot-context-btn.spot-context-btn.spot-context-btn {
@@ -162,7 +181,7 @@
 }
 
 .spot-context-btn.spot-context-btn.spot-context-btn:hover {
-  background: rgba(255, 255, 255, 0.04) !important;
+  background: rgba(255, 255, 255, 0.05) !important;
 }
 
 .spot-context-btn.active.active.active {
@@ -170,11 +189,11 @@
 }
 
 .spot-stop-btn.spot-stop-btn.spot-stop-btn {
-  background: rgba(255, 255, 255, 0.06) !important;
+  background: rgba(255, 255, 255, 0.08) !important;
 }
 
 .spot-stop-btn.spot-stop-btn.spot-stop-btn:hover {
-  background: rgba(255, 255, 255, 0.1) !important;
+  background: rgba(255, 255, 255, 0.12) !important;
 }
 
 /* ============================================
@@ -185,7 +204,7 @@
 }
 
 .history-item.history-item.history-item:hover {
-  background: rgba(255, 255, 255, 0.04) !important;
+  background: rgba(255, 255, 255, 0.05) !important;
 }
 
 .history-item.active.active.active {
@@ -193,11 +212,11 @@
 }
 
 .search-box.search-box.search-box {
-  background: rgba(0, 0, 0, 0.2) !important;
+  background: rgba(0, 0, 0, 0.25) !important;
 }
 
 .search-box.search-box.search-box:focus-within {
-  background: rgba(0, 0, 0, 0.3) !important;
+  background: rgba(0, 0, 0, 0.35) !important;
 }
 
 /* ============================================
@@ -220,40 +239,40 @@
 }
 
 .gate-btn.secondary.secondary.secondary:hover {
-  background: rgba(255, 255, 255, 0.04) !important;
+  background: rgba(255, 255, 255, 0.05) !important;
 }
 
 /* ============================================
    MESSAGE ACTION OVERRIDES
    ============================================ */
 .message-action-btn.message-action-btn.message-action-btn {
-  background: rgba(255, 255, 255, 0.04) !important;
+  background: rgba(255, 255, 255, 0.05) !important;
 }
 
 .message-action-btn.message-action-btn.message-action-btn:hover {
-  background: rgba(255, 255, 255, 0.08) !important;
+  background: rgba(255, 255, 255, 0.1) !important;
 }
 
 /* ============================================
    SCROLL BUTTON OVERRIDES
    ============================================ */
 .scroll-to-bottom.scroll-to-bottom.scroll-to-bottom {
-  background: var(--spot-bg-elevated) !important;
+  background: var(--spot-bg-surface) !important;
 }
 
 .scroll-to-bottom.scroll-to-bottom.scroll-to-bottom:hover {
-  background: var(--spot-bg-tertiary) !important;
+  background: var(--spot-bg-elevated) !important;
 }
 
 /* ============================================
    SUGGESTION OVERRIDES
    ============================================ */
 .spot-suggestion.spot-suggestion.spot-suggestion {
-  background: rgba(255, 255, 255, 0.03) !important;
+  background: rgba(255, 255, 255, 0.04) !important;
 }
 
 .spot-suggestion.spot-suggestion.spot-suggestion:hover {
-  background: rgba(255, 255, 255, 0.06) !important;
+  background: rgba(255, 255, 255, 0.07) !important;
 }
 
 /* ============================================
@@ -264,11 +283,11 @@
 }
 
 .artifact-header.artifact-header.artifact-header {
-  background: rgba(255, 255, 255, 0.01) !important;
+  background: rgba(255, 255, 255, 0.02) !important;
 }
 
 .artifact-content.artifact-content.artifact-content {
-  background: rgba(0, 0, 0, 0.2) !important;
+  background: rgba(0, 0, 0, 0.25) !important;
 }
 
 .artifact-action-btn.artifact-action-btn.artifact-action-btn {
@@ -276,5 +295,5 @@
 }
 
 .artifact-action-btn.artifact-action-btn.artifact-action-btn:hover {
-  background: rgba(255, 255, 255, 0.06) !important;
+  background: rgba(255, 255, 255, 0.08) !important;
 }

@@ -10,8 +10,7 @@ interface HistorySidebarProps {
   onNewChat: () => void;
   searchQuery: string;
   onSearchChange: (q: string) => void;
-  onClose?: () => void;
-  onToggle: () => void;
+  onToggleSidebar: () => void;
 }
 
 export function HistorySidebar({ 
@@ -20,7 +19,7 @@ export function HistorySidebar({
   onNewChat, 
   searchQuery, 
   onSearchChange,
-  onToggle
+  onToggleSidebar,
 }: HistorySidebarProps) {
   const filtered = sessions.filter(s => 
     s.title.toLowerCase().includes(searchQuery.toLowerCase())
@@ -28,16 +27,16 @@ export function HistorySidebar({
   const grouped = groupSessionsByDate(filtered);
 
   return (
-    <div className="history-sidebar">
-      {/* Header */}
+    <aside className="history-sidebar">
+      {/* Header with New Chat + Toggle */}
       <div className="sidebar-header">
         <button className="sidebar-new-btn" onClick={onNewChat}>
           {icons.plus}
           <span>New Chat</span>
         </button>
         <button 
-          className="sidebar-dock-btn" 
-          onClick={onToggle} 
+          className="sidebar-toggle-btn" 
+          onClick={onToggleSidebar}
           title="Hide sidebar (⌘K)"
         >
           {icons.sidebar}
@@ -80,6 +79,6 @@ export function HistorySidebar({
           </div>
         )}
       </div>
-    </div>
+    </aside>
   );
 }

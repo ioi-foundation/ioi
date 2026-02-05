@@ -4,8 +4,8 @@ use anyhow::{anyhow, Result};
 use serde::{Deserialize, Serialize};
 use ioi_types::app::{ActionRequest, ContextSlice}; 
 use ioi_crypto::algorithms::hash::sha256;
-// [FIX] Removed unused ByteSerializable
 use async_trait::async_trait;
+use std::collections::HashMap; // [NEW] Added for attributes map
 
 /// A simplified, VLM-friendly representation of a UI element.
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -17,6 +17,12 @@ pub struct AccessibilityNode {
     pub rect: Rect,
     pub children: Vec<AccessibilityNode>,
     pub is_visible: bool,
+    
+    // [NEW] Store raw platform attributes for Application Lens processing.
+    // This holds raw data like "data-testid", "aria-label", "class", etc.
+    // that Lenses use to semanticize the tree.
+    #[serde(default)]
+    pub attributes: HashMap<String, String>,
 }
 
 impl AccessibilityNode {
@@ -47,14 +53,16 @@ pub struct Rect {
 
 /// Serializes the accessibility tree into a simplified XML-like format optimized for LLM token usage.
 /// Applies semantic filtering to reduce noise.
+/// 
+/// Note: This is the DEFAULT serialization strategy. Specialized Lenses (e.g. ReactLens)
+/// will implement their own `render` logic to utilize the `attributes` field effectively.
 pub fn serialize_tree_to_xml(node: &AccessibilityNode, depth: usize) -> String {
     // 1. Prune invisible nodes immediately
     if !node.is_visible {
         return String::new();
     }
 
-    // [FIX] Enforce hard depth limit to prevent deep recursion in complex UIs (e.g. IDEs, Webviews)
-    // Decreased from 15 to 10 for tighter context control
+    // Enforce hard depth limit to prevent deep recursion in complex UIs (e.g. IDEs, Webviews)
     if depth > 10 {
         return String::new();
     }
@@ -81,7 +89,7 @@ pub fn serialize_tree_to_xml(node: &AccessibilityNode, depth: usize) -> String {
     }
 
     // 3. Recursively serialize children.
-    // [FIX] Limit the number of children to prevent context explosion in lists/tables.
+    // Limit the number of children to prevent context explosion in lists/tables.
     let mut children_xml = String::new();
     let max_children = 25; // Strict limit
 
@@ -104,10 +112,9 @@ pub fn serialize_tree_to_xml(node: &AccessibilityNode, depth: usize) -> String {
     // 5. Construct XML
     let indent_self = "  ".repeat(depth);
     
-    // [FIX] Helper to truncate long attribute values to save tokens
+    // Helper to truncate long attribute values to save tokens
     let truncate = |s: &str, max_len: usize| -> String {
         if s.len() > max_len {
-            // Reduced to 50 chars to be ultra-conservative for safety/tokens
             format!("{}...", &s[..max_len])
         } else {
             s.to_string()
@@ -115,7 +122,6 @@ pub fn serialize_tree_to_xml(node: &AccessibilityNode, depth: usize) -> String {
     };
 
     // Only include name/value attributes if they exist
-    // [FIX] Apply truncation (max 50 chars per attribute)
     let name_attr = node.name.as_ref()
         .map(|n| format!(" name=\"{}\"", escape_xml(&truncate(n, 50))))
         .unwrap_or_default();
@@ -178,6 +184,7 @@ impl SovereignSubstrateProvider for MockSubstrateProvider {
             value: None,
             rect: Rect { x: 0, y: 0, width: 1920, height: 1080 },
             is_visible: true,
+            attributes: HashMap::new(), // [NEW] Init
             children: vec![
                 AccessibilityNode {
                     id: "btn-1".to_string(),
@@ -186,6 +193,9 @@ impl SovereignSubstrateProvider for MockSubstrateProvider {
                     value: None,
                     rect: Rect { x: 100, y: 100, width: 200, height: 50 },
                     is_visible: true,
+                    attributes: HashMap::from([
+                        ("data-testid".to_string(), "connect-wallet-btn".to_string())
+                    ]), // [NEW] Init with mock attr
                     children: vec![],
                 },
                 // This node should be filtered out by logic if it has no content and isn't interactive
@@ -196,6 +206,7 @@ impl SovereignSubstrateProvider for MockSubstrateProvider {
                     value: None,
                     rect: Rect { x: 0, y: 0, width: 10, height: 10 },
                     is_visible: true,
+                    attributes: HashMap::new(), // [NEW] Init
                     children: vec![],
                 },
                 AccessibilityNode {
@@ -205,6 +216,7 @@ impl SovereignSubstrateProvider for MockSubstrateProvider {
                     value: None,
                     rect: Rect { x: 1500, y: 0, width: 300, height: 600 },
                     is_visible: true,
+                    attributes: HashMap::new(), // [NEW] Init
                     children: vec![],
                 }
             ],
@@ -220,22 +232,21 @@ impl SovereignSubstrateProvider for MockSubstrateProvider {
         
         let proof = sha256(&proof_input).map_err(|e| anyhow!("Provenance generation failed: {}", e))?;
         let mut proof_arr = [0u8; 32];
-        // [FIX] Manually copy bytes since ByteSerializable is removed
         let len = proof.as_ref().len().min(32);
+        // Copy bytes manually
         proof_arr[..len].copy_from_slice(&proof.as_ref()[..len]);
         
         let slice_id = sha256(&xml_data).map_err(|e| anyhow!("Slice ID gen failed: {}", e))?;
         let mut slice_id_arr = [0u8; 32];
-        // [FIX] Manually copy bytes
         let len = slice_id.as_ref().len().min(32);
         slice_id_arr[..len].copy_from_slice(&slice_id.as_ref()[..len]);
 
         Ok(ContextSlice {
             slice_id: slice_id_arr,
-            frame_id: 0, // [FIX] Added frame_id
-            chunks: vec![xml_data], // [FIX] Wrapped in chunks vector
-            mhnsw_root: [0u8; 32], // [FIX] Added mhnsw_root
-            traversal_proof: Some(proof.to_vec()), // [FIX] Renamed to traversal_proof
+            frame_id: 0, 
+            chunks: vec![xml_data], 
+            mhnsw_root: [0u8; 32], 
+            traversal_proof: Some(proof.to_vec()), 
             intent_id: intent_hash,
         })
     }
