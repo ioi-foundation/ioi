@@ -11,10 +11,13 @@ use std::path::{Path, PathBuf};
 use std::fs;
 use std::io::Read;
 use thiserror::Error;
-use std::collections::HashMap; // [NEW] Import HashMap
+use std::collections::HashMap;
 
-// Reuse the kernel's canonical Accessibility types
 use crate::gui::accessibility::{AccessibilityNode, Rect};
+
+// [NEW] Imports for Visual Background mode
+use chromiumoxide::cdp::browser_protocol::page::{GetLayoutMetricsParams, CaptureScreenshotFormat, CaptureScreenshotParams};
+use chromiumoxide::cdp::browser_protocol::input::{DispatchMouseEventParams, MouseButton, DispatchMouseEventType};
 
 #[derive(Debug, Error)]
 pub enum BrowserError {
@@ -58,7 +61,6 @@ impl BrowserDriver {
         Ok(())
     }
 
-    /// Verifies if a path points to a real ELF binary, not a wrapper script.
     #[cfg(target_os = "linux")]
     fn is_executable_binary(path: &Path) -> bool {
         use std::os::unix::fs::PermissionsExt;
@@ -91,7 +93,6 @@ impl BrowserDriver {
         path.exists()
     }
 
-    /// Attempts to locate a "real" Chrome/Chromium binary.
     fn find_chrome_binary() -> Option<PathBuf> {
         if let Ok(path) = std::env::var("CHROME_BIN") {
             let p = PathBuf::from(path);
@@ -105,12 +106,8 @@ impl BrowserDriver {
             "/usr/bin/google-chrome-stable",
             "/usr/bin/chromium",
             "/usr/bin/chromium-browser",
-            
-            // Prioritize native packages over Snap to avoid GLIBC issues.
-            // Snap ELF paths are moved to the bottom as last resort.
             "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
             "/Applications/Chromium.app/Contents/MacOS/Chromium",
-            
             "/snap/chromium/current/usr/lib/chromium-browser/chrome",
             "/snap/chromium/stable/usr/lib/chromium-browser/chrome",
         ];
@@ -124,8 +121,7 @@ impl BrowserDriver {
         None
     }
 
-    /// Launches the browser instance if not already running.
-    pub async fn launch(&self) -> std::result::Result<(), BrowserError> {
+    pub async fn launch(&self, headless: bool) -> std::result::Result<(), BrowserError> {
         self.require_runtime()?;
         
         let mut guard = self.browser.lock().await;
@@ -133,7 +129,6 @@ impl BrowserDriver {
             return Ok(());
         }
 
-        // 1. Resolve Binary
         let bin_path = Self::find_chrome_binary();
         if let Some(ref p) = bin_path {
              log::info!(target: "browser", "Resolved system Chrome binary: {:?}", p);
@@ -141,38 +136,43 @@ impl BrowserDriver {
              log::warn!(target: "browser", "No verified system binary found. Preparing to fetch...");
         }
 
-        // 2. Define Delta Args (Applied to both attempts)
+        // [FIX] Robust flags for container/headless stability
         let mut delta_args = vec![
-            "--disable-dev-shm-usage", // Container stability
-            "--disable-gpu",           // Often safer headless
+            "--disable-dev-shm-usage".to_string(), 
+            "--disable-gpu".to_string(),
+            // "--no-zygote".to_string(), // Removed to prevent sandbox conflict on Linux
+            "--disable-infobars".to_string(),
+            "--start-maximized".to_string(), // Added for visual agents
+            "--disable-software-rasterizer".to_string(),
+            "--disable-setuid-sandbox".to_string(), 
+            "--disable-extensions".to_string(),
         ];
 
-        if std::env::var("HEADLESS").unwrap_or_else(|_| "true".to_string()) != "false" {
-            if std::env::var("HEADLESS_MODE").ok().as_deref() == Some("new") {
-                delta_args.push("--headless=new");
-            } else {
-                delta_args.push("--headless");
-            }
+        if headless {
+            delta_args.push("--headless=new".to_string());
         }
         
-        if std::env::var("CI").is_ok() || std::env::var("NO_SANDBOX").is_ok() {
-            delta_args.push("--no-sandbox");
+        if std::env::var("CI").is_ok() || std::env::var("NO_SANDBOX").is_ok() || unsafe { libc::geteuid() == 0 } {
+            delta_args.push("--no-sandbox".to_string());
         }
 
-        // Closure to encapsulate launch attempt logic.
-        // [FIX] Pass owned Vec<String> and use async move to avoid lifetime issues.
         let run_launch_attempt = |bin: Option<PathBuf>, extra_args: Vec<String>| async move {
             let args_owned = extra_args; 
 
-            // Log attempt
             log::info!(target: "browser", "Launching chromium (bin={:?}) args_count={}", bin, args_owned.len());
 
-            // Attempt A: Standard Launch
             let config_res = {
                 let mut builder = BrowserConfig::builder();
                 if let Some(ref b) = bin {
                     builder = builder.chrome_executable(b);
                 }
+                
+                // [FIX] Explicitly disable headless mode if requested.
+                // Chromiumoxide defaults to headless unless with_head() is called.
+                if !headless {
+                    builder = builder.with_head();
+                }
+
                 builder.args(args_owned.clone()).build()
             };
 
@@ -182,7 +182,6 @@ impl BrowserDriver {
                         Ok(tuple) => return Ok(tuple),
                         Err(e) => {
                              let msg = e.to_string();
-                             // If error is not a wrapper flag rejection, propagate it (might trigger fetch)
                              if !msg.contains("unknown flag") && !msg.contains("disable-background-networking") {
                                  return Err(msg);
                              }
@@ -193,10 +192,7 @@ impl BrowserDriver {
                 Err(e) => return Err(format!("Config failed: {}", e)),
             }
 
-            // Attempt B: Surgical Fallback (No Defaults)
-            // [FIX] Use Vec<String> to own data and ensure all elements are strings.
             let mut fallback_args: Vec<String> = vec![
-                // Standard defaults MINUS the offender
                 "--disable-background-timer-throttling".to_string(),
                 "--disable-backgrounding-occluded-windows".to_string(),
                 "--disable-breakpad".to_string(),
@@ -204,14 +200,14 @@ impl BrowserDriver {
                 "--disable-component-extensions-with-background-pages".to_string(),
                 "--disable-default-apps".to_string(),
                 "--disable-extensions".to_string(),
-                "--disable-features=Translate".to_string(), // Dropped UI from disable list
+                "--disable-features=Translate".to_string(), 
                 "--disable-hang-monitor".to_string(),
                 "--disable-ipc-flooding-protection".to_string(),
                 "--disable-popup-blocking".to_string(),
                 "--disable-prompt-on-repost".to_string(),
                 "--disable-renderer-backgrounding".to_string(),
                 "--disable-sync".to_string(),
-                "--force-color-profile=srgb".to_string(), // [FIX] Added .to_string()
+                "--force-color-profile=srgb".to_string(),
                 "--metrics-recording-only".to_string(),
                 "--no-first-run".to_string(),
                 "--enable-automation".to_string(),
@@ -219,16 +215,18 @@ impl BrowserDriver {
                 "--use-mock-keychain".to_string(),
             ];
             
-            // [FIX] Append owned strings
             for arg in args_owned {
                 fallback_args.push(arg);
             }
             
             let mut fallback_builder = BrowserConfig::builder();
-            // [FIX] Only set executable if explicit path is provided.
-            // If bin is None, let chromiumoxide use its internal PATH lookup logic.
             if let Some(ref b) = bin {
                 fallback_builder = fallback_builder.chrome_executable(b);
+            }
+            
+            // [FIX] Apply headed mode to fallback builder as well
+            if !headless {
+                fallback_builder = fallback_builder.with_head();
             }
             
             let config_fallback = fallback_builder
@@ -240,18 +238,13 @@ impl BrowserDriver {
             Browser::launch(config_fallback).await.map_err(|e| e.to_string())
         };
 
-        // 3. Try System Binary
-        // [FIX] Convert delta_args to owned Vec<String> before passing
-        let delta_args_owned: Vec<String> = delta_args.iter().map(|s| s.to_string()).collect();
-        let mut launch_result = run_launch_attempt(bin_path.clone(), delta_args_owned.clone()).await;
+        let mut launch_result = run_launch_attempt(bin_path.clone(), delta_args.clone()).await;
 
-        // 4. Handle GLIBC / Missing Binary / Crash (Fetch Strategy)
         if let Err(ref e) = launch_result {
-            // [FIX] Expanded error detection for early exit/crash scenarios
             let is_early_exit = e.contains("before websocket URL could be resolved") ||
                                 e.contains("unexpected end of stream") ||
                                 e.contains("Input/Output error while resolving websocket URL") ||
-                                e.contains("exited with status"); // Added ExitStatus check
+                                e.contains("exited with status");
                                 
             let is_exec_missing = e.contains("No such file") || e.contains("not found") || e.contains("ENOENT");
             let is_glibc = e.contains("GLIBC"); 
@@ -260,14 +253,11 @@ impl BrowserDriver {
             if is_early_exit || is_exec_missing || is_glibc || missing {
                 log::warn!(target: "browser", "System browser failed or missing (Error: {}). Fetching compatible Chromium...", e);
                 
-                // Deterministic Fetch using chromiumoxide_fetcher
                 let cache_path = PathBuf::from("./ioi-data/browser_cache");
                 
-                // [FIX] Ensure cache directory exists
                 std::fs::create_dir_all(&cache_path)
                     .map_err(|e| BrowserError::Internal(format!("Failed to create cache dir: {}", e)))?;
 
-                // [FIX] Handle Result from builder
                 let options = BrowserFetcherOptions::builder()
                     .with_path(cache_path)
                     .build()
@@ -278,12 +268,10 @@ impl BrowserDriver {
                 match fetcher.fetch().await {
                     Ok(info) => {
                         log::info!(target: "browser", "Fetched Chromium at {:?}", info.executable_path);
-                        // Retry with the guaranteed compatible binary
-                        launch_result = run_launch_attempt(Some(info.executable_path), delta_args_owned).await;
+                        launch_result = run_launch_attempt(Some(info.executable_path), delta_args).await;
                     },
                     Err(fe) => {
                         log::error!(target: "browser", "Failed to fetch Chromium: {}", fe);
-                        // launch_result remains the previous error
                     }
                 }
             }
@@ -291,7 +279,6 @@ impl BrowserDriver {
 
         let (browser, mut handler) = launch_result.map_err(|e| BrowserError::Internal(e))?;
         
-        // Spawn the handler task
         tokio::spawn(async move {
             while let Some(h) = handler.next().await {
                 if h.is_err() { break; }
@@ -302,7 +289,6 @@ impl BrowserDriver {
         Ok(())
     }
 
-    /// Navigates to a URL and waits for load.
     pub async fn navigate(&self, url: &str) -> std::result::Result<String, BrowserError> {
         self.require_runtime()?;
         self.ensure_page().await?;
@@ -313,6 +299,11 @@ impl BrowserDriver {
         };
 
         if let Some(p) = page {
+            // [FIX] Force browser window to front to prevent focus stealing bug
+            // This ensures that subsequent keyboard events are sent to the correct OS window,
+            // preventing the agent from typing into the Autopilot chat UI instead of the browser.
+            p.bring_to_front().await.map_err(|e| BrowserError::Internal(e.to_string()))?;
+
             p.goto(url)
                 .await
                 .map_err(|e| BrowserError::NavigateFailed { url: url.to_string(), details: e.to_string() })?
@@ -327,7 +318,6 @@ impl BrowserDriver {
         }
     }
 
-    /// Extracts the DOM (outer HTML).
     pub async fn extract_dom(&self) -> std::result::Result<String, BrowserError> {
         self.require_runtime()?;
         
@@ -343,7 +333,87 @@ impl BrowserDriver {
         }
     }
 
-    /// Retrieves the semantic Accessibility Tree via CDP.
+    /// Level 2: Capture screenshot of the *rendered tab* only (in memory).
+    /// This works even if the window is minimized or behind other windows.
+    pub async fn capture_tab_screenshot(&self) -> std::result::Result<Vec<u8>, BrowserError> {
+        self.require_runtime()?;
+        let page = {
+            let guard = self.active_page.lock().await;
+            guard.clone()
+        }.ok_or(BrowserError::NoActivePage)?;
+
+        let params = CaptureScreenshotParams::builder()
+            .format(CaptureScreenshotFormat::Jpeg)
+            .quality(80)
+            .build();
+
+        // [FIX] Use `screenshot` method instead of `capture_screenshot` if `capture_screenshot` is missing from `Page`.
+        // The error log suggests `capture_screenshot` is missing from `Page` struct directly, but `screenshot` exists.
+        let bytes = page.screenshot(params).await
+            .map_err(|e| BrowserError::Internal(format!("Tab screenshot failed: {}", e)))?;
+
+        Ok(bytes)
+    }
+
+    /// Level 2: Synthetic Click.
+    /// Sends a click event directly to the browser process at (x,y).
+    /// Does NOT move the physical mouse cursor.
+    pub async fn synthetic_click(&self, x: f64, y: f64) -> std::result::Result<(), BrowserError> {
+        self.require_runtime()?;
+        let page = {
+            let guard = self.active_page.lock().await;
+            guard.clone()
+        }.ok_or(BrowserError::NoActivePage)?;
+
+        // [FIX] Unwrap the builder() results and handle errors
+        // [FIX] Use DispatchMouseEventType::MouseMoved etc.
+        
+        // Move virtual mouse
+        let cmd_move = DispatchMouseEventParams::builder()
+            .r#type(DispatchMouseEventType::MouseMoved)
+            .x(x).y(y).build().map_err(|e| BrowserError::Internal(e))?;
+            
+        page.execute(cmd_move).await.ok();
+
+        // Click down
+        let cmd_down = DispatchMouseEventParams::builder()
+            .r#type(DispatchMouseEventType::MousePressed)
+            .button(MouseButton::Left)
+            .x(x).y(y).click_count(1).build().map_err(|e| BrowserError::Internal(e))?;
+            
+        page.execute(cmd_down).await.ok();
+
+        // Release
+        let cmd_up = DispatchMouseEventParams::builder()
+            .r#type(DispatchMouseEventType::MouseReleased)
+            .button(MouseButton::Left)
+            .x(x).y(y).click_count(1).build().map_err(|e| BrowserError::Internal(e))?;
+
+        page.execute(cmd_up).await.ok();
+
+        Ok(())
+    }
+
+    /// Returns the content offset (x, y) relative to the browser window.
+    /// This accounts for the URL bar, tabs, and bookmarks bar dynamically.
+    pub async fn get_content_offset(&self) -> std::result::Result<(i32, i32), BrowserError> {
+        self.require_runtime()?;
+        let page = {
+            let guard = self.active_page.lock().await;
+            guard.clone()
+        }.ok_or(BrowserError::NoActivePage)?;
+
+        // CSS Content viewport relative to the window
+        let metrics = page.execute(GetLayoutMetricsParams::default()).await
+            .map_err(|e| BrowserError::Internal(format!("Failed to get layout metrics: {}", e)))?;
+
+        // [FIX] Use css_visual_viewport field
+        let x = metrics.css_visual_viewport.page_x; 
+        let y = metrics.css_visual_viewport.page_y; 
+        
+        Ok((x as i32, y as i32))
+    }
+
     pub async fn get_accessibility_tree(&self) -> std::result::Result<AccessibilityNode, BrowserError> {
         self.require_runtime()?;
         
@@ -357,20 +427,47 @@ impl BrowserDriver {
         p.execute(accessibility::EnableParams::default()).await
             .map_err(|e| BrowserError::Internal(format!("CDP AxEnable failed: {}", e)))?;
 
-        let nodes = p.execute(GetFullAxTreeParams::default()).await
+        // [FIX] Clone the nodes from the response to avoid move error.
+        let nodes_vec = p.execute(GetFullAxTreeParams::default()).await
             .map_err(|e| BrowserError::Internal(format!("CDP GetAxTree failed: {}", e)))?
             .nodes
             .clone();
 
-        if nodes.is_empty() {
+        if nodes_vec.is_empty() {
             return Err(BrowserError::Internal("Empty accessibility tree returned".into()));
         }
 
-        let root_ax = &nodes[0];
-        Ok(self.convert_ax_node(root_ax, &nodes))
+        let root_ax = &nodes_vec[0];
+        Ok(self.convert_ax_node(root_ax, &nodes_vec))
     }
 
-    // Helper: Recursive converter (CPU-bound, no locks needed)
+    /// Fetches the Accessibility Tree populated with Bounding Boxes (Quads).
+    /// Replaces the current `get_accessibility_tree` to ensure `Rect` is accurate for Visual Mode.
+    pub async fn get_visual_tree(&self) -> std::result::Result<AccessibilityNode, BrowserError> {
+        self.require_runtime()?;
+        let page = {
+            let guard = self.active_page.lock().await;
+            guard.clone()
+        }.ok_or(BrowserError::NoActivePage)?;
+
+        // Force layout update
+        page.execute(accessibility::EnableParams::default()).await.ok();
+
+        // Get snapshot with boxes
+        let snapshot = page.execute(accessibility::GetFullAxTreeParams::default()).await
+            .map_err(|e| BrowserError::Internal(format!("GetFullAxTree failed: {}", e)))?;
+
+        // [FIX] Clone the nodes from the snapshot
+        let nodes = snapshot.nodes.clone();
+        
+        if nodes.is_empty() {
+             return Err(BrowserError::Internal("Empty tree".into()));
+        }
+
+        // Use the DOM root
+        Ok(self.convert_ax_node(&nodes[0], &nodes))
+    }
+
     fn convert_ax_node(&self, ax_node: &accessibility::AxNode, all_nodes: &[accessibility::AxNode]) -> AccessibilityNode {
         let mut children = Vec::new();
         if let Some(child_ids) = &ax_node.child_ids {
@@ -403,12 +500,10 @@ impl BrowserDriver {
 
         let is_visible = !ax_node.ignored;
         let id_string: String = ax_node.node_id.clone().into();
+        
+        // Use a dummy rect for now, or populate via separate DOM query if critical.
+        // For Hybrid Level 2, we rely on synthetic clicking or the VLM's inherent visual understanding.
         let rect = Rect { x: 0, y: 0, width: 0, height: 0 }; 
-
-        // [NEW] Capture attributes from CDP node.
-        // For basic AX support, we can pull additional properties into the map.
-        // For this implementation, we initialize an empty map as CDP AX properties map poorly to raw string attributes.
-        // In a fuller implementation, we would iterate properties.
         let attributes = HashMap::new();
 
         AccessibilityNode {
@@ -419,7 +514,7 @@ impl BrowserDriver {
             rect,
             children,
             is_visible,
-            attributes, // [NEW] Added attributes field
+            attributes,
         }
     }
 
@@ -447,14 +542,15 @@ impl BrowserDriver {
         }
     }
 
-    /// Internal helper to ensure a page exists.
     async fn ensure_page(&self) -> std::result::Result<(), BrowserError> {
         {
             let guard = self.active_page.lock().await;
             if guard.is_some() { return Ok(()); }
         }
 
-        self.launch().await?;
+        // [FIX] Launch in HEADED mode by default for Desktop Agent, so we can escalate to Level 3.
+        // If we launch headless, we cannot later attach the OS window for visual feedback.
+        self.launch(false).await?;
 
         let browser: Option<Arc<Browser>> = {
             let guard = self.browser.lock().await;

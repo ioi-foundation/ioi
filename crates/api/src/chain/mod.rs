@@ -64,6 +64,12 @@ pub trait WorkloadClientApi: Send + Sync + Debug {
         max_bytes: u32,
     ) -> Result<Vec<Block<ChainTransaction>>, ChainError>;
 
+    /// Fetches a single block by height.
+    async fn get_block_by_height(
+        &self,
+        height: u64,
+    ) -> Result<Option<Block<ChainTransaction>>, ChainError>;
+
     /// Performs pre-execution checks on transactions against a specific state anchor.
     async fn check_transactions_at(
         &self,

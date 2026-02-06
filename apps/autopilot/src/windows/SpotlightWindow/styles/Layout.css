@@ -179,6 +179,8 @@
   position: relative;
   background: transparent;
   isolation: isolate;
+  /* [FIX] Ensure container constrains children to trigger their overflow */
+  overflow: hidden; 
 }
 
 /* Sidebar Toggle - Floating in top-left of chat */

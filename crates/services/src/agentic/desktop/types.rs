@@ -1,9 +1,19 @@
 // Path: crates/services/src/agentic/desktop/types.rs
 
 use ioi_types::app::action::ApprovalToken;
-use ioi_types::app::ActionRequest; // [NEW] Import ActionRequest for execution queue
+use ioi_types::app::ActionRequest;
 use parity_scale_codec::{Decode, Encode};
 use serde::{Deserialize, Serialize};
+use std::collections::BTreeMap; // [FIX] Added BTreeMap for deterministic codec
+
+// [NEW] Track status of tool calls to enforce idempotency.
+#[derive(Debug, Clone, Serialize, Deserialize, Encode, Decode, PartialEq, Eq)]
+pub enum ToolCallStatus {
+    Pending,
+    Approved,
+    Executed(String), // Result hash or summary
+    Failed(String),
+}
 
 // [FIX] Removed Copy trait because String fields are not Copy
 #[derive(Debug, Clone, Serialize, Deserialize, Encode, Decode, PartialEq, Eq)]
@@ -21,6 +31,15 @@ pub enum AgentMode {
     #[default]
     Agent, // Default: Uses tools, autonomous
     Chat,  // Chat only: No tools, conversational
+}
+
+// [NEW] Execution Tiers for Hybrid Architecture (Progressive Escalation)
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Encode, Decode, Default)]
+pub enum ExecutionTier {
+    #[default]
+    DomHeadless,      // Level 1: Fast, text-based (DOM + Selectors)
+    VisualBackground, // Level 2: Visual, but non-interruptive (Tab Screenshot + Synthetic Click)
+    VisualForeground, // Level 3: Full OS Control (Monitor Screenshot + Physical Mouse)
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Encode, Decode)]
@@ -51,6 +70,10 @@ pub struct AgentState {
     // [NEW] Track the mode in state
     #[serde(default)]
     pub mode: AgentMode,
+    
+    // [NEW] Track the current execution tier (Escalation level)
+    #[serde(default)]
+    pub current_tier: ExecutionTier,
 
     // [NEW] Visual Interlock State
     // Stores the perceptual hash of the screen state from the *previous* step (Thought Phase).
@@ -65,6 +88,11 @@ pub struct AgentState {
     // that are executed sequentially over multiple ticks/blocks, subject to individual policy checks.
     #[serde(default)]
     pub execution_queue: Vec<ActionRequest>,
+
+    // [NEW] Track status of tool calls to enforce idempotency.
+    // Key: Hex(RequestHash)
+    #[serde(default)]
+    pub tool_execution_log: BTreeMap<String, ToolCallStatus>,
 }
 
 #[derive(Encode, Decode)]

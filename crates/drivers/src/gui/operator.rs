@@ -58,9 +58,14 @@ impl NativeOperator {
     }
 
     /// Gets the scale factor of the primary monitor to handle HiDPI (Retina) screens.
+    /// 
+    /// This is crucial for coordinate translation. 
+    /// `xcap` captures physical pixels, but `enigo` often expects logical points.
+    /// On macOS Retina, this is typically 2.0. On Windows, it varies (e.g. 1.25, 1.5).
     pub fn get_scale_factor() -> f64 {
         let monitors = Monitor::all().unwrap_or_default();
         if let Some(m) = monitors.first() {
+            // xcap exposes scale_factor directly
             return m.scale_factor() as f64;
         }
         1.0
@@ -111,11 +116,21 @@ impl NativeOperator {
         
         let scale = Self::get_scale_factor();
 
+        // Normalization logic: Convert Physical Pixels (from VLM/Screenshot) to Logical Points (OS API).
+        // This is platform-dependent behavior in Enigo.
         let normalize_coord = |val: u32| -> i32 {
             if cfg!(target_os = "macos") {
+                // macOS Enigo uses logical points
                 (val as f64 / scale) as i32
+            } else if cfg!(target_os = "windows") {
+                 // Windows Enigo (InputSimulator) typically handles scaling if manifest is DPI-aware,
+                 // but often requires manual scaling if we are injecting into raw Win32.
+                 // Assuming Enigo handles it or we pass raw if DPI-unaware.
+                 // For safety with xcap (physical), we scale down.
+                 (val as f64 / scale) as i32
             } else {
-                val as i32
+                // Linux (X11/Wayland) usually 1:1 unless specific scaling active
+                 val as i32
             }
         };
 

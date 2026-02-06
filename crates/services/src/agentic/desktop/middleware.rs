@@ -86,6 +86,21 @@ impl ToolNormalizer {
                  if let Some(params) = map_mut.get("parameters").cloned() {
                     map_mut.insert("arguments".to_string(), params);
                  }
+                 
+                 // [NEW] Handle synthetic click aliases if LLM gets lazy
+                 if let Some(name) = map_mut.get("name").and_then(|n| n.as_str()) {
+                     if name == "browser__synthetic_click" {
+                         // Ensure arguments are numbers (LLM might pass strings)
+                         if let Some(args) = map_mut.get_mut("arguments") {
+                             if let Some(x) = args.get("x").and_then(|v| v.as_f64()) {
+                                 args["x"] = json!(x as u32);
+                             }
+                             if let Some(y) = args.get("y").and_then(|v| v.as_f64()) {
+                                 args["y"] = json!(y as u32);
+                             }
+                         }
+                     }
+                 }
             }
         }
         
@@ -199,5 +214,18 @@ mod tests {
     fn test_empty_input_fails() {
         let input = "   ";
         assert!(ToolNormalizer::normalize(input).is_err());
+    }
+    
+    #[test]
+    fn test_normalize_synthetic_click() {
+        let input = r#"{"name": "browser__synthetic_click", "arguments": {"x": 100.5, "y": 200.1}}"#;
+        let tool = ToolNormalizer::normalize(input).unwrap();
+        match tool {
+            AgentTool::BrowserSyntheticClick { x, y } => {
+                assert_eq!(x, 100);
+                assert_eq!(y, 200);
+            },
+            _ => panic!("Wrong tool type"),
+        }
     }
 }

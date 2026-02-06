@@ -501,6 +501,15 @@ pub enum AgentTool {
         selector: String,
     },
 
+    /// [NEW] Synthetic click for background execution.
+    #[serde(rename = "browser__synthetic_click")]
+    BrowserSyntheticClick {
+        /// X coordinate relative to viewport.
+        x: u32,
+        /// Y coordinate relative to viewport.
+        y: u32,
+    },
+
     /// Legacy GUI click tool.
     #[serde(rename = "gui__click")]
     GuiClick {
@@ -667,6 +676,9 @@ impl AgentTool {
             AgentTool::BrowserExtract { .. } => crate::app::ActionTarget::BrowserExtract,
             AgentTool::BrowserClick { .. } => {
                 crate::app::ActionTarget::Custom("browser::click".into())
+            }
+            AgentTool::BrowserSyntheticClick { .. } => {
+                 crate::app::ActionTarget::Custom("browser::synthetic_click".into())
             }
 
             AgentTool::GuiClick { .. } => crate::app::ActionTarget::GuiClick,

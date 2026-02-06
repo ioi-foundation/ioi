@@ -4,6 +4,7 @@ use async_trait::async_trait;
 use ioi_types::app::{ActionRequest, ContextSlice};
 use ioi_types::error::VmError;
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap; // [NEW] Added HashMap for SoM API
 
 /// Represents the type of mouse button.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -93,4 +94,13 @@ pub trait GuiDriver: Send + Sync {
     /// Resolves a Set-of-Marks ID from the last capture to screen coordinates.
     /// Returns (x, y) center point of the element.
     async fn get_element_center(&self, id: u32) -> Result<Option<(u32, u32)>, VmError>;
+
+    /// [NEW] Manually injects a Set-of-Marks mapping (ID -> Rect) into the driver's cache.
+    /// Used by Hybrid Agents to register elements found in background tabs so the 
+    /// executor can resolve IDs without the GUI driver taking a fresh screenshot.
+    /// Rect format: (x, y, width, height).
+    async fn register_som_overlay(&self, _map: HashMap<u32, (i32, i32, i32, i32)>) -> Result<(), VmError> {
+        // Default implementation does nothing (for mock drivers)
+        Ok(())
+    }
 }

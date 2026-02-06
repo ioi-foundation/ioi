@@ -414,7 +414,7 @@ async fn run_browser_execution(config: &Value, input: &str) -> Result<ExecutionR
     let start = std::time::Instant::now();
     let input_obj: Value = serde_json::from_str(input).unwrap_or(serde_json::json!({}));
     
-    if let Err(e) = BROWSER_DRIVER.launch().await {
+    if let Err(e) = BROWSER_DRIVER.launch(false).await {
         return Ok(ExecutionResult {
             status: "error".to_string(),
             output: format!("Failed to launch browser driver: {}", e),

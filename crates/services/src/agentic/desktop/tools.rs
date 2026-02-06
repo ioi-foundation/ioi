@@ -9,7 +9,8 @@ use serde_json::json;
 use ioi_scs::{SovereignContextStore, FrameType}; 
 use ioi_types::app::agentic::AgentMacro; 
 use std::sync::Arc;
-use ioi_api::vm::inference::InferenceRuntime; 
+use ioi_api::vm::inference::InferenceRuntime;
+use crate::agentic::desktop::types::ExecutionTier; // [FIX] Added import
 
 /// Discovers tools available to the agent.
 ///
@@ -19,6 +20,7 @@ pub async fn discover_tools(
     scs: Option<&std::sync::Mutex<SovereignContextStore>>,
     query: &str,
     runtime: Arc<dyn InferenceRuntime>,
+    tier: ExecutionTier, // [FIX] Added tier parameter
 ) -> Vec<LlmToolDefinition> {
     let mut tools = Vec::new();
     
@@ -51,78 +53,9 @@ pub async fn discover_tools(
         }
     }
 
-    // 2. Native Capabilities (Hardcoded for stability)
+    // 2. Native Capabilities
 
-    let computer_params = json!({
-        "type": "object",
-        "properties": {
-            "action": {
-                "type": "string",
-                "enum": [
-                    "type", "key", "hotkey", 
-                    "mouse_move", "left_click", "left_click_id", 
-                    "left_click_drag", "drag_drop", 
-                    "screenshot", "cursor_position"
-                ],
-                "description": "The specific action to perform."
-            },
-            "coordinate": {
-                "type": "array",
-                "items": { "type": "integer" },
-                "minItems": 2,
-                "maxItems": 2,
-                "description": "(x, y) coordinates."
-            },
-            "from": {
-                 "type": "array",
-                 "items": { "type": "integer" },
-                 "minItems": 2,
-                 "maxItems": 2,
-                 "description": "Start coordinates for drag_drop."
-            },
-            "to": {
-                 "type": "array",
-                 "items": { "type": "integer" },
-                 "minItems": 2,
-                 "maxItems": 2,
-                 "description": "End coordinates for drag_drop."
-            },
-            "text": {
-                "type": "string",
-                "description": "Text to type or key name."
-            },
-            "keys": {
-                "type": "array",
-                "items": { "type": "string" },
-                "description": "Array of keys for hotkey chord (e.g. ['Control', 'c'])."
-            },
-            "id": {
-                "type": "integer",
-                "description": "The Set-of-Marks ID tag to click. Required for left_click_id."
-            }
-        },
-        "required": ["action"]
-    });
-
-    tools.push(LlmToolDefinition {
-        name: "computer".to_string(),
-        description: "Control the computer (mouse/keyboard/hotkeys).".to_string(),
-        parameters: computer_params.to_string(),
-    });
-
-    let chat_params = json!({
-        "type": "object",
-        "properties": {
-            "message": { "type": "string", "description": "The response text to show to the user." }
-        },
-        "required": ["message"]
-    });
-    tools.push(LlmToolDefinition {
-        name: "chat__reply".to_string(),
-        description: "Send a text message or answer to the user. Use this for all conversation/replies.".to_string(),
-        parameters: chat_params.to_string(),
-    });
-
+    // [FIX] Prioritize Browser Navigation (Top of list bias)
     let nav_params = json!({
         "type": "object",
         "properties": {
@@ -134,6 +67,126 @@ pub async fn discover_tools(
         name: "browser__navigate".to_string(),
         description: "Navigate the internal browser to a URL and return page content.".to_string(),
         parameters: nav_params.to_string(),
+    });
+
+    // [FIX] Only expose Computer tools and SysExec in VisualForeground (Tier 3)
+    if tier == ExecutionTier::VisualForeground {
+        let computer_params = json!({
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "enum": [
+                        "type", "key", "hotkey", 
+                        "mouse_move", "left_click", "left_click_id", 
+                        "left_click_drag", "drag_drop", 
+                        "screenshot", "cursor_position"
+                    ],
+                    "description": "The specific action to perform."
+                },
+                "coordinate": {
+                    "type": "array",
+                    "items": { "type": "integer" },
+                    "minItems": 2,
+                    "maxItems": 2,
+                    "description": "(x, y) coordinates."
+                },
+                "from": {
+                     "type": "array",
+                     "items": { "type": "integer" },
+                     "minItems": 2,
+                     "maxItems": 2,
+                     "description": "Start coordinates for drag_drop."
+                },
+                "to": {
+                     "type": "array",
+                     "items": { "type": "integer" },
+                     "minItems": 2,
+                     "maxItems": 2,
+                     "description": "End coordinates for drag_drop."
+                },
+                "text": {
+                    "type": "string",
+                    "description": "Text to type or key name."
+                },
+                "keys": {
+                    "type": "array",
+                    "items": { "type": "string" },
+                    "description": "Array of keys for hotkey chord (e.g. ['Control', 'c'])."
+                },
+                "id": {
+                    "type": "integer",
+                    "description": "The Set-of-Marks ID tag to click. Required for left_click_id."
+                }
+            },
+            "required": ["action"]
+        });
+
+        tools.push(LlmToolDefinition {
+            name: "computer".to_string(),
+            description: "Control the computer (mouse/keyboard/hotkeys).".to_string(),
+            parameters: computer_params.to_string(),
+        });
+
+        let sys_params = json!({
+            "type": "object",
+            "properties": {
+                "command": { 
+                    "type": "string", 
+                    "description": "The binary to execute (e.g., 'ls', 'netstat', 'ping', 'gnome-calculator', 'firefox')" 
+                },
+                "args": { 
+                    "type": "array", 
+                    "items": { "type": "string" },
+                    "description": "Arguments for the command" 
+                },
+                "detach": {
+                    "type": "boolean",
+                    "description": "Set to true if launching a GUI application."
+                }
+            },
+            "required": ["command"]
+        });
+        tools.push(LlmToolDefinition {
+            name: "sys__exec".to_string(),
+            description: "Execute a terminal command or launch an application.".to_string(),
+            parameters: sys_params.to_string(),
+        });
+        
+        // [FIX] Removed legacy gui__click and gui__type to reduce entropy
+    }
+
+    // [FIX] Synthetic Click ONLY in VisualBackground
+    if tier == ExecutionTier::VisualBackground {
+        let synthetic_click_params = json!({
+            "type": "object",
+            "properties": {
+                "x": { "type": "integer" },
+                "y": { "type": "integer" }
+            },
+            "required": ["x", "y"]
+        });
+        
+        tools.push(LlmToolDefinition {
+            name: "browser__synthetic_click".to_string(),
+            description: "Click a coordinate (x,y) inside the web page directly. Does NOT move the user's mouse cursor.".to_string(),
+            parameters: synthetic_click_params.to_string(),
+        });
+    }
+
+    // Common Tools (Chat, Browser, FS) - Available in all tiers
+
+    let chat_params = json!({
+        "type": "object",
+        "properties": {
+            "message": { "type": "string", "description": "The response text to show to the user." }
+        },
+        "required": ["message"]
+    });
+    tools.push(LlmToolDefinition {
+        name: "chat__reply".to_string(),
+        description: "Send a text message or answer to the user.".to_string(),
+        parameters: chat_params.to_string(),
     });
 
     let extract_params = json!({
@@ -158,34 +211,6 @@ pub async fn discover_tools(
         name: "browser__click".to_string(),
         description: "Click an element on the current page using a CSS selector.".to_string(),
         parameters: click_selector_params.to_string(),
-    });
-
-    let gui_params = json!({
-        "type": "object",
-        "properties": {
-            "x": { "type": "integer" },
-            "y": { "type": "integer" },
-            "button": { "type": "string", "enum": ["left", "right"] }
-        },
-        "required": ["x", "y"]
-    });
-    tools.push(LlmToolDefinition {
-        name: "gui__click".to_string(),
-        description: "Click on UI element at coordinates (Legacy)".to_string(),
-        parameters: gui_params.to_string(),
-    });
-
-    let gui_type_params = json!({
-        "type": "object",
-        "properties": {
-            "text": { "type": "string" }
-        },
-        "required": ["text"]
-    });
-    tools.push(LlmToolDefinition {
-        name: "gui__type".to_string(),
-        description: "Type text (Legacy)".to_string(),
-        parameters: gui_type_params.to_string(),
     });
 
     let delegate_params = json!({
@@ -265,31 +290,6 @@ pub async fn discover_tools(
         name: "commerce__checkout".to_string(),
         description: "Purchase items from a UCP-compatible merchant using secure payment injection.".to_string(),
         parameters: checkout_params.to_string(),
-    });
-
-    let sys_params = json!({
-        "type": "object",
-        "properties": {
-            "command": { 
-                "type": "string", 
-                "description": "The binary to execute (e.g., 'ls', 'netstat', 'ping', 'gnome-calculator', 'firefox')" 
-            },
-            "args": { 
-                "type": "array", 
-                "items": { "type": "string" },
-                "description": "Arguments for the command" 
-            },
-            "detach": {
-                "type": "boolean",
-                "description": "Set to true if launching a GUI application or long-running process that should stay open. Default is false (waits 5s)."
-            }
-        },
-        "required": ["command"]
-    });
-    tools.push(LlmToolDefinition {
-        name: "sys__exec".to_string(),
-        description: "Execute a terminal command or launch an application on the local system. Use 'detach: true' for GUI apps (calculators, browsers) so they stay open.".to_string(),
-        parameters: sys_params.to_string(),
     });
 
     let fs_write_params = json!({

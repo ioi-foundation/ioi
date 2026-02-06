@@ -465,7 +465,10 @@ pub fn goto_trace_log(
         agent_state.consecutive_failures = 0;
     }
 
-    agent_state.step_count += 1;
+    // [FIX] Removed automatic step increment here.
+    // The caller (action.rs) handles incrementing if not gated.
+    // agent_state.step_count += 1;
+
     agent_state.last_action_type = Some(action_type);
 
     if agent_state.step_count >= agent_state.max_steps && agent_state.status == AgentStatus::Running {

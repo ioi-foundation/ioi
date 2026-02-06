@@ -6,15 +6,13 @@ use std::process::Stdio;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::collections::HashMap;
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
-// [FIX] Removed unused Child
 use tokio::process::Command;
 use tokio::sync::{mpsc, oneshot};
 
 /// Handles the JSON-RPC 2.0 communication over Stdio.
 pub struct McpTransport {
     request_id: AtomicU64,
-    tx_sender: mpsc::Sender<Value>, // Send requests to the write loop
-    // [FIX] Added explicit type annotation for the pending map
+    tx_sender: mpsc::Sender<Value>, 
     pending_requests: std::sync::Arc<std::sync::Mutex<HashMap<u64, oneshot::Sender<Result<Value>>>>>,
 }
 
@@ -22,10 +20,10 @@ impl McpTransport {
     pub async fn spawn(cmd: String, args: Vec<String>, env: HashMap<String, String>) -> Result<Self> {
         let mut child = Command::new(cmd)
             .args(args)
-            .envs(env) // SECURE ENCLAVE: Keys injected here!
+            .envs(env)
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
-            .stderr(Stdio::inherit()) // Redirect stderr to parent for debugging
+            .stderr(Stdio::inherit())
             .spawn()?;
 
         let stdin = child.stdin.take().ok_or(anyhow!("Failed to open stdin"))?;
@@ -33,12 +31,10 @@ impl McpTransport {
 
         let (tx, mut rx) = mpsc::channel::<Value>(32);
         
-        // [FIX] Explicitly specify the generic types for HashMap
         let pending: std::sync::Arc<std::sync::Mutex<HashMap<u64, oneshot::Sender<Result<Value>>>>> = 
             std::sync::Arc::new(std::sync::Mutex::new(HashMap::new()));
         let pending_clone = pending.clone();
 
-        // 1. Write Loop (Kernel -> MCP)
         tokio::spawn(async move {
             let mut writer = stdin;
             while let Some(msg) = rx.recv().await {
@@ -50,22 +46,25 @@ impl McpTransport {
             }
         });
 
-        // 2. Read Loop (MCP -> Kernel)
         tokio::spawn(async move {
             let reader = BufReader::new(stdout);
             let mut lines = reader.lines();
             
             while let Ok(Some(line)) = lines.next_line().await {
                 if let Ok(json) = serde_json::from_str::<Value>(&line) {
-                    // Check if it's a response (has ID)
                     if let Some(id) = json.get("id").and_then(|i| i.as_u64()) {
                         let mut map = pending_clone.lock().unwrap();
+                        
                         if let Some(sender) = map.remove(&id) {
-                            // Extract result or error
                             if let Some(err) = json.get("error") {
                                 let _ = sender.send(Err(anyhow!("MCP Error: {}", err)));
                             } else if let Some(res) = json.get("result") {
                                 let _ = sender.send(Ok(res.clone()));
+                            }
+                        } else {
+                            // [FIX] Auto-ack incoming requests (logging for now)
+                            if json.get("method").is_some() {
+                                tracing::debug!("MCP: Auto-acking incoming request ID {}", id);
                             }
                         }
                     }
@@ -99,7 +98,6 @@ impl McpTransport {
         self.tx_sender.send(req).await
             .map_err(|_| anyhow!("MCP Server crashed (channel closed)"))?;
 
-        // Wait for response
         rx.await.map_err(|_| anyhow!("MCP Server dropped response"))?
     }
 
@@ -110,7 +108,6 @@ impl McpTransport {
             "clientInfo": { "name": "ioi-kernel", "version": "0.1.0" }
         });
         
-        // [FIX] Increase timeout to 180s to handle high-load startup scenarios
         let init_fut = self.send_request("initialize", params);
         
         match tokio::time::timeout(std::time::Duration::from_secs(180), init_fut).await {
@@ -119,7 +116,6 @@ impl McpTransport {
             Err(_) => return Err(anyhow!("MCP Initialize timed out (180s). Check npx/network.")),
         }
 
-        // Required notification after init
         let notify = json!({
             "jsonrpc": "2.0",
             "method": "notifications/initialized"
@@ -129,9 +125,7 @@ impl McpTransport {
     }
 
     pub async fn list_tools(&self) -> Result<Vec<super::protocol::Tool>> {
-        // Note: Using protocol::Tool for return type here to match mod.rs usage
         let res = self.send_request("tools/list", json!({})).await?;
-        // Parse `res["tools"]` into Vec<super::protocol::Tool>
         serde_json::from_value(res["tools"].clone()).map_err(|e| anyhow!(e))
     }
 
@@ -148,7 +142,6 @@ impl McpTransport {
 pub struct McpToolInfo {
     pub name: String,
     pub description: Option<String>,
-    // [FIX] Map JSON "inputSchema" to Rust "input_schema"
     #[serde(rename = "inputSchema")]
     pub input_schema: Value,
 }

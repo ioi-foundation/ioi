@@ -6,6 +6,7 @@
 /* Chat Container */
 .spot-chat {
   flex: 1;
+  /* [FIX] Critical for scrolling: overflow-y auto + min-height 0 prevents flex child explosion */
   overflow-y: auto;
   overflow-x: hidden;
   padding: 20px 16px 8px;
@@ -15,6 +16,13 @@
   scroll-behavior: smooth;
   position: relative;
   background: transparent;
+  
+  /* [FIX] Ensure container shrinks to fit parent bounds */
+  min-height: 0;
+  height: 100%; 
+  
+  /* [FIX] Add bottom padding so the last message isn't hidden behind the floating input bar */
+  padding-bottom: 120px; 
   
   /* Refined scrollbar */
   scrollbar-width: thin;
@@ -47,6 +55,8 @@
   font-size: 14px;
   position: relative;
   animation: messageSlide 280ms var(--spot-spring);
+  /* [FIX] Ensure long words don't overflow */
+  overflow-wrap: break-word; 
 }
 
 @keyframes messageSlide {
@@ -155,9 +165,6 @@
   color: var(--spot-success);
 }
 
-/* ============================================
-   THOUGHT CHAIN - Refined Status Card
-   ============================================ */
 /* ============================================
    THOUGHT CHAIN - Minimal Claude-Style Disclosure
    Clean, collapsible thinking indicator

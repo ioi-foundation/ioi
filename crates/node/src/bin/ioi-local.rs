@@ -52,7 +52,7 @@ use ioi_services::agentic::rules::{ActionRules, DefaultPolicy, Rule, Verdict};
 use ioi_types::codec;
 
 // [UPDATED] Import Market Service types
-use ioi_services::market::{MarketService, PublishAssetParams}; 
+use ioi_services::market::{MarketService}; 
 // [FIX] Import OptimizerService
 use ioi_services::agentic::optimizer::OptimizerService;
 
@@ -62,7 +62,7 @@ use ioi_networking::noop::NoOpBlockSync;
 
 // [NEW] Import for Skill Injection
 // [FIX] Used in commented out blocks or future extensions, keeping to avoid churn if needed
-use ioi_types::app::agentic::{AgentMacro, LlmToolDefinition};
+// use ioi_types::app::agentic::{AgentMacro, LlmToolDefinition};
 
 #[derive(Parser, Debug)]
 #[clap(name = "ioi-local", about = "IOI User Node (Mode 0)")]
@@ -197,6 +197,25 @@ async fn main() -> Result<()> {
                 conditions: Default::default(),
                 action: Verdict::Allow, 
              },
+             // [NEW] Allow Computer Use for UI-TARS
+             Rule {
+                rule_id: Some("allow-computer".into()),
+                target: "gui::click".into(), // Maps to computer.left_click
+                conditions: Default::default(),
+                action: Verdict::Allow,
+             },
+             Rule {
+                rule_id: Some("allow-computer-type".into()),
+                target: "gui::type".into(), // Maps to computer.type
+                conditions: Default::default(),
+                action: Verdict::Allow,
+             },
+             Rule {
+                rule_id: Some("allow-computer-mouse".into()),
+                target: "gui::mouse_move".into(), // Maps to computer.mouse_move
+                conditions: Default::default(),
+                action: Verdict::Allow,
+             }
         ],
     };
 
@@ -268,7 +287,12 @@ async fn main() -> Result<()> {
     };
     
     let user_home = std::env::var("HOME").unwrap_or_else(|_| ".".to_string());
-    println!("📂 Mounting User Space (Gated): {}", user_home);
+    // [FIX] Mount a specific workspace instead of full home to prevent timeouts on large dirs
+    let workspace_path = std::path::Path::new(&user_home).join("ioi-workspace");
+    std::fs::create_dir_all(&workspace_path)?;
+    let workspace_str = workspace_path.to_string_lossy().to_string();
+    
+    println!("📂 Mounting User Space (Gated): {}", workspace_str);
 
     let mut mcp_servers = std::collections::HashMap::new();
     mcp_servers.insert(
@@ -279,7 +303,7 @@ async fn main() -> Result<()> {
                 "-y".to_string(),
                 "@modelcontextprotocol/server-filesystem".to_string(),
                 abs_data_dir_str.clone(), 
-                user_home.clone(), 
+                workspace_str, 
             ],
             env: std::collections::HashMap::new(),
         }
@@ -410,7 +434,14 @@ async fn main() -> Result<()> {
     // 5. Driver Instantiation
     let (event_tx, _event_rx) = tokio::sync::broadcast::channel(1000);
     let os_driver = Arc::new(NativeOsDriver::new());
-    let gui_driver = Arc::new(IoiGuiDriver::new().with_event_sender(event_tx.clone()).with_scs(scs_arc.clone()));
+    
+    // [MODIFIED] Create GUI driver with SoM enabled
+    let gui_driver = Arc::new(IoiGuiDriver::new()
+        .with_event_sender(event_tx.clone())
+        .with_scs(scs_arc.clone())
+        .with_som(true) // [FIX] Explicitly enable SoM Visual Grounding
+    );
+    
     let browser_driver = Arc::new(BrowserDriver::new());
 
     println!("   - State: Redb Flat Store (Zero Hashing)");
@@ -439,13 +470,13 @@ async fn main() -> Result<()> {
         
         let policy_key = [b"agent::policy::", session_id.as_slice()].concat();
         let policy_bytes = codec::to_bytes_canonical(&local_policy).map_err(|e| anyhow!(e))?;
-        state.insert(&policy_key, &policy_bytes).map_err(|e: ioi_types::error::StateError| anyhow!(e.to_string()))?;
+        state.insert(&policy_key, &policy_bytes).map_err(|e| anyhow!(e.to_string()))?;
 
         let agent_key = ioi_types::keys::active_service_key("desktop_agent");
         let meta_bytes = codec::to_bytes_canonical(&agent_meta).map_err(|e| anyhow!(e))?;
-        state.insert(&agent_key, &meta_bytes).map_err(|e: ioi_types::error::StateError| anyhow!(e.to_string()))?;
+        state.insert(&agent_key, &meta_bytes).map_err(|e| anyhow!(e.to_string()))?;
         
-        let _ = state.commit_version(0).map_err(|e: ioi_types::error::StateError| anyhow!(e.to_string()))?;
+        let _ = state.commit_version(0).map_err(|e| anyhow!(e.to_string()))?;
     }
 
     // 6. Runtime Execution
@@ -553,7 +584,7 @@ async fn main() -> Result<()> {
     println!("   - Agency Firewall: User-in-the-Loop Mode (Interactive Gates)");
     println!("   - The Substrate: Mounted at {}", opts.data_dir.display());
     println!("   - SCS Storage: Active (.scs)");
-    println!("   - GUI Automation: Enabled");
+    println!("   - GUI Automation: Enabled (Visual Grounding Active)");
     println!("   - Browser Automation: Enabled");
     println!("   - MCP: Enabled (Filesystem)");
     println!("   - Market: Active (Universal Asset Ledger)");
@@ -578,7 +609,8 @@ async fn main() -> Result<()> {
     .with_workspace_path(abs_data_dir_str.clone())
     .with_scs(scs_arc.clone())
     .with_event_sender(event_tx.clone())
-    .with_os_driver(os_driver.clone());
+    .with_os_driver(os_driver.clone())
+    .with_som(true); // Enable SoM in Agent
     
     // Configure Optimizer with SCS access
     let safety_adapter: Arc<dyn LocalSafetyModel> = Arc::new(RuntimeAsSafetyModel::new(inference_runtime.clone()));
@@ -659,7 +691,8 @@ async fn main() -> Result<()> {
                         FlatVerifier
                     >(&*ctx_guard).await {
                         Ok(true) => {
-                             operator_ticker.reset();
+                             // [FIX] Removed aggressive reset to prevent runaway execution loops (e.g. opening 100 windows).
+                             // operator_ticker.reset();
                         },
                         Ok(false) => {
                         },
