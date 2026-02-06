@@ -469,6 +469,16 @@ impl WorkloadClientApi for WorkloadClient {
         Ok(blocks)
     }
 
+    async fn get_block_by_height(
+        &self,
+        height: u64,
+    ) -> ioi_types::Result<Option<Block<ChainTransaction>>, ChainError> {
+        let mut blocks = self
+            .get_blocks_range(height, 1, 10 * 1024 * 1024)
+            .await?;
+        Ok(blocks.pop())
+    }
+
     async fn check_transactions_at(
         &self,
         anchor: StateAnchor,

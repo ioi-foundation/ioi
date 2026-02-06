@@ -7,13 +7,20 @@ use ioi_scs::FrameType;
 use ioi_types::codec;
 use std::sync::Mutex;
 use tauri::{AppHandle, State, Manager};
+use parity_scale_codec::{Decode, Encode};
 
-// [FIX] Imports for remote deletion logic
-use ioi_api::crypto::{SigningKeyPair};
 use ioi_types::app::{
     account_id_from_key_material, ChainId, ChainTransaction, SignHeader, SignatureProof,
     SignatureSuite, SystemPayload, SystemTransaction,
 };
+
+// [FIX] Local definition to avoid dependency on private/missing service types
+#[derive(Decode, Encode)]
+struct RemoteSessionSummary {
+    pub session_id: Vec<u8>,
+    pub title: String,
+    pub timestamp: u64,
+}
 
 #[tauri::command]
 pub async fn get_session_history(
@@ -39,7 +46,8 @@ pub async fn get_session_history(
             if let Ok(resp) = client.query_raw_state(req).await {
                 let inner = resp.into_inner();
                 if inner.found && !inner.value.is_empty() {
-                    if let Ok(raw_history) = codec::from_bytes_canonical::<Vec<ioi_services::agentic::desktop::types::SessionSummary>>(&inner.value) {
+                    // [FIX] Use local RemoteSessionSummary struct
+                    if let Ok(raw_history) = codec::from_bytes_canonical::<Vec<RemoteSessionSummary>>(&inner.value) {
                         let remote_sessions: Vec<SessionSummary> = raw_history.into_iter().map(|s| SessionSummary {
                             session_id: hex::encode(s.session_id),
                             title: s.title,
@@ -176,13 +184,11 @@ pub async fn delete_session(
              }
 
              // Load and decrypt key
-             // [FIX] Added use of ioi_validator crate via Cargo.toml update
              let raw_key = ioi_validator::common::GuardianContainer::load_encrypted_file(&key_path)
                  .map_err(|e| format!("Failed to load identity key: {}", e))?;
              
-             // [FIX] Explicit error typing for closure
              let keypair = libp2p::identity::Keypair::from_protobuf_encoding(&raw_key)
-                 .map_err(|e: libp2p::identity::DecodingError| e.to_string())?;
+                 .map_err(|e| e.to_string())?;
 
              let pk_bytes = keypair.public().encode_protobuf();
              let account_id = ioi_types::app::AccountId(
@@ -223,8 +229,7 @@ pub async fn delete_session(
              // D. Sign Transaction
              let sign_bytes = sys_tx.to_sign_bytes().map_err(|e| e.to_string())?;
              
-             // [FIX] Explicit error typing for closure
-             let sig = keypair.sign(&sign_bytes).map_err(|e: libp2p::identity::SigningError| e.to_string())?;
+             let sig = keypair.sign(&sign_bytes).map_err(|e| e.to_string())?;
              
              sys_tx.signature_proof = SignatureProof {
                  suite: SignatureSuite::ED25519,

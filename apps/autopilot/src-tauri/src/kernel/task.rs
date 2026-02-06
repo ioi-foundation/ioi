@@ -8,15 +8,23 @@ use ioi_ipc::public::public_api_client::PublicApiClient;
 use std::collections::HashSet;
 use std::sync::Mutex;
 use tauri::{AppHandle, Emitter, Manager, State};
+use parity_scale_codec::Encode;
 
 // [NEW] Imports for continue_task
-use ioi_services::agentic::desktop::types::PostMessageParams;
 use ioi_types::codec;
 use ioi_types::app::{
     account_id_from_key_material, ChainId, ChainTransaction, SignHeader, SignatureProof,
     SignatureSuite, SystemPayload, SystemTransaction, AccountId
 };
 use ioi_ipc::blockchain::QueryRawStateRequest;
+
+// [FIX] Local definition to avoid dependency on private/missing service types
+#[derive(Encode)]
+struct PostMessageParams {
+    pub session_id: [u8; 32],
+    pub role: String,
+    pub content: String,
+}
 
 #[tauri::command]
 pub fn start_task(
@@ -133,7 +141,7 @@ pub fn start_task(
 
 #[tauri::command]
 pub async fn continue_task(
-    _state: State<'_, Mutex<AppState>>, // [FIX] Renamed to _state to suppress warning
+    _state: State<'_, Mutex<AppState>>, 
     app: AppHandle,
     session_id: String,
     user_input: String,
@@ -152,11 +160,9 @@ pub async fn continue_task(
         t.phase = crate::models::AgentPhase::Running;
     });
 
-    // --- FIX START: Sanitize UUID string ---
     // Remove hyphens if present to support UUID string format from UI
     let clean_session_id = session_id.replace("-", "");
     let session_bytes = hex::decode(&clean_session_id).map_err(|_| "Invalid session ID hex")?;
-    // --- FIX END ---
 
     let mut session_arr = [0u8; 32];
     
@@ -168,6 +174,7 @@ pub async fn continue_task(
     // Copy bytes, zero-padding if shorter than 32 (e.g. 16-byte UUID)
     session_arr[..session_bytes.len()].copy_from_slice(&session_bytes);
 
+    // [FIX] Use local PostMessageParams struct
     let params = PostMessageParams {
         session_id: session_arr,
         role: "user".to_string(),

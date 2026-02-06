@@ -11,11 +11,13 @@ fn to_canonical_params(value: serde_json::Value) -> Vec<u8> {
     serde_json::to_vec(&value).unwrap_or_default()
 }
 
-/// Converts VLM output relative coordinates [0.0, 1.0] OR [0, 1000] to OS absolute pixel coordinates.
+/// Converts VLM output coordinates to OS absolute pixel coordinates.
+/// 
+/// Supports both:
+/// - Normalized Floats: [0.0, 1.0] (e.g. GPT-4o-V)
+/// - Integer Scale: [0, 1000] (e.g. UI-TARS)
 ///
 /// This function acts as the "translation layer" between the fuzzy AI world and the rigid OS world.
-/// It automatically detects if the VLM is outputting normalized floats (common in general VLMs)
-/// or 0-1000 integers (common in UI-TARS models) and scales them to the screen resolution.
 pub fn normalize_click(
     vlm_x: f32,
     vlm_y: f32,
@@ -38,7 +40,8 @@ pub fn normalize_click(
     let clamped_x = norm_x.clamp(0.0, 1.0);
     let clamped_y = norm_y.clamp(0.0, 1.0);
 
-    // Calculate absolute pixels
+    // Calculate absolute pixels based on the captured screen dimensions.
+    // Note: The GUI operator handles DPI scaling (logical vs physical) internally.
     let abs_x = (clamped_x * screen_w as f32) as u32;
     let abs_y = (clamped_y * screen_h as f32) as u32;
 

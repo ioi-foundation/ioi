@@ -41,6 +41,16 @@ impl AccessibilityNode {
         self.name.as_ref().map_or(false, |s| !s.trim().is_empty()) ||
         self.value.as_ref().map_or(false, |s| !s.trim().is_empty())
     }
+
+    /// [NEW] Recursively shifts the coordinates of this node and all children.
+    /// Used to align browser DOM trees with OS window coordinates.
+    pub fn offset(&mut self, dx: i32, dy: i32) {
+        self.rect.x += dx;
+        self.rect.y += dy;
+        for child in &mut self.children {
+            child.offset(dx, dy);
+        }
+    }
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Copy)]

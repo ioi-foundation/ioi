@@ -75,7 +75,10 @@ pub fn goto_trace_log(
         agent_state.consecutive_failures = 0;
     }
 
-    agent_state.step_count += 1;
+    // [FIX] REMOVED: agent_state.step_count += 1;
+    // The step count increment is now handled by the caller (action.rs / queue.rs)
+    // to ensure we don't advance the nonce while waiting for a Policy Gate.
+
     agent_state.last_action_type = Some(action_type);
 
     if agent_state.step_count >= agent_state.max_steps && agent_state.status == AgentStatus::Running {
@@ -84,7 +87,7 @@ pub fn goto_trace_log(
         // Emit completion event so UI knows to stop when max steps reached
         if let Some(tx) = &event_sender {
              let _ = tx.send(KernelEvent::AgentActionResult {
-                 session_id,
+                 session_id: session_id, 
                  step_index: agent_state.step_count,
                  tool_name: "system::max_steps_reached".to_string(),
                  output: "Max steps reached. Task completed.".to_string(),

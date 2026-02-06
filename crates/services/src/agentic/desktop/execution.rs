@@ -76,13 +76,10 @@ impl ToolExecutor {
             // --- Computer Use (Meta-Tool) ---
             AgentTool::Computer(action) => match action {
                 ComputerAction::LeftClickId { id } => {
-                    // Resolve ID to Coords using the GuiDriver interface
                     match self.gui.get_element_center(id).await {
                         Ok(Some((x, y))) => {
-                            // Inject Move + Click
                             match self.gui.inject_input(InputEvent::MouseMove { x, y }).await {
                                 Ok(_) => {
-                                    // Click
                                     match self.gui.inject_input(InputEvent::Click { 
                                         button: ApiButton::Left, x, y, expected_visual_hash: Some(visual_phash) 
                                     }).await {
@@ -96,7 +93,7 @@ impl ToolExecutor {
                                 Err(e) => error = Some(format!("Approach move failed: {}", e))
                             }
                         },
-                        Ok(None) => error = Some(format!("Element ID {} not found in current visual state. Screen may have changed.", id)),
+                        Ok(None) => error = Some(format!("Element ID {} not found in current visual state (Cache miss). Screen may have changed.", id)),
                         Err(e) => error = Some(format!("Failed to resolve element ID: {}", e))
                     }
                 },
@@ -110,7 +107,6 @@ impl ToolExecutor {
                 
                 ComputerAction::LeftClick { coordinate } => {
                     if let Some([x, y]) = coordinate {
-                        // Stateless: Explicit Move then Click
                         match self.gui.inject_input(InputEvent::MouseMove { x, y }).await {
                             Ok(_) => {
                                 match self.gui.inject_input(InputEvent::Click { 
@@ -127,15 +123,14 @@ impl ToolExecutor {
                     }
                 },
                 
-                // [MODIFIED] Use AtomicSequence for Drag
                 ComputerAction::LeftClickDrag { coordinate } => {
                      let [x, y] = coordinate;
                      
                      let sequence = vec![
                          AtomicInput::MouseDown { button: ApiButton::Left },
-                         AtomicInput::Wait { millis: 50 }, // Debounce
+                         AtomicInput::Wait { millis: 50 }, 
                          AtomicInput::MouseMove { x, y },
-                         AtomicInput::Wait { millis: 50 }, // Debounce
+                         AtomicInput::Wait { millis: 50 }, 
                          AtomicInput::MouseUp { button: ApiButton::Left },
                      ];
 
@@ -148,27 +143,19 @@ impl ToolExecutor {
                     }
                 },
 
-                // [NEW] Hotkey Implementation
                 ComputerAction::Hotkey { keys } => {
                     if keys.is_empty() {
                          error = Some("Hotkey requires at least one key".into());
                     } else {
-                        // 1. Press Modifiers (All except last)
-                        // 2. Click Action Key (Last)
-                        // 3. Release Modifiers (Reverse order)
-                        
                         let mut sequence = Vec::new();
                         let (action_key, modifiers) = keys.split_last().unwrap();
                         
-                        // Down
                         for k in modifiers {
                             sequence.push(AtomicInput::KeyDown { key: k.clone() });
                         }
                         
-                        // Click
                         sequence.push(AtomicInput::KeyPress { key: action_key.clone() });
                         
-                        // Up
                         for k in modifiers.iter().rev() {
                             sequence.push(AtomicInput::KeyUp { key: k.clone() });
                         }
@@ -183,7 +170,6 @@ impl ToolExecutor {
                     }
                 },
 
-                // [NEW] DragDrop Implementation
                 ComputerAction::DragDrop { from, to } => {
                      let [x1, y1] = from;
                      let [x2, y2] = to;
@@ -192,9 +178,9 @@ impl ToolExecutor {
                          AtomicInput::MouseMove { x: x1, y: y1 },
                          AtomicInput::Wait { millis: 50 },
                          AtomicInput::MouseDown { button: ApiButton::Left },
-                         AtomicInput::Wait { millis: 100 }, // Hold before move
+                         AtomicInput::Wait { millis: 100 }, 
                          AtomicInput::MouseMove { x: x2, y: y2 },
-                         AtomicInput::Wait { millis: 100 }, // Hold at target
+                         AtomicInput::Wait { millis: 100 }, 
                          AtomicInput::MouseUp { button: ApiButton::Left },
                      ];
 
@@ -254,22 +240,54 @@ impl ToolExecutor {
 
             // --- System ---
             AgentTool::SysExec { command, args, detach } => {
-                match self.terminal.execute(&command, &args, detach).await {
-                    Ok(output) => {
-                        success = true;
-                        let safe_output = safe_truncate(&output, 1000);
-                        history_entry = Some(format!("System Output: {}", safe_output));
+                // [FIX] Robust Action-Layer Guard for Browser Launch
+                // Check command base name AND arguments for browser tokens
+                let cmd_lower = std::path::Path::new(&command)
+                    .file_name()
+                    .and_then(|s| s.to_str())
+                    .unwrap_or(&command)
+                    .to_lowercase();
+                
+                let mut tokens = vec![cmd_lower];
+                tokens.extend(args.iter().take(3).map(|a| a.to_lowercase()));
+                
+                let is_browser = tokens.iter().any(|t| matches!(t.as_str(),
+                    "firefox" | "firefox-bin" | "chrome" | "google-chrome" |
+                    "chromium" | "chromium-browser" | "brave" | "msedge"
+                ));
 
-                        if let Some(tx) = &self.event_sender {
-                            let _ = tx.send(KernelEvent::AgentActionResult {
-                                session_id,
-                                step_index,
-                                tool_name: "sys__exec".to_string(),
-                                output: safe_output,
-                            });
-                        }
+                if is_browser {
+                     let msg = format!("Policy Violation: Do not launch '{}' manually. Use 'browser__navigate' instead.", command);
+                     error = Some(msg.clone());
+                     history_entry = Some(msg.clone());
+                     
+                     // [FIX] Emit event so UI shows the rejection
+                     if let Some(tx) = &self.event_sender {
+                        let _ = tx.send(KernelEvent::AgentActionResult {
+                            session_id,
+                            step_index,
+                            tool_name: "sys__exec".to_string(),
+                            output: msg,
+                        });
                     }
-                    Err(e) => error = Some(e.to_string()),
+                } else {
+                    match self.terminal.execute(&command, &args, detach).await {
+                        Ok(output) => {
+                            success = true;
+                            let safe_output = safe_truncate(&output, 1000);
+                            history_entry = Some(format!("System Output: {}", safe_output));
+    
+                            if let Some(tx) = &self.event_sender {
+                                let _ = tx.send(KernelEvent::AgentActionResult {
+                                    session_id,
+                                    step_index,
+                                    tool_name: "sys__exec".to_string(),
+                                    output: safe_output,
+                                });
+                            }
+                        }
+                        Err(e) => error = Some(e.to_string()),
+                    }
                 }
             },
 
@@ -309,7 +327,6 @@ impl ToolExecutor {
                         }
                     }
                     Err(BrowserError::NoActivePage) => {
-                        // Auto-Repair Logic
                         match self.browser.navigate("about:blank").await {
                             Ok(_) => match self.browser.extract_dom().await {
                                 Ok(content) => {
@@ -348,6 +365,24 @@ impl ToolExecutor {
                         history_entry = Some(format!("Clicked selector: {}", selector));
                     }
                     Err(e) => error = Some(e.to_string()),
+                }
+            },
+
+            // [FIX] Synthetic Click (Level 2) logic
+            AgentTool::Dynamic(val) if val.get("name").and_then(|n| n.as_str()) == Some("browser__synthetic_click") => {
+                if let Some(args) = val.get("arguments") {
+                    let x = args.get("x").and_then(|n| n.as_f64()).unwrap_or(0.0);
+                    let y = args.get("y").and_then(|n| n.as_f64()).unwrap_or(0.0);
+                    
+                    match self.browser.synthetic_click(x, y).await {
+                        Ok(_) => {
+                            success = true;
+                            history_entry = Some(format!("Background clicked at ({}, {})", x, y));
+                        },
+                        Err(e) => error = Some(format!("Synthetic click failed: {}", e))
+                    }
+                } else {
+                    error = Some("Missing arguments for browser__synthetic_click".into());
                 }
             },
 

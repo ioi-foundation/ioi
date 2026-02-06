@@ -4,6 +4,7 @@ use super::DesktopAgentService;
 use crate::agentic::desktop::keys::{get_state_key};
 use crate::agentic::desktop::types::{
     AgentMode, AgentState, AgentStatus, PostMessageParams, ResumeAgentParams, SessionSummary, StartAgentParams,
+    ExecutionTier, // [FIX] Import ExecutionTier
 };
 use ioi_api::state::StateAccess;
 use ioi_api::transaction::context::TxContext;
@@ -11,6 +12,7 @@ use ioi_types::codec;
 use ioi_types::error::TransactionError;
 use std::time::{SystemTime, UNIX_EPOCH};
 use hex;
+use std::collections::BTreeMap; // [FIX] Added BTreeMap for tool_execution_log
 
 pub async fn handle_start(
     service: &DesktopAgentService,
@@ -73,8 +75,10 @@ pub async fn handle_start(
         recent_actions: Vec::new(),
         mode: p.mode,
         last_screen_phash: None,
-        // [FIX] Initialize execution_queue
         execution_queue: Vec::new(),
+        current_tier: ExecutionTier::DomHeadless,
+        // [FIX] Initialize tool_execution_log
+        tool_execution_log: BTreeMap::new(),
     };
     state.insert(&key, &codec::to_bytes_canonical(&agent_state)?)?;
 
@@ -179,7 +183,10 @@ pub async fn handle_resume(
         .ok_or(TransactionError::Invalid("Session not found".into()))?;
     let mut agent_state: AgentState = codec::from_bytes_canonical(&bytes)?;
 
-    if let AgentStatus::Paused(_) = agent_state.status {
+    // [FIX] Allow resume even if already running (Idempotency)
+    // This handles the race where the UI sends resume but the system auto-recovered
+    // or received another event that flipped it back to Running.
+    if matches!(agent_state.status, AgentStatus::Paused(_)) || agent_state.status == AgentStatus::Running {
         agent_state.status = AgentStatus::Running;
 
         if let Some(token) = p.approval_token {
@@ -223,7 +230,7 @@ pub async fn handle_resume(
         state.insert(&key, &codec::to_bytes_canonical(&agent_state)?)?;
         Ok(())
     } else {
-        Err(TransactionError::Invalid("Agent is not paused".into()))
+        Err(TransactionError::Invalid(format!("Agent cannot resume from status: {:?}", agent_state.status)))
     }
 }
 

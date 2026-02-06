@@ -10,6 +10,7 @@ use ioi_types::app::{ActionContext, ActionRequest, KernelEvent};
 use ioi_types::error::TransactionError;
 use std::sync::Arc;
 use serde_jcs; // [FIX] Import Canonical JSON serializer
+use serde_json::{json, Value}; // [FIX] Added for parameter extraction
 
 impl DesktopAgentService {
 
@@ -28,10 +29,26 @@ impl DesktopAgentService {
         // 1. Determine Target from Type-Safe Definition
         let target = tool.target();
         
-        // 2. Canonicalize Parameters (Serialize the Enum itself)
-        // [FIX] Use Canonical JSON (RFC 8785). This ensures the hash remains stable
-        // even if the LLM output keys in a different order upon resume.
-        let request_params = serde_jcs::to_vec(&tool)
+        // 2. Canonicalize Parameters (Serialize ONLY the arguments)
+        // [FIX] We must extract the inner 'arguments' object from the tool enum.
+        // The PolicyEngine expects flat params (e.g. {"command": "ls"}), 
+        // NOT the wrapper ({"name": "sys__exec", "arguments": {...}}).
+        
+        let tool_value = serde_json::to_value(&tool)
+            .map_err(|e| TransactionError::Serialization(e.to_string()))?;
+        
+        // Extract the arguments field.
+        // AgentTool is serialized as { "name": "...", "arguments": {...} } due to serde tagging.
+        // We want just the {...} part.
+        let args_value = if let Some(args) = tool_value.get("arguments") {
+            args.clone()
+        } else {
+            // For tools without arguments, default to empty object
+            json!({})
+        };
+
+        // Serialize the UNWRAPPED arguments using JCS (Canonical JSON)
+        let request_params = serde_jcs::to_vec(&args_value)
             .map_err(|e| TransactionError::Serialization(e.to_string()))?;
 
         let dummy_request = ActionRequest {

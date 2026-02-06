@@ -5,7 +5,7 @@ pub mod operator;
 pub mod platform;
 pub mod vision;
 pub mod som; 
-pub mod lenses; // [NEW] Register lenses module
+pub mod lenses;
 
 use self::operator::NativeOperator;
 use self::vision::NativeVision;
@@ -29,15 +29,17 @@ use std::io::Cursor;
 use std::collections::HashMap;
 
 /// The concrete implementation of the IOI GUI Driver.
-/// This replaces the UI-TARS Electron app.
+/// This acts as the "Eyes and Hands" of the agent, managing screen capture,
+/// visual grounding (SoM), and input injection.
 pub struct IoiGuiDriver {
     operator: NativeOperator,
     substrate: Box<dyn SovereignSubstrateProvider + Send + Sync>,
     // Flag to enable visual grounding overlay
     enable_som: bool,
-    // Cache for SoM ID -> Rect mapping
+    // Cache for SoM ID -> Rect mapping.
+    // Shared with the ToolExecutor to resolve "Click #42" to coordinates.
     som_cache: Arc<Mutex<HashMap<u32, Rect>>>,
-    // [NEW] Lens Registry for Application Lenses ("LiDAR")
+    // Lens Registry for Application Lenses ("LiDAR")
     lens_registry: LensRegistry,
 }
 
@@ -49,13 +51,12 @@ impl IoiGuiDriver {
             Box::new(MockSubstrateProvider);
 
         let mut lens_registry = LensRegistry::new();
-        // [NEW] Register the React Lens by default for Electron/Web apps
         lens_registry.register(Box::new(ReactLens)); 
 
         Self {
             operator: NativeOperator::new(),
             substrate,
-            enable_som: false, // Disabled by default for clean screenshots
+            enable_som: false, 
             som_cache: Arc::new(Mutex::new(HashMap::new())),
             lens_registry,
         }
@@ -74,9 +75,20 @@ impl IoiGuiDriver {
     }
     
     // Builder method to enable Set-of-Marks overlay
-    pub fn with_som(mut self) -> Self {
-        self.enable_som = true;
+    pub fn with_som(mut self, enabled: bool) -> Self {
+        self.enable_som = enabled;
         self
+    }
+
+    /// [NEW] Manually injects a Set-of-Marks mapping into the cache.
+    /// This allows "Visual Background" mode (Tier 2) to register the locations of
+    /// elements found in a Tab Screenshot, so the Executor can resolve IDs.
+    pub fn register_som_overlay(&self, map: HashMap<u32, Rect>) {
+        let mut cache = self.som_cache.lock().unwrap();
+        // We extend the cache, allowing ID overrides if a new step re-uses numbers.
+        // In practice, the agent usually refers to the latest snapshot.
+        cache.clear();
+        cache.extend(map);
     }
 }
 
@@ -106,7 +118,6 @@ impl GuiDriver for IoiGuiDriver {
         }
 
         // 2. Fetch Accessibility Tree (Async)
-        // Correct module path for platform
         let tree = self::platform::fetch_tree_direct().await
             .map_err(|e| VmError::HostError(format!("Failed to fetch tree for SoM: {}", e)))?;
 
@@ -115,10 +126,14 @@ impl GuiDriver for IoiGuiDriver {
             .map_err(|e| VmError::HostError(format!("Image decode failed: {}", e)))?
             .to_rgba8();
 
-        let map = overlay_accessibility_tree(&mut img, &tree);
+        // Pass None for start_id to use default counter (1)
+        // [FIX] Pass (0,0) offset because this is a full-screen capture
+        let map = overlay_accessibility_tree(&mut img, &tree, None, (0, 0));
         
         {
             let mut cache = self.som_cache.lock().unwrap();
+            // In Tier 3 (Foreground), the OS Screenshot is the source of truth.
+            // We overwrite any previous Tier 2 cache.
             *cache = map;
         }
 
@@ -157,22 +172,14 @@ impl GuiDriver for IoiGuiDriver {
 
     // Implementation of the Substrate access method
     async fn capture_context(&self, intent: &ActionRequest) -> Result<ContextSlice, VmError> {
-        // [NEW] Refactored to apply Lenses *before* committing to Substrate.
-        // The NativeSubstrateProvider (platform.rs) does raw capture + storage.
-        // We need to intercept here to apply the Lens transformation.
-        
         // 1. Fetch raw tree from platform directly
-        // We bypass substrate.get_intent_constrained_slice initially to get the struct.
-        // But the trait doesn't expose the raw struct.
-        // We need to cast or access the platform fetcher directly.
-        // Since we are in the same crate, we can use the platform module helper.
         let raw_tree = self::platform::fetch_tree_direct().await
              .map_err(|e| VmError::HostError(format!("Failed to fetch raw tree: {}", e)))?;
 
         // 2. Identify Active Window for Lens Selection
         let window_title = raw_tree.name.as_deref().unwrap_or("");
 
-        // 3. Apply Lens
+        // 3. Apply Lens (Filter "Div Soup")
         let xml_content = if let Some(lens) = self.lens_registry.select(window_title) {
             log::info!("Applying Application Lens: {}", lens.name());
             if let Some(transformed) = lens.transform(&raw_tree) {
@@ -185,24 +192,9 @@ impl GuiDriver for IoiGuiDriver {
             serialize_tree_to_xml(&raw_tree, 0)
         };
 
-        // 4. Manually commit to Substrate (replicating logic from NativeSubstrateProvider)
-        // We do this here because we modified the data (Lensed XML instead of Raw XML).
-        // If we used the trait method, we'd get the raw XML.
-        // Note: Ideally, the Substrate provider should accept an optional transformer.
-        // For now, we assume `self.substrate` is `NativeSubstrateProvider` and we use its underlying SCS.
-        // Since we can't downcast easily without Any, we rely on the fact that we constructed it
-        // and we have access to `ioi_scs` types.
-        
-        // BUT: The trait `SovereignSubstrateProvider` handles the commit.
-        // To avoid code duplication, we should update the trait or provider to accept content.
-        // Given constraints, we will reconstruct the ContextSlice manually here and commit if we have the SCS handle.
-        // However, IoiGuiDriver doesn't hold the SCS handle directly in a public way, only inside the `substrate` box.
-        // Wait, `with_scs` sets `self.substrate = Box::new(NativeSubstrateProvider::new(scs))`.
-        
-        // Strategy: We will accept that for this phase, `capture_context` via `self.substrate` returns RAW data,
-        // and we overwrite the payload in the slice.
-        // This means the SCS stores the RAW data (good for audit), but the Agent sees the LENSED data.
-        
+        // 4. Manually commit to Substrate (Active Observation)
+        // We use the substrate provider to handle the storage framing,
+        // but we inject our "Lensed" XML as the content.
         let mut slice = self.substrate
             .get_intent_constrained_slice(intent, 0)
             .await
@@ -211,12 +203,6 @@ impl GuiDriver for IoiGuiDriver {
         // Replace the chunks with our Lensed XML
         slice.chunks = vec![xml_content.into_bytes()];
 
-        // Note: The slice_id and provenance proof in `slice` point to the RAW data stored in SCS.
-        // The Agent gets Lensed data. This is actually correct:
-        // - SCS stores "What really happened" (Raw Truth).
-        // - Agent sees "What matters" (Semantic View).
-        // - Provenance verifies the Raw Truth.
-        
         Ok(slice)
     }
 
@@ -239,5 +225,16 @@ impl GuiDriver for IoiGuiDriver {
         } else {
             Ok(None)
         }
+    }
+
+    // [UPDATED] Implement the trait method
+    async fn register_som_overlay(&self, map: HashMap<u32, (i32, i32, i32, i32)>) -> Result<(), VmError> {
+        let mut cache = self.som_cache.lock().unwrap();
+        cache.clear();
+        
+        for (id, (x, y, w, h)) in map {
+            cache.insert(id, Rect { x, y, width: w, height: h });
+        }
+        Ok(())
     }
 }

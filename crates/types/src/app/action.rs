@@ -59,10 +59,10 @@ pub enum ActionTarget {
 
     // --- New Browser Primitives (CDP) ---
     /// Navigate the controlled browser to a specific URL.
-    #[serde(rename = "browser::navigate")]
+    #[serde(rename = "browser__navigate")]
     BrowserNavigate,
     /// Extract the DOM or accessibility tree from the current browser page.
-    #[serde(rename = "browser::extract")]
+    #[serde(rename = "browser__extract")]
     BrowserExtract,
 
     // --- New Commerce Primitives (UCP) ---
@@ -119,6 +119,15 @@ impl ActionRequest {
         if let Some(sid) = self.context.session_id {
             data.extend_from_slice(&sid);
         }
+        
+        // [FIX] Include Target in hash to prevent semantic aliasing
+        // We use the JSON serialization of the target enum to ensure unique representation
+        if let Ok(target_bytes) = serde_json::to_vec(&self.target) {
+            data.extend_from_slice(&target_bytes);
+        }
+        
+        // [FIX] Include Agent ID to prevent cross-agent replay
+        data.extend_from_slice(self.context.agent_id.as_bytes());
 
         let digest = Sha256::digest(&data).expect("Sha256 failed");
         let mut out = [0u8; 32];

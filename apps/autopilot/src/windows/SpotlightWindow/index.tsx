@@ -88,6 +88,8 @@ export function SpotlightWindow() {
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const chatAreaRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  // [FIX] Track user scroll intention explicitly
+  const isUserAtBottomRef = useRef(true);
 
   const { task, startTask, continueTask, resetSession } = useAgentStore();
 
@@ -132,7 +134,11 @@ export function SpotlightWindow() {
 
     const handleScroll = () => {
       const { scrollTop, scrollHeight, clientHeight } = chatArea;
-      const isNearBottom = scrollHeight - scrollTop - clientHeight < 80;
+      const distFromBottom = scrollHeight - scrollTop - clientHeight;
+      const isNearBottom = distFromBottom < 100; // Threshold
+      
+      // [FIX] Update ref immediately on scroll to track intent
+      isUserAtBottomRef.current = isNearBottom;
       setShowScrollButton(!isNearBottom);
     };
 
@@ -144,18 +150,15 @@ export function SpotlightWindow() {
   const activeHistory: ChatMessage[] = (task as AgentTask | null)?.history || localHistory;
   
   useEffect(() => {
-    if (chatAreaRef.current) {
-      const { scrollTop, scrollHeight, clientHeight } = chatAreaRef.current;
-      const isNearBottom = scrollHeight - scrollTop - clientHeight < 150;
-      
-      if (isNearBottom) {
+    // [FIX] Scroll only if user was already at bottom (stick-to-bottom behavior)
+    // or if this is likely the first load (e.g. no scroll happened yet)
+    if (chatAreaRef.current && isUserAtBottomRef.current) {
         chatAreaRef.current.scrollTo({ 
           top: chatAreaRef.current.scrollHeight, 
           behavior: "smooth" 
         });
-      }
     }
-  }, [activeHistory, chatEvents]);
+  }, [activeHistory, chatEvents, task?.current_step]);
 
   const scrollToBottom = useCallback(() => {
     if (chatAreaRef.current) {
@@ -163,6 +166,9 @@ export function SpotlightWindow() {
         top: chatAreaRef.current.scrollHeight, 
         behavior: "smooth" 
       });
+      // Force state update
+      isUserAtBottomRef.current = true;
+      setShowScrollButton(false);
     }
   }, []);
 
@@ -606,9 +612,10 @@ export const myTool = new Tool({
                   totalSteps={task?.total_steps || 10}
                 />
               )}
-              
-              <ScrollToBottom visible={showScrollButton} onClick={scrollToBottom} />
             </div>
+            
+            {/* [FIX] Moved ScrollToBottom outside spot-chat to float over it correctly */}
+            <ScrollToBottom visible={showScrollButton} onClick={scrollToBottom} />
 
             {/* Input Section */}
             <div className={`spot-input-section ${inputFocused ? "focused" : ""} ${isDraggingFile ? "drag-active" : ""}`}>
