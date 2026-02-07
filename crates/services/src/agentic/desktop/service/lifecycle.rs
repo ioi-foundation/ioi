@@ -257,13 +257,107 @@ pub async fn handle_delete_session(
             state.insert(&history_key, &codec::to_bytes_canonical(&history)?)?;
         }
     }
-
-    if let Some(scs_arc) = &service.scs {
-        if let Ok(_store) = scs_arc.lock() {
-            // Placeholder for physical cleanup
-        }
+    
+    // [NEW] Trigger Cognitive Compaction on session delete/close
+    // This shreds the raw thoughts but keeps the wisdom in the overlay.
+    // Note: This is an async call that locks the SCS, so it might block briefly.
+    if let Err(e) = perform_cognitive_compaction(service, session_id).await {
+        log::warn!("Cognitive Compaction failed during session delete: {}", e);
     }
 
     log::info!("Deleted session {}", hex::encode(session_id));
+    Ok(())
+}
+
+/// [NEW] Performs the "Refactoring Notes" process:
+/// 1. Reads raw thoughts from the current epoch.
+/// 2. Summarizes them into an Overlay.
+/// 3. Rotates the epoch (Shredding the keys for raw thoughts).
+/// 4. Prunes the old epoch key explicitly.
+pub async fn perform_cognitive_compaction(
+    service: &DesktopAgentService,
+    session_id: [u8; 32],
+) -> Result<(), TransactionError> {
+    let scs_mutex = service.scs.as_ref().ok_or(TransactionError::Invalid("SCS required".into()))?;
+    
+    // 1. Retrieve Raw Thoughts (Retention::Epoch)
+    // We scan the session index for frames that are both "Thought" type and belong to the current epoch.
+    let raw_thoughts: Vec<String> = {
+        let store = scs_mutex.lock().map_err(|_| TransactionError::Invalid("SCS lock poisoned".into()))?;
+        let current_epoch = store.current_epoch;
+        
+        if let Some(frame_ids) = store.session_index.get(&session_id) {
+             frame_ids.iter()
+                .filter_map(|&fid| {
+                    let frame = store.toc.frames.get(fid as usize)?;
+                    // Only collect thoughts from the epoch we are about to shred
+                    if frame.frame_type == ioi_scs::FrameType::Thought && frame.epoch_id == current_epoch {
+                         // Attempt to read payload (will fail if key is already gone, which is fine)
+                         if let Ok(bytes) = store.read_frame_payload(fid) {
+                             // Assuming ChatMessage structure
+                             if let Ok(msg) = codec::from_bytes_canonical::<ioi_types::app::agentic::ChatMessage>(&bytes) {
+                                 return Some(format!("{}: {}", msg.role, msg.content));
+                             }
+                         }
+                    }
+                    None
+                })
+                .collect()
+        } else {
+            vec![]
+        }
+    };
+    
+    // If no new thoughts to summarize, we might still want to rotate epoch for security, 
+    // but for now let's just skip to avoid empty overlays.
+    if raw_thoughts.is_empty() { 
+        return Ok(()); 
+    }
+
+    log::info!("Cognitive Compaction: Summarizing {} thoughts...", raw_thoughts.len());
+
+    // 2. Synthesize Summary (The Overlay)
+    // Use the reasoning model (System 2) to compress the context.
+    let prompt = format!(
+        "SYSTEM: Summarize the following stream of consciousness into a concise set of facts, decisions, and skills learned.\n\
+         Discard transient errors, retries, and verbose logs. Keep only the final working logic and key outcomes.\n\n\
+         RAW LOGS:\n{:?}", 
+        raw_thoughts
+    );
+    
+    let options = ioi_types::app::agentic::InferenceOptions {
+        temperature: 0.0,
+        ..Default::default()
+    };
+    
+    // Use zero hash for model ID
+    let summary_bytes = service.reasoning_inference.execute_inference(
+        [0u8; 32], prompt.as_bytes(), options
+    ).await.map_err(|e| TransactionError::Invalid(format!("Compaction inference failed: {}", e)))?;
+
+    // 3. Write Overlay Frame (Retention::Archival)
+    {
+        let mut store = scs_mutex.lock().map_err(|_| TransactionError::Invalid("SCS lock poisoned".into()))?;
+        
+        // Append frame with Archival retention - this survives key shredding
+        let _overlay_id = store.append_frame(
+            ioi_scs::FrameType::Overlay,
+            &summary_bytes,
+            0, // Block height (could fetch from context if available, using 0 for now)
+            [0u8; 32], // mHNSW root placeholder
+            session_id,
+            ioi_scs::RetentionClass::Archival // <--- SAVED FOREVER
+        ).map_err(|e| TransactionError::Invalid(e.to_string()))?;
+        
+        // 4. Rotate Epoch (Generates new key, archives Manifest)
+        let _manifest = store.rotate_epoch().map_err(|e| TransactionError::Invalid(e.to_string()))?;
+        
+        // 5. Explicitly prune the old epoch key to enforce forward secrecy
+        // The previous epoch is `current_epoch - 1` after rotation.
+        let old_epoch = store.current_epoch.saturating_sub(1);
+        store.prune_epoch(old_epoch);
+    }
+    
+    log::info!("Cognitive Compaction Complete: Epoch rotated, raw thoughts shredded, Overlay preserved.");
     Ok(())
 }

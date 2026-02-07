@@ -9,6 +9,9 @@ use ioi_types::app::agentic::LlmToolDefinition;
 use ioi_types::error::TransactionError;
 use ioi_drivers::mcp::compression::ContextCompressor;
 use ioi_drivers::gui::som::overlay_accessibility_tree;
+use ioi_drivers::gui::accessibility::{merge_trees, Rect};
+use ioi_drivers::gui::platform::fetch_tree_direct;
+
 use std::path::Path;
 use base64::{engine::general_purpose::STANDARD as BASE64, Engine as _};
 use std::io::Cursor;
@@ -47,7 +50,6 @@ pub async fn gather_context(
     // Update state tracking
     agent_state.current_tier = current_tier;
     
-    // Calculate visual hash for interlock
     let visual_phash = if let Some(b64) = &base64_image {
         let bytes = BASE64.decode(b64).unwrap_or_default();
         compute_phash(&bytes).unwrap_or([0u8; 32])
@@ -58,11 +60,7 @@ pub async fn gather_context(
     // 2. Passive Context Injection
     let workspace_path = Path::new(&service.workspace_path);
     let agents_md_path = workspace_path.join("AGENTS.md");
-
-    // Project Index
     let project_index = ContextCompressor::generate_tree_index(workspace_path, 4);
-
-    // AGENTS.md
     let agents_md_content = if agents_md_path.exists() {
         std::fs::read_to_string(&agents_md_path).unwrap_or_default()
     } else {
@@ -80,7 +78,7 @@ pub async fn gather_context(
         service.scs.as_deref(), 
         &agent_state.goal, 
         tools_runtime,
-        current_tier // [FIX] Pass current tier to filter tools
+        current_tier 
     ).await;
 
     let tool_desc = tools.iter().map(|t| format!("- {}: {}", t.name, t.description)).collect::<Vec<_>>().join("\n");
@@ -101,10 +99,6 @@ pub async fn gather_context(
 async fn capture_background_visuals(service: &DesktopAgentService) -> Result<(Option<String>, ExecutionTier, String), TransactionError> {
     match service.browser.capture_tab_screenshot().await {
         Ok(raw_bytes) => {
-            // [NEW] Hybrid SoM Fusion for Background Mode
-            // We need to fetch the accessibility tree to overlay marks.
-            
-            // 1. Get window info to calculate offset
             let active_window_info = service.os_driver.as_ref()
                 .ok_or(TransactionError::Invalid("OS Driver missing".into()))?
                 .get_active_window_info().await.map_err(|e| TransactionError::Invalid(e.to_string()))?;
@@ -117,52 +111,106 @@ async fn capture_background_visuals(service: &DesktopAgentService) -> Result<(Op
             if let Some(win) = &active_window_info {
                 if win.app_name.to_lowercase().contains("chrome") || win.app_name.to_lowercase().contains("firefox") {
                     wins = win.title.clone();
-                    // Fetch Browser DOM (which is screen-relative)
                     if let Ok(dom_tree) = service.browser.get_visual_tree().await {
-                        // Heuristic for Chrome UI height (URL bar, tabs)
                         let chrome_ui_height = if cfg!(target_os = "macos") { 80 } else { 115 };
-                        
                         let offset_x = win.x;
                         let offset_y = win.y + chrome_ui_height;
                         
-                        // Overlay & Register
                         let dom_map = overlay_accessibility_tree(&mut img, &dom_tree, Some(1), (offset_x, offset_y));
-                        
                         let api_map: std::collections::HashMap<u32, (i32, i32, i32, i32)> = dom_map.into_iter()
                             .map(|(k, r)| (k, (r.x, r.y, r.width, r.height)))
                             .collect();
-                            
                         if let Err(e) = service.gui.register_som_overlay(api_map).await {
                             log::warn!("Failed to register SoM overlay: {}", e);
                         }
                     }
                 }
             }
-            
-            // Compress for LLM
             let resized = image::DynamicImage::ImageRgba8(img).resize(1024, 1024, image::imageops::FilterType::Lanczos3);
             let mut buf = Vec::new();
             resized.write_to(&mut Cursor::new(&mut buf), ImageFormat::Jpeg).map_err(|e| TransactionError::Invalid(e.to_string()))?;
 
             Ok((Some(BASE64.encode(&buf)), ExecutionTier::VisualBackground, wins))
         },
-        Err(_) => {
-             // Fallback to Tier 3 if tab capture fails (e.g. browser not open)
-             capture_foreground_visuals(service).await
-        }
+        Err(_) => capture_foreground_visuals(service).await
     }
 }
 
 async fn capture_foreground_visuals(service: &DesktopAgentService) -> Result<(Option<String>, ExecutionTier, String), TransactionError> {
-    // capture_screen() handles overlay and registration internally for full screen mode.
-    let raw_img = service.gui.capture_screen().await.map_err(|e| {
-        TransactionError::Invalid(format!("Visual capture failed: {}", e))
-    })?;
-    
+    // 1. Get Window Info for Smart Cropping
     let active_window_info = service.os_driver.as_ref()
             .ok_or(TransactionError::Invalid("OS Driver missing".into()))?
             .get_active_window_info().await.map_err(|e| TransactionError::Invalid(e.to_string()))?;
     
-    let title = active_window_info.map(|w| w.title).unwrap_or("Desktop".into());
-    Ok((Some(BASE64.encode(&raw_img)), ExecutionTier::VisualForeground, title))
+    // 2. Capture Raw Screen
+    // [MODIFIED] Use raw capture, not the SoM-processed one from GuiDriver, so we can fuse.
+    let raw_bytes = service.gui.capture_raw_screen().await.map_err(|e| {
+        TransactionError::Invalid(format!("Visual capture failed: {}", e))
+    })?;
+
+    let mut img = image::load_from_memory(&raw_bytes)
+        .map_err(|e| TransactionError::Invalid(e.to_string()))?.to_rgba8();
+
+    // 3. Fetch OS Tree
+    let mut os_tree = fetch_tree_direct().await.unwrap_or_else(|_| ioi_drivers::gui::accessibility::AccessibilityNode {
+         id: "root".into(), role: "root".into(), name: None, value: None, rect: Rect { x:0, y:0, width:0, height:0 }, children: vec![], is_visible: true, attributes: Default::default()
+    });
+
+    // 4. Fetch Browser DOM & Fuse (if browser is active)
+    let title = active_window_info.as_ref().map(|w| w.title.clone()).unwrap_or("Desktop".into());
+    let mut offset = (0, 0);
+
+    if let Some(win) = &active_window_info {
+         if win.app_name.to_lowercase().contains("chrome") || win.app_name.to_lowercase().contains("firefox") {
+              if let Ok(dom_tree) = service.browser.get_visual_tree().await {
+                  // Heuristic: browser content offset inside window
+                  let chrome_ui_height = if cfg!(target_os = "macos") { 80 } else { 115 };
+                  let browser_offset_x = 0;
+                  let browser_offset_y = chrome_ui_height;
+                  
+                  // Fuse!
+                  os_tree = merge_trees(os_tree, dom_tree, &win.app_name, (win.x + browser_offset_x, win.y + browser_offset_y));
+              }
+         }
+    }
+
+    // 5. Apply SoM Overlay
+    let crop_rect = active_window_info.as_ref().map(|w| (w.x, w.y, w.width as u32, w.height as u32));
+    
+    // Apply crop if needed (re-implement crop logic here or rely on full screen)
+    // For VLM context, cropping to active window is usually better.
+    if let Some((x, y, w, h)) = crop_rect {
+         // ... cropping logic (same as GuiDriver) ...
+         let img_w = img.width();
+         let img_h = img.height();
+         let cx = x.max(0) as u32;
+         let cy = y.max(0) as u32;
+         if cx < img_w && cy < img_h {
+              let cw = w.min(img_w - cx);
+              let ch = h.min(img_h - cy);
+              if cw > 0 && ch > 0 {
+                  use image::imageops::crop;
+                  img = crop(&mut img, cx, cy, cw, ch).to_image();
+                  offset = (x, y);
+              }
+         }
+    }
+
+    // Overlay
+    let dom_map = overlay_accessibility_tree(&mut img, &os_tree, Some(1), offset);
+    
+    // Register map
+    let api_map: std::collections::HashMap<u32, (i32, i32, i32, i32)> = dom_map.into_iter()
+        .map(|(k, r)| (k, (r.x, r.y, r.width, r.height)))
+        .collect();
+    if let Err(e) = service.gui.register_som_overlay(api_map).await {
+         log::warn!("Failed to register fused SoM overlay: {}", e);
+    }
+
+    // 6. Encode
+    let mut buf = Vec::new();
+    img.write_to(&mut Cursor::new(&mut buf), ImageFormat::Png)
+         .map_err(|e| TransactionError::Invalid(e.to_string()))?;
+    
+    Ok((Some(BASE64.encode(&buf)), ExecutionTier::VisualForeground, title))
 }

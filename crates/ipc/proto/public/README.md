@@ -25,4 +25,4 @@ This directory defines the user-facing API exposed by the **Orchestrator**. It s
     *   `GhostInput`: User physical inputs (mouse/keyboard events).
 
 #### Intent Resolution
-*   **`DraftTransaction`**: The "God Mode" feature. Accepts a natural language string (e.g., "Send 50 tokens to Bob"), uses the local LLM to resolve it into a valid transaction payload, and returns the unsigned bytes for user review and signing.
+*   **`DraftTransaction`**: Accepts a natural language string (e.g., "Send 50 tokens to Bob"), uses the local LLM to resolve it into a valid transaction payload, and returns the unsigned bytes for user review and signing.

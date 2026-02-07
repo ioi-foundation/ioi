@@ -2,7 +2,6 @@
 
 use parity_scale_codec::{Decode, Encode};
 use serde::{Deserialize, Serialize};
-// [FIX] Import HashFunction trait so Sha256::digest is available
 use dcrypt::algorithms::hash::HashFunction;
 use crate::app::SignatureSuite;
 
@@ -52,7 +51,7 @@ pub enum ActionTarget {
     #[serde(rename = "gui::scroll")]
     GuiScroll,
 
-    /// [NEW] Execute a composite input sequence (e.g. Drag, Key Chord).
+    /// Execute a composite input sequence (e.g. Drag, Key Chord).
     /// This targets batch operations for atomic execution.
     #[serde(rename = "gui::sequence")]
     GuiSequence,
@@ -75,6 +74,17 @@ pub enum ActionTarget {
     /// High-risk: involves injecting payment tokens. Firewall MUST enforce spend limits.
     #[serde(rename = "ucp::checkout")]
     CommerceCheckout,
+
+    // --- OS Control Primitives ---
+    /// Focus a window by title.
+    #[serde(rename = "os::focus")]
+    WindowFocus,
+    /// Read from the system clipboard.
+    #[serde(rename = "clipboard::read")]
+    ClipboardRead,
+    /// Write to the system clipboard.
+    #[serde(rename = "clipboard::write")]
+    ClipboardWrite,
 
     /// Catch-all for application-specific or plugin-defined actions.
     Custom(String),
@@ -120,13 +130,13 @@ impl ActionRequest {
             data.extend_from_slice(&sid);
         }
         
-        // [FIX] Include Target in hash to prevent semantic aliasing
+        // Include Target in hash to prevent semantic aliasing
         // We use the JSON serialization of the target enum to ensure unique representation
         if let Ok(target_bytes) = serde_json::to_vec(&self.target) {
             data.extend_from_slice(&target_bytes);
         }
         
-        // [FIX] Include Agent ID to prevent cross-agent replay
+        // Include Agent ID to prevent cross-agent replay
         data.extend_from_slice(self.context.agent_id.as_bytes());
 
         let digest = Sha256::digest(&data).expect("Sha256 failed");

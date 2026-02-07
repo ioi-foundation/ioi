@@ -21,6 +21,16 @@ pub trait OsDriver: Send + Sync {
     /// Returns `None` if the active window cannot be determined.
     async fn get_active_window_title(&self) -> Result<Option<String>, VmError>;
 
-    /// [NEW] Retrieves detailed info about the active window.
+    /// Retrieves detailed info about the active window.
     async fn get_active_window_info(&self) -> Result<Option<WindowInfo>, VmError>;
+
+    /// Focuses a window by matching its title (fuzzy match).
+    /// Returns `true` if a matching window was found and focus was requested.
+    async fn focus_window(&self, title_query: &str) -> Result<bool, VmError>;
+
+    /// Writes text to the system clipboard.
+    async fn set_clipboard(&self, content: &str) -> Result<(), VmError>;
+
+    /// Reads text from the system clipboard.
+    async fn get_clipboard(&self) -> Result<String, VmError>;
 }

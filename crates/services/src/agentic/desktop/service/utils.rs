@@ -4,16 +4,16 @@ use super::DesktopAgentService;
 use crate::agentic::desktop::keys::{TRACE_PREFIX, SKILL_INDEX_PREFIX};
 use crate::agentic::desktop::types::{AgentState, AgentStatus};
 use ioi_api::state::StateAccess;
-// [FIX] Removed unused ByteSerializable
 use ioi_types::app::agentic::{AgentSkill, StepTrace, SemanticFact, AgentMacro}; 
 use ioi_types::codec;
 use ioi_types::error::TransactionError;
-use ioi_scs::FrameType;
+// [FIX] Added RetentionClass import
+use ioi_scs::{FrameType, RetentionClass};
 use ioi_types::app::agentic::ChatMessage;
 use crate::agentic::normaliser::OutputNormaliser; 
 use ioi_types::app::KernelEvent; 
 use std::time::{SystemTime, UNIX_EPOCH};
-use serde_json::Value; // [NEW] Import for JSON interpolation
+use serde_json::Value;
 
 impl DesktopAgentService {
     // Searches the state for skills that match the agent's goal.
@@ -43,13 +43,11 @@ impl DesktopAgentService {
         Ok(relevant_skills)
     }
 
-    /// [UPDATED] Hybrid Retrieval of Episodic Memory
-    /// Returns context pointers and the top-1 snippet to reduce context bloat.
-    /// This replaces the previous `retrieve_context` which injected full content.
+    /// Hybrid Retrieval of Episodic Memory
     pub(crate) async fn retrieve_context_hybrid(
         &self, 
         query: &str, 
-        visual_phash: Option<[u8; 32]>
+        _visual_phash: Option<[u8; 32]> // [FIX] Prefixed unused variable with underscore
     ) -> String {
         let scs_mutex = match &self.scs {
             Some(m) => m,
@@ -117,9 +115,6 @@ impl DesktopAgentService {
         for (i, (frame_id, distance, f_type, _)) in matches.iter().enumerate() {
             if *distance > 0.35 { continue; } // Relevance threshold
 
-            // Read metadata only for list
-            // For MVP we read payload, but in prod we'd read header only.
-            // Since we don't have separate header read yet, we read payload and truncate.
             if let Ok(payload) = scs.read_frame_payload(*frame_id) {
                  if let Ok(text) = String::from_utf8(payload.to_vec()) {
                      let confidence = (1.0 - distance) * 100.0;
@@ -155,13 +150,9 @@ impl DesktopAgentService {
         }
         match state.last_action_type.as_deref() {
             Some("gui__click") | Some("gui__type") => {
-                // [FIX] Only use fast_inference if it's NOT the Mock runtime (unless reasoning is also mock)
-                // We assume if they are the same Arc pointer, it's the same config
                 if std::sync::Arc::ptr_eq(&self.fast_inference, &self.reasoning_inference) {
                     self.fast_inference.clone()
                 } else {
-                    // In a real impl, we might check a "ready" flag. 
-                    // For now, assume if fast_inference was configured separately, we use it.
                     self.fast_inference.clone()
                 }
             },
@@ -225,6 +216,8 @@ impl DesktopAgentService {
                 block_height,
                 [0u8; 32], 
                 session_id,
+                // [FIX] Added retention policy (Ephemeral for thoughts)
+                RetentionClass::Ephemeral,
             ).map_err(|e| TransactionError::Invalid(format!("Internal: {}", e)))?;
             
             let frame = store.toc.frames.get(id as usize)
@@ -289,7 +282,8 @@ impl DesktopAgentService {
                     let payload = store.read_frame_payload(id)
                         .map_err(|e| TransactionError::Invalid(format!("Internal: {}", e)))?;
                     
-                    if let Ok(msg) = codec::from_bytes_canonical::<ChatMessage>(payload) {
+                    // [FIX] Borrow payload (&payload)
+                    if let Ok(msg) = codec::from_bytes_canonical::<ChatMessage>(&payload) {
                         history.push(msg);
                     }
                 }
@@ -320,7 +314,8 @@ impl DesktopAgentService {
                     let payload = store.read_frame_payload(id)
                         .map_err(|e| TransactionError::Invalid(format!("Internal: {}", e)))?;
                     
-                    if let Ok(trace) = codec::from_bytes_canonical::<StepTrace>(payload) {
+                    // [FIX] Borrow payload (&payload)
+                    if let Ok(trace) = codec::from_bytes_canonical::<StepTrace>(&payload) {
                         if !trace.success {
                             failures.push(trace);
                         }
@@ -332,22 +327,15 @@ impl DesktopAgentService {
         Ok(failures)
     }
 
-    // [NEW] Fetch a specific skill macro by its tool name.
     pub(crate) fn fetch_skill_macro(
         &self,
         tool_name: &str,
     ) -> Option<AgentMacro> {
-        // Access SCS to find the skill
         if let Some(store_mutex) = &self.scs {
             if let Ok(store) = store_mutex.lock() {
-                // In a real optimized system, we'd have a name->hash index.
-                // For now, we scan the loaded skill cache or re-scan skills.
-                // Since `discover_tools` scans, we can reuse that logic or optimize.
-                // Here we linear scan the skill payloads for exact name match.
                 let payloads = store.scan_skills();
                 for p in payloads {
                     if let Ok(skill) = codec::from_bytes_canonical::<AgentMacro>(&p) {
-                         // Check if tool name matches (handling namespacing if necessary)
                          if skill.definition.name == tool_name || skill.definition.name.ends_with(&format!("__{}", tool_name)) {
                              return Some(skill);
                          }
@@ -380,7 +368,6 @@ impl DesktopAgentService {
 
             let mut new_step = step.clone();
             new_step.params = new_params;
-            // Ensure nonce/context are reset or set by caller context later
             new_step.nonce = 0; 
             
             expanded_steps.push(new_step);
@@ -392,7 +379,6 @@ impl DesktopAgentService {
     fn interpolate_values(target: &mut Value, args: &serde_json::Map<String, Value>) {
         match target {
             Value::String(s) => {
-                // Check for exact matches first: "{{arg}}" -> replace with type-preserved value
                 if s.starts_with("{{") && s.ends_with("}}") {
                     let key = &s[2..s.len()-2];
                     if let Some(val) = args.get(key) {
@@ -400,8 +386,6 @@ impl DesktopAgentService {
                         return;
                     }
                 }
-                // Partial interpolation (string only): "Hello {{name}}"
-                // (Implementation omitted for brevity, assuming full replacement for params)
             },
             Value::Array(arr) => {
                 for item in arr {
@@ -465,24 +449,23 @@ pub fn goto_trace_log(
         agent_state.consecutive_failures = 0;
     }
 
-    // [FIX] Removed automatic step increment here.
-    // The caller (action.rs) handles incrementing if not gated.
-    // agent_state.step_count += 1;
+    // [FIX] REMOVED: agent_state.step_count += 1;
+    // The step count increment is now handled by the caller (action.rs / queue.rs)
+    // to ensure we don't advance the nonce while waiting for a Policy Gate.
 
     agent_state.last_action_type = Some(action_type);
 
     if agent_state.step_count >= agent_state.max_steps && agent_state.status == AgentStatus::Running {
-        // [FIX] Only complete if queue is also empty
-        if agent_state.execution_queue.is_empty() {
-             agent_state.status = AgentStatus::Completed(None);
-             if let Some(tx) = &event_sender {
-                  let _ = tx.send(KernelEvent::AgentActionResult {
-                      session_id: session_id, 
-                      step_index: agent_state.step_count,
-                      tool_name: "system::max_steps_reached".to_string(),
-                      output: "Max steps reached. Task completed.".to_string(),
-                  });
-             }
+        agent_state.status = AgentStatus::Completed(None);
+        
+        // Emit completion event so UI knows to stop when max steps reached
+        if let Some(tx) = &event_sender {
+             let _ = tx.send(KernelEvent::AgentActionResult {
+                 session_id: session_id, 
+                 step_index: agent_state.step_count,
+                 tool_name: "system::max_steps_reached".to_string(),
+                 output: "Max steps reached. Task completed.".to_string(),
+             });
         }
     }
 

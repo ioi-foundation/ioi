@@ -101,6 +101,7 @@ pub fn run() {
                 SovereignContextStore::create(&scs_path, StoreConfig {
                     chain_id: 0,
                     owner_id: [0u8; 32], 
+                    identity_key: [0u8; 32], // [FIX] Field added (Dummy key for Studio)
                 }).ok()
             };
 

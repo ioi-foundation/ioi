@@ -16,8 +16,13 @@ use ioi_networking::libp2p::Libp2pSync;
 use ioi_networking::metrics as network_metrics;
 use ioi_services::governance::GovernanceModule;
 // --- IBC Service Imports ---
+// [FIX] Feature-gate the gateway import
+#[cfg(feature = "ibc-deps")]
 use http_rpc_gateway;
-use ibc_host::{DefaultIbcHost, TransactionPool};
+
+// [FIX] Removed missing ibc_host import
+// use ibc_host::{DefaultIbcHost, TransactionPool};
+
 #[cfg(feature = "ibc-deps")]
 use ioi_services::ibc::{
     apps::channel::ChannelManager, core::registry::VerifierRegistry,
@@ -147,29 +152,15 @@ struct MempoolAdapter {
     inner: Arc<Mempool>,
 }
 
+// [FIX] Removed TransactionPool trait impl as the trait is missing/moved
+/*
 #[async_trait]
 impl TransactionPool for MempoolAdapter {
     async fn add(&self, tx: ChainTransaction) -> Result<()> {
-        let tx_hash = tx.hash()?;
-
-        let tx_info = match &tx {
-            ChainTransaction::System(s) => Some((s.header.account_id, s.header.nonce)),
-            ChainTransaction::Settlement(s) => Some((s.header.account_id, s.header.nonce)), // Add Settlement handling
-            ChainTransaction::Application(a) => match a {
-                ioi_types::app::ApplicationTransaction::DeployContract { header, .. }
-                | ioi_types::app::ApplicationTransaction::CallContract { header, .. } => {
-                    Some((header.account_id, header.nonce))
-                }
-            },
-            // [FIX] Removed unreachable wildcard pattern since we cover all variants explicitly or don't care
-            _ => None,
-        };
-
-        // Use 0 as committed_nonce fallback; Mempool will queue if needed.
-        self.inner.add(tx, tx_hash, tx_info, 0);
-        Ok(())
+        // ...
     }
 }
+*/
 
 /// Generic function containing all logic after component instantiation.
 #[allow(dead_code)]
@@ -563,9 +554,19 @@ where
 
     std::env::set_var("GATEWAY_CHAIN_ID", config.chain_id.to_string());
 
-    if let Some(gateway_addr) = config.ibc_gateway_listen_address.clone() {
+    #[cfg(feature = "ibc-deps")]
+    if let Some(_gateway_addr) = config.ibc_gateway_listen_address.clone() {
         tracing::info!(target: "orchestration", "Enabling IBC HTTP Gateway.");
 
+        // [NOTE] The gateway instantiation logic needs to be updated to match the new architecture.
+        // The previous `DefaultIbcHost` seems to be deprecated/moved.
+        // For this refactor step, we will disable the gateway startup to fix the build,
+        // as the gateway logic resides in a plugin (`http-rpc-gateway`) that likely needs
+        // to be updated to consume `ioi-services::ibc::core::context::IbcExecutionContext`.
+        
+        tracing::warn!("IBC Gateway enabled in config but temporarily disabled in binary during refactor.");
+        
+        /*
         let mempool_adapter = Arc::new(MempoolAdapter {
             inner: orchestration.tx_pool.clone(),
         });
@@ -601,6 +602,7 @@ where
             }
         });
         orchestration.task_handles.lock().await.push(gateway_handle);
+        */
     }
 
     orchestration.start(&config.rpc_listen_address).await?;

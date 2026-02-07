@@ -104,9 +104,17 @@ async fn main() -> Result<()> {
 
     // 2. SCS Setup
     let scs_path = opts.data_dir.join("context.scs");
+
+    // [FIX] Derive identity key from the local node key for SCS encryption
+    let ed_kp = local_key.clone().try_into_ed25519()
+        .map_err(|_| anyhow!("SCS requires Ed25519 key in local mode"))?;
+    let mut identity_key = [0u8; 32];
+    identity_key.copy_from_slice(ed_kp.secret().as_ref());
+
     let scs_config = StoreConfig {
         chain_id: 0,
         owner_id: local_account_id.0,
+        identity_key, // [FIX] Field added
     };
     let scs = if scs_path.exists() {
         println!("Opening existing Sovereign Context Substrate at {:?}", scs_path);

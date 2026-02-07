@@ -24,6 +24,8 @@ pub enum OptimizationStrategy {
     CodeMutation,
     /// A combination or unspecified strategy.
     Hybrid,
+    /// Immediate runtime patch for a stuck agent.
+    Hotfix,
 }
 
 /// A receipt proving that a mutation occurred and was verified.

@@ -36,8 +36,6 @@ reqwest = { version = "0.11", features = ["json", "stream"] }
 [dev-dependencies]
 rand = { workspace = true }
 futures-util = { workspace = true }
-# [FIX] Allow tests to use the mock commitment helpers
-ioi-test-utils = { path = "../test_utils" }
 
 [features]
 default = []

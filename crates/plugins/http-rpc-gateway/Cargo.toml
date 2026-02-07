@@ -1,17 +1,18 @@
-# Path: crates/http-rpc-gateway/Cargo.toml
+# Path: crates/plugins/http-rpc-gateway/Cargo.toml
 [package]
 name = "http-rpc-gateway"
 version = "0.1.0"
 edition = "2021"
 description = "HTTP JSON-RPC gateway for the IOI Kernel's IBC host"
-license-file = "../../LICENSE-BBSL"
+license-file = "../../../LICENSE-BBSL"
 repository = "https://github.com/ioi-foundation/ioi"
 
 [dependencies]
-ioi-api = { path = "../api" }
-ioi-types = { path = "../types" }
-ibc-host = { path = "../ibc-host" }
-ioi-state = { path = "../state" }
+# [FIX] Relative paths updated for plugins directory depth
+ioi-api = { path = "../../api" }
+ioi-types = { path = "../../types" }
+transport-verifier = { path = "../transport-verifier" } # Sibling plugin
+ioi-state = { path = "../../state" }
 
 anyhow = { workspace = true }
 axum = { workspace = true }
@@ -38,11 +39,11 @@ parity-scale-codec = { workspace = true, features = ["derive", "std"] }
 
 [dev-dependencies]
 anyhow = { workspace = true }
-ioi-state = { path = "../state", features = ["state-iavl"] }
-ioi-types = { path = "../types" }
-ioi-crypto = { path = "../crypto" }
-ioi-api = { path = "../api" }
-ibc-host = { path = "../ibc-host" }
+ioi-state = { path = "../../state", features = ["state-iavl"] }
+ioi-types = { path = "../../types" }
+ioi-crypto = { path = "../../crypto" }
+ioi-api = { path = "../../api" }
+transport-verifier = { path = "../transport-verifier" }
 ibc-proto = { workspace = true, features = ["serde"] }
 ics23 = { workspace = true }
 parity-scale-codec = { workspace = true, features = ["derive", "std"] }

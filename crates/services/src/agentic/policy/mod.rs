@@ -61,15 +61,19 @@ impl PolicyEngine {
             ActionTarget::GuiScreenshot => "gui::screenshot",
             ActionTarget::GuiScroll => "gui::scroll",
             
-            // [NEW] Map Sequence target
             ActionTarget::GuiSequence => "gui::sequence",
             
             ActionTarget::BrowserNavigate => "browser::navigate",
             ActionTarget::BrowserExtract => "browser::extract",
 
-            // [NEW] UCP Support
+            // UCP Support
             ActionTarget::CommerceDiscovery => "ucp::discovery",
             ActionTarget::CommerceCheckout => "ucp::checkout",
+
+            // [NEW] OS Control Primitives
+            ActionTarget::WindowFocus => "os::focus",
+            ActionTarget::ClipboardRead => "clipboard::read",
+            ActionTarget::ClipboardWrite => "clipboard::write",
 
             ActionTarget::Custom(s) => s.as_str(),
         };
@@ -88,7 +92,6 @@ impl PolicyEngine {
         match rules.defaults {
             DefaultPolicy::AllowAll => Verdict::Allow,
             DefaultPolicy::DenyAll => Verdict::Block,
-            // [NEW] If no rule matches, default to asking the user (Interactive Mode)
             DefaultPolicy::RequireApproval => Verdict::RequireApproval,
         }
     }
@@ -134,15 +137,12 @@ impl PolicyEngine {
                         }
                     }
                 }
-                
-                // If the command is safe, we continue to check other generic conditions below.
-                // If there are no other conditions, we return true at the end.
             } else {
                 return false; // Failed to parse params
             }
         }
 
-        // [FIX] Filesystem Path Check
+        // Filesystem Path Check
         if let Some(allowed_paths) = &conditions.allow_paths {
             if let ActionTarget::FsWrite | ActionTarget::FsRead = target {
                 if let Ok(json) = serde_json::from_slice::<Value>(params) {
@@ -162,19 +162,50 @@ impl PolicyEngine {
             }
         }
 
-        // 1. Context Check: Allowed Apps (GUI Isolation)
+        // 1. Context Check: Allowed Apps (GUI Isolation & Spatial Bounds)
         if let Some(allowed_apps) = &conditions.allow_apps {
             match target {
                 ActionTarget::GuiClick | ActionTarget::GuiType | ActionTarget::GuiScroll | ActionTarget::GuiSequence => {
                     // Use the injected OS driver instead of mock
-                    let active_app_opt = os_driver.get_active_window_title().await.unwrap_or(None);
+                    let active_app_opt = os_driver.get_active_window_info().await.unwrap_or(None);
                     
-                    if let Some(active_app) = active_app_opt {
-                        let is_allowed = allowed_apps.iter().any(|app| active_app.contains(app));
-                        if !is_allowed {
-                            tracing::warn!("Policy Violation: Blocked interaction with window '{}'", active_app);
+                    if let Some(win) = active_app_opt {
+                        // A. App Name Check
+                        let is_allowed_app = allowed_apps.iter().any(|app| win.title.contains(app) || win.app_name.contains(app));
+                        if !is_allowed_app {
+                            tracing::warn!("Policy Violation: Blocked interaction with window '{}'", win.title);
                             // If condition fails (app not allowed), the rule (e.g., Allow) should NOT apply.
                             return false;
+                        }
+
+                        // B. Spatial Bounds Check (Click-Jacking Prevention)
+                        // If we are clicking, verify the coordinates are INSIDE the active window.
+                        if let ActionTarget::GuiClick = target {
+                            if let Ok(json) = serde_json::from_slice::<Value>(params) {
+                                // Coords might be x/y directly or inside 'coordinate' array for computer usage tool
+                                let (x, y) = if let (Some(x_val), Some(y_val)) = (json.get("x"), json.get("y")) {
+                                     (x_val.as_u64(), y_val.as_u64())
+                                } else if let Some(coord) = json.get("coordinate").and_then(|c| c.as_array()) {
+                                     if coord.len() == 2 {
+                                         (coord[0].as_u64(), coord[1].as_u64())
+                                     } else { (None, None) }
+                                } else { (None, None) };
+                                
+                                if let (Some(cx), Some(cy)) = (x, y) {
+                                    let win_x = win.x as i64;
+                                    let win_y = win.y as i64;
+                                    let win_w = win.width as i64;
+                                    let win_h = win.height as i64;
+                                    let click_x = cx as i64;
+                                    let click_y = cy as i64;
+
+                                    if click_x < win_x || click_x > win_x + win_w || click_y < win_y || click_y > win_y + win_h {
+                                         tracing::warn!("Policy Violation: Click at ({}, {}) is OUTSIDE active window '{}' bounds ({}, {}, {}, {})", 
+                                             click_x, click_y, win.title, win_x, win_y, win_w, win_h);
+                                         return false;
+                                    }
+                                }
+                            }
                         }
                     } else {
                         // If we can't determine the window, fail closed for safety
@@ -266,6 +297,20 @@ impl PolicyEngine {
             }
         }
 
+        // [NEW] 6. Clipboard Policy (DLP)
+        if let ActionTarget::ClipboardWrite = target {
+            if let Ok(json) = serde_json::from_slice::<Value>(params) {
+                 if let Some(text) = json.get("content").and_then(|t| t.as_str()) {
+                      // Check for PII in clipboard data
+                      let classification = safety_model.classify_intent(text).await.unwrap_or(SafetyVerdict::Safe);
+                      if let SafetyVerdict::ContainsPII = classification {
+                          tracing::warn!("Policy Blocking Clipboard Write: PII detected.");
+                          return false;
+                      }
+                 }
+            }
+        }
+
         // Default: If no specific conditions failed (or if there were no conditions set in the rule),
         // then the rule matches. This enables "Catch-All" rules where conditions are None/Default.
         true
@@ -316,22 +361,12 @@ impl PolicyEngine {
         Ok(())
     }
 
-    // -------------------------------------------------------------------------
-    // [NEW] The Safety Ratchet (Evolutionary Filter)
-    // -------------------------------------------------------------------------
-    
     /// Validates that a proposed policy mutation is monotonic (i.e., strictly safer or equal).
     /// Used by the Optimizer Service during Recursive Self-Improvement cycles.
-    ///
-    /// # Rules
-    /// 1. Budget cannot increase.
-    /// 2. Network Allowlist cannot expand (must be a subset).
-    /// 3. Human Gate requirement cannot be removed.
     pub fn validate_safety_ratchet(old_policy: &ActionRules, new_policy: &ActionRules) -> Result<(), String> {
         let old_caps = Self::extract_caps(old_policy);
         let new_caps = Self::extract_caps(new_policy);
 
-        // 1. Budget Constraint
         if new_caps.budget_cap > old_caps.budget_cap {
              return Err(format!(
                  "Mutation rejected: Attempted to increase budget cap from {} to {}.", 
@@ -339,7 +374,6 @@ impl PolicyEngine {
              ));
         }
 
-        // 2. Network Constraint (Subset Check)
         for domain in &new_caps.network_allowlist {
             if !old_caps.network_allowlist.contains(domain) {
                  return Err(format!(
@@ -349,7 +383,6 @@ impl PolicyEngine {
             }
         }
 
-        // 3. Gate Constraint
         if old_caps.require_human_gate && !new_caps.require_human_gate {
              return Err("Mutation rejected: Attempted to remove Human Gate requirement.".into());
         }
@@ -363,22 +396,14 @@ impl PolicyEngine {
         let mut network = Vec::new();
         let mut gate = false;
 
-        // Iterate rules to find constraints.
-        // This is a heuristic extraction for the ratchet check.
         for rule in &rules.rules {
-            // Budget
             if let Some(spend) = rule.conditions.max_spend {
-                // If multiple rules have limits, we take the MAX observed as the effective cap for comparison
-                // (or sum them if additive, but usually it's per-action). 
-                // For safety, let's assume the tightest constraint, but here we track the *allowance*.
-                // Let's take the max allowance found.
-                let amount = spend as f64 / 1000.0; // Convert back to currency units if needed or keep raw
+                let amount = spend as f64 / 1000.0; 
                 if amount > budget {
                     budget = amount;
                 }
             }
 
-            // Network
             if let Some(domains) = &rule.conditions.allow_domains {
                 for d in domains {
                     if !network.contains(d) {
@@ -387,13 +412,11 @@ impl PolicyEngine {
                 }
             }
 
-            // Gate
             if rule.action == Verdict::RequireApproval {
                 gate = true;
             }
         }
         
-        // Handle defaults
         if rules.defaults == DefaultPolicy::RequireApproval {
             gate = true;
         }

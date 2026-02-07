@@ -1691,7 +1691,6 @@ export const PublicApiService = {
   },
   /**
    * [NEW] Converts a natural language intent into a signable transaction payload.
-   * This powers the "God Mode" search bar in the GUI.
    */
   draftTransaction: {
     path: "/ioi.public.v1.PublicApi/DraftTransaction",
@@ -1744,7 +1743,6 @@ export interface PublicApiServer extends UntypedServiceImplementation {
   subscribeEvents: handleServerStreamingCall<SubscribeEventsRequest, ChainEvent>;
   /**
    * [NEW] Converts a natural language intent into a signable transaction payload.
-   * This powers the "God Mode" search bar in the GUI.
    */
   draftTransaction: handleUnaryCall<DraftTransactionRequest, DraftTransactionResponse>;
   /**
@@ -1866,7 +1864,6 @@ export interface PublicApiClient extends Client {
   ): ClientReadableStream<ChainEvent>;
   /**
    * [NEW] Converts a natural language intent into a signable transaction payload.
-   * This powers the "God Mode" search bar in the GUI.
    */
   draftTransaction(
     request: DraftTransactionRequest,

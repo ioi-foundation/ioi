@@ -15,8 +15,8 @@ mock = []
 native = ["dep:sp1-verifier"]
 
 [dependencies]
-ioi-api = { path = "../api" }
-ioi-types = { path = "../types" }
+ioi-api = { path = "../../api" }
+ioi-types = { path = "../../types" }
 zk-types = { path = "../zk-types" }
 anyhow = { workspace = true }
 serde = { workspace = true, features = ["derive"] }

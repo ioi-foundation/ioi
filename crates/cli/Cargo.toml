@@ -48,7 +48,7 @@ bs58 = "0.4"
 libp2p = { workspace = true }
 prost = { workspace = true }
 portpicker = "0.1.1"
-bollard = "0.19"
+bollard = "0.16"
 futures-util = "0.3"
 async-trait = { workspace = true }
 uuid = { version = "1.8.0", features = ["v4"] }
@@ -75,8 +75,15 @@ tonic = { version = "0.11", features = ["tls", "transport"] }
 # [FIX] Add rkyv for zero-copy tests
 rkyv = { version = "0.7", features = ["validation", "std", "alloc"] }
 
+# Dependencies for ZK fixture generation (Optional)
+# [FIX] Moved inside [dependencies] table
+sp1-sdk = { version = "3.0.0", optional = true }
+alloy-primitives = { version = "0.7", optional = true }
+alloy-trie = { version = "0.4", optional = true }
+ssz_rs = { version = "0.9", optional = true }
+
 [dev-dependencies]
-ioi-relayer = { path = "../relayer" }
+ioi-relayer = { path = "../plugins/relayer" } # [FIX] Updated path to plugins/relayer
 ioi-execution = { path = "../execution" }
 # [NEW] Add ioi-consensus for E2E tests verification logic
 ioi-consensus = { path = "../consensus", features = ["admft"] }
@@ -95,9 +102,13 @@ ibc-core-client-context = { workspace = true, features = ["std"] }
 ibc-core-commitment-types = { workspace = true, features = ["std"] }
 ibc-primitives = { workspace = true, features = ["std"] }
 ibc-proto = { workspace = true, features = ["serde", "std"] }
-ibc-host = { path = "../ibc-host" }
+# [FIX] Updated paths for plugins in dev-dependencies
+transport-verifier = { path = "../plugins/transport-verifier" }
 # [NEW] For pHash testing in mocks
 image = "0.25"
+# [FIX] Add zk-types dependency for zk fixture generation
+zk-types = { path = "../plugins/zk-types" }
+
 
 # The library exposes helpers, the binary provides the CLI
 [lib]
@@ -135,7 +146,8 @@ vm-wasm = ["ioi-validator/vm-wasm"]
 consensus-admft = ["ioi-validator/consensus-admft"]
 
 # Service Features
-ibc-deps = ["ioi-validator/ibc-deps"]
+# [FIX] Updated to reference new service feature
+ibc-deps = ["ioi-services/ibc-deps"]
 
 # ZK Features (Test runner gate only)
 ethereum-zk = []
@@ -145,3 +157,10 @@ ethereum-zk = []
 malicious-bin = []
 
 validator-bins = ["ioi-validator/validator-bins"]
+# Feature to enable ZK fixture generation tools (pulls in heavy dependencies)
+zk-gen = ["dep:sp1-sdk", "dep:alloy-primitives", "dep:alloy-trie", "dep:ssz_rs"]
+
+[[bin]]
+name = "generate_zk_fixtures"
+path = "src/bin/generate_zk_fixtures.rs"
+required-features = ["zk-gen"]

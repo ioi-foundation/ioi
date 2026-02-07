@@ -13,7 +13,6 @@ use ioi_types::app::KernelEvent;
 use tokio::sync::broadcast::Sender;
 use xcap::Monitor;
 
-/// A native driver for controlling mouse and keyboard input.
 pub struct NativeOperator {
     enigo: Mutex<Enigo>,
     event_sender: Option<Sender<KernelEvent>>,
@@ -28,26 +27,22 @@ impl NativeOperator {
         }
     }
 
-    // Builder method to inject sender
     pub fn with_event_sender(mut self, sender: Sender<KernelEvent>) -> Self {
         self.event_sender = Some(sender);
         self
     }
 
-    /// Computes a Perceptual Hash (Gradient) of the image bytes.
     fn compute_phash(image_bytes: &[u8]) -> Result<[u8; 32]> {
         let img = load_from_memory(image_bytes)?;
         let hasher = HasherConfig::new().hash_alg(HashAlg::Gradient).to_hasher();
         let hash = hasher.hash_image(&img);
         let hash_bytes = hash.as_bytes();
-
         let mut out = [0u8; 32];
         let len = hash_bytes.len().min(32);
         out[..len].copy_from_slice(&hash_bytes[..len]);
         Ok(out)
     }
 
-    /// Calculates Hamming distance between two 8-byte hashes stored in 32-byte arrays.
     fn hamming_distance(a: &[u8; 32], b: &[u8; 32]) -> u32 {
         let mut dist = 0;
         for i in 0..8 {
@@ -57,21 +52,14 @@ impl NativeOperator {
         dist
     }
 
-    /// Gets the scale factor of the primary monitor to handle HiDPI (Retina) screens.
-    /// 
-    /// This is crucial for coordinate translation. 
-    /// `xcap` captures physical pixels, but `enigo` often expects logical points.
-    /// On macOS Retina, this is typically 2.0. On Windows, it varies (e.g. 1.25, 1.5).
     pub fn get_scale_factor() -> f64 {
         let monitors = Monitor::all().unwrap_or_default();
         if let Some(m) = monitors.first() {
-            // xcap exposes scale_factor directly
             return m.scale_factor() as f64;
         }
         1.0
     }
 
-    /// Maps the abstract MouseButton enum to the Enigo concrete type.
     fn map_button(btn: ApiButton) -> Button {
         match btn {
             ApiButton::Left => Button::Left,
@@ -80,7 +68,6 @@ impl NativeOperator {
         }
     }
 
-    /// Helper to map string keys to Enigo Keys
     fn map_key(key: &str) -> Result<Key> {
         match key.to_lowercase().as_str() {
             "enter" | "return" => Ok(Key::Return),
@@ -107,29 +94,16 @@ impl NativeOperator {
         }
     }
 
-    /// Executes a verified input event.
     pub fn inject(&self, event: &InputEvent) -> Result<()> {
-        let mut enigo = self
-            .enigo
-            .lock()
-            .map_err(|_| anyhow!("Enigo lock poisoned"))?;
-        
+        let mut enigo = self.enigo.lock().map_err(|_| anyhow!("Enigo lock poisoned"))?;
         let scale = Self::get_scale_factor();
 
-        // Normalization logic: Convert Physical Pixels (from VLM/Screenshot) to Logical Points (OS API).
-        // This is platform-dependent behavior in Enigo.
         let normalize_coord = |val: u32| -> i32 {
             if cfg!(target_os = "macos") {
-                // macOS Enigo uses logical points
                 (val as f64 / scale) as i32
             } else if cfg!(target_os = "windows") {
-                 // Windows Enigo (InputSimulator) typically handles scaling if manifest is DPI-aware,
-                 // but often requires manual scaling if we are injecting into raw Win32.
-                 // Assuming Enigo handles it or we pass raw if DPI-unaware.
-                 // For safety with xcap (physical), we scale down.
                  (val as f64 / scale) as i32
             } else {
-                // Linux (X11/Wayland) usually 1:1 unless specific scaling active
                  val as i32
             }
         };
@@ -138,94 +112,57 @@ impl NativeOperator {
             InputEvent::MouseMove { x, y } => {
                 let abs_x = normalize_coord(*x);
                 let abs_y = normalize_coord(*y);
-
-                log::info!(target: "driver", "MouseMove -> {}, {}", abs_x, abs_y);
-
-                enigo
-                    .move_mouse(abs_x, abs_y, Coordinate::Abs)
-                    .map_err(|e| anyhow!("Mouse move failed: {:?}", e))?;
+                enigo.move_mouse(abs_x, abs_y, Coordinate::Abs).map_err(|e| anyhow!("{:?}", e))?;
             }
-            InputEvent::Click {
-                button,
-                x,
-                y,
-                expected_visual_hash,
-            } => {
-                // 1. ATOMIC VISUAL INTERLOCK (Robust pHash)
+            InputEvent::Click { button, x, y, expected_visual_hash } => {
                 if let Some(expected) = expected_visual_hash {
-                    // Capture FRESH state immediately before clicking
                     let full_screen_png = NativeVision::capture_primary()?;
                     let current_hash = Self::compute_phash(&full_screen_png)?;
                     let dist = Self::hamming_distance(&current_hash, expected);
-
-                    // Threshold: 5 bits out of 64
                     if dist > 5 {
                          if let Some(tx) = &self.event_sender {
                              let _ = tx.send(KernelEvent::FirewallInterception {
                                  verdict: "BLOCK".to_string(),
                                  target: "gui::click".to_string(),
-                                 request_hash: [0u8; 32], // Dummy hash
+                                 request_hash: [0u8; 32],
                                  session_id: None,
                              });
                          }
-
-                        return Err(anyhow!(
-                            "Visual Drift Detected! Hamming distance {} > 5. Aborting click.", 
-                            dist
-                        ));
+                        return Err(anyhow!("Visual Drift Detected! Hamming distance {} > 5.", dist));
                     }
                 }
-
                 let abs_x = normalize_coord(*x);
                 let abs_y = normalize_coord(*y);
-
-                log::info!(target: "driver", "Click -> {}, {} (Button: {:?})", abs_x, abs_y, button);
-
-                enigo
-                    .move_mouse(abs_x, abs_y, Coordinate::Abs)
-                    .map_err(|e| anyhow!("Mouse move failed: {:?}", e))?;
-
+                enigo.move_mouse(abs_x, abs_y, Coordinate::Abs).map_err(|e| anyhow!("{:?}", e))?;
                 let btn = Self::map_button(*button);
-                enigo
-                    .button(btn, Direction::Click)
-                    .map_err(|e| anyhow!("Click failed: {:?}", e))?;
+                enigo.button(btn, Direction::Click).map_err(|e| anyhow!("{:?}", e))?;
             }
             InputEvent::MouseDown { button, x, y } => {
                 let abs_x = normalize_coord(*x);
                 let abs_y = normalize_coord(*y);
-                log::info!(target: "driver", "MouseDown -> {}, {}", abs_x, abs_y);
-                
-                enigo.move_mouse(abs_x, abs_y, Coordinate::Abs).map_err(|e| anyhow!(e))?;
+                enigo.move_mouse(abs_x, abs_y, Coordinate::Abs).map_err(|e| anyhow!("{:?}", e))?;
                 let btn = Self::map_button(*button);
-                enigo.button(btn, Direction::Press).map_err(|e| anyhow!(e))?;
+                enigo.button(btn, Direction::Press).map_err(|e| anyhow!("{:?}", e))?;
             }
             InputEvent::MouseUp { button, x, y } => {
                 let abs_x = normalize_coord(*x);
                 let abs_y = normalize_coord(*y);
-                log::info!(target: "driver", "MouseUp -> {}, {}", abs_x, abs_y);
-                
-                enigo.move_mouse(abs_x, abs_y, Coordinate::Abs).map_err(|e| anyhow!(e))?;
+                enigo.move_mouse(abs_x, abs_y, Coordinate::Abs).map_err(|e| anyhow!("{:?}", e))?;
                 let btn = Self::map_button(*button);
-                enigo.button(btn, Direction::Release).map_err(|e| anyhow!(e))?;
+                enigo.button(btn, Direction::Release).map_err(|e| anyhow!("{:?}", e))?;
             }
             InputEvent::Type { text } => {
-                log::info!(target: "driver", "Type -> \"{}\"", text);
-                enigo
-                    .text(text)
-                    .map_err(|e| anyhow!("Type failed: {:?}", e))?;
+                enigo.text(text).map_err(|e| anyhow!("Type failed: {:?}", e))?;
             }
             InputEvent::KeyPress { key } => {
-                log::info!(target: "driver", "KeyPress -> {}", key);
                 let k = Self::map_key(key)?;
                 enigo.key(k, Direction::Click).map_err(|e| anyhow!("Key press failed: {:?}", e))?;
             }
-            InputEvent::Scroll { dx: _, dy } => {
-                enigo
-                    .scroll(*dy, Axis::Vertical)
-                    .map_err(|e| anyhow!("Scroll failed: {:?}", e))?;
+            InputEvent::Scroll { dy, .. } => {
+                enigo.scroll(*dy, Axis::Vertical).map_err(|e| anyhow!("Scroll failed: {:?}", e))?;
             }
             
-            // [NEW] Atomic Sequence Execution
+            // [NEW] Atomic Sequence Execution Implementation
             InputEvent::AtomicSequence(steps) => {
                 log::info!(target: "driver", "Executing Atomic Sequence ({} steps)", steps.len());
                 for step in steps {
@@ -233,32 +170,30 @@ impl NativeOperator {
                         AtomicInput::MouseMove { x, y } => {
                             let abs_x = normalize_coord(*x);
                             let abs_y = normalize_coord(*y);
-                            enigo.move_mouse(abs_x, abs_y, Coordinate::Abs).map_err(|e| anyhow!(e))?;
+                            enigo.move_mouse(abs_x, abs_y, Coordinate::Abs).map_err(|e| anyhow!("{:?}", e))?;
                         },
                         AtomicInput::MouseDown { button } => {
                             let btn = Self::map_button(*button);
-                            enigo.button(btn, Direction::Press).map_err(|e| anyhow!(e))?;
+                            enigo.button(btn, Direction::Press).map_err(|e| anyhow!("{:?}", e))?;
                         },
                         AtomicInput::MouseUp { button } => {
                             let btn = Self::map_button(*button);
-                            enigo.button(btn, Direction::Release).map_err(|e| anyhow!(e))?;
+                            enigo.button(btn, Direction::Release).map_err(|e| anyhow!("{:?}", e))?;
                         },
                         AtomicInput::KeyPress { key } => {
                             let k = Self::map_key(key)?;
-                            enigo.key(k, Direction::Click).map_err(|e| anyhow!(e))?;
+                            enigo.key(k, Direction::Click).map_err(|e| anyhow!("{:?}", e))?;
                         },
-                        // [NEW] Implement KeyDown
                         AtomicInput::KeyDown { key } => {
                             let k = Self::map_key(key)?;
-                            enigo.key(k, Direction::Press).map_err(|e| anyhow!(e))?;
+                            enigo.key(k, Direction::Press).map_err(|e| anyhow!("{:?}", e))?;
                         },
-                        // [NEW] Implement KeyUp
                         AtomicInput::KeyUp { key } => {
                             let k = Self::map_key(key)?;
-                            enigo.key(k, Direction::Release).map_err(|e| anyhow!(e))?;
+                            enigo.key(k, Direction::Release).map_err(|e| anyhow!("{:?}", e))?;
                         },
                         AtomicInput::Type { text } => {
-                             enigo.text(text).map_err(|e| anyhow!(e))?;
+                             enigo.text(text).map_err(|e| anyhow!("{:?}", e))?;
                         },
                         AtomicInput::Wait { millis } => {
                              thread::sleep(Duration::from_millis(*millis));

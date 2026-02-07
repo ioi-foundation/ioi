@@ -61,6 +61,52 @@ pub struct Rect {
     pub height: i32,
 }
 
+/// Merges a child accessibility tree (e.g. Browser DOM) into a parent tree (e.g. OS Window)
+/// at the node matching the `target_app_name`.
+/// 
+/// If `target_app_name` is found, its children are replaced/augmented with the `graft_tree`.
+pub fn merge_trees(
+    mut root: AccessibilityNode, 
+    graft_tree: AccessibilityNode, 
+    target_app_name: &str,
+    offset: (i32, i32)
+) -> AccessibilityNode {
+    // 1. Find target node in OS tree
+    // We look for a window or application node that matches the target name.
+    
+    // Helper recursive finder/replacer
+    fn recurse_graft(node: &mut AccessibilityNode, graft: &AccessibilityNode, target: &str, offset: (i32, i32)) -> bool {
+        // Simple case-insensitive contains match for robustness
+        let name_match = node.name.as_ref().map_or(false, |n| n.to_lowercase().contains(&target.to_lowercase()));
+        
+        if name_match && (node.role == "window" || node.role == "application") {
+            // Found it! 
+            // The graft tree (DOM) is usually screen-relative or window-relative.
+            // If it's window-relative, we add the window offset.
+            // If it's screen-relative (which CDP usually gives if configured right), we might not need offset.
+            // Assuming here the graft needs the offset applied.
+            
+            let mut shifted_graft = graft.clone();
+            shifted_graft.offset(offset.0, offset.1);
+            
+            // We append the DOM as a child of the Window.
+            // We don't replace children because the window might have other UI (title bar, menus) we want to keep.
+            node.children.push(shifted_graft);
+            return true;
+        }
+
+        for child in &mut node.children {
+            if recurse_graft(child, graft, target, offset) {
+                return true;
+            }
+        }
+        false
+    }
+
+    recurse_graft(&mut root, &graft_tree, target_app_name, offset);
+    root
+}
+
 /// Serializes the accessibility tree into a simplified XML-like format optimized for LLM token usage.
 /// Applies semantic filtering to reduce noise.
 /// 

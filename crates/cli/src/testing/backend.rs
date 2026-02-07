@@ -3,12 +3,11 @@
 use super::docker::{ensure_docker_image_exists, DOCKER_BUILD_CHECK, DOCKER_IMAGE_TAG};
 use anyhow::{anyhow, Result};
 use async_trait::async_trait;
+// [FIX] Updated imports for bollard 0.16+
 use bollard::{
-    models::{ContainerCreateBody, HostConfig, NetworkCreateRequest},
-    query_parameters::{
-        CreateContainerOptionsBuilder, LogsOptionsBuilder, RemoveContainerOptionsBuilder,
-        StartContainerOptions, StopContainerOptionsBuilder,
-    },
+    container::{Config, CreateContainerOptions, LogsOptions, RemoveContainerOptions, StartContainerOptions, StopContainerOptions},
+    network::CreateNetworkOptions,
+    service::{HostConfig},
     Docker,
 };
 use futures_util::stream::{self, Stream, StreamExt};
@@ -320,19 +319,19 @@ impl DockerBackend {
     pub async fn new(config: DockerBackendConfig) -> Result<Self> {
         let docker = Docker::connect_with_local_defaults()?;
         let network_name = format!("ioi-e2e-{}", uuid::Uuid::new_v4());
-        let network = docker
-            .create_network(NetworkCreateRequest {
-                name: network_name,
-                ..Default::default()
-            })
-            .await?;
-        let network_id = {
-            let id = network.id;
-            if id.is_empty() {
-                return Err(anyhow!("Failed to create network and get ID"));
-            }
-            id
+        
+        // [FIX] Use CreateNetworkOptions directly
+        let network_config = CreateNetworkOptions {
+            name: network_name.clone(),
+            ..Default::default()
         };
+
+        let network = docker
+            .create_network(network_config)
+            .await?;
+            
+        // [FIX] Handle Option<String> for ID
+        let network_id = network.id.ok_or_else(|| anyhow!("Failed to create network: no ID returned"))?;
 
         Ok(Self {
             docker,
@@ -357,7 +356,12 @@ impl DockerBackend {
         env: Vec<String>,
         binds: Vec<String>,
     ) -> Result<()> {
-        let options = Some(CreateContainerOptionsBuilder::default().name(name).build());
+        // [FIX] Use struct initialization for Options
+        let options = Some(CreateContainerOptions {
+            name: name.to_string(),
+            ..Default::default()
+        });
+        
         let host_config = HostConfig {
             network_mode: Some(self.network_id.clone()),
             binds: Some(binds),
@@ -367,7 +371,8 @@ impl DockerBackend {
         let cmd_strs: Vec<&str> = cmd.iter().map(|s| s.as_str()).collect();
         let env_strs: Vec<&str> = env.iter().map(|s| s.as_str()).collect();
 
-        let config = ContainerCreateBody {
+        // [FIX] Use Config instead of ContainerCreateBody
+        let config = Config {
             image: Some(DOCKER_IMAGE_TAG.to_string()),
             cmd: Some(cmd_strs.into_iter().map(String::from).collect()),
             env: Some(env_strs.into_iter().map(String::from).collect()),
@@ -377,7 +382,7 @@ impl DockerBackend {
 
         let id = self.docker.create_container(options, config).await?.id;
         self.docker
-            .start_container(&id, None::<StartContainerOptions>)
+            .start_container(&id, None::<StartContainerOptions<String>>)
             .await?;
         self.container_ids.push(id);
         Ok(())
@@ -473,13 +478,14 @@ impl TestBackend for DockerBackend {
             .await?;
 
         let ready_timeout = Duration::from_secs(45);
-        let log_options = Some(
-            LogsOptionsBuilder::default()
-                .follow(true)
-                .stderr(true)
-                .stdout(true)
-                .build(),
-        );
+        
+        // [FIX] Explicitly specify generic type <String> for LogsOptions
+        let log_options = Some(LogsOptions::<String> {
+            follow: true,
+            stdout: true,
+            stderr: true,
+            ..Default::default()
+        });
 
         fn convert_stream<S>(s: S) -> LogStream
         where
@@ -554,14 +560,14 @@ impl TestBackend for DockerBackend {
                 docker
                     .stop_container(
                         &id,
-                        Some(StopContainerOptionsBuilder::default().t(5).build()),
+                        Some(StopContainerOptions { t: 5 }), // [FIX] Struct init
                     )
                     .await
                     .ok();
                 docker
                     .remove_container(
                         &id,
-                        Some(RemoveContainerOptionsBuilder::default().force(true).build()),
+                        Some(RemoveContainerOptions { force: true, ..Default::default() }), // [FIX] Struct init
                     )
                     .await
                     .ok();

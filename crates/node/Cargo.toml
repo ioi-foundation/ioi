@@ -21,28 +21,22 @@ ioi-tx = { path = "../tx" }
 ioi-validator = { path = "../validator", default-features = false }
 ioi-crypto = { path = "../crypto" }
 ioi-vm-wasm = { path = "../vm/wasm", optional = true }
-
-# [FIX] Disable default features to keep local-mode lightweight (No IBC by default)
 ioi-services = { path = "../services", default-features = false }
-
-ioi-test-utils = { path = "../test_utils" }
 ioi-client = { path = "../client" }
 ioi-telemetry = { path = "../telemetry" }
-http-rpc-gateway = { path = "../http-rpc-gateway" }
-ibc-host = { path = "../ibc-host" }
 ioi-ipc = { path = "../ipc" }
-zk-driver-succinct = { path = "../zk-driver-succinct", optional = true }
 ioi-drivers = { path = "../drivers" }
 ioi-scs = { path = "../scs" }
+
+# [FIX] Plugins are now optional
+http-rpc-gateway = { path = "../plugins/http-rpc-gateway", optional = true }
+transport-verifier = { path = "../plugins/transport-verifier", optional = true }
+zk-driver-succinct = { path = "../plugins/zk-driver-succinct", optional = true }
 
 bincode = { workspace = true }
 uuid = { version = "1.8.0", features = ["v4"] }
 anyhow = { workspace = true }
-clap = { workspace = true, features = [
-    "derive",
-    "cargo",
-    "env",
-], optional = true }
+clap = { workspace = true, features = ["derive", "cargo", "env"], optional = true }
 cfg-if = "1.0"
 env_logger = { workspace = true, optional = true }
 futures = { workspace = true }
@@ -53,9 +47,7 @@ tracing = { workspace = true }
 tracing-subscriber = { workspace = true, features = ["env-filter", "fmt"] }
 tokio = { workspace = true, features = ["full"] }
 tokio-rustls = { workspace = true }
-rustls = { workspace = true, features = [
-    "ring",
-] }
+rustls = { workspace = true, features = ["ring"] }
 rcgen = { workspace = true }
 serde_json = { workspace = true }
 bs58 = "0.4"
@@ -66,7 +58,6 @@ serde = { workspace = true }
 serde_jcs = "0.1.0"
 rand = { workspace = true }
 dcrypt = { workspace = true }
-
 base64 = { workspace = true }
 parity-scale-codec = { workspace = true, features = ["std"] }
 tonic = "0.11"
@@ -77,7 +68,7 @@ atty = "0.2"
 ahash = "0.8"
 parking_lot = "0.12"
 
-# [FIX] Added missing Candle dependencies
+# Candle ML Framework (Optional)
 candle-core = { version = "0.3.3", optional = true }
 candle-nn = { version = "0.3.3", optional = true }
 candle-transformers = { version = "0.3.3", optional = true }
@@ -99,10 +90,9 @@ validator-bins = [
     "ioi-validator/validator-bins", 
 ]
 
-# This feature is for building the special malicious workload binary for testing.
 malicious-bin = []
 
-# State Tree features must propagate to BOTH commitment and validator crates
+# State Tree features
 state-iavl = [
     "ioi-state/state-iavl",
     "ioi-validator/state-iavl",
@@ -130,8 +120,13 @@ consensus-admft = ["ioi-validator/consensus-admft", "ioi-consensus/admft"]
 vm-wasm = ["dep:ioi-vm-wasm", "ioi-validator/vm-wasm"]
 
 # Service Features
-# [FIX] Now explicitly enables ibc-deps in services since default is off
-ibc-deps = ["ioi-services/ibc-deps", "ioi-validator/ibc-deps"]
+# [FIX] ibc-deps now pulls in the optional plugin crates
+ibc-deps = [
+    "ioi-services/ibc-deps", 
+    "ioi-validator/ibc-deps",
+    "dep:transport-verifier",
+    "dep:http-rpc-gateway",
+]
 
 # Ethereum ZK Light Client Support
 ethereum-zk = [
@@ -150,7 +145,7 @@ real-ai = [
 # --- Distribution Profiles (Binary Modes) ---
 
 # 1. Local Mode (Desktop App)
-# [UPDATED] Lightweight: No IBC, No ZK, No heavy GPU deps.
+# Lightest profile.
 local-mode = [
     "dep:clap",
     "dep:env_logger",
@@ -161,8 +156,8 @@ local-mode = [
     "consensus-admft",
 ]
 
-# 2. Validator Mode (Mainnet Node)
-# [UPDATED] Full feature set including IBC
+# 2. Validator Mode (Consensus Only)
+# Fast, secure, minimal attack surface. No heavy bridges.
 validator-mode = [
     "dep:clap",
     "dep:env_logger",
@@ -170,10 +165,19 @@ validator-mode = [
     "ioi-validator/validator-bins",
     "consensus-admft",
     "state-iavl", 
-    "ibc-deps",
+    # REMOVED: ibc-deps, ethereum-zk
 ]
 
-# 3. Provider Mode (Compute Node)
+# 3. Bridge Mode (Heavy Verification)
+# Runs full cross-chain verification logic.
+bridge-mode = [
+    "validator-mode", # Inherits base validator logic
+    "ibc-deps",       # Adds transport-verifier & gateway
+    "ethereum-zk",    # Adds ZK proof verification
+]
+
+# 4. Provider Mode (Compute Node)
+# Optimized for AI workloads (GPU/CPU).
 provider-mode = [
     "dep:clap",
     "dep:env_logger",
@@ -181,7 +185,11 @@ provider-mode = [
     "ioi-validator/validator-bins",
     "consensus-admft", 
     "state-iavl",      
-    "real-ai",         
+    "real-ai",
+    # Providers might need ZK to generate proofs, but verify?
+    # Usually they GENERATE proofs (prover role), not verify.
+    # Verification is done by Bridge/Validators.
+    # So we keep it light or add "prover" features if distinct.
     "ethereum-zk",     
 ]
 
@@ -226,3 +234,9 @@ required-features = ["validator-mode"]
 name = "ioi-provider"
 path = "src/bin/ioi-provider.rs"
 required-features = ["provider-mode"]
+
+# [NEW] Explicit binary for the heavy bridge node
+[[bin]]
+name = "ioi-bridge"
+path = "src/bin/ioi-validator.rs" # Reuses validator main, just different features
+required-features = ["bridge-mode"]

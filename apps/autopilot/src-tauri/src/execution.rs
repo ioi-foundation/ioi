@@ -27,9 +27,9 @@ use ioi_scs::SovereignContextStore;
 // [NEW] Governance Tiers for Execution Context
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum GovernanceTier {
-    None,     // "God Mode" - No checks, raw execution
-    Silent,   // "Local" - Log policies but auto-allow unless critical
-    Strict,   // "Settlement" - Full policy enforcement + Gates
+    None, 
+    Silent,
+    Strict,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -239,7 +239,6 @@ async fn check_governance(
     tier: GovernanceTier // [NEW] Accept Tier
 ) -> Result<(), String> {
     
-    // 1. "God Mode" Bypass
     if tier == GovernanceTier::None {
         return Ok(());
     }

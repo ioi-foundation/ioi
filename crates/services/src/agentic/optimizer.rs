@@ -12,7 +12,7 @@ use ioi_api::state::StateAccess;
 use ioi_api::transaction::context::TxContext;
 use ioi_api::vm::inference::{InferenceRuntime, LocalSafetyModel};
 use ioi_macros::service_interface;
-use ioi_types::app::{StepTrace}; 
+use ioi_types::app::{StepTrace, ActionRequest, ActionTarget, ActionContext}; 
 use ioi_types::codec;
 use ioi_types::error::{TransactionError, UpgradeError};
 use parity_scale_codec::{Decode, Encode};
@@ -26,7 +26,8 @@ use ioi_types::app::agentic::{
     InferenceOptions, AgentMacro, LlmToolDefinition, IntelligenceAsset, AgentManifest,
     RuntimeEnvironment, ResourceRequirements 
 };
-use ioi_scs::{SovereignContextStore, FrameType}; 
+// [FIX] Added RetentionClass import
+use ioi_scs::{SovereignContextStore, FrameType, RetentionClass}; 
 use ioi_crypto::algorithms::hash::sha256;
 use reqwest::Url; 
 
@@ -168,7 +169,9 @@ impl OptimizerService {
                     &payload_bytes,
                     0, 
                     [0u8; 32], 
-                    [0u8; 32]
+                    [0u8; 32],
+                    // [FIX] Added retention policy (Archival for installed assets)
+                    RetentionClass::Archival,
                 ).map_err(|e| TransactionError::Invalid(e.to_string()))?
              }; // Lock dropped here
 
@@ -180,6 +183,123 @@ impl OptimizerService {
         }
         
         Ok(())
+    }
+
+    /// Analyzes a failure trace and synthesizes a new Skill (Macro) to fix it.
+    /// This is the "System 2" intervention.
+    pub async fn synthesize_recovery_skill(
+        &self,
+        session_id: [u8; 32],
+        trace: &StepTrace,
+    ) -> Result<AgentMacro, TransactionError> {
+        let scs_mutex = self.scs.as_ref().ok_or(TransactionError::Invalid("SCS not available".into()))?;
+        let runtime = self.inference.as_ref().ok_or(TransactionError::Invalid("Inference not available".into()))?;
+
+        // 1. Prompt Engineering for Repair
+        let prompt = format!(
+            "SYSTEM: You are the IOI Optimizer. An agent got stuck.
+            
+            FAILURE CONTEXT:
+            Goal: (Infer from trace)
+            Last Action: {}
+            Error: {:?}
+            
+            TASK:
+            Write a JSON Skill Macro that robustly solves this specific step.
+            Use atomic tools (mouse_move, key, wait) or higher-level tools (browser__navigate) as needed.
+            
+            OUTPUT SCHEMA:
+            {{
+                \"name\": \"fix_<short_desc>\",
+                \"description\": \"Recovered skill for <failure>\",
+                \"parameters\": {{ \"type\": \"object\", \"properties\": {{}} }},
+                \"steps\": [
+                    {{ \"target\": \"tool_name\", \"params\": {{ ... }} }}
+                ]
+            }}
+            RETURN JSON ONLY.",
+            trace.raw_output,
+            trace.error
+        );
+
+        let options = InferenceOptions { temperature: 0.2, json_mode: true, ..Default::default() };
+        let output_bytes = runtime.execute_inference([0u8; 32], prompt.as_bytes(), options).await
+            .map_err(|e| TransactionError::Invalid(format!("Optimization inference failed: {}", e)))?;
+
+        let output_str = String::from_utf8(output_bytes).unwrap_or_default();
+        
+        // 2. Parse & Validate
+        let json_start = output_str.find('{').unwrap_or(0);
+        let json_end = output_str.rfind('}').map(|i| i + 1).unwrap_or(output_str.len());
+        let skill_json: serde_json::Value = serde_json::from_str(&output_str[json_start..json_end])
+             .map_err(|e| TransactionError::Invalid(format!("Skill synthesis failed: {}", e)))?;
+
+        // Construct Macro object
+        let definition = LlmToolDefinition {
+            name: skill_json["name"].as_str().unwrap_or("recovery_skill").to_string(),
+            description: skill_json["description"].as_str().unwrap_or("Auto-generated recovery").to_string(),
+            parameters: skill_json["parameters"].to_string(),
+        };
+
+        let mut steps = Vec::new();
+        if let Some(steps_arr) = skill_json["steps"].as_array() {
+            for s in steps_arr {
+                let target_str = s["target"].as_str().unwrap_or("");
+                let target = match target_str {
+                    "browser__navigate" => ActionTarget::BrowserNavigate,
+                    "gui__type" => ActionTarget::GuiType,
+                    "gui__click" => ActionTarget::GuiClick,
+                    "sys__exec" => ActionTarget::SysExec,
+                    _ => ActionTarget::Custom(target_str.to_string()),
+                };
+                let params = serde_json::to_vec(&s["params"]).unwrap_or_default();
+                
+                steps.push(ActionRequest {
+                    target,
+                    params,
+                    context: ActionContext {
+                        agent_id: "macro".into(),
+                        session_id: None,
+                        window_id: None,
+                    },
+                    nonce: 0,
+                });
+            }
+        }
+        
+        let skill = AgentMacro {
+            definition,
+            steps,
+            source_trace_hash: [0u8; 32], 
+            fitness: 0.5, // Initial tentative score
+        };
+        
+        // 3. Persist to SCS (Hotfix)
+        let skill_bytes = codec::to_bytes_canonical(&skill).map_err(TransactionError::Serialization)?;
+        let hash = sha256(&skill_bytes).map_err(|e| TransactionError::Invalid(e.to_string()))?;
+        let mut hash_arr = [0u8; 32];
+        hash_arr.copy_from_slice(hash.as_ref());
+
+        // Scope the lock
+        let frame_id = {
+            let mut store = scs_mutex.lock().map_err(|_| TransactionError::Invalid("SCS lock".into()))?;
+            store.append_frame(
+                FrameType::Skill, 
+                &skill_bytes, 
+                0, 
+                [0u8; 32], 
+                session_id,
+                // [FIX] Added retention policy (Archival for learned skills)
+                RetentionClass::Archival,
+            ).map_err(|e| TransactionError::Invalid(e.to_string()))?
+        };
+        
+        // 4. Index immediately so it's discoverable
+        self.index_skill(frame_id, &skill.definition).await?;
+        
+        log::info!("Optimizer: Synthesized Recovery Skill '{}' (Hash: {})", skill.definition.name, hex::encode(hash_arr));
+
+        Ok(skill)
     }
 
     async fn synthesize_mutation(
@@ -365,7 +485,7 @@ impl OptimizerService {
             for s in steps_arr {
                 let target_str = s["target"].as_str().unwrap_or("");
                 let target = match target_str {
-                    "browser::navigate" => ioi_types::app::ActionTarget::BrowserNavigate,
+                    "browser__navigate" => ioi_types::app::ActionTarget::BrowserNavigate,
                     "gui::type" => ioi_types::app::ActionTarget::GuiType,
                     "gui::click" => ioi_types::app::ActionTarget::GuiClick,
                     _ => ioi_types::app::ActionTarget::Custom(target_str.to_string()),
@@ -408,7 +528,9 @@ impl OptimizerService {
                 &skill_bytes,
                 0, 
                 [0u8; 32], 
-                session_id
+                session_id,
+                // [FIX] Added retention policy (Archival for learned skills)
+                RetentionClass::Archival,
             ).map_err(|e| TransactionError::Invalid(e.to_string()))?
         }; // Lock dropped here
         
@@ -538,7 +660,7 @@ impl OptimizerService {
         // Parse Old
         // [FIX] Explicit fallback for AgentManifest (using empty default construction if possible or manual)
         // Since AgentManifest doesn't implement Default, we handle the error directly.
-        let old_manifest: AgentManifest = match serde_json::from_str(&current_manifest_str) {
+        let _old_manifest: AgentManifest = match serde_json::from_str(&current_manifest_str) {
              Ok(m) => m,
              Err(_) => {
                  // Construct minimal default
@@ -549,7 +671,7 @@ impl OptimizerService {
         };
              
         // Parse New
-        let new_manifest: AgentManifest = serde_json::from_str(&new_manifest_str)
+        let _new_manifest: AgentManifest = serde_json::from_str(&new_manifest_str)
              .map_err(|e| TransactionError::Invalid(format!("Synthesized manifest invalid: {}", e)))?;
 
         let old_policy = ActionRules::default(); 
@@ -641,7 +763,9 @@ impl OptimizerService {
                 &skill_bytes, 
                 0, 
                 [0u8; 32], 
-                [0u8; 32] 
+                [0u8; 32],
+                // [FIX] Added retention policy (Archival for imported skills)
+                RetentionClass::Archival,
             ).map_err(|e| TransactionError::Invalid(e.to_string()))?;
             (fid, hash_arr)
         };

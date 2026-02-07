@@ -301,7 +301,8 @@ impl ioi::system::host::Host for HostState {
                         Ok(vec![])
                     }
                     "screenshot" => {
-                        let png_bytes = driver.capture_screen().await.map_err(|e| e.to_string())?;
+                        // [FIX] Update call to accept crop_rect (None for full screen)
+                        let png_bytes = driver.capture_screen(None).await.map_err(|e| e.to_string())?;
                         Ok(png_bytes)
                     }
                     "tree" => {

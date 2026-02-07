@@ -8,7 +8,7 @@ use std::collections::HashMap;
 use std::time::{Instant, Duration};
 use std::sync::{Arc, Mutex};
 use ioi_crypto::algorithms::hash::sha256;
-use ioi_scs::{SovereignContextStore, FrameType}; 
+use ioi_scs::{SovereignContextStore, FrameType, RetentionClass}; // [FIX] Import RetentionClass
 use hex;
 use ioi_api::vm::inference::InferenceRuntime;
 
@@ -115,7 +115,8 @@ fn fetch_cached_result(scs: &Arc<Mutex<SovereignContextStore>>, cache_key: [u8; 
     if let Some(frame_ids) = store.session_index.get(&cache_key) {
         if let Some(&last_id) = frame_ids.last() {
             if let Ok(payload) = store.read_frame_payload(last_id) {
-                if let Ok(result) = serde_json::from_slice::<ExecutionResult>(payload) {
+                // [FIX] Add reference &payload
+                if let Ok(result) = serde_json::from_slice::<ExecutionResult>(&payload) {
                     return Some(result);
                 }
             }
@@ -127,7 +128,8 @@ fn fetch_cached_result(scs: &Arc<Mutex<SovereignContextStore>>, cache_key: [u8; 
 fn persist_execution_result(scs: &Arc<Mutex<SovereignContextStore>>, cache_key: [u8; 32], result: &ExecutionResult) {
     if let Ok(mut store) = scs.lock() {
         if let Ok(bytes) = serde_json::to_vec(result) {
-            let _ = store.append_frame(FrameType::System, &bytes, 0, [0u8; 32], cache_key);
+            // [FIX] Add RetentionClass::Ephemeral (Cache is transient-ish, but let's say Ephemeral or Epoch)
+            let _ = store.append_frame(FrameType::System, &bytes, 0, [0u8; 32], cache_key, RetentionClass::Ephemeral);
         }
     }
 }
@@ -162,7 +164,7 @@ pub fn inject_execution_result(scs: &Arc<Mutex<SovereignContextStore>>, node_id:
 }
 
 pub const SESSION_INDEX_KEY: [u8; 32] = [
-    0x53, 0x45, 0x53, 0x53, 0x49, 0x4F, 0x4E, 0x5F, 0x49, 0x4E, 0x44, 0x45, 0x58, 0x00, 0x00, 0x00,
+    0x53, 0x45, 0x53, 0x53, 0x49, 0x4F, 0x4E, 0x5F, 0x49, 0x4E, 0x44, 0x45, 0x53, 0x00, 0x00, 0x00,
     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01
 ];
 
@@ -171,7 +173,8 @@ pub fn get_local_sessions(scs: &Arc<Mutex<SovereignContextStore>>) -> Vec<Sessio
         if let Some(frame_ids) = store.session_index.get(&SESSION_INDEX_KEY) {
             if let Some(&last_id) = frame_ids.last() {
                 if let Ok(payload) = store.read_frame_payload(last_id) {
-                    if let Ok(list) = serde_json::from_slice::<Vec<SessionSummary>>(payload) {
+                    // [FIX] Add reference &payload
+                    if let Ok(list) = serde_json::from_slice::<Vec<SessionSummary>>(&payload) {
                         return list;
                     }
                 }
@@ -197,7 +200,8 @@ pub fn save_local_session_summary(scs: &Arc<Mutex<SovereignContextStore>>, summa
                 &bytes,
                 0,
                 [0u8; 32],
-                SESSION_INDEX_KEY
+                SESSION_INDEX_KEY,
+                RetentionClass::Archival // [FIX] Add RetentionClass (Index is vital)
             );
         }
     }
@@ -235,7 +239,8 @@ pub fn save_local_task_state(scs: &Arc<Mutex<SovereignContextStore>>, task: &Age
                 &bytes,
                 0,
                 [0u8; 32],
-                key
+                key,
+                RetentionClass::Ephemeral // [FIX] Task state is snapshots, can be Ephemeral
             );
         }
     }
@@ -248,7 +253,8 @@ pub fn load_local_task(scs: &Arc<Mutex<SovereignContextStore>>, session_id: &str
         if let Some(frame_ids) = store.session_index.get(&key) {
             if let Some(&last_id) = frame_ids.last() {
                 if let Ok(payload) = store.read_frame_payload(last_id) {
-                    if let Ok(task) = serde_json::from_slice::<AgentTask>(payload) {
+                    // [FIX] Add reference &payload
+                    if let Ok(task) = serde_json::from_slice::<AgentTask>(&payload) {
                         return Some(task);
                     }
                 }
