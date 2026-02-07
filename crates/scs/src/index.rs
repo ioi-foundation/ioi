@@ -87,7 +87,8 @@ impl VectorIndex {
             FrameType::Thought => 1,
             FrameType::Action => 2,
             FrameType::System => 3,
-            FrameType::Skill => 4, // [NEW]
+            FrameType::Skill => 4, 
+            FrameType::Overlay => 5, // [FIX] Added Overlay variant
         };
         payload.push(type_byte);
         
@@ -152,6 +153,7 @@ impl VectorIndex {
                     2 => FrameType::Action,
                     3 => FrameType::System,
                     4 => FrameType::Skill,
+                    5 => FrameType::Overlay, // [FIX] Added Overlay variant
                     _ => FrameType::Observation, // Fallback
                 };
                 

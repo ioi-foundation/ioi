@@ -10,7 +10,7 @@ use ioi_scs::{SovereignContextStore, FrameType};
 use ioi_types::app::agentic::AgentMacro; 
 use std::sync::Arc;
 use ioi_api::vm::inference::InferenceRuntime;
-use crate::agentic::desktop::types::ExecutionTier; // [FIX] Added import
+use crate::agentic::desktop::types::ExecutionTier;
 
 /// Discovers tools available to the agent.
 ///
@@ -20,7 +20,7 @@ pub async fn discover_tools(
     scs: Option<&std::sync::Mutex<SovereignContextStore>>,
     query: &str,
     runtime: Arc<dyn InferenceRuntime>,
-    tier: ExecutionTier, // [FIX] Added tier parameter
+    tier: ExecutionTier, 
 ) -> Vec<LlmToolDefinition> {
     let mut tools = Vec::new();
     
@@ -55,7 +55,7 @@ pub async fn discover_tools(
 
     // 2. Native Capabilities
 
-    // [FIX] Prioritize Browser Navigation (Top of list bias)
+    // Prioritize Browser Navigation (Top of list bias)
     let nav_params = json!({
         "type": "object",
         "properties": {
@@ -69,7 +69,7 @@ pub async fn discover_tools(
         parameters: nav_params.to_string(),
     });
 
-    // [FIX] Only expose Computer tools and SysExec in VisualForeground (Tier 3)
+    // Only expose Computer tools and SysExec in VisualForeground (Tier 3)
     if tier == ExecutionTier::VisualForeground {
         let computer_params = json!({
             "type": "object",
@@ -152,11 +152,49 @@ pub async fn discover_tools(
             description: "Execute a terminal command or launch an application.".to_string(),
             parameters: sys_params.to_string(),
         });
-        
-        // [FIX] Removed legacy gui__click and gui__type to reduce entropy
     }
 
-    // [FIX] Synthetic Click ONLY in VisualBackground
+    // 4. OS Control Tools
+    if tier == ExecutionTier::VisualForeground {
+         let focus_params = json!({
+            "type": "object",
+            "properties": {
+                "title": { "type": "string", "description": "Partial title of the window or app to focus (e.g. 'Code', 'Terminal')" }
+            },
+            "required": ["title"]
+        });
+        tools.push(LlmToolDefinition {
+            name: "os__focus_window".to_string(),
+            description: "Bring a specific application window to the foreground.".to_string(),
+            parameters: focus_params.to_string(),
+        });
+
+        let copy_params = json!({
+            "type": "object",
+            "properties": {
+                "content": { "type": "string", "description": "Text to place in the clipboard" }
+            },
+            "required": ["content"]
+        });
+        tools.push(LlmToolDefinition {
+            name: "os__copy".to_string(),
+            description: "Write text to the system clipboard (Copy).".to_string(),
+            parameters: copy_params.to_string(),
+        });
+
+        let paste_params = json!({
+            "type": "object",
+            "properties": {},
+            "required": []
+        });
+        tools.push(LlmToolDefinition {
+            name: "os__paste".to_string(),
+            description: "Read text from the system clipboard (Paste).".to_string(),
+            parameters: paste_params.to_string(),
+        });
+    }
+
+    // Synthetic Click ONLY in VisualBackground
     if tier == ExecutionTier::VisualBackground {
         let synthetic_click_params = json!({
             "type": "object",
@@ -357,7 +395,8 @@ pub async fn discover_tools(
                          // Relevance threshold: 0.4 distance in cosine similarity (0.0 is exact match)
                          if f_type == FrameType::Skill && distance < 0.4 { 
                              if let Ok(payload) = store.read_frame_payload(frame_id) {
-                                 if let Ok(skill) = codec::from_bytes_canonical::<AgentMacro>(payload) {
+                                 // [FIX] Borrow payload (&payload)
+                                 if let Ok(skill) = codec::from_bytes_canonical::<AgentMacro>(&payload) {
                                      log::debug!("Injected relevant skill: {} (Dist: {:.2})", skill.definition.name, distance);
                                      tools.push(skill.definition);
                                  }

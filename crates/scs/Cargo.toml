@@ -40,7 +40,10 @@ time = { version = "0.3", features = ["serde", "formatting"] }
 parking_lot = "0.12"
 hex = { workspace = true }
 zstd = "0.13"                                                  # For frame payload compression
-dcrypt = { workspace = true } # [FIX] Add dcrypt for ByteSerializable
+dcrypt = { workspace = true } # [FIX] Add dcrypt for ByteSerializable and SymmetricCipher
+
+# [NEW] Added for encryption IV generation
+rand = { workspace = true }
 
 [dev-dependencies]
 tempfile = "3.3"

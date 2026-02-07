@@ -40,7 +40,8 @@ pub mod scrubber;
 pub mod store;
 
 // Re-export primary types for consumer ergonomics
-pub use format::{Frame, FrameId, FrameType, ScsHeader};
+// [FIX] Added RetentionClass to re-exports
+pub use format::{Frame, FrameId, FrameType, ScsHeader, RetentionClass};
 pub use index::{RetrievalProof, VectorIndex};
 pub use store::{SovereignContextStore, StoreConfig};
 

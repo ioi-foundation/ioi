@@ -82,7 +82,7 @@ tower = { workspace = true }
 tower-http = { workspace = true, features = ["limit", "trace", "catch-panic"] }
 ipnetwork = "0.20"
 
-zk-driver-succinct = { path = "../zk-driver-succinct", optional = true }
+zk-driver-succinct = { path = "../plugins/zk-driver-succinct", optional = true }
 
 # [NEW] Dependencies for secure key loading
 rpassword = "7.0"

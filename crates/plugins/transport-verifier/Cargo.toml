@@ -1,6 +1,6 @@
-# Path: crates/ibc-host/Cargo.toml
+# Path: crates/plugins/transport-verifier/Cargo.toml
 [package]
-name = "ibc-host"
+name = "transport-verifier"
 version = "0.1.0"
 edition = "2021"
 description = "Transport-agnostic, byte-oriented IBC host trait for the IOI Kernel"
@@ -8,13 +8,13 @@ license-file = "../../LICENSE-BBSL"
 repository = "https://github.com/ioi-foundation/ioi"
 
 [dependencies]
-ioi-api = { path = "../api" }
-ioi-types = { path = "../types" }
-ioi-client = { path = "../client" }
-ioi-networking = { path = "../networking" }
-ioi-crypto = { path = "../crypto" }
-ioi-validator = { path = "../validator" }
-ioi-state = { path = "../state" }
+ioi-api = { path = "../../api" }
+ioi-types = { path = "../../types" }
+ioi-client = { path = "../../client" }
+ioi-networking = { path = "../../networking" }
+ioi-crypto = { path = "../../crypto" }
+ioi-validator = { path = "../../validator" }
+ioi-state = { path = "../../state" }
 
 anyhow = { workspace = true }
 async-trait = { workspace = true }

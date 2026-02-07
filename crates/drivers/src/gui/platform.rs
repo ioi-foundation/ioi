@@ -5,7 +5,8 @@ use super::accessibility::{
 };
 use anyhow::{anyhow, Result};
 use ioi_crypto::algorithms::hash::sha256;
-use ioi_scs::{FrameType, SovereignContextStore};
+// [FIX] Added RetentionClass import
+use ioi_scs::{FrameType, SovereignContextStore, RetentionClass};
 use ioi_types::app::{ActionRequest, ContextSlice};
 use std::sync::{Arc, Mutex};
 use async_trait::async_trait;
@@ -312,6 +313,8 @@ impl SovereignSubstrateProvider for NativeSubstrateProvider {
             0,
             [0u8; 32], // mHNSW root placeholder - would come from index update
             session_id, 
+            // [FIX] Explicitly set retention policy for raw observation
+            RetentionClass::Ephemeral,
         )?;
 
         // 4. Generate Provenance (Binding to the Store)

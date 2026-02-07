@@ -1,10 +1,12 @@
 // Path: crates/cli/src/testing/docker.rs
 
 use anyhow::{anyhow, Result};
-use bollard::{query_parameters::BuildImageOptionsBuilder, Docker};
+// [FIX] Update imports
+use bollard::{image::BuildImageOptions, Docker};
 use bytes::Bytes;
 use futures_util::StreamExt;
-use http_body_util::{Either, Full};
+// [FIX] We can pass bytes directly to build_image in newer bollard, it takes Into<Body>
+// use http_body_util::{Either, Full}; 
 use std::path::Path;
 use tar::Builder;
 use tokio::sync::OnceCell;
@@ -54,13 +56,16 @@ pub(crate) async fn ensure_docker_image_exists() -> Result<()> {
     };
     // bollard expects Into<Either<Full<Bytes>, StreamBody<...>>>.
     // Use a single Full body from the in-memory tar.
-    let image_body = Either::Left(Full::new(Bytes::from(tar_bytes)));
+    // [FIX] Pass Bytes directly. Bollard handles the body conversion.
+    let image_body = Bytes::from(tar_bytes);
 
-    let options = BuildImageOptionsBuilder::default()
-        .dockerfile("crates/node/Dockerfile")
-        .t(DOCKER_IMAGE_TAG)
-        .rm(true)
-        .build();
+    // [FIX] Use struct init
+    let options = BuildImageOptions {
+        dockerfile: "crates/node/Dockerfile".to_string(),
+        t: DOCKER_IMAGE_TAG.to_string(),
+        rm: true,
+        ..Default::default()
+    };
 
     let mut build_stream = docker.build_image(options, None, Some(image_body));
     while let Some(chunk) = build_stream.next().await {

@@ -7,7 +7,11 @@ cargo-features = ["profile-rustflags"]
 
 [workspace]
 resolver = "2"
-exclude = ["crates/cli/tests/fixtures/mock-verifier", "crates/sp1-guests"]
+exclude = [
+    "crates/cli/tests/fixtures/mock-verifier",
+    # [FIX] Updated exclusion path to match new directory structure
+    "crates/plugins/sp1-guests" 
+]
 members = [
     "apps/autopilot/src-tauri",
     "crates/node",
@@ -23,14 +27,20 @@ members = [
     "crates/storage",
     "crates/system",
     "crates/telemetry",
-    "crates/test_utils",
     "crates/tx",
     "crates/validator",
     "crates/vm/wasm",
-    "crates/ibc-host",
-    "crates/http-rpc-gateway",
-    "crates/zk-types",
-    "crates/zk-driver-succinct",
+    "crates/ipc",
+    "crates/drivers",
+    "crates/scs",
+    "crates/macros",
+    
+    # [FIX] All heavy extensions live here now:
+    # - zk-types
+    # - zk-driver-succinct
+    # - transport-verifier (formerly ibc-host)
+    # - http-rpc-gateway
+    "crates/plugins/*", 
 ]
 [workspace.package]
 license = "Apache-2.0"

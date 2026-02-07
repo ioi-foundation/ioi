@@ -3,7 +3,7 @@ use crate::kernel::state::get_rpc_client;
 use crate::models::{AppState, SessionSummary};
 use crate::orchestrator;
 use ioi_ipc::blockchain::QueryRawStateRequest;
-use ioi_scs::FrameType;
+use ioi_scs::{FrameType, RetentionClass}; // [FIX] Import RetentionClass
 use ioi_types::codec;
 use std::sync::Mutex;
 use tauri::{AppHandle, State, Manager};
@@ -162,7 +162,8 @@ pub async fn delete_session(
                             &bytes,
                             0,
                             [0u8; 32],
-                            orchestrator::SESSION_INDEX_KEY
+                            orchestrator::SESSION_INDEX_KEY,
+                            RetentionClass::Archival // [FIX] Add retention
                         );
                     }
                 }

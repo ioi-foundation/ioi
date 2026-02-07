@@ -8,8 +8,8 @@ license-file = "../../LICENSE-BBSL"
 repository = "https://github.com/ioi-foundation/ioi"
 
 [dependencies]
-ioi-types = { path = "../types" }
-ioi-api = { path = "../api" }                       # Added ioi-api
+ioi-types = { path = "../../types" }
+ioi-api = { path = "../../api" }                       # Added ioi-api
 anyhow = { workspace = true }
 tokio = { workspace = true, features = ["full"] }
 reqwest = { workspace = true, features = ["json"] }
@@ -35,6 +35,6 @@ tendermint-testgen = { workspace = true }
 dcrypt = { workspace = true }
 
 # New dependencies for decoding and hashing native IAVL proofs
-ioi-state = { path = "../state" }
-ioi-crypto = { path = "../crypto" }
+ioi-state = { path = "../../state" }
+ioi-crypto = { path = "../../crypto" }
 parity-scale-codec = { workspace = true, features = ["std"] }

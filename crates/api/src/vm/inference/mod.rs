@@ -75,3 +75,11 @@ pub trait LocalSafetyModel: Send + Sync {
     /// Returns a list of (start_index, end_index, category).
     async fn detect_pii(&self, input: &str) -> anyhow::Result<Vec<(usize, usize, String)>>;
 }
+
+// [NEW] Strategy Pattern for Provider Logic (Internal to `api` crate but used in `http_adapter`)
+// We define it here or in a separate file, but it's part of the `vm` module's internal structure.
+// Since `http_adapter.rs` uses it, we don't necessarily need to export it publicly unless
+// we want users to implement their own strategies. For now, keep it internal to `vm`.
+
+// Note: The trait `ProviderStrategy` is defined inside `http_adapter.rs` to keep it private/internal.
+// If we wanted it public, we would export it here.

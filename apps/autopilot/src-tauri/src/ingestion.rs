@@ -1,7 +1,7 @@
 // apps/autopilot/src-tauri/src/ingestion.rs
 
 use crate::models::AppState;
-use ioi_scs::{FrameType, VectorIndex};
+use ioi_scs::{FrameType, VectorIndex, RetentionClass}; // [FIX] Import RetentionClass
 use std::fs;
 use std::path::Path;
 use std::sync::Mutex; // [FIX] Removed Arc
@@ -72,6 +72,7 @@ pub async fn ingest_file(
                 block_height,
                 mhnsw_root,
                 content_hash,
+                RetentionClass::Archival, // [FIX] Add retention (Files are archival)
             ).map_err(|e| format!("Failed to write frame: {}", e))?;
 
             frame_ids.push(frame_id);

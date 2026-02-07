@@ -17,7 +17,7 @@ use ioi_types::error::VmError;
 use self::accessibility::{MockSubstrateProvider, SovereignSubstrateProvider, Rect, serialize_tree_to_xml};
 use self::platform::NativeSubstrateProvider;
 
-use self::som::overlay_accessibility_tree;
+use self::som::{overlay_accessibility_tree, redact_sensitive_regions}; 
 use self::lenses::{LensRegistry, react::ReactLens};
 
 use ioi_scs::SovereignContextStore;
@@ -94,55 +94,89 @@ impl IoiGuiDriver {
 
 #[async_trait]
 impl GuiDriver for IoiGuiDriver {
-    async fn capture_screen(&self) -> Result<Vec<u8>, VmError> {
-        let enable_som = self.enable_som;
+    async fn capture_screen(&self, crop_rect: Option<(i32, i32, u32, u32)>) -> Result<Vec<u8>, VmError> {
+        // [MODIFIED] Use the raw capture logic, then apply processing
+        let raw_bytes = self.capture_raw_screen().await?;
 
-        // 1. Capture Raw Screenshot (Blocking OS Call)
-        // Offload to blocking thread when a Tokio runtime is available.
-        let raw_bytes = if let Ok(handle) = tokio::runtime::Handle::try_current() {
-            handle
-                .spawn_blocking(|| {
-                    NativeVision::capture_primary()
-                        .map_err(|e| VmError::HostError(format!("Vision failure: {}", e)))
-                })
-                .await
-                .map_err(|e| VmError::HostError(format!("Task join error: {}", e)))??
-        } else {
-            // Fallback for non-Tokio worker threads (e.g., parallel execution pool).
-            NativeVision::capture_primary()
-                .map_err(|e| VmError::HostError(format!("Vision failure: {}", e)))?
-        };
-
-        if !enable_som {
-            return Ok(raw_bytes);
-        }
-
-        // 2. Fetch Accessibility Tree (Async)
-        let tree = self::platform::fetch_tree_direct().await
-            .map_err(|e| VmError::HostError(format!("Failed to fetch tree for SoM: {}", e)))?;
-
-        // 3. Render Overlay
+        // Load image to handle potential cropping or overlay
         let mut img = load_from_memory(&raw_bytes)
             .map_err(|e| VmError::HostError(format!("Image decode failed: {}", e)))?
             .to_rgba8();
 
-        // Pass None for start_id to use default counter (1)
-        // [FIX] Pass (0,0) offset because this is a full-screen capture
-        let map = overlay_accessibility_tree(&mut img, &tree, None, (0, 0));
+        let mut offset = (0, 0);
+
+        // Apply Crop if requested
+        if let Some((x, y, w, h)) = crop_rect {
+            let img_w = img.width();
+            let img_h = img.height();
+            
+            // Coordinate validation
+            // Treat negative coords as valid (multi-monitor), but for image slicing we rely on 
+            // visual/os driver alignment. For simplicity here, we clamp to image bounds if coords are positive.
+            let cx = x.max(0) as u32;
+            let cy = y.max(0) as u32;
+            
+            // Ensure crop area is valid
+            if cx < img_w && cy < img_h {
+                let cw = w.min(img_w - cx);
+                let ch = h.min(img_h - cy);
+                
+                if cw > 0 && ch > 0 {
+                     use image::imageops::crop;
+                     // Crop creates a SubImage, convert back to RgbaImage
+                     img = crop(&mut img, cx, cy, cw, ch).to_image();
+                     // Set offset so SoM knows where this crop came from relative to global coords
+                     offset = (x, y);
+                }
+            }
+        }
         
-        {
-            let mut cache = self.som_cache.lock().unwrap();
-            // In Tier 3 (Foreground), the OS Screenshot is the source of truth.
-            // We overwrite any previous Tier 2 cache.
-            *cache = map;
+        // Apply Redaction and SoM if enabled
+        if self.enable_som {
+             // Fetch Accessibility Tree (Async)
+             if let Ok(tree) = self::platform::fetch_tree_direct().await {
+                 // Redact Sensitive Regions (Passwords/PII)
+                 redact_sensitive_regions(&mut img, &tree, offset);
+                 
+                 // Render SoM Overlay
+                 let map = overlay_accessibility_tree(&mut img, &tree, None, offset);
+                 
+                 {
+                    let mut cache = self.som_cache.lock().unwrap();
+                    *cache = map;
+                 }
+             } else {
+                 log::warn!("Failed to fetch accessibility tree for SoM/Redaction");
+             }
         }
 
-        // 4. Encode back to PNG
+        // Encode back to PNG
         let mut out_bytes: Vec<u8> = Vec::new();
         img.write_to(&mut Cursor::new(&mut out_bytes), ImageFormat::Png)
             .map_err(|e| VmError::HostError(format!("Image re-encoding failed: {}", e)))?;
 
         Ok(out_bytes)
+    }
+
+    async fn capture_raw_screen(&self) -> Result<Vec<u8>, VmError> {
+        // Offload input injection to blocking thread (xcap is synchronous)
+        if let Ok(handle) = tokio::runtime::Handle::try_current() {
+            // [FIX] Wrap success in Ok(), use single ? on join handle result
+            let bytes = handle
+                .spawn_blocking(|| {
+                    NativeVision::capture_primary()
+                        .map_err(|e| VmError::HostError(format!("Vision failure: {}", e)))
+                })
+                .await
+                .map_err(|e| VmError::HostError(format!("Task join error: {}", e)))??; // Double ?? unwraps Join and Vision Result
+            
+            Ok(bytes)
+        } else {
+            // [FIX] Wrap in Ok()
+            let bytes = NativeVision::capture_primary()
+                .map_err(|e| VmError::HostError(format!("Vision failure: {}", e)))?;
+            Ok(bytes)
+        }
     }
 
     async fn capture_tree(&self) -> Result<String, VmError> {

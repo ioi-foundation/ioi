@@ -5,14 +5,22 @@
 //! The format is an append-only log of "Frames" with a mutable Table of Contents (TOC)
 //! stored at the end of the file. This allows for efficient appending of new observations
 //! while maintaining random access for retrieval.
+//!
+//! # Version 2: Cryptographic Epoch Lifecycle
+//!
+//! Version 2 introduces "Retention Classes" and "Epoch Manifests".
+//! - Data is encrypted by default using keys bound to specific lifecycles (Session, Epoch, Identity).
+//! - Deletion is achieved via **Key Shredding**: destroying the key renders the payload
+//!   information-theoretically deleted, even if the bytes remain on disk.
+//! - The integrity of the chain is preserved via `Tombstones` and `EpochManifests` which anchor
+//!   the history even after the content is shredded.
 
 use crate::SCS_MAGIC;
 use parity_scale_codec::{Decode, Encode};
 use serde::{Deserialize, Serialize};
 
-
 /// The version of the SCS file format.
-pub const SCS_VERSION: u16 = 1;
+pub const SCS_VERSION: u16 = 2;
 
 /// The fixed size of the file header in bytes.
 pub const HEADER_SIZE: u64 = 64;
@@ -69,15 +77,33 @@ pub enum FrameType {
     Action,
     /// System metadata or checkpoints (e.g., Vector Index snapshot).
     System,
-    /// [NEW] A crystallized capability learned from successful execution.
-    /// Contains a structured workflow or tool definition (JSON/WASM).
+    /// A crystallized capability learned from successful execution.
     Skill,
+    /// [NEW] A synthesized summary of a previous epoch (Cognitive Compaction).
+    /// Used to retain wisdom after the raw `Observation`/`Thought` frames are shredded.
+    Overlay,
+}
+
+/// Defines the cryptographic lifecycle and deletion policy for a frame.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Encode, Decode, Default)]
+pub enum RetentionClass {
+    /// Encrypted with a SessionKey. Shredded immediately upon session close.
+    /// Used for transient thoughts, raw screenshots, and intermediate reasoning.
+    #[default]
+    Ephemeral,
+    
+    /// Encrypted with an EpochKey. Shredded when the Epoch rotates (e.g., hourly/daily),
+    /// unless promoted to Archival via summarization.
+    Epoch,
+    
+    /// Encrypted with the stable IdentityKey. Never shredded unless explicitly revoked.
+    /// Used for Skills, Overlays (Summaries), and Receipts.
+    Archival,
 }
 
 /// Metadata for a single unit of memory (a Frame).
 ///
 /// A Frame maps to a specific point in time and contains a reference to the data payload.
-/// Crucially, it binds this data to the blockchain state via the `mhnsw_root`.
 #[derive(Debug, Clone, Serialize, Deserialize, Encode, Decode)]
 pub struct Frame {
     /// Monotonically increasing ID.
@@ -90,33 +116,78 @@ pub struct Frame {
     pub block_height: u64,
     
     /// The unique session ID this frame belongs to (0 if global).
-    /// Used for efficient history hydration without scanning payloads.
     pub session_id: [u8; 32],
 
-    /// The file offset where the raw payload (e.g., image bytes, JSON) begins.
+    /// The file offset where the raw payload (ciphertext) begins.
     pub payload_offset: u64,
     /// The length of the payload in bytes.
     pub payload_length: u64,
     /// The Merkle Root of the mHNSW vector index at the time this frame was committed.
-    /// This allows for "Proof of Retrieval" - proving that a search performed against
-    /// this frame used the correct, tamper-evident index structure.
     pub mhnsw_root: [u8; 32],
-    /// SHA-256 checksum of the payload for integrity verification.
+    /// SHA-256 checksum of the payload (Ciphertext) for integrity verification.
     pub checksum: [u8; 32],
-    /// Optional encryption metadata (if the payload is encrypted at rest).
-    /// For the MVP, we assume local files are protected by OS permissions (unencrypted payload).
-    pub is_encrypted: bool,
+    
+    /// [NEW] The retention policy dictating which key wraps this frame.
+    pub retention: RetentionClass,
+    
+    /// [NEW] The Epoch ID this frame belongs to. Used to look up the correct EpochKey.
+    pub epoch_id: u64,
+    
+    /// [NEW] The Initialization Vector (Nonce) used for the encryption (12 bytes).
+    pub iv: [u8; 12],
+}
+
+/// [NEW] The Anchor for a time period (Epoch).
+///
+/// This structure is committed as a `System` frame at the end of every epoch.
+/// It creates an immutable spine of history even if the content of the epoch is shredded.
+#[derive(Debug, Clone, Serialize, Deserialize, Encode, Decode)]
+pub struct EpochManifest {
+    /// The ID of this epoch.
+    pub epoch_id: u64,
+    /// Hash of the previous EpochManifest (Tamper-evident chain).
+    pub prev_epoch_hash: [u8; 32],
+    
+    /// Merkle root of all frames created in this epoch.
+    pub frames_root: [u8; 32],
+    
+    /// Statistics preserved even after key shredding (for audits).
+    pub total_frames: u32,
+    pub type_counts: std::collections::BTreeMap<u8, u32>, // FrameType as u8 -> count
+    
+    /// Merkle root of economic receipts generated in this epoch (Never pruneable).
+    pub receipt_root: [u8; 32],
+    
+    /// Pointer to the SummaryOverlay frame that compresses this epoch's wisdom (if any).
+    pub overlay_frame_id: Option<FrameId>,
+}
+
+/// [NEW] Returned when accessing a frame whose key has been shredded.
+///
+/// This serves as cryptographic proof that data *did* exist at this point in the timeline,
+/// but has been intentionally forgotten according to policy.
+#[derive(Debug, Clone, Serialize, Deserialize, Encode, Decode)]
+pub struct Tombstone {
+    /// The ID of the erased frame.
+    pub frame_id: FrameId,
+    /// The hash of the encrypted payload (still verifiable against the EpochManifest).
+    pub payload_hash: [u8; 32],
+    /// The retention class that triggered the shredding.
+    pub retention_policy: RetentionClass,
+    /// Timestamp of when the key was shredded.
+    pub erasure_time: u64,
 }
 
 /// The Table of Contents, stored at the end of the file.
-/// It indexes all frames and provides metadata for the vector indices.
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct Toc {
     /// List of all frames in the store, sorted by ID.
     pub frames: Vec<Frame>,
     /// Metadata about the active mHNSW vector index segment.
     pub vector_index: Option<VectorIndexManifest>,
-    /// Checksum of the TOC itself (to detect partial writes).
+    /// [NEW] Index of EpochManifests (Epoch ID -> Frame ID).
+    pub epochs: std::collections::BTreeMap<u64, FrameId>,
+    /// Checksum of the TOC itself.
     pub checksum: [u8; 32],
 }
 
@@ -129,7 +200,7 @@ pub struct VectorIndexManifest {
     pub length: u64,
     /// Number of vectors in the index.
     pub count: u64,
-    /// The dimension of the vectors (e.g., 384, 768).
+    /// The dimension of the vectors.
     pub dimension: u32,
     /// The Merkle Root of the index.
     pub root_hash: [u8; 32],
@@ -139,9 +210,6 @@ impl ScsHeader {
     /// Serializes the header to a fixed-size byte array.
     pub fn to_bytes(&self) -> [u8; HEADER_SIZE as usize] {
         let mut bytes = [0u8; HEADER_SIZE as usize];
-        // We use bincode for the header structure to ensure fixed layout if configured correctly,
-        // but manual packing is safer for cross-version compatibility headers.
-        // For simplicity in this v1, we'll use a manual pack helper.
         let mut offset = 0;
 
         bytes[offset..offset + 8].copy_from_slice(&self.magic);
@@ -165,9 +233,7 @@ impl ScsHeader {
         bytes[offset..offset + 8].copy_from_slice(&self.toc_length.to_le_bytes());
         offset += 8;
 
-        // Reserved/Padding
-        // bytes[offset..] are already 0
-
+        // Reserved/Padding bytes remain 0
         bytes
     }
 
@@ -178,8 +244,9 @@ impl ScsHeader {
         }
 
         let version = u16::from_le_bytes(bytes[8..10].try_into().unwrap());
+        // [MODIFIED] Check for Version 2 compatibility
         if version != SCS_VERSION {
-            return Err(format!("Unsupported version: {}", version));
+            return Err(format!("Unsupported version: {}. Expected {}", version, SCS_VERSION));
         }
 
         let flags = u16::from_le_bytes(bytes[10..12].try_into().unwrap());

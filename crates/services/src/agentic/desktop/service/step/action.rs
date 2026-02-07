@@ -35,7 +35,7 @@ pub async fn process_tool_output(
     let rules: ActionRules = state.get(&policy_key)?.and_then(|b| codec::from_bytes_canonical(&b).ok())
         .unwrap_or_else(default_safe_policy);
 
-    // 1. Raw Refusal Interceptor (Pre-normalization)
+    // 1. Raw Refusal Interceptor
     if tool_call_result.contains("\"name\":\"system::refusal\"") || tool_call_result.contains("\"name\": \"system::refusal\"") {
         let reason = if let Ok(val) = serde_json::from_str::<serde_json::Value>(&tool_call_result) {
             val.get("arguments")
@@ -53,7 +53,6 @@ pub async fn process_tool_output(
     // 2. Normalize & Expand
     let tool_call = middleware::normalize_tool_call(&tool_call_result);
     
-    // [NEW] Refusal Interceptor (Post-normalization backup)
     if let Ok(AgentTool::Dynamic(ref val)) = tool_call {
         if val.get("name").and_then(|n| n.as_str()) == Some("system::refusal") {
             let reason = val.get("arguments")
@@ -81,7 +80,6 @@ pub async fn process_tool_output(
                     Ok(steps) => {
                         agent_state.execution_queue.extend(steps);
                         
-                        // Log the expansion event
                          goto_trace_log(
                             agent_state,
                             state,
@@ -96,14 +94,12 @@ pub async fn process_tool_output(
                             service.event_sender.clone(),
                         )?;
                         
-                        // [FIX] Increment step manually since trace log doesn't do it anymore
                         agent_state.step_count += 1;
                         state.insert(&key, &codec::to_bytes_canonical(&agent_state)?)?;
                         
                         return Ok(()); 
                     },
                     Err(e) => {
-                        // Log expansion failure
                         goto_trace_log(
                             agent_state,
                             state,
@@ -118,7 +114,6 @@ pub async fn process_tool_output(
                             service.event_sender.clone(),
                         )?;
                         
-                        // [FIX] Increment even on failure to avoid loop
                         agent_state.step_count += 1;
                         state.insert(&key, &codec::to_bytes_canonical(&agent_state)?)?;
                         return Ok(());
@@ -128,7 +123,6 @@ pub async fn process_tool_output(
         }
     }
 
-    // [NEW] Calculate Request Hash for Idempotency
     let (req_hash, req_hash_hex) = if let Ok(ref t) = tool_call {
         let target = t.target();
         let tool_val = serde_json::to_value(t).unwrap_or(json!({}));
@@ -151,17 +145,14 @@ pub async fn process_tool_output(
         ([0u8;32], String::new())
     };
 
-    // [NEW] Idempotency Check
     if !req_hash_hex.is_empty() {
         if let Some(status) = agent_state.tool_execution_log.get(&req_hash_hex) {
             if matches!(status, ToolCallStatus::Executed(_)) {
                 log::info!("Skipping idempotent step {} (Hash: {}). Advancing state.", agent_state.step_count, req_hash_hex);
                 
-                // [CRITICAL FIX] Advance state exactly like success would, to break loop
                 agent_state.step_count += 1;
                 agent_state.pending_tool_call = None;
                 
-                // Check hash match before clearing approval to be safe
                 if agent_state
                     .pending_approval
                     .as_ref()
@@ -171,10 +162,7 @@ pub async fn process_tool_output(
                     agent_state.pending_approval = None;
                 }
 
-                // Ensure agent is running
                 agent_state.status = AgentStatus::Running;
-                
-                // Persist the advance
                 state.insert(&key, &codec::to_bytes_canonical(&agent_state)?)?;
                 return Ok(());
             }
@@ -218,11 +206,8 @@ pub async fn process_tool_output(
                     success = s;
                     error_msg = e;
                     
-                    // [NEW] On Success: Mark Idempotent & Consume Token
                     if s && !req_hash_hex.is_empty() {
                          agent_state.tool_execution_log.insert(req_hash_hex.clone(), ToolCallStatus::Executed("success".into()));
-                         
-                         // Consume approval if used (One-shot)
                          if let Some(token) = &agent_state.pending_approval {
                              if token.request_hash == req_hash {
                                  agent_state.pending_approval = None;
@@ -246,8 +231,6 @@ pub async fn process_tool_output(
                         AgentTool::AgentComplete { result } => {
                             agent_state.status = AgentStatus::Completed(Some(result.clone()));
                             is_lifecycle_action = true;
-                            
-                            // [NEW] RSI LOOP: Evaluation & Crystallization
                             evaluate_and_crystallize(service, agent_state, session_id, result).await;
 
                             if let Some(tx) = &service.event_sender {
@@ -255,7 +238,7 @@ pub async fn process_tool_output(
                                     session_id: session_id,
                                     step_index: agent_state.step_count,
                                     tool_name: "agent__complete".to_string(),
-                                    output: format!("Result: {}\nFitness: {:.2}", result, 0.0), // Placeholder fitness until eval completes
+                                    output: format!("Result: {}\nFitness: {:.2}", result, 0.0), 
                                 });
                             }
                         }
@@ -264,7 +247,6 @@ pub async fn process_tool_output(
                             is_lifecycle_action = true;
                         }
                         AgentTool::ChatReply { message } => {
-                            // [FIX] Pause execution to wait for user response (Turn-taking)
                             agent_state.status = AgentStatus::Paused("Waiting for user input".to_string());
                             is_lifecycle_action = true; 
                             
@@ -301,8 +283,6 @@ pub async fn process_tool_output(
                 Err(e) => {
                     success = false;
                     error_msg = Some(e.to_string());
-                    
-                    // [NEW] Mark as Failed to prevent retry loop if deterministic error
                     if !req_hash_hex.is_empty() {
                         agent_state.tool_execution_log.insert(req_hash_hex.clone(), ToolCallStatus::Failed(e.to_string()));
                     }
@@ -314,7 +294,6 @@ pub async fn process_tool_output(
         }
     }
 
-    // 4. Trace Log
     goto_trace_log(
         agent_state,
         state,
@@ -325,7 +304,7 @@ pub async fn process_tool_output(
         tool_call_result,
         success,
         error_msg.clone(),
-        current_tool_name.clone(), // This is a bit loose but works for MVP logging
+        current_tool_name.clone(), 
         service.event_sender.clone(),
     )?;
 
@@ -335,10 +314,6 @@ pub async fn process_tool_output(
         agent_state.consecutive_failures += 1;
     }
     
-    // [FIX] ONLY increment step count if NOT gated.
-    // If we are gated, we must stay on the same step index (nonce) so the 
-    // ApprovalToken (which signs that nonce) remains valid for the retry.
-    // NOTE: This logic works because we removed the automatic increment from utils::goto_trace_log.
     if !is_gated {
         agent_state.step_count += 1;
         agent_state.pending_tool_call = None;
@@ -389,9 +364,7 @@ async fn handle_refusal(
         service.event_sender.clone(),
     )?;
     
-    // [FIX] Increment step manually for refusal too, to avoid loop
     agent_state.step_count += 1;
-    
     agent_state.status = AgentStatus::Paused(format!("Model Refusal: {}", reason));
     agent_state.consecutive_failures = 0; 
     state.insert(key, &codec::to_bytes_canonical(agent_state)?)?;

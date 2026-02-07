@@ -4,7 +4,7 @@ use async_trait::async_trait;
 use ioi_types::app::{ActionRequest, ContextSlice};
 use ioi_types::error::VmError;
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap; // [NEW] Added HashMap for SoM API
+use std::collections::HashMap;
 
 /// Represents the type of mouse button.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -26,9 +26,9 @@ pub enum AtomicInput {
     MouseUp { button: MouseButton },
     /// Press a specific key (click: down + up).
     KeyPress { key: String },
-    /// [NEW] Hold a key down (for chords).
+    /// Hold a key down (for chords).
     KeyDown { key: String },
-    /// [NEW] Release a key.
+    /// Release a key.
     KeyUp { key: String },
     /// Type a string of text.
     Type { text: String },
@@ -47,7 +47,6 @@ pub enum InputEvent {
         x: u32,
         y: u32,
         /// Hash of the screen region expected at these coordinates.
-        /// This enforces the "Atomic Vision-Action Lock" to prevent visual drift (TOCTOU).
         expected_visual_hash: Option<[u8; 32]>,
     },
     /// Press a mouse button down at specific coordinates (start of drag).
@@ -78,29 +77,30 @@ pub enum InputEvent {
 #[async_trait]
 pub trait GuiDriver: Send + Sync {
     /// Captures the current visual state for the VLM.
-    async fn capture_screen(&self) -> Result<Vec<u8>, VmError>;
+    /// 
+    /// # Arguments
+    /// * `crop_rect` - Optional tuple of (x, y, width, height) to crop the screenshot.
+    ///                 Coordinates are relative to the primary monitor origin.
+    async fn capture_screen(&self, crop_rect: Option<(i32, i32, u32, u32)>) -> Result<Vec<u8>, VmError>;
+
+    /// [NEW] Captures the raw screen image without any overlays or redaction.
+    /// Used for manual compositing in the perception layer.
+    async fn capture_raw_screen(&self) -> Result<Vec<u8>, VmError>;
 
     /// Captures the semantic state (Accessibility Tree) for grounding.
     async fn capture_tree(&self) -> Result<String, VmError>;
 
     /// Captures an intent-constrained slice of the context.
-    /// This is the primary "Observe" method for the SCS.
     async fn capture_context(&self, intent: &ActionRequest) -> Result<ContextSlice, VmError>;
 
     /// Executes a physical input.
-    /// MUST be gated by the Agency Firewall before calling.
     async fn inject_input(&self, event: InputEvent) -> Result<(), VmError>;
 
     /// Resolves a Set-of-Marks ID from the last capture to screen coordinates.
-    /// Returns (x, y) center point of the element.
     async fn get_element_center(&self, id: u32) -> Result<Option<(u32, u32)>, VmError>;
 
-    /// [NEW] Manually injects a Set-of-Marks mapping (ID -> Rect) into the driver's cache.
-    /// Used by Hybrid Agents to register elements found in background tabs so the 
-    /// executor can resolve IDs without the GUI driver taking a fresh screenshot.
-    /// Rect format: (x, y, width, height).
+    /// Manually injects a Set-of-Marks mapping (ID -> Rect) into the driver's cache.
     async fn register_som_overlay(&self, _map: HashMap<u32, (i32, i32, i32, i32)>) -> Result<(), VmError> {
-        // Default implementation does nothing (for mock drivers)
         Ok(())
     }
 }
