@@ -154,6 +154,9 @@ message AgentActionResult {
     uint32 step_index = 2;
     string tool_name = 3;
     string output = 4;
+    // [NEW] The authoritative lifecycle state after this action.
+    // e.g. "Running", "Paused", "Completed", "Failed"
+    string agent_status = 5; 
 }
 
 // [NEW] Message for agent spawning

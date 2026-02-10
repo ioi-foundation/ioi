@@ -10,6 +10,7 @@ use std::time::Duration;
 use tokio::sync::mpsc::Sender;
 use std::path::Path;
 use super::InferenceRuntime;
+use base64::{engine::general_purpose::STANDARD as BASE64, Engine as _};
 
 // --- Strategy Trait ---
 
@@ -356,10 +357,13 @@ impl ProviderStrategy for AnthropicStrategy {
             }).collect())
         };
 
+        // Use options.max_tokens if set (non-zero), otherwise fallback to 4096
+        let max_tokens = if options.max_tokens > 0 { options.max_tokens } else { 4096 };
+
         let body = AnthropicRequest {
             model: model_name.into(),
             messages,
-            max_tokens: 4096,
+            max_tokens,
             tools,
             stream,
             temperature: options.temperature,
@@ -528,6 +532,37 @@ impl InferenceRuntime for HttpInferenceRuntime {
         } else {
             Err(VmError::HostError("No embedding returned".into()))
         }
+    }
+
+    // [NEW] Implement embed_image via Captioning + Embedding
+    async fn embed_image(&self, image_bytes: &[u8]) -> Result<Vec<f32>, VmError> {
+        // Since standard APIs (OpenAI) don't have a direct "Embed Image to Vector" endpoint public yet (CLIP is separate),
+        // we use a "VLM Caption -> Text Embedding" pipeline. This is a robust fallback for semantic visual search.
+        
+        // 1. Caption the image using the VLM
+        let b64 = BASE64.encode(image_bytes);
+        let prompt = json!([
+            { "role": "user", "content": [
+                { "type": "text", "text": "Describe this UI screenshot in extreme detail for search indexing. Include text, buttons, layout, and colors." },
+                { "type": "image_url", "image_url": { "url": format!("data:image/jpeg;base64,{}", b64) } }
+            ]}
+        ]);
+        
+        // Use a fast VLM call (max tokens low)
+        let model_hash = [0u8; 32];
+        let options = InferenceOptions {
+             max_tokens: 150,
+             temperature: 0.0,
+             ..Default::default()
+        };
+        
+        let input_bytes = serde_json::to_vec(&prompt).map_err(|e| VmError::Initialization(e.to_string()))?; // [FIX] Use Initialization variant
+        
+        let caption_bytes = self.execute_inference(model_hash, &input_bytes, options).await?;
+        let caption = String::from_utf8_lossy(&caption_bytes).to_string();
+        
+        // 2. Embed the caption
+        self.embed_text(&caption).await
     }
     
     async fn load_model(&self, _hash: [u8; 32], _path: &Path) -> Result<(), VmError> { Ok(()) }

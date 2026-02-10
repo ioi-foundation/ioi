@@ -35,6 +35,7 @@ pub async fn gate_respond(
 ) -> Result<(), String> {
     let mut session_id_hex = None;
     let mut request_hash_hex = None;
+    let mut visual_hash_hex = None; // [NEW] Capture visual hash
 
     {
         if let Ok(mut s) = state.lock() {
@@ -45,6 +46,7 @@ pub async fn gate_respond(
             if let Some(task) = &s.current_task {
                 session_id_hex = task.session_id.clone();
                 request_hash_hex = task.pending_request_hash.clone();
+                visual_hash_hex = task.visual_hash.clone(); // [NEW] Capture visual hash
             }
         }
     }
@@ -70,6 +72,19 @@ pub async fn gate_respond(
             let mut request_hash_arr = [0u8; 32];
             request_hash_arr.copy_from_slice(&request_hash_bytes);
 
+            // [NEW] Decode visual hash if present
+            let visual_hash_arr = if let Some(v_hex) = visual_hash_hex {
+                if let Ok(v_bytes) = hex::decode(&v_hex) {
+                     if v_bytes.len() == 32 {
+                         let mut arr = [0u8; 32];
+                         arr.copy_from_slice(&v_bytes);
+                         Some(arr)
+                     } else { None }
+                } else { None }
+            } else {
+                None
+            };
+
             let approver_kp = Ed25519KeyPair::generate().map_err(|e| e.to_string())?;
             let approver_pub = approver_kp.public_key();
 
@@ -83,6 +98,7 @@ pub async fn gate_respond(
                         + 3600,
                     max_usages: Some(1),
                 },
+                visual_hash: visual_hash_arr, // [FIX] Added visual_hash
                 approver_sig: vec![],
                 approver_suite: SignatureSuite::ED25519,
             };

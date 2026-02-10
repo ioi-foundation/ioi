@@ -16,6 +16,10 @@ use parity_scale_codec::{Decode, Encode};
 use serde::{Deserialize, Serialize};
 use ioi_crypto::algorithms::hash::sha256;
 
+// [NEW] Export licensing module
+pub mod licensing;
+pub mod router;
+
 // --- Storage Prefixes ---
 // Consolidated namespace for all market activities
 const ASSET_REGISTRY_PREFIX: &[u8] = b"market::asset::";

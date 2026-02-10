@@ -168,5 +168,11 @@ pub struct ActiveServiceMeta {
     /// The Account ID of the user/entity that controls this service.
     /// Only this account can authorize evolutionary upgrades for this agent.
     #[serde(default)]
-    pub author: Option<AccountId>, 
+    pub author: Option<AccountId>,
+
+    /// [NEW] Regex pattern for window titles where this service is relevant.
+    /// If None, the service is globally available.
+    /// e.g. "Visual Studio Code.*"
+    #[serde(default)]
+    pub context_filter: Option<String>,
 }

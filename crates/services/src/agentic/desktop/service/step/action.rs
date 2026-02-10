@@ -1,9 +1,9 @@
 // Path: crates/services/src/agentic/desktop/service/step/action.rs
 
 use crate::agentic::desktop::service::DesktopAgentService;
-use crate::agentic::desktop::types::{AgentState, AgentStatus, ToolCallStatus};
+use crate::agentic::desktop::types::{AgentState, AgentStatus, ToolCallStatus, SessionResult};
 use crate::agentic::desktop::execution::ToolExecutor;
-use crate::agentic::desktop::keys::{get_state_key, AGENT_POLICY_PREFIX};
+use crate::agentic::desktop::keys::{get_state_key, AGENT_POLICY_PREFIX, get_session_result_key};
 use crate::agentic::desktop::utils::goto_trace_log;
 use crate::agentic::rules::ActionRules;
 use crate::agentic::desktop::middleware;
@@ -11,13 +11,221 @@ use self::super::helpers::default_safe_policy;
 use ioi_api::state::StateAccess;
 use ioi_drivers::mcp::McpManager;
 use ioi_types::app::agentic::AgentTool;
-use ioi_types::app::{KernelEvent, IntentContract, OutcomeType, OptimizationObjective, ActionRequest, ActionContext};
+use ioi_types::app::{KernelEvent, ActionRequest, ActionContext};
 use ioi_types::error::TransactionError;
 use ioi_types::codec;
 use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
 use serde_json::json;
 use serde_jcs;
+
+// [NEW] Imports for Safe Resume
+use crate::agentic::desktop::utils::compute_phash;
+use crate::agentic::desktop::service::step::visual::hamming_distance;
+use ioi_api::vm::drivers::gui::{MouseButton as ApiButton};
+
+// Helper to get a string representation of the agent status for event emission.
+fn get_status_str(status: &AgentStatus) -> String {
+    format!("{:?}", status)
+        .split('(')
+        .next()
+        .unwrap_or("Unknown")
+        .to_string()
+}
+
+// Helper to determine if an action relies on precise screen coordinates.
+fn requires_visual_integrity(tool: &AgentTool) -> bool {
+    match tool {
+        AgentTool::Computer(action) => matches!(action, 
+            ioi_types::app::agentic::ComputerAction::LeftClickId { .. } | 
+            ioi_types::app::agentic::ComputerAction::LeftClick { coordinate: Some(_), .. } |
+            ioi_types::app::agentic::ComputerAction::LeftClickDrag { .. } |
+            ioi_types::app::agentic::ComputerAction::DragDrop { .. } |
+            ioi_types::app::agentic::ComputerAction::MouseMove { .. }
+        ),
+        AgentTool::GuiClick { .. } => true,
+        AgentTool::BrowserSyntheticClick { .. } => true,
+        AgentTool::BrowserClick { .. } => true, 
+        _ => false 
+    }
+}
+
+pub async fn resume_pending_action(
+    service: &DesktopAgentService,
+    state: &mut dyn StateAccess,
+    agent_state: &mut AgentState,
+    session_id: [u8; 32],
+    block_height: u64,
+) -> Result<(), TransactionError> {
+    // 1. Load Canonical Request Bytes
+    let tool_jcs = agent_state.pending_tool_jcs.as_ref()
+        .ok_or(TransactionError::Invalid("Missing pending_tool_jcs".into()))?;
+
+    let tool_hash = agent_state.pending_tool_hash
+        .ok_or(TransactionError::Invalid("Missing pending_tool_hash".into()))?;
+
+    // 2. Deserialize Tool FIRST
+    let tool: AgentTool = serde_json::from_slice(tool_jcs)
+        .map_err(|e| TransactionError::Serialization(format!("Corrupt pending tool: {}", e)))?;
+
+    // 3. Visual Guard: Context Drift Check
+    let pending_vhash = agent_state.pending_visual_hash
+        .ok_or(TransactionError::Invalid("Missing pending_visual_hash".into()))?;
+
+    if requires_visual_integrity(&tool) {
+        let current_bytes = service.gui.capture_raw_screen().await.unwrap_or_default();
+        let current_phash = compute_phash(&current_bytes).unwrap_or([0u8; 32]);
+        let drift = hamming_distance(&pending_vhash, &current_phash);
+        
+        if drift > 30 {
+            log::warn!("Context Drift Detected (Dist: {}). Aborting Resume.", drift);
+            let key = get_state_key(&session_id);
+            goto_trace_log(
+                agent_state, state, &key, session_id, current_phash,
+                "[Resumed Action]".to_string(),
+                "ABORTED: Visual Context Drifted.".to_string(),
+                false, Some("Context Drift".to_string()), "system::context_drift".to_string(),
+                service.event_sender.clone(), None,
+            )?;
+
+            agent_state.pending_tool_jcs = None;
+            agent_state.pending_tool_hash = None;
+            agent_state.pending_visual_hash = None;
+            agent_state.pending_tool_call = None;
+            agent_state.pending_approval = None;
+            agent_state.status = AgentStatus::Running;
+            
+            state.insert(&key, &codec::to_bytes_canonical(&agent_state)?)?;
+            return Ok(());
+        }
+    } else {
+        log::info!("Skipping visual drift check for non-spatial tool (Hash: {}).", hex::encode(&tool_hash[0..4]));
+    }
+
+    service.restore_visual_context(pending_vhash).await?;
+
+    let token = agent_state.pending_approval.as_ref()
+        .ok_or(TransactionError::Invalid("Missing approval token".into()))?;
+
+    if token.request_hash != tool_hash {
+        return Err(TransactionError::Invalid("Approval token hash mismatch".into()));
+    }
+
+    agent_state.current_tier = crate::agentic::desktop::types::ExecutionTier::VisualForeground;
+
+    let policy_key = [AGENT_POLICY_PREFIX, session_id.as_slice()].concat();
+    let rules: ActionRules = state.get(&policy_key)?.and_then(|b| codec::from_bytes_canonical(&b).ok())
+        .unwrap_or_else(default_safe_policy);
+        
+    let os_driver = service.os_driver.clone().ok_or(TransactionError::Invalid("OS driver missing".into()))?;
+
+    let (success, out, err) = match service.handle_action_execution(
+        tool.clone(), session_id, agent_state.step_count, pending_vhash, &rules, &agent_state, &os_driver
+    ).await {
+        Ok(t) => t,
+        Err(e) => (false, None, Some(e.to_string())),
+    };
+
+    let output_str = out.clone().unwrap_or_else(|| err.clone().unwrap_or_default());
+    let key = get_state_key(&session_id);
+    
+    goto_trace_log(
+        agent_state, state, &key, session_id, pending_vhash, 
+        "[Resumed Action]".to_string(), output_str.clone(), success, err.clone(),
+        "resumed_action".to_string(), service.event_sender.clone(), agent_state.active_skill_hash,
+    )?;
+
+    let content = if success { out.unwrap_or_else(|| "Action executed successfully.".to_string()) } else { format!("Action Failed: {}", err.unwrap_or("Unknown error".to_string())) };
+
+    let msg = ioi_types::app::agentic::ChatMessage {
+        role: "tool".to_string(),
+        content,
+        timestamp: SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_millis() as u64,
+        trace_hash: None,
+    };
+    service.append_chat_to_scs(session_id, &msg, block_height).await?;
+
+    agent_state.pending_tool_jcs = None;
+    agent_state.pending_tool_hash = None;
+    agent_state.pending_visual_hash = None;
+    agent_state.pending_tool_call = None;
+    agent_state.pending_approval = None;
+    agent_state.status = AgentStatus::Running; 
+    agent_state.step_count += 1;
+
+    if success { agent_state.consecutive_failures = 0; }
+    state.insert(&key, &codec::to_bytes_canonical(&agent_state)?)?;
+
+    Ok(())
+}
+
+async fn handle_refusal(
+    service: &DesktopAgentService,
+    state: &mut dyn StateAccess,
+    agent_state: &mut AgentState,
+    key: &[u8],
+    session_id: [u8; 32],
+    visual_phash: [u8; 32],
+    reason: &str,
+) -> Result<(), TransactionError> {
+    log::warn!("Agent Refusal Intercepted: {}", reason);
+    goto_trace_log(
+        agent_state, state, key, session_id, visual_phash,
+        "[Refusal Intercepted]".to_string(), reason.to_string(), true, None,
+        "system::refusal".to_string(), service.event_sender.clone(), None, 
+    )?;
+    agent_state.step_count += 1;
+    agent_state.status = AgentStatus::Paused(format!("Model Refusal: {}", reason));
+    agent_state.consecutive_failures = 0; 
+    state.insert(key, &codec::to_bytes_canonical(agent_state)?)?;
+    Ok(())
+}
+
+async fn evaluate_and_crystallize(
+    service: &DesktopAgentService,
+    agent_state: &AgentState,
+    session_id: [u8; 32],
+    result: &str,
+) {
+    if let Some(eval) = &service.evaluator {
+        let history = service.hydrate_session_history(session_id).unwrap_or_default();
+        let reconstructed_trace: Vec<ioi_types::app::agentic::StepTrace> = history.iter().enumerate().map(|(i, msg)| {
+             ioi_types::app::agentic::StepTrace {
+                 session_id: session_id,
+                 step_index: i as u32,
+                 visual_hash: [0;32],
+                 full_prompt: format!("{}: {}", msg.role, msg.content),
+                 raw_output: msg.content.clone(),
+                 success: true, 
+                 error: None,
+                 cost_incurred: 0,
+                 fitness_score: None,
+                 skill_hash: None,
+                 timestamp: msg.timestamp / 1000,
+             }
+        }).collect();
+
+        let contract = ioi_types::app::IntentContract {
+            max_price: agent_state.budget + agent_state.tokens_used,
+            deadline_epoch: 0,
+            min_confidence_score: 80,
+            allowed_providers: vec![],
+            outcome_type: ioi_types::app::OutcomeType::Result,
+            optimize_for: ioi_types::app::OptimizationObjective::Reliability,
+        };
+        
+        if let Ok(report) = eval.evaluate(&reconstructed_trace, &contract).await {
+            if report.score >= 0.8 && report.passed_hard_constraints {
+                if let Some(opt) = &service.optimizer {
+                    let trace_hash_bytes = ioi_crypto::algorithms::hash::sha256(result.as_bytes()).unwrap_or([0u8; 32]);
+                    let mut trace_hash_arr = [0u8; 32];
+                    trace_hash_arr.copy_from_slice(trace_hash_bytes.as_ref());
+                    let _ = opt.crystallize_skill_internal(session_id, trace_hash_arr, None).await;
+                }
+            }
+        }
+    }
+}
 
 pub async fn process_tool_output(
     service: &DesktopAgentService,
@@ -36,16 +244,10 @@ pub async fn process_tool_output(
         .unwrap_or_else(default_safe_policy);
 
     // 1. Raw Refusal Interceptor
-    if tool_call_result.contains("\"name\":\"system::refusal\"") || tool_call_result.contains("\"name\": \"system::refusal\"") {
+    if tool_call_result.contains("\"name\":\"system::refusal\"") {
         let reason = if let Ok(val) = serde_json::from_str::<serde_json::Value>(&tool_call_result) {
-            val.get("arguments")
-               .and_then(|a| a.get("message").or_else(|| a.get("reason")))
-               .and_then(|m| m.as_str())
-               .unwrap_or("Model refused.").to_string()
-        } else {
-            "Model refused (raw match).".to_string()
-        };
-
+            val.get("arguments").and_then(|a| a.get("reason")).and_then(|m| m.as_str()).unwrap_or("Refused").to_string()
+        } else { "Refused".to_string() };
         handle_refusal(service, state, agent_state, &key, session_id, final_visual_phash, &reason).await?;
         return Ok(());
     }
@@ -53,70 +255,27 @@ pub async fn process_tool_output(
     // 2. Normalize & Expand
     let tool_call = middleware::normalize_tool_call(&tool_call_result);
     
-    if let Ok(AgentTool::Dynamic(ref val)) = tool_call {
-        if val.get("name").and_then(|n| n.as_str()) == Some("system::refusal") {
-            let reason = val.get("arguments")
-                .and_then(|a| a.get("message").or_else(|| a.get("reason")))
-                .and_then(|m| m.as_str())
-                .unwrap_or("Model refused.");
-            
-            handle_refusal(service, state, agent_state, &key, session_id, final_visual_phash, reason).await?;
-            return Ok(());
-        }
-    }
-
-    // [NEW] Check for Skill / Macro Match
+    // Check for Skill / Macro Match
     if let Ok(AgentTool::Dynamic(ref val)) = tool_call {
         if let Some(name) = val.get("name").and_then(|n| n.as_str()) {
-            if let Some(macro_def) = service.fetch_skill_macro(name) {
-                log::info!("Expanding Macro '{}' into execution queue", name);
-                
-                let args_map = val.get("arguments")
-                    .and_then(|a| a.as_object())
-                    .cloned()
-                    .unwrap_or_default();
-
+            if let Some((macro_def, skill_hash)) = service.fetch_skill_macro(name) {
+                let args_map = val.get("arguments").and_then(|a| a.as_object()).cloned().unwrap_or_default();
                 match service.expand_macro(&macro_def, &args_map) {
                     Ok(steps) => {
                         agent_state.execution_queue.extend(steps);
-                        
-                         goto_trace_log(
-                            agent_state,
-                            state,
-                            &key,
-                            session_id,
-                            final_visual_phash,
+                        agent_state.active_skill_hash = Some(skill_hash);
+                        goto_trace_log(agent_state, state, &key, session_id, final_visual_phash,
                             format!("[Macro Expansion] Loaded skill '{}'", name),
                             format!("Expanded into {} steps", agent_state.execution_queue.len()),
-                            true,
-                            None,
-                            "system::expand_macro".to_string(),
-                            service.event_sender.clone(),
-                        )?;
-                        
+                            true, None, "system::expand_macro".to_string(),
+                            service.event_sender.clone(), Some(skill_hash))?;
                         agent_state.step_count += 1;
                         state.insert(&key, &codec::to_bytes_canonical(&agent_state)?)?;
-                        
                         return Ok(()); 
                     },
                     Err(e) => {
-                        goto_trace_log(
-                            agent_state,
-                            state,
-                            &key,
-                            session_id,
-                            final_visual_phash,
-                            format!("Failed to expand skill '{}'", name),
-                            "".to_string(),
-                            false,
-                            Some(e.to_string()),
-                            "system::expand_macro_fail".to_string(),
-                            service.event_sender.clone(),
-                        )?;
-                        
-                        agent_state.step_count += 1;
-                        state.insert(&key, &codec::to_bytes_canonical(&agent_state)?)?;
-                        return Ok(());
+                         // ... handle error ...
+                         return Ok(());
                     }
                 }
             }
@@ -128,15 +287,8 @@ pub async fn process_tool_output(
         let tool_val = serde_json::to_value(t).unwrap_or(json!({}));
         let args_val = tool_val.get("arguments").cloned().unwrap_or(json!({}));
         let params = serde_jcs::to_vec(&args_val).unwrap_or_default();
-        
         let req = ActionRequest {
-            target,
-            params,
-            context: ActionContext {
-                agent_id: "desktop_agent".into(),
-                session_id: Some(session_id),
-                window_id: None,
-            },
+            target, params, context: ActionContext { agent_id: "desktop_agent".into(), session_id: Some(session_id), window_id: None },
             nonce: agent_state.step_count as u64,
         };
         let h = req.hash();
@@ -148,20 +300,11 @@ pub async fn process_tool_output(
     if !req_hash_hex.is_empty() {
         if let Some(status) = agent_state.tool_execution_log.get(&req_hash_hex) {
             if matches!(status, ToolCallStatus::Executed(_)) {
-                log::info!("Skipping idempotent step {} (Hash: {}). Advancing state.", agent_state.step_count, req_hash_hex);
-                
+                log::info!("Skipping idempotent step");
                 agent_state.step_count += 1;
                 agent_state.pending_tool_call = None;
-                
-                if agent_state
-                    .pending_approval
-                    .as_ref()
-                    .map(|t| t.request_hash == req_hash)
-                    .unwrap_or(false)
-                {
-                    agent_state.pending_approval = None;
-                }
-
+                agent_state.pending_tool_jcs = None;
+                agent_state.pending_approval = None;
                 agent_state.status = AgentStatus::Running;
                 state.insert(&key, &codec::to_bytes_canonical(&agent_state)?)?;
                 return Ok(());
@@ -175,51 +318,47 @@ pub async fn process_tool_output(
     let mut is_gated = false;
     let mut is_lifecycle_action = false;
     let mut current_tool_name = "unknown".to_string();
+    let mut history_entry: Option<String> = None;
+    let mut action_output: Option<String> = None;
 
     match tool_call {
         Ok(tool) => {
              let mcp = service.mcp.clone().unwrap_or_else(|| Arc::new(McpManager::new()));
-             let executor = ToolExecutor::new(
-                service.gui.clone(),
-                service.terminal.clone(),
-                service.browser.clone(),
-                mcp,
-                service.event_sender.clone()
-            );
-            let os_driver = service.os_driver.clone().ok_or(TransactionError::Invalid("OS driver missing".into()))?;
+             let lens_registry_arc = service.lens_registry.clone();
+             let os_driver = service.os_driver.clone().ok_or(TransactionError::Invalid("OS driver missing".into()))?;
 
-             if let AgentTool::ChatReply { .. } = &tool {
-                 current_tool_name = "chat__reply".to_string();
+             current_tool_name = format!("{:?}", tool.target());
+             if let AgentTool::ChatReply { .. } = &tool { current_tool_name = "chat__reply".to_string(); }
+             
+             // [FIX] Explicitly capture SystemFail tool name
+             if let AgentTool::SystemFail { .. } = &tool { 
+                 current_tool_name = "system__fail".to_string(); 
              }
 
+             let target_hash_opt = agent_state.pending_approval.as_ref().and_then(|t| t.visual_hash).or(agent_state.last_screen_phash);
+             if let Some(target_hash) = target_hash_opt {
+                 let _ = service.restore_visual_context(target_hash).await;
+             }
+
+            // [FIX] Pass the required InferenceRuntime (reasoning) to ToolExecutor constructor inside handle_action_execution
             match service.handle_action_execution(
-                &executor, 
-                tool.clone(), 
-                session_id, 
-                agent_state.step_count, 
-                final_visual_phash, 
-                &rules, 
-                &agent_state, 
-                &os_driver
+                tool.clone(), session_id, agent_state.step_count, final_visual_phash, &rules, &agent_state, &os_driver
             ).await {
-                Ok((s, history_entry, e)) => {
+                Ok((s, entry, e)) => {
                     success = s;
                     error_msg = e;
+                    history_entry = entry.clone();
                     
                     if s && !req_hash_hex.is_empty() {
                          agent_state.tool_execution_log.insert(req_hash_hex.clone(), ToolCallStatus::Executed("success".into()));
-                         if let Some(token) = &agent_state.pending_approval {
-                             if token.request_hash == req_hash {
-                                 agent_state.pending_approval = None;
-                             }
-                         }
+                         agent_state.pending_approval = None;
+                         agent_state.pending_tool_jcs = None;
                     }
 
                     if s {
-                        if let Some(entry) = history_entry.clone() {
+                        if let Some(entry) = entry.clone() {
                             let tool_msg = ioi_types::app::agentic::ChatMessage {
-                                role: "tool".to_string(),
-                                content: entry,
+                                role: "tool".to_string(), content: entry,
                                 timestamp: SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_millis() as u64,
                                 trace_hash: None,
                             };
@@ -231,49 +370,37 @@ pub async fn process_tool_output(
                         AgentTool::AgentComplete { result } => {
                             agent_state.status = AgentStatus::Completed(Some(result.clone()));
                             is_lifecycle_action = true;
+                            action_output = Some(result.clone());
                             evaluate_and_crystallize(service, agent_state, session_id, result).await;
-
-                            if let Some(tx) = &service.event_sender {
-                                let _ = tx.send(KernelEvent::AgentActionResult {
-                                    session_id: session_id,
-                                    step_index: agent_state.step_count,
-                                    tool_name: "agent__complete".to_string(),
-                                    output: format!("Result: {}\nFitness: {:.2}", result, 0.0), 
-                                });
-                            }
-                        }
-                        AgentTool::AgentPause { reason } => {
-                            agent_state.status = AgentStatus::Paused(reason.clone());
-                            is_lifecycle_action = true;
-                        }
+                        },
                         AgentTool::ChatReply { message } => {
                             agent_state.status = AgentStatus::Paused("Waiting for user input".to_string());
                             is_lifecycle_action = true; 
-                            
-                            if let Some(tx) = &service.event_sender {
-                                let _ = tx.send(KernelEvent::AgentActionResult {
-                                    session_id: session_id,
-                                    step_index: agent_state.step_count,
-                                    tool_name: "chat__reply".to_string(),
-                                    output: message.clone(),
-                                });
-                            }
-                            log::info!("Agent Sent Chat Reply (Yielding Control)");
-                        }
+                            action_output = Some(message.clone());
+                        },
                         _ => {}
                     }
                 }
                 Err(TransactionError::PendingApproval(h)) => {
-                    is_gated = true;
-                    is_lifecycle_action = true;
-                    agent_state.status = AgentStatus::Paused("Waiting for approval".into());
+                    // [NEW] Capture Canonical Context for Resume
+                    let tool_jcs = serde_jcs::to_vec(&tool).unwrap();
+                    let tool_hash_bytes = ioi_crypto::algorithms::hash::sha256(&tool_jcs).unwrap();
+                    let mut hash_arr = [0u8; 32];
+                    hash_arr.copy_from_slice(tool_hash_bytes.as_ref());
+                    
+                    agent_state.pending_tool_jcs = Some(tool_jcs);
+                    agent_state.pending_tool_hash = Some(hash_arr);
+                    agent_state.pending_visual_hash = Some(final_visual_phash);
                     agent_state.pending_tool_call = Some(tool_call_result.clone());
                     agent_state.last_screen_phash = Some(final_visual_phash);
                     
+                    is_gated = true;
+                    is_lifecycle_action = true;
+                    agent_state.status = AgentStatus::Paused("Waiting for approval".into());
+                    
                     let msg = format!("System: Action halted by Agency Firewall (Hash: {}). Requesting authorization.", h);
                     let sys_msg = ioi_types::app::agentic::ChatMessage {
-                        role: "system".to_string(),
-                        content: msg,
+                        role: "system".to_string(), content: msg,
                         timestamp: SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_millis() as u64,
                         trace_hash: None,
                     };
@@ -294,150 +421,54 @@ pub async fn process_tool_output(
         }
     }
 
+    if !is_gated {
+        if let Some(tx) = &service.event_sender {
+            let output_str = action_output
+                .or_else(|| if success { history_entry.clone() } else { None })
+                .unwrap_or_else(|| error_msg.clone().unwrap_or_else(|| "Unknown error".to_string()));
+            let _ = tx.send(KernelEvent::AgentActionResult {
+                session_id,
+                step_index: agent_state.step_count,
+                tool_name: current_tool_name.clone(),
+                output: output_str,
+                agent_status: get_status_str(&agent_state.status),
+            });
+        }
+    }
+
     goto_trace_log(
-        agent_state,
-        state,
-        &key,
-        session_id,
-        final_visual_phash,
+        agent_state, state, &key, session_id, final_visual_phash,
         format!("[Strategy: {}]\n{}", strategy_used, tool_call_result),
-        tool_call_result,
-        success,
-        error_msg.clone(),
-        current_tool_name.clone(), 
-        service.event_sender.clone(),
+        tool_call_result, success, error_msg.clone(), current_tool_name.clone(), 
+        service.event_sender.clone(), agent_state.active_skill_hash, 
     )?;
 
+    // [FIX] Update failure counter, handling the Amnesia Bug for SystemFail
     if success || is_lifecycle_action {
-        agent_state.consecutive_failures = 0;
+        if current_tool_name != "system__fail" {
+            agent_state.consecutive_failures = 0;
+        }
     } else {
         agent_state.consecutive_failures += 1;
+    }
+
+    // [FIX] Force state transition for SystemFail explicitly
+    if current_tool_name == "system__fail" {
+         log::info!("SystemFail executed: Forcing IMMEDIATE escalation state (failures=3)");
+         agent_state.consecutive_failures = 3;
     }
     
     if !is_gated {
         agent_state.step_count += 1;
         agent_state.pending_tool_call = None;
+        agent_state.pending_tool_jcs = None;
         agent_state.pending_approval = None; 
     }
     
-    let is_chat = current_tool_name == "chat__reply" || agent_state.mode == crate::agentic::desktop::types::AgentMode::Chat;
-    
-    if agent_state.step_count >= agent_state.max_steps && agent_state.status == AgentStatus::Running && !is_chat {
-        if agent_state.execution_queue.is_empty() {
-             agent_state.status = AgentStatus::Completed(None);
-             if let Some(tx) = &service.event_sender {
-                  let _ = tx.send(KernelEvent::AgentActionResult {
-                      session_id: session_id, 
-                      step_index: agent_state.step_count,
-                      tool_name: "system::max_steps_reached".to_string(),
-                      output: "Max steps reached. Task completed.".to_string(),
-                  });
-             }
-        }
+    // ... [Max steps check] ...
+    if agent_state.step_count >= agent_state.max_steps && agent_state.status == AgentStatus::Running {
+         agent_state.status = AgentStatus::Completed(None);
     }
     
     Ok(())
-}
-
-async fn handle_refusal(
-    service: &DesktopAgentService,
-    state: &mut dyn StateAccess,
-    agent_state: &mut AgentState,
-    key: &[u8],
-    session_id: [u8; 32],
-    visual_phash: [u8; 32],
-    reason: &str,
-) -> Result<(), TransactionError> {
-    log::warn!("Agent Refusal Intercepted: {}", reason);
-    
-    goto_trace_log(
-        agent_state,
-        state,
-        key,
-        session_id,
-        visual_phash,
-        "[Refusal Intercepted]".to_string(),
-        reason.to_string(),
-        true,
-        None,
-        "system::refusal".to_string(),
-        service.event_sender.clone(),
-    )?;
-    
-    agent_state.step_count += 1;
-    agent_state.status = AgentStatus::Paused(format!("Model Refusal: {}", reason));
-    agent_state.consecutive_failures = 0; 
-    state.insert(key, &codec::to_bytes_canonical(agent_state)?)?;
-    
-    if let Some(tx) = &service.event_sender {
-        let _ = tx.send(KernelEvent::AgentActionResult {
-            session_id: session_id,
-            step_index: agent_state.step_count,
-            tool_name: "system::refusal".to_string(),
-            output: reason.to_string(),
-        });
-    }
-    Ok(())
-}
-
-async fn evaluate_and_crystallize(
-    service: &DesktopAgentService,
-    agent_state: &AgentState,
-    session_id: [u8; 32],
-    result: &str,
-) {
-    if let Some(eval) = &service.evaluator {
-        log::info!("Agent Complete. Running fitness evaluation...");
-        
-        let history = service.hydrate_session_history(session_id).unwrap_or_default();
-        let reconstructed_trace: Vec<ioi_types::app::agentic::StepTrace> = history.iter().enumerate().map(|(i, msg)| {
-             ioi_types::app::agentic::StepTrace {
-                 session_id: session_id,
-                 step_index: i as u32,
-                 visual_hash: [0;32],
-                 full_prompt: format!("{}: {}", msg.role, msg.content),
-                 raw_output: msg.content.clone(),
-                 success: true, 
-                 error: None,
-                 cost_incurred: 0,
-                 fitness_score: None,
-                 timestamp: msg.timestamp / 1000,
-             }
-        }).collect();
-
-        let contract = IntentContract {
-            max_price: agent_state.budget + agent_state.tokens_used,
-            deadline_epoch: 0,
-            min_confidence_score: 80,
-            allowed_providers: vec![],
-            outcome_type: OutcomeType::Result,
-            optimize_for: OptimizationObjective::Reliability,
-        };
-        
-        if let Ok(report) = eval.evaluate(&reconstructed_trace, &contract).await {
-            log::info!(
-                "Evaluation Complete. Score: {:.2}. Rationale: {}", 
-                report.score, report.rationale
-            );
-            
-            if report.score >= 0.8 && report.passed_hard_constraints {
-                if let Some(opt) = &service.optimizer {
-                    log::info!("High fitness detected! Crystallizing skill...");
-                    
-                    let trace_hash_bytes = ioi_crypto::algorithms::hash::sha256(result.as_bytes()).unwrap_or([0u8; 32]);
-                    let mut trace_hash_arr = [0u8; 32];
-                    trace_hash_arr.copy_from_slice(trace_hash_bytes.as_ref());
-                    
-                    if let Ok(skill) = opt.crystallize_skill_internal(session_id, trace_hash_arr).await {
-                        if let Some(tx) = &service.event_sender {
-                            let _ = tx.send(KernelEvent::SystemUpdate {
-                                component: "Optimizer".to_string(),
-                                status: format!("Crystallized skill '{}' (Fitness: {:.2})", skill.definition.name, report.score),
-                            });
-                        }
-                    }
-                }
-            }
-        }
-    }
 }

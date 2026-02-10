@@ -1,405 +1,35 @@
-// Path: crates/services/src/agentic/desktop/service/utils.rs
+// Path: crates/services/src/agentic/desktop/utils.rs
 
-use super::DesktopAgentService;
-use crate::agentic::desktop::keys::{TRACE_PREFIX, SKILL_INDEX_PREFIX};
+use crate::agentic::desktop::keys::{TRACE_PREFIX};
 use crate::agentic::desktop::types::{AgentState, AgentStatus};
 use ioi_api::state::StateAccess;
-use ioi_types::app::agentic::{AgentSkill, StepTrace, SemanticFact, AgentMacro}; 
+use ioi_types::app::agentic::StepTrace;
+use ioi_types::app::KernelEvent;
 use ioi_types::codec;
 use ioi_types::error::TransactionError;
-// [FIX] Added RetentionClass import
-use ioi_scs::{FrameType, RetentionClass};
-use ioi_types::app::agentic::ChatMessage;
-use crate::agentic::normaliser::OutputNormaliser; 
-use ioi_types::app::KernelEvent; 
+
+use image::load_from_memory; 
+use image_hasher::{HashAlg, HasherConfig};
 use std::time::{SystemTime, UNIX_EPOCH};
-use serde_json::Value;
 
-impl DesktopAgentService {
-    // Searches the state for skills that match the agent's goal.
-    pub(crate) async fn recall_skills(
-        &self,
-        state: &dyn StateAccess,
-        goal: &str,
-    ) -> Result<Vec<AgentSkill>, TransactionError> {
-        let mut relevant_skills = Vec::new();
-        let goal_lower = goal.to_lowercase();
-        if let Ok(iter) = state.prefix_scan(SKILL_INDEX_PREFIX) {
-            for item in iter {
-                if let Ok((_, val_bytes)) = item {
-                    if let Ok(skill) = codec::from_bytes_canonical::<AgentSkill>(&val_bytes) {
-                        let name_lower = skill.name.to_lowercase();
-                        let desc_lower = skill.description.to_lowercase();
-                        if goal_lower.contains(&name_lower)
-                            || name_lower.contains(&goal_lower)
-                            || desc_lower.contains(&goal_lower)
-                        {
-                            relevant_skills.push(skill);
-                        }
-                    }
-                }
-            }
-        }
-        Ok(relevant_skills)
-    }
+/// Helper to get a string representation of the agent status for event emission.
+fn get_status_str(status: &AgentStatus) -> String {
+    format!("{:?}", status).split('(').next().unwrap_or("Unknown").to_string()
+}
 
-    /// Hybrid Retrieval of Episodic Memory
-    pub(crate) async fn retrieve_context_hybrid(
-        &self, 
-        query: &str, 
-        _visual_phash: Option<[u8; 32]> // [FIX] Prefixed unused variable with underscore
-    ) -> String {
-        let scs_mutex = match &self.scs {
-            Some(m) => m,
-            None => return "".to_string(),
-        };
+pub fn compute_phash(image_bytes: &[u8]) -> Result<[u8; 32], TransactionError> {
+    let img = load_from_memory(image_bytes)
+        .map_err(|e| TransactionError::Invalid(format!("Image decode failed: {}", e)))?;
+    let hasher = HasherConfig::new()
+        .hash_alg(HashAlg::Gradient)
+        .to_hasher();
+    let hash = hasher.hash_image(&img);
+    let hash_bytes = hash.as_bytes();
 
-        // Use reasoning model to embed the query
-        let embedding_res = self.reasoning_inference.embed_text(query).await;
-
-        let embedding = match embedding_res {
-            Ok(vec) => vec,
-            Err(e) => {
-                log::warn!("Failed to generate embedding for RAG: {}", e);
-                return "".to_string();
-            }
-        };
-
-        let results = {
-            let scs = match scs_mutex.lock() {
-                Ok(s) => s,
-                Err(_) => return "".to_string(),
-            };
-
-            let index_mutex = match scs.get_vector_index() {
-                Ok(idx) => idx,
-                Err(e) => {
-                    log::warn!("Failed to get vector index: {}", e);
-                    return "".to_string();
-                }
-            };
-
-            let idx = match index_mutex.lock() {
-                Ok(i) => i,
-                Err(_) => return "".to_string(),
-            };
-
-            if let Some(index) = idx.as_ref() {
-                // Use Hybrid Search to get metadata (Type, VisualHash)
-                index.search_hybrid(&embedding, 5)
-            } else {
-                Ok(vec![])
-            }
-        };
-
-        let matches = match results {
-            Ok(m) => m,
-            Err(e) => {
-                log::warn!("RAG search failed: {}", e);
-                return "".to_string();
-            }
-        };
-
-        if matches.is_empty() {
-            return "".to_string();
-        }
-
-        let mut output = String::new();
-        let mut top_snippet_included = false;
-
-        let scs = match scs_mutex.lock() {
-             Ok(s) => s,
-             Err(_) => return "".to_string(),
-        };
-
-        for (i, (frame_id, distance, f_type, _)) in matches.iter().enumerate() {
-            if *distance > 0.35 { continue; } // Relevance threshold
-
-            if let Ok(payload) = scs.read_frame_payload(*frame_id) {
-                 if let Ok(text) = String::from_utf8(payload.to_vec()) {
-                     let confidence = (1.0 - distance) * 100.0;
-                     let type_str = format!("{:?}", f_type);
-                     
-                     // Pointer Entry
-                     output.push_str(&format!("- [ID:{}] Kind:{} Conf:{:.0}% | ", frame_id, type_str, confidence));
-                     
-                     // Micro-Snippet Logic
-                     if i == 0 && !top_snippet_included {
-                         // Include first 3 lines of top result
-                         let snippet: String = text.lines().take(3).collect::<Vec<_>>().join(" ");
-                         output.push_str(&format!("Snippet: \"{}...\"\n", snippet));
-                         top_snippet_included = true;
-                     } else {
-                         // Just the first 60 chars (Header/Summary)
-                         let summary = if text.len() > 60 { format!("{}...", &text[..60]) } else { text };
-                         output.push_str(&format!("Summary: \"{}\"\n", summary));
-                     }
-                 }
-            }
-        }
-        
-        output
-    }
-
-    pub(crate) fn select_runtime(&self, state: &AgentState) -> std::sync::Arc<dyn ioi_api::vm::inference::InferenceRuntime> {
-        if state.consecutive_failures > 0 {
-            return self.reasoning_inference.clone();
-        }
-        if state.step_count == 0 {
-            return self.reasoning_inference.clone();
-        }
-        match state.last_action_type.as_deref() {
-            Some("gui__click") | Some("gui__type") => {
-                if std::sync::Arc::ptr_eq(&self.fast_inference, &self.reasoning_inference) {
-                    self.fast_inference.clone()
-                } else {
-                    self.fast_inference.clone()
-                }
-            },
-            _ => self.reasoning_inference.clone(),
-        }
-    }
-
-    async fn extract_facts(&self, text: &str) -> Vec<SemanticFact> {
-        if text.len() < 20 { return vec![]; }
-
-        let prompt = format!(
-            "SYSTEM: Extract important facts from the text below as a JSON list of tuples.\n\
-             Schema: [{{\"subject\": \"string\", \"predicate\": \"string\", \"object\": \"string\"}}]\n\
-             Text: \"{}\"\n\
-             Output JSON only:",
-            text.replace('"', "\\\"")
-        );
-
-        let options = ioi_types::app::agentic::InferenceOptions {
-            temperature: 0.0, 
-            ..Default::default()
-        };
-
-        let model_hash = [0u8; 32];
-        
-        match self.reasoning_inference.execute_inference(model_hash, prompt.as_bytes(), options).await {
-            Ok(bytes) => {
-                 let s = String::from_utf8_lossy(&bytes);
-                 let start = s.find('[').unwrap_or(0);
-                 let end = s.rfind(']').map(|i| i + 1).unwrap_or(s.len());
-                 if start < end {
-                     serde_json::from_str(&s[start..end]).unwrap_or_default()
-                 } else {
-                     vec![]
-                 }
-            }
-            Err(_) => vec![]
-        }
-    }
-
-    pub(crate) async fn append_chat_to_scs(
-        &self, 
-        session_id: [u8; 32], 
-        msg: &ChatMessage, 
-        block_height: u64
-    ) -> Result<[u8; 32], TransactionError> {
-        let scs_mutex = self.scs.as_ref()
-            .ok_or(TransactionError::Invalid("Internal: SCS not available".into()))?;
-        
-        // 1. Persist Raw Frame
-        let (frame_id, checksum) = {
-            let mut store = scs_mutex.lock()
-                .map_err(|_| TransactionError::Invalid("Internal: SCS lock poisoned".into()))?;
-
-            let payload = codec::to_bytes_canonical(msg)
-                .map_err(|e| TransactionError::Serialization(e))?;
-
-            let id = store.append_frame(
-                FrameType::Thought, 
-                &payload,
-                block_height,
-                [0u8; 32], 
-                session_id,
-                // [FIX] Added retention policy (Ephemeral for thoughts)
-                RetentionClass::Ephemeral,
-            ).map_err(|e| TransactionError::Invalid(format!("Internal: {}", e)))?;
-            
-            let frame = store.toc.frames.get(id as usize)
-                .ok_or(TransactionError::Invalid("Internal: Frame not found".into()))?;
-            
-            (id, frame.checksum)
-        };
-
-        // 2. Semantic Indexing
-        let facts = self.extract_facts(&msg.content).await;
-        let mut vectors = Vec::new();
-        
-        if let Ok(vec) = self.reasoning_inference.embed_text(&msg.content).await {
-            vectors.push(vec);
-        }
-
-        for fact in facts {
-            if let Ok(json_str) = serde_json::to_string(&fact) {
-                if let Ok(_canonical_bytes) = OutputNormaliser::normalise_and_hash(&json_str) {
-                    if let Ok(vec) = self.reasoning_inference.embed_text(&json_str).await {
-                        vectors.push(vec);
-                    }
-                }
-            }
-        }
-
-        // C. Insert into Index
-        if !vectors.is_empty() {
-             let store = scs_mutex.lock().map_err(|_| TransactionError::Invalid("SCS lock".into()))?;
-             if let Ok(index_arc) = store.get_vector_index() {
-                 let mut index = index_arc.lock().map_err(|_| TransactionError::Invalid("Index lock".into()))?;
-                 if let Some(idx) = index.as_mut() {
-                     for vec in vectors {
-                         if let Err(e) = idx.insert_with_metadata(frame_id, vec, FrameType::Thought, [0u8; 32]) {
-                             log::warn!("Failed to index vector for frame {}: {}", frame_id, e);
-                         }
-                     }
-                 }
-             }
-        }
-
-        Ok(checksum)
-    }
-
-    pub(crate) fn hydrate_session_history(
-        &self, 
-        session_id: [u8; 32]
-    ) -> Result<Vec<ChatMessage>, TransactionError> {
-        let scs_mutex = self.scs.as_ref()
-            .ok_or(TransactionError::Invalid("Internal: SCS not available".into()))?;
-        
-        let store = scs_mutex.lock()
-            .map_err(|_| TransactionError::Invalid("Internal: SCS lock poisoned".into()))?;
-
-        let mut history = Vec::new();
-
-        if let Some(frame_ids) = store.session_index.get(&session_id) {
-            for &id in frame_ids {
-                let frame = store.toc.frames.get(id as usize).unwrap();
-                
-                if matches!(frame.frame_type, FrameType::Thought) {
-                    let payload = store.read_frame_payload(id)
-                        .map_err(|e| TransactionError::Invalid(format!("Internal: {}", e)))?;
-                    
-                    // [FIX] Borrow payload (&payload)
-                    if let Ok(msg) = codec::from_bytes_canonical::<ChatMessage>(&payload) {
-                        history.push(msg);
-                    }
-                }
-            }
-        }
-
-        history.sort_by_key(|m| m.timestamp);
-        Ok(history)
-    }
-
-    pub(crate) fn fetch_failure_context(
-        &self, 
-        session_id: [u8; 32]
-    ) -> Result<Vec<StepTrace>, TransactionError> {
-        let scs_mutex = self.scs.as_ref()
-            .ok_or(TransactionError::Invalid("Internal: SCS not available".into()))?;
-        
-        let store = scs_mutex.lock()
-            .map_err(|_| TransactionError::Invalid("Internal: SCS lock poisoned".into()))?;
-
-        let mut failures = Vec::new();
-
-        if let Some(frame_ids) = store.session_index.get(&session_id) {
-            for &id in frame_ids {
-                let frame = store.toc.frames.get(id as usize).unwrap();
-                
-                if matches!(frame.frame_type, FrameType::System) {
-                    let payload = store.read_frame_payload(id)
-                        .map_err(|e| TransactionError::Invalid(format!("Internal: {}", e)))?;
-                    
-                    // [FIX] Borrow payload (&payload)
-                    if let Ok(trace) = codec::from_bytes_canonical::<StepTrace>(&payload) {
-                        if !trace.success {
-                            failures.push(trace);
-                        }
-                    }
-                }
-            }
-        }
-
-        Ok(failures)
-    }
-
-    pub(crate) fn fetch_skill_macro(
-        &self,
-        tool_name: &str,
-    ) -> Option<AgentMacro> {
-        if let Some(store_mutex) = &self.scs {
-            if let Ok(store) = store_mutex.lock() {
-                let payloads = store.scan_skills();
-                for p in payloads {
-                    if let Ok(skill) = codec::from_bytes_canonical::<AgentMacro>(&p) {
-                         if skill.definition.name == tool_name || skill.definition.name.ends_with(&format!("__{}", tool_name)) {
-                             return Some(skill);
-                         }
-                    }
-                }
-            }
-        }
-        None
-    }
-
-    // [NEW] Expand a macro by substituting arguments into its steps.
-    pub(crate) fn expand_macro(
-        &self,
-        skill: &AgentMacro,
-        args: &serde_json::Map<String, Value>,
-    ) -> Result<Vec<ioi_types::app::ActionRequest>, TransactionError> {
-        let mut expanded_steps = Vec::new();
-
-        for step in &skill.steps {
-            // 1. Deserialize the step's params template
-            let mut params_json: Value = serde_json::from_slice(&step.params)
-                .map_err(|e| TransactionError::Serialization(e.to_string()))?;
-
-            // 2. Recursive substitution
-            Self::interpolate_values(&mut params_json, args);
-
-            // 3. Re-serialize
-            let new_params = serde_json::to_vec(&params_json)
-                .map_err(|e| TransactionError::Serialization(e.to_string()))?;
-
-            let mut new_step = step.clone();
-            new_step.params = new_params;
-            new_step.nonce = 0; 
-            
-            expanded_steps.push(new_step);
-        }
-
-        Ok(expanded_steps)
-    }
-
-    fn interpolate_values(target: &mut Value, args: &serde_json::Map<String, Value>) {
-        match target {
-            Value::String(s) => {
-                if s.starts_with("{{") && s.ends_with("}}") {
-                    let key = &s[2..s.len()-2];
-                    if let Some(val) = args.get(key) {
-                        *target = val.clone();
-                        return;
-                    }
-                }
-            },
-            Value::Array(arr) => {
-                for item in arr {
-                    Self::interpolate_values(item, args);
-                }
-            },
-            Value::Object(map) => {
-                for val in map.values_mut() {
-                    Self::interpolate_values(val, args);
-                }
-            },
-            _ => {}
-        }
-    }
+    let mut out = [0u8; 32];
+    let len = hash_bytes.len().min(32);
+    out[..len].copy_from_slice(&hash_bytes[..len]);
+    Ok(out)
 }
 
 pub fn goto_trace_log(
@@ -414,6 +44,7 @@ pub fn goto_trace_log(
     action_error: Option<String>,
     action_type: String,
     event_sender: Option<tokio::sync::broadcast::Sender<KernelEvent>>,
+    skill_hash: Option<[u8; 32]>,
 ) -> Result<(), TransactionError> {
     let trace = StepTrace {
         session_id,
@@ -423,9 +54,9 @@ pub fn goto_trace_log(
         raw_output: output_str,
         success: action_success,
         error: action_error.clone(),
-        // [FIX] Initialize new evolutionary fields
         cost_incurred: 0,
         fitness_score: None,
+        skill_hash, 
         timestamp: SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .unwrap()
@@ -437,10 +68,7 @@ pub fn goto_trace_log(
 
     if let Some(tx) = &event_sender {
         let event = KernelEvent::AgentStep(trace.clone());
-        match tx.send(event) {
-            Ok(count) => log::info!(target: "agent_driver", "Emitted AgentStep event to {} subscribers. Step: {}", count, trace.step_index),
-            Err(_) => log::warn!(target: "agent_driver", "Failed to emit AgentStep event (no subscribers)"),
-        }
+        let _ = tx.send(event);
     }
 
     if let Some(_e) = action_error {
@@ -449,22 +77,19 @@ pub fn goto_trace_log(
         agent_state.consecutive_failures = 0;
     }
 
-    // [FIX] REMOVED: agent_state.step_count += 1;
-    // The step count increment is now handled by the caller (action.rs / queue.rs)
-    // to ensure we don't advance the nonce while waiting for a Policy Gate.
-
     agent_state.last_action_type = Some(action_type);
 
     if agent_state.step_count >= agent_state.max_steps && agent_state.status == AgentStatus::Running {
         agent_state.status = AgentStatus::Completed(None);
         
-        // Emit completion event so UI knows to stop when max steps reached
         if let Some(tx) = &event_sender {
              let _ = tx.send(KernelEvent::AgentActionResult {
                  session_id: session_id, 
                  step_index: agent_state.step_count,
                  tool_name: "system::max_steps_reached".to_string(),
                  output: "Max steps reached. Task completed.".to_string(),
+                 // [FIX] Added missing agent_status field
+                 agent_status: get_status_str(&agent_state.status),
              });
         }
     }

@@ -1,8 +1,7 @@
 // Path: crates/services/src/agentic/desktop/service/builder.rs
-use super::DesktopAgentService;
+use super::{DesktopAgentService, VisualContextCache};
 use crate::agentic::scrub_adapter::RuntimeAsSafetyModel;
 use crate::agentic::scrubber::SemanticScrubber;
-// [NEW] Import Evaluator impl
 use crate::agentic::fitness::LlmEvaluator;
 use crate::agentic::optimizer::OptimizerService;
 
@@ -16,6 +15,10 @@ use ioi_drivers::terminal::TerminalDriver;
 use ioi_scs::SovereignContextStore;
 use ioi_types::app::KernelEvent;
 use std::sync::{Arc, Mutex};
+use tokio::sync::RwLock;
+
+// [FIX] Import LensRegistry and ReactLens
+use ioi_drivers::gui::lenses::{LensRegistry, react::ReactLens};
 
 impl DesktopAgentService {
     pub fn new(
@@ -27,8 +30,13 @@ impl DesktopAgentService {
         let safety_adapter = Arc::new(RuntimeAsSafetyModel::new(inference.clone()));
         let scrubber = SemanticScrubber::new(safety_adapter);
         
-        // Default Evaluator uses the same inference runtime
         let evaluator = Arc::new(LlmEvaluator::new(inference.clone()));
+
+        // [FIX] Initialize Lens Registry
+        let mut lens_registry = LensRegistry::new();
+        lens_registry.register(Box::new(ReactLens));
+        // [FIX] Wrap in Arc to share with Executor
+        let lens_registry_arc = Arc::new(lens_registry);
 
         Self {
             gui,
@@ -46,6 +54,10 @@ impl DesktopAgentService {
             os_driver: None,
             workspace_path: "./ioi-data".to_string(),
             enable_som: false,
+            // [FIX] Increased cache size from 5 to 100 to prevent eviction during human approval delays
+            som_history: Arc::new(RwLock::new(VisualContextCache::new(100))),
+            last_accessibility_tree: Arc::new(RwLock::new(None)),
+            lens_registry: lens_registry_arc,
         }
     }
 
@@ -59,8 +71,13 @@ impl DesktopAgentService {
         let safety_adapter = Arc::new(RuntimeAsSafetyModel::new(fast_inference.clone()));
         let scrubber = SemanticScrubber::new(safety_adapter);
 
-        // Use reasoning model for evaluation (System 2)
         let evaluator = Arc::new(LlmEvaluator::new(reasoning_inference.clone()));
+
+        // [FIX] Initialize Lens Registry
+        let mut lens_registry = LensRegistry::new();
+        lens_registry.register(Box::new(ReactLens));
+        // [FIX] Wrap in Arc to share with Executor
+        let lens_registry_arc = Arc::new(lens_registry);
 
         Self {
             gui,
@@ -78,6 +95,10 @@ impl DesktopAgentService {
             os_driver: None,
             workspace_path: "./ioi-data".to_string(),
             enable_som: false,
+            // [FIX] Increased cache size from 5 to 100 to prevent eviction during human approval delays
+            som_history: Arc::new(RwLock::new(VisualContextCache::new(100))),
+            last_accessibility_tree: Arc::new(RwLock::new(None)),
+            lens_registry: lens_registry_arc,
         }
     }
 
@@ -96,7 +117,6 @@ impl DesktopAgentService {
         self
     }
     
-    // [NEW] Inject Optimizer
     pub fn with_optimizer(mut self, optimizer: Arc<OptimizerService>) -> Self {
         self.optimizer = Some(optimizer);
         self

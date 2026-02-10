@@ -44,6 +44,14 @@ pub trait InferenceRuntime: Send + Sync {
         ))
     }
 
+    /// [NEW] Generates a vector embedding for a given image.
+    /// Default implementation returns error.
+    async fn embed_image(&self, _image_bytes: &[u8]) -> Result<Vec<f32>, VmError> {
+        Err(VmError::HostError(
+            "Image embedding not supported by this runtime".into(),
+        ))
+    }
+
     /// Pre-loads a model into memory/VRAM to reduce latency for subsequent calls.
     async fn load_model(&self, model_hash: [u8; 32], path: &Path) -> Result<(), VmError>;
 

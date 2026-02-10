@@ -59,6 +59,9 @@ pub enum KernelEvent {
         tool_name: String,
         /// The output/result of the execution (e.g. stdout).
         output: String,
+        /// [NEW] The authoritative lifecycle state after this action.
+        /// e.g. "Running", "Paused", "Completed", "Failed".
+        agent_status: String,
     },
 
     /// [NEW] A new sub-agent was spawned (delegation).

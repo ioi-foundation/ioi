@@ -252,6 +252,7 @@ where
                         generation_id: 0,
                         parent_hash: None,
                         author: None, // [FIX] Initial system services have no specific author
+                        context_filter: None, // [FIX] Initial system services have no context filter
                     };
                     let meta_bytes = codec::to_bytes_canonical(&meta)
                         .map_err(|e| ChainError::Transaction(e.to_string()))?;

@@ -1,0 +1,149 @@
+// Path: crates/services/src/agentic/desktop/execution/mod.rs
+
+pub mod browser;
+pub mod computer;
+pub mod filesystem;
+pub mod mcp;
+pub mod system;
+
+use std::sync::Arc;
+use std::collections::{BTreeMap, HashMap};
+use tokio::sync::broadcast::Sender;
+
+use ioi_api::vm::drivers::gui::GuiDriver;
+use ioi_api::vm::drivers::os::WindowInfo;
+use ioi_api::vm::inference::InferenceRuntime;
+use ioi_drivers::browser::BrowserDriver;
+use ioi_drivers::mcp::McpManager;
+use ioi_drivers::terminal::TerminalDriver;
+use ioi_drivers::gui::lenses::LensRegistry;
+use ioi_types::app::agentic::AgentTool;
+use ioi_types::app::KernelEvent;
+
+/// Result of a single tool execution.
+#[derive(Debug, Clone)]
+pub struct ToolExecutionResult {
+    pub success: bool,
+    pub history_entry: Option<String>,
+    pub error: Option<String>,
+}
+
+impl ToolExecutionResult {
+    pub fn success(output: impl Into<String>) -> Self {
+        Self {
+            success: true,
+            history_entry: Some(output.into()),
+            error: None,
+        }
+    }
+
+    pub fn failure(error: impl Into<String>) -> Self {
+        Self {
+            success: false,
+            history_entry: None,
+            error: Some(error.into()),
+        }
+    }
+}
+
+/// The main execution engine for agent tools.
+/// 
+/// It holds references to all necessary hardware drivers and dispatches
+/// `AgentTool` enums to specific implementation logic.
+pub struct ToolExecutor {
+    pub(crate) gui: Arc<dyn GuiDriver>,
+    pub(crate) terminal: Arc<TerminalDriver>,
+    pub(crate) browser: Arc<BrowserDriver>,
+    pub(crate) mcp: Arc<McpManager>,
+    pub(crate) event_sender: Option<Sender<KernelEvent>>,
+    pub(crate) lens_registry: Option<Arc<LensRegistry>>,
+    pub(crate) inference: Arc<dyn InferenceRuntime>,
+    
+    // Context fields populated via builder pattern
+    pub(crate) active_window: Option<WindowInfo>,
+    pub(crate) target_app_hint: Option<String>,
+}
+
+impl ToolExecutor {
+    pub fn new(
+        gui: Arc<dyn GuiDriver>,
+        terminal: Arc<TerminalDriver>,
+        browser: Arc<BrowserDriver>,
+        mcp: Arc<McpManager>,
+        event_sender: Option<Sender<KernelEvent>>,
+        lens_registry: Option<Arc<LensRegistry>>,
+        inference: Arc<dyn InferenceRuntime>,
+    ) -> Self {
+        Self {
+            gui,
+            terminal,
+            browser,
+            mcp,
+            event_sender,
+            lens_registry,
+            inference,
+            active_window: None,
+            target_app_hint: None,
+        }
+    }
+
+    pub fn with_window_context(mut self, active: Option<WindowInfo>, hint: Option<String>) -> Self {
+        self.active_window = active;
+        self.target_app_hint = hint;
+        self
+    }
+
+    pub async fn execute(
+        &self,
+        tool: AgentTool,
+        session_id: [u8; 32],
+        step_index: u32,
+        visual_phash: [u8; 32],
+        som_map: Option<&BTreeMap<u32, (i32, i32, i32, i32)>>,
+        semantic_map: Option<&BTreeMap<u32, String>>,
+        active_lens: Option<&str>,
+    ) -> ToolExecutionResult {
+        match tool {
+            // Computer / GUI Domain
+            AgentTool::Computer(_) |
+            AgentTool::GuiClick { .. } |
+            AgentTool::GuiType { .. } |
+            AgentTool::GuiClickElement { .. } |
+            AgentTool::OsFocusWindow { .. } |
+            AgentTool::OsCopy { .. } |
+            AgentTool::OsPaste { .. } |
+            AgentTool::UiFind { .. } => {
+                computer::handle(self, tool, som_map, semantic_map, active_lens).await
+            }
+
+            // Browser Domain
+            AgentTool::BrowserNavigate { .. } |
+            AgentTool::BrowserExtract { .. } |
+            AgentTool::BrowserClick { .. } |
+            AgentTool::BrowserSyntheticClick { .. } => {
+                browser::handle(self, tool).await
+            }
+
+            // Filesystem Domain
+            AgentTool::FsRead { .. } |
+            AgentTool::FsWrite { .. } |
+            AgentTool::FsList { .. } => {
+                filesystem::handle(self, tool).await
+            }
+
+            // System Domain
+            AgentTool::SysExec { .. } |
+            AgentTool::OsLaunchApp { .. } => {
+                system::handle(self, tool).await
+            }
+
+            // MCP / Dynamic Domain
+            AgentTool::Dynamic(val) => {
+                mcp::handle(self, val).await
+            }
+
+            // Handled by Service Logic (Lifecycle/Meta), should not reach here
+            _ => ToolExecutionResult::failure(format!("Tool {:?} not handled by executor", tool)),
+        }
+    }
+}

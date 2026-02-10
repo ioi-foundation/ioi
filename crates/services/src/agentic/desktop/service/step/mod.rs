@@ -8,15 +8,15 @@ pub mod cognition;
 pub mod action;
 
 use super::DesktopAgentService;
+// [FIX] Import actions module from parent service directory
+use crate::agentic::desktop::service::actions; 
 use crate::agentic::desktop::keys::{get_state_key};
-use crate::agentic::desktop::types::{AgentState, AgentStatus, StepAgentParams};
-use crate::agentic::desktop::utils::{goto_trace_log};
+use crate::agentic::desktop::types::{AgentState, AgentStatus, StepAgentParams, ExecutionTier};
 use ioi_api::state::StateAccess;
 use ioi_api::transaction::context::TxContext;
 use ioi_types::codec;
 use ioi_types::error::TransactionError;
-use ioi_types::app::KernelEvent;
-use ioi_types::app::agentic::StepTrace; // [FIX] Added import
+use ioi_types::app::agentic::StepTrace;
 use hex;
 
 pub async fn handle_step(
@@ -37,13 +37,11 @@ pub async fn handle_step(
         return Err(TransactionError::Invalid(format!("Agent not running: {:?}", agent_state.status)));
     }
     
-    // [NEW] Automated Failure Recovery Loop
-    // If failures hit a threshold (3), attempt to synthesize a fix before giving up (at 5).
+    // Automated Failure Recovery Loop (Optimizer)
     if agent_state.consecutive_failures >= 3 && agent_state.consecutive_failures < 5 {
         if let Some(optimizer) = &service.optimizer {
             log::warn!("Agent stuck ({} failures). Triggering Optimizer intervention...", agent_state.consecutive_failures);
             
-            // Fetch the trace of the LAST step (which presumably failed)
             let trace_key = crate::agentic::desktop::keys::get_trace_key(&p.session_id, agent_state.step_count.saturating_sub(1));
             
             if let Ok(Some(bytes)) = state.get(&trace_key) {
@@ -52,10 +50,8 @@ pub async fn handle_step(
                          Ok(skill) => {
                              log::info!("Recovery successful. Injected skill: {}", skill.definition.name);
                              
-                             // Reset failure counter to give the agent a fresh chance with the new skill
                              agent_state.consecutive_failures = 0;
                              
-                             // Append system message informing the agent of the new capability
                              let msg = format!("SYSTEM: I noticed you are stuck. I have synthesized a new tool '{}' to help you. Try using it.", skill.definition.name);
                              let sys_msg = ioi_types::app::agentic::ChatMessage {
                                 role: "system".to_string(),
@@ -65,13 +61,11 @@ pub async fn handle_step(
                             };
                             service.append_chat_to_scs(p.session_id, &sys_msg, ctx.block_height).await?;
                             
-                            // Save state and return early to let the agent re-plan in the next tick
                             state.insert(&key, &codec::to_bytes_canonical(&agent_state)?)?;
                             return Ok(());
                          },
                          Err(e) => {
                              log::error!("Optimizer failed to synthesize recovery: {}", e);
-                             // If recovery fails, fall through to the standard failure logic below.
                          }
                      }
                 }
@@ -85,47 +79,65 @@ pub async fn handle_step(
         return Ok(());
     }
 
-    // 3. Execution Queue (Deterministic Path)
-    // If we have macro steps queued up, execute the next one immediately without inference.
+    // [NEW] Browser Lease Management
+    if let Some(pending) = &agent_state.pending_tool_call {
+        if pending.contains("browser__") {
+             service.browser.set_lease(true);
+        }
+    }
+
+    // 3. Execution Queue
     if !agent_state.execution_queue.is_empty() {
         return queue::process_queue_item(service, state, &mut agent_state, &p).await;
     }
 
-    // 4. Resume Pending (Gated Path)
-    // [FIX] Clone the pending string immediately to avoid holding an immutable borrow of agent_state
-    // while we need a mutable borrow for process_tool_output.
-    let pending_tool_call_opt = agent_state.pending_tool_call.clone();
+    // 4. Resume Pending
+    // [FIX] Prioritize canonical JCS resume if available.
+    // This ensures we execute EXACTLY what was approved, using the exact visual context.
+    if agent_state.pending_tool_jcs.is_some() {
+        if agent_state.pending_approval.is_some() {
+             log::info!("Resuming canonical pending action with approval.");
+             // [FIX] Call resume_pending_action from service::actions module
+             return actions::resume_pending_action(
+                service, state, &mut agent_state, p.session_id, ctx.block_height
+            ).await;
+        }
+        // If JCS exists but no approval, we are still waiting. Stop.
+        return Ok(());
+    }
 
-    if let Some(pending) = pending_tool_call_opt {
-        log::info!("Resuming pending tool call for session {}", hex::encode(&p.session_id[..4]));
+    // Legacy Resume (String-based) - Keep for backward compat
+    if let Some(pending_json) = agent_state.pending_tool_call.clone() {
+        log::info!("Resuming legacy pending tool call string.");
         let phash = agent_state.last_screen_phash.unwrap_or([0u8; 32]);
-        
-        // Execute the pending action string
         return action::process_tool_output(
-            service, 
-            state, 
-            &mut agent_state, 
-            pending, // Already cloned and owned string
-            phash,
-            "Resumed".to_string(), 
-            p.session_id, 
-            ctx.block_height
+            service, state, &mut agent_state, pending_json, phash,
+            "Resumed".to_string(), p.session_id, ctx.block_height
         ).await;
     }
 
     // --- COGNITIVE LOOP (System 2) ---
 
-    // 5. Perception (Gather Inputs)
-    // Screenshots, SoM Overlay, RAG, Tool Discovery
-    let perception = perception::gather_context(service, state, &mut agent_state).await?;
+    // 5. Perception
+    // [FIX] Explicit Tier Calculation based on failure count
+    let target_tier = if agent_state.consecutive_failures >= 3 {
+        ExecutionTier::VisualForeground
+    } else if agent_state.consecutive_failures >= 1 {
+        ExecutionTier::VisualBackground
+    } else {
+        ExecutionTier::DomHeadless
+    };
+    
+    // Force state update so tools.rs sees correct tier
+    agent_state.current_tier = target_tier;
 
-    // 6. Cognition (Reasoning & Decision)
-    // Construct Prompt -> LLM -> Raw Output
+    let perception = perception::gather_context(service, state, &mut agent_state, Some(target_tier)).await?;
+
+    // 6. Cognition
     let cognition_result = cognition::think(service, &agent_state, &perception, p.session_id).await?;
 
-    // 7. Action (Parse & Execute)
-    // Normalize -> Policy Check -> Tool Execution -> Trace Logging
-    action::process_tool_output(
+    // 7. Action
+    match action::process_tool_output(
         service, 
         state, 
         &mut agent_state, 
@@ -134,7 +146,13 @@ pub async fn handle_step(
         cognition_result.strategy_used, 
         p.session_id, 
         ctx.block_height
-    ).await?;
+    ).await {
+        Ok(_) => {
+            // [FIX] Removed buggy trace inspection logic.
+            // Tier escalation is now handled atomically inside process_tool_output via the SystemFail check.
+        },
+        Err(e) => return Err(e),
+    }
 
     // 8. Persist State
     state.insert(&key, &codec::to_bytes_canonical(&agent_state)?)?;

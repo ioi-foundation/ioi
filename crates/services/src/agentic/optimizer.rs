@@ -26,13 +26,11 @@ use ioi_types::app::agentic::{
     InferenceOptions, AgentMacro, LlmToolDefinition, IntelligenceAsset, AgentManifest,
     RuntimeEnvironment, ResourceRequirements 
 };
-// [FIX] Added RetentionClass import
 use ioi_scs::{SovereignContextStore, FrameType, RetentionClass}; 
 use ioi_crypto::algorithms::hash::sha256;
 use reqwest::Url; 
 
 use crate::market::{PublishAssetParams}; 
-// [FIX] Removed unused EvolveAgentParams import
 
 /// Parameters for triggering an optimization loop.
 #[derive(Encode, Decode, Serialize, Deserialize, Debug, Clone)]
@@ -106,8 +104,6 @@ impl OptimizerService {
             .map_err(|e| TransactionError::Invalid(format!("Failed to embed skill: {}", e)))?;
 
         // Insert into mHNSW
-        // [FIX] Ensure lock is dropped immediately after use or minimal scope? 
-        // Here we just insert, no async calls inside.
         let store = scs_mutex.lock().map_err(|_| TransactionError::Invalid("SCS lock poisoned".into()))?;
         if let Ok(index_arc) = store.get_vector_index() {
             let mut index = index_arc.lock().map_err(|_| TransactionError::Invalid("Index lock".into()))?;
@@ -170,10 +166,9 @@ impl OptimizerService {
                     0, 
                     [0u8; 32], 
                     [0u8; 32],
-                    // [FIX] Added retention policy (Archival for installed assets)
                     RetentionClass::Archival,
                 ).map_err(|e| TransactionError::Invalid(e.to_string()))?
-             }; // Lock dropped here
+             }; 
 
             // Index
             self.index_skill(frame_id, &skill.definition).await?;
@@ -182,6 +177,109 @@ impl OptimizerService {
             return Ok(());
         }
         
+        Ok(())
+    }
+
+    /// [NEW] Generalizes a raw execution trace into a reusable skill macro.
+    pub async fn synthesize_skill_from_trace(
+        &self,
+        trace: &[StepTrace],
+        goal: &str,
+    ) -> Result<AgentMacro, TransactionError> {
+        let runtime = self.inference.as_ref().ok_or(TransactionError::Invalid("Inference not available".into()))?;
+
+        // 1. Format Trace
+        let transcript = trace.iter().map(|s| 
+            format!("Step {}: Action={}\nOutput={}", s.step_index, s.raw_output, s.raw_output)
+        ).collect::<Vec<_>>().join("\n---\n");
+
+        // 2. Prompt Engineering
+        let prompt = format!(
+            "SYSTEM: You are a Skill Crystallizer. Convert this successful execution trace into a reusable, generalized JSON Macro.
+            
+            GOAL: {}
+            
+            TRACE:
+            {}
+            
+            INSTRUCTIONS:
+            1. Identify the generic pattern.
+            2. Replace specific values (usernames, URLs, file paths) with parameters {{param_name}}.
+            3. Generate a JSON schema for the parameters.
+            4. Create a sequence of steps mapping inputs to tool calls.
+            
+            OUTPUT SCHEMA:
+            {{
+                \"name\": \"snake_case_skill_name\",
+                \"description\": \"What this skill does\",
+                \"parameters\": {{ \"type\": \"object\", \"properties\": {{ ... }} }},
+                \"steps\": [
+                    {{ \"target\": \"tool_name\", \"params\": {{ \"arg\": \"{{param_name}}\" }} }}
+                ]
+            }}
+            RETURN JSON ONLY.",
+            goal, transcript
+        );
+
+        let options = InferenceOptions { temperature: 0.1, json_mode: true, ..Default::default() };
+        let output_bytes = runtime.execute_inference([0u8; 32], prompt.as_bytes(), options).await
+            .map_err(|e| TransactionError::Invalid(format!("Skill synthesis failed: {}", e)))?;
+            
+        let output_str = String::from_utf8(output_bytes).unwrap_or_default();
+        
+        // 3. Parse & Validate
+        let json_start = output_str.find('{').unwrap_or(0);
+        let json_end = output_str.rfind('}').map(|i| i + 1).unwrap_or(output_str.len());
+        let skill_json: serde_json::Value = serde_json::from_str(&output_str[json_start..json_end])
+             .map_err(|e| TransactionError::Invalid(format!("JSON parse failed: {}", e)))?;
+
+        // 4. Construct Macro
+        let definition = LlmToolDefinition {
+            name: skill_json["name"].as_str().unwrap_or("new_skill").to_string(),
+            description: skill_json["description"].as_str().unwrap_or("").to_string(),
+            parameters: skill_json["parameters"].to_string(),
+        };
+
+        let mut steps = Vec::new();
+        if let Some(steps_arr) = skill_json["steps"].as_array() {
+            for s in steps_arr {
+                let target_str = s["target"].as_str().unwrap_or("");
+                let target = match target_str {
+                    "browser__navigate" => ActionTarget::BrowserNavigate,
+                    "gui__type" => ActionTarget::GuiType,
+                    "gui__click" => ActionTarget::GuiClick,
+                    "sys__exec" => ActionTarget::SysExec,
+                    _ => ActionTarget::Custom(target_str.to_string()),
+                };
+                let params = serde_json::to_vec(&s["params"]).unwrap_or_default();
+                
+                steps.push(ActionRequest {
+                    target,
+                    params,
+                    context: ActionContext {
+                        agent_id: "macro".into(),
+                        session_id: None,
+                        window_id: None,
+                    },
+                    nonce: 0,
+                });
+            }
+        }
+        
+        Ok(AgentMacro {
+            definition,
+            steps,
+            source_trace_hash: [0u8; 32], 
+            fitness: 1.0, 
+        })
+    }
+
+    /// [NEW] Validates a synthesized skill (Static Analysis).
+    pub fn validate_skill(&self, skill: &AgentMacro) -> Result<(), TransactionError> {
+        if skill.steps.is_empty() {
+            return Err(TransactionError::Invalid("Skill has no steps".into()));
+        }
+        // Future: Check policy violations in template strings
         Ok(())
     }
 
@@ -437,107 +535,46 @@ impl OptimizerService {
         &self,
         session_id: [u8; 32],
         trace_hash: [u8; 32],
+        // [NEW] Added optional trace injection for direct synthesis
+        trace_data: Option<(&[StepTrace], &str)>,
     ) -> Result<AgentMacro, TransactionError> {
         let scs_mutex = self.scs.as_ref().ok_or(TransactionError::Invalid("SCS not available".into()))?;
-        
-        let trace_summary = "Step 1: Navigate to stripe.com/login. Step 2: Click 'Sign In'. Step 3: Wait for dashboard."; 
 
-        let runtime = self.inference.as_ref().ok_or(TransactionError::Invalid(
-            "Optimizer has no inference runtime".into(),
-        ))?;
-        
-        let prompt = format!(
-            "SYSTEM: Convert this execution trace into a reusable JSON tool definition.
-             Trace: {}
-             
-             Output Schema:
-             {{
-                \"name\": \"login_stripe\",
-                \"description\": \"Logs into Stripe dashboard automatically.\",
-                \"parameters\": {{ \"type\": \"object\", \"properties\": {{ \"username\": {{ \"type\": \"string\" }} }} }},
-                \"steps\": [
-                    {{ \"target\": \"browser::navigate\", \"params\": {{ \"url\": \"https://dashboard.stripe.com/login\" }} }},
-                    {{ \"target\": \"gui::type\", \"params\": {{ \"text\": \"{{username}}\" }} }}
-                ]
-             }}
-             RETURN JSON ONLY.",
-             trace_summary
-        );
-
-        let options = InferenceOptions { temperature: 0.0, ..Default::default() };
-        let output_bytes = runtime.execute_inference([0u8;32], prompt.as_bytes(), options).await
-             .map_err(|e| TransactionError::Invalid(e.to_string()))?;
-             
-        let output_str = String::from_utf8(output_bytes).unwrap_or_default();
-        let json_start = output_str.find('{').unwrap_or(0);
-        let json_end = output_str.rfind('}').map(|i| i + 1).unwrap_or(output_str.len());
-        let skill_json: serde_json::Value = serde_json::from_str(&output_str[json_start..json_end])
-             .map_err(|e| TransactionError::Invalid(format!("Skill synthesis failed: {}", e)))?;
-
-        let definition = LlmToolDefinition {
-            name: skill_json["name"].as_str().unwrap_or("unknown_skill").to_string(),
-            description: skill_json["description"].as_str().unwrap_or("").to_string(),
-            parameters: skill_json["parameters"].to_string(),
+        // 1. Synthesize or Load
+        let skill = if let Some((trace, goal)) = trace_data {
+            let mut s = self.synthesize_skill_from_trace(trace, goal).await?;
+            s.source_trace_hash = trace_hash;
+            s
+        } else {
+             // Fallback for legacy calls (should use synthesize path)
+             return Err(TransactionError::Invalid("Direct crystallization requires trace data".into()));
         };
 
-        let mut steps = Vec::new();
-        if let Some(steps_arr) = skill_json["steps"].as_array() {
-            for s in steps_arr {
-                let target_str = s["target"].as_str().unwrap_or("");
-                let target = match target_str {
-                    "browser__navigate" => ioi_types::app::ActionTarget::BrowserNavigate,
-                    "gui::type" => ioi_types::app::ActionTarget::GuiType,
-                    "gui::click" => ioi_types::app::ActionTarget::GuiClick,
-                    _ => ioi_types::app::ActionTarget::Custom(target_str.to_string()),
-                };
-                
-                let params = serde_json::to_vec(&s["params"]).unwrap_or_default();
-                
-                steps.push(ioi_types::app::ActionRequest {
-                    target,
-                    params,
-                    context: ioi_types::app::ActionContext {
-                        agent_id: "macro".into(),
-                        session_id: None,
-                        window_id: None,
-                    },
-                    nonce: 0,
-                });
-            }
-        }
-        
-        let skill = AgentMacro {
-            definition: definition.clone(),
-            steps,
-            source_trace_hash: trace_hash,
-            fitness: 1.0, 
-        };
+        // 2. Validate
+        self.validate_skill(&skill)?;
 
-        let skill_bytes = codec::to_bytes_canonical(&skill).map_err(|e| TransactionError::Serialization(e))?;
-        
-        let skill_hash_res = sha256(&skill_bytes).map_err(|e| TransactionError::Invalid(e.to_string()))?;
-        let mut skill_hash = [0u8; 32];
-        skill_hash[..32].copy_from_slice(&skill_hash_res.as_ref()[..32]);
+        // 3. Persist to SCS
+        let skill_bytes = codec::to_bytes_canonical(&skill).map_err(TransactionError::Serialization)?;
+        let hash = sha256(&skill_bytes).map_err(|e| TransactionError::Invalid(e.to_string()))?;
+        let mut hash_arr = [0u8; 32];
+        hash_arr.copy_from_slice(hash.as_ref());
 
-        // 1. Append Frame to SCS (Persistence)
-        // [FIX] Scope the lock to ensure it's dropped before await
         let frame_id = {
             let mut store = scs_mutex.lock().map_err(|_| TransactionError::Invalid("SCS lock".into()))?;
             store.append_frame(
                 FrameType::Skill, 
-                &skill_bytes,
+                &skill_bytes, 
                 0, 
                 [0u8; 32], 
                 session_id,
-                // [FIX] Added retention policy (Archival for learned skills)
                 RetentionClass::Archival,
             ).map_err(|e| TransactionError::Invalid(e.to_string()))?
-        }; // Lock dropped here
+        };
         
-        // 2. Index Skill (Vector Embed)
-        self.index_skill(frame_id, &definition).await?;
+        // 4. Index
+        self.index_skill(frame_id, &skill.definition).await?;
 
-        log::info!("Optimizer: Crystallized & Indexed new skill '{}' (Hash: {})", skill.definition.name, hex::encode(skill_hash));
+        log::info!("Optimizer: Crystallized skill '{}' (Hash: {})", skill.definition.name, hex::encode(hash_arr));
 
         Ok(skill)
     }
@@ -587,7 +624,12 @@ impl OptimizerService {
                 network_access: "public".to_string(),
                 provider_preference: "any".to_string(),
             },
-            static_knowledge: vec![], 
+            static_knowledge: vec![],
+            // [FIX] Initialize missing fields
+            has_embedded_app: false,
+            app_entrypoint: None,
+            custom_lenses: vec![],
+            ui_assets_root: [0u8; 32],
         };
 
         let intent_key = [b"optimizer::publish_intent::", params.session_id.as_slice()].concat();
@@ -665,7 +707,24 @@ impl OptimizerService {
              Err(_) => {
                  // Construct minimal default
                  AgentManifest {
-                     name: "default".into(), description: "".into(), system_prompt: "".into(), model_selector: "".into(), skills: vec![], default_policy_hash: [0;32], author: ioi_types::app::AccountId::default(), price: 0, tags: vec![], version: "".into(), runtime: RuntimeEnvironment::Native, resources: ResourceRequirements { min_vram_gb:0, min_ram_gb:0, min_cpus:0, network_access: "".into(), provider_preference: "".into() }, static_knowledge: vec![]
+                     name: "default".into(), 
+                     description: "".into(), 
+                     system_prompt: "".into(), 
+                     model_selector: "".into(), 
+                     skills: vec![], 
+                     default_policy_hash: [0;32], 
+                     author: ioi_types::app::AccountId::default(), 
+                     price: 0, 
+                     tags: vec![], 
+                     version: "".into(), 
+                     runtime: RuntimeEnvironment::Native, 
+                     resources: ResourceRequirements { min_vram_gb:0, min_ram_gb:0, min_cpus:0, network_access: "".into(), provider_preference: "".into() }, 
+                     static_knowledge: vec![],
+                     // [FIX] Initialize missing fields
+                     has_embedded_app: false,
+                     app_entrypoint: None,
+                     custom_lenses: vec![],
+                     ui_assets_root: [0u8; 32],
                  }
              }
         };
@@ -723,7 +782,7 @@ impl OptimizerService {
         _ctx: &TxContext<'_>,
     ) -> Result<(), TransactionError> {
         let trace_hash = [0u8; 32];
-        self.crystallize_skill_internal(params.session_id, trace_hash).await?;
+        self.crystallize_skill_internal(params.session_id, trace_hash, None).await?;
         Ok(())
     }
 

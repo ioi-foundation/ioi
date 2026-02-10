@@ -16,7 +16,6 @@ use serde::Serialize;
 use std::fmt::Debug;
 
 // [FIX] Imports for catchup voting
-use ioi_api::crypto::{SerializableKey, SigningKeyPair};
 use ioi_types::app::{
     account_id_from_key_material, to_root_hash, AccountId, ConsensusVote, SignatureSuite,
 };

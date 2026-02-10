@@ -2,7 +2,7 @@
 
 use ioi_drivers::provisioning::{CloudProvider, InstanceSpec, InstanceHandle};
 use ioi_types::app::agentic::{AgentManifest, RuntimeEnvironment};
-use ioi_types::config::{WorkloadConfig, ConnectorConfig};
+use ioi_types::config::{WorkloadConfig}; // Removed ConnectorConfig unused import
 use anyhow::Result;
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -23,8 +23,12 @@ impl ProvisioningRouter {
         // AWS
         if let Some(aws_cfg) = config.connectors.get("aws_primary") {
             if aws_cfg.enabled {
-                // In a real app, we'd fetch secrets from Vault using aws_cfg.key_ref
-                let p = ioi_drivers::provisioning::aws::AwsProvider::new("mock_key", "mock_secret", "us-east-1");
+                // [FIX] Convert string literals to String
+                let p = ioi_drivers::provisioning::aws::AwsProvider::new(
+                    "mock_key".to_string(), 
+                    "mock_secret".to_string(), 
+                    "us-east-1".to_string()
+                );
                 self.providers.insert("aws".to_string(), Arc::new(p));
             }
         }
