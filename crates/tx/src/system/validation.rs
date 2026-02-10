@@ -281,7 +281,9 @@ pub fn verify_stateful_authorization(
         // (Double check to ensure no key rotation race condition)
         let derived_hash = account_id_from_key_material(active_cred.suite, &master_pubkey)?;
         if derived_hash != active_cred.public_key_hash {
-             return Err(TransactionError::Invalid("Master public key does not match active credential hash".into()));
+            return Err(TransactionError::Invalid(
+                "Master public key does not match active credential hash".into(),
+            ));
         }
 
         // Verify the Master's signature on the Session Authorization
@@ -290,7 +292,10 @@ pub fn verify_stateful_authorization(
             &master_pubkey,
             &auth_sign_bytes,
             &auth.signer_sig,
-        ).map_err(|e| TransactionError::Invalid(format!("Session authorization signature invalid: {}", e)))?;
+        )
+        .map_err(|e| {
+            TransactionError::Invalid(format!("Session authorization signature invalid: {}", e))
+        })?;
 
         // 3. Enforce Session Constraints
         if ctx.block_height > auth.expiry {

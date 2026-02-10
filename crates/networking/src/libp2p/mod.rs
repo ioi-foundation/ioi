@@ -14,7 +14,7 @@ use crate::traits::NodeState;
 use ioi_api::transaction::TransactionModel;
 use ioi_tx::unified::UnifiedTransactionModel;
 // [FIX] Removed unused Block and ChainTransaction imports
-use ioi_types::app::{ConsensusVote, EchoMessage, OracleAttestation, PanicMessage, ConfidenceVote};
+use ioi_types::app::{ConfidenceVote, ConsensusVote, EchoMessage, OracleAttestation, PanicMessage};
 use ioi_types::codec;
 use libp2p::{identity, Multiaddr, PeerId};
 use std::{collections::HashSet, sync::Arc};
@@ -25,9 +25,9 @@ use tokio::{
 };
 
 // Re-export specific types
+pub use self::behaviour::{SyncBehaviour, SyncBehaviourEvent};
 pub use self::sync::{SyncCodec, SyncRequest, SyncResponse};
 pub use self::types::{NetworkEvent, SwarmCommand, SwarmInternalEvent};
-pub use self::behaviour::{SyncBehaviour, SyncBehaviourEvent};
 
 // Import ViewChangeVote for use in forwarder
 use ioi_consensus::admft::ViewChangeVote;
@@ -62,7 +62,7 @@ impl Libp2pSync {
         let known_peers = Arc::new(Mutex::new(HashSet::new()));
 
         let swarm = self::transport::build_swarm(local_key.clone())?;
-        
+
         let swarm_task = tokio::spawn(self::swarm::run_swarm_loop(
             swarm,
             swarm_command_receiver,
@@ -71,70 +71,164 @@ impl Libp2pSync {
         ));
 
         let swarm_command_sender_clone = swarm_command_sender.clone();
-        
+
         // Event Forwarder: Translates SwarmInternalEvent -> NetworkEvent and handles internal logic
         let event_forwarder_task = tokio::spawn(async move {
             while let Some(event) = internal_event_receiver.recv().await {
-                
                 // Handle complex translations and acks
-                if let SwarmInternalEvent::AgenticPrompt { from, prompt, channel } = event {
+                if let SwarmInternalEvent::AgenticPrompt {
+                    from,
+                    prompt,
+                    channel,
+                } = event
+                {
                     let translated = NetworkEvent::AgenticPrompt { from, prompt };
-                    if network_event_sender.send(translated).await.is_err() { break; }
-                    let _ = swarm_command_sender_clone.send(SwarmCommand::SendAgenticAck(channel)).await;
+                    if network_event_sender.send(translated).await.is_err() {
+                        break;
+                    }
+                    let _ = swarm_command_sender_clone
+                        .send(SwarmCommand::SendAgenticAck(channel))
+                        .await;
                     continue;
                 }
-                
-                if let SwarmInternalEvent::AgenticConsensusVote { from, prompt_hash, vote_hash } = event {
-                    let translated = NetworkEvent::AgenticConsensusVote { from, prompt_hash, vote_hash };
-                    if network_event_sender.send(translated).await.is_err() { break; }
+
+                if let SwarmInternalEvent::AgenticConsensusVote {
+                    from,
+                    prompt_hash,
+                    vote_hash,
+                } = event
+                {
+                    let translated = NetworkEvent::AgenticConsensusVote {
+                        from,
+                        prompt_hash,
+                        vote_hash,
+                    };
+                    if network_event_sender.send(translated).await.is_err() {
+                        break;
+                    }
                     continue;
                 }
 
                 if let SwarmInternalEvent::GossipOracleAttestation(data, from) = event {
-                    if let Ok(attestation) = codec::from_bytes_canonical::<OracleAttestation>(&data) {
-                        let _ = network_event_sender.send(NetworkEvent::OracleAttestationReceived { from, attestation }).await;
+                    if let Ok(attestation) = codec::from_bytes_canonical::<OracleAttestation>(&data)
+                    {
+                        let _ = network_event_sender
+                            .send(NetworkEvent::OracleAttestationReceived { from, attestation })
+                            .await;
                     }
                     continue;
                 }
 
                 // Standard Translations
                 let translated_event = match event {
-                    SwarmInternalEvent::ConnectionEstablished(p) => Some(NetworkEvent::ConnectionEstablished(p)),
-                    SwarmInternalEvent::ConnectionClosed(p) => Some(NetworkEvent::ConnectionClosed(p)),
-                    SwarmInternalEvent::StatusRequest(p, c) => Some(NetworkEvent::StatusRequest(p, c)),
-                    SwarmInternalEvent::BlocksRequest { peer, since, max_blocks, max_bytes, channel } 
-                        => Some(NetworkEvent::BlocksRequest { peer, since, max_blocks, max_bytes, channel }),
-                    SwarmInternalEvent::StatusResponse { peer, height, head_hash, chain_id, genesis_root } 
-                        => Some(NetworkEvent::StatusResponse { peer, height, head_hash, chain_id, genesis_root }),
-                    SwarmInternalEvent::BlocksResponse(p, b) => Some(NetworkEvent::BlocksResponse(p, b)),
-                    
+                    SwarmInternalEvent::ConnectionEstablished(p) => {
+                        Some(NetworkEvent::ConnectionEstablished(p))
+                    }
+                    SwarmInternalEvent::ConnectionClosed(p) => {
+                        Some(NetworkEvent::ConnectionClosed(p))
+                    }
+                    SwarmInternalEvent::StatusRequest(p, c) => {
+                        Some(NetworkEvent::StatusRequest(p, c))
+                    }
+                    SwarmInternalEvent::BlocksRequest {
+                        peer,
+                        since,
+                        max_blocks,
+                        max_bytes,
+                        channel,
+                    } => Some(NetworkEvent::BlocksRequest {
+                        peer,
+                        since,
+                        max_blocks,
+                        max_bytes,
+                        channel,
+                    }),
+                    SwarmInternalEvent::StatusResponse {
+                        peer,
+                        height,
+                        head_hash,
+                        chain_id,
+                        genesis_root,
+                    } => Some(NetworkEvent::StatusResponse {
+                        peer,
+                        height,
+                        head_hash,
+                        chain_id,
+                        genesis_root,
+                    }),
+                    SwarmInternalEvent::BlocksResponse(p, b) => {
+                        Some(NetworkEvent::BlocksResponse(p, b))
+                    }
+
                     SwarmInternalEvent::GossipBlock(data, _source, mirror_id) => {
-                        codec::from_bytes_canonical(&data).ok().map(|block| NetworkEvent::GossipBlock { block, mirror_id })
-                    },
+                        codec::from_bytes_canonical(&data)
+                            .ok()
+                            .map(|block| NetworkEvent::GossipBlock { block, mirror_id })
+                    }
                     SwarmInternalEvent::GossipTransaction(data, _source) => {
-                        let dummy = UnifiedTransactionModel::new(ioi_state::primitives::hash::HashCommitmentScheme::new());
-                        dummy.deserialize_transaction(&data).ok().map(|tx| NetworkEvent::GossipTransaction(Box::new(tx)))
-                    },
+                        let dummy = UnifiedTransactionModel::new(
+                            ioi_state::primitives::hash::HashCommitmentScheme::new(),
+                        );
+                        dummy
+                            .deserialize_transaction(&data)
+                            .ok()
+                            .map(|tx| NetworkEvent::GossipTransaction(Box::new(tx)))
+                    }
                     SwarmInternalEvent::ConsensusVoteReceived(data, source) => {
-                        codec::from_bytes_canonical::<ConsensusVote>(&data).ok().map(|vote| NetworkEvent::ConsensusVoteReceived { vote, from: source })
-                    },
+                        codec::from_bytes_canonical::<ConsensusVote>(&data)
+                            .ok()
+                            .map(|vote| NetworkEvent::ConsensusVoteReceived { vote, from: source })
+                    }
                     SwarmInternalEvent::ViewChangeVoteReceived(data, source) => {
-                        codec::from_bytes_canonical::<ViewChangeVote>(&data).ok().map(|vote| NetworkEvent::ViewChangeVoteReceived { vote, from: source })
-                    },
+                        codec::from_bytes_canonical::<ViewChangeVote>(&data)
+                            .ok()
+                            .map(|vote| NetworkEvent::ViewChangeVoteReceived { vote, from: source })
+                    }
                     SwarmInternalEvent::EchoReceived(data, source) => {
-                        codec::from_bytes_canonical::<EchoMessage>(&data).ok().map(|echo| NetworkEvent::EchoReceived { echo, from: source })
-                    },
+                        codec::from_bytes_canonical::<EchoMessage>(&data)
+                            .ok()
+                            .map(|echo| NetworkEvent::EchoReceived { echo, from: source })
+                    }
                     SwarmInternalEvent::PanicReceived(data, source) => {
-                        codec::from_bytes_canonical::<PanicMessage>(&data).ok().map(|panic| NetworkEvent::PanicReceived { panic, from: source })
-                    },
-                    SwarmInternalEvent::SampleRequest(peer, height, channel) => Some(NetworkEvent::SampleRequestReceived { peer, height, channel }),
-                    SwarmInternalEvent::SampleResponse(peer, block_hash, confidence) => Some(NetworkEvent::SampleResponseReceived { peer, block_hash, confidence }),
+                        codec::from_bytes_canonical::<PanicMessage>(&data)
+                            .ok()
+                            .map(|panic| NetworkEvent::PanicReceived {
+                                panic,
+                                from: source,
+                            })
+                    }
+                    SwarmInternalEvent::SampleRequest(peer, height, channel) => {
+                        Some(NetworkEvent::SampleRequestReceived {
+                            peer,
+                            height,
+                            channel,
+                        })
+                    }
+                    SwarmInternalEvent::SampleResponse(peer, block_hash, confidence) => {
+                        Some(NetworkEvent::SampleResponseReceived {
+                            peer,
+                            block_hash,
+                            confidence,
+                        })
+                    }
                     SwarmInternalEvent::ConfidenceVoteReceived(data, _source) => {
-                        codec::from_bytes_canonical::<ConfidenceVote>(&data).ok().map(NetworkEvent::ConfidenceVoteReceived)
-                    },
-                    SwarmInternalEvent::OutboundFailure(peer) => Some(NetworkEvent::OutboundFailure(peer)),
-                    SwarmInternalEvent::RequestMissingTxs { peer, indices, channel } => Some(NetworkEvent::RequestMissingTxs { peer, indices, channel }),
-                    
+                        codec::from_bytes_canonical::<ConfidenceVote>(&data)
+                            .ok()
+                            .map(NetworkEvent::ConfidenceVoteReceived)
+                    }
+                    SwarmInternalEvent::OutboundFailure(peer) => {
+                        Some(NetworkEvent::OutboundFailure(peer))
+                    }
+                    SwarmInternalEvent::RequestMissingTxs {
+                        peer,
+                        indices,
+                        channel,
+                    } => Some(NetworkEvent::RequestMissingTxs {
+                        peer,
+                        indices,
+                        channel,
+                    }),
+
                     // Already handled above or unreachable
                     SwarmInternalEvent::AgenticPrompt { .. } => None,
                     SwarmInternalEvent::AgenticConsensusVote { .. } => None,
@@ -142,7 +236,9 @@ impl Libp2pSync {
                 };
 
                 if let Some(ev) = translated_event {
-                    if network_event_sender.send(ev).await.is_err() { break; }
+                    if network_event_sender.send(ev).await.is_err() {
+                        break;
+                    }
                 }
             }
         });
@@ -152,9 +248,11 @@ impl Libp2pSync {
             let listen_addr_clone = listen_addr.clone();
             let dial_addrs_owned = dial_addrs.map(|s| s.to_vec());
             async move {
-                let _ = cmd_sender.send(SwarmCommand::Listen(listen_addr_clone)).await;
+                let _ = cmd_sender
+                    .send(SwarmCommand::Listen(listen_addr_clone))
+                    .await;
                 if let Some(addrs) = dial_addrs_owned {
-                    for _ in 0..100 { 
+                    for _ in 0..100 {
                         for addr in &addrs {
                             let _ = cmd_sender.send(SwarmCommand::Dial(addr.clone())).await;
                         }

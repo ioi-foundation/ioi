@@ -10,9 +10,9 @@
 //! handshake protocols to succeed.
 
 use async_trait::async_trait;
-use ioi_types::error::UpgradeError;
 use ioi_api::impl_service_base;
 use ioi_api::services::UpgradableService;
+use ioi_types::error::UpgradeError;
 
 /// A service that acts as an IBC application module placeholder.
 ///

@@ -1,19 +1,19 @@
 // Path: crates/networking/src/libp2p/swarm.rs
 
+use futures::StreamExt;
+use libp2p::gossipsub::PublishError;
+use libp2p::swarm::SwarmEvent;
+use libp2p::{gossipsub, Swarm};
 use std::collections::VecDeque;
 use tokio::sync::{mpsc, watch};
 use tokio::time::{interval, Duration};
-use futures::StreamExt;
-use libp2p::{gossipsub, Swarm};
-use libp2p::swarm::SwarmEvent;
-use libp2p::gossipsub::PublishError;
 
 use crate::metrics::metrics;
 use ioi_types::codec;
 
 use super::behaviour::{SyncBehaviour, SyncBehaviourEvent};
-use super::types::{SwarmCommand, SwarmInternalEvent};
 use super::sync::{SyncRequest, SyncResponse};
+use super::types::{SwarmCommand, SwarmInternalEvent};
 
 const PENDING_BLOCK_OUTBOX_MAX: usize = 128;
 const PENDING_VOTE_OUTBOX_MAX: usize = 256;
@@ -21,16 +21,16 @@ const PENDING_VOTE_OUTBOX_MAX: usize = 256;
 /// Enqueues a block for later gossiping, dropping the oldest if the outbox is full.
 fn enqueue_block(pending: &mut VecDeque<Vec<u8>>, data: Vec<u8>) {
     if pending.len() >= PENDING_BLOCK_OUTBOX_MAX {
-        pending.pop_front(); 
+        pending.pop_front();
         tracing::warn!(target: "gossip", "outbox full; dropping oldest pending block");
     }
     pending.push_back(data);
 }
 
 fn enqueue_vote(
-    pending: &mut VecDeque<(Vec<u8>, gossipsub::IdentTopic)>, 
-    data: Vec<u8>, 
-    topic: gossipsub::IdentTopic
+    pending: &mut VecDeque<(Vec<u8>, gossipsub::IdentTopic)>,
+    data: Vec<u8>,
+    topic: gossipsub::IdentTopic,
 ) {
     if pending.len() >= PENDING_VOTE_OUTBOX_MAX {
         pending.pop_front();
@@ -44,7 +44,9 @@ fn drain_pending_blocks(
     block_topic_a: &gossipsub::IdentTopic,
     block_topic_b: &gossipsub::IdentTopic,
 ) {
-    if pending.is_empty() { return; }
+    if pending.is_empty() {
+        return;
+    }
 
     tracing::info!(target: "gossip", "Attempting to drain {} pending blocks from outbox.", pending.len());
 
@@ -66,22 +68,24 @@ fn drain_pending_votes(
     pending: &mut VecDeque<(Vec<u8>, gossipsub::IdentTopic)>,
     gossipsub: &mut gossipsub::Behaviour,
 ) {
-    if pending.is_empty() { return; }
-    
+    if pending.is_empty() {
+        return;
+    }
+
     let count = pending.len();
     for _ in 0..count {
         if let Some((data, topic)) = pending.pop_front() {
-             match gossipsub.publish(topic.clone(), data.clone()) {
-                 Ok(_) => {
-                     tracing::debug!(target: "gossip", "Flushed pending vote");
-                 }
-                 Err(e) => {
-                     if !matches!(e, PublishError::InsufficientPeers) {
-                         tracing::warn!(target: "gossip", "Failed to flush vote: {:?}", e);
-                     }
-                     pending.push_back((data, topic));
-                 }
-             }
+            match gossipsub.publish(topic.clone(), data.clone()) {
+                Ok(_) => {
+                    tracing::debug!(target: "gossip", "Flushed pending vote");
+                }
+                Err(e) => {
+                    if !matches!(e, PublishError::InsufficientPeers) {
+                        tracing::warn!(target: "gossip", "Failed to flush vote: {:?}", e);
+                    }
+                    pending.push_back((data, topic));
+                }
+            }
         }
     }
 }
@@ -108,7 +112,7 @@ pub async fn run_swarm_loop(
 
     let mut pending_blocks: VecDeque<Vec<u8>> = VecDeque::new();
     let mut pending_votes: VecDeque<(Vec<u8>, gossipsub::IdentTopic)> = VecDeque::new();
-    
+
     let mut retry_interval = interval(Duration::from_millis(500));
     retry_interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
 
@@ -121,8 +125,14 @@ pub async fn run_swarm_loop(
     let _ = swarm.behaviour_mut().gossipsub.subscribe(&echo_topic);
     let _ = swarm.behaviour_mut().gossipsub.subscribe(&panic_topic);
     let _ = swarm.behaviour_mut().gossipsub.subscribe(&confidence_topic);
-    let _ = swarm.behaviour_mut().gossipsub.subscribe(&oracle_attestations_topic);
-    let _ = swarm.behaviour_mut().gossipsub.subscribe(&agentic_vote_topic);
+    let _ = swarm
+        .behaviour_mut()
+        .gossipsub
+        .subscribe(&oracle_attestations_topic);
+    let _ = swarm
+        .behaviour_mut()
+        .gossipsub
+        .subscribe(&agentic_vote_topic);
 
     loop {
         tokio::select! {
@@ -131,10 +141,10 @@ pub async fn run_swarm_loop(
                 drain_pending_votes(&mut pending_votes, &mut swarm.behaviour_mut().gossipsub);
             },
             _ = shutdown_receiver.changed() => if *shutdown_receiver.borrow() { break; },
-            
+
             event = swarm.select_next_some() => match event {
-                SwarmEvent::NewListenAddr { address, .. } => { 
-                    tracing::info!(target: "network", event = "listening", %address); 
+                SwarmEvent::NewListenAddr { address, .. } => {
+                    tracing::info!(target: "network", event = "listening", %address);
                 }
                 SwarmEvent::ConnectionEstablished { peer_id, .. } => {
                     metrics().inc_connected_peers();
@@ -162,8 +172,8 @@ pub async fn run_swarm_loop(
                 }
                 SwarmEvent::Behaviour(event) => match event {
                     SyncBehaviourEvent::Gossipsub(gossipsub::Event::Message { message, .. }) => {
-                        let mirror_id = if message.topic == block_topic_a.hash() { Some(0u8) } 
-                                        else if message.topic == block_topic_b.hash() { Some(1u8) } 
+                        let mirror_id = if message.topic == block_topic_a.hash() { Some(0u8) }
+                                        else if message.topic == block_topic_b.hash() { Some(1u8) }
                                         else { None };
 
                         let topic_name = if mirror_id.is_some() { "blocks" }
@@ -255,7 +265,7 @@ pub async fn run_swarm_loop(
                     SwarmCommand::BroadcastPanic(data) => { let _ = swarm.behaviour_mut().gossipsub.publish(panic_topic.clone(), data); }
                     SwarmCommand::BroadcastConfidence(data) => { let _ = swarm.behaviour_mut().gossipsub.publish(confidence_topic.clone(), data); }
                     SwarmCommand::GossipOracleAttestation(data) => { let _ = swarm.behaviour_mut().gossipsub.publish(oracle_attestations_topic.clone(), data); }
-                    
+
                     SwarmCommand::SendStatusRequest(p) => { swarm.behaviour_mut().request_response.send_request(&p, SyncRequest::GetStatus); }
                     SwarmCommand::SendBlocksRequest { peer, since, max_blocks, max_bytes } => { swarm.behaviour_mut().request_response.send_request(&peer, SyncRequest::GetBlocks { since, max_blocks, max_bytes }); }
                     SwarmCommand::SendStatusResponse { channel, height, head_hash, chain_id, genesis_root } => { let _ = swarm.behaviour_mut().request_response.send_response(channel, SyncResponse::Status { height, head_hash, chain_id, genesis_root }); }

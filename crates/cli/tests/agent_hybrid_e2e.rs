@@ -133,18 +133,12 @@ async fn test_hybrid_routing_logic() -> Result<()> {
     });
 
     use ioi_services::agentic::desktop::DesktopAgentService;
-    
+
     // [NEW] Instantiate drivers
     let terminal = Arc::new(TerminalDriver::new());
     let browser = Arc::new(BrowserDriver::new());
 
-    let service = DesktopAgentService::new_hybrid(
-        gui, 
-        terminal,
-        browser, 
-        fast, 
-        reasoning
-    );
+    let service = DesktopAgentService::new_hybrid(gui, terminal, browser, fast, reasoning);
     let mut state = IAVLTree::new(HashCommitmentScheme::new());
 
     use ioi_api::services::access::ServiceDirectory;

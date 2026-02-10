@@ -36,18 +36,21 @@ impl LocalSafetyModel for RuntimeAsSafetyModel {
         };
 
         // Use zero-hash for model ID (default model for the runtime)
-        let model_hash = [0u8; 32]; 
+        let model_hash = [0u8; 32];
 
-        let response_bytes = self.runtime.execute_inference(model_hash, prompt.as_bytes(), options).await?;
+        let response_bytes = self
+            .runtime
+            .execute_inference(model_hash, prompt.as_bytes(), options)
+            .await?;
         let response_str = String::from_utf8_lossy(&response_bytes);
-        
+
         // Attempt to parse JSON
         let json: serde_json::Value = match serde_json::from_str(&response_str) {
             Ok(v) => v,
             Err(_) => {
                 // Fallback: simple text check if JSON parsing fails
                 if response_str.to_lowercase().contains("unsafe") {
-                     return Ok(SafetyVerdict::Unsafe(response_str.to_string()));
+                    return Ok(SafetyVerdict::Unsafe(response_str.to_string()));
                 }
                 return Ok(SafetyVerdict::Safe);
             }
@@ -57,7 +60,10 @@ impl LocalSafetyModel for RuntimeAsSafetyModel {
             if safe {
                 Ok(SafetyVerdict::Safe)
             } else {
-                let reason = json["reason"].as_str().unwrap_or("Unspecified safety violation").to_string();
+                let reason = json["reason"]
+                    .as_str()
+                    .unwrap_or("Unspecified safety violation")
+                    .to_string();
                 Ok(SafetyVerdict::Unsafe(reason))
             }
         } else {

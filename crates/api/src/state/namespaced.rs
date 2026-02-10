@@ -125,11 +125,7 @@ pub struct ReadOnlyNamespacedStateAccess<'a> {
 
 impl<'a> ReadOnlyNamespacedStateAccess<'a> {
     /// Creates a new read-only namespaced state accessor.
-    pub fn new(
-        inner: &'a dyn StateAccess,
-        prefix: Vec<u8>,
-        meta: &'a ActiveServiceMeta,
-    ) -> Self {
+    pub fn new(inner: &'a dyn StateAccess, prefix: Vec<u8>, meta: &'a ActiveServiceMeta) -> Self {
         Self {
             inner,
             prefix,

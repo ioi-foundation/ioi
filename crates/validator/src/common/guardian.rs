@@ -66,7 +66,7 @@ pub struct LocalSigner {
 impl LocalSigner {
     /// Creates a new `LocalSigner` with the given keypair.
     pub fn new(keypair: ioi_crypto::sign::eddsa::Ed25519KeyPair) -> Self {
-        Self { 
+        Self {
             keypair,
             counter: std::sync::atomic::AtomicU64::new(0),
         }
@@ -84,8 +84,8 @@ impl GuardianSigner for LocalSigner {
         // This ensures verification logic in the consensus engine remains consistent.
         let mut sig_input = Vec::new();
         sig_input.extend_from_slice(&payload_hash);
-        sig_input.extend_from_slice(&counter.to_be_bytes()); 
-        sig_input.extend_from_slice(&[0u8; 32]);          // Trace = 0
+        sig_input.extend_from_slice(&counter.to_be_bytes());
+        sig_input.extend_from_slice(&[0u8; 32]); // Trace = 0
 
         let signature = self.keypair.private_key().sign(&sig_input)?.to_bytes();
 

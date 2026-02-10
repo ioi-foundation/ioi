@@ -90,6 +90,9 @@ mod tests {
             raw_output: r#"{"name": "browser__navigate", "arguments": {"url": "https://google.com/search"}}"#.into(),
             success: true,
             error: None,
+            cost_incurred: 0,
+            fitness_score: None,
+            skill_hash: None,
             timestamp: 0,
         };
         let trace2 = StepTrace {
@@ -100,6 +103,9 @@ mod tests {
             raw_output: r#"{"name": "gui__click", "arguments": {"x": 100, "y": 100}}"#.into(),
             success: true,
             error: None,
+            cost_incurred: 0,
+            fitness_score: None,
+            skill_hash: None,
             timestamp: 0,
         };
 

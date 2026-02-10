@@ -20,10 +20,10 @@
 pub mod algorithms;
 pub mod error;
 pub mod kem;
+pub mod key_store;
 pub mod security;
 pub mod sign;
 pub mod transport;
-pub mod key_store;
 
 #[cfg(test)]
 mod tests {

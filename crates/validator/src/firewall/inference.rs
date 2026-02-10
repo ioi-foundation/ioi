@@ -2,8 +2,8 @@
 
 use anyhow::Result;
 // [FIX] Import trait and enum from API
-use ioi_api::vm::inference::{LocalSafetyModel, SafetyVerdict};
 use async_trait::async_trait;
+use ioi_api::vm::inference::{LocalSafetyModel, SafetyVerdict};
 
 /// A mock implementation of BitNet for testing/dev environments.
 /// It uses simple heuristics (regex/keywords) to simulate the 1.58-bit model behavior.
@@ -24,7 +24,7 @@ impl LocalSafetyModel for MockBitNet {
 
     async fn detect_pii(&self, input: &str) -> Result<Vec<(usize, usize, String)>> {
         let mut findings = Vec::new();
-        
+
         // Mock detection of "sk_live_..." keys
         let key_pattern = "sk_live_";
         for (i, _) in input.match_indices(key_pattern) {
@@ -35,10 +35,10 @@ impl LocalSafetyModel for MockBitNet {
 
         // Mock detection of email-like symbols
         if let Some(idx) = input.find('@') {
-             // Crude mock: mask 5 chars around @
-             let start = idx.saturating_sub(5);
-             let end = (idx + 5).min(input.len());
-             findings.push((start, end, "EMAIL".to_string()));
+            // Crude mock: mask 5 chars around @
+            let start = idx.saturating_sub(5);
+            let end = (idx + 5).min(input.len());
+            findings.push((start, end, "EMAIL".to_string()));
         }
 
         Ok(findings)

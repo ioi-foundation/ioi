@@ -644,5 +644,4 @@ where
             nodes_deleted: s.nodes_deleted as u64,
         }))
     }
-
 }

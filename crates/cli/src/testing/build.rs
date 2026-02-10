@@ -117,7 +117,7 @@ fn build_contract_component(contract_dir: &Path, target_dir: &Path, package_name
 
     // [FIX] Check for cargo-component availability before attempting build
     let cargo_component_path = find_on_path("cargo-component");
-    
+
     // Check if the subcommand is available either as a binary or via cargo
     let has_component_support = if cargo_component_path.is_some() {
         true

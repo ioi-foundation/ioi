@@ -1,10 +1,10 @@
 // Path: crates/state/src/tree/flat/verifier.rs
 
+use crate::primitives::hash::{HashCommitment, HashProof};
 use ioi_api::error::StateError;
 use ioi_api::state::Verifier;
 use ioi_types::app::Membership;
 use ioi_types::error::ProofError;
-use crate::primitives::hash::{HashCommitment, HashProof};
 
 /// A dummy verifier for the Flat Store that accepts everything.
 /// Security relies on the fact that the user owns the machine (Mode 0).

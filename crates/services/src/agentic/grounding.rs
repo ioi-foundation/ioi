@@ -12,7 +12,7 @@ fn to_canonical_params(value: serde_json::Value) -> Vec<u8> {
 }
 
 /// Converts VLM output coordinates to OS absolute pixel coordinates.
-/// 
+///
 /// Supports both:
 /// - Normalized Floats: [0.0, 1.0] (e.g. GPT-4o-V)
 /// - Integer Scale: [0, 1000] (e.g. UI-TARS)

@@ -302,7 +302,10 @@ impl ioi::system::host::Host for HostState {
                     }
                     "screenshot" => {
                         // [FIX] Update call to accept crop_rect (None for full screen)
-                        let png_bytes = driver.capture_screen(None).await.map_err(|e| e.to_string())?;
+                        let png_bytes = driver
+                            .capture_screen(None)
+                            .await
+                            .map_err(|e| e.to_string())?;
                         Ok(png_bytes)
                     }
                     "tree" => {
@@ -327,16 +330,13 @@ impl ioi::system::host::Host for HostState {
                     "navigate" => {
                         let url = req["url"].as_str().ok_or("Missing url")?;
                         let content = driver
-                            .navigate(url)
+                            .navigate(url, "hermetic")
                             .await
-                            .map_err(|e| e.to_string())?; // [FIX] Removed explicit type annotation
+                            .map_err(|e| e.to_string())?;
                         Ok(content.into_bytes())
                     }
                     "extract_dom" => {
-                        let dom = driver
-                            .extract_dom()
-                            .await
-                            .map_err(|e| e.to_string())?; // [FIX] Removed explicit type annotation
+                        let dom = driver.extract_dom().await.map_err(|e| e.to_string())?; // [FIX] Removed explicit type annotation
                         Ok(dom.into_bytes())
                     }
                     "click_selector" => {

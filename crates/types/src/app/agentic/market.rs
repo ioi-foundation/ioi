@@ -1,9 +1,9 @@
 // Path: crates/types/src/app/agentic/market.rs
 
+use super::knowledge::{LensManifest, StaticKnowledgeChunk};
 use crate::app::AccountId;
 use parity_scale_codec::{Decode, Encode};
 use serde::{Deserialize, Serialize};
-use super::knowledge::{LensManifest, StaticKnowledgeChunk};
 
 /// The classification of the intelligence asset.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Encode, Decode)]
@@ -127,18 +127,17 @@ pub struct AgentManifest {
     pub static_knowledge: Vec<StaticKnowledgeChunk>,
 
     // [UPDATED] Service-as-a-Software Configuration
-    
     /// If true, the agent binary contains an embedded web app in `embedded_assets/`.
     #[serde(default)]
     pub has_embedded_app: bool,
-    
+
     /// The default route to navigate to on start (e.g. "/dashboard").
     pub app_entrypoint: Option<String>,
-    
+
     /// List of typed lens configurations for interacting with the embedded app or external tools.
     #[serde(default)]
-    pub custom_lenses: Vec<LensManifest>, 
-    
+    pub custom_lenses: Vec<LensManifest>,
+
     /// Commitment to the UI assets (Merkle Root of embedded_assets folder).
     /// Calculated at pack time to ensure UI integrity.
     #[serde(default)]

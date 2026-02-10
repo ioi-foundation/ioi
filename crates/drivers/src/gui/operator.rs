@@ -1,21 +1,33 @@
 // Path: crates/drivers/src/gui/operator.rs
 
+use super::geometry::{CoordinateSpace, DisplayTransform, Point};
 use super::vision::NativeVision;
 use anyhow::{anyhow, Result};
 use enigo::{Axis, Button, Coordinate, Direction, Enigo, Key, Keyboard, Mouse, Settings};
 use image::load_from_memory;
 use image_hasher::{HashAlg, HasherConfig};
-use ioi_api::vm::drivers::gui::{InputEvent, AtomicInput, MouseButton as ApiButton};
+use ioi_api::vm::drivers::gui::{AtomicInput, InputEvent, MouseButton as ApiButton};
+use ioi_types::app::KernelEvent;
+use serde::{Deserialize, Serialize};
 use std::sync::Mutex;
 use std::thread;
 use std::time::Duration;
-use ioi_types::app::KernelEvent;
 use tokio::sync::broadcast::Sender;
 use xcap::Monitor;
 
 pub struct NativeOperator {
     enigo: Mutex<Enigo>,
     event_sender: Option<Sender<KernelEvent>>,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+pub enum ClickTarget {
+    /// Normalized [0.0, 1.0] coordinates from a vision model.
+    Normalized(f64, f64),
+    /// Semantic IDs must be resolved before the hardware layer.
+    SemanticId(u32),
+    /// Explicit screen-logical point.
+    Exact(Point),
 }
 
 impl NativeOperator {
@@ -52,12 +64,135 @@ impl NativeOperator {
         dist
     }
 
-    pub fn get_scale_factor() -> f64 {
+    pub fn current_display_transform() -> DisplayTransform {
         let monitors = Monitor::all().unwrap_or_default();
-        if let Some(m) = monitors.first() {
-            return m.scale_factor() as f64;
+        if let Some(monitor) = monitors.first() {
+            let scale = (monitor.scale_factor() as f64).max(1.0);
+            let image_width = ((monitor.width() as f64) * scale).round().max(1.0) as u32;
+            let image_height = ((monitor.height() as f64) * scale).round().max(1.0) as u32;
+            return DisplayTransform::new(
+                scale,
+                Point::new(0.0, 0.0, CoordinateSpace::ScreenLogical),
+                Point::new(
+                    (monitor.x() as f64) * scale,
+                    (monitor.y() as f64) * scale,
+                    CoordinateSpace::ImagePhysical,
+                ),
+                image_width,
+                image_height,
+            );
         }
-        1.0
+        DisplayTransform::new(
+            1.0,
+            Point::new(0.0, 0.0, CoordinateSpace::ScreenLogical),
+            Point::new(0.0, 0.0, CoordinateSpace::ImagePhysical),
+            1,
+            1,
+        )
+    }
+
+    fn screen_logical_to_enigo_abs(pt: Point, transform: &DisplayTransform) -> (i32, i32) {
+        assert_eq!(pt.space, CoordinateSpace::ScreenLogical);
+        if cfg!(target_os = "linux") {
+            (
+                (pt.x * transform.scale_factor).round() as i32,
+                (pt.y * transform.scale_factor).round() as i32,
+            )
+        } else {
+            (pt.x.round() as i32, pt.y.round() as i32)
+        }
+    }
+
+    fn move_mouse_to_point(
+        enigo: &mut Enigo,
+        pt: Point,
+        transform: &DisplayTransform,
+    ) -> Result<()> {
+        let (abs_x, abs_y) = Self::screen_logical_to_enigo_abs(pt, transform);
+        enigo
+            .move_mouse(abs_x, abs_y, Coordinate::Abs)
+            .map_err(|e| anyhow!("{:?}", e))?;
+        Ok(())
+    }
+
+    pub fn resolve_click_target(
+        target: ClickTarget,
+        transform: &DisplayTransform,
+    ) -> Result<Point> {
+        match target {
+            ClickTarget::Normalized(nx, ny) => {
+                let (norm_x, norm_y) = if nx > 1.0 || ny > 1.0 {
+                    (nx / 1000.0, ny / 1000.0)
+                } else {
+                    (nx, ny)
+                };
+                Ok(transform.normalized_to_screen(norm_x, norm_y))
+            }
+            ClickTarget::Exact(pt) => {
+                if pt.space != CoordinateSpace::ScreenLogical {
+                    return Err(anyhow!(
+                        "Exact click coordinates must be ScreenLogical, got {:?}",
+                        pt.space
+                    ));
+                }
+                Ok(pt)
+            }
+            ClickTarget::SemanticId(id) => Err(anyhow!(
+                "Semantic ID {} must be resolved before NativeOperator::inject_click",
+                id
+            )),
+        }
+    }
+
+    fn inject_click_locked(
+        &self,
+        enigo: &mut Enigo,
+        button: ApiButton,
+        target: ClickTarget,
+        transform: &DisplayTransform,
+        expected_visual_hash: Option<[u8; 32]>,
+    ) -> Result<Point> {
+        if let Some(expected) = expected_visual_hash {
+            let full_screen_png = NativeVision::capture_primary()?;
+            let current_hash = Self::compute_phash(&full_screen_png)?;
+            let dist = Self::hamming_distance(&current_hash, &expected);
+            if dist > 5 {
+                if let Some(tx) = &self.event_sender {
+                    let _ = tx.send(KernelEvent::FirewallInterception {
+                        verdict: "BLOCK".to_string(),
+                        target: "gui::click".to_string(),
+                        request_hash: [0u8; 32],
+                        session_id: None,
+                    });
+                }
+                return Err(anyhow!(
+                    "Visual Drift Detected! Hamming distance {} > 5.",
+                    dist
+                ));
+            }
+        }
+
+        let logical_point = Self::resolve_click_target(target, transform)?;
+        Self::move_mouse_to_point(enigo, logical_point, transform)?;
+        let btn = Self::map_button(button);
+        enigo
+            .button(btn, Direction::Click)
+            .map_err(|e| anyhow!("{:?}", e))?;
+        Ok(logical_point)
+    }
+
+    pub fn inject_click(
+        &self,
+        button: ApiButton,
+        target: ClickTarget,
+        transform: &DisplayTransform,
+        expected_visual_hash: Option<[u8; 32]>,
+    ) -> Result<Point> {
+        let mut enigo = self
+            .enigo
+            .lock()
+            .map_err(|_| anyhow!("Enigo lock poisoned"))?;
+        self.inject_click_locked(&mut enigo, button, target, transform, expected_visual_hash)
     }
 
     fn map_button(btn: ApiButton) -> Button {
@@ -86,117 +221,123 @@ impl NativeOperator {
             "right" => Ok(Key::RightArrow),
             _ => {
                 if key.len() == 1 {
-                     Ok(Key::Unicode(key.chars().next().unwrap()))
+                    Ok(Key::Unicode(key.chars().next().unwrap()))
                 } else {
-                     Err(anyhow!("Unsupported key: {}", key))
+                    Err(anyhow!("Unsupported key: {}", key))
                 }
             }
         }
     }
 
     pub fn inject(&self, event: &InputEvent) -> Result<()> {
-        let mut enigo = self.enigo.lock().map_err(|_| anyhow!("Enigo lock poisoned"))?;
-        let scale = Self::get_scale_factor();
-
-        let normalize_coord = |val: u32| -> i32 {
-            if cfg!(target_os = "macos") {
-                (val as f64 / scale) as i32
-            } else if cfg!(target_os = "windows") {
-                 (val as f64 / scale) as i32
-            } else {
-                 val as i32
-            }
-        };
+        let mut enigo = self
+            .enigo
+            .lock()
+            .map_err(|_| anyhow!("Enigo lock poisoned"))?;
+        let transform = Self::current_display_transform();
 
         match event {
             InputEvent::MouseMove { x, y } => {
-                let abs_x = normalize_coord(*x);
-                let abs_y = normalize_coord(*y);
-                enigo.move_mouse(abs_x, abs_y, Coordinate::Abs).map_err(|e| anyhow!("{:?}", e))?;
+                let pt = Point::new(*x as f64, *y as f64, CoordinateSpace::ScreenLogical);
+                Self::move_mouse_to_point(&mut enigo, pt, &transform)?;
             }
-            InputEvent::Click { button, x, y, expected_visual_hash } => {
-                if let Some(expected) = expected_visual_hash {
-                    let full_screen_png = NativeVision::capture_primary()?;
-                    let current_hash = Self::compute_phash(&full_screen_png)?;
-                    let dist = Self::hamming_distance(&current_hash, expected);
-                    if dist > 5 {
-                         if let Some(tx) = &self.event_sender {
-                             let _ = tx.send(KernelEvent::FirewallInterception {
-                                 verdict: "BLOCK".to_string(),
-                                 target: "gui::click".to_string(),
-                                 request_hash: [0u8; 32],
-                                 session_id: None,
-                             });
-                         }
-                        return Err(anyhow!("Visual Drift Detected! Hamming distance {} > 5.", dist));
-                    }
-                }
-                let abs_x = normalize_coord(*x);
-                let abs_y = normalize_coord(*y);
-                enigo.move_mouse(abs_x, abs_y, Coordinate::Abs).map_err(|e| anyhow!("{:?}", e))?;
-                let btn = Self::map_button(*button);
-                enigo.button(btn, Direction::Click).map_err(|e| anyhow!("{:?}", e))?;
+            InputEvent::Click {
+                button,
+                x,
+                y,
+                expected_visual_hash,
+            } => {
+                let target = ClickTarget::Exact(Point::new(
+                    *x as f64,
+                    *y as f64,
+                    CoordinateSpace::ScreenLogical,
+                ));
+                self.inject_click_locked(
+                    &mut enigo,
+                    *button,
+                    target,
+                    &transform,
+                    *expected_visual_hash,
+                )?;
             }
             InputEvent::MouseDown { button, x, y } => {
-                let abs_x = normalize_coord(*x);
-                let abs_y = normalize_coord(*y);
-                enigo.move_mouse(abs_x, abs_y, Coordinate::Abs).map_err(|e| anyhow!("{:?}", e))?;
+                let pt = Point::new(*x as f64, *y as f64, CoordinateSpace::ScreenLogical);
+                Self::move_mouse_to_point(&mut enigo, pt, &transform)?;
                 let btn = Self::map_button(*button);
-                enigo.button(btn, Direction::Press).map_err(|e| anyhow!("{:?}", e))?;
+                enigo
+                    .button(btn, Direction::Press)
+                    .map_err(|e| anyhow!("{:?}", e))?;
             }
             InputEvent::MouseUp { button, x, y } => {
-                let abs_x = normalize_coord(*x);
-                let abs_y = normalize_coord(*y);
-                enigo.move_mouse(abs_x, abs_y, Coordinate::Abs).map_err(|e| anyhow!("{:?}", e))?;
+                let pt = Point::new(*x as f64, *y as f64, CoordinateSpace::ScreenLogical);
+                Self::move_mouse_to_point(&mut enigo, pt, &transform)?;
                 let btn = Self::map_button(*button);
-                enigo.button(btn, Direction::Release).map_err(|e| anyhow!("{:?}", e))?;
+                enigo
+                    .button(btn, Direction::Release)
+                    .map_err(|e| anyhow!("{:?}", e))?;
             }
             InputEvent::Type { text } => {
-                enigo.text(text).map_err(|e| anyhow!("Type failed: {:?}", e))?;
+                enigo
+                    .text(text)
+                    .map_err(|e| anyhow!("Type failed: {:?}", e))?;
             }
             InputEvent::KeyPress { key } => {
                 let k = Self::map_key(key)?;
-                enigo.key(k, Direction::Click).map_err(|e| anyhow!("Key press failed: {:?}", e))?;
+                enigo
+                    .key(k, Direction::Click)
+                    .map_err(|e| anyhow!("Key press failed: {:?}", e))?;
             }
             InputEvent::Scroll { dy, .. } => {
-                enigo.scroll(*dy, Axis::Vertical).map_err(|e| anyhow!("Scroll failed: {:?}", e))?;
+                enigo
+                    .scroll(*dy, Axis::Vertical)
+                    .map_err(|e| anyhow!("Scroll failed: {:?}", e))?;
             }
-            
+
             // [NEW] Atomic Sequence Execution Implementation
             InputEvent::AtomicSequence(steps) => {
                 log::info!(target: "driver", "Executing Atomic Sequence ({} steps)", steps.len());
                 for step in steps {
                     match step {
                         AtomicInput::MouseMove { x, y } => {
-                            let abs_x = normalize_coord(*x);
-                            let abs_y = normalize_coord(*y);
-                            enigo.move_mouse(abs_x, abs_y, Coordinate::Abs).map_err(|e| anyhow!("{:?}", e))?;
-                        },
+                            let pt =
+                                Point::new(*x as f64, *y as f64, CoordinateSpace::ScreenLogical);
+                            Self::move_mouse_to_point(&mut enigo, pt, &transform)?;
+                        }
                         AtomicInput::MouseDown { button } => {
                             let btn = Self::map_button(*button);
-                            enigo.button(btn, Direction::Press).map_err(|e| anyhow!("{:?}", e))?;
-                        },
+                            enigo
+                                .button(btn, Direction::Press)
+                                .map_err(|e| anyhow!("{:?}", e))?;
+                        }
                         AtomicInput::MouseUp { button } => {
                             let btn = Self::map_button(*button);
-                            enigo.button(btn, Direction::Release).map_err(|e| anyhow!("{:?}", e))?;
-                        },
+                            enigo
+                                .button(btn, Direction::Release)
+                                .map_err(|e| anyhow!("{:?}", e))?;
+                        }
                         AtomicInput::KeyPress { key } => {
                             let k = Self::map_key(key)?;
-                            enigo.key(k, Direction::Click).map_err(|e| anyhow!("{:?}", e))?;
-                        },
+                            enigo
+                                .key(k, Direction::Click)
+                                .map_err(|e| anyhow!("{:?}", e))?;
+                        }
                         AtomicInput::KeyDown { key } => {
                             let k = Self::map_key(key)?;
-                            enigo.key(k, Direction::Press).map_err(|e| anyhow!("{:?}", e))?;
-                        },
+                            enigo
+                                .key(k, Direction::Press)
+                                .map_err(|e| anyhow!("{:?}", e))?;
+                        }
                         AtomicInput::KeyUp { key } => {
                             let k = Self::map_key(key)?;
-                            enigo.key(k, Direction::Release).map_err(|e| anyhow!("{:?}", e))?;
-                        },
+                            enigo
+                                .key(k, Direction::Release)
+                                .map_err(|e| anyhow!("{:?}", e))?;
+                        }
                         AtomicInput::Type { text } => {
-                             enigo.text(text).map_err(|e| anyhow!("{:?}", e))?;
-                        },
+                            enigo.text(text).map_err(|e| anyhow!("{:?}", e))?;
+                        }
                         AtomicInput::Wait { millis } => {
-                             thread::sleep(Duration::from_millis(*millis));
+                            thread::sleep(Duration::from_millis(*millis));
                         }
                     }
                     // Small micro-sleep between atomic steps to ensure OS event loop catch-up

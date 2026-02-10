@@ -118,7 +118,7 @@ impl LeakageController {
 
         // 4. Enforce Limit
         let new_total = usage.tokens_consumed.saturating_add(cost);
-        
+
         if new_total > policy.max_tokens_per_epoch {
             return Err(TransactionError::Invalid(format!(
                 "Leakage budget exceeded: Requested {}, Cost {}, Used {}, Limit {}",
@@ -129,9 +129,9 @@ impl LeakageController {
         // 5. Update State
         usage.tokens_consumed = new_total;
         usage.last_update_height = current_height;
-        
+
         state.insert(&usage_key, &codec::to_bytes_canonical(&usage)?)?;
-        
+
         Ok(())
     }
 }

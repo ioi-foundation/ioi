@@ -8,6 +8,8 @@ use crate::agentic::desktop::utils::compute_phash;
 use ioi_api::state::StateAccess;
 use ioi_api::vm::drivers::os::WindowInfo;
 use ioi_drivers::gui::accessibility::{merge_trees, AccessibilityNode, Rect};
+use ioi_drivers::gui::geometry::{CoordinateSpace, DisplayTransform, Point};
+use ioi_drivers::gui::operator::NativeOperator;
 use ioi_drivers::gui::platform::fetch_tree_direct;
 use ioi_drivers::gui::som::{assign_som_ids, draw_som_overlay};
 use ioi_drivers::mcp::compression::ContextCompressor;
@@ -59,7 +61,15 @@ fn extract_semantic_map(root: &AccessibilityNode) -> BTreeMap<u32, String> {
     while let Some(node) = stack.pop() {
         if let Some(som_id) = node.som_id {
             if !node.id.is_empty() {
-                map.insert(som_id, node.id.clone());
+                let mut semantic_value = node.id.clone();
+                if let Some(alias_blob) = node.attributes.get("semantic_aliases") {
+                    let alias_blob = alias_blob.trim();
+                    if !alias_blob.is_empty() {
+                        semantic_value.push(',');
+                        semantic_value.push_str(alias_blob);
+                    }
+                }
+                map.insert(som_id, semantic_value);
             }
         }
         for child in &node.children {
@@ -162,6 +172,29 @@ fn choose_active_window_subtree(
     best.map(|(_, node)| node)
 }
 
+fn build_display_transform(
+    image_dims: (u32, u32),
+    capture_origin_logical: (i32, i32),
+    window_origin_logical: (i32, i32),
+) -> DisplayTransform {
+    let base = NativeOperator::current_display_transform();
+    DisplayTransform::new(
+        base.scale_factor,
+        Point::new(
+            window_origin_logical.0 as f64,
+            window_origin_logical.1 as f64,
+            CoordinateSpace::ScreenLogical,
+        ),
+        Point::new(
+            capture_origin_logical.0 as f64 * base.scale_factor,
+            capture_origin_logical.1 as f64 * base.scale_factor,
+            CoordinateSpace::ImagePhysical,
+        ),
+        image_dims.0,
+        image_dims.1,
+    )
+}
+
 pub async fn gather_context(
     service: &DesktopAgentService,
     state: &dyn StateAccess,
@@ -214,13 +247,33 @@ pub async fn gather_context(
         }
     });
 
+    let dom_headless_title = if current_tier == ExecutionTier::DomHeadless {
+        if let Some(os_driver) = service.os_driver.as_ref() {
+            match os_driver.get_active_window_info().await {
+                Ok(Some(win)) => {
+                    if !win.title.trim().is_empty() {
+                        win.title
+                    } else if !win.app_name.trim().is_empty() {
+                        win.app_name
+                    } else {
+                        "Unknown".to_string()
+                    }
+                }
+                Ok(None) => "Unknown".to_string(),
+                Err(e) => {
+                    log::debug!("DomHeadless window probe failed: {}", e);
+                    "Unknown".to_string()
+                }
+            }
+        } else {
+            "Unknown".to_string()
+        }
+    } else {
+        String::new()
+    };
+
     let (base64_image, _, active_window_title, som_map) = match current_tier {
-        ExecutionTier::DomHeadless => (
-            None,
-            ExecutionTier::DomHeadless,
-            "Unknown".to_string(),
-            None,
-        ),
+        ExecutionTier::DomHeadless => (None, ExecutionTier::DomHeadless, dom_headless_title, None),
         ExecutionTier::VisualBackground => capture_background_visuals(service, agent_state).await?,
         ExecutionTier::VisualForeground => capture_foreground_visuals(service, agent_state).await?,
     };
@@ -379,8 +432,16 @@ async fn capture_background_visuals(
                 wins = win.title.clone();
                 if let Ok(mut dom_tree) = service.browser.get_visual_tree().await {
                     let chrome_ui_height = if cfg!(target_os = "macos") { 80 } else { 115 };
-                    let offset_x = win.x;
-                    let offset_y = win.y + chrome_ui_height;
+                    let content_origin = (win.x, win.y + chrome_ui_height);
+                    let transform = build_display_transform(
+                        (img.width(), img.height()),
+                        content_origin,
+                        (win.x, win.y),
+                    );
+
+                    // Browser AX coordinates are typically window-relative.
+                    // Convert to screen-logical for a unified geometry pipeline.
+                    dom_tree.offset(content_origin.0, content_origin.1);
 
                     {
                         let mut cache = service.last_accessibility_tree.write().await;
@@ -409,12 +470,9 @@ async fn capture_background_visuals(
                     agent_state.active_lens = used_lens_name;
 
                     let mut grounded_tree = lens_tree;
-                    let img_dims = (img.width(), img.height());
-
                     assign_som_ids(
                         &mut grounded_tree,
-                        (offset_x, offset_y),
-                        img_dims,
+                        &transform,
                         &mut counter,
                         &mut dom_map_hash,
                     );
@@ -423,7 +481,7 @@ async fn capture_background_visuals(
                     let semantic_map = extract_semantic_map(&grounded_tree);
                     agent_state.visual_semantic_map = Some(semantic_map);
 
-                    draw_som_overlay(&mut img, &grounded_tree, (offset_x, offset_y));
+                    draw_som_overlay(&mut img, &grounded_tree, &transform);
 
                     let api_map: std::collections::HashMap<u32, (i32, i32, i32, i32)> =
                         dom_map_hash
@@ -568,8 +626,13 @@ async fn capture_foreground_visuals(
     // Update state so the Executor knows which lens to use
     agent_state.active_lens = used_lens_name;
 
+    let window_origin = active_window_info
+        .as_ref()
+        .map(|w| (w.x, w.y))
+        .unwrap_or((0, 0));
+
     // 6. Crop Image (if needed)
-    if let Some(win) = active_window_info {
+    if let Some(win) = active_window_info.as_ref() {
         let img_w = img.width();
         let img_h = img.height();
         let cx = win.x.max(0) as u32;
@@ -589,13 +652,12 @@ async fn capture_foreground_visuals(
     let mut grounded_tree = lens_tree.clone();
     let mut som_map_hash = std::collections::HashMap::new();
     let mut counter = 1;
-    let img_dims = (img.width(), img.height());
+    let transform = build_display_transform((img.width(), img.height()), offset, window_origin);
 
     // A. Assign IDs
     assign_som_ids(
         &mut grounded_tree,
-        offset,
-        img_dims,
+        &transform,
         &mut counter,
         &mut som_map_hash,
     );
@@ -605,7 +667,7 @@ async fn capture_foreground_visuals(
     agent_state.visual_semantic_map = Some(semantic_map);
 
     // B. Draw Overlay
-    draw_som_overlay(&mut img, &grounded_tree, offset);
+    draw_som_overlay(&mut img, &grounded_tree, &transform);
 
     // C. Update Service Cache
     {

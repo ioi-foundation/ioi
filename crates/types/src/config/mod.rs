@@ -142,13 +142,13 @@ pub struct InferenceConfig {
     /// The provider type: "mock", "local" (e.g. llama.cpp), or "openai" (external).
     #[serde(default = "default_inference_provider")]
     pub provider: String,
-    
+
     /// The base URL for the inference API (required for "local" and "openai").
     pub api_url: Option<String>,
-    
+
     /// The API key (optional, for "openai" or secured local endpoints).
     pub api_key: Option<String>,
-    
+
     /// The model name to request (e.g. "gpt-4", "llama-3-8b").
     pub model_name: Option<String>,
 
@@ -191,7 +191,7 @@ pub struct McpConfigEntry {
     /// Arguments to pass to the command (e.g., ["index.js"]).
     pub args: Vec<String>,
     /// Environment variables for the process.
-    /// Values starting with "env:" (e.g. "env:STRIPE_SECRET") will be resolved 
+    /// Values starting with "env:" (e.g. "env:STRIPE_SECRET") will be resolved
     /// from the Guardian's secure vault at runtime.
     #[serde(default)]
     pub env: HashMap<String, String>,
@@ -245,7 +245,7 @@ pub struct WorkloadConfig {
     /// Configuration for Zero-Knowledge Light Clients.
     #[serde(default)]
     pub zk_config: ZkConfig,
-    
+
     /// Default Configuration for AI Inference (Legacy Support).
     #[serde(default)]
     pub inference: InferenceConfig,
@@ -294,23 +294,30 @@ impl WorkloadConfig {
                 "Configuration Error: 'gc_interval_secs' must be greater than 0.".to_string(),
             );
         }
-        
+
         // Validate legacy inference block if present
         if self.inference.provider != "mock" {
-             if self.inference.api_url.is_none() {
-                 return Err("Configuration Error: 'api_url' is required for non-mock inference providers.".to_string());
-             }
+            if self.inference.api_url.is_none() {
+                return Err(
+                    "Configuration Error: 'api_url' is required for non-mock inference providers."
+                        .to_string(),
+                );
+            }
         }
 
         // Validate new specialized blocks
         if let Some(fast) = &self.fast_inference {
             if fast.provider != "mock" && fast.api_url.is_none() {
-                 return Err("Configuration Error: 'fast_inference.api_url' is required.".to_string());
+                return Err(
+                    "Configuration Error: 'fast_inference.api_url' is required.".to_string()
+                );
             }
         }
         if let Some(reasoning) = &self.reasoning_inference {
             if reasoning.provider != "mock" && reasoning.api_url.is_none() {
-                 return Err("Configuration Error: 'reasoning_inference.api_url' is required.".to_string());
+                return Err(
+                    "Configuration Error: 'reasoning_inference.api_url' is required.".to_string(),
+                );
             }
         }
 
@@ -398,7 +405,7 @@ pub fn default_service_policies() -> BTreeMap<String, ServicePolicy> {
             allowed_system_prefixes: vec![],
         },
     );
-    
+
     // [NEW] Market Service
     let mut market_methods = BTreeMap::new();
     market_methods.insert("publish_asset@v1".into(), MethodPermission::User);

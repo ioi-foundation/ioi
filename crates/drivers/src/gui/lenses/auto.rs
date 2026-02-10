@@ -88,6 +88,7 @@ impl AutoLens {
             node.role.as_str(),
             "window" | "dialog" | "pane" | "application" | "group"
         );
+        let interactivity_score = self.interactivity_score(node);
 
         // 2. Recurse Children First (Depth-First)
         ctx.ancestry_stack.push(node.role.clone());
@@ -113,13 +114,9 @@ impl AutoLens {
             return None;
         }
 
-        // Rule B: If visible but empty, non-interactive, and not structural -> Drop.
-        // This cleans up "div soup" leaf nodes that have no semantic value.
-        if node.is_visible
-            && new_children.is_empty()
-            && !is_interactive
-            && !has_content
-            && !is_structural
+        // Rule B: If visible and leaf-like but low clickability prior -> Drop.
+        // This keeps icon-only controls while still pruning generic noise.
+        if node.is_visible && new_children.is_empty() && interactivity_score <= 5 && !is_structural
         {
             return None;
         }
@@ -206,6 +203,45 @@ impl AutoLens {
                 | "list item"
                 | "pushbutton"
         )
+    }
+
+    fn interactivity_score(&self, node: &AccessibilityNode) -> u32 {
+        let mut score = 0u32;
+        let role = node.role.trim().to_ascii_lowercase();
+
+        if matches!(
+            role.as_str(),
+            "button"
+                | "push button"
+                | "pushbutton"
+                | "link"
+                | "combo box"
+                | "combobox"
+                | "menu item"
+                | "menuitem"
+                | "check box"
+                | "checkbox"
+                | "radio button"
+                | "toggle button"
+                | "tab"
+        ) {
+            score += 5;
+        }
+
+        if node.rect.width > 10 && node.rect.height > 10 {
+            score += 1;
+        }
+
+        let has_content = node.name.as_ref().is_some_and(|s| !s.trim().is_empty())
+            || node.value.as_ref().is_some_and(|s| !s.trim().is_empty())
+            || self
+                .first_non_empty_attr(node, &["aria-label", "title", "description", "placeholder"])
+                .is_some();
+        if has_content {
+            score += 3;
+        }
+
+        score
     }
 
     fn generate_robust_id(

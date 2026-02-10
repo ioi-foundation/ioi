@@ -91,11 +91,11 @@ pub enum RetentionClass {
     /// Used for transient thoughts, raw screenshots, and intermediate reasoning.
     #[default]
     Ephemeral,
-    
+
     /// Encrypted with an EpochKey. Shredded when the Epoch rotates (e.g., hourly/daily),
     /// unless promoted to Archival via summarization.
     Epoch,
-    
+
     /// Encrypted with the stable IdentityKey. Never shredded unless explicitly revoked.
     /// Used for Skills, Overlays (Summaries), and Receipts.
     Archival,
@@ -114,7 +114,7 @@ pub struct Frame {
     pub timestamp: u64,
     /// The block height of the blockchain at the time of capture.
     pub block_height: u64,
-    
+
     /// The unique session ID this frame belongs to (0 if global).
     pub session_id: [u8; 32],
 
@@ -126,13 +126,13 @@ pub struct Frame {
     pub mhnsw_root: [u8; 32],
     /// SHA-256 checksum of the payload (Ciphertext) for integrity verification.
     pub checksum: [u8; 32],
-    
+
     /// [NEW] The retention policy dictating which key wraps this frame.
     pub retention: RetentionClass,
-    
+
     /// [NEW] The Epoch ID this frame belongs to. Used to look up the correct EpochKey.
     pub epoch_id: u64,
-    
+
     /// [NEW] The Initialization Vector (Nonce) used for the encryption (12 bytes).
     pub iv: [u8; 12],
 }
@@ -147,17 +147,17 @@ pub struct EpochManifest {
     pub epoch_id: u64,
     /// Hash of the previous EpochManifest (Tamper-evident chain).
     pub prev_epoch_hash: [u8; 32],
-    
+
     /// Merkle root of all frames created in this epoch.
     pub frames_root: [u8; 32],
-    
+
     /// Statistics preserved even after key shredding (for audits).
     pub total_frames: u32,
     pub type_counts: std::collections::BTreeMap<u8, u32>, // FrameType as u8 -> count
-    
+
     /// Merkle root of economic receipts generated in this epoch (Never pruneable).
     pub receipt_root: [u8; 32],
-    
+
     /// Pointer to the SummaryOverlay frame that compresses this epoch's wisdom (if any).
     pub overlay_frame_id: Option<FrameId>,
 }
@@ -246,7 +246,10 @@ impl ScsHeader {
         let version = u16::from_le_bytes(bytes[8..10].try_into().unwrap());
         // [MODIFIED] Check for Version 2 compatibility
         if version != SCS_VERSION {
-            return Err(format!("Unsupported version: {}. Expected {}", version, SCS_VERSION));
+            return Err(format!(
+                "Unsupported version: {}. Expected {}",
+                version, SCS_VERSION
+            ));
         }
 
         let flags = u16::from_le_bytes(bytes[10..12].try_into().unwrap());

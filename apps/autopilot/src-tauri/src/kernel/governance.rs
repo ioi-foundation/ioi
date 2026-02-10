@@ -75,12 +75,16 @@ pub async fn gate_respond(
             // [NEW] Decode visual hash if present
             let visual_hash_arr = if let Some(v_hex) = visual_hash_hex {
                 if let Ok(v_bytes) = hex::decode(&v_hex) {
-                     if v_bytes.len() == 32 {
-                         let mut arr = [0u8; 32];
-                         arr.copy_from_slice(&v_bytes);
-                         Some(arr)
-                     } else { None }
-                } else { None }
+                    if v_bytes.len() == 32 {
+                        let mut arr = [0u8; 32];
+                        arr.copy_from_slice(&v_bytes);
+                        Some(arr)
+                    } else {
+                        None
+                    }
+                } else {
+                    None
+                }
             } else {
                 None
             };
@@ -106,9 +110,7 @@ pub async fn gate_respond(
             let mut token_for_signing = token.clone();
             let token_bytes =
                 codec::to_bytes_canonical(&token_for_signing).map_err(|e| e.to_string())?;
-            let sig = approver_kp
-                .sign(&token_bytes)
-                .map_err(|e| e.to_string())?;
+            let sig = approver_kp.sign(&token_bytes).map_err(|e| e.to_string())?;
 
             token_for_signing.approver_sig = sig.to_bytes();
             token_for_signing.approver_suite = SignatureSuite::ED25519;
@@ -146,7 +148,9 @@ pub async fn gate_respond(
             };
 
             let tx_sign_bytes = tx.to_sign_bytes().map_err(|e| e.to_string())?;
-            let tx_sig = approver_kp.sign(&tx_sign_bytes).map_err(|e| e.to_string())?;
+            let tx_sig = approver_kp
+                .sign(&tx_sign_bytes)
+                .map_err(|e| e.to_string())?;
 
             tx.signature_proof = SignatureProof {
                 suite: SignatureSuite::ED25519,
@@ -155,8 +159,7 @@ pub async fn gate_respond(
             };
 
             let final_tx = ChainTransaction::System(Box::new(tx));
-            let final_tx_bytes =
-                codec::to_bytes_canonical(&final_tx).map_err(|e| e.to_string())?;
+            let final_tx_bytes = codec::to_bytes_canonical(&final_tx).map_err(|e| e.to_string())?;
 
             let request = tonic::Request::new(SubmitTransactionRequest {
                 transaction_bytes: final_tx_bytes,

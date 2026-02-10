@@ -8,7 +8,7 @@ use ioi_types::codec;
 use ioi_types::error::{CoreError, UpgradeError};
 // [FIX] Removed StateError from here if we use qualified path, or keep it.
 // Let's keep it and see.
-use ioi_types::error::StateError; 
+use ioi_types::error::StateError;
 
 use ioi_types::keys::{
     active_service_key, UPGRADE_ARTIFACT_PREFIX, UPGRADE_MANIFEST_PREFIX, UPGRADE_PENDING_PREFIX,
@@ -35,7 +35,7 @@ struct OnChainManifest {
     methods: BTreeMap<String, String>, // e.g., "ante_handle@v1" = "Internal"
     #[serde(default)]
     allowed_system_prefixes: Vec<String>,
-    
+
     // [NEW] Allow author field in TOML
     #[serde(default)]
     author: Option<String>, // Hex encoded account ID
@@ -71,19 +71,25 @@ impl OnChainManifest {
             };
             perms.insert(name, mp);
         }
-        
+
         // [FIX] Parse author from hex string if present
         let author_id = if let Some(hex_str) = self.author {
-             let bytes = hex::decode(hex_str.trim_start_matches("0x"))
-                .map_err(|e| CoreError::Upgrade(UpgradeError::InvalidUpgrade(format!("Invalid author hex: {}", e))))?;
-             if bytes.len() != 32 {
-                 return Err(CoreError::Upgrade(UpgradeError::InvalidUpgrade("Author ID must be 32 bytes".into())));
-             }
-             let mut arr = [0u8; 32];
-             arr.copy_from_slice(&bytes);
-             Some(AccountId(arr))
+            let bytes = hex::decode(hex_str.trim_start_matches("0x")).map_err(|e| {
+                CoreError::Upgrade(UpgradeError::InvalidUpgrade(format!(
+                    "Invalid author hex: {}",
+                    e
+                )))
+            })?;
+            if bytes.len() != 32 {
+                return Err(CoreError::Upgrade(UpgradeError::InvalidUpgrade(
+                    "Author ID must be 32 bytes".into(),
+                )));
+            }
+            let mut arr = [0u8; 32];
+            arr.copy_from_slice(&bytes);
+            Some(AccountId(arr))
         } else {
-             None
+            None
         };
 
         Ok(ActiveServiceMeta {
@@ -97,7 +103,7 @@ impl OnChainManifest {
             allowed_system_prefixes: self.allowed_system_prefixes,
             generation_id: 0,
             parent_hash: None,
-            author: author_id, // [FIX] Initialized
+            author: author_id,                   // [FIX] Initialized
             context_filter: self.context_filter, // [NEW] Map field
         })
     }

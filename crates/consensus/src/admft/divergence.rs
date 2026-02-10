@@ -7,8 +7,8 @@
 //! This is the trigger condition for the Protocol Apex Kill Switch.
 
 use ioi_api::crypto::{SerializableKey, VerifyingKey};
-use ioi_crypto::sign::eddsa::Ed25519PublicKey;
 use ioi_crypto::sign::dilithium::MldsaPublicKey;
+use ioi_crypto::sign::eddsa::Ed25519PublicKey;
 use ioi_types::app::{BlockHeader, ProofOfDivergence, SignatureSuite};
 use ioi_types::error::ConsensusError;
 
@@ -45,19 +45,23 @@ pub fn verify_divergence_proof(proof: &ProofOfDivergence) -> Result<bool, Consen
     // 3. Divergence (Different Payload)
     // We must verify the payloads are actually different.
     // We check the hash of the headers (excluding signature).
-    let hash_a = a.hash().map_err(|e| ConsensusError::BlockVerificationFailed(e.to_string()))?;
-    let hash_b = b.hash().map_err(|e| ConsensusError::BlockVerificationFailed(e.to_string()))?;
-    
+    let hash_a = a
+        .hash()
+        .map_err(|e| ConsensusError::BlockVerificationFailed(e.to_string()))?;
+    let hash_b = b
+        .hash()
+        .map_err(|e| ConsensusError::BlockVerificationFailed(e.to_string()))?;
+
     if hash_a == hash_b {
         // If hashes are identical, this is just a replay, not a divergence.
-        return Ok(false); 
+        return Ok(false);
     }
 
     // 4. Cryptographic Authenticity
     // We must verify the signatures on both headers to prove the hardware actually signed them.
     verify_header_signature(a)?;
     verify_header_signature(b)?;
-    
+
     // 5. Epoch Check (Implicit)
     // In a full implementation, we would check that the epochs match.
     // For this version, we assume the signature verification covers the epoch context.
@@ -99,7 +103,11 @@ fn verify_header_signature(header: &BlockHeader) -> Result<(), ConsensusError> {
             pk.verify_bytes(&oracle_payload, &header.signature)?;
         }
         // Handle other suites...
-        _ => return Err(ConsensusError::BlockVerificationFailed("Unsupported signature suite".into())),
+        _ => {
+            return Err(ConsensusError::BlockVerificationFailed(
+                "Unsupported signature suite".into(),
+            ))
+        }
     }
 
     Ok(())
@@ -114,7 +122,8 @@ impl VerifyBytes for Ed25519PublicKey {
     fn verify_bytes(&self, msg: &[u8], sig: &[u8]) -> Result<(), ConsensusError> {
         let signature = ioi_crypto::sign::eddsa::Ed25519Signature::from_bytes(sig)
             .map_err(|_| ConsensusError::InvalidSignature)?;
-        self.verify(msg, &signature).map_err(|_| ConsensusError::InvalidSignature)
+        self.verify(msg, &signature)
+            .map_err(|_| ConsensusError::InvalidSignature)
     }
 }
 
@@ -122,6 +131,7 @@ impl VerifyBytes for MldsaPublicKey {
     fn verify_bytes(&self, msg: &[u8], sig: &[u8]) -> Result<(), ConsensusError> {
         let signature = ioi_crypto::sign::dilithium::MldsaSignature::from_bytes(sig)
             .map_err(|_| ConsensusError::InvalidSignature)?;
-        self.verify(msg, &signature).map_err(|_| ConsensusError::InvalidSignature)
+        self.verify(msg, &signature)
+            .map_err(|_| ConsensusError::InvalidSignature)
     }
 }

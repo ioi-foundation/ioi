@@ -18,7 +18,7 @@ pub trait ValidatorModel {
     /// Gets the type of the validator architecture (Standard vs Hybrid).
     fn validator_type(&self) -> ValidatorType;
     /// Gets the functional role of the validator (Consensus vs Compute).
-    fn role(&self) -> ValidatorRole; 
+    fn role(&self) -> ValidatorRole;
     /// Provides generic access to the validator's workload container.
     fn workload_container(&self) -> &Self::WorkloadContainerType;
 }

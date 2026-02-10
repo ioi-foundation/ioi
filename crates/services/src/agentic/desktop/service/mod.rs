@@ -8,10 +8,10 @@ pub mod lifecycle;
 pub mod step;
 
 // [NEW] Submodules for refactored logic
-pub mod visual;
+pub mod handler;
 pub mod memory;
 pub mod skills;
-pub mod handler;
+pub mod visual;
 pub mod utility {
     // [FIX] Correct re-export path.
     // Since 'handler' is a sibling module of 'utility' in this file,
@@ -40,17 +40,17 @@ use std::any::Any;
 use std::sync::{Arc, Mutex};
 use tokio::sync::RwLock;
 
-use crate::agentic::scrubber::SemanticScrubber;
 use crate::agentic::fitness::Evaluator;
 use crate::agentic::optimizer::OptimizerService;
+use crate::agentic::scrubber::SemanticScrubber;
 use ioi_api::ibc::AgentZkVerifier;
 use ioi_api::vm::drivers::os::OsDriver;
 
-use self::lifecycle::{handle_delete_session, handle_resume, handle_start, handle_post_message};
+use self::lifecycle::{handle_delete_session, handle_post_message, handle_resume, handle_start};
 use self::step::handle_step;
-use crate::agentic::desktop::types::{StepAgentParams, PostMessageParams}; 
+use crate::agentic::desktop::types::{PostMessageParams, StepAgentParams};
 
-use ioi_drivers::gui::accessibility::AccessibilityNode; 
+use ioi_drivers::gui::accessibility::AccessibilityNode;
 use ioi_drivers::gui::lenses::LensRegistry;
 
 // Use the new VisualContextCache from the submodule
@@ -72,7 +72,7 @@ pub struct DesktopAgentService {
     pub(crate) reasoning_inference: Arc<dyn InferenceRuntime>,
     /// Scrubber for redacting PII from logs/context.
     pub(crate) scrubber: SemanticScrubber,
-    
+
     /// Optional evaluator for measuring agent performance (RSI).
     pub(crate) evaluator: Option<Arc<dyn Evaluator>>,
     /// Optional optimizer for self-improvement.
@@ -162,17 +162,23 @@ impl BlockchainService for DesktopAgentService {
 
 // Forwarding methods to new submodules
 impl DesktopAgentService {
-    pub async fn fetch_swarm_manifest(&self, hash: [u8; 32]) -> Option<ioi_types::app::agentic::SwarmManifest> {
+    pub async fn fetch_swarm_manifest(
+        &self,
+        hash: [u8; 32],
+    ) -> Option<ioi_types::app::agentic::SwarmManifest> {
         self::memory::fetch_swarm_manifest(self, hash).await
     }
 
-    pub async fn restore_visual_context(&self, visual_hash: [u8; 32]) -> Result<(), TransactionError> {
+    pub async fn restore_visual_context(
+        &self,
+        visual_hash: [u8; 32],
+    ) -> Result<(), TransactionError> {
         self::visual::restore_visual_context(self, visual_hash).await
     }
 
     pub(crate) async fn handle_action_execution(
         &self,
-        tool: ioi_types::app::agentic::AgentTool, 
+        tool: ioi_types::app::agentic::AgentTool,
         session_id: [u8; 32],
         step_index: u32,
         visual_phash: [u8; 32],
@@ -180,7 +186,17 @@ impl DesktopAgentService {
         agent_state: &crate::agentic::desktop::types::AgentState,
         os_driver: &Arc<dyn OsDriver>,
     ) -> Result<(bool, Option<String>, Option<String>), TransactionError> {
-        self::handler::handle_action_execution(self, tool, session_id, step_index, visual_phash, rules, agent_state, os_driver).await
+        self::handler::handle_action_execution(
+            self,
+            tool,
+            session_id,
+            step_index,
+            visual_phash,
+            rules,
+            agent_state,
+            os_driver,
+        )
+        .await
     }
 
     pub(crate) async fn recall_skills(
@@ -192,36 +208,39 @@ impl DesktopAgentService {
     }
 
     pub(crate) async fn retrieve_context_hybrid(
-        &self, 
-        query: &str, 
-        visual_phash: Option<[u8; 32]> 
+        &self,
+        query: &str,
+        visual_phash: Option<[u8; 32]>,
     ) -> String {
         self::memory::retrieve_context_hybrid(self, query, visual_phash).await
     }
 
-    pub(crate) fn select_runtime(&self, state: &crate::agentic::desktop::types::AgentState) -> std::sync::Arc<dyn ioi_api::vm::inference::InferenceRuntime> {
+    pub(crate) fn select_runtime(
+        &self,
+        state: &crate::agentic::desktop::types::AgentState,
+    ) -> std::sync::Arc<dyn ioi_api::vm::inference::InferenceRuntime> {
         self::handler::select_runtime(self, state)
     }
 
     pub(crate) async fn append_chat_to_scs(
-        &self, 
-        session_id: [u8; 32], 
-        msg: &ioi_types::app::agentic::ChatMessage, 
-        block_height: u64
+        &self,
+        session_id: [u8; 32],
+        msg: &ioi_types::app::agentic::ChatMessage,
+        block_height: u64,
     ) -> Result<[u8; 32], TransactionError> {
         self::memory::append_chat_to_scs(self, session_id, msg, block_height).await
     }
 
     pub(crate) fn hydrate_session_history(
-        &self, 
-        session_id: [u8; 32]
+        &self,
+        session_id: [u8; 32],
     ) -> Result<Vec<ioi_types::app::agentic::ChatMessage>, TransactionError> {
         self::memory::hydrate_session_history(self, session_id)
     }
 
     pub(crate) fn fetch_failure_context(
-        &self, 
-        session_id: [u8; 32]
+        &self,
+        session_id: [u8; 32],
     ) -> Result<Vec<ioi_types::app::agentic::StepTrace>, TransactionError> {
         self::memory::fetch_failure_context(self, session_id)
     }
@@ -248,7 +267,14 @@ impl DesktopAgentService {
         session_success: bool,
         block_height: u64,
     ) -> Result<(), TransactionError> {
-        self::skills::update_skill_reputation(self, state, session_id, session_success, block_height).await
+        self::skills::update_skill_reputation(
+            self,
+            state,
+            session_id,
+            session_success,
+            block_height,
+        )
+        .await
     }
 
     pub(crate) async fn inspect_frame(&self, frame_id: u64) -> Result<String, TransactionError> {

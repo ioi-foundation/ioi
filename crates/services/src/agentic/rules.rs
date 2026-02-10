@@ -1,7 +1,7 @@
 // Path: crates/services/src/agentic/rules.rs
 
-use serde::{Deserialize, Serialize};
 use parity_scale_codec::{Decode, Encode};
+use serde::{Deserialize, Serialize};
 
 /// The verdict of the firewall for a specific action.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Encode, Decode)]
@@ -69,20 +69,20 @@ pub struct Rule {
 pub struct RuleConditions {
     /// List of allowed domains for network requests.
     pub allow_domains: Option<Vec<String>>,
-    
+
     /// List of allowed file paths for filesystem access.
     pub allow_paths: Option<Vec<String>>,
-    
+
     /// Maximum spend amount allowed per action/session.
     pub max_spend: Option<u64>,
-    
+
     /// Rate limit specification (e.g., "10/minute").
     pub rate_limit: Option<String>,
-    
+
     /// List of allowed application names/window titles for GUI interaction.
     /// Used to prevent "click-jacking" into sensitive apps like password managers.
     pub allow_apps: Option<Vec<String>>,
-    
+
     /// Regex pattern for sensitive content detection in keystrokes.
     /// If the text matches this pattern, the action is BLOCKED.
     pub block_text_pattern: Option<String>,

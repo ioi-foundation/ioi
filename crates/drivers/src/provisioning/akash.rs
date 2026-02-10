@@ -1,8 +1,8 @@
 // Path: crates/drivers/src/provisioning/akash.rs
 
-use super::{CloudProvider, InstanceSpec, InstanceHandle, InstanceStatus};
-use async_trait::async_trait;
+use super::{CloudProvider, InstanceHandle, InstanceSpec, InstanceStatus};
 use anyhow::Result;
+use async_trait::async_trait;
 
 pub struct AkashProvider {
     // Reference to the wallet key stored in the Guardian's vault
@@ -36,7 +36,7 @@ impl AkashProvider {
                            size: {}Mi\n\
                          storage:\n\
                            size: 1Gi\n",
-            spec.image, 
+            spec.image,
             spec.cpu * 1000, // millicpu
             spec.memory_mb
         )
@@ -45,7 +45,9 @@ impl AkashProvider {
 
 #[async_trait]
 impl CloudProvider for AkashProvider {
-    fn id(&self) -> &str { "akash" }
+    fn id(&self) -> &str {
+        "akash"
+    }
 
     // [FIX] Renamed unused variable spec to _spec
     async fn estimate_cost(&self, _spec: &InstanceSpec) -> Result<f64> {
@@ -56,7 +58,7 @@ impl CloudProvider for AkashProvider {
     async fn provision(&self, spec: &InstanceSpec) -> Result<InstanceHandle> {
         let sdl = self.generate_sdl(spec);
         log::info!("Akash: Generating Deployment for SDL:\n{}", sdl);
-        
+
         // In a real implementation:
         // 1. Sign CreateDeployment tx using `wallet_ref` via Guardian.
         // 2. Broadcast to Akash chain.
@@ -67,7 +69,7 @@ impl CloudProvider for AkashProvider {
         Ok(InstanceHandle {
             provider_id: "akash".into(),
             instance_id: format!("dseq-{}", uuid::Uuid::new_v4()),
-            public_ip: None, 
+            public_ip: None,
             status: InstanceStatus::Pending,
             ssh_key: None,
         })

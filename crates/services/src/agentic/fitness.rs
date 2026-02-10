@@ -1,9 +1,9 @@
 // Path: crates/services/src/agentic/fitness.rs
 
 use async_trait::async_trait;
-use ioi_api::vm::inference::{InferenceRuntime};
+use ioi_api::vm::inference::InferenceRuntime;
 use ioi_types::app::agentic::{InferenceOptions, StepTrace};
-use ioi_types::app::{IntentContract};
+use ioi_types::app::IntentContract;
 use ioi_types::error::TransactionError;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
@@ -84,7 +84,7 @@ impl Evaluator for LlmEvaluator {
         contract: &IntentContract,
     ) -> Result<FitnessReport, TransactionError> {
         let prompt = self.build_prompt(trace, contract);
-        
+
         let options = InferenceOptions {
             temperature: 0.0,
             ..Default::default()
@@ -92,30 +92,35 @@ impl Evaluator for LlmEvaluator {
 
         let model_hash = [0u8; 32];
 
-        let response_bytes = self.runtime
+        let response_bytes = self
+            .runtime
             .execute_inference(model_hash, prompt.as_bytes(), options)
             .await
             .map_err(|e| TransactionError::Invalid(format!("Evaluator inference failed: {}", e)))?;
 
         let response_str = String::from_utf8(response_bytes)
-             .map_err(|_| TransactionError::Invalid("Invalid UTF-8 from evaluator".into()))?;
+            .map_err(|_| TransactionError::Invalid("Invalid UTF-8 from evaluator".into()))?;
 
         // [FIX] Robust JSON Extraction
         let json_str = match (response_str.find('{'), response_str.rfind('}')) {
-            (Some(start), Some(end)) => &response_str[start..end+1],
+            (Some(start), Some(end)) => &response_str[start..end + 1],
             _ => {
-                log::error!("Evaluator failed to find JSON. Raw output: {}", response_str);
-                return Ok(FitnessReport { 
-                    score: 0.0, 
-                    passed_hard_constraints: false, 
-                    rationale: "Evaluator output format error".into(), 
-                    component_scores: vec![] 
+                log::error!(
+                    "Evaluator failed to find JSON. Raw output: {}",
+                    response_str
+                );
+                return Ok(FitnessReport {
+                    score: 0.0,
+                    passed_hard_constraints: false,
+                    rationale: "Evaluator output format error".into(),
+                    component_scores: vec![],
                 });
             }
         };
 
-        let report: FitnessReport = serde_json::from_str(json_str)
-            .map_err(|e| TransactionError::Invalid(format!("Failed to parse fitness report: {}", e)))?;
+        let report: FitnessReport = serde_json::from_str(json_str).map_err(|e| {
+            TransactionError::Invalid(format!("Failed to parse fitness report: {}", e))
+        })?;
 
         Ok(report)
     }
@@ -139,11 +144,11 @@ impl Evaluator for HeuristicEvaluator {
         } else {
             0.0
         };
-        
+
         let final_score = if has_final_success {
-            (base_score + 1.0) / 2.0 
+            (base_score + 1.0) / 2.0
         } else {
-            base_score * 0.5 
+            base_score * 0.5
         };
 
         let estimated_cost = (total_steps as u64) * 1000;
@@ -166,7 +171,7 @@ impl Evaluator for HeuristicEvaluator {
                     dimension: "Efficiency".into(),
                     score: if passed_budget { 1.0 } else { 0.0 },
                     comment: "Budget adherence".into(),
-                }
+                },
             ],
         })
     }

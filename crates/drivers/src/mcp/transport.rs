@@ -2,9 +2,9 @@
 
 use anyhow::{anyhow, Result};
 use serde_json::{json, Value};
+use std::collections::HashMap;
 use std::process::Stdio;
 use std::sync::atomic::{AtomicU64, Ordering};
-use std::collections::HashMap;
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::process::Command;
 use tokio::sync::{mpsc, oneshot};
@@ -12,12 +12,17 @@ use tokio::sync::{mpsc, oneshot};
 /// Handles the JSON-RPC 2.0 communication over Stdio.
 pub struct McpTransport {
     request_id: AtomicU64,
-    tx_sender: mpsc::Sender<Value>, 
-    pending_requests: std::sync::Arc<std::sync::Mutex<HashMap<u64, oneshot::Sender<Result<Value>>>>>,
+    tx_sender: mpsc::Sender<Value>,
+    pending_requests:
+        std::sync::Arc<std::sync::Mutex<HashMap<u64, oneshot::Sender<Result<Value>>>>>,
 }
 
 impl McpTransport {
-    pub async fn spawn(cmd: String, args: Vec<String>, env: HashMap<String, String>) -> Result<Self> {
+    pub async fn spawn(
+        cmd: String,
+        args: Vec<String>,
+        env: HashMap<String, String>,
+    ) -> Result<Self> {
         let mut child = Command::new(cmd)
             .args(args)
             .envs(env)
@@ -27,12 +32,16 @@ impl McpTransport {
             .spawn()?;
 
         let stdin = child.stdin.take().ok_or(anyhow!("Failed to open stdin"))?;
-        let stdout = child.stdout.take().ok_or(anyhow!("Failed to open stdout"))?;
+        let stdout = child
+            .stdout
+            .take()
+            .ok_or(anyhow!("Failed to open stdout"))?;
 
         let (tx, mut rx) = mpsc::channel::<Value>(32);
-        
-        let pending: std::sync::Arc<std::sync::Mutex<HashMap<u64, oneshot::Sender<Result<Value>>>>> = 
-            std::sync::Arc::new(std::sync::Mutex::new(HashMap::new()));
+
+        let pending: std::sync::Arc<
+            std::sync::Mutex<HashMap<u64, oneshot::Sender<Result<Value>>>>,
+        > = std::sync::Arc::new(std::sync::Mutex::new(HashMap::new()));
         let pending_clone = pending.clone();
 
         tokio::spawn(async move {
@@ -49,12 +58,12 @@ impl McpTransport {
         tokio::spawn(async move {
             let reader = BufReader::new(stdout);
             let mut lines = reader.lines();
-            
+
             while let Ok(Some(line)) = lines.next_line().await {
                 if let Ok(json) = serde_json::from_str::<Value>(&line) {
                     if let Some(id) = json.get("id").and_then(|i| i.as_u64()) {
                         let mut map = pending_clone.lock().unwrap();
-                        
+
                         if let Some(sender) = map.remove(&id) {
                             if let Some(err) = json.get("error") {
                                 let _ = sender.send(Err(anyhow!("MCP Error: {}", err)));
@@ -95,10 +104,13 @@ impl McpTransport {
             "params": params
         });
 
-        self.tx_sender.send(req).await
+        self.tx_sender
+            .send(req)
+            .await
             .map_err(|_| anyhow!("MCP Server crashed (channel closed)"))?;
 
-        rx.await.map_err(|_| anyhow!("MCP Server dropped response"))?
+        rx.await
+            .map_err(|_| anyhow!("MCP Server dropped response"))?
     }
 
     pub async fn initialize(&self) -> Result<()> {
@@ -107,14 +119,18 @@ impl McpTransport {
             "capabilities": { "roots": { "listChanged": true } },
             "clientInfo": { "name": "ioi-kernel", "version": "0.1.0" }
         });
-        
+
         let init_fut = self.send_request("initialize", params);
-        
+
         // [FIX] Increase timeout to 300s (5 min) for initial npx install
         match tokio::time::timeout(std::time::Duration::from_secs(300), init_fut).await {
-            Ok(Ok(_)) => {},
+            Ok(Ok(_)) => {}
             Ok(Err(e)) => return Err(anyhow!("MCP Initialize failed: {}", e)),
-            Err(_) => return Err(anyhow!("MCP Initialize timed out (300s). Check npx/network.")),
+            Err(_) => {
+                return Err(anyhow!(
+                    "MCP Initialize timed out (300s). Check npx/network."
+                ))
+            }
         }
 
         let notify = json!({

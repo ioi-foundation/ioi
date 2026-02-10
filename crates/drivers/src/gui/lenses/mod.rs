@@ -2,9 +2,9 @@
 
 use crate::gui::accessibility::AccessibilityNode;
 
-pub mod react;
+pub mod auto;
 pub mod custom; // [NEW]
-pub mod auto;   // [NEW] Register AutoLens
+pub mod react; // [NEW] Register AutoLens
 
 /// A strategy for distilling a raw accessibility tree into semantic XML for a specific application.
 pub trait AppLens: Send + Sync {
@@ -45,21 +45,30 @@ impl LensRegistry {
 
     /// Selects the best lens for the current window title.
     pub fn select(&self, window_title: &str) -> Option<&dyn AppLens> {
-        // 1. Try specific lenses first (e.g., React, specialized Calculator)
-        if let Some(specific) = self.lenses.iter().find(|l| l.matches(window_title)) {
+        // 1. Try specific lenses first (e.g., React, specialized Calculator).
+        // Keep universal heuristic as fallback-only to avoid preempting app-specific lenses.
+        if let Some(specific) = self
+            .lenses
+            .iter()
+            .find(|l| !l.name().starts_with("universal_heuristic") && l.matches(window_title))
+        {
             return Some(specific.as_ref());
         }
-        
+
         // 2. Fallback to AutoLens (The "Intelligent" Default)
-        // We instantiate it lazily or keep a static instance.
-        // For simplicity here, we assume it's registered last in the list with a catch-all matcher,
-        // or we check specifically for the "universal_heuristic_v2" lens if registered.
-        self.lenses.iter().find(|l| l.name() == "universal_heuristic_v2").map(|b| b.as_ref())
+        // Match both v2/v3 naming so fallback is resilient across upgrades.
+        self.lenses
+            .iter()
+            .find(|l| l.name().starts_with("universal_heuristic"))
+            .map(|b| b.as_ref())
     }
 
     /// [NEW] Retrieve a specific lens by name.
     /// Used by the Executor to apply the exact same transformation used during Perception.
     pub fn get(&self, name: &str) -> Option<&dyn AppLens> {
-        self.lenses.iter().find(|l| l.name() == name).map(|b| b.as_ref())
+        self.lenses
+            .iter()
+            .find(|l| l.name() == name)
+            .map(|b| b.as_ref())
     }
 }

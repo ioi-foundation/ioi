@@ -2,13 +2,13 @@
 
 use ioi_consensus::admft::ViewChangeVote;
 use ioi_types::app::{
-    Block, ChainId, ChainTransaction, ConfidenceVote, ConsensusVote, EchoMessage, OracleAttestation,
-    PanicMessage,
+    Block, ChainId, ChainTransaction, ConfidenceVote, ConsensusVote, EchoMessage,
+    OracleAttestation, PanicMessage,
 };
 // [FIX] Removed unused codec import
-use libp2p::{request_response::ResponseChannel, PeerId, Multiaddr};
+use libp2p::{request_response::ResponseChannel, Multiaddr, PeerId};
 // [FIX] Removed unused SyncRequest import
-use crate::libp2p::sync::{SyncResponse};
+use crate::libp2p::sync::SyncResponse;
 
 #[derive(Debug)]
 pub enum SwarmCommand {
@@ -18,12 +18,12 @@ pub enum SwarmCommand {
     PublishTransaction(Vec<u8>),
     BroadcastVote(Vec<u8>),
     BroadcastViewChange(Vec<u8>),
-    
+
     // Protocol Apex Commands
     BroadcastEcho(Vec<u8>),
     BroadcastPanic(Vec<u8>),
     BroadcastConfidence(Vec<u8>),
-    
+
     // A-PMFT Sampling Commands
     SendSampleRequest {
         peer: PeerId,
@@ -78,7 +78,7 @@ pub enum NetworkEvent {
         vote: ViewChangeVote,
         from: PeerId,
     },
-    
+
     // Protocol Apex Events
     EchoReceived {
         echo: EchoMessage,
@@ -146,10 +146,10 @@ pub enum SwarmInternalEvent {
     GossipTransaction(Vec<u8>, PeerId),
     ConsensusVoteReceived(Vec<u8>, PeerId),
     ViewChangeVoteReceived(Vec<u8>, PeerId),
-    
+
     EchoReceived(Vec<u8>, PeerId),
     PanicReceived(Vec<u8>, PeerId),
-    
+
     SampleRequest(PeerId, u64, ResponseChannel<SyncResponse>),
     SampleResponse(PeerId, [u8; 32], u32),
     ConfidenceVoteReceived(Vec<u8>, PeerId),

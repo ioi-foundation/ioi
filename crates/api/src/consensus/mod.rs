@@ -7,7 +7,7 @@ use crate::commitment::CommitmentScheme;
 use crate::state::{StateAccess, StateManager};
 use async_trait::async_trait;
 // [MODIFIED] Added ProofOfDivergence to imports
-use ioi_types::app::{AccountId, Block, ConsensusVote, QuorumCertificate, ProofOfDivergence}; 
+use ioi_types::app::{AccountId, Block, ConsensusVote, ProofOfDivergence, QuorumCertificate};
 use ioi_types::error::{ConsensusError, TransactionError};
 use libp2p::PeerId;
 use std::collections::HashSet;
@@ -22,7 +22,7 @@ pub enum ConsensusDecision<T> {
     ProduceBlock {
         transactions: Vec<T>,
         expected_timestamp_secs: u64,
-        view: u64, // <--- NEW
+        view: u64,                    // <--- NEW
         parent_qc: QuorumCertificate, // <--- NEW
     },
     /// The node needs to cast a vote for a valid block proposal.
@@ -34,20 +34,17 @@ pub enum ConsensusDecision<T> {
     },
     /// The node has detected a local timeout for the current view.
     /// This signals the orchestrator to broadcast a ViewChangeVote and reset local timers.
-    Timeout {
-        view: u64,
-        height: u64,
-    },
+    Timeout { view: u64, height: u64 },
     /// The node is not the leader and should wait for a block proposal from a peer.
     WaitForBlock,
     /// The node has detected a stall and should propose a view change (for BFT-style algorithms).
     ProposeViewChange,
     /// The node is unable to make a decision and should stall, neither producing nor waiting.
     Stall,
-    
+
     // [NEW] Protocol Apex: Kill Switch Trigger
     /// The node has detected a hardware compromise via a Proof of Divergence.
-    /// The Orchestrator MUST immediately broadcast a Panic message, halt A-DMFT, 
+    /// The Orchestrator MUST immediately broadcast a Panic message, halt A-DMFT,
     /// and initialize the State Handoff to Engine B.
     Panic(ProofOfDivergence),
 }
@@ -82,7 +79,7 @@ impl<T: PenaltyMechanism + ?Sized> PenaltyMechanism for &T {
 pub trait ConsensusControl: Send + Sync {
     /// Switches the active engine from A-DMFT (Deterministic) to A-PMFT (Probabilistic).
     fn switch_to_apmft(&mut self);
-    
+
     /// Switches the active engine from A-PMFT back to A-DMFT (Deterministic).
     /// Used after the Lazarus Recovery Protocol is complete.
     fn switch_to_admft(&mut self);
@@ -90,10 +87,10 @@ pub trait ConsensusControl: Send + Sync {
     // [NEW] A-PMFT Accessors
     // These allow the Orchestrator to query probabilistic state regardless of the active engine.
     // If the active engine is A-DMFT, these should return None/No-op.
-    
+
     /// Returns the current preferred tip and confidence if in A-PMFT mode.
     fn get_apmft_tip(&self) -> Option<([u8; 32], u32)>;
-    
+
     /// Feeds a sample response into the A-PMFT engine.
     fn feed_apmft_sample(&mut self, hash: [u8; 32]);
 }
@@ -129,10 +126,7 @@ pub trait ConsensusEngine<T: Clone + parity_scale_codec::Encode>:
 
     /// Handles a vote from a peer.
     /// This is used to aggregate votes towards a Quorum Certificate (QC).
-    async fn handle_vote(
-        &mut self,
-        vote: ConsensusVote,
-    ) -> Result<(), ConsensusError>;
+    async fn handle_vote(&mut self, vote: ConsensusVote) -> Result<(), ConsensusError>;
 
     /// Handles a view change proposal from a peer, which is part of liveness mechanisms
     /// in BFT-style consensus algorithms.

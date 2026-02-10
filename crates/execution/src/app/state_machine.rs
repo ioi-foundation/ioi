@@ -25,8 +25,14 @@ use ioi_tx::system::{nonce, validation};
 use ioi_tx::unified::UnifiedProof;
 use ioi_tx::unified::UnifiedTransactionModel;
 use ioi_types::app::{
-    account_id_from_key_material, read_validator_sets, to_root_hash, AccountId, Membership,
-    SignatureSuite, StateRoot, QuorumCertificate, // [FIX] Import QuorumCertificate
+    account_id_from_key_material,
+    read_validator_sets,
+    to_root_hash,
+    AccountId,
+    Membership,
+    QuorumCertificate, // [FIX] Import QuorumCertificate
+    SignatureSuite,
+    StateRoot,
 };
 use ioi_types::codec;
 use ioi_types::config::ConsensusType;
@@ -365,14 +371,13 @@ where
                                     let mut state_proxy = ParallelStateAccess::new(&mv_memory, idx);
 
                                     // Run the async execution logic synchronously
-                                    let result = rt.block_on(
-                                        executor.process_transaction_parallel(
+                                    let result =
+                                        rt.block_on(executor.process_transaction_parallel(
                                             tx,
                                             &mut state_proxy,
                                             block_header_height,
                                             block_header_timestamp,
-                                        ),
-                                    );
+                                        ));
 
                                     // Always save read set for validation, even if execution fails.
                                     let rs = state_proxy.read_set.lock().unwrap().clone();

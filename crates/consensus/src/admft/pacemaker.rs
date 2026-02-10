@@ -93,7 +93,7 @@ mod tests {
         let mut pm = Pacemaker::new(Duration::from_millis(100));
         pm.advance_view(5);
         assert_eq!(pm.current_view, 5);
-        
+
         // Should ignore lower view
         pm.advance_view(3);
         assert_eq!(pm.current_view, 5);

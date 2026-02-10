@@ -2,9 +2,9 @@
 
 use crate::agentic::rules::{ActionRules, DefaultPolicy, Rule, Verdict};
 use ioi_api::state::StateAccess;
-use ioi_api::vm::inference::{LocalSafetyModel, SafetyVerdict};
 use ioi_api::vm::drivers::os::OsDriver;
-use ioi_types::app::{ActionTarget, ActionRequest, ApprovalToken};
+use ioi_api::vm::inference::{LocalSafetyModel, SafetyVerdict};
+use ioi_types::app::{ActionRequest, ActionTarget, ApprovalToken};
 use ioi_types::service_configs::{ActiveServiceMeta, MethodPermission};
 use ioi_types::{codec, error::TransactionError, keys::active_service_key};
 use serde_json::Value;
@@ -34,13 +34,13 @@ impl PolicyEngine {
         if let Some(token) = presented_approval {
             if token.request_hash == request_hash {
                 tracing::info!("Policy Gate: Valid Approval Token presented. Allowing action.");
-                return Verdict::Allow; 
+                return Verdict::Allow;
             } else {
-                 tracing::warn!(
-                     "Policy Gate: Token mismatch. Token for {:?}, Request is {:?}", 
-                     hex::encode(token.request_hash), 
-                     hex::encode(request_hash)
-                 );
+                tracing::warn!(
+                    "Policy Gate: Token mismatch. Token for {:?}, Request is {:?}",
+                    hex::encode(token.request_hash),
+                    hex::encode(request_hash)
+                );
             }
         }
 
@@ -60,10 +60,12 @@ impl PolicyEngine {
             ActionTarget::GuiType => "gui::type",
             ActionTarget::GuiScreenshot => "gui::screenshot",
             ActionTarget::GuiScroll => "gui::scroll",
-            
+
             ActionTarget::GuiSequence => "gui::sequence",
-            
-            ActionTarget::BrowserNavigate => "browser::navigate",
+
+            // [MODIFIED] Browser split
+            ActionTarget::BrowserNavigateHermetic => "browser::navigate::hermetic",
+            ActionTarget::BrowserNavigateLocal => "browser::navigate::local",
             ActionTarget::BrowserExtract => "browser::extract",
 
             // UCP Support
@@ -76,13 +78,23 @@ impl PolicyEngine {
             ActionTarget::ClipboardWrite => "clipboard::write",
 
             ActionTarget::Custom(s) => s.as_str(),
+            // Fallback for any missed variants
+            _ => "unknown",
         };
 
         // 2. Specific Rules: Linear scan (specific overrides general)
         // First matching rule wins.
         for rule in &rules.rules {
             if rule.target == target_str || rule.target == "*" {
-                if Self::check_conditions(rule, &request.target, &request.params, safety_model, os_driver).await {
+                if Self::check_conditions(
+                    rule,
+                    &request.target,
+                    &request.params,
+                    safety_model,
+                    os_driver,
+                )
+                .await
+                {
                     return rule.action;
                 }
             }
@@ -111,36 +123,41 @@ impl PolicyEngine {
         if let ActionTarget::SysExec = target {
             if let Ok(json) = serde_json::from_slice::<serde_json::Value>(params) {
                 let cmd = json["command"].as_str().unwrap_or("");
-                
+
                 // STRICT Allowlist for System Commands
                 let allowed_commands = vec![
-                    "netstat", 
-                    "ping", 
-                    "whoami", 
-                    "ls", 
+                    "netstat",
+                    "ping",
+                    "whoami",
+                    "ls",
                     "echo",
                     // [FIX] Whitelisted Calculator Apps and Editors
                     "gnome-calculator",
                     "kcalc",
                     "calculator",
                     "calc",
-                    "code", 
+                    "code",
                     "gedit",
-                    "nano"
+                    "nano",
                 ];
-                
+
                 if !allowed_commands.contains(&cmd) {
-                    tracing::warn!("Policy Violation: Command '{}' is not in the system allowlist.", cmd);
+                    tracing::warn!(
+                        "Policy Violation: Command '{}' is not in the system allowlist.",
+                        cmd
+                    );
                     return false;
                 }
-                
+
                 // Optional: Check arguments for dangerous characters
                 // (e.g. prevent chaining like `ls; rm -rf /`)
                 if let Some(args) = json["args"].as_array() {
                     for arg in args {
                         let s = arg.as_str().unwrap_or("");
                         if s.contains(';') || s.contains('|') || s.contains('>') {
-                            tracing::warn!("Policy Violation: Dangerous argument characters detected.");
+                            tracing::warn!(
+                                "Policy Violation: Dangerous argument characters detected."
+                            );
                             return false;
                         }
                     }
@@ -156,14 +173,16 @@ impl PolicyEngine {
                 if let Ok(json) = serde_json::from_slice::<Value>(params) {
                     if let Some(path) = json.get("path").and_then(|p| p.as_str()) {
                         // Check if the requested path starts with any allowed path prefix
-                        let is_allowed = allowed_paths.iter().any(|allowed| path.starts_with(allowed));
-                        
+                        let is_allowed = allowed_paths
+                            .iter()
+                            .any(|allowed| path.starts_with(allowed));
+
                         if !is_allowed {
-                             tracing::warn!(
+                            tracing::warn!(
                                  "Policy Blocking FS Access: Requested '{}' does not start with any allowed path: {:?}", 
                                  path, allowed_paths
                              );
-                             return false;
+                            return false;
                         }
                     }
                 }
@@ -173,15 +192,23 @@ impl PolicyEngine {
         // 1. Context Check: Allowed Apps (GUI Isolation & Spatial Bounds)
         if let Some(allowed_apps) = &conditions.allow_apps {
             match target {
-                ActionTarget::GuiClick | ActionTarget::GuiType | ActionTarget::GuiScroll | ActionTarget::GuiSequence => {
+                ActionTarget::GuiClick
+                | ActionTarget::GuiType
+                | ActionTarget::GuiScroll
+                | ActionTarget::GuiSequence => {
                     // Use the injected OS driver instead of mock
                     let active_app_opt = os_driver.get_active_window_info().await.unwrap_or(None);
-                    
+
                     if let Some(win) = active_app_opt {
                         // A. App Name Check
-                        let is_allowed_app = allowed_apps.iter().any(|app| win.title.contains(app) || win.app_name.contains(app));
+                        let is_allowed_app = allowed_apps
+                            .iter()
+                            .any(|app| win.title.contains(app) || win.app_name.contains(app));
                         if !is_allowed_app {
-                            tracing::warn!("Policy Violation: Blocked interaction with window '{}'", win.title);
+                            tracing::warn!(
+                                "Policy Violation: Blocked interaction with window '{}'",
+                                win.title
+                            );
                             // If condition fails (app not allowed), the rule (e.g., Allow) should NOT apply.
                             return false;
                         }
@@ -191,14 +218,22 @@ impl PolicyEngine {
                         if let ActionTarget::GuiClick = target {
                             if let Ok(json) = serde_json::from_slice::<Value>(params) {
                                 // Coords might be x/y directly or inside 'coordinate' array for computer usage tool
-                                let (x, y) = if let (Some(x_val), Some(y_val)) = (json.get("x"), json.get("y")) {
-                                     (x_val.as_u64(), y_val.as_u64())
-                                } else if let Some(coord) = json.get("coordinate").and_then(|c| c.as_array()) {
-                                     if coord.len() == 2 {
-                                         (coord[0].as_u64(), coord[1].as_u64())
-                                     } else { (None, None) }
-                                } else { (None, None) };
-                                
+                                let (x, y) = if let (Some(x_val), Some(y_val)) =
+                                    (json.get("x"), json.get("y"))
+                                {
+                                    (x_val.as_u64(), y_val.as_u64())
+                                } else if let Some(coord) =
+                                    json.get("coordinate").and_then(|c| c.as_array())
+                                {
+                                    if coord.len() == 2 {
+                                        (coord[0].as_u64(), coord[1].as_u64())
+                                    } else {
+                                        (None, None)
+                                    }
+                                } else {
+                                    (None, None)
+                                };
+
                                 if let (Some(cx), Some(cy)) = (x, y) {
                                     let win_x = win.x as i64;
                                     let win_y = win.y as i64;
@@ -207,17 +242,23 @@ impl PolicyEngine {
                                     let click_x = cx as i64;
                                     let click_y = cy as i64;
 
-                                    if click_x < win_x || click_x > win_x + win_w || click_y < win_y || click_y > win_y + win_h {
-                                         tracing::warn!("Policy Violation: Click at ({}, {}) is OUTSIDE active window '{}' bounds ({}, {}, {}, {})", 
+                                    if click_x < win_x
+                                        || click_x > win_x + win_w
+                                        || click_y < win_y
+                                        || click_y > win_y + win_h
+                                    {
+                                        tracing::warn!("Policy Violation: Click at ({}, {}) is OUTSIDE active window '{}' bounds ({}, {}, {}, {})", 
                                              click_x, click_y, win.title, win_x, win_y, win_w, win_h);
-                                         return false;
+                                        return false;
                                     }
                                 }
                             }
                         }
                     } else {
                         // If we can't determine the window, fail closed for safety
-                        tracing::warn!("Policy Violation: Could not determine active window context");
+                        tracing::warn!(
+                            "Policy Violation: Could not determine active window context"
+                        );
                         return false;
                     }
                 }
@@ -232,11 +273,11 @@ impl PolicyEngine {
                     if let Some(text) = json.get("text").and_then(|t| t.as_str()) {
                         if text.contains(pattern) {
                             // If block pattern matches, does the rule apply?
-                            // This logic depends on the rule action. 
+                            // This logic depends on the rule action.
                             // If the rule is "Block if pattern matches", returning true applies the block.
                             // If the rule is "Allow", this logic is inverted (we return false if pattern matches).
                             // Assuming `block_text_pattern` implies a negative constraint on an Allow rule:
-                            return false; 
+                            return false;
                         }
                     }
                 }
@@ -245,8 +286,10 @@ impl PolicyEngine {
 
         // 3. Network Domain Check
         if let Some(allowed_domains) = &conditions.allow_domains {
+            // [MODIFIED] Check new targets
             if let ActionTarget::NetFetch
-            | ActionTarget::BrowserNavigate
+            | ActionTarget::BrowserNavigateHermetic
+            | ActionTarget::BrowserNavigateLocal
             | ActionTarget::CommerceDiscovery
             | ActionTarget::CommerceCheckout = target
             {
@@ -294,12 +337,15 @@ impl PolicyEngine {
         // 5. Semantic Intent Check
         if let Some(blocked_intents) = &conditions.block_intents {
             if let Ok(input_str) = std::str::from_utf8(params) {
-                let classification = safety_model.classify_intent(input_str).await.unwrap_or(SafetyVerdict::Safe);
+                let classification = safety_model
+                    .classify_intent(input_str)
+                    .await
+                    .unwrap_or(SafetyVerdict::Safe);
 
                 if let SafetyVerdict::Unsafe(reason) = classification {
                     if blocked_intents.iter().any(|i| reason.contains(i)) {
                         // If intent is blocked, the rule (assuming Allow) should NOT apply.
-                        return false; 
+                        return false;
                     }
                 }
             }
@@ -308,14 +354,17 @@ impl PolicyEngine {
         // [NEW] 6. Clipboard Policy (DLP)
         if let ActionTarget::ClipboardWrite = target {
             if let Ok(json) = serde_json::from_slice::<Value>(params) {
-                 if let Some(text) = json.get("content").and_then(|t| t.as_str()) {
-                      // Check for PII in clipboard data
-                      let classification = safety_model.classify_intent(text).await.unwrap_or(SafetyVerdict::Safe);
-                      if let SafetyVerdict::ContainsPII = classification {
-                          tracing::warn!("Policy Blocking Clipboard Write: PII detected.");
-                          return false;
-                      }
-                 }
+                if let Some(text) = json.get("content").and_then(|t| t.as_str()) {
+                    // Check for PII in clipboard data
+                    let classification = safety_model
+                        .classify_intent(text)
+                        .await
+                        .unwrap_or(SafetyVerdict::Safe);
+                    if let SafetyVerdict::ContainsPII = classification {
+                        tracing::warn!("Policy Blocking Clipboard Write: PII detected.");
+                        return false;
+                    }
+                }
             }
         }
 
@@ -371,28 +420,31 @@ impl PolicyEngine {
 
     /// Validates that a proposed policy mutation is monotonic (i.e., strictly safer or equal).
     /// Used by the Optimizer Service during Recursive Self-Improvement cycles.
-    pub fn validate_safety_ratchet(old_policy: &ActionRules, new_policy: &ActionRules) -> Result<(), String> {
+    pub fn validate_safety_ratchet(
+        old_policy: &ActionRules,
+        new_policy: &ActionRules,
+    ) -> Result<(), String> {
         let old_caps = Self::extract_caps(old_policy);
         let new_caps = Self::extract_caps(new_policy);
 
         if new_caps.budget_cap > old_caps.budget_cap {
-             return Err(format!(
-                 "Mutation rejected: Attempted to increase budget cap from {} to {}.", 
-                 old_caps.budget_cap, new_caps.budget_cap
-             ));
+            return Err(format!(
+                "Mutation rejected: Attempted to increase budget cap from {} to {}.",
+                old_caps.budget_cap, new_caps.budget_cap
+            ));
         }
 
         for domain in &new_caps.network_allowlist {
             if !old_caps.network_allowlist.contains(domain) {
-                 return Err(format!(
-                     "Mutation rejected: Attempted to add new network domain '{}'.", 
-                     domain
-                 ));
+                return Err(format!(
+                    "Mutation rejected: Attempted to add new network domain '{}'.",
+                    domain
+                ));
             }
         }
 
         if old_caps.require_human_gate && !new_caps.require_human_gate {
-             return Err("Mutation rejected: Attempted to remove Human Gate requirement.".into());
+            return Err("Mutation rejected: Attempted to remove Human Gate requirement.".into());
         }
 
         Ok(())
@@ -406,7 +458,7 @@ impl PolicyEngine {
 
         for rule in &rules.rules {
             if let Some(spend) = rule.conditions.max_spend {
-                let amount = spend as f64 / 1000.0; 
+                let amount = spend as f64 / 1000.0;
                 if amount > budget {
                     budget = amount;
                 }
@@ -424,7 +476,7 @@ impl PolicyEngine {
                 gate = true;
             }
         }
-        
+
         if rules.defaults == DefaultPolicy::RequireApproval {
             gate = true;
         }

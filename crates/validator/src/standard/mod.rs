@@ -3,10 +3,10 @@
 
 /// The Orchestration container logic.
 pub mod orchestration;
-/// The Workload container logic.
-pub mod workload;
 /// The Compute Provider logic.
 pub mod provider;
+/// The Workload container logic.
+pub mod workload;
 
 pub use orchestration::Orchestrator;
 pub use workload::ipc::WorkloadIpcServer;

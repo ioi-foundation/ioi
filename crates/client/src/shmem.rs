@@ -188,7 +188,7 @@ impl DataPlane {
         }
 
         if start + len > capacity {
-             return Err(anyhow!(
+            return Err(anyhow!(
                 "Block too large for ring buffer: {} bytes, capacity {}",
                 len,
                 capacity

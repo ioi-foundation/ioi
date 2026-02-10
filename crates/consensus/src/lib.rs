@@ -24,7 +24,7 @@ use async_trait::async_trait;
 use ioi_api::{
     chain::{AnchoredStateView, ChainView},
     commitment::CommitmentScheme,
-    consensus::{ConsensusDecision, ConsensusEngine, PenaltyMechanism, ConsensusControl}, // [FIX] Added ConsensusControl
+    consensus::{ConsensusControl, ConsensusDecision, ConsensusEngine, PenaltyMechanism}, // [FIX] Added ConsensusControl
     state::{StateAccess, StateManager},
 };
 use ioi_system::SystemState;
@@ -66,7 +66,7 @@ impl<T: Clone> Consensus<T> {
         match self {
             Consensus::Admft(_) => ConsensusType::Admft,
             Consensus::Apmft(_) => ConsensusType::Admft, // Map A-PMFT to Admft config type for compatibility
-            Consensus::Solo(_) => ConsensusType::Admft, 
+            Consensus::Solo(_) => ConsensusType::Admft,
             Consensus::_Phantom(_) => unreachable!(),
         }
     }
@@ -89,13 +89,13 @@ impl<T: Clone + Send + Sync + 'static> ConsensusControl for Consensus<T> {
     fn get_apmft_tip(&self) -> Option<([u8; 32], u32)> {
         match self {
             Consensus::Apmft(e) => {
-                 // Use the ConsensusControl method on the inner engine
-                 e.get_apmft_tip()
-            },
-            _ => None
+                // Use the ConsensusControl method on the inner engine
+                e.get_apmft_tip()
+            }
+            _ => None,
         }
     }
-    
+
     fn feed_apmft_sample(&mut self, hash: [u8; 32]) {
         if let Consensus::Apmft(e) = self {
             e.feed_apmft_sample(hash);
@@ -184,10 +184,7 @@ where
         }
     }
 
-    async fn handle_vote(
-        &mut self,
-        vote: ConsensusVote,
-    ) -> Result<(), ConsensusError> {
+    async fn handle_vote(&mut self, vote: ConsensusVote) -> Result<(), ConsensusError> {
         match self {
             Consensus::Admft(e) => <AdmftEngine as ConsensusEngine<T>>::handle_vote(e, vote).await,
             Consensus::Apmft(e) => <ApmftEngine as ConsensusEngine<T>>::handle_vote(e, vote).await,
@@ -209,7 +206,7 @@ where
                 <ApmftEngine as ConsensusEngine<T>>::handle_view_change(e, from, proof_bytes).await
             }
             Consensus::Solo(e) => {
-                 <SoloEngine as ConsensusEngine<T>>::handle_view_change(e, from, proof_bytes).await
+                <SoloEngine as ConsensusEngine<T>>::handle_view_change(e, from, proof_bytes).await
             }
             Consensus::_Phantom(_) => unreachable!(),
         }
@@ -217,15 +214,9 @@ where
 
     fn reset(&mut self, height: u64) {
         match self {
-            Consensus::Admft(e) => {
-                <AdmftEngine as ConsensusEngine<T>>::reset(e, height)
-            }
-            Consensus::Apmft(e) => {
-                <ApmftEngine as ConsensusEngine<T>>::reset(e, height)
-            }
-            Consensus::Solo(e) => {
-                <SoloEngine as ConsensusEngine<T>>::reset(e, height)
-            }
+            Consensus::Admft(e) => <AdmftEngine as ConsensusEngine<T>>::reset(e, height),
+            Consensus::Apmft(e) => <ApmftEngine as ConsensusEngine<T>>::reset(e, height),
+            Consensus::Solo(e) => <SoloEngine as ConsensusEngine<T>>::reset(e, height),
             Consensus::_Phantom(_) => unreachable!(),
         }
     }

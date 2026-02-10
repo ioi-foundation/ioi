@@ -17,11 +17,11 @@ use ioi_types::{
     },
     codec,
 };
+use parity_scale_codec::{Decode, Encode};
 use serde::Serialize;
 use std::fmt::Debug;
 use std::sync::Arc;
 use tokio::sync::{mpsc, Mutex};
-use parity_scale_codec::{Decode, Encode};
 
 use crate::common::GuardianSigner;
 use crate::standard::orchestration::context::MainLoopContext;
@@ -52,8 +52,15 @@ where
         + Sync
         + 'static
         + Debug,
-    <CS as CommitmentScheme>::Proof:
-        Serialize + for<'de> serde::Deserialize<'de> + Clone + Send + Sync + 'static + Debug + Encode + Decode,
+    <CS as CommitmentScheme>::Proof: Serialize
+        + for<'de> serde::Deserialize<'de>
+        + Clone
+        + Send
+        + Sync
+        + 'static
+        + Debug
+        + Encode
+        + Decode,
     <CS as CommitmentScheme>::Commitment: Send + Sync + Debug,
 {
     let block_height = final_block.header.height;

@@ -48,13 +48,18 @@ impl<CS: CommitmentScheme> Debug for RedbFlatStore<CS> {
 impl<CS: CommitmentScheme> RedbFlatStore<CS> {
     pub fn new(path: &Path, scheme: CS) -> Result<Self, StateError> {
         let db = Database::create(path).map_err(|e| StateError::Backend(e.to_string()))?;
-        
+
         // Ensure table exists
-        let tx = db.begin_write().map_err(|e| StateError::Backend(e.to_string()))?;
+        let tx = db
+            .begin_write()
+            .map_err(|e| StateError::Backend(e.to_string()))?;
         {
-            let _ = tx.open_table(STATE_TABLE).map_err(|e| StateError::Backend(e.to_string()))?;
+            let _ = tx
+                .open_table(STATE_TABLE)
+                .map_err(|e| StateError::Backend(e.to_string()))?;
         }
-        tx.commit().map_err(|e| StateError::Backend(e.to_string()))?;
+        tx.commit()
+            .map_err(|e| StateError::Backend(e.to_string()))?;
 
         Ok(Self {
             db: Arc::new(db),
@@ -73,11 +78,18 @@ impl<CS: CommitmentScheme> StateAccess for RedbFlatStore<CS> {
         }
 
         // 2. Check DB
-        let read_txn = self.db.begin_read().map_err(|e| StateError::Backend(e.to_string()))?;
-        let table = read_txn.open_table(STATE_TABLE).map_err(|e| StateError::Backend(e.to_string()))?;
-        
+        let read_txn = self
+            .db
+            .begin_read()
+            .map_err(|e| StateError::Backend(e.to_string()))?;
+        let table = read_txn
+            .open_table(STATE_TABLE)
+            .map_err(|e| StateError::Backend(e.to_string()))?;
+
         // [FIX] E0599: ReadableTable is now in scope
-        let result = table.get(key).map_err(|e| StateError::Backend(e.to_string()))?;
+        let result = table
+            .get(key)
+            .map_err(|e| StateError::Backend(e.to_string()))?;
         // [FIX] E0282: Explicitly handle map
         Ok(result.map(|v| v.value().to_vec()))
     }
@@ -94,12 +106,18 @@ impl<CS: CommitmentScheme> StateAccess for RedbFlatStore<CS> {
 
     fn prefix_scan(&self, prefix: &[u8]) -> Result<StateScanIter<'_>, StateError> {
         // Collect from DB
-        let read_txn = self.db.begin_read().map_err(|e| StateError::Backend(e.to_string()))?;
-        let table = read_txn.open_table(STATE_TABLE).map_err(|e| StateError::Backend(e.to_string()))?;
-        
+        let read_txn = self
+            .db
+            .begin_read()
+            .map_err(|e| StateError::Backend(e.to_string()))?;
+        let table = read_txn
+            .open_table(STATE_TABLE)
+            .map_err(|e| StateError::Backend(e.to_string()))?;
+
         // [FIX] E0599: ReadableTable is now in scope
         // [FIX] E0282: Explicit type annotation for the vector
-        let db_iter: Vec<(Vec<u8>, Vec<u8>)> = table.range(prefix..)
+        let db_iter: Vec<(Vec<u8>, Vec<u8>)> = table
+            .range(prefix..)
             .map_err(|e| StateError::Backend(e.to_string()))?
             .take_while(|r| r.as_ref().is_ok_and(|(k, _)| k.value().starts_with(prefix)))
             .map(|r| {
@@ -121,7 +139,8 @@ impl<CS: CommitmentScheme> StateAccess for RedbFlatStore<CS> {
         }
 
         // Filter out deletions (None)
-        let final_list: Vec<_> = merged.into_iter()
+        let final_list: Vec<_> = merged
+            .into_iter()
             .filter_map(|(k, v)| v.map(|val| Ok((Arc::from(k), Arc::from(val)))))
             .collect();
 
@@ -158,7 +177,7 @@ impl<CS: CommitmentScheme> StateAccess for RedbFlatStore<CS> {
     }
 }
 
-impl<CS: CommitmentScheme> VerifiableState for RedbFlatStore<CS> 
+impl<CS: CommitmentScheme> VerifiableState for RedbFlatStore<CS>
 where
     CS::Commitment: From<Vec<u8>>,
     CS::Proof: From<Vec<u8>>,
@@ -234,7 +253,7 @@ where
         // Let's assume the user uses HashCommitmentScheme which has AsRef.
         // But here we are generic.
         // For local mode, we panic or return empty.
-        vec![] 
+        vec![]
     }
 }
 
@@ -248,25 +267,36 @@ where
     fn prune(&mut self, _plan: &PrunePlan) -> Result<(), StateError> {
         Ok(())
     }
-    
+
     fn prune_batch(&mut self, _plan: &PrunePlan, _limit: usize) -> Result<usize, StateError> {
         Ok(0)
     }
 
     fn commit_version(&mut self, height: u64) -> Result<RootHash, StateError> {
-        let write_txn = self.db.begin_write().map_err(|e| StateError::Backend(e.to_string()))?;
+        let write_txn = self
+            .db
+            .begin_write()
+            .map_err(|e| StateError::Backend(e.to_string()))?;
         {
-            let mut table = write_txn.open_table(STATE_TABLE).map_err(|e| StateError::Backend(e.to_string()))?;
+            let mut table = write_txn
+                .open_table(STATE_TABLE)
+                .map_err(|e| StateError::Backend(e.to_string()))?;
             for (k, v_opt) in &self.cache {
                 if let Some(v) = v_opt {
-                    table.insert(k.as_slice(), v.as_slice()).map_err(|e| StateError::Backend(e.to_string()))?;
+                    table
+                        .insert(k.as_slice(), v.as_slice())
+                        .map_err(|e| StateError::Backend(e.to_string()))?;
                 } else {
-                    table.remove(k.as_slice()).map_err(|e| StateError::Backend(e.to_string()))?;
+                    table
+                        .remove(k.as_slice())
+                        .map_err(|e| StateError::Backend(e.to_string()))?;
                 }
             }
         }
-        write_txn.commit().map_err(|e| StateError::Backend(e.to_string()))?;
-        
+        write_txn
+            .commit()
+            .map_err(|e| StateError::Backend(e.to_string()))?;
+
         self.cache.clear();
 
         // Update root to hash of height
@@ -274,7 +304,7 @@ where
         let new_root_vec = ioi_crypto::algorithms::hash::sha256(&h_bytes)
             .map_err(|e| StateError::Backend(e.to_string()))?
             .to_vec();
-            
+
         let mut arr = [0u8; 32];
         arr.copy_from_slice(&new_root_vec);
         self.current_root = arr;

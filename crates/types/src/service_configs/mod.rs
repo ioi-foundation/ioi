@@ -151,14 +151,13 @@ pub struct ActiveServiceMeta {
     /// A list of `system::` key prefixes that this service is permitted to access.
     #[serde(default)]
     pub allowed_system_prefixes: Vec<String>,
-    
+
     // [NEW] Evolutionary Metadata (Genetics)
-    
     /// The generation number of this service version (Genesis = 0).
     /// Incremented on every successful `swap_module` or `evolve` transaction.
     #[serde(default)]
     pub generation_id: u64,
-    
+
     /// The artifact hash of the parent version.
     /// Used to reconstruct the full genealogical tree (Lineage).
     #[serde(default)]

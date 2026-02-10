@@ -3,6 +3,7 @@ use crate::metrics::consensus_metrics as metrics;
 use crate::standard::orchestration::context::MainLoopContext;
 use crate::standard::orchestration::mempool::Mempool;
 use anyhow::{anyhow, Result};
+use ioi_api::chain::StateRef;
 use ioi_api::crypto::BatchVerifier;
 use ioi_api::{
     chain::AnchoredStateView,
@@ -12,27 +13,26 @@ use ioi_api::{
     crypto::SigningKeyPair,
     state::{ProofProvider, StateManager, Verifier},
 };
-use ioi_api::chain::StateRef;
 
 use ioi_crypto::sign::dilithium::MldsaKeyPair;
 
+use ioi_networking::libp2p::SwarmCommand;
 use ioi_networking::traits::NodeState;
 use ioi_types::{
     app::{
         account_id_from_key_material, to_root_hash, AccountId, Block, BlockHeader,
-        ChainTransaction, ConsensusVote, SignatureSuite, StateAnchor, StateRoot, TxHash,
-        QuorumCertificate,
+        ChainTransaction, ConsensusVote, QuorumCertificate, SignatureSuite, StateAnchor, StateRoot,
+        TxHash,
     },
-    keys::VALIDATOR_SET_KEY,
     codec,
+    keys::VALIDATOR_SET_KEY,
 };
-use ioi_networking::libp2p::SwarmCommand;
+use parity_scale_codec::{Decode, Encode};
 use serde::Serialize;
 use std::collections::HashSet;
 use std::fmt::Debug;
 use std::sync::Arc;
 use tokio::sync::Mutex;
-use parity_scale_codec::{Decode, Encode};
 
 /// Drive one consensus tick without holding the MainLoopContext lock across awaits.
 pub async fn drive_consensus_tick<CS, ST, CE, V>(
@@ -56,8 +56,15 @@ where
         + 'static
         + Debug,
     <CS as CommitmentScheme>::Commitment: Send + Sync + Debug,
-    <CS as CommitmentScheme>::Proof:
-        Serialize + for<'de> serde::Deserialize<'de> + Clone + Send + Sync + 'static + Debug + Encode + Decode, 
+    <CS as CommitmentScheme>::Proof: Serialize
+        + for<'de> serde::Deserialize<'de>
+        + Clone
+        + Send
+        + Sync
+        + 'static
+        + Debug
+        + Encode
+        + Decode,
 {
     // [INSTRUMENTATION] Entry log
     tracing::info!(target: "consensus", "Entering drive_consensus_tick (cause={})", cause);
@@ -96,16 +103,19 @@ where
     };
 
     let node_state: NodeState = node_state_arc.lock().await.clone();
-    
+
     // [MODIFIED] Reject tick if in Panic/Transition/Survival modes
-    if matches!(node_state, NodeState::Transitioning | NodeState::SurvivalMode) {
-         tracing::info!(target: "consensus", "Consensus halted: Node is in {:?} state.", node_state);
-         return Ok(());
+    if matches!(
+        node_state,
+        NodeState::Transitioning | NodeState::SurvivalMode
+    ) {
+        tracing::info!(target: "consensus", "Consensus halted: Node is in {:?} state.", node_state);
+        return Ok(());
     }
 
     let parent_h = last_committed_block_opt
         .as_ref()
-        .map_or(0, |b: &Block<ChainTransaction>| b.header.height); 
+        .map_or(0, |b: &Block<ChainTransaction>| b.header.height);
     let producing_h = parent_h + 1;
 
     let consensus_allows_bootstrap = matches!(
@@ -129,7 +139,12 @@ where
         .map_err(|e| anyhow!("[Consensus Tick] failed to derive local account id: {e}"))?,
     );
 
-    let (parent_ref, _parent_anchor) = match resolve_parent_ref_and_anchor(&last_committed_block_opt, view_resolver.as_ref()).await {
+    let (parent_ref, _parent_anchor) = match resolve_parent_ref_and_anchor(
+        &last_committed_block_opt,
+        view_resolver.as_ref(),
+    )
+    .await
+    {
         Ok(v) => v,
         Err(e) => {
             tracing::error!(target: "consensus", event = "view_resolve_fail", error = %e);
@@ -141,7 +156,7 @@ where
         let parent_view = view_resolver.resolve_anchored(&parent_ref).await?;
         let mut engine: tokio::sync::MutexGuard<'_, CE> = consensus_engine_ref.lock().await;
         let known_peers = known_peers_ref.lock().await;
-        
+
         tracing::info!(target: "consensus", "Calling engine.decide() for height {}", producing_h);
         engine
             .decide(&our_account_id, producing_h, 0, &*parent_view, &known_peers)
@@ -151,71 +166,80 @@ where
     match decision {
         // [NEW] Handle Panic Decision (Kill Switch Trigger)
         ioi_api::consensus::ConsensusDecision::Panic(proof) => {
-             tracing::error!(target: "consensus", "CRITICAL: Engine Triggered Panic! Hardware Divergence Detected.");
-             
-             // 1. Sign Panic Message (to bind our identity to the alert and prevent griefing)
-             let proof_bytes = codec::to_bytes_canonical(&proof)
+            tracing::error!(target: "consensus", "CRITICAL: Engine Triggered Panic! Hardware Divergence Detected.");
+
+            // 1. Sign Panic Message (to bind our identity to the alert and prevent griefing)
+            let proof_bytes = codec::to_bytes_canonical(&proof)
                 .map_err(|e| anyhow!("Failed to serialize proof: {}", e))?;
-             let sig = local_keypair.sign(&proof_bytes)?;
-             
-             let panic_msg = ioi_types::app::PanicMessage {
-                 proof: proof.clone(),
-                 sender_sig: sig,
-             };
-             
-             let panic_bytes = codec::to_bytes_canonical(&panic_msg)
+            let sig = local_keypair.sign(&proof_bytes)?;
+
+            let panic_msg = ioi_types::app::PanicMessage {
+                proof: proof.clone(),
+                sender_sig: sig,
+            };
+
+            let panic_bytes = codec::to_bytes_canonical(&panic_msg)
                 .map_err(|e| anyhow!("Failed to serialize PanicMessage: {}", e))?;
 
-             // 2. Broadcast immediately
-             let _ = swarm_commander.send(SwarmCommand::BroadcastPanic(panic_bytes)).await;
-             
-             // 3. Execute Local Transition (Freeze A-DMFT)
-             crate::standard::orchestration::transition::execute_kill_switch(context_arc, proof).await?;
+            // 2. Broadcast immediately
+            let _ = swarm_commander
+                .send(SwarmCommand::BroadcastPanic(panic_bytes))
+                .await;
+
+            // 3. Execute Local Transition (Freeze A-DMFT)
+            crate::standard::orchestration::transition::execute_kill_switch(context_arc, proof)
+                .await?;
         }
 
         ioi_api::consensus::ConsensusDecision::Timeout { view, height } => {
             tracing::warn!(target: "consensus", "Consensus timeout at H={} View={}. Broadcasting ViewChange.", height, view);
-            
+
             use ioi_consensus::admft::ViewChangeVote;
-            
+
             // Sign the (height, view) tuple to authenticate the vote
             let sign_payload = (height, view);
             let sign_bytes = codec::to_bytes_canonical(&sign_payload)
                 .map_err(|e| anyhow!("Failed to serialize vote payload: {}", e))?;
-                
+
             let sig = local_keypair.sign(&sign_bytes)?;
-            
+
             let signed_vote = ViewChangeVote {
                 height,
                 view,
                 voter: our_account_id,
                 signature: sig,
             };
-            
+
             let vote_blob = codec::to_bytes_canonical(&signed_vote)
                 .map_err(|e| anyhow!("Failed to serialize ViewChangeVote: {}", e))?;
-            
+
             // Re-acquire lock to feed back to engine (so we track our own vote)
             {
-                 let mut engine = consensus_engine_ref.lock().await;
-                 let local_peer_id = local_keypair.public().to_peer_id();
-                 engine.handle_view_change(
-                     local_peer_id,
-                     &vote_blob
-                 ).await.ok();
+                let mut engine = consensus_engine_ref.lock().await;
+                let local_peer_id = local_keypair.public().to_peer_id();
+                engine
+                    .handle_view_change(local_peer_id, &vote_blob)
+                    .await
+                    .ok();
             }
 
             // Broadcast on the DEDICATED view change topic
-            let _ = swarm_commander.send(SwarmCommand::BroadcastViewChange(vote_blob)).await;
+            let _ = swarm_commander
+                .send(SwarmCommand::BroadcastViewChange(vote_blob))
+                .await;
         }
-        
-        ioi_api::consensus::ConsensusDecision::Vote { block_hash, height, view } => {
+
+        ioi_api::consensus::ConsensusDecision::Vote {
+            block_hash,
+            height,
+            view,
+        } => {
             tracing::info!(target: "consensus", "Voting for block {} (H={} V={})", hex::encode(&block_hash[..4]), height, view);
             // Sign the vote
             let vote_payload = (height, view, block_hash);
             let vote_bytes = codec::to_bytes_canonical(&vote_payload)
                 .map_err(|e| anyhow!("Failed to serialize vote payload: {}", e))?;
-                
+
             let signature = local_keypair.sign(&vote_bytes)?;
 
             let vote = ConsensusVote {
@@ -230,8 +254,10 @@ where
                 .map_err(|e| anyhow!("Failed to serialize ConsensusVote: {}", e))?;
 
             // Broadcast vote to peers
-            let _ = swarm_commander.send(SwarmCommand::BroadcastVote(vote_blob)).await;
-            
+            let _ = swarm_commander
+                .send(SwarmCommand::BroadcastVote(vote_blob))
+                .await;
+
             // Loopback to local engine to ensure we count our own vote
             {
                 let mut engine = consensus_engine_ref.lock().await;
@@ -244,7 +270,7 @@ where
         ioi_api::consensus::ConsensusDecision::ProduceBlock {
             expected_timestamp_secs,
             view,
-            parent_qc, 
+            parent_qc,
             ..
         } => {
             tracing::info!(target: "consensus", "Decision: ProduceBlock for H={} V={}", producing_h, view);
@@ -273,7 +299,9 @@ where
                 .validators
                 .iter()
                 .find(|v| v.account_id == our_account_id)
-                .ok_or_else(|| anyhow!("Local node not in validator set for height {}", producing_h))?;
+                .ok_or_else(|| {
+                    anyhow!("Local node not in validator set for height {}", producing_h)
+                })?;
 
             let (producer_key_suite, producer_pubkey) = match me.consensus_key.suite {
                 SignatureSuite::ED25519 => (
@@ -281,9 +309,9 @@ where
                     local_keypair.public().encode_protobuf(),
                 ),
                 SignatureSuite::ML_DSA_44 => {
-                    let kp: &MldsaKeyPair = pqc_signer
-                        .as_ref()
-                        .ok_or_else(|| anyhow!("Dilithium required but no PQC signer configured"))?;
+                    let kp: &MldsaKeyPair = pqc_signer.as_ref().ok_or_else(|| {
+                        anyhow!("Dilithium required but no PQC signer configured")
+                    })?;
                     (SignatureSuite::ML_DSA_44, kp.public_key().to_bytes())
                 }
                 SignatureSuite::HYBRID_ED25519_ML_DSA_44 => {
@@ -413,7 +441,9 @@ fn verify_batch_and_filter(
 
     let mut batch_items = Vec::with_capacity(sig_indices.len());
     for (i, &idx) in sig_indices.iter().enumerate() {
-        if let Ok(Some((_, proof, _))) = ioi_tx::system::validation::get_signature_components(&candidate_txs[idx]) {
+        if let Ok(Some((_, proof, _))) =
+            ioi_tx::system::validation::get_signature_components(&candidate_txs[idx])
+        {
             batch_items.push((
                 proof.public_key.as_slice(),
                 sign_bytes_storage[i].as_slice(),

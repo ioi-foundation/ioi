@@ -1,9 +1,9 @@
 // Path: crates/types/src/app/action.rs
 
+use crate::app::SignatureSuite;
+use dcrypt::algorithms::hash::HashFunction;
 use parity_scale_codec::{Decode, Encode};
 use serde::{Deserialize, Serialize};
-use dcrypt::algorithms::hash::HashFunction;
-use crate::app::SignatureSuite;
 
 /// The target capability domain of an action.
 /// This enum maps directly to the `cap:*` scopes defined in the Agency Firewall policy.
@@ -56,10 +56,19 @@ pub enum ActionTarget {
     #[serde(rename = "gui::sequence")]
     GuiSequence,
 
-    // --- New Browser Primitives (CDP) ---
-    /// Navigate the controlled browser to a specific URL.
-    #[serde(rename = "browser__navigate")]
-    BrowserNavigate,
+    // --- Browser Primitives (Hybrid Hermetic) ---
+    /// Navigate the disposable, safe browser (Default).
+    /// Context: A fresh container or temporary profile.
+    /// Policy: Typically ALLOW.
+    #[serde(rename = "browser::navigate::hermetic")]
+    BrowserNavigateHermetic,
+
+    /// Navigate the user's actual, privileged browser (via CDP).
+    /// Context: Existing user profile with cookies/sessions.
+    /// Policy: Typically REQUIRE_APPROVAL.
+    #[serde(rename = "browser::navigate::local")]
+    BrowserNavigateLocal,
+
     /// Extract the DOM or accessibility tree from the current browser page.
     #[serde(rename = "browser__extract")]
     BrowserExtract,
@@ -69,7 +78,7 @@ pub enum ActionTarget {
     /// Typically low-risk, often allowed by default.
     #[serde(rename = "ucp::discovery")]
     CommerceDiscovery,
-    
+
     /// Checkout phase: Execute a purchase via UCP.
     /// High-risk: involves injecting payment tokens. Firewall MUST enforce spend limits.
     #[serde(rename = "ucp::checkout")]
@@ -129,13 +138,13 @@ impl ActionRequest {
         if let Some(sid) = self.context.session_id {
             data.extend_from_slice(&sid);
         }
-        
+
         // Include Target in hash to prevent semantic aliasing
         // We use the JSON serialization of the target enum to ensure unique representation
         if let Ok(target_bytes) = serde_json::to_vec(&self.target) {
             data.extend_from_slice(&target_bytes);
         }
-        
+
         // Include Agent ID to prevent cross-agent replay
         data.extend_from_slice(self.context.agent_id.as_bytes());
 
@@ -167,7 +176,7 @@ pub struct ApprovalToken {
     pub request_hash: [u8; 32],
     /// Constraints on the approval (e.g., max times usage, expiration).
     pub scope: ApprovalScope,
-    
+
     /// [NEW] The hash of the visual context (screenshot) the user saw when approving.
     /// Used to restore the correct Set-of-Marks mapping.
     pub visual_hash: Option<[u8; 32]>,

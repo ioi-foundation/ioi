@@ -8,9 +8,7 @@
 ))]
 
 use anyhow::Result;
-use ioi_cli::testing::{
-    assert_log_contains, build_test_artifacts, wait_for_height, TestValidator,
-};
+use ioi_cli::testing::{assert_log_contains, build_test_artifacts, wait_for_height, TestValidator};
 use ioi_types::{
     app::{
         ActiveKeyRecord, BlockTimingParams, BlockTimingRuntime, SignatureSuite, ValidatorSetV1,

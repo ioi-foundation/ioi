@@ -11,21 +11,21 @@ use ioi_api::{
 };
 use ioi_crypto::sign::dilithium::MldsaKeyPair;
 use ioi_ipc::public::TxStatus;
-use ioi_types::app::KernelEvent; // [NEW]
 use ioi_networking::libp2p::SwarmCommand;
 use ioi_networking::traits::NodeState;
+use ioi_types::app::KernelEvent; // [NEW]
 use ioi_types::app::{AccountId, Block, ChainTransaction, OracleAttestation, TxHash};
 use libp2p::{identity, PeerId};
 use lru::LruCache;
+use parity_scale_codec::{Decode, Encode};
 use serde::Serialize;
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::fmt::Debug;
 use std::sync::{atomic::AtomicBool, Arc};
-use tokio::sync::{mpsc, watch, Mutex};
-use parity_scale_codec::{Decode, Encode}; // [FIX] Added imports
+use tokio::sync::{mpsc, watch, Mutex}; // [FIX] Added imports
 
-use ioi_api::vm::inference::{LocalSafetyModel, InferenceRuntime}; // [FIX] Added InferenceRuntime
-// [NEW] Import OsDriver trait
+use ioi_api::vm::inference::{InferenceRuntime, LocalSafetyModel}; // [FIX] Added InferenceRuntime
+                                                                  // [NEW] Import OsDriver trait
 use ioi_api::vm::drivers::os::OsDriver;
 use ioi_scs::SovereignContextStore;
 // [FIX] Removed unused Pacemaker import
@@ -76,8 +76,15 @@ where
         + Clone,
     <CS as CommitmentScheme>::Commitment: Send + Sync + Debug,
     CE: ConsensusEngine<ChainTransaction> + Send + Sync + 'static,
-    <CS as CommitmentScheme>::Proof:
-        Serialize + for<'de> serde::Deserialize<'de> + Clone + Send + Sync + 'static + Debug + Encode + Decode, // [FIX] Added Encode + Decode
+    <CS as CommitmentScheme>::Proof: Serialize
+        + for<'de> serde::Deserialize<'de>
+        + Clone
+        + Send
+        + Sync
+        + 'static
+        + Debug
+        + Encode
+        + Decode, // [FIX] Added Encode + Decode
 {
     /// Configuration for the orchestration node.
     pub config: OrchestrationConfig,

@@ -18,14 +18,15 @@ use ioi_state::primitives::hash::HashCommitmentScheme;
 #[cfg(feature = "state-iavl")]
 use ioi_state::tree::iavl::IAVLTree;
 
-use ioi_types::app::{
-    account_id_from_key_material, AccountId, SignatureSuite,
-};
+use ioi_types::app::{account_id_from_key_material, AccountId, SignatureSuite};
 use ioi_types::config::{
-    ConsensusType, InferenceConfig, InitialServiceConfig, OrchestrationConfig, ValidatorRole, WorkloadConfig,
+    ConsensusType, InferenceConfig, InitialServiceConfig, OrchestrationConfig, ValidatorRole,
+    WorkloadConfig,
 };
 use ioi_validator::common::{GuardianContainer, LocalSigner};
-use ioi_validator::standard::orchestration::verifier_select::{create_default_verifier, DefaultVerifier};
+use ioi_validator::standard::orchestration::verifier_select::{
+    create_default_verifier, DefaultVerifier,
+};
 use ioi_validator::standard::orchestration::OrchestrationDependencies;
 use ioi_validator::standard::workload::setup::setup_workload;
 use ioi_validator::standard::Orchestrator;
@@ -36,9 +37,9 @@ use std::sync::{atomic::AtomicBool, Arc, Mutex};
 use tokio::time::Duration;
 
 use ioi_api::vm::inference::{HttpInferenceRuntime, InferenceRuntime, LocalSafetyModel};
-use ioi_services::agentic::scrub_adapter::RuntimeAsSafetyModel;
 use ioi_drivers::os::NativeOsDriver;
 use ioi_networking::libp2p::Libp2pSync;
+use ioi_services::agentic::scrub_adapter::RuntimeAsSafetyModel;
 
 // [FIX] Compute Specific Drivers
 use ioi_validator::standard::workload::drivers::cpu::CpuDriver;
@@ -46,7 +47,7 @@ use ioi_validator::standard::workload::hydration::ModelHydrator;
 use ioi_validator::standard::workload::runtime::StandardInferenceRuntime;
 
 // [NEW] Provider API
-use ioi_validator::standard::provider::{ProviderController, server::run_provider_server};
+use ioi_validator::standard::provider::{server::run_provider_server, ProviderController};
 use std::net::SocketAddr;
 
 #[derive(Parser, Debug)]
@@ -106,10 +107,10 @@ async fn main() -> Result<()> {
     // 3. Setup Heavy Inference Runtime
     let cpu_driver = Arc::new(CpuDriver::new());
     let hydrator = Arc::new(ModelHydrator::new(model_dir.clone(), cpu_driver.clone()));
-    
+
     // The "Standard" runtime supports hydration and hardware offload
     let inference_runtime = Arc::new(StandardInferenceRuntime::new(hydrator, cpu_driver));
-    
+
     let safety_model = Arc::new(RuntimeAsSafetyModel::new(inference_runtime.clone()));
 
     // 4. Workload Config
@@ -118,7 +119,11 @@ async fn main() -> Result<()> {
         state_tree: ioi_types::config::StateTreeType::IAVL,
         commitment_scheme: ioi_types::config::CommitmentSchemeType::Hash,
         consensus_type: ConsensusType::Admft,
-        genesis_file: opts.data_dir.join("genesis.json").to_string_lossy().to_string(),
+        genesis_file: opts
+            .data_dir
+            .join("genesis.json")
+            .to_string_lossy()
+            .to_string(),
         state_file: opts.data_dir.join("state.db").to_string_lossy().to_string(),
         srs_file_path: None,
         fuel_costs: Default::default(),
@@ -148,11 +153,14 @@ async fn main() -> Result<()> {
         tree,
         scheme.clone(),
         workload_config.clone(),
-        None, None, None, None,
+        None,
+        None,
+        None,
+        None,
         Some(os_driver.clone()),
     )
     .await?;
-    
+
     // 6. Start Runtime
     let workload_ipc_addr = "127.0.0.1:8555";
     std::env::set_var("IPC_SERVER_ADDR", workload_ipc_addr);
@@ -199,31 +207,31 @@ async fn main() -> Result<()> {
 
     let consensus_engine = engine_from_config(&config)?;
     let verifier = create_default_verifier(None);
-    
+
     let sk_bytes = local_key.clone().try_into_ed25519()?.secret();
     let internal_sk = Ed25519PrivateKey::from_bytes(sk_bytes.as_ref())?;
     let internal_kp = ioi_crypto::sign::eddsa::Ed25519KeyPair::from_private_key(&internal_sk)?;
-    
+
     // Using Arc<LocalSigner> concrete type for ProviderController constructor
     let local_signer_struct = LocalSigner::new(internal_kp);
     let local_signer_arc = Arc::new(local_signer_struct);
-    
+
     // Cast to trait object for Orchestrator dependencies
     let signer: Arc<dyn ioi_validator::common::GuardianSigner> = local_signer_arc.clone();
 
     // --- NEW: Start Provider API Server ---
     let public_endpoint = format!("http://{}:9090", "127.0.0.1"); // Default local
     let controller = Arc::new(ProviderController::new(local_signer_arc, public_endpoint));
-    
+
     let api_addr: SocketAddr = "0.0.0.0:9090".parse()?;
-    
+
     // Spawn server in background
     tokio::spawn(async move {
         run_provider_server(controller, api_addr).await;
     });
-    
+
     println!("   - Provider API: Active on port 9090");
-    
+
     let deps = OrchestrationDependencies {
         syncer,
         network_event_receiver: network_events,

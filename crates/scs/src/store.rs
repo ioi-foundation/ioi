@@ -10,7 +10,7 @@
 //! - **Cryptographic Lifecycle:** Encryption, Key Shredding, and Epoch Rotation.
 
 use crate::format::{
-    EpochManifest, Frame, FrameId, FrameType, RetentionClass, ScsHeader, Tombstone, Toc,
+    EpochManifest, Frame, FrameId, FrameType, RetentionClass, ScsHeader, Toc, Tombstone,
     VectorIndexManifest, HEADER_SIZE, SCS_VERSION,
 };
 use crate::index::VectorIndex;
@@ -30,7 +30,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use dcrypt::algorithms::aead::chacha20poly1305::ChaCha20Poly1305;
 use dcrypt::algorithms::types::Nonce;
 use dcrypt::api::traits::symmetric::{DecryptOperation, EncryptOperation, SymmetricCipher};
-use rand::{RngCore, thread_rng};
+use rand::{thread_rng, RngCore};
 
 /// Configuration for opening or creating a store.
 #[derive(Debug, Clone)]
@@ -66,18 +66,17 @@ pub struct SovereignContextStore {
     pub skill_index: HashMap<[u8; 32], FrameId>,
 
     // --- Lifecycle State ---
-    
     /// The current active epoch ID.
     pub current_epoch: u64,
-    
+
     /// The identity key (Archival).
     identity_key: [u8; 32],
-    
+
     /// In-memory keyring for Epoch keys.
     /// Maps Epoch ID -> Key.
     /// Absence of a key implies it has been shredded (pruned).
     epoch_keys: HashMap<u64, [u8; 32]>,
-    
+
     /// In-memory keyring for Session keys.
     /// Maps Session ID -> Key.
     session_keys: HashMap<[u8; 32], [u8; 32]>,
@@ -148,10 +147,10 @@ impl SovereignContextStore {
 
     /// Opens an existing .scs file.
     ///
-    /// NOTE: In a real implementation, this would also need to load the `epoch_keys` 
-    /// from a separate secure keystore. For this implementation, we regenerate/mock them 
+    /// NOTE: In a real implementation, this would also need to load the `epoch_keys`
+    /// from a separate secure keystore. For this implementation, we regenerate/mock them
     /// or assume they are managed externally and injected via `with_keys` (not shown).
-    /// For local dev, we restart with empty keys which effectively shreds history on restart 
+    /// For local dev, we restart with empty keys which effectively shreds history on restart
     /// unless we persist them. We default to a fresh epoch key for the *new* epoch.
     pub fn open(path: &Path) -> Result<Self> {
         let mut file = OpenOptions::new().read(true).write(true).open(path)?;
@@ -193,7 +192,7 @@ impl SovereignContextStore {
             if frame.frame_type == FrameType::Skill {
                 skill_index.insert(frame.checksum, frame.id);
             }
-            
+
             if frame.epoch_id > max_epoch {
                 max_epoch = frame.epoch_id;
             }
@@ -205,10 +204,10 @@ impl SovereignContextStore {
         let mut current_key = [0u8; 32];
         thread_rng().fill_bytes(&mut current_key);
         epoch_keys.insert(max_epoch, current_key);
-        
+
         // Mock identity key for open (since it wasn't passed in)
         // In real usage, use a builder pattern to inject keys.
-        let identity_key = [0x1D; 32]; 
+        let identity_key = [0x1D; 32];
 
         Ok(Self {
             file,
@@ -226,7 +225,7 @@ impl SovereignContextStore {
             session_keys: HashMap::new(),
         })
     }
-    
+
     /// Helper to get or create a session key.
     fn get_session_key(&mut self, session_id: &[u8; 32]) -> [u8; 32] {
         if let Some(k) = self.session_keys.get(session_id) {
@@ -254,7 +253,9 @@ impl SovereignContextStore {
         // 1. Select Key based on Retention Policy
         let key = match retention {
             RetentionClass::Ephemeral => self.get_session_key(&session_id),
-            RetentionClass::Epoch => *self.epoch_keys.get(&self.current_epoch)
+            RetentionClass::Epoch => *self
+                .epoch_keys
+                .get(&self.current_epoch)
                 .ok_or_else(|| anyhow!("Current epoch key missing"))?,
             RetentionClass::Archival => self.identity_key,
         };
@@ -262,23 +263,23 @@ impl SovereignContextStore {
         // 2. Encrypt Payload
         let mut iv = [0u8; 12];
         thread_rng().fill_bytes(&mut iv);
-        
+
         // Bind encryption to metadata (AAD)
         let mut aad = Vec::with_capacity(40);
         aad.extend_from_slice(&block_height.to_le_bytes());
         aad.extend_from_slice(&session_id);
-        
+
         let cipher = ChaCha20Poly1305::new(&key);
         let nonce = Nonce::new(iv);
-        
+
         let ciphertext_obj = SymmetricCipher::encrypt(&cipher)
             .with_nonce(&nonce)
             .with_aad(&aad)
             .encrypt(payload)
             .map_err(|e| anyhow!("Encryption failed: {}", e))?;
-            
+
         let ciphertext = ciphertext_obj.as_ref();
-        
+
         // 3. Calculate Frame Metadata
         let next_id = self.toc.frames.len() as u64;
         let timestamp = SystemTime::now()
@@ -369,10 +370,10 @@ impl SovereignContextStore {
 
         // 2. Resolve Key
         let key = match frame.retention {
-            RetentionClass::Ephemeral => {
-                self.session_keys.get(&frame.session_id)
-                    .ok_or_else(|| anyhow!("Session closed (Key shredded)"))?
-            },
+            RetentionClass::Ephemeral => self
+                .session_keys
+                .get(&frame.session_id)
+                .ok_or_else(|| anyhow!("Session closed (Key shredded)"))?,
             RetentionClass::Epoch => {
                 match self.epoch_keys.get(&frame.epoch_id) {
                     Some(k) => k,
@@ -387,10 +388,14 @@ impl SovereignContextStore {
                         };
                         // We return string error here for compatibility with existing APIs,
                         // but in a typed API we would return a Tombstone variant.
-                        return Err(anyhow!("TOMBSTONE: Data shredded (Epoch {}). Hash: {}", frame.epoch_id, hex::encode(ts.payload_hash)));
+                        return Err(anyhow!(
+                            "TOMBSTONE: Data shredded (Epoch {}). Hash: {}",
+                            frame.epoch_id,
+                            hex::encode(ts.payload_hash)
+                        ));
                     }
                 }
-            },
+            }
             RetentionClass::Archival => &self.identity_key,
         };
 
@@ -432,7 +437,7 @@ impl SovereignContextStore {
 
         // Append as System Frame (Archival retention for index)
         // We track it in the TOC header rather than just a frame.
-        
+
         // 1. Write Payload
         let write_offset = self.header.toc_offset;
         self.file.seek(SeekFrom::Start(write_offset))?;
@@ -483,7 +488,7 @@ impl SovereignContextStore {
             let start = manifest.offset as usize;
             let end = start + manifest.length as usize;
             if end > mmap.len() {
-                 return Err(anyhow!("Index artifact out of bounds"));
+                return Err(anyhow!("Index artifact out of bounds"));
             }
             let bytes = &mmap[start..end];
             let artifact: crate::index::VectorIndexArtifact = bincode::deserialize(bytes)?;
@@ -503,12 +508,12 @@ impl SovereignContextStore {
     /// Returns the `EpochManifest` for the completed epoch.
     pub fn rotate_epoch(&mut self) -> Result<EpochManifest> {
         let old_epoch = self.current_epoch;
-        
+
         // 1. Snapshot Stats for old epoch
         let mut total_frames = 0;
         let mut type_counts = std::collections::BTreeMap::new();
         let mut frames_digest_input = Vec::new();
-        
+
         // Iterate all frames in memory to build manifest
         // (In prod, iterate only frames belonging to old_epoch)
         for frame in &self.toc.frames {
@@ -518,17 +523,17 @@ impl SovereignContextStore {
                 frames_digest_input.extend_from_slice(&frame.checksum);
             }
         }
-        
+
         let frames_root_digest = sha256(&frames_digest_input)?;
         let mut frames_root = [0u8; 32];
         frames_root.copy_from_slice(frames_root_digest.as_ref());
-        
+
         // 2. Generate key for NEW epoch
         self.current_epoch += 1;
         let mut new_key = [0u8; 32];
         thread_rng().fill_bytes(&mut new_key);
         self.epoch_keys.insert(self.current_epoch, new_key);
-        
+
         // 3. Construct Manifest
         let manifest = EpochManifest {
             epoch_id: old_epoch,
@@ -537,24 +542,24 @@ impl SovereignContextStore {
             total_frames,
             type_counts,
             receipt_root: [0u8; 32], // TODO: Aggregate receipts
-            overlay_frame_id: None, // TODO: Link if overlay was created
+            overlay_frame_id: None,  // TODO: Link if overlay was created
         };
-        
+
         // 4. Record Manifest frame (System Type, Archival Retention)
         let manifest_bytes = bincode::serialize(&manifest)?;
         self.append_frame(
-            FrameType::System, 
-            &manifest_bytes, 
-            0, 
-            [0;32], 
-            [0;32], 
-            RetentionClass::Archival
+            FrameType::System,
+            &manifest_bytes,
+            0,
+            [0; 32],
+            [0; 32],
+            RetentionClass::Archival,
         )?;
-        
+
         // 5. Update Index of Epochs
         // We should add `epochs` map to TOC but for now we just log it.
         // self.toc.epochs.insert(old_epoch, frame_id);
-        
+
         Ok(manifest)
     }
 
@@ -563,7 +568,10 @@ impl SovereignContextStore {
         if self.epoch_keys.remove(&epoch_id).is_some() {
             log::info!("SCS: Pruned Epoch {}. Keys shredded.", epoch_id);
         } else {
-            log::warn!("SCS: Attempted to prune Epoch {}, but key was already missing.", epoch_id);
+            log::warn!(
+                "SCS: Attempted to prune Epoch {}, but key was already missing.",
+                epoch_id
+            );
         }
     }
 }

@@ -33,7 +33,7 @@ impl Sortition {
         // This is deterministic and unique per node, but not verifiable without PK.
         // Protocol Apex requires Verifiability.
         // We assume the signature IS the proof in this simplified model.
-        
+
         let output = sha256(&input).unwrap().to_vec();
         let proof = output.clone(); // In real VRF, proof != output
 
@@ -43,19 +43,21 @@ impl Sortition {
     /// Verifies a VRF proof from another node.
     pub fn verify(_public_key: &[u8], _seed: &[u8], _round: u64, _proof: &[u8]) -> bool {
         // Validation stub. Real ECVRF verification goes here.
-        true 
+        true
     }
 
     /// Determines if the node is eligible for the committee based on VRF output.
     /// Threshold is normalized [0.0, 1.0].
     pub fn is_eligible(vrf_output: &[u8], threshold: f64) -> bool {
         // Treat first 8 bytes as u64 and normalize
-        if vrf_output.len() < 8 { return false; }
-        
+        if vrf_output.len() < 8 {
+            return false;
+        }
+
         let mut bytes = [0u8; 8];
         bytes.copy_from_slice(&vrf_output[0..8]);
         let val = u64::from_le_bytes(bytes);
-        
+
         let normalized = val as f64 / u64::MAX as f64;
         normalized < threshold
     }

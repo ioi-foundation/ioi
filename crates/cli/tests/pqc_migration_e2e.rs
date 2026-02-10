@@ -8,11 +8,11 @@ use anyhow::{anyhow, Result};
 use ioi_api::crypto::{SerializableKey, SigningKeyPair};
 use ioi_crypto::security::SecurityLevel;
 // [FIX] Update to Mldsa types
-use ioi_crypto::sign::{dilithium::MldsaKeyPair, dilithium::MldsaScheme, eddsa::Ed25519KeyPair};
 use ioi_cli::testing::{
     add_genesis_identity_custom, build_test_artifacts, rpc::query_state_key, submit_transaction,
     wait_for_height, TestCluster,
 };
+use ioi_crypto::sign::{dilithium::MldsaKeyPair, dilithium::MldsaScheme, eddsa::Ed25519KeyPair};
 use ioi_services::{governance::VoteParams, identity::RotateKeyParams};
 use ioi_types::{
     app::{
@@ -224,12 +224,12 @@ async fn test_pqc_identity_migration_lifecycle() -> Result<()> {
                 &1u64.to_le_bytes(),
             ]
             .concat();
-            
+
             let entry = StateEntry {
                 value: codec::to_bytes_canonical(&proposal).unwrap(),
                 block_height: 0,
             };
-            
+
             // Use typed insertion
             builder.insert_typed(proposal_key_bytes, &entry);
         })

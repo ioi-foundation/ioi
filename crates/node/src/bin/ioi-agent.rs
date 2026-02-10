@@ -3,21 +3,21 @@
 
 use anyhow::{anyhow, Result};
 use clap::Parser;
-use std::sync::Arc;
 use std::path::PathBuf;
+use std::sync::Arc;
 use tokio::time::Duration;
 
 // IOI Imports
-use ioi_api::vm::inference::{HttpInferenceRuntime, InferenceRuntime};
 use ioi_api::vm::drivers::os::OsDriver;
-use ioi_drivers::os::NativeOsDriver;
-use ioi_drivers::gui::IoiGuiDriver;
+use ioi_api::vm::inference::{HttpInferenceRuntime, InferenceRuntime};
 use ioi_drivers::browser::BrowserDriver;
+use ioi_drivers::gui::IoiGuiDriver;
+use ioi_drivers::os::NativeOsDriver;
 use ioi_drivers::terminal::TerminalDriver;
 use ioi_scs::{SovereignContextStore, StoreConfig};
 use ioi_services::agentic::desktop::DesktopAgentService;
 use ioi_services::market::licensing::LicenseVerifier;
-use ioi_types::app::{AccountId, SignatureSuite, account_id_from_key_material};
+use ioi_types::app::{account_id_from_key_material, AccountId, SignatureSuite};
 use ioi_validator::common::GuardianContainer;
 use libp2p::identity;
 
@@ -34,9 +34,13 @@ struct AgentOpts {
     data_dir: PathBuf,
 
     /// RPC URL of the IOI Mainnet for license verification
-    #[clap(long, env = "IOI_MAINNET_RPC", default_value = "https://rpc.ioi.network")]
+    #[clap(
+        long,
+        env = "IOI_MAINNET_RPC",
+        default_value = "https://rpc.ioi.network"
+    )]
     mainnet_rpc: String,
-    
+
     #[clap(long)]
     headless: bool,
 }
@@ -60,18 +64,23 @@ async fn main() -> Result<()> {
         kp
     };
     let pubkey_bytes = keypair.public().encode_protobuf();
-    let account_id = AccountId(account_id_from_key_material(SignatureSuite::ED25519, &pubkey_bytes)?);
+    let account_id = AccountId(account_id_from_key_material(
+        SignatureSuite::ED25519,
+        &pubkey_bytes,
+    )?);
     println!("🔑 User ID: 0x{}", hex::encode(account_id));
 
     // 2. Parse Manifest & Asset Hash
     // If manifest bytes are empty (dev build), error out.
     if MANIFEST_BYTES.is_empty() {
-        return Err(anyhow!("Binary was built without an embedded manifest. Use `ioi-cli pack`."));
+        return Err(anyhow!(
+            "Binary was built without an embedded manifest. Use `ioi-cli pack`."
+        ));
     }
-    
+
     let manifest: ioi_types::app::agentic::AgentManifest = toml::from_slice(MANIFEST_BYTES)
         .map_err(|e| anyhow!("Corrupt embedded workflow: {}", e))?;
-        
+
     let asset_bytes = ioi_types::codec::to_bytes_canonical(&manifest).unwrap();
     let asset_hash_res = ioi_crypto::algorithms::hash::sha256(&asset_bytes)?;
     let mut asset_hash = [0u8; 32];
@@ -84,19 +93,22 @@ async fn main() -> Result<()> {
     // Fetch current root from RPC (Bootstrap trust anchor)
     // In production, this might be pinned in the binary or fetched via light client.
     let client = ioi_client::WorkloadClient::new(&opts.mainnet_rpc, "", "", "").await?;
-    let trusted_root = client.get_state_root().await?; 
-    
+    let trusted_root = client.get_state_root().await?;
+
     let verifier = LicenseVerifier::new(opts.mainnet_rpc.clone(), trusted_root.0);
-    
+
     println!("🌐 Verifying license on Mainnet...");
     match verifier.verify_license(account_id, asset_hash).await {
         Ok(true) => println!("✅ License Verified (Merkle Proof Valid)."),
         Ok(false) => {
             println!("❌ ACCESS DENIED: You do not own a license for this agent.");
-            println!("   Please purchase it at: https://market.ioi.network/asset/0x{}", hex::encode(asset_hash));
-            // In a real build, we would exit here. 
+            println!(
+                "   Please purchase it at: https://market.ioi.network/asset/0x{}",
+                hex::encode(asset_hash)
+            );
+            // In a real build, we would exit here.
             // std::process::exit(1);
-        },
+        }
         Err(e) => {
             println!("⚠️  License Error: {}", e);
             // Decide fail-open or fail-closed based on config
@@ -110,11 +122,11 @@ async fn main() -> Result<()> {
     identity_key.copy_from_slice(ed_kp.secret().as_ref());
 
     let scs_config = StoreConfig {
-        chain_id: 0, 
+        chain_id: 0,
         owner_id: account_id.0,
         identity_key,
     };
-    
+
     let scs = if scs_path.exists() {
         SovereignContextStore::open(&scs_path)?
     } else {
@@ -124,54 +136,62 @@ async fn main() -> Result<()> {
 
     // 5. Initialize Drivers & Lenses
     let os_driver = Arc::new(NativeOsDriver::new());
-    
+
     // Initialize GUI driver mutably to register lenses
     let mut gui_driver_struct = IoiGuiDriver::new()
         .with_scs(scs_arc.clone())
-        .with_som(true) 
+        .with_som(true)
         .with_os_driver(os_driver.clone());
-        
+
     // Register Custom Lenses from Manifest
     for lens_manifest in &manifest.custom_lenses {
         match lens_manifest {
             ioi_types::app::agentic::LensManifest::V1(config) => {
-                 let driver_config = ioi_drivers::gui::lenses::custom::LensConfig {
-                     app_name: config.app_name.clone(),
-                     mappings: config.mappings.iter().map(|(k, v)| {
-                         (k.clone(), ioi_drivers::gui::lenses::custom::ElementSelector {
-                             role: v.role.clone(),
-                             name_contains: v.name_contains.clone(),
-                             id_pattern: v.id_pattern.clone(),
-                         })
-                     }).collect(),
-                 };
-                 let lens = Box::new(ioi_drivers::gui::lenses::custom::ConfigurableLens::new(driver_config));
-                 gui_driver_struct.register_lens(lens);
-                 log::info!("Registered custom UI lens for '{}'", config.app_name);
+                let driver_config = ioi_drivers::gui::lenses::custom::LensConfig {
+                    app_name: config.app_name.clone(),
+                    mappings: config
+                        .mappings
+                        .iter()
+                        .map(|(k, v)| {
+                            (
+                                k.clone(),
+                                ioi_drivers::gui::lenses::custom::ElementSelector {
+                                    role: v.role.clone(),
+                                    name_contains: v.name_contains.clone(),
+                                    id_pattern: v.id_pattern.clone(),
+                                },
+                            )
+                        })
+                        .collect(),
+                };
+                let lens = Box::new(ioi_drivers::gui::lenses::custom::ConfigurableLens::new(
+                    driver_config,
+                ));
+                gui_driver_struct.register_lens(lens);
+                log::info!("Registered custom UI lens for '{}'", config.app_name);
             }
         }
     }
-    
+
     let gui_driver = Arc::new(gui_driver_struct);
     let browser_driver = Arc::new(BrowserDriver::new());
     let terminal_driver = Arc::new(TerminalDriver::new());
 
     // 6. Initialize Inference
-    let inference_runtime: Arc<dyn InferenceRuntime> = 
-        Arc::new(HttpInferenceRuntime::new(
-            "https://api.openai.com/v1/chat/completions".into(),
-            std::env::var("OPENAI_API_KEY").unwrap_or_default(),
-            manifest.model_selector.clone()
-        ));
+    let inference_runtime: Arc<dyn InferenceRuntime> = Arc::new(HttpInferenceRuntime::new(
+        "https://api.openai.com/v1/chat/completions".into(),
+        std::env::var("OPENAI_API_KEY").unwrap_or_default(),
+        manifest.model_selector.clone(),
+    ));
 
     // 7. Start Embedded App (if enabled)
     if manifest.has_embedded_app && !opts.headless {
         let host = ioi_services::agentic::desktop::host::EmbeddedAppHost::start().await?;
         let entry = manifest.app_entrypoint.as_deref().unwrap_or("/");
         let url = format!("{}{}", host.get_url(), entry);
-        
+
         println!("🖥️  Launching Embedded Interface: {}", url);
-        
+
         // Note: In headless mode we skip the UI, but the host might still be needed for API access
         if !opts.headless {
             browser_driver.navigate(&url).await?;
@@ -184,14 +204,14 @@ async fn main() -> Result<()> {
         terminal_driver,
         browser_driver,
         inference_runtime.clone(),
-        inference_runtime.clone()
+        inference_runtime.clone(),
     )
     .with_scs(scs_arc.clone())
     .with_os_driver(os_driver.clone())
     .with_workspace_path(opts.data_dir.to_string_lossy().to_string());
 
     println!("🚀 Service-as-a-Software Active.");
-    
+
     // Keep alive
     loop {
         tokio::time::sleep(Duration::from_secs(1)).await;

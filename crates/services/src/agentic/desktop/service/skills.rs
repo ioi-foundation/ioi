@@ -6,11 +6,11 @@ use ioi_types::app::agentic::{AgentMacro, AgentSkill, SkillStats};
 use ioi_types::codec;
 use ioi_types::error::TransactionError;
 // [FIX] Import keys from local desktop module, not ioi_types
-use crate::agentic::desktop::keys::{SKILL_INDEX_PREFIX, get_skill_stats_key, TRACE_PREFIX};
+use crate::agentic::desktop::keys::{get_skill_stats_key, SKILL_INDEX_PREFIX, TRACE_PREFIX};
+use hex;
 use ioi_types::app::agentic::StepTrace;
 use serde_json::Value;
 use std::collections::HashSet;
-use hex;
 
 pub async fn recall_skills(
     _service: &DesktopAgentService,
@@ -47,13 +47,15 @@ pub fn fetch_skill_macro(
             let payloads = store.scan_skills();
             for p in payloads {
                 if let Ok(skill) = codec::from_bytes_canonical::<AgentMacro>(&p) {
-                        if skill.definition.name == tool_name || skill.definition.name.ends_with(&format!("__{}", tool_name)) {
-                            if let Ok(hash) = ioi_crypto::algorithms::hash::sha256(&p) {
-                                let mut arr = [0u8; 32];
-                                arr.copy_from_slice(hash.as_ref());
-                                return Some((skill, arr));
-                            }
+                    if skill.definition.name == tool_name
+                        || skill.definition.name.ends_with(&format!("__{}", tool_name))
+                    {
+                        if let Ok(hash) = ioi_crypto::algorithms::hash::sha256(&p) {
+                            let mut arr = [0u8; 32];
+                            arr.copy_from_slice(hash.as_ref());
+                            return Some((skill, arr));
                         }
+                    }
                 }
             }
         }
@@ -79,8 +81,8 @@ pub fn expand_macro(
 
         let mut new_step = step.clone();
         new_step.params = new_params;
-        new_step.nonce = 0; 
-        
+        new_step.nonce = 0;
+
         expanded_steps.push(new_step);
     }
 
@@ -91,23 +93,23 @@ fn interpolate_values(target: &mut Value, args: &serde_json::Map<String, Value>)
     match target {
         Value::String(s) => {
             if s.starts_with("{{") && s.ends_with("}}") {
-                let key = &s[2..s.len()-2];
+                let key = &s[2..s.len() - 2];
                 if let Some(val) = args.get(key) {
                     *target = val.clone();
                     return;
                 }
             }
-        },
+        }
         Value::Array(arr) => {
             for item in arr {
                 interpolate_values(item, args);
             }
-        },
+        }
         Value::Object(map) => {
             for val in map.values_mut() {
                 interpolate_values(val, args);
             }
-        },
+        }
         _ => {}
     }
 }
@@ -119,11 +121,14 @@ pub async fn update_skill_reputation(
     session_success: bool,
     block_height: u64,
 ) -> Result<(), TransactionError> {
-    let _scs_mutex = service.scs.as_ref().ok_or(TransactionError::Invalid("SCS required".into()))?;
-    
+    let _scs_mutex = service
+        .scs
+        .as_ref()
+        .ok_or(TransactionError::Invalid("SCS required".into()))?;
+
     let prefix = [TRACE_PREFIX, session_id.as_slice()].concat();
     let mut unique_skills = HashSet::new();
-    
+
     if let Ok(iter) = state.prefix_scan(&prefix) {
         for item in iter {
             if let Ok((_, val)) = item {
@@ -135,12 +140,16 @@ pub async fn update_skill_reputation(
             }
         }
     }
-    
+
     if unique_skills.is_empty() {
         return Ok(());
     }
 
-    log::info!("Updating reputation for {} skills used in session (Success: {})", unique_skills.len(), session_success);
+    log::info!(
+        "Updating reputation for {} skills used in session (Success: {})",
+        unique_skills.len(),
+        session_success
+    );
 
     for hash in unique_skills {
         let key = get_skill_stats_key(&hash);
@@ -152,19 +161,24 @@ pub async fn update_skill_reputation(
 
         stats.uses += 1;
         stats.last_used_height = block_height;
-        
+
         if session_success {
             stats.successes += 1;
         } else {
             stats.failures += 1;
         }
-        
-        let estimated_cost = 1000; 
-        stats.avg_cost = (stats.avg_cost * (stats.uses as u64 - 1) + estimated_cost) / stats.uses as u64;
+
+        let estimated_cost = 1000;
+        stats.avg_cost =
+            (stats.avg_cost * (stats.uses as u64 - 1) + estimated_cost) / stats.uses as u64;
 
         state.insert(&key, &codec::to_bytes_canonical(&stats)?)?;
-        
-        log::info!("Skill 0x{} reliability: {:.2}", hex::encode(&hash[0..4]), stats.reliability());
+
+        log::info!(
+            "Skill 0x{} reliability: {:.2}",
+            hex::encode(&hash[0..4]),
+            stats.reliability()
+        );
     }
 
     Ok(())

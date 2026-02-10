@@ -6,6 +6,8 @@ pub const TRACE_PREFIX: &[u8] = b"agent::trace::";
 pub const AGENT_POLICY_PREFIX: &[u8] = b"agent::policy::";
 // [NEW] Prefix for mutable skill statistics
 pub const SKILL_STATS_PREFIX: &[u8] = b"skills::stats::";
+// [NEW] Prefix for the latest mutation receipt pointer for a session.
+pub const MUTATION_RECEIPT_PTR_PREFIX: &[u8] = b"agent::mutation_receipt_ptr::";
 
 // [NEW] Prefix for storing results of completed child sessions
 // Key: session::result::{child_session_id}
@@ -25,4 +27,8 @@ pub fn get_skill_stats_key(skill_hash: &[u8; 32]) -> Vec<u8> {
 
 pub fn get_session_result_key(session_id: &[u8; 32]) -> Vec<u8> {
     [SESSION_RESULT_PREFIX, session_id.as_slice()].concat()
+}
+
+pub fn get_mutation_receipt_ptr_key(session_id: &[u8; 32]) -> Vec<u8> {
+    [MUTATION_RECEIPT_PTR_PREFIX, session_id.as_slice()].concat()
 }

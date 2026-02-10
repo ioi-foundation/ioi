@@ -26,18 +26,18 @@ async fn fetch_peer_count(metrics_addr: &str) -> String {
     match reqwest::get(&url).await {
         Ok(resp) => {
             if let Ok(text) = resp.text().await {
-                 for line in text.lines() {
-                     // Prometheus metric format: ioi_networking_connected_peers 2
-                     if line.starts_with("ioi_networking_connected_peers ") {
-                         return line.split_whitespace().last().unwrap_or("?").to_string();
-                     }
-                 }
-                 "0".to_string() // Metric missing implies 0 or not yet reported
+                for line in text.lines() {
+                    // Prometheus metric format: ioi_networking_connected_peers 2
+                    if line.starts_with("ioi_networking_connected_peers ") {
+                        return line.split_whitespace().last().unwrap_or("?").to_string();
+                    }
+                }
+                "0".to_string() // Metric missing implies 0 or not yet reported
             } else {
                 "Err".to_string()
             }
         }
-        Err(_) => "Down".to_string()
+        Err(_) => "Down".to_string(),
     }
 }
 
@@ -267,63 +267,62 @@ impl TestClusterBuilder {
         validator_keys.sort_by(|a, b| {
             let pk_a = a.public().encode_protobuf();
             let pk_b = b.public().encode_protobuf();
-            let id_a = account_id_from_key_material(
-                SignatureSuite::ED25519,
-                &pk_a,
-            )
-            .unwrap_or([0; 32]);
-            let id_b = account_id_from_key_material(
-                SignatureSuite::ED25519,
-                &pk_b,
-            )
-            .unwrap_or([0; 32]);
+            let id_a =
+                account_id_from_key_material(SignatureSuite::ED25519, &pk_a).unwrap_or([0; 32]);
+            let id_b =
+                account_id_from_key_material(SignatureSuite::ED25519, &pk_b).unwrap_or([0; 32]);
             id_a.cmp(&id_b)
         });
 
         // [FIX] Insert default genesis configuration to register validators
         // and set block timing. This ensures nodes don't stall on startup.
-        self.genesis_modifiers.insert(0, Box::new(|builder: &mut GenesisBuilder, keys: &Vec<identity::Keypair>| {
-            let mut validators = Vec::new();
-            for key in keys {
-                let account_id = builder.add_identity(key);
-                validators.push(ValidatorV1 {
-                    account_id,
-                    weight: 1,
-                    consensus_key: ActiveKeyRecord {
-                        suite: SignatureSuite::ED25519,
-                        public_key_hash: account_id.0,
-                        since_height: 0,
-                    },
-                });
-            }
-            
-            // Sort to ensure canonical order
-            validators.sort_by(|a, b| a.account_id.cmp(&b.account_id));
+        self.genesis_modifiers.insert(
+            0,
+            Box::new(
+                |builder: &mut GenesisBuilder, keys: &Vec<identity::Keypair>| {
+                    let mut validators = Vec::new();
+                    for key in keys {
+                        let account_id = builder.add_identity(key);
+                        validators.push(ValidatorV1 {
+                            account_id,
+                            weight: 1,
+                            consensus_key: ActiveKeyRecord {
+                                suite: SignatureSuite::ED25519,
+                                public_key_hash: account_id.0,
+                                since_height: 0,
+                            },
+                        });
+                    }
 
-            let vs = ValidatorSetsV1 {
-                current: ValidatorSetV1 {
-                    effective_from_height: 1,
-                    total_weight: validators.iter().map(|v| v.weight).sum(),
-                    validators,
+                    // Sort to ensure canonical order
+                    validators.sort_by(|a, b| a.account_id.cmp(&b.account_id));
+
+                    let vs = ValidatorSetsV1 {
+                        current: ValidatorSetV1 {
+                            effective_from_height: 1,
+                            total_weight: validators.iter().map(|v| v.weight).sum(),
+                            validators,
+                        },
+                        next: None,
+                    };
+                    builder.set_validators(&vs);
+
+                    // Set default block timing (1s blocks for fast tests)
+                    let timing_params = BlockTimingParams {
+                        base_interval_secs: 1,
+                        min_interval_secs: 1,
+                        max_interval_secs: 5,
+                        target_gas_per_block: 10_000_000,
+                        ..Default::default()
+                    };
+                    let timing_runtime = BlockTimingRuntime {
+                        effective_interval_secs: 1,
+                        ema_gas_used: 0,
+                    };
+                    builder.set_block_timing(&timing_params, &timing_runtime);
                 },
-                next: None,
-            };
-            builder.set_validators(&vs);
-
-            // Set default block timing (1s blocks for fast tests)
-            let timing_params = BlockTimingParams {
-                base_interval_secs: 1,
-                min_interval_secs: 1,
-                max_interval_secs: 5,
-                target_gas_per_block: 10_000_000,
-                ..Default::default()
-            };
-            let timing_runtime = BlockTimingRuntime {
-                effective_interval_secs: 1,
-                ema_gas_used: 0,
-            };
-            builder.set_block_timing(&timing_params, &timing_runtime);
-        }));
+            ),
+        );
 
         let mut builder = GenesisBuilder::new();
         for modifier in self.genesis_modifiers.drain(..) {
@@ -453,16 +452,10 @@ impl TestClusterBuilder {
         validators.sort_by(|a, b| {
             let pk_a = a.validator().keypair.public().encode_protobuf();
             let pk_b = b.validator().keypair.public().encode_protobuf();
-            let id_a = account_id_from_key_material(
-                SignatureSuite::ED25519,
-                &pk_a,
-            )
-            .unwrap_or([0; 32]);
-            let id_b = account_id_from_key_material(
-                SignatureSuite::ED25519,
-                &pk_b,
-            )
-            .unwrap_or([0; 32]);
+            let id_a =
+                account_id_from_key_material(SignatureSuite::ED25519, &pk_a).unwrap_or([0; 32]);
+            let id_b =
+                account_id_from_key_material(SignatureSuite::ED25519, &pk_b).unwrap_or([0; 32]);
             id_a.cmp(&id_b)
         });
 
@@ -470,7 +463,7 @@ impl TestClusterBuilder {
             // [FIX] Relax sync requirement to Height 1 to pass in potentially partitioned test environments.
             // Height 1 confirms genesis loading and bootnode sync.
             println!("--- Waiting for cluster to sync to height 1 ---");
-            
+
             // [DEBUG] Parallel wait with status logging
             let timeout = Duration::from_secs(180); // Increased for 4-node
             let start = std::time::Instant::now();
@@ -490,20 +483,24 @@ impl TestClusterBuilder {
                 for (i, v_guard) in validators.iter().enumerate() {
                     let rpc_addr = &v_guard.validator().rpc_addr;
                     let metrics_addr = &v_guard.validator().orchestration_telemetry_addr;
-                    
+
                     let peers = fetch_peer_count(metrics_addr).await;
 
                     // Use the existing rpc helper
                     match crate::testing::rpc::get_status(rpc_addr).await {
                         Ok(status) => {
-                            status_lines.push(format!("Node {}: Height={} Peers={} Ts={}", i, status.height, peers, status.latest_timestamp));
+                            status_lines.push(format!(
+                                "Node {}: Height={} Peers={} Ts={}",
+                                i, status.height, peers, status.latest_timestamp
+                            ));
                             // [FIX] Check for Height 1 instead of 2
                             if status.height < 1 {
                                 all_reached = false;
                             }
                         }
                         Err(e) => {
-                            status_lines.push(format!("Node {}: RPC Error {} (Peers={})", i, e, peers));
+                            status_lines
+                                .push(format!("Node {}: RPC Error {} (Peers={})", i, e, peers));
                             all_reached = false;
                         }
                     }
@@ -514,16 +511,20 @@ impl TestClusterBuilder {
                     break;
                 }
 
-                println!("[Sync Wait {:?}] Status:\n{}", start.elapsed(), status_lines.join("\n"));
+                println!(
+                    "[Sync Wait {:?}] Status:\n{}",
+                    start.elapsed(),
+                    status_lines.join("\n")
+                );
             }
-            
+
             if !sync_success {
-                 for guard in validators {
-                     let _ = guard.shutdown().await;
-                 }
-                 return Err(anyhow::anyhow!("Timeout waiting for cluster sync"));
+                for guard in validators {
+                    let _ = guard.shutdown().await;
+                }
+                return Err(anyhow::anyhow!("Timeout waiting for cluster sync"));
             }
-            
+
             println!("--- All nodes synced. Cluster is ready. ---");
         }
 

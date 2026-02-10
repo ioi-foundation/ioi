@@ -3,13 +3,13 @@
 use anyhow::Result;
 use clap::{Parser, Subcommand};
 use ioi_types::config::{
-    CommitmentSchemeType, ConsensusType, ConnectorConfig, InferenceConfig,
+    CommitmentSchemeType, ConnectorConfig, ConsensusType, InferenceConfig, McpConfigEntry,
     OrchestrationConfig, RpcHardeningConfig, StateTreeType, ValidatorRole, VmFuelCosts,
-    WorkloadConfig, ZkConfig, McpConfigEntry,
+    WorkloadConfig, ZkConfig,
 };
+use std::collections::HashMap;
 use std::fs;
 use std::path::PathBuf;
-use std::collections::HashMap;
 
 #[derive(Parser, Debug)]
 pub struct ConfigCmdArgs {
@@ -61,7 +61,7 @@ pub fn run(args: ConfigCmdArgs) -> Result<()> {
 
             // [NEW] Default MCP Server Configuration
             let mut mcp_servers = HashMap::new();
-            
+
             // Example: Filesystem MCP
             // This assumes 'npx' is available in the environment.
             // It mounts the current directory as an allowed path.
@@ -75,7 +75,7 @@ pub fn run(args: ConfigCmdArgs) -> Result<()> {
                         "./".to_string(), // Allow access to current directory
                     ],
                     env: HashMap::new(),
-                }
+                },
             );
 
             let workload_cfg = WorkloadConfig {

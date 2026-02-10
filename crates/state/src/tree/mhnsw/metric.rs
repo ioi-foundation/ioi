@@ -1,7 +1,7 @@
 // Path: crates/state/src/tree/mhnsw/metric.rs
 
-use serde::{Deserialize, Serialize};
 use parity_scale_codec::{Decode, Encode};
+use serde::{Deserialize, Serialize};
 
 /// A dense float vector.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Encode, Decode)]
@@ -33,11 +33,11 @@ impl DistanceMetric for CosineSimilarity {
         let dot: f32 = a.0.iter().zip(b.0.iter()).map(|(x, y)| x * y).sum();
         let norm_a: f32 = a.0.iter().map(|x| x.powi(2)).sum::<f32>().sqrt();
         let norm_b: f32 = b.0.iter().map(|x| x.powi(2)).sum::<f32>().sqrt();
-        
+
         if norm_a == 0.0 || norm_b == 0.0 {
             return 1.0;
         }
-        
+
         // Convert similarity (1.0 is best) to distance (0.0 is best)
         1.0 - (dot / (norm_a * norm_b))
     }

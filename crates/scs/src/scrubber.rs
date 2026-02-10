@@ -122,14 +122,13 @@ impl<'a> ScsExporter<'a> {
 
         // 2. Identify Content Type (Heuristic)
         // [FIX] Explicit type annotation for the tuple
-        let (scrubbed_bytes, redaction_map): (Vec<u8>, RedactionMap) = 
-        if let Ok(text) = String::from_utf8(raw_bytes.clone())
-        {
-            let (clean_text, map) = self.scrubber.scrub(&text).await?;
-            (clean_text.into_bytes(), map)
-        } else {
-            (raw_bytes, RedactionMap { entries: vec![] })
-        };
+        let (scrubbed_bytes, redaction_map): (Vec<u8>, RedactionMap) =
+            if let Ok(text) = String::from_utf8(raw_bytes.clone()) {
+                let (clean_text, map) = self.scrubber.scrub(&text).await?;
+                (clean_text.into_bytes(), map)
+            } else {
+                (raw_bytes, RedactionMap { entries: vec![] })
+            };
 
         // 3. Generate Provenance Proof (Merkle Path from Frame -> SCS Root)
         let slice_id_digest = sha256(&scrubbed_bytes)?;
@@ -139,14 +138,14 @@ impl<'a> ScsExporter<'a> {
         let frame = self.store.toc.frames.get(frame_id as usize).unwrap();
         let mut proof_data = Vec::new();
         proof_data.extend_from_slice(&frame.mhnsw_root);
-        proof_data.extend_from_slice(&frame.checksum); 
+        proof_data.extend_from_slice(&frame.checksum);
 
         let slice = ContextSlice {
             slice_id,
-            frame_id: frame_id,                
-            chunks: vec![scrubbed_bytes],      
-            mhnsw_root: frame.mhnsw_root,      
-            traversal_proof: Some(proof_data), 
+            frame_id: frame_id,
+            chunks: vec![scrubbed_bytes],
+            mhnsw_root: frame.mhnsw_root,
+            traversal_proof: Some(proof_data),
             intent_id: intent_hash,
         };
 

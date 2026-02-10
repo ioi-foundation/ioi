@@ -105,9 +105,8 @@ impl VerifiedHttpRuntime {
 
         match self.provider.as_str() {
             "openai" => {
-                let content = json["choices"][0]["message"]["content"]
-                    .as_str();
-                
+                let content = json["choices"][0]["message"]["content"].as_str();
+
                 if let Some(c) = content {
                     Ok(c.as_bytes().to_vec())
                 } else {
@@ -155,7 +154,7 @@ impl InferenceRuntime for VerifiedHttpRuntime {
             method: "POST".into(),
             body: request_body,
             secret_id: self.key_ref.clone(),
-            json_patch_path: String::new(), 
+            json_patch_path: String::new(),
         };
 
         let resp = client

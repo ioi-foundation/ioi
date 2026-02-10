@@ -158,7 +158,7 @@ pub fn service_interface(args: TokenStream, input: TokenStream) -> TokenStream {
 
                 if let Some(p_type) = param_type {
                     if is_async {
-                         match_arms.push(quote! {
+                        match_arms.push(quote! {
                             #method_str => {
                                 let p: #p_type = ioi_types::codec::from_bytes_canonical(params)?;
                                 self.#method_name(state, p, ctx)
@@ -181,7 +181,7 @@ pub fn service_interface(args: TokenStream, input: TokenStream) -> TokenStream {
                     // Method with no params argument?
                     // If signature is (&self, state, ctx)
                     if is_async {
-                         match_arms.push(quote! {
+                        match_arms.push(quote! {
                             #method_str => {
                                  self.#method_name(state, ctx)
                                     .await

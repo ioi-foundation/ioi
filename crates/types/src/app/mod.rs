@@ -251,7 +251,6 @@ pub struct BlockHeader {
     /// Links this block signature to the previous signature history.
     pub oracle_trace_hash: [u8; 32],
     // ------------------------------------------
-
     /// Proof that the PARENT block was accepted by the network.
     /// This provides the "chaining" of security in Chained BFT.
     /// A valid QC proves that >= 2/3 of validators voted for parent_hash.

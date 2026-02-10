@@ -18,18 +18,18 @@ use ioi_types::app::{ActionRequest, ContextSlice};
 use ioi_types::codec;
 use ioi_types::error::VmError;
 use serde_json::json;
+use std::collections::HashMap;
 use std::path::Path;
 use std::sync::{Arc, Mutex};
-use std::collections::HashMap;
 
 use image::{ImageBuffer, ImageFormat, Rgba};
 use std::io::Cursor;
 
-use ioi_drivers::mcp::{McpManager, McpServerConfig};
-use ioi_drivers::browser::BrowserDriver;
-use ioi_drivers::terminal::TerminalDriver;
 use ioi_api::services::access::ServiceDirectory;
 use ioi_api::transaction::context::TxContext;
+use ioi_drivers::browser::BrowserDriver;
+use ioi_drivers::mcp::{McpManager, McpServerConfig};
+use ioi_drivers::terminal::TerminalDriver;
 
 // [NEW] Imports for Policy Injection
 use ioi_services::agentic::rules::{ActionRules, DefaultPolicy, Rule, Verdict};
@@ -39,7 +39,7 @@ use ioi_services::agentic::rules::{ActionRules, DefaultPolicy, Rule, Verdict};
 struct MockGuiDriver;
 #[async_trait]
 impl GuiDriver for MockGuiDriver {
-    async fn capture_screen(&self) -> Result<Vec<u8>, VmError> { 
+    async fn capture_screen(&self) -> Result<Vec<u8>, VmError> {
         let mut img = ImageBuffer::<Rgba<u8>, Vec<u8>>::new(1, 1);
         img.put_pixel(0, 0, Rgba([255, 0, 0, 255]));
 
@@ -50,13 +50,22 @@ impl GuiDriver for MockGuiDriver {
         Ok(bytes)
     }
 
-    async fn capture_tree(&self) -> Result<String, VmError> { Ok("".into()) }
+    async fn capture_tree(&self) -> Result<String, VmError> {
+        Ok("".into())
+    }
     async fn capture_context(&self, _: &ActionRequest) -> Result<ContextSlice, VmError> {
         Ok(ContextSlice {
-            slice_id: [0; 32], frame_id: 0, chunks: vec![], mhnsw_root: [0; 32], traversal_proof: None, intent_id: [0; 32],
+            slice_id: [0; 32],
+            frame_id: 0,
+            chunks: vec![],
+            mhnsw_root: [0; 32],
+            traversal_proof: None,
+            intent_id: [0; 32],
         })
     }
-    async fn inject_input(&self, _: InputEvent) -> Result<(), VmError> { Ok(()) }
+    async fn inject_input(&self, _: InputEvent) -> Result<(), VmError> {
+        Ok(())
+    }
 }
 
 // [NEW] Mock OS Driver
@@ -85,8 +94,12 @@ impl InferenceRuntime for McpBrain {
         });
         Ok(tool_call.to_string().into_bytes())
     }
-    async fn load_model(&self, _: [u8; 32], _: &Path) -> Result<(), VmError> { Ok(()) }
-    async fn unload_model(&self, _: [u8; 32]) -> Result<(), VmError> { Ok(()) }
+    async fn load_model(&self, _: [u8; 32], _: &Path) -> Result<(), VmError> {
+        Ok(())
+    }
+    async fn unload_model(&self, _: [u8; 32]) -> Result<(), VmError> {
+        Ok(())
+    }
 }
 
 #[tokio::test(flavor = "multi_thread")]
@@ -109,13 +122,13 @@ rl.on('line', (line) => {
     }
 });
 "#;
-    
+
     let temp_dir = tempfile::tempdir()?;
     let script_path = temp_dir.path().join("mcp_echo.js");
     std::fs::write(&script_path, script_content)?;
 
     let mcp_manager = Arc::new(McpManager::new());
-    
+
     let config = McpServerConfig {
         command: "node".to_string(),
         args: vec![script_path.to_string_lossy().to_string()],
@@ -132,15 +145,10 @@ rl.on('line', (line) => {
     // [NEW] Instantiate OS Driver
     let os_driver = Arc::new(MockOsDriver);
 
-    let service = DesktopAgentService::new_hybrid(
-        gui,
-        terminal,
-        browser, 
-        brain.clone(),
-        brain.clone()
-    )
-    .with_mcp_manager(mcp_manager)
-    .with_os_driver(os_driver);
+    let service =
+        DesktopAgentService::new_hybrid(gui, terminal, browser, brain.clone(), brain.clone())
+            .with_mcp_manager(mcp_manager)
+            .with_os_driver(os_driver);
 
     let mut state = IAVLTree::new(HashCommitmentScheme::new());
     let services_dir = ServiceDirectory::new(vec![]);
@@ -179,10 +187,12 @@ rl.on('line', (line) => {
                 target: "gui::click".into(),
                 conditions: Default::default(),
                 action: Verdict::Allow,
-            }
+            },
         ],
     };
-    state.insert(&policy_key, &codec::to_bytes_canonical(&policy).unwrap()).unwrap();
+    state
+        .insert(&policy_key, &codec::to_bytes_canonical(&policy).unwrap())
+        .unwrap();
 
     let start_params = StartAgentParams {
         session_id,
@@ -191,18 +201,39 @@ rl.on('line', (line) => {
         parent_session_id: None,
         initial_budget: 1000,
     };
-    service.handle_service_call(&mut state, "start@v1", &codec::to_bytes_canonical(&start_params).unwrap(), &mut ctx).await?;
+    service
+        .handle_service_call(
+            &mut state,
+            "start@v1",
+            &codec::to_bytes_canonical(&start_params).unwrap(),
+            &mut ctx,
+        )
+        .await?;
 
     let step_params = StepAgentParams { session_id };
-    service.handle_service_call(&mut state, "step@v1", &codec::to_bytes_canonical(&step_params).unwrap(), &mut ctx).await?;
+    service
+        .handle_service_call(
+            &mut state,
+            "step@v1",
+            &codec::to_bytes_canonical(&step_params).unwrap(),
+            &mut ctx,
+        )
+        .await?;
 
     use ioi_services::agentic::desktop::AgentState;
     let key = ioi_services::agentic::desktop::keys::get_state_key(&session_id);
     let bytes = state.get(&key).unwrap().unwrap();
     let agent_state: AgentState = codec::from_bytes_canonical(&bytes).unwrap();
 
-    let found_echo = agent_state.history.iter().any(|h| h.contains("Echo: Hello MCP"));
-    assert!(found_echo, "Agent history should contain MCP tool output. History: {:?}", agent_state.history);
+    let found_echo = agent_state
+        .history
+        .iter()
+        .any(|h| h.contains("Echo: Hello MCP"));
+    assert!(
+        found_echo,
+        "Agent history should contain MCP tool output. History: {:?}",
+        agent_state.history
+    );
 
     println!("✅ Agent MCP Integration E2E Passed");
     Ok(())

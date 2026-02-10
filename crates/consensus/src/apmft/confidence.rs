@@ -38,7 +38,7 @@ impl ConfidenceTracker {
     pub fn is_durable(&self, block_hash: &[u8; 32]) -> bool {
         self.get_score(block_hash) >= self.lambda
     }
-    
+
     /// Prunes scores for old blocks to manage memory.
     pub fn prune(&mut self, _min_height: u64) {
         // In a real impl, we'd map Hash -> Height to prune effectively.

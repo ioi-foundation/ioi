@@ -3,6 +3,7 @@
 
 use anyhow::Result;
 use async_trait::async_trait;
+use image::{ImageBuffer, Rgba};
 use ioi_api::services::BlockchainService;
 use ioi_api::vm::drivers::gui::{GuiDriver, InputEvent};
 use ioi_api::vm::inference::InferenceRuntime;
@@ -10,9 +11,8 @@ use ioi_cli::testing::build_test_artifacts;
 use ioi_services::agentic::desktop::{StartAgentParams, StepAgentParams};
 use ioi_state::primitives::hash::HashCommitmentScheme;
 use ioi_state::tree::iavl::IAVLTree;
-use ioi_types::error::VmError;
-use image::{ImageBuffer, Rgba};
 use ioi_types::app::{ActionContext, ActionRequest, ActionTarget, ContextSlice};
+use ioi_types::error::VmError;
 use std::io::Cursor;
 use std::path::Path;
 use std::sync::{Arc, Mutex};
@@ -97,17 +97,17 @@ async fn test_agentic_loop_end_to_end() -> Result<()> {
 
     // 1. Setup Service with Mocks
     use ioi_services::agentic::desktop::DesktopAgentService;
-    
+
     // [NEW] Instantiate drivers
     let terminal = Arc::new(TerminalDriver::new());
     let browser = Arc::new(BrowserDriver::new());
 
     let service = DesktopAgentService::new_hybrid(
-        mock_gui, 
-        terminal, 
+        mock_gui,
+        terminal,
         browser, // Injected
-        Arc::new(MockBrain), 
-        Arc::new(MockBrain)
+        Arc::new(MockBrain),
+        Arc::new(MockBrain),
     );
 
     // 2. Mock State Access

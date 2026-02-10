@@ -1,6 +1,6 @@
 // Path: crates/services/src/agentic/desktop/utils.rs
 
-use crate::agentic::desktop::keys::{TRACE_PREFIX};
+use crate::agentic::desktop::keys::TRACE_PREFIX;
 use crate::agentic::desktop::types::{AgentState, AgentStatus};
 use ioi_api::state::StateAccess;
 use ioi_types::app::agentic::StepTrace;
@@ -14,15 +14,17 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 /// Helper to get a string representation of the agent status for event emission.
 fn get_status_str(status: &AgentStatus) -> String {
-    format!("{:?}", status).split('(').next().unwrap_or("Unknown").to_string()
+    format!("{:?}", status)
+        .split('(')
+        .next()
+        .unwrap_or("Unknown")
+        .to_string()
 }
 
 pub fn compute_phash(image_bytes: &[u8]) -> Result<[u8; 32], TransactionError> {
     let img = load_from_memory(image_bytes)
         .map_err(|e| TransactionError::Invalid(format!("Image decode failed: {}", e)))?;
-    let hasher = HasherConfig::new()
-        .hash_alg(HashAlg::Gradient)
-        .to_hasher();
+    let hasher = HasherConfig::new().hash_alg(HashAlg::Gradient).to_hasher();
     let hash = hasher.hash_image(&img);
     let hash_bytes = hash.as_bytes();
 
@@ -56,14 +58,19 @@ pub fn goto_trace_log(
         error: action_error.clone(),
         cost_incurred: 0,
         fitness_score: None,
-        skill_hash, 
+        skill_hash,
         timestamp: SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .unwrap()
             .as_secs(),
     };
-    
-    let trace_key = [TRACE_PREFIX, session_id.as_slice(), &agent_state.step_count.to_le_bytes()].concat();
+
+    let trace_key = [
+        TRACE_PREFIX,
+        session_id.as_slice(),
+        &agent_state.step_count.to_le_bytes(),
+    ]
+    .concat();
     state.insert(&trace_key, &codec::to_bytes_canonical(&trace)?)?;
 
     if let Some(tx) = &event_sender {
@@ -79,17 +86,18 @@ pub fn goto_trace_log(
 
     agent_state.last_action_type = Some(action_type);
 
-    if agent_state.step_count >= agent_state.max_steps && agent_state.status == AgentStatus::Running {
+    if agent_state.step_count >= agent_state.max_steps && agent_state.status == AgentStatus::Running
+    {
         agent_state.status = AgentStatus::Completed(None);
-        
+
         if let Some(tx) = &event_sender {
-             let _ = tx.send(KernelEvent::AgentActionResult {
-                 session_id, 
-                 step_index: agent_state.step_count,
-                 tool_name: "system::max_steps_reached".to_string(),
-                 output: "Max steps reached. Task completed.".to_string(),
-                 agent_status: get_status_str(&agent_state.status),
-             });
+            let _ = tx.send(KernelEvent::AgentActionResult {
+                session_id,
+                step_index: agent_state.step_count,
+                tool_name: "system::max_steps_reached".to_string(),
+                output: "Max steps reached. Task completed.".to_string(),
+                agent_status: get_status_str(&agent_state.status),
+            });
         }
     }
 

@@ -176,7 +176,11 @@ pub async fn handle_action_execution(
                     || reason_lc.contains("tool is missing")
                     || reason_lc.contains("not listed in your available tools")
                     || reason_lc.contains("capability missing")
-                    || reason_lc.contains("tier restricted");
+                    || reason_lc.contains("tier restricted")
+                    || reason_lc.contains("no typing-capable tool is available")
+                    || reason_lc.contains("no clipboard-capable tool is available")
+                    || reason_lc.contains("no click-capable tool is available")
+                    || (reason_lc.contains("no ") && reason_lc.contains("tool") && reason_lc.contains("available"));
 
                 if is_true_capability_gap {
                     format!(
@@ -234,6 +238,33 @@ pub async fn handle_action_execution(
             None,
         )),
         AgentTool::ChatReply { message } => Ok((true, Some(format!("Replied: {}", message)), None)),
+        AgentTool::OsFocusWindow { title } => match os_driver.focus_window(&title).await {
+            Ok(true) => {
+                // Give the window manager a brief moment to apply focus.
+                tokio::time::sleep(std::time::Duration::from_millis(250)).await;
+                let focused = os_driver.get_active_window_info().await.unwrap_or(None);
+                let msg = if let Some(win) = focused {
+                    format!("Focused '{}' ({})", win.title, win.app_name)
+                } else {
+                    format!("Focus requested for '{}'", title)
+                };
+                Ok((true, Some(msg), None))
+            }
+            Ok(false) => Ok((false, None, Some(format!("No window matched '{}'", title)))),
+            Err(e) => Ok((
+                false,
+                None,
+                Some(format!("Window focus failed for '{}': {}", title, e)),
+            )),
+        },
+        AgentTool::OsCopy { content } => match os_driver.set_clipboard(&content).await {
+            Ok(()) => Ok((true, Some("Copied to clipboard".to_string()), None)),
+            Err(e) => Ok((false, None, Some(format!("Clipboard write failed: {}", e)))),
+        },
+        AgentTool::OsPaste {} => match os_driver.get_clipboard().await {
+            Ok(content) => Ok((true, Some(content), None)),
+            Err(e) => Ok((false, None, Some(format!("Clipboard read failed: {}", e)))),
+        },
 
         // Delegate Execution Tools
         _ => {

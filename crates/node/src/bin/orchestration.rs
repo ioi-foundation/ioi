@@ -78,11 +78,10 @@ use std::fmt::Debug;
 use tokio::sync::Mutex;
 
 // [FIX] Correctly import LocalSafetyModel, InferenceRuntime and OsDriver
-use ioi_api::vm::inference::{InferenceRuntime, LocalSafetyModel, HttpInferenceRuntime};
 use ioi_api::vm::drivers::os::OsDriver;
+use ioi_api::vm::inference::{HttpInferenceRuntime, InferenceRuntime, LocalSafetyModel};
 use ioi_drivers::os::NativeOsDriver;
 use ioi_services::agentic::scrub_adapter::RuntimeAsSafetyModel;
-
 
 #[derive(Parser, Debug)]
 struct OrchestrationOpts {
@@ -323,16 +322,26 @@ where
     let batch_verifier = Arc::new(CpuBatchVerifier::new());
 
     // [FIX] Initialize Safety Model and Inference Runtime properly
-    let inference_runtime: Arc<dyn InferenceRuntime> = if let Some(key) = &workload_config.inference.api_key {
-        let model_name = workload_config.inference.model_name.clone().unwrap_or("gpt-4o".to_string());
-        let api_url = workload_config.inference.api_url.clone().unwrap_or("https://api.openai.com/v1/chat/completions".to_string());
-        
-        Arc::new(HttpInferenceRuntime::new(api_url, key.clone(), model_name))
-    } else {
-        Arc::new(ioi_api::vm::inference::mock::MockInferenceRuntime)
-    };
+    let inference_runtime: Arc<dyn InferenceRuntime> =
+        if let Some(key) = &workload_config.inference.api_key {
+            let model_name = workload_config
+                .inference
+                .model_name
+                .clone()
+                .unwrap_or("gpt-4o".to_string());
+            let api_url = workload_config
+                .inference
+                .api_url
+                .clone()
+                .unwrap_or("https://api.openai.com/v1/chat/completions".to_string());
 
-    let safety_model: Arc<dyn LocalSafetyModel> = Arc::new(RuntimeAsSafetyModel::new(inference_runtime.clone()));
+            Arc::new(HttpInferenceRuntime::new(api_url, key.clone(), model_name))
+        } else {
+            Arc::new(ioi_api::vm::inference::mock::MockInferenceRuntime)
+        };
+
+    let safety_model: Arc<dyn LocalSafetyModel> =
+        Arc::new(RuntimeAsSafetyModel::new(inference_runtime.clone()));
 
     // [FIX] Initialize OS Driver
     let os_driver = Arc::new(NativeOsDriver::new());
@@ -521,15 +530,15 @@ where
             service_directory, // <-- Pass the populated directory here
             dummy_store,
         )?);
-        
+
         let mut machine = ExecutionMachine::new(
             commitment_scheme.clone(),
             tm,
             config.chain_id,
-            initial_services,    
-            consensus_for_chain, 
+            initial_services,
+            consensus_for_chain,
             workload_container,
-            workload_config.service_policies.clone(), 
+            workload_config.service_policies.clone(),
             os_driver.clone(), // [FIX] Pass os_driver
         )
         .map_err(|e| anyhow!("Failed to initialize ExecutionMachine: {}", e))?;
@@ -563,9 +572,11 @@ where
         // For this refactor step, we will disable the gateway startup to fix the build,
         // as the gateway logic resides in a plugin (`http-rpc-gateway`) that likely needs
         // to be updated to consume `ioi-services::ibc::core::context::IbcExecutionContext`.
-        
-        tracing::warn!("IBC Gateway enabled in config but temporarily disabled in binary during refactor.");
-        
+
+        tracing::warn!(
+            "IBC Gateway enabled in config but temporarily disabled in binary during refactor."
+        );
+
         /*
         let mempool_adapter = Arc::new(MempoolAdapter {
             inner: orchestration.tx_pool.clone(),
@@ -606,7 +617,7 @@ where
     }
 
     orchestration.start(&config.rpc_listen_address).await?;
-    
+
     // [FIX] Explicitly log startup complete here to stderr
     eprintln!("ORCHESTRATION_STARTUP_COMPLETE");
 
