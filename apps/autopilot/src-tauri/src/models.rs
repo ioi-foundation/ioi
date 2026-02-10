@@ -1,10 +1,10 @@
 // apps/autopilot/src-tauri/src/models.rs
-use serde::{Deserialize, Serialize};
+use ioi_api::vm::inference::InferenceRuntime;
 use ioi_ipc::public::public_api_client::PublicApiClient;
-use tonic::transport::Channel;
+use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
-use std::sync::{Arc, Mutex}; 
-use ioi_api::vm::inference::InferenceRuntime; 
+use std::sync::{Arc, Mutex};
+use tonic::transport::Channel;
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub enum AgentPhase {
@@ -33,11 +33,11 @@ pub struct Receipt {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ChatMessage {
     pub role: String, // "user", "agent", "system", "tool"
-    
+
     // [NOTE] We map backend `content` to frontend `text` for compatibility with UI components
-    #[serde(alias = "content")] 
+    #[serde(alias = "content")]
     pub text: String,
-    
+
     pub timestamp: u64,
 }
 
@@ -74,10 +74,10 @@ pub struct AgentTask {
     pub visual_hash: Option<String>,
     pub pending_request_hash: Option<String>,
     pub session_id: Option<String>,
-    
-    // History source of truth. 
+
+    // History source of truth.
     // This is populated by hydrating from the blockchain state (Audit Log).
-    #[serde(default)] 
+    #[serde(default)]
     pub history: Vec<ChatMessage>,
 
     // Track processed steps using a composite key "{step}:{tool}"
@@ -91,10 +91,10 @@ pub struct AgentTask {
     // [NEW] Evolutionary Metadata (Genetics)
     #[serde(default)]
     pub generation: u64,
-    
+
     #[serde(default = "default_lineage")]
     pub lineage_id: String,
-    
+
     #[serde(default)]
     pub fitness_score: f32,
 }
@@ -111,7 +111,7 @@ pub struct GateResponse {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ContextBlob {
-    pub data_base64: String, 
+    pub data_base64: String,
     pub mime_type: String,
 }
 
@@ -135,7 +135,7 @@ pub struct AppState {
     pub gate_response: Option<GateResponse>,
     pub is_simulating: bool,
     pub rpc_client: Option<PublicApiClient<Channel>>,
-    
+
     // Persistent Store for Studio execution artifacts
     // Note: SovereignContextStore is imported but used inside Arc<Mutex> here
     // We don't need to import it if we don't name it in the struct field type explicitly if using fully qualified or alias,

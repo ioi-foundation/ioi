@@ -169,9 +169,17 @@ impl<'a> StateAccess for StateOverlay<'a> {
         Ok(results)
     }
 
-    fn batch_apply(&mut self, inserts: &[(Vec<u8>, Vec<u8>)], deletes: &[Vec<u8>]) -> Result<(), StateError> {
-        for key in deletes { self.delete(key)?; }
-        for (key, value) in inserts { self.insert(key, value)?; }
+    fn batch_apply(
+        &mut self,
+        inserts: &[(Vec<u8>, Vec<u8>)],
+        deletes: &[Vec<u8>],
+    ) -> Result<(), StateError> {
+        for key in deletes {
+            self.delete(key)?;
+        }
+        for (key, value) in inserts {
+            self.insert(key, value)?;
+        }
         Ok(())
     }
 }

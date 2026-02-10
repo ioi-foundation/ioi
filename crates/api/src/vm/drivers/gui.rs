@@ -50,17 +50,9 @@ pub enum InputEvent {
         expected_visual_hash: Option<[u8; 32]>,
     },
     /// Press a mouse button down at specific coordinates (start of drag).
-    MouseDown {
-        button: MouseButton,
-        x: u32,
-        y: u32,
-    },
+    MouseDown { button: MouseButton, x: u32, y: u32 },
     /// Release a mouse button at specific coordinates (end of drag).
-    MouseUp {
-        button: MouseButton,
-        x: u32,
-        y: u32,
-    },
+    MouseUp { button: MouseButton, x: u32, y: u32 },
     /// Type text string.
     Type { text: String },
     /// Press a specific key (e.g., "Enter", "Ctrl").
@@ -77,11 +69,14 @@ pub enum InputEvent {
 #[async_trait]
 pub trait GuiDriver: Send + Sync {
     /// Captures the current visual state for the VLM.
-    /// 
+    ///
     /// # Arguments
     /// * `crop_rect` - Optional tuple of (x, y, width, height) to crop the screenshot.
     ///                 Coordinates are relative to the primary monitor origin.
-    async fn capture_screen(&self, crop_rect: Option<(i32, i32, u32, u32)>) -> Result<Vec<u8>, VmError>;
+    async fn capture_screen(
+        &self,
+        crop_rect: Option<(i32, i32, u32, u32)>,
+    ) -> Result<Vec<u8>, VmError>;
 
     /// [NEW] Captures the raw screen image without any overlays or redaction.
     /// Used for manual compositing in the perception layer.
@@ -102,7 +97,12 @@ pub trait GuiDriver: Send + Sync {
     /// Manually injects a Set-of-Marks mapping (ID -> Rect) into the driver's cache.
     /// This restores context from a previous step or external source.
     /// Returns VmError::Unsupported if not implemented.
-    async fn register_som_overlay(&self, _map: HashMap<u32, (i32, i32, i32, i32)>) -> Result<(), VmError> {
-        Err(VmError::HostError("SoM overlay registration not supported by this driver".into()))
+    async fn register_som_overlay(
+        &self,
+        _map: HashMap<u32, (i32, i32, i32, i32)>,
+    ) -> Result<(), VmError> {
+        Err(VmError::HostError(
+            "SoM overlay registration not supported by this driver".into(),
+        ))
     }
 }

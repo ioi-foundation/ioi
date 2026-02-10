@@ -142,10 +142,10 @@ impl TxDecorator for WasmService {
     ) -> Result<(), TransactionError> {
         let req = AnteHandleRequest { tx: tx.clone() };
         let req_bytes = to_bytes_canonical(&req).map_err(TransactionError::Serialization)?;
-        
+
         // [OPTIMIZATION] Downgraded to debug to reduce I/O overhead
         log::debug!("[WasmService {}] Calling ante_validate in WASM", self.id());
-        
+
         let resp_bytes = self
             .call_wasm_fn("ante_validate", &req_bytes)
             .map_err(|e| TransactionError::Invalid(format!("WASM ante_validate failed: {}", e)))?;
@@ -162,10 +162,10 @@ impl TxDecorator for WasmService {
     ) -> Result<(), TransactionError> {
         let req = AnteHandleRequest { tx: tx.clone() };
         let req_bytes = to_bytes_canonical(&req).map_err(TransactionError::Serialization)?;
-        
+
         // [OPTIMIZATION] Downgraded to debug
         log::debug!("[WasmService {}] Calling ante_write in WASM", self.id());
-        
+
         let resp_bytes = self
             .call_wasm_fn("ante_write", &req_bytes)
             .map_err(|e| TransactionError::Invalid(format!("WASM ante_write failed: {}", e)))?;

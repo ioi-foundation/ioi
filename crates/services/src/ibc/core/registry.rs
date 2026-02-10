@@ -210,7 +210,7 @@ impl BlockchainService for VerifierRegistry {
                 // 2) Host metadata
                 let host_height = Height::new(0, ctx.block_height)
                     .map_err(|e| TransactionError::Invalid(e.to_string()))?;
-                    
+
                 // [FIX] Convert raw u64 nanoseconds back to ibc_primitives::Timestamp for internal IBC logic
                 let host_timestamp = Timestamp::from_nanoseconds(ctx.block_timestamp);
 

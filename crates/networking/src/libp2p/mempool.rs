@@ -4,9 +4,9 @@
 
 use crate::traits::{MempoolGossip, SyncError};
 use async_trait::async_trait;
+use ioi_api::transaction::TransactionModel;
 use ioi_tx::unified::UnifiedTransactionModel;
 use ioi_types::app::ChainTransaction;
-use ioi_api::transaction::TransactionModel;
 
 use super::{Libp2pSync, SwarmCommand};
 
@@ -14,9 +14,8 @@ use super::{Libp2pSync, SwarmCommand};
 impl MempoolGossip for Libp2pSync {
     async fn publish_transaction(&self, tx: &ChainTransaction) -> Result<(), SyncError> {
         // Use a dummy model instance to access the canonical serializer
-        let dummy_model = UnifiedTransactionModel::new(
-            ioi_state::primitives::hash::HashCommitmentScheme::new(),
-        );
+        let dummy_model =
+            UnifiedTransactionModel::new(ioi_state::primitives::hash::HashCommitmentScheme::new());
         let data = dummy_model
             .serialize_transaction(tx)
             .map_err(|e| SyncError::Decode(e.to_string()))?;

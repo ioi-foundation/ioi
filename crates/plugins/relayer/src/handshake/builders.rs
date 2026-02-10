@@ -2,14 +2,14 @@
 
 //! Helper functions for building IBC protobuf messages.
 
-use crate::handshake::proofs::query_proof_bytes_at;
 use crate::gateway::Gateway;
+use crate::handshake::proofs::query_proof_bytes_at;
 use anyhow::Result;
 use ibc_proto::{
     google::protobuf::Any as PbAny,
     ibc::core::{
-        channel::v1 as pbchan, client::v1::Height as PbHeight,
-        commitment::v1::MerklePrefix, connection::v1 as pbconn,
+        channel::v1 as pbchan, client::v1::Height as PbHeight, commitment::v1::MerklePrefix,
+        connection::v1 as pbconn,
     },
 };
 // [FIX] Import Message to enable encode_to_vec()

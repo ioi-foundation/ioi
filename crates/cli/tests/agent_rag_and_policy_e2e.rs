@@ -33,12 +33,12 @@ use image::{ImageBuffer, ImageFormat, Rgba};
 use std::io::Cursor;
 
 // [FIX] Imports for valid transaction construction
-use libp2p::identity::Keypair;
 use ioi_types::app::{account_id_from_key_material, AccountId, SignatureSuite};
+use libp2p::identity::Keypair;
 
 // [FIX] Imports for service registration
-use ioi_types::service_configs::{ActiveServiceMeta, Capabilities, MethodPermission};
 use ioi_types::keys::active_service_key;
+use ioi_types::service_configs::{ActiveServiceMeta, Capabilities, MethodPermission};
 use std::collections::BTreeMap;
 
 // --- Mocks ---
@@ -110,7 +110,7 @@ impl InferenceRuntime for MockRagBrain {
                 "arguments": { "text": "Blue" }
             })
         } else {
-             json!({
+            json!({
                 "name": "gui__click",
                 "arguments": { "x": 100, "y": 100, "button": "left" }
             })
@@ -123,7 +123,7 @@ impl InferenceRuntime for MockRagBrain {
         // "favorite color" -> [0.9, 0.1, ...]
         // "memory: Blue" -> [0.85, 0.15, ...] (High similarity)
         // "irrelevant" -> [0.1, 0.9, ...] (Low similarity)
-        
+
         let mut vec = vec![0.0; 384];
         if text.contains("color") || text.contains("Blue") {
             vec[0] = 0.9;
@@ -133,8 +133,12 @@ impl InferenceRuntime for MockRagBrain {
         Ok(vec)
     }
 
-    async fn load_model(&self, _: [u8; 32], _: &Path) -> Result<(), VmError> { Ok(()) }
-    async fn unload_model(&self, _: [u8; 32]) -> Result<(), VmError> { Ok(()) }
+    async fn load_model(&self, _: [u8; 32], _: &Path) -> Result<(), VmError> {
+        Ok(())
+    }
+    async fn unload_model(&self, _: [u8; 32]) -> Result<(), VmError> {
+        Ok(())
+    }
 }
 
 #[tokio::test(flavor = "multi_thread")]
@@ -154,12 +158,12 @@ async fn test_agent_rag_and_policy_enforcement() -> Result<()> {
     // "The user's favorite color is Blue"
     let memory_content = b"User Preference: Favorite color is Blue.";
     let frame_id = scs.append_frame(FrameType::Observation, memory_content, 1, [0u8; 32])?;
-    
+
     // Index the memory
     // Embedding for "Blue" / "color" => [0.9, 0.0, ...]
     let mut vec = vec![0.0; 384];
-    vec[0] = 0.9; 
-    
+    vec[0] = 0.9;
+
     let mut index = VectorIndex::new(16, 100);
     index.insert(frame_id, vec)?;
     scs.commit_index(&index)?;
@@ -171,10 +175,14 @@ async fn test_agent_rag_and_policy_enforcement() -> Result<()> {
 
     // 3. Setup Components
     let active_window = Arc::new(Mutex::new("VS Code".to_string()));
-    let os_driver = Arc::new(MockOsDriver { active_window: active_window.clone() });
-    
+    let os_driver = Arc::new(MockOsDriver {
+        active_window: active_window.clone(),
+    });
+
     let last_prompt = Arc::new(Mutex::new(String::new()));
-    let brain = Arc::new(MockRagBrain { last_prompt: last_prompt.clone() });
+    let brain = Arc::new(MockRagBrain {
+        last_prompt: last_prompt.clone(),
+    });
     let gui = Arc::new(MockGuiDriver);
 
     // 4. Setup Service
@@ -205,28 +213,47 @@ async fn test_agent_rag_and_policy_enforcement() -> Result<()> {
         parent_session_id: None,
         initial_budget: 1000,
     };
-    service.handle_service_call(&mut state, "start@v1", &codec::to_bytes_canonical(&start_params).map_err(|e| anyhow!(e))?, &mut ctx).await?;
+    service
+        .handle_service_call(
+            &mut state,
+            "start@v1",
+            &codec::to_bytes_canonical(&start_params).map_err(|e| anyhow!(e))?,
+            &mut ctx,
+        )
+        .await?;
 
     // Step Agent
     let step_params = StepAgentParams { session_id };
-    service.handle_service_call(&mut state, "step@v1", &codec::to_bytes_canonical(&step_params).map_err(|e| anyhow!(e))?, &mut ctx).await?;
+    service
+        .handle_service_call(
+            &mut state,
+            "step@v1",
+            &codec::to_bytes_canonical(&step_params).map_err(|e| anyhow!(e))?,
+            &mut ctx,
+        )
+        .await?;
 
     // Verify Prompt contained the memory
     let prompt = last_prompt.lock().unwrap().clone();
-    assert!(prompt.contains("Favorite color is Blue"), "RAG failed: Memory not found in prompt");
+    assert!(
+        prompt.contains("Favorite color is Blue"),
+        "RAG failed: Memory not found in prompt"
+    );
     println!("✅ RAG Memory Recall Test Passed");
 
     // --- TEST 2: Policy Enforcement (Window Context) ---
-    // Note: In a full integration test, this would go through `enforce_firewall`. 
-    // Here we are unit-testing the components interacting via the service logic, 
+    // Note: In a full integration test, this would go through `enforce_firewall`.
+    // Here we are unit-testing the components interacting via the service logic,
     // but the Policy check happens *before* the service call in the Orchestrator.
     // So to test Policy, we need to invoke `enforce_firewall` manually or trust `ingestion_e2e`.
-    
+
     // Let's use `enforce_firewall` directly here to prove the OS driver integration works.
-    
+
+    use ioi_types::app::{
+        ChainTransaction, SignHeader, SignatureProof, SystemPayload, SystemTransaction,
+    };
     use ioi_validator::firewall::enforce_firewall;
-    use ioi_types::app::{ChainTransaction, SignHeader, SignatureProof, SystemPayload, SystemTransaction};
-    
+
     // Set Forbidden Window
     *active_window.lock().unwrap() = "Calculator".to_string(); // Assume policy blocks Calculator
 
@@ -234,15 +261,19 @@ async fn test_agent_rag_and_policy_enforcement() -> Result<()> {
     struct SafeModel;
     #[async_trait]
     impl LocalSafetyModel for SafeModel {
-        async fn classify_intent(&self, _: &str) -> Result<SafetyVerdict> { Ok(SafetyVerdict::Safe) }
-        async fn detect_pii(&self, _: &str) -> Result<Vec<(usize, usize, String)>> { Ok(vec![]) }
+        async fn classify_intent(&self, _: &str) -> Result<SafetyVerdict> {
+            Ok(SafetyVerdict::Safe)
+        }
+        async fn detect_pii(&self, _: &str) -> Result<Vec<(usize, usize, String)>> {
+            Ok(vec![])
+        }
     }
-    
+
     // [FIX] Register the 'agentic' service metadata in the state so enforce_firewall passes the existence check
     {
         let mut methods = BTreeMap::new();
         methods.insert("execute_task@v1".to_string(), MethodPermission::User);
-        
+
         let meta = ActiveServiceMeta {
             id: "agentic".to_string(),
             abi_version: 1,
@@ -253,7 +284,7 @@ async fn test_agent_rag_and_policy_enforcement() -> Result<()> {
             methods,
             allowed_system_prefixes: vec![],
         };
-        
+
         let meta_bytes = codec::to_bytes_canonical(&meta).unwrap();
         let key = active_service_key("agentic");
         state.insert(&key, &meta_bytes).unwrap();
@@ -262,7 +293,8 @@ async fn test_agent_rag_and_policy_enforcement() -> Result<()> {
     // [FIX] Generate a valid identity for the transaction to pass stateful authorization
     let keypair = Keypair::generate_ed25519();
     let public_key = keypair.public().encode_protobuf();
-    let account_id = AccountId(account_id_from_key_material(SignatureSuite::ED25519, &public_key).unwrap());
+    let account_id =
+        AccountId(account_id_from_key_material(SignatureSuite::ED25519, &public_key).unwrap());
 
     // Construct Tx
     let payload = SystemPayload::CallService {
@@ -270,7 +302,7 @@ async fn test_agent_rag_and_policy_enforcement() -> Result<()> {
         method: "execute_task@v1".into(),
         params: b"click".to_vec(),
     };
-    
+
     let mut sys_tx = SystemTransaction {
         header: SignHeader {
             account_id,
@@ -299,7 +331,7 @@ async fn test_agent_rag_and_policy_enforcement() -> Result<()> {
     // The default rules are empty (DenyAll).
     // So this should fail by default unless we modify `ActionRules::default` or inject a policy.
     // For this test, we rely on the fact that `DenyAll` + no Allow rule for "Calculator" means BLOCK.
-    
+
     let res = enforce_firewall(
         &mut state,
         &services_dir,
@@ -310,13 +342,21 @@ async fn test_agent_rag_and_policy_enforcement() -> Result<()> {
         true, // skip sig check
         false,
         Arc::new(SafeModel),
-        os_driver.clone() // Pass our mock OS driver
-    ).await;
+        os_driver.clone(), // Pass our mock OS driver
+    )
+    .await;
 
-    assert!(res.is_err(), "Firewall should block action in Calculator window (Default Deny)");
+    assert!(
+        res.is_err(),
+        "Firewall should block action in Calculator window (Default Deny)"
+    );
     let err = res.unwrap_err().to_string();
-    assert!(err.contains("Blocked by Policy"), "Unexpected error: {}", err);
-    
+    assert!(
+        err.contains("Blocked by Policy"),
+        "Unexpected error: {}",
+        err
+    );
+
     println!("✅ Policy Enforcement (Window Context) Test Passed");
 
     Ok(())

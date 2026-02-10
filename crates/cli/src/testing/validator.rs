@@ -107,7 +107,6 @@ pub struct TestValidator {
     guardian_log_tx: Option<broadcast::Sender<String>>,
     pub log_drain_handles: Arc<Mutex<Vec<JoinHandle<()>>>>,
     pub signing_oracle_guard: Option<SigningOracleGuard>,
-    
     // [NEW] Access to swarm commander for whitebox testing
     // We can't easily expose the mpsc::Sender because it's buried in the backend process for ProcessBackend.
     // However, for the test harness, we mostly interact via RPC or logs.
@@ -303,14 +302,16 @@ impl TestValidator {
         let workload_telemetry_port = pick_distinct_port(base_port + 4);
         let orchestration_telemetry_port = pick_distinct_port(base_port + 5);
         let guardian_telemetry_port = pick_distinct_port(base_port + 6);
-        
+
         // Construct the bind address (for listening)
         let bind_addr_str = format!("/ip4/127.0.0.1/tcp/{}", p2p_port);
         let bind_addr: Multiaddr = bind_addr_str.parse()?;
-        
+
         // FIX: Construct the full address (for others to dial), including PeerID
-        let full_p2p_addr = bind_addr.clone().with(libp2p::multiaddr::Protocol::P2p(peer_id.into()));
-        
+        let full_p2p_addr = bind_addr
+            .clone()
+            .with(libp2p::multiaddr::Protocol::P2p(peer_id.into()));
+
         let rpc_addr = format!("127.0.0.1:{}", rpc_port);
 
         let keypair_path = temp_dir.path().join("identity.key");
@@ -597,7 +598,7 @@ impl TestValidator {
                 .args(&orch_args)
                 .env("RUST_BACKTRACE", "1")
                 // FIX: Enable debug logs for consensus to troubleshoot leader election
-                .env("RUST_LOG", "info,rpc=debug,consensus=debug") 
+                .env("RUST_LOG", "info,rpc=debug,consensus=debug")
                 .env("TELEMETRY_ADDR", &orchestration_telemetry_addr)
                 .env("WORKLOAD_IPC_ADDR", &workload_ipc_addr)
                 .env("CERTS_DIR", certs_dir_path.to_string_lossy().as_ref())

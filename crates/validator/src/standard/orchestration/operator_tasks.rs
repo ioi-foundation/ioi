@@ -262,7 +262,7 @@ where
     // 1. Scan for agent states
     // The canonical prefix for AgentState is b"agent::state::"
     const AGENT_STATE_PREFIX_RAW: &[u8] = b"agent::state::";
-    
+
     // [FIX] Use the fully namespaced key prefix so the scan actually finds the service data
     let ns_prefix = service_namespace_prefix("desktop_agent");
     let full_scan_prefix = [ns_prefix.as_slice(), AGENT_STATE_PREFIX_RAW].concat();
@@ -349,8 +349,9 @@ where
                 let nonce_key = [
                     ioi_types::keys::ACCOUNT_NONCE_PREFIX,
                     our_account_id.as_ref(),
-                ].concat();
-                
+                ]
+                .concat();
+
                 let state_nonce = match workload_client.query_raw_state(&nonce_key).await {
                     Ok(Some(b)) => match decode_state_value::<u64>(&b) {
                         Ok(n) => n,
@@ -358,20 +359,20 @@ where
                     },
                     _ => 0,
                 };
-                
+
                 // 2. Sync with Manager
                 let mut nm = context.nonce_manager.lock().await;
                 let entry = nm.entry(our_account_id).or_insert(0);
-                
+
                 // Fast-forward if state is ahead
                 if *entry < state_nonce {
                     *entry = state_nonce;
                 }
-                
+
                 let use_nonce = *entry;
                 // Increment to reserve
                 *entry += 1;
-                
+
                 use_nonce
             };
 
@@ -398,7 +399,7 @@ where
             let sign_bytes = sys_tx
                 .to_sign_bytes()
                 .map_err(|e| anyhow!("Failed to serialize tx: {}", e))?;
-            
+
             let signature = context.local_keypair.sign(&sign_bytes)?;
 
             sys_tx.signature_proof = SignatureProof {
@@ -412,12 +413,14 @@ where
 
             // 5. Submit to Mempool
             // We use the pool directly to skip gRPC overhead, as we are the node itself.
-            let res = context.tx_pool_ref.add(tx, tx_hash, Some((our_account_id, nonce)), 0);
+            let res = context
+                .tx_pool_ref
+                .add(tx, tx_hash, Some((our_account_id, nonce)), 0);
 
             match res {
                 crate::standard::orchestration::mempool::AddResult::Rejected(reason) => {
-                     tracing::warn!(target: "agent_driver", "Step tx rejected by mempool (Nonce: {}): {}", nonce, reason);
-                },
+                    tracing::warn!(target: "agent_driver", "Step tx rejected by mempool (Nonce: {}): {}", nonce, reason);
+                }
                 _ => {
                     // Wake consensus
                     let _ = context.consensus_kick_tx.send(());

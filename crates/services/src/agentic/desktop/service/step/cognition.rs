@@ -263,6 +263,7 @@ OPERATING RULES:
 6. If the current mode fails, output a reason why so the system can escalate to the next tier.
 7. CRITICAL: When using 'computer.type', you MUST first CLICK the input field to ensure focus.
 8. BROWSER RULE: Never launch browsers via `sys__exec`. Treat that as a policy violation. Always start browsing with `browser__navigate`.
+8a. WEB SEARCH RULE: For intents like 'search for X', prefer `browser__navigate` with a search URL (e.g. `https://www.google.com/search?q=...`) instead of manual click+type.
 9. APP LAUNCH RULE: To open applications, ALWAYS prefer `os__launch_app`.
    - It handles system paths automatically (e.g. finds 'Calculator' on Mac/Linux/Windows).
    - ONLY if that fails should you try `ui__find` to locate the icon visually and click it.

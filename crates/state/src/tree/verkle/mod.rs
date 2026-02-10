@@ -9,6 +9,7 @@ use crate::primitives::kzg::{KZGCommitment, KZGCommitmentScheme, KZGProof, KZGWi
 use crate::tree::verkle::proof::{
     map_child_commitment_to_value, map_leaf_payload_to_value, Terminal, VerklePathProof,
 };
+use async_trait::async_trait;
 use ioi_api::commitment::{CommitmentScheme, Selector};
 use ioi_api::state::{
     ProofProvider, PrunePlan, StateAccess, StateManager, StateScanIter, VerifiableState,
@@ -21,8 +22,7 @@ use parity_scale_codec::{Decode, Encode};
 use std::any::Any;
 use std::collections::{BTreeMap, HashMap};
 use std::fmt::Debug;
-use std::sync::Arc;
-use async_trait::async_trait; // [FIX] Added missing import
+use std::sync::Arc; // [FIX] Added missing import
 
 /// Verkle tree node
 #[derive(Debug, Clone, Encode, Decode)]

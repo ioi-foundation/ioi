@@ -1,20 +1,28 @@
 // Path: crates/networking/src/libp2p/transport.rs
 
+use crate::libp2p::behaviour::SyncBehaviour;
+use anyhow::Result;
+use libp2p::{
+    gossipsub,
+    identity,
+    noise,
+    ping, // [NEW] Import
+    request_response,
+    tcp,
+    yamux,
+    Swarm,
+    SwarmBuilder,
+    Transport,
+};
 use std::iter;
 use std::time::Duration;
-use libp2p::{
-    gossipsub, identity, noise, request_response, tcp, yamux, Swarm, SwarmBuilder, Transport,
-    ping, // [NEW] Import
-};
-use anyhow::Result;
-use crate::libp2p::behaviour::SyncBehaviour;
 
 pub fn build_swarm(local_key: identity::Keypair) -> Result<Swarm<SyncBehaviour>> {
     let swarm = SwarmBuilder::with_existing_identity(local_key)
         .with_tokio()
         .with_other_transport(|key| {
             let noise_config = noise::Config::new(key)?;
-            
+
             // Enable TCP_NODELAY
             let tcp_config = tcp::Config::default().nodelay(true);
 
@@ -36,7 +44,7 @@ pub fn build_swarm(local_key: identity::Keypair) -> Result<Swarm<SyncBehaviour>>
                 .mesh_n(2)
                 .mesh_n_high(3)
                 // Lower outbound limit to match mesh_n_low
-                .mesh_outbound_min(1) 
+                .mesh_outbound_min(1)
                 .build()
                 .map_err(|e| anyhow::anyhow!("Gossipsub config error: {}", e))?;
 
@@ -45,16 +53,17 @@ pub fn build_swarm(local_key: identity::Keypair) -> Result<Swarm<SyncBehaviour>>
                 gossipsub_config,
             )?;
 
-            let cfg = request_response::Config::default()
-                .with_request_timeout(Duration::from_secs(30));
+            let cfg =
+                request_response::Config::default().with_request_timeout(Duration::from_secs(30));
 
             let request_response = request_response::Behaviour::new(
                 iter::once(("/ioi/sync/2", request_response::ProtocolSupport::Full)),
                 cfg,
             );
-            
+
             // [NEW] Configure Ping
-            let ping = ping::Behaviour::new(ping::Config::new().with_interval(Duration::from_secs(1)));
+            let ping =
+                ping::Behaviour::new(ping::Config::new().with_interval(Duration::from_secs(1)));
 
             Ok(SyncBehaviour {
                 gossipsub,

@@ -1,8 +1,8 @@
 // Path: crates/types/src/app/agentic/tools.rs
 
+use crate::app::ActionTarget;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
-use crate::app::ActionTarget;
 
 /// An item in a commerce transaction.
 #[derive(Debug, Serialize, Deserialize, JsonSchema, Clone)]
@@ -30,7 +30,7 @@ pub enum ComputerAction {
         /// Key name.
         text: String,
     },
-    
+
     /// Execute a keyboard shortcut (Chord).
     #[serde(rename = "hotkey")]
     Hotkey {
@@ -57,14 +57,14 @@ pub enum ComputerAction {
     #[serde(rename = "left_click_id")]
     LeftClickId {
         /// The unique numeric tag from the visual overlay.
-        id: u32
+        id: u32,
     },
 
     /// Click a specific element by its semantic ID string.
     #[serde(rename = "left_click_element")]
     LeftClickElement {
         /// The element ID string.
-        id: String
+        id: String,
     },
 
     /// Click and drag (Stateful/Relative).
@@ -72,7 +72,7 @@ pub enum ComputerAction {
         /// Coordinates [x, y].
         coordinate: [u32; 2],
     },
-    
+
     /// Explicit Drag and Drop (Stateless/Absolute).
     #[serde(rename = "drag_drop")]
     DragDrop {
@@ -87,6 +87,10 @@ pub enum ComputerAction {
 
     /// Get cursor position.
     CursorPosition,
+}
+
+fn default_context_hermetic() -> String {
+    "hermetic".to_string()
 }
 
 /// The single source of truth for all Agent Capabilities.
@@ -138,6 +142,11 @@ pub enum AgentTool {
     BrowserNavigate {
         /// URL to navigate to.
         url: String,
+        /// The context to use: "hermetic" (default) or "local".
+        /// "hermetic": A fresh, isolated container/process (Safe).
+        /// "local": The user's existing Chrome session (Privileged).
+        #[serde(default = "default_context_hermetic")]
+        context: String,
     },
 
     /// Extracts content from the browser.
@@ -184,7 +193,7 @@ pub enum AgentTool {
         /// The stable ID of the element (e.g. "btn_submit").
         id: String,
     },
-    
+
     /// [NEW] Find a UI element visually or by text description.
     #[serde(rename = "ui__find")]
     UiFind {
@@ -293,13 +302,19 @@ impl AgentTool {
 
             AgentTool::SysExec { .. } => ActionTarget::SysExec,
 
-            AgentTool::BrowserNavigate { .. } => ActionTarget::BrowserNavigate,
-            AgentTool::BrowserExtract { .. } => ActionTarget::BrowserExtract,
-            AgentTool::BrowserClick { .. } => {
-                ActionTarget::Custom("browser::click".into())
+            // [MODIFIED] Browser Navigation Split
+            AgentTool::BrowserNavigate { context, .. } => {
+                if context == "local" {
+                    ActionTarget::BrowserNavigateLocal
+                } else {
+                    ActionTarget::BrowserNavigateHermetic
+                }
             }
+
+            AgentTool::BrowserExtract { .. } => ActionTarget::BrowserExtract,
+            AgentTool::BrowserClick { .. } => ActionTarget::Custom("browser::click".into()),
             AgentTool::BrowserSyntheticClick { .. } => {
-                 ActionTarget::Custom("browser::synthetic_click".into())
+                ActionTarget::Custom("browser::synthetic_click".into())
             }
 
             AgentTool::GuiClick { .. } => ActionTarget::GuiClick,
@@ -315,45 +330,36 @@ impl AgentTool {
             AgentTool::ChatReply { .. } => ActionTarget::Custom("chat__reply".into()),
 
             AgentTool::Computer(action) => match action {
-                ComputerAction::LeftClickId { .. } |
-                ComputerAction::LeftClickElement { .. } => ActionTarget::GuiClick,
-
-                ComputerAction::Type { .. } | ComputerAction::Key { .. } | ComputerAction::Hotkey { .. } => {
-                    ActionTarget::GuiType
+                ComputerAction::LeftClickId { .. } | ComputerAction::LeftClickElement { .. } => {
+                    ActionTarget::GuiClick
                 }
+
+                ComputerAction::Type { .. }
+                | ComputerAction::Key { .. }
+                | ComputerAction::Hotkey { .. } => ActionTarget::GuiType,
                 ComputerAction::MouseMove { .. } => ActionTarget::GuiMouseMove,
                 ComputerAction::LeftClick { .. } => ActionTarget::GuiClick,
-                ComputerAction::LeftClickDrag { .. } | ComputerAction::DragDrop { .. } => ActionTarget::GuiClick,
-                ComputerAction::Screenshot => ActionTarget::GuiScreenshot,
-                ComputerAction::CursorPosition => {
-                    ActionTarget::Custom("computer::cursor".into())
+                ComputerAction::LeftClickDrag { .. } | ComputerAction::DragDrop { .. } => {
+                    ActionTarget::GuiClick
                 }
+                ComputerAction::Screenshot => ActionTarget::GuiScreenshot,
+                ComputerAction::CursorPosition => ActionTarget::Custom("computer::cursor".into()),
             },
 
             AgentTool::CommerceCheckout { .. } => ActionTarget::CommerceCheckout,
 
-            AgentTool::AgentDelegate { .. } => {
-                ActionTarget::Custom("agent__delegate".into())
-            }
-            AgentTool::AgentAwait { .. } => {
-                ActionTarget::Custom("agent__await_result".into())
-            }
-            AgentTool::AgentPause { .. } => {
-                ActionTarget::Custom("agent__pause".into())
-            }
-            AgentTool::AgentComplete { .. } => {
-                ActionTarget::Custom("agent__complete".into())
-            }
-            AgentTool::SystemFail { .. } => {
-                ActionTarget::Custom("system__fail".into())
-            }
+            AgentTool::AgentDelegate { .. } => ActionTarget::Custom("agent__delegate".into()),
+            AgentTool::AgentAwait { .. } => ActionTarget::Custom("agent__await_result".into()),
+            AgentTool::AgentPause { .. } => ActionTarget::Custom("agent__pause".into()),
+            AgentTool::AgentComplete { .. } => ActionTarget::Custom("agent__complete".into()),
+            AgentTool::SystemFail { .. } => ActionTarget::Custom("system__fail".into()),
 
             AgentTool::Dynamic(val) => {
                 if let Some(name) = val.get("name").and_then(|n| n.as_str()) {
                     match name {
                         "ui__click_component" | "gui__click_element" => ActionTarget::GuiClick,
                         "os__launch_app" => ActionTarget::SysExec,
-                        _ => ActionTarget::Custom(name.to_string())
+                        _ => ActionTarget::Custom(name.to_string()),
                     }
                 } else {
                     ActionTarget::Custom("unknown".into())

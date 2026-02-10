@@ -27,15 +27,15 @@ pub struct SafetyGadget {
     /// The QC for the highest block known to be committed.
     /// Used to prune the block tree.
     pub committed_qc: Option<QuorumCertificate>,
-    
-    /// The QC representing the "Lock". 
+
+    /// The QC representing the "Lock".
     /// A validator cannot vote for a proposal that conflicts with this lock.
     pub locked_qc: Option<QuorumCertificate>,
 
     /// Queue of blocks waiting for the Commit Guard timer.
     pending_commits: VecDeque<PendingCommit>,
 
-    /// The guard duration ($d \cdot \Delta$). 
+    /// The guard duration ($d \cdot \Delta$).
     /// Corresponds to Corollary 3.2 in the paper.
     guard_duration: Duration,
 }
@@ -83,7 +83,7 @@ impl SafetyGadget {
         // If Child references Parent directly (consecutive view).
         if qc_high.view == qc_parent.view + 1 {
             let commit_height = qc_parent.height;
-            
+
             // Check against currently committed to avoid re-queuing
             let already_committed = self.committed_qc.as_ref().map_or(0, |qc| qc.height);
             let pending_max = self.pending_commits.back().map_or(0, |p| p.qc.height);
@@ -98,7 +98,7 @@ impl SafetyGadget {
                 return true;
             }
         }
-        
+
         false
     }
 

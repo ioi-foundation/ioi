@@ -18,15 +18,15 @@ use ioi_execution::ExecutionMachine;
 use ioi_networking::libp2p::Libp2pSync;
 use ioi_storage::RedbEpochStore;
 use ioi_tx::unified::UnifiedTransactionModel;
-use ioi_types::app::{
-    account_id_from_key_material, AccountId, ChainTransaction, SignatureSuite,
-};
+use ioi_types::app::{account_id_from_key_material, AccountId, ChainTransaction, SignatureSuite};
 use ioi_types::config::{
     ConsensusType, InitialServiceConfig, OrchestrationConfig, ValidatorRole, WorkloadConfig,
 };
 use ioi_types::service_configs::MigrationConfig;
 use ioi_validator::common::{GuardianContainer, LocalSigner};
-use ioi_validator::standard::orchestration::verifier_select::{create_default_verifier, DefaultVerifier};
+use ioi_validator::standard::orchestration::verifier_select::{
+    create_default_verifier, DefaultVerifier,
+};
 use ioi_validator::standard::orchestration::OrchestrationDependencies;
 use ioi_validator::standard::workload::setup::setup_workload;
 use ioi_validator::standard::Orchestrator;
@@ -34,14 +34,14 @@ use libp2p::{identity, Multiaddr};
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::{atomic::AtomicBool, Arc, Mutex};
-use tokio::time::Duration;
 use tokio::sync::Mutex as TokioMutex;
+use tokio::time::Duration;
 
 // State Trees
-#[cfg(feature = "state-iavl")]
-use ioi_state::tree::iavl::IAVLTree;
 #[cfg(feature = "commitment-hash")]
 use ioi_state::primitives::hash::HashCommitmentScheme;
+#[cfg(feature = "state-iavl")]
+use ioi_state::tree::iavl::IAVLTree;
 
 use ioi_api::vm::inference::{InferenceRuntime, LocalSafetyModel};
 use ioi_drivers::os::NativeOsDriver;
@@ -87,7 +87,9 @@ async fn main() -> Result<()> {
         println!("Initializing new Validator Identity...");
         let kp = identity::Keypair::generate_ed25519();
         if std::env::var("IOI_GUARDIAN_KEY_PASS").is_err() {
-            println!("WARNING: IOI_GUARDIAN_KEY_PASS not set. Key will be encrypted interactively.");
+            println!(
+                "WARNING: IOI_GUARDIAN_KEY_PASS not set. Key will be encrypted interactively."
+            );
         }
         GuardianContainer::save_encrypted_file(&key_path, &kp.to_protobuf_encoding()?)?;
         kp
@@ -96,7 +98,7 @@ async fn main() -> Result<()> {
         SignatureSuite::ED25519,
         &local_key.public().encode_protobuf(),
     )?);
-    
+
     println!("Validator ID: 0x{}", hex::encode(local_account_id.as_ref()));
 
     // 2. Configuration (Hardcoded for Mainnet/Testnet defaults)
@@ -135,7 +137,11 @@ async fn main() -> Result<()> {
         state_tree: ioi_types::config::StateTreeType::IAVL,
         commitment_scheme: ioi_types::config::CommitmentSchemeType::Hash,
         consensus_type: ConsensusType::Admft,
-        genesis_file: opts.data_dir.join("genesis.json").to_string_lossy().to_string(),
+        genesis_file: opts
+            .data_dir
+            .join("genesis.json")
+            .to_string_lossy()
+            .to_string(),
         state_file: opts.data_dir.join("state.db").to_string_lossy().to_string(),
         srs_file_path: None,
         fuel_costs: Default::default(),
@@ -215,11 +221,8 @@ async fn main() -> Result<()> {
     );
 
     // Full P2P Sync
-    let (syncer, swarm_commander, network_events) = Libp2pSync::new(
-        local_key.clone(),
-        opts.listen_address,
-        Some(&opts.bootnode),
-    )?;
+    let (syncer, swarm_commander, network_events) =
+        Libp2pSync::new(local_key.clone(), opts.listen_address, Some(&opts.bootnode))?;
 
     // A-DMFT Consensus
     let consensus_engine = engine_from_config(&config)?;

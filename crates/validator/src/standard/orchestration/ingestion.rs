@@ -17,6 +17,7 @@ use ioi_types::app::{
 };
 use ioi_types::codec;
 use ioi_types::keys::ACCOUNT_NONCE_PREFIX;
+use parity_scale_codec::{Decode, Encode};
 use serde::Serialize;
 use std::collections::HashSet;
 use std::fmt::Debug;
@@ -24,10 +25,9 @@ use std::sync::Arc;
 use std::time::{Duration, Instant};
 use tokio::sync::{mpsc, watch, Mutex};
 use tracing::{error, info, warn};
-use parity_scale_codec::{Decode, Encode};
 
-use ioi_api::vm::inference::{LocalSafetyModel, SafetyVerdict};
 use ioi_api::vm::drivers::os::OsDriver;
+use ioi_api::vm::inference::{LocalSafetyModel, SafetyVerdict};
 
 // [FIX] Update imports for Policy Engine Integration
 use ioi_services::agentic::policy::PolicyEngine;
@@ -92,13 +92,20 @@ pub async fn run_ingestion_worker<CS>(
     receipt_map: Arc<Mutex<lru::LruCache<TxHash, String>>>,
     safety_model: Arc<dyn LocalSafetyModel>,
     // [NEW] Added os_driver to worker arguments
-    os_driver: Arc<dyn OsDriver>, 
+    os_driver: Arc<dyn OsDriver>,
     config: IngestionConfig,
     event_broadcaster: tokio::sync::broadcast::Sender<KernelEvent>,
 ) where
     CS: CommitmentScheme + Clone + Send + Sync + 'static,
-    <CS as CommitmentScheme>::Proof:
-        Serialize + for<'de> serde::Deserialize<'de> + Clone + Send + Sync + 'static + Debug + Encode + Decode,
+    <CS as CommitmentScheme>::Proof: Serialize
+        + for<'de> serde::Deserialize<'de>
+        + Clone
+        + Send
+        + Sync
+        + 'static
+        + Debug
+        + Encode
+        + Decode,
 {
     info!(
         "Transaction Ingestion Worker started (Batch Size: {}, Timeout: {}ms)",
@@ -293,33 +300,39 @@ pub async fn run_ingestion_worker<CS>(
             let mut is_safe = true;
             if let ChainTransaction::System(sys) = &p_tx.tx {
                 let ioi_types::app::SystemPayload::CallService {
-                    service_id, method, params, ..
+                    service_id,
+                    method,
+                    params,
+                    ..
                 } = &sys.payload;
 
-                if service_id == "agentic" || service_id == "desktop_agent" || service_id == "compute_market" {
+                if service_id == "agentic"
+                    || service_id == "desktop_agent"
+                    || service_id == "compute_market"
+                {
                     // 1. Construct ActionRequest for PolicyEngine
                     let request = ActionRequest {
                         target: ActionTarget::Custom(method.clone()),
                         params: params.clone(),
                         context: ActionContext {
-                            agent_id: "unknown".into(), 
-                            session_id: None, 
+                            agent_id: "unknown".into(),
+                            session_id: None,
                             window_id: None,
                         },
-                        nonce: 0, 
+                        nonce: 0,
                     };
 
                     // Load active policy from state (Global Fallback)
                     // We use the global policy key (zero session ID) defined in `ioi-local.rs`.
                     let global_policy_key = [b"agent::policy::".as_slice(), &[0u8; 32]].concat();
-                    
+
                     let rules = match workload_client.query_raw_state(&global_policy_key).await {
                         Ok(Some(bytes)) => {
                             codec::from_bytes_canonical::<ActionRules>(&bytes).unwrap_or_default()
-                        },
-                        _ => ActionRules::default() // DenyAll
+                        }
+                        _ => ActionRules::default(), // DenyAll
                     };
-                    
+
                     let approval_token: Option<ApprovalToken> = None;
 
                     // 2. Evaluate Policy (Context-Aware)
@@ -335,12 +348,12 @@ pub async fn run_ingestion_worker<CS>(
                     match verdict {
                         Verdict::Allow => {
                             // Proceed
-                        },
+                        }
                         Verdict::Block => {
                             is_safe = false;
                             let reason = "Blocked by active policy rules";
                             warn!(target: "ingestion", "Transaction blocked: {}", reason);
-                            
+
                             let _ = event_broadcaster.send(KernelEvent::FirewallInterception {
                                 verdict: "BLOCK".to_string(),
                                 target: method.clone(),
@@ -356,11 +369,11 @@ pub async fn run_ingestion_worker<CS>(
                                     block_height: None,
                                 },
                             );
-                        },
+                        }
                         Verdict::RequireApproval => {
                             // [FIX] Allow the transaction into mempool so it can execute and transition state to Paused.
                             is_safe = true;
-                            
+
                             let reason = "Manual approval required";
                             warn!(target: "ingestion", "Transaction halted (Policy Gate): {}. Allowing for state transition.", reason);
 
@@ -368,9 +381,9 @@ pub async fn run_ingestion_worker<CS>(
                                 verdict: "REQUIRE_APPROVAL".to_string(),
                                 target: method.clone(),
                                 request_hash: p_tx.canonical_hash,
-                                session_id: None, 
+                                session_id: None,
                             });
-                            
+
                             // Note: We don't set status to Rejected here anymore.
                             // It will be set to Pending/InMempool if it passes downstream checks.
                         }
@@ -385,19 +398,24 @@ pub async fn run_ingestion_worker<CS>(
                                 Ok(v) => {
                                     is_safe = false;
                                     let (verdict_str, reason) = match v {
-                                        SafetyVerdict::Unsafe(r) => ("BLOCK", format!("Blocked by Safety Firewall: {}", r)),
-                                        SafetyVerdict::ContainsPII => ("REQUIRE_APPROVAL", "PII detected".to_string()),
+                                        SafetyVerdict::Unsafe(r) => {
+                                            ("BLOCK", format!("Blocked by Safety Firewall: {}", r))
+                                        }
+                                        SafetyVerdict::ContainsPII => {
+                                            ("REQUIRE_APPROVAL", "PII detected".to_string())
+                                        }
                                         SafetyVerdict::Safe => unreachable!(),
                                     };
 
                                     warn!(target: "ingestion", "Transaction blocked by semantic firewall: {}", reason);
-                                    
-                                    let _ = event_broadcaster.send(KernelEvent::FirewallInterception {
-                                        verdict: verdict_str.to_string(),
-                                        target: method.clone(),
-                                        request_hash: p_tx.canonical_hash,
-                                        session_id: None, 
-                                    });
+
+                                    let _ =
+                                        event_broadcaster.send(KernelEvent::FirewallInterception {
+                                            verdict: verdict_str.to_string(),
+                                            target: method.clone(),
+                                            request_hash: p_tx.canonical_hash,
+                                            session_id: None,
+                                        });
 
                                     status_guard.put(
                                         p_tx.receipt_hash_hex.clone(),
@@ -461,7 +479,7 @@ pub async fn run_ingestion_worker<CS>(
         for (res_idx, result) in check_results.into_iter().enumerate() {
             let original_idx = semantically_valid_indices[res_idx];
             let p_tx = &processed_batch[original_idx];
-            
+
             // [FIX] Handle "Approval required" error string as success for ingestion
             let is_approval_error = if let Err(e) = &result {
                 e.contains("Approval required for request")

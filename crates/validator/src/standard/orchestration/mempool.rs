@@ -227,7 +227,7 @@ impl Mempool {
     pub fn update_account_nonces_batch(&self, updates: &HashMap<AccountId, u64>) {
         // Group updates by shard index to minimize locking
         let mut updates_by_shard: HashMap<usize, Vec<(&AccountId, u64)>> = HashMap::new();
-        
+
         for (acct, &nonce) in updates {
             let idx = self.get_shard_index(acct);
             updates_by_shard.entry(idx).or_default().push((acct, nonce));
@@ -236,13 +236,13 @@ impl Mempool {
         for (idx, account_updates) in updates_by_shard {
             let mut guard = self.shards[idx].lock();
             let mut total_removed = 0;
-            
+
             for (acct, new_committed_nonce) in account_updates {
                 if let Some(queue) = guard.get_mut(acct) {
                     total_removed += queue.prune_committed(new_committed_nonce);
                 }
             }
-            
+
             if total_removed > 0 {
                 self.total_count.fetch_sub(total_removed, Ordering::Relaxed);
             }

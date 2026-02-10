@@ -10,14 +10,14 @@ use tauri::WebviewWindow;
 #[cfg(target_os = "linux")]
 pub fn setup_kwin_blur(window: &WebviewWindow) {
     let title = window.title().unwrap_or("Autopilot".into());
-    
+
     // Spawn a thread to wait briefly for the window to map, then inject properties
     let title_clone = title.to_string();
-    
+
     std::thread::spawn(move || {
         // Wait for window to actually appear on X server
         std::thread::sleep(std::time::Duration::from_millis(800));
-        
+
         // 1. Attempt to find Window ID using xdotool (common utility)
         let output = Command::new("xdotool")
             .arg("search")
@@ -32,7 +32,7 @@ pub fn setup_kwin_blur(window: &WebviewWindow) {
                 let id = id_str.trim();
                 if !id.is_empty() {
                     println!("[Linux] Found window ID {}, requesting blur atoms...", id);
-                    
+
                     // 2. Set the Blur Atom (Supported by KDE KWin and Dual-Kawase Picom)
                     // Property: _KDE_NET_WM_BLUR_BEHIND_REGION
                     // Value: 0 (Cardinal) indicates "Blur whole window"
@@ -46,7 +46,7 @@ pub fn setup_kwin_blur(window: &WebviewWindow) {
                         .arg("_KDE_NET_WM_BLUR_BEHIND_REGION")
                         .arg("0")
                         .spawn();
-                        
+
                     // 3. Optional: Set specific opacity hint if needed (though Tauri config does this)
                     // _NET_WM_WINDOW_OPACITY
                 }

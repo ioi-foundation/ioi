@@ -26,8 +26,8 @@ use ioi_consensus::Consensus;
 use ioi_tx::system::{nonce, validation};
 use ioi_tx::unified::UnifiedTransactionModel;
 use ioi_types::app::{
-    AccountId, BlockTimingParams, BlockTimingRuntime, ChainId, FailureReport, StateRoot,
-    QuorumCertificate, 
+    AccountId, BlockTimingParams, BlockTimingRuntime, ChainId, FailureReport, QuorumCertificate,
+    StateRoot,
 };
 use ioi_types::codec;
 use ioi_types::config::ServicePolicy;
@@ -203,7 +203,7 @@ where
             Ok(Some(ref status_bytes)) => {
                 let mut status: ChainStatus =
                     codec::from_bytes_canonical(status_bytes).map_err(ChainError::Transaction)?;
-                
+
                 // [FIX] Ensure we report running after a restart/recovery
                 status.is_running = true;
 

@@ -16,9 +16,11 @@ use ioi_drivers::browser::BrowserDriver;
 use ioi_execution::{util::load_state_from_genesis_file, ExecutionMachine};
 use ioi_scs::SovereignContextStore;
 use ioi_services::{
-    agentic::desktop::DesktopAgentService, governance::GovernanceModule, identity::IdentityHub,
-    provider_registry::ProviderRegistryService,
+    agentic::desktop::DesktopAgentService,
     agentic::optimizer::OptimizerService, // Import Optimizer
+    governance::GovernanceModule,
+    identity::IdentityHub,
+    provider_registry::ProviderRegistryService,
 };
 use ioi_storage::RedbEpochStore;
 use ioi_tx::unified::UnifiedTransactionModel;
@@ -40,11 +42,11 @@ use crate::standard::workload::drivers::cpu::CpuDriver;
 use crate::standard::workload::hydration::ModelHydrator;
 use crate::standard::workload::runtime::StandardInferenceRuntime;
 
+use ioi_api::vm::inference::LocalSafetyModel;
 use ioi_api::vm::inference::{mock::MockInferenceRuntime, HttpInferenceRuntime};
-use ioi_api::vm::inference::LocalSafetyModel; 
 
 use crate::standard::workload::drivers::verified_http::VerifiedHttpRuntime;
-use ioi_services::agentic::scrub_adapter::RuntimeAsSafetyModel; 
+use ioi_services::agentic::scrub_adapter::RuntimeAsSafetyModel;
 
 use tonic::transport::{Certificate, Channel, ClientTlsConfig, Identity};
 
@@ -61,9 +63,9 @@ use {
     zk_driver_succinct::config::SuccinctDriverConfig,
 };
 
-use ioi_drivers::terminal::TerminalDriver; 
-use ioi_types::app::KernelEvent;
 use ioi_api::vm::drivers::os::OsDriver;
+use ioi_drivers::terminal::TerminalDriver;
+use ioi_types::app::KernelEvent;
 
 use ioi_drivers::mcp::{McpManager, McpServerConfig};
 use std::collections::HashMap;
@@ -436,39 +438,40 @@ where
     }
 
     // [NEW] Instantiate Optimizer Service
-    let safety_adapter: Arc<dyn LocalSafetyModel> = Arc::new(RuntimeAsSafetyModel::new(fast_runtime.clone()));
-    
-    let mut optimizer_service = OptimizerService::new(
-        reasoning_runtime.clone(),
-        safety_adapter.clone(),
-    );
+    let safety_adapter: Arc<dyn LocalSafetyModel> =
+        Arc::new(RuntimeAsSafetyModel::new(fast_runtime.clone()));
+
+    let mut optimizer_service =
+        OptimizerService::new(reasoning_runtime.clone(), safety_adapter.clone());
 
     // [FIX] Inject SCS if available
     if let Some(store) = &_scs {
         optimizer_service = optimizer_service.with_scs(store.clone());
         tracing::info!(target: "workload", "SCS injected into OptimizerService.");
     }
-    
+
     // Register Optimizer
     initial_services.push(Arc::new(optimizer_service) as Arc<dyn UpgradableService>);
     tracing::info!(target: "workload", event = "service_init", name = "Optimizer", impl="native", capabilities="RSI_Engine");
 
     if let Some(gui) = _gui_driver {
         tracing::info!(target: "workload", event = "service_init", name = "DesktopAgent", impl="native");
-        
+
         let terminal_driver = Arc::new(TerminalDriver::new());
         tracing::info!(target: "workload", "Terminal Driver initialized");
 
-        let browser = _browser_driver.clone().unwrap_or_else(|| Arc::new(BrowserDriver::new()));
+        let browser = _browser_driver
+            .clone()
+            .unwrap_or_else(|| Arc::new(BrowserDriver::new()));
         tracing::info!(target: "workload", "Browser Driver injected into DesktopAgent");
 
         // [NEW] Initialize MCP Manager and spawn servers
         let mcp_manager = Arc::new(McpManager::new());
-        
+
         for (name, server_cfg) in &config.mcp_servers {
             let manager_clone = mcp_manager.clone();
             let name_clone = name.clone();
-            
+
             let mut resolved_env = HashMap::new();
             for (k, v) in &server_cfg.env {
                 if let Some(secret_ref) = v.strip_prefix("env:") {
@@ -498,11 +501,12 @@ where
         let mut agent = DesktopAgentService::new_hybrid(
             gui,
             terminal_driver,
-            browser, 
+            browser,
             fast_runtime,
-            reasoning_runtime
-        ).with_mcp_manager(mcp_manager); 
-        
+            reasoning_runtime,
+        )
+        .with_mcp_manager(mcp_manager);
+
         if let Some(store) = &_scs {
             agent = agent.with_scs(store.clone());
             tracing::info!(target: "workload", "SCS injected into DesktopAgent.");
@@ -517,7 +521,7 @@ where
             agent = agent.with_os_driver(os.clone());
             tracing::info!(target: "workload", "OS Driver injected into DesktopAgent.");
         } else {
-             tracing::warn!(target: "workload", "OS Driver missing! DesktopAgent will fail policy checks.");
+            tracing::warn!(target: "workload", "OS Driver missing! DesktopAgent will fail policy checks.");
         }
 
         initial_services.push(Arc::new(agent) as Arc<dyn UpgradableService>);
@@ -565,7 +569,7 @@ where
     let _workload_container = Arc::new(WorkloadContainer::new(
         config.clone(),
         state_tree,
-        vm, 
+        vm,
         Some(Box::new(RuntimeWrapper {
             inner: inference_runtime,
         })),

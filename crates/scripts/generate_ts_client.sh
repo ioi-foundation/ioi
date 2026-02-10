@@ -22,12 +22,25 @@ if ! command -v protoc &> /dev/null; then
     exit 1
 fi
 
-# The binary created by 'npm install ts-proto' is named 'protoc-gen-ts_proto' (underscore)
-PLUGIN_PATH="${REPO_ROOT}/apps/autopilot/node_modules/.bin/protoc-gen-ts_proto"
+# The binary created by 'npm install ts-proto' is named 'protoc-gen-ts_proto' (underscore).
+# In workspace installs, npm may hoist it to the repo-root node_modules/.bin.
+PLUGIN_PATHS=(
+    "${REPO_ROOT}/apps/autopilot/node_modules/.bin/protoc-gen-ts_proto"
+    "${REPO_ROOT}/node_modules/.bin/protoc-gen-ts_proto"
+)
+PLUGIN_PATH=""
+for candidate in "${PLUGIN_PATHS[@]}"; do
+    if [ -f "$candidate" ]; then
+        PLUGIN_PATH="$candidate"
+        break
+    fi
+done
 
-if [ ! -f "$PLUGIN_PATH" ]; then
-    echo "❌ Error: 'protoc-gen-ts_proto' not found at:"
-    echo "   $PLUGIN_PATH"
+if [ -z "$PLUGIN_PATH" ]; then
+    echo "❌ Error: 'protoc-gen-ts_proto' not found in expected paths:"
+    for candidate in "${PLUGIN_PATHS[@]}"; do
+        echo "   $candidate"
+    done
     echo ""
     echo "   Please run:"
     echo "   cd apps/autopilot && npm install --save-dev ts-proto"

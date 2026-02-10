@@ -4,8 +4,8 @@
 #![cfg(all(feature = "consensus-poa", feature = "vm-wasm"))]
 
 use anyhow::Result;
-use ioi_crypto::algorithms::hash::sha256;
 use ioi_cli::testing::{build_test_artifacts, TestCluster};
+use ioi_crypto::algorithms::hash::sha256;
 use serde_json::json;
 use tempfile::tempdir;
 

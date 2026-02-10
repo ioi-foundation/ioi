@@ -1,8 +1,8 @@
 // Path: crates/drivers/src/provisioning/aws.rs
 
-use super::{CloudProvider, InstanceSpec, InstanceHandle, InstanceStatus};
-use async_trait::async_trait;
+use super::{CloudProvider, InstanceHandle, InstanceSpec, InstanceStatus};
 use anyhow::Result;
+use async_trait::async_trait;
 
 // In a real implementation, we would use aws-sdk-ec2.
 // For this snapshot, we mock the API calls but implement the logic structure.
@@ -15,13 +15,19 @@ pub struct AwsProvider {
 
 impl AwsProvider {
     pub fn new(access_key: String, secret_key: String, region: String) -> Self {
-        Self { access_key, secret_key, region }
+        Self {
+            access_key,
+            secret_key,
+            region,
+        }
     }
 }
 
 #[async_trait]
 impl CloudProvider for AwsProvider {
-    fn id(&self) -> &str { "aws" }
+    fn id(&self) -> &str {
+        "aws"
+    }
 
     async fn estimate_cost(&self, spec: &InstanceSpec) -> Result<f64> {
         // Mock pricing logic: Base + RAM + GPU
@@ -37,9 +43,9 @@ impl CloudProvider for AwsProvider {
         // 1. Authenticate with AWS SDK (Mock)
         // 2. Map spec to InstanceType (e.g. t3.medium)
         // 3. RunInstances
-        
+
         log::info!("AWS: Provisioning {} in {}", spec.image, self.region);
-        
+
         // Mock successful response
         Ok(InstanceHandle {
             provider_id: "aws".into(),

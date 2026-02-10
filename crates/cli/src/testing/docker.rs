@@ -6,7 +6,7 @@ use bollard::{image::BuildImageOptions, Docker};
 use bytes::Bytes;
 use futures_util::StreamExt;
 // [FIX] We can pass bytes directly to build_image in newer bollard, it takes Into<Body>
-// use http_body_util::{Either, Full}; 
+// use http_body_util::{Either, Full};
 use std::path::Path;
 use tar::Builder;
 use tokio::sync::OnceCell;

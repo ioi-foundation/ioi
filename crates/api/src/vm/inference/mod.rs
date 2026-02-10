@@ -33,7 +33,8 @@ pub trait InferenceRuntime: Send + Sync {
         options: InferenceOptions,
         _token_stream: Option<Sender<String>>,
     ) -> Result<Vec<u8>, VmError> {
-        self.execute_inference(model_hash, input_context, options).await
+        self.execute_inference(model_hash, input_context, options)
+            .await
     }
 
     /// Generates a vector embedding for a given text input.

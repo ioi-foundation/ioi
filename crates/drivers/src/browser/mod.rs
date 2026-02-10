@@ -16,13 +16,17 @@ use std::time::Duration;
 use thiserror::Error;
 use tokio::sync::Mutex;
 
-use crate::gui::accessibility::{AccessibilityNode, Rect};
+use crate::gui::accessibility::{AccessibilityNode, Rect as AccessibilityRect};
+use crate::gui::geometry::{CoordinateSpace, Point, Rect as GeoRect};
 use chromiumoxide::cdp::browser_protocol::input::{
     DispatchMouseEventParams, DispatchMouseEventType, MouseButton,
 };
 use chromiumoxide::cdp::browser_protocol::page::{
     CaptureScreenshotFormat, CaptureScreenshotParams, GetLayoutMetricsParams,
 };
+
+pub mod context;
+use self::context::{BrowserContentFrame, BrowserContext, LocalBrowserFacade};
 
 #[derive(Debug, Error)]
 pub enum BrowserError {
@@ -39,14 +43,17 @@ pub enum BrowserError {
 }
 
 pub struct BrowserDriver {
+    // Hermetic Instance
     browser: Arc<Mutex<Option<Arc<Browser>>>>,
     active_page: Arc<Mutex<Option<Page>>>,
+
+    // Local Instance
+    local_browser: Arc<Mutex<Option<Arc<LocalBrowserFacade>>>>,
+
     // Tracks if the background websocket handler loop is running
     handler_alive: Arc<AtomicBool>,
 
-    // [NEW] Lease for demand-driven activation.
-    // If false, the driver stays cold and will NOT restart on failure.
-    // This prevents the watchdog from spawning headed Chromium during non-browser tasks.
+    // Lease for demand-driven activation.
     lease_active: Arc<AtomicBool>,
 }
 
@@ -55,12 +62,12 @@ impl BrowserDriver {
         Self {
             browser: Arc::new(Mutex::new(None)),
             active_page: Arc::new(Mutex::new(None)),
+            local_browser: Arc::new(Mutex::new(None)),
             handler_alive: Arc::new(AtomicBool::new(false)),
-            lease_active: Arc::new(AtomicBool::new(false)), // Starts cold
+            lease_active: Arc::new(AtomicBool::new(false)),
         }
     }
 
-    // [NEW] Public API to control the lease
     pub fn set_lease(&self, active: bool) {
         let prev = self.lease_active.swap(active, Ordering::SeqCst);
         if active && !prev {
@@ -143,7 +150,6 @@ impl BrowserDriver {
         None
     }
 
-    /// Detects if an error implies the browser process or websocket is dead.
     async fn check_connection_error<T>(
         &self,
         result: Result<T, impl std::fmt::Display>,
@@ -177,13 +183,10 @@ impl BrowserDriver {
     }
 
     async fn is_healthy(&self) -> bool {
-        // 1. Primary Check: Is the event loop running?
         if !self.handler_alive.load(Ordering::Relaxed) {
             return false;
         }
 
-        // 2. Secondary Check: Can we ping the browser?
-        // CLONE the arc to avoid holding the lock across the await
         let browser_arc = {
             let guard = self.browser.lock().await;
             guard.clone()
@@ -360,7 +363,6 @@ impl BrowserDriver {
         let alive_signal = self.handler_alive.clone();
 
         tokio::spawn(async move {
-            // Set alive INSIDE the task to ensure it matches loop lifecycle
             alive_signal.store(true, Ordering::SeqCst);
             while let Some(h) = handler.next().await {
                 if h.is_err() {
@@ -378,7 +380,6 @@ impl BrowserDriver {
 
     async fn ensure_page(&self) -> std::result::Result<(), BrowserError> {
         if !self.is_healthy().await {
-            // [NEW] Check lease before restarting
             if !self.lease_active.load(Ordering::SeqCst) {
                 return Err(BrowserError::Internal(
                     "Browser is cold (No Lease). Call set_lease(true) before use.".into(),
@@ -388,7 +389,6 @@ impl BrowserDriver {
             log::warn!(target: "browser", "Browser disconnected or dead. Restarting...");
             self.launch(false).await?;
 
-            // Re-acquire browser handle safely
             let browser_arc = { self.browser.lock().await.clone() };
 
             if let Some(b) = browser_arc {
@@ -419,30 +419,95 @@ impl BrowserDriver {
         Ok(())
     }
 
-    pub async fn navigate(&self, url: &str) -> std::result::Result<String, BrowserError> {
-        self.require_runtime()?;
+    pub async fn connect_local(&self) -> Result<(), BrowserError> {
+        // Connect to standard Chrome remote debugging port
+        // Assumes user ran Chrome with --remote-debugging-port=9222
+        let (browser, mut handler) =
+            Browser::connect("ws://127.0.0.1:9222").await.map_err(|e| {
+                BrowserError::Internal(format!("Failed to connect to local Chrome: {}", e))
+            })?;
+
+        tokio::spawn(async move {
+            while let Some(h) = handler.next().await {
+                if h.is_err() {
+                    break;
+                }
+            }
+        });
+
+        let facade = LocalBrowserFacade::new(Arc::new(Mutex::new(browser)));
+        *self.local_browser.lock().await = Some(Arc::new(facade));
+        Ok(())
+    }
+
+    pub async fn get_context(&self, context_type: &str) -> Result<BrowserContext, BrowserError> {
+        if context_type == "local" {
+            // Check existing connection
+            if let Some(facade) = self.local_browser.lock().await.as_ref() {
+                return Ok(BrowserContext::Local(facade.clone()));
+            }
+            // Try connect
+            self.connect_local().await?;
+            // Return new connection
+            let guard = self.local_browser.lock().await;
+            return Ok(BrowserContext::Local(guard.as_ref().unwrap().clone()));
+        }
+
+        // Default / Hermetic path
         self.ensure_page().await?;
-
-        let page = { self.active_page.lock().await.clone() };
-        if let Some(p) = page {
-            p.bring_to_front()
-                .await
-                .map_err(|e| BrowserError::Internal(e.to_string()))?;
-
-            // Wrap interactions in check_connection_error
-            self.check_connection_error(p.goto(url).await)
-                .await?
-                .wait_for_navigation()
-                .await
-                .map_err(|e| BrowserError::NavigateFailed {
-                    url: url.into(),
-                    details: e.to_string(),
-                })?;
-
-            let content = self.check_connection_error(p.content().await).await?;
-            Ok(content)
+        let guard = self.browser.lock().await;
+        if let Some(b) = guard.as_ref() {
+            let _ = b;
+            Ok(BrowserContext::Hermetic)
         } else {
-            Err(BrowserError::NoActivePage)
+            Err(BrowserError::Internal("Hermetic browser not ready".into()))
+        }
+    }
+
+    pub async fn navigate(
+        &self,
+        url: &str,
+        context_type: &str,
+    ) -> std::result::Result<String, BrowserError> {
+        let ctx = self.get_context(context_type).await?;
+
+        match ctx {
+            BrowserContext::Hermetic => {
+                // Reuse existing single-page logic for Hermetic
+                self.require_runtime()?;
+                // self.ensure_page().await?; // Handled by get_context
+
+                let page = { self.active_page.lock().await.clone() };
+                if let Some(p) = page {
+                    p.bring_to_front()
+                        .await
+                        .map_err(|e| BrowserError::Internal(e.to_string()))?;
+
+                    self.check_connection_error(p.goto(url).await)
+                        .await?
+                        .wait_for_navigation()
+                        .await
+                        .map_err(|e| BrowserError::NavigateFailed {
+                            url: url.into(),
+                            details: e.to_string(),
+                        })?;
+
+                    let content = self.check_connection_error(p.content().await).await?;
+                    Ok(content)
+                } else {
+                    Err(BrowserError::NoActivePage)
+                }
+            }
+            BrowserContext::Local(facade) => {
+                facade
+                    .navigate(url)
+                    .await
+                    .map_err(|e| BrowserError::NavigateFailed {
+                        url: url.into(),
+                        details: e.to_string(),
+                    })?;
+                Ok("Navigated local browser".to_string())
+            }
         }
     }
 
@@ -508,6 +573,131 @@ impl BrowserDriver {
         page.execute(cmd_up).await.ok();
 
         Ok(())
+    }
+
+    pub async fn get_content_frame(
+        &self,
+    ) -> std::result::Result<BrowserContentFrame, BrowserError> {
+        if let Some(local) = { self.local_browser.lock().await.clone() } {
+            return local
+                .get_content_frame()
+                .await
+                .map_err(|e| BrowserError::Internal(format!("Local content frame failed: {}", e)));
+        }
+
+        self.require_runtime()?;
+        self.ensure_page().await?;
+        let page = { self.active_page.lock().await.clone() }.ok_or(BrowserError::NoActivePage)?;
+
+        #[derive(serde::Deserialize)]
+        struct FrameEval {
+            x: f64,
+            y: f64,
+            chrome_top: f64,
+            width: f64,
+            height: f64,
+        }
+
+        let result: FrameEval = page
+            .evaluate(
+                r#"(() => ({
+                    x: window.screenX || 0,
+                    y: window.screenY || 0,
+                    chrome_top: Math.max(0, (window.outerHeight || 0) - (window.innerHeight || 0)),
+                    width: window.innerWidth || 0,
+                    height: window.innerHeight || 0
+                }))()"#,
+            )
+            .await
+            .map_err(|e| BrowserError::Internal(format!("Frame JS eval failed: {}", e)))?
+            .into_value()
+            .map_err(|e| BrowserError::Internal(format!("Frame JS decode failed: {}", e)))?;
+
+        Ok(BrowserContentFrame {
+            rect: GeoRect::new(
+                result.x,
+                result.y + result.chrome_top,
+                result.width,
+                result.height,
+                CoordinateSpace::ScreenLogical,
+            ),
+            chrome_top: result.chrome_top,
+        })
+    }
+
+    pub async fn get_selector_rect_window_logical(
+        &self,
+        selector: &str,
+    ) -> std::result::Result<GeoRect, BrowserError> {
+        #[derive(serde::Deserialize)]
+        struct ElementRectEval {
+            x: f64,
+            y: f64,
+            width: f64,
+            height: f64,
+        }
+
+        if let Some(local) = { self.local_browser.lock().await.clone() } {
+            let selector_json = serde_json::to_string(selector)
+                .map_err(|e| BrowserError::Internal(format!("Selector encode failed: {}", e)))?;
+            let script = format!(
+                "(() => {{ const el = document.querySelector({}); if (!el) return null; const r = el.getBoundingClientRect(); return {{ x: r.left, y: r.top, width: r.width, height: r.height }}; }})()",
+                selector_json
+            );
+            let rect_opt: Option<ElementRectEval> =
+                local.evaluate_js(&script).await.map_err(|e| {
+                    BrowserError::Internal(format!("Local selector rect failed: {}", e))
+                })?;
+            if let Some(rect) = rect_opt {
+                return Ok(GeoRect::new(
+                    rect.x,
+                    rect.y,
+                    rect.width,
+                    rect.height,
+                    CoordinateSpace::WindowLogical,
+                ));
+            }
+            return Err(BrowserError::Internal(format!(
+                "Element not found for selector '{}'",
+                selector
+            )));
+        }
+
+        self.require_runtime()?;
+        self.ensure_page().await?;
+
+        let page = { self.active_page.lock().await.clone() }.ok_or(BrowserError::NoActivePage)?;
+        let element = page
+            .find_element(selector)
+            .await
+            .map_err(|e| BrowserError::Internal(format!("Element not found: {}", e)))?;
+
+        let bounds = element
+            .bounding_box()
+            .await
+            .map_err(|e| BrowserError::Internal(format!("Bounding box failed: {}", e)))?;
+
+        Ok(GeoRect::new(
+            bounds.x,
+            bounds.y,
+            bounds.width,
+            bounds.height,
+            CoordinateSpace::WindowLogical,
+        ))
+    }
+
+    pub async fn resolve_selector_screen_point(
+        &self,
+        selector: &str,
+    ) -> std::result::Result<Point, BrowserError> {
+        let frame = self.get_content_frame().await?;
+        let element_rect = self.get_selector_rect_window_logical(selector).await?;
+        let center = element_rect.center();
+        Ok(Point::new(
+            frame.rect.x + center.x,
+            frame.rect.y + center.y,
+            CoordinateSpace::ScreenLogical,
+        ))
     }
 
     pub async fn get_content_offset(&self) -> std::result::Result<(i32, i32), BrowserError> {
@@ -670,7 +860,7 @@ impl BrowserDriver {
             }
         }
 
-        let rect = Rect {
+        let rect = AccessibilityRect {
             x: 0,
             y: 0,
             width: 0,

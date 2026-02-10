@@ -138,84 +138,127 @@ impl RedbEpochStore {
 
         // --- WAL Replay Logic ---
         if wal_path.exists() {
-             let db_head_height = {
-                 let r = db.begin_read().map_err(|e| StorageError::Backend(e.to_string()))?;
-                 // [FIX] Scoped block to ensure table `t` is dropped before `r`
-                 let res = if let Ok(t) = r.open_table(HEAD) {
-                     if let Ok(Some(v)) = t.get(&key_head()) {
-                          let bytes = v.value();
-                          let (h_bytes, _) = bytes.split_at(8);
-                          parse_u64(h_bytes)
-                     } else { 0 }
-                 } else { 0 };
-                 res
-             };
-             
-             eprintln!("[Storage] Replaying WAL from height > {}", db_head_height);
-             
-             let iter = crate::wal::WalIterator::new(&wal_path).map_err(|e| StorageError::Backend(e.to_string()))?;
-             
-             let mut replayed_count = 0;
-             // We use a single write transaction for the replay batch for speed
-             let w = db.begin_write().map_err(|e| StorageError::Backend(e.to_string()))?;
-             
-             {
-                 let mut nodes_tbl = w.open_table(NODES).map_err(|e| StorageError::Backend(e.to_string()))?;
-                 let mut refs_tbl = w.open_table(REFS).map_err(|e| StorageError::Backend(e.to_string()))?;
-                 let mut ch = w.open_table(CHANGES).map_err(|e| StorageError::Backend(e.to_string()))?;
-                 let mut ver = w.open_table(VERSIONS).map_err(|e| StorageError::Backend(e.to_string()))?;
-                 let mut ri = w.open_table(ROOT_INDEX).map_err(|e| StorageError::Backend(e.to_string()))?;
-                 let mut t_head = w.open_table(HEAD).map_err(|e| StorageError::Backend(e.to_string()))?;
+            let db_head_height = {
+                let r = db
+                    .begin_read()
+                    .map_err(|e| StorageError::Backend(e.to_string()))?;
+                // [FIX] Scoped block to ensure table `t` is dropped before `r`
+                let res = if let Ok(t) = r.open_table(HEAD) {
+                    if let Ok(Some(v)) = t.get(&key_head()) {
+                        let bytes = v.value();
+                        let (h_bytes, _) = bytes.split_at(8);
+                        parse_u64(h_bytes)
+                    } else {
+                        0
+                    }
+                } else {
+                    0
+                };
+                res
+            };
 
-                 for item in iter {
-                     // Log errors but try to continue or break? 
-                     // Failing replay is critical.
-                     let (height, root, diff) = item.map_err(|e| StorageError::Backend(format!("WAL Read Error: {}", e)))?;
-                     
-                     if height <= db_head_height {
-                         continue;
-                     }
-                     
-                     let epoch = if epoch_size == 0 { 0 } else { height / epoch_size };
-                     
-                     // Apply Diff
-                     for (nh, bytes) in diff.new_nodes {
-                         let nh_wrapper = NodeHash(nh);
-                         let k = k_nodes(epoch, &nh_wrapper);
-                         if nodes_tbl.get(k.as_slice()).map_err(|e| StorageError::Backend(e.to_string()))?.is_none() {
-                             nodes_tbl.insert(k.as_slice(), bytes.as_slice()).map_err(|e| StorageError::Backend(e.to_string()))?;
-                             let rk = k_refs(epoch, &nh_wrapper);
-                             refs_tbl.insert(rk.as_slice(), &v_u64(1)).map_err(|e| StorageError::Backend(e.to_string()))?;
-                         }
-                     }
-                     
-                     for (i, nh) in diff.touched_nodes.iter().enumerate() {
-                         let nh_wrapper = NodeHash(*nh);
-                         ch.insert(k_changes(epoch, height, i as u32).as_slice(), &nh_wrapper.0).map_err(|e| StorageError::Backend(e.to_string()))?;
-                     }
-                     
-                     // Update Version/Root
-                     let root_wrapper = RootHash(root);
-                     ver.insert(k_versions(epoch, height).as_slice(), &root_wrapper.0).map_err(|e| StorageError::Backend(e.to_string()))?;
-                     
-                     let mut meta = [0u8; 16];
-                     meta[..8].copy_from_slice(&enc_epoch(epoch));
-                     meta[8..].copy_from_slice(&enc_height(height));
-                     ri.insert(&root_wrapper.0, &meta).map_err(|e| StorageError::Backend(e.to_string()))?;
+            eprintln!("[Storage] Replaying WAL from height > {}", db_head_height);
 
-                     // Update Head
-                     let mut head_buf = [0u8; 16];
-                     head_buf[..8].copy_from_slice(&enc_height(height));
-                     head_buf[8..].copy_from_slice(&enc_epoch(epoch));
-                     t_head.insert(&key_head(), &head_buf).map_err(|e| StorageError::Backend(e.to_string()))?;
-                     
-                     replayed_count += 1;
-                 }
-             }
-             w.commit().map_err(|e| StorageError::Backend(e.to_string()))?;
-             if replayed_count > 0 {
-                 eprintln!("[Storage] WAL Replay complete. Applied {} blocks.", replayed_count);
-             }
+            let iter = crate::wal::WalIterator::new(&wal_path)
+                .map_err(|e| StorageError::Backend(e.to_string()))?;
+
+            let mut replayed_count = 0;
+            // We use a single write transaction for the replay batch for speed
+            let w = db
+                .begin_write()
+                .map_err(|e| StorageError::Backend(e.to_string()))?;
+
+            {
+                let mut nodes_tbl = w
+                    .open_table(NODES)
+                    .map_err(|e| StorageError::Backend(e.to_string()))?;
+                let mut refs_tbl = w
+                    .open_table(REFS)
+                    .map_err(|e| StorageError::Backend(e.to_string()))?;
+                let mut ch = w
+                    .open_table(CHANGES)
+                    .map_err(|e| StorageError::Backend(e.to_string()))?;
+                let mut ver = w
+                    .open_table(VERSIONS)
+                    .map_err(|e| StorageError::Backend(e.to_string()))?;
+                let mut ri = w
+                    .open_table(ROOT_INDEX)
+                    .map_err(|e| StorageError::Backend(e.to_string()))?;
+                let mut t_head = w
+                    .open_table(HEAD)
+                    .map_err(|e| StorageError::Backend(e.to_string()))?;
+
+                for item in iter {
+                    // Log errors but try to continue or break?
+                    // Failing replay is critical.
+                    let (height, root, diff) =
+                        item.map_err(|e| StorageError::Backend(format!("WAL Read Error: {}", e)))?;
+
+                    if height <= db_head_height {
+                        continue;
+                    }
+
+                    let epoch = if epoch_size == 0 {
+                        0
+                    } else {
+                        height / epoch_size
+                    };
+
+                    // Apply Diff
+                    for (nh, bytes) in diff.new_nodes {
+                        let nh_wrapper = NodeHash(nh);
+                        let k = k_nodes(epoch, &nh_wrapper);
+                        if nodes_tbl
+                            .get(k.as_slice())
+                            .map_err(|e| StorageError::Backend(e.to_string()))?
+                            .is_none()
+                        {
+                            nodes_tbl
+                                .insert(k.as_slice(), bytes.as_slice())
+                                .map_err(|e| StorageError::Backend(e.to_string()))?;
+                            let rk = k_refs(epoch, &nh_wrapper);
+                            refs_tbl
+                                .insert(rk.as_slice(), &v_u64(1))
+                                .map_err(|e| StorageError::Backend(e.to_string()))?;
+                        }
+                    }
+
+                    for (i, nh) in diff.touched_nodes.iter().enumerate() {
+                        let nh_wrapper = NodeHash(*nh);
+                        ch.insert(k_changes(epoch, height, i as u32).as_slice(), &nh_wrapper.0)
+                            .map_err(|e| StorageError::Backend(e.to_string()))?;
+                    }
+
+                    // Update Version/Root
+                    let root_wrapper = RootHash(root);
+                    ver.insert(k_versions(epoch, height).as_slice(), &root_wrapper.0)
+                        .map_err(|e| StorageError::Backend(e.to_string()))?;
+
+                    let mut meta = [0u8; 16];
+                    meta[..8].copy_from_slice(&enc_epoch(epoch));
+                    meta[8..].copy_from_slice(&enc_height(height));
+                    ri.insert(&root_wrapper.0, &meta)
+                        .map_err(|e| StorageError::Backend(e.to_string()))?;
+
+                    // Update Head
+                    let mut head_buf = [0u8; 16];
+                    head_buf[..8].copy_from_slice(&enc_height(height));
+                    head_buf[8..].copy_from_slice(&enc_epoch(epoch));
+                    t_head
+                        .insert(&key_head(), &head_buf)
+                        .map_err(|e| StorageError::Backend(e.to_string()))?;
+
+                    replayed_count += 1;
+                }
+            }
+            w.commit()
+                .map_err(|e| StorageError::Backend(e.to_string()))?;
+            if replayed_count > 0 {
+                eprintln!(
+                    "[Storage] WAL Replay complete. Applied {} blocks.",
+                    replayed_count
+                );
+            }
         }
 
         // Setup Async Persistence with Bounded Channel.
@@ -361,7 +404,7 @@ impl RedbEpochStore {
                             let mut guard = pending_blocks_clone.write().unwrap();
                             guard.remove(&height);
                         }
-                        
+
                         let _ = ack_tx.send(result);
                     }
                 }
@@ -603,8 +646,14 @@ impl NodeStore for RedbEpochStore {
         // Wait for durability acknowledgment
         match ack_rx.await {
             Ok(Ok(())) => Ok(()),
-            Ok(Err(e)) => Err(StorageError::Backend(format!("Commit failed in background: {}", e))),
-            Err(e) => Err(StorageError::Backend(format!("Persistence channel closed: {}", e))),
+            Ok(Err(e)) => Err(StorageError::Backend(format!(
+                "Commit failed in background: {}",
+                e
+            ))),
+            Err(e) => Err(StorageError::Backend(format!(
+                "Persistence channel closed: {}",
+                e
+            ))),
         }
     }
 
@@ -625,9 +674,15 @@ impl NodeStore for RedbEpochStore {
 
         // Wait for durability acknowledgment
         match ack_rx.await {
-             Ok(Ok(())) => Ok(()),
-             Ok(Err(e)) => Err(StorageError::Backend(format!("Block write failed in background: {}", e))),
-             Err(e) => Err(StorageError::Backend(format!("Persistence channel closed: {}", e))),
+            Ok(Ok(())) => Ok(()),
+            Ok(Err(e)) => Err(StorageError::Backend(format!(
+                "Block write failed in background: {}",
+                e
+            ))),
+            Err(e) => Err(StorageError::Backend(format!(
+                "Persistence channel closed: {}",
+                e
+            ))),
         }
     }
 

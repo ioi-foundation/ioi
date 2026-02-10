@@ -1,12 +1,12 @@
 // apps/autopilot/src-tauri/src/ingestion.rs
 
 use crate::models::AppState;
-use ioi_scs::{FrameType, VectorIndex, RetentionClass}; // [FIX] Import RetentionClass
+use ioi_crypto::algorithms::hash::sha256;
+use ioi_scs::{FrameType, RetentionClass, VectorIndex}; // [FIX] Import RetentionClass
 use std::fs;
 use std::path::Path;
 use std::sync::Mutex; // [FIX] Removed Arc
 use tauri::State;
-use ioi_crypto::algorithms::hash::sha256; 
 
 const CHUNK_SIZE: usize = 4096;
 
@@ -38,14 +38,17 @@ pub async fn ingest_file(
     let (scs_arc, inference) = {
         let guard = state.lock().map_err(|_| "Failed to lock app state")?;
         let scs = guard.studio_scs.clone().ok_or("SCS not initialized")?;
-        let inf = guard.inference_runtime.clone().ok_or("Inference runtime not initialized")?;
+        let inf = guard
+            .inference_runtime
+            .clone()
+            .ok_or("Inference runtime not initialized")?;
         (scs, inf)
     };
 
     // 2. Read & Chunk
     let content = fs::read(path).map_err(|e| format!("Failed to read file: {}", e))?;
     let total_size = content.len() as u64;
-    
+
     // Simple splitting for binary; for text files, line-splitting is better but this suffices for MVP
     let chunks: Vec<&[u8]> = content.chunks(CHUNK_SIZE).collect();
     let mut frame_ids = Vec::new();
@@ -66,18 +69,20 @@ pub async fn ingest_file(
             // A. Store Raw Frame
             // We use a zero-hash for mhnsw_root initially; typically updated after commit.
             // We use the content hash as the session_id/context identifier.
-            let frame_id = store.append_frame(
-                FrameType::Observation,
-                chunk,
-                block_height,
-                mhnsw_root,
-                content_hash,
-                RetentionClass::Archival, // [FIX] Add retention (Files are archival)
-            ).map_err(|e| format!("Failed to write frame: {}", e))?;
+            let frame_id = store
+                .append_frame(
+                    FrameType::Observation,
+                    chunk,
+                    block_height,
+                    mhnsw_root,
+                    content_hash,
+                    RetentionClass::Archival, // [FIX] Add retention (Files are archival)
+                )
+                .map_err(|e| format!("Failed to write frame: {}", e))?;
 
             frame_ids.push(frame_id);
         }
-        
+
         // C. Commit Index changes to disk (System Frame) - Done later
     } // Drop Store Lock
 
@@ -86,44 +91,47 @@ pub async fn ingest_file(
     for (i, &frame_id) in frame_ids.iter().enumerate() {
         let chunk = chunks[i];
         if let Ok(text) = std::str::from_utf8(chunk) {
-             // Only embed if it looks like text and isn't empty
-             if !text.trim().is_empty() {
-                 match inference.embed_text(text).await {
-                     Ok(vector) => {
-                         // Re-acquire lock briefly to insert into index
-                         let store = scs_arc.lock().map_err(|_| "Failed to lock SCS")?;
-                         
-                         // Helper to get or create index
-                         // Note: get_vector_index returns Arc<Mutex<Option<VectorIndex>>>
-                         let index_arc = store.get_vector_index().map_err(|e| e.to_string())?;
-                         let mut index_guard = index_arc.lock().map_err(|_| "Failed to lock index")?;
-                         
-                         if index_guard.is_none() {
-                             // Initialize with defaults: M=16, ef_construction=200
-                             *index_guard = Some(VectorIndex::new(16, 200));
-                         }
-                         
-                         if let Some(idx) = index_guard.as_mut() {
-                             if let Err(e) = idx.insert(frame_id, vector) {
-                                 eprintln!("[Ingestion] Failed to index frame {}: {}", frame_id, e);
-                             }
-                         }
-                     },
-                     Err(e) => {
-                         eprintln!("[Ingestion] Embedding failed for frame {}: {}", frame_id, e);
-                     }
-                 }
-             }
+            // Only embed if it looks like text and isn't empty
+            if !text.trim().is_empty() {
+                match inference.embed_text(text).await {
+                    Ok(vector) => {
+                        // Re-acquire lock briefly to insert into index
+                        let store = scs_arc.lock().map_err(|_| "Failed to lock SCS")?;
+
+                        // Helper to get or create index
+                        // Note: get_vector_index returns Arc<Mutex<Option<VectorIndex>>>
+                        let index_arc = store.get_vector_index().map_err(|e| e.to_string())?;
+                        let mut index_guard =
+                            index_arc.lock().map_err(|_| "Failed to lock index")?;
+
+                        if index_guard.is_none() {
+                            // Initialize with defaults: M=16, ef_construction=200
+                            *index_guard = Some(VectorIndex::new(16, 200));
+                        }
+
+                        if let Some(idx) = index_guard.as_mut() {
+                            if let Err(e) = idx.insert(frame_id, vector) {
+                                eprintln!("[Ingestion] Failed to index frame {}: {}", frame_id, e);
+                            }
+                        }
+                    }
+                    Err(e) => {
+                        eprintln!("[Ingestion] Embedding failed for frame {}: {}", frame_id, e);
+                    }
+                }
+            }
         }
     }
-    
+
     // 5. Final Commit of Index to persist the new vectors
     {
         let mut store = scs_arc.lock().map_err(|_| "Failed to lock SCS")?;
         let index_arc = store.get_vector_index().map_err(|e| e.to_string())?;
         let index_guard = index_arc.lock().map_err(|_| "Failed to lock index")?;
         if let Some(idx) = index_guard.as_ref() {
-            store.commit_index(idx).map_err(|e| format!("Final index commit failed: {}", e))?;
+            store
+                .commit_index(idx)
+                .map_err(|e| format!("Final index commit failed: {}", e))?;
             println!("[Ingestion] Committed vector index for {}", file_name);
         }
     }

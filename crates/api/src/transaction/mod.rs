@@ -41,7 +41,7 @@ pub trait TransactionModel: Send + Sync {
     /// 2. The total gas consumed by the transaction execution.
     async fn apply_payload<ST, CV>(
         &self,
-        chain: &CV,                    // ChainView for read-only context
+        chain: &CV,                  // ChainView for read-only context
         state: &mut dyn StateAccess, // The transactional state overlay for writes
         tx: &Self::Transaction,
         ctx: &mut TxContext<'_>,

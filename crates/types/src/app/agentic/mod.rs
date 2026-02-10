@@ -1,6 +1,6 @@
 // Path: crates/types/src/app/agentic/mod.rs
 //! Core data structures for the Agentic Economy and Semantic Consensus.
-//! 
+//!
 //! This module defines the primitives for:
 //! - **Market**: Assets, Manifests, and Licenses.
 //! - **Execution**: Runtime traces, history, and proofs.

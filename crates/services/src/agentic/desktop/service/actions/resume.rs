@@ -3,6 +3,12 @@
 use super::checks::requires_visual_integrity;
 use super::evaluation::evaluate_and_crystallize;
 use crate::agentic::desktop::keys::{get_state_key, AGENT_POLICY_PREFIX};
+use crate::agentic::desktop::service::step::anti_loop::{
+    build_post_state_summary, build_state_summary, choose_routing_tier, classify_failure,
+    emit_routing_receipt, escalation_path_for_failure, extract_artifacts, lineage_pointer,
+    mutation_receipt_pointer, policy_binding_hash, register_attempt, should_trip_retry_guard,
+    tier_as_str, to_routing_failure_class, FailureClass,
+};
 use crate::agentic::desktop::service::step::helpers::default_safe_policy;
 use crate::agentic::desktop::service::step::visual::hamming_distance;
 use crate::agentic::desktop::service::DesktopAgentService;
@@ -16,7 +22,7 @@ use crate::agentic::desktop::middleware;
 use hex;
 use ioi_api::state::StateAccess;
 use ioi_types::app::agentic::AgentTool;
-use ioi_types::app::KernelEvent;
+use ioi_types::app::{KernelEvent, RoutingReceiptEvent};
 use ioi_types::codec;
 use ioi_types::error::TransactionError;
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -38,6 +44,14 @@ pub async fn resume_pending_action(
     session_id: [u8; 32],
     block_height: u64,
 ) -> Result<(), TransactionError> {
+    let pre_state_summary = build_state_summary(agent_state);
+    let routing_decision = choose_routing_tier(agent_state);
+    let mut policy_decision = "approved".to_string();
+    let mut failure_class: Option<FailureClass> = None;
+    let mut stop_condition_hit = false;
+    let mut escalation_path: Option<String> = None;
+    let mut verification_checks = Vec::new();
+
     // 1. Load Canonical Request Bytes
     let tool_jcs = agent_state
         .pending_tool_jcs
@@ -53,6 +67,7 @@ pub async fn resume_pending_action(
     // 2. Deserialize Tool FIRST
     let tool: AgentTool = serde_json::from_slice(tool_jcs)
         .map_err(|e| TransactionError::Serialization(format!("Corrupt pending tool: {}", e)))?;
+    let action_json = serde_json::to_string(&tool).unwrap_or_else(|_| "{}".to_string());
 
     // 3. Visual Guard: Context Drift Check
     let pending_vhash = agent_state
@@ -221,6 +236,11 @@ pub async fn resume_pending_action(
         Ok(t) => t,
         Err(e) => (false, None, Some(e.to_string())),
     };
+    if let Some(err_msg) = err.as_deref() {
+        if err_msg.to_lowercase().contains("blocked by policy") {
+            policy_decision = "denied".to_string();
+        }
+    }
 
     let output_str = out
         .clone()
@@ -243,11 +263,13 @@ pub async fn resume_pending_action(
     )?;
 
     let content = if success {
-        out.unwrap_or_else(|| "Action executed successfully.".to_string())
+        out.as_deref()
+            .unwrap_or("Action executed successfully.")
+            .to_string()
     } else {
         format!(
             "Action Failed: {}",
-            err.unwrap_or("Unknown error".to_string())
+            err.as_deref().unwrap_or("Unknown error")
         )
     };
 
@@ -346,11 +368,113 @@ pub async fn resume_pending_action(
         }
     }
 
+    if success {
+        agent_state.recent_actions.clear();
+    } else {
+        failure_class = classify_failure(err.as_deref(), &policy_decision);
+        if let Some(class) = failure_class {
+            let fingerprint = format!(
+                "resumed_action::{}::{}",
+                class.as_str(),
+                hex::encode(tool_hash)
+            );
+            let repeat_count = register_attempt(agent_state, fingerprint);
+            verification_checks.push(format!("attempt_repeat_count={}", repeat_count));
+            if should_trip_retry_guard(class, repeat_count) {
+                stop_condition_hit = true;
+                escalation_path = Some(escalation_path_for_failure(class).to_string());
+                agent_state.status = AgentStatus::Paused(format!(
+                    "Retry guard tripped after repeated {} failures",
+                    class.as_str()
+                ));
+                if matches!(
+                    class,
+                    FailureClass::FocusMismatch
+                        | FailureClass::TargetNotFound
+                        | FailureClass::ToolUnavailable
+                        | FailureClass::NonDeterministicUI
+                        | FailureClass::TimeoutOrHang
+                        | FailureClass::UnexpectedState
+                ) {
+                    agent_state.consecutive_failures = agent_state.consecutive_failures.max(3);
+                }
+            }
+        }
+    }
+
+    verification_checks.push(format!("policy_decision={}", policy_decision));
+    verification_checks.push(format!("was_resume=true"));
+    verification_checks.push(format!("stop_condition_hit={}", stop_condition_hit));
+    verification_checks.push(format!(
+        "routing_tier_selected={}",
+        tier_as_str(routing_decision.tier)
+    ));
+    verification_checks.push(format!(
+        "routing_reason_code={}",
+        routing_decision.reason_code
+    ));
+    verification_checks.push(format!(
+        "routing_source_failure={}",
+        routing_decision
+            .source_failure
+            .map(|class| class.as_str().to_string())
+            .unwrap_or_else(|| "None".to_string())
+    ));
+    verification_checks.push(format!(
+        "routing_tier_matches_pre_state={}",
+        pre_state_summary.tier == tier_as_str(routing_decision.tier)
+    ));
+    if let Some(class) = failure_class {
+        verification_checks.push(format!("failure_class={}", class.as_str()));
+    }
+
     agent_state.step_count += 1;
 
     if success {
-        agent_state.consecutive_failures = 0;
+        if !stop_condition_hit {
+            agent_state.consecutive_failures = 0;
+        }
+    } else if requires_visual_integrity(&tool) {
+        // Keep resumed spatial failures in a high-observability tier so the next step
+        // can recover with fresh visual grounding instead of dropping back to headless.
+        agent_state.consecutive_failures = agent_state.consecutive_failures.max(3);
     }
+
+    let mut artifacts = extract_artifacts(err.as_deref(), out.as_deref());
+    artifacts.push(format!(
+        "trace://agent_step/{}",
+        pre_state_summary.step_index
+    ));
+    artifacts.push(format!("trace://session/{}", hex::encode(&session_id[..4])));
+    let post_state = build_post_state_summary(agent_state, success, verification_checks);
+    let mut tool_name = format!("{:?}", tool.target());
+    if let AgentTool::ChatReply { .. } = tool {
+        tool_name = "chat__reply".to_string();
+    }
+    let intent_hash = hex::encode(tool_hash);
+    let policy_binding = policy_binding_hash(&intent_hash, &policy_decision);
+    let receipt = RoutingReceiptEvent {
+        session_id,
+        step_index: pre_state_summary.step_index,
+        intent_hash,
+        policy_decision,
+        tool_name,
+        tool_version: env!("CARGO_PKG_VERSION").to_string(),
+        pre_state: pre_state_summary,
+        action_json,
+        post_state,
+        artifacts,
+        failure_class: failure_class.map(to_routing_failure_class),
+        stop_condition_hit,
+        escalation_path,
+        scs_lineage_ptr: lineage_pointer(agent_state.active_skill_hash),
+        mutation_receipt_ptr: mutation_receipt_pointer(state, &session_id),
+        policy_binding_hash: policy_binding,
+        policy_binding_sig: None,
+        policy_binding_signer: None,
+    };
+    emit_routing_receipt(service.event_sender.as_ref(), receipt);
+
     state.insert(&key, &codec::to_bytes_canonical(&agent_state)?)?;
 
     Ok(())

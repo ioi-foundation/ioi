@@ -1,20 +1,19 @@
 // Path: crates/services/src/agentic/intent.rs
 
+use crate::agentic::desktop::{AgentMode, StartAgentParams};
 use crate::agentic::prompt_wrapper::PolicyGuardrails; // [FIX] Removed PromptWrapper
-use crate::agentic::desktop::{StartAgentParams, AgentMode}; 
 use anyhow::{anyhow, Result};
+use hex;
 use ioi_api::vm::inference::InferenceRuntime;
 use ioi_types::app::agentic::InferenceOptions;
 use ioi_types::app::{
-    ChainTransaction, SignHeader, SignatureProof,
-    SystemPayload, SystemTransaction,
+    ChainTransaction, SignHeader, SignatureProof, SystemPayload, SystemTransaction,
 };
 use ioi_types::codec;
 use rand::RngCore;
 use serde::Deserialize;
 use serde_json::Value;
-use std::sync::Arc;
-use hex; // [FIX] Required for decoding session ID
+use std::sync::Arc; // [FIX] Required for decoding session ID
 
 /// A service to translate natural language user intent into a canonical, signable transaction.
 pub struct IntentResolver {
@@ -67,7 +66,7 @@ impl IntentResolver {
 
     pub async fn resolve_intent(
         &self,
-        user_prompt: &str, 
+        user_prompt: &str,
         chain_id: ioi_types::app::ChainId,
         nonce: u64,
         address_book: &std::collections::HashMap<String, String>,
@@ -82,7 +81,7 @@ impl IntentResolver {
         };
 
         let context_str = format!("Address Book: {:?}", address_book);
-        
+
         // [MODIFIED] Update prompt to handle explicit "Chat Mode" prefix and schema examples
         // Also added instruction for Session ID extraction from prompt if present (e.g., re-launching context)
         let header = format!(
@@ -99,8 +98,7 @@ impl IntentResolver {
 
         let body = format!("User Input: \"{}\"", user_prompt);
 
-        let footer =
-            "OUTPUT RULES:\n\
+        let footer = "OUTPUT RULES:\n\
             1. Return ONLY the JSON object.\n\
             2. Do NOT use Markdown formatting (no ```json ... ```).\n\
             3. The root object MUST have an 'operation_id' field.\n\
@@ -110,7 +108,7 @@ impl IntentResolver {
 
         let prompt = format!("{}\n\n{}\n\n{}", header, body, footer);
 
-        let model_hash = [0u8; 32]; 
+        let model_hash = [0u8; 32];
         let options = InferenceOptions {
             temperature: 0.0,
             json_mode: true, // [FIX] Enforce JSON mode for reliable intent parsing
@@ -124,22 +122,26 @@ impl IntentResolver {
             .map_err(|e| anyhow!("Intent inference failed: {}", e))?;
 
         let output_str = String::from_utf8(output_bytes)?;
-        
+
         // Robust extraction
         let json_str = Self::extract_json(&output_str).ok_or_else(|| {
-            log::error!("IntentResolver: No JSON object found in output: '{}'", output_str);
+            log::error!(
+                "IntentResolver: No JSON object found in output: '{}'",
+                output_str
+            );
             anyhow!("LLM did not return a valid JSON object")
         })?;
 
         // 4. Parse LLM Output
-        let plan: IntentPlan = serde_json::from_str(&json_str)
-            .map_err(|e| {
-                log::error!(
-                    "IntentResolver: JSON parse failed.\nRaw: {}\nExtracted: {}\nError: {}", 
-                    output_str, json_str, e
-                );
-                anyhow!("Failed to parse intent plan: {}", e)
-            })?;
+        let plan: IntentPlan = serde_json::from_str(&json_str).map_err(|e| {
+            log::error!(
+                "IntentResolver: JSON parse failed.\nRaw: {}\nExtracted: {}\nError: {}",
+                output_str,
+                json_str,
+                e
+            );
+            anyhow!("Failed to parse intent plan: {}", e)
+        })?;
 
         // 5. Construct Transaction
         let tx = match plan.operation_id.as_str() {
@@ -157,7 +159,7 @@ impl IntentResolver {
 
                 let to_bytes = hex::decode(to_addr.trim_start_matches("0x"))
                     .map_err(|_| anyhow!("Invalid hex address"))?;
-                    
+
                 let to_account = ioi_types::app::AccountId(
                     to_bytes
                         .try_into()
@@ -170,7 +172,7 @@ impl IntentResolver {
                 };
 
                 let header = SignHeader {
-                    account_id: Default::default(), 
+                    account_id: Default::default(),
                     nonce,
                     chain_id,
                     tx_version: 1,
@@ -217,10 +219,10 @@ impl IntentResolver {
                     goal: goal.to_string(),
                     max_steps: 10,
                     parent_session_id: None,
-                    initial_budget: 10_000_000, 
-                    mode, 
+                    initial_budget: 10_000_000,
+                    mode,
                 };
-                
+
                 let params_bytes = codec::to_bytes_canonical(&params)
                     .map_err(|e| anyhow!("Failed to encode agent params: {}", e))?;
 
@@ -257,10 +259,10 @@ struct IntentPlan {
     // Aliases for common LLM hallucinations
     #[serde(alias = "operationId", alias = "action", alias = "function")]
     operation_id: String,
-    
+
     #[serde(default)]
     params: serde_json::Map<String, Value>,
-    
+
     #[serde(default, alias = "gasCeiling", alias = "gas_limit")]
     gas_ceiling: u64,
 }

@@ -7,7 +7,9 @@ use ioi_api::commitment::CommitmentScheme;
 use ioi_api::consensus::ConsensusControl; // [NEW] Import trait
 use ioi_api::state::{StateAccess, StateManager};
 use ioi_system::SystemState;
-use ioi_types::app::{AccountId, Block, ChainStatus, FailureReport, ConsensusVote, QuorumCertificate};
+use ioi_types::app::{
+    AccountId, Block, ChainStatus, ConsensusVote, FailureReport, QuorumCertificate,
+};
 use ioi_types::codec;
 use ioi_types::error::{ConsensusError, TransactionError};
 use ioi_types::keys::STATUS_KEY;
@@ -91,7 +93,7 @@ impl<T: Clone + Send + 'static + parity_scale_codec::Encode> ConsensusEngine<T> 
             .duration_since(UNIX_EPOCH)
             .unwrap()
             .as_secs();
-        
+
         let expected_timestamp_secs = std::cmp::max(now, parent_ts + 1);
 
         ConsensusDecision::ProduceBlock {
@@ -115,10 +117,7 @@ impl<T: Clone + Send + 'static + parity_scale_codec::Encode> ConsensusEngine<T> 
         Ok(())
     }
 
-    async fn handle_vote(
-        &mut self,
-        _vote: ConsensusVote,
-    ) -> Result<(), ConsensusError> {
+    async fn handle_vote(&mut self, _vote: ConsensusVote) -> Result<(), ConsensusError> {
         // Solo mode does not process votes from peers.
         Ok(())
     }

@@ -2,12 +2,12 @@
 
 pub mod checks;
 pub mod evaluation;
-pub mod resume;
 pub mod process;
+pub mod resume;
 
 // Re-export main functions to match the previous API surface
-pub use resume::resume_pending_action;
 pub use process::process_tool_output;
+pub use resume::resume_pending_action;
 // Exporting helpers if needed elsewhere
-pub use evaluation::evaluate_and_crystallize;
 pub use checks::safe_truncate;
+pub use evaluation::evaluate_and_crystallize;

@@ -132,7 +132,7 @@ impl BlockchainService for ProviderRegistryService {
                 // Validate timestamp freshness (prevent replay of old heartbeats)
                 // [FIX] Convert nanoseconds (u64) to seconds for comparison
                 let now = ctx.block_timestamp / 1_000_000_000;
-                
+
                 if p.timestamp > now + 10 || p.timestamp < now - 60 {
                     return Err(TransactionError::Invalid(
                         "Heartbeat timestamp out of bounds".into(),

@@ -1,18 +1,18 @@
 // Path: crates/services/src/agentic/desktop/tools.rs
 
+use crate::agentic::desktop::keys::get_skill_stats_key;
+use crate::agentic::desktop::types::ExecutionTier;
 use ioi_api::state::StateAccess;
+use ioi_api::vm::inference::InferenceRuntime;
+use ioi_scs::{FrameType, SovereignContextStore};
+use ioi_types::app::agentic::AgentMacro;
 use ioi_types::app::agentic::{LlmToolDefinition, SkillStats};
 use ioi_types::codec;
 use ioi_types::keys::UPGRADE_ACTIVE_SERVICE_PREFIX;
 use ioi_types::service_configs::ActiveServiceMeta;
-use serde_json::json;
-use ioi_scs::{SovereignContextStore, FrameType}; 
-use ioi_types::app::agentic::AgentMacro; 
-use std::sync::Arc;
-use ioi_api::vm::inference::InferenceRuntime;
-use crate::agentic::desktop::types::{ExecutionTier};
-use crate::agentic::desktop::keys::get_skill_stats_key;
 use regex::Regex;
+use serde_json::json;
+use std::sync::Arc;
 
 /// Discovers tools available to the agent.
 pub async fn discover_tools(
@@ -20,35 +20,43 @@ pub async fn discover_tools(
     scs: Option<&std::sync::Mutex<SovereignContextStore>>,
     query: &str,
     runtime: Arc<dyn InferenceRuntime>,
-    tier: ExecutionTier, 
+    tier: ExecutionTier,
     active_window_title: &str,
 ) -> Vec<LlmToolDefinition> {
     let mut tools = Vec::new();
 
     // 1. Browser Detection
     let t = active_window_title.to_lowercase();
-    let is_browser_active = t.contains("chrome") 
-                         || t.contains("firefox") 
-                         || t.contains("brave") 
-                         || t.contains("edge") 
-                         || t.contains("safari");
-    
+    let is_browser_active = t.contains("chrome")
+        || t.contains("firefox")
+        || t.contains("brave")
+        || t.contains("edge")
+        || t.contains("safari");
+
     // 2. Dynamic Service Tools (On-Chain Services)
     if let Ok(iter) = state.prefix_scan(UPGRADE_ACTIVE_SERVICE_PREFIX) {
         for item in iter {
             if let Ok((_, val_bytes)) = item {
                 if let Ok(meta) = codec::from_bytes_canonical::<ActiveServiceMeta>(&val_bytes) {
-                    
                     // Apply Context Filter
                     if let Some(pattern) = &meta.context_filter {
                         if let Ok(re) = Regex::new(pattern) {
                             if !re.is_match(active_window_title) {
-                                log::debug!("Filtering service {} (Context: '{}' != '{}')", meta.id, pattern, active_window_title);
+                                log::debug!(
+                                    "Filtering service {} (Context: '{}' != '{}')",
+                                    meta.id,
+                                    pattern,
+                                    active_window_title
+                                );
                                 continue;
                             }
                         } else {
-                            log::warn!("Invalid regex in service {} context_filter: {}", meta.id, pattern);
-                            continue; 
+                            log::warn!(
+                                "Invalid regex in service {} context_filter: {}",
+                                meta.id,
+                                pattern
+                            );
+                            continue;
                         }
                     }
 
@@ -56,17 +64,20 @@ pub async fn discover_tools(
                         if *perm == ioi_types::service_configs::MethodPermission::User {
                             let simple_name = method.split('@').next().unwrap_or(method);
                             let tool_name = format!("{}__{}", meta.id, simple_name);
-                            
+
                             let params_json = json!({
                                 "type": "object",
                                 "properties": {
                                     "params": { "type": "string", "description": "JSON encoded parameters" }
                                 }
                             });
-                            
+
                             tools.push(LlmToolDefinition {
                                 name: tool_name,
-                                description: format!("Call method {} on service {}", simple_name, meta.id),
+                                description: format!(
+                                    "Call method {} on service {}",
+                                    simple_name, meta.id
+                                ),
                                 parameters: params_json.to_string(),
                             });
                         }
@@ -98,9 +109,9 @@ pub async fn discover_tools(
     let launch_params = json!({
         "type": "object",
         "properties": {
-            "app_name": { 
-                "type": "string", 
-                "description": "Common name of the application (e.g. 'calculator', 'code', 'browser')" 
+            "app_name": {
+                "type": "string",
+                "description": "Common name of the application (e.g. 'calculator', 'code', 'browser')"
             }
         },
         "required": ["app_name"]
@@ -117,17 +128,38 @@ pub async fn discover_tools(
     let click_sem_params = json!({
         "type": "object",
         "properties": {
-            "id": { 
-                "type": "string", 
-                "description": "The stable ID of the element (e.g. 'btn_submit')." 
+            "id": {
+                "type": "string",
+                "description": "The stable ID of the element (e.g. 'btn_submit')."
             }
         },
         "required": ["id"]
     });
     tools.push(LlmToolDefinition {
         name: "gui__click_element".to_string(),
-        description: "Click a UI element by its ID. Preferred over coordinate clicking. Works in background.".to_string(),
+        description:
+            "Click a UI element by its ID. Preferred over coordinate clicking. Works in background."
+                .to_string(),
         parameters: click_sem_params.to_string(),
+    });
+
+    // [NEW] Global typing capability.
+    // `gui__type` is implemented by the executor but was not exposed here, causing
+    // avoidable "missing_capability: computer" failures for simple type intents.
+    let gui_type_params = json!({
+        "type": "object",
+        "properties": {
+            "text": {
+                "type": "string",
+                "description": "Text to type into the currently focused input."
+            }
+        },
+        "required": ["text"]
+    });
+    tools.push(LlmToolDefinition {
+        name: "gui__type".to_string(),
+        description: "Type text into the focused UI control.".to_string(),
+        parameters: gui_type_params.to_string(),
     });
 
     // Browser Interaction (CONDITIONAL)
@@ -144,7 +176,7 @@ pub async fn discover_tools(
                 },
                 "required": ["x", "y"]
             });
-            
+
             tools.push(LlmToolDefinition {
                 name: "browser__synthetic_click".to_string(),
                 description: "Click a coordinate (x,y) inside the web page directly. Does NOT move the user's mouse cursor.".to_string(),
@@ -187,7 +219,9 @@ pub async fn discover_tools(
     });
     tools.push(LlmToolDefinition {
         name: "memory__search".to_string(),
-        description: "Search the agent's long-term memory (SCS) for past observations, thoughts, or actions.".to_string(),
+        description:
+            "Search the agent's long-term memory (SCS) for past observations, thoughts, or actions."
+                .to_string(),
         parameters: mem_search_params.to_string(),
     });
 
@@ -203,7 +237,7 @@ pub async fn discover_tools(
         description: "Retrieve detailed content of a specific memory frame. If it's an image, returns a detailed description.".to_string(),
         parameters: mem_inspect_params.to_string(),
     });
-    
+
     let delegate_params = json!({
         "type": "object",
         "properties": {
@@ -241,9 +275,9 @@ pub async fn discover_tools(
                 "action": {
                     "type": "string",
                     "enum": [
-                        "type", "key", "hotkey", 
+                        "type", "key", "hotkey",
                         "mouse_move", "left_click", "left_click_id", "left_click_element",
-                        "left_click_drag", "drag_drop", 
+                        "left_click_drag", "drag_drop",
                         "screenshot", "cursor_position"
                     ],
                     "description": "The specific action to perform."
@@ -295,14 +329,14 @@ pub async fn discover_tools(
         let sys_params = json!({
             "type": "object",
             "properties": {
-                "command": { 
-                    "type": "string", 
-                    "description": "The binary to execute (e.g., 'ls', 'gnome-calculator', 'code', 'ping')." 
+                "command": {
+                    "type": "string",
+                    "description": "The binary to execute (e.g., 'ls', 'gnome-calculator', 'code', 'ping')."
                 },
-                "args": { 
-                    "type": "array", 
+                "args": {
+                    "type": "array",
                     "items": { "type": "string" },
-                    "description": "Arguments for the command" 
+                    "description": "Arguments for the command"
                 },
                 "detach": {
                     "type": "boolean",
@@ -320,7 +354,7 @@ pub async fn discover_tools(
 
     // 4. OS Control Tools
     if tier == ExecutionTier::VisualForeground {
-         let focus_params = json!({
+        let focus_params = json!({
             "type": "object",
             "properties": {
                 "title": { "type": "string", "description": "Exact or partial title of the window or app to focus (e.g. 'Calculator')." }
@@ -382,7 +416,9 @@ pub async fn discover_tools(
     });
     tools.push(LlmToolDefinition {
         name: "agent__await_result".to_string(),
-        description: "Check if a child agent has completed its task. Returns 'Running' if not finished.".to_string(),
+        description:
+            "Check if a child agent has completed its task. Returns 'Running' if not finished."
+                .to_string(),
         parameters: await_params.to_string(),
     });
 
@@ -408,7 +444,9 @@ pub async fn discover_tools(
     });
     tools.push(LlmToolDefinition {
         name: "agent__complete".to_string(),
-        description: "Call this when you have successfully achieved the goal to finish the session.".to_string(),
+        description:
+            "Call this when you have successfully achieved the goal to finish the session."
+                .to_string(),
         parameters: complete_params.to_string(),
     });
 
@@ -416,7 +454,7 @@ pub async fn discover_tools(
         "type": "object",
         "properties": {
             "merchant_url": { "type": "string" },
-            "items": { 
+            "items": {
                 "type": "array",
                 "items": {
                     "type": "object",
@@ -434,7 +472,9 @@ pub async fn discover_tools(
     });
     tools.push(LlmToolDefinition {
         name: "commerce__checkout".to_string(),
-        description: "Purchase items from a UCP-compatible merchant using secure payment injection.".to_string(),
+        description:
+            "Purchase items from a UCP-compatible merchant using secure payment injection."
+                .to_string(),
         parameters: checkout_params.to_string(),
     });
 
@@ -448,7 +488,8 @@ pub async fn discover_tools(
     });
     tools.push(LlmToolDefinition {
         name: "filesystem__write_file".to_string(),
-        description: "Write text content to a file on the local filesystem. Use this to save data.".to_string(),
+        description: "Write text content to a file on the local filesystem. Use this to save data."
+            .to_string(),
         parameters: fs_write_params.to_string(),
     });
 
@@ -501,21 +542,31 @@ pub async fn discover_tools(
                 if let Ok(store) = store_mutex.lock() {
                     if let Ok(index_arc) = store.get_vector_index() {
                         if let Ok(index) = index_arc.lock() {
-                             if let Some(idx) = index.as_ref() {
-                                 idx.search_hybrid(&query_vec, 10).unwrap_or_default()
-                             } else { vec![] }
-                        } else { vec![] }
-                    } else { vec![] }
-                } else { vec![] }
+                            if let Some(idx) = index.as_ref() {
+                                idx.search_hybrid(&query_vec, 10).unwrap_or_default()
+                            } else {
+                                vec![]
+                            }
+                        } else {
+                            vec![]
+                        }
+                    } else {
+                        vec![]
+                    }
+                } else {
+                    vec![]
+                }
             };
 
             // B. Re-Rank based on Reputation (RSI)
             // We fetch stats for each candidate from the State.
             let mut ranked_skills = Vec::new();
-            
+
             for (frame_id, distance, f_type, visual_hash) in candidates {
-                if f_type != FrameType::Skill { continue; }
-                
+                if f_type != FrameType::Skill {
+                    continue;
+                }
+
                 // Fetch stats
                 let stats_key = get_skill_stats_key(&visual_hash);
                 let reliability = if let Ok(Some(bytes)) = state.get(&stats_key) {
@@ -531,26 +582,35 @@ pub async fn discover_tools(
                 // Adjusted Score: Lower distance is better.
                 // We subtract reliability from distance (bonus).
                 let adjusted_score = distance - (reliability * 0.2);
-                
+
                 // Retrieve definition
                 if let Ok(store) = store_mutex.lock() {
                     if let Ok(payload) = store.read_frame_payload(frame_id) {
-                         if let Ok(skill) = codec::from_bytes_canonical::<AgentMacro>(&payload) {
-                             ranked_skills.push((adjusted_score, skill.definition, reliability));
-                         }
+                        if let Ok(skill) = codec::from_bytes_canonical::<AgentMacro>(&payload) {
+                            ranked_skills.push((adjusted_score, skill.definition, reliability));
+                        }
                     }
                 }
             }
-            
+
             // Sort by adjusted score (ascending)
-            ranked_skills.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap_or(std::cmp::Ordering::Equal));
-            
+            ranked_skills
+                .sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap_or(std::cmp::Ordering::Equal));
+
             // Take top 5
             for (_, def, rel) in ranked_skills.into_iter().take(5) {
                 let mut def_with_stats = def;
                 // Append reliability to description so the LLM knows it's a good tool
-                def_with_stats.description = format!("{} (Reliability: {:.0}%)", def_with_stats.description, rel * 100.0);
-                log::debug!("Injecting Skill: {} (Reliability: {:.2})", def_with_stats.name, rel);
+                def_with_stats.description = format!(
+                    "{} (Reliability: {:.0}%)",
+                    def_with_stats.description,
+                    rel * 100.0
+                );
+                log::debug!(
+                    "Injecting Skill: {} (Reliability: {:.2})",
+                    def_with_stats.name,
+                    rel
+                );
                 tools.push(def_with_stats);
             }
         }

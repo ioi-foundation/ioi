@@ -8,20 +8,19 @@ use ioi_api::services::UpgradableService;
 use ioi_api::state::StateAccess;
 use ioi_api::transaction::context::TxContext;
 // [FIX] Added SerializableKey and VerifyingKey import
-use ioi_api::crypto::{SerializableKey, VerifyingKey}; 
+use ioi_api::crypto::{SerializableKey, VerifyingKey};
 
 use ioi_macros::service_interface;
 use ioi_types::app::{
-    read_validator_sets, write_validator_sets, AccountId, ActiveKeyRecord, Proposal,
-    ProposalStatus, ProposalType, StateEntry, TallyResult, ValidatorV1, VoteOption,
-    LazarusUpgrade,
+    read_validator_sets, write_validator_sets, AccountId, ActiveKeyRecord, LazarusUpgrade,
+    Proposal, ProposalStatus, ProposalType, StateEntry, TallyResult, ValidatorV1, VoteOption,
 };
 use ioi_types::codec;
 use ioi_types::error::{GovernanceError, StateError, TransactionError, UpgradeError};
 use ioi_types::keys::{
-    ACCOUNT_ID_TO_PUBKEY_PREFIX, GOVERNANCE_NEXT_PROPOSAL_ID_KEY, GOVERNANCE_PROPOSAL_KEY_PREFIX,
-    GOVERNANCE_VOTE_KEY_PREFIX, UPGRADE_ARTIFACT_PREFIX, UPGRADE_MANIFEST_PREFIX,
-    UPGRADE_PENDING_PREFIX, VALIDATOR_SET_KEY, CURRENT_EPOCH_KEY,
+    ACCOUNT_ID_TO_PUBKEY_PREFIX, CURRENT_EPOCH_KEY, GOVERNANCE_NEXT_PROPOSAL_ID_KEY,
+    GOVERNANCE_PROPOSAL_KEY_PREFIX, GOVERNANCE_VOTE_KEY_PREFIX, UPGRADE_ARTIFACT_PREFIX,
+    UPGRADE_MANIFEST_PREFIX, UPGRADE_PENDING_PREFIX, VALIDATOR_SET_KEY,
 };
 use ioi_types::service_configs::GovernanceParams;
 use libp2p::identity::PublicKey as Libp2pPublicKey;
@@ -31,8 +30,8 @@ use std::collections::BTreeMap;
 // [NEW] Imports for RSI / Safety Ratchet
 use crate::agentic::policy::PolicyEngine;
 use crate::agentic::rules::ActionRules;
-use ioi_types::service_configs::ActiveServiceMeta;
 use ioi_types::keys::active_service_key;
+use ioi_types::service_configs::ActiveServiceMeta;
 
 // --- Service Method Parameter Structs (The Service's Public ABI) ---
 
@@ -73,7 +72,7 @@ pub struct SwapModuleParams {
     pub manifest_hash: [u8; 32],
     pub artifact_hash: [u8; 32],
     pub activation_height: u64,
-    
+
     // [NEW] Optional field to indicate this is an automated RSI mutation.
     pub is_evolutionary_mutation: Option<bool>,
 }
@@ -248,7 +247,7 @@ impl GovernanceModule {
 
     /// Helper to extract Policy Rules from a raw manifest string.
     fn extract_policy_from_manifest(_manifest_str: &str) -> Result<ActionRules, TransactionError> {
-        Ok(ActionRules::default()) 
+        Ok(ActionRules::default())
     }
 }
 
@@ -539,16 +538,23 @@ impl GovernanceModule {
 
         // Safety Ratchet Check
         if params.is_evolutionary_mutation.unwrap_or(false) {
-            log::info!("Safety Ratchet: Validating evolutionary upgrade for '{}'", service_id);
+            log::info!(
+                "Safety Ratchet: Validating evolutionary upgrade for '{}'",
+                service_id
+            );
             let active_key = active_service_key(&service_id);
             if let Some(active_meta_bytes) = state.get(&active_key)? {
-                let _active_meta: ActiveServiceMeta = codec::from_bytes_canonical(&active_meta_bytes)?;
-                let old_policy = ActionRules::default(); 
-                let new_manifest_str = String::from_utf8(manifest_bytes)
-                    .map_err(|_| TransactionError::Invalid("New manifest is invalid UTF-8".into()))?;
+                let _active_meta: ActiveServiceMeta =
+                    codec::from_bytes_canonical(&active_meta_bytes)?;
+                let old_policy = ActionRules::default();
+                let new_manifest_str = String::from_utf8(manifest_bytes).map_err(|_| {
+                    TransactionError::Invalid("New manifest is invalid UTF-8".into())
+                })?;
                 let new_policy = Self::extract_policy_from_manifest(&new_manifest_str)?;
 
-                if let Err(violation) = PolicyEngine::validate_safety_ratchet(&old_policy, &new_policy) {
+                if let Err(violation) =
+                    PolicyEngine::validate_safety_ratchet(&old_policy, &new_policy)
+                {
                     return Err(TransactionError::Invalid(format!(
                         "Evolutionary Upgrade Rejected by Safety Ratchet: {}",
                         violation
@@ -579,9 +585,9 @@ impl GovernanceModule {
             .map_err(TransactionError::State)?
             .and_then(|b| codec::from_bytes_canonical(&b).ok())
             .unwrap_or_default();
-        
+
         pending.push((service_id, manifest_hash, artifact_hash));
-        
+
         state
             .insert(
                 &key,
@@ -601,67 +607,88 @@ impl GovernanceModule {
         _ctx: &TxContext,
     ) -> Result<(), TransactionError> {
         // 1. Load Current Epoch
-        let current_epoch = state.get(CURRENT_EPOCH_KEY)?
+        let current_epoch = state
+            .get(CURRENT_EPOCH_KEY)?
             .and_then(|b| codec::from_bytes_canonical::<u64>(&b).ok())
             .unwrap_or(0);
 
         if params.new_epoch <= current_epoch {
-            return Err(TransactionError::Invalid("New epoch must be greater than current".into()));
+            return Err(TransactionError::Invalid(
+                "New epoch must be greater than current".into(),
+            ));
         }
 
         // 2. Load Validator Set
-        let vs_bytes = state.get(VALIDATOR_SET_KEY)?.ok_or(TransactionError::State(StateError::KeyNotFound))?;
+        let vs_bytes = state
+            .get(VALIDATOR_SET_KEY)?
+            .ok_or(TransactionError::State(StateError::KeyNotFound))?;
         let sets = read_validator_sets(&vs_bytes)?;
         let validators = &sets.current.validators;
-        
+
         let total_weight = sets.current.total_weight;
         let mut attested_weight = 0u128;
         let mut seen_validators = std::collections::HashSet::new();
 
         // 3. Verify Attestations
         for att in &params.attestations {
-            if let Some(val) = validators.iter().find(|v| v.account_id == att.validator_account_id) {
-                if seen_validators.contains(&val.account_id) { continue; }
+            if let Some(val) = validators
+                .iter()
+                .find(|v| v.account_id == att.validator_account_id)
+            {
+                if seen_validators.contains(&val.account_id) {
+                    continue;
+                }
 
                 let pubkey_map_key = [
                     ioi_types::keys::ACCOUNT_ID_TO_PUBKEY_PREFIX,
                     val.account_id.as_ref(),
                 ]
                 .concat();
-                
+
                 if let Some(pk_bytes) = state.get(&pubkey_map_key)? {
-                     // [FIX] Map CoreError to TransactionError manually
-                     let sign_bytes = att.to_sign_bytes().map_err(|e| TransactionError::Invalid(e.to_string()))?;
-                     
-                     // [FIX] SerializableKey::from_bytes is now in scope
-                     let pk = ioi_crypto::sign::eddsa::Ed25519PublicKey::from_bytes(&pk_bytes)
+                    // [FIX] Map CoreError to TransactionError manually
+                    let sign_bytes = att
+                        .to_sign_bytes()
+                        .map_err(|e| TransactionError::Invalid(e.to_string()))?;
+
+                    // [FIX] SerializableKey::from_bytes is now in scope
+                    let pk = ioi_crypto::sign::eddsa::Ed25519PublicKey::from_bytes(&pk_bytes)
                         .map_err(|_| TransactionError::Invalid("Invalid identity key".into()))?;
-                     
-                     // [FIX] SerializableKey::from_bytes is now in scope
-                     let sig = ioi_crypto::sign::eddsa::Ed25519Signature::from_bytes(&att.signature)
-                        .map_err(|_| TransactionError::Invalid("Invalid signature format".into()))?;
-                        
-                     if ioi_api::crypto::VerifyingKey::verify(&pk, &sign_bytes, &sig).is_ok() {
-                         attested_weight += val.weight;
-                         seen_validators.insert(val.account_id);
-                     }
+
+                    // [FIX] SerializableKey::from_bytes is now in scope
+                    let sig = ioi_crypto::sign::eddsa::Ed25519Signature::from_bytes(&att.signature)
+                        .map_err(|_| {
+                            TransactionError::Invalid("Invalid signature format".into())
+                        })?;
+
+                    if ioi_api::crypto::VerifyingKey::verify(&pk, &sign_bytes, &sig).is_ok() {
+                        attested_weight += val.weight;
+                        seen_validators.insert(val.account_id);
+                    }
                 }
             }
         }
 
         // 4. Check Quorum
         let threshold = (total_weight * 2) / 3 + 1;
-        
+
         if attested_weight < threshold {
             return Err(TransactionError::Invalid(format!(
-                "Lazarus Quorum not met: {} < {}", attested_weight, threshold
+                "Lazarus Quorum not met: {} < {}",
+                attested_weight, threshold
             )));
         }
 
         // 5. Commit New Epoch
-        log::info!("Lazarus Protocol: Quorum met. Advancing to Epoch {}.", params.new_epoch);
-        state.insert(CURRENT_EPOCH_KEY, &codec::to_bytes_canonical(&params.new_epoch)?)?;
-        
+        log::info!(
+            "Lazarus Protocol: Quorum met. Advancing to Epoch {}.",
+            params.new_epoch
+        );
+        state.insert(
+            CURRENT_EPOCH_KEY,
+            &codec::to_bytes_canonical(&params.new_epoch)?,
+        )?;
+
         Ok(())
     }
 }

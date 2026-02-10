@@ -1,18 +1,18 @@
 // Path: crates/services/src/agentic/desktop/service/lifecycle.rs
 
 use super::DesktopAgentService;
-use crate::agentic::desktop::keys::{get_state_key};
+use crate::agentic::desktop::keys::get_state_key;
 use crate::agentic::desktop::types::{
-    AgentMode, AgentState, AgentStatus, PostMessageParams, ResumeAgentParams, SessionSummary, StartAgentParams,
-    ExecutionTier, SwarmContext, InteractionTarget,
+    AgentMode, AgentState, AgentStatus, ExecutionTier, InteractionTarget, PostMessageParams,
+    ResumeAgentParams, SessionSummary, StartAgentParams, SwarmContext,
 };
+use hex;
 use ioi_api::state::StateAccess;
 use ioi_api::transaction::context::TxContext;
 use ioi_types::codec;
 use ioi_types::error::TransactionError;
+use std::collections::BTreeMap;
 use std::time::{SystemTime, UNIX_EPOCH};
-use hex;
-use std::collections::BTreeMap; 
 
 pub async fn handle_start(
     service: &DesktopAgentService,
@@ -29,46 +29,49 @@ pub async fn handle_start(
     // Format: "SWARM:<swarm_hash_hex>"
     let mut swarm_context = None;
     let mut actual_goal = p.goal.clone();
-    
+
     if p.goal.starts_with("SWARM:") {
         let parts: Vec<&str> = p.goal.split_whitespace().collect();
         if let Some(hash_hex) = parts.get(0).and_then(|s| s.strip_prefix("SWARM:")) {
-             if let Ok(swarm_hash) = hex::decode(hash_hex) {
-                 if swarm_hash.len() == 32 {
-                     let mut arr = [0u8; 32];
-                     arr.copy_from_slice(&swarm_hash);
-                     
-                     // Fetch Manifest from Market/SCS
-                     if let Some(manifest) = service.fetch_swarm_manifest(arr).await {
-                         log::info!("Hydrating Swarm '{}' ({})", manifest.name, hash_hex);
-                         
-                         // 1. Identify Root Agent (First in roster or "Manager")
-                         // For MVP, we assume the first agent in roster is the entry point.
-                         if let Some((root_role, _root_agent_hash)) = manifest.roster.first() {
-                             // This session becomes the Root Agent
-                             let delegates: Vec<String> = manifest.delegation_flow.iter()
+            if let Ok(swarm_hash) = hex::decode(hash_hex) {
+                if swarm_hash.len() == 32 {
+                    let mut arr = [0u8; 32];
+                    arr.copy_from_slice(&swarm_hash);
+
+                    // Fetch Manifest from Market/SCS
+                    if let Some(manifest) = service.fetch_swarm_manifest(arr).await {
+                        log::info!("Hydrating Swarm '{}' ({})", manifest.name, hash_hex);
+
+                        // 1. Identify Root Agent (First in roster or "Manager")
+                        // For MVP, we assume the first agent in roster is the entry point.
+                        if let Some((root_role, _root_agent_hash)) = manifest.roster.first() {
+                            // This session becomes the Root Agent
+                            let delegates: Vec<String> = manifest
+                                .delegation_flow
+                                .iter()
                                 .filter(|(from, _)| from == root_role)
                                 .map(|(_, to)| to.clone())
                                 .collect();
-                                
-                             swarm_context = Some(SwarmContext {
-                                 swarm_id: arr,
-                                 role: root_role.clone(),
-                                 allowed_delegates: delegates,
-                             });
-                             
-                             // The goal of the root agent is the rest of the user prompt
-                             actual_goal = parts[1..].join(" ");
-                             if actual_goal.is_empty() {
-                                 actual_goal = format!("Execute swarm mission: {}", manifest.description);
-                             }
-                             
-                             // [TODO] Pre-provision child sessions for other roles?
-                             // For now, we let the root agent spawn them lazily via `agent__delegate`.
-                         }
-                     }
-                 }
-             }
+
+                            swarm_context = Some(SwarmContext {
+                                swarm_id: arr,
+                                role: root_role.clone(),
+                                allowed_delegates: delegates,
+                            });
+
+                            // The goal of the root agent is the rest of the user prompt
+                            actual_goal = parts[1..].join(" ");
+                            if actual_goal.is_empty() {
+                                actual_goal =
+                                    format!("Execute swarm mission: {}", manifest.description);
+                            }
+
+                            // [TODO] Pre-provision child sessions for other roles?
+                            // For now, we let the root agent spawn them lazily via `agent__delegate`.
+                        }
+                    }
+                }
+            }
         }
     }
 
@@ -99,7 +102,7 @@ pub async fn handle_start(
         let parent_key = get_state_key(&parent_id);
         if let Some(parent_bytes) = state.get(&parent_key)? {
             let mut parent_state: AgentState = codec::from_bytes_canonical(&parent_bytes)?;
-            
+
             if parent_state.budget < p.initial_budget {
                 return Err(TransactionError::Invalid(
                     "Insufficient parent budget for delegation".into(),
@@ -107,12 +110,12 @@ pub async fn handle_start(
             }
             parent_state.budget -= p.initial_budget;
             parent_state.child_session_ids.push(p.session_id);
-            
+
             // [NEW] Inherit Swarm Context if parent is in a swarm
             if let Some(_parent_ctx) = &parent_state.swarm_context {
                 // If this is a delegation, we need to determine the role of the child.
-                // The parent likely called `agent__delegate` with a goal. 
-                // We rely on `agent__delegate` tool logic to pass the role, 
+                // The parent likely called `agent__delegate` with a goal.
+                // We rely on `agent__delegate` tool logic to pass the role,
                 // but `StartAgentParams` doesn't have a role field in the struct yet.
                 // For MVP, we assume ad-hoc delegation unless we update StartAgentParams.
                 // Let's assume ad-hoc for now or infer from goal if it matches a role name.
@@ -135,11 +138,9 @@ pub async fn handle_start(
         trace_hash: None,
     };
 
-    let root_hash = service.append_chat_to_scs(
-        p.session_id, 
-        &initial_message, 
-        0
-    ).await?;
+    let root_hash = service
+        .append_chat_to_scs(p.session_id, &initial_message, 0)
+        .await?;
 
     let agent_state = AgentState {
         session_id: p.session_id,
@@ -156,12 +157,12 @@ pub async fn handle_start(
         tokens_used: 0,
         pending_approval: None,
         pending_tool_call: None,
-        
+
         // [FIX] Initialize new fields
         pending_tool_jcs: None,
         pending_tool_hash: None,
         pending_visual_hash: None,
-        
+
         recent_actions: Vec::new(),
         mode: p.mode,
         last_screen_phash: None,
@@ -170,12 +171,12 @@ pub async fn handle_start(
         tool_execution_log: BTreeMap::new(),
         active_skill_hash: None,
         visual_som_map: None,
-        
+
         // [FIX] Initialize visual_semantic_map to satisfy the new struct definition
         visual_semantic_map: None,
 
         swarm_context, // [NEW]
-        target, // [NEW] Set the target
+        target,        // [NEW] Set the target
 
         // [FIX] Initialize active_lens
         active_lens: None,
@@ -196,10 +197,18 @@ pub async fn handle_start(
             session_id: p.session_id,
             title: if agent_state.mode == AgentMode::Chat {
                 let t = agent_state.goal.lines().next().unwrap_or("New Chat");
-                if t.len() > 30 { format!("{}...", &t[..30]) } else { t.to_string() }
+                if t.len() > 30 {
+                    format!("{}...", &t[..30])
+                } else {
+                    t.to_string()
+                }
             } else {
                 let t = agent_state.goal.lines().next().unwrap_or("Agent Task");
-                if t.len() > 30 { format!("{}...", &t[..30]) } else { t.to_string() }
+                if t.len() > 30 {
+                    format!("{}...", &t[..30])
+                } else {
+                    t.to_string()
+                }
             },
             timestamp: SystemTime::now()
                 .duration_since(UNIX_EPOCH)
@@ -232,30 +241,32 @@ pub async fn handle_post_message(
             .as_millis() as u64,
         trace_hash: None,
     };
-    
-    let new_root = service.append_chat_to_scs(p.session_id, &msg, ctx.block_height).await?;
-    
+
+    let new_root = service
+        .append_chat_to_scs(p.session_id, &msg, ctx.block_height)
+        .await?;
+
     let key = get_state_key(&p.session_id);
     if let Some(bytes) = state.get(&key)? {
         let mut agent_state: AgentState = codec::from_bytes_canonical(&bytes)?;
-        
+
         agent_state.transcript_root = new_root;
 
         if msg.role == "user" {
             agent_state.goal = msg.content.clone();
-            agent_state.step_count = 0;           
-            agent_state.last_action_type = None;  
+            agent_state.step_count = 0;
+            agent_state.last_action_type = None;
         }
-        
+
         if agent_state.status != AgentStatus::Running {
             log::info!(
-                "Auto-resuming agent session {} due to new message", 
+                "Auto-resuming agent session {} due to new message",
                 hex::encode(&p.session_id[..4])
             );
             agent_state.status = AgentStatus::Running;
-            agent_state.consecutive_failures = 0; 
+            agent_state.consecutive_failures = 0;
         }
-        
+
         state.insert(&key, &codec::to_bytes_canonical(&agent_state)?)?;
     } else {
         return Err(TransactionError::Invalid("Session not found".into()));
@@ -278,7 +289,9 @@ pub async fn handle_resume(
     // [FIX] Allow resume even if already running (Idempotency)
     // This handles the race where the UI sends resume but the system auto-recovered
     // or received another event that flipped it back to Running.
-    if matches!(agent_state.status, AgentStatus::Paused(_)) || agent_state.status == AgentStatus::Running {
+    if matches!(agent_state.status, AgentStatus::Paused(_))
+        || agent_state.status == AgentStatus::Running
+    {
         agent_state.status = AgentStatus::Running;
 
         if let Some(token) = p.approval_token {
@@ -299,10 +312,9 @@ pub async fn handle_resume(
                     .as_millis() as u64,
                 trace_hash: None,
             };
-            
+
             let new_root = service.append_chat_to_scs(p.session_id, &msg, 0).await?;
             agent_state.transcript_root = new_root;
-
         } else {
             let msg = ioi_types::app::agentic::ChatMessage {
                 role: "system".to_string(),
@@ -322,7 +334,10 @@ pub async fn handle_resume(
         state.insert(&key, &codec::to_bytes_canonical(&agent_state)?)?;
         Ok(())
     } else {
-        Err(TransactionError::Invalid(format!("Agent cannot resume from status: {:?}", agent_state.status)))
+        Err(TransactionError::Invalid(format!(
+            "Agent cannot resume from status: {:?}",
+            agent_state.status
+        )))
     }
 }
 
@@ -349,16 +364,16 @@ pub async fn handle_delete_session(
             state.insert(&history_key, &codec::to_bytes_canonical(&history)?)?;
         }
     }
-    
+
     // [NEW] Trigger Cognitive Compaction on session delete/close
     // This shreds the raw thoughts but keeps the wisdom in the overlay.
     // Note: This is an async call that locks the SCS, so it might block briefly.
     if let Err(e) = perform_cognitive_compaction(service, session_id).await {
         log::warn!("Cognitive Compaction failed during session delete: {}", e);
     }
-    
+
     // [NEW] Mark session as Terminated in any remaining state keys if possible,
-    // though here we deleted the main state key already. 
+    // though here we deleted the main state key already.
     // In a full implementation we might move it to an archive key.
     // For now, logging the explicit termination is sufficient.
 
@@ -376,27 +391,38 @@ pub async fn perform_cognitive_compaction(
     session_id: [u8; 32],
 ) -> Result<(), TransactionError> {
     // [FIX] Use `service` argument instead of `self.service`
-    let scs_mutex = service.scs.as_ref().ok_or(TransactionError::Invalid("SCS required".into()))?;
-    
+    let scs_mutex = service
+        .scs
+        .as_ref()
+        .ok_or(TransactionError::Invalid("SCS required".into()))?;
+
     // 1. Retrieve Raw Thoughts (Retention::Epoch)
     // We scan the session index for frames that are both "Thought" type and belong to the current epoch.
     let raw_thoughts: Vec<String> = {
-        let store = scs_mutex.lock().map_err(|_| TransactionError::Invalid("SCS lock poisoned".into()))?;
+        let store = scs_mutex
+            .lock()
+            .map_err(|_| TransactionError::Invalid("SCS lock poisoned".into()))?;
         let current_epoch = store.current_epoch;
-        
+
         if let Some(frame_ids) = store.session_index.get(&session_id) {
-             frame_ids.iter()
+            frame_ids
+                .iter()
                 .filter_map(|&fid| {
                     let frame = store.toc.frames.get(fid as usize)?;
                     // Only collect thoughts from the epoch we are about to shred
-                    if frame.frame_type == ioi_scs::FrameType::Thought && frame.epoch_id == current_epoch {
-                         // Attempt to read payload (will fail if key is already gone, which is fine)
-                         if let Ok(bytes) = store.read_frame_payload(fid) {
-                             // Assuming ChatMessage structure
-                             if let Ok(msg) = codec::from_bytes_canonical::<ioi_types::app::agentic::ChatMessage>(&bytes) {
-                                 return Some(format!("{}: {}", msg.role, msg.content));
-                             }
-                         }
+                    if frame.frame_type == ioi_scs::FrameType::Thought
+                        && frame.epoch_id == current_epoch
+                    {
+                        // Attempt to read payload (will fail if key is already gone, which is fine)
+                        if let Ok(bytes) = store.read_frame_payload(fid) {
+                            // Assuming ChatMessage structure
+                            if let Ok(msg) = codec::from_bytes_canonical::<
+                                ioi_types::app::agentic::ChatMessage,
+                            >(&bytes)
+                            {
+                                return Some(format!("{}: {}", msg.role, msg.content));
+                            }
+                        }
                     }
                     None
                 })
@@ -405,14 +431,17 @@ pub async fn perform_cognitive_compaction(
             vec![]
         }
     };
-    
-    // If no new thoughts to summarize, we might still want to rotate epoch for security, 
+
+    // If no new thoughts to summarize, we might still want to rotate epoch for security,
     // but for now let's just skip to avoid empty overlays.
-    if raw_thoughts.is_empty() { 
-        return Ok(()); 
+    if raw_thoughts.is_empty() {
+        return Ok(());
     }
 
-    log::info!("Cognitive Compaction: Summarizing {} thoughts...", raw_thoughts.len());
+    log::info!(
+        "Cognitive Compaction: Summarizing {} thoughts...",
+        raw_thoughts.len()
+    );
 
     // 2. Synthesize Summary (The Overlay)
     // Use the reasoning model (System 2) to compress the context.
@@ -422,42 +451,52 @@ pub async fn perform_cognitive_compaction(
          RAW LOGS:\n{:?}", 
         raw_thoughts
     );
-    
+
     let options = ioi_types::app::agentic::InferenceOptions {
         temperature: 0.0,
         ..Default::default()
     };
-    
+
     // Use zero hash for model ID
-    let summary_bytes = service.reasoning_inference.execute_inference(
-        [0u8; 32], prompt.as_bytes(), options
-    ).await.map_err(|e| TransactionError::Invalid(format!("Compaction inference failed: {}", e)))?;
+    let summary_bytes = service
+        .reasoning_inference
+        .execute_inference([0u8; 32], prompt.as_bytes(), options)
+        .await
+        .map_err(|e| TransactionError::Invalid(format!("Compaction inference failed: {}", e)))?;
 
     // 3. Write Overlay Frame (Retention::Archival)
     {
-        let mut store = scs_mutex.lock().map_err(|_| TransactionError::Invalid("SCS lock poisoned".into()))?;
-        
+        let mut store = scs_mutex
+            .lock()
+            .map_err(|_| TransactionError::Invalid("SCS lock poisoned".into()))?;
+
         // Append frame with Archival retention - this survives key shredding
         // [FIX] Explicitly type the error map
-        let _overlay_id = store.append_frame(
-            ioi_scs::FrameType::Overlay,
-            &summary_bytes,
-            0, // Block height (could fetch from context if available, using 0 for now)
-            [0u8; 32], // mHNSW root placeholder
-            session_id,
-            ioi_scs::RetentionClass::Archival // <--- SAVED FOREVER
-        ).map_err(|e: anyhow::Error| TransactionError::Invalid(e.to_string()))?;
-        
+        let _overlay_id = store
+            .append_frame(
+                ioi_scs::FrameType::Overlay,
+                &summary_bytes,
+                0,         // Block height (could fetch from context if available, using 0 for now)
+                [0u8; 32], // mHNSW root placeholder
+                session_id,
+                ioi_scs::RetentionClass::Archival, // <--- SAVED FOREVER
+            )
+            .map_err(|e: anyhow::Error| TransactionError::Invalid(e.to_string()))?;
+
         // 4. Rotate Epoch (Generates new key, archives Manifest)
         // [FIX] Explicitly type the error map
-        let _manifest = store.rotate_epoch().map_err(|e: anyhow::Error| TransactionError::Invalid(e.to_string()))?;
-        
+        let _manifest = store
+            .rotate_epoch()
+            .map_err(|e: anyhow::Error| TransactionError::Invalid(e.to_string()))?;
+
         // 5. Explicitly prune the old epoch key to enforce forward secrecy
         // The previous epoch is `current_epoch - 1` after rotation.
         let old_epoch = store.current_epoch.saturating_sub(1);
         store.prune_epoch(old_epoch);
     }
-    
-    log::info!("Cognitive Compaction Complete: Epoch rotated, raw thoughts shredded, Overlay preserved.");
+
+    log::info!(
+        "Cognitive Compaction Complete: Epoch rotated, raw thoughts shredded, Overlay preserved."
+    );
     Ok(())
 }

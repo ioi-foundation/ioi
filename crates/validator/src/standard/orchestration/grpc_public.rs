@@ -3,6 +3,7 @@
 use crate::standard::orchestration::context::{MainLoopContext, TxStatusEntry};
 use ioi_api::{commitment::CommitmentScheme, state::StateManager};
 use ioi_client::WorkloadClient;
+use ioi_crypto::algorithms::hash::sha256;
 use ioi_ipc::blockchain::{
     GetStatusRequest, GetStatusResponse, QueryRawStateRequest, QueryRawStateResponse,
     QueryStateAtRequest, QueryStateAtResponse,
@@ -16,10 +17,11 @@ use ioi_ipc::public::{
     SubmitTransactionResponse, SubscribeEventsRequest, TxStatus,
 };
 use ioi_types::app::{
-    account_id_from_key_material, AccountId, ChainTransaction, SignatureProof, SignatureSuite,
-    StateRoot, TxHash,
+    account_id_from_key_material, AccountId, ChainTransaction, RoutingReceiptEvent, SignatureProof,
+    SignatureSuite, StateRoot, TxHash,
 };
 use ioi_types::codec;
+use parity_scale_codec::{Decode, Encode};
 use serde::Serialize;
 use std::fmt::Debug;
 use std::sync::Arc;
@@ -27,7 +29,6 @@ use std::time::Instant;
 use tokio::sync::{mpsc, Mutex};
 use tokio_stream::wrappers::ReceiverStream;
 use tonic::{Request, Response, Status};
-use parity_scale_codec::{Decode, Encode};
 
 use crate::metrics::rpc_metrics as metrics;
 use ioi_api::vm::inference::{InferenceRuntime, LocalSafetyModel};
@@ -36,6 +37,94 @@ use ioi_types::app::agentic::InferenceOptions;
 use ioi_types::error::VmError;
 
 use ioi_api::chain::WorkloadClientApi;
+
+fn routing_policy_binding_hash(intent_hash: &str, policy_decision: &str) -> String {
+    let payload = format!(
+        "ioi::routing-policy-binding::v1::{}::{}",
+        intent_hash, policy_decision
+    );
+    sha256(payload.as_bytes())
+        .map(hex::encode)
+        .unwrap_or_else(|_| String::new())
+}
+
+fn map_routing_receipt(
+    receipt: RoutingReceiptEvent,
+    signer: Option<(&libp2p::identity::Keypair, &str)>,
+) -> ioi_ipc::public::RoutingReceipt {
+    let (failure_class, has_failure_class) = if let Some(class) = receipt.failure_class {
+        let code = match class {
+            ioi_types::app::RoutingFailureClass::FocusMismatch => 1,
+            ioi_types::app::RoutingFailureClass::TargetNotFound => 2,
+            ioi_types::app::RoutingFailureClass::PermissionOrApprovalRequired => 3,
+            ioi_types::app::RoutingFailureClass::ToolUnavailable => 4,
+            ioi_types::app::RoutingFailureClass::NonDeterministicUI => 5,
+            ioi_types::app::RoutingFailureClass::UnexpectedState => 6,
+            ioi_types::app::RoutingFailureClass::TimeoutOrHang => 7,
+            ioi_types::app::RoutingFailureClass::UserInterventionNeeded => 8,
+        };
+        (code, true)
+    } else {
+        (0, false)
+    };
+
+    let policy_binding_hash = if receipt.policy_binding_hash.is_empty() {
+        routing_policy_binding_hash(&receipt.intent_hash, &receipt.policy_decision)
+    } else {
+        receipt.policy_binding_hash.clone()
+    };
+
+    let (policy_binding_sig, policy_binding_signer) = if let Some((keypair, signer_pk_hex)) = signer
+    {
+        match keypair.sign(policy_binding_hash.as_bytes()) {
+            Ok(sig) => (hex::encode(sig), signer_pk_hex.to_string()),
+            Err(_) => (
+                receipt.policy_binding_sig.clone().unwrap_or_default(),
+                receipt.policy_binding_signer.clone().unwrap_or_default(),
+            ),
+        }
+    } else {
+        (
+            receipt.policy_binding_sig.clone().unwrap_or_default(),
+            receipt.policy_binding_signer.clone().unwrap_or_default(),
+        )
+    };
+
+    ioi_ipc::public::RoutingReceipt {
+        session_id: hex::encode(receipt.session_id),
+        step_index: receipt.step_index,
+        intent_hash: receipt.intent_hash,
+        policy_decision: receipt.policy_decision,
+        tool_name: receipt.tool_name,
+        tool_version: receipt.tool_version,
+        pre_state: Some(ioi_ipc::public::RoutingStateSummary {
+            agent_status: receipt.pre_state.agent_status,
+            tier: receipt.pre_state.tier,
+            step_index: receipt.pre_state.step_index,
+            consecutive_failures: receipt.pre_state.consecutive_failures as u32,
+            target_hint: receipt.pre_state.target_hint.unwrap_or_default(),
+        }),
+        action_json: receipt.action_json,
+        post_state: Some(ioi_ipc::public::RoutingPostStateSummary {
+            agent_status: receipt.post_state.agent_status,
+            tier: receipt.post_state.tier,
+            step_index: receipt.post_state.step_index,
+            consecutive_failures: receipt.post_state.consecutive_failures as u32,
+            success: receipt.post_state.success,
+            verification_checks: receipt.post_state.verification_checks,
+        }),
+        artifacts: receipt.artifacts,
+        failure_class,
+        has_failure_class,
+        stop_condition_hit: receipt.stop_condition_hit,
+        escalation_path: receipt.escalation_path.unwrap_or_default(),
+        scs_lineage_ptr: receipt.scs_lineage_ptr.unwrap_or_default(),
+        mutation_receipt_ptr: receipt.mutation_receipt_ptr.unwrap_or_default(),
+        policy_binding_hash,
+        policy_binding_sig,
+        policy_binding_signer,
+    }
+}
 
 #[allow(dead_code)] // [FIX] Suppress unused warning for struct
 struct SafetyModelAsInference {
@@ -51,7 +140,7 @@ impl InferenceRuntime for SafetyModelAsInference {
         _options: InferenceOptions,
     ) -> Result<Vec<u8>, VmError> {
         let input_str = String::from_utf8_lossy(input_context);
-        
+
         let mock_json = format!(
             r#"{{
             "operation_id": "start_agent",
@@ -91,8 +180,15 @@ where
         + Sync
         + 'static
         + Debug,
-    <CS as CommitmentScheme>::Proof:
-        Serialize + for<'de> serde::Deserialize<'de> + Clone + Send + Sync + 'static + Debug + Encode + Decode, 
+    <CS as CommitmentScheme>::Proof: Serialize
+        + for<'de> serde::Deserialize<'de>
+        + Clone
+        + Send
+        + Sync
+        + 'static
+        + Debug
+        + Encode
+        + Decode,
 {
     pub context_wrapper: Arc<Mutex<Option<Arc<Mutex<MainLoopContext<CS, ST, CE, V>>>>>>,
     pub workload_client: Arc<WorkloadClient>,
@@ -116,8 +212,15 @@ where
         + Sync
         + 'static
         + Debug,
-    <CS as CommitmentScheme>::Proof:
-        Serialize + for<'de> serde::Deserialize<'de> + Clone + Send + Sync + 'static + Debug + Encode + Decode,
+    <CS as CommitmentScheme>::Proof: Serialize
+        + for<'de> serde::Deserialize<'de>
+        + Clone
+        + Send
+        + Sync
+        + 'static
+        + Debug
+        + Encode
+        + Decode,
 {
     async fn get_context(&self) -> Result<Arc<Mutex<MainLoopContext<CS, ST, CE, V>>>, Status> {
         let guard = self.context_wrapper.lock().await;
@@ -147,8 +250,15 @@ where
         + Sync
         + 'static
         + Debug,
-    <CS as CommitmentScheme>::Proof:
-        Serialize + for<'de> serde::Deserialize<'de> + Clone + Send + Sync + 'static + Debug + Encode + Decode,
+    <CS as CommitmentScheme>::Proof: Serialize
+        + for<'de> serde::Deserialize<'de>
+        + Clone
+        + Send
+        + Sync
+        + 'static
+        + Debug
+        + Encode
+        + Decode,
 {
     async fn submit_transaction(
         &self,
@@ -361,6 +471,13 @@ where
                 let ctx = ctx_clone.lock().await;
                 ctx.event_broadcaster.subscribe()
             };
+            let (receipt_signing_keypair, receipt_signer_pubkey) = {
+                let ctx = ctx_clone.lock().await;
+                (
+                    ctx.local_keypair.clone(),
+                    hex::encode(ctx.local_keypair.public().encode_protobuf()),
+                )
+            };
 
             loop {
                 tokio::select! {
@@ -388,7 +505,7 @@ where
                                          session_id: hex::encode(session_id),
                                          content: token,
                                          is_final: false,
-                                         visual_hash: "".to_string(), 
+                                         visual_hash: "".to_string(),
                                      }
                                  ))
                              },
@@ -397,7 +514,7 @@ where
                                      ioi_ipc::public::AgentThought {
                                          session_id: hex::encode(step.session_id),
                                          content: step.raw_output,
-                                         is_final: true, 
+                                         is_final: true,
                                          visual_hash: hex::encode(step.visual_hash),
                                      }
                                  ))
@@ -406,7 +523,7 @@ where
                                  Some(ChainEventEnum::Block(
                                      ioi_ipc::public::BlockCommitted {
                                          height,
-                                         state_root: "".into(), 
+                                         state_root: "".into(),
                                          tx_count: tx_count as u64,
                                      }
                                  ))
@@ -452,6 +569,17 @@ where
                                      }
                                  ))
                              },
+                             ioi_types::app::KernelEvent::RoutingReceipt(receipt) => {
+                                 Some(ChainEventEnum::RoutingReceipt(
+                                     map_routing_receipt(
+                                         receipt,
+                                         Some((
+                                             &receipt_signing_keypair,
+                                             receipt_signer_pubkey.as_str(),
+                                         )),
+                                     )
+                                 ))
+                             },
                              // [FIX] Handle SystemUpdate event
                              ioi_types::app::KernelEvent::SystemUpdate { component, status } => {
                                  Some(ChainEventEnum::System(
@@ -482,7 +610,14 @@ where
         let req = request.into_inner();
         let ctx_arc = self.get_context().await?;
 
-        let (chain_id, inference_runtime, keypair, nonce_manager, workload_client, account_id_bytes) = {
+        let (
+            chain_id,
+            inference_runtime,
+            keypair,
+            nonce_manager,
+            workload_client,
+            account_id_bytes,
+        ) = {
             let ctx = ctx_arc.lock().await;
             let account_id = account_id_from_key_material(
                 SignatureSuite::ED25519,
@@ -492,38 +627,34 @@ where
 
             (
                 ctx.chain_id,
-                ctx.inference_runtime.clone(), 
+                ctx.inference_runtime.clone(),
                 ctx.local_keypair.clone(),
                 ctx.nonce_manager.clone(),
-                ctx.view_resolver.workload_client().clone(), 
+                ctx.view_resolver.workload_client().clone(),
                 account_id,
             )
         };
 
         let account_id = AccountId(account_id_bytes);
-        
-        let nonce_key = [
-            ioi_types::keys::ACCOUNT_NONCE_PREFIX,
-            account_id.as_ref(),
-        ]
-        .concat();
-        
+
+        let nonce_key = [ioi_types::keys::ACCOUNT_NONCE_PREFIX, account_id.as_ref()].concat();
+
         let state_nonce = match workload_client.query_raw_state(&nonce_key).await {
-             Ok(Some(b)) => codec::from_bytes_canonical::<u64>(&b).unwrap_or(0),
-             _ => 0,
+            Ok(Some(b)) => codec::from_bytes_canonical::<u64>(&b).unwrap_or(0),
+            _ => 0,
         };
-        
+
         let nonce = {
             let mut guard = nonce_manager.lock().await;
             let entry = guard.entry(account_id).or_insert(0);
-            
+
             if *entry < state_nonce {
                 *entry = state_nonce;
             }
-            
+
             let use_nonce = *entry;
             *entry += 1;
-            
+
             use_nonce
         };
 
@@ -580,7 +711,10 @@ where
 
         Ok(Response::new(DraftTransactionResponse {
             transaction_bytes: signed_tx_bytes,
-            summary_markdown: format!("**Action:** Execute `{}` (Auto-Signed, Nonce {})", req.intent, nonce),
+            summary_markdown: format!(
+                "**Action:** Execute `{}` (Auto-Signed, Nonce {})",
+                req.intent, nonce
+            ),
             required_capabilities: vec!["wallet::sign".into()],
         }))
     }
@@ -603,8 +737,8 @@ where
             .lock()
             .map_err(|_| Status::internal("SCS lock poisoned"))?;
 
-        let hash_bytes =
-            hex::decode(&req.blob_hash).map_err(|_| Status::invalid_argument("Invalid hex hash"))?;
+        let hash_bytes = hex::decode(&req.blob_hash)
+            .map_err(|_| Status::invalid_argument("Invalid hex hash"))?;
 
         let hash_arr: [u8; 32] = hash_bytes
             .try_into()
@@ -624,5 +758,92 @@ where
             data: payload.to_vec(),
             mime_type: "application/octet-stream".to_string(),
         }))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn routing_receipt_chain_event_payload_is_complete() {
+        let keypair = libp2p::identity::Keypair::generate_ed25519();
+        let signer_pk = hex::encode(keypair.public().encode_protobuf());
+
+        let receipt = RoutingReceiptEvent {
+            session_id: [7u8; 32],
+            step_index: 42,
+            intent_hash: "abcd1234".to_string(),
+            policy_decision: "allowed".to_string(),
+            tool_name: "sys__exec".to_string(),
+            tool_version: "1.0.0".to_string(),
+            pre_state: ioi_types::app::RoutingStateSummary {
+                agent_status: "Running".to_string(),
+                tier: "ToolFirst".to_string(),
+                step_index: 42,
+                consecutive_failures: 0,
+                target_hint: Some("terminal".to_string()),
+            },
+            action_json: "{\"name\":\"sys__exec\"}".to_string(),
+            post_state: ioi_types::app::RoutingPostStateSummary {
+                agent_status: "Running".to_string(),
+                tier: "ToolFirst".to_string(),
+                step_index: 43,
+                consecutive_failures: 0,
+                success: true,
+                verification_checks: vec!["policy_decision=allowed".to_string()],
+            },
+            artifacts: vec!["trace://agent_step/42".to_string()],
+            failure_class: None,
+            stop_condition_hit: false,
+            escalation_path: None,
+            scs_lineage_ptr: Some("scs://skill/abc".to_string()),
+            mutation_receipt_ptr: Some("scs://mutation-receipt/def".to_string()),
+            policy_binding_hash: String::new(),
+            policy_binding_sig: None,
+            policy_binding_signer: None,
+        };
+
+        let mapped = map_routing_receipt(receipt.clone(), Some((&keypair, signer_pk.as_str())));
+        let event = ChainEvent {
+            event: Some(ChainEventEnum::RoutingReceipt(mapped.clone())),
+        };
+
+        match event.event {
+            Some(ChainEventEnum::RoutingReceipt(payload)) => {
+                assert_eq!(payload.session_id, hex::encode(receipt.session_id));
+                assert_eq!(payload.step_index, receipt.step_index);
+                assert_eq!(payload.intent_hash, receipt.intent_hash);
+                assert_eq!(payload.policy_decision, receipt.policy_decision);
+                assert_eq!(payload.tool_name, receipt.tool_name);
+                assert_eq!(payload.tool_version, receipt.tool_version);
+                assert_eq!(payload.action_json, receipt.action_json);
+                assert_eq!(payload.artifacts, receipt.artifacts);
+                assert_eq!(
+                    payload.pre_state.as_ref().map(|s| s.tier.as_str()),
+                    Some("ToolFirst")
+                );
+                assert_eq!(
+                    payload
+                        .post_state
+                        .as_ref()
+                        .map(|s| s.verification_checks.len())
+                        .unwrap_or_default(),
+                    1
+                );
+                assert!(!payload.policy_binding_hash.is_empty());
+                assert!(!payload.policy_binding_sig.is_empty());
+                assert_eq!(payload.policy_binding_signer, signer_pk);
+
+                let signer_bytes =
+                    hex::decode(&payload.policy_binding_signer).expect("valid signer hex");
+                let signature =
+                    hex::decode(&payload.policy_binding_sig).expect("valid signature hex");
+                let signer_key = libp2p::identity::PublicKey::try_decode_protobuf(&signer_bytes)
+                    .expect("decode signer key");
+                assert!(signer_key.verify(payload.policy_binding_hash.as_bytes(), &signature));
+            }
+            other => panic!("expected routing receipt chain event, got: {:?}", other),
+        }
     }
 }

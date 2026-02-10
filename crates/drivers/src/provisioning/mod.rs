@@ -1,12 +1,12 @@
 // Path: crates/drivers/src/provisioning/mod.rs
 
-pub mod aws;
 pub mod akash;
+pub mod aws;
 
 // Abstract interface for any cloud provider (Web2 or Web3).
+use anyhow::Result;
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
-use anyhow::Result;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct InstanceSpec {
@@ -24,7 +24,7 @@ pub struct InstanceHandle {
     pub public_ip: Option<String>,
     pub status: InstanceStatus,
     /// Ephemeral SSH key for the session (if applicable)
-    pub ssh_key: Option<String>, 
+    pub ssh_key: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

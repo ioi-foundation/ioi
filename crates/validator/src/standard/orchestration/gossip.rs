@@ -8,7 +8,7 @@ use ioi_api::chain::{AnchoredStateView, StateRef, WorkloadClientApi};
 use ioi_api::commitment::CommitmentScheme;
 use ioi_api::consensus::{ConsensusEngine, PenaltyMechanism};
 use ioi_api::state::{StateAccess, StateManager, Verifier};
-use ioi_ipc::public::TxStatus; 
+use ioi_ipc::public::TxStatus;
 use ioi_networking::traits::NodeState;
 use ioi_types::{
     app::{AccountId, Block, ChainTransaction, FailureReport, StateRoot},
@@ -26,7 +26,7 @@ use crate::metrics::rpc_metrics as metrics;
 
 // [FIX] Added imports for voting
 use ioi_networking::libp2p::SwarmCommand;
-use ioi_types::app::{ConsensusVote, account_id_from_key_material, SignatureSuite, to_root_hash};
+use ioi_types::app::{account_id_from_key_material, to_root_hash, ConsensusVote, SignatureSuite};
 use ioi_types::codec;
 
 type ProofCache = Arc<Mutex<LruCache<(Vec<u8>, Vec<u8>), Option<Vec<u8>>>>>;
@@ -115,7 +115,7 @@ where
 
 /// Prunes the mempool by removing committed transactions and updating account nonces.
 pub fn prune_mempool(
-    pool: &Mempool, 
+    pool: &Mempool,
     processed_block: &Block<ChainTransaction>,
 ) -> Result<(), anyhow::Error> {
     let mut max_nonce_in_block: HashMap<AccountId, u64> = HashMap::new();
@@ -161,7 +161,7 @@ fn get_tx_nonce(tx: &ChainTransaction) -> Option<(AccountId, u64)> {
 pub async fn handle_gossip_block<CS, ST, CE, V>(
     context: &mut MainLoopContext<CS, ST, CE, V>,
     block: Block<ChainTransaction>,
-    mirror_id: u8, 
+    mirror_id: u8,
 ) where
     CS: CommitmentScheme + Clone + Send + Sync + 'static,
     ST: StateManager<Commitment = CS::Commitment, Proof = CS::Proof>
@@ -274,10 +274,13 @@ pub async fn handle_gossip_block<CS, ST, CE, V>(
                 let vote_view = processed_block.header.view;
                 let vote_hash_vec = processed_block.header.hash().unwrap_or(vec![0u8; 32]);
                 let vote_hash = to_root_hash(&vote_hash_vec).unwrap_or([0u8; 32]);
-                
+
                 // Get our ID
                 let our_pk = context.local_keypair.public().encode_protobuf();
-                let our_id = AccountId(account_id_from_key_material(SignatureSuite::ED25519, &our_pk).unwrap_or([0u8; 32]));
+                let our_id = AccountId(
+                    account_id_from_key_material(SignatureSuite::ED25519, &our_pk)
+                        .unwrap_or([0u8; 32]),
+                );
 
                 // Sign Vote
                 let vote_payload = (vote_height, vote_view, vote_hash);
@@ -290,18 +293,21 @@ pub async fn handle_gossip_block<CS, ST, CE, V>(
                             voter: our_id,
                             signature: sig,
                         };
-                        
+
                         if let Ok(vote_blob) = codec::to_bytes_canonical(&vote) {
-                             // Broadcast to network
-                             let _ = context.swarm_commander.send(SwarmCommand::BroadcastVote(vote_blob)).await;
-                             
-                             // Loopback to local engine to ensure we count our own vote
-                             let mut engine = engine_ref.lock().await;
-                             if let Err(e) = engine.handle_vote(vote).await {
-                                 tracing::warn!(target: "consensus", "Failed to handle own vote: {}", e);
-                             }
-                             
-                             tracing::info!(target: "consensus", "Voted for block {} (H={} V={})", hex::encode(&vote_hash[..4]), vote_height, vote_view);
+                            // Broadcast to network
+                            let _ = context
+                                .swarm_commander
+                                .send(SwarmCommand::BroadcastVote(vote_blob))
+                                .await;
+
+                            // Loopback to local engine to ensure we count our own vote
+                            let mut engine = engine_ref.lock().await;
+                            if let Err(e) = engine.handle_vote(vote).await {
+                                tracing::warn!(target: "consensus", "Failed to handle own vote: {}", e);
+                            }
+
+                            tracing::info!(target: "consensus", "Voted for block {} (H={} V={})", hex::encode(&vote_hash[..4]), vote_height, vote_view);
                         }
                     }
                 }

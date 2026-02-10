@@ -9,6 +9,7 @@ use super::indices::Indices;
 use super::node::{IAVLNode, NodeHash, EMPTY_HASH};
 use super::{proof, proof_builder};
 use crate::tree::iavl::proof::IavlProof;
+use async_trait::async_trait;
 use ioi_api::commitment::CommitmentScheme;
 use ioi_api::state::{
     ProofProvider, PrunePlan, StateAccess, StateManager, StateScanIter, VerifiableState,
@@ -24,7 +25,6 @@ use std::cmp::{max, Ordering};
 use std::collections::{BTreeMap, HashMap};
 use std::fmt::Debug;
 use std::sync::Arc;
-use async_trait::async_trait;
 
 /// Calculates the lexicographical successor of a byte slice.
 /// Returns `None` if the slice is all `0xFF` bytes, as there is no successor.

@@ -44,46 +44,42 @@ pub enum KeySuite {
 
 pub fn run(args: KeysArgs) -> Result<()> {
     match args.command {
-        KeysCommands::Generate { suite } => {
-            match suite {
-                KeySuite::Ed25519 => {
-                    let kp =
-                        Ed25519KeyPair::generate().map_err(|e| anyhow!("Gen failed: {}", e))?;
-                    let pub_bytes = kp.public_key().to_bytes();
-                    let pk_hex = hex::encode(&pub_bytes);
-                    let libp2p_pk =
-                        identity::ed25519::PublicKey::try_from_bytes(&pub_bytes).unwrap();
-                    let proto_pk = identity::PublicKey::from(libp2p_pk).encode_protobuf();
+        KeysCommands::Generate { suite } => match suite {
+            KeySuite::Ed25519 => {
+                let kp = Ed25519KeyPair::generate().map_err(|e| anyhow!("Gen failed: {}", e))?;
+                let pub_bytes = kp.public_key().to_bytes();
+                let pk_hex = hex::encode(&pub_bytes);
+                let libp2p_pk = identity::ed25519::PublicKey::try_from_bytes(&pub_bytes).unwrap();
+                let proto_pk = identity::PublicKey::from(libp2p_pk).encode_protobuf();
 
-                    let acct =
-                        account_id_from_key_material(SignatureSuite::ED25519, &proto_pk).unwrap();
+                let acct =
+                    account_id_from_key_material(SignatureSuite::ED25519, &proto_pk).unwrap();
 
-                    println!("--- New Ed25519 Identity ---");
-                    println!(
-                        "Private Key (Seed): {}",
-                        hex::encode(kp.private_key().as_bytes())
-                    );
-                    println!("Public Key:         {}", pk_hex);
-                    println!("Account ID:         0x{}", hex::encode(acct));
-                }
-                KeySuite::Dilithium2 => {
-                    let kp = MldsaScheme::new(ioi_crypto::security::SecurityLevel::Level2)
-                        .generate_keypair()
-                        .map_err(|e| anyhow!("PQC Gen failed: {}", e))?;
-                    let pk_bytes = kp.public_key().to_bytes();
-                    let acct =
-                        account_id_from_key_material(SignatureSuite::ML_DSA_44, &pk_bytes).unwrap();
-
-                    println!("--- New ML-DSA-44 (formerly Dilithium2) Identity ---");
-                    println!(
-                        "Public Key ({} bytes): {}",
-                        pk_bytes.len(),
-                        hex::encode(&pk_bytes)
-                    );
-                    println!("Account ID:            0x{}", hex::encode(acct));
-                }
+                println!("--- New Ed25519 Identity ---");
+                println!(
+                    "Private Key (Seed): {}",
+                    hex::encode(kp.private_key().as_bytes())
+                );
+                println!("Public Key:         {}", pk_hex);
+                println!("Account ID:         0x{}", hex::encode(acct));
             }
-        }
+            KeySuite::Dilithium2 => {
+                let kp = MldsaScheme::new(ioi_crypto::security::SecurityLevel::Level2)
+                    .generate_keypair()
+                    .map_err(|e| anyhow!("PQC Gen failed: {}", e))?;
+                let pk_bytes = kp.public_key().to_bytes();
+                let acct =
+                    account_id_from_key_material(SignatureSuite::ML_DSA_44, &pk_bytes).unwrap();
+
+                println!("--- New ML-DSA-44 (formerly Dilithium2) Identity ---");
+                println!(
+                    "Public Key ({} bytes): {}",
+                    pk_bytes.len(),
+                    hex::encode(&pk_bytes)
+                );
+                println!("Account ID:            0x{}", hex::encode(acct));
+            }
+        },
         KeysCommands::Inspect { suite, hex_key } => {
             let bytes = hex::decode(&hex_key).context("Invalid hex")?;
             match suite {

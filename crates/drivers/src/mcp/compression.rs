@@ -1,7 +1,7 @@
 // Path: crates/drivers/src/mcp/compression.rs
 
-use std::path::Path;
 use std::collections::BTreeMap;
+use std::path::Path;
 use walkdir::WalkDir;
 
 pub struct ContextCompressor;
@@ -19,7 +19,7 @@ impl ContextCompressor {
     pub fn generate_tree_index(root: &Path, max_depth: usize) -> String {
         let mut output = String::new();
         let root_str = root.to_string_lossy();
-        
+
         output.push_str(&format!("|root: {}\n", root_str));
 
         // Use WalkDir for efficient traversal respecting gitignore-style filtering would be ideal,
@@ -30,12 +30,12 @@ impl ContextCompressor {
             .filter_entry(|e| {
                 let name = e.file_name().to_string_lossy();
                 // Basic ignore list to prevent noise
-                !name.starts_with('.') && 
-                name != "node_modules" && 
-                name != "target" && 
-                name != "dist" &&
-                name != "build" &&
-                name != "coverage"
+                !name.starts_with('.')
+                    && name != "node_modules"
+                    && name != "target"
+                    && name != "dist"
+                    && name != "build"
+                    && name != "coverage"
             });
 
         // Group files by parent directory to compress lines
@@ -49,14 +49,20 @@ impl ContextCompressor {
                     let relative_parent = if parent == root {
                         ".".to_string()
                     } else {
-                        parent.strip_prefix(root).unwrap_or(parent).to_string_lossy().to_string()
+                        parent
+                            .strip_prefix(root)
+                            .unwrap_or(parent)
+                            .to_string_lossy()
+                            .to_string()
                     };
-                    
-                    let file_name = path.file_name().unwrap_or_default().to_string_lossy().to_string();
-                    
-                    dir_map.entry(relative_parent)
-                        .or_default()
-                        .push(file_name);
+
+                    let file_name = path
+                        .file_name()
+                        .unwrap_or_default()
+                        .to_string_lossy()
+                        .to_string();
+
+                    dir_map.entry(relative_parent).or_default().push(file_name);
                 }
             }
         }
@@ -65,13 +71,14 @@ impl ContextCompressor {
         for (dir, mut files) in dir_map {
             // Sort files for deterministic output (crucial for consensus/caching stability)
             files.sort();
-            
+
             // Format: |dir:{file1,file2}
             // Truncate directories with too many files to prevent context flooding
             if files.len() > 12 {
-                output.push_str(&format!("|{}:{{{},... ({} more)}}\n", 
-                    dir, 
-                    files[..10].join(","), 
+                output.push_str(&format!(
+                    "|{}:{{{},... ({} more)}}\n",
+                    dir,
+                    files[..10].join(","),
                     files.len() - 10
                 ));
             } else {

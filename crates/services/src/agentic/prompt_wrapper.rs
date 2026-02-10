@@ -13,7 +13,7 @@ impl_service_base!(PromptWrapper, "prompt_wrapper");
 impl PromptWrapper {
     pub fn build_canonical_prompt(
         user_intent: &str,
-        chain_state_context: &str, 
+        chain_state_context: &str,
         guardrails: &PolicyGuardrails,
     ) -> String {
         // [FIX] Improved Prompt Engineering to ensure correct schema compliance
@@ -30,8 +30,7 @@ impl PromptWrapper {
 
         let body = format!("User Input: \"{}\"", user_intent);
 
-        let footer =
-            "OUTPUT RULES:\n\
+        let footer = "OUTPUT RULES:\n\
             1. Return ONLY the JSON object.\n\
             2. Do NOT use Markdown formatting (no ```json ... ```).\n\
             3. The root object MUST have an 'operation_id' field.\n\

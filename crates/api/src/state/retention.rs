@@ -59,9 +59,9 @@ impl RetentionManager {
         // Initialize with MAX so a new client doesn't accidentally block all pruning
         // until it explicitly sets a floor.
         self.clients.insert(id, AtomicU64::new(u64::MAX));
-        
+
         log::debug!(target: "retention", "Registered retention client '{}' (ID: {})", name, id);
-        
+
         RetentionHandle {
             manager: Arc::clone(self),
             client_id: id,
@@ -98,7 +98,7 @@ impl RetentionManager {
         // The final cutoff is the minimum of all constraints.
         // We cannot prune anything >= global_floor.
         let global_floor = client_floor.min(pin_floor);
-        
+
         // We want to prune everything strictly less than `cutoff`.
         // So if global_floor is 100, we can at most prune up to 100 (deleting 0..99).
         // Therefore, effective_cutoff = min(config_cutoff, global_floor).
@@ -125,13 +125,13 @@ impl RetentionManager {
 /// A handle required to maintain a retention floor.
 /// When this struct is dropped, the constraint is removed.
 pub struct RetentionHandle {
-    manager: Arc<RetentionManager>, 
+    manager: Arc<RetentionManager>,
     client_id: RetentionClientId,
     name: &'static str,
 }
 
 impl RetentionHandle {
-    /// Updates the retention floor. The GC guarantees that state at `height` 
+    /// Updates the retention floor. The GC guarantees that state at `height`
     /// (and above) will NOT be pruned.
     pub fn set_floor(&self, height: u64) {
         if let Some(entry) = self.manager.clients.get(&self.client_id) {

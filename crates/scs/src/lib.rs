@@ -41,7 +41,7 @@ pub mod store;
 
 // Re-export primary types for consumer ergonomics
 // [FIX] Added RetentionClass to re-exports
-pub use format::{Frame, FrameId, FrameType, ScsHeader, RetentionClass};
+pub use format::{Frame, FrameId, FrameType, RetentionClass, ScsHeader};
 pub use index::{RetrievalProof, VectorIndex};
 pub use store::{SovereignContextStore, StoreConfig};
 

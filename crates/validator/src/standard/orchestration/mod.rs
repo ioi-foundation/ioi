@@ -18,7 +18,7 @@ use ioi_api::crypto::BatchVerifier;
 use ioi_api::{
     chain::WorkloadClientApi,
     commitment::CommitmentScheme,
-    consensus::{ConsensusEngine, ConsensusControl}, // [FIX] Added ConsensusControl import
+    consensus::{ConsensusControl, ConsensusEngine}, // [FIX] Added ConsensusControl import
     state::{StateManager, Verifier},
     validator::container::Container,
 };
@@ -39,6 +39,7 @@ use ioi_types::{
 };
 use libp2p::identity;
 use lru::LruCache;
+use parity_scale_codec::{Decode, Encode};
 use rand::seq::SliceRandom;
 use serde::Serialize;
 use std::collections::BTreeMap;
@@ -54,17 +55,16 @@ use tokio::{
     task::JoinHandle,
     time::{self, Duration, MissedTickBehavior},
 };
-use parity_scale_codec::{Decode, Encode};
 
 use crate::common::GuardianSigner;
 use crate::standard::orchestration::grpc_public::PublicApiImpl;
 use ioi_ipc::public::public_api_server::PublicApiServer;
 use tonic::transport::Server;
 
-use ioi_api::vm::inference::{LocalSafetyModel, InferenceRuntime};
-use ioi_api::vm::drivers::os::OsDriver; 
-use ioi_scs::SovereignContextStore;
 use crate::standard::orchestration::mempool::Mempool;
+use ioi_api::vm::drivers::os::OsDriver;
+use ioi_api::vm::inference::{InferenceRuntime, LocalSafetyModel};
+use ioi_scs::SovereignContextStore;
 
 // --- Submodule Declarations ---
 mod consensus;
@@ -95,18 +95,18 @@ pub mod transition;
 use crate::config::OrchestrationConfig;
 use consensus::drive_consensus_tick;
 use context::{ChainFor, MainLoopContext};
+use events::handle_network_event;
 use futures::FutureExt;
 use ingestion::{run_ingestion_worker, ChainTipInfo, IngestionConfig};
-use operator_tasks::run_oracle_operator_task;
-use events::handle_network_event; 
-use ioi_types::error::VmError;
 use ioi_types::app::agentic::InferenceOptions;
+use ioi_types::error::VmError;
+use operator_tasks::run_oracle_operator_task;
 use std::path::Path;
 
 /// A struct to hold the numerous dependencies for the Orchestrator.
 pub struct OrchestrationDependencies<CE, V> {
     /// The network synchronization engine.
-    pub syncer: Arc<dyn BlockSync>, 
+    pub syncer: Arc<dyn BlockSync>,
     /// The receiver for incoming network events.
     pub network_event_receiver: mpsc::Receiver<NetworkEvent>,
     /// The sender for commands to the network swarm.
@@ -173,18 +173,11 @@ impl InferenceRuntime for RuntimeWrapper {
             .await
     }
 
-    async fn load_model(
-        &self,
-        model_hash: [u8; 32],
-        path: &Path,
-    ) -> Result<(), VmError> {
+    async fn load_model(&self, model_hash: [u8; 32], path: &Path) -> Result<(), VmError> {
         self.inner.load_model(model_hash, path).await
     }
 
-    async fn unload_model(
-        &self,
-        model_hash: [u8; 32],
-    ) -> Result<(), VmError> {
+    async fn unload_model(&self, model_hash: [u8; 32]) -> Result<(), VmError> {
         self.inner.unload_model(model_hash).await
     }
 }
@@ -206,8 +199,15 @@ where
         + Sync
         + 'static
         + Debug,
-    <CS as CommitmentScheme>::Proof:
-        Serialize + for<'de> serde::Deserialize<'de> + Clone + Send + Sync + 'static + Debug + Encode + Decode,
+    <CS as CommitmentScheme>::Proof: Serialize
+        + for<'de> serde::Deserialize<'de>
+        + Clone
+        + Send
+        + Sync
+        + 'static
+        + Debug
+        + Encode
+        + Decode,
     <CS as CommitmentScheme>::Commitment: Send + Sync + Debug,
 {
     config: OrchestrationConfig,
@@ -216,7 +216,7 @@ where
     workload_client: Arc<OnceCell<Arc<WorkloadClient>>>,
     /// Local transaction pool.
     pub tx_pool: Arc<Mempool>,
-    syncer: Arc<dyn BlockSync>, 
+    syncer: Arc<dyn BlockSync>,
     swarm_command_sender: mpsc::Sender<SwarmCommand>,
     network_event_receiver: NetworkEventReceiver,
     consensus_engine: Arc<Mutex<CE>>,
@@ -270,8 +270,15 @@ where
         + Sync
         + 'static
         + Debug,
-    <CS as CommitmentScheme>::Proof:
-        Serialize + for<'de> serde::Deserialize<'de> + Clone + Send + Sync + 'static + Debug + Encode + Decode,
+    <CS as CommitmentScheme>::Proof: Serialize
+        + for<'de> serde::Deserialize<'de>
+        + Clone
+        + Send
+        + Sync
+        + 'static
+        + Debug
+        + Encode
+        + Decode,
     <CS as CommitmentScheme>::Commitment: Send + Sync + Debug,
 {
     /// Creates a new Orchestrator from its configuration and dependencies.
@@ -320,7 +327,7 @@ where
             safety_model: deps.safety_model,
             inference_runtime: deps.inference_runtime,
             os_driver: deps.os_driver,
-            scs: deps.scs, 
+            scs: deps.scs,
             event_broadcaster: deps.event_broadcaster,
         })
     }
@@ -473,7 +480,7 @@ where
         let mut last_tick = tokio::time::Instant::now()
             .checked_sub(min_block_time)
             .unwrap();
-            
+
         // Track the epoch we last saw
         let mut last_seen_epoch = 0;
 
@@ -495,26 +502,26 @@ where
                          // Poll for epoch change
                          let client = { context_arc.lock().await.view_resolver.workload_client().clone() };
                          let key = ioi_types::keys::CURRENT_EPOCH_KEY;
-                         
+
                          if let Ok(Some(bytes)) = client.query_raw_state(key).await {
                              if let Ok(current_epoch) = ioi_types::codec::from_bytes_canonical::<u64>(&bytes) {
                                  if current_epoch > last_seen_epoch {
                                      tracing::info!(target: "orchestration", "Lazarus Recovery: Epoch {} detected (was {}). Restoring A-DMFT.", current_epoch, last_seen_epoch);
                                      last_seen_epoch = current_epoch;
-                                     
+
                                      let ctx = context_arc.lock().await;
                                      *ctx.node_state.lock().await = NodeState::Synced;
-                                     
+
                                      // Switch Engine back to A-DMFT
                                      let mut engine = ctx.consensus_engine_ref.lock().await;
                                      engine.switch_to_admft();
-                                     
+
                                      // Resume normal operation
                                      continue;
                                  }
                              }
                          }
-                         
+
                          // Continue A-PMFT sampling loop while in Survival Mode
                          let cause = "apmft_tick";
                          // A-PMFT decide will trigger sampling (Stall with sampling side-effects or a new Decision)
@@ -527,10 +534,10 @@ where
                     } else {
                          // Standard A-DMFT
                         last_tick = tokio::time::Instant::now();
-                        
+
                         // [INSTRUMENTATION] Log tick trigger
                         tracing::info!(target: "consensus", "Consensus timer tick triggered.");
-                        
+
                         let cause = "timer";
                         let result = AssertUnwindSafe(drive_consensus_tick(&context_arc, cause)).catch_unwind().await;
                         if let Err(e) = result.map_err(|e| anyhow!("Consensus tick panicked: {:?}", e)).and_then(|res| res) {
@@ -547,10 +554,10 @@ where
                          continue;
                     }
                     last_tick = tokio::time::Instant::now();
-                    
+
                     // [INSTRUMENTATION] Log kick trigger
                     tracing::debug!(target: "consensus", "Consensus kicked.");
-                    
+
                     let result = AssertUnwindSafe(drive_consensus_tick(&context_arc, cause)).catch_unwind().await;
                      if let Err(e) = result.map_err(|e| anyhow!("Kicked consensus tick panicked: {:?}", e)).and_then(|res| res) {
                         tracing::error!(target: "consensus", "[Orch Tick] Kicked failed: {:?}.", e);
@@ -733,23 +740,23 @@ where
 
         let tx_model = Arc::new(UnifiedTransactionModel::new(self.scheme.clone()));
         let (tx_ingest_tx, tx_ingest_rx) = mpsc::channel(50_000);
-        
+
         let initial_tip = if let Some(b) = &initial_block {
-             ChainTipInfo {
+            ChainTipInfo {
                 height: b.header.height,
                 timestamp: b.header.timestamp,
                 gas_used: b.header.gas_used,
                 state_root: b.header.state_root.0.clone(),
                 genesis_root: self.genesis_hash.to_vec(),
-             }
+            }
         } else {
-             ChainTipInfo {
+            ChainTipInfo {
                 height: 0,
-                timestamp: 0, 
+                timestamp: 0,
                 gas_used: 0,
                 state_root: vec![],
                 genesis_root: self.genesis_hash.to_vec(),
-             }
+            }
         };
 
         let (tip_tx, tip_rx) = watch::channel(initial_tip);
@@ -903,11 +910,11 @@ where
             receipt_map: receipt_map.clone(),
             safety_model: self.safety_model.clone(),
             inference_runtime: Arc::new(RuntimeWrapper {
-                inner: self.inference_runtime.clone()
-            }), 
+                inner: self.inference_runtime.clone(),
+            }),
             os_driver: self.os_driver.clone(),
             scs: self.scs.clone(),
-            event_broadcaster: event_tx, 
+            event_broadcaster: event_tx,
         };
 
         let mut receiver_opt = self.network_event_receiver.lock().await;
@@ -991,8 +998,15 @@ where
         + Sync
         + 'static
         + Debug,
-    <CS as CommitmentScheme>::Proof:
-        Serialize + for<'de> serde::Deserialize<'de> + Clone + Send + Sync + 'static + Debug + Encode + Decode,
+    <CS as CommitmentScheme>::Proof: Serialize
+        + for<'de> serde::Deserialize<'de>
+        + Clone
+        + Send
+        + Sync
+        + 'static
+        + Debug
+        + Encode
+        + Decode,
     <CS as CommitmentScheme>::Commitment: Send + Sync + Debug,
 {
     async fn start(&self, listen_addr: &str) -> Result<(), ValidatorError> {

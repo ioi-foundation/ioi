@@ -13,7 +13,7 @@ pub const VALIDATOR_SET_KEY: &[u8] = b"system::validators::current";
 
 #[derive(Encode, Decode, Serialize, Deserialize, Debug, Clone)]
 struct ValidatorSetBlobV1 {
-    pub schema_version: u16,      // = 1
+    pub schema_version: u16,     // = 1
     pub payload: ValidatorSetV1, // old payload
 }
 
@@ -53,9 +53,7 @@ pub fn read_validator_sets(bytes: &[u8]) -> Result<ValidatorSetsV1, StateError> 
             next: None,
         });
     }
-    Err(StateError::Decode(
-        "Unknown validator set encoding".into(),
-    ))
+    Err(StateError::Decode("Unknown validator set encoding".into()))
 }
 
 /// Writes the validator set to a canonical binary format.
@@ -152,7 +150,7 @@ pub struct CompactBlock {
 
 /// A vote for a specific block hash at a specific height/view.
 /// This is the message broadcast by validators to attest to a block's validity.
-/// 
+///
 /// [MODIFIED] Now uses generic Vec<u8> which can hold either a classical Ed25519 signature
 /// OR a BLS signature share depending on the active scheme.
 #[derive(Debug, Clone, PartialEq, Eq, Encode, Decode, Serialize, Deserialize)]
@@ -166,7 +164,7 @@ pub struct ConsensusVote {
     /// The Account ID of the validator casting the vote.
     pub voter: AccountId,
     /// The cryptographic signature (Ed25519 or BLS Share).
-    pub signature: Vec<u8>, 
+    pub signature: Vec<u8>,
 }
 
 /// A cryptographic proof that a quorum (2/3+1) of validators approved a block.
@@ -182,7 +180,7 @@ pub struct QuorumCertificate {
     pub view: u64,
     /// The hash of the certified block.
     pub block_hash: [u8; 32],
-    
+
     // --- Legacy / Ed25519 (Explicit List) ---
     /// The individual signatures proving the quorum.
     pub signatures: Vec<(AccountId, Vec<u8>)>,
@@ -220,16 +218,16 @@ pub struct EchoMessage {
     pub signature: Vec<u8>,
 }
 
-/// Cryptographic evidence that a validator has equivocated (signed two different 
+/// Cryptographic evidence that a validator has equivocated (signed two different
 /// payloads for the same slot). This implies a hardware TEE breach.
 #[derive(Debug, Clone, PartialEq, Eq, Encode, Decode, Serialize, Deserialize)]
 pub struct ProofOfDivergence {
     /// The account ID of the equivocating validator.
     pub offender: AccountId,
-    
+
     /// The first conflicting block header (containing the signature).
     pub evidence_a: BlockHeader,
-    
+
     /// The second conflicting block header (containing the signature).
     pub evidence_b: BlockHeader,
 }

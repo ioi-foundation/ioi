@@ -25,8 +25,7 @@ fn get_tx_details(tx: &ChainTransaction) -> Option<(AccountId, u64)> {
             ioi_types::app::ApplicationTransaction::DeployContract { header, .. }
             | ioi_types::app::ApplicationTransaction::CallContract { header, .. } => {
                 Some((header.account_id, header.nonce))
-            }
-            // [FIX] Removed unreachable `_ => None` pattern as Deploy and Call are the only variants
+            } // [FIX] Removed unreachable `_ => None` pattern as Deploy and Call are the only variants
         },
         ChainTransaction::Semantic { .. } => None,
     }

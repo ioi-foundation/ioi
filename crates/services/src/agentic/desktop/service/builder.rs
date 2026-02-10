@@ -1,9 +1,9 @@
 // Path: crates/services/src/agentic/desktop/service/builder.rs
 use super::{DesktopAgentService, VisualContextCache};
-use crate::agentic::scrub_adapter::RuntimeAsSafetyModel;
-use crate::agentic::scrubber::SemanticScrubber;
 use crate::agentic::fitness::LlmEvaluator;
 use crate::agentic::optimizer::OptimizerService;
+use crate::agentic::scrub_adapter::RuntimeAsSafetyModel;
+use crate::agentic::scrubber::SemanticScrubber;
 
 use ioi_api::ibc::AgentZkVerifier;
 use ioi_api::vm::drivers::gui::GuiDriver;
@@ -17,8 +17,8 @@ use ioi_types::app::KernelEvent;
 use std::sync::{Arc, Mutex};
 use tokio::sync::RwLock;
 
-// [FIX] Import LensRegistry and ReactLens
-use ioi_drivers::gui::lenses::{LensRegistry, react::ReactLens};
+// [FIX] Import LensRegistry, ReactLens, and AutoLens fallback
+use ioi_drivers::gui::lenses::{auto::AutoLens, react::ReactLens, LensRegistry};
 
 impl DesktopAgentService {
     pub fn new(
@@ -29,12 +29,13 @@ impl DesktopAgentService {
     ) -> Self {
         let safety_adapter = Arc::new(RuntimeAsSafetyModel::new(inference.clone()));
         let scrubber = SemanticScrubber::new(safety_adapter);
-        
+
         let evaluator = Arc::new(LlmEvaluator::new(inference.clone()));
 
         // [FIX] Initialize Lens Registry
         let mut lens_registry = LensRegistry::new();
         lens_registry.register(Box::new(ReactLens));
+        lens_registry.register(Box::new(AutoLens));
         // [FIX] Wrap in Arc to share with Executor
         let lens_registry_arc = Arc::new(lens_registry);
 
@@ -76,6 +77,7 @@ impl DesktopAgentService {
         // [FIX] Initialize Lens Registry
         let mut lens_registry = LensRegistry::new();
         lens_registry.register(Box::new(ReactLens));
+        lens_registry.register(Box::new(AutoLens));
         // [FIX] Wrap in Arc to share with Executor
         let lens_registry_arc = Arc::new(lens_registry);
 
@@ -116,7 +118,7 @@ impl DesktopAgentService {
         self.zk_verifier = Some(verifier);
         self
     }
-    
+
     pub fn with_optimizer(mut self, optimizer: Arc<OptimizerService>) -> Self {
         self.optimizer = Some(optimizer);
         self
@@ -139,7 +141,7 @@ impl DesktopAgentService {
         self.os_driver = Some(driver);
         self
     }
-    
+
     pub fn with_som(mut self, enabled: bool) -> Self {
         self.enable_som = enabled;
         self

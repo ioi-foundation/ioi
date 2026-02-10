@@ -6,19 +6,24 @@ pub mod filesystem;
 pub mod mcp;
 pub mod system;
 
+use std::collections::BTreeMap;
+use std::path::PathBuf;
 use std::sync::Arc;
-use std::collections::{BTreeMap, HashMap};
+use std::time::{SystemTime, UNIX_EPOCH};
 use tokio::sync::broadcast::Sender;
 
 use ioi_api::vm::drivers::gui::GuiDriver;
 use ioi_api::vm::drivers::os::WindowInfo;
 use ioi_api::vm::inference::InferenceRuntime;
 use ioi_drivers::browser::BrowserDriver;
+use ioi_drivers::gui::geometry::{DisplayTransform, Point};
+use ioi_drivers::gui::lenses::LensRegistry;
+use ioi_drivers::gui::operator::ClickTarget;
 use ioi_drivers::mcp::McpManager;
 use ioi_drivers::terminal::TerminalDriver;
-use ioi_drivers::gui::lenses::LensRegistry;
 use ioi_types::app::agentic::AgentTool;
 use ioi_types::app::KernelEvent;
+use serde::{Deserialize, Serialize};
 
 /// Result of a single tool execution.
 #[derive(Debug, Clone)]
@@ -26,6 +31,14 @@ pub struct ToolExecutionResult {
     pub success: bool,
     pub history_entry: Option<String>,
     pub error: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GroundingDebug {
+    pub transform: DisplayTransform,
+    pub target: ClickTarget,
+    pub resolved_point: Point,
+    pub debug_image_path: String,
 }
 
 impl ToolExecutionResult {
@@ -47,7 +60,7 @@ impl ToolExecutionResult {
 }
 
 /// The main execution engine for agent tools.
-/// 
+///
 /// It holds references to all necessary hardware drivers and dispatches
 /// `AgentTool` enums to specific implementation logic.
 pub struct ToolExecutor {
@@ -58,7 +71,7 @@ pub struct ToolExecutor {
     pub(crate) event_sender: Option<Sender<KernelEvent>>,
     pub(crate) lens_registry: Option<Arc<LensRegistry>>,
     pub(crate) inference: Arc<dyn InferenceRuntime>,
-    
+
     // Context fields populated via builder pattern
     pub(crate) active_window: Option<WindowInfo>,
     pub(crate) target_app_hint: Option<String>,
@@ -93,6 +106,52 @@ impl ToolExecutor {
         self
     }
 
+    pub(crate) async fn emit_grounding_debug_packet(
+        &self,
+        mut debug: GroundingDebug,
+    ) -> Option<String> {
+        let now = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .ok()
+            .map(|d| d.as_millis())
+            .unwrap_or(0);
+
+        let base_dir = PathBuf::from("/tmp/ioi-grounding");
+        if std::fs::create_dir_all(&base_dir).is_err() {
+            return None;
+        }
+
+        if debug.debug_image_path.is_empty() {
+            if let Ok(img_bytes) = self.gui.capture_screen(None).await {
+                let img_path = base_dir.join(format!("grounding_debug_{}.png", now));
+                if std::fs::write(&img_path, img_bytes).is_ok() {
+                    debug.debug_image_path = img_path.to_string_lossy().to_string();
+                }
+            }
+        }
+
+        let json_path = base_dir.join(format!("grounding_debug_{}.json", now));
+        match serde_json::to_vec_pretty(&debug) {
+            Ok(bytes) => {
+                if std::fs::write(&json_path, bytes).is_ok() {
+                    if let Some(tx) = &self.event_sender {
+                        let _ = tx.send(KernelEvent::GhostInput {
+                            device: "grounding".into(),
+                            description: format!(
+                                "Grounding debug packet: {}",
+                                json_path.to_string_lossy()
+                            ),
+                        });
+                    }
+                    Some(json_path.to_string_lossy().to_string())
+                } else {
+                    None
+                }
+            }
+            Err(_) => None,
+        }
+    }
+
     pub async fn execute(
         &self,
         tool: AgentTool,
@@ -105,42 +164,35 @@ impl ToolExecutor {
     ) -> ToolExecutionResult {
         match tool {
             // Computer / GUI Domain
-            AgentTool::Computer(_) |
-            AgentTool::GuiClick { .. } |
-            AgentTool::GuiType { .. } |
-            AgentTool::GuiClickElement { .. } |
-            AgentTool::OsFocusWindow { .. } |
-            AgentTool::OsCopy { .. } |
-            AgentTool::OsPaste { .. } |
-            AgentTool::UiFind { .. } => {
+            AgentTool::Computer(_)
+            | AgentTool::GuiClick { .. }
+            | AgentTool::GuiType { .. }
+            | AgentTool::GuiClickElement { .. }
+            | AgentTool::OsFocusWindow { .. }
+            | AgentTool::OsCopy { .. }
+            | AgentTool::OsPaste { .. }
+            | AgentTool::UiFind { .. } => {
                 computer::handle(self, tool, som_map, semantic_map, active_lens).await
             }
 
             // Browser Domain
-            AgentTool::BrowserNavigate { .. } |
-            AgentTool::BrowserExtract { .. } |
-            AgentTool::BrowserClick { .. } |
-            AgentTool::BrowserSyntheticClick { .. } => {
-                browser::handle(self, tool).await
-            }
+            AgentTool::BrowserNavigate { .. }
+            | AgentTool::BrowserExtract { .. }
+            | AgentTool::BrowserClick { .. }
+            | AgentTool::BrowserSyntheticClick { .. } => browser::handle(self, tool).await,
 
             // Filesystem Domain
-            AgentTool::FsRead { .. } |
-            AgentTool::FsWrite { .. } |
-            AgentTool::FsList { .. } => {
+            AgentTool::FsRead { .. } | AgentTool::FsWrite { .. } | AgentTool::FsList { .. } => {
                 filesystem::handle(self, tool).await
             }
 
             // System Domain
-            AgentTool::SysExec { .. } |
-            AgentTool::OsLaunchApp { .. } => {
+            AgentTool::SysExec { .. } | AgentTool::OsLaunchApp { .. } => {
                 system::handle(self, tool).await
             }
 
             // MCP / Dynamic Domain
-            AgentTool::Dynamic(val) => {
-                mcp::handle(self, val).await
-            }
+            AgentTool::Dynamic(val) => mcp::handle(self, val).await,
 
             // Handled by Service Logic (Lifecycle/Meta), should not reach here
             _ => ToolExecutionResult::failure(format!("Tool {:?} not handled by executor", tool)),

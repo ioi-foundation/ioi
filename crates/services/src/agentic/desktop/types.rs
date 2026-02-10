@@ -4,7 +4,7 @@ use ioi_types::app::action::ApprovalToken;
 use ioi_types::app::ActionRequest;
 use parity_scale_codec::{Decode, Encode};
 use serde::{Deserialize, Serialize};
-use std::collections::BTreeMap; 
+use std::collections::BTreeMap;
 
 #[derive(Debug, Clone, Serialize, Deserialize, Encode, Decode, PartialEq, Eq)]
 pub struct InteractionTarget {
@@ -16,7 +16,7 @@ pub struct InteractionTarget {
 pub enum ToolCallStatus {
     Pending,
     Approved,
-    Executed(String), 
+    Executed(String),
     Failed(String),
 }
 
@@ -33,32 +33,31 @@ pub enum AgentStatus {
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, Encode, Decode, PartialEq, Eq, Default)]
 pub enum AgentMode {
     #[default]
-    Agent, 
-    Chat, 
+    Agent,
+    Chat,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Encode, Decode, Default)]
 pub enum ExecutionTier {
     #[default]
-    DomHeadless,      
-    VisualBackground, 
-    VisualForeground, 
+    DomHeadless,
+    VisualBackground,
+    VisualForeground,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Encode, Decode)]
 pub struct SwarmContext {
     pub swarm_id: [u8; 32],
-    pub role: String, 
-    pub allowed_delegates: Vec<String>, 
+    pub role: String,
+    pub allowed_delegates: Vec<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Encode, Decode)]
 pub struct AgentState {
     pub session_id: [u8; 32],
     pub goal: String,
-    
-    // [REMOVED] pub history: Vec<ChatMessage>,
 
+    // [REMOVED] pub history: Vec<ChatMessage>,
     pub transcript_root: [u8; 32],
 
     pub status: AgentStatus,
@@ -72,20 +71,20 @@ pub struct AgentState {
     pub consecutive_failures: u8,
     pub pending_approval: Option<ApprovalToken>,
     pub pending_tool_call: Option<String>,
-    
+
     // [NEW] Canonical Resume State
     // Stores the exact JCS bytes of the AgentTool that was intercepted.
     #[serde(default)]
-    pub pending_tool_jcs: Option<Vec<u8>>, 
-    
+    pub pending_tool_jcs: Option<Vec<u8>>,
+
     // The hash of the tool JCS, which must match the ApprovalToken.
     #[serde(default)]
-    pub pending_tool_hash: Option<[u8; 32]>, 
-    
+    pub pending_tool_hash: Option<[u8; 32]>,
+
     // The visual context hash active when the action was intercepted.
     #[serde(default)]
-    pub pending_visual_hash: Option<[u8; 32]>, 
-    
+    pub pending_visual_hash: Option<[u8; 32]>,
+
     #[serde(default)]
     pub recent_actions: Vec<String>,
     #[serde(default)]
@@ -96,13 +95,13 @@ pub struct AgentState {
     pub last_screen_phash: Option<[u8; 32]>,
     #[serde(default)]
     pub execution_queue: Vec<ActionRequest>,
-    
+
     #[serde(default)]
     pub active_skill_hash: Option<[u8; 32]>,
 
     #[serde(default)]
     pub tool_execution_log: BTreeMap<String, ToolCallStatus>,
-    
+
     #[serde(default)]
     pub visual_som_map: Option<BTreeMap<u32, (i32, i32, i32, i32)>>,
 
@@ -141,7 +140,7 @@ pub struct StepAgentParams {
 #[derive(Encode, Decode)]
 pub struct PostMessageParams {
     pub session_id: [u8; 32],
-    pub role: String, 
+    pub role: String,
     pub content: String,
 }
 

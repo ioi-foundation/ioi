@@ -1,5 +1,9 @@
 // Path: crates/cli/tests/admft_e2e.rs
-#![cfg(all(feature = "consensus-admft", feature = "vm-wasm", feature = "state-iavl"))]
+#![cfg(all(
+    feature = "consensus-admft",
+    feature = "vm-wasm",
+    feature = "state-iavl"
+))]
 
 use anyhow::Result;
 use ioi_cli::testing::{build_test_artifacts, rpc, wait_for_height, TestCluster};
@@ -120,18 +124,22 @@ async fn test_admft_leader_rotation() -> Result<()> {
             let mut block = None;
             for _ in 0..10 {
                 match rpc::get_block_by_height_resilient(rpc_addr, h).await {
-                    Ok(Some(b)) => { block = Some(b); break; },
+                    Ok(Some(b)) => {
+                        block = Some(b);
+                        break;
+                    }
                     Ok(None) => {
-                         println!("Block {} not found yet, retrying...", h);
-                         tokio::time::sleep(Duration::from_millis(500)).await;
+                        println!("Block {} not found yet, retrying...", h);
+                        tokio::time::sleep(Duration::from_millis(500)).await;
                     }
                     Err(e) => {
-                         println!("RPC error for block {}: {}, retrying...", h, e);
-                         tokio::time::sleep(Duration::from_millis(500)).await;
+                        println!("RPC error for block {}: {}, retrying...", h, e);
+                        tokio::time::sleep(Duration::from_millis(500)).await;
                     }
                 }
             }
-            let block = block.ok_or_else(|| anyhow::anyhow!("Block {} not found after retries", h))?;
+            let block =
+                block.ok_or_else(|| anyhow::anyhow!("Block {} not found after retries", h))?;
 
             println!(
                 "Block #{}: Producer 0x{}, View {}",
@@ -142,7 +150,7 @@ async fn test_admft_leader_rotation() -> Result<()> {
 
             // Verify height continuity
             if block.header.height != last_height + 1 {
-                 return Err(anyhow::anyhow!("Height gap detected"));
+                return Err(anyhow::anyhow!("Height gap detected"));
             }
             last_height = block.header.height;
 
@@ -164,7 +172,7 @@ async fn test_admft_leader_rotation() -> Result<()> {
     };
 
     let result = test_logic.await;
-    
+
     // Always shutdown
     if let Err(e) = cluster.shutdown().await {
         eprintln!("Error shutting down cluster: {}", e);

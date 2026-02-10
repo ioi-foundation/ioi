@@ -2,11 +2,11 @@
 
 use crate::vm::inference::InferenceRuntime;
 use async_trait::async_trait;
+use dcrypt::algorithms::hash::{HashFunction, Sha256};
 use ioi_types::app::agentic::InferenceOptions;
 use ioi_types::error::VmError;
-use std::path::Path;
-use dcrypt::algorithms::hash::{HashFunction, Sha256};
 use serde_json::json;
+use std::path::Path;
 
 #[derive(Debug, Default, Clone)]
 pub struct MockInferenceRuntime;
@@ -17,7 +17,7 @@ impl InferenceRuntime for MockInferenceRuntime {
         &self,
         model_hash: [u8; 32],
         input_context: &[u8],
-        _options: InferenceOptions, 
+        _options: InferenceOptions,
     ) -> Result<Vec<u8>, VmError> {
         // Log the execution request
         log::info!(
@@ -34,35 +34,41 @@ impl InferenceRuntime for MockInferenceRuntime {
         // 1. Intent Resolver Logic (Control Plane)
         // Detect if this is a request to map Natural Language -> Transaction.
         // We look for keywords from the System Prompt or specific user intent triggers.
-        if input_str.contains("intent resolver") || input_str.contains("User Input:") || input_str.contains("<user_intent>") {
-             if input_str.contains("Analyze network traffic") || input_str.contains("example.com") {
+        if input_str.contains("intent resolver")
+            || input_str.contains("User Input:")
+            || input_str.contains("<user_intent>")
+        {
+            if input_str.contains("Analyze network traffic") || input_str.contains("example.com") {
                 // Return Intent Plan JSON matching the schema expected by IntentResolver
                 let mock_intent_json = json!({
                     "operation_id": "start_agent",
-                    "params": { 
-                        "goal": "Analyze network traffic on example.com" 
+                    "params": {
+                        "goal": "Analyze network traffic on example.com"
                     },
                     "gas_ceiling": 5000000
                 });
                 return Ok(mock_intent_json.to_string().into_bytes());
-             }
+            }
         }
 
         // 2. Agent Execution Logic (Data Plane)
         // If not intent resolution, it's the agent loop asking for the next tool action.
-        let response = if input_str.contains("browser") || (input_str.contains("network") && !input_str.contains("start_agent")) || input_str.contains("example.com") {
-             json!({
+        let response = if input_str.contains("browser")
+            || (input_str.contains("network") && !input_str.contains("start_agent"))
+            || input_str.contains("example.com")
+        {
+            json!({
                 "name": "browser__navigate",
                 "arguments": { "url": "https://example.com" }
             })
         } else if input_str.contains("click") {
-             json!({
+            json!({
                 "name": "gui__click",
                 "arguments": { "x": 500, "y": 500, "button": "left" }
             })
         } else {
-             // Default thought/action
-             json!({
+            // Default thought/action
+            json!({
                 "name": "sys__exec",
                 "arguments": { "command": "echo", "args": ["Mock Brain Thinking..."] }
             })
@@ -75,13 +81,13 @@ impl InferenceRuntime for MockInferenceRuntime {
     async fn embed_text(&self, text: &str) -> Result<Vec<f32>, VmError> {
         // Deterministic embedding: Hash the text, seed a PRNG (or just cycle the bytes),
         // and generate a float vector.
-        
-        let digest = Sha256::digest(text.as_bytes())
-            .map_err(|e| VmError::HostError(e.to_string()))?;
-        
+
+        let digest =
+            Sha256::digest(text.as_bytes()).map_err(|e| VmError::HostError(e.to_string()))?;
+
         let seed = digest.as_ref();
         let mut embedding = Vec::with_capacity(384);
-        
+
         for i in 0..384 {
             // Simple chaotic mapping to get floats in [-1.0, 1.0]
             let byte = seed[i % 32];
@@ -90,7 +96,7 @@ impl InferenceRuntime for MockInferenceRuntime {
             let float_val = (val as f32 / 255.0) * 2.0 - 1.0;
             embedding.push(float_val);
         }
-        
+
         // Normalize vector
         let norm: f32 = embedding.iter().map(|x| x * x).sum::<f32>().sqrt();
         if norm > 0.0 {

@@ -5,9 +5,12 @@ use anyhow::{anyhow, Result};
 use async_trait::async_trait;
 // [FIX] Updated imports for bollard 0.16+
 use bollard::{
-    container::{Config, CreateContainerOptions, LogsOptions, RemoveContainerOptions, StartContainerOptions, StopContainerOptions},
+    container::{
+        Config, CreateContainerOptions, LogsOptions, RemoveContainerOptions, StartContainerOptions,
+        StopContainerOptions,
+    },
     network::CreateNetworkOptions,
-    service::{HostConfig},
+    service::HostConfig,
     Docker,
 };
 use futures_util::stream::{self, Stream, StreamExt};
@@ -319,19 +322,19 @@ impl DockerBackend {
     pub async fn new(config: DockerBackendConfig) -> Result<Self> {
         let docker = Docker::connect_with_local_defaults()?;
         let network_name = format!("ioi-e2e-{}", uuid::Uuid::new_v4());
-        
+
         // [FIX] Use CreateNetworkOptions directly
         let network_config = CreateNetworkOptions {
             name: network_name.clone(),
             ..Default::default()
         };
 
-        let network = docker
-            .create_network(network_config)
-            .await?;
-            
+        let network = docker.create_network(network_config).await?;
+
         // [FIX] Handle Option<String> for ID
-        let network_id = network.id.ok_or_else(|| anyhow!("Failed to create network: no ID returned"))?;
+        let network_id = network
+            .id
+            .ok_or_else(|| anyhow!("Failed to create network: no ID returned"))?;
 
         Ok(Self {
             docker,
@@ -361,7 +364,7 @@ impl DockerBackend {
             name: name.to_string(),
             ..Default::default()
         });
-        
+
         let host_config = HostConfig {
             network_mode: Some(self.network_id.clone()),
             binds: Some(binds),
@@ -478,7 +481,7 @@ impl TestBackend for DockerBackend {
             .await?;
 
         let ready_timeout = Duration::from_secs(45);
-        
+
         // [FIX] Explicitly specify generic type <String> for LogsOptions
         let log_options = Some(LogsOptions::<String> {
             follow: true,
@@ -567,7 +570,10 @@ impl TestBackend for DockerBackend {
                 docker
                     .remove_container(
                         &id,
-                        Some(RemoveContainerOptions { force: true, ..Default::default() }), // [FIX] Struct init
+                        Some(RemoveContainerOptions {
+                            force: true,
+                            ..Default::default()
+                        }), // [FIX] Struct init
                     )
                     .await
                     .ok();

@@ -1,14 +1,18 @@
 // Path: crates/http-rpc-gateway/src/proof_converter/tests.rs
 use super::*;
-use ioi_state::tree::iavl::{proof as iavl_proof, IAVLTree};
-use ioi_api::state::{ProofProvider, StateManager, VerifiableState, StateAccess};
-use parity_scale_codec::{Decode, Encode};
 use ibc_host::existence_root_from_proof_bytes;
-use proptest::prelude::*;
 use ibc_proto::ics23 as pb_ics23;
+use ioi_api::state::{ProofProvider, StateAccess, StateManager, VerifiableState};
+use ioi_state::tree::iavl::{proof as iavl_proof, IAVLTree};
+use parity_scale_codec::{Decode, Encode};
+use proptest::prelude::*;
 
 /// Helper to set up a simple tree with two keys and get the native IAVL proof for one.
-fn setup_tree_and_get_iavl_proof() -> (IAVLTree<ioi_state::primitives::hash::HashCommitmentScheme>, [u8; 32], Vec<u8>) {
+fn setup_tree_and_get_iavl_proof() -> (
+    IAVLTree<ioi_state::primitives::hash::HashCommitmentScheme>,
+    [u8; 32],
+    Vec<u8>,
+) {
     let mut tree = IAVLTree::new(ioi_state::primitives::hash::HashCommitmentScheme::new());
     tree.insert(b"key1", b"value1").unwrap();
     tree.insert(b"key3", b"value3").unwrap();

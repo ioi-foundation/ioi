@@ -79,25 +79,25 @@ impl ProviderController {
         // In prod: Call Docker/Kubernetes/Libvirt to spawn the container.
         let instance_id = Uuid::new_v4().to_string();
         let lease_id = Uuid::new_v4().to_string();
-        
+
         // Mock endpoint for the specific instance (e.g. a reverse proxy path)
         let instance_uri = format!("{}/instances/{}", self.public_endpoint, instance_id);
 
         // 3. Construct Receipt Payload
         // We must sign exactly what the client expects:
         // Domain || TicketRoot || InstanceID || Hash(URI) || Expiry || Hash(Lease)
-        
+
         // Re-calculate ticket root to ensure integrity
         let ticket_bytes = codec::to_bytes_canonical(&ticket).map_err(|e| anyhow!(e))?;
         let computed_root = sha256(&ticket_bytes)?;
-        
+
         // Define domain separator (Must match client)
         // [FIX] Prefix unused variable
-        let _domain = b"IOI_DCPP_PROVIDER_ACK_V1"; 
-        
+        let _domain = b"IOI_DCPP_PROVIDER_ACK_V1";
+
         let endpoint_hash = sha256(instance_uri.as_bytes())?;
         let lease_hash = sha256(lease_id.as_bytes())?;
-        
+
         // Manual SCALE encoding of the fields:
         // ticket_root (32) + instance_id (vec) + endpoint_hash (32) + expiry (u64) + lease_hash (32)
         let mut payload_vec = Vec::new();
@@ -106,8 +106,11 @@ impl ProviderController {
         payload_vec.extend_from_slice(&endpoint_hash);
         payload_vec.extend_from_slice(&ticket.expiry_height.to_le_bytes()); // SCALE uses LE for u64
         payload_vec.extend_from_slice(&lease_hash);
-        
-        self.active_jobs.lock().await.insert(instance_id.clone(), ticket);
+
+        self.active_jobs
+            .lock()
+            .await
+            .insert(instance_id.clone(), ticket);
 
         Ok(ProvisioningReceiptData {
             instance_id,
@@ -116,7 +119,7 @@ impl ProviderController {
             signature: String::new(), // Will be filled by caller or we sign here if we update args
         })
     }
-    
+
     /// Provisions a resource, signing the receipt with the provided domain context.
     ///
     /// # Arguments
@@ -127,17 +130,19 @@ impl ProviderController {
         ticket: JobTicket,
         domain: Vec<u8>,
     ) -> Result<ProvisioningReceiptData> {
-         let mut receipt = self.handle_provision_request(ticket.clone(), [0;32]).await?;
-         
-         // Re-construct payload to sign
-         // (Duplicated logic from above - in refactor we'd share the struct)
-         let ticket_bytes = codec::to_bytes_canonical(&ticket).map_err(|e| anyhow!(e))?;
-         let computed_root = sha256(&ticket_bytes)?;
-         
-         let endpoint_hash = sha256(receipt.endpoint_uri.as_bytes())?;
-         let lease_hash = sha256(receipt.lease_id.as_bytes())?;
-         
-         #[derive(parity_scale_codec::Encode)]
+        let mut receipt = self
+            .handle_provision_request(ticket.clone(), [0; 32])
+            .await?;
+
+        // Re-construct payload to sign
+        // (Duplicated logic from above - in refactor we'd share the struct)
+        let ticket_bytes = codec::to_bytes_canonical(&ticket).map_err(|e| anyhow!(e))?;
+        let computed_root = sha256(&ticket_bytes)?;
+
+        let endpoint_hash = sha256(receipt.endpoint_uri.as_bytes())?;
+        let lease_hash = sha256(receipt.lease_id.as_bytes())?;
+
+        #[derive(parity_scale_codec::Encode)]
         struct ProviderAckPayload {
             ticket_root: [u8; 32],
             instance_id: Vec<u8>,
@@ -153,14 +158,19 @@ impl ProviderController {
             lease_id_hash: lease_hash.try_into().unwrap(),
         };
         let payload_bytes = codec::to_bytes_canonical(&ack_payload).map_err(|e| anyhow!(e))?;
-        
+
         let mut signing_input = domain;
         signing_input.extend_from_slice(&payload_bytes);
-        
+
         // Sign
-        let sig_bytes = self.signer.keypair.private_key().sign(&signing_input)?.to_bytes();
+        let sig_bytes = self
+            .signer
+            .keypair
+            .private_key()
+            .sign(&signing_input)?
+            .to_bytes();
         receipt.signature = hex::encode(sig_bytes);
-        
+
         Ok(receipt)
     }
 }

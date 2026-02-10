@@ -1,7 +1,7 @@
 // Path: crates/cli/src/testing/rpc.rs
 
 use anyhow::{anyhow, Result};
-use ioi_ipc::blockchain::{GetStatusRequest, QueryRawStateRequest, GetStatusResponse}; // [FIX] Added GetStatusResponse
+use ioi_ipc::blockchain::{GetStatusRequest, GetStatusResponse, QueryRawStateRequest}; // [FIX] Added GetStatusResponse
 use ioi_ipc::public::public_api_client::PublicApiClient;
 // [FIX] Removed unused imports
 use ioi_ipc::public::{

@@ -180,15 +180,17 @@ impl Signature for BlsSignature {}
 /// S_agg = S_1 + S_2 + ... + S_n
 pub fn aggregate_signatures(signatures: &[BlsSignature]) -> Result<BlsSignature, CryptoError> {
     if signatures.is_empty() {
-        return Err(CryptoError::InvalidInput("Cannot aggregate empty signatures".into()));
+        return Err(CryptoError::InvalidInput(
+            "Cannot aggregate empty signatures".into(),
+        ));
     }
-    
+
     let mut agg_proj = G1Projective::from(signatures[0].0);
-    
+
     for sig in &signatures[1..] {
         agg_proj = agg_proj + G1Projective::from(sig.0);
     }
-    
+
     Ok(BlsSignature(G1Affine::from(agg_proj)))
 }
 
@@ -201,10 +203,12 @@ pub fn aggregate_signatures(signatures: &[BlsSignature]) -> Result<BlsSignature,
 pub fn verify_aggregate_fast(
     public_keys: &[BlsPublicKey],
     message: &[u8],
-    aggregated_signature: &BlsSignature
+    aggregated_signature: &BlsSignature,
 ) -> Result<bool, CryptoError> {
     if public_keys.is_empty() {
-        return Err(CryptoError::InvalidInput("Cannot verify with empty public keys".into()));
+        return Err(CryptoError::InvalidInput(
+            "Cannot verify with empty public keys".into(),
+        ));
     }
 
     // 1. Aggregate Public Keys
@@ -255,17 +259,17 @@ mod tests {
         let kp1 = BlsKeyPair::generate().unwrap();
         let kp2 = BlsKeyPair::generate().unwrap();
         let kp3 = BlsKeyPair::generate().unwrap();
-        
+
         let message = b"aggregate_this";
-        
+
         let s1 = kp1.sign(message).unwrap();
         let s2 = kp2.sign(message).unwrap();
         let s3 = kp3.sign(message).unwrap();
-        
+
         let agg_sig = aggregate_signatures(&[s1, s2, s3]).unwrap();
-        
+
         let pks = vec![kp1.public_key(), kp2.public_key(), kp3.public_key()];
-        
+
         let valid = verify_aggregate_fast(&pks, message, &agg_sig).unwrap();
         assert!(valid, "Aggregate signature verification failed");
     }

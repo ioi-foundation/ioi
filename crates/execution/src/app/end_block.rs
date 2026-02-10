@@ -135,9 +135,8 @@ pub(super) fn handle_timing_update(
     // Always update EMA gas used, regardless of whether we retarget the interval.
     let mut new_runtime = old_runtime.clone();
     let alpha = params.ema_alpha_milli as u128;
-    new_runtime.ema_gas_used = (alpha * gas_used_this_block as u128
-        + (1000 - alpha) * old_runtime.ema_gas_used)
-        / 1000;
+    new_runtime.ema_gas_used =
+        (alpha * gas_used_this_block as u128 + (1000 - alpha) * old_runtime.ema_gas_used) / 1000;
 
     // Only recalculate the effective interval if we are on a retargeting block.
     if params.retarget_every_blocks > 0 && current_height % params.retarget_every_blocks as u64 == 0

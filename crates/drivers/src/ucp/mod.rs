@@ -1,7 +1,7 @@
 // Path: crates/drivers/src/ucp/mod.rs
 
 //! Universal Commerce Protocol (UCP) Driver.
-//! 
+//!
 //! This module implements the "Digital Hardware" driver for agentic commerce.
 
 use anyhow::{anyhow, Result};
@@ -10,7 +10,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::json;
 
 // Using the VerifiedHttpRuntime pattern, but we need to abstract the network call
-// because the Driver runs in the Kernel (Orchestrator/Workload boundary), 
+// because the Driver runs in the Kernel (Orchestrator/Workload boundary),
 // delegating actual network I/O to the Guardian.
 
 /// Represents a standardized UCP Discovery Manifest (/.well-known/ucp).
@@ -72,7 +72,8 @@ impl UcpDriver {
 
     /// Parses the raw response from a discovery request into a UCP Manifest.
     pub fn parse_discovery_response(&self, response_body: &[u8]) -> Result<UcpManifest> {
-        serde_json::from_slice(response_body).map_err(|e| anyhow!("Failed to parse UCP manifest: {}", e))
+        serde_json::from_slice(response_body)
+            .map_err(|e| anyhow!("Failed to parse UCP manifest: {}", e))
     }
 
     /// Constructs the JSON payload for a Checkout Session creation.
@@ -88,7 +89,7 @@ impl UcpDriver {
         items: &[LineItem],
         buyer_email: &str,
         payment_handler_id: &str,
-        payment_token_ref: &str, 
+        payment_token_ref: &str,
     ) -> Result<Vec<u8>> {
         let payload = json!({
             "line_items": items,
@@ -98,28 +99,32 @@ impl UcpDriver {
             "payment": {
                 "handlers": [{
                     "id": payment_handler_id,
-                    // MAGIC STRING: This indicates to the Guardian that it must replace 
+                    // MAGIC STRING: This indicates to the Guardian that it must replace
                     // this value with the secret stored under `payment_token_ref`.
-                    "token": format!("{{{{SECRET:{}}}}}", payment_token_ref) 
+                    "token": format!("{{{{SECRET:{}}}}}", payment_token_ref)
                 }]
             }
         });
 
-        serde_json::to_vec(&payload).map_err(|e| anyhow!("Failed to serialize checkout payload: {}", e))
+        serde_json::to_vec(&payload)
+            .map_err(|e| anyhow!("Failed to serialize checkout payload: {}", e))
     }
 
     /// Validates a checkout response (Receipt).
     pub fn validate_receipt(&self, response_body: &[u8]) -> Result<String> {
         let json: serde_json::Value = serde_json::from_slice(response_body)?;
-        
+
         // Basic check for success status
         // [FIX] Explicit closure type for type inference
-        if let Some(status) = json.get("status").and_then(|s: &serde_json::Value| s.as_str()) {
+        if let Some(status) = json
+            .get("status")
+            .and_then(|s: &serde_json::Value| s.as_str())
+        {
             if status == "complete" || status == "ready_for_complete" {
                 return Ok(status.to_string());
             }
         }
-        
+
         Err(anyhow!("Checkout failed or incomplete status in response"))
     }
 }

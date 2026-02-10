@@ -19,10 +19,10 @@ pub struct VoteAggregator {
     pub view: u64,
     /// The block hash being voted on.
     pub block_hash: [u8; 32],
-    
+
     /// Map of Voter ID -> Signature.
     pub votes: HashMap<AccountId, Vec<u8>>,
-    
+
     /// Total weight accumulated so far.
     pub accumulated_weight: u128,
 }
@@ -41,7 +41,10 @@ impl VoteAggregator {
     /// Adds a vote to the aggregation.
     /// Returns true if the vote was new (not a duplicate).
     pub fn add_vote(&mut self, vote: &ConsensusVote, weight: u128) -> bool {
-        if vote.height != self.height || vote.view != self.view || vote.block_hash != self.block_hash {
+        if vote.height != self.height
+            || vote.view != self.view
+            || vote.block_hash != self.block_hash
+        {
             return false;
         }
 
@@ -67,16 +70,14 @@ impl VoteAggregator {
     /// In Phase 1 (Ed25519), this returns a list of individual signatures.
     /// In Phase 2 (BLS), this will perform signature aggregation.
     pub fn build_qc(&self) -> QuorumCertificate {
-        // For now, we just collect the list. 
+        // For now, we just collect the list.
         // BLS Aggregation logic would go here:
         // 1. Sort voters by ID (canonical bitfield order).
         // 2. Aggregate signatures using ioi_crypto::sign::bls::aggregate_signatures.
         // 3. Construct signers_bitfield.
-        
-        let signatures: Vec<(AccountId, Vec<u8>)> = self.votes
-            .iter()
-            .map(|(k, v)| (*k, v.clone()))
-            .collect();
+
+        let signatures: Vec<(AccountId, Vec<u8>)> =
+            self.votes.iter().map(|(k, v)| (*k, v.clone())).collect();
 
         QuorumCertificate {
             height: self.height,

@@ -30,5 +30,4 @@ pub mod prelude {
     // These simple trees are not suitable for production as they lack robust, efficient
     // non-membership proofs required for light clients and interoperability.
     // Please use IAVLTree, SparseMerkleTree, or VerkleTree instead.
-
 }

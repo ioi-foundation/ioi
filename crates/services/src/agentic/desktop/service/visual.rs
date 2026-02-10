@@ -1,9 +1,9 @@
 // Path: crates/services/src/agentic/desktop/service/visual.rs
 
 use super::DesktopAgentService;
-use ioi_types::error::TransactionError;
-use std::collections::{HashMap, BTreeMap, VecDeque};
 use hex;
+use ioi_types::error::TransactionError;
+use std::collections::{BTreeMap, HashMap, VecDeque};
 
 /// An in-memory Least Recently Used (LRU) cache for storing visual contexts.
 pub struct VisualContextCache {
@@ -49,25 +49,33 @@ impl VisualContextCache {
 /// This is critical for resuming execution after a human approval gate.
 pub async fn restore_visual_context(
     service: &DesktopAgentService,
-    visual_hash: [u8; 32]
+    visual_hash: [u8; 32],
 ) -> Result<(), TransactionError> {
     let history = service.som_history.read().await;
-    
+
     if let Some(map) = history.get(&visual_hash) {
         // Convert BTreeMap to HashMap for the driver interface
         let mut driver_map = HashMap::new();
         for (k, v) in map {
             driver_map.insert(*k, *v);
         }
-        
+
         // Re-inject the Set-of-Marks overlay into the GUI driver
-        service.gui.register_som_overlay(driver_map).await
-            .map_err(|e| TransactionError::Invalid(format!("Failed to restore SoM overlay: {}", e)))?;
+        service
+            .gui
+            .register_som_overlay(driver_map)
+            .await
+            .map_err(|e| {
+                TransactionError::Invalid(format!("Failed to restore SoM overlay: {}", e))
+            })?;
         Ok(())
     } else {
-        // If cache evicted the map, we log a warning but proceed. 
+        // If cache evicted the map, we log a warning but proceed.
         // The agent might click blindly or rely on coordinate persistence.
-        log::warn!("Visual context cache miss for hash 0x{}", hex::encode(&visual_hash[0..4]));
+        log::warn!(
+            "Visual context cache miss for hash 0x{}",
+            hex::encode(&visual_hash[0..4])
+        );
         Ok(())
     }
 }

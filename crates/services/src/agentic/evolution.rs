@@ -50,7 +50,6 @@ impl UpgradableService for EvolutionService {
     capabilities = ""
 )]
 impl EvolutionService {
-    
     /// Atomically upgrades an agent if the signer is the owner/author.
     #[method]
     pub fn evolve(
@@ -60,12 +59,16 @@ impl EvolutionService {
         ctx: &TxContext,
     ) -> Result<(), TransactionError> {
         let service_id = &params.target_service_id;
-        
+
         // 1. Fetch Current Metadata
         let meta_key = active_service_key(service_id);
-        let meta_bytes = state.get(&meta_key)?
-            .ok_or(TransactionError::Invalid(format!("Target service '{}' not found", service_id)))?;
-        
+        let meta_bytes = state
+            .get(&meta_key)?
+            .ok_or(TransactionError::Invalid(format!(
+                "Target service '{}' not found",
+                service_id
+            )))?;
+
         let mut meta: ActiveServiceMeta = codec::from_bytes_canonical(&meta_bytes)?;
 
         // 2. Authorization Check (Sovereignty)
@@ -75,9 +78,9 @@ impl EvolutionService {
                 return Err(TransactionError::UnauthorizedByCredentials);
             }
         } else {
-             // If no author is set (e.g. system service), we default to fail-safe or governance check.
-             // For now, strict fail-safe: unowned agents cannot be evolved by users.
-             return Err(TransactionError::Invalid("Service has no owner".into()));
+            // If no author is set (e.g. system service), we default to fail-safe or governance check.
+            // For now, strict fail-safe: unowned agents cannot be evolved by users.
+            return Err(TransactionError::Invalid("Service has no owner".into()));
         }
 
         // 3. Verify Manifest Validity & Parse
@@ -87,30 +90,29 @@ impl EvolutionService {
 
         // 4. Update Evolution State (Versioned Storage)
         let new_gen = meta.generation_id + 1;
-        
+
         // Canonical Key: evolution::manifest::{service_id}::{gen}
         let manifest_key = [
-            b"evolution::manifest::", 
-            service_id.as_bytes(), 
-            b"::", 
-            &new_gen.to_le_bytes()
-        ].concat();
+            b"evolution::manifest::",
+            service_id.as_bytes(),
+            b"::",
+            &new_gen.to_le_bytes(),
+        ]
+        .concat();
         state.insert(&manifest_key, params.new_manifest.as_bytes())?;
-        
+
         // Pointer Key: evolution::latest::{service_id} -> gen
-        let latest_key = [
-            b"evolution::latest::", 
-            service_id.as_bytes()
-        ].concat();
+        let latest_key = [b"evolution::latest::", service_id.as_bytes()].concat();
         state.insert(&latest_key, &new_gen.to_le_bytes())?;
-        
+
         // Rationale Key: evolution::rationale::{service_id}::{gen}
         let rationale_key = [
-            b"evolution::rationale::", 
-            service_id.as_bytes(), 
-            b"::", 
-            &new_gen.to_le_bytes()
-        ].concat();
+            b"evolution::rationale::",
+            service_id.as_bytes(),
+            b"::",
+            &new_gen.to_le_bytes(),
+        ]
+        .concat();
         state.insert(&rationale_key, params.rationale.as_bytes())?;
 
         // 5. Update Active Metadata
@@ -120,8 +122,8 @@ impl EvolutionService {
         state.insert(&meta_key, &codec::to_bytes_canonical(&meta)?)?;
 
         log::info!(
-            "Evolution: Evolved agent '{}' to Gen {}. Owner: 0x{}", 
-            service_id, 
+            "Evolution: Evolved agent '{}' to Gen {}. Owner: 0x{}",
+            service_id,
             new_gen,
             hex::encode(ctx.signer_account_id)
         );

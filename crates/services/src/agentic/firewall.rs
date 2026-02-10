@@ -1,8 +1,8 @@
 // Path: crates/services/src/agentic/firewall.rs
 
-use serde_json::Value;
 use anyhow::{anyhow, Result};
 use ioi_crypto::algorithms::hash::sha256;
+use serde_json::Value;
 
 pub struct SemanticFirewall;
 
@@ -47,10 +47,13 @@ mod tests {
         let c1 = SemanticFirewall::canonicalize(json1).unwrap();
         let c2 = SemanticFirewall::canonicalize(json2).unwrap();
 
-        assert_eq!(c1, c2, "Canonical output must be identical regardless of input formatting");
-        
+        assert_eq!(
+            c1, c2,
+            "Canonical output must be identical regardless of input formatting"
+        );
+
         // JCS implies keys are sorted: {"a":[2,1],"b":1}
         let s1 = String::from_utf8(c1).unwrap();
-        assert!(s1.starts_with(r#"{"a""#)); 
+        assert!(s1.starts_with(r#"{"a""#));
     }
 }

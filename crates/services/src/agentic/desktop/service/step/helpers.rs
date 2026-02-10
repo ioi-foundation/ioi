@@ -7,53 +7,67 @@ pub fn default_safe_policy() -> ActionRules {
         policy_id: "default-safe".to_string(),
         defaults: crate::agentic::rules::DefaultPolicy::RequireApproval,
         rules: vec![
-             // Lifecycle / Meta-Tools
-             Rule {
+            // Lifecycle / Meta-Tools
+            Rule {
                 rule_id: Some("allow-complete".into()),
-                target: "agent__complete".into(), 
+                target: "agent__complete".into(),
                 conditions: Default::default(),
-                action: Verdict::Allow, 
-             },
-             Rule {
+                action: Verdict::Allow,
+            },
+            Rule {
                 rule_id: Some("allow-pause".into()),
-                target: "agent__pause".into(), 
+                target: "agent__pause".into(),
                 conditions: Default::default(),
-                action: Verdict::Allow, 
-             },
-             Rule {
+                action: Verdict::Allow,
+            },
+            Rule {
                 rule_id: Some("allow-await".into()),
-                target: "agent__await_result".into(), 
+                target: "agent__await_result".into(),
                 conditions: Default::default(),
-                action: Verdict::Allow, 
-             },
-             // Read-Only Capability Defaults
-             Rule {
+                action: Verdict::Allow,
+            },
+            // Read-Only Capability Defaults
+            Rule {
                 rule_id: Some("allow-ui-read".into()),
                 target: "gui::screenshot".into(),
                 conditions: Default::default(),
-                action: Verdict::Allow, 
-             },
-             Rule {
+                action: Verdict::Allow,
+            },
+            Rule {
                 rule_id: Some("allow-browser-read".into()),
                 target: "browser::extract".into(),
                 conditions: Default::default(),
-                action: Verdict::Allow, 
-             },
-             // Allow Chat Reply
-             Rule {
+                action: Verdict::Allow,
+            },
+            // Allow Chat Reply
+            Rule {
                 rule_id: Some("allow-chat-reply".into()),
                 target: "chat__reply".into(),
                 conditions: Default::default(),
-                action: Verdict::Allow, 
-             },
-             // [NEW] Allow Echo for testing/feedback
-             // The PolicyEngine's internal allowlist ensures this is safe (only allows safe commands)
-             Rule {
+                action: Verdict::Allow,
+            },
+            // [NEW] Allow Echo for testing/feedback
+            // The PolicyEngine's internal allowlist ensures this is safe (only allows safe commands)
+            Rule {
                 rule_id: Some("allow-sys-exec-echo".into()),
-                target: "sys::exec".into(), 
+                target: "sys::exec".into(),
                 conditions: Default::default(),
-                action: Verdict::Allow, 
-             },
+                action: Verdict::Allow,
+            },
+            // [NEW] Allow Hermetic Navigation
+            Rule {
+                rule_id: Some("allow-hermetic-nav".into()),
+                target: "browser::navigate::hermetic".into(),
+                conditions: Default::default(),
+                action: Verdict::Allow,
+            },
+            // [NEW] Gate Local Navigation
+            Rule {
+                rule_id: Some("gate-local-nav".into()),
+                target: "browser::navigate::local".into(),
+                conditions: Default::default(),
+                action: Verdict::RequireApproval,
+            },
         ],
     }
 }
@@ -65,14 +79,14 @@ pub fn sanitize_llm_json(input: &str) -> String {
         let lines: Vec<&str> = trimmed.lines().collect();
         // Remove first line (```json or ```) and last line (```) if valid
         if lines.len() >= 2 && lines.last().unwrap().trim().starts_with("```") {
-            return lines[1..lines.len()-1].join("\n");
+            return lines[1..lines.len() - 1].join("\n");
         }
     }
     // Also handle raw strings that might just have the json prefix without backticks
     if let Some(json_start) = trimmed.strip_prefix("json") {
-         return json_start.to_string();
+        return json_start.to_string();
     }
-    
+
     input.to_string()
 }
 
@@ -92,5 +106,9 @@ pub fn extract_window_titles(xml: &str) -> String {
             }
         }
     }
-    if titles.is_empty() { "Desktop / Unknown".to_string() } else { titles.join(", ") }
+    if titles.is_empty() {
+        "Desktop / Unknown".to_string()
+    } else {
+        titles.join(", ")
+    }
 }

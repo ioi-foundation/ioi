@@ -17,15 +17,15 @@ use ioi_system::SystemState;
 use ioi_types::app::{AccountId, Block, ConsensusVote, FailureReport}; // [FIX] Removed ConfidenceVote
 use ioi_types::error::{ConsensusError, TransactionError};
 use libp2p::PeerId;
-use std::collections::{HashSet, HashMap};
+use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 use tokio::sync::Mutex;
 
-mod vrf;
 mod confidence;
+mod vrf;
 
-use self::vrf::Sortition;
 use self::confidence::ConfidenceTracker;
+use self::vrf::Sortition;
 
 #[derive(Debug, Clone)]
 pub struct ApmftEngine {
@@ -58,7 +58,7 @@ impl ApmftEngine {
     pub fn new() -> Self {
         Self::default()
     }
-    
+
     /// Returns the current preferred tip hash.
     pub fn get_preferred_tip(&self) -> [u8; 32] {
         self.preferred_tip
@@ -73,21 +73,22 @@ impl ApmftEngine {
             0
         }
     }
-    
+
     /// Calculates the weighted median of the collected samples.
     fn calculate_median_tip(&self) -> [u8; 32] {
         if self.samples.is_empty() {
             return self.preferred_tip;
         }
-        
+
         // Simple plurality voting for MVP.
         // Real implementation requires graph traversal to find common ancestor.
         let mut counts = HashMap::new();
         for hash in &self.samples {
             *counts.entry(*hash).or_insert(0) += 1;
         }
-        
-        counts.into_iter()
+
+        counts
+            .into_iter()
             .max_by_key(|&(_, count)| count)
             .map(|(hash, _)| hash)
             .unwrap_or(self.preferred_tip)
@@ -151,17 +152,17 @@ impl<T: Clone + Send + 'static + parity_scale_codec::Encode> ConsensusEngine<T> 
         // [FIX] Prefix unused vars with underscore to suppress warnings
         let _ = height;
         let _ = known_peers;
-        
+
         // 1. End previous round
         if !self.samples.is_empty() {
             let winner = self.calculate_median_tip();
-            
+
             // If supermajority (> 2/3), increment confidence
             let support = self.samples.iter().filter(|&&h| h == winner).count();
             if support >= (self.samples.len() * 2 / 3) {
-                 self.confidence.lock().await.increment(winner);
+                self.confidence.lock().await.increment(winner);
             }
-            
+
             // Update preference
             self.preferred_tip = winner;
             self.samples.clear();
@@ -171,7 +172,7 @@ impl<T: Clone + Send + 'static + parity_scale_codec::Encode> ConsensusEngine<T> 
         // 2. Start new round
         // We rely on the Orchestrator loop (run_sync_discoverer or similar)
         // to poll `get_apmft_tip` and `feed_apmft_sample`.
-        
+
         ConsensusDecision::Stall
     }
 
@@ -188,10 +189,7 @@ impl<T: Clone + Send + 'static + parity_scale_codec::Encode> ConsensusEngine<T> 
         Ok(())
     }
 
-    async fn handle_vote(
-        &mut self,
-        _vote: ConsensusVote,
-    ) -> Result<(), ConsensusError> {
+    async fn handle_vote(&mut self, _vote: ConsensusVote) -> Result<(), ConsensusError> {
         Ok(())
     }
 

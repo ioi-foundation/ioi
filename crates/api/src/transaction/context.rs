@@ -13,7 +13,7 @@ pub struct TxContext<'a> {
     pub block_height: u64,
     /// The deterministic timestamp of the current block in **nanoseconds** since UNIX EPOCH.
     /// This replaces the heavy `ibc_primitives::Timestamp` dependency.
-    pub block_timestamp: u64, 
+    pub block_timestamp: u64,
     /// The unique identifier of the chain for replay protection.
     pub chain_id: ChainId,
     /// The `AccountId` of the entity that signed the current transaction.

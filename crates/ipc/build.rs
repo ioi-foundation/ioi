@@ -5,7 +5,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Compile blockchain and public together to allow relative resolution
     tonic_build::configure().compile(
-        &["proto/blockchain/v1/blockchain.proto", "proto/public/v1/public.proto"],
+        &[
+            "proto/blockchain/v1/blockchain.proto",
+            "proto/public/v1/public.proto",
+        ],
         &["proto"],
     )?;
 

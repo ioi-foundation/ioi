@@ -2,7 +2,10 @@
 
 use anyhow::Result;
 use ioi_api::crypto::{SerializableKey, SigningKey, SigningKeyPair};
-use ioi_types::app::{ChainTransaction, SignHeader, SignatureProof, SignatureSuite, SystemPayload, SystemTransaction, account_id_from_key_material, AccountId};
+use ioi_types::app::{
+    account_id_from_key_material, AccountId, ChainTransaction, SignHeader, SignatureProof,
+    SignatureSuite, SystemPayload, SystemTransaction,
+};
 
 pub fn titlecase(s: &str) -> String {
     let mut c = s.chars();
@@ -19,17 +22,18 @@ pub fn create_cli_tx(
     nonce: u64,
 ) -> ChainTransaction {
     let pk = kp.public_key().to_bytes();
-    
+
     // [FIX] Use canonical derivation instead of raw hashing
     // The previous implementation was:
     // let acc_id = ioi_types::app::AccountId(ioi_crypto::algorithms::hash::sha256(&pk).unwrap().try_into().unwrap());
-    
+
     // We must use the exact same logic as the validator.
-    // Since we are using Ed25519 raw bytes here, we need to wrap them as if they came from libp2p 
+    // Since we are using Ed25519 raw bytes here, we need to wrap them as if they came from libp2p
     // OR just use the suite constant correctly.
     // The validator uses: `account_id_from_key_material(SignatureSuite::ED25519, &pk_bytes)`
-    
-    let acc_id_bytes = account_id_from_key_material(SignatureSuite::ED25519, &pk).expect("Failed to derive account ID");
+
+    let acc_id_bytes = account_id_from_key_material(SignatureSuite::ED25519, &pk)
+        .expect("Failed to derive account ID");
     let acc_id = AccountId(acc_id_bytes);
 
     let header = SignHeader {

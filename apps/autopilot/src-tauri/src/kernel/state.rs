@@ -83,12 +83,7 @@ pub async fn hydrate_session_history(
     let ns_prefix = ioi_api::state::service_namespace_prefix("desktop_agent");
     let state_prefix = b"agent::state::";
 
-    let key = [
-        ns_prefix.as_slice(),
-        state_prefix,
-        &session_id_bytes,
-    ]
-    .concat();
+    let key = [ns_prefix.as_slice(), state_prefix, &session_id_bytes].concat();
 
     let req = tonic::Request::new(QueryRawStateRequest { key });
 

@@ -115,6 +115,9 @@ message ChainEvent {
 
         // [NEW] A new sub-agent was spawned (delegation).
         AgentSpawn spawn = 7;
+
+        // [NEW] Typed parity routing receipt for an action step.
+        RoutingReceipt routing_receipt = 8;
     }
 }
 
@@ -167,6 +170,57 @@ message AgentSpawn {
     string role = 4;
     uint64 budget = 5;
     string goal = 6;
+}
+
+enum RoutingFailureClass {
+    ROUTING_FAILURE_CLASS_UNSPECIFIED = 0;
+    ROUTING_FAILURE_CLASS_FOCUS_MISMATCH = 1;
+    ROUTING_FAILURE_CLASS_TARGET_NOT_FOUND = 2;
+    ROUTING_FAILURE_CLASS_PERMISSION_OR_APPROVAL_REQUIRED = 3;
+    ROUTING_FAILURE_CLASS_TOOL_UNAVAILABLE = 4;
+    ROUTING_FAILURE_CLASS_NON_DETERMINISTIC_UI = 5;
+    ROUTING_FAILURE_CLASS_UNEXPECTED_STATE = 6;
+    ROUTING_FAILURE_CLASS_TIMEOUT_OR_HANG = 7;
+    ROUTING_FAILURE_CLASS_USER_INTERVENTION_NEEDED = 8;
+}
+
+message RoutingStateSummary {
+    string agent_status = 1;
+    string tier = 2;
+    uint32 step_index = 3;
+    uint32 consecutive_failures = 4;
+    string target_hint = 5;
+}
+
+message RoutingPostStateSummary {
+    string agent_status = 1;
+    string tier = 2;
+    uint32 step_index = 3;
+    uint32 consecutive_failures = 4;
+    bool success = 5;
+    repeated string verification_checks = 6;
+}
+
+message RoutingReceipt {
+    string session_id = 1; // Hex
+    uint32 step_index = 2;
+    string intent_hash = 3;
+    string policy_decision = 4;
+    string tool_name = 5;
+    string tool_version = 6;
+    RoutingStateSummary pre_state = 7;
+    string action_json = 8;
+    RoutingPostStateSummary post_state = 9;
+    repeated string artifacts = 10;
+    RoutingFailureClass failure_class = 11;
+    bool has_failure_class = 12;
+    bool stop_condition_hit = 13;
+    string escalation_path = 14;
+    string scs_lineage_ptr = 15;
+    string mutation_receipt_ptr = 16;
+    string policy_binding_hash = 17;
+    string policy_binding_sig = 18;
+    string policy_binding_signer = 19;
 }
 
 // --- Intent Drafting Types ---

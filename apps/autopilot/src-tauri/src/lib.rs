@@ -3,26 +3,26 @@ use std::sync::{Arc, Mutex};
 use tauri::{
     menu::{Menu, MenuItem},
     tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
-    Manager, State
+    Manager, State,
 };
 use tauri_plugin_global_shortcut::{Code, GlobalShortcutExt, Modifiers, Shortcut, ShortcutState};
 
-#[cfg(target_os = "macos")]
-use window_vibrancy::{apply_vibrancy, NSVisualEffectMaterial, NSVisualEffectState};
 #[cfg(target_os = "windows")]
 use window_vibrancy::apply_mica;
+#[cfg(target_os = "macos")]
+use window_vibrancy::{apply_vibrancy, NSVisualEffectMaterial, NSVisualEffectState};
 
-mod models;
-mod windows;
-mod kernel;
 mod execution;
-mod orchestrator; 
+mod ingestion;
+mod kernel;
+mod models;
+mod orchestrator;
 mod project;
-mod ingestion; 
+mod windows;
 
-use models::AppState;
-use ioi_scs::{SovereignContextStore, StoreConfig};
 use ioi_api::vm::inference::{HttpInferenceRuntime, InferenceRuntime};
+use ioi_scs::{SovereignContextStore, StoreConfig};
+use models::AppState;
 
 /// Initialize X11 for multi-threaded access (Linux only)
 /// MUST be called before any GTK/X11 operations
@@ -45,7 +45,7 @@ fn init_x11_threads() {
 pub fn run() {
     // Initialize X11 threading BEFORE anything else on Linux
     init_x11_threads();
-    
+
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_global_shortcut::Builder::new().build())
@@ -60,12 +60,12 @@ pub fn run() {
             if let Some(window) = app_handle.get_webview_window("spotlight") {
                 #[cfg(target_os = "macos")]
                 let _ = apply_vibrancy(
-                    &window, 
-                    NSVisualEffectMaterial::UnderWindowBackground, 
-                    Some(NSVisualEffectState::Active), 
-                    Some(12.0)
+                    &window,
+                    NSVisualEffectMaterial::UnderWindowBackground,
+                    Some(NSVisualEffectState::Active),
+                    Some(12.0),
                 );
-                
+
                 #[cfg(target_os = "windows")]
                 let _ = apply_mica(&window, None);
 
@@ -76,12 +76,12 @@ pub fn run() {
             if let Some(window) = app_handle.get_webview_window("gate") {
                 #[cfg(target_os = "macos")]
                 let _ = apply_vibrancy(
-                    &window, 
-                    NSVisualEffectMaterial::UnderWindowBackground, 
-                    Some(NSVisualEffectState::Active), 
-                    Some(12.0)
+                    &window,
+                    NSVisualEffectMaterial::UnderWindowBackground,
+                    Some(NSVisualEffectState::Active),
+                    Some(12.0),
                 );
-                
+
                 #[cfg(target_os = "windows")]
                 let _ = apply_mica(&window, None);
 
@@ -89,20 +89,27 @@ pub fn run() {
                 kernel::linux_blur::setup_kwin_blur(&window);
             }
             // -----------------------------------
-            
-            let data_dir = app_handle.path().app_data_dir().unwrap_or_else(|_| std::path::PathBuf::from("./ioi-data"));
-            
+
+            let data_dir = app_handle
+                .path()
+                .app_data_dir()
+                .unwrap_or_else(|_| std::path::PathBuf::from("./ioi-data"));
+
             // 1. Initialize Studio SCS
             let scs_path = data_dir.join("studio.scs");
             let studio_scs = if scs_path.exists() {
                 SovereignContextStore::open(&scs_path).ok()
             } else {
                 std::fs::create_dir_all(&data_dir).ok();
-                SovereignContextStore::create(&scs_path, StoreConfig {
-                    chain_id: 0,
-                    owner_id: [0u8; 32], 
-                    identity_key: [0u8; 32], // [FIX] Field added (Dummy key for Studio)
-                }).ok()
+                SovereignContextStore::create(
+                    &scs_path,
+                    StoreConfig {
+                        chain_id: 0,
+                        owner_id: [0u8; 32],
+                        identity_key: [0u8; 32], // [FIX] Field added (Dummy key for Studio)
+                    },
+                )
+                .ok()
             };
 
             if let Some(scs) = studio_scs {
@@ -122,10 +129,10 @@ pub fn run() {
                 let api_url = "https://api.openai.com/v1/chat/completions".to_string();
                 Arc::new(HttpInferenceRuntime::new(api_url, key, model))
             } else if let Some(url) = local_url {
-                 let model = "llama3".to_string(); 
-                 Arc::new(HttpInferenceRuntime::new(url, "".to_string(), model))
+                let model = "llama3".to_string();
+                Arc::new(HttpInferenceRuntime::new(url, "".to_string(), model))
             } else {
-                 Arc::new(ioi_api::vm::inference::mock::MockInferenceRuntime)
+                Arc::new(ioi_api::vm::inference::mock::MockInferenceRuntime)
             };
 
             {
@@ -139,7 +146,7 @@ pub fn run() {
             tauri::async_runtime::spawn(async move {
                 execution::init_mcp_servers(handle).await;
             });
-            
+
             // 4. Setup Menu and Tray
             let show_spotlight_item = MenuItem::with_id(
                 app,
@@ -152,10 +159,8 @@ pub fn run() {
                 MenuItem::with_id(app, "studio", "Open Studio", true, None::<&str>)?;
             let quit_item = MenuItem::with_id(app, "quit", "Quit", true, None::<&str>)?;
 
-            let menu = Menu::with_items(
-                app,
-                &[&show_spotlight_item, &show_studio_item, &quit_item],
-            )?;
+            let menu =
+                Menu::with_items(app, &[&show_spotlight_item, &show_studio_item, &quit_item])?;
 
             if let Some(icon) = app.default_window_icon().cloned() {
                 let _ = TrayIconBuilder::new()
@@ -188,19 +193,21 @@ pub fn run() {
             let shortcut = Shortcut::new(Some(Modifiers::CONTROL), Code::Space);
 
             let app_handle = app.handle().clone();
-            let _ = app.global_shortcut().on_shortcut(shortcut, move |_app, _shortcut, event| {
-                if event.state == ShortcutState::Pressed {
-                    if let Some(window) = app_handle.get_webview_window("spotlight") {
-                        if window.is_visible().unwrap_or(false) {
-                            let _ = window.hide();
-                        } else {
-                            let _ = window.show();
-                            let _ = window.set_focus();
+            let _ = app
+                .global_shortcut()
+                .on_shortcut(shortcut, move |_app, _shortcut, event| {
+                    if event.state == ShortcutState::Pressed {
+                        if let Some(window) = app_handle.get_webview_window("spotlight") {
+                            if window.is_visible().unwrap_or(false) {
+                                let _ = window.hide();
+                            } else {
+                                let _ = window.show();
+                                let _ = window.set_focus();
+                            }
                         }
                     }
-                }
-            });
-            
+                });
+
             #[cfg(not(target_os = "macos"))]
             {
                 let handle = app.handle().clone();
@@ -221,7 +228,7 @@ pub fn run() {
             tauri::async_runtime::spawn(async move {
                 kernel::monitor_kernel_events(monitor_handle).await;
             });
-            
+
             println!("[Autopilot] Setup complete.");
             Ok(())
         })
@@ -239,7 +246,6 @@ pub fn run() {
             windows::hide_gate,
             windows::show_studio,
             windows::hide_studio,
-            
             // Kernel / Agent Logic
             kernel::task::start_task,
             kernel::task::continue_task,
@@ -247,29 +253,23 @@ pub fn run() {
             kernel::task::complete_task,
             kernel::task::dismiss_task,
             kernel::task::get_current_task,
-            
             // Governance
             kernel::governance::gate_respond,
             kernel::governance::get_gate_response,
             kernel::governance::clear_gate_response,
-            
             // Data / Context
             kernel::data::get_context_blob,
-            kernel::data::get_available_tools, 
-            
+            kernel::data::get_available_tools,
             // Session
             kernel::session::get_session_history,
             kernel::session::load_session,
-            kernel::session::delete_session, 
-            
+            kernel::session::delete_session,
             // Studio Inspector & Execution
             kernel::graph::test_node_execution,
-            kernel::graph::run_studio_graph, 
+            kernel::graph::run_studio_graph,
             kernel::graph::check_node_cache,
-            
             // Ingestion
             ingestion::ingest_file,
-
             // Project Persistence
             project::save_project,
             project::load_project

@@ -1,12 +1,12 @@
 // Path: crates/networking/src/libp2p/behaviour.rs
 
+use crate::libp2p::sync::{SyncCodec, SyncRequest, SyncResponse};
 use libp2p::{
     gossipsub,
-    request_response,
     ping, // [NEW] Import ping
+    request_response,
     swarm::NetworkBehaviour,
 };
-use crate::libp2p::sync::{SyncCodec, SyncRequest, SyncResponse};
 
 #[derive(NetworkBehaviour)]
 #[behaviour(to_swarm = "SyncBehaviourEvent")]

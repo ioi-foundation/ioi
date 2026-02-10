@@ -9,13 +9,13 @@ use anyhow::{anyhow, Result};
 use axum::{routing::get, serve, Router};
 // [FIX] Import WorkloadClientApi to enable calling query_state_at
 use ioi_api::chain::WorkloadClientApi;
-use ioi_client::WorkloadClient;
 use ioi_cli::testing::{
     build_test_artifacts,
     genesis::GenesisBuilder,
     rpc::{self, submit_transaction},
     wait_for_height, TestCluster,
 };
+use ioi_client::WorkloadClient;
 use ioi_types::{
     app::{
         AccountId, ActiveKeyRecord, BlockTimingParams, BlockTimingRuntime, ChainId,
@@ -27,9 +27,9 @@ use ioi_types::{
     service_configs::MigrationConfig,
 };
 use parity_scale_codec::Encode;
+use std::fs;
 use std::net::SocketAddr;
 use std::time::{Duration, Instant};
-use std::fs;
 
 // --- Helper functions for metrics ---
 
@@ -677,7 +677,7 @@ async fn test_storage_soak_test() -> Result<()> {
 
             // Keep chain moving with dummy transactions if needed
             // [FIX] Use provider_registry
-            use ioi_services::provider_registry::{SupplyTier, RegisterProviderParams};
+            use ioi_services::provider_registry::{RegisterProviderParams, SupplyTier};
             let tx = create_signed_system_tx(
                 &keypair,
                 SystemPayload::CallService {

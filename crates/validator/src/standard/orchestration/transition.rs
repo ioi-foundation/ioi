@@ -3,17 +3,17 @@
 use crate::standard::orchestration::context::MainLoopContext;
 use ioi_api::{
     commitment::CommitmentScheme,
-    consensus::{ConsensusEngine, ConsensusControl}, // [FIX] Added ConsensusControl trait
+    consensus::{ConsensusControl, ConsensusEngine}, // [FIX] Added ConsensusControl trait
     state::{StateManager, Verifier},
 };
 use ioi_networking::libp2p::SwarmCommand;
 use ioi_networking::traits::NodeState;
 use ioi_types::app::{ChainTransaction, ProofOfDivergence};
+use parity_scale_codec::{Decode, Encode};
 use serde::Serialize;
 use std::fmt::Debug;
 use std::sync::Arc;
 use tokio::sync::Mutex;
-use parity_scale_codec::{Decode, Encode};
 
 /// Executes the Kill Switch: Freezes A-DMFT and initiates the handoff to A-PMFT.
 pub async fn execute_kill_switch<CS, ST, CE, V>(
@@ -35,8 +35,15 @@ where
         + Sync
         + 'static
         + Debug,
-    <CS as CommitmentScheme>::Proof:
-        Serialize + for<'de> serde::Deserialize<'de> + Clone + Send + Sync + 'static + Debug + Encode + Decode,
+    <CS as CommitmentScheme>::Proof: Serialize
+        + for<'de> serde::Deserialize<'de>
+        + Clone
+        + Send
+        + Sync
+        + 'static
+        + Debug
+        + Encode
+        + Decode,
     <CS as CommitmentScheme>::Commitment: Send + Sync + Debug,
 {
     // Acquire the context lock. This is critical as we are mutating the consensus engine reference.
@@ -46,13 +53,16 @@ where
     {
         let mut state_guard = ctx.node_state.lock().await;
         // If we are already transitioning or in A-PMFT, ignore.
-        if matches!(*state_guard, NodeState::Transitioning | NodeState::SurvivalMode) {
+        if matches!(
+            *state_guard,
+            NodeState::Transitioning | NodeState::SurvivalMode
+        ) {
             tracing::warn!(target: "orchestration", "Kill Switch ignored: Node already in {:?} state.", *state_guard);
             return Ok(());
         }
 
-        tracing::error!(target: "orchestration", 
-            "🚨 KILL SWITCH ACTIVATED 🚨 Hardware Compromise Detected! Offender: {:?}", 
+        tracing::error!(target: "orchestration",
+            "🚨 KILL SWITCH ACTIVATED 🚨 Hardware Compromise Detected! Offender: {:?}",
             proof.offender
         );
 
@@ -74,7 +84,7 @@ where
         engine_guard.switch_to_apmft();
         tracing::info!(target: "orchestration", "Consensus Engine swapped to A-PMFT.");
     }
-    
+
     // 5. Update State to Survival Mode
     {
         let mut state_guard = ctx.node_state.lock().await;

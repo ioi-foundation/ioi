@@ -1,9 +1,9 @@
 // Path: crates/services/src/market/router.rs
 
-use ioi_drivers::provisioning::{CloudProvider, InstanceSpec, InstanceHandle};
-use ioi_types::app::agentic::{AgentManifest, RuntimeEnvironment};
-use ioi_types::config::{WorkloadConfig}; // Removed ConnectorConfig unused import
 use anyhow::Result;
+use ioi_drivers::provisioning::{CloudProvider, InstanceHandle, InstanceSpec};
+use ioi_types::app::agentic::{AgentManifest, RuntimeEnvironment};
+use ioi_types::config::WorkloadConfig; // Removed ConnectorConfig unused import
 use std::collections::HashMap;
 use std::sync::Arc;
 
@@ -14,7 +14,9 @@ pub struct ProvisioningRouter {
 
 impl ProvisioningRouter {
     pub fn new() -> Self {
-        Self { providers: HashMap::new() }
+        Self {
+            providers: HashMap::new(),
+        }
     }
 
     /// Initializes providers based on the node configuration.
@@ -25,9 +27,9 @@ impl ProvisioningRouter {
             if aws_cfg.enabled {
                 // [FIX] Convert string literals to String
                 let p = ioi_drivers::provisioning::aws::AwsProvider::new(
-                    "mock_key".to_string(), 
-                    "mock_secret".to_string(), 
-                    "us-east-1".to_string()
+                    "mock_key".to_string(),
+                    "mock_secret".to_string(),
+                    "us-east-1".to_string(),
                 );
                 self.providers.insert("aws".to_string(), Arc::new(p));
             }
@@ -36,7 +38,8 @@ impl ProvisioningRouter {
         // Akash
         if let Some(akash_cfg) = config.connectors.get("akash_wallet") {
             if akash_cfg.enabled {
-                let p = ioi_drivers::provisioning::akash::AkashProvider::new(akash_cfg.key_ref.clone());
+                let p =
+                    ioi_drivers::provisioning::akash::AkashProvider::new(akash_cfg.key_ref.clone());
                 self.providers.insert("akash".to_string(), Arc::new(p));
             }
         }
@@ -61,10 +64,10 @@ impl ProvisioningRouter {
     /// Dispatches a provisioning request.
     pub async fn launch_agent(&self, manifest: &AgentManifest) -> Result<InstanceHandle> {
         let spec = self.map_manifest_to_spec(manifest);
-        
+
         // 1. Determine Preferred Provider
         let pref = &manifest.resources.provider_preference;
-        
+
         let provider = if let Some(p) = self.providers.get(pref) {
             p
         } else {

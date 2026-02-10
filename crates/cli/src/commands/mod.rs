@@ -2,6 +2,7 @@
 
 pub mod agent;
 pub mod config;
+pub mod dev;
 pub mod ghost;
 pub mod init;
 pub mod keys;
@@ -10,5 +11,4 @@ pub mod policy;
 pub mod query;
 pub mod scaffold;
 pub mod test_cmd;
-pub mod trace;
-pub mod dev; // [NEW]
+pub mod trace; // [NEW]

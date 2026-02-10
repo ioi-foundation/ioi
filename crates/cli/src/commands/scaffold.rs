@@ -1,10 +1,10 @@
 // Path: crates/cli/src/commands/scaffold.rs
 
+use crate::util::titlecase;
 use anyhow::{anyhow, Result};
 use clap::{Parser, Subcommand};
 use std::fs;
 use std::path::Path;
-use crate::util::titlecase;
 
 #[derive(Parser, Debug)]
 pub struct ScaffoldArgs {

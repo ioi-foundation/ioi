@@ -7,10 +7,17 @@ pub mod handshake;
 use crate::gateway::Gateway;
 // Re-export handshake builder helpers and proof logic
 use crate::handshake::{
-    build_chan_open_ack_any, build_chan_open_confirm_any, build_chan_open_init_any,
-    build_chan_open_try_any, build_conn_open_ack_any, build_conn_open_confirm_any,
-    build_conn_open_init_any, build_conn_open_try_any, build_create_client_any,
-    build_update_client_any, existence_root_from_proof_bytes, 
+    build_chan_open_ack_any,
+    build_chan_open_confirm_any,
+    build_chan_open_init_any,
+    build_chan_open_try_any,
+    build_conn_open_ack_any,
+    build_conn_open_confirm_any,
+    build_conn_open_init_any,
+    build_conn_open_try_any,
+    build_create_client_any,
+    build_update_client_any,
+    existence_root_from_proof_bytes,
     infer_allocated_channel_id, // Imported from handshake mod
     infer_allocated_connection_id,
 };
