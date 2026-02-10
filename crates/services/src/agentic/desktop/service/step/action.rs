@@ -2,18 +2,20 @@
 
 use self::super::helpers::default_safe_policy;
 use super::anti_loop::{
-    build_post_state_summary, build_state_summary, choose_routing_tier, classify_failure,
-    emit_routing_receipt, escalation_path_for_failure, extract_artifacts, lineage_pointer,
-    mutation_receipt_pointer, policy_binding_hash, register_attempt, should_trip_retry_guard,
+    build_attempt_key, build_post_state_summary, build_state_summary, choose_routing_tier,
+    classify_failure, emit_routing_receipt, escalation_path_for_failure, extract_artifacts,
+    lineage_pointer, mutation_receipt_pointer, policy_binding_hash, register_failure_attempt,
+    retry_budget_remaining, should_block_retry_without_change, should_trip_retry_guard,
     tier_as_str, to_routing_failure_class, FailureClass,
 };
 use crate::agentic::desktop::keys::{get_state_key, AGENT_POLICY_PREFIX};
 use crate::agentic::desktop::middleware;
 use crate::agentic::desktop::service::DesktopAgentService;
-use crate::agentic::desktop::types::{AgentState, AgentStatus, ToolCallStatus};
+use crate::agentic::desktop::types::{AgentState, AgentStatus, ExecutionTier, ToolCallStatus};
 use crate::agentic::desktop::utils::goto_trace_log;
 use crate::agentic::rules::ActionRules;
 use ioi_api::state::StateAccess;
+use ioi_crypto::algorithms::hash::sha256;
 use ioi_types::app::agentic::AgentTool;
 use ioi_types::app::{ActionContext, ActionRequest, KernelEvent, RoutingReceiptEvent};
 use ioi_types::codec;
@@ -54,6 +56,53 @@ fn requires_visual_integrity(tool: &AgentTool) -> bool {
         AgentTool::BrowserClick { .. } => true,
         _ => false,
     }
+}
+
+pub fn canonical_tool_identity(tool: &AgentTool) -> (String, serde_json::Value) {
+    let serialized = serde_json::to_value(tool).unwrap_or_else(|_| json!({}));
+    let dynamic = match tool {
+        AgentTool::Dynamic(value) => Some(value),
+        _ => None,
+    };
+
+    let tool_name = serialized
+        .get("name")
+        .and_then(|value| value.as_str())
+        .or_else(|| dynamic.and_then(|value| value.get("name").and_then(|n| n.as_str())))
+        .map(str::to_string)
+        .unwrap_or_else(|| format!("{:?}", tool.target()));
+
+    let args = serialized
+        .get("arguments")
+        .cloned()
+        .or_else(|| dynamic.and_then(|value| value.get("arguments").cloned()))
+        .unwrap_or_else(|| json!({}));
+
+    (tool_name, args)
+}
+
+pub fn canonical_intent_hash(
+    tool_name: &str,
+    args: &serde_json::Value,
+    tier: ExecutionTier,
+    step_index: u32,
+    tool_version: &str,
+) -> String {
+    let payload = json!({
+        "tool_name": tool_name,
+        "args": args,
+        "tier": tier_as_str(tier),
+        "step_index": step_index,
+        "tool_version": tool_version,
+    });
+
+    let canonical_bytes = serde_jcs::to_vec(&payload)
+        .or_else(|_| serde_json::to_vec(&payload))
+        .unwrap_or_default();
+
+    sha256(&canonical_bytes)
+        .map(hex::encode)
+        .unwrap_or_else(|_| "unknown".to_string())
 }
 
 pub async fn resume_pending_action(
@@ -328,10 +377,12 @@ pub async fn process_tool_output(
         .unwrap_or_else(default_safe_policy);
     let pre_state_summary = build_state_summary(agent_state);
     let routing_decision = choose_routing_tier(agent_state);
+    let tool_version = env!("CARGO_PKG_VERSION");
     let mut policy_decision = "allowed".to_string();
     let mut action_payload = json!({
         "raw_tool_output": tool_call_result
     });
+    let mut intent_hash = "unknown".to_string();
 
     // 1. Raw Refusal Interceptor
     if tool_call_result.contains("\"name\":\"system::refusal\"") {
@@ -456,16 +507,15 @@ pub async fn process_tool_output(
                 .clone()
                 .ok_or(TransactionError::Invalid("OS driver missing".into()))?;
             action_payload = serde_json::to_value(&tool).unwrap_or_else(|_| json!({}));
-
-            current_tool_name = format!("{:?}", tool.target());
-            if let AgentTool::ChatReply { .. } = &tool {
-                current_tool_name = "chat__reply".to_string();
-            }
-
-            // [FIX] Explicitly capture SystemFail tool name
-            if let AgentTool::SystemFail { .. } = &tool {
-                current_tool_name = "system__fail".to_string();
-            }
+            let (tool_name, tool_args) = canonical_tool_identity(&tool);
+            current_tool_name = tool_name;
+            intent_hash = canonical_intent_hash(
+                &current_tool_name,
+                &tool_args,
+                routing_decision.tier,
+                pre_state_summary.step_index,
+                tool_version,
+            );
 
             let target_hash_opt = agent_state
                 .pending_approval
@@ -596,20 +646,76 @@ pub async fn process_tool_output(
     } else {
         failure_class = classify_failure(error_msg.as_deref(), &policy_decision);
         if let Some(class) = failure_class {
-            let intent_prefix = if req_hash_hex.is_empty() {
-                "no_intent".to_string()
+            let target_id = agent_state.target.as_ref().and_then(|target| {
+                target
+                    .app_hint
+                    .as_deref()
+                    .filter(|v| !v.trim().is_empty())
+                    .or_else(|| {
+                        target
+                            .title_pattern
+                            .as_deref()
+                            .filter(|v| !v.trim().is_empty())
+                    })
+            });
+            let window_fingerprint = if final_visual_phash == [0u8; 32] {
+                None
             } else {
-                req_hash_hex.chars().take(8).collect::<String>()
+                Some(hex::encode(final_visual_phash))
             };
-            let fingerprint = format!(
-                "{}::{}::{}",
-                current_tool_name,
-                class.as_str(),
-                intent_prefix
+            let attempt_key = build_attempt_key(
+                intent_hash.as_str(),
+                routing_decision.tier,
+                &current_tool_name,
+                target_id,
+                window_fingerprint.as_deref(),
             );
-            let repeat_count = register_attempt(agent_state, fingerprint);
+            let (repeat_count, attempt_key_hash) =
+                register_failure_attempt(agent_state, class, &attempt_key);
+            let budget_remaining = retry_budget_remaining(repeat_count);
+            let blocked_without_change = should_block_retry_without_change(class, repeat_count);
             verification_checks.push(format!("attempt_repeat_count={}", repeat_count));
-            if should_trip_retry_guard(class, repeat_count) {
+            verification_checks.push(format!("attempt_key_hash={}", attempt_key_hash));
+            verification_checks.push(format!(
+                "attempt_retry_budget_remaining={}",
+                budget_remaining
+            ));
+            verification_checks.push(format!(
+                "attempt_retry_blocked_without_change={}",
+                blocked_without_change
+            ));
+            if matches!(class, FailureClass::UserInterventionNeeded) {
+                stop_condition_hit = true;
+                escalation_path = Some(escalation_path_for_failure(class).to_string());
+                is_lifecycle_action = true;
+                agent_state.status = AgentStatus::Paused(
+                    "Waiting for user intervention: complete the required human verification in Local Browser, then resume.".to_string(),
+                );
+            } else if blocked_without_change {
+                stop_condition_hit = true;
+                escalation_path = Some(escalation_path_for_failure(class).to_string());
+                is_lifecycle_action = true;
+                agent_state.status = AgentStatus::Paused(format!(
+                    "Retry blocked: unchanged AttemptKey for {}",
+                    class.as_str()
+                ));
+                if matches!(
+                    class,
+                    FailureClass::FocusMismatch
+                        | FailureClass::TargetNotFound
+                        | FailureClass::VisionTargetNotFound
+                        | FailureClass::NoEffectAfterAction
+                        | FailureClass::TierViolation
+                        | FailureClass::MissingDependency
+                        | FailureClass::ContextDrift
+                        | FailureClass::ToolUnavailable
+                        | FailureClass::NonDeterministicUI
+                        | FailureClass::TimeoutOrHang
+                        | FailureClass::UnexpectedState
+                ) {
+                    agent_state.consecutive_failures = agent_state.consecutive_failures.max(3);
+                }
+            } else if should_trip_retry_guard(class, repeat_count) {
                 stop_condition_hit = true;
                 escalation_path = Some(escalation_path_for_failure(class).to_string());
                 is_lifecycle_action = true;
@@ -621,6 +727,11 @@ pub async fn process_tool_output(
                     class,
                     FailureClass::FocusMismatch
                         | FailureClass::TargetNotFound
+                        | FailureClass::VisionTargetNotFound
+                        | FailureClass::NoEffectAfterAction
+                        | FailureClass::TierViolation
+                        | FailureClass::MissingDependency
+                        | FailureClass::ContextDrift
                         | FailureClass::ToolUnavailable
                         | FailureClass::NonDeterministicUI
                         | FailureClass::TimeoutOrHang
@@ -722,11 +833,6 @@ pub async fn process_tool_output(
     artifacts.push(format!("trace://session/{}", hex::encode(&session_id[..4])));
 
     let post_state = build_post_state_summary(agent_state, success, verification_checks);
-    let intent_hash = if req_hash_hex.is_empty() {
-        "unknown".to_string()
-    } else {
-        req_hash_hex
-    };
     let policy_binding = policy_binding_hash(&intent_hash, &policy_decision);
 
     let receipt = RoutingReceiptEvent {
@@ -735,7 +841,7 @@ pub async fn process_tool_output(
         intent_hash,
         policy_decision,
         tool_name: current_tool_name,
-        tool_version: env!("CARGO_PKG_VERSION").to_string(),
+        tool_version: tool_version.to_string(),
         pre_state: pre_state_summary,
         action_json: serde_json::to_string(&action_payload).unwrap_or_else(|_| "{}".to_string()),
         post_state,

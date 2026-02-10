@@ -204,7 +204,7 @@ pub async fn discover_tools(
         });
         tools.push(LlmToolDefinition {
             name: "browser__click".to_string(),
-            description: "Click an element on the current page using a CSS selector.".to_string(),
+            description: "Click/focus a page element via CSS selector with built-in precondition checks and keyboard fallback for search inputs.".to_string(),
             parameters: click_selector_params.to_string(),
         });
     }
@@ -482,13 +482,18 @@ pub async fn discover_tools(
         "type": "object",
         "properties": {
             "path": { "type": "string", "description": "Absolute path to write the file to" },
-            "content": { "type": "string", "description": "Text content to write" }
+            "content": { "type": "string", "description": "Text content to write, or replacement content for a specific line when line_number is set" },
+            "line_number": {
+                "type": "integer",
+                "minimum": 1,
+                "description": "Optional 1-based line index to edit atomically. When omitted, writes the full file content."
+            }
         },
         "required": ["path", "content"]
     });
     tools.push(LlmToolDefinition {
         name: "filesystem__write_file".to_string(),
-        description: "Write text content to a file on the local filesystem. Use this to save data."
+        description: "Write text content to a file, or edit a single line deterministically by setting line_number."
             .to_string(),
         parameters: fs_write_params.to_string(),
     });

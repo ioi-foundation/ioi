@@ -62,6 +62,11 @@ fn map_routing_receipt(
             ioi_types::app::RoutingFailureClass::UnexpectedState => 6,
             ioi_types::app::RoutingFailureClass::TimeoutOrHang => 7,
             ioi_types::app::RoutingFailureClass::UserInterventionNeeded => 8,
+            ioi_types::app::RoutingFailureClass::VisionTargetNotFound => 9,
+            ioi_types::app::RoutingFailureClass::NoEffectAfterAction => 10,
+            ioi_types::app::RoutingFailureClass::TierViolation => 11,
+            ioi_types::app::RoutingFailureClass::MissingDependency => 12,
+            ioi_types::app::RoutingFailureClass::ContextDrift => 13,
         };
         (code, true)
     } else {

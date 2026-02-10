@@ -6,6 +6,7 @@ use arboard::Clipboard;
 use async_trait::async_trait;
 use ioi_api::vm::drivers::os::{OsDriver, WindowInfo};
 use ioi_types::error::VmError;
+use std::io::ErrorKind;
 use std::process::Command;
 use std::sync::Mutex;
 
@@ -90,11 +91,14 @@ impl OsDriver for NativeOsDriver {
             {
                 // Requires `wmctrl` installed
                 // wmctrl -a <TITLE>
-                let output = Command::new("wmctrl")
-                    .arg("-a")
-                    .arg(&query)
-                    .output()
-                    .map_err(|e| format!("Failed to execute wmctrl: {}", e))?;
+                let output = match Command::new("wmctrl").arg("-a").arg(&query).output() {
+                    Ok(output) => output,
+                    Err(e) if e.kind() == ErrorKind::NotFound => return Err(
+                        "ERROR_CLASS=MissingDependency Missing focus dependency 'wmctrl' on Linux."
+                            .to_string(),
+                    ),
+                    Err(e) => return Err(format!("Failed to execute wmctrl: {}", e)),
+                };
 
                 if output.status.success() {
                     Ok(true)

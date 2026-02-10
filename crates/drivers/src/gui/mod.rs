@@ -24,6 +24,7 @@ use self::geometry::{CoordinateSpace, DisplayTransform, Point};
 use self::lenses::{auto::AutoLens, react::ReactLens, AppLens, LensRegistry}; // [FIX] Import AutoLens
 use self::som::{assign_som_ids, draw_som_overlay, redact_sensitive_regions};
 
+use enigo::{Enigo, Mouse, Settings};
 use image::{load_from_memory, ImageFormat};
 use ioi_scs::SovereignContextStore;
 use ioi_types::app::KernelEvent;
@@ -313,6 +314,32 @@ impl GuiDriver for IoiGuiDriver {
         } else {
             Ok(None)
         }
+    }
+
+    async fn get_cursor_position(&self) -> Result<(u32, u32), VmError> {
+        let enigo = Enigo::new(&Settings::default()).map_err(|e| {
+            VmError::HostError(format!(
+                "Failed to initialize Enigo for cursor query: {:?}",
+                e
+            ))
+        })?;
+        let (raw_x, raw_y) = enigo
+            .location()
+            .map_err(|e| VmError::HostError(format!("Failed to query cursor position: {:?}", e)))?;
+
+        let transform = NativeOperator::current_display_transform();
+        let scale = transform.scale_factor.max(1.0);
+
+        let (x, y) = if cfg!(target_os = "linux") {
+            (
+                ((raw_x as f64) / scale).round().max(0.0) as u32,
+                ((raw_y as f64) / scale).round().max(0.0) as u32,
+            )
+        } else {
+            (raw_x.max(0) as u32, raw_y.max(0) as u32)
+        };
+
+        Ok((x, y))
     }
 
     // [UPDATED] Implement the trait method

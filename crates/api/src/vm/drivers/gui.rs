@@ -94,6 +94,16 @@ pub trait GuiDriver: Send + Sync {
     /// Resolves a Set-of-Marks ID from the last capture to screen coordinates.
     async fn get_element_center(&self, id: u32) -> Result<Option<(u32, u32)>, VmError>;
 
+    /// Returns current cursor position in ScreenLogical coordinates.
+    ///
+    /// Implementations should normalize platform-specific physical coordinates
+    /// into logical desktop coordinates consumed by agent tools.
+    async fn get_cursor_position(&self) -> Result<(u32, u32), VmError> {
+        Err(VmError::HostError(
+            "Cursor position is not supported by this GUI driver".into(),
+        ))
+    }
+
     /// Manually injects a Set-of-Marks mapping (ID -> Rect) into the driver's cache.
     /// This restores context from a previous step or external source.
     /// Returns VmError::Unsupported if not implemented.

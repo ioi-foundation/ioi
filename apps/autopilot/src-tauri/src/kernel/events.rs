@@ -263,7 +263,8 @@ pub async fn monitor_kernel_events(app: tauri::AppHandle) {
                                 summary.push_str(&format!(", failure_class={}", class));
                             }
                             if !receipt.escalation_path.is_empty() {
-                                summary.push_str(&format!(", escalation={}", receipt.escalation_path));
+                                summary
+                                    .push_str(&format!(", escalation={}", receipt.escalation_path));
                             }
                             if !receipt.scs_lineage_ptr.is_empty() {
                                 summary.push_str(&format!(", lineage={}", receipt.scs_lineage_ptr));
@@ -276,7 +277,10 @@ pub async fn monitor_kernel_events(app: tauri::AppHandle) {
                             }
                             summary.push_str(&format!(", verify=[{}]", verification));
 
-                            t.current_step = format!("Routing: {} ({})", receipt.tool_name, receipt.policy_decision);
+                            t.current_step = format!(
+                                "Routing: {} ({})",
+                                receipt.tool_name, receipt.policy_decision
+                            );
                             t.history.push(ChatMessage {
                                 role: "system".to_string(),
                                 text: summary,

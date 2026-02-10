@@ -7,16 +7,17 @@ use std::collections::HashSet;
 
 /// A generalized lens that auto-generates stable semantic IDs.
 ///
-/// V3 Update: "Unstoppable" Mode + Deep Stability.
+/// V4 Update: More permissive semantic pruning for legacy/native UI trees.
 /// 1. Soft visibility prune (recurse even if hidden to find visible descendants).
 /// 2. Deep ancestry hashing (3 levels) for stability.
 /// 3. Adaptive Grid Bucketing (50px).
 /// 4. Invisible Container Collapse (Reduce bloat).
+/// 5. Preserve content-bearing leaves even with generic roles.
 pub struct AutoLens;
 
 impl AppLens for AutoLens {
     fn name(&self) -> &str {
-        "universal_heuristic_v3"
+        "universal_heuristic_v4"
     }
 
     fn matches(&self, _window_title: &str) -> bool {
@@ -70,8 +71,9 @@ impl AutoLens {
 
         // 1. Determine Interactivity & Structure
         let is_interactive = self.is_interactive_role(&node.role);
-        let has_content = node.name.as_ref().map_or(false, |s| !s.trim().is_empty())
-            || node.value.as_ref().map_or(false, |s| !s.trim().is_empty())
+        let has_primary_content = node.name.as_ref().map_or(false, |s| !s.trim().is_empty())
+            || node.value.as_ref().map_or(false, |s| !s.trim().is_empty());
+        let has_content = has_primary_content
             || self
                 .first_non_empty_attr(
                     node,
@@ -86,7 +88,7 @@ impl AutoLens {
                 .is_some();
         let is_structural = matches!(
             node.role.as_str(),
-            "window" | "dialog" | "pane" | "application" | "group"
+            "window" | "dialog" | "pane" | "panel" | "application" | "group" | "root"
         );
         let interactivity_score = self.interactivity_score(node);
 
@@ -114,11 +116,12 @@ impl AutoLens {
             return None;
         }
 
-        // Rule B: If visible and leaf-like but low clickability prior -> Drop.
-        // This keeps icon-only controls while still pruning generic noise.
-        if node.is_visible && new_children.is_empty() && interactivity_score <= 5 && !is_structural
-        {
-            return None;
+        // Rule B: Leaf pruning.
+        // Preserve any leaf with content (name/value/label). Prune only true low-signal noise.
+        if node.is_visible && new_children.is_empty() {
+            if !has_content && !is_interactive && interactivity_score <= 1 && !is_structural {
+                return None;
+            }
         }
 
         // [FIX] Rule C: Transparent Container Collapse
@@ -139,7 +142,7 @@ impl AutoLens {
 
         // 4. ID Generation (LiDAR)
         // Only generate stable IDs for things we might want to click or read, or structural anchors.
-        if is_interactive || has_content || is_structural {
+        if is_interactive || has_content || is_structural || !new_node.children.is_empty() {
             // [FIX] Use captured snapshot for deep fingerprinting
             let fingerprint = self.compute_fingerprint(node, &ancestry_snapshot);
             let full_hash = to_hex(sha256(fingerprint.as_bytes()).unwrap().as_ref());
@@ -202,6 +205,8 @@ impl AutoLens {
                 | "tab"
                 | "list item"
                 | "pushbutton"
+                | "menuitem"
+                | "listitem"
         )
     }
 
@@ -228,7 +233,13 @@ impl AutoLens {
             score += 5;
         }
 
-        if node.rect.width > 10 && node.rect.height > 10 {
+        let width = node.rect.width.max(0);
+        let height = node.rect.height.max(0);
+
+        // Favor compact, button-like controls even when role metadata is generic.
+        if (20..=150).contains(&width) && (20..=150).contains(&height) {
+            score += 2;
+        } else if width > 10 && height > 10 {
             score += 1;
         }
 

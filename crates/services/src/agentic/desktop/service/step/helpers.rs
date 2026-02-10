@@ -1,6 +1,18 @@
 // Path: crates/services/src/agentic/desktop/service/step/helpers.rs
 
-use crate::agentic::rules::{ActionRules, Rule, Verdict};
+use crate::agentic::rules::{ActionRules, Rule, RuleConditions, Verdict};
+
+fn browser_allow_apps() -> Vec<String> {
+    vec![
+        "Chrome".to_string(),
+        "Chromium".to_string(),
+        "Brave".to_string(),
+        "Firefox".to_string(),
+        "Edge".to_string(),
+        "Safari".to_string(),
+        "Arc".to_string(),
+    ]
+}
 
 pub fn default_safe_policy() -> ActionRules {
     ActionRules {
@@ -37,6 +49,25 @@ pub fn default_safe_policy() -> ActionRules {
                 rule_id: Some("allow-browser-read".into()),
                 target: "browser::extract".into(),
                 conditions: Default::default(),
+                action: Verdict::Allow,
+            },
+            // Low-risk browser interaction defaults.
+            Rule {
+                rule_id: Some("allow-browser-gui-click".into()),
+                target: "gui::click".into(),
+                conditions: RuleConditions {
+                    allow_apps: Some(browser_allow_apps()),
+                    ..Default::default()
+                },
+                action: Verdict::Allow,
+            },
+            Rule {
+                rule_id: Some("allow-browser-gui-type".into()),
+                target: "gui::type".into(),
+                conditions: RuleConditions {
+                    allow_apps: Some(browser_allow_apps()),
+                    ..Default::default()
+                },
                 action: Verdict::Allow,
             },
             // Allow Chat Reply

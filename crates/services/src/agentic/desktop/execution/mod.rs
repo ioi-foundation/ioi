@@ -4,6 +4,7 @@ pub mod browser;
 pub mod computer;
 pub mod filesystem;
 pub mod mcp;
+pub mod resilience;
 pub mod system;
 
 use std::collections::BTreeMap;
@@ -12,6 +13,7 @@ use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
 use tokio::sync::broadcast::Sender;
 
+use crate::agentic::desktop::types::ExecutionTier;
 use ioi_api::vm::drivers::gui::GuiDriver;
 use ioi_api::vm::drivers::os::WindowInfo;
 use ioi_api::vm::inference::InferenceRuntime;
@@ -75,6 +77,8 @@ pub struct ToolExecutor {
     // Context fields populated via builder pattern
     pub(crate) active_window: Option<WindowInfo>,
     pub(crate) target_app_hint: Option<String>,
+    pub(crate) current_tier: Option<ExecutionTier>,
+    pub(crate) expected_visual_hash: Option<[u8; 32]>,
 }
 
 impl ToolExecutor {
@@ -97,12 +101,25 @@ impl ToolExecutor {
             inference,
             active_window: None,
             target_app_hint: None,
+            current_tier: None,
+            expected_visual_hash: None,
         }
     }
 
-    pub fn with_window_context(mut self, active: Option<WindowInfo>, hint: Option<String>) -> Self {
+    pub fn with_window_context(
+        mut self,
+        active: Option<WindowInfo>,
+        hint: Option<String>,
+        tier: Option<ExecutionTier>,
+    ) -> Self {
         self.active_window = active;
         self.target_app_hint = hint;
+        self.current_tier = tier;
+        self
+    }
+
+    pub fn with_expected_visual_hash(mut self, hash: Option<[u8; 32]>) -> Self {
+        self.expected_visual_hash = hash;
         self
     }
 
