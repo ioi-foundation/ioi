@@ -70,7 +70,7 @@ impl PolicyEngine {
             ActionTarget::CommerceDiscovery => "ucp::discovery",
             ActionTarget::CommerceCheckout => "ucp::checkout",
 
-            // [NEW] OS Control Primitives
+            // --- OS Control Primitives ---
             ActionTarget::WindowFocus => "os::focus",
             ActionTarget::ClipboardRead => "clipboard::read",
             ActionTarget::ClipboardWrite => "clipboard::write",
@@ -118,7 +118,15 @@ impl PolicyEngine {
                     "ping", 
                     "whoami", 
                     "ls", 
-                    "echo"
+                    "echo",
+                    // [FIX] Whitelisted Calculator Apps and Editors
+                    "gnome-calculator",
+                    "kcalc",
+                    "calculator",
+                    "calc",
+                    "code", 
+                    "gedit",
+                    "nano"
                 ];
                 
                 if !allowed_commands.contains(&cmd) {

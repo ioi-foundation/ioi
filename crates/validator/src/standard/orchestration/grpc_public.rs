@@ -429,13 +429,14 @@ where
                                      }
                                  ))
                              },
-                             ioi_types::app::KernelEvent::AgentActionResult { session_id, step_index, tool_name, output } => {
+                            ioi_types::app::KernelEvent::AgentActionResult { session_id, step_index, tool_name, output, agent_status } => {
                                  Some(ChainEventEnum::ActionResult(
                                      ioi_ipc::public::AgentActionResult {
                                          session_id: hex::encode(session_id),
                                          step_index,
                                          tool_name,
                                          output,
+                                         agent_status,
                                      }
                                  ))
                              },

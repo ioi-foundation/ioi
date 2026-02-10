@@ -110,10 +110,11 @@ impl McpTransport {
         
         let init_fut = self.send_request("initialize", params);
         
-        match tokio::time::timeout(std::time::Duration::from_secs(180), init_fut).await {
+        // [FIX] Increase timeout to 300s (5 min) for initial npx install
+        match tokio::time::timeout(std::time::Duration::from_secs(300), init_fut).await {
             Ok(Ok(_)) => {},
             Ok(Err(e)) => return Err(anyhow!("MCP Initialize failed: {}", e)),
-            Err(_) => return Err(anyhow!("MCP Initialize timed out (180s). Check npx/network.")),
+            Err(_) => return Err(anyhow!("MCP Initialize timed out (300s). Check npx/network.")),
         }
 
         let notify = json!({

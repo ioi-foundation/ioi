@@ -9,7 +9,6 @@ use std::sync::Mutex;
 use tauri::{Manager, Emitter}; 
 
 pub async fn monitor_kernel_events(app: tauri::AppHandle) {
-    // [FIX] Outer loop to handle reconnections if the Kernel restarts or drops
     loop {
         let mut client = loop {
             match PublicApiClient::connect("http://127.0.0.1:9000").await {
@@ -18,7 +17,6 @@ pub async fn monitor_kernel_events(app: tauri::AppHandle) {
                     break c;
                 }
                 Err(_) => {
-                    // Kernel might be starting up, wait a bit
                     tokio::time::sleep(std::time::Duration::from_secs(1)).await;
                 }
             }
@@ -26,7 +24,6 @@ pub async fn monitor_kernel_events(app: tauri::AppHandle) {
 
         let request = tonic::Request::new(SubscribeEventsRequest {});
         
-        // [FIX] Handle subscription failure by continuing the outer loop instead of returning
         let mut stream = match client.subscribe_events(request).await {
             Ok(s) => s.into_inner(),
             Err(e) => {
@@ -51,12 +48,10 @@ pub async fn monitor_kernel_events(app: tauri::AppHandle) {
                                 } else {
                                     agent.current_thought = Some(thought.content.clone());
                                 }
-                                // Only set running if not already paused/requisition
                                 if agent.status != "paused" && agent.status != "requisition" {
                                     agent.status = "running".to_string();
                                 }
                             } else {
-                                // Legacy behavior for main agent task
                                 if t.current_step == "Initializing..." || t.current_step.starts_with("Executed") {
                                      t.current_step = thought.content.clone();
                                 } else {
@@ -64,7 +59,6 @@ pub async fn monitor_kernel_events(app: tauri::AppHandle) {
                                 }
                             }
                             
-                            // [FIX] Do not overwrite Gate, Complete, or Failed states with Running.
                             if t.phase != AgentPhase::Complete 
                                 && t.phase != AgentPhase::Failed 
                                 && t.phase != AgentPhase::Gate 
@@ -99,28 +93,68 @@ pub async fn monitor_kernel_events(app: tauri::AppHandle) {
                                 agent.artifacts_produced += 1;
                             }
 
-                            if res.tool_name == "agent__complete" || res.tool_name == "system::max_steps_reached" || res.tool_name == "system::auto_complete" {
-                                 t.phase = AgentPhase::Complete;
-                                 
-                                 if let Some(agent) = t.swarm_tree.iter_mut().find(|a| a.id == res.session_id) {
-                                     agent.status = "completed".to_string();
-                                 }
+                            // [FIX] STATE-BASED TRUTH
+                            // We use the authoritative status from the Kernel event instead of parsing output strings.
+                            match res.agent_status.as_str() {
+                                "Completed" => {
+                                    t.phase = AgentPhase::Complete;
+                                    
+                                    if let Some(agent) = t.swarm_tree.iter_mut().find(|a| a.id == res.session_id) {
+                                        agent.status = "completed".to_string();
+                                    }
 
-                                 t.receipt = Some(Receipt {
-                                     duration: "Done".to_string(), 
-                                     actions: t.progress,
-                                     cost: Some("$0.00".to_string()),
-                                 });
-                                 let msg = format!("Task Completed: {}", res.output);
-                                 if t.history.last().map(|m| m.text != msg).unwrap_or(true) {
-                                     t.history.push(ChatMessage { role: "system".into(), text: msg, timestamp: crate::kernel::state::now() });
-                                 }
+                                    t.receipt = Some(Receipt {
+                                        duration: "Done".to_string(), 
+                                        actions: t.progress,
+                                        cost: Some("$0.00".to_string()),
+                                    });
+                                    
+                                    let msg = format!("Task Completed: {}", res.output);
+                                    if t.history.last().map(|m| m.text != msg).unwrap_or(true) {
+                                        t.history.push(ChatMessage { role: "system".into(), text: msg, timestamp: crate::kernel::state::now() });
+                                    }
+                                },
+                                "Failed" => {
+                                    t.phase = AgentPhase::Failed;
+                                     if let Some(agent) = t.swarm_tree.iter_mut().find(|a| a.id == res.session_id) {
+                                        agent.status = "failed".to_string();
+                                    }
+                                    
+                                    // Log failure message
+                                    t.history.push(ChatMessage {
+                                        role: "system".to_string(),
+                                        text: format!("Task Failed: {}", res.output),
+                                        timestamp: crate::kernel::state::now(),
+                                    });
+                                },
+                                "Paused" => {
+                                     // ChatReply or AgentPause sets status to Paused.
+                                     // UI should reflect this, potentially hiding spinner or showing "Waiting".
+                                     // For now, we handle ChatReply specifically below for messages.
+                                     
+                                     if let Some(agent) = t.swarm_tree.iter_mut().find(|a| a.id == res.session_id) {
+                                        agent.status = "paused".to_string();
+                                     }
+                                },
+                                _ => {
+                                    // Default to Running
+                                    if t.phase != AgentPhase::Gate {
+                                        t.phase = AgentPhase::Running;
+                                    }
+                                }
                             }
                             
-                            // Handle chat__reply as a completion trigger for the UI spinner
+                            // Log chat messages for specific tools
                             if res.tool_name == "chat::reply" || res.tool_name == "chat__reply" {
-                                 t.phase = AgentPhase::Complete;
-                                 t.current_step = "Ready for input".to_string();
+                                 // Chat reply implies completion of that turn or pause for input.
+                                 // If status is Paused, we show the input bar.
+                                 // If status is Completed, we show checkmark.
+                                 
+                                 // For UI: if Paused, we treat as "Ready for Input" visually (Complete phase hides spinner)
+                                 if res.agent_status == "Paused" {
+                                     t.phase = AgentPhase::Complete; 
+                                     t.current_step = "Ready for input".to_string();
+                                 }
                                  
                                  let duplicate = t.history.last().map(|m| m.text == res.output).unwrap_or(false);
                                  if !duplicate {
@@ -131,14 +165,13 @@ pub async fn monitor_kernel_events(app: tauri::AppHandle) {
                                      });
                                  }
                             } else if res.tool_name == "system::refusal" {
-                                 // Explicitly handle refusal action result
                                  t.history.push(ChatMessage {
                                      role: "system".to_string(),
                                      text: format!("⚠️ Agent Paused: {}", res.output),
                                      timestamp: crate::kernel::state::now(),
                                  });
-                            } else if res.tool_name != "agent__complete" && res.tool_name != "system::max_steps_reached" && res.tool_name != "system::auto_complete" {
-                                 // Standard tool output
+                            } else if res.agent_status == "Running" && res.tool_name != "agent__complete" {
+                                 // Log standard tool output if running
                                  t.history.push(ChatMessage {
                                      role: "tool".to_string(),
                                      text: format!("Tool Output ({}): {}", res.tool_name, res.output),
@@ -256,7 +289,6 @@ pub async fn monitor_kernel_events(app: tauri::AppHandle) {
                         });
                     }
                     ChainEventEnum::System(update) => {
-                         // Log system updates (e.g. Optimizer crystallization) to chat
                          update_task_state(&app, |t| {
                              t.history.push(ChatMessage {
                                  role: "system".to_string(),

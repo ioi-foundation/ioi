@@ -1,49 +1,53 @@
 // Path: crates/drivers/src/browser/mod.rs
 
-use chromiumoxide::{Browser, BrowserConfig, Page};
 use chromiumoxide::cdp::browser_protocol::accessibility::{self, GetFullAxTreeParams};
+use chromiumoxide::{Browser, BrowserConfig, Page};
 use chromiumoxide_fetcher::{BrowserFetcher, BrowserFetcherOptions};
 use futures::StreamExt;
-use std::sync::Arc;
-use tokio::sync::Mutex;
-use std::time::Duration; 
-use std::path::{Path, PathBuf};
+use std::collections::HashMap;
 use std::fs;
 use std::io::Read;
+use std::path::{Path, PathBuf};
+use std::sync::{
+    atomic::{AtomicBool, Ordering},
+    Arc,
+};
+use std::time::Duration;
 use thiserror::Error;
-use std::collections::HashMap;
+use tokio::sync::Mutex;
 
 use crate::gui::accessibility::{AccessibilityNode, Rect};
-
-// [NEW] Imports for Visual Background mode
-use chromiumoxide::cdp::browser_protocol::page::{GetLayoutMetricsParams, CaptureScreenshotFormat, CaptureScreenshotParams};
-use chromiumoxide::cdp::browser_protocol::input::{DispatchMouseEventParams, MouseButton, DispatchMouseEventType};
+use chromiumoxide::cdp::browser_protocol::input::{
+    DispatchMouseEventParams, DispatchMouseEventType, MouseButton,
+};
+use chromiumoxide::cdp::browser_protocol::page::{
+    CaptureScreenshotFormat, CaptureScreenshotParams, GetLayoutMetricsParams,
+};
 
 #[derive(Debug, Error)]
 pub enum BrowserError {
     #[error("No active page")]
     NoActivePage,
-
     #[error("Tokio runtime required")]
     NoTokioRuntime,
-
     #[error("Failed to extract DOM: {0}")]
     ExtractFailed(String),
-
     #[error("Failed to navigate to {url}: {details}")]
-    NavigateFailed {
-        url: String,
-        details: String, 
-    },
-
+    NavigateFailed { url: String, details: String },
     #[error("Driver internal error: {0}")]
     Internal(String),
 }
 
-/// A driver for controlling a headless Chrome instance via CDP.
 pub struct BrowserDriver {
     browser: Arc<Mutex<Option<Arc<Browser>>>>,
     active_page: Arc<Mutex<Option<Page>>>,
+    // Tracks if the background websocket handler loop is running
+    handler_alive: Arc<AtomicBool>,
+
+    // [NEW] Lease for demand-driven activation.
+    // If false, the driver stays cold and will NOT restart on failure.
+    // This prevents the watchdog from spawning headed Chromium during non-browser tasks.
+    lease_active: Arc<AtomicBool>,
 }
 
 impl BrowserDriver {
@@ -51,6 +55,18 @@ impl BrowserDriver {
         Self {
             browser: Arc::new(Mutex::new(None)),
             active_page: Arc::new(Mutex::new(None)),
+            handler_alive: Arc::new(AtomicBool::new(false)),
+            lease_active: Arc::new(AtomicBool::new(false)), // Starts cold
+        }
+    }
+
+    // [NEW] Public API to control the lease
+    pub fn set_lease(&self, active: bool) {
+        let prev = self.lease_active.swap(active, Ordering::SeqCst);
+        if active && !prev {
+            log::info!(target: "browser", "Browser lease ACQUIRED. Driver is now hot.");
+        } else if !active && prev {
+            log::info!(target: "browser", "Browser lease RELEASED. Driver will go cold on next error.");
         }
     }
 
@@ -70,10 +86,14 @@ impl BrowserDriver {
             Err(_) => return false,
         };
 
-        if !real_path.is_file() { return false; }
+        if !real_path.is_file() {
+            return false;
+        }
 
         if let Ok(meta) = real_path.metadata() {
-            if meta.permissions().mode() & 0o111 == 0 { return false; }
+            if meta.permissions().mode() & 0o111 == 0 {
+                return false;
+            }
         } else {
             return false;
         }
@@ -83,7 +103,9 @@ impl BrowserDriver {
             Err(_) => return false,
         };
         let mut magic = [0u8; 4];
-        if f.read_exact(&mut magic).is_err() { return false; }
+        if f.read_exact(&mut magic).is_err() {
+            return false;
+        }
 
         magic == [0x7f, b'E', b'L', b'F']
     }
@@ -96,8 +118,8 @@ impl BrowserDriver {
     fn find_chrome_binary() -> Option<PathBuf> {
         if let Ok(path) = std::env::var("CHROME_BIN") {
             let p = PathBuf::from(path);
-            if Self::is_executable_binary(&p) { 
-                return Some(p); 
+            if Self::is_executable_binary(&p) {
+                return Some(p);
             }
         }
 
@@ -121,43 +143,95 @@ impl BrowserDriver {
         None
     }
 
+    /// Detects if an error implies the browser process or websocket is dead.
+    async fn check_connection_error<T>(
+        &self,
+        result: Result<T, impl std::fmt::Display>,
+    ) -> Result<T, BrowserError> {
+        match result {
+            Ok(v) => Ok(v),
+            Err(e) => {
+                let msg = e.to_string();
+                if msg.contains("receiver is gone")
+                    || msg.contains("channel closed")
+                    || msg.contains("connection reset")
+                    || msg.contains("broken pipe")
+                {
+                    log::warn!(target: "browser", "Connection died ({}), forcing reset.", msg);
+                    self.force_reset().await;
+                    return Err(BrowserError::Internal(
+                        "Browser connection lost. Retry the action.".into(),
+                    ));
+                }
+                Err(BrowserError::Internal(msg))
+            }
+        }
+    }
+
+    async fn force_reset(&self) {
+        let mut b_guard = self.browser.lock().await;
+        *b_guard = None;
+        let mut p_guard = self.active_page.lock().await;
+        *p_guard = None;
+        self.handler_alive.store(false, Ordering::SeqCst);
+    }
+
+    async fn is_healthy(&self) -> bool {
+        // 1. Primary Check: Is the event loop running?
+        if !self.handler_alive.load(Ordering::Relaxed) {
+            return false;
+        }
+
+        // 2. Secondary Check: Can we ping the browser?
+        // CLONE the arc to avoid holding the lock across the await
+        let browser_arc = {
+            let guard = self.browser.lock().await;
+            guard.clone()
+        };
+
+        if let Some(b) = browser_arc {
+            return b.version().await.is_ok();
+        }
+        false
+    }
+
     pub async fn launch(&self, headless: bool) -> std::result::Result<(), BrowserError> {
         self.require_runtime()?;
-        
-        let mut guard = self.browser.lock().await;
-        if guard.is_some() {
+
+        if self.is_healthy().await {
             return Ok(());
         }
 
+        self.force_reset().await;
+
         let bin_path = Self::find_chrome_binary();
         if let Some(ref p) = bin_path {
-             log::info!(target: "browser", "Resolved system Chrome binary: {:?}", p);
+            log::info!(target: "browser", "Resolved system Chrome binary: {:?}", p);
         } else {
-             log::warn!(target: "browser", "No verified system binary found. Preparing to fetch...");
+            log::warn!(target: "browser", "No verified system binary found. Preparing to fetch...");
         }
 
-        // [FIX] Robust flags for container/headless stability
         let mut delta_args = vec![
-            "--disable-dev-shm-usage".to_string(), 
+            "--disable-dev-shm-usage".to_string(),
             "--disable-gpu".to_string(),
-            // "--no-zygote".to_string(), // Removed to prevent sandbox conflict on Linux
             "--disable-infobars".to_string(),
-            "--start-maximized".to_string(), // Added for visual agents
+            "--start-maximized".to_string(),
             "--disable-software-rasterizer".to_string(),
-            "--disable-setuid-sandbox".to_string(), 
+            "--disable-setuid-sandbox".to_string(),
             "--disable-extensions".to_string(),
         ];
-
         if headless {
             delta_args.push("--headless=new".to_string());
         }
-        
-        if std::env::var("CI").is_ok() || std::env::var("NO_SANDBOX").is_ok() || unsafe { libc::geteuid() == 0 } {
+        if std::env::var("CI").is_ok()
+            || std::env::var("NO_SANDBOX").is_ok()
+            || unsafe { libc::geteuid() == 0 }
+        {
             delta_args.push("--no-sandbox".to_string());
         }
 
         let run_launch_attempt = |bin: Option<PathBuf>, extra_args: Vec<String>| async move {
-            let args_owned = extra_args; 
+            let args_owned = extra_args;
 
             log::info!(target: "browser", "Launching chromium (bin={:?}) args_count={}", bin, args_owned.len());
 
@@ -166,9 +240,7 @@ impl BrowserDriver {
                 if let Some(ref b) = bin {
                     builder = builder.chrome_executable(b);
                 }
-                
-                // [FIX] Explicitly disable headless mode if requested.
-                // Chromiumoxide defaults to headless unless with_head() is called.
+
                 if !headless {
                     builder = builder.with_head();
                 }
@@ -177,16 +249,16 @@ impl BrowserDriver {
             };
 
             match config_res {
-                Ok(cfg) => {
-                    match Browser::launch(cfg).await {
-                        Ok(tuple) => return Ok(tuple),
-                        Err(e) => {
-                             let msg = e.to_string();
-                             if !msg.contains("unknown flag") && !msg.contains("disable-background-networking") {
-                                 return Err(msg);
-                             }
-                             log::warn!(target: "browser", "Wrapper rejected flags ({}). Retrying with sanitized flags...", msg);
+                Ok(cfg) => match Browser::launch(cfg).await {
+                    Ok(tuple) => return Ok(tuple),
+                    Err(e) => {
+                        let msg = e.to_string();
+                        if !msg.contains("unknown flag")
+                            && !msg.contains("disable-background-networking")
+                        {
+                            return Err(msg);
                         }
+                        log::warn!(target: "browser", "Wrapper rejected flags ({}). Retrying with sanitized flags...", msg);
                     }
                 },
                 Err(e) => return Err(format!("Config failed: {}", e)),
@@ -200,7 +272,7 @@ impl BrowserDriver {
                 "--disable-component-extensions-with-background-pages".to_string(),
                 "--disable-default-apps".to_string(),
                 "--disable-extensions".to_string(),
-                "--disable-features=Translate".to_string(), 
+                "--disable-features=Translate".to_string(),
                 "--disable-hang-monitor".to_string(),
                 "--disable-ipc-flooding-protection".to_string(),
                 "--disable-popup-blocking".to_string(),
@@ -214,62 +286,68 @@ impl BrowserDriver {
                 "--password-store=basic".to_string(),
                 "--use-mock-keychain".to_string(),
             ];
-            
+
             for arg in args_owned {
                 fallback_args.push(arg);
             }
-            
+
             let mut fallback_builder = BrowserConfig::builder();
             if let Some(ref b) = bin {
                 fallback_builder = fallback_builder.chrome_executable(b);
             }
-            
-            // [FIX] Apply headed mode to fallback builder as well
+
             if !headless {
                 fallback_builder = fallback_builder.with_head();
             }
-            
+
             let config_fallback = fallback_builder
                 .disable_default_args()
                 .args(fallback_args)
                 .build()
                 .map_err(|e| format!("Fallback config failed: {}", e))?;
 
-            Browser::launch(config_fallback).await.map_err(|e| e.to_string())
+            Browser::launch(config_fallback)
+                .await
+                .map_err(|e| e.to_string())
         };
 
         let mut launch_result = run_launch_attempt(bin_path.clone(), delta_args.clone()).await;
 
         if let Err(ref e) = launch_result {
-            let is_early_exit = e.contains("before websocket URL could be resolved") ||
-                                e.contains("unexpected end of stream") ||
-                                e.contains("Input/Output error while resolving websocket URL") ||
-                                e.contains("exited with status");
-                                
-            let is_exec_missing = e.contains("No such file") || e.contains("not found") || e.contains("ENOENT");
-            let is_glibc = e.contains("GLIBC"); 
+            let is_early_exit = e.contains("before websocket URL could be resolved")
+                || e.contains("unexpected end of stream")
+                || e.contains("Input/Output error while resolving websocket URL")
+                || e.contains("exited with status");
+
+            let is_exec_missing =
+                e.contains("No such file") || e.contains("not found") || e.contains("ENOENT");
+            let is_glibc = e.contains("GLIBC");
             let missing = bin_path.is_none();
 
             if is_early_exit || is_exec_missing || is_glibc || missing {
                 log::warn!(target: "browser", "System browser failed or missing (Error: {}). Fetching compatible Chromium...", e);
-                
+
                 let cache_path = PathBuf::from("./ioi-data/browser_cache");
-                
-                std::fs::create_dir_all(&cache_path)
-                    .map_err(|e| BrowserError::Internal(format!("Failed to create cache dir: {}", e)))?;
+
+                std::fs::create_dir_all(&cache_path).map_err(|e| {
+                    BrowserError::Internal(format!("Failed to create cache dir: {}", e))
+                })?;
 
                 let options = BrowserFetcherOptions::builder()
                     .with_path(cache_path)
                     .build()
-                    .map_err(|err| BrowserError::Internal(format!("Failed to build fetcher options: {}", err)))?;
+                    .map_err(|err| {
+                        BrowserError::Internal(format!("Failed to build fetcher options: {}", err))
+                    })?;
 
                 let fetcher = BrowserFetcher::new(options);
-                
+
                 match fetcher.fetch().await {
                     Ok(info) => {
                         log::info!(target: "browser", "Fetched Chromium at {:?}", info.executable_path);
-                        launch_result = run_launch_attempt(Some(info.executable_path), delta_args).await;
-                    },
+                        launch_result =
+                            run_launch_attempt(Some(info.executable_path), delta_args).await;
+                    }
                     Err(fe) => {
                         log::error!(target: "browser", "Failed to fetch Chromium: {}", fe);
                     }
@@ -278,197 +356,236 @@ impl BrowserDriver {
         }
 
         let (browser, mut handler) = launch_result.map_err(|e| BrowserError::Internal(e))?;
-        
+
+        let alive_signal = self.handler_alive.clone();
+
         tokio::spawn(async move {
+            // Set alive INSIDE the task to ensure it matches loop lifecycle
+            alive_signal.store(true, Ordering::SeqCst);
             while let Some(h) = handler.next().await {
-                if h.is_err() { break; }
+                if h.is_err() {
+                    break;
+                }
             }
+            alive_signal.store(false, Ordering::SeqCst);
+            log::warn!(target: "browser", "Chromium event loop exited.");
         });
 
+        let mut guard = self.browser.lock().await;
         *guard = Some(Arc::new(browser));
+        Ok(())
+    }
+
+    async fn ensure_page(&self) -> std::result::Result<(), BrowserError> {
+        if !self.is_healthy().await {
+            // [NEW] Check lease before restarting
+            if !self.lease_active.load(Ordering::SeqCst) {
+                return Err(BrowserError::Internal(
+                    "Browser is cold (No Lease). Call set_lease(true) before use.".into(),
+                ));
+            }
+
+            log::warn!(target: "browser", "Browser disconnected or dead. Restarting...");
+            self.launch(false).await?;
+
+            // Re-acquire browser handle safely
+            let browser_arc = { self.browser.lock().await.clone() };
+
+            if let Some(b) = browser_arc {
+                let page = b
+                    .new_page("about:blank")
+                    .await
+                    .map_err(|e| BrowserError::Internal(format!("Failed to create page: {}", e)))?;
+                *self.active_page.lock().await = Some(page);
+                return Ok(());
+            } else {
+                return Err(BrowserError::Internal(
+                    "Browser init failed during recovery".into(),
+                ));
+            }
+        }
+
+        let has_page = self.active_page.lock().await.is_some();
+        if !has_page {
+            let browser_arc = { self.browser.lock().await.clone() };
+            if let Some(b) = browser_arc {
+                let page = b
+                    .new_page("about:blank")
+                    .await
+                    .map_err(|e| BrowserError::Internal(format!("Failed to create page: {}", e)))?;
+                *self.active_page.lock().await = Some(page);
+            }
+        }
         Ok(())
     }
 
     pub async fn navigate(&self, url: &str) -> std::result::Result<String, BrowserError> {
         self.require_runtime()?;
         self.ensure_page().await?;
-        
-        let page = {
-            let guard = self.active_page.lock().await;
-            guard.clone()
-        };
 
+        let page = { self.active_page.lock().await.clone() };
         if let Some(p) = page {
-            // [FIX] Force browser window to front to prevent focus stealing bug
-            // This ensures that subsequent keyboard events are sent to the correct OS window,
-            // preventing the agent from typing into the Autopilot chat UI instead of the browser.
-            p.bring_to_front().await.map_err(|e| BrowserError::Internal(e.to_string()))?;
-
-            p.goto(url)
+            p.bring_to_front()
                 .await
-                .map_err(|e| BrowserError::NavigateFailed { url: url.to_string(), details: e.to_string() })?
+                .map_err(|e| BrowserError::Internal(e.to_string()))?;
+
+            // Wrap interactions in check_connection_error
+            self.check_connection_error(p.goto(url).await)
+                .await?
                 .wait_for_navigation()
                 .await
-                .map_err(|e| BrowserError::NavigateFailed { url: url.to_string(), details: e.to_string() })?;
-            
-            let content = p.content().await.map_err(|e| BrowserError::ExtractFailed(e.to_string()))?;
+                .map_err(|e| BrowserError::NavigateFailed {
+                    url: url.into(),
+                    details: e.to_string(),
+                })?;
+
+            let content = self.check_connection_error(p.content().await).await?;
             Ok(content)
-        } else {
-            Err(BrowserError::Internal("ensure_page succeeded but active_page is None".into()))
-        }
-    }
-
-    pub async fn extract_dom(&self) -> std::result::Result<String, BrowserError> {
-        self.require_runtime()?;
-        
-        let page = {
-            let guard = self.active_page.lock().await;
-            guard.clone()
-        };
-
-        if let Some(p) = page {
-            p.content().await.map_err(|e| BrowserError::ExtractFailed(e.to_string()))
         } else {
             Err(BrowserError::NoActivePage)
         }
     }
 
-    /// Level 2: Capture screenshot of the *rendered tab* only (in memory).
-    /// This works even if the window is minimized or behind other windows.
+    pub async fn extract_dom(&self) -> std::result::Result<String, BrowserError> {
+        self.require_runtime()?;
+        self.ensure_page().await?;
+
+        let page = { self.active_page.lock().await.clone() };
+        if let Some(p) = page {
+            self.check_connection_error(p.content().await).await
+        } else {
+            Err(BrowserError::NoActivePage)
+        }
+    }
+
     pub async fn capture_tab_screenshot(&self) -> std::result::Result<Vec<u8>, BrowserError> {
         self.require_runtime()?;
-        let page = {
-            let guard = self.active_page.lock().await;
-            guard.clone()
-        }.ok_or(BrowserError::NoActivePage)?;
-
+        self.ensure_page().await?;
+        let page = { self.active_page.lock().await.clone() }.ok_or(BrowserError::NoActivePage)?;
         let params = CaptureScreenshotParams::builder()
             .format(CaptureScreenshotFormat::Jpeg)
             .quality(80)
             .build();
-
-        // [FIX] Use `screenshot` method instead of `capture_screenshot` if `capture_screenshot` is missing from `Page`.
-        // The error log suggests `capture_screenshot` is missing from `Page` struct directly, but `screenshot` exists.
-        let bytes = page.screenshot(params).await
+        let bytes = page
+            .screenshot(params)
+            .await
             .map_err(|e| BrowserError::Internal(format!("Tab screenshot failed: {}", e)))?;
-
         Ok(bytes)
     }
 
-    /// Level 2: Synthetic Click.
-    /// Sends a click event directly to the browser process at (x,y).
-    /// Does NOT move the physical mouse cursor.
     pub async fn synthetic_click(&self, x: f64, y: f64) -> std::result::Result<(), BrowserError> {
         self.require_runtime()?;
-        let page = {
-            let guard = self.active_page.lock().await;
-            guard.clone()
-        }.ok_or(BrowserError::NoActivePage)?;
+        self.ensure_page().await?;
 
-        // [FIX] Unwrap the builder() results and handle errors
-        // [FIX] Use DispatchMouseEventType::MouseMoved etc.
-        
-        // Move virtual mouse
+        let page = { self.active_page.lock().await.clone() }.ok_or(BrowserError::NoActivePage)?;
+
         let cmd_move = DispatchMouseEventParams::builder()
             .r#type(DispatchMouseEventType::MouseMoved)
-            .x(x).y(y).build().map_err(|e| BrowserError::Internal(e))?;
-            
+            .x(x)
+            .y(y)
+            .build()
+            .map_err(|e| BrowserError::Internal(e))?;
         page.execute(cmd_move).await.ok();
 
-        // Click down
         let cmd_down = DispatchMouseEventParams::builder()
             .r#type(DispatchMouseEventType::MousePressed)
             .button(MouseButton::Left)
-            .x(x).y(y).click_count(1).build().map_err(|e| BrowserError::Internal(e))?;
-            
+            .x(x)
+            .y(y)
+            .click_count(1)
+            .build()
+            .map_err(|e| BrowserError::Internal(e))?;
         page.execute(cmd_down).await.ok();
 
-        // Release
         let cmd_up = DispatchMouseEventParams::builder()
             .r#type(DispatchMouseEventType::MouseReleased)
             .button(MouseButton::Left)
-            .x(x).y(y).click_count(1).build().map_err(|e| BrowserError::Internal(e))?;
-
+            .x(x)
+            .y(y)
+            .click_count(1)
+            .build()
+            .map_err(|e| BrowserError::Internal(e))?;
         page.execute(cmd_up).await.ok();
 
         Ok(())
     }
 
-    /// Returns the content offset (x, y) relative to the browser window.
-    /// This accounts for the URL bar, tabs, and bookmarks bar dynamically.
     pub async fn get_content_offset(&self) -> std::result::Result<(i32, i32), BrowserError> {
         self.require_runtime()?;
-        let page = {
-            let guard = self.active_page.lock().await;
-            guard.clone()
-        }.ok_or(BrowserError::NoActivePage)?;
+        self.ensure_page().await?;
 
-        // CSS Content viewport relative to the window
-        let metrics = page.execute(GetLayoutMetricsParams::default()).await
+        let page = { self.active_page.lock().await.clone() }.ok_or(BrowserError::NoActivePage)?;
+
+        let metrics = page
+            .execute(GetLayoutMetricsParams::default())
+            .await
             .map_err(|e| BrowserError::Internal(format!("Failed to get layout metrics: {}", e)))?;
 
-        // [FIX] Use css_visual_viewport field
-        let x = metrics.css_visual_viewport.page_x; 
-        let y = metrics.css_visual_viewport.page_y; 
-        
+        let x = metrics.css_visual_viewport.page_x;
+        let y = metrics.css_visual_viewport.page_y;
+
         Ok((x as i32, y as i32))
     }
 
-    pub async fn get_accessibility_tree(&self) -> std::result::Result<AccessibilityNode, BrowserError> {
+    pub async fn get_accessibility_tree(
+        &self,
+    ) -> std::result::Result<AccessibilityNode, BrowserError> {
         self.require_runtime()?;
-        
-        let page = {
-            let guard = self.active_page.lock().await;
-            guard.clone()
-        };
+        self.ensure_page().await?;
 
+        let page = { self.active_page.lock().await.clone() };
         let p = page.ok_or(BrowserError::NoActivePage)?;
 
-        p.execute(accessibility::EnableParams::default()).await
+        p.execute(accessibility::EnableParams::default())
+            .await
             .map_err(|e| BrowserError::Internal(format!("CDP AxEnable failed: {}", e)))?;
 
-        // [FIX] Clone the nodes from the response to avoid move error.
-        let nodes_vec = p.execute(GetFullAxTreeParams::default()).await
+        let nodes_vec = p
+            .execute(GetFullAxTreeParams::default())
+            .await
             .map_err(|e| BrowserError::Internal(format!("CDP GetAxTree failed: {}", e)))?
             .nodes
             .clone();
 
         if nodes_vec.is_empty() {
-            return Err(BrowserError::Internal("Empty accessibility tree returned".into()));
+            return Err(BrowserError::Internal(
+                "Empty accessibility tree returned".into(),
+            ));
         }
 
         let root_ax = &nodes_vec[0];
         Ok(self.convert_ax_node(root_ax, &nodes_vec))
     }
 
-    /// Fetches the Accessibility Tree populated with Bounding Boxes (Quads).
-    /// Replaces the current `get_accessibility_tree` to ensure `Rect` is accurate for Visual Mode.
     pub async fn get_visual_tree(&self) -> std::result::Result<AccessibilityNode, BrowserError> {
         self.require_runtime()?;
-        let page = {
-            let guard = self.active_page.lock().await;
-            guard.clone()
-        }.ok_or(BrowserError::NoActivePage)?;
+        self.ensure_page().await?;
 
-        // Force layout update
-        page.execute(accessibility::EnableParams::default()).await.ok();
+        let page = { self.active_page.lock().await.clone() }.ok_or(BrowserError::NoActivePage)?;
 
-        // Get snapshot with boxes
-        let snapshot = page.execute(accessibility::GetFullAxTreeParams::default()).await
+        page.execute(accessibility::EnableParams::default())
+            .await
+            .ok();
+
+        let snapshot = page
+            .execute(accessibility::GetFullAxTreeParams::default())
+            .await
             .map_err(|e| BrowserError::Internal(format!("GetFullAxTree failed: {}", e)))?;
 
-        // [FIX] Clone the nodes from the snapshot
         let nodes = snapshot.nodes.clone();
-        
+
         if nodes.is_empty() {
-             return Err(BrowserError::Internal("Empty tree".into()));
+            return Err(BrowserError::Internal("Empty tree".into()));
         }
 
-        // Use the DOM root
         Ok(self.convert_ax_node(&nodes[0], &nodes))
     }
 
-    fn convert_ax_node(&self, ax_node: &accessibility::AxNode, all_nodes: &[accessibility::AxNode]) -> AccessibilityNode {
+    fn convert_ax_node(
+        &self,
+        ax_node: &accessibility::AxNode,
+        all_nodes: &[accessibility::AxNode],
+    ) -> AccessibilityNode {
         let mut children = Vec::new();
         if let Some(child_ids) = &ax_node.child_ids {
             for cid in child_ids {
@@ -482,7 +599,15 @@ impl BrowserDriver {
             val_opt.as_ref().and_then(|v| {
                 if let Some(inner) = &v.value {
                     if let Some(s) = inner.as_str() {
-                        if s.is_empty() { None } else { Some(s.to_string()) }
+                        if s.is_empty() {
+                            None
+                        } else {
+                            Some(s.to_string())
+                        }
+                    } else if let Some(b) = inner.as_bool() {
+                        Some(b.to_string())
+                    } else if let Some(n) = inner.as_f64() {
+                        Some(n.to_string())
                     } else {
                         None
                     }
@@ -493,18 +618,64 @@ impl BrowserDriver {
         }
 
         let name = extract_string(&ax_node.name);
-        let value = extract_string(&ax_node.value);
+        let mut value = extract_string(&ax_node.value);
         let role = extract_string(&ax_node.role)
             .map(|s| s.to_lowercase())
             .unwrap_or_else(|| "generic".to_string());
 
         let is_visible = !ax_node.ignored;
         let id_string: String = ax_node.node_id.clone().into();
-        
-        // Use a dummy rect for now, or populate via separate DOM query if critical.
-        // For Hybrid Level 2, we rely on synthetic clicking or the VLM's inherent visual understanding.
-        let rect = Rect { x: 0, y: 0, width: 0, height: 0 }; 
-        let attributes = HashMap::new();
+
+        let mut attributes = HashMap::new();
+        if let Some(desc) = extract_string(&ax_node.description) {
+            attributes.insert("description".to_string(), desc.clone());
+            if value.is_none() {
+                value = Some(desc);
+            }
+        }
+        if let Some(chrome_role) = extract_string(&ax_node.chrome_role) {
+            attributes.insert("chrome_role".to_string(), chrome_role);
+        }
+
+        if let Some(props) = &ax_node.properties {
+            for prop in props {
+                let key = prop.name.as_ref().to_ascii_lowercase();
+                if key.is_empty() {
+                    continue;
+                }
+                if let Some(raw_val) = &prop.value.value {
+                    let parsed = if let Some(s) = raw_val.as_str() {
+                        if s.is_empty() {
+                            None
+                        } else {
+                            Some(s.to_string())
+                        }
+                    } else if let Some(b) = raw_val.as_bool() {
+                        Some(b.to_string())
+                    } else if let Some(n) = raw_val.as_f64() {
+                        Some(n.to_string())
+                    } else {
+                        None
+                    };
+
+                    if let Some(parsed_val) = parsed {
+                        attributes.insert(key.clone(), parsed_val.clone());
+                        if value.is_none()
+                            && matches!(key.as_str(), "valuetext" | "roledescription")
+                        {
+                            value = Some(parsed_val);
+                        }
+                    }
+                }
+            }
+        }
+
+        let rect = Rect {
+            x: 0,
+            y: 0,
+            width: 0,
+            height: 0,
+        };
 
         AccessibilityNode {
             id: id_string,
@@ -515,59 +686,31 @@ impl BrowserDriver {
             children,
             is_visible,
             attributes,
+            som_id: None,
         }
     }
 
     pub async fn click_selector(&self, selector: &str) -> std::result::Result<(), BrowserError> {
         self.require_runtime()?;
-        
-        let page = {
-            let guard = self.active_page.lock().await;
-            guard.clone()
-        };
+        self.ensure_page().await?;
+
+        let page = { self.active_page.lock().await.clone() };
 
         if let Some(p) = page {
-             let element = p.find_element(selector)
+            let element = p
+                .find_element(selector)
                 .await
                 .map_err(|e| BrowserError::Internal(format!("Element not found: {}", e)))?;
-             
-             element.click()
+
+            element
+                .click()
                 .await
                 .map_err(|e| BrowserError::Internal(format!("Click failed: {}", e)))?;
-                
-             tokio::time::sleep(Duration::from_millis(100)).await;
-             Ok(())
-        } else {
-            Err(BrowserError::NoActivePage)
-        }
-    }
 
-    async fn ensure_page(&self) -> std::result::Result<(), BrowserError> {
-        {
-            let guard = self.active_page.lock().await;
-            if guard.is_some() { return Ok(()); }
-        }
-
-        // [FIX] Launch in HEADED mode by default for Desktop Agent, so we can escalate to Level 3.
-        // If we launch headless, we cannot later attach the OS window for visual feedback.
-        self.launch(false).await?;
-
-        let browser: Option<Arc<Browser>> = {
-            let guard = self.browser.lock().await;
-            guard.clone() 
-        };
-
-        if let Some(b) = browser {
-            let page = b.new_page("about:blank").await
-                .map_err(|e| BrowserError::Internal(format!("Failed to create page: {}", e)))?;
-            
-            let mut guard = self.active_page.lock().await;
-            if guard.is_none() {
-                *guard = Some(page);
-            }
+            tokio::time::sleep(Duration::from_millis(100)).await;
             Ok(())
         } else {
-            Err(BrowserError::Internal("Browser initialized but handle missing".into()))
+            Err(BrowserError::NoActivePage)
         }
     }
 }

@@ -167,6 +167,11 @@ pub struct ApprovalToken {
     pub request_hash: [u8; 32],
     /// Constraints on the approval (e.g., max times usage, expiration).
     pub scope: ApprovalScope,
+    
+    /// [NEW] The hash of the visual context (screenshot) the user saw when approving.
+    /// Used to restore the correct Set-of-Marks mapping.
+    pub visual_hash: Option<[u8; 32]>,
+
     /// Signature by the user's Local DID (Device Key).
     pub approver_sig: Vec<u8>,
     /// The cryptographic suite used for the signature.

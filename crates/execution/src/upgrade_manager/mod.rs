@@ -39,6 +39,10 @@ struct OnChainManifest {
     // [NEW] Allow author field in TOML
     #[serde(default)]
     author: Option<String>, // Hex encoded account ID
+
+    /// [NEW] Regex for window context
+    #[serde(default)]
+    context_filter: Option<String>,
 }
 
 impl OnChainManifest {
@@ -94,6 +98,7 @@ impl OnChainManifest {
             generation_id: 0,
             parent_hash: None,
             author: author_id, // [FIX] Initialized
+            context_filter: self.context_filter, // [NEW] Map field
         })
     }
 }

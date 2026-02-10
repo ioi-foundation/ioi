@@ -68,6 +68,10 @@ atty = "0.2"
 ahash = "0.8"
 parking_lot = "0.12"
 
+# [NEW] Dependencies for Embedded App Host & Agent Binary
+rust-embed = "8.0"
+mime_guess = "2.0"
+
 # Candle ML Framework (Optional)
 candle-core = { version = "0.3.3", optional = true }
 candle-nn = { version = "0.3.3", optional = true }
@@ -240,3 +244,9 @@ required-features = ["provider-mode"]
 name = "ioi-bridge"
 path = "src/bin/ioi-validator.rs" # Reuses validator main, just different features
 required-features = ["bridge-mode"]
+
+# [NEW] The Agent Runtime Binary
+[[bin]]
+name = "ioi-agent"
+path = "src/bin/ioi-agent.rs"
+required-features = ["local-mode"]

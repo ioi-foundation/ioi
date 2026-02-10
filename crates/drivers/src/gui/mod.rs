@@ -18,7 +18,7 @@ use self::accessibility::{MockSubstrateProvider, SovereignSubstrateProvider, Rec
 use self::platform::NativeSubstrateProvider;
 
 use self::som::{overlay_accessibility_tree, redact_sensitive_regions}; 
-use self::lenses::{LensRegistry, react::ReactLens};
+use self::lenses::{LensRegistry, react::ReactLens, auto::AutoLens, AppLens}; // [FIX] Import AutoLens
 
 use ioi_scs::SovereignContextStore;
 use ioi_types::app::KernelEvent;
@@ -51,7 +51,10 @@ impl IoiGuiDriver {
             Box::new(MockSubstrateProvider);
 
         let mut lens_registry = LensRegistry::new();
+        // High-Priority: React/Electron apps
         lens_registry.register(Box::new(ReactLens)); 
+        // Fallback: Universal Heuristic Lens
+        lens_registry.register(Box::new(AutoLens));
 
         Self {
             operator: NativeOperator::new(),
@@ -78,6 +81,11 @@ impl IoiGuiDriver {
     pub fn with_som(mut self, enabled: bool) -> Self {
         self.enable_som = enabled;
         self
+    }
+    
+    // [NEW] Public API to register custom lenses
+    pub fn register_lens(&mut self, lens: Box<dyn AppLens>) {
+        self.lens_registry.register(lens);
     }
 
     /// [NEW] Manually injects a Set-of-Marks mapping into the cache.
@@ -213,18 +221,39 @@ impl GuiDriver for IoiGuiDriver {
         // 2. Identify Active Window for Lens Selection
         let window_title = raw_tree.name.as_deref().unwrap_or("");
 
-        // 3. Apply Lens (Filter "Div Soup")
-        let xml_content = if let Some(lens) = self.lens_registry.select(window_title) {
+        // 3. Apply Lens (Filter "Div Soup") with ROBUST FALLBACK
+        let mut xml_content = String::new();
+        let mut lens_applied = false;
+
+        // Try specific lens first
+        if let Some(lens) = self.lens_registry.select(window_title) {
             log::info!("Applying Application Lens: {}", lens.name());
             if let Some(transformed) = lens.transform(&raw_tree) {
-                lens.render(&transformed, 0)
-            } else {
-                String::new() // Filtered out
+                let rendered = lens.render(&transformed, 0);
+                if !rendered.trim().is_empty() {
+                    xml_content = rendered;
+                    lens_applied = true;
+                }
             }
-        } else {
-            // Fallback to standard serializer
-            serialize_tree_to_xml(&raw_tree, 0)
-        };
+        }
+
+        // If specific lens failed or returned empty (e.g. Electron app structure changed),
+        // FORCE the AutoLens (Universal Heuristic).
+        if !lens_applied {
+             log::warn!("Primary lens failed or returned empty. Falling back to AutoLens (Unstoppable Mode).");
+             // [FIX] Directly instantiate AutoLens to ensure we always have it
+             let auto = self::lenses::auto::AutoLens;
+             if let Some(transformed) = auto.transform(&raw_tree) {
+                 xml_content = auto.render(&transformed, 0);
+             }
+        }
+        
+        // If STILL empty, it means the OS tree itself is empty or invisible.
+        // We return raw XML of the root as a last resort diagnostics.
+        if xml_content.trim().is_empty() {
+             log::warn!("AutoLens returned empty. Returning raw OS root for diagnostics.");
+             xml_content = serialize_tree_to_xml(&raw_tree, 0);
+        }
 
         // 4. Manually commit to Substrate (Active Observation)
         // We use the substrate provider to handle the storage framing,

@@ -1,17 +1,21 @@
 // Path: crates/services/src/agentic/desktop/utils.rs
 
 use crate::agentic::desktop::keys::{TRACE_PREFIX};
+use crate::agentic::desktop::types::{AgentState, AgentStatus};
 use ioi_api::state::StateAccess;
 use ioi_types::app::agentic::StepTrace;
 use ioi_types::app::KernelEvent;
 use ioi_types::codec;
 use ioi_types::error::TransactionError;
 
-use image::load_from_memory;
+use image::load_from_memory; // [FIX] Added missing import
 use image_hasher::{HashAlg, HasherConfig};
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use super::types::{AgentState, AgentStatus};
+/// Helper to get a string representation of the agent status for event emission.
+fn get_status_str(status: &AgentStatus) -> String {
+    format!("{:?}", status).split('(').next().unwrap_or("Unknown").to_string()
+}
 
 pub fn compute_phash(image_bytes: &[u8]) -> Result<[u8; 32], TransactionError> {
     let img = load_from_memory(image_bytes)
@@ -40,6 +44,7 @@ pub fn goto_trace_log(
     action_error: Option<String>,
     action_type: String,
     event_sender: Option<tokio::sync::broadcast::Sender<KernelEvent>>,
+    skill_hash: Option<[u8; 32]>,
 ) -> Result<(), TransactionError> {
     let trace = StepTrace {
         session_id,
@@ -49,9 +54,9 @@ pub fn goto_trace_log(
         raw_output: output_str,
         success: action_success,
         error: action_error.clone(),
-        // [FIX] Initialize new evolutionary fields
         cost_incurred: 0,
         fitness_score: None,
+        skill_hash, 
         timestamp: SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .unwrap()
@@ -63,10 +68,7 @@ pub fn goto_trace_log(
 
     if let Some(tx) = &event_sender {
         let event = KernelEvent::AgentStep(trace.clone());
-        match tx.send(event) {
-            Ok(count) => log::info!(target: "agent_driver", "Emitted AgentStep event to {} subscribers. Step: {}", count, trace.step_index),
-            Err(_) => log::warn!(target: "agent_driver", "Failed to emit AgentStep event (no subscribers)"),
-        }
+        let _ = tx.send(event);
     }
 
     if let Some(_e) = action_error {
@@ -75,22 +77,18 @@ pub fn goto_trace_log(
         agent_state.consecutive_failures = 0;
     }
 
-    // [FIX] REMOVED: agent_state.step_count += 1;
-    // The step count increment is now handled by the caller (action.rs / queue.rs)
-    // to ensure we don't advance the nonce while waiting for a Policy Gate.
-
     agent_state.last_action_type = Some(action_type);
 
     if agent_state.step_count >= agent_state.max_steps && agent_state.status == AgentStatus::Running {
         agent_state.status = AgentStatus::Completed(None);
         
-        // Emit completion event so UI knows to stop when max steps reached
         if let Some(tx) = &event_sender {
              let _ = tx.send(KernelEvent::AgentActionResult {
-                 session_id: session_id, 
+                 session_id, 
                  step_index: agent_state.step_count,
                  tool_name: "system::max_steps_reached".to_string(),
                  output: "Max steps reached. Task completed.".to_string(),
+                 agent_status: get_status_str(&agent_state.status),
              });
         }
     }

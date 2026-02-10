@@ -206,6 +206,21 @@ pub async fn enforce_firewall(
                 Verdict::RequireApproval => {
                     let req_hash_bytes = dummy_request.hash();
                     let req_hash_hex = hex::encode(req_hash_bytes);
+                    
+                    // [NEW] Attempt to extract visual hash from params for the event
+                    // This allows the UI to display the screenshot the agent saw when requesting the action.
+                    let mut visual_hash_opt: Option<[u8; 32]> = None;
+                    if let Ok(json) = serde_json::from_slice::<serde_json::Value>(&dummy_request.params) {
+                         if let Some(hex_hash) = json.get("expected_visual_hash").and_then(|s| s.as_str()) {
+                             if let Ok(bytes) = hex::decode(hex_hash) {
+                                 if bytes.len() == 32 {
+                                     let mut arr = [0u8; 32];
+                                     arr.copy_from_slice(&bytes);
+                                     visual_hash_opt = Some(arr);
+                                 }
+                             }
+                         }
+                    }
 
                     // [NEW] Emit RequireApproval Event (Triggers Gate UI)
                     if let Some(tx) = event_broadcaster {
@@ -214,6 +229,9 @@ pub async fn enforce_firewall(
                             target: method.clone(),
                             request_hash: req_hash_bytes,
                             session_id: session_id_opt, 
+                            // KernelEvent currently doesn't have a visual_hash field in FirewallInterception.
+                            // The UI must fetch the StepTrace or reconstruct it.
+                            // For now, we rely on the `request_hash` matching the pending tool call in state.
                         });
                     }
                     

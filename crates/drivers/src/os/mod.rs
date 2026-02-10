@@ -1,12 +1,12 @@
 // Path: crates/drivers/src/os/mod.rs
 
-use anyhow::Result;
-use async_trait::async_trait;
 use active_win_pos_rs::get_active_window;
+use anyhow::Result;
+use arboard::Clipboard;
+use async_trait::async_trait;
 use ioi_api::vm::drivers::os::{OsDriver, WindowInfo};
 use ioi_types::error::VmError;
 use std::process::Command;
-use arboard::Clipboard;
 use std::sync::Mutex;
 
 /// Native implementation of the OS Driver using `active-win-pos-rs` and `arboard`.
@@ -40,13 +40,11 @@ impl Default for NativeOsDriver {
 #[async_trait]
 impl OsDriver for NativeOsDriver {
     async fn get_active_window_title(&self) -> Result<Option<String>, VmError> {
-        let op = || {
-            match get_active_window() {
-                Ok(window) => Ok(Some(window.title)),
-                Err(e) => {
-                    tracing::warn!("Failed to get active window: {:?}", e);
-                    Ok(None)
-                }
+        let op = || match get_active_window() {
+            Ok(window) => Ok(Some(window.title)),
+            Err(e) => {
+                tracing::warn!("Failed to get active window: {:?}", e);
+                Ok(None)
             }
         };
 
@@ -60,20 +58,18 @@ impl OsDriver for NativeOsDriver {
     }
 
     async fn get_active_window_info(&self) -> Result<Option<WindowInfo>, VmError> {
-        let op = || {
-            match get_active_window() {
-                Ok(w) => Ok(Some(WindowInfo {
-                    title: w.title,
-                    x: w.position.x as i32,
-                    y: w.position.y as i32,
-                    width: w.position.width as i32,
-                    height: w.position.height as i32,
-                    app_name: w.app_name,
-                })),
-                Err(e) => {
-                    tracing::warn!("Failed to get active window info: {:?}", e);
-                    Ok(None)
-                }
+        let op = || match get_active_window() {
+            Ok(w) => Ok(Some(WindowInfo {
+                title: w.title,
+                x: w.position.x as i32,
+                y: w.position.y as i32,
+                width: w.position.width as i32,
+                height: w.position.height as i32,
+                app_name: w.app_name,
+            })),
+            Err(e) => {
+                tracing::warn!("Failed to get active window info: {:?}", e);
+                Ok(None)
             }
         };
 
@@ -88,7 +84,7 @@ impl OsDriver for NativeOsDriver {
 
     async fn focus_window(&self, title_query: &str) -> Result<bool, VmError> {
         let query = title_query.to_string();
-        
+
         let op = move || -> Result<bool, String> {
             #[cfg(target_os = "linux")]
             {
@@ -99,13 +95,16 @@ impl OsDriver for NativeOsDriver {
                     .arg(&query)
                     .output()
                     .map_err(|e| format!("Failed to execute wmctrl: {}", e))?;
-                
+
                 if output.status.success() {
                     Ok(true)
                 } else {
-                    // It might fail silently if window not found, checking stderr not robust
-                    // Assuming success if command ran.
-                    Ok(true)
+                    tracing::warn!(
+                        "wmctrl focus failed for query '{}': {}",
+                        query,
+                        String::from_utf8_lossy(&output.stderr)
+                    );
+                    Ok(false)
                 }
             }
             #[cfg(target_os = "macos")]
@@ -135,7 +134,7 @@ impl OsDriver for NativeOsDriver {
                     .arg(&script)
                     .output()
                     .map_err(|e| format!("osascript failed: {}", e))?;
-                    
+
                 let res = String::from_utf8_lossy(&output.stdout);
                 Ok(res.trim() == "true")
             }
@@ -179,7 +178,7 @@ impl OsDriver for NativeOsDriver {
                 .map_err(|e| VmError::HostError(format!("Task join error: {}", e)))?
                 .map_err(|e| VmError::HostError(e))
         } else {
-             op().map_err(|e| VmError::HostError(e))
+            op().map_err(|e| VmError::HostError(e))
         }
     }
 
@@ -196,14 +195,15 @@ impl OsDriver for NativeOsDriver {
             // But `arboard` clipboard access is generally fast.
             // If we really want to spawn_blocking, we need `self` to be `Arc` or cloneable.
             // The `OsDriver` trait takes `&self`.
-            
+
             // For now, let's execute synchronously inside the async function.
             // In a high-concurrency server this is bad, but for a local agent it's acceptable.
             let mut guard = self.clipboard.lock().unwrap();
             if let Some(cb) = guard.as_mut() {
-                 cb.set_text(content_owned).map_err(|e| VmError::HostError(format!("Clipboard write failed: {}", e)))
+                cb.set_text(content_owned)
+                    .map_err(|e| VmError::HostError(format!("Clipboard write failed: {}", e)))
             } else {
-                 Err(VmError::HostError("Clipboard not available".into()))
+                Err(VmError::HostError("Clipboard not available".into()))
             }
         };
         op
@@ -211,11 +211,12 @@ impl OsDriver for NativeOsDriver {
 
     async fn get_clipboard(&self) -> Result<String, VmError> {
         let mut guard = self.clipboard.lock().unwrap();
-        
+
         if let Some(cb) = guard.as_mut() {
-             cb.get_text().map_err(|e| VmError::HostError(format!("Clipboard read failed: {}", e)))
+            cb.get_text()
+                .map_err(|e| VmError::HostError(format!("Clipboard read failed: {}", e)))
         } else {
-             Err(VmError::HostError("Clipboard not available".into()))
+            Err(VmError::HostError("Clipboard not available".into()))
         }
     }
 }

@@ -100,7 +100,9 @@ pub trait GuiDriver: Send + Sync {
     async fn get_element_center(&self, id: u32) -> Result<Option<(u32, u32)>, VmError>;
 
     /// Manually injects a Set-of-Marks mapping (ID -> Rect) into the driver's cache.
+    /// This restores context from a previous step or external source.
+    /// Returns VmError::Unsupported if not implemented.
     async fn register_som_overlay(&self, _map: HashMap<u32, (i32, i32, i32, i32)>) -> Result<(), VmError> {
-        Ok(())
+        Err(VmError::HostError("SoM overlay registration not supported by this driver".into()))
     }
 }

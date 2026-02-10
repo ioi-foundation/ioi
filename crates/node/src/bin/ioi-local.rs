@@ -143,6 +143,7 @@ async fn main() -> Result<()> {
         generation_id: 0,
         parent_hash: None,
         author: Some(local_account_id), // [FIX] User owns their agent
+        context_filter: None, // [FIX] Initialize context_filter
     };
 
     let session_id = [0u8; 32];
@@ -208,7 +209,7 @@ async fn main() -> Result<()> {
              // [NEW] Allow Computer Use for UI-TARS
              Rule {
                 rule_id: Some("allow-computer".into()),
-                target: "gui::click".into(), // Maps to computer.left_click
+                target: "gui::click".into(), // Maps to computer.left_click AND ui__click_component
                 conditions: Default::default(),
                 action: Verdict::Allow,
              },
@@ -431,6 +432,7 @@ async fn main() -> Result<()> {
             generation_id: 0,
             parent_hash: None,
             author: None, // [FIX] System service has no specific owner
+            context_filter: None, // [FIX] Initialize context_filter
         };
         let market_key = ioi_types::keys::active_service_key("market");
         insert_raw(&market_key, to_bytes_canonical(&market_meta).unwrap());
@@ -443,13 +445,24 @@ async fn main() -> Result<()> {
     let (event_tx, _event_rx) = tokio::sync::broadcast::channel(1000);
     let os_driver = Arc::new(NativeOsDriver::new());
     
-    // [MODIFIED] Create GUI driver with SoM enabled
-    let gui_driver = Arc::new(IoiGuiDriver::new()
+    // [MODIFIED] Create GUI driver mutably to register lenses
+    let mut gui_driver = IoiGuiDriver::new()
         .with_event_sender(event_tx.clone())
         .with_scs(scs_arc.clone())
-        .with_som(true) // [FIX] Explicitly enable SoM Visual Grounding
-    );
+        .with_som(true); // [FIX] Explicitly enable SoM Visual Grounding
+
+    // [NEW] Register Auto-Lens as the fallback for "LiDAR"
+    // This allows the agent to semantically target ANY native app, not just Calculator.
+    // e.g. a button labeled "Play" becomes ID="btn_play".
+    gui_driver.register_lens(Box::new(
+        ioi_drivers::gui::lenses::auto::AutoLens
+    ));
     
+    // [OPTIONAL] You can still register specific lenses (like ReactLens) first for higher fidelity.
+    // ReactLens is already registered by default in IoiGuiDriver::new(), so we are good.
+    
+    // Wrap GUI driver in Arc for shared use
+    let gui_driver_arc = Arc::new(gui_driver);
     let browser_driver = Arc::new(BrowserDriver::new());
 
     println!("   - State: Redb Flat Store (Zero Hashing)");
@@ -462,7 +475,7 @@ async fn main() -> Result<()> {
         tree,
         scheme.clone(),
         workload_config.clone(),
-        Some(gui_driver.clone()), 
+        Some(gui_driver_arc.clone()), 
         Some(browser_driver.clone()), 
         Some(scs_arc.clone()), 
         Some(event_tx.clone()), 
@@ -592,7 +605,7 @@ async fn main() -> Result<()> {
     println!("   - Agency Firewall: User-in-the-Loop Mode (Interactive Gates)");
     println!("   - The Substrate: Mounted at {}", opts.data_dir.display());
     println!("   - SCS Storage: Active (.scs)");
-    println!("   - GUI Automation: Enabled (Visual Grounding Active)");
+    println!("   - GUI Automation: Enabled (Visual Grounding Active + LiDAR)");
     println!("   - Browser Automation: Enabled");
     println!("   - MCP: Enabled (Filesystem)");
     println!("   - Market: Active (Universal Asset Ledger)");
@@ -607,7 +620,7 @@ async fn main() -> Result<()> {
         .map_err(|e| anyhow!("Failed to start: {}", e))?;
         
     let agent = DesktopAgentService::new_hybrid(
-        gui_driver,
+        gui_driver_arc,
         Arc::new(ioi_drivers::terminal::TerminalDriver::new()),
         browser_driver, 
         inference_runtime.clone(),
