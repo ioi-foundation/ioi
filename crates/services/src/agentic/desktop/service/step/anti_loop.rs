@@ -10,6 +10,7 @@ use ioi_types::app::{
     RoutingStateSummary,
 };
 use serde::Serialize;
+use serde_jcs;
 use tokio::sync::broadcast::Sender;
 
 pub const RETRY_GUARD_WINDOW: usize = 6;
@@ -19,6 +20,11 @@ pub const RETRY_GUARD_REPEAT_LIMIT: usize = 3;
 pub enum FailureClass {
     FocusMismatch,
     TargetNotFound,
+    VisionTargetNotFound,
+    NoEffectAfterAction,
+    TierViolation,
+    MissingDependency,
+    ContextDrift,
     PermissionOrApprovalRequired,
     ToolUnavailable,
     NonDeterministicUI,
@@ -32,6 +38,17 @@ pub struct TierRoutingDecision {
     pub tier: ExecutionTier,
     pub reason_code: &'static str,
     pub source_failure: Option<FailureClass>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct AttemptKey {
+    pub intent_hash: String,
+    pub tier: String,
+    pub tool_name: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub target_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub window_fingerprint: Option<String>,
 }
 
 fn status_as_str(status: &AgentStatus) -> String {
@@ -50,11 +67,71 @@ pub fn tier_as_str(tier: ExecutionTier) -> &'static str {
     }
 }
 
+fn normalize_optional(value: Option<&str>) -> Option<String> {
+    value
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(|value| value.to_string())
+}
+
+pub fn build_attempt_key(
+    intent_hash: &str,
+    tier: ExecutionTier,
+    tool_name: &str,
+    target_id: Option<&str>,
+    window_fingerprint: Option<&str>,
+) -> AttemptKey {
+    AttemptKey {
+        intent_hash: intent_hash.to_string(),
+        tier: tier_as_str(tier).to_string(),
+        tool_name: tool_name.to_string(),
+        target_id: normalize_optional(target_id),
+        window_fingerprint: normalize_optional(window_fingerprint),
+    }
+}
+
+pub fn attempt_key_hash(attempt_key: &AttemptKey) -> String {
+    let canonical_bytes = serde_jcs::to_vec(attempt_key).unwrap_or_else(|_| {
+        format!(
+            "{}::{}::{}::{}::{}",
+            attempt_key.intent_hash,
+            attempt_key.tier,
+            attempt_key.tool_name,
+            attempt_key.target_id.as_deref().unwrap_or(""),
+            attempt_key.window_fingerprint.as_deref().unwrap_or("")
+        )
+        .into_bytes()
+    });
+    sha256(&canonical_bytes)
+        .map(hex::encode)
+        .unwrap_or_else(|_| String::new())
+}
+
+pub fn failure_attempt_fingerprint(failure_class: FailureClass, attempt_key_hash: &str) -> String {
+    format!("attempt::{}::{}", failure_class.as_str(), attempt_key_hash)
+}
+
+pub fn register_failure_attempt(
+    agent_state: &mut AgentState,
+    failure_class: FailureClass,
+    attempt_key: &AttemptKey,
+) -> (usize, String) {
+    let attempt_hash = attempt_key_hash(attempt_key);
+    let fingerprint = failure_attempt_fingerprint(failure_class, &attempt_hash);
+    let repeat_count = register_attempt(agent_state, fingerprint);
+    (repeat_count, attempt_hash)
+}
+
 impl FailureClass {
     pub fn as_str(self) -> &'static str {
         match self {
             FailureClass::FocusMismatch => "FocusMismatch",
             FailureClass::TargetNotFound => "TargetNotFound",
+            FailureClass::VisionTargetNotFound => "VisionTargetNotFound",
+            FailureClass::NoEffectAfterAction => "NoEffectAfterAction",
+            FailureClass::TierViolation => "TierViolation",
+            FailureClass::MissingDependency => "MissingDependency",
+            FailureClass::ContextDrift => "ContextDrift",
             FailureClass::PermissionOrApprovalRequired => "PermissionOrApprovalRequired",
             FailureClass::ToolUnavailable => "ToolUnavailable",
             FailureClass::NonDeterministicUI => "NonDeterministicUI",
@@ -68,6 +145,11 @@ impl FailureClass {
         match value {
             "FocusMismatch" => Some(FailureClass::FocusMismatch),
             "TargetNotFound" => Some(FailureClass::TargetNotFound),
+            "VisionTargetNotFound" => Some(FailureClass::VisionTargetNotFound),
+            "NoEffectAfterAction" => Some(FailureClass::NoEffectAfterAction),
+            "TierViolation" => Some(FailureClass::TierViolation),
+            "MissingDependency" => Some(FailureClass::MissingDependency),
+            "ContextDrift" => Some(FailureClass::ContextDrift),
             "PermissionOrApprovalRequired" => Some(FailureClass::PermissionOrApprovalRequired),
             "ToolUnavailable" => Some(FailureClass::ToolUnavailable),
             "NonDeterministicUI" => Some(FailureClass::NonDeterministicUI),
@@ -85,6 +167,75 @@ pub fn classify_failure(error: Option<&str>, policy_decision: &str) -> Option<Fa
     }
 
     let msg = error?.to_lowercase();
+
+    if msg.contains("error_class=focusmismatch") {
+        return Some(FailureClass::FocusMismatch);
+    }
+    if msg.contains("error_class=visiontargetnotfound") {
+        return Some(FailureClass::VisionTargetNotFound);
+    }
+    if msg.contains("error_class=noeffectafteraction") {
+        return Some(FailureClass::NoEffectAfterAction);
+    }
+    if msg.contains("error_class=tierviolation") {
+        return Some(FailureClass::TierViolation);
+    }
+    if msg.contains("error_class=missingdependency") {
+        return Some(FailureClass::MissingDependency);
+    }
+    if msg.contains("error_class=contextdrift") {
+        return Some(FailureClass::ContextDrift);
+    }
+    if msg.contains("error_class=humanchallengerequired") {
+        return Some(FailureClass::UserInterventionNeeded);
+    }
+    if msg.contains("error_class=targetnotfound") {
+        return Some(FailureClass::TargetNotFound);
+    }
+    if msg.contains("error_class=permissionorapprovalrequired") {
+        return Some(FailureClass::PermissionOrApprovalRequired);
+    }
+
+    if msg.contains("raw coordinate click is disabled outside visuallast")
+        || msg.contains("vision localization is only allowed")
+        || msg.contains("tier violation")
+    {
+        return Some(FailureClass::TierViolation);
+    }
+
+    if msg.contains("failed to execute wmctrl")
+        || msg.contains("missing focus dependency")
+        || msg.contains("missingdependency")
+    {
+        return Some(FailureClass::MissingDependency);
+    }
+
+    if msg.contains("visual context drifted") || msg.contains("context drift") {
+        return Some(FailureClass::ContextDrift);
+    }
+
+    if msg.contains("ui state static after click")
+        || msg.contains("ui state unchanged after click")
+        || msg.contains("no effect after action")
+    {
+        return Some(FailureClass::NoEffectAfterAction);
+    }
+
+    if msg.contains("vision")
+        && msg.contains("localization")
+        && (msg.contains("not found")
+            || msg.contains("confidence too low")
+            || msg.contains("outside active window"))
+    {
+        return Some(FailureClass::VisionTargetNotFound);
+    }
+
+    // Prefer explicit target lookup failures before broad focus heuristics.
+    if (msg.contains("target") || msg.contains("element") || msg.contains("ui tree"))
+        && msg.contains("not found")
+    {
+        return Some(FailureClass::TargetNotFound);
+    }
 
     if msg.contains("focus")
         || msg.contains("foreground")
@@ -140,6 +291,11 @@ pub fn classify_failure(error: Option<&str>, policy_decision: &str) -> Option<Fa
         || msg.contains("manual")
         || msg.contains("intervention")
         || msg.contains("waiting for user")
+        || msg.contains("captcha")
+        || msg.contains("recaptcha")
+        || msg.contains("unusual traffic")
+        || msg.contains("verify you are human")
+        || msg.contains("/sorry/")
     {
         return Some(FailureClass::UserInterventionNeeded);
     }
@@ -151,6 +307,11 @@ pub fn to_routing_failure_class(class: FailureClass) -> RoutingFailureClass {
     match class {
         FailureClass::FocusMismatch => RoutingFailureClass::FocusMismatch,
         FailureClass::TargetNotFound => RoutingFailureClass::TargetNotFound,
+        FailureClass::VisionTargetNotFound => RoutingFailureClass::VisionTargetNotFound,
+        FailureClass::NoEffectAfterAction => RoutingFailureClass::NoEffectAfterAction,
+        FailureClass::TierViolation => RoutingFailureClass::TierViolation,
+        FailureClass::MissingDependency => RoutingFailureClass::MissingDependency,
+        FailureClass::ContextDrift => RoutingFailureClass::ContextDrift,
         FailureClass::PermissionOrApprovalRequired => {
             RoutingFailureClass::PermissionOrApprovalRequired
         }
@@ -199,6 +360,25 @@ pub fn choose_routing_tier(agent_state: &AgentState) -> TierRoutingDecision {
                 ExecutionTier::VisualForeground,
                 "visual_last_target_refresh",
             ),
+            FailureClass::VisionTargetNotFound => (
+                ExecutionTier::VisualForeground,
+                "visual_last_vision_target_missing",
+            ),
+            FailureClass::NoEffectAfterAction => (
+                ExecutionTier::VisualForeground,
+                "visual_last_no_effect_recovery",
+            ),
+            FailureClass::TierViolation => (
+                ExecutionTier::VisualForeground,
+                "visual_last_tier_violation",
+            ),
+            FailureClass::MissingDependency => (
+                ExecutionTier::VisualForeground,
+                "visual_last_missing_dependency",
+            ),
+            FailureClass::ContextDrift => {
+                (ExecutionTier::VisualForeground, "visual_last_context_drift")
+            }
             FailureClass::NonDeterministicUI => {
                 (ExecutionTier::VisualForeground, "visual_last_verify_state")
             }
@@ -300,6 +480,21 @@ pub fn should_trip_retry_guard(failure_class: FailureClass, repeat_count: usize)
     )
 }
 
+pub fn should_block_retry_without_change(failure_class: FailureClass, repeat_count: usize) -> bool {
+    if repeat_count <= 1 {
+        return false;
+    }
+
+    !matches!(
+        failure_class,
+        FailureClass::PermissionOrApprovalRequired | FailureClass::UserInterventionNeeded
+    )
+}
+
+pub fn retry_budget_remaining(repeat_count: usize) -> usize {
+    RETRY_GUARD_REPEAT_LIMIT.saturating_sub(repeat_count)
+}
+
 pub fn escalation_path_for_failure(failure_class: FailureClass) -> &'static str {
     match failure_class {
         FailureClass::FocusMismatch => {
@@ -307,6 +502,21 @@ pub fn escalation_path_for_failure(failure_class: FailureClass) -> &'static str 
         }
         FailureClass::TargetNotFound => {
             "Escalate to VisualForeground and refresh SoM/AX targeting."
+        }
+        FailureClass::VisionTargetNotFound => {
+            "Visual grounding failed; request user guidance or a clearer target."
+        }
+        FailureClass::NoEffectAfterAction => {
+            "Action had no observable effect; resnapshot and try an alternate interaction path."
+        }
+        FailureClass::TierViolation => {
+            "Switch to VisualForeground tier before attempting visual/coordinate execution."
+        }
+        FailureClass::MissingDependency => {
+            "Install missing platform dependency or continue with visual-only recovery paths."
+        }
+        FailureClass::ContextDrift => {
+            "Context drift detected; refresh perception and retry with fresh grounding."
         }
         FailureClass::PermissionOrApprovalRequired => {
             "Wait for approval token or explicit user authorization."
@@ -446,9 +656,149 @@ mod tests {
     }
 
     #[test]
+    fn classify_target_not_found_over_active_window_wording() {
+        let class = classify_failure(
+            Some("Target 'btn_5' not found in active window after lookup."),
+            "allowed",
+        );
+        assert_eq!(class, Some(FailureClass::TargetNotFound));
+    }
+
+    #[test]
+    fn classify_error_class_markers() {
+        let focus = classify_failure(
+            Some("ERROR_CLASS=FocusMismatch Focused window does not match target."),
+            "allowed",
+        );
+        assert_eq!(focus, Some(FailureClass::FocusMismatch));
+
+        let target = classify_failure(
+            Some("ERROR_CLASS=TargetNotFound Target 'btn_5' not found in current UI tree."),
+            "allowed",
+        );
+        assert_eq!(target, Some(FailureClass::TargetNotFound));
+
+        let vision = classify_failure(
+            Some("ERROR_CLASS=VisionTargetNotFound Visual localization confidence too low."),
+            "allowed",
+        );
+        assert_eq!(vision, Some(FailureClass::VisionTargetNotFound));
+
+        let no_effect = classify_failure(
+            Some("ERROR_CLASS=NoEffectAfterAction UI state static after click."),
+            "allowed",
+        );
+        assert_eq!(no_effect, Some(FailureClass::NoEffectAfterAction));
+
+        let tier = classify_failure(
+            Some("ERROR_CLASS=TierViolation Vision localization is only allowed in VisualForeground tier."),
+            "allowed",
+        );
+        assert_eq!(tier, Some(FailureClass::TierViolation));
+
+        let missing_dep = classify_failure(
+            Some("ERROR_CLASS=MissingDependency Missing focus dependency 'wmctrl' on Linux."),
+            "allowed",
+        );
+        assert_eq!(missing_dep, Some(FailureClass::MissingDependency));
+
+        let context_drift = classify_failure(
+            Some("ERROR_CLASS=ContextDrift Visual context drift detected before resume."),
+            "allowed",
+        );
+        assert_eq!(context_drift, Some(FailureClass::ContextDrift));
+
+        let human_challenge = classify_failure(
+            Some(
+                "ERROR_CLASS=HumanChallengeRequired reCAPTCHA challenge detected. Open in Local Browser.",
+            ),
+            "allowed",
+        );
+        assert_eq!(human_challenge, Some(FailureClass::UserInterventionNeeded));
+    }
+
+    #[test]
+    fn routing_failure_mapping_is_exact_for_extended_classes() {
+        assert_eq!(
+            to_routing_failure_class(FailureClass::VisionTargetNotFound),
+            RoutingFailureClass::VisionTargetNotFound
+        );
+        assert_eq!(
+            to_routing_failure_class(FailureClass::NoEffectAfterAction),
+            RoutingFailureClass::NoEffectAfterAction
+        );
+        assert_eq!(
+            to_routing_failure_class(FailureClass::TierViolation),
+            RoutingFailureClass::TierViolation
+        );
+        assert_eq!(
+            to_routing_failure_class(FailureClass::MissingDependency),
+            RoutingFailureClass::MissingDependency
+        );
+        assert_eq!(
+            to_routing_failure_class(FailureClass::ContextDrift),
+            RoutingFailureClass::ContextDrift
+        );
+    }
+
+    #[test]
     fn retry_guard_only_trips_after_limit() {
         assert!(!should_trip_retry_guard(FailureClass::UnexpectedState, 2));
         assert!(should_trip_retry_guard(FailureClass::UnexpectedState, 3));
+    }
+
+    #[test]
+    fn attempt_key_hash_is_stable() {
+        let key_a = build_attempt_key(
+            "deadbeef",
+            ExecutionTier::DomHeadless,
+            "sys__exec",
+            Some("calculator"),
+            Some("abcd"),
+        );
+        let key_b = build_attempt_key(
+            "deadbeef",
+            ExecutionTier::DomHeadless,
+            "sys__exec",
+            Some("calculator"),
+            Some("abcd"),
+        );
+        assert_eq!(attempt_key_hash(&key_a), attempt_key_hash(&key_b));
+    }
+
+    #[test]
+    fn stable_attempt_key_dedupes_and_resets_on_condition_change() {
+        let mut state = test_agent_state();
+        let key = build_attempt_key(
+            "feedface",
+            ExecutionTier::DomHeadless,
+            "computer::left_click",
+            Some("btn_submit"),
+            Some("ff00"),
+        );
+        let (first, first_hash) =
+            register_failure_attempt(&mut state, FailureClass::TargetNotFound, &key);
+        let (second, second_hash) =
+            register_failure_attempt(&mut state, FailureClass::TargetNotFound, &key);
+        assert_eq!(first, 1);
+        assert_eq!(second, 2);
+        assert_eq!(first_hash, second_hash);
+        assert!(should_block_retry_without_change(
+            FailureClass::TargetNotFound,
+            second
+        ));
+        assert_eq!(retry_budget_remaining(second), 1);
+
+        let changed_tier_key = build_attempt_key(
+            "feedface",
+            ExecutionTier::VisualBackground,
+            "computer::left_click",
+            Some("btn_submit"),
+            Some("ff00"),
+        );
+        let (third, _) =
+            register_failure_attempt(&mut state, FailureClass::TargetNotFound, &changed_tier_key);
+        assert_eq!(third, 1);
     }
 
     #[test]

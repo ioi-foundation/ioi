@@ -54,6 +54,17 @@ fn is_active_window_browser(
     }
 }
 
+fn format_window_label(win: &WindowInfo) -> String {
+    let title = win.title.trim();
+    let app = win.app_name.trim();
+    match (title.is_empty(), app.is_empty()) {
+        (false, false) => format!("{} ({})", title, app),
+        (false, true) => title.to_string(),
+        (true, false) => app.to_string(),
+        (true, true) => "Unknown".to_string(),
+    }
+}
+
 // [NEW] Helper to extract the ID map from a tagged tree
 fn extract_semantic_map(root: &AccessibilityNode) -> BTreeMap<u32, String> {
     let mut map = BTreeMap::new();
@@ -250,15 +261,7 @@ pub async fn gather_context(
     let dom_headless_title = if current_tier == ExecutionTier::DomHeadless {
         if let Some(os_driver) = service.os_driver.as_ref() {
             match os_driver.get_active_window_info().await {
-                Ok(Some(win)) => {
-                    if !win.title.trim().is_empty() {
-                        win.title
-                    } else if !win.app_name.trim().is_empty() {
-                        win.app_name
-                    } else {
-                        "Unknown".to_string()
-                    }
-                }
+                Ok(Some(win)) => format_window_label(&win),
                 Ok(None) => "Unknown".to_string(),
                 Err(e) => {
                     log::debug!("DomHeadless window probe failed: {}", e);
@@ -429,7 +432,7 @@ async fn capture_background_visuals(
             let mut counter = 1;
 
             if let Some(win) = &active_window_info {
-                wins = win.title.clone();
+                wins = format_window_label(win);
                 if let Ok(mut dom_tree) = service.browser.get_visual_tree().await {
                     let chrome_ui_height = if cfg!(target_os = "macos") { 80 } else { 115 };
                     let content_origin = (win.x, win.y + chrome_ui_height);
@@ -583,7 +586,7 @@ async fn capture_foreground_visuals(
 
     let title = active_window_info
         .as_ref()
-        .map(|w| w.title.clone())
+        .map(format_window_label)
         .unwrap_or("Desktop".into());
     let mut offset = (0, 0);
 

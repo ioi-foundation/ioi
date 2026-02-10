@@ -1,10 +1,12 @@
 // Path: crates/services/src/agentic/desktop/service/step/queue.rs
 
 use self::super::helpers::default_safe_policy;
+use super::action::{canonical_intent_hash, canonical_tool_identity};
 use super::anti_loop::{
-    build_post_state_summary, build_state_summary, choose_routing_tier, classify_failure,
-    emit_routing_receipt, escalation_path_for_failure, extract_artifacts, lineage_pointer,
-    mutation_receipt_pointer, policy_binding_hash, register_attempt, should_trip_retry_guard,
+    build_attempt_key, build_post_state_summary, build_state_summary, choose_routing_tier,
+    classify_failure, emit_routing_receipt, escalation_path_for_failure, extract_artifacts,
+    lineage_pointer, mutation_receipt_pointer, policy_binding_hash, register_failure_attempt,
+    retry_budget_remaining, should_block_retry_without_change, should_trip_retry_guard,
     tier_as_str, to_routing_failure_class, FailureClass,
 };
 use crate::agentic::desktop::keys::{get_state_key, AGENT_POLICY_PREFIX};
@@ -13,7 +15,6 @@ use crate::agentic::desktop::types::{AgentState, AgentStatus, StepAgentParams};
 use crate::agentic::desktop::utils::goto_trace_log;
 use crate::agentic::rules::ActionRules;
 use ioi_api::state::StateAccess;
-use ioi_crypto::algorithms::hash::sha256;
 use ioi_types::app::agentic::AgentTool;
 use ioi_types::app::RoutingReceiptEvent;
 use ioi_types::codec;
@@ -89,11 +90,15 @@ pub async fn process_queue_item(
             AgentTool::Dynamic(serde_json::Value::Object(wrapper))
         }
     };
+    let (tool_name, intent_args) = canonical_tool_identity(&tool_wrapper);
     let action_json = serde_json::to_string(&tool_wrapper).unwrap_or_else(|_| "{}".to_string());
-    let intent_hash = sha256(action_json.as_bytes())
-        .map(hex::encode)
-        .unwrap_or_else(|_| "macro_queue".to_string());
-    let tool_name = format!("{:?}", tool_wrapper.target());
+    let intent_hash = canonical_intent_hash(
+        &tool_name,
+        &intent_args,
+        routing_decision.tier,
+        pre_state_summary.step_index,
+        env!("CARGO_PKG_VERSION"),
+    );
 
     // Execute
     // [FIX] Updated call: removed executor arg
@@ -149,10 +154,73 @@ pub async fn process_queue_item(
     } else {
         failure_class = classify_failure(err.as_deref(), &policy_decision);
         if let Some(class) = failure_class {
-            let fingerprint = format!("macro_step::{}::{}", class.as_str(), tool_name);
-            let repeat_count = register_attempt(agent_state, fingerprint);
+            let target_id = agent_state.target.as_ref().and_then(|target| {
+                target
+                    .app_hint
+                    .as_deref()
+                    .filter(|v| !v.trim().is_empty())
+                    .or_else(|| {
+                        target
+                            .title_pattern
+                            .as_deref()
+                            .filter(|v| !v.trim().is_empty())
+                    })
+            });
+            let window_fingerprint = agent_state
+                .last_screen_phash
+                .filter(|hash| *hash != [0u8; 32])
+                .map(hex::encode);
+            let attempt_key = build_attempt_key(
+                &intent_hash,
+                routing_decision.tier,
+                &tool_name,
+                target_id,
+                window_fingerprint.as_deref(),
+            );
+            let (repeat_count, attempt_key_hash) =
+                register_failure_attempt(agent_state, class, &attempt_key);
+            let budget_remaining = retry_budget_remaining(repeat_count);
+            let blocked_without_change = should_block_retry_without_change(class, repeat_count);
             verification_checks.push(format!("attempt_repeat_count={}", repeat_count));
-            if should_trip_retry_guard(class, repeat_count) {
+            verification_checks.push(format!("attempt_key_hash={}", attempt_key_hash));
+            verification_checks.push(format!(
+                "attempt_retry_budget_remaining={}",
+                budget_remaining
+            ));
+            verification_checks.push(format!(
+                "attempt_retry_blocked_without_change={}",
+                blocked_without_change
+            ));
+            if matches!(class, FailureClass::UserInterventionNeeded) {
+                stop_condition_hit = true;
+                escalation_path = Some(escalation_path_for_failure(class).to_string());
+                agent_state.status = AgentStatus::Paused(
+                    "Waiting for user intervention: complete the required human verification in Local Browser, then resume.".to_string(),
+                );
+            } else if blocked_without_change {
+                stop_condition_hit = true;
+                escalation_path = Some(escalation_path_for_failure(class).to_string());
+                agent_state.status = AgentStatus::Paused(format!(
+                    "Retry blocked: unchanged AttemptKey for {}",
+                    class.as_str()
+                ));
+                if matches!(
+                    class,
+                    FailureClass::FocusMismatch
+                        | FailureClass::TargetNotFound
+                        | FailureClass::VisionTargetNotFound
+                        | FailureClass::NoEffectAfterAction
+                        | FailureClass::TierViolation
+                        | FailureClass::MissingDependency
+                        | FailureClass::ContextDrift
+                        | FailureClass::ToolUnavailable
+                        | FailureClass::NonDeterministicUI
+                        | FailureClass::TimeoutOrHang
+                        | FailureClass::UnexpectedState
+                ) {
+                    agent_state.consecutive_failures = agent_state.consecutive_failures.max(3);
+                }
+            } else if should_trip_retry_guard(class, repeat_count) {
                 stop_condition_hit = true;
                 escalation_path = Some(escalation_path_for_failure(class).to_string());
                 agent_state.status = AgentStatus::Paused(format!(
@@ -163,6 +231,11 @@ pub async fn process_queue_item(
                     class,
                     FailureClass::FocusMismatch
                         | FailureClass::TargetNotFound
+                        | FailureClass::VisionTargetNotFound
+                        | FailureClass::NoEffectAfterAction
+                        | FailureClass::TierViolation
+                        | FailureClass::MissingDependency
+                        | FailureClass::ContextDrift
                         | FailureClass::ToolUnavailable
                         | FailureClass::NonDeterministicUI
                         | FailureClass::TimeoutOrHang

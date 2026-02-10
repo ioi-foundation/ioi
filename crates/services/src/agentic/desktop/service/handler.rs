@@ -3,13 +3,55 @@
 use super::DesktopAgentService;
 use crate::agentic::desktop::execution::ToolExecutor;
 use crate::agentic::desktop::types::AgentState;
-use ioi_api::vm::drivers::os::OsDriver;
+use ioi_api::vm::drivers::os::{OsDriver, WindowInfo};
 use ioi_drivers::mcp::McpManager;
-use ioi_types::app::agentic::AgentTool;
+use ioi_types::app::agentic::{AgentTool, ComputerAction};
 use ioi_types::error::TransactionError;
 use serde_jcs;
 use serde_json::json;
 use std::sync::Arc;
+
+fn is_focus_sensitive_tool(tool: &AgentTool) -> bool {
+    match tool {
+        AgentTool::GuiClick { .. }
+        | AgentTool::GuiClickElement { .. }
+        | AgentTool::BrowserClick { .. }
+        | AgentTool::BrowserSyntheticClick { .. } => true,
+        AgentTool::Computer(action) => matches!(
+            action,
+            ComputerAction::LeftClick { .. }
+                | ComputerAction::LeftClickId { .. }
+                | ComputerAction::LeftClickElement { .. }
+                | ComputerAction::LeftClickDrag { .. }
+                | ComputerAction::DragDrop { .. }
+        ),
+        _ => false,
+    }
+}
+
+fn window_matches_hint(window: Option<&WindowInfo>, hint: &str) -> bool {
+    let normalized = hint.trim().to_ascii_lowercase();
+    if normalized.is_empty() {
+        return true;
+    }
+
+    if let Some(win) = window {
+        let title = win.title.to_ascii_lowercase();
+        let app = win.app_name.to_ascii_lowercase();
+        title.contains(&normalized) || app.contains(&normalized)
+    } else {
+        false
+    }
+}
+
+fn is_missing_focus_dependency_error(msg: &str) -> bool {
+    let lower = msg.to_ascii_lowercase();
+    lower.contains("error_class=missingdependency")
+        || (lower.contains("wmctrl")
+            && (lower.contains("no such file")
+                || lower.contains("not found")
+                || lower.contains("missing dependency")))
+}
 
 pub async fn handle_action_execution(
     service: &DesktopAgentService,
@@ -29,20 +71,8 @@ pub async fn handle_action_execution(
     // [VERIFIED] This line ensures the registry propagates to execution
     let lens_registry_arc = service.lens_registry.clone();
 
-    let foreground_window = os_driver.get_active_window_info().await.unwrap_or(None);
+    let mut foreground_window = os_driver.get_active_window_info().await.unwrap_or(None);
     let target_app_hint = agent_state.target.as_ref().and_then(|t| t.app_hint.clone());
-
-    // Construct executor locally with all dependencies
-    let executor = ToolExecutor::new(
-        service.gui.clone(),
-        service.terminal.clone(),
-        service.browser.clone(),
-        mcp,
-        service.event_sender.clone(),
-        Some(lens_registry_arc),
-        service.reasoning_inference.clone(), // Pass reasoning engine for visual search
-    )
-    .with_window_context(foreground_window, target_app_hint);
 
     // 1. Serialization for Policy Check
     let tool_value =
@@ -147,6 +177,84 @@ pub async fn handle_action_execution(
         }
     }
 
+    // Pre-execution focus recovery for click-like tools.
+    // This reduces FocusMismatch loops by verifying/repairing focus before click dispatch.
+    if is_focus_sensitive_tool(&tool) {
+        if let Some(hint) = target_app_hint
+            .as_deref()
+            .map(str::trim)
+            .filter(|h| !h.is_empty())
+        {
+            if !window_matches_hint(foreground_window.as_ref(), hint) {
+                match os_driver.focus_window(hint).await {
+                    Ok(true) => {
+                        tokio::time::sleep(std::time::Duration::from_millis(250)).await;
+                        foreground_window =
+                            os_driver.get_active_window_info().await.unwrap_or(None);
+                        if !window_matches_hint(foreground_window.as_ref(), hint) {
+                            return Ok((
+                                false,
+                                None,
+                                Some(format!(
+                                    "ERROR_CLASS=FocusMismatch Focused window still does not match target '{}'.",
+                                    hint
+                                )),
+                            ));
+                        }
+                    }
+                    Ok(false) => {
+                        return Ok((
+                            false,
+                            None,
+                            Some(format!(
+                                "ERROR_CLASS=FocusMismatch Unable to focus target window '{}'.",
+                                hint
+                            )),
+                        ));
+                    }
+                    Err(e) => {
+                        let err = e.to_string();
+                        if is_missing_focus_dependency_error(&err) {
+                            return Ok((
+                                false,
+                                None,
+                                Some(format!(
+                                    "ERROR_CLASS=MissingDependency Focus dependency unavailable while focusing '{}': {}",
+                                    hint, err
+                                )),
+                            ));
+                        }
+                        return Ok((
+                            false,
+                            None,
+                            Some(format!(
+                                "ERROR_CLASS=FocusMismatch Focus attempt failed for '{}': {}",
+                                hint, err
+                            )),
+                        ));
+                    }
+                }
+            }
+        }
+    }
+
+    // Construct executor locally with all dependencies after focus recovery.
+    let executor = ToolExecutor::new(
+        service.gui.clone(),
+        service.terminal.clone(),
+        service.browser.clone(),
+        mcp,
+        service.event_sender.clone(),
+        Some(lens_registry_arc),
+        service.reasoning_inference.clone(), // Pass reasoning engine for visual search
+    )
+    .with_window_context(
+        foreground_window.clone(),
+        target_app_hint.clone(),
+        Some(agent_state.current_tier),
+    )
+    .with_expected_visual_hash(Some(visual_phash));
+
     // Explicitly acquire lease for browser tools
     if matches!(
         tool,
@@ -180,7 +288,9 @@ pub async fn handle_action_execution(
                     || reason_lc.contains("no typing-capable tool is available")
                     || reason_lc.contains("no clipboard-capable tool is available")
                     || reason_lc.contains("no click-capable tool is available")
-                    || (reason_lc.contains("no ") && reason_lc.contains("tool") && reason_lc.contains("available"));
+                    || (reason_lc.contains("no ")
+                        && reason_lc.contains("tool")
+                        && reason_lc.contains("available"));
 
                 if is_true_capability_gap {
                     format!(
@@ -251,11 +361,25 @@ pub async fn handle_action_execution(
                 Ok((true, Some(msg), None))
             }
             Ok(false) => Ok((false, None, Some(format!("No window matched '{}'", title)))),
-            Err(e) => Ok((
-                false,
-                None,
-                Some(format!("Window focus failed for '{}': {}", title, e)),
-            )),
+            Err(e) => {
+                let err = e.to_string();
+                if is_missing_focus_dependency_error(&err) {
+                    Ok((
+                        false,
+                        None,
+                        Some(format!(
+                            "ERROR_CLASS=MissingDependency Focus dependency unavailable for '{}': {}",
+                            title, err
+                        )),
+                    ))
+                } else {
+                    Ok((
+                        false,
+                        None,
+                        Some(format!("Window focus failed for '{}': {}", title, err)),
+                    ))
+                }
+            }
         },
         AgentTool::OsCopy { content } => match os_driver.set_clipboard(&content).await {
             Ok(()) => Ok((true, Some("Copied to clipboard".to_string()), None)),

@@ -201,9 +201,12 @@ impl PolicyEngine {
 
                     if let Some(win) = active_app_opt {
                         // A. App Name Check
-                        let is_allowed_app = allowed_apps
-                            .iter()
-                            .any(|app| win.title.contains(app) || win.app_name.contains(app));
+                        let title_lc = win.title.to_ascii_lowercase();
+                        let app_lc = win.app_name.to_ascii_lowercase();
+                        let is_allowed_app = allowed_apps.iter().any(|allowed| {
+                            let allowed_lc = allowed.to_ascii_lowercase();
+                            title_lc.contains(&allowed_lc) || app_lc.contains(&allowed_lc)
+                        });
                         if !is_allowed_app {
                             tracing::warn!(
                                 "Policy Violation: Blocked interaction with window '{}'",

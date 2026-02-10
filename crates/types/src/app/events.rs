@@ -11,6 +11,16 @@ pub enum RoutingFailureClass {
     FocusMismatch,
     /// Expected clickable/typed target could not be resolved.
     TargetNotFound,
+    /// Visual grounding target could not be resolved with sufficient confidence.
+    VisionTargetNotFound,
+    /// Action executed but produced no meaningful observable UI effect.
+    NoEffectAfterAction,
+    /// Action violated tier policy constraints.
+    TierViolation,
+    /// Required dependency for the requested action was unavailable.
+    MissingDependency,
+    /// Visual or interaction context drifted before/after execution.
+    ContextDrift,
     /// Policy denied action or explicit approval is still required.
     PermissionOrApprovalRequired,
     /// Required tool/capability was missing in the current tier.

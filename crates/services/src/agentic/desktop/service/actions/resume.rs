@@ -3,16 +3,20 @@
 use super::checks::requires_visual_integrity;
 use super::evaluation::evaluate_and_crystallize;
 use crate::agentic::desktop::keys::{get_state_key, AGENT_POLICY_PREFIX};
+use crate::agentic::desktop::service::step::action::{
+    canonical_intent_hash, canonical_tool_identity,
+};
 use crate::agentic::desktop::service::step::anti_loop::{
-    build_post_state_summary, build_state_summary, choose_routing_tier, classify_failure,
-    emit_routing_receipt, escalation_path_for_failure, extract_artifacts, lineage_pointer,
-    mutation_receipt_pointer, policy_binding_hash, register_attempt, should_trip_retry_guard,
-    tier_as_str, to_routing_failure_class, FailureClass,
+    build_attempt_key, build_post_state_summary, build_state_summary, classify_failure,
+    emit_routing_receipt, escalation_path_for_failure, extract_artifacts, latest_failure_class,
+    lineage_pointer, mutation_receipt_pointer, policy_binding_hash, register_failure_attempt,
+    retry_budget_remaining, should_block_retry_without_change, should_trip_retry_guard,
+    tier_as_str, to_routing_failure_class, FailureClass, TierRoutingDecision,
 };
 use crate::agentic::desktop::service::step::helpers::default_safe_policy;
 use crate::agentic::desktop::service::step::visual::hamming_distance;
 use crate::agentic::desktop::service::DesktopAgentService;
-use crate::agentic::desktop::types::{AgentState, AgentStatus, ExecutionTier};
+use crate::agentic::desktop::types::{AgentState, AgentStatus};
 use crate::agentic::desktop::utils::compute_phash;
 use crate::agentic::desktop::utils::goto_trace_log;
 use crate::agentic::rules::ActionRules;
@@ -28,6 +32,8 @@ use ioi_types::error::TransactionError;
 use std::time::{SystemTime, UNIX_EPOCH};
 use tokio::time::{sleep, Duration};
 
+const RESUME_DRIFT_THRESHOLD: u32 = 48;
+
 /// Helper to get a string representation of the agent status for event emission.
 fn get_status_str(status: &AgentStatus) -> String {
     format!("{:?}", status)
@@ -35,6 +41,62 @@ fn get_status_str(status: &AgentStatus) -> String {
         .next()
         .unwrap_or("Unknown")
         .to_string()
+}
+
+fn is_missing_focus_dependency_error(msg: &str) -> bool {
+    let lower = msg.to_ascii_lowercase();
+    lower.contains("error_class=missingdependency")
+        || (lower.contains("wmctrl")
+            && (lower.contains("no such file")
+                || lower.contains("not found")
+                || lower.contains("missing dependency")))
+}
+
+fn compute_context_phash(
+    image_bytes: &[u8],
+    window: Option<&ioi_api::vm::drivers::os::WindowInfo>,
+) -> [u8; 32] {
+    if let Some(cropped) = compute_window_cropped_phash(image_bytes, window) {
+        return cropped;
+    }
+    compute_phash(image_bytes).unwrap_or([0u8; 32])
+}
+
+fn compute_window_cropped_phash(
+    image_bytes: &[u8],
+    window: Option<&ioi_api::vm::drivers::os::WindowInfo>,
+) -> Option<[u8; 32]> {
+    use image_hasher::{HashAlg, HasherConfig};
+
+    let window = window?;
+    if window.width <= 0 || window.height <= 0 {
+        return None;
+    }
+
+    let img = image::load_from_memory(image_bytes).ok()?;
+    let img_w = img.width() as i32;
+    let img_h = img.height() as i32;
+    if img_w <= 0 || img_h <= 0 {
+        return None;
+    }
+
+    let x1 = window.x.clamp(0, img_w);
+    let y1 = window.y.clamp(0, img_h);
+    let x2 = (window.x + window.width).clamp(0, img_w);
+    let y2 = (window.y + window.height).clamp(0, img_h);
+    if x2 <= x1 || y2 <= y1 {
+        return None;
+    }
+
+    let cropped = img.crop_imm(x1 as u32, y1 as u32, (x2 - x1) as u32, (y2 - y1) as u32);
+    let hasher = HasherConfig::new().hash_alg(HashAlg::Gradient).to_hasher();
+    let hash = hasher.hash_image(&cropped);
+    let hash_bytes = hash.as_bytes();
+
+    let mut out = [0u8; 32];
+    let len = hash_bytes.len().min(32);
+    out[..len].copy_from_slice(&hash_bytes[..len]);
+    Some(out)
 }
 
 pub async fn resume_pending_action(
@@ -45,7 +107,11 @@ pub async fn resume_pending_action(
     block_height: u64,
 ) -> Result<(), TransactionError> {
     let pre_state_summary = build_state_summary(agent_state);
-    let routing_decision = choose_routing_tier(agent_state);
+    let routing_decision = TierRoutingDecision {
+        tier: agent_state.current_tier,
+        reason_code: "resume_preserve_tier",
+        source_failure: latest_failure_class(agent_state),
+    };
     let mut policy_decision = "approved".to_string();
     let mut failure_class: Option<FailureClass> = None;
     let mut stop_condition_hit = false;
@@ -67,57 +133,17 @@ pub async fn resume_pending_action(
     // 2. Deserialize Tool FIRST
     let tool: AgentTool = serde_json::from_slice(tool_jcs)
         .map_err(|e| TransactionError::Serialization(format!("Corrupt pending tool: {}", e)))?;
+    let (tool_name, tool_args) = canonical_tool_identity(&tool);
     let action_json = serde_json::to_string(&tool).unwrap_or_else(|_| "{}".to_string());
+    let intent_hash = canonical_intent_hash(
+        &tool_name,
+        &tool_args,
+        routing_decision.tier,
+        pre_state_summary.step_index,
+        env!("CARGO_PKG_VERSION"),
+    );
 
-    // 3. Visual Guard: Context Drift Check
-    let pending_vhash = agent_state
-        .pending_visual_hash
-        .ok_or(TransactionError::Invalid(
-            "Missing pending_visual_hash".into(),
-        ))?;
-
-    if requires_visual_integrity(&tool) {
-        let current_bytes = service.gui.capture_raw_screen().await.unwrap_or_default();
-        let current_phash = compute_phash(&current_bytes).unwrap_or([0u8; 32]);
-        let drift = hamming_distance(&pending_vhash, &current_phash);
-
-        if drift > 30 {
-            log::warn!("Context Drift Detected (Dist: {}). Aborting Resume.", drift);
-            let key = get_state_key(&session_id);
-            goto_trace_log(
-                agent_state,
-                state,
-                &key,
-                session_id,
-                current_phash,
-                "[Resumed Action]".to_string(),
-                "ABORTED: Visual Context Drifted.".to_string(),
-                false,
-                Some("Context Drift".to_string()),
-                "system::context_drift".to_string(),
-                service.event_sender.clone(),
-                None,
-            )?;
-
-            agent_state.pending_tool_jcs = None;
-            agent_state.pending_tool_hash = None;
-            agent_state.pending_visual_hash = None;
-            agent_state.pending_tool_call = None;
-            agent_state.pending_approval = None;
-            agent_state.status = AgentStatus::Running;
-
-            state.insert(&key, &codec::to_bytes_canonical(&agent_state)?)?;
-            return Ok(());
-        }
-    } else {
-        log::info!(
-            "Skipping visual drift check for non-spatial tool (Hash: {}).",
-            hex::encode(&tool_hash[0..4])
-        );
-    }
-
-    service.restore_visual_context(pending_vhash).await?;
-
+    // 3. Validate approval token before executing anything.
     let token = agent_state
         .pending_approval
         .as_ref()
@@ -129,7 +155,51 @@ pub async fn resume_pending_action(
         ));
     }
 
-    agent_state.current_tier = ExecutionTier::VisualForeground;
+    let os_driver = service
+        .os_driver
+        .clone()
+        .ok_or(TransactionError::Invalid("OS driver missing".into()))?;
+
+    // 4. Visual Guard: Context Drift Check (typed, recoverable).
+    let pending_vhash = agent_state
+        .pending_visual_hash
+        .ok_or(TransactionError::Invalid(
+            "Missing pending_visual_hash".into(),
+        ))?;
+
+    let mut precheck_error: Option<String> = None;
+    let mut log_visual_hash = pending_vhash;
+
+    if requires_visual_integrity(&tool) {
+        let current_bytes = service.gui.capture_raw_screen().await.unwrap_or_default();
+        let active_window = os_driver.get_active_window_info().await.unwrap_or(None);
+        let current_phash = compute_context_phash(&current_bytes, active_window.as_ref());
+        log_visual_hash = current_phash;
+        let drift = hamming_distance(&pending_vhash, &current_phash);
+        verification_checks.push(format!("resume_drift_distance={}", drift));
+
+        if drift > RESUME_DRIFT_THRESHOLD {
+            log::warn!("Context Drift Detected before resume (Dist: {}).", drift);
+            precheck_error = Some(format!(
+                "ERROR_CLASS=ContextDrift Visual context drift detected before resume (distance={}).",
+                drift
+            ));
+        }
+    } else {
+        log::info!(
+            "Skipping visual drift check for non-spatial tool (Hash: {}).",
+            hex::encode(&tool_hash[0..4])
+        );
+    }
+
+    if precheck_error.is_none() {
+        if let Err(e) = service.restore_visual_context(pending_vhash).await {
+            precheck_error = Some(format!(
+                "ERROR_CLASS=ContextDrift Failed to restore visual context: {}",
+                e
+            ));
+        }
+    }
 
     let policy_key = [AGENT_POLICY_PREFIX, session_id.as_slice()].concat();
     let rules: ActionRules = state
@@ -137,14 +207,9 @@ pub async fn resume_pending_action(
         .and_then(|b| codec::from_bytes_canonical(&b).ok())
         .unwrap_or_else(default_safe_policy);
 
-    let os_driver = service
-        .os_driver
-        .clone()
-        .ok_or(TransactionError::Invalid("OS driver missing".into()))?;
-
     // Focus Guard: approval UX can steal focus to Autopilot shell.
     // For resumed spatial actions, force-focus the target surface before clicking.
-    if requires_visual_integrity(&tool) {
+    if precheck_error.is_none() && requires_visual_integrity(&tool) {
         if let Some(target) = &agent_state.target {
             let hint = target.app_hint.as_deref().unwrap_or("").trim();
             if !hint.is_empty() {
@@ -191,10 +256,18 @@ pub async fn resume_pending_action(
                                 log::warn!("Resume focus guard: no window matched '{}'", query);
                             }
                             Err(e) => {
+                                let err = e.to_string();
+                                if is_missing_focus_dependency_error(&err) {
+                                    precheck_error = Some(format!(
+                                        "ERROR_CLASS=MissingDependency Focus dependency unavailable while focusing '{}': {}",
+                                        query, err
+                                    ));
+                                    break;
+                                }
                                 log::warn!(
                                     "Resume focus guard: focus_window failed for '{}': {}",
                                     query,
-                                    e
+                                    err
                                 );
                             }
                         }
@@ -220,21 +293,24 @@ pub async fn resume_pending_action(
         }
     }
 
-    // Execute with SNAPSHOT MAP
-    let (success, out, err) = match service
-        .handle_action_execution(
-            tool.clone(),
-            session_id,
-            agent_state.step_count,
-            pending_vhash,
-            &rules,
-            &agent_state,
-            &os_driver,
-        )
-        .await
-    {
-        Ok(t) => t,
-        Err(e) => (false, None, Some(e.to_string())),
+    // Execute with SNAPSHOT MAP unless prechecks failed.
+    let (success, out, err) = match precheck_error {
+        Some(err) => (false, None, Some(err)),
+        None => match service
+            .handle_action_execution(
+                tool.clone(),
+                session_id,
+                agent_state.step_count,
+                pending_vhash,
+                &rules,
+                &agent_state,
+                &os_driver,
+            )
+            .await
+        {
+            Ok(t) => t,
+            Err(e) => (false, None, Some(e.to_string())),
+        },
     };
     if let Some(err_msg) = err.as_deref() {
         if err_msg.to_lowercase().contains("blocked by policy") {
@@ -252,7 +328,7 @@ pub async fn resume_pending_action(
         state,
         &key,
         session_id,
-        pending_vhash,
+        log_visual_hash,
         "[Resumed Action]".to_string(),
         output_str.clone(),
         success,
@@ -373,14 +449,74 @@ pub async fn resume_pending_action(
     } else {
         failure_class = classify_failure(err.as_deref(), &policy_decision);
         if let Some(class) = failure_class {
-            let fingerprint = format!(
-                "resumed_action::{}::{}",
-                class.as_str(),
-                hex::encode(tool_hash)
+            let target_id = agent_state.target.as_ref().and_then(|target| {
+                target
+                    .app_hint
+                    .as_deref()
+                    .filter(|v| !v.trim().is_empty())
+                    .or_else(|| {
+                        target
+                            .title_pattern
+                            .as_deref()
+                            .filter(|v| !v.trim().is_empty())
+                    })
+            });
+            let window_fingerprint = if log_visual_hash == [0u8; 32] {
+                None
+            } else {
+                Some(hex::encode(log_visual_hash))
+            };
+            let attempt_key = build_attempt_key(
+                &intent_hash,
+                routing_decision.tier,
+                &tool_name,
+                target_id,
+                window_fingerprint.as_deref(),
             );
-            let repeat_count = register_attempt(agent_state, fingerprint);
+            let (repeat_count, attempt_key_hash) =
+                register_failure_attempt(agent_state, class, &attempt_key);
+            let budget_remaining = retry_budget_remaining(repeat_count);
+            let blocked_without_change = should_block_retry_without_change(class, repeat_count);
             verification_checks.push(format!("attempt_repeat_count={}", repeat_count));
-            if should_trip_retry_guard(class, repeat_count) {
+            verification_checks.push(format!("attempt_key_hash={}", attempt_key_hash));
+            verification_checks.push(format!(
+                "attempt_retry_budget_remaining={}",
+                budget_remaining
+            ));
+            verification_checks.push(format!(
+                "attempt_retry_blocked_without_change={}",
+                blocked_without_change
+            ));
+            if matches!(class, FailureClass::UserInterventionNeeded) {
+                stop_condition_hit = true;
+                escalation_path = Some(escalation_path_for_failure(class).to_string());
+                agent_state.status = AgentStatus::Paused(
+                    "Waiting for user intervention: complete the required human verification in Local Browser, then resume.".to_string(),
+                );
+            } else if blocked_without_change {
+                stop_condition_hit = true;
+                escalation_path = Some(escalation_path_for_failure(class).to_string());
+                agent_state.status = AgentStatus::Paused(format!(
+                    "Retry blocked: unchanged AttemptKey for {}",
+                    class.as_str()
+                ));
+                if matches!(
+                    class,
+                    FailureClass::FocusMismatch
+                        | FailureClass::TargetNotFound
+                        | FailureClass::VisionTargetNotFound
+                        | FailureClass::NoEffectAfterAction
+                        | FailureClass::TierViolation
+                        | FailureClass::MissingDependency
+                        | FailureClass::ContextDrift
+                        | FailureClass::ToolUnavailable
+                        | FailureClass::NonDeterministicUI
+                        | FailureClass::TimeoutOrHang
+                        | FailureClass::UnexpectedState
+                ) {
+                    agent_state.consecutive_failures = agent_state.consecutive_failures.max(3);
+                }
+            } else if should_trip_retry_guard(class, repeat_count) {
                 stop_condition_hit = true;
                 escalation_path = Some(escalation_path_for_failure(class).to_string());
                 agent_state.status = AgentStatus::Paused(format!(
@@ -391,6 +527,11 @@ pub async fn resume_pending_action(
                     class,
                     FailureClass::FocusMismatch
                         | FailureClass::TargetNotFound
+                        | FailureClass::VisionTargetNotFound
+                        | FailureClass::NoEffectAfterAction
+                        | FailureClass::TierViolation
+                        | FailureClass::MissingDependency
+                        | FailureClass::ContextDrift
                         | FailureClass::ToolUnavailable
                         | FailureClass::NonDeterministicUI
                         | FailureClass::TimeoutOrHang
@@ -447,11 +588,6 @@ pub async fn resume_pending_action(
     ));
     artifacts.push(format!("trace://session/{}", hex::encode(&session_id[..4])));
     let post_state = build_post_state_summary(agent_state, success, verification_checks);
-    let mut tool_name = format!("{:?}", tool.target());
-    if let AgentTool::ChatReply { .. } = tool {
-        tool_name = "chat__reply".to_string();
-    }
-    let intent_hash = hex::encode(tool_hash);
     let policy_binding = policy_binding_hash(&intent_hash, &policy_decision);
     let receipt = RoutingReceiptEvent {
         session_id,

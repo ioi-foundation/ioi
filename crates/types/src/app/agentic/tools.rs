@@ -108,6 +108,10 @@ pub enum AgentTool {
         path: String,
         /// Content to write.
         content: String,
+        /// Optional 1-based line index for atomic line edits.
+        /// If set, only that line is replaced instead of rewriting the full file.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        line_number: Option<u32>,
     },
 
     /// Reads content from a file.
