@@ -74,6 +74,7 @@ pub fn requires_visual_integrity(tool: &AgentTool) -> bool {
         AgentTool::GuiClickElement { .. } => true,
         AgentTool::BrowserSyntheticClick { .. } => true,
         AgentTool::BrowserClick { .. } => true,
+        AgentTool::BrowserClickElement { .. } => true,
         _ => false,
     }
 }

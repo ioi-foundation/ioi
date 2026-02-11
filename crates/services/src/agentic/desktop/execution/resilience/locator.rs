@@ -40,9 +40,15 @@ impl VisualLocator {
             .unwrap_or_default();
 
         let prompt = format!(
-            "Locate the UI target for query: '{}'.\n\
-             Return STRICT JSON only: {{\"x\": integer, \"y\": integer, \"confidence\": float, \"reasoning\": string}}.\n\
-             Coordinates must be screen-logical and inside active window rect ({}, {}, {}, {}).\n\
+            "Task: Locate the UI element described by '{}'.\n\
+             Context: Active window rect is ({}, {}, {}, {}).\n\
+             Instructions:\n\
+             1. Analyze the screenshot.\n\
+             2. Use the accessibility hint if useful, but prioritize visual matching for icons, images, or unlabeled controls.\n\
+             3. If the query describes an icon shape (for example: gear, trash can, plus), match the visual symbol.\n\
+             4. If the query describes text, match the visible text.\n\
+             5. Return the center coordinates (x, y) in screen-logical coordinates.\n\
+             Output STRICT JSON only: {{\"x\": integer, \"y\": integer, \"confidence\": float, \"reasoning\": string}}.\n\
              {}",
             query,
             window_rect.x,

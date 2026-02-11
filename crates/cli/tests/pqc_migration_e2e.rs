@@ -250,7 +250,7 @@ async fn test_pqc_identity_migration_lifecycle() -> Result<()> {
             preimage.extend_from_slice(&rotation_nonce.to_le_bytes());
             ioi_crypto::algorithms::hash::sha256(&preimage).unwrap()
         };
-        
+
         let rotation_proof = RotationProof {
             old_public_key: ed25519_key.public_bytes(),
             old_signature: TestSigner::sign(&ed25519_key, &challenge),
@@ -329,7 +329,7 @@ async fn test_pqc_identity_migration_lifecycle() -> Result<()> {
             nonce,
             chain_id,
         )?;
-        
+
         // [CHANGED] Expect rejection for old key
         let result_old = submit_transaction(rpc_addr, &old_key_tx).await;
         assert!(result_old.is_err(), "Old key transaction should be rejected post-grace");
@@ -343,14 +343,14 @@ async fn test_pqc_identity_migration_lifecycle() -> Result<()> {
             "vote@v1",
             VoteParams {
                 proposal_id: 1,
-                option: VoteOption::NoWithVeto, 
+                option: VoteOption::NoWithVeto,
             },
             nonce, // Reuse nonce
             chain_id,
         )?;
         submit_transaction(rpc_addr, &new_key_tx).await
             .map_err(|e| anyhow!("New key tx failed: {}", e))?;
-            
+
         nonce += 1;
 
         // 5c. VERIFY THE STATE

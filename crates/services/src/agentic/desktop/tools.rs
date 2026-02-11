@@ -215,8 +215,24 @@ pub async fn discover_tools(
         });
         tools.push(LlmToolDefinition {
             name: "browser__extract".to_string(),
-            description: "Extract the HTML content from the current browser page.".to_string(),
+            description: "Extract the current browser accessibility tree as semantic XML with stable element IDs.".to_string(),
             parameters: extract_params.to_string(),
+        });
+
+        let click_id_params = json!({
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": "string",
+                    "description": "Semantic element ID from browser__extract output (e.g. 'btn_sign_in')."
+                }
+            },
+            "required": ["id"]
+        });
+        tools.push(LlmToolDefinition {
+            name: "browser__click_element".to_string(),
+            description: "Click a page element by semantic ID from browser__extract. Preferred over CSS selectors in headless mode.".to_string(),
+            parameters: click_id_params.to_string(),
         });
 
         let click_selector_params = json!({
@@ -283,13 +299,13 @@ pub async fn discover_tools(
         let find_params = json!({
             "type": "object",
             "properties": {
-                "query": { "type": "string", "description": "Text or description of the UI element to find (e.g. 'Calculator Icon', 'Submit Button')" }
+                "query": { "type": "string", "description": "UI target description (text, icon, color, or shape), e.g. 'gear icon', 'red button', 'Submit Button'" }
             },
             "required": ["query"]
         });
         tools.push(LlmToolDefinition {
             name: "ui__find".to_string(),
-            description: "Visually scan the screen for an element by text or description. Returns coordinates. Use this to find Desktop Icons or Dock items if 'os__launch_app' fails.".to_string(),
+            description: "Find an on-screen element by semantic or visual description, including unlabeled icons. Returns coordinates. Use this to find Desktop icons or dock items if 'os__launch_app' fails.".to_string(),
             parameters: find_params.to_string(),
         });
 
@@ -528,6 +544,26 @@ pub async fn discover_tools(
         description: "Write text content to a file, or edit a single line deterministically by setting line_number."
             .to_string(),
         parameters: fs_write_params.to_string(),
+    });
+
+    let fs_patch_params = json!({
+        "type": "object",
+        "properties": {
+            "path": { "type": "string", "description": "Absolute path to the file to patch" },
+            "search": {
+                "type": "string",
+                "description": "Exact string block to replace. Must match exactly one occurrence."
+            },
+            "replace": { "type": "string", "description": "Replacement content for the matched block" }
+        },
+        "required": ["path", "search", "replace"]
+    });
+    tools.push(LlmToolDefinition {
+        name: "filesystem__patch".to_string(),
+        description:
+            "Replace a unique text block in a file. Fails if search is missing or ambiguous."
+                .to_string(),
+        parameters: fs_patch_params.to_string(),
     });
 
     let fs_read_params = json!({

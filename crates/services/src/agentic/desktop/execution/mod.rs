@@ -197,12 +197,14 @@ impl ToolExecutor {
             AgentTool::BrowserNavigate { .. }
             | AgentTool::BrowserExtract { .. }
             | AgentTool::BrowserClick { .. }
+            | AgentTool::BrowserClickElement { .. }
             | AgentTool::BrowserSyntheticClick { .. } => browser::handle(self, tool).await,
 
             // Filesystem Domain
-            AgentTool::FsRead { .. } | AgentTool::FsWrite { .. } | AgentTool::FsList { .. } => {
-                filesystem::handle(self, tool).await
-            }
+            AgentTool::FsRead { .. }
+            | AgentTool::FsWrite { .. }
+            | AgentTool::FsPatch { .. }
+            | AgentTool::FsList { .. } => filesystem::handle(self, tool).await,
 
             // System Domain
             AgentTool::SysExec { .. } | AgentTool::OsLaunchApp { .. } => {

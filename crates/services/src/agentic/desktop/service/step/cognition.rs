@@ -165,7 +165,7 @@ pub async fn think(
     // [MODIFIED] Strategy instruction to prefer Semantic Click
     let strategy_instruction = match perception.tier {
         ExecutionTier::DomHeadless => {
-            "MODE: HEADLESS. Use 'browser__extract' or 'gui__click_element' to interact via IDs."
+            "MODE: HEADLESS. Use 'browser__extract' for semantic XML and `browser__click_element(id=...)` for robust web interaction."
         }
         ExecutionTier::VisualBackground => {
             "MODE: BACKGROUND VISUAL. You see the app state. Prefer 'gui__click_element(id=\"btn_name\")' for robustness. Use coordinates only as fallback."
@@ -264,7 +264,7 @@ OPERATING RULES:
 7. CRITICAL: When using 'computer.type', you MUST first CLICK the input field to ensure focus.
 8. BROWSER RULE: Never launch browsers via `sys__exec`. Treat that as a policy violation. Always start browsing with `browser__navigate`.
 8a. WEB SEARCH RULE: For intents like 'search for X', prefer `browser__navigate` with a hermetic-friendly search URL (e.g. `https://duckduckgo.com/?q=...`) instead of manual click+type; if a CAPTCHA/human-verification challenge appears, stop and request Local Browser handoff.
-8b. BROWSER CLICK RULE: In a browser window, do NOT use `gui__click` for page elements. Use `browser__click` with a concrete CSS selector first (Google search box examples: `textarea[name='q']`, `input[name='q']`).
+8b. BROWSER CLICK RULE: In a browser window, do NOT use `gui__click` for page elements. Prefer `browser__click_element` with IDs from `browser__extract`; use `browser__click` with concrete CSS selectors only as fallback.
 8c. PACKAGE INSTALL RULE: For dependency installation, prefer `sys__install_package` over raw `sys__exec` so command construction stays deterministic and policy-auditable.
 8d. BROWSER RESILIENCE RULE: If `browser__navigate` fails with CDP/connection errors and you are in VisualForeground with a focused browser window, retry `browser__navigate` once; runtime can fall back to visual URL entry (`Ctrl/Cmd+L`, type URL, Enter).
 8e. LOCAL BROWSER RULE: If the user explicitly asks for \"my/local/current browser\", call `browser__navigate` with `context=\"local\"`. Do NOT default to hermetic in that case.

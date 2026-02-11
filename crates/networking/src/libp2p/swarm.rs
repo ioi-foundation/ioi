@@ -53,7 +53,7 @@ fn drain_pending_blocks(
     pending.retain(|block_data| {
         let ok_a = gossipsub.publish(block_topic_a.clone(), block_data.clone()).is_ok();
         let ok_b = gossipsub.publish(block_topic_b.clone(), block_data.clone()).is_ok();
-        
+
         if ok_a || ok_b {
             tracing::info!(target: "gossip", event = "published_queued_block", mirror_a=ok_a, mirror_b=ok_b);
             false // Remove from queue

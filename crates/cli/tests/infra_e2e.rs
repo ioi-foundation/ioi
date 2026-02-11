@@ -331,12 +331,12 @@ async fn test_storage_crash_recovery() -> Result<()> {
              .downcast_ref::<ioi_cli::testing::backend::ProcessBackend>()
              .map(|p| p.workload_config_path.clone())
              .ok_or(anyhow!("Could not get config path"))?;
-             
+
         let config_str = fs::read_to_string(&workload_config_path)?;
         let cfg: ioi_types::config::WorkloadConfig = toml::from_str(&config_str)?;
         let db_path = std::path::Path::new(&cfg.state_file).with_extension("db");
         let wal_path = db_path.with_extension("wal");
-        
+
         assert!(wal_path.exists(), "WAL file should exist before crash");
         let meta = fs::metadata(&wal_path)?;
         println!("WAL File Size: {} bytes", meta.len());
