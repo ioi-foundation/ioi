@@ -51,7 +51,13 @@ pub fn requires_visual_integrity(tool: &AgentTool) -> bool {
             action,
             ComputerAction::LeftClickId { .. }
                 | ComputerAction::LeftClickElement { .. }
+                | ComputerAction::RightClickId { .. }
+                | ComputerAction::RightClickElement { .. }
                 | ComputerAction::LeftClick {
+                    coordinate: Some(_),
+                    ..
+                }
+                | ComputerAction::RightClick {
                     coordinate: Some(_),
                     ..
                 }
@@ -69,6 +75,36 @@ pub fn requires_visual_integrity(tool: &AgentTool) -> bool {
         AgentTool::BrowserSyntheticClick { .. } => true,
         AgentTool::BrowserClick { .. } => true,
         _ => false,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::requires_visual_integrity;
+    use ioi_types::app::agentic::{AgentTool, ComputerAction};
+
+    #[test]
+    fn right_click_variants_are_visual_integrity_sensitive() {
+        assert!(requires_visual_integrity(&AgentTool::Computer(
+            ComputerAction::RightClick {
+                coordinate: Some([640, 320]),
+            },
+        )));
+        assert!(requires_visual_integrity(&AgentTool::Computer(
+            ComputerAction::RightClickId { id: 7 },
+        )));
+        assert!(requires_visual_integrity(&AgentTool::Computer(
+            ComputerAction::RightClickElement {
+                id: "context_menu_anchor".to_string(),
+            },
+        )));
+    }
+
+    #[test]
+    fn cursor_relative_right_click_does_not_require_visual_guard() {
+        assert!(!requires_visual_integrity(&AgentTool::Computer(
+            ComputerAction::RightClick { coordinate: None },
+        )));
     }
 }
 

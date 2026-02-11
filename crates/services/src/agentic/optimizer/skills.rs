@@ -1,5 +1,26 @@
 use super::*;
 
+fn action_target_for_macro_step(target: &str, params: &serde_json::Value) -> ActionTarget {
+    match target {
+        "browser__navigate" => {
+            let context = params
+                .get("context")
+                .and_then(|v| v.as_str())
+                .map(str::trim)
+                .unwrap_or("hermetic");
+            if context.eq_ignore_ascii_case("local") {
+                ActionTarget::BrowserNavigateLocal
+            } else {
+                ActionTarget::BrowserNavigateHermetic
+            }
+        }
+        "gui__type" => ActionTarget::GuiType,
+        "gui__click" => ActionTarget::GuiClick,
+        "sys__exec" => ActionTarget::SysExec,
+        _ => ActionTarget::Custom(target.to_string()),
+    }
+}
+
 impl OptimizerService {
     /// [NEW] Helper to index a skill in the vector store for semantic retrieval.
     pub(crate) async fn index_skill(
@@ -129,13 +150,7 @@ impl OptimizerService {
         if let Some(steps_arr) = skill_json["steps"].as_array() {
             for s in steps_arr {
                 let target_str = s["target"].as_str().unwrap_or("");
-                let target = match target_str {
-                    "browser__navigate" => ActionTarget::BrowserNavigateHermetic,
-                    "gui__type" => ActionTarget::GuiType,
-                    "gui__click" => ActionTarget::GuiClick,
-                    "sys__exec" => ActionTarget::SysExec,
-                    _ => ActionTarget::Custom(target_str.to_string()),
-                };
+                let target = action_target_for_macro_step(target_str, &s["params"]);
                 let params = serde_json::to_vec(&s["params"]).unwrap_or_default();
 
                 steps.push(ActionRequest {
@@ -250,13 +265,7 @@ impl OptimizerService {
         if let Some(steps_arr) = skill_json["steps"].as_array() {
             for s in steps_arr {
                 let target_str = s["target"].as_str().unwrap_or("");
-                let target = match target_str {
-                    "browser__navigate" => ActionTarget::BrowserNavigateHermetic,
-                    "gui__type" => ActionTarget::GuiType,
-                    "gui__click" => ActionTarget::GuiClick,
-                    "sys__exec" => ActionTarget::SysExec,
-                    _ => ActionTarget::Custom(target_str.to_string()),
-                };
+                let target = action_target_for_macro_step(target_str, &s["params"]);
                 let params = serde_json::to_vec(&s["params"]).unwrap_or_default();
 
                 steps.push(ActionRequest {
@@ -444,5 +453,32 @@ impl OptimizerService {
         );
 
         Ok(skill)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    #[test]
+    fn macro_step_browser_navigate_maps_local_context() {
+        let target = action_target_for_macro_step(
+            "browser__navigate",
+            &json!({
+                "url": "https://news.ycombinator.com",
+                "context": " local "
+            }),
+        );
+        assert_eq!(target, ActionTarget::BrowserNavigateLocal);
+    }
+
+    #[test]
+    fn macro_step_browser_navigate_defaults_to_hermetic() {
+        let target = action_target_for_macro_step(
+            "browser__navigate",
+            &json!({"url": "https://example.com"}),
+        );
+        assert_eq!(target, ActionTarget::BrowserNavigateHermetic);
     }
 }

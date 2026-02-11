@@ -31,6 +31,27 @@ fn get_status_str(status: &AgentStatus) -> String {
         .to_string()
 }
 
+fn mark_system_fail_status(status: &mut AgentStatus, reason: impl Into<String>) {
+    *status = AgentStatus::Failed(reason.into());
+}
+
+fn enforce_system_fail_terminal_status(
+    current_tool_name: &str,
+    status: &mut AgentStatus,
+    error_msg: Option<&str>,
+) -> bool {
+    if current_tool_name != "system__fail" {
+        return false;
+    }
+
+    if !matches!(status, AgentStatus::Failed(_)) {
+        let fallback_reason = error_msg.unwrap_or("Agent requested explicit failure");
+        mark_system_fail_status(status, fallback_reason.to_string());
+    }
+
+    true
+}
+
 pub async fn handle_refusal(
     service: &DesktopAgentService,
     state: &mut dyn StateAccess,
@@ -287,7 +308,9 @@ pub async fn process_tool_output(
                             // [FIX] Reflexive Agent State Update
                             // If the output of a tool (like sys::exec running a script) contains a completion signal,
                             // update the state immediately. This handles "piggyback" completions authoritatively.
-                            if entry.contains("agent_complete") || entry.contains("agent__complete")
+                            if entry.contains("agent_complete")
+                                || entry.contains("agent__complete")
+                                || entry.contains("system__fail")
                             {
                                 if let Some(json_start) = entry.find('{') {
                                     if let Some(json_end) = entry.rfind('}') {
@@ -296,42 +319,72 @@ pub async fn process_tool_output(
                                             if let Ok(detected_tool) =
                                                 middleware::normalize_tool_call(potential_json)
                                             {
-                                                if let AgentTool::AgentComplete { result } =
-                                                    detected_tool
-                                                {
-                                                    log::info!("Reflexive Agent: Detected completion signal in tool output.");
+                                                match detected_tool {
+                                                    AgentTool::AgentComplete { result } => {
+                                                        log::info!("Reflexive Agent: Detected completion signal in tool output.");
 
-                                                    // 1. Authoritative State Transition
-                                                    agent_state.status = AgentStatus::Completed(
-                                                        Some(result.clone()),
-                                                    );
-                                                    is_lifecycle_action = true;
-
-                                                    // 2. Broadcast Event with STATUS
-                                                    if let Some(tx) = &service.event_sender {
-                                                        let _ = tx.send(
-                                                            KernelEvent::AgentActionResult {
-                                                                session_id: session_id,
-                                                                step_index: agent_state.step_count,
-                                                                tool_name: "agent__complete"
-                                                                    .to_string(),
-                                                                output: result.clone(),
-                                                                // [NEW] Authoritative Status
-                                                                agent_status: get_status_str(
-                                                                    &agent_state.status,
-                                                                ),
-                                                            },
+                                                        // 1. Authoritative State Transition
+                                                        agent_state.status = AgentStatus::Completed(
+                                                            Some(result.clone()),
                                                         );
-                                                    }
+                                                        is_lifecycle_action = true;
 
-                                                    // 3. Crystallize Skill (Evolution)
-                                                    evaluate_and_crystallize(
-                                                        service,
-                                                        agent_state,
-                                                        session_id,
-                                                        &result,
-                                                    )
-                                                    .await;
+                                                        // 2. Broadcast Event with STATUS
+                                                        if let Some(tx) = &service.event_sender {
+                                                            let _ = tx.send(
+                                                                KernelEvent::AgentActionResult {
+                                                                    session_id: session_id,
+                                                                    step_index: agent_state
+                                                                        .step_count,
+                                                                    tool_name: "agent__complete"
+                                                                        .to_string(),
+                                                                    output: result.clone(),
+                                                                    // [NEW] Authoritative Status
+                                                                    agent_status: get_status_str(
+                                                                        &agent_state.status,
+                                                                    ),
+                                                                },
+                                                            );
+                                                        }
+
+                                                        // 3. Crystallize Skill (Evolution)
+                                                        evaluate_and_crystallize(
+                                                            service,
+                                                            agent_state,
+                                                            session_id,
+                                                            &result,
+                                                        )
+                                                        .await;
+                                                    }
+                                                    AgentTool::SystemFail { reason, .. } => {
+                                                        log::info!("Reflexive Agent: Detected failure signal in tool output.");
+
+                                                        mark_system_fail_status(
+                                                            &mut agent_state.status,
+                                                            reason.clone(),
+                                                        );
+                                                        is_lifecycle_action = true;
+
+                                                        if let Some(tx) = &service.event_sender {
+                                                            let _ = tx.send(
+                                                                KernelEvent::AgentActionResult {
+                                                                    session_id: session_id,
+                                                                    step_index: agent_state
+                                                                        .step_count,
+                                                                    tool_name: "system__fail"
+                                                                        .to_string(),
+                                                                    output: format!(
+                                                                        "Agent Failed: {}",
+                                                                        reason
+                                                                    ),
+                                                                    agent_status: get_status_str(
+                                                                        &agent_state.status,
+                                                                    ),
+                                                                },
+                                                            );
+                                                        }
+                                                    }
+                                                    _ => {}
                                                 }
                                             }
                                         }
@@ -376,6 +429,20 @@ pub async fn process_tool_output(
                                     tool_name: "chat__reply".to_string(),
                                     output: message.clone(),
                                     // [NEW] Authoritative Status
+                                    agent_status: get_status_str(&agent_state.status),
+                                });
+                            }
+                        }
+                        AgentTool::SystemFail { reason, .. } => {
+                            mark_system_fail_status(&mut agent_state.status, reason.clone());
+                            is_lifecycle_action = true;
+
+                            if let Some(tx) = &service.event_sender {
+                                let _ = tx.send(KernelEvent::AgentActionResult {
+                                    session_id: session_id,
+                                    step_index: agent_state.step_count,
+                                    tool_name: "system__fail".to_string(),
+                                    output: format!("Agent Failed: {}", reason),
                                     agent_status: get_status_str(&agent_state.status),
                                 });
                             }
@@ -500,7 +567,11 @@ pub async fn process_tool_output(
         agent_state.consecutive_failures += 1;
     }
 
-    if current_tool_name == "system__fail" {
+    if enforce_system_fail_terminal_status(
+        &current_tool_name,
+        &mut agent_state.status,
+        error_msg.as_deref(),
+    ) {
         log::info!("SystemFail executed: Forcing IMMEDIATE escalation state (failures=3)");
         agent_state.consecutive_failures = 3;
     }
@@ -518,4 +589,25 @@ pub async fn process_tool_output(
     }
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_system_fail_sets_failed_status() {
+        let mut status = AgentStatus::Running;
+        let changed = enforce_system_fail_terminal_status(
+            "system__fail",
+            &mut status,
+            Some("Critical tool missing"),
+        );
+
+        assert!(changed);
+        assert!(matches!(
+            status,
+            AgentStatus::Failed(ref reason) if reason.contains("Critical tool missing")
+        ));
+    }
 }

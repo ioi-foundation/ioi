@@ -23,6 +23,9 @@ fn is_focus_sensitive_tool(tool: &AgentTool) -> bool {
             ComputerAction::LeftClick { .. }
                 | ComputerAction::LeftClickId { .. }
                 | ComputerAction::LeftClickElement { .. }
+                | ComputerAction::RightClick { .. }
+                | ComputerAction::RightClickId { .. }
+                | ComputerAction::RightClickElement { .. }
                 | ComputerAction::LeftClickDrag { .. }
                 | ComputerAction::DragDrop { .. }
                 | ComputerAction::Scroll { .. }
@@ -426,5 +429,28 @@ pub fn select_runtime(
             service.fast_inference.clone()
         }
         _ => service.reasoning_inference.clone(),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::is_focus_sensitive_tool;
+    use ioi_types::app::agentic::{AgentTool, ComputerAction};
+
+    #[test]
+    fn right_click_variants_require_focus_recovery() {
+        assert!(is_focus_sensitive_tool(&AgentTool::Computer(
+            ComputerAction::RightClick {
+                coordinate: Some([10, 20]),
+            },
+        )));
+        assert!(is_focus_sensitive_tool(&AgentTool::Computer(
+            ComputerAction::RightClickId { id: 12 },
+        )));
+        assert!(is_focus_sensitive_tool(&AgentTool::Computer(
+            ComputerAction::RightClickElement {
+                id: "file_row".to_string(),
+            },
+        )));
     }
 }

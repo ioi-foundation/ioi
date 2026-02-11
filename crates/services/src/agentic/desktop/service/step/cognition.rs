@@ -267,6 +267,7 @@ OPERATING RULES:
 8b. BROWSER CLICK RULE: In a browser window, do NOT use `gui__click` for page elements. Use `browser__click` with a concrete CSS selector first (Google search box examples: `textarea[name='q']`, `input[name='q']`).
 8c. PACKAGE INSTALL RULE: For dependency installation, prefer `sys__install_package` over raw `sys__exec` so command construction stays deterministic and policy-auditable.
 8d. BROWSER RESILIENCE RULE: If `browser__navigate` fails with CDP/connection errors and you are in VisualForeground with a focused browser window, retry `browser__navigate` once; runtime can fall back to visual URL entry (`Ctrl/Cmd+L`, type URL, Enter).
+8e. LOCAL BROWSER RULE: If the user explicitly asks for \"my/local/current browser\", call `browser__navigate` with `context=\"local\"`. Do NOT default to hermetic in that case.
 9. APP LAUNCH RULE: To open applications, ALWAYS prefer `os__launch_app`.
    - It handles system paths automatically (e.g. finds 'Calculator' on Mac/Linux/Windows).
    - ONLY if that fails should you try `ui__find` to locate the icon visually and click it.

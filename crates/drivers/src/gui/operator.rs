@@ -152,11 +152,15 @@ impl NativeOperator {
         transform: &DisplayTransform,
         expected_visual_hash: Option<[u8; 32]>,
     ) -> Result<Point> {
+        // Tolerate minor UI churn (clock tick, caret blink, tiny repaint noise)
+        // while still blocking materially different screens.
+        const DRIFT_THRESHOLD: u32 = 32;
+
         if let Some(expected) = expected_visual_hash {
             let full_screen_png = NativeVision::capture_primary()?;
             let current_hash = Self::compute_phash(&full_screen_png)?;
             let dist = Self::hamming_distance(&current_hash, &expected);
-            if dist > 5 {
+            if dist > DRIFT_THRESHOLD {
                 if let Some(tx) = &self.event_sender {
                     let _ = tx.send(KernelEvent::FirewallInterception {
                         verdict: "BLOCK".to_string(),
@@ -166,8 +170,9 @@ impl NativeOperator {
                     });
                 }
                 return Err(anyhow!(
-                    "Visual Drift Detected! Hamming distance {} > 5.",
-                    dist
+                    "Visual Drift Detected! Hamming distance {} > {}.",
+                    dist,
+                    DRIFT_THRESHOLD
                 ));
             }
         }

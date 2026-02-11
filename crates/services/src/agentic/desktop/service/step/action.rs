@@ -6,7 +6,7 @@ use super::anti_loop::{
     classify_failure, emit_routing_receipt, escalation_path_for_failure, extract_artifacts,
     lineage_pointer, mutation_receipt_pointer, policy_binding_hash, register_failure_attempt,
     retry_budget_remaining, should_block_retry_without_change, should_trip_retry_guard,
-    tier_as_str, to_routing_failure_class, FailureClass,
+    tier_as_str, to_routing_failure_class, FailureClass, TierRoutingDecision,
 };
 use crate::agentic::desktop::keys::{get_state_key, AGENT_POLICY_PREFIX};
 use crate::agentic::desktop::middleware;
@@ -17,7 +17,9 @@ use crate::agentic::rules::ActionRules;
 use ioi_api::state::StateAccess;
 use ioi_crypto::algorithms::hash::sha256;
 use ioi_types::app::agentic::AgentTool;
-use ioi_types::app::{ActionContext, ActionRequest, KernelEvent, RoutingReceiptEvent};
+use ioi_types::app::{
+    ActionContext, ActionRequest, KernelEvent, RoutingReceiptEvent, RoutingStateSummary,
+};
 use ioi_types::codec;
 use ioi_types::error::TransactionError;
 use serde_jcs;
@@ -35,6 +37,27 @@ fn get_status_str(status: &AgentStatus) -> String {
         .next()
         .unwrap_or("Unknown")
         .to_string()
+}
+
+fn mark_system_fail_status(status: &mut AgentStatus, reason: impl Into<String>) {
+    *status = AgentStatus::Failed(reason.into());
+}
+
+fn enforce_system_fail_terminal_status(
+    current_tool_name: &str,
+    status: &mut AgentStatus,
+    error_msg: Option<&str>,
+) -> bool {
+    if current_tool_name != "system__fail" {
+        return false;
+    }
+
+    if !matches!(status, AgentStatus::Failed(_)) {
+        let fallback_reason = error_msg.unwrap_or("Agent requested explicit failure");
+        mark_system_fail_status(status, fallback_reason.to_string());
+    }
+
+    true
 }
 
 // Helper to determine if an action relies on precise screen coordinates.
@@ -364,6 +387,17 @@ async fn evaluate_and_crystallize(
     }
 }
 
+/// Applies parity routing for action execution and snapshots pre-state after
+/// tier selection so receipt pre-state, intent hash tier, and executor tier stay coherent.
+pub fn resolve_action_routing_context(
+    agent_state: &mut AgentState,
+) -> (TierRoutingDecision, RoutingStateSummary) {
+    let routing_decision = choose_routing_tier(agent_state);
+    agent_state.current_tier = routing_decision.tier;
+    let pre_state_summary = build_state_summary(agent_state);
+    (routing_decision, pre_state_summary)
+}
+
 pub async fn process_tool_output(
     service: &DesktopAgentService,
     state: &mut dyn StateAccess,
@@ -380,8 +414,7 @@ pub async fn process_tool_output(
         .get(&policy_key)?
         .and_then(|b| codec::from_bytes_canonical(&b).ok())
         .unwrap_or_else(default_safe_policy);
-    let pre_state_summary = build_state_summary(agent_state);
-    let routing_decision = choose_routing_tier(agent_state);
+    let (routing_decision, pre_state_summary) = resolve_action_routing_context(agent_state);
     let tool_version = env!("CARGO_PKG_VERSION");
     let mut policy_decision = "allowed".to_string();
     let mut action_payload = json!({
@@ -666,6 +699,11 @@ pub async fn process_tool_output(
                             is_lifecycle_action = true;
                             action_output = Some(message.clone());
                         }
+                        AgentTool::SystemFail { reason, .. } => {
+                            mark_system_fail_status(&mut agent_state.status, reason.clone());
+                            is_lifecycle_action = true;
+                            action_output = Some(format!("Agent Failed: {}", reason));
+                        }
                         _ => {}
                     }
                 }
@@ -911,7 +949,11 @@ pub async fn process_tool_output(
 
     // Failure counter is primarily managed in goto_trace_log.
     // We only override it for explicit escalation or lifecycle transitions.
-    if current_tool_name == "system__fail" {
+    if enforce_system_fail_terminal_status(
+        &current_tool_name,
+        &mut agent_state.status,
+        error_msg.as_deref(),
+    ) {
         log::info!("SystemFail executed: Forcing IMMEDIATE escalation state (failures=3)");
         agent_state.consecutive_failures = 3;
     } else if !stop_condition_hit && (success || is_lifecycle_action) {

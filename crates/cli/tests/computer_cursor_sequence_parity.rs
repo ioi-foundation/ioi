@@ -8,6 +8,7 @@ use ioi_services::agentic::desktop::execution::computer::{
     build_cursor_click_sequence, build_cursor_drag_sequence,
 };
 use ioi_services::agentic::desktop::execution::ToolExecutor;
+use ioi_services::agentic::desktop::service::actions::checks::requires_visual_integrity;
 use ioi_services::agentic::desktop::service::step::action::{
     canonical_intent_hash, canonical_tool_identity,
 };
@@ -246,6 +247,26 @@ async fn right_click_coordinate_uses_som_fallback_outside_visual_last() {
     );
 }
 
+#[test]
+fn right_click_actions_opt_into_visual_integrity_guard() {
+    assert!(requires_visual_integrity(&AgentTool::Computer(
+        ComputerAction::RightClick {
+            coordinate: Some([119, 209]),
+        },
+    )));
+    assert!(requires_visual_integrity(&AgentTool::Computer(
+        ComputerAction::RightClickId { id: 42 },
+    )));
+    assert!(requires_visual_integrity(&AgentTool::Computer(
+        ComputerAction::RightClickElement {
+            id: "submit_button".to_string(),
+        },
+    )));
+    assert!(!requires_visual_integrity(&AgentTool::Computer(
+        ComputerAction::RightClick { coordinate: None },
+    )));
+}
+
 #[tokio::test]
 async fn right_click_element_uses_semantic_map_and_emits_right_click() {
     let gui = Arc::new(MockGuiDriver::default());
@@ -388,7 +409,10 @@ fn routing_receipt_contract_for_coordinate_right_click_som_fallback_includes_pre
 
     let (tool_name, args) = canonical_tool_identity(&tool);
     assert_eq!(tool_name, "computer");
-    assert_eq!(args.get("action").and_then(|v| v.as_str()), Some("right_click"));
+    assert_eq!(
+        args.get("action").and_then(|v| v.as_str()),
+        Some("right_click")
+    );
     assert_eq!(
         args.get("coordinate")
             .and_then(|v| v.get(0))
