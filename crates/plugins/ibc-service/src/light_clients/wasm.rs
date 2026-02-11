@@ -9,9 +9,9 @@ use wasmtime::component::{Component, Linker};
 use wasmtime::{Engine, Store}; // [FIX] Import codec for serialization
 
 // Generate bindings for the WIT defined above
-// Path is relative to the Cargo.toml of the crate (crates/services)
+// Path is relative to the Cargo.toml of the crate (crates/plugins/ibc-service)
 wasmtime::component::bindgen!({
-    path: "../types/wit/ibc_verifier.wit",
+    path: "../../types/wit/ibc_verifier.wit",
     world: "verifier-module",
     async: true
 });

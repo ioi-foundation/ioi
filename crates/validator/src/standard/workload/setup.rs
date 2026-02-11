@@ -51,7 +51,7 @@ use ioi_services::agentic::scrub_adapter::RuntimeAsSafetyModel;
 use tonic::transport::{Certificate, Channel, ClientTlsConfig, Identity};
 
 #[cfg(feature = "ibc-deps")]
-use ioi_services::ibc::{
+use ioi_plugin_ibc_service::{
     apps::channel::ChannelManager, core::registry::VerifierRegistry,
     light_clients::tendermint::TendermintVerifier,
 };
@@ -59,7 +59,7 @@ use ioi_services::ibc::{
 #[cfg(all(feature = "ibc-deps", feature = "ethereum-zk"))]
 use {
     ioi_api::ibc::LightClient, ioi_crypto::algorithms::hash::sha256,
-    ioi_services::ibc::light_clients::ethereum_zk::EthereumZkLightClient, std::fs,
+    ioi_plugin_ibc_service::light_clients::ethereum_zk::EthereumZkLightClient, std::fs,
     zk_driver_succinct::config::SuccinctDriverConfig,
 };
 

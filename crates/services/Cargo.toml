@@ -12,10 +12,6 @@ repository = "https://github.com/ioi-foundation/ioi-sdk"
 ioi-api = { path = "../api" }
 ioi-types = { path = "../types" }
 ioi-macros = { path = "../macros" }
-# Add VM dependency for dynamic verifiers
-ioi-vm-wasm = { path = "../vm/wasm" }
-# Add Wasmtime for component instantiation in light clients
-wasmtime = { version = "21.0.0", features = ["component-model", "async"] }
 ioi-scs = { path = "../scs" }
 
 log = { workspace = true }
@@ -32,8 +28,6 @@ serde_jcs = "0.1.0"
 reqwest = { version = "0.11", features = ["json"] }
 libp2p = { workspace = true }
 parity-scale-codec = { workspace = true, features = ["std"] }
-prost = { workspace = true }
-byte-slice-cast = "1.2"
 bincode = { workspace = true }
 dcrypt = { workspace = true }
 # [FIX] Add base64 dependency
@@ -60,74 +54,8 @@ ioi-state = { path = "../state" }
 ioi-client = { path = "../client" }
 ioi-drivers = { path = "../drivers" }
 
-ibc-client-tendermint = { workspace = true, features = [
-    "std",
-], optional = true }
-ibc-core-client-types = { workspace = true, features = [
-    "std",
-], optional = true }
-ibc-core-client = { workspace = true, features = ["std"], optional = true }
-ibc-core-commitment-types = { workspace = true, features = [
-    "std",
-], optional = true }
-ibc-core-connection-types = { workspace = true, features = [
-    "std",
-], optional = true }
-ibc-core-connection = { workspace = true, features = ["std"], optional = true }
-ibc-core-host-types = { workspace = true, features = ["std"], optional = true }
-ibc-core-channel-types = { workspace = true, features = [
-    "std",
-], optional = true }
-ibc-core-channel = { workspace = true, features = ["std"], optional = true }
-ibc-core-client-context = { workspace = true, features = [
-    "std",
-], optional = true }
-ibc-core-handler-types = { workspace = true, features = [
-    "std",
-], optional = true }
-ibc-core-host = { workspace = true, features = ["std"], optional = true }
-ibc-core-router = { workspace = true, features = ["std"], optional = true }
-ibc-core-router-types = { workspace = true, features = [
-    "std",
-], optional = true }
-ibc-primitives = { workspace = true, features = ["std"], optional = true }
-ibc-proto = { workspace = true, features = ["serde", "std"], optional = true }
-tendermint-proto = { workspace = true, optional = true }
-tendermint = { workspace = true, optional = true }
-ibc = { workspace = true, features = ["std"], optional = true }
-ics23 = { version = "0.12.0", optional = true }
-
-# [FIX] Updated path for ZK driver plugin
-zk-driver-succinct = { path = "../plugins/zk-driver-succinct", optional = true }
-
 [features]
-# [FIX] Default is now empty. Consumers must explicitly opt-in to "ibc-deps".
 default = [] 
 
 gas-escrow = []
 agentic = ["gas-escrow"]
-ethereum-zk = ["dep:zk-driver-succinct"]
-
-# Feature group for IBC
-ibc-deps = [
-    "dep:ibc-client-tendermint",
-    "dep:ibc-core-client-types",
-    "dep:ibc-core-client",
-    "dep:ibc-core-commitment-types",
-    "dep:ibc-core-connection-types",
-    "dep:ibc-core-connection",
-    "dep:ibc-core-host-types",
-    "dep:ibc-core-channel-types",
-    "dep:ibc-core-channel",
-    "dep:ibc-core-client-context",
-    "dep:ibc-core-handler-types",
-    "dep:ibc-core-host",
-    "dep:ibc-core-router",
-    "dep:ibc-core-router-types",
-    "dep:ibc-primitives",
-    "dep:ibc-proto",
-    "dep:tendermint-proto",
-    "dep:tendermint",
-    "dep:ibc",
-    "dep:ics23",
-]

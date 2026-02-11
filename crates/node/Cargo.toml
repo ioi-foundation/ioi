@@ -32,6 +32,7 @@ ioi-scs = { path = "../scs" }
 http-rpc-gateway = { path = "../plugins/http-rpc-gateway", optional = true }
 transport-verifier = { path = "../plugins/transport-verifier", optional = true }
 zk-driver-succinct = { path = "../plugins/zk-driver-succinct", optional = true }
+ioi-plugin-ibc-service = { path = "../plugins/ibc-service", optional = true }
 
 bincode = { workspace = true }
 uuid = { version = "1.8.0", features = ["v4"] }
@@ -126,7 +127,7 @@ vm-wasm = ["dep:ioi-vm-wasm", "ioi-validator/vm-wasm"]
 # Service Features
 # [FIX] ibc-deps now pulls in the optional plugin crates
 ibc-deps = [
-    "ioi-services/ibc-deps", 
+    "dep:ioi-plugin-ibc-service",
     "ioi-validator/ibc-deps",
     "dep:transport-verifier",
     "dep:http-rpc-gateway",
@@ -134,7 +135,7 @@ ibc-deps = [
 
 # Ethereum ZK Light Client Support
 ethereum-zk = [
-    "ioi-services/ethereum-zk",
+    "ioi-plugin-ibc-service/ethereum-zk",
     "dep:zk-driver-succinct",
     "ioi-validator/ethereum-zk",
 ]

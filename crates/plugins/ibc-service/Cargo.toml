@@ -1,0 +1,54 @@
+[package]
+name = "ioi-plugin-ibc-service"
+version = "0.1.0"
+edition = "2021"
+description = "IBC Host Service plugin for IOI Kernel"
+license-file = "../../../LICENSE-BBSL"
+repository = "https://github.com/ioi-foundation/ioi"
+
+[dependencies]
+ioi-api = { path = "../../api" }
+ioi-types = { path = "../../types" }
+ioi-crypto = { path = "../../crypto" }
+ioi-vm-wasm = { path = "../../vm/wasm" }
+zk-driver-succinct = { path = "../zk-driver-succinct", optional = true }
+
+anyhow = { workspace = true }
+async-trait = { workspace = true }
+byte-slice-cast = "1.2"
+dcrypt = { workspace = true }
+hex = { workspace = true }
+log = { workspace = true }
+parity-scale-codec = { workspace = true, features = ["std"] }
+prost = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+tracing = { workspace = true }
+wasmtime = { workspace = true }
+bincode = { workspace = true }
+
+ibc-client-tendermint = { workspace = true, features = ["std"] }
+ibc-core-client-types = { workspace = true, features = ["std"] }
+ibc-core-client = { workspace = true, features = ["std"] }
+ibc-core-commitment-types = { workspace = true, features = ["std"] }
+ibc-core-connection-types = { workspace = true, features = ["std"] }
+ibc-core-connection = { workspace = true, features = ["std"] }
+ibc-core-host-types = { workspace = true, features = ["std"] }
+ibc-core-channel-types = { workspace = true, features = ["std"] }
+ibc-core-channel = { workspace = true, features = ["std"] }
+ibc-core-client-context = { workspace = true, features = ["std"] }
+ibc-core-handler-types = { workspace = true, features = ["std"] }
+ibc-core-host = { workspace = true, features = ["std"] }
+ibc-core-router = { workspace = true, features = ["std"] }
+ibc-core-router-types = { workspace = true, features = ["std"] }
+ibc-primitives = { workspace = true, features = ["std"] }
+ibc-proto = { workspace = true, features = ["serde", "std"] }
+tendermint-proto = { workspace = true }
+tendermint = { workspace = true }
+ibc = { workspace = true, features = ["std"] }
+ics23 = { workspace = true }
+
+[features]
+default = []
+ethereum-zk = ["dep:zk-driver-succinct"]

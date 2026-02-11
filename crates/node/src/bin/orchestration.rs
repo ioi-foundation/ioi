@@ -24,7 +24,7 @@ use http_rpc_gateway;
 // use ibc_host::{DefaultIbcHost, TransactionPool};
 
 #[cfg(feature = "ibc-deps")]
-use ioi_services::ibc::{
+use ioi_plugin_ibc_service::{
     apps::channel::ChannelManager, core::registry::VerifierRegistry,
     light_clients::tendermint::TendermintVerifier,
 };
@@ -431,7 +431,7 @@ where
                     #[cfg(feature = "ethereum-zk")]
                     {
                         use ioi_api::ibc::LightClient;
-                        use ioi_services::ibc::light_clients::ethereum_zk::EthereumZkLightClient;
+                        use ioi_plugin_ibc_service::light_clients::ethereum_zk::EthereumZkLightClient;
 
                         let zk_cfg = &workload_config.zk_config;
                         let load_vk = |path: &Option<String>,

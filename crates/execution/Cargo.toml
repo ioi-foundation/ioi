@@ -31,7 +31,6 @@ tokio = { workspace = true, features = ["sync"] }
 futures = { workspace = true }
 parity-scale-codec = { workspace = true, features = ["std"] }
 toml = { workspace = true }
-ibc-primitives = { workspace = true }
 
 # [NEW] Dependencies for Parallel Execution
 dashmap = { workspace = true }
