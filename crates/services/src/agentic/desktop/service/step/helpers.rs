@@ -70,6 +70,15 @@ pub fn default_safe_policy() -> ActionRules {
                 },
                 action: Verdict::Allow,
             },
+            Rule {
+                rule_id: Some("allow-browser-gui-scroll".into()),
+                target: "gui::scroll".into(),
+                conditions: RuleConditions {
+                    allow_apps: Some(browser_allow_apps()),
+                    ..Default::default()
+                },
+                action: Verdict::Allow,
+            },
             // Allow Chat Reply
             Rule {
                 rule_id: Some("allow-chat-reply".into()),

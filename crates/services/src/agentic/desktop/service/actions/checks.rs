@@ -58,8 +58,13 @@ pub fn requires_visual_integrity(tool: &AgentTool) -> bool {
                 | ComputerAction::LeftClickDrag { .. }
                 | ComputerAction::DragDrop { .. }
                 | ComputerAction::MouseMove { .. }
+                | ComputerAction::Scroll {
+                    coordinate: Some(_),
+                    ..
+                }
         ),
         AgentTool::GuiClick { .. } => true,
+        AgentTool::GuiScroll { .. } => true,
         AgentTool::GuiClickElement { .. } => true,
         AgentTool::BrowserSyntheticClick { .. } => true,
         AgentTool::BrowserClick { .. } => true,

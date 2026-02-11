@@ -52,6 +52,14 @@ pub enum ComputerAction {
         coordinate: Option<[u32; 2]>,
     },
 
+    /// Click right mouse button.
+    #[serde(rename = "right_click")]
+    RightClick {
+        /// Optional coordinates for stateless execution.
+        #[serde(default)]
+        coordinate: Option<[u32; 2]>,
+    },
+
     /// Click a specific element by its Set-of-Marks numeric tag.
     /// Visual Mode Only.
     #[serde(rename = "left_click_id")]
@@ -63,6 +71,21 @@ pub enum ComputerAction {
     /// Click a specific element by its semantic ID string.
     #[serde(rename = "left_click_element")]
     LeftClickElement {
+        /// The element ID string.
+        id: String,
+    },
+
+    /// Right-click a specific element by its Set-of-Marks numeric tag.
+    /// Visual Mode Only.
+    #[serde(rename = "right_click_id")]
+    RightClickId {
+        /// The unique numeric tag from the visual overlay.
+        id: u32,
+    },
+
+    /// Right-click a specific element by its semantic ID string.
+    #[serde(rename = "right_click_element")]
+    RightClickElement {
         /// The element ID string.
         id: String,
     },
@@ -87,6 +110,15 @@ pub enum ComputerAction {
 
     /// Get cursor position.
     CursorPosition,
+
+    /// Scroll the mouse wheel.
+    Scroll {
+        /// Optional coordinates [x, y] to move mouse before scrolling.
+        #[serde(default)]
+        coordinate: Option<[u32; 2]>,
+        /// Scroll delta [dx, dy]. Positive dy = down, positive dx = right.
+        delta: [i32; 2],
+    },
 }
 
 fn default_context_hermetic() -> String {
@@ -189,6 +221,17 @@ pub enum AgentTool {
     GuiType {
         /// Text to type.
         text: String,
+    },
+
+    /// Scroll the active window/element.
+    #[serde(rename = "gui__scroll")]
+    GuiScroll {
+        /// Vertical scroll amount. Positive = down.
+        #[serde(default)]
+        delta_y: i32,
+        /// Horizontal scroll amount. Positive = right.
+        #[serde(default)]
+        delta_x: i32,
     },
 
     /// Click a UI element by its stable ID. Global capability (works in background).
@@ -323,6 +366,7 @@ impl AgentTool {
 
             AgentTool::GuiClick { .. } => ActionTarget::GuiClick,
             AgentTool::GuiType { .. } => ActionTarget::GuiType,
+            AgentTool::GuiScroll { .. } => ActionTarget::GuiScroll,
             AgentTool::GuiClickElement { .. } => ActionTarget::GuiClick,
 
             AgentTool::UiFind { .. } => ActionTarget::Custom("ui::find".into()),
@@ -334,20 +378,24 @@ impl AgentTool {
             AgentTool::ChatReply { .. } => ActionTarget::Custom("chat__reply".into()),
 
             AgentTool::Computer(action) => match action {
-                ComputerAction::LeftClickId { .. } | ComputerAction::LeftClickElement { .. } => {
-                    ActionTarget::GuiClick
-                }
+                ComputerAction::LeftClickId { .. }
+                | ComputerAction::LeftClickElement { .. }
+                | ComputerAction::RightClickId { .. }
+                | ComputerAction::RightClickElement { .. } => ActionTarget::GuiClick,
 
                 ComputerAction::Type { .. }
                 | ComputerAction::Key { .. }
                 | ComputerAction::Hotkey { .. } => ActionTarget::GuiType,
                 ComputerAction::MouseMove { .. } => ActionTarget::GuiMouseMove,
-                ComputerAction::LeftClick { .. } => ActionTarget::GuiClick,
+                ComputerAction::LeftClick { .. } | ComputerAction::RightClick { .. } => {
+                    ActionTarget::GuiClick
+                }
                 ComputerAction::LeftClickDrag { .. } | ComputerAction::DragDrop { .. } => {
                     ActionTarget::GuiClick
                 }
                 ComputerAction::Screenshot => ActionTarget::GuiScreenshot,
                 ComputerAction::CursorPosition => ActionTarget::Custom("computer::cursor".into()),
+                ComputerAction::Scroll { .. } => ActionTarget::GuiScroll,
             },
 
             AgentTool::CommerceCheckout { .. } => ActionTarget::CommerceCheckout,

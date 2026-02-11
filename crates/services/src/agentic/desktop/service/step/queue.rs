@@ -7,7 +7,7 @@ use super::anti_loop::{
     classify_failure, emit_routing_receipt, escalation_path_for_failure, extract_artifacts,
     lineage_pointer, mutation_receipt_pointer, policy_binding_hash, register_failure_attempt,
     retry_budget_remaining, should_block_retry_without_change, should_trip_retry_guard,
-    tier_as_str, to_routing_failure_class, FailureClass,
+    tier_as_str, to_routing_failure_class, FailureClass, TierRoutingDecision,
 };
 use crate::agentic::desktop::keys::{get_state_key, AGENT_POLICY_PREFIX};
 use crate::agentic::desktop::service::DesktopAgentService;
@@ -16,10 +16,21 @@ use crate::agentic::desktop::utils::goto_trace_log;
 use crate::agentic::rules::ActionRules;
 use ioi_api::state::StateAccess;
 use ioi_types::app::agentic::AgentTool;
-use ioi_types::app::RoutingReceiptEvent;
+use ioi_types::app::{RoutingReceiptEvent, RoutingStateSummary};
 use ioi_types::codec;
 use ioi_types::error::TransactionError;
 use serde_json::json;
+
+/// Applies parity routing for queued actions and snapshots the pre-state after
+/// tier selection so receipts and executor context stay coherent.
+pub fn resolve_queue_routing_context(
+    agent_state: &mut AgentState,
+) -> (TierRoutingDecision, RoutingStateSummary) {
+    let routing_decision = choose_routing_tier(agent_state);
+    agent_state.current_tier = routing_decision.tier;
+    let pre_state_summary = build_state_summary(agent_state);
+    (routing_decision, pre_state_summary)
+}
 
 pub async fn process_queue_item(
     service: &DesktopAgentService,
@@ -39,8 +50,7 @@ pub async fn process_queue_item(
         .get(&policy_key)?
         .and_then(|b| codec::from_bytes_canonical(&b).ok())
         .unwrap_or_else(default_safe_policy);
-    let pre_state_summary = build_state_summary(agent_state);
-    let routing_decision = choose_routing_tier(agent_state);
+    let (routing_decision, pre_state_summary) = resolve_queue_routing_context(agent_state);
     let mut policy_decision = "allowed".to_string();
 
     // Pop the first action

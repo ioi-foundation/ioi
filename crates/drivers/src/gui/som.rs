@@ -21,6 +21,8 @@ use std::sync::OnceLock;
 // Static storage for the loaded font to avoid IO on every frame.
 static FONT_DATA: OnceLock<Vec<u8>> = OnceLock::new();
 static TRUTH_PROBE_DRAWN: AtomicBool = AtomicBool::new(false);
+const SYNTHETIC_GRID_AREA_THRESHOLD: f64 = 0.20;
+const SYNTHETIC_GRID_MIN_DIMENSION: f64 = 160.0;
 
 /// Attempts to load a standard system font for rendering labels.
 fn load_system_font() -> Option<FontRef<'static>> {
@@ -292,6 +294,153 @@ fn recurse_draw(
     }
 }
 
+fn has_meaningful_semantic_content(node: &AccessibilityNode) -> bool {
+    let has_text = |v: Option<&str>| v.map(|s| !s.trim().is_empty()).unwrap_or(false);
+    if has_text(node.name.as_deref()) || has_text(node.value.as_deref()) {
+        return true;
+    }
+
+    for key in [
+        "aria-label",
+        "label",
+        "title",
+        "description",
+        "placeholder",
+        "semantic_id",
+    ] {
+        if node
+            .attributes
+            .get(key)
+            .map(|v| !v.trim().is_empty())
+            .unwrap_or(false)
+        {
+            return true;
+        }
+    }
+
+    false
+}
+
+fn axis_partition(start: i32, len: i32, parts: i32, idx: i32) -> (i32, i32) {
+    let safe_len = len.max(0);
+    let safe_parts = parts.max(1);
+    let base = safe_len / safe_parts;
+    let rem = safe_len % safe_parts;
+    let offset = (idx * base) + idx.min(rem);
+    let size = base + if idx < rem { 1 } else { 0 };
+    (start + offset, size.max(0))
+}
+
+fn should_inject_synthetic_grid(
+    node: &AccessibilityNode,
+    area_ratio: f64,
+    phys_w: f64,
+    phys_h: f64,
+) -> bool {
+    if !node.children.is_empty() || node.is_interactive() {
+        return false;
+    }
+    if area_ratio < SYNTHETIC_GRID_AREA_THRESHOLD
+        || phys_w < SYNTHETIC_GRID_MIN_DIMENSION
+        || phys_h < SYNTHETIC_GRID_MIN_DIMENSION
+    {
+        return false;
+    }
+    if has_meaningful_semantic_content(node) {
+        return false;
+    }
+    if node
+        .attributes
+        .get("som.synthetic")
+        .map(|v| v == "grid_parent" || v == "grid_cell")
+        .unwrap_or(false)
+    {
+        return false;
+    }
+
+    let role_lc = node.role.to_ascii_lowercase();
+    matches!(
+        role_lc.as_str(),
+        "group"
+            | "generic"
+            | "div"
+            | "pane"
+            | "canvas"
+            | "document"
+            | "web_area"
+            | "region"
+            | "image"
+            | "window"
+            | "application"
+    )
+}
+
+fn choose_grid_dimension(area_ratio: f64, phys_w: f64, phys_h: f64) -> i32 {
+    if area_ratio >= 0.45 || phys_w >= 1200.0 || phys_h >= 900.0 {
+        4
+    } else {
+        3
+    }
+}
+
+fn inject_synthetic_grid_children(node: &mut AccessibilityNode, dimension: i32) {
+    let dim = dimension.max(2);
+    let parent_id = node.id.clone();
+    let mut children = Vec::new();
+
+    for row in 0..dim {
+        for col in 0..dim {
+            let (x, w) = axis_partition(node.rect.x, node.rect.width, dim, col);
+            let (y, h) = axis_partition(node.rect.y, node.rect.height, dim, row);
+            if w <= 0 || h <= 0 {
+                continue;
+            }
+
+            let label = format!("{}{}", (b'A' + row as u8) as char, col + 1);
+            let mut attributes = HashMap::new();
+            attributes.insert("som.synthetic".to_string(), "grid_cell".to_string());
+            attributes.insert("som.grid_label".to_string(), label.clone());
+            attributes.insert("som.grid_dim".to_string(), format!("{}x{}", dim, dim));
+            attributes.insert("som.parent".to_string(), parent_id.clone());
+            attributes.insert(
+                "semantic_aliases".to_string(),
+                format!(
+                    "grid {},{} row {} col {}",
+                    label.to_ascii_lowercase(),
+                    label,
+                    row + 1,
+                    col + 1
+                ),
+            );
+
+            children.push(AccessibilityNode {
+                id: format!("som_grid_{}_{}", parent_id, label.to_ascii_lowercase()),
+                role: "cell".to_string(),
+                name: Some(format!("Grid {}", label)),
+                value: Some(label),
+                rect: Rect {
+                    x,
+                    y,
+                    width: w,
+                    height: h,
+                },
+                children: vec![],
+                is_visible: true,
+                attributes,
+                som_id: None,
+            });
+        }
+    }
+
+    if !children.is_empty() {
+        node.attributes
+            .insert("som.synthetic".to_string(), "grid_parent".to_string());
+        node.attributes
+            .insert("som.grid_dim".to_string(), format!("{}x{}", dim, dim));
+        node.children = children;
+    }
+}
+
 // -----------------------------------------------------------------------------
 // [NEW] Unified Grounding Pipeline (Visual-Semantic ID Injection)
 // -----------------------------------------------------------------------------
@@ -319,6 +468,11 @@ pub fn assign_som_ids(
     let is_tiny = phys_w < 10.0 || phys_h < 10.0;
     let area = (phys_w * phys_h) as u64;
     let screen_area = (transform.image_width as u64) * (transform.image_height as u64);
+    let area_ratio = if screen_area == 0 {
+        0.0
+    } else {
+        area as f64 / screen_area as f64
+    };
 
     // [FIX] Stricter background filtering.
     // If it's > 90% of screen AND has children, it's a container/background. Don't tag it.
@@ -353,6 +507,11 @@ pub fn assign_som_ids(
         node.som_id = Some(id);
         map.insert(id, node.rect); // Global rect for clicking
         *counter += 1;
+    }
+
+    if should_inject_synthetic_grid(node, area_ratio, phys_w, phys_h) {
+        let dimension = choose_grid_dimension(area_ratio, phys_w, phys_h);
+        inject_synthetic_grid_children(node, dimension);
     }
 
     for child in &mut node.children {
@@ -455,5 +614,103 @@ pub fn draw_som_overlay(
 
     for child in &node.children {
         draw_som_overlay(img, child, transform);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::gui::geometry::{CoordinateSpace, Point};
+
+    fn test_transform(w: u32, h: u32) -> DisplayTransform {
+        DisplayTransform::new(
+            1.0,
+            Point::new(0.0, 0.0, CoordinateSpace::ScreenLogical),
+            Point::new(0.0, 0.0, CoordinateSpace::ImagePhysical),
+            w,
+            h,
+        )
+    }
+
+    fn make_leaf(rect: Rect, role: &str) -> AccessibilityNode {
+        AccessibilityNode {
+            id: "blind_leaf".to_string(),
+            role: role.to_string(),
+            name: None,
+            value: None,
+            rect,
+            children: vec![],
+            is_visible: true,
+            attributes: HashMap::new(),
+            som_id: None,
+        }
+    }
+
+    #[test]
+    fn dynamic_grid_injected_for_large_empty_leaf() {
+        let mut root = make_leaf(
+            Rect {
+                x: 0,
+                y: 0,
+                width: 1000,
+                height: 800,
+            },
+            "web_area",
+        );
+        let transform = test_transform(1000, 800);
+        let mut counter = 1;
+        let mut map = HashMap::new();
+
+        assign_som_ids(&mut root, &transform, &mut counter, &mut map);
+
+        assert_eq!(
+            root.attributes.get("som.synthetic"),
+            Some(&"grid_parent".to_string())
+        );
+        assert_eq!(root.children.len(), 16);
+        assert_eq!(map.len(), 16);
+        assert!(root.children.iter().all(|child| child.som_id.is_some()));
+    }
+
+    #[test]
+    fn dynamic_grid_not_injected_when_node_has_content() {
+        let mut root = make_leaf(
+            Rect {
+                x: 0,
+                y: 0,
+                width: 900,
+                height: 700,
+            },
+            "web_area",
+        );
+        root.name = Some("Page Content".to_string());
+
+        let transform = test_transform(900, 700);
+        let mut counter = 1;
+        let mut map = HashMap::new();
+        assign_som_ids(&mut root, &transform, &mut counter, &mut map);
+
+        assert!(root.children.is_empty());
+        assert!(map.is_empty());
+    }
+
+    #[test]
+    fn dynamic_grid_not_injected_for_small_leaf() {
+        let mut root = make_leaf(
+            Rect {
+                x: 0,
+                y: 0,
+                width: 220,
+                height: 140,
+            },
+            "canvas",
+        );
+        let transform = test_transform(1000, 800);
+        let mut counter = 1;
+        let mut map = HashMap::new();
+        assign_som_ids(&mut root, &transform, &mut counter, &mut map);
+
+        assert!(root.children.is_empty());
+        assert!(map.is_empty());
     }
 }

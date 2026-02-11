@@ -14,6 +14,7 @@ use std::sync::Arc;
 fn is_focus_sensitive_tool(tool: &AgentTool) -> bool {
     match tool {
         AgentTool::GuiClick { .. }
+        | AgentTool::GuiScroll { .. }
         | AgentTool::GuiClickElement { .. }
         | AgentTool::BrowserClick { .. }
         | AgentTool::BrowserSyntheticClick { .. } => true,
@@ -24,6 +25,7 @@ fn is_focus_sensitive_tool(tool: &AgentTool) -> bool {
                 | ComputerAction::LeftClickElement { .. }
                 | ComputerAction::LeftClickDrag { .. }
                 | ComputerAction::DragDrop { .. }
+                | ComputerAction::Scroll { .. }
         ),
         _ => false,
     }
