@@ -16,7 +16,6 @@ use axum::{
 };
 use base64::{engine::general_purpose::STANDARD as BASE64, Engine as _};
 use dashmap::DashMap;
-use transport_verifier::IbcHost;
 use ipnetwork::IpNetwork;
 use once_cell::sync::OnceCell;
 use prometheus::{
@@ -39,6 +38,7 @@ use tower::{
 };
 use tower_http::{catch_panic::CatchPanicLayer, limit::RequestBodyLimitLayer, trace::TraceLayer};
 use tracing;
+use transport_verifier::IbcHost;
 
 // --- Error Handling ---
 pub enum AppError {

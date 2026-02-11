@@ -32,6 +32,30 @@ pub struct LensRegistry {
     lenses: Vec<Box<dyn AppLens>>,
 }
 
+fn normalize_lens_name(name: &str) -> String {
+    name.trim()
+        .to_ascii_lowercase()
+        .chars()
+        .filter(|ch| ch.is_ascii_alphanumeric())
+        .collect()
+}
+
+fn is_react_lens_alias(name: &str) -> bool {
+    let normalized = normalize_lens_name(name);
+    normalized == "react"
+        || normalized == "reactlens"
+        || normalized == "reactsemantic"
+        || normalized.starts_with("reactsemantic")
+}
+
+fn is_universal_lens_alias(name: &str) -> bool {
+    let normalized = normalize_lens_name(name);
+    normalized == "auto"
+        || normalized == "autolens"
+        || normalized == "universalheuristic"
+        || normalized.starts_with("universalheuristicv")
+}
+
 impl LensRegistry {
     pub fn new() -> Self {
         Self { lenses: Vec::new() }
@@ -66,9 +90,74 @@ impl LensRegistry {
     /// [NEW] Retrieve a specific lens by name.
     /// Used by the Executor to apply the exact same transformation used during Perception.
     pub fn get(&self, name: &str) -> Option<&dyn AppLens> {
-        self.lenses
+        if name.trim().is_empty() {
+            return None;
+        }
+
+        if let Some(exact) = self.lenses.iter().find(|l| l.name() == name) {
+            return Some(exact.as_ref());
+        }
+
+        let requested = normalize_lens_name(name);
+        if requested.is_empty() {
+            return None;
+        }
+
+        if let Some(normalized_match) = self
+            .lenses
             .iter()
-            .find(|l| l.name() == name)
-            .map(|b| b.as_ref())
+            .find(|l| normalize_lens_name(l.name()) == requested)
+        {
+            return Some(normalized_match.as_ref());
+        }
+
+        if is_react_lens_alias(&requested) {
+            if let Some(react) = self.lenses.iter().find(|l| is_react_lens_alias(l.name())) {
+                return Some(react.as_ref());
+            }
+        }
+
+        if is_universal_lens_alias(&requested) {
+            if let Some(universal) = self
+                .lenses
+                .iter()
+                .find(|l| is_universal_lens_alias(l.name()))
+            {
+                return Some(universal.as_ref());
+            }
+        }
+
+        None
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::LensRegistry;
+    use crate::gui::lenses::{auto::AutoLens, react::ReactLens};
+
+    #[test]
+    fn get_supports_legacy_react_lens_alias() {
+        let mut registry = LensRegistry::new();
+        registry.register(Box::new(ReactLens));
+        registry.register(Box::new(AutoLens));
+
+        let lens = registry.get("ReactLens").map(|lens| lens.name());
+        assert_eq!(lens, Some("react_semantic"));
+    }
+
+    #[test]
+    fn get_supports_legacy_universal_lens_aliases() {
+        let mut registry = LensRegistry::new();
+        registry.register(Box::new(ReactLens));
+        registry.register(Box::new(AutoLens));
+
+        let auto_lens = registry.get("AutoLens").map(|lens| lens.name());
+        assert_eq!(auto_lens, Some("universal_heuristic_v4"));
+
+        let legacy_universal = registry
+            .get("universal_heuristic_v3")
+            .map(|lens| lens.name());
+        assert_eq!(legacy_universal, Some("universal_heuristic_v4"));
     }
 }

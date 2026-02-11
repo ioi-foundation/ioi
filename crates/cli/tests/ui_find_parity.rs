@@ -1,5 +1,13 @@
 // Path: crates/cli/tests/ui_find_parity.rs
 
+use async_trait::async_trait;
+use ioi_api::vm::drivers::gui::{GuiDriver, InputEvent};
+use ioi_api::vm::drivers::os::WindowInfo;
+use ioi_api::vm::inference::InferenceRuntime;
+use ioi_drivers::gui::lenses::{auto::AutoLens, react::ReactLens, LensRegistry};
+use ioi_drivers::mcp::McpManager;
+use ioi_drivers::terminal::TerminalDriver;
+use ioi_services::agentic::desktop::execution::ToolExecutor;
 use ioi_services::agentic::desktop::service::step::action::{
     canonical_intent_hash, canonical_tool_identity,
 };
@@ -9,9 +17,136 @@ use ioi_services::agentic::desktop::service::step::anti_loop::{
 };
 use ioi_services::agentic::desktop::types::{ExecutionTier, InteractionTarget};
 use ioi_services::agentic::desktop::{AgentMode, AgentState, AgentStatus};
+use ioi_types::app::agentic::InferenceOptions;
+use ioi_types::app::{ActionRequest, ContextSlice};
 use ioi_types::app::agentic::AgentTool;
 use ioi_types::app::{RoutingFailureClass, RoutingReceiptEvent};
+use ioi_types::error::VmError;
+use std::io::Cursor;
+use std::path::Path;
 use std::collections::BTreeMap;
+use std::sync::{Arc, Mutex};
+
+#[derive(Clone)]
+struct UiFindMockGuiDriver {
+    screenshot: Vec<u8>,
+}
+
+impl UiFindMockGuiDriver {
+    fn new(screenshot: Vec<u8>) -> Self {
+        Self { screenshot }
+    }
+}
+
+#[async_trait]
+impl GuiDriver for UiFindMockGuiDriver {
+    async fn capture_screen(
+        &self,
+        _crop_rect: Option<(i32, i32, u32, u32)>,
+    ) -> Result<Vec<u8>, VmError> {
+        Ok(self.screenshot.clone())
+    }
+
+    async fn capture_raw_screen(&self) -> Result<Vec<u8>, VmError> {
+        Ok(self.screenshot.clone())
+    }
+
+    async fn capture_tree(&self) -> Result<String, VmError> {
+        Ok(String::new())
+    }
+
+    async fn capture_context(&self, _intent: &ActionRequest) -> Result<ContextSlice, VmError> {
+        Err(VmError::HostError(
+            "capture_context is not used in this test".to_string(),
+        ))
+    }
+
+    async fn inject_input(&self, _event: InputEvent) -> Result<(), VmError> {
+        Ok(())
+    }
+
+    async fn get_element_center(&self, _id: u32) -> Result<Option<(u32, u32)>, VmError> {
+        Ok(None)
+    }
+
+    async fn get_cursor_position(&self) -> Result<(u32, u32), VmError> {
+        Ok((0, 0))
+    }
+}
+
+#[derive(Default)]
+struct MockVisualRuntime {
+    prompts: Mutex<Vec<String>>,
+}
+
+impl MockVisualRuntime {
+    fn first_prompt(&self) -> Option<String> {
+        self.prompts
+            .lock()
+            .expect("prompt mutex poisoned")
+            .first()
+            .cloned()
+    }
+}
+
+#[async_trait]
+impl InferenceRuntime for MockVisualRuntime {
+    async fn execute_inference(
+        &self,
+        _model_hash: [u8; 32],
+        input_context: &[u8],
+        _options: InferenceOptions,
+    ) -> Result<Vec<u8>, VmError> {
+        let prompt = String::from_utf8_lossy(input_context).to_string();
+        self.prompts
+            .lock()
+            .expect("prompt mutex poisoned")
+            .push(prompt.clone());
+
+        if prompt.contains("gear icon") {
+            return Ok(
+                r#"{"x":120,"y":160,"confidence":0.94,"reasoning":"Found a gear icon"}"#
+                    .as_bytes()
+                    .to_vec(),
+            );
+        }
+
+        Ok(r#"{"x":0,"y":0,"confidence":0.0,"reasoning":"not found"}"#
+            .as_bytes()
+            .to_vec())
+    }
+
+    async fn load_model(&self, _model_hash: [u8; 32], _path: &Path) -> Result<(), VmError> {
+        Ok(())
+    }
+
+    async fn unload_model(&self, _model_hash: [u8; 32]) -> Result<(), VmError> {
+        Ok(())
+    }
+}
+
+fn build_test_png(width: u32, height: u32) -> Vec<u8> {
+    let image = image::DynamicImage::ImageRgba8(image::RgbaImage::from_pixel(
+        width,
+        height,
+        image::Rgba([255, 255, 255, 255]),
+    ));
+    let mut bytes = Vec::new();
+    image
+        .write_to(&mut Cursor::new(&mut bytes), image::ImageFormat::Png)
+        .expect("failed to encode png");
+    bytes
+}
+
+#[test]
+fn legacy_lens_alias_resolves_to_registered_react_lens() {
+    let mut registry = LensRegistry::new();
+    registry.register(Box::new(ReactLens));
+    registry.register(Box::new(AutoLens));
+
+    let resolved = registry.get("ReactLens").map(|lens| lens.name());
+    assert_eq!(resolved, Some("react_semantic"));
+}
 
 fn test_agent_state() -> AgentState {
     AgentState {
@@ -126,4 +261,68 @@ fn routing_receipt_contract_for_ui_find_includes_pre_state_and_binding_hash() {
     assert_eq!(receipt.post_state.verification_checks, verification_checks);
     assert!(!receipt.policy_binding_hash.is_empty());
     assert_eq!(receipt.policy_binding_hash, binding_hash);
+}
+
+#[tokio::test]
+async fn ui_find_uses_visual_locator_for_visual_queries() {
+    let gui: Arc<dyn GuiDriver> = Arc::new(UiFindMockGuiDriver::new(build_test_png(320, 240)));
+    let inference_runtime = Arc::new(MockVisualRuntime::default());
+    let inference: Arc<dyn InferenceRuntime> = inference_runtime.clone();
+    let executor = ToolExecutor::new(
+        gui,
+        Arc::new(TerminalDriver::new()),
+        Arc::new(ioi_drivers::browser::BrowserDriver::new()),
+        Arc::new(McpManager::new()),
+        None,
+        None,
+        inference,
+    )
+    .with_window_context(
+        Some(WindowInfo {
+            title: "Settings".to_string(),
+            x: 0,
+            y: 0,
+            width: 400,
+            height: 400,
+            app_name: "settings".to_string(),
+        }),
+        None,
+        Some(ExecutionTier::VisualForeground),
+    );
+
+    let result = executor
+        .execute(
+            AgentTool::UiFind {
+                query: "gear icon".to_string(),
+            },
+            [0u8; 32],
+            12,
+            [0u8; 32],
+            None,
+            None,
+            None,
+        )
+        .await;
+
+    assert!(result.success, "ui__find failed: {:?}", result.error);
+
+    let history = result.history_entry.expect("missing ui__find output");
+    let payload = history
+        .strip_prefix("UI find resolved: ")
+        .expect("unexpected ui__find payload prefix");
+    let parsed: serde_json::Value = serde_json::from_str(payload).expect("invalid JSON payload");
+
+    assert_eq!(parsed["source"], "visual_locator");
+    assert_eq!(parsed["x"], 120);
+    assert_eq!(parsed["y"], 160);
+    assert_eq!(parsed["query"], "gear icon");
+
+    let prompt = inference_runtime
+        .first_prompt()
+        .expect("expected one inference request");
+    assert!(prompt.contains("gear icon"), "prompt should include query");
+    assert!(
+        prompt.contains("prioritize visual matching"),
+        "prompt should instruct visual matching"
+    );
 }

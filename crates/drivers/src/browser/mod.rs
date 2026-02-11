@@ -19,6 +19,7 @@ use tokio::sync::Mutex;
 
 use crate::gui::accessibility::{AccessibilityNode, Rect as AccessibilityRect};
 use crate::gui::geometry::{CoordinateSpace, Point, Rect as GeoRect};
+use chromiumoxide::cdp::browser_protocol::dom::{GetBoxModelParams, GetContentQuadsParams};
 use chromiumoxide::cdp::browser_protocol::input::{
     DispatchMouseEventParams, DispatchMouseEventType, MouseButton,
 };

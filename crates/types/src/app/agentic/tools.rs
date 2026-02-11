@@ -150,6 +150,17 @@ pub enum AgentTool {
         line_number: Option<u32>,
     },
 
+    /// Patches a file by replacing a unique string block.
+    #[serde(rename = "filesystem__patch")]
+    FsPatch {
+        /// Path to the file.
+        path: String,
+        /// Exact string block to find and replace. Must occur exactly once.
+        search: String,
+        /// Replacement string block.
+        replace: String,
+    },
+
     /// Reads content from a file.
     #[serde(rename = "filesystem__read_file")]
     FsRead {
@@ -200,6 +211,13 @@ pub enum AgentTool {
         selector: String,
     },
 
+    /// Clicks an element in the browser by semantic ID from `browser__extract`.
+    #[serde(rename = "browser__click_element")]
+    BrowserClickElement {
+        /// Stable semantic ID of element (e.g. "btn_submit").
+        id: String,
+    },
+
     /// Synthetic click for background execution.
     #[serde(rename = "browser__synthetic_click")]
     BrowserSyntheticClick {
@@ -245,10 +263,10 @@ pub enum AgentTool {
         id: String,
     },
 
-    /// [NEW] Find a UI element visually or by text description.
+    /// [NEW] Find a UI element by visual or semantic description.
     #[serde(rename = "ui__find")]
     UiFind {
-        /// Text or description to find.
+        /// Description to find (text, icon, color, shape, logo).
         query: String,
     },
 
@@ -348,7 +366,7 @@ impl AgentTool {
     /// Maps the tool to its corresponding `ActionTarget` for policy enforcement.
     pub fn target(&self) -> ActionTarget {
         match self {
-            AgentTool::FsWrite { .. } => ActionTarget::FsWrite,
+            AgentTool::FsWrite { .. } | AgentTool::FsPatch { .. } => ActionTarget::FsWrite,
             AgentTool::FsRead { .. } | AgentTool::FsList { .. } => ActionTarget::FsRead,
 
             AgentTool::SysExec { .. } => ActionTarget::SysExec,
@@ -364,6 +382,7 @@ impl AgentTool {
 
             AgentTool::BrowserExtract { .. } => ActionTarget::BrowserExtract,
             AgentTool::BrowserClick { .. } => ActionTarget::Custom("browser::click".into()),
+            AgentTool::BrowserClickElement { .. } => ActionTarget::Custom("browser::click".into()),
             AgentTool::BrowserSyntheticClick { .. } => {
                 ActionTarget::Custom("browser::synthetic_click".into())
             }
@@ -445,5 +464,23 @@ mod tests {
             context: "hermetic".to_string(),
         };
         assert_eq!(tool.target(), ActionTarget::BrowserNavigateHermetic);
+    }
+
+    #[test]
+    fn filesystem_patch_target_maps_to_fs_write_scope() {
+        let tool = AgentTool::FsPatch {
+            path: "/tmp/demo.txt".to_string(),
+            search: "hello".to_string(),
+            replace: "world".to_string(),
+        };
+        assert_eq!(tool.target(), ActionTarget::FsWrite);
+    }
+
+    #[test]
+    fn browser_click_element_target_maps_to_browser_click_scope() {
+        let tool = AgentTool::BrowserClickElement {
+            id: "btn_submit".to_string(),
+        };
+        assert_eq!(tool.target(), ActionTarget::Custom("browser::click".into()));
     }
 }

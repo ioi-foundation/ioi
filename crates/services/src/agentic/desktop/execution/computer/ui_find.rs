@@ -67,6 +67,42 @@ fn ui_find_rect_valid(rect: Rect) -> bool {
     rect.width > 0 && rect.height > 0
 }
 
+fn is_visual_query(query: &str) -> bool {
+    let lower = query.to_ascii_lowercase();
+    if lower.contains("looks like") || lower.contains("looking like") {
+        return true;
+    }
+
+    let mut tokens = lower
+        .split(|c: char| !c.is_ascii_alphanumeric())
+        .filter(|token| !token.is_empty());
+
+    tokens.any(|token| {
+        matches!(
+            token,
+            "icon"
+                | "icons"
+                | "image"
+                | "images"
+                | "logo"
+                | "logos"
+                | "color"
+                | "colour"
+                | "red"
+                | "blue"
+                | "green"
+                | "yellow"
+                | "orange"
+                | "purple"
+                | "shape"
+                | "shaped"
+                | "triangle"
+                | "square"
+                | "circle"
+        )
+    })
+}
+
 fn map_ui_find_localization_error(err: LocalizationError, query: &str) -> ToolExecutionResult {
     match err {
         LocalizationError::LowConfidence(conf) => ToolExecutionResult::failure(format!(
@@ -162,6 +198,9 @@ pub(super) async fn find_element_coordinates(
     let mut tree_rect: Option<Rect> = None;
     let mut hint_xml: Option<String> = None;
     let mut tree_fetch_error: Option<String> = None;
+    let mut semantic_fallback: Option<UiFindSemanticMatch> = None;
+    let allow_vision = resilience::allow_vision_fallback_for_tier(exec.current_tier);
+    let prefer_vision = allow_vision && is_visual_query(query);
 
     match fetch_lensed_tree(exec, active_lens).await {
         Ok(tree) => {
@@ -172,7 +211,9 @@ pub(super) async fn find_element_coordinates(
                 &tree, 0,
             ));
 
-            if let Some(found) = find_semantic_ui_match(&tree, query) {
+            if prefer_vision {
+                semantic_fallback = find_semantic_ui_match(&tree, query);
+            } else if let Some(found) = find_semantic_ui_match(&tree, query) {
                 return build_ui_find_success(query, found, active_lens, exec.current_tier);
             }
         }
@@ -181,8 +222,18 @@ pub(super) async fn find_element_coordinates(
         }
     }
 
-    if resilience::allow_vision_fallback_for_tier(exec.current_tier) {
-        return find_ui_with_vision(exec, query, hint_xml.as_deref(), tree_rect, active_lens).await;
+    if allow_vision {
+        let visual_result =
+            find_ui_with_vision(exec, query, hint_xml.as_deref(), tree_rect, active_lens).await;
+        if visual_result.success {
+            return visual_result;
+        }
+
+        if let Some(found) = semantic_fallback {
+            return build_ui_find_success(query, found, active_lens, exec.current_tier);
+        }
+
+        return visual_result;
     }
 
     if let Some(err) = tree_fetch_error {
@@ -192,8 +243,31 @@ pub(super) async fn find_element_coordinates(
         ));
     }
 
+    if let Some(found) = semantic_fallback {
+        return build_ui_find_success(query, found, active_lens, exec.current_tier);
+    }
+
     ToolExecutionResult::failure(format!(
         "ERROR_CLASS=TargetNotFound ui__find could not locate '{}' in current semantic context. Retry in VisualForeground for vision-assisted localization.",
         query
     ))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::is_visual_query;
+
+    #[test]
+    fn visual_query_heuristic_detects_icon_and_color_terms() {
+        assert!(is_visual_query("gear icon"));
+        assert!(is_visual_query("red button"));
+        assert!(is_visual_query("button looking like a triangle"));
+    }
+
+    #[test]
+    fn visual_query_heuristic_ignores_plain_semantic_queries() {
+        assert!(!is_visual_query("submit button"));
+        assert!(!is_visual_query("open settings"));
+        assert!(!is_visual_query("search field"));
+    }
 }

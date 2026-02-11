@@ -5,7 +5,8 @@ use super::{ToolExecutionResult, ToolExecutor};
 use ioi_api::vm::drivers::gui::{AtomicInput, InputEvent, MouseButton};
 use ioi_api::vm::drivers::os::WindowInfo;
 use ioi_drivers::browser::{context::BrowserContentFrame, SelectorProbe};
-use ioi_drivers::gui::accessibility::Rect;
+use ioi_drivers::gui::accessibility::{AccessibilityNode, Rect};
+use ioi_drivers::gui::lenses::{auto::AutoLens, AppLens};
 use ioi_types::app::agentic::AgentTool;
 use serde_json::json;
 use tokio::time::{sleep, Duration};
@@ -92,6 +93,30 @@ fn selector_looks_like_search_target(selector: &str) -> bool {
         || s.contains("[name=q]")
         || s.contains("textarea")
         || s.contains("input")
+}
+
+fn apply_browser_auto_lens(raw_tree: AccessibilityNode) -> AccessibilityNode {
+    let lens = AutoLens;
+    lens.transform(&raw_tree).unwrap_or(raw_tree)
+}
+
+fn render_browser_tree_xml(tree: &AccessibilityNode) -> String {
+    let lens = AutoLens;
+    lens.render(tree, 0)
+}
+
+fn find_cdp_id_by_semantic_id(node: &AccessibilityNode, target_id: &str) -> Option<String> {
+    if node.id == target_id {
+        return node.attributes.get("cdp_node_id").cloned();
+    }
+
+    for child in &node.children {
+        if let Some(found) = find_cdp_id_by_semantic_id(child, target_id) {
+            return Some(found);
+        }
+    }
+
+    None
 }
 
 pub(super) fn is_probable_browser_window(title: &str, app_name: &str) -> bool {
@@ -403,8 +428,11 @@ pub async fn handle(exec: &ToolExecutor, tool: AgentTool) -> ToolExecutionResult
                 }
             }
         }
-        AgentTool::BrowserExtract {} => match exec.browser.extract_dom().await {
-            Ok(dom) => ToolExecutionResult::success(dom),
+        AgentTool::BrowserExtract {} => match exec.browser.get_accessibility_tree().await {
+            Ok(raw_tree) => {
+                let transformed = apply_browser_auto_lens(raw_tree);
+                ToolExecutionResult::success(render_browser_tree_xml(&transformed))
+            }
             Err(e) => ToolExecutionResult::failure(format!("Extraction failed: {}", e)),
         },
         AgentTool::BrowserClick { selector } => {
@@ -591,6 +619,45 @@ pub async fn handle(exec: &ToolExecutor, tool: AgentTool) -> ToolExecutionResult
                 ))
             }
         }
+        AgentTool::BrowserClickElement { id } => {
+            if let Some(win) = exec.active_window.as_ref() {
+                if !is_probable_browser_window(&win.title, &win.app_name) {
+                    return ToolExecutionResult::failure(format!(
+                        "ERROR_CLASS=FocusMismatch Active window is '{}' ({}) but browser click requires a focused browser surface.",
+                        win.title, win.app_name
+                    ));
+                }
+            }
+
+            let raw_tree = match exec.browser.get_accessibility_tree().await {
+                Ok(tree) => tree,
+                Err(e) => {
+                    return ToolExecutionResult::failure(format!(
+                        "Failed to fetch browser accessibility tree: {}",
+                        e
+                    ))
+                }
+            };
+
+            let transformed = apply_browser_auto_lens(raw_tree);
+            let cdp_node_id = match find_cdp_id_by_semantic_id(&transformed, &id) {
+                Some(cdp_id) => cdp_id,
+                None => {
+                    return ToolExecutionResult::failure(format!(
+                        "ERROR_CLASS=TargetNotFound Element '{}' not found in current browser view. Run `browser__extract` again and retry with a fresh ID.",
+                        id
+                    ))
+                }
+            };
+
+            match exec.browser.click_ax_node(&cdp_node_id).await {
+                Ok(()) => ToolExecutionResult::success(format!("Clicked element '{}'", id)),
+                Err(e) => ToolExecutionResult::failure(format!(
+                    "ERROR_CLASS=NoEffectAfterAction Failed to click element '{}': {}",
+                    id, e
+                )),
+            }
+        }
         AgentTool::BrowserSyntheticClick { x, y } => {
             match exec.browser.synthetic_click(x as f64, y as f64).await {
                 Ok(_) => ToolExecutionResult::success(format!("Clicked at ({}, {})", x, y)),
@@ -605,6 +672,7 @@ pub async fn handle(exec: &ToolExecutor, tool: AgentTool) -> ToolExecutionResult
 mod tests {
     use super::*;
     use ioi_api::vm::drivers::os::WindowInfo;
+    use std::collections::HashMap;
 
     fn probe(editable: bool, focused: bool, visible: bool) -> SelectorProbe {
         SelectorProbe {
@@ -704,5 +772,65 @@ mod tests {
 
         let regions = estimate_browser_surface_regions(&win, Some(unrelated_content)).unwrap();
         assert_eq!(regions.source, "window_heuristic");
+    }
+
+    #[test]
+    fn semantic_id_lookup_returns_cdp_node_id() {
+        let node = AccessibilityNode {
+            id: "root".to_string(),
+            role: "root".to_string(),
+            name: None,
+            value: None,
+            rect: Rect {
+                x: 0,
+                y: 0,
+                width: 0,
+                height: 0,
+            },
+            children: vec![AccessibilityNode {
+                id: "btn_submit".to_string(),
+                role: "button".to_string(),
+                name: Some("Submit".to_string()),
+                value: None,
+                rect: Rect {
+                    x: 10,
+                    y: 10,
+                    width: 120,
+                    height: 40,
+                },
+                children: vec![],
+                is_visible: true,
+                attributes: HashMap::from([("cdp_node_id".to_string(), "ax-node-42".to_string())]),
+                som_id: None,
+            }],
+            is_visible: true,
+            attributes: HashMap::new(),
+            som_id: None,
+        };
+
+        let cdp_id = find_cdp_id_by_semantic_id(&node, "btn_submit");
+        assert_eq!(cdp_id.as_deref(), Some("ax-node-42"));
+    }
+
+    #[test]
+    fn semantic_id_lookup_returns_none_for_missing_id() {
+        let node = AccessibilityNode {
+            id: "root".to_string(),
+            role: "root".to_string(),
+            name: None,
+            value: None,
+            rect: Rect {
+                x: 0,
+                y: 0,
+                width: 0,
+                height: 0,
+            },
+            children: vec![],
+            is_visible: true,
+            attributes: HashMap::new(),
+            som_id: None,
+        };
+
+        assert!(find_cdp_id_by_semantic_id(&node, "btn_missing").is_none());
     }
 }

@@ -75,7 +75,12 @@ impl BrowserDriver {
         Ok(bytes)
     }
 
-    pub async fn synthetic_click(&self, x: f64, y: f64) -> std::result::Result<(), BrowserError> {
+    pub async fn synthetic_click_with_button(
+        &self,
+        x: f64,
+        y: f64,
+        button: MouseButton,
+    ) -> std::result::Result<(), BrowserError> {
         self.require_runtime()?;
         self.ensure_page().await?;
 
@@ -91,7 +96,7 @@ impl BrowserDriver {
 
         let cmd_down = DispatchMouseEventParams::builder()
             .r#type(DispatchMouseEventType::MousePressed)
-            .button(MouseButton::Left)
+            .button(button.clone())
             .x(x)
             .y(y)
             .click_count(1)
@@ -101,7 +106,7 @@ impl BrowserDriver {
 
         let cmd_up = DispatchMouseEventParams::builder()
             .r#type(DispatchMouseEventType::MouseReleased)
-            .button(MouseButton::Left)
+            .button(button)
             .x(x)
             .y(y)
             .click_count(1)
@@ -110,6 +115,11 @@ impl BrowserDriver {
         page.execute(cmd_up).await.ok();
 
         Ok(())
+    }
+
+    pub async fn synthetic_click(&self, x: f64, y: f64) -> std::result::Result<(), BrowserError> {
+        self.synthetic_click_with_button(x, y, MouseButton::Left)
+            .await
     }
     pub async fn click_selector(&self, selector: &str) -> std::result::Result<(), BrowserError> {
         if let Some(local) = { self.local_browser.lock().await.clone() } {

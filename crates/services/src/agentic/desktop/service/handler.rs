@@ -17,6 +17,7 @@ fn is_focus_sensitive_tool(tool: &AgentTool) -> bool {
         | AgentTool::GuiScroll { .. }
         | AgentTool::GuiClickElement { .. }
         | AgentTool::BrowserClick { .. }
+        | AgentTool::BrowserClickElement { .. }
         | AgentTool::BrowserSyntheticClick { .. } => true,
         AgentTool::Computer(action) => matches!(
             action,
@@ -266,6 +267,7 @@ pub async fn handle_action_execution(
         AgentTool::BrowserNavigate { .. }
             | AgentTool::BrowserExtract { .. }
             | AgentTool::BrowserClick { .. }
+            | AgentTool::BrowserClickElement { .. }
             | AgentTool::BrowserSyntheticClick { .. }
     ) {
         service.browser.set_lease(true);

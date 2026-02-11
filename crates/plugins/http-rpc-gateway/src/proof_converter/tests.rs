@@ -1,11 +1,11 @@
 // Path: crates/http-rpc-gateway/src/proof_converter/tests.rs
 use super::*;
-use transport_verifier::existence_root_from_proof_bytes;
 use ibc_proto::ics23 as pb_ics23;
 use ioi_api::state::{ProofProvider, StateAccess, StateManager, VerifiableState};
 use ioi_state::tree::iavl::{proof as iavl_proof, IAVLTree};
 use parity_scale_codec::{Decode, Encode};
 use proptest::prelude::*;
+use transport_verifier::existence_root_from_proof_bytes;
 
 /// Helper to set up a simple tree with two keys and get the native IAVL proof for one.
 fn setup_tree_and_get_iavl_proof() -> (
