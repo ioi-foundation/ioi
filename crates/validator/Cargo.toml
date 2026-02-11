@@ -26,6 +26,7 @@ ioi-telemetry = { path = "../telemetry" }
 ioi-storage = { path = "../storage" }
 ioi-drivers = { path = "../drivers" }
 ioi-scs = { path = "../scs" }
+ioi-plugin-ibc-service = { path = "../plugins/ibc-service", optional = true }
 
 log = { workspace = true }
 tracing = { workspace = true }
@@ -67,9 +68,6 @@ tonic = { version = "0.11", features = ["tls", "transport"] }
 prost = "0.12"
 shared_memory = "0.12"
 rkyv = { version = "0.7", features = ["validation"] }
-
-# FIX: Add the missing dependency for TxContext's timestamp.
-ibc-primitives = { workspace = true }
 
 # Added for mTLS implementation
 tokio-rustls = { workspace = true }
@@ -125,9 +123,9 @@ state-jellyfish = ["ioi-state/state-jellyfish", "ioi-state/commitment-hash"]
 commitment-hash = ["ioi-state/commitment-hash"]
 commitment-kzg = ["ioi-state/commitment-kzg"]
 
-# [FIX] ibc-deps must propagate to ioi-services
-ibc-deps = ["ioi-services/ibc-deps"]
-ethereum-zk = ["ioi-services/ethereum-zk", "dep:zk-driver-succinct"]
+# IBC plugin feature forwarding
+ibc-deps = ["dep:ioi-plugin-ibc-service"]
+ethereum-zk = ["ioi-plugin-ibc-service/ethereum-zk", "dep:zk-driver-succinct"]
 
 real-ai = [
     "dep:candle-core",

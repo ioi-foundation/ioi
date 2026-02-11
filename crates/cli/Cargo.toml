@@ -146,8 +146,8 @@ vm-wasm = ["ioi-validator/vm-wasm"]
 consensus-admft = ["ioi-validator/consensus-admft"]
 
 # Service Features
-# [FIX] Updated to reference new service feature
-ibc-deps = ["ioi-services/ibc-deps"]
+# IBC plugin wiring now flows through ioi-validator
+ibc-deps = ["ioi-validator/ibc-deps"]
 
 # ZK Features (Test runner gate only)
 ethereum-zk = []

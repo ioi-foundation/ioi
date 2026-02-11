@@ -16,7 +16,7 @@ use axum::{
 };
 use base64::{engine::general_purpose::STANDARD as BASE64, Engine as _};
 use dashmap::DashMap;
-use ibc_host::IbcHost;
+use transport_verifier::IbcHost;
 use ipnetwork::IpNetwork;
 use once_cell::sync::OnceCell;
 use prometheus::{

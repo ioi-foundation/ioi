@@ -1,6 +1,6 @@
 // Path: crates/http-rpc-gateway/src/proof_converter/tests.rs
 use super::*;
-use ibc_host::existence_root_from_proof_bytes;
+use transport_verifier::existence_root_from_proof_bytes;
 use ibc_proto::ics23 as pb_ics23;
 use ioi_api::state::{ProofProvider, StateAccess, StateManager, VerifiableState};
 use ioi_state::tree::iavl::{proof as iavl_proof, IAVLTree};

@@ -20,7 +20,6 @@ use ioi_api::vm::drivers::os::OsDriver;
 use ioi_api::vm::inference::LocalSafetyModel;
 use ioi_services::agentic::scrubber::SemanticScrubber;
 
-use ibc_primitives::Timestamp;
 use ioi_api::state::namespaced::{NamespacedStateAccess, ReadOnlyNamespacedStateAccess};
 use ioi_api::state::{service_namespace_prefix, StateAccess, StateOverlay};
 use ioi_api::transaction::context::TxContext;

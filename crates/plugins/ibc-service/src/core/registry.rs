@@ -1,7 +1,7 @@
 // Path: crates/services/src/ibc/core/registry.rs
 
-use crate::ibc::core::context::IbcExecutionContext;
-use crate::ibc::light_clients::wasm::WasmLightClient;
+use crate::core::context::IbcExecutionContext;
+use crate::light_clients::wasm::WasmLightClient;
 use async_trait::async_trait;
 use ibc::core::entrypoint::dispatch;
 use ibc_core_client_types::Height;
