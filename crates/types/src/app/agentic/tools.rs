@@ -125,6 +125,10 @@ fn default_context_hermetic() -> String {
     "hermetic".to_string()
 }
 
+fn is_local_browser_context(context: &str) -> bool {
+    context.trim().eq_ignore_ascii_case("local")
+}
+
 /// The single source of truth for all Agent Capabilities.
 #[derive(Debug, Serialize, Deserialize, JsonSchema, Clone)]
 #[serde(tag = "name", content = "arguments", rename_all = "snake_case")]
@@ -351,7 +355,7 @@ impl AgentTool {
 
             // [MODIFIED] Browser Navigation Split
             AgentTool::BrowserNavigate { context, .. } => {
-                if context == "local" {
+                if is_local_browser_context(context) {
                     ActionTarget::BrowserNavigateLocal
                 } else {
                     ActionTarget::BrowserNavigateHermetic
@@ -418,5 +422,28 @@ impl AgentTool {
                 }
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn browser_navigate_target_uses_local_context_case_insensitively() {
+        let tool = AgentTool::BrowserNavigate {
+            url: "https://news.ycombinator.com".to_string(),
+            context: " Local ".to_string(),
+        };
+        assert_eq!(tool.target(), ActionTarget::BrowserNavigateLocal);
+    }
+
+    #[test]
+    fn browser_navigate_target_defaults_to_hermetic_for_other_contexts() {
+        let tool = AgentTool::BrowserNavigate {
+            url: "https://news.ycombinator.com".to_string(),
+            context: "hermetic".to_string(),
+        };
+        assert_eq!(tool.target(), ActionTarget::BrowserNavigateHermetic);
     }
 }

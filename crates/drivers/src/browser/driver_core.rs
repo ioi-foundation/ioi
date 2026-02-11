@@ -384,7 +384,7 @@ impl BrowserDriver {
     }
 
     pub async fn get_context(&self, context_type: &str) -> Result<BrowserContext, BrowserError> {
-        if context_type == "local" {
+        if context_type.trim().eq_ignore_ascii_case("local") {
             // Check existing connection
             if let Some(facade) = self.local_browser.lock().await.as_ref() {
                 return Ok(BrowserContext::Local(facade.clone()));
