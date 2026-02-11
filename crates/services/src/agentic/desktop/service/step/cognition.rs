@@ -265,6 +265,8 @@ OPERATING RULES:
 8. BROWSER RULE: Never launch browsers via `sys__exec`. Treat that as a policy violation. Always start browsing with `browser__navigate`.
 8a. WEB SEARCH RULE: For intents like 'search for X', prefer `browser__navigate` with a hermetic-friendly search URL (e.g. `https://duckduckgo.com/?q=...`) instead of manual click+type; if a CAPTCHA/human-verification challenge appears, stop and request Local Browser handoff.
 8b. BROWSER CLICK RULE: In a browser window, do NOT use `gui__click` for page elements. Use `browser__click` with a concrete CSS selector first (Google search box examples: `textarea[name='q']`, `input[name='q']`).
+8c. PACKAGE INSTALL RULE: For dependency installation, prefer `sys__install_package` over raw `sys__exec` so command construction stays deterministic and policy-auditable.
+8d. BROWSER RESILIENCE RULE: If `browser__navigate` fails with CDP/connection errors and you are in VisualForeground with a focused browser window, retry `browser__navigate` once; runtime can fall back to visual URL entry (`Ctrl/Cmd+L`, type URL, Enter).
 9. APP LAUNCH RULE: To open applications, ALWAYS prefer `os__launch_app`.
    - It handles system paths automatically (e.g. finds 'Calculator' on Mac/Linux/Windows).
    - ONLY if that fails should you try `ui__find` to locate the icon visually and click it.

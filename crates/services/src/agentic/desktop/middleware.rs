@@ -11,6 +11,146 @@ pub fn normalize_tool_call(raw_llm_output: &str) -> Result<AgentTool> {
 
 pub struct ToolNormalizer;
 
+fn default_install_manager() -> &'static str {
+    if cfg!(target_os = "macos") {
+        "brew"
+    } else if cfg!(target_os = "windows") {
+        "winget"
+    } else {
+        "apt-get"
+    }
+}
+
+fn normalize_install_manager(raw: Option<&str>) -> Result<String> {
+    let manager = raw
+        .map(|m| m.trim().to_ascii_lowercase())
+        .filter(|m| !m.is_empty())
+        .unwrap_or_else(|| default_install_manager().to_string());
+
+    match manager.as_str() {
+        "apt" | "apt-get" => Ok("apt-get".to_string()),
+        "brew" => Ok("brew".to_string()),
+        "pip" | "pip3" => Ok("pip".to_string()),
+        "npm" => Ok("npm".to_string()),
+        "pnpm" => Ok("pnpm".to_string()),
+        "cargo" => Ok("cargo".to_string()),
+        "winget" => Ok("winget".to_string()),
+        "choco" | "chocolatey" => Ok("choco".to_string()),
+        "yum" => Ok("yum".to_string()),
+        "dnf" => Ok("dnf".to_string()),
+        other => Err(anyhow!(
+            "Unsupported package manager '{}'. Supported: apt-get, brew, pip, npm, pnpm, cargo, winget, choco, yum, dnf.",
+            other
+        )),
+    }
+}
+
+fn is_safe_package_identifier(package: &str) -> bool {
+    !package.is_empty()
+        && package.len() <= 128
+        && package.chars().all(|c| {
+            c.is_ascii_alphanumeric() || matches!(c, '.' | '_' | '-' | '+' | '@' | '/' | ':')
+        })
+}
+
+fn lower_install_package_to_sys_exec(arguments: &Value) -> Result<Value> {
+    let args_obj = arguments
+        .as_object()
+        .ok_or_else(|| anyhow!("sys__install_package arguments must be an object"))?;
+
+    let package = args_obj
+        .get("package")
+        .and_then(|v| v.as_str())
+        .map(str::trim)
+        .filter(|v| !v.is_empty())
+        .ok_or_else(|| anyhow!("sys__install_package requires a non-empty 'package' field"))?;
+
+    if !is_safe_package_identifier(package) {
+        return Err(anyhow!(
+            "Invalid package identifier '{}'. Use a plain package name without spaces or shell metacharacters.",
+            package
+        ));
+    }
+
+    let manager = normalize_install_manager(args_obj.get("manager").and_then(|v| v.as_str()))?;
+    let (command, args): (&str, Vec<String>) = match manager.as_str() {
+        "apt-get" => (
+            "sudo",
+            vec![
+                "-n".to_string(),
+                "apt-get".to_string(),
+                "install".to_string(),
+                "-y".to_string(),
+                package.to_string(),
+            ],
+        ),
+        "brew" => ("brew", vec!["install".to_string(), package.to_string()]),
+        "pip" => (
+            "python",
+            vec![
+                "-m".to_string(),
+                "pip".to_string(),
+                "install".to_string(),
+                package.to_string(),
+            ],
+        ),
+        "npm" => (
+            "npm",
+            vec!["install".to_string(), "-g".to_string(), package.to_string()],
+        ),
+        "pnpm" => (
+            "pnpm",
+            vec!["add".to_string(), "-g".to_string(), package.to_string()],
+        ),
+        "cargo" => ("cargo", vec!["install".to_string(), package.to_string()]),
+        "winget" => (
+            "winget",
+            vec![
+                "install".to_string(),
+                "--id".to_string(),
+                package.to_string(),
+                "--silent".to_string(),
+                "--accept-package-agreements".to_string(),
+                "--accept-source-agreements".to_string(),
+            ],
+        ),
+        "choco" => (
+            "choco",
+            vec!["install".to_string(), package.to_string(), "-y".to_string()],
+        ),
+        "yum" => (
+            "sudo",
+            vec![
+                "-n".to_string(),
+                "yum".to_string(),
+                "install".to_string(),
+                "-y".to_string(),
+                package.to_string(),
+            ],
+        ),
+        "dnf" => (
+            "sudo",
+            vec![
+                "-n".to_string(),
+                "dnf".to_string(),
+                "install".to_string(),
+                "-y".to_string(),
+                package.to_string(),
+            ],
+        ),
+        _ => unreachable!("manager already validated"),
+    };
+
+    Ok(json!({
+        "name": "sys__exec",
+        "arguments": {
+            "command": command,
+            "args": args,
+            "detach": false
+        }
+    }))
+}
+
 impl ToolNormalizer {
     /// The boundary function.
     /// Input: Raw, potentially hallucinated JSON from LLM.
@@ -96,9 +236,21 @@ impl ToolNormalizer {
             raw_val = Value::Object(new_map);
         } else {
             // Alias check (safe to do in-place if we get mut ref now)
+            let mut install_package_args: Option<Value> = None;
             if let Some(map_mut) = raw_val.as_object_mut() {
                 if let Some(params) = map_mut.get("parameters").cloned() {
                     map_mut.insert("arguments".to_string(), params);
+                }
+
+                if let Some(name) = map_mut.get("name").and_then(|n| n.as_str()) {
+                    if name == "sys__install_package" {
+                        install_package_args = Some(
+                            map_mut
+                                .get("arguments")
+                                .cloned()
+                                .unwrap_or_else(|| json!({})),
+                        );
+                    }
                 }
 
                 // [NEW] Handle synthetic click aliases if LLM gets lazy
@@ -115,6 +267,10 @@ impl ToolNormalizer {
                         }
                     }
                 }
+            }
+
+            if let Some(install_args) = install_package_args {
+                raw_val = lower_install_package_to_sys_exec(&install_args)?;
             }
         }
 
@@ -245,5 +401,31 @@ mod tests {
             }
             _ => panic!("Wrong tool type"),
         }
+    }
+
+    #[test]
+    fn test_normalize_install_package_to_sys_exec() {
+        let input =
+            r#"{"name":"sys__install_package","arguments":{"manager":"pip","package":"pydantic"}}"#;
+        let tool = ToolNormalizer::normalize(input).unwrap();
+        match tool {
+            AgentTool::SysExec {
+                command,
+                args,
+                detach,
+            } => {
+                assert_eq!(command, "python");
+                assert_eq!(args, vec!["-m", "pip", "install", "pydantic"]);
+                assert!(!detach);
+            }
+            _ => panic!("Wrong tool type"),
+        }
+    }
+
+    #[test]
+    fn test_normalize_install_package_rejects_unsafe_package() {
+        let input = r#"{"name":"sys__install_package","arguments":{"manager":"pip","package":"bad; rm -rf /"}}"#;
+        let err = ToolNormalizer::normalize(input).expect_err("expected validation error");
+        assert!(err.to_string().contains("Invalid package identifier"));
     }
 }

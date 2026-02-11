@@ -100,7 +100,7 @@ pub async fn discover_tools(
     });
     tools.push(LlmToolDefinition {
         name: "browser__navigate".to_string(),
-        description: "Navigate the internal browser to a public web URL. Use this for 'Search for X' (via google.com) or visiting specific sites.".to_string(),
+        description: "Navigate the browser to a public web URL. In VisualForeground with a focused browser, runtime can fall back to visual URL entry (Ctrl/Cmd+L, type URL, Enter) if CDP fails.".to_string(),
         parameters: nav_params.to_string(),
     });
 
@@ -160,6 +160,22 @@ pub async fn discover_tools(
         name: "gui__type".to_string(),
         description: "Type text into the focused UI control.".to_string(),
         parameters: gui_type_params.to_string(),
+    });
+
+    // Global scroll capability.
+    let scroll_params = json!({
+        "type": "object",
+        "properties": {
+            "delta_y": { "type": "integer", "description": "Vertical scroll amount. Positive = Down." },
+            "delta_x": { "type": "integer", "description": "Horizontal scroll amount. Positive = Right." }
+        }
+    });
+    tools.push(LlmToolDefinition {
+        name: "gui__scroll".to_string(),
+        description:
+            "Scroll the mouse wheel. Ensure the mouse is hovering over the target area first."
+                .to_string(),
+        parameters: scroll_params.to_string(),
     });
 
     // Browser Interaction (CONDITIONAL)
@@ -276,9 +292,10 @@ pub async fn discover_tools(
                     "type": "string",
                     "enum": [
                         "type", "key", "hotkey",
-                        "mouse_move", "left_click", "left_click_id", "left_click_element",
+                        "mouse_move", "left_click", "right_click",
+                        "left_click_id", "left_click_element", "right_click_id", "right_click_element",
                         "left_click_drag", "drag_drop",
-                        "screenshot", "cursor_position"
+                        "screenshot", "cursor_position", "scroll"
                     ],
                     "description": "The specific action to perform."
                 },
@@ -302,6 +319,13 @@ pub async fn discover_tools(
                      "minItems": 2,
                      "maxItems": 2,
                      "description": "End coordinates for drag_drop."
+                },
+                "delta": {
+                     "type": "array",
+                     "items": { "type": "integer" },
+                     "minItems": 2,
+                     "maxItems": 2,
+                     "description": "Scroll delta [dx, dy] for scroll action."
                 },
                 "text": {
                     "type": "string",
@@ -522,6 +546,28 @@ pub async fn discover_tools(
         name: "filesystem__list_directory".to_string(),
         description: "List files and directories at a given path.".to_string(),
         parameters: fs_ls_params.to_string(),
+    });
+
+    let install_pkg_params = json!({
+        "type": "object",
+        "properties": {
+            "package": {
+                "type": "string",
+                "description": "Package name or identifier to install (e.g. 'pydantic', '@scope/pkg', 'ripgrep')."
+            },
+            "manager": {
+                "type": "string",
+                "enum": ["apt-get", "brew", "pip", "npm", "pnpm", "cargo", "winget", "choco", "yum", "dnf"],
+                "description": "Optional package manager. If omitted, platform default is used (Linux: apt-get, macOS: brew, Windows: winget)."
+            }
+        },
+        "required": ["package"]
+    });
+    tools.push(LlmToolDefinition {
+        name: "sys__install_package".to_string(),
+        description: "Install a dependency via a deterministic manager mapping. Prefer this over raw sys__exec for package installs."
+            .to_string(),
+        parameters: install_pkg_params.to_string(),
     });
 
     // Meta Tool: Explicit Failure (Trigger Escalation)

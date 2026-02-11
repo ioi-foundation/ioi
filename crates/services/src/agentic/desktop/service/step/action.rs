@@ -50,8 +50,13 @@ fn requires_visual_integrity(tool: &AgentTool) -> bool {
                 | ioi_types::app::agentic::ComputerAction::LeftClickDrag { .. }
                 | ioi_types::app::agentic::ComputerAction::DragDrop { .. }
                 | ioi_types::app::agentic::ComputerAction::MouseMove { .. }
+                | ioi_types::app::agentic::ComputerAction::Scroll {
+                    coordinate: Some(_),
+                    ..
+                }
         ),
         AgentTool::GuiClick { .. } => true,
+        AgentTool::GuiScroll { .. } => true,
         AgentTool::BrowserSyntheticClick { .. } => true,
         AgentTool::BrowserClick { .. } => true,
         _ => false,
@@ -395,6 +400,27 @@ pub async fn process_tool_output(
         } else {
             "Refused".to_string()
         };
+        let refusal_tool_name = "system::refusal".to_string();
+        let refusal_args = json!({
+            "reason": reason
+        });
+        let refusal_action_payload = json!({
+            "name": refusal_tool_name,
+            "arguments": refusal_args
+        });
+        let refusal_intent_hash = canonical_intent_hash(
+            &refusal_tool_name,
+            &refusal_args,
+            routing_decision.tier,
+            pre_state_summary.step_index,
+            tool_version,
+        );
+        let refusal_policy_decision = "denied".to_string();
+        let refusal_failure_class = FailureClass::UserInterventionNeeded;
+        let refusal_stop_condition_hit = true;
+        let refusal_escalation_path =
+            Some(escalation_path_for_failure(refusal_failure_class).to_string());
+
         handle_refusal(
             service,
             state,
@@ -405,6 +431,62 @@ pub async fn process_tool_output(
             &reason,
         )
         .await?;
+
+        let verification_checks = vec![
+            format!("policy_decision={}", refusal_policy_decision),
+            "was_refusal=true".to_string(),
+            format!("stop_condition_hit={}", refusal_stop_condition_hit),
+            format!(
+                "routing_tier_selected={}",
+                tier_as_str(routing_decision.tier)
+            ),
+            format!("routing_reason_code={}", routing_decision.reason_code),
+            format!(
+                "routing_source_failure={}",
+                routing_decision
+                    .source_failure
+                    .map(|class| class.as_str().to_string())
+                    .unwrap_or_else(|| "None".to_string())
+            ),
+            format!(
+                "routing_tier_matches_pre_state={}",
+                pre_state_summary.tier == tier_as_str(routing_decision.tier)
+            ),
+            format!("failure_class={}", refusal_failure_class.as_str()),
+        ];
+        let mut artifacts = extract_artifacts(
+            Some("ERROR_CLASS=HumanChallengeRequired"),
+            Some(&tool_call_result),
+        );
+        artifacts.push(format!(
+            "trace://agent_step/{}",
+            pre_state_summary.step_index
+        ));
+        artifacts.push(format!("trace://session/{}", hex::encode(&session_id[..4])));
+        let post_state = build_post_state_summary(agent_state, false, verification_checks);
+        let policy_binding = policy_binding_hash(&refusal_intent_hash, &refusal_policy_decision);
+        let receipt = RoutingReceiptEvent {
+            session_id,
+            step_index: pre_state_summary.step_index,
+            intent_hash: refusal_intent_hash,
+            policy_decision: refusal_policy_decision,
+            tool_name: refusal_tool_name,
+            tool_version: tool_version.to_string(),
+            pre_state: pre_state_summary,
+            action_json: serde_json::to_string(&refusal_action_payload)
+                .unwrap_or_else(|_| "{}".to_string()),
+            post_state,
+            artifacts,
+            failure_class: Some(to_routing_failure_class(refusal_failure_class)),
+            stop_condition_hit: refusal_stop_condition_hit,
+            escalation_path: refusal_escalation_path,
+            scs_lineage_ptr: lineage_pointer(agent_state.active_skill_hash),
+            mutation_receipt_ptr: mutation_receipt_pointer(state, &session_id),
+            policy_binding_hash: policy_binding,
+            policy_binding_sig: None,
+            policy_binding_signer: None,
+        };
+        emit_routing_receipt(service.event_sender.as_ref(), receipt);
         return Ok(());
     }
 
@@ -637,7 +719,31 @@ pub async fn process_tool_output(
         }
         Err(e) => {
             policy_decision = "denied".to_string();
-            error_msg = Some(format!("Failed to parse tool call: {}", e));
+            current_tool_name = "system::invalid_tool_call".to_string();
+            let parse_error = format!("Failed to parse tool call: {}", e);
+            let parse_args = json!({
+                "raw_tool_output": tool_call_result,
+                "parse_error": parse_error,
+            });
+            intent_hash = canonical_intent_hash(
+                &current_tool_name,
+                &parse_args,
+                routing_decision.tier,
+                pre_state_summary.step_index,
+                tool_version,
+            );
+            action_payload = json!({
+                "name": current_tool_name.clone(),
+                "arguments": parse_args,
+            });
+            error_msg = Some(
+                action_payload
+                    .get("arguments")
+                    .and_then(|v| v.get("parse_error"))
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("Failed to parse tool call")
+                    .to_string(),
+            );
         }
     }
 
