@@ -60,6 +60,14 @@ pub enum ComputerAction {
         coordinate: Option<[u32; 2]>,
     },
 
+    /// Double-click left mouse button.
+    #[serde(rename = "double_click")]
+    DoubleClick {
+        /// Optional coordinates for stateless execution.
+        #[serde(default)]
+        coordinate: Option<[u32; 2]>,
+    },
+
     /// Click a specific element by its Set-of-Marks numeric tag.
     /// Visual Mode Only.
     #[serde(rename = "left_click_id")]
@@ -103,6 +111,24 @@ pub enum ComputerAction {
         from: [u32; 2],
         /// End coordinates [x, y].
         to: [u32; 2],
+    },
+
+    /// Drag and drop by Set-of-Marks numeric IDs.
+    #[serde(rename = "drag_drop_id")]
+    DragDropId {
+        /// Start SoM ID.
+        from_id: u32,
+        /// End SoM ID.
+        to_id: u32,
+    },
+
+    /// Drag and drop by semantic element IDs.
+    #[serde(rename = "drag_drop_element")]
+    DragDropElement {
+        /// Start semantic element ID.
+        from_id: String,
+        /// End semantic element ID.
+        to_id: String,
     },
 
     /// Take a screenshot.
@@ -175,6 +201,18 @@ pub enum AgentTool {
         path: String,
     },
 
+    /// Recursively searches files for lines matching a regex pattern.
+    #[serde(rename = "filesystem__search")]
+    FsSearch {
+        /// Root path to search from.
+        path: String,
+        /// Rust regex pattern to match in file contents.
+        regex: String,
+        /// Optional glob-style filename filter (e.g. "*.rs").
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        file_pattern: Option<String>,
+    },
+
     /// Executes a system command.
     #[serde(rename = "sys__exec")]
     SysExec {
@@ -186,6 +224,13 @@ pub enum AgentTool {
         /// Whether to detach the process.
         #[serde(default)]
         detach: bool,
+    },
+
+    /// Changes the persistent working directory for subsequent system commands.
+    #[serde(rename = "sys__change_directory")]
+    SysChangeDir {
+        /// Target directory path (absolute or relative).
+        path: String,
     },
 
     /// Navigates the browser to a URL.
@@ -225,6 +270,34 @@ pub enum AgentTool {
         x: u32,
         /// Y coordinate relative to viewport.
         y: u32,
+    },
+
+    /// Scroll the browser viewport (headless-compatible).
+    #[serde(rename = "browser__scroll")]
+    BrowserScroll {
+        /// Vertical scroll amount. Positive = down.
+        #[serde(default)]
+        delta_y: i32,
+        /// Horizontal scroll amount. Positive = right.
+        #[serde(default)]
+        delta_x: i32,
+    },
+
+    /// Type text in the browser via CDP input events (headless-compatible).
+    #[serde(rename = "browser__type")]
+    BrowserType {
+        /// Text to type.
+        text: String,
+        /// Optional CSS selector to focus before typing.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        selector: Option<String>,
+    },
+
+    /// Press a keyboard key in the browser via CDP key events (headless-compatible).
+    #[serde(rename = "browser__key")]
+    BrowserKey {
+        /// Key name (for example: "Enter", "Tab", "ArrowDown").
+        key: String,
     },
 
     /// Legacy GUI click tool.
@@ -367,9 +440,11 @@ impl AgentTool {
     pub fn target(&self) -> ActionTarget {
         match self {
             AgentTool::FsWrite { .. } | AgentTool::FsPatch { .. } => ActionTarget::FsWrite,
-            AgentTool::FsRead { .. } | AgentTool::FsList { .. } => ActionTarget::FsRead,
+            AgentTool::FsRead { .. } | AgentTool::FsList { .. } | AgentTool::FsSearch { .. } => {
+                ActionTarget::FsRead
+            }
 
-            AgentTool::SysExec { .. } => ActionTarget::SysExec,
+            AgentTool::SysExec { .. } | AgentTool::SysChangeDir { .. } => ActionTarget::SysExec,
 
             // [MODIFIED] Browser Navigation Split
             AgentTool::BrowserNavigate { context, .. } => {
@@ -386,6 +461,9 @@ impl AgentTool {
             AgentTool::BrowserSyntheticClick { .. } => {
                 ActionTarget::Custom("browser::synthetic_click".into())
             }
+            AgentTool::BrowserScroll { .. } => ActionTarget::Custom("browser::scroll".into()),
+            AgentTool::BrowserType { .. } => ActionTarget::Custom("browser__type".into()),
+            AgentTool::BrowserKey { .. } => ActionTarget::Custom("browser__key".into()),
 
             AgentTool::GuiClick { .. } => ActionTarget::GuiClick,
             AgentTool::GuiType { .. } => ActionTarget::GuiType,
@@ -410,12 +488,13 @@ impl AgentTool {
                 | ComputerAction::Key { .. }
                 | ComputerAction::Hotkey { .. } => ActionTarget::GuiType,
                 ComputerAction::MouseMove { .. } => ActionTarget::GuiMouseMove,
-                ComputerAction::LeftClick { .. } | ComputerAction::RightClick { .. } => {
-                    ActionTarget::GuiClick
-                }
-                ComputerAction::LeftClickDrag { .. } | ComputerAction::DragDrop { .. } => {
-                    ActionTarget::GuiClick
-                }
+                ComputerAction::LeftClick { .. }
+                | ComputerAction::RightClick { .. }
+                | ComputerAction::DoubleClick { .. } => ActionTarget::GuiClick,
+                ComputerAction::LeftClickDrag { .. }
+                | ComputerAction::DragDrop { .. }
+                | ComputerAction::DragDropId { .. }
+                | ComputerAction::DragDropElement { .. } => ActionTarget::GuiClick,
                 ComputerAction::Screenshot => ActionTarget::GuiScreenshot,
                 ComputerAction::CursorPosition => ActionTarget::Custom("computer::cursor".into()),
                 ComputerAction::Scroll { .. } => ActionTarget::GuiScroll,
@@ -433,7 +512,9 @@ impl AgentTool {
                 if let Some(name) = val.get("name").and_then(|n| n.as_str()) {
                     match name {
                         "ui__click_component" | "gui__click_element" => ActionTarget::GuiClick,
-                        "os__launch_app" => ActionTarget::SysExec,
+                        "os__launch_app" | "sys__exec" | "sys__change_directory" => {
+                            ActionTarget::SysExec
+                        }
                         _ => ActionTarget::Custom(name.to_string()),
                     }
                 } else {
@@ -477,10 +558,49 @@ mod tests {
     }
 
     #[test]
+    fn filesystem_search_target_maps_to_fs_read_scope() {
+        let tool = AgentTool::FsSearch {
+            path: "/tmp".to_string(),
+            regex: "needle".to_string(),
+            file_pattern: Some("*.rs".to_string()),
+        };
+        assert_eq!(tool.target(), ActionTarget::FsRead);
+    }
+
+    #[test]
     fn browser_click_element_target_maps_to_browser_click_scope() {
         let tool = AgentTool::BrowserClickElement {
             id: "btn_submit".to_string(),
         };
         assert_eq!(tool.target(), ActionTarget::Custom("browser::click".into()));
+    }
+
+    #[test]
+    fn browser_scroll_target_maps_to_browser_scroll_scope() {
+        let tool = AgentTool::BrowserScroll {
+            delta_x: 0,
+            delta_y: 480,
+        };
+        assert_eq!(
+            tool.target(),
+            ActionTarget::Custom("browser::scroll".into())
+        );
+    }
+
+    #[test]
+    fn browser_type_target_maps_to_custom_browser_type_tool() {
+        let tool = AgentTool::BrowserType {
+            text: "hello".to_string(),
+            selector: Some("input[name='q']".to_string()),
+        };
+        assert_eq!(tool.target(), ActionTarget::Custom("browser__type".into()));
+    }
+
+    #[test]
+    fn browser_key_target_maps_to_custom_browser_key_tool() {
+        let tool = AgentTool::BrowserKey {
+            key: "Enter".to_string(),
+        };
+        assert_eq!(tool.target(), ActionTarget::Custom("browser__key".into()));
     }
 }

@@ -72,6 +72,8 @@ fn requires_visual_integrity(tool: &AgentTool) -> bool {
                 }
                 | ioi_types::app::agentic::ComputerAction::LeftClickDrag { .. }
                 | ioi_types::app::agentic::ComputerAction::DragDrop { .. }
+                | ioi_types::app::agentic::ComputerAction::DragDropId { .. }
+                | ioi_types::app::agentic::ComputerAction::DragDropElement { .. }
                 | ioi_types::app::agentic::ComputerAction::MouseMove { .. }
                 | ioi_types::app::agentic::ComputerAction::Scroll {
                     coordinate: Some(_),
@@ -123,6 +125,29 @@ pub fn canonical_intent_hash(
         "tier": tier_as_str(tier),
         "step_index": step_index,
         "tool_version": tool_version,
+    });
+
+    let canonical_bytes = serde_jcs::to_vec(&payload)
+        .or_else(|_| serde_json::to_vec(&payload))
+        .unwrap_or_default();
+
+    sha256(&canonical_bytes)
+        .map(hex::encode)
+        .unwrap_or_else(|_| "unknown".to_string())
+}
+
+pub fn canonical_retry_intent_hash(
+    tool_name: &str,
+    args: &serde_json::Value,
+    tier: ExecutionTier,
+    tool_version: &str,
+) -> String {
+    let payload = json!({
+        "tool_name": tool_name,
+        "args": args,
+        "tier": tier_as_str(tier),
+        "tool_version": tool_version,
+        "retry_scope": "attempt_dedupe_v1",
     });
 
     let canonical_bytes = serde_jcs::to_vec(&payload)
@@ -266,8 +291,17 @@ pub async fn resume_pending_action(
         agent_state.active_skill_hash,
     )?;
 
+    if success {
+        if let AgentTool::SysChangeDir { .. } = tool {
+            if let Some(new_cwd) = out.as_ref() {
+                agent_state.working_directory = new_cwd.clone();
+            }
+        }
+    }
+
     let content = if success {
-        out.unwrap_or_else(|| "Action executed successfully.".to_string())
+        out.clone()
+            .unwrap_or_else(|| "Action executed successfully.".to_string())
     } else {
         format!(
             "Action Failed: {}",
@@ -422,6 +456,7 @@ pub async fn process_tool_output(
         "raw_tool_output": tool_call_result
     });
     let mut intent_hash = "unknown".to_string();
+    let mut retry_intent_hash: Option<String> = None;
 
     // 1. Raw Refusal Interceptor
     if tool_call_result.contains("\"name\":\"system::refusal\"") {
@@ -632,6 +667,12 @@ pub async fn process_tool_output(
                 pre_state_summary.step_index,
                 tool_version,
             );
+            retry_intent_hash = Some(canonical_retry_intent_hash(
+                &current_tool_name,
+                &tool_args,
+                routing_decision.tier,
+                tool_version,
+            ));
 
             let target_hash_opt = agent_state
                 .pending_approval
@@ -693,6 +734,13 @@ pub async fn process_tool_output(
                             action_output = Some(result.clone());
                             evaluate_and_crystallize(service, agent_state, session_id, result)
                                 .await;
+                        }
+                        AgentTool::SysChangeDir { .. } => {
+                            if s {
+                                if let Some(new_cwd) = history_entry.as_ref() {
+                                    agent_state.working_directory = new_cwd.clone();
+                                }
+                            }
                         }
                         AgentTool::ChatReply { message } => {
                             agent_state.status =
@@ -771,6 +819,12 @@ pub async fn process_tool_output(
                 pre_state_summary.step_index,
                 tool_version,
             );
+            retry_intent_hash = Some(canonical_retry_intent_hash(
+                &current_tool_name,
+                &parse_args,
+                routing_decision.tier,
+                tool_version,
+            ));
             action_payload = json!({
                 "name": current_tool_name.clone(),
                 "arguments": parse_args,
@@ -808,8 +862,9 @@ pub async fn process_tool_output(
             } else {
                 Some(hex::encode(final_visual_phash))
             };
+            let retry_hash = retry_intent_hash.as_deref().unwrap_or(intent_hash.as_str());
             let attempt_key = build_attempt_key(
-                intent_hash.as_str(),
+                retry_hash,
                 routing_decision.tier,
                 &current_tool_name,
                 target_id,

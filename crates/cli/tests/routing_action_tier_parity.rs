@@ -50,6 +50,7 @@ fn action_failure_state() -> AgentState {
             app_hint: Some("calculator".to_string()),
             title_pattern: None,
         }),
+        working_directory: ".".to_string(),
         active_lens: None,
     }
 }

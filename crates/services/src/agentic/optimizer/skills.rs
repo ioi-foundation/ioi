@@ -16,7 +16,7 @@ fn action_target_for_macro_step(target: &str, params: &serde_json::Value) -> Act
         }
         "gui__type" => ActionTarget::GuiType,
         "gui__click" => ActionTarget::GuiClick,
-        "sys__exec" => ActionTarget::SysExec,
+        "sys__exec" | "sys__change_directory" => ActionTarget::SysExec,
         _ => ActionTarget::Custom(target.to_string()),
     }
 }

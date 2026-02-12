@@ -151,6 +151,51 @@ fn lower_install_package_to_sys_exec(arguments: &Value) -> Result<Value> {
     }))
 }
 
+fn lower_edit_line_to_fs_write(arguments: &Value) -> Result<Value> {
+    let args_obj = arguments
+        .as_object()
+        .ok_or_else(|| anyhow!("filesystem__edit_line arguments must be an object"))?;
+
+    let path = args_obj
+        .get("path")
+        .and_then(|v| v.as_str())
+        .map(str::trim)
+        .filter(|v| !v.is_empty())
+        .ok_or_else(|| anyhow!("filesystem__edit_line requires a non-empty 'path' field"))?;
+
+    let line_number_raw = args_obj
+        .get("line_number")
+        .or_else(|| args_obj.get("line"))
+        .and_then(|v| v.as_u64())
+        .ok_or_else(|| {
+            anyhow!("filesystem__edit_line requires integer 'line_number' (or alias 'line')")
+        })?;
+
+    if line_number_raw == 0 || line_number_raw > u32::MAX as u64 {
+        return Err(anyhow!(
+            "filesystem__edit_line 'line_number' must be between 1 and {}",
+            u32::MAX
+        ));
+    }
+
+    let content = args_obj
+        .get("content")
+        .or_else(|| args_obj.get("text"))
+        .and_then(|v| v.as_str())
+        .ok_or_else(|| {
+            anyhow!("filesystem__edit_line requires string 'content' (or alias 'text')")
+        })?;
+
+    Ok(json!({
+        "name": "filesystem__write_file",
+        "arguments": {
+            "path": path,
+            "content": content,
+            "line_number": line_number_raw as u32
+        }
+    }))
+}
+
 impl ToolNormalizer {
     /// The boundary function.
     /// Input: Raw, potentially hallucinated JSON from LLM.
@@ -239,6 +284,7 @@ impl ToolNormalizer {
         } else {
             // Alias check (safe to do in-place if we get mut ref now)
             let mut install_package_args: Option<Value> = None;
+            let mut edit_line_args: Option<Value> = None;
             if let Some(map_mut) = raw_val.as_object_mut() {
                 if let Some(params) = map_mut.get("parameters").cloned() {
                     map_mut.insert("arguments".to_string(), params);
@@ -247,6 +293,14 @@ impl ToolNormalizer {
                 if let Some(name) = map_mut.get("name").and_then(|n| n.as_str()) {
                     if name == "sys__install_package" {
                         install_package_args = Some(
+                            map_mut
+                                .get("arguments")
+                                .cloned()
+                                .unwrap_or_else(|| json!({})),
+                        );
+                    }
+                    if name == "filesystem__edit_line" {
+                        edit_line_args = Some(
                             map_mut
                                 .get("arguments")
                                 .cloned()
@@ -275,12 +329,24 @@ impl ToolNormalizer {
                                 args["y"] = json!(y as u32);
                             }
                         }
+                    } else if name == "browser__scroll" {
+                        // Ensure deltas are integers when model returns float JSON numbers.
+                        if let Some(args) = map_mut.get_mut("arguments") {
+                            if let Some(delta_x) = args.get("delta_x").and_then(|v| v.as_f64()) {
+                                args["delta_x"] = json!(delta_x as i32);
+                            }
+                            if let Some(delta_y) = args.get("delta_y").and_then(|v| v.as_f64()) {
+                                args["delta_y"] = json!(delta_y as i32);
+                            }
+                        }
                     }
                 }
             }
 
             if let Some(install_args) = install_package_args {
                 raw_val = lower_install_package_to_sys_exec(&install_args)?;
+            } else if let Some(edit_args) = edit_line_args {
+                raw_val = lower_edit_line_to_fs_write(&edit_args)?;
             }
         }
 
@@ -387,10 +453,14 @@ mod tests {
     }
 
     #[test]
-    fn test_schema_violation_fails() {
+    fn test_schema_violation_falls_back_to_dynamic() {
         // Missing required field
         let input = r#"{"name": "browser__navigate", "arguments": {}}"#;
-        assert!(ToolNormalizer::normalize(input).is_err());
+        let tool = ToolNormalizer::normalize(input).unwrap();
+        match tool {
+            AgentTool::Dynamic(_) => {}
+            _ => panic!("Expected Dynamic fallback for schema mismatch"),
+        }
     }
 
     #[test]
@@ -421,6 +491,19 @@ mod tests {
             AgentTool::BrowserSyntheticClick { x, y } => {
                 assert_eq!(x, 100);
                 assert_eq!(y, 200);
+            }
+            _ => panic!("Wrong tool type"),
+        }
+    }
+
+    #[test]
+    fn test_normalize_browser_scroll() {
+        let input = r#"{"name":"browser__scroll","arguments":{"delta_x":32.8,"delta_y":480.9}}"#;
+        let tool = ToolNormalizer::normalize(input).unwrap();
+        match tool {
+            AgentTool::BrowserScroll { delta_x, delta_y } => {
+                assert_eq!(delta_x, 32);
+                assert_eq!(delta_y, 480);
             }
             _ => panic!("Wrong tool type"),
         }
@@ -460,5 +543,40 @@ mod tests {
             AgentTool::BrowserNavigate { context, .. } => assert_eq!(context, "local"),
             _ => panic!("Wrong tool type"),
         }
+    }
+
+    #[test]
+    fn test_normalize_sys_change_directory() {
+        let input = r#"{"name":"sys__change_directory","arguments":{"path":"../workspace"}}"#;
+        let tool = ToolNormalizer::normalize(input).unwrap();
+        match tool {
+            AgentTool::SysChangeDir { path } => assert_eq!(path, "../workspace"),
+            _ => panic!("Wrong tool type"),
+        }
+    }
+
+    #[test]
+    fn test_normalize_filesystem_edit_line_alias() {
+        let input = r#"{"name":"filesystem__edit_line","arguments":{"path":"/tmp/demo.txt","line_number":2,"content":"BETA"}}"#;
+        let tool = ToolNormalizer::normalize(input).unwrap();
+        match tool {
+            AgentTool::FsWrite {
+                path,
+                content,
+                line_number,
+            } => {
+                assert_eq!(path, "/tmp/demo.txt");
+                assert_eq!(content, "BETA");
+                assert_eq!(line_number, Some(2));
+            }
+            _ => panic!("Wrong tool type"),
+        }
+    }
+
+    #[test]
+    fn test_normalize_filesystem_edit_line_rejects_invalid_line_number() {
+        let input = r#"{"name":"filesystem__edit_line","arguments":{"path":"/tmp/demo.txt","line_number":0,"content":"BETA"}}"#;
+        let err = ToolNormalizer::normalize(input).expect_err("expected validation error");
+        assert!(err.to_string().contains("line_number"));
     }
 }

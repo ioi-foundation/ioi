@@ -19,12 +19,103 @@ mod ui_find;
 
 use click::{click_by_coordinate_from_som, click_by_som_id};
 use input::{exec_input, parse_mouse_button};
-use semantics::{find_best_element_for_point, resolve_semantic_som_id};
+use semantics::{find_best_element_for_point, find_center_of_element, resolve_semantic_som_id};
 use ui_find::find_element_coordinates;
 
 pub(super) use click::{click_element_by_id, click_element_by_id_with_button, exec_click};
 pub use input::{build_cursor_click_sequence, build_cursor_drag_sequence};
 pub(super) use tree::fetch_lensed_tree;
+
+fn center_from_rect(x: i32, y: i32, w: i32, h: i32) -> [u32; 2] {
+    let cx = x + (w / 2);
+    let cy = y + (h / 2);
+    [cx.max(0) as u32, cy.max(0) as u32]
+}
+
+fn build_drag_drop_sequence(from: [u32; 2], to: [u32; 2]) -> Vec<AtomicInput> {
+    vec![
+        AtomicInput::MouseMove {
+            x: from[0],
+            y: from[1],
+        },
+        AtomicInput::MouseDown {
+            button: MouseButton::Left,
+        },
+        AtomicInput::Wait { millis: 200 },
+        AtomicInput::MouseMove { x: to[0], y: to[1] },
+        AtomicInput::Wait { millis: 200 },
+        AtomicInput::MouseUp {
+            button: MouseButton::Left,
+        },
+    ]
+}
+
+fn build_cursor_double_click_sequence() -> Vec<AtomicInput> {
+    vec![
+        AtomicInput::MouseDown {
+            button: MouseButton::Left,
+        },
+        AtomicInput::Wait { millis: 50 },
+        AtomicInput::MouseUp {
+            button: MouseButton::Left,
+        },
+        AtomicInput::Wait { millis: 80 },
+        AtomicInput::MouseDown {
+            button: MouseButton::Left,
+        },
+        AtomicInput::Wait { millis: 50 },
+        AtomicInput::MouseUp {
+            button: MouseButton::Left,
+        },
+    ]
+}
+
+async fn resolve_som_target_point(
+    exec: &ToolExecutor,
+    som_id: u32,
+    som_map: Option<&BTreeMap<u32, (i32, i32, i32, i32)>>,
+) -> Option<[u32; 2]> {
+    if let Some(map) = som_map {
+        if let Some((x, y, w, h)) = map.get(&som_id) {
+            return Some(center_from_rect(*x, *y, *w, *h));
+        }
+    }
+
+    match exec.gui.get_element_center(som_id).await {
+        Ok(Some((x, y))) => Some([x, y]),
+        Ok(None) | Err(_) => None,
+    }
+}
+
+async fn resolve_target_point(
+    exec: &ToolExecutor,
+    id: &str,
+    som_map: Option<&BTreeMap<u32, (i32, i32, i32, i32)>>,
+    semantic_map: Option<&BTreeMap<u32, String>>,
+    active_lens: Option<&str>,
+) -> Option<[u32; 2]> {
+    if let Ok(som_id) = id.trim().parse::<u32>() {
+        if let Some(point) = resolve_som_target_point(exec, som_id, som_map).await {
+            return Some(point);
+        }
+    }
+
+    if let Some(smap) = semantic_map {
+        if let Some(som_id) = resolve_semantic_som_id(smap, id) {
+            if let Some(point) = resolve_som_target_point(exec, som_id, som_map).await {
+                return Some(point);
+            }
+        }
+    }
+
+    if let Ok(tree) = fetch_lensed_tree(exec, active_lens).await {
+        if let Some((x, y)) = find_center_of_element(&tree, id) {
+            return Some([x.max(0) as u32, y.max(0) as u32]);
+        }
+    }
+
+    None
+}
 
 pub async fn handle(
     exec: &ToolExecutor,
@@ -337,6 +428,139 @@ async fn handle_computer_action(
                 .await
             }
         }
+        ComputerAction::DoubleClick { coordinate } => {
+            if let Some(coord) = coordinate {
+                let allow_raw_coords =
+                    matches!(exec.current_tier, Some(ExecutionTier::VisualForeground));
+                let allow_vision_fallback =
+                    resilience::allow_vision_fallback_for_tier(exec.current_tier);
+
+                if let Some(first_click) = click_by_coordinate_from_som(
+                    exec,
+                    coord[0] as i32,
+                    coord[1] as i32,
+                    som_map,
+                    MouseButton::Left,
+                )
+                .await
+                {
+                    if first_click.success {
+                        tokio::time::sleep(std::time::Duration::from_millis(80)).await;
+                        if let Some(second_click) = click_by_coordinate_from_som(
+                            exec,
+                            coord[0] as i32,
+                            coord[1] as i32,
+                            som_map,
+                            MouseButton::Left,
+                        )
+                        .await
+                        {
+                            if second_click.success {
+                                return ToolExecutionResult::success(format!(
+                                    "Double-click executed via SoM fallback at ({}, {})",
+                                    coord[0], coord[1]
+                                ));
+                            }
+                            if !allow_raw_coords {
+                                return second_click;
+                            }
+                        }
+                    } else if !allow_raw_coords {
+                        return first_click;
+                    }
+                }
+
+                let mut semantic_override = None;
+                if let Ok(tree) = fetch_lensed_tree(exec, active_lens).await {
+                    semantic_override =
+                        find_best_element_for_point(&tree, coord[0] as i32, coord[1] as i32);
+                }
+
+                if let Some(element_id) = semantic_override {
+                    let first_click = resilience::execute_reflexive_click(
+                        exec,
+                        Some(&element_id),
+                        &element_id,
+                        active_lens,
+                        allow_vision_fallback,
+                    )
+                    .await;
+
+                    if first_click.success {
+                        tokio::time::sleep(std::time::Duration::from_millis(80)).await;
+                        let second_click = resilience::execute_reflexive_click(
+                            exec,
+                            Some(&element_id),
+                            &element_id,
+                            active_lens,
+                            allow_vision_fallback,
+                        )
+                        .await;
+                        if second_click.success {
+                            return ToolExecutionResult::success(format!(
+                                "Double-click executed on semantic element '{}'",
+                                element_id
+                            ));
+                        }
+                        if !allow_raw_coords {
+                            return second_click;
+                        }
+                    } else if !allow_raw_coords {
+                        return first_click;
+                    }
+                }
+
+                if !allow_raw_coords {
+                    return ToolExecutionResult::failure(
+                        "ERROR_CLASS=TierViolation Raw coordinate double-click is disabled outside VisualForeground (VisualLast).",
+                    );
+                }
+
+                let transform = NativeOperator::current_display_transform();
+                let target = ClickTarget::Exact(Point::new(
+                    coord[0] as f64,
+                    coord[1] as f64,
+                    CoordinateSpace::ScreenLogical,
+                ));
+                let resolved = match NativeOperator::resolve_click_target(target, &transform) {
+                    Ok(pt) => pt,
+                    Err(e) => {
+                        return ToolExecutionResult::failure(format!("Invalid click target: {}", e))
+                    }
+                };
+
+                let first_click = exec_click(
+                    exec,
+                    MouseButton::Left,
+                    target,
+                    resolved,
+                    transform.clone(),
+                    None,
+                )
+                .await;
+                if !first_click.success {
+                    return first_click;
+                }
+
+                tokio::time::sleep(std::time::Duration::from_millis(80)).await;
+                let second_click =
+                    exec_click(exec, MouseButton::Left, target, resolved, transform, None).await;
+                if !second_click.success {
+                    return second_click;
+                }
+
+                ToolExecutionResult::success(format!(
+                    "Double-click executed at ScreenLogical({}, {})",
+                    coord[0], coord[1]
+                ))
+            } else {
+                exec_input(
+                    exec,
+                    InputEvent::AtomicSequence(build_cursor_double_click_sequence()),
+                )
+                .await
+            }
+        }
         ComputerAction::LeftClickId { id } => {
             if let Some(result) = click_by_som_id(exec, id, som_map, MouseButton::Left).await {
                 return result;
@@ -461,22 +685,54 @@ async fn handle_computer_action(
             .await
         }
         ComputerAction::DragDrop { from, to } => {
-            let steps = vec![
-                AtomicInput::MouseMove {
-                    x: from[0],
-                    y: from[1],
-                },
-                AtomicInput::MouseDown {
-                    button: MouseButton::Left,
-                },
-                AtomicInput::Wait { millis: 200 },
-                AtomicInput::MouseMove { x: to[0], y: to[1] },
-                AtomicInput::Wait { millis: 200 },
-                AtomicInput::MouseUp {
-                    button: MouseButton::Left,
-                },
-            ];
+            let steps = build_drag_drop_sequence(from, to);
             exec_input(exec, InputEvent::AtomicSequence(steps)).await
+        }
+        ComputerAction::DragDropId { from_id, to_id } => {
+            let from = resolve_target_point(
+                exec,
+                &from_id.to_string(),
+                som_map,
+                semantic_map,
+                active_lens,
+            )
+            .await;
+            let to =
+                resolve_target_point(exec, &to_id.to_string(), som_map, semantic_map, active_lens)
+                    .await;
+
+            match (from, to) {
+                (Some(start), Some(end)) => {
+                    let steps = build_drag_drop_sequence(start, end);
+                    exec_input(exec, InputEvent::AtomicSequence(steps)).await
+                }
+                (None, _) => {
+                    ToolExecutionResult::failure(format!("Drag source ID {} not found", from_id))
+                }
+                (_, None) => {
+                    ToolExecutionResult::failure(format!("Drag destination ID {} not found", to_id))
+                }
+            }
+        }
+        ComputerAction::DragDropElement { from_id, to_id } => {
+            let from =
+                resolve_target_point(exec, &from_id, som_map, semantic_map, active_lens).await;
+            let to = resolve_target_point(exec, &to_id, som_map, semantic_map, active_lens).await;
+
+            match (from, to) {
+                (Some(start), Some(end)) => {
+                    let steps = build_drag_drop_sequence(start, end);
+                    exec_input(exec, InputEvent::AtomicSequence(steps)).await
+                }
+                (None, _) => ToolExecutionResult::failure(format!(
+                    "Drag source element '{}' not found",
+                    from_id
+                )),
+                (_, None) => ToolExecutionResult::failure(format!(
+                    "Drag destination element '{}' not found",
+                    to_id
+                )),
+            }
         }
         ComputerAction::Screenshot => match exec.gui.capture_screen(None).await {
             Ok(_) => ToolExecutionResult::success("Screenshot captured"),

@@ -1,4 +1,4 @@
-// Path: crates/cli/tests/system_install_package_parity.rs
+// Path: crates/cli/tests/browser_input_parity.rs
 
 use ioi_api::state::{StateAccess, StateScanIter};
 use ioi_api::vm::inference::mock::MockInferenceRuntime;
@@ -9,11 +9,12 @@ use ioi_services::agentic::desktop::service::step::action::{
 use ioi_services::agentic::desktop::service::step::anti_loop::{
     build_post_state_summary, build_state_summary,
 };
+use ioi_services::agentic::desktop::service::step::queue::queue_action_request_to_tool;
 use ioi_services::agentic::desktop::tools::discover_tools;
 use ioi_services::agentic::desktop::types::{ExecutionTier, InteractionTarget};
 use ioi_services::agentic::desktop::{AgentMode, AgentState, AgentStatus};
 use ioi_types::app::agentic::AgentTool;
-use ioi_types::app::RoutingReceiptEvent;
+use ioi_types::app::{ActionRequest, ActionTarget, RoutingReceiptEvent};
 use ioi_types::error::StateError;
 use std::collections::{BTreeMap, BTreeSet};
 use std::sync::Arc;
@@ -76,11 +77,11 @@ impl StateAccess for MockState {
 
 fn test_agent_state() -> AgentState {
     AgentState {
-        session_id: [0x22; 32],
-        goal: "install pydantic".to_string(),
+        session_id: [0x84; 32],
+        goal: "type and submit in headless browser".to_string(),
         transcript_root: [0u8; 32],
         status: AgentStatus::Running,
-        step_count: 7,
+        step_count: 19,
         max_steps: 32,
         last_action_type: None,
         parent_session_id: None,
@@ -104,7 +105,7 @@ fn test_agent_state() -> AgentState {
         visual_semantic_map: None,
         swarm_context: None,
         target: Some(InteractionTarget {
-            app_hint: Some("terminal".to_string()),
+            app_hint: Some("chrome".to_string()),
             title_pattern: None,
         }),
         working_directory: ".".to_string(),
@@ -113,60 +114,119 @@ fn test_agent_state() -> AgentState {
 }
 
 #[test]
-fn sys_install_package_normalizes_to_deterministic_sys_exec() {
+fn browser_input_tools_map_to_custom_targets() {
+    let type_tool = AgentTool::BrowserType {
+        text: "IOI Kernel".to_string(),
+        selector: Some("input[name='q']".to_string()),
+    };
+    assert_eq!(
+        type_tool.target(),
+        ActionTarget::Custom("browser__type".into())
+    );
+
+    let key_tool = AgentTool::BrowserKey {
+        key: "Enter".to_string(),
+    };
+    assert_eq!(
+        key_tool.target(),
+        ActionTarget::Custom("browser__key".into())
+    );
+}
+
+#[test]
+fn browser_type_normalizer_accepts_selector() {
     let tool = normalize_tool_call(
-        r#"{"name":"sys__install_package","arguments":{"manager":"pip","package":"pydantic"}}"#,
+        r#"{"name":"browser__type","arguments":{"text":"IOI Kernel","selector":"input[name='q']"}}"#,
     )
     .expect("normalization should succeed");
 
     match tool {
-        AgentTool::SysExec {
-            command,
-            args,
-            detach,
-        } => {
-            assert_eq!(command, "python");
-            assert_eq!(
-                args,
-                vec![
-                    "-m".to_string(),
-                    "pip".to_string(),
-                    "install".to_string(),
-                    "pydantic".to_string()
-                ]
-            );
-            assert!(!detach);
+        AgentTool::BrowserType { text, selector } => {
+            assert_eq!(text, "IOI Kernel");
+            assert_eq!(selector.as_deref(), Some("input[name='q']"));
         }
-        _ => panic!("expected sys__exec lowering"),
+        other => panic!("expected BrowserType, got {:?}", other),
     }
 }
 
 #[test]
-fn sys_install_package_rejects_unsafe_identifier() {
-    let err = normalize_tool_call(
-        r#"{"name":"sys__install_package","arguments":{"manager":"pip","package":"bad; rm -rf /"}}"#,
-    )
-    .expect_err("unsafe package names must be rejected");
-    assert!(err.to_string().contains("Invalid package identifier"));
+fn browser_key_normalizer_accepts_key() {
+    let tool = normalize_tool_call(r#"{"name":"browser__key","arguments":{"key":"Enter"}}"#)
+        .expect("normalization should succeed");
+
+    match tool {
+        AgentTool::BrowserKey { key } => assert_eq!(key, "Enter"),
+        other => panic!("expected BrowserKey, got {:?}", other),
+    }
 }
 
 #[test]
-fn routing_receipt_contract_for_install_package_includes_pre_state() {
+fn queue_custom_browser_type_target_maps_to_typed_tool() {
+    let request = ActionRequest {
+        target: ActionTarget::Custom("browser__type".to_string()),
+        params: serde_jcs::to_vec(&serde_json::json!({
+            "text": "IOI Kernel",
+            "selector": "input[name='q']"
+        }))
+        .unwrap(),
+        context: ioi_types::app::ActionContext {
+            agent_id: "desktop_agent".to_string(),
+            session_id: Some([0x84; 32]),
+            window_id: None,
+        },
+        nonce: 19,
+    };
+
+    let tool = queue_action_request_to_tool(&request).expect("queue mapping should succeed");
+    match tool {
+        AgentTool::BrowserType { text, selector } => {
+            assert_eq!(text, "IOI Kernel");
+            assert_eq!(selector.as_deref(), Some("input[name='q']"));
+        }
+        other => panic!("expected BrowserType, got {:?}", other),
+    }
+}
+
+#[test]
+fn queue_custom_browser_key_target_maps_to_typed_tool() {
+    let request = ActionRequest {
+        target: ActionTarget::Custom("browser__key".to_string()),
+        params: serde_jcs::to_vec(&serde_json::json!({
+            "key": "Enter"
+        }))
+        .unwrap(),
+        context: ioi_types::app::ActionContext {
+            agent_id: "desktop_agent".to_string(),
+            session_id: Some([0x84; 32]),
+            window_id: None,
+        },
+        nonce: 20,
+    };
+
+    let tool = queue_action_request_to_tool(&request).expect("queue mapping should succeed");
+    match tool {
+        AgentTool::BrowserKey { key } => assert_eq!(key, "Enter"),
+        other => panic!("expected BrowserKey, got {:?}", other),
+    }
+}
+
+#[test]
+fn routing_receipt_contract_for_browser_type_stays_tool_first() {
     let state = test_agent_state();
-    let tool = normalize_tool_call(
-        r#"{"name":"sys__install_package","arguments":{"manager":"pip","package":"pydantic"}}"#,
-    )
-    .expect("normalization should succeed");
+    let tool = AgentTool::BrowserType {
+        text: "IOI Kernel".to_string(),
+        selector: Some("input[name='q']".to_string()),
+    };
 
     let (tool_name, args) = canonical_tool_identity(&tool);
-    assert_eq!(tool_name, "sys__exec");
-    assert_eq!(args.get("command").and_then(|v| v.as_str()), Some("python"));
+    assert_eq!(tool_name, "browser__type");
     assert_eq!(
-        args.get("args")
-            .and_then(|v| v.as_array())
-            .and_then(|arr| arr.get(2))
-            .and_then(|v| v.as_str()),
-        Some("install")
+        args.get("text").and_then(|v| v.as_str()),
+        Some("IOI Kernel")
+    );
+    assert_eq!(
+        args.get("selector").and_then(|v| v.as_str()),
+        Some("input[name='q']")
     );
 
     let intent_hash = canonical_intent_hash(
@@ -179,11 +239,8 @@ fn routing_receipt_contract_for_install_package_includes_pre_state() {
     assert!(!intent_hash.is_empty());
 
     let pre_state = build_state_summary(&state);
-    let verification_checks = vec![
-        "policy_decision=allowed".to_string(),
-        "deterministic_install=true".to_string(),
-    ];
-    let post_state = build_post_state_summary(&state, true, verification_checks.clone());
+    let verification_checks = vec!["policy_decision=allowed".to_string()];
+    let post_state = build_post_state_summary(&state, true, verification_checks);
 
     let receipt = RoutingReceiptEvent {
         session_id: state.session_id,
@@ -195,7 +252,7 @@ fn routing_receipt_contract_for_install_package_includes_pre_state() {
         pre_state: pre_state.clone(),
         action_json: serde_json::to_string(&tool).unwrap(),
         post_state,
-        artifacts: vec!["trace://agent_step/7".to_string()],
+        artifacts: vec!["trace://agent_step/19".to_string()],
         failure_class: None,
         stop_condition_hit: false,
         escalation_path: None,
@@ -206,79 +263,29 @@ fn routing_receipt_contract_for_install_package_includes_pre_state() {
         policy_binding_signer: None,
     };
 
-    assert_eq!(receipt.pre_state.agent_status, "Running");
+    assert_eq!(receipt.tool_name, "browser__type");
+    assert_eq!(receipt.policy_decision, "allowed");
     assert_eq!(receipt.pre_state.tier, "ToolFirst");
-    assert_eq!(receipt.pre_state.step_index, 7);
-    assert_eq!(receipt.pre_state.target_hint.as_deref(), Some("terminal"));
-    assert!(receipt.action_json.contains("\"command\":\"python\""));
-    assert_eq!(receipt.post_state.verification_checks, verification_checks);
-    assert_eq!(receipt.policy_binding_hash, "binding-hash");
 }
 
 #[tokio::test]
-async fn tool_discovery_exposes_sys_exec_and_cwd_primitives_in_all_tiers() {
+async fn tool_discovery_exposes_browser_input_tools_in_headless_browser_context() {
     let state = MockState::default();
     let runtime = Arc::new(MockInferenceRuntime::default());
 
-    for tier in [
-        ExecutionTier::DomHeadless,
-        ExecutionTier::VisualBackground,
-        ExecutionTier::VisualForeground,
-    ] {
-        let tools = discover_tools(
-            &state,
-            None,
-            "install dependency",
-            runtime.clone(),
-            tier,
-            "Terminal",
-        )
-        .await;
-        let names: BTreeSet<String> = tools.into_iter().map(|tool| tool.name).collect();
-
-        assert!(
-            names.contains("sys__exec"),
-            "sys__exec missing for tier {:?}",
-            tier
-        );
-        assert!(
-            names.contains("sys__change_directory"),
-            "sys__change_directory missing for tier {:?}",
-            tier
-        );
-    }
-}
-
-#[tokio::test]
-async fn tool_discovery_keeps_computer_scoped_to_visual_foreground() {
-    let state = MockState::default();
-    let runtime = Arc::new(MockInferenceRuntime::default());
-
-    let tool_first_names: BTreeSet<String> = discover_tools(
+    let names: BTreeSet<String> = discover_tools(
         &state,
         None,
-        "open project",
-        runtime.clone(),
-        ExecutionTier::DomHeadless,
-        "Terminal",
-    )
-    .await
-    .into_iter()
-    .map(|tool| tool.name)
-    .collect();
-    assert!(!tool_first_names.contains("computer"));
-
-    let visual_last_names: BTreeSet<String> = discover_tools(
-        &state,
-        None,
-        "click submit",
+        "type query and press enter",
         runtime,
-        ExecutionTier::VisualForeground,
-        "Terminal",
+        ExecutionTier::DomHeadless,
+        "Google Chrome",
     )
     .await
     .into_iter()
     .map(|tool| tool.name)
     .collect();
-    assert!(visual_last_names.contains("computer"));
+
+    assert!(names.contains("browser__type"));
+    assert!(names.contains("browser__key"));
 }

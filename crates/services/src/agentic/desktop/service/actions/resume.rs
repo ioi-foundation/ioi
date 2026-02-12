@@ -4,7 +4,7 @@ use super::checks::requires_visual_integrity;
 use super::evaluation::evaluate_and_crystallize;
 use crate::agentic::desktop::keys::{get_state_key, AGENT_POLICY_PREFIX};
 use crate::agentic::desktop::service::step::action::{
-    canonical_intent_hash, canonical_tool_identity,
+    canonical_intent_hash, canonical_retry_intent_hash, canonical_tool_identity,
 };
 use crate::agentic::desktop::service::step::anti_loop::{
     build_attempt_key, build_post_state_summary, build_state_summary, classify_failure,
@@ -140,6 +140,12 @@ pub async fn resume_pending_action(
         &tool_args,
         routing_decision.tier,
         pre_state_summary.step_index,
+        env!("CARGO_PKG_VERSION"),
+    );
+    let retry_intent_hash = canonical_retry_intent_hash(
+        &tool_name,
+        &tool_args,
+        routing_decision.tier,
         env!("CARGO_PKG_VERSION"),
     );
 
@@ -437,6 +443,12 @@ pub async fn resume_pending_action(
                     });
                 }
             }
+            AgentTool::SysChangeDir { .. } => {
+                if success {
+                    agent_state.working_directory = content.clone();
+                }
+                agent_state.status = AgentStatus::Running;
+            }
             _ => {
                 // For standard actions, just return to running state
                 agent_state.status = AgentStatus::Running;
@@ -467,7 +479,7 @@ pub async fn resume_pending_action(
                 Some(hex::encode(log_visual_hash))
             };
             let attempt_key = build_attempt_key(
-                &intent_hash,
+                &retry_intent_hash,
                 routing_decision.tier,
                 &tool_name,
                 target_id,

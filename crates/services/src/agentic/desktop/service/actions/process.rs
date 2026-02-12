@@ -238,6 +238,12 @@ pub async fn process_tool_output(
             if let AgentTool::AgentComplete { .. } = &tool {
                 current_tool_name = "agent__complete".to_string();
             }
+            if let AgentTool::SysExec { .. } = &tool {
+                current_tool_name = "sys__exec".to_string();
+            }
+            if let AgentTool::SysChangeDir { .. } = &tool {
+                current_tool_name = "sys__change_directory".to_string();
+            }
             if let AgentTool::Dynamic(val) = &tool {
                 if let Some(n) = val.get("name").and_then(|s| s.as_str()) {
                     current_tool_name = n.to_string();
@@ -415,6 +421,13 @@ pub async fn process_tool_output(
 
                                 evaluate_and_crystallize(service, agent_state, session_id, result)
                                     .await;
+                            }
+                        }
+                        AgentTool::SysChangeDir { .. } => {
+                            if s {
+                                if let Some(new_cwd) = &history_entry {
+                                    agent_state.working_directory = new_cwd.clone();
+                                }
                             }
                         }
                         AgentTool::ChatReply { message } => {

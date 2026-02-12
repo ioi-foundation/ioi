@@ -2,7 +2,7 @@
 
 use ioi_crypto::algorithms::hash::sha256;
 use ioi_services::agentic::desktop::service::step::action::{
-    canonical_intent_hash, canonical_tool_identity,
+    canonical_intent_hash, canonical_retry_intent_hash, canonical_tool_identity,
 };
 use ioi_services::agentic::desktop::service::step::anti_loop::{
     build_attempt_key, build_post_state_summary, build_state_summary, escalation_path_for_failure,
@@ -49,6 +49,7 @@ fn test_agent_state() -> AgentState {
             app_hint: Some("calculator".to_string()),
             title_pattern: None,
         }),
+        working_directory: ".".to_string(),
         active_lens: None,
     }
 }
@@ -235,4 +236,96 @@ fn canonical_intent_hash_uses_jcs_payload_contract() {
     let tier_changed =
         canonical_intent_hash(&tool_name, &args, ExecutionTier::DomHeadless, 12, "test-v1");
     assert_ne!(hash, tier_changed);
+}
+
+#[test]
+fn retry_intent_hash_is_stable_across_steps_for_attempt_dedupe() {
+    let args = json!({
+        "id": "btn_submit",
+        "retry": 1
+    });
+
+    let step_12_intent = canonical_intent_hash(
+        "gui__click_element",
+        &args,
+        ExecutionTier::VisualForeground,
+        12,
+        "test-v1",
+    );
+    let step_13_intent = canonical_intent_hash(
+        "gui__click_element",
+        &args,
+        ExecutionTier::VisualForeground,
+        13,
+        "test-v1",
+    );
+    assert_ne!(step_12_intent, step_13_intent);
+
+    let retry_hash = canonical_retry_intent_hash(
+        "gui__click_element",
+        &args,
+        ExecutionTier::VisualForeground,
+        "test-v1",
+    );
+    assert!(!retry_hash.is_empty());
+
+    let mut legacy_state = test_agent_state();
+    let legacy_key_step_12 = build_attempt_key(
+        &step_12_intent,
+        ExecutionTier::VisualForeground,
+        "gui__click_element",
+        Some("btn_submit"),
+        Some("window_a"),
+    );
+    let (legacy_first_repeat, _) = register_failure_attempt(
+        &mut legacy_state,
+        FailureClass::TargetNotFound,
+        &legacy_key_step_12,
+    );
+    let legacy_key_step_13 = build_attempt_key(
+        &step_13_intent,
+        ExecutionTier::VisualForeground,
+        "gui__click_element",
+        Some("btn_submit"),
+        Some("window_a"),
+    );
+    let (legacy_second_repeat, _) = register_failure_attempt(
+        &mut legacy_state,
+        FailureClass::TargetNotFound,
+        &legacy_key_step_13,
+    );
+    assert_eq!(legacy_first_repeat, 1);
+    assert_eq!(legacy_second_repeat, 1);
+
+    let mut stable_state = test_agent_state();
+    let stable_key_step_12 = build_attempt_key(
+        &retry_hash,
+        ExecutionTier::VisualForeground,
+        "gui__click_element",
+        Some("btn_submit"),
+        Some("window_a"),
+    );
+    let (stable_first_repeat, _) = register_failure_attempt(
+        &mut stable_state,
+        FailureClass::TargetNotFound,
+        &stable_key_step_12,
+    );
+    let stable_key_step_13 = build_attempt_key(
+        &retry_hash,
+        ExecutionTier::VisualForeground,
+        "gui__click_element",
+        Some("btn_submit"),
+        Some("window_a"),
+    );
+    let (stable_second_repeat, _) = register_failure_attempt(
+        &mut stable_state,
+        FailureClass::TargetNotFound,
+        &stable_key_step_13,
+    );
+    assert_eq!(stable_first_repeat, 1);
+    assert_eq!(stable_second_repeat, 2);
+    assert!(should_block_retry_without_change(
+        FailureClass::TargetNotFound,
+        stable_second_repeat
+    ));
 }

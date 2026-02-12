@@ -161,6 +161,39 @@ impl FailureClass {
     }
 }
 
+fn parse_error_class_marker(lower_error: &str) -> Option<FailureClass> {
+    let marker = "error_class=";
+    let marker_start = lower_error.find(marker)?;
+    let token_start = marker_start + marker.len();
+    let token = lower_error[token_start..]
+        .chars()
+        .take_while(|ch| ch.is_ascii_alphanumeric() || *ch == '_')
+        .collect::<String>();
+
+    if token.is_empty() {
+        return None;
+    }
+
+    match token.as_str() {
+        "focusmismatch" => Some(FailureClass::FocusMismatch),
+        "targetnotfound" => Some(FailureClass::TargetNotFound),
+        "visiontargetnotfound" => Some(FailureClass::VisionTargetNotFound),
+        "noeffectafteraction" => Some(FailureClass::NoEffectAfterAction),
+        "tierviolation" => Some(FailureClass::TierViolation),
+        "missingdependency" => Some(FailureClass::MissingDependency),
+        "contextdrift" => Some(FailureClass::ContextDrift),
+        "permissionorapprovalrequired" => Some(FailureClass::PermissionOrApprovalRequired),
+        "toolunavailable" => Some(FailureClass::ToolUnavailable),
+        "nondeterministicui" => Some(FailureClass::NonDeterministicUI),
+        "unexpectedstate" => Some(FailureClass::UnexpectedState),
+        "timeoutorhang" => Some(FailureClass::TimeoutOrHang),
+        "humanchallengerequired" | "userinterventionneeded" => {
+            Some(FailureClass::UserInterventionNeeded)
+        }
+        _ => None,
+    }
+}
+
 pub fn classify_failure(error: Option<&str>, policy_decision: &str) -> Option<FailureClass> {
     if policy_decision == "require_approval" || policy_decision == "denied" {
         return Some(FailureClass::PermissionOrApprovalRequired);
@@ -168,32 +201,25 @@ pub fn classify_failure(error: Option<&str>, policy_decision: &str) -> Option<Fa
 
     let msg = error?.to_lowercase();
 
-    if msg.contains("error_class=focusmismatch") {
-        return Some(FailureClass::FocusMismatch);
+    if let Some(class) = parse_error_class_marker(&msg) {
+        return Some(class);
     }
-    if msg.contains("error_class=visiontargetnotfound") {
-        return Some(FailureClass::VisionTargetNotFound);
-    }
-    if msg.contains("error_class=noeffectafteraction") {
-        return Some(FailureClass::NoEffectAfterAction);
-    }
-    if msg.contains("error_class=tierviolation") {
-        return Some(FailureClass::TierViolation);
-    }
-    if msg.contains("error_class=missingdependency") {
-        return Some(FailureClass::MissingDependency);
-    }
-    if msg.contains("error_class=contextdrift") {
-        return Some(FailureClass::ContextDrift);
-    }
-    if msg.contains("error_class=humanchallengerequired") {
-        return Some(FailureClass::UserInterventionNeeded);
-    }
-    if msg.contains("error_class=targetnotfound") {
-        return Some(FailureClass::TargetNotFound);
-    }
-    if msg.contains("error_class=permissionorapprovalrequired") {
-        return Some(FailureClass::PermissionOrApprovalRequired);
+
+    // Browser navigation fallback failures are recoverable UI failures in most cases.
+    // Keep focus-specific and invalid-input cases explicit for better tier selection.
+    if msg.contains("error_class=navigationfallbackfailed") {
+        if msg.contains("no focused browser window")
+            || msg.contains("active window is")
+            || msg.contains("cannot accept visual browser navigation")
+        {
+            return Some(FailureClass::FocusMismatch);
+        }
+
+        if msg.contains("requires an absolute http/https url") {
+            return Some(FailureClass::UnexpectedState);
+        }
+
+        return Some(FailureClass::NonDeterministicUI);
     }
 
     if msg.contains("raw coordinate click is disabled outside visuallast")
@@ -636,6 +662,7 @@ mod tests {
             visual_semantic_map: None,
             swarm_context: None,
             target: None,
+            working_directory: ".".to_string(),
             active_lens: None,
         }
     }
@@ -715,6 +742,30 @@ mod tests {
             "allowed",
         );
         assert_eq!(human_challenge, Some(FailureClass::UserInterventionNeeded));
+
+        let tool_unavailable = classify_failure(
+            Some("ERROR_CLASS=ToolUnavailable Tool is not installed on this host."),
+            "allowed",
+        );
+        assert_eq!(tool_unavailable, Some(FailureClass::ToolUnavailable));
+
+        let non_deterministic = classify_failure(
+            Some("ERROR_CLASS=NonDeterministicUI Screen changed unexpectedly between retries."),
+            "allowed",
+        );
+        assert_eq!(non_deterministic, Some(FailureClass::NonDeterministicUI));
+
+        let timeout = classify_failure(
+            Some("ERROR_CLASS=TimeoutOrHang Action exceeded its execution deadline."),
+            "allowed",
+        );
+        assert_eq!(timeout, Some(FailureClass::TimeoutOrHang));
+
+        let unexpected = classify_failure(
+            Some("ERROR_CLASS=UnexpectedState State machine entered an invalid state."),
+            "allowed",
+        );
+        assert_eq!(unexpected, Some(FailureClass::UnexpectedState));
     }
 
     #[test]

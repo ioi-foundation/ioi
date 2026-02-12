@@ -1,6 +1,7 @@
 // Path: crates/drivers/src/terminal/mod.rs
 
 use anyhow::{anyhow, Result};
+use std::path::Path;
 use std::process::Command;
 use std::time::Duration;
 use wait_timeout::ChildExt;
@@ -16,8 +17,22 @@ impl TerminalDriver {
     /// If `detach` is true, it spawns the process and returns immediately (for GUI apps).
     /// If `detach` is false, it waits up to 5 seconds for the command to finish.
     pub async fn execute(&self, command: &str, args: &[String], detach: bool) -> Result<String> {
+        self.execute_in_dir(command, args, detach, None).await
+    }
+
+    /// Executes a command with an optional working directory override.
+    pub async fn execute_in_dir(
+        &self,
+        command: &str,
+        args: &[String],
+        detach: bool,
+        cwd: Option<&Path>,
+    ) -> Result<String> {
         let mut cmd = Command::new(command);
         cmd.args(args);
+        if let Some(dir) = cwd {
+            cmd.current_dir(dir);
+        }
 
         // Security: In a real production build, this is where you would sandbox the process.
         // For local mode, we run it directly but enforce a timeout or detach policy.

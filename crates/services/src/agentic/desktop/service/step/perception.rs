@@ -1,5 +1,6 @@
 // Path: crates/services/src/agentic/desktop/service/step/perception.rs
 
+use crate::agentic::desktop::service::step::anti_loop::latest_failure_class;
 use crate::agentic::desktop::service::step::visual::hamming_distance;
 use crate::agentic::desktop::service::DesktopAgentService;
 use crate::agentic::desktop::tools::discover_tools;
@@ -33,6 +34,8 @@ pub struct PerceptionContext {
     pub available_tools: Vec<LlmToolDefinition>,
     pub tool_desc: String,
     pub visual_verification_note: Option<String>,
+    pub last_failure_reason: Option<String>,
+    pub consecutive_failures: u8,
 }
 
 // [FIX] Renamed `service` to `_service` to suppress unused variable warning
@@ -371,6 +374,22 @@ pub async fn gather_context(
         .collect::<Vec<_>>()
         .join("\n");
 
+    let last_failure_reason = if agent_state.consecutive_failures > 0 {
+        let last_action_fingerprint = agent_state.recent_actions.last().cloned();
+        let last_failure_class = latest_failure_class(agent_state).map(|class| class.as_str());
+
+        match (last_failure_class, last_action_fingerprint) {
+            (Some(class), Some(fingerprint)) => {
+                Some(format!("{} (fingerprint: {})", class, fingerprint))
+            }
+            (Some(class), None) => Some(class.to_string()),
+            (None, Some(fingerprint)) => Some(format!("UnknownFailure ({})", fingerprint)),
+            (None, None) => Some("UnknownFailure".to_string()),
+        }
+    } else {
+        None
+    };
+
     Ok(PerceptionContext {
         tier: current_tier,
         screenshot_base64: base64_image,
@@ -382,6 +401,8 @@ pub async fn gather_context(
         available_tools: tools,
         tool_desc,
         visual_verification_note,
+        last_failure_reason,
+        consecutive_failures: agent_state.consecutive_failures,
     })
 }
 

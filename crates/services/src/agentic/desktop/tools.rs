@@ -208,6 +208,47 @@ pub async fn discover_tools(
             });
         }
 
+        let browser_scroll_params = json!({
+            "type": "object",
+            "properties": {
+                "delta_y": { "type": "integer", "description": "Vertical scroll amount. Positive = Down." },
+                "delta_x": { "type": "integer", "description": "Horizontal scroll amount. Positive = Right." }
+            }
+        });
+        tools.push(LlmToolDefinition {
+            name: "browser__scroll".to_string(),
+            description: "Scroll the browser page via CDP. Works in headless mode.".to_string(),
+            parameters: browser_scroll_params.to_string(),
+        });
+
+        let browser_type_params = json!({
+            "type": "object",
+            "properties": {
+                "text": { "type": "string", "description": "Text to type." },
+                "selector": { "type": "string", "description": "Optional CSS selector to focus before typing." }
+            },
+            "required": ["text"]
+        });
+        tools.push(LlmToolDefinition {
+            name: "browser__type".to_string(),
+            description: "Type text into the browser via CDP. Works in headless mode.".to_string(),
+            parameters: browser_type_params.to_string(),
+        });
+
+        let browser_key_params = json!({
+            "type": "object",
+            "properties": {
+                "key": { "type": "string", "description": "Key to press (for example: 'Enter', 'Tab', 'Backspace', 'ArrowDown')." }
+            },
+            "required": ["key"]
+        });
+        tools.push(LlmToolDefinition {
+            name: "browser__key".to_string(),
+            description: "Press a keyboard key in the browser via CDP. Works in headless mode."
+                .to_string(),
+            parameters: browser_key_params.to_string(),
+        });
+
         let extract_params = json!({
             "type": "object",
             "properties": {},
@@ -292,7 +333,7 @@ pub async fn discover_tools(
         parameters: delegate_params.to_string(),
     });
 
-    // Only expose Computer tools and SysExec in VisualForeground (Tier 3)
+    // Only expose Computer tools in VisualForeground (Tier 3)
     if tier == ExecutionTier::VisualForeground {
         // [UPDATED] UI-TARS Style: Visual Semantic Search
         // We update the description to encourage using this for icons.
@@ -318,7 +359,7 @@ pub async fn discover_tools(
                         "type", "key", "hotkey",
                         "mouse_move", "left_click", "right_click",
                         "left_click_id", "left_click_element", "right_click_id", "right_click_element",
-                        "left_click_drag", "drag_drop",
+                        "left_click_drag", "drag_drop", "drag_drop_id", "drag_drop_element",
                         "screenshot", "cursor_position", "scroll"
                     ],
                     "description": "The specific action to perform."
@@ -343,6 +384,14 @@ pub async fn discover_tools(
                      "minItems": 2,
                      "maxItems": 2,
                      "description": "End coordinates for drag_drop."
+                },
+                "from_id": {
+                    "type": ["integer", "string"],
+                    "description": "Source ID for drag actions (SoM integer or semantic string)."
+                },
+                "to_id": {
+                    "type": ["integer", "string"],
+                    "description": "Destination ID for drag actions (SoM integer or semantic string)."
                 },
                 "delta": {
                      "type": "array",
@@ -373,32 +422,51 @@ pub async fn discover_tools(
             description: "Control the computer (mouse/keyboard/hotkeys).".to_string(),
             parameters: computer_params.to_string(),
         });
-
-        let sys_params = json!({
-            "type": "object",
-            "properties": {
-                "command": {
-                    "type": "string",
-                    "description": "The binary to execute (e.g., 'ls', 'gnome-calculator', 'code', 'ping')."
-                },
-                "args": {
-                    "type": "array",
-                    "items": { "type": "string" },
-                    "description": "Arguments for the command"
-                },
-                "detach": {
-                    "type": "boolean",
-                    "description": "Set to true if launching a GUI application."
-                }
-            },
-            "required": ["command"]
-        });
-        tools.push(LlmToolDefinition {
-            name: "sys__exec".to_string(),
-            description: "Execute a terminal command or launch a local GUI application. Use 'detach: true' for persistent apps.".to_string(),
-            parameters: sys_params.to_string(),
-        });
     }
+
+    // Deterministic System tools are available across all tiers.
+    // They are Tier-1 primitives and should remain available in ToolFirst/AxFirst modes.
+    let sys_params = json!({
+        "type": "object",
+        "properties": {
+            "command": {
+                "type": "string",
+                "description": "The binary to execute (e.g., 'ls', 'gnome-calculator', 'code', 'ping')."
+            },
+            "args": {
+                "type": "array",
+                "items": { "type": "string" },
+                "description": "Arguments for the command"
+            },
+            "detach": {
+                "type": "boolean",
+                "description": "Set to true if launching a GUI application."
+            }
+        },
+        "required": ["command"]
+    });
+    tools.push(LlmToolDefinition {
+        name: "sys__exec".to_string(),
+        description: "Execute a terminal command or launch a local GUI application. Use 'detach: true' for persistent apps.".to_string(),
+        parameters: sys_params.to_string(),
+    });
+
+    let sys_change_dir_params = json!({
+        "type": "object",
+        "properties": {
+            "path": {
+                "type": "string",
+                "description": "Target directory path (absolute or relative to the current working directory)."
+            }
+        },
+        "required": ["path"]
+    });
+    tools.push(LlmToolDefinition {
+        name: "sys__change_directory".to_string(),
+        description: "Change the persistent working directory for subsequent `sys__exec` commands."
+            .to_string(),
+        parameters: sys_change_dir_params.to_string(),
+    });
 
     // 4. OS Control Tools
     if tier == ExecutionTier::VisualForeground {
@@ -546,6 +614,25 @@ pub async fn discover_tools(
         parameters: fs_write_params.to_string(),
     });
 
+    let fs_edit_line_params = json!({
+        "type": "object",
+        "properties": {
+            "path": { "type": "string", "description": "Absolute path to the file to edit" },
+            "line_number": {
+                "type": "integer",
+                "minimum": 1,
+                "description": "1-based line index to replace."
+            },
+            "content": { "type": "string", "description": "Replacement content for the target line." }
+        },
+        "required": ["path", "line_number", "content"]
+    });
+    tools.push(LlmToolDefinition {
+        name: "filesystem__edit_line".to_string(),
+        description: "Deterministically replace exactly one line in a file (alias of filesystem__write_file with line_number).".to_string(),
+        parameters: fs_edit_line_params.to_string(),
+    });
+
     let fs_patch_params = json!({
         "type": "object",
         "properties": {
@@ -590,6 +677,22 @@ pub async fn discover_tools(
         name: "filesystem__list_directory".to_string(),
         description: "List files and directories at a given path.".to_string(),
         parameters: fs_ls_params.to_string(),
+    });
+
+    let fs_search_params = json!({
+        "type": "object",
+        "properties": {
+            "path": { "type": "string", "description": "Root directory to search in" },
+            "regex": { "type": "string", "description": "Rust regex pattern to find in file content" },
+            "file_pattern": { "type": "string", "description": "Optional glob pattern to filter file names (e.g. '*.rs')" }
+        },
+        "required": ["path", "regex"]
+    });
+    tools.push(LlmToolDefinition {
+        name: "filesystem__search".to_string(),
+        description: "Recursively search for a regex pattern in files under a directory and return matching lines."
+            .to_string(),
+        parameters: fs_search_params.to_string(),
     });
 
     let install_pkg_params = json!({

@@ -664,6 +664,25 @@ pub async fn handle(exec: &ToolExecutor, tool: AgentTool) -> ToolExecutionResult
                 Err(e) => ToolExecutionResult::failure(format!("Synthetic click failed: {}", e)),
             }
         }
+        AgentTool::BrowserScroll { delta_x, delta_y } => {
+            match exec.browser.scroll(delta_x, delta_y).await {
+                Ok(_) => ToolExecutionResult::success(format!(
+                    "Scrolled browser by ({}, {})",
+                    delta_x, delta_y
+                )),
+                Err(e) => ToolExecutionResult::failure(format!("Browser scroll failed: {}", e)),
+            }
+        }
+        AgentTool::BrowserType { text, selector } => {
+            match exec.browser.type_text(&text, selector.as_deref()).await {
+                Ok(_) => ToolExecutionResult::success(format!("Typed '{}' into browser", text)),
+                Err(e) => ToolExecutionResult::failure(format!("Browser type failed: {}", e)),
+            }
+        }
+        AgentTool::BrowserKey { key } => match exec.browser.press_key(&key).await {
+            Ok(_) => ToolExecutionResult::success(format!("Pressed '{}' in browser", key)),
+            Err(e) => ToolExecutionResult::failure(format!("Browser key press failed: {}", e)),
+        },
         _ => ToolExecutionResult::failure("Unsupported Browser action"),
     }
 }
