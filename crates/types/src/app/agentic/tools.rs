@@ -147,14 +147,6 @@ pub enum ComputerAction {
     },
 }
 
-fn default_context_hermetic() -> String {
-    "hermetic".to_string()
-}
-
-fn is_local_browser_context(context: &str) -> bool {
-    context.trim().eq_ignore_ascii_case("local")
-}
-
 /// The single source of truth for all Agent Capabilities.
 #[derive(Debug, Serialize, Deserialize, JsonSchema, Clone)]
 #[serde(tag = "name", content = "arguments", rename_all = "snake_case")]
@@ -238,11 +230,6 @@ pub enum AgentTool {
     BrowserNavigate {
         /// URL to navigate to.
         url: String,
-        /// The context to use: "hermetic" (default) or "local".
-        /// "hermetic": A fresh, isolated container/process (Safe).
-        /// "local": The user's existing Chrome session (Privileged).
-        #[serde(default = "default_context_hermetic")]
-        context: String,
     },
 
     /// Extracts content from the browser.
@@ -446,14 +433,7 @@ impl AgentTool {
 
             AgentTool::SysExec { .. } | AgentTool::SysChangeDir { .. } => ActionTarget::SysExec,
 
-            // [MODIFIED] Browser Navigation Split
-            AgentTool::BrowserNavigate { context, .. } => {
-                if is_local_browser_context(context) {
-                    ActionTarget::BrowserNavigateLocal
-                } else {
-                    ActionTarget::BrowserNavigateHermetic
-                }
-            }
+            AgentTool::BrowserNavigate { .. } => ActionTarget::BrowserNavigateHermetic,
 
             AgentTool::BrowserExtract { .. } => ActionTarget::BrowserExtract,
             AgentTool::BrowserClick { .. } => ActionTarget::Custom("browser::click".into()),
@@ -530,19 +510,9 @@ mod tests {
     use super::*;
 
     #[test]
-    fn browser_navigate_target_uses_local_context_case_insensitively() {
+    fn browser_navigate_target_maps_to_hermetic_scope() {
         let tool = AgentTool::BrowserNavigate {
             url: "https://news.ycombinator.com".to_string(),
-            context: " Local ".to_string(),
-        };
-        assert_eq!(tool.target(), ActionTarget::BrowserNavigateLocal);
-    }
-
-    #[test]
-    fn browser_navigate_target_defaults_to_hermetic_for_other_contexts() {
-        let tool = AgentTool::BrowserNavigate {
-            url: "https://news.ycombinator.com".to_string(),
-            context: "hermetic".to_string(),
         };
         assert_eq!(tool.target(), ActionTarget::BrowserNavigateHermetic);
     }

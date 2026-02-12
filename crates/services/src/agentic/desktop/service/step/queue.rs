@@ -33,19 +33,6 @@ pub fn resolve_queue_routing_context(
     (routing_decision, pre_state_summary)
 }
 
-fn normalize_browser_context(
-    args: serde_json::Value,
-    required_context: &str,
-) -> Result<serde_json::Value, TransactionError> {
-    let mut obj = args.as_object().cloned().ok_or_else(|| {
-        TransactionError::Invalid(
-            "Queue browser navigation params must be a JSON object".to_string(),
-        )
-    })?;
-    obj.insert("context".to_string(), json!(required_context));
-    Ok(serde_json::Value::Object(obj))
-}
-
 fn infer_sys_tool_name(args: &serde_json::Value) -> &'static str {
     if let Some(obj) = args.as_object() {
         if obj.get("command").is_none() && obj.get("path").is_some() {
@@ -86,14 +73,7 @@ fn queue_target_to_tool_name_and_args(
         ActionTarget::Custom(name) => Ok((infer_custom_tool_name(name, &raw_args), raw_args)),
         ActionTarget::FsRead => Ok(("filesystem__read_file".to_string(), raw_args)),
         ActionTarget::FsWrite => Ok(("filesystem__write_file".to_string(), raw_args)),
-        ActionTarget::BrowserNavigateHermetic => Ok((
-            "browser__navigate".to_string(),
-            normalize_browser_context(raw_args, "hermetic")?,
-        )),
-        ActionTarget::BrowserNavigateLocal => Ok((
-            "browser__navigate".to_string(),
-            normalize_browser_context(raw_args, "local")?,
-        )),
+        ActionTarget::BrowserNavigateHermetic => Ok(("browser__navigate".to_string(), raw_args)),
         ActionTarget::BrowserExtract => Ok(("browser__extract".to_string(), raw_args)),
         ActionTarget::GuiType | ActionTarget::UiType => Ok(("gui__type".to_string(), raw_args)),
         ActionTarget::GuiClick | ActionTarget::UiClick => Ok(("gui__click".to_string(), raw_args)),
@@ -278,7 +258,7 @@ pub async fn process_queue_item(
                 stop_condition_hit = true;
                 escalation_path = Some(escalation_path_for_failure(class).to_string());
                 agent_state.status = AgentStatus::Paused(
-                    "Waiting for user intervention: complete the required human verification in Local Browser, then resume.".to_string(),
+                    "Waiting for user intervention: complete the required human verification in your browser/app, then resume.".to_string(),
                 );
             } else if blocked_without_change {
                 stop_condition_hit = true;

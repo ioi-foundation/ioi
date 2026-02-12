@@ -889,7 +889,7 @@ pub async fn process_tool_output(
                 escalation_path = Some(escalation_path_for_failure(class).to_string());
                 is_lifecycle_action = true;
                 agent_state.status = AgentStatus::Paused(
-                    "Waiting for user intervention: complete the required human verification in Local Browser, then resume.".to_string(),
+                    "Waiting for user intervention: complete the required human verification in your browser/app, then resume.".to_string(),
                 );
             } else if blocked_without_change {
                 stop_condition_hit = true;

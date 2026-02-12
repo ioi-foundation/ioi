@@ -1,8 +1,7 @@
 // Path: crates/services/src/agentic/desktop/execution/browser.rs
 
-use super::resilience;
 use super::{ToolExecutionResult, ToolExecutor};
-use ioi_api::vm::drivers::gui::{AtomicInput, InputEvent, MouseButton};
+use ioi_api::vm::drivers::gui::{AtomicInput, InputEvent};
 use ioi_api::vm::drivers::os::WindowInfo;
 use ioi_drivers::browser::{context::BrowserContentFrame, SelectorProbe};
 use ioi_drivers::gui::accessibility::{AccessibilityNode, Rect};
@@ -24,8 +23,6 @@ const SEARCH_FOCUS_SELECTORS: &[&str] = &[
 #[derive(Debug, Clone, Copy)]
 pub(super) struct BrowserSurfaceRegions {
     pub viewport_rect: Rect,
-    pub url_bar_rect: Rect,
-    pub source: &'static str,
 }
 
 impl BrowserSurfaceRegions {
@@ -34,19 +31,9 @@ impl BrowserSurfaceRegions {
         let cy = self.viewport_rect.y + (self.viewport_rect.height / 2);
         (cx.max(0) as u32, cy.max(0) as u32)
     }
-
-    fn url_bar_center(self) -> (u32, u32) {
-        let cx = self.url_bar_rect.x + (self.url_bar_rect.width / 2);
-        let cy = self.url_bar_rect.y + (self.url_bar_rect.height / 2);
-        (cx.max(0) as u32, cy.max(0) as u32)
-    }
 }
 
-fn detect_human_challenge(url: &str, context: &str, content: &str) -> Option<&'static str> {
-    if !context.eq_ignore_ascii_case("hermetic") {
-        return None;
-    }
-
+fn detect_human_challenge(url: &str, content: &str) -> Option<&'static str> {
     let url_lc = url.to_ascii_lowercase();
     let content_lc = content.to_ascii_lowercase();
 
@@ -192,7 +179,7 @@ fn estimate_browser_surface_regions(
         height: (window_rect.height - heur_chrome - 4).max(16),
     };
 
-    let (viewport_rect, source) = if let Some(content) = content_rect {
+    let viewport_rect = if let Some(content) = content_rect {
         if let Some(clamped) = clamp_rect_to_bounds(content, window_rect) {
             let top_gap = clamped.y - window_rect.y;
             let left_gap = (clamped.x - window_rect.x).abs();
@@ -204,47 +191,18 @@ fn estimate_browser_surface_regions(
                 && height_ratio >= 0.4;
 
             if clamped.height >= 64 && clamped.width >= 120 && frame_matches_active_window {
-                (clamped, "cdp_content_frame")
+                clamped
             } else {
-                (heur_viewport, "window_heuristic")
+                heur_viewport
             }
         } else {
-            (heur_viewport, "window_heuristic")
+            heur_viewport
         }
     } else {
-        (heur_viewport, "window_heuristic")
+        heur_viewport
     };
 
-    let chrome_height = (viewport_rect.y - window_rect.y)
-        .max(24)
-        .min((window_rect.height - 12).max(24));
-    let horizontal_padding = (window_rect.width / 9).clamp(24, 280);
-    let mut url_left = window_rect.x + horizontal_padding;
-    let mut url_right = window_rect.x + window_rect.width - horizontal_padding;
-    if url_right - url_left < 160 {
-        url_left = window_rect.x + 12;
-        url_right = window_rect.x + window_rect.width - 12;
-    }
-
-    let mut url_height = ((chrome_height as f32) * 0.45).round() as i32;
-    url_height = url_height.clamp(24, 44);
-    let mut url_y = window_rect.y + ((chrome_height as f32) * 0.28).round() as i32;
-    if url_y + url_height >= viewport_rect.y {
-        url_y = (viewport_rect.y - url_height - 6).max(window_rect.y + 6);
-    }
-
-    let url_rect = Rect {
-        x: url_left,
-        y: url_y,
-        width: (url_right - url_left).max(80),
-        height: url_height,
-    };
-
-    Some(BrowserSurfaceRegions {
-        viewport_rect,
-        url_bar_rect: url_rect,
-        source,
-    })
+    Some(BrowserSurfaceRegions { viewport_rect })
 }
 
 pub(super) async fn browser_surface_regions(exec: &ToolExecutor) -> Option<BrowserSurfaceRegions> {
@@ -263,169 +221,21 @@ pub(super) async fn browser_surface_regions(exec: &ToolExecutor) -> Option<Brows
     estimate_browser_surface_regions(window, content_rect)
 }
 
-async fn attempt_visual_navigate(
-    exec: &ToolExecutor,
-    url: &str,
-    context: &str,
-    primary_error: &str,
-) -> Result<String, String> {
-    if !(url.starts_with("http://") || url.starts_with("https://")) {
-        return Err("ERROR_CLASS=NavigationFallbackFailed Visual navigation requires an absolute http/https URL.".to_string());
-    }
-
-    let window = exec.active_window.as_ref().ok_or_else(|| {
-        "ERROR_CLASS=NavigationFallbackFailed Visual fallback requires a focused browser window."
-            .to_string()
-    })?;
-
-    if !is_probable_browser_window(&window.title, &window.app_name) {
-        return Err(format!(
-            "ERROR_CLASS=FocusMismatch Active window is '{}' ({}) and cannot accept visual browser navigation.",
-            window.title, window.app_name
-        ));
-    }
-
-    let regions = browser_surface_regions(exec).await.ok_or_else(|| {
-        "ERROR_CLASS=NavigationFallbackFailed Failed to derive browser viewport/url-bar geometry."
-            .to_string()
-    })?;
-
-    let (url_x, url_y) = regions.url_bar_center();
-    let (viewport_x, viewport_y) = regions.viewport_center();
-
-    exec.gui
-        .inject_input(InputEvent::Click {
-            button: MouseButton::Left,
-            x: url_x,
-            y: url_y,
-            expected_visual_hash: None,
-        })
-        .await
-        .map_err(|e| {
-            format!(
-                "ERROR_CLASS=NavigationFallbackFailed Failed to click URL bar candidate: {}",
-                e
-            )
-        })?;
-
-    sleep(Duration::from_millis(70)).await;
-
-    let modifier = if cfg!(target_os = "macos") {
-        "command"
-    } else {
-        "ctrl"
-    };
-    let chord = InputEvent::AtomicSequence(vec![
-        AtomicInput::KeyDown {
-            key: modifier.to_string(),
-        },
-        AtomicInput::KeyPress {
-            key: "l".to_string(),
-        },
-        AtomicInput::KeyUp {
-            key: modifier.to_string(),
-        },
-        AtomicInput::Wait { millis: 40 },
-        AtomicInput::Type {
-            text: url.trim().to_string(),
-        },
-        AtomicInput::KeyPress {
-            key: "enter".to_string(),
-        },
-    ]);
-
-    exec.gui.inject_input(chord).await.map_err(|e| {
-        format!(
-            "ERROR_CLASS=NavigationFallbackFailed Failed to execute visual URL entry macro: {}",
-            e
-        )
-    })?;
-
-    sleep(Duration::from_millis(220)).await;
-    let _ = exec
-        .gui
-        .inject_input(InputEvent::MouseMove {
-            x: viewport_x,
-            y: viewport_y,
-        })
-        .await;
-
-    let verification = json!({
-        "fallback_used": "visual_url_entry",
-        "context_requested": context,
-        "geometry_source": regions.source,
-        "url_bar_center": [url_x, url_y],
-        "viewport_center": [viewport_x, viewport_y],
-        "active_window": {
-            "title": window.title,
-            "app_name": window.app_name,
-            "x": window.x,
-            "y": window.y,
-            "width": window.width,
-            "height": window.height,
-        },
-        "driver_error": primary_error,
-    });
-
-    Ok(verification.to_string())
-}
-
 pub async fn handle(exec: &ToolExecutor, tool: AgentTool) -> ToolExecutionResult {
     match tool {
-        AgentTool::BrowserNavigate { url, context } => {
-            match exec.browser.navigate(&url, &context).await {
+        AgentTool::BrowserNavigate { url } => {
+            match exec.browser.navigate(&url).await {
                 Ok(content) => {
-                    if let Some(reason) = detect_human_challenge(&url, &context, &content) {
+                    if let Some(reason) = detect_human_challenge(&url, &content) {
                         return ToolExecutionResult::failure(format!(
-                            "ERROR_CLASS=HumanChallengeRequired {}. Open the same URL in Local Browser, complete the challenge manually, then resume: {}",
+                            "ERROR_CLASS=HumanChallengeRequired {}. Complete the challenge manually in your own browser/app, then resume: {}",
                             reason, url
                         ));
                     }
 
-                    ToolExecutionResult::success(format!(
-                        "Navigated to {} [{}]. Content len: {}",
-                        url,
-                        context,
-                        content.len()
-                    ))
+                    ToolExecutionResult::success(format!("Navigated to {}. Content len: {}", url, content.len()))
                 }
-                Err(e) => {
-                    let primary_error = e.to_string();
-                    let allow_visual_fallback =
-                        resilience::allow_vision_fallback_for_tier(exec.current_tier);
-
-                    if allow_visual_fallback
-                        && exec
-                            .active_window
-                            .as_ref()
-                            .map(|w| is_probable_browser_window(&w.title, &w.app_name))
-                            .unwrap_or(false)
-                    {
-                        match attempt_visual_navigate(exec, &url, &context, &primary_error).await {
-                            Ok(verification) => {
-                                return ToolExecutionResult::success(format!(
-                                    "Navigated to {} [{}] via visual fallback. verify={}",
-                                    url, context, verification
-                                ))
-                            }
-                            Err(visual_error) => {
-                                return ToolExecutionResult::failure(format!(
-                                    "ERROR_CLASS=NavigationFallbackFailed Navigation failed via browser driver: {}. Visual fallback failed: {}",
-                                    primary_error, visual_error
-                                ))
-                            }
-                        }
-                    }
-
-                    if allow_visual_fallback {
-                        return ToolExecutionResult::failure(format!(
-                            "Navigation failed: {}. Visual fallback unavailable because no focused browser window was detected.",
-                            primary_error
-                        ));
-                    }
-
-                    ToolExecutionResult::failure(format!("Navigation failed: {}", primary_error))
-                }
+                Err(e) => ToolExecutionResult::failure(format!("Navigation failed: {}", e)),
             }
         }
         AgentTool::BrowserExtract {} => match exec.browser.get_accessibility_tree().await {
@@ -760,7 +570,6 @@ mod tests {
         };
 
         let regions = estimate_browser_surface_regions(&win, Some(content)).unwrap();
-        assert_eq!(regions.source, "cdp_content_frame");
         assert_eq!(regions.viewport_rect.y, 120);
     }
 
@@ -775,7 +584,6 @@ mod tests {
         };
 
         let regions = estimate_browser_surface_regions(&win, Some(bad_content)).unwrap();
-        assert_eq!(regions.source, "window_heuristic");
         assert!(regions.viewport_rect.y > win.y);
     }
 
@@ -790,7 +598,7 @@ mod tests {
         };
 
         let regions = estimate_browser_surface_regions(&win, Some(unrelated_content)).unwrap();
-        assert_eq!(regions.source, "window_heuristic");
+        assert!(regions.viewport_rect.y > win.y);
     }
 
     #[test]

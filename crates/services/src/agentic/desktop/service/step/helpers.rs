@@ -107,13 +107,6 @@ pub fn default_safe_policy() -> ActionRules {
                 conditions: Default::default(),
                 action: Verdict::Allow,
             },
-            // [NEW] Gate Local Navigation
-            Rule {
-                rule_id: Some("gate-local-nav".into()),
-                target: "browser::navigate::local".into(),
-                conditions: Default::default(),
-                action: Verdict::RequireApproval,
-            },
         ],
     }
 }

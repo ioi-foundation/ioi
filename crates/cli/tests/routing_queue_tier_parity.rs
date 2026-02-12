@@ -157,9 +157,9 @@ fn queue_routing_receipt_uses_visual_last_tier_for_pre_state_and_intent_hash() {
 }
 
 #[test]
-fn queue_browser_local_target_normalizes_with_local_context() {
+fn queue_browser_target_normalizes_to_hermetic_navigation() {
     let request = ActionRequest {
-        target: ActionTarget::BrowserNavigateLocal,
+        target: ActionTarget::BrowserNavigateHermetic,
         params: serde_jcs::to_vec(&json!({
             "url": "https://example.com"
         }))
@@ -173,27 +173,22 @@ fn queue_browser_local_target_normalizes_with_local_context() {
     };
 
     let tool = queue_action_request_to_tool(&request).expect("queue tool should normalize");
-    match tool {
-        AgentTool::BrowserNavigate {
-            ref url,
-            ref context,
-        } => {
+    match &tool {
+        AgentTool::BrowserNavigate { url } => {
             assert_eq!(url, "https://example.com");
-            assert_eq!(context, "local");
         }
         other => panic!("expected BrowserNavigate, got {:?}", other),
     }
 
-    assert_eq!(tool.target(), ActionTarget::BrowserNavigateLocal);
+    assert_eq!(tool.target(), ActionTarget::BrowserNavigateHermetic);
 }
 
 #[test]
-fn queue_browser_target_context_feeds_routing_receipt_intent_hash() {
+fn queue_browser_target_feeds_routing_receipt_intent_hash() {
     let request = ActionRequest {
-        target: ActionTarget::BrowserNavigateLocal,
+        target: ActionTarget::BrowserNavigateHermetic,
         params: serde_jcs::to_vec(&json!({
-            "url": "https://example.com",
-            "context": "hermetic"
+            "url": "https://example.com"
         }))
         .unwrap(),
         context: ioi_types::app::ActionContext {
@@ -206,15 +201,13 @@ fn queue_browser_target_context_feeds_routing_receipt_intent_hash() {
     let tool = queue_action_request_to_tool(&request).expect("queue tool should normalize");
     let (tool_name, args) = canonical_tool_identity(&tool);
     assert_eq!(tool_name, "browser__navigate");
-    assert_eq!(args.get("context").and_then(|v| v.as_str()), Some("local"));
 
     let intent_hash =
         canonical_intent_hash(&tool_name, &args, ExecutionTier::DomHeadless, 12, "test-v1");
     let expected_payload = json!({
         "tool_name": "browser__navigate",
         "args": {
-            "url": "https://example.com",
-            "context": "local"
+            "url": "https://example.com"
         },
         "tier": "ToolFirst",
         "step_index": 12,
@@ -253,7 +246,6 @@ fn queue_browser_target_context_feeds_routing_receipt_intent_hash() {
         policy_binding_signer: None,
     };
 
-    assert!(receipt.action_json.contains("\"context\":\"local\""));
     assert_eq!(
         receipt.policy_binding_hash,
         policy_binding_hash(&intent_hash, "allowed")

@@ -330,7 +330,7 @@ impl ioi::system::host::Host for HostState {
                     "navigate" => {
                         let url = req["url"].as_str().ok_or("Missing url")?;
                         let content = driver
-                            .navigate(url, "hermetic")
+                            .navigate(url)
                             .await
                             .map_err(|e| e.to_string())?;
                         Ok(content.into_bytes())

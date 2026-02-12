@@ -97,18 +97,13 @@ pub async fn discover_tools(
             "url": {
                 "type": "string",
                 "description": "The URL to navigate to (must start with http/https)."
-            },
-            "context": {
-                "type": "string",
-                "enum": ["hermetic", "local"],
-                "description": "Browser context. Use 'local' when the user explicitly asks to use their current/local browser session; use 'hermetic' for isolated browsing."
             }
         },
-        "required": ["url", "context"]
+        "required": ["url"]
     });
     tools.push(LlmToolDefinition {
         name: "browser__navigate".to_string(),
-        description: "Navigate the browser to a public web URL. Set context='local' for the user's existing browser session, or context='hermetic' for an isolated browser. In VisualForeground with a focused browser, runtime can fall back to visual URL entry (Ctrl/Cmd+L, type URL, Enter) if CDP fails.".to_string(),
+        description: "Navigates the agent's dedicated secure browser to a URL. To interact with your running applications, use os__focus_window and visual tools.".to_string(),
         parameters: nav_params.to_string(),
     });
 
