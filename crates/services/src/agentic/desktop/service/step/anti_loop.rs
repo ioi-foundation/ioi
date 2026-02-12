@@ -737,7 +737,7 @@ mod tests {
 
         let human_challenge = classify_failure(
             Some(
-                "ERROR_CLASS=HumanChallengeRequired reCAPTCHA challenge detected. Open in Local Browser.",
+                "ERROR_CLASS=HumanChallengeRequired reCAPTCHA challenge detected. Open in your browser/app.",
             ),
             "allowed",
         );

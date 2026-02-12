@@ -4,13 +4,6 @@ impl BrowserDriver {
     pub async fn get_content_frame(
         &self,
     ) -> std::result::Result<BrowserContentFrame, BrowserError> {
-        if let Some(local) = { self.local_browser.lock().await.clone() } {
-            return local
-                .get_content_frame()
-                .await
-                .map_err(|e| BrowserError::Internal(format!("Local content frame failed: {}", e)));
-        }
-
         self.require_runtime()?;
         self.ensure_page().await?;
         let page = { self.active_page.lock().await.clone() }.ok_or(BrowserError::NoActivePage)?;
@@ -55,40 +48,6 @@ impl BrowserDriver {
         &self,
         selector: &str,
     ) -> std::result::Result<GeoRect, BrowserError> {
-        #[derive(serde::Deserialize)]
-        struct ElementRectEval {
-            x: f64,
-            y: f64,
-            width: f64,
-            height: f64,
-        }
-
-        if let Some(local) = { self.local_browser.lock().await.clone() } {
-            let selector_json = serde_json::to_string(selector)
-                .map_err(|e| BrowserError::Internal(format!("Selector encode failed: {}", e)))?;
-            let script = format!(
-                "(() => {{ const el = document.querySelector({}); if (!el) return null; const r = el.getBoundingClientRect(); return {{ x: r.left, y: r.top, width: r.width, height: r.height }}; }})()",
-                selector_json
-            );
-            let rect_opt: Option<ElementRectEval> =
-                local.evaluate_js(&script).await.map_err(|e| {
-                    BrowserError::Internal(format!("Local selector rect failed: {}", e))
-                })?;
-            if let Some(rect) = rect_opt {
-                return Ok(GeoRect::new(
-                    rect.x,
-                    rect.y,
-                    rect.width,
-                    rect.height,
-                    CoordinateSpace::WindowLogical,
-                ));
-            }
-            return Err(BrowserError::Internal(format!(
-                "Element not found for selector '{}'",
-                selector
-            )));
-        }
-
         self.require_runtime()?;
         self.ensure_page().await?;
 
@@ -322,12 +281,6 @@ impl BrowserDriver {
         &self,
         target_cdp_id: &str,
     ) -> std::result::Result<(), BrowserError> {
-        if self.local_browser.lock().await.is_some() {
-            return Err(BrowserError::Internal(
-                "AX-node click is unsupported in local browser context".into(),
-            ));
-        }
-
         self.require_runtime()?;
         self.ensure_page().await?;
         let page = { self.active_page.lock().await.clone() }.ok_or(BrowserError::NoActivePage)?;
@@ -428,13 +381,6 @@ impl BrowserDriver {
     }
 
     async fn evaluate_js<T: DeserializeOwned>(&self, script: &str) -> Result<T, BrowserError> {
-        if let Some(local) = { self.local_browser.lock().await.clone() } {
-            return local
-                .evaluate_js(script)
-                .await
-                .map_err(|e| BrowserError::Internal(format!("Local JS evaluation failed: {}", e)));
-        }
-
         self.require_runtime()?;
         self.ensure_page().await?;
         let page = { self.active_page.lock().await.clone() }.ok_or(BrowserError::NoActivePage)?;

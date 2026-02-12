@@ -63,9 +63,8 @@ impl PolicyEngine {
 
             ActionTarget::GuiSequence => "gui::sequence",
 
-            // [MODIFIED] Browser split
+            // Hermetic browser navigation
             ActionTarget::BrowserNavigateHermetic => "browser::navigate::hermetic",
-            ActionTarget::BrowserNavigateLocal => "browser::navigate::local",
             ActionTarget::BrowserExtract => "browser::extract",
 
             // UCP Support
@@ -78,8 +77,6 @@ impl PolicyEngine {
             ActionTarget::ClipboardWrite => "clipboard::write",
 
             ActionTarget::Custom(s) => s.as_str(),
-            // Fallback for any missed variants
-            _ => "unknown",
         };
 
         // 2. Specific Rules: Linear scan (specific overrides general)
@@ -292,7 +289,6 @@ impl PolicyEngine {
             // [MODIFIED] Check new targets
             if let ActionTarget::NetFetch
             | ActionTarget::BrowserNavigateHermetic
-            | ActionTarget::BrowserNavigateLocal
             | ActionTarget::CommerceDiscovery
             | ActionTarget::CommerceCheckout = target
             {

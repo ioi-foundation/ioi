@@ -1,19 +1,8 @@
 use super::*;
 
-fn action_target_for_macro_step(target: &str, params: &serde_json::Value) -> ActionTarget {
+fn action_target_for_macro_step(target: &str, _params: &serde_json::Value) -> ActionTarget {
     match target {
-        "browser__navigate" => {
-            let context = params
-                .get("context")
-                .and_then(|v| v.as_str())
-                .map(str::trim)
-                .unwrap_or("hermetic");
-            if context.eq_ignore_ascii_case("local") {
-                ActionTarget::BrowserNavigateLocal
-            } else {
-                ActionTarget::BrowserNavigateHermetic
-            }
-        }
+        "browser__navigate" => ActionTarget::BrowserNavigateHermetic,
         "gui__type" => ActionTarget::GuiType,
         "gui__click" => ActionTarget::GuiClick,
         "sys__exec" | "sys__change_directory" => ActionTarget::SysExec,
@@ -460,18 +449,6 @@ impl OptimizerService {
 mod tests {
     use super::*;
     use serde_json::json;
-
-    #[test]
-    fn macro_step_browser_navigate_maps_local_context() {
-        let target = action_target_for_macro_step(
-            "browser__navigate",
-            &json!({
-                "url": "https://news.ycombinator.com",
-                "context": " local "
-            }),
-        );
-        assert_eq!(target, ActionTarget::BrowserNavigateLocal);
-    }
 
     #[test]
     fn macro_step_browser_navigate_defaults_to_hermetic() {

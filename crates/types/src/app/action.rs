@@ -56,18 +56,12 @@ pub enum ActionTarget {
     #[serde(rename = "gui::sequence")]
     GuiSequence,
 
-    // --- Browser Primitives (Hybrid Hermetic) ---
-    /// Navigate the disposable, safe browser (Default).
-    /// Context: A fresh container or temporary profile.
+    // --- Browser Primitives (Hermetic-Only) ---
+    /// Navigate the disposable, safe browser.
+    /// Context: A fresh isolated process and temporary profile.
     /// Policy: Typically ALLOW.
     #[serde(rename = "browser::navigate::hermetic")]
     BrowserNavigateHermetic,
-
-    /// Navigate the user's actual, privileged browser (via CDP).
-    /// Context: Existing user profile with cookies/sessions.
-    /// Policy: Typically REQUIRE_APPROVAL.
-    #[serde(rename = "browser::navigate::local")]
-    BrowserNavigateLocal,
 
     /// Extract the DOM or accessibility tree from the current browser page.
     #[serde(rename = "browser__extract")]

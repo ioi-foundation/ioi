@@ -245,9 +245,7 @@ impl ToolNormalizer {
                     needs_wrap_sys = true;
                 } else if map.contains_key("message") && map.len() == 1 {
                     needs_wrap_chat = true;
-                } else if map.contains_key("url")
-                    && (map.len() == 1 || (map.len() == 2 && map.contains_key("context")))
-                {
+                } else if map.contains_key("url") && map.len() == 1 {
                     needs_wrap_nav = true;
                 }
             }
@@ -268,17 +266,9 @@ impl ToolNormalizer {
             new_map.insert("arguments".to_string(), args);
             raw_val = Value::Object(new_map);
         } else if needs_wrap_nav {
-            let mut args = raw_val; // Move
+            let args = raw_val; // Move
             let mut new_map = serde_json::Map::new();
             new_map.insert("name".to_string(), json!("browser__navigate"));
-
-            // Inject default context if missing
-            if let Some(args_obj) = args.as_object_mut() {
-                if !args_obj.contains_key("context") {
-                    args_obj.insert("context".to_string(), json!("hermetic"));
-                }
-            }
-
             new_map.insert("arguments".to_string(), args);
             raw_val = Value::Object(new_map);
         } else {
@@ -306,14 +296,6 @@ impl ToolNormalizer {
                                 .cloned()
                                 .unwrap_or_else(|| json!({})),
                         );
-                    }
-
-                    if name == "browser__navigate" {
-                        if let Some(args) = map_mut.get_mut("arguments") {
-                            if let Some(ctx) = args.get("context").and_then(|v| v.as_str()) {
-                                args["context"] = json!(ctx.trim().to_ascii_lowercase());
-                            }
-                        }
                     }
                 }
 
@@ -464,13 +446,12 @@ mod tests {
     }
 
     #[test]
-    fn test_infer_nav_flat_with_context() {
-        let input = r#"{"url":"https://news.ycombinator.com","context":"local"}"#;
+    fn test_infer_nav_flat() {
+        let input = r#"{"url":"https://news.ycombinator.com"}"#;
         let tool = ToolNormalizer::normalize(input).unwrap();
         match tool {
-            AgentTool::BrowserNavigate { url, context } => {
+            AgentTool::BrowserNavigate { url } => {
                 assert_eq!(url, "https://news.ycombinator.com");
-                assert_eq!(context, "local");
             }
             _ => panic!("Wrong tool type inferred"),
         }
@@ -533,16 +514,6 @@ mod tests {
         let input = r#"{"name":"sys__install_package","arguments":{"manager":"pip","package":"bad; rm -rf /"}}"#;
         let err = ToolNormalizer::normalize(input).expect_err("expected validation error");
         assert!(err.to_string().contains("Invalid package identifier"));
-    }
-
-    #[test]
-    fn test_normalize_browser_context_case_and_whitespace() {
-        let input = r#"{"name":"browser__navigate","arguments":{"url":"https://example.com","context":" Local "}}"#;
-        let tool = ToolNormalizer::normalize(input).unwrap();
-        match tool {
-            AgentTool::BrowserNavigate { context, .. } => assert_eq!(context, "local"),
-            _ => panic!("Wrong tool type"),
-        }
     }
 
     #[test]

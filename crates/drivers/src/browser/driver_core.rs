@@ -1,11 +1,19 @@
 use super::*;
+use ioi_crypto::algorithms::hash::sha256;
+use std::io::ErrorKind;
+use std::path::Path;
+use uuid::Uuid;
+
+const CHROMIUM_REVISION_ENV: &str = "IOI_CHROMIUM_REVISION";
+const CHROMIUM_SHA256_ENV: &str = "IOI_CHROMIUM_SHA256";
+const CHROMIUM_PIN_FILE_PREFIX: &str = "chromium-pin-";
 
 impl BrowserDriver {
     pub fn new() -> Self {
         Self {
             browser: Arc::new(Mutex::new(None)),
             active_page: Arc::new(Mutex::new(None)),
-            local_browser: Arc::new(Mutex::new(None)),
+            profile_dir: Arc::new(Mutex::new(None)),
             handler_alive: Arc::new(AtomicBool::new(false)),
             lease_active: Arc::new(AtomicBool::new(false)),
         }
@@ -25,72 +33,6 @@ impl BrowserDriver {
             return Err(BrowserError::NoTokioRuntime);
         }
         Ok(())
-    }
-
-    #[cfg(target_os = "linux")]
-    fn is_executable_binary(path: &Path) -> bool {
-        use std::os::unix::fs::PermissionsExt;
-
-        let real_path = match fs::canonicalize(path) {
-            Ok(p) => p,
-            Err(_) => return false,
-        };
-
-        if !real_path.is_file() {
-            return false;
-        }
-
-        if let Ok(meta) = real_path.metadata() {
-            if meta.permissions().mode() & 0o111 == 0 {
-                return false;
-            }
-        } else {
-            return false;
-        }
-
-        let mut f = match fs::File::open(&real_path) {
-            Ok(f) => f,
-            Err(_) => return false,
-        };
-        let mut magic = [0u8; 4];
-        if f.read_exact(&mut magic).is_err() {
-            return false;
-        }
-
-        magic == [0x7f, b'E', b'L', b'F']
-    }
-
-    #[cfg(not(target_os = "linux"))]
-    fn is_executable_binary(path: &Path) -> bool {
-        path.exists()
-    }
-
-    fn find_chrome_binary() -> Option<PathBuf> {
-        if let Ok(path) = std::env::var("CHROME_BIN") {
-            let p = PathBuf::from(path);
-            if Self::is_executable_binary(&p) {
-                return Some(p);
-            }
-        }
-
-        let candidates = [
-            "/usr/bin/google-chrome",
-            "/usr/bin/google-chrome-stable",
-            "/usr/bin/chromium",
-            "/usr/bin/chromium-browser",
-            "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
-            "/Applications/Chromium.app/Contents/MacOS/Chromium",
-            "/snap/chromium/current/usr/lib/chromium-browser/chrome",
-            "/snap/chromium/stable/usr/lib/chromium-browser/chrome",
-        ];
-
-        for path in candidates {
-            let p = PathBuf::from(path);
-            if Self::is_executable_binary(&p) {
-                return Some(p);
-            }
-        }
-        None
     }
 
     pub(crate) async fn check_connection_error<T>(
@@ -117,12 +59,134 @@ impl BrowserDriver {
         }
     }
 
+    fn pinned_revision() -> Result<Revision, BrowserError> {
+        let revision = match std::env::var(CHROMIUM_REVISION_ENV) {
+            Ok(raw) if !raw.trim().is_empty() => Revision::try_from(raw.trim().to_string())
+                .map_err(|e| {
+                    BrowserError::Internal(format!(
+                        "Invalid {} value '{}': {}",
+                        CHROMIUM_REVISION_ENV,
+                        raw.trim(),
+                        e
+                    ))
+                })?,
+            _ => CURRENT_REVISION.clone(),
+        };
+        Ok(revision)
+    }
+
+    fn normalize_sha256(raw: &str, source: &str) -> Result<String, BrowserError> {
+        let value = raw.trim().to_ascii_lowercase();
+        if value.len() != 64 || !value.chars().all(|c| c.is_ascii_hexdigit()) {
+            return Err(BrowserError::Internal(format!(
+                "Invalid SHA256 in {}: expected 64 hex characters, got '{}'",
+                source, value
+            )));
+        }
+        Ok(value)
+    }
+
+    fn expected_binary_sha256() -> Result<Option<String>, BrowserError> {
+        match std::env::var(CHROMIUM_SHA256_ENV) {
+            Ok(raw) => Ok(Some(Self::normalize_sha256(&raw, CHROMIUM_SHA256_ENV)?)),
+            Err(std::env::VarError::NotPresent) => Ok(None),
+            Err(std::env::VarError::NotUnicode(_)) => Err(BrowserError::Internal(format!(
+                "{} contains invalid unicode",
+                CHROMIUM_SHA256_ENV
+            ))),
+        }
+    }
+
+    fn binary_sha256_hex(path: &PathBuf) -> Result<String, BrowserError> {
+        let bytes = std::fs::read(path).map_err(|e| {
+            BrowserError::Internal(format!(
+                "Failed to read Chromium binary for checksum verification: {}",
+                e
+            ))
+        })?;
+        let digest = sha256(&bytes)
+            .map_err(|e| BrowserError::Internal(format!("SHA256 checksum failed: {}", e)))?;
+        Ok(digest
+            .iter()
+            .map(|b| format!("{:02x}", b))
+            .collect::<String>())
+    }
+
+    fn verify_binary_sha256(actual: &str, expected: &str) -> Result<(), BrowserError> {
+        let expected_normalized = Self::normalize_sha256(expected, "expected checksum value")?;
+
+        if actual != expected_normalized {
+            return Err(BrowserError::Internal(format!(
+                "Chromium binary checksum mismatch (expected {}, got {})",
+                expected_normalized, actual
+            )));
+        }
+        Ok(())
+    }
+
+    fn revision_pin_file(cache_path: &Path, revision: &Revision) -> PathBuf {
+        cache_path.join(format!("{}{}.sha256", CHROMIUM_PIN_FILE_PREFIX, revision))
+    }
+
+    fn read_revision_pin(pin_path: &Path) -> Result<Option<String>, BrowserError> {
+        let raw = match std::fs::read_to_string(pin_path) {
+            Ok(content) => content,
+            Err(e) if e.kind() == ErrorKind::NotFound => return Ok(None),
+            Err(e) => {
+                return Err(BrowserError::Internal(format!(
+                    "Failed to read Chromium checksum pin file {:?}: {}",
+                    pin_path, e
+                )))
+            }
+        };
+        let parsed = Self::normalize_sha256(&raw, &format!("pin file {:?}", pin_path))?;
+        Ok(Some(parsed))
+    }
+
+    fn write_revision_pin(pin_path: &Path, checksum: &str) -> Result<(), BrowserError> {
+        std::fs::write(pin_path, format!("{}\n", checksum)).map_err(|e| {
+            BrowserError::Internal(format!(
+                "Failed to write Chromium checksum pin file {:?}: {}",
+                pin_path, e
+            ))
+        })
+    }
+
+    fn create_profile_dir() -> Result<PathBuf, BrowserError> {
+        let path = PathBuf::from("./ioi-data/browser_profiles").join(Uuid::new_v4().to_string());
+        std::fs::create_dir_all(&path).map_err(|e| {
+            BrowserError::Internal(format!("Failed to create browser profile dir: {}", e))
+        })?;
+        Ok(path)
+    }
+
+    async fn cleanup_profile_dir(&self) {
+        let profile_path = { self.profile_dir.lock().await.take() };
+        if let Some(path) = profile_path {
+            if let Err(e) = std::fs::remove_dir_all(&path) {
+                if e.kind() != ErrorKind::NotFound {
+                    log::warn!(
+                        target: "browser",
+                        "Failed to clean browser profile dir {:?}: {}",
+                        path,
+                        e
+                    );
+                }
+            }
+        }
+    }
+
     async fn force_reset(&self) {
-        let mut b_guard = self.browser.lock().await;
-        *b_guard = None;
-        let mut p_guard = self.active_page.lock().await;
-        *p_guard = None;
+        {
+            let mut b_guard = self.browser.lock().await;
+            *b_guard = None;
+        }
+        {
+            let mut p_guard = self.active_page.lock().await;
+            *p_guard = None;
+        }
         self.handler_alive.store(false, Ordering::SeqCst);
+        self.cleanup_profile_dir().await;
     }
 
     async fn is_healthy(&self) -> bool {
@@ -150,12 +214,60 @@ impl BrowserDriver {
 
         self.force_reset().await;
 
-        let bin_path = Self::find_chrome_binary();
-        if let Some(ref p) = bin_path {
-            log::info!(target: "browser", "Resolved system Chrome binary: {:?}", p);
+        let revision = Self::pinned_revision()?;
+        let expected_sha_from_env = Self::expected_binary_sha256()?;
+
+        let cache_path = PathBuf::from("./ioi-data/browser_cache");
+        std::fs::create_dir_all(&cache_path)
+            .map_err(|e| BrowserError::Internal(format!("Failed to create cache dir: {}", e)))?;
+
+        let options = BrowserFetcherOptions::builder()
+            .with_path(cache_path.clone())
+            .with_revision(revision.clone())
+            .build()
+            .map_err(|err| {
+                BrowserError::Internal(format!("Failed to build fetcher options: {}", err))
+            })?;
+
+        let fetcher = BrowserFetcher::new(options);
+        let info = fetcher
+            .fetch()
+            .await
+            .map_err(|e| BrowserError::Internal(format!("Failed to fetch Chromium: {}", e)))?;
+
+        let actual_sha = Self::binary_sha256_hex(&info.executable_path)?;
+        if let Some(expected_sha) = expected_sha_from_env {
+            Self::verify_binary_sha256(&actual_sha, &expected_sha)?;
+            log::info!(
+                target: "browser",
+                "Verified Chromium checksum for revision {} via {}",
+                revision,
+                CHROMIUM_SHA256_ENV
+            );
         } else {
-            log::warn!(target: "browser", "No verified system binary found. Preparing to fetch...");
+            let pin_path = Self::revision_pin_file(&cache_path, &revision);
+            if let Some(expected_sha) = Self::read_revision_pin(&pin_path)? {
+                Self::verify_binary_sha256(&actual_sha, &expected_sha)?;
+                log::info!(
+                    target: "browser",
+                    "Verified Chromium checksum for revision {} via local pin {:?}",
+                    revision,
+                    pin_path
+                );
+            } else {
+                Self::write_revision_pin(&pin_path, &actual_sha)?;
+                log::warn!(
+                    target: "browser",
+                    "No {} configured; seeded local checksum pin for revision {} at {:?}. Set {} for strict immutable pinning.",
+                    CHROMIUM_SHA256_ENV,
+                    revision,
+                    pin_path,
+                    CHROMIUM_SHA256_ENV
+                );
+            }
         }
+
+        let profile_dir = Self::create_profile_dir()?;
 
         let mut delta_args = vec![
             "--disable-dev-shm-usage".to_string(),
@@ -165,6 +277,7 @@ impl BrowserDriver {
             "--disable-software-rasterizer".to_string(),
             "--disable-setuid-sandbox".to_string(),
             "--disable-extensions".to_string(),
+            format!("--user-data-dir={}", profile_dir.display()),
         ];
         if headless {
             delta_args.push("--headless=new".to_string());
@@ -176,16 +289,18 @@ impl BrowserDriver {
             delta_args.push("--no-sandbox".to_string());
         }
 
-        let run_launch_attempt = |bin: Option<PathBuf>, extra_args: Vec<String>| async move {
+        let run_launch_attempt = |bin: PathBuf, extra_args: Vec<String>| async move {
             let args_owned = extra_args;
 
-            log::info!(target: "browser", "Launching chromium (bin={:?}) args_count={}", bin, args_owned.len());
+            log::info!(
+                target: "browser",
+                "Launching hermetic chromium (bin={:?}) args_count={}",
+                bin,
+                args_owned.len()
+            );
 
             let config_res = {
-                let mut builder = BrowserConfig::builder();
-                if let Some(ref b) = bin {
-                    builder = builder.chrome_executable(b);
-                }
+                let mut builder = BrowserConfig::builder().chrome_executable(&bin);
 
                 if !headless {
                     builder = builder.with_head();
@@ -237,11 +352,7 @@ impl BrowserDriver {
                 fallback_args.push(arg);
             }
 
-            let mut fallback_builder = BrowserConfig::builder();
-            if let Some(ref b) = bin {
-                fallback_builder = fallback_builder.chrome_executable(b);
-            }
-
+            let mut fallback_builder = BrowserConfig::builder().chrome_executable(&bin);
             if !headless {
                 fallback_builder = fallback_builder.with_head();
             }
@@ -257,54 +368,16 @@ impl BrowserDriver {
                 .map_err(|e| e.to_string())
         };
 
-        let mut launch_result = run_launch_attempt(bin_path.clone(), delta_args.clone()).await;
-
-        if let Err(ref e) = launch_result {
-            let is_early_exit = e.contains("before websocket URL could be resolved")
-                || e.contains("unexpected end of stream")
-                || e.contains("Input/Output error while resolving websocket URL")
-                || e.contains("exited with status");
-
-            let is_exec_missing =
-                e.contains("No such file") || e.contains("not found") || e.contains("ENOENT");
-            let is_glibc = e.contains("GLIBC");
-            let missing = bin_path.is_none();
-
-            if is_early_exit || is_exec_missing || is_glibc || missing {
-                log::warn!(target: "browser", "System browser failed or missing (Error: {}). Fetching compatible Chromium...", e);
-
-                let cache_path = PathBuf::from("./ioi-data/browser_cache");
-
-                std::fs::create_dir_all(&cache_path).map_err(|e| {
-                    BrowserError::Internal(format!("Failed to create cache dir: {}", e))
-                })?;
-
-                let options = BrowserFetcherOptions::builder()
-                    .with_path(cache_path)
-                    .build()
-                    .map_err(|err| {
-                        BrowserError::Internal(format!("Failed to build fetcher options: {}", err))
-                    })?;
-
-                let fetcher = BrowserFetcher::new(options);
-
-                match fetcher.fetch().await {
-                    Ok(info) => {
-                        log::info!(target: "browser", "Fetched Chromium at {:?}", info.executable_path);
-                        launch_result =
-                            run_launch_attempt(Some(info.executable_path), delta_args).await;
-                    }
-                    Err(fe) => {
-                        log::error!(target: "browser", "Failed to fetch Chromium: {}", fe);
-                    }
-                }
+        let launch_result = run_launch_attempt(info.executable_path.clone(), delta_args).await;
+        let (browser, mut handler) = match launch_result {
+            Ok(tuple) => tuple,
+            Err(e) => {
+                let _ = std::fs::remove_dir_all(&profile_dir);
+                return Err(BrowserError::Internal(e));
             }
-        }
-
-        let (browser, mut handler) = launch_result.map_err(|e| BrowserError::Internal(e))?;
+        };
 
         let alive_signal = self.handler_alive.clone();
-
         tokio::spawn(async move {
             alive_signal.store(true, Ordering::SeqCst);
             while let Some(h) = handler.next().await {
@@ -316,9 +389,13 @@ impl BrowserDriver {
             log::warn!(target: "browser", "Chromium event loop exited.");
         });
 
-        let mut guard = self.browser.lock().await;
-        *guard = Some(Arc::new(browser));
+        *self.profile_dir.lock().await = Some(profile_dir);
+        *self.browser.lock().await = Some(Arc::new(browser));
         Ok(())
+    }
+
+    pub async fn stop(&self) {
+        self.force_reset().await;
     }
 
     pub(crate) async fn ensure_page(&self) -> std::result::Result<(), BrowserError> {
@@ -333,7 +410,6 @@ impl BrowserDriver {
             self.launch(false).await?;
 
             let browser_arc = { self.browser.lock().await.clone() };
-
             if let Some(b) = browser_arc {
                 let page = b
                     .new_page("about:blank")
@@ -341,11 +417,11 @@ impl BrowserDriver {
                     .map_err(|e| BrowserError::Internal(format!("Failed to create page: {}", e)))?;
                 *self.active_page.lock().await = Some(page);
                 return Ok(());
-            } else {
-                return Err(BrowserError::Internal(
-                    "Browser init failed during recovery".into(),
-                ));
             }
+
+            return Err(BrowserError::Internal(
+                "Browser init failed during recovery".into(),
+            ));
         }
 
         let has_page = self.active_page.lock().await.is_some();
@@ -360,50 +436,5 @@ impl BrowserDriver {
             }
         }
         Ok(())
-    }
-
-    pub async fn connect_local(&self) -> Result<(), BrowserError> {
-        // Connect to standard Chrome remote debugging port
-        // Assumes user ran Chrome with --remote-debugging-port=9222
-        let (browser, mut handler) =
-            Browser::connect("ws://127.0.0.1:9222").await.map_err(|e| {
-                BrowserError::Internal(format!("Failed to connect to local Chrome: {}", e))
-            })?;
-
-        tokio::spawn(async move {
-            while let Some(h) = handler.next().await {
-                if h.is_err() {
-                    break;
-                }
-            }
-        });
-
-        let facade = LocalBrowserFacade::new(Arc::new(Mutex::new(browser)));
-        *self.local_browser.lock().await = Some(Arc::new(facade));
-        Ok(())
-    }
-
-    pub async fn get_context(&self, context_type: &str) -> Result<BrowserContext, BrowserError> {
-        if context_type.trim().eq_ignore_ascii_case("local") {
-            // Check existing connection
-            if let Some(facade) = self.local_browser.lock().await.as_ref() {
-                return Ok(BrowserContext::Local(facade.clone()));
-            }
-            // Try connect
-            self.connect_local().await?;
-            // Return new connection
-            let guard = self.local_browser.lock().await;
-            return Ok(BrowserContext::Local(guard.as_ref().unwrap().clone()));
-        }
-
-        // Default / Hermetic path
-        self.ensure_page().await?;
-        let guard = self.browser.lock().await;
-        if let Some(b) = guard.as_ref() {
-            let _ = b;
-            Ok(BrowserContext::Hermetic)
-        } else {
-            Err(BrowserError::Internal("Hermetic browser not ready".into()))
-        }
     }
 }

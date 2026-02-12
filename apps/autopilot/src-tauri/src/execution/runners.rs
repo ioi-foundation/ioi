@@ -97,7 +97,7 @@ pub(super) async fn run_browser_execution(
                 .ok_or("Missing 'url' in logic config")?;
             let url = interpolate_template(url_template, &input_obj);
 
-            match BROWSER_DRIVER.navigate(&url, "hermetic").await {
+            match BROWSER_DRIVER.navigate(&url).await {
                 Ok(content) => Ok(ExecutionResult {
                     status: "success".to_string(),
                     output: content.clone(),

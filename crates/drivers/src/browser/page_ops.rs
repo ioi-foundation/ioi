@@ -5,50 +5,29 @@ use chromiumoxide::cdp::browser_protocol::input::{
 use chromiumoxide::keys;
 
 impl BrowserDriver {
-    pub async fn navigate(
-        &self,
-        url: &str,
-        context_type: &str,
-    ) -> std::result::Result<String, BrowserError> {
-        let ctx = self.get_context(context_type).await?;
+    pub async fn navigate(&self, url: &str) -> std::result::Result<String, BrowserError> {
+        self.require_runtime()?;
+        self.ensure_page().await?;
 
-        match ctx {
-            BrowserContext::Hermetic => {
-                // Reuse existing single-page logic for Hermetic
-                self.require_runtime()?;
-                // self.ensure_page().await?; // Handled by get_context
+        let page = { self.active_page.lock().await.clone() };
+        if let Some(p) = page {
+            p.bring_to_front()
+                .await
+                .map_err(|e| BrowserError::Internal(e.to_string()))?;
 
-                let page = { self.active_page.lock().await.clone() };
-                if let Some(p) = page {
-                    p.bring_to_front()
-                        .await
-                        .map_err(|e| BrowserError::Internal(e.to_string()))?;
+            self.check_connection_error(p.goto(url).await)
+                .await?
+                .wait_for_navigation()
+                .await
+                .map_err(|e| BrowserError::NavigateFailed {
+                    url: url.into(),
+                    details: e.to_string(),
+                })?;
 
-                    self.check_connection_error(p.goto(url).await)
-                        .await?
-                        .wait_for_navigation()
-                        .await
-                        .map_err(|e| BrowserError::NavigateFailed {
-                            url: url.into(),
-                            details: e.to_string(),
-                        })?;
-
-                    let content = self.check_connection_error(p.content().await).await?;
-                    Ok(content)
-                } else {
-                    Err(BrowserError::NoActivePage)
-                }
-            }
-            BrowserContext::Local(facade) => {
-                facade
-                    .navigate(url)
-                    .await
-                    .map_err(|e| BrowserError::NavigateFailed {
-                        url: url.into(),
-                        details: e.to_string(),
-                    })?;
-                Ok("Navigated local browser".to_string())
-            }
+            let content = self.check_connection_error(p.content().await).await?;
+            Ok(content)
+        } else {
+            Err(BrowserError::NoActivePage)
         }
     }
 
@@ -185,71 +164,6 @@ impl BrowserDriver {
             }
         }
 
-        if let Some(local) = { self.local_browser.lock().await.clone() } {
-            #[derive(Debug, Deserialize)]
-            struct LocalTypeResult {
-                ok: bool,
-                #[serde(default)]
-                reason: String,
-            }
-
-            let text_json = serde_json::to_string(text)
-                .map_err(|e| BrowserError::Internal(format!("Text encode failed: {}", e)))?;
-            let script = format!(
-                r#"(() => {{
-                    const text = {text_json};
-                    const el = document.activeElement;
-                    if (!el) return {{ ok: false, reason: "No active element" }};
-                    const tag = (el.tagName || "").toLowerCase();
-                    const type = ((el.getAttribute && el.getAttribute("type")) || "").toLowerCase();
-                    const nonEditable = ["button", "submit", "checkbox", "radio", "range", "color", "file", "image", "reset"];
-                    const editable = !!(el.isContentEditable || tag === "textarea" || (tag === "input" && !nonEditable.includes(type)));
-                    if (!editable) return {{ ok: false, reason: "Active element is not editable" }};
-                    try {{
-                        if (typeof el.setRangeText === "function" &&
-                            typeof el.selectionStart === "number" &&
-                            typeof el.selectionEnd === "number") {{
-                            el.setRangeText(text, el.selectionStart, el.selectionEnd, "end");
-                        }} else if ("value" in el) {{
-                            el.value = String(el.value ?? "") + text;
-                        }} else if (typeof document.execCommand === "function") {{
-                            document.execCommand("insertText", false, text);
-                        }} else {{
-                            return {{ ok: false, reason: "No text insertion method available" }};
-                        }}
-
-                        try {{
-                            el.dispatchEvent(new InputEvent("input", {{ bubbles: true, data: text, inputType: "insertText" }}));
-                        }} catch (_e) {{
-                            const evt = document.createEvent("Event");
-                            evt.initEvent("input", true, false);
-                            el.dispatchEvent(evt);
-                        }}
-
-                        return {{ ok: true, reason: "" }};
-                    }} catch (e) {{
-                        return {{ ok: false, reason: String(e) }};
-                    }}
-                }})()"#
-            );
-
-            let result: LocalTypeResult = local
-                .evaluate_js(&script)
-                .await
-                .map_err(|e| BrowserError::Internal(format!("Local type failed: {}", e)))?;
-            if !result.ok {
-                return Err(BrowserError::Internal(format!(
-                    "Typing failed in local browser: {}",
-                    if result.reason.is_empty() {
-                        "unknown error".to_string()
-                    } else {
-                        result.reason
-                    }
-                )));
-            }
-            return Ok(());
-        }
-
         self.require_runtime()?;
         self.ensure_page().await?;
         let page = { self.active_page.lock().await.clone() }.ok_or(BrowserError::NoActivePage)?;
@@ -266,50 +180,6 @@ impl BrowserDriver {
         let key = key.trim();
         if key.is_empty() {
             return Err(BrowserError::Internal("Key cannot be empty".to_string()));
-        }
-
-        if let Some(local) = { self.local_browser.lock().await.clone() } {
-            #[derive(Debug, Deserialize)]
-            struct LocalKeyResult {
-                ok: bool,
-                #[serde(default)]
-                reason: String,
-            }
-
-            let key_json = serde_json::to_string(key)
-                .map_err(|e| BrowserError::Internal(format!("Key encode failed: {}", e)))?;
-            let script = format!(
-                r#"(() => {{
-                    const key = {key_json};
-                    const target = document.activeElement || document.body || document.documentElement;
-                    if (!target) return {{ ok: false, reason: "No active element" }};
-                    try {{
-                        const down = new KeyboardEvent("keydown", {{ key, code: key, bubbles: true, cancelable: true }});
-                        target.dispatchEvent(down);
-                        const up = new KeyboardEvent("keyup", {{ key, code: key, bubbles: true, cancelable: true }});
-                        target.dispatchEvent(up);
-                        return {{ ok: true, reason: "" }};
-                    }} catch (e) {{
-                        return {{ ok: false, reason: String(e) }};
-                    }}
-                }})()"#
-            );
-
-            let result: LocalKeyResult = local
-                .evaluate_js(&script)
-                .await
-                .map_err(|e| BrowserError::Internal(format!("Local key press failed: {}", e)))?;
-            if !result.ok {
-                return Err(BrowserError::Internal(format!(
-                    "Key press failed in local browser: {}",
-                    if result.reason.is_empty() {
-                        "unknown error".to_string()
-                    } else {
-                        result.reason
-                    }
-                )));
-            }
-            return Ok(());
         }
 
         self.require_runtime()?;
@@ -364,60 +234,6 @@ impl BrowserDriver {
     }
 
     pub async fn click_selector(&self, selector: &str) -> std::result::Result<(), BrowserError> {
-        if let Some(local) = { self.local_browser.lock().await.clone() } {
-            #[derive(Debug, Deserialize)]
-            struct LocalClickResult {
-                ok: bool,
-                #[serde(default)]
-                reason: String,
-            }
-
-            let selector_json = serde_json::to_string(selector)
-                .map_err(|e| BrowserError::Internal(format!("Selector encode failed: {}", e)))?;
-            let script = format!(
-                r#"(() => {{
-                    const selector = {selector_json};
-                    const el = document.querySelector(selector);
-                    if (!el) return {{ ok: false, reason: "Element not found" }};
-                    try {{
-                        el.scrollIntoView({{ block: "center", inline: "center", behavior: "instant" }});
-                    }} catch (_e) {{}}
-                    try {{
-                        if (typeof el.focus === "function") {{
-                            el.focus({{ preventScroll: true }});
-                        }}
-                    }} catch (_e) {{}}
-                    try {{
-                        if (typeof el.click === "function") {{
-                            el.click();
-                            return {{ ok: true, reason: "" }};
-                        }}
-                        return {{ ok: false, reason: "click method unavailable" }};
-                    }} catch (e) {{
-                        return {{ ok: false, reason: String(e) }};
-                    }}
-                }})()"#
-            );
-
-            let result: LocalClickResult = local
-                .evaluate_js(&script)
-                .await
-                .map_err(|e| BrowserError::Internal(format!("Local click failed: {}", e)))?;
-            if !result.ok {
-                return Err(BrowserError::Internal(format!(
-                    "Click failed for selector '{}': {}",
-                    selector,
-                    if result.reason.is_empty() {
-                        "unknown error".to_string()
-                    } else {
-                        result.reason
-                    }
-                )));
-            }
-            tokio::time::sleep(Duration::from_millis(100)).await;
-            return Ok(());
-        }
-
         self.require_runtime()?;
         self.ensure_page().await?;
 

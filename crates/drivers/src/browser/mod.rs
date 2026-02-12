@@ -2,13 +2,11 @@
 
 use chromiumoxide::cdp::browser_protocol::accessibility::{self, GetFullAxTreeParams};
 use chromiumoxide::{Browser, BrowserConfig, Page};
-use chromiumoxide_fetcher::{BrowserFetcher, BrowserFetcherOptions};
+use chromiumoxide_fetcher::{BrowserFetcher, BrowserFetcherOptions, Revision, CURRENT_REVISION};
 use futures::StreamExt;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use std::collections::HashMap;
-use std::fs;
-use std::io::Read;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::sync::{
     atomic::{AtomicBool, Ordering},
     Arc,
@@ -31,7 +29,7 @@ pub mod context;
 mod dom_ops;
 mod driver_core;
 mod page_ops;
-use self::context::{BrowserContentFrame, BrowserContext, LocalBrowserFacade};
+use self::context::BrowserContentFrame;
 
 #[derive(Debug, Error)]
 pub enum BrowserError {
@@ -83,12 +81,22 @@ pub struct BrowserDriver {
     browser: Arc<Mutex<Option<Arc<Browser>>>>,
     active_page: Arc<Mutex<Option<Page>>>,
 
-    // Local Instance
-    local_browser: Arc<Mutex<Option<Arc<LocalBrowserFacade>>>>,
+    // Session-scoped profile directory used by the hermetic browser.
+    profile_dir: Arc<Mutex<Option<PathBuf>>>,
 
     // Tracks if the background websocket handler loop is running
     handler_alive: Arc<AtomicBool>,
 
     // Lease for demand-driven activation.
     lease_active: Arc<AtomicBool>,
+}
+
+impl Drop for BrowserDriver {
+    fn drop(&mut self) {
+        if let Ok(mut guard) = self.profile_dir.try_lock() {
+            if let Some(path) = guard.take() {
+                let _ = std::fs::remove_dir_all(path);
+            }
+        }
+    }
 }
