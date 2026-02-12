@@ -1,7 +1,7 @@
 // Path: crates/services/src/agentic/desktop/service/step/queue.rs
 
 use self::super::helpers::default_safe_policy;
-use super::action::{canonical_intent_hash, canonical_tool_identity};
+use super::action::{canonical_intent_hash, canonical_retry_intent_hash, canonical_tool_identity};
 use super::anti_loop::{
     build_attempt_key, build_post_state_summary, build_state_summary, choose_routing_tier,
     classify_failure, emit_routing_receipt, escalation_path_for_failure, extract_artifacts,
@@ -10,13 +10,14 @@ use super::anti_loop::{
     tier_as_str, to_routing_failure_class, FailureClass, TierRoutingDecision,
 };
 use crate::agentic::desktop::keys::{get_state_key, AGENT_POLICY_PREFIX};
+use crate::agentic::desktop::middleware;
 use crate::agentic::desktop::service::DesktopAgentService;
 use crate::agentic::desktop::types::{AgentState, AgentStatus, StepAgentParams};
 use crate::agentic::desktop::utils::goto_trace_log;
 use crate::agentic::rules::ActionRules;
 use ioi_api::state::StateAccess;
 use ioi_types::app::agentic::AgentTool;
-use ioi_types::app::{RoutingReceiptEvent, RoutingStateSummary};
+use ioi_types::app::{ActionRequest, ActionTarget, RoutingReceiptEvent, RoutingStateSummary};
 use ioi_types::codec;
 use ioi_types::error::TransactionError;
 use serde_json::json;
@@ -30,6 +31,103 @@ pub fn resolve_queue_routing_context(
     agent_state.current_tier = routing_decision.tier;
     let pre_state_summary = build_state_summary(agent_state);
     (routing_decision, pre_state_summary)
+}
+
+fn normalize_browser_context(
+    args: serde_json::Value,
+    required_context: &str,
+) -> Result<serde_json::Value, TransactionError> {
+    let mut obj = args.as_object().cloned().ok_or_else(|| {
+        TransactionError::Invalid(
+            "Queue browser navigation params must be a JSON object".to_string(),
+        )
+    })?;
+    obj.insert("context".to_string(), json!(required_context));
+    Ok(serde_json::Value::Object(obj))
+}
+
+fn infer_sys_tool_name(args: &serde_json::Value) -> &'static str {
+    if let Some(obj) = args.as_object() {
+        if obj.get("command").is_none() && obj.get("path").is_some() {
+            return "sys__change_directory";
+        }
+    }
+    "sys__exec"
+}
+
+fn infer_custom_tool_name(name: &str, args: &serde_json::Value) -> String {
+    match name {
+        // Backward-compatible aliases emitted by ActionTarget::Custom values.
+        "browser::click" => {
+            if args.get("id").is_some() {
+                "browser__click_element".to_string()
+            } else {
+                "browser__click".to_string()
+            }
+        }
+        "browser::synthetic_click" => "browser__synthetic_click".to_string(),
+        "browser::scroll" => "browser__scroll".to_string(),
+        "ui::find" => "ui__find".to_string(),
+        "os::focus" => "os__focus_window".to_string(),
+        "clipboard::write" => "os__copy".to_string(),
+        "clipboard::read" => "os__paste".to_string(),
+        "fs::read" => "filesystem__read_file".to_string(),
+        "fs::write" => "filesystem__write_file".to_string(),
+        "sys::exec" => infer_sys_tool_name(args).to_string(),
+        _ => name.to_string(),
+    }
+}
+
+fn queue_target_to_tool_name_and_args(
+    target: &ActionTarget,
+    raw_args: serde_json::Value,
+) -> Result<(String, serde_json::Value), TransactionError> {
+    match target {
+        ActionTarget::Custom(name) => Ok((infer_custom_tool_name(name, &raw_args), raw_args)),
+        ActionTarget::FsRead => Ok(("filesystem__read_file".to_string(), raw_args)),
+        ActionTarget::FsWrite => Ok(("filesystem__write_file".to_string(), raw_args)),
+        ActionTarget::BrowserNavigateHermetic => Ok((
+            "browser__navigate".to_string(),
+            normalize_browser_context(raw_args, "hermetic")?,
+        )),
+        ActionTarget::BrowserNavigateLocal => Ok((
+            "browser__navigate".to_string(),
+            normalize_browser_context(raw_args, "local")?,
+        )),
+        ActionTarget::BrowserExtract => Ok(("browser__extract".to_string(), raw_args)),
+        ActionTarget::GuiType | ActionTarget::UiType => Ok(("gui__type".to_string(), raw_args)),
+        ActionTarget::GuiClick | ActionTarget::UiClick => Ok(("gui__click".to_string(), raw_args)),
+        ActionTarget::GuiScroll => Ok(("gui__scroll".to_string(), raw_args)),
+        ActionTarget::SysExec => Ok((infer_sys_tool_name(&raw_args).to_string(), raw_args)),
+        ActionTarget::WindowFocus => Ok(("os__focus_window".to_string(), raw_args)),
+        ActionTarget::ClipboardWrite => Ok(("os__copy".to_string(), raw_args)),
+        ActionTarget::ClipboardRead => Ok(("os__paste".to_string(), raw_args)),
+        unsupported => Err(TransactionError::Invalid(format!(
+            "Queue execution for target {:?} is not yet mapped to AgentTool",
+            unsupported
+        ))),
+    }
+}
+
+pub fn queue_action_request_to_tool(
+    action_request: &ActionRequest,
+) -> Result<AgentTool, TransactionError> {
+    let raw_args: serde_json::Value =
+        serde_json::from_slice(&action_request.params).map_err(|e| {
+            TransactionError::Serialization(format!("Invalid queued action params JSON: {}", e))
+        })?;
+
+    let (tool_name, args) = queue_target_to_tool_name_and_args(&action_request.target, raw_args)?;
+
+    let wrapper = json!({
+        "name": tool_name,
+        "arguments": args,
+    });
+    let wrapper_json = serde_json::to_string(&wrapper)
+        .map_err(|e| TransactionError::Serialization(e.to_string()))?;
+
+    middleware::normalize_tool_call(&wrapper_json)
+        .map_err(|e| TransactionError::Invalid(format!("Queue tool normalization failed: {}", e)))
 }
 
 pub async fn process_queue_item(
@@ -67,39 +165,8 @@ pub async fn process_queue_item(
         .clone()
         .ok_or(TransactionError::Invalid("OS driver missing".into()))?;
 
-    // Re-construct AgentTool from ActionRequest to reuse execution logic
-    let tool_wrapper = match action_request.target {
-        ioi_types::app::ActionTarget::Custom(ref name) => {
-            let args: serde_json::Value =
-                serde_json::from_slice(&action_request.params).unwrap_or(json!({}));
-            let mut wrapper = serde_json::Map::new();
-            wrapper.insert("name".to_string(), json!(name));
-            wrapper.insert("arguments".to_string(), args);
-            AgentTool::Dynamic(serde_json::Value::Object(wrapper))
-        }
-        _ => {
-            // For native targets (e.g. BrowserNavigate), we need to reconstruct the specific enum
-            let name = match action_request.target {
-                ioi_types::app::ActionTarget::BrowserNavigateHermetic => "browser__navigate",
-                ioi_types::app::ActionTarget::BrowserNavigateLocal => "browser__navigate",
-                ioi_types::app::ActionTarget::GuiType => "gui__type",
-                ioi_types::app::ActionTarget::GuiClick => "gui__click",
-                ioi_types::app::ActionTarget::SysExec => "sys__exec",
-                _ => {
-                    return Err(TransactionError::Invalid(
-                        "Queue execution for this target type pending refactor".into(),
-                    ))
-                }
-            };
-
-            let args: serde_json::Value =
-                serde_json::from_slice(&action_request.params).unwrap_or(json!({}));
-            let mut wrapper = serde_json::Map::new();
-            wrapper.insert("name".to_string(), json!(name));
-            wrapper.insert("arguments".to_string(), args);
-            AgentTool::Dynamic(serde_json::Value::Object(wrapper))
-        }
-    };
+    // Re-construct a typed AgentTool from ActionRequest.
+    let tool_wrapper = queue_action_request_to_tool(&action_request)?;
     let (tool_name, intent_args) = canonical_tool_identity(&tool_wrapper);
     let action_json = serde_json::to_string(&tool_wrapper).unwrap_or_else(|_| "{}".to_string());
     let intent_hash = canonical_intent_hash(
@@ -107,6 +174,12 @@ pub async fn process_queue_item(
         &intent_args,
         routing_decision.tier,
         pre_state_summary.step_index,
+        env!("CARGO_PKG_VERSION"),
+    );
+    let retry_intent_hash = canonical_retry_intent_hash(
+        &tool_name,
+        &intent_args,
+        routing_decision.tier,
         env!("CARGO_PKG_VERSION"),
     );
 
@@ -181,7 +254,7 @@ pub async fn process_queue_item(
                 .filter(|hash| *hash != [0u8; 32])
                 .map(hex::encode);
             let attempt_key = build_attempt_key(
-                &intent_hash,
+                &retry_intent_hash,
                 routing_decision.tier,
                 &tool_name,
                 target_id,

@@ -1,5 +1,5 @@
 use async_trait::async_trait;
-use ioi_api::vm::drivers::gui::{GuiDriver, InputEvent, MouseButton};
+use ioi_api::vm::drivers::gui::{AtomicInput, GuiDriver, InputEvent, MouseButton};
 use ioi_api::vm::inference::mock::MockInferenceRuntime;
 use ioi_drivers::browser::BrowserDriver;
 use ioi_drivers::mcp::McpManager;
@@ -132,6 +132,7 @@ fn test_agent_state() -> AgentState {
             app_hint: Some("browser".to_string()),
             title_pattern: None,
         }),
+        working_directory: ".".to_string(),
         active_lens: None,
     }
 }
@@ -216,6 +217,46 @@ async fn right_click_without_coordinates_uses_cursor_click_sequence() {
 }
 
 #[tokio::test]
+async fn double_click_without_coordinates_uses_cursor_double_click_sequence() {
+    let gui = Arc::new(MockGuiDriver::default());
+    let exec = build_executor(gui.clone());
+
+    let result = exec
+        .execute(
+            AgentTool::Computer(ComputerAction::DoubleClick { coordinate: None }),
+            [0u8; 32],
+            5,
+            [0u8; 32],
+            None,
+            None,
+            None,
+        )
+        .await;
+
+    assert!(result.success, "{:?}", result.error);
+    assert_eq!(
+        gui.take_events(),
+        vec![InputEvent::AtomicSequence(vec![
+            AtomicInput::MouseDown {
+                button: MouseButton::Left
+            },
+            AtomicInput::Wait { millis: 50 },
+            AtomicInput::MouseUp {
+                button: MouseButton::Left
+            },
+            AtomicInput::Wait { millis: 80 },
+            AtomicInput::MouseDown {
+                button: MouseButton::Left
+            },
+            AtomicInput::Wait { millis: 50 },
+            AtomicInput::MouseUp {
+                button: MouseButton::Left
+            },
+        ])]
+    );
+}
+
+#[tokio::test]
 async fn right_click_coordinate_uses_som_fallback_outside_visual_last() {
     let gui = Arc::new(MockGuiDriver::default());
     let exec = build_executor_with_tier(gui.clone(), ExecutionTier::VisualBackground);
@@ -244,6 +285,46 @@ async fn right_click_coordinate_uses_som_fallback_outside_visual_last() {
             y: 210,
             expected_visual_hash: None,
         }]
+    );
+}
+
+#[tokio::test]
+async fn double_click_coordinate_uses_som_fallback_outside_visual_last() {
+    let gui = Arc::new(MockGuiDriver::default());
+    let exec = build_executor_with_tier(gui.clone(), ExecutionTier::VisualBackground);
+    let som_map = BTreeMap::from([(42u32, (100i32, 200i32, 40i32, 20i32))]);
+
+    let result = exec
+        .execute(
+            AgentTool::Computer(ComputerAction::DoubleClick {
+                coordinate: Some([119, 209]),
+            }),
+            [0u8; 32],
+            7,
+            [0u8; 32],
+            Some(&som_map),
+            None,
+            None,
+        )
+        .await;
+
+    assert!(result.success, "{:?}", result.error);
+    assert_eq!(
+        gui.take_events(),
+        vec![
+            InputEvent::Click {
+                button: MouseButton::Left,
+                x: 120,
+                y: 210,
+                expected_visual_hash: None,
+            },
+            InputEvent::Click {
+                button: MouseButton::Left,
+                x: 120,
+                y: 210,
+                expected_visual_hash: None,
+            }
+        ]
     );
 }
 
@@ -467,6 +548,81 @@ fn routing_receipt_contract_for_coordinate_right_click_som_fallback_includes_pre
     assert_eq!(receipt.pre_state.agent_status, "Running");
     assert_eq!(receipt.pre_state.tier, "AxFirst");
     assert_eq!(receipt.pre_state.step_index, 8);
+    assert_eq!(receipt.pre_state.target_hint.as_deref(), Some("browser"));
+    assert_eq!(receipt.failure_class, None);
+    assert_eq!(receipt.post_state.verification_checks, verification_checks);
+}
+
+#[test]
+fn routing_receipt_contract_for_coordinate_double_click_includes_pre_state() {
+    let mut state = test_agent_state();
+    state.step_count = 9;
+    state.current_tier = ExecutionTier::VisualBackground;
+
+    let tool = AgentTool::Computer(ComputerAction::DoubleClick {
+        coordinate: Some([119, 209]),
+    });
+
+    let (tool_name, args) = canonical_tool_identity(&tool);
+    assert_eq!(tool_name, "computer");
+    assert_eq!(
+        args.get("action").and_then(|v| v.as_str()),
+        Some("double_click")
+    );
+    assert_eq!(
+        args.get("coordinate")
+            .and_then(|v| v.get(0))
+            .and_then(|v| v.as_u64()),
+        Some(119)
+    );
+    assert_eq!(
+        args.get("coordinate")
+            .and_then(|v| v.get(1))
+            .and_then(|v| v.as_u64()),
+        Some(209)
+    );
+
+    let intent_hash = canonical_intent_hash(
+        &tool_name,
+        &args,
+        ExecutionTier::VisualBackground,
+        state.step_count,
+        "test-v1",
+    );
+    assert!(!intent_hash.is_empty());
+
+    let pre_state = build_state_summary(&state);
+    let verification_checks = vec![
+        "policy_decision=allowed".to_string(),
+        "som_coordinate_fallback=true".to_string(),
+        "click_count=2".to_string(),
+    ];
+    let post_state = build_post_state_summary(&state, true, verification_checks.clone());
+
+    let receipt = RoutingReceiptEvent {
+        session_id: state.session_id,
+        step_index: pre_state.step_index,
+        intent_hash,
+        policy_decision: "allowed".to_string(),
+        tool_name,
+        tool_version: "test-v1".to_string(),
+        pre_state: pre_state.clone(),
+        action_json: serde_json::to_string(&tool).unwrap(),
+        post_state,
+        artifacts: vec!["trace://agent_step/9".to_string()],
+        failure_class: None,
+        stop_condition_hit: false,
+        escalation_path: None,
+        scs_lineage_ptr: None,
+        mutation_receipt_ptr: None,
+        policy_binding_hash: "binding-hash".to_string(),
+        policy_binding_sig: None,
+        policy_binding_signer: None,
+    };
+
+    assert_eq!(receipt.pre_state.agent_status, "Running");
+    assert_eq!(receipt.pre_state.tier, "AxFirst");
+    assert_eq!(receipt.pre_state.step_index, 9);
     assert_eq!(receipt.pre_state.target_hint.as_deref(), Some("browser"));
     assert_eq!(receipt.failure_class, None);
     assert_eq!(receipt.post_state.verification_checks, verification_checks);

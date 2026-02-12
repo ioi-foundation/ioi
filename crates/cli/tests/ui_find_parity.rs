@@ -17,14 +17,14 @@ use ioi_services::agentic::desktop::service::step::anti_loop::{
 };
 use ioi_services::agentic::desktop::types::{ExecutionTier, InteractionTarget};
 use ioi_services::agentic::desktop::{AgentMode, AgentState, AgentStatus};
+use ioi_types::app::agentic::AgentTool;
 use ioi_types::app::agentic::InferenceOptions;
 use ioi_types::app::{ActionRequest, ContextSlice};
-use ioi_types::app::agentic::AgentTool;
 use ioi_types::app::{RoutingFailureClass, RoutingReceiptEvent};
 use ioi_types::error::VmError;
+use std::collections::BTreeMap;
 use std::io::Cursor;
 use std::path::Path;
-use std::collections::BTreeMap;
 use std::sync::{Arc, Mutex};
 
 #[derive(Clone)]
@@ -181,6 +181,7 @@ fn test_agent_state() -> AgentState {
             app_hint: Some("calculator".to_string()),
             title_pattern: None,
         }),
+        working_directory: ".".to_string(),
         active_lens: Some("ReactLens".to_string()),
     }
 }

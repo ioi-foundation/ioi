@@ -202,6 +202,47 @@ pub async fn think(
         String::new()
     };
 
+    let failure_block = if perception.consecutive_failures > 0 {
+        let failure_reason = perception
+            .last_failure_reason
+            .as_deref()
+            .unwrap_or("UnknownFailure");
+        let recovery_hint = if failure_reason.contains("TargetNotFound")
+            || failure_reason.contains("VisionTargetNotFound")
+        {
+            "Recovery hint: run `ui__find` or `browser__extract` first to reacquire the target before clicking."
+        } else if failure_reason.contains("TimeoutOrHang")
+            || failure_reason.contains("NoEffectAfterAction")
+            || failure_reason.contains("NonDeterministicUI")
+        {
+            "Recovery hint: switch tools/modality, then verify visible state change before retrying."
+        } else if failure_reason.contains("ToolUnavailable")
+            || failure_reason.contains("MissingDependency")
+        {
+            "Recovery hint: choose an equivalent available tool; if none exists, call `system__fail` with missing capability."
+        } else if failure_reason.contains("PermissionOrApprovalRequired")
+            || failure_reason.contains("UserInterventionNeeded")
+        {
+            "Recovery hint: do not loop retries; pause and request user intervention or approval."
+        } else {
+            "Recovery hint: do not repeat the exact same action; choose a different approach or escalate with `system__fail`."
+        };
+
+        format!(
+            "\n=== FAILURE ANALYSIS REQUIRED ===\n\
+             - Consecutive Failures: {}\n\
+             - Last Failure Fingerprint: {}\n\
+             - Mandatory Reflection:\n\
+               1. Explain why the previous attempt failed.\n\
+               2. Do not repeat the same failing action.\n\
+               3. Pick a distinct recovery action for this step.\n\
+             {}\n",
+            perception.consecutive_failures, failure_reason, recovery_hint
+        )
+    } else {
+        String::new()
+    };
+
     // Use truncated history for context window
     let max_history_items = 5;
     let recent_history = if full_history.len() > max_history_items {
@@ -231,6 +272,7 @@ Do NOT refuse a task by claiming you cannot see or act. Instead:
 === LAYER 2: STATE ===
 - Active Window: {}
 - Goal: {}
+{}
 {}
 
 {}
@@ -284,6 +326,7 @@ OPERATING RULES:
         perception.active_window_title,
         agent_state.goal,
         urgent_feedback,
+        failure_block,
         strategy_instruction,
         som_instruction,
         verify_instruction,

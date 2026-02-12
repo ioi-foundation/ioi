@@ -50,6 +50,7 @@ image_hasher = "2.0"
 
 # [FIX] Added missing dependencies
 regex = "1.10"
+walkdir = "2.4"
 ioi-state = { path = "../state" }
 ioi-client = { path = "../client" }
 ioi-drivers = { path = "../drivers" }

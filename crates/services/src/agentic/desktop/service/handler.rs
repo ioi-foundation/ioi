@@ -25,10 +25,13 @@ fn is_focus_sensitive_tool(tool: &AgentTool) -> bool {
                 | ComputerAction::LeftClickId { .. }
                 | ComputerAction::LeftClickElement { .. }
                 | ComputerAction::RightClick { .. }
+                | ComputerAction::DoubleClick { .. }
                 | ComputerAction::RightClickId { .. }
                 | ComputerAction::RightClickElement { .. }
                 | ComputerAction::LeftClickDrag { .. }
                 | ComputerAction::DragDrop { .. }
+                | ComputerAction::DragDropId { .. }
+                | ComputerAction::DragDropElement { .. }
                 | ComputerAction::Scroll { .. }
         ),
         _ => false,
@@ -259,7 +262,8 @@ pub async fn handle_action_execution(
         target_app_hint.clone(),
         Some(agent_state.current_tier),
     )
-    .with_expected_visual_hash(Some(visual_phash));
+    .with_expected_visual_hash(Some(visual_phash))
+    .with_working_directory(Some(agent_state.working_directory.clone()));
 
     // Explicitly acquire lease for browser tools
     if matches!(
@@ -269,6 +273,9 @@ pub async fn handle_action_execution(
             | AgentTool::BrowserClick { .. }
             | AgentTool::BrowserClickElement { .. }
             | AgentTool::BrowserSyntheticClick { .. }
+            | AgentTool::BrowserScroll { .. }
+            | AgentTool::BrowserType { .. }
+            | AgentTool::BrowserKey { .. }
     ) {
         service.browser.set_lease(true);
     }

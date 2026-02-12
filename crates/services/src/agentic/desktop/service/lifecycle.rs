@@ -178,6 +178,9 @@ pub async fn handle_start(
         swarm_context, // [NEW]
         target,        // [NEW] Set the target
 
+        // Default relative working directory for stateful sys tools.
+        working_directory: ".".to_string(),
+
         // [FIX] Initialize active_lens
         active_lens: None,
     };

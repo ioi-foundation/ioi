@@ -116,10 +116,18 @@ pub struct AgentState {
     #[serde(default)]
     pub target: Option<InteractionTarget>,
 
+    /// Persistent working directory used by `sys__exec`.
+    #[serde(default = "default_working_directory")]
+    pub working_directory: String,
+
     // [NEW] The name of the Application Lens used during the last perception step.
     // Required to re-resolve element IDs (e.g. "btn_submit") to coordinates during execution.
     #[serde(default)]
     pub active_lens: Option<String>,
+}
+
+fn default_working_directory() -> String {
+    ".".to_string()
 }
 
 #[derive(Encode, Decode)]

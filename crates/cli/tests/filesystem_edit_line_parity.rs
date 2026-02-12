@@ -1,6 +1,7 @@
 // Path: crates/cli/tests/filesystem_edit_line_parity.rs
 
 use ioi_services::agentic::desktop::execution::filesystem::edit_line_content;
+use ioi_services::agentic::desktop::middleware::normalize_tool_call;
 use ioi_services::agentic::desktop::service::step::action::{
     canonical_intent_hash, canonical_tool_identity,
 };
@@ -46,6 +47,7 @@ fn test_agent_state() -> AgentState {
             app_hint: Some("workspace".to_string()),
             title_pattern: None,
         }),
+        working_directory: ".".to_string(),
         active_lens: None,
     }
 }
@@ -65,13 +67,33 @@ fn filesystem_atomic_line_edit_rejects_out_of_range_line() {
 }
 
 #[test]
+fn filesystem_edit_line_alias_normalizes_to_atomic_write() {
+    let tool = normalize_tool_call(
+        r#"{"name":"filesystem__edit_line","arguments":{"path":"/tmp/ioi/demo.txt","line_number":2,"content":"BETA"}}"#,
+    )
+    .expect("alias should normalize");
+
+    match tool {
+        AgentTool::FsWrite {
+            path,
+            content,
+            line_number,
+        } => {
+            assert_eq!(path, "/tmp/ioi/demo.txt");
+            assert_eq!(content, "BETA");
+            assert_eq!(line_number, Some(2));
+        }
+        _ => panic!("expected filesystem__edit_line to normalize into FsWrite"),
+    }
+}
+
+#[test]
 fn routing_receipt_contract_for_atomic_line_edit_includes_pre_state() {
     let state = test_agent_state();
-    let tool = AgentTool::FsWrite {
-        path: "/tmp/ioi/demo.txt".to_string(),
-        content: "BETA".to_string(),
-        line_number: Some(2),
-    };
+    let tool = normalize_tool_call(
+        r#"{"name":"filesystem__edit_line","arguments":{"path":"/tmp/ioi/demo.txt","line_number":2,"content":"BETA"}}"#,
+    )
+    .expect("alias should normalize");
 
     let (tool_name, args) = canonical_tool_identity(&tool);
     assert_eq!(tool_name, "filesystem__write_file");
@@ -119,4 +141,7 @@ fn routing_receipt_contract_for_atomic_line_edit_includes_pre_state() {
     assert_eq!(receipt.pre_state.step_index, 4);
     assert_eq!(receipt.pre_state.target_hint.as_deref(), Some("workspace"));
     assert_eq!(receipt.post_state.verification_checks, verification_checks);
+    assert!(receipt
+        .action_json
+        .contains("\"name\":\"filesystem__write_file\""));
 }

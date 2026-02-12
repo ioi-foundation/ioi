@@ -79,6 +79,7 @@ pub struct ToolExecutor {
     pub(crate) target_app_hint: Option<String>,
     pub(crate) current_tier: Option<ExecutionTier>,
     pub(crate) expected_visual_hash: Option<[u8; 32]>,
+    pub(crate) working_directory: Option<String>,
 }
 
 impl ToolExecutor {
@@ -103,6 +104,7 @@ impl ToolExecutor {
             target_app_hint: None,
             current_tier: None,
             expected_visual_hash: None,
+            working_directory: None,
         }
     }
 
@@ -120,6 +122,11 @@ impl ToolExecutor {
 
     pub fn with_expected_visual_hash(mut self, hash: Option<[u8; 32]>) -> Self {
         self.expected_visual_hash = hash;
+        self
+    }
+
+    pub fn with_working_directory(mut self, working_directory: Option<String>) -> Self {
+        self.working_directory = working_directory;
         self
     }
 
@@ -198,17 +205,24 @@ impl ToolExecutor {
             | AgentTool::BrowserExtract { .. }
             | AgentTool::BrowserClick { .. }
             | AgentTool::BrowserClickElement { .. }
-            | AgentTool::BrowserSyntheticClick { .. } => browser::handle(self, tool).await,
+            | AgentTool::BrowserSyntheticClick { .. }
+            | AgentTool::BrowserScroll { .. }
+            | AgentTool::BrowserType { .. }
+            | AgentTool::BrowserKey { .. } => browser::handle(self, tool).await,
 
             // Filesystem Domain
             AgentTool::FsRead { .. }
             | AgentTool::FsWrite { .. }
             | AgentTool::FsPatch { .. }
-            | AgentTool::FsList { .. } => filesystem::handle(self, tool).await,
+            | AgentTool::FsList { .. }
+            | AgentTool::FsSearch { .. } => filesystem::handle(self, tool).await,
 
             // System Domain
-            AgentTool::SysExec { .. } | AgentTool::OsLaunchApp { .. } => {
-                system::handle(self, tool).await
+            AgentTool::SysExec { .. }
+            | AgentTool::SysChangeDir { .. }
+            | AgentTool::OsLaunchApp { .. } => {
+                let cwd = self.working_directory.as_deref().unwrap_or(".");
+                system::handle(self, tool, cwd).await
             }
 
             // MCP / Dynamic Domain

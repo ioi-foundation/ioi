@@ -63,6 +63,8 @@ pub fn requires_visual_integrity(tool: &AgentTool) -> bool {
                 }
                 | ComputerAction::LeftClickDrag { .. }
                 | ComputerAction::DragDrop { .. }
+                | ComputerAction::DragDropId { .. }
+                | ComputerAction::DragDropElement { .. }
                 | ComputerAction::MouseMove { .. }
                 | ComputerAction::Scroll {
                     coordinate: Some(_),

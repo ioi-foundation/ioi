@@ -51,6 +51,12 @@ pub fn default_safe_policy() -> ActionRules {
                 conditions: Default::default(),
                 action: Verdict::Allow,
             },
+            Rule {
+                rule_id: Some("allow-browser-scroll".into()),
+                target: "browser::scroll".into(),
+                conditions: Default::default(),
+                action: Verdict::Allow,
+            },
             // Low-risk browser interaction defaults.
             Rule {
                 rule_id: Some("allow-browser-gui-click".into()),

@@ -45,6 +45,7 @@ fn refusal_state() -> AgentState {
             app_hint: Some("browser".to_string()),
             title_pattern: None,
         }),
+        working_directory: ".".to_string(),
         active_lens: None,
     }
 }

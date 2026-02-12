@@ -3,7 +3,7 @@
 use super::{ToolExecutionResult, ToolExecutor};
 use ioi_types::app::agentic::AgentTool;
 use std::env;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 #[derive(Clone, Debug)]
 struct LaunchAttempt {
@@ -12,15 +12,31 @@ struct LaunchAttempt {
     detach: bool,
 }
 
-pub async fn handle(exec: &ToolExecutor, tool: AgentTool) -> ToolExecutionResult {
+pub async fn handle(exec: &ToolExecutor, tool: AgentTool, cwd: &str) -> ToolExecutionResult {
     match tool {
         AgentTool::SysExec {
             command,
             args,
             detach,
-        } => match exec.terminal.execute(&command, &args, detach).await {
-            Ok(out) => ToolExecutionResult::success(out),
-            Err(e) => ToolExecutionResult::failure(e.to_string()),
+        } => {
+            let resolved_cwd = match resolve_working_directory(cwd) {
+                Ok(path) => path,
+                Err(error) => return ToolExecutionResult::failure(error),
+            };
+
+            match exec
+                .terminal
+                .execute_in_dir(&command, &args, detach, Some(&resolved_cwd))
+                .await
+            {
+                Ok(out) => ToolExecutionResult::success(out),
+                Err(e) => ToolExecutionResult::failure(e.to_string()),
+            }
+        }
+
+        AgentTool::SysChangeDir { path } => match resolve_target_directory(cwd, &path) {
+            Ok(path) => ToolExecutionResult::success(path.to_string_lossy().to_string()),
+            Err(error) => ToolExecutionResult::failure(error),
         },
 
         AgentTool::OsLaunchApp { app_name } => {
@@ -73,6 +89,67 @@ pub async fn handle(exec: &ToolExecutor, tool: AgentTool) -> ToolExecutionResult
 
         _ => ToolExecutionResult::failure("Unsupported System action"),
     }
+}
+
+fn resolve_working_directory(cwd: &str) -> Result<PathBuf, String> {
+    let normalized = cwd.trim();
+    let candidate = if normalized.is_empty() {
+        PathBuf::from(".")
+    } else {
+        PathBuf::from(normalized)
+    };
+
+    let absolute = if candidate.is_absolute() {
+        candidate
+    } else {
+        env::current_dir()
+            .map_err(|e| format!("Failed to resolve current directory: {}", e))?
+            .join(candidate)
+    };
+
+    if !absolute.exists() {
+        return Err(format!(
+            "Working directory '{}' does not exist.",
+            absolute.display()
+        ));
+    }
+
+    if !absolute.is_dir() {
+        return Err(format!(
+            "Working directory '{}' is not a directory.",
+            absolute.display()
+        ));
+    }
+
+    Ok(absolute)
+}
+
+fn resolve_target_directory(current_cwd: &str, requested_path: &str) -> Result<PathBuf, String> {
+    let trimmed = requested_path.trim();
+    if trimmed.is_empty() {
+        return Err("Target path cannot be empty.".to_string());
+    }
+
+    let requested = PathBuf::from(trimmed);
+    let candidate = if requested.is_absolute() {
+        requested
+    } else {
+        resolve_working_directory(current_cwd)?.join(requested)
+    };
+
+    let canonical = std::fs::canonicalize(&candidate).map_err(|e| {
+        format!(
+            "Failed to resolve directory '{}': {}",
+            candidate.display(),
+            e
+        )
+    })?;
+
+    if !canonical.is_dir() {
+        return Err(format!("'{}' is not a directory.", canonical.display()));
+    }
+
+    Ok(canonical)
 }
 
 fn build_linux_launch_plan(app_name: &str, has_gtk_launch: bool) -> Vec<LaunchAttempt> {

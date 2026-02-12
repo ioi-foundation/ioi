@@ -115,6 +115,22 @@ impl NativeOperator {
         Ok(())
     }
 
+    fn inject_scroll(enigo: &mut Enigo, dx: i32, dy: i32) -> Result<()> {
+        if dy != 0 {
+            enigo
+                .scroll(dy, Axis::Vertical)
+                .map_err(|e| anyhow!("Vertical scroll failed: {:?}", e))?;
+        }
+
+        if dx != 0 {
+            enigo
+                .scroll(dx, Axis::Horizontal)
+                .map_err(|e| anyhow!("Horizontal scroll failed: {:?}", e))?;
+        }
+
+        Ok(())
+    }
+
     pub fn resolve_click_target(
         target: ClickTarget,
         transform: &DisplayTransform,
@@ -292,11 +308,7 @@ impl NativeOperator {
                     .key(k, Direction::Click)
                     .map_err(|e| anyhow!("Key press failed: {:?}", e))?;
             }
-            InputEvent::Scroll { dy, .. } => {
-                enigo
-                    .scroll(*dy, Axis::Vertical)
-                    .map_err(|e| anyhow!("Scroll failed: {:?}", e))?;
-            }
+            InputEvent::Scroll { dx, dy } => Self::inject_scroll(&mut enigo, *dx, *dy)?,
 
             // [NEW] Atomic Sequence Execution Implementation
             InputEvent::AtomicSequence(steps) => {
