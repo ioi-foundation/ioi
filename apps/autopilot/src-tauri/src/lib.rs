@@ -46,6 +46,18 @@ pub fn run() {
     // Initialize X11 threading BEFORE anything else on Linux
     init_x11_threads();
 
+    #[cfg(target_os = "linux")]
+    {
+        let xdg_session_type = std::env::var("XDG_SESSION_TYPE").unwrap_or_default();
+        let wayland_display = std::env::var("WAYLAND_DISPLAY").unwrap_or_default();
+        let gdk_backend = std::env::var("GDK_BACKEND").unwrap_or_default();
+        let winit_backend = std::env::var("WINIT_UNIX_BACKEND").unwrap_or_default();
+        println!(
+            "[Autopilot] Display env: XDG_SESSION_TYPE='{}' WAYLAND_DISPLAY='{}' GDK_BACKEND='{}' WINIT_UNIX_BACKEND='{}'",
+            xdg_session_type, wayland_display, gdk_backend, winit_backend
+        );
+    }
+
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_global_shortcut::Builder::new().build())
@@ -55,6 +67,9 @@ pub fn run() {
         .setup(|app| {
             println!("[Autopilot] Initializing...");
             let app_handle = app.handle();
+
+            #[cfg(target_os = "linux")]
+            windows::ensure_cosmic_tiling_exception_rules();
 
             // --- APPLY NATIVE WINDOW EFFECTS ---
             if let Some(window) = app_handle.get_webview_window("spotlight") {
@@ -199,10 +214,12 @@ pub fn run() {
                     if event.state == ShortcutState::Pressed {
                         if let Some(window) = app_handle.get_webview_window("spotlight") {
                             if window.is_visible().unwrap_or(false) {
-                                let _ = window.hide();
+                                windows::hide_spotlight(app_handle.clone());
                             } else {
-                                let _ = window.show();
-                                let _ = window.set_focus();
+                                // Force right-dock, then open via shared show path so Linux can
+                                // apply geometry after visibility changes.
+                                windows::dock_spotlight_right(app_handle.clone());
+                                windows::show_spotlight(app_handle.clone());
                             }
                         }
                     }

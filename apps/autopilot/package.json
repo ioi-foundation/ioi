@@ -4,7 +4,9 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": {
+    "predev": "npm run build --workspace=@ioi/agent-ide --if-present",
     "dev": "vite",
+    "prebuild": "npm run build --workspace=@ioi/agent-ide --if-present",
     "build": "tsc && vite build",
     "preview": "vite preview",
     "tauri": "tauri"

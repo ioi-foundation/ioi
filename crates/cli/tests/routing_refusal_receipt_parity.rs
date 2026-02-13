@@ -47,6 +47,7 @@ fn refusal_state() -> AgentState {
         }),
         working_directory: ".".to_string(),
         active_lens: None,
+        pending_search_completion: None,
     }
 }
 

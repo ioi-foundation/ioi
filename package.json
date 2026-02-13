@@ -7,7 +7,8 @@
   ],
   "scripts": {
     "install:all": "npm install",
-    "dev:desktop": "npm run tauri dev --workspace=apps/autopilot",
+    "dev:desktop": "if [ \"$(uname)\" = \"Linux\" ]; then env -u WAYLAND_DISPLAY XDG_SESSION_TYPE=x11 GDK_BACKEND=x11 WINIT_UNIX_BACKEND=x11 npm run tauri dev --workspace=apps/autopilot; else npm run tauri dev --workspace=apps/autopilot; fi",
+    "dev:desktop:wayland": "npm run tauri dev --workspace=apps/autopilot",
     "dev:web": "npm run dev --workspace=apps/agent-studio",
     "build:ide": "npm run build --workspace=@ioi/agent-ide",
     "build:all": "npm run build --workspaces --if-present",

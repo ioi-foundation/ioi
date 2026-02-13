@@ -14,6 +14,10 @@ use regex::Regex;
 use serde_json::json;
 use std::sync::Arc;
 
+fn should_expose_headless_browser_followups(tier: ExecutionTier, is_browser_active: bool) -> bool {
+    is_browser_active || tier == ExecutionTier::DomHeadless
+}
+
 /// Discovers tools available to the agent.
 pub async fn discover_tools(
     state: &dyn StateAccess,
@@ -182,27 +186,26 @@ pub async fn discover_tools(
     });
 
     // Browser Interaction (CONDITIONAL)
-    // Only expose these if we are actually looking at a browser.
-    // This prevents the agent from trying to "browse" local apps like Calculator.
-    if is_browser_active {
-        // Synthetic Click ONLY in VisualBackground
-        if tier == ExecutionTier::VisualBackground {
-            let synthetic_click_params = json!({
-                "type": "object",
-                "properties": {
-                    "x": { "type": "integer" },
-                    "y": { "type": "integer" }
-                },
-                "required": ["x", "y"]
-            });
+    // Follow-up browser tools are exposed for active browser windows and DomHeadless
+    // to prevent navigate-only loops in hermetic search flows.
+    if is_browser_active && tier == ExecutionTier::VisualBackground {
+        let synthetic_click_params = json!({
+            "type": "object",
+            "properties": {
+                "x": { "type": "integer" },
+                "y": { "type": "integer" }
+            },
+            "required": ["x", "y"]
+        });
 
-            tools.push(LlmToolDefinition {
-                name: "browser__synthetic_click".to_string(),
-                description: "Click a coordinate (x,y) inside the web page directly. Does NOT move the user's mouse cursor.".to_string(),
-                parameters: synthetic_click_params.to_string(),
-            });
-        }
+        tools.push(LlmToolDefinition {
+            name: "browser__synthetic_click".to_string(),
+            description: "Click a coordinate (x,y) inside the web page directly. Does NOT move the user's mouse cursor.".to_string(),
+            parameters: synthetic_click_params.to_string(),
+        });
+    }
 
+    if should_expose_headless_browser_followups(tier, is_browser_active) {
         let browser_scroll_params = json!({
             "type": "object",
             "properties": {
@@ -810,4 +813,26 @@ pub async fn discover_tools(
     }
 
     tools
+}
+
+#[cfg(test)]
+mod tests {
+    use super::should_expose_headless_browser_followups;
+    use crate::agentic::desktop::types::ExecutionTier;
+
+    #[test]
+    fn headless_tier_exposes_browser_followups_without_browser_focus() {
+        assert!(should_expose_headless_browser_followups(
+            ExecutionTier::DomHeadless,
+            false
+        ));
+    }
+
+    #[test]
+    fn non_headless_without_browser_focus_hides_browser_followups() {
+        assert!(!should_expose_headless_browser_followups(
+            ExecutionTier::VisualForeground,
+            false
+        ));
+    }
 }

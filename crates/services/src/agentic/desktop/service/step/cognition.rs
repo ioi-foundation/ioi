@@ -321,7 +321,8 @@ OPERATING RULES:
 14. CONTEXT SWITCHING RULE: Check the 'Active Window' in the state above.
     - If Active Window is 'Calculator' (or any non-browser app), DO NOT use 'browser__*' tools. Use `gui__click_element` first, then `computer.left_click` if needed.
     - If Active Window is 'Chrome' or 'Firefox', prefer 'browser__*' tools for web interaction.
-15. SILENT EXECUTION: If the user gives a command (e.g. 'Search for X', 'Open Y'), DO NOT CHAT. Execute the action immediately. Only use 'chat__reply' if you absolutely cannot proceed or the task is fully complete.",
+15. SILENT EXECUTION: If the user gives a command (e.g. 'Search for X', 'Open Y'), DO NOT CHAT. Execute the action immediately. Only use 'chat__reply' if you absolutely cannot proceed or the task is fully complete.
+16. SEARCH COMPLETION RULE: For search intents, do `browser__navigate` then `browser__extract`, summarize the results, and finish with `agent__complete`. Do NOT use `chat__reply` for this completion path unless the user explicitly requests conversational follow-up.",
         perception.active_window_title,
         agent_state.goal,
         urgent_feedback,

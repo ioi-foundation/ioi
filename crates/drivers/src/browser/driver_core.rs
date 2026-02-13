@@ -7,6 +7,11 @@ use uuid::Uuid;
 const CHROMIUM_REVISION_ENV: &str = "IOI_CHROMIUM_REVISION";
 const CHROMIUM_SHA256_ENV: &str = "IOI_CHROMIUM_SHA256";
 const CHROMIUM_PIN_FILE_PREFIX: &str = "chromium-pin-";
+const HANDLER_ERROR_TOLERANCE: usize = 3;
+
+fn evaluate_health(cdp_ok: bool, _handler_alive: bool) -> bool {
+    cdp_ok
+}
 
 impl BrowserDriver {
     pub fn new() -> Self {
@@ -190,17 +195,28 @@ impl BrowserDriver {
     }
 
     async fn is_healthy(&self) -> bool {
-        if !self.handler_alive.load(Ordering::Relaxed) {
-            return false;
-        }
+        let handler_alive = self.handler_alive.load(Ordering::Relaxed);
 
         let browser_arc = {
             let guard = self.browser.lock().await;
             guard.clone()
         };
 
-        if let Some(b) = browser_arc {
-            return b.version().await.is_ok();
+        if let Some(browser) = browser_arc {
+            let cdp_ok = browser.version().await.is_ok();
+            if cdp_ok && !handler_alive {
+                log::warn!(
+                    target: "browser",
+                    "Browser handler marked dead, but CDP probe is healthy; preserving current session."
+                );
+            }
+            if !cdp_ok {
+                log::warn!(
+                    target: "browser",
+                    "Browser CDP probe failed; session will restart if lease is active."
+                );
+            }
+            return evaluate_health(cdp_ok, handler_alive);
         }
         false
     }
@@ -380,13 +396,32 @@ impl BrowserDriver {
         let alive_signal = self.handler_alive.clone();
         tokio::spawn(async move {
             alive_signal.store(true, Ordering::SeqCst);
-            while let Some(h) = handler.next().await {
-                if h.is_err() {
-                    break;
+            let mut consecutive_errors = 0usize;
+            while let Some(event) = handler.next().await {
+                match event {
+                    Ok(_) => {
+                        consecutive_errors = 0;
+                    }
+                    Err(err) => {
+                        consecutive_errors += 1;
+                        log::warn!(
+                            target: "browser",
+                            "Chromium handler event error (#{}/{}): {}",
+                            consecutive_errors,
+                            HANDLER_ERROR_TOLERANCE,
+                            err
+                        );
+                        if consecutive_errors >= HANDLER_ERROR_TOLERANCE {
+                            break;
+                        }
+                    }
                 }
             }
             alive_signal.store(false, Ordering::SeqCst);
-            log::warn!(target: "browser", "Chromium event loop exited.");
+            log::warn!(
+                target: "browser",
+                "Chromium event loop exited (process exit, stream close, or repeated transport errors)."
+            );
         });
 
         *self.profile_dir.lock().await = Some(profile_dir);
@@ -399,14 +434,31 @@ impl BrowserDriver {
     }
 
     pub(crate) async fn ensure_page(&self) -> std::result::Result<(), BrowserError> {
+        let has_browser = self.browser.lock().await.is_some();
+        let has_page = self.active_page.lock().await.is_some();
+        let handler_alive = self.handler_alive.load(Ordering::SeqCst);
+
         if !self.is_healthy().await {
             if !self.lease_active.load(Ordering::SeqCst) {
+                log::warn!(
+                    target: "browser",
+                    "ensure_page blocked restart: lease inactive (has_browser={}, has_page={}, handler_alive={})",
+                    has_browser,
+                    has_page,
+                    handler_alive
+                );
                 return Err(BrowserError::Internal(
                     "Browser is cold (No Lease). Call set_lease(true) before use.".into(),
                 ));
             }
 
-            log::warn!(target: "browser", "Browser disconnected or dead. Restarting...");
+            log::warn!(
+                target: "browser",
+                "ensure_page restarting browser (has_browser={}, has_page={}, handler_alive={})",
+                has_browser,
+                has_page,
+                handler_alive
+            );
             self.launch(false).await?;
 
             let browser_arc = { self.browser.lock().await.clone() };
@@ -424,8 +476,11 @@ impl BrowserDriver {
             ));
         }
 
-        let has_page = self.active_page.lock().await.is_some();
         if !has_page {
+            log::info!(
+                target: "browser",
+                "ensure_page creating a new page for active browser session."
+            );
             let browser_arc = { self.browser.lock().await.clone() };
             if let Some(b) = browser_arc {
                 let page = b
@@ -433,8 +488,25 @@ impl BrowserDriver {
                     .await
                     .map_err(|e| BrowserError::Internal(format!("Failed to create page: {}", e)))?;
                 *self.active_page.lock().await = Some(page);
+            } else {
+                log::warn!(
+                    target: "browser",
+                    "ensure_page could not create page because browser session handle is missing."
+                );
             }
         }
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::evaluate_health;
+
+    #[test]
+    fn cdp_health_overrides_dead_handler_flag() {
+        assert!(evaluate_health(true, false));
+        assert!(evaluate_health(true, true));
+        assert!(!evaluate_health(false, true));
     }
 }

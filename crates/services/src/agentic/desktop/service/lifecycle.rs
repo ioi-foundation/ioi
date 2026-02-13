@@ -183,6 +183,7 @@ pub async fn handle_start(
 
         // [FIX] Initialize active_lens
         active_lens: None,
+        pending_search_completion: None,
     };
     state.insert(&key, &codec::to_bytes_canonical(&agent_state)?)?;
 
@@ -259,6 +260,7 @@ pub async fn handle_post_message(
             agent_state.goal = msg.content.clone();
             agent_state.step_count = 0;
             agent_state.last_action_type = None;
+            agent_state.pending_search_completion = None;
         }
 
         if agent_state.status != AgentStatus::Running {
