@@ -24,6 +24,7 @@ tauri-plugin-dialog = "2"
 window-vibrancy = "0.5" # For macOS/Windows native blur
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
+ron = "0.8"
 uuid = { version = "1", features = ["v4"] }
 tokio = { version = "=1.42.0", features = ["full"] }
 
@@ -60,3 +61,4 @@ hex = "0.4"
 # Linux-specific: X11 for multi-threading support (XInitThreads)
 [target.'cfg(target_os = "linux")'.dependencies]
 x11 = { version = "2.21", features = ["xlib"] }
+gtk = { version = "0.18" }

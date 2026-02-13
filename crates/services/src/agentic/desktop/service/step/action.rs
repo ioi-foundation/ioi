@@ -11,20 +11,24 @@ use super::anti_loop::{
 use crate::agentic::desktop::keys::{get_state_key, AGENT_POLICY_PREFIX};
 use crate::agentic::desktop::middleware;
 use crate::agentic::desktop::service::DesktopAgentService;
-use crate::agentic::desktop::types::{AgentState, AgentStatus, ExecutionTier, ToolCallStatus};
+use crate::agentic::desktop::types::{
+    AgentState, AgentStatus, ExecutionTier, PendingSearchCompletion, ToolCallStatus,
+};
 use crate::agentic::desktop::utils::goto_trace_log;
 use crate::agentic::rules::ActionRules;
 use ioi_api::state::StateAccess;
 use ioi_crypto::algorithms::hash::sha256;
 use ioi_types::app::agentic::AgentTool;
 use ioi_types::app::{
-    ActionContext, ActionRequest, KernelEvent, RoutingReceiptEvent, RoutingStateSummary,
+    ActionContext, ActionRequest, ActionTarget, KernelEvent, RoutingReceiptEvent,
+    RoutingStateSummary,
 };
 use ioi_types::codec;
 use ioi_types::error::TransactionError;
 use serde_jcs;
 use serde_json::json;
 use std::time::{SystemTime, UNIX_EPOCH};
+use url::Url;
 
 // [NEW] Imports for Safe Resume
 use crate::agentic::desktop::service::step::visual::hamming_distance;
@@ -157,6 +161,72 @@ pub fn canonical_retry_intent_hash(
     sha256(&canonical_bytes)
         .map(hex::encode)
         .unwrap_or_else(|_| "unknown".to_string())
+}
+
+fn is_search_intent(goal: &str) -> bool {
+    let goal_lc = goal.to_ascii_lowercase();
+    [
+        "search for",
+        "search ",
+        "look up",
+        "lookup ",
+        "find information",
+        "find online",
+        "web search",
+        "google ",
+        "duckduckgo",
+        "bing ",
+    ]
+    .iter()
+    .any(|needle| goal_lc.contains(needle))
+}
+
+fn extract_navigation_url(args: &serde_json::Value) -> Option<String> {
+    args.get("url")
+        .and_then(|value| value.as_str())
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(|value| value.to_string())
+}
+
+fn search_query_from_url(url: &str) -> Option<String> {
+    let parsed = Url::parse(url).ok()?;
+    let keys = ["q", "query", "p", "text", "wd", "k"];
+    parsed
+        .query_pairs()
+        .find(|(k, v)| keys.contains(&k.as_ref()) && !v.trim().is_empty())
+        .map(|(_, v)| v.to_string())
+}
+
+fn is_search_results_url(url: &str) -> bool {
+    let parsed = match Url::parse(url) {
+        Ok(parsed) => parsed,
+        Err(_) => return false,
+    };
+
+    let scheme_ok = matches!(parsed.scheme(), "http" | "https");
+    if !scheme_ok {
+        return false;
+    }
+
+    let host_lc = parsed.host_str().unwrap_or_default().to_ascii_lowercase();
+    let path_lc = parsed.path().to_ascii_lowercase();
+    let has_search_engine_host = [
+        "duckduckgo.com",
+        "google.",
+        "bing.com",
+        "search.yahoo.com",
+        "search.brave.com",
+        "startpage.com",
+    ]
+    .iter()
+    .any(|needle| host_lc.contains(needle));
+    if !has_search_engine_host {
+        return false;
+    }
+
+    let has_query = search_query_from_url(url).is_some();
+    has_query || path_lc.contains("/search")
 }
 
 pub async fn resume_pending_action(
@@ -755,6 +825,41 @@ pub async fn process_tool_output(
                         }
                         _ => {}
                     }
+
+                    if s && current_tool_name == "browser__navigate"
+                        && agent_state.pending_search_completion.is_none()
+                        && is_search_intent(&agent_state.goal)
+                    {
+                        if let Some(url) = extract_navigation_url(&tool_args) {
+                            if is_search_results_url(&url) {
+                                let query = search_query_from_url(&url)
+                                    .filter(|value| !value.trim().is_empty())
+                                    .unwrap_or_else(|| agent_state.goal.clone());
+                                let extract_params = serde_jcs::to_vec(&json!({}))
+                                    .or_else(|_| serde_json::to_vec(&json!({})))
+                                    .unwrap_or_else(|_| b"{}".to_vec());
+                                agent_state.execution_queue.push(ActionRequest {
+                                    target: ActionTarget::BrowserExtract,
+                                    params: extract_params,
+                                    context: ActionContext {
+                                        agent_id: "desktop_agent".to_string(),
+                                        session_id: Some(session_id),
+                                        window_id: None,
+                                    },
+                                    nonce: agent_state.step_count as u64 + 1,
+                                });
+                                agent_state.pending_search_completion =
+                                    Some(PendingSearchCompletion {
+                                        query,
+                                        url,
+                                        started_step: pre_state_summary.step_index,
+                                    });
+                                log::info!(
+                                    "Search intent detected after browser__navigate. Queued browser__extract for deterministic completion."
+                                );
+                            }
+                        }
+                    }
                 }
                 Err(TransactionError::PendingApproval(h)) => {
                     policy_decision = "require_approval".to_string();
@@ -1062,4 +1167,35 @@ pub async fn process_tool_output(
     emit_routing_receipt(service.event_sender.as_ref(), receipt);
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{is_search_intent, is_search_results_url, search_query_from_url};
+
+    #[test]
+    fn detects_search_intent_keywords() {
+        assert!(is_search_intent("Search for internet of intelligence"));
+        assert!(is_search_intent("please look up rust async runtime"));
+        assert!(!is_search_intent("open calculator"));
+    }
+
+    #[test]
+    fn detects_search_result_urls() {
+        assert!(is_search_results_url(
+            "https://duckduckgo.com/?q=internet+of+intelligence"
+        ));
+        assert!(is_search_results_url(
+            "https://www.google.com/search?q=internet+of+intelligence"
+        ));
+        assert!(!is_search_results_url("https://example.com/docs/ioi"));
+    }
+
+    #[test]
+    fn extracts_search_query_from_url() {
+        assert_eq!(
+            search_query_from_url("https://duckduckgo.com/?q=internet+of+intelligence").as_deref(),
+            Some("internet of intelligence")
+        );
+    }
 }

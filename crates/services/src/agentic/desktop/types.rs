@@ -52,6 +52,13 @@ pub struct SwarmContext {
     pub allowed_delegates: Vec<String>,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, Encode, Decode, PartialEq, Eq)]
+pub struct PendingSearchCompletion {
+    pub query: String,
+    pub url: String,
+    pub started_step: u32,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, Encode, Decode)]
 pub struct AgentState {
     pub session_id: [u8; 32],
@@ -95,6 +102,9 @@ pub struct AgentState {
     pub last_screen_phash: Option<[u8; 32]>,
     #[serde(default)]
     pub execution_queue: Vec<ActionRequest>,
+
+    #[serde(default)]
+    pub pending_search_completion: Option<PendingSearchCompletion>,
 
     #[serde(default)]
     pub active_skill_hash: Option<[u8; 32]>,

@@ -41,5 +41,9 @@ export default defineConfig(async () => ({
       // 3. tell Vite to ignore watching `src-tauri`
       ignored: ["**/src-tauri/**"],
     },
+    fs: {
+      // Allow serving shared workspace packages (e.g. @ioi/agent-ide built CSS).
+      allow: [path.resolve(__dirname, "../..")],
+    },
   },
 }));

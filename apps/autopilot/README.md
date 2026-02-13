@@ -74,8 +74,23 @@ IOI Runtime (Tauri)
 ### Prerequisites
 
 - [Rust](https://rustup.rs/)
-- [Node.js](https://nodejs.org/) (v18+)
+- [Node.js](https://nodejs.org/) (v20+ LTS recommended)
 - [Tauri CLI](https://tauri.app/v1/guides/getting-started/prerequisites)
+
+On Ubuntu/Pop!_OS, install the desktop build dependencies required by Tauri:
+
+```bash
+sudo apt update
+sudo apt install -y \
+  build-essential \
+  pkg-config \
+  libssl-dev \
+  libgtk-3-dev \
+  libayatana-appindicator3-dev \
+  librsvg2-dev \
+  libsoup-3.0-dev \
+  libwebkit2gtk-4.1-dev
+```
 
 ### Setup
 

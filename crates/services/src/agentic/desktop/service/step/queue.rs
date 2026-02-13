@@ -17,7 +17,9 @@ use crate::agentic::desktop::utils::goto_trace_log;
 use crate::agentic::rules::ActionRules;
 use ioi_api::state::StateAccess;
 use ioi_types::app::agentic::AgentTool;
-use ioi_types::app::{ActionRequest, ActionTarget, RoutingReceiptEvent, RoutingStateSummary};
+use ioi_types::app::{
+    ActionRequest, ActionTarget, KernelEvent, RoutingReceiptEvent, RoutingStateSummary,
+};
 use ioi_types::codec;
 use ioi_types::error::TransactionError;
 use serde_json::json;
@@ -31,6 +33,135 @@ pub fn resolve_queue_routing_context(
     agent_state.current_tier = routing_decision.tier;
     let pre_state_summary = build_state_summary(agent_state);
     (routing_decision, pre_state_summary)
+}
+
+const MAX_SEARCH_EXTRACT_CHARS: usize = 8_000;
+
+fn fallback_search_summary(query: &str, url: &str) -> String {
+    format!(
+        "Searched '{}' at {}, but structured extraction failed. Retry refinement if needed.",
+        query, url
+    )
+}
+
+fn strip_markup(input: &str) -> String {
+    let mut out = String::with_capacity(input.len());
+    let mut in_tag = false;
+    for ch in input.chars() {
+        match ch {
+            '<' => in_tag = true,
+            '>' => {
+                in_tag = false;
+                out.push(' ');
+            }
+            _ if in_tag => {}
+            _ => out.push(ch),
+        }
+    }
+    out
+}
+
+fn compact_whitespace(input: &str) -> String {
+    input.split_whitespace().collect::<Vec<_>>().join(" ")
+}
+
+fn extract_urls(input: &str, limit: usize) -> Vec<String> {
+    let mut urls = Vec::new();
+    for raw in input.split_whitespace() {
+        let trimmed = raw
+            .trim_matches(|ch: char| ",.;:!?)]}\"'".contains(ch))
+            .trim();
+        if !(trimmed.starts_with("http://") || trimmed.starts_with("https://")) {
+            continue;
+        }
+        if urls.iter().any(|existing| existing == trimmed) {
+            continue;
+        }
+        urls.push(trimmed.to_string());
+        if urls.len() >= limit {
+            break;
+        }
+    }
+    urls
+}
+
+fn extract_finding_lines(input: &str, limit: usize) -> Vec<String> {
+    let mut findings = Vec::new();
+    for line in input.lines() {
+        let normalized = compact_whitespace(line).trim().to_string();
+        if normalized.len() < 24 || normalized.len() > 200 {
+            continue;
+        }
+        if normalized.starts_with("http://") || normalized.starts_with("https://") {
+            continue;
+        }
+        if normalized.to_ascii_lowercase().contains("cookie")
+            || normalized.to_ascii_lowercase().contains("javascript")
+        {
+            continue;
+        }
+        if findings.iter().any(|existing| existing == &normalized) {
+            continue;
+        }
+        findings.push(normalized);
+        if findings.len() >= limit {
+            break;
+        }
+    }
+    findings
+}
+
+fn summarize_search_results(query: &str, url: &str, extract_text: &str) -> String {
+    let capped = extract_text
+        .chars()
+        .take(MAX_SEARCH_EXTRACT_CHARS)
+        .collect::<String>();
+    let stripped = strip_markup(&capped);
+    let findings = extract_finding_lines(&stripped, 3);
+    let urls = extract_urls(&capped, 2);
+
+    let mut bullets: Vec<String> = Vec::new();
+    for finding in findings {
+        bullets.push(finding);
+        if bullets.len() >= 3 {
+            break;
+        }
+    }
+    for link in urls.iter() {
+        if bullets.len() >= 3 {
+            break;
+        }
+        bullets.push(format!("Top link: {}", link));
+    }
+
+    if bullets.is_empty() {
+        let snippet = compact_whitespace(&stripped)
+            .chars()
+            .take(180)
+            .collect::<String>();
+        if snippet.is_empty() {
+            bullets.push("No high-signal snippets were extracted.".to_string());
+        } else {
+            bullets.push(format!("Extracted snippet: {}", snippet));
+        }
+    }
+
+    let refinement_hint = if let Some(link) = urls.first() {
+        format!(
+            "Open '{}' or refine with more specific keywords (site:, date range, exact phrase).",
+            link
+        )
+    } else {
+        "Refine with more specific keywords (site:, date range, exact phrase).".to_string()
+    };
+
+    let mut summary = format!("Search summary for '{}':\n", query);
+    for bullet in bullets.into_iter().take(3) {
+        summary.push_str(&format!("- {}\n", bullet));
+    }
+    summary.push_str(&format!("- Source URL: {}\n", url));
+    summary.push_str(&format!("Next refinement: {}", refinement_hint));
+    summary
 }
 
 fn infer_sys_tool_name(args: &serde_json::Value) -> &'static str {
@@ -178,7 +309,8 @@ pub async fn process_queue_item(
         )
         .await;
 
-    let (success, out, err): (bool, Option<String>, Option<String>) = match result_tuple {
+    let (mut success, mut out, mut err): (bool, Option<String>, Option<String>) = match result_tuple
+    {
         Ok(tuple) => tuple,
         Err(e) => {
             let msg = e.to_string();
@@ -188,6 +320,29 @@ pub async fn process_queue_item(
             (false, None, Some(msg))
         }
     };
+    let mut completion_summary: Option<String> = None;
+
+    if tool_name == "browser__extract" {
+        if let Some(pending) = agent_state.pending_search_completion.clone() {
+            let summary = if success {
+                summarize_search_results(&pending.query, &pending.url, out.as_deref().unwrap_or(""))
+            } else {
+                fallback_search_summary(&pending.query, &pending.url)
+            };
+            completion_summary = Some(summary.clone());
+            success = true;
+            out = Some(summary.clone());
+            err = None;
+            agent_state.status = AgentStatus::Completed(Some(summary));
+            agent_state.pending_search_completion = None;
+            agent_state.execution_queue.clear();
+            agent_state.recent_actions.clear();
+            log::info!(
+                "Search flow completed after browser__extract for session {}.",
+                hex::encode(&p.session_id[..4])
+            );
+        }
+    }
 
     let output_str = out.clone().unwrap_or_default();
     let error_str = err.clone();
@@ -207,6 +362,18 @@ pub async fn process_queue_item(
         service.event_sender.clone(),
         active_skill, // [NEW] Pass the skill hash
     )?;
+
+    if let Some(summary) = completion_summary.as_ref() {
+        if let Some(tx) = &service.event_sender {
+            let _ = tx.send(KernelEvent::AgentActionResult {
+                session_id: p.session_id,
+                step_index: agent_state.step_count,
+                tool_name: "agent__complete".to_string(),
+                output: summary.clone(),
+                agent_status: "Completed".to_string(),
+            });
+        }
+    }
 
     let mut failure_class: Option<FailureClass> = None;
     let mut stop_condition_hit = false;
@@ -383,4 +550,33 @@ pub async fn process_queue_item(
     state.insert(&key, &codec::to_bytes_canonical(&agent_state)?)?;
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{fallback_search_summary, summarize_search_results};
+
+    #[test]
+    fn summary_contains_topic_and_refinement_hint() {
+        let summary = summarize_search_results(
+            "internet of intelligence",
+            "https://duckduckgo.com/?q=internet+of+intelligence",
+            "<html><body><a href=\"https://example.com/a\">A</a>\nThe Internet of Intelligence explores decentralized agent coordination.\nOpen protocols enable verifiable execution and policy enforcement.</body></html>",
+        );
+        assert!(summary.contains("Search summary for 'internet of intelligence'"));
+        assert!(summary.contains("Source URL: https://duckduckgo.com/?q=internet+of+intelligence"));
+        assert!(summary.contains("Next refinement:"));
+    }
+
+    #[test]
+    fn fallback_summary_is_deterministic() {
+        let msg = fallback_search_summary(
+            "internet of intelligence",
+            "https://duckduckgo.com/?q=internet+of+intelligence",
+        );
+        assert_eq!(
+            msg,
+            "Searched 'internet of intelligence' at https://duckduckgo.com/?q=internet+of+intelligence, but structured extraction failed. Retry refinement if needed."
+        );
+    }
 }
