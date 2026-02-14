@@ -4,9 +4,11 @@ use async_trait::async_trait;
 use ioi_api::vm::drivers::gui::{GuiDriver, InputEvent};
 use ioi_api::vm::drivers::os::WindowInfo;
 use ioi_api::vm::inference::InferenceRuntime;
+use ioi_drivers::gui::accessibility::{AccessibilityNode, Rect};
 use ioi_drivers::gui::lenses::{auto::AutoLens, react::ReactLens, LensRegistry};
 use ioi_drivers::mcp::McpManager;
 use ioi_drivers::terminal::TerminalDriver;
+use ioi_services::agentic::desktop::execution::computer::find_semantic_ui_match;
 use ioi_services::agentic::desktop::execution::ToolExecutor;
 use ioi_services::agentic::desktop::service::step::action::{
     canonical_intent_hash, canonical_tool_identity,
@@ -22,7 +24,7 @@ use ioi_types::app::agentic::InferenceOptions;
 use ioi_types::app::{ActionRequest, ContextSlice};
 use ioi_types::app::{RoutingFailureClass, RoutingReceiptEvent};
 use ioi_types::error::VmError;
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashMap};
 use std::io::Cursor;
 use std::path::Path;
 use std::sync::{Arc, Mutex};
@@ -148,6 +150,51 @@ fn legacy_lens_alias_resolves_to_registered_react_lens() {
     assert_eq!(resolved, Some("react_semantic"));
 }
 
+#[test]
+fn ui_find_primary_semantic_path_uses_aria_label_hints() {
+    let mut button_attrs = HashMap::new();
+    button_attrs.insert("aria-label".to_string(), "Save Draft".to_string());
+    button_attrs.insert("data-testid".to_string(), "editor-save-button".to_string());
+
+    let tree = AccessibilityNode {
+        id: "window_editor".to_string(),
+        role: "window".to_string(),
+        name: Some("Editor".to_string()),
+        value: None,
+        rect: Rect {
+            x: 0,
+            y: 0,
+            width: 1200,
+            height: 800,
+        },
+        is_visible: true,
+        attributes: HashMap::new(),
+        som_id: None,
+        children: vec![AccessibilityNode {
+            id: "button_17".to_string(),
+            role: "button".to_string(),
+            name: None,
+            value: None,
+            rect: Rect {
+                x: 420,
+                y: 188,
+                width: 132,
+                height: 40,
+            },
+            is_visible: true,
+            attributes: button_attrs,
+            som_id: None,
+            children: vec![],
+        }],
+    };
+
+    let found = find_semantic_ui_match(&tree, "save draft")
+        .expect("semantic ui__find should resolve aria-label-backed controls");
+    assert_eq!(found.id.as_deref(), Some("button_17"));
+    assert_eq!(found.label.as_deref(), Some("Save Draft"));
+    assert_eq!(found.source, "semantic_tree");
+}
+
 fn test_agent_state() -> AgentState {
     AgentState {
         session_id: [0x33; 32],
@@ -172,6 +219,7 @@ fn test_agent_state() -> AgentState {
         current_tier: ExecutionTier::VisualForeground,
         last_screen_phash: None,
         execution_queue: vec![],
+        pending_search_completion: None,
         active_skill_hash: None,
         tool_execution_log: BTreeMap::new(),
         visual_som_map: None,
@@ -262,6 +310,56 @@ fn routing_receipt_contract_for_ui_find_includes_pre_state_and_binding_hash() {
     assert_eq!(receipt.post_state.verification_checks, verification_checks);
     assert!(!receipt.policy_binding_hash.is_empty());
     assert_eq!(receipt.policy_binding_hash, binding_hash);
+}
+
+#[test]
+fn routing_receipt_for_ui_find_primary_success_exposes_fallback_visibility() {
+    let state = test_agent_state();
+    let tool = AgentTool::UiFind {
+        query: "save draft".to_string(),
+    };
+    let (tool_name, args) = canonical_tool_identity(&tool);
+
+    let intent_hash = canonical_intent_hash(
+        &tool_name,
+        &args,
+        ExecutionTier::VisualForeground,
+        state.step_count,
+        "test-v1",
+    );
+    let pre_state = build_state_summary(&state);
+    let verification_checks = vec![
+        "routing_reason_code=primary_success".to_string(),
+        "escalation_chain=ToolFirst(ui__find.semantic)".to_string(),
+        "fallback_used=false".to_string(),
+    ];
+    let post_state = build_post_state_summary(&state, true, verification_checks.clone());
+    let binding_hash = policy_binding_hash(&intent_hash, "allowed");
+
+    let receipt = RoutingReceiptEvent {
+        session_id: state.session_id,
+        step_index: pre_state.step_index,
+        intent_hash,
+        policy_decision: "allowed".to_string(),
+        tool_name,
+        tool_version: "test-v1".to_string(),
+        pre_state,
+        action_json: serde_json::to_string(&tool).unwrap(),
+        post_state,
+        artifacts: vec!["trace://agent_step/12".to_string()],
+        failure_class: None,
+        stop_condition_hit: false,
+        escalation_path: None,
+        scs_lineage_ptr: None,
+        mutation_receipt_ptr: None,
+        policy_binding_hash: binding_hash,
+        policy_binding_sig: None,
+        policy_binding_signer: None,
+    };
+
+    assert!(receipt.post_state.success);
+    assert_eq!(receipt.failure_class, None);
+    assert_eq!(receipt.post_state.verification_checks, verification_checks);
 }
 
 #[tokio::test]
