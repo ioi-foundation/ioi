@@ -24,6 +24,7 @@ use ui_find::find_element_coordinates;
 
 pub(super) use click::{click_element_by_id, click_element_by_id_with_button, exec_click};
 pub use input::{build_cursor_click_sequence, build_cursor_drag_sequence};
+pub use semantics::{find_semantic_ui_match, UiFindSemanticMatch};
 pub(super) use tree::fetch_lensed_tree;
 
 fn center_from_rect(x: i32, y: i32, w: i32, h: i32) -> [u32; 2] {

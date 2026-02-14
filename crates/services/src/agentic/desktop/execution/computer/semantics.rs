@@ -1,8 +1,8 @@
 use ioi_drivers::gui::accessibility::{AccessibilityNode, Rect};
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 #[derive(Debug, Clone)]
-pub(super) struct UiFindSemanticMatch {
+pub struct UiFindSemanticMatch {
     pub id: Option<String>,
     pub role: Option<String>,
     pub label: Option<String>,
@@ -41,6 +41,75 @@ fn node_label(node: &AccessibilityNode) -> String {
         .unwrap_or_else(|| node.role.clone())
 }
 
+const SEMANTIC_HINT_ATTR_KEYS: [&str; 10] = [
+    "aria-label",
+    "aria-labelledby",
+    "aria-description",
+    "title",
+    "placeholder",
+    "description",
+    "alt",
+    "semantic_aliases",
+    "data-testid",
+    "data-test-id",
+];
+
+fn semantic_hint_tokens(node: Option<&AccessibilityNode>) -> Vec<String> {
+    let Some(node) = node else {
+        return Vec::new();
+    };
+
+    let mut hints = BTreeSet::new();
+    for key in SEMANTIC_HINT_ATTR_KEYS {
+        let Some(value) = node.attributes.get(key) else {
+            continue;
+        };
+
+        let trimmed = value.trim();
+        if trimmed.is_empty() {
+            continue;
+        }
+
+        hints.insert(trimmed.to_ascii_lowercase());
+    }
+
+    hints.into_iter().collect()
+}
+
+fn preferred_node_label(node: Option<&AccessibilityNode>, fallback: &str) -> String {
+    let Some(node) = node else {
+        return fallback.to_string();
+    };
+
+    if let Some(name) = node
+        .name
+        .as_deref()
+        .map(str::trim)
+        .filter(|v| !v.is_empty())
+    {
+        return name.to_string();
+    }
+    if let Some(value) = node
+        .value
+        .as_deref()
+        .map(str::trim)
+        .filter(|v| !v.is_empty())
+    {
+        return value.to_string();
+    }
+
+    for key in SEMANTIC_HINT_ATTR_KEYS {
+        if let Some(value) = node.attributes.get(key) {
+            let trimmed = value.trim();
+            if !trimmed.is_empty() {
+                return trimmed.to_string();
+            }
+        }
+    }
+
+    fallback.to_string()
+}
+
 fn semantic_confidence_from_score(score: i32) -> f32 {
     let normalized = (score as f32 / 135.0).clamp(0.35, 0.98);
     (normalized * 100.0).round() / 100.0
@@ -53,6 +122,7 @@ fn score_ui_find_candidate(
     id: &str,
     role: &str,
     label: &str,
+    semantic_hints: &[String],
     rect: Rect,
 ) -> i32 {
     if rect.width <= 0 || rect.height <= 0 {
@@ -100,12 +170,35 @@ fn score_ui_find_candidate(
         }
     }
 
+    for hint in semantic_hints {
+        let hint_norm = normalize_semantic_key(hint);
+
+        if hint == query_lc {
+            score += 120;
+        }
+        if !query_norm.is_empty() && hint_norm == query_norm {
+            score += 110;
+        }
+        if !query_lc.is_empty() && hint.contains(query_lc) {
+            score += 70;
+        }
+        if !query_norm.is_empty() && hint_norm.contains(query_norm) {
+            score += 55;
+        }
+
+        for term in query_terms {
+            if hint.contains(term) {
+                score += 12;
+            }
+        }
+    }
+
     let area = (rect.width * rect.height).max(1);
     score -= (area / 1200).min(25);
     score
 }
 
-pub(super) fn find_semantic_ui_match(
+pub fn find_semantic_ui_match(
     tree: &AccessibilityNode,
     query: &str,
 ) -> Option<UiFindSemanticMatch> {
@@ -121,7 +214,7 @@ pub(super) fn find_semantic_ui_match(
             return Some(UiFindSemanticMatch {
                 id: Some(node.id.clone()),
                 role: Some(node.role.clone()),
-                label: Some(node_label(node)),
+                label: Some(preferred_node_label(Some(node), &node_label(node))),
                 x: cx,
                 y: cy,
                 source: "semantic_id_exact",
@@ -136,6 +229,8 @@ pub(super) fn find_semantic_ui_match(
     let mut best: Option<(i32, UiFindSemanticMatch)> = None;
 
     for (id, role, label, rect) in tree.find_matches(query) {
+        let resolved_node = find_node_by_id(tree, &id);
+        let semantic_hints = semantic_hint_tokens(resolved_node);
         let score = score_ui_find_candidate(
             &query_lc,
             &query_norm,
@@ -143,6 +238,7 @@ pub(super) fn find_semantic_ui_match(
             &id,
             &role,
             &label,
+            &semantic_hints,
             rect,
         );
         if score == i32::MIN {
@@ -154,7 +250,7 @@ pub(super) fn find_semantic_ui_match(
         let candidate = UiFindSemanticMatch {
             id: Some(id),
             role: Some(role),
-            label: Some(label),
+            label: Some(preferred_node_label(resolved_node, &label)),
             x: cx,
             y: cy,
             source: "semantic_tree",
@@ -769,5 +865,52 @@ mod tests {
 
         let result = find_best_element_for_point(&root, 100, 100);
         assert_eq!(result.as_deref(), Some("btn_7"));
+    }
+
+    #[test]
+    fn find_semantic_ui_match_uses_aria_label_when_name_missing() {
+        let mut button = node(
+            "button_17",
+            "button",
+            Rect {
+                x: 120,
+                y: 80,
+                width: 100,
+                height: 36,
+            },
+            vec![],
+            None,
+        );
+        button
+            .attributes
+            .insert("aria-label".to_string(), "Save Draft".to_string());
+        button
+            .attributes
+            .insert("data-testid".to_string(), "editor-save-button".to_string());
+
+        let root = node(
+            "window_editor",
+            "window",
+            Rect {
+                x: 0,
+                y: 0,
+                width: 800,
+                height: 600,
+            },
+            vec![button],
+            Some("Editor"),
+        );
+
+        let found = find_semantic_ui_match(&root, "save draft")
+            .expect("aria-label backed element should be matched");
+
+        assert_eq!(found.id.as_deref(), Some("button_17"));
+        assert_eq!(found.label.as_deref(), Some("Save Draft"));
+        assert_eq!(found.source, "semantic_tree");
+        assert!(
+            found.confidence >= 0.8,
+            "expected strong semantic confidence, got {}",
+            found.confidence
+        );
     }
 }
