@@ -2,7 +2,8 @@
 use ioi_api::vm::inference::InferenceRuntime;
 use ioi_ipc::public::public_api_client::PublicApiClient;
 use serde::{Deserialize, Serialize};
-use std::collections::HashSet;
+use serde_json::Value;
+use std::collections::{HashMap, HashSet};
 use std::sync::{Arc, Mutex};
 use tonic::transport::Channel;
 
@@ -27,6 +28,94 @@ pub struct Receipt {
     pub duration: String,
     pub actions: u32,
     pub cost: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum EventType {
+    CommandRun,
+    CodeSearch,
+    FileRead,
+    FileEdit,
+    DiffCreated,
+    TestRun,
+    BrowserNavigate,
+    BrowserExtract,
+    Receipt,
+    InfoNote,
+    Warning,
+    Error,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum EventStatus {
+    Success,
+    Failure,
+    Partial,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum ArtifactType {
+    Diff,
+    File,
+    Web,
+    RunBundle,
+    Report,
+    Log,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct ArtifactRef {
+    pub artifact_id: String,
+    pub artifact_type: ArtifactType,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ReceiptDigest {
+    pub receipt_id: String,
+    pub policy_hash: String,
+    pub decision: String,
+    pub tier: String,
+    pub reason_code: String,
+    pub tool_name: String,
+    pub budgets: Value,
+    pub step_index: u32,
+    pub timestamp: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AgentEvent {
+    pub event_id: String,
+    pub timestamp: String,
+    pub thread_id: String,
+    pub step_index: u32,
+    pub event_type: EventType,
+    pub title: String,
+    pub digest: Value,
+    pub details: Value,
+    #[serde(default)]
+    pub artifact_refs: Vec<ArtifactRef>,
+    pub receipt_ref: Option<String>,
+    #[serde(default)]
+    pub input_refs: Vec<String>,
+    pub status: EventStatus,
+    pub duration_ms: Option<u64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Artifact {
+    pub artifact_id: String,
+    pub created_at: String,
+    pub thread_id: String,
+    pub artifact_type: ArtifactType,
+    pub title: String,
+    pub description: String,
+    pub content_ref: String,
+    pub metadata: Value,
+    pub version: Option<u32>,
+    pub parent_artifact_id: Option<String>,
 }
 
 // Structured chat message for persistent history
@@ -79,6 +168,18 @@ pub struct AgentTask {
     // This is populated by hydrating from the blockchain state (Audit Log).
     #[serde(default)]
     pub history: Vec<ChatMessage>,
+
+    // New immutable event stream (canonical for new runs).
+    #[serde(default)]
+    pub events: Vec<AgentEvent>,
+
+    // Macro artifacts for this thread.
+    #[serde(default)]
+    pub artifacts: Vec<Artifact>,
+
+    // Run bundle artifact pointer (if created).
+    #[serde(default)]
+    pub run_bundle_id: Option<String>,
 
     // Track processed steps using a composite key "{step}:{tool}"
     #[serde(skip, default)]
@@ -135,6 +236,8 @@ pub struct AppState {
     pub gate_response: Option<GateResponse>,
     pub is_simulating: bool,
     pub rpc_client: Option<PublicApiClient<Channel>>,
+    pub event_index: HashMap<String, Vec<String>>,
+    pub artifact_index: HashMap<String, Vec<String>>,
 
     // Persistent Store for Studio execution artifacts
     // Note: SovereignContextStore is imported but used inside Arc<Mutex> here
@@ -147,4 +250,57 @@ pub struct AppState {
 
     // Shared Inference Runtime for Embedding/Indexing commands
     pub inference_runtime: Option<Arc<dyn InferenceRuntime>>,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    #[test]
+    fn serializes_agent_event_shape() {
+        let event = AgentEvent {
+            event_id: "evt-1".to_string(),
+            timestamp: "2026-02-13T00:00:00Z".to_string(),
+            thread_id: "thread-1".to_string(),
+            step_index: 7,
+            event_type: EventType::CommandRun,
+            title: "Ran cargo test".to_string(),
+            digest: json!({"tool":"cargo test"}),
+            details: json!({"output":"ok"}),
+            artifact_refs: vec![ArtifactRef {
+                artifact_id: "art-1".to_string(),
+                artifact_type: ArtifactType::Log,
+            }],
+            receipt_ref: Some("receipt-1".to_string()),
+            input_refs: vec!["evt-0".to_string()],
+            status: EventStatus::Success,
+            duration_ms: Some(12),
+        };
+
+        let value = serde_json::to_value(&event).expect("serialize event");
+        assert_eq!(value["event_id"], "evt-1");
+        assert_eq!(value["event_type"], "COMMAND_RUN");
+        assert_eq!(value["status"], "SUCCESS");
+        assert_eq!(value["artifact_refs"][0]["artifact_type"], "LOG");
+    }
+
+    #[test]
+    fn serializes_artifact_shape() {
+        let artifact = Artifact {
+            artifact_id: "art-1".to_string(),
+            created_at: "2026-02-13T00:00:00Z".to_string(),
+            thread_id: "thread-1".to_string(),
+            artifact_type: ArtifactType::Diff,
+            title: "Large diff".to_string(),
+            description: "Diff exceeded threshold".to_string(),
+            content_ref: "scs://artifact/art-1".to_string(),
+            metadata: json!({"files_touched": 4}),
+            version: Some(1),
+            parent_artifact_id: None,
+        };
+        let value = serde_json::to_value(&artifact).expect("serialize artifact");
+        assert_eq!(value["artifact_type"], "DIFF");
+        assert_eq!(value["metadata"]["files_touched"], 4);
+    }
 }

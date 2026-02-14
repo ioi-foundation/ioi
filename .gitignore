@@ -18,3 +18,4 @@ ioi-data/
 node_modules/
 dist/
 .DS_Store
+.tmp/

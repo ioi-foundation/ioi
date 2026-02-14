@@ -3,6 +3,13 @@
    Modern glassmorphism with subtle depth
    ============================================ */
 
+html.spotlight-shell-host,
+body.spotlight-shell-host,
+#root.spotlight-shell-host {
+  background: transparent !important;
+  background-color: transparent !important;
+}
+
 /* CSS Custom Properties - Design Tokens */
 .spot-window {
   /* Core Colors - Darker, more opaque */
@@ -11,32 +18,32 @@
   --spot-bg-tertiary: rgba(28, 28, 34, 0.9);
   --spot-bg-elevated: rgba(32, 32, 40, 0.95);
   --spot-bg-surface: rgba(20, 20, 26, 0.98);
-  
+
   /* Borders - Slightly more visible */
   --spot-border: rgba(255, 255, 255, 0.1);
   --spot-border-subtle: rgba(255, 255, 255, 0.06);
   --spot-border-strong: rgba(255, 255, 255, 0.14);
   --spot-border-focus: rgba(99, 144, 255, 0.5);
-  
+
   /* Text - Better contrast */
-  --spot-text-primary: #F8F8FA;
-  --spot-text-secondary: #B0B0B8;
-  --spot-text-muted: #6E6E78;
+  --spot-text-primary: #f8f8fa;
+  --spot-text-secondary: #b0b0b8;
+  --spot-text-muted: #6e6e78;
   --spot-text-dim: #505058;
-  
+
   /* Accent - Slightly more saturated */
-  --spot-accent: #5B8AFF;
-  --spot-accent-hover: #4A7AFF;
-  --spot-accent-muted: #4A6FCC;
+  --spot-accent: #5b8aff;
+  --spot-accent-hover: #4a7aff;
+  --spot-accent-muted: #4a6fcc;
   --spot-accent-glow: rgba(91, 138, 255, 0.3);
   --spot-accent-subtle: rgba(91, 138, 255, 0.1);
-  
+
   /* Status Colors */
-  --spot-success: #34D399;
-  --spot-warning: #FBBF24;
-  --spot-error: #F87171;
+  --spot-success: #34d399;
+  --spot-warning: #fbbf24;
+  --spot-error: #f87171;
   --spot-error-subtle: rgba(248, 113, 113, 0.12);
-  
+
   /* Radii */
   --spot-radius-xs: 4px;
   --spot-radius-sm: 6px;
@@ -44,7 +51,7 @@
   --spot-radius-lg: 14px;
   --spot-radius-xl: 18px;
   --spot-radius-full: 9999px;
-  
+
   /* Shadows - More depth */
   --spot-shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.2);
   --spot-shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.25);
@@ -53,7 +60,7 @@
   --spot-shadow-elevated: 0 20px 60px -15px rgba(0, 0, 0, 0.6);
   --spot-shadow-glow: 0 0 24px var(--spot-accent-glow);
   --spot-shadow-inset: inset 0 1px 0 0 rgba(255, 255, 255, 0.04);
-  
+
   /* Transitions */
   --spot-transition-fast: 100ms cubic-bezier(0.4, 0, 0.2, 1);
   --spot-transition: 180ms cubic-bezier(0.4, 0, 0.2, 1);
@@ -64,13 +71,35 @@
   width: 100vw;
   height: 100vh;
   display: flex;
+  justify-content: center;
+  align-items: center;
   overflow: hidden;
   background: transparent !important;
   color: var(--spot-text-primary);
-  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", system-ui, sans-serif;
+  font-family:
+    -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", system-ui,
+    sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   letter-spacing: -0.01em;
+}
+
+.spot-window.spot-window--studio {
+  width: 100%;
+  height: 100%;
+  justify-content: stretch;
+  align-items: stretch;
+}
+
+.spot-window--studio .spot-container {
+  border-radius: 0;
+  border: none;
+  box-shadow: none;
+}
+
+.spot-window--studio .spot-header,
+.spot-window--studio .spot-header-drag {
+  -webkit-app-region: no-drag;
 }
 
 /* Main Container - Glass Effect */
@@ -82,8 +111,7 @@
   overflow: hidden;
   background: var(--spot-bg-primary);
   border: 1px solid var(--spot-border);
-  border-right: none;
-  border-radius: var(--spot-radius-lg) 0 0 var(--spot-radius-lg);
+  border-radius: var(--spot-radius-lg);
   box-shadow: var(--spot-shadow-elevated);
   position: relative;
 }
@@ -119,7 +147,11 @@
   align-items: center;
   height: 44px;
   padding: 0 8px 0 12px;
-  background: linear-gradient(180deg, rgba(255,255,255,0.02) 0%, transparent 100%);
+  background: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.02) 0%,
+    transparent 100%
+  );
   border-bottom: 1px solid var(--spot-border-subtle);
   flex-shrink: 0;
   position: relative;
@@ -180,7 +212,33 @@
   background: transparent;
   isolation: isolate;
   /* [FIX] Ensure container constrains children to trigger their overflow */
-  overflow: hidden; 
+  overflow: hidden;
+}
+
+/* Keep interactive content focusable/clickable in frameless mode */
+.spot-main,
+.spot-chat,
+.spot-input-section,
+.spot-input-wrapper,
+.spot-input,
+.spot-controls,
+.spot-toggles,
+.spot-sidebar-toggle,
+.spot-action-btn,
+.spot-context-btn,
+.spot-send-btn,
+.spot-stop-btn,
+.spot-toggle,
+.spot-dropdown-menu,
+.spot-dropdown-item {
+  -webkit-app-region: no-drag;
+}
+
+/* Text input must never inherit drag behavior in frameless mode */
+.spot-input-section,
+.spot-input-wrapper,
+.spot-input {
+  -webkit-app-region: no-drag !important;
 }
 
 /* Sidebar Toggle - Floating in top-left of chat */
@@ -263,29 +321,6 @@
   background: rgba(248, 113, 113, 0.2);
 }
 
-/* Dock button indicator */
-.spot-icon-btn.dock-btn {
-  position: relative;
-  color: var(--spot-accent);
-}
-
-.spot-icon-btn.dock-btn::after {
-  content: "";
-  position: absolute;
-  bottom: 3px;
-  right: 3px;
-  width: 5px;
-  height: 5px;
-  background: var(--spot-accent);
-  border-radius: 50%;
-  animation: dockPulse 2s ease-in-out infinite;
-}
-
-@keyframes dockPulse {
-  0%, 100% { opacity: 1; transform: scale(1); }
-  50% { opacity: 0.5; transform: scale(0.8); }
-}
-
 /* Action buttons (settings, code view) - slightly larger */
 .spot-header-right > .spot-icon-btn:not(.close) {
   width: 30px;
@@ -297,11 +332,12 @@
    ============================================ */
 .spot-input-section {
   padding: 12px 16px 16px;
-  background: 
+  background:
     linear-gradient(to top, var(--spot-bg-primary) 60%, transparent 100%),
     rgba(12, 12, 14, 0.98);
   position: relative;
   flex-shrink: 0;
+  z-index: 30;
 }
 
 /* Fade gradient above input */
@@ -330,12 +366,17 @@
   display: flex;
   flex-direction: column;
   gap: 10px;
+  position: relative;
+  z-index: 31;
+  pointer-events: auto;
 }
 
 .spot-input-wrapper:focus-within {
   background: var(--spot-bg-tertiary);
   border-color: var(--spot-border-focus);
-  box-shadow: 0 0 0 3px var(--spot-accent-subtle), var(--spot-shadow-md);
+  box-shadow:
+    0 0 0 3px var(--spot-accent-subtle),
+    var(--spot-shadow-md);
 }
 
 .spot-input {
@@ -350,6 +391,11 @@
   font-family: inherit;
   min-height: 22px;
   max-height: 120px;
+  cursor: text;
+  caret-color: var(--spot-text-primary);
+  user-select: text;
+  -webkit-user-select: text;
+  pointer-events: auto;
 }
 
 .spot-input::placeholder {
@@ -489,33 +535,27 @@
 }
 
 /* ============================================
-   FLOATING STATE - Full border radius restored
-   ============================================ */
-.spot-window.floating .spot-container {
-  border-radius: var(--spot-radius-lg);
-  border-right: 1px solid var(--spot-border);
-  box-shadow: 
-    0 25px 80px -20px rgba(0, 0, 0, 0.5),
-    0 0 0 1px var(--spot-border);
-}
-
-/* ============================================
    RESIZE THRESHOLD ZONES - Visual Feedback
    ============================================ */
 .spot-container.threshold-minimize {
   opacity: calc(1 - (var(--threshold-progress, 0) * 0.4));
   border-color: var(--spot-warning);
-  box-shadow: 
+  box-shadow:
     var(--spot-shadow-elevated),
     inset 0 0 0 1px rgba(251, 191, 36, calc(var(--threshold-progress, 0) * 0.3));
-  transition: opacity 150ms ease, border-color 150ms ease, box-shadow 150ms ease;
+  transition:
+    opacity 150ms ease,
+    border-color 150ms ease,
+    box-shadow 150ms ease;
 }
 
 .spot-container.threshold-maximize {
   border-color: var(--spot-accent);
-  box-shadow: 
+  box-shadow:
     var(--spot-shadow-elevated),
     inset 0 0 0 1px rgba(99, 144, 255, calc(var(--threshold-progress, 0) * 0.3)),
     0 0 calc(var(--threshold-progress, 0) * 20px) rgba(99, 144, 255, 0.2);
-  transition: border-color 150ms ease, box-shadow 150ms ease;
+  transition:
+    border-color 150ms ease,
+    box-shadow 150ms ease;
 }

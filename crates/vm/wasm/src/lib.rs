@@ -329,10 +329,7 @@ impl ioi::system::host::Host for HostState {
                 match action {
                     "navigate" => {
                         let url = req["url"].as_str().ok_or("Missing url")?;
-                        let content = driver
-                            .navigate(url)
-                            .await
-                            .map_err(|e| e.to_string())?;
+                        let content = driver.navigate(url).await.map_err(|e| e.to_string())?;
                         Ok(content.into_bytes())
                     }
                     "extract_dom" => {
