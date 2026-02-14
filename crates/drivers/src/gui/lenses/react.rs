@@ -47,6 +47,49 @@ fn normalized_text(value: Option<&str>) -> Option<String> {
         .map(|value| value.to_string())
 }
 
+fn normalize_name_token(value: &str) -> String {
+    value
+        .trim()
+        .to_ascii_lowercase()
+        .chars()
+        .filter(|ch| ch.is_ascii_alphanumeric())
+        .collect()
+}
+
+fn is_low_information_name(node: &AccessibilityNode) -> bool {
+    let Some(name) = normalized_text(node.name.as_deref()) else {
+        return true;
+    };
+
+    let name_norm = normalize_name_token(&name);
+    if name_norm.is_empty() {
+        return true;
+    }
+
+    let role_norm = normalize_name_token(&node.role);
+    if !role_norm.is_empty() && name_norm == role_norm {
+        return true;
+    }
+
+    matches!(
+        name_norm.as_str(),
+        "button"
+            | "link"
+            | "textbox"
+            | "text"
+            | "input"
+            | "field"
+            | "control"
+            | "image"
+            | "icon"
+            | "label"
+            | "group"
+            | "generic"
+            | "window"
+            | "pane"
+    )
+}
+
 fn first_non_empty_attr(node: &AccessibilityNode, keys: &[&str]) -> Option<String> {
     keys.iter()
         .find_map(|key| normalized_text(node.attributes.get(*key).map(String::as_str)))
@@ -285,7 +328,7 @@ impl ReactLens {
         }
 
         // Hoist direct ARIA labels to `name`.
-        if normalized_text(node.name.as_deref()).is_none() {
+        if is_low_information_name(&node) {
             if let Some(aria) =
                 normalized_text(node.attributes.get("aria-label").map(String::as_str))
             {
@@ -294,7 +337,7 @@ impl ReactLens {
         }
 
         // Resolve ARIA IDREF relations (`aria-labelledby`, `aria-describedby`) into semantic text.
-        if normalized_text(node.name.as_deref()).is_none() {
+        if is_low_information_name(&node) {
             if let Some(labelled_text) = resolve_idref_text(&node, "aria-labelledby", index) {
                 node.name = Some(labelled_text.clone());
                 node.attributes
@@ -309,7 +352,7 @@ impl ReactLens {
         }
 
         // Recover form semantics in React trees where labels use `for/htmlFor`.
-        if normalized_text(node.name.as_deref()).is_none() {
+        if is_low_information_name(&node) {
             if let Some(for_label) = label_for_text(&node, label_for_index) {
                 node.name = Some(for_label.clone());
                 node.attributes
