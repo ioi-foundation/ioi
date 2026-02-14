@@ -7,11 +7,6 @@ use tauri::{
 };
 use tauri_plugin_global_shortcut::{Code, GlobalShortcutExt, Modifiers, Shortcut, ShortcutState};
 
-#[cfg(target_os = "windows")]
-use window_vibrancy::apply_mica;
-#[cfg(target_os = "macos")]
-use window_vibrancy::{apply_vibrancy, NSVisualEffectMaterial, NSVisualEffectState};
-
 mod execution;
 mod ingestion;
 mod kernel;
@@ -87,24 +82,6 @@ pub fn run() {
                 kernel::cosmic::ensure_cosmic_window_rules();
             }
 
-            // --- APPLY NATIVE WINDOW EFFECTS ---
-            if let Some(window) = app_handle.get_webview_window("gate") {
-                #[cfg(target_os = "macos")]
-                let _ = apply_vibrancy(
-                    &window,
-                    NSVisualEffectMaterial::UnderWindowBackground,
-                    Some(NSVisualEffectState::Active),
-                    Some(12.0),
-                );
-
-                #[cfg(target_os = "windows")]
-                let _ = apply_mica(&window, None);
-
-                #[cfg(target_os = "linux")]
-                kernel::linux_blur::setup_kwin_blur(&window);
-            }
-            // -----------------------------------
-
             let data_dir = app_handle
                 .path()
                 .app_data_dir()
@@ -166,7 +143,7 @@ pub fn run() {
             let show_spotlight_item = MenuItem::with_id(
                 app,
                 "spotlight",
-                "Open Copilot (Ctrl+Space)",
+                "Open Autopilot (Ctrl+Space)",
                 true,
                 None::<&str>,
             )?;

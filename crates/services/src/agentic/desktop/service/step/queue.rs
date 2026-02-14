@@ -23,6 +23,7 @@ use ioi_types::app::{
 use ioi_types::codec;
 use ioi_types::error::TransactionError;
 use serde_json::json;
+use std::path::Path;
 
 /// Applies parity routing for queued actions and snapshots the pre-state after
 /// tier selection so receipts and executor context stay coherent.
@@ -173,6 +174,43 @@ fn infer_sys_tool_name(args: &serde_json::Value) -> &'static str {
     "sys__exec"
 }
 
+fn infer_fs_read_tool_name(args: &serde_json::Value) -> &'static str {
+    let Some(obj) = args.as_object() else {
+        return "filesystem__read_file";
+    };
+
+    // Preserve deterministic filesystem search queued via ActionTarget::FsRead.
+    if obj.contains_key("regex") || obj.contains_key("file_pattern") {
+        return "filesystem__search";
+    }
+
+    if let Some(path) = obj
+        .get("path")
+        .and_then(|value| value.as_str())
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+    {
+        if Path::new(path).is_dir() {
+            return "filesystem__list_directory";
+        }
+    }
+
+    "filesystem__read_file"
+}
+
+fn infer_fs_write_tool_name(args: &serde_json::Value) -> &'static str {
+    let Some(obj) = args.as_object() else {
+        return "filesystem__write_file";
+    };
+
+    // Preserve deterministic patch requests queued under ActionTarget::FsWrite.
+    if obj.contains_key("search") && obj.contains_key("replace") {
+        return "filesystem__patch";
+    }
+
+    "filesystem__write_file"
+}
+
 fn infer_custom_tool_name(name: &str, args: &serde_json::Value) -> String {
     match name {
         // Backward-compatible aliases emitted by ActionTarget::Custom values.
@@ -189,8 +227,8 @@ fn infer_custom_tool_name(name: &str, args: &serde_json::Value) -> String {
         "os::focus" => "os__focus_window".to_string(),
         "clipboard::write" => "os__copy".to_string(),
         "clipboard::read" => "os__paste".to_string(),
-        "fs::read" => "filesystem__read_file".to_string(),
-        "fs::write" => "filesystem__write_file".to_string(),
+        "fs::read" => infer_fs_read_tool_name(args).to_string(),
+        "fs::write" => infer_fs_write_tool_name(args).to_string(),
         "sys::exec" => infer_sys_tool_name(args).to_string(),
         _ => name.to_string(),
     }
@@ -202,8 +240,8 @@ fn queue_target_to_tool_name_and_args(
 ) -> Result<(String, serde_json::Value), TransactionError> {
     match target {
         ActionTarget::Custom(name) => Ok((infer_custom_tool_name(name, &raw_args), raw_args)),
-        ActionTarget::FsRead => Ok(("filesystem__read_file".to_string(), raw_args)),
-        ActionTarget::FsWrite => Ok(("filesystem__write_file".to_string(), raw_args)),
+        ActionTarget::FsRead => Ok((infer_fs_read_tool_name(&raw_args).to_string(), raw_args)),
+        ActionTarget::FsWrite => Ok((infer_fs_write_tool_name(&raw_args).to_string(), raw_args)),
         ActionTarget::BrowserNavigateHermetic => Ok(("browser__navigate".to_string(), raw_args)),
         ActionTarget::BrowserExtract => Ok(("browser__extract".to_string(), raw_args)),
         ActionTarget::GuiType | ActionTarget::UiType => Ok(("gui__type".to_string(), raw_args)),
@@ -554,7 +592,37 @@ pub async fn process_queue_item(
 
 #[cfg(test)]
 mod tests {
-    use super::{fallback_search_summary, summarize_search_results};
+    use super::{fallback_search_summary, queue_action_request_to_tool, summarize_search_results};
+    use ioi_types::app::agentic::AgentTool;
+    use ioi_types::app::{ActionContext, ActionRequest, ActionTarget};
+    use std::fs;
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    fn build_fs_read_request(args: serde_json::Value) -> ActionRequest {
+        ActionRequest {
+            target: ActionTarget::FsRead,
+            params: serde_json::to_vec(&args).expect("params should serialize"),
+            context: ActionContext {
+                agent_id: "desktop_agent".to_string(),
+                session_id: None,
+                window_id: None,
+            },
+            nonce: 7,
+        }
+    }
+
+    fn build_fs_write_request(args: serde_json::Value) -> ActionRequest {
+        ActionRequest {
+            target: ActionTarget::FsWrite,
+            params: serde_json::to_vec(&args).expect("params should serialize"),
+            context: ActionContext {
+                agent_id: "desktop_agent".to_string(),
+                session_id: None,
+                window_id: None,
+            },
+            nonce: 11,
+        }
+    }
 
     #[test]
     fn summary_contains_topic_and_refinement_hint() {
@@ -578,5 +646,89 @@ mod tests {
             msg,
             "Searched 'internet of intelligence' at https://duckduckgo.com/?q=internet+of+intelligence, but structured extraction failed. Retry refinement if needed."
         );
+    }
+
+    #[test]
+    fn queue_preserves_filesystem_search_from_fsread_target() {
+        let request = build_fs_read_request(serde_json::json!({
+            "path": "/tmp/workspace",
+            "regex": "TODO",
+            "file_pattern": "*.rs"
+        }));
+
+        let tool = queue_action_request_to_tool(&request).expect("queue mapping should succeed");
+        match tool {
+            AgentTool::FsSearch {
+                path,
+                regex,
+                file_pattern,
+            } => {
+                assert_eq!(path, "/tmp/workspace");
+                assert_eq!(regex, "TODO");
+                assert_eq!(file_pattern.as_deref(), Some("*.rs"));
+            }
+            other => panic!("expected FsSearch, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn queue_infers_list_directory_for_existing_directory_path() {
+        let unique = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("clock should be after unix epoch")
+            .as_nanos();
+        let dir = std::env::temp_dir().join(format!("ioi_queue_fs_list_{}", unique));
+        fs::create_dir_all(&dir).expect("temp directory should be created");
+        let request = build_fs_read_request(serde_json::json!({
+            "path": dir.to_string_lossy()
+        }));
+
+        let tool = queue_action_request_to_tool(&request).expect("queue mapping should succeed");
+        match tool {
+            AgentTool::FsList { path } => {
+                assert_eq!(path, dir.to_string_lossy());
+            }
+            other => panic!("expected FsList, got {:?}", other),
+        }
+
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn queue_defaults_to_read_file_when_not_search_or_directory() {
+        let request = build_fs_read_request(serde_json::json!({
+            "path": "/tmp/not-a-real-file.txt"
+        }));
+
+        let tool = queue_action_request_to_tool(&request).expect("queue mapping should succeed");
+        match tool {
+            AgentTool::FsRead { path } => {
+                assert_eq!(path, "/tmp/not-a-real-file.txt");
+            }
+            other => panic!("expected FsRead, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn queue_preserves_filesystem_patch_from_fswrite_target() {
+        let request = build_fs_write_request(serde_json::json!({
+            "path": "/tmp/demo.txt",
+            "search": "alpha",
+            "replace": "beta"
+        }));
+
+        let tool = queue_action_request_to_tool(&request).expect("queue mapping should succeed");
+        match tool {
+            AgentTool::FsPatch {
+                path,
+                search,
+                replace,
+            } => {
+                assert_eq!(path, "/tmp/demo.txt");
+                assert_eq!(search, "alpha");
+                assert_eq!(replace, "beta");
+            }
+            other => panic!("expected FsPatch, got {:?}", other),
+        }
     }
 }

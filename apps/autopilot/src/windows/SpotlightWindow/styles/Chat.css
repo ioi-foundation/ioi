@@ -87,9 +87,87 @@
   padding: 0;
 }
 
-.message-content {
+.message-content-text {
   word-wrap: break-word;
   white-space: pre-wrap;
+}
+
+.message-content-markdown {
+  word-wrap: break-word;
+  overflow-wrap: anywhere;
+}
+
+.message-content-markdown > :first-child {
+  margin-top: 0;
+}
+
+.message-content-markdown > :last-child {
+  margin-bottom: 0;
+}
+
+.message-content-markdown p {
+  margin: 0 0 10px;
+}
+
+.message-content-markdown h1,
+.message-content-markdown h2,
+.message-content-markdown h3,
+.message-content-markdown h4 {
+  margin: 0 0 8px;
+  line-height: 1.35;
+}
+
+.message-content-markdown ul,
+.message-content-markdown ol {
+  margin: 0 0 10px 20px;
+  padding: 0;
+}
+
+.message-content-markdown li {
+  margin: 2px 0;
+}
+
+.message-content-markdown blockquote {
+  margin: 8px 0;
+  padding-left: 12px;
+  border-left: 2px solid rgba(255, 255, 255, 0.2);
+  color: var(--spot-text-secondary);
+}
+
+.message-content-markdown a {
+  color: var(--spot-accent);
+  text-decoration: underline;
+  text-decoration-color: rgba(99, 144, 255, 0.5);
+}
+
+.message-content-markdown a:hover {
+  text-decoration-color: var(--spot-accent);
+}
+
+.message-content-markdown table {
+  width: 100%;
+  margin: 10px 0;
+  border-collapse: collapse;
+  display: block;
+  overflow-x: auto;
+}
+
+.message-content-markdown th,
+.message-content-markdown td {
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  padding: 6px 8px;
+  text-align: left;
+  vertical-align: top;
+}
+
+.message-content-markdown th {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.message-content-markdown hr {
+  border: 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.14);
+  margin: 12px 0;
 }
 
 /* Code Styling */

@@ -16,15 +16,6 @@
   background: transparent;
 }
 
-.spot-window ::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.1);
-  border-radius: 2px;
-}
-
-.spot-window ::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.18);
-}
-
 /* ============================================
    BACKGROUND OVERRIDES
    ============================================ */
@@ -42,17 +33,6 @@
 
 .spot-chat.spot-chat.spot-chat {
   background: transparent !important;
-}
-
-/* ============================================
-   HEADER OVERRIDES
-   ============================================ */
-.spot-header.spot-header.spot-header {
-  background: linear-gradient(180deg, rgba(255,255,255,0.02) 0%, transparent 100%) !important;
-}
-
-.spot-header-window-controls.spot-header-window-controls {
-  background: rgba(255, 255, 255, 0.03) !important;
 }
 
 /* ============================================
@@ -96,12 +76,6 @@
 /* ============================================
    INPUT OVERRIDES
    ============================================ */
-.spot-input-section.spot-input-section.spot-input-section {
-  background: 
-    linear-gradient(to top, rgba(8, 8, 10, 0.98) 60%, transparent 100%),
-    rgba(8, 8, 10, 0.98) !important;
-}
-
 .spot-input-wrapper.spot-input-wrapper.spot-input-wrapper {
   background: var(--spot-bg-secondary) !important;
 }

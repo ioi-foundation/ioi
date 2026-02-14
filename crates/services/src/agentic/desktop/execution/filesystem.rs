@@ -3,10 +3,11 @@
 use super::{ToolExecutionResult, ToolExecutor};
 use ioi_types::app::agentic::AgentTool;
 use regex::Regex;
+use std::env;
 use std::fs;
 use std::io::{BufRead, BufReader};
 use std::ops::Range;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use walkdir::{DirEntry, WalkDir};
 
 fn normalize_line(line: &str) -> String {
@@ -183,24 +184,70 @@ fn is_excluded_dir(entry: &DirEntry) -> bool {
             .any(|name| entry.file_name().to_string_lossy() == *name)
 }
 
+fn resolve_working_directory(cwd: Option<&str>) -> Result<PathBuf, String> {
+    let normalized = cwd.unwrap_or(".").trim();
+    let candidate = if normalized.is_empty() {
+        PathBuf::from(".")
+    } else {
+        PathBuf::from(normalized)
+    };
+
+    let absolute = if candidate.is_absolute() {
+        candidate
+    } else {
+        env::current_dir()
+            .map_err(|e| format!("Failed to resolve current directory: {}", e))?
+            .join(candidate)
+    };
+
+    if !absolute.exists() {
+        return Err(format!(
+            "Working directory '{}' does not exist.",
+            absolute.display()
+        ));
+    }
+
+    if !absolute.is_dir() {
+        return Err(format!(
+            "Working directory '{}' is not a directory.",
+            absolute.display()
+        ));
+    }
+
+    Ok(absolute)
+}
+
+fn resolve_tool_path(path: &str, cwd: Option<&str>) -> Result<PathBuf, String> {
+    let trimmed = path.trim();
+    if trimmed.is_empty() {
+        return Err("Path cannot be empty.".to_string());
+    }
+
+    let requested = PathBuf::from(trimmed);
+    if requested.is_absolute() {
+        Ok(requested)
+    } else {
+        Ok(resolve_working_directory(cwd)?.join(requested))
+    }
+}
+
 fn search_files(
-    root: &str,
+    root: &Path,
     regex_pattern: &str,
     file_filter: Option<&str>,
 ) -> Result<String, String> {
-    let root_path = Path::new(root);
-    if !root_path.exists() {
-        return Err(format!("Path does not exist: {}", root));
+    if !root.exists() {
+        return Err(format!("Path does not exist: {}", root.display()));
     }
-    if !root_path.is_dir() {
-        return Err(format!("Path is not a directory: {}", root));
+    if !root.is_dir() {
+        return Err(format!("Path is not a directory: {}", root.display()));
     }
 
     let line_re = Regex::new(regex_pattern).map_err(|e| format!("Invalid regex: {}", e))?;
     let mut matches = Vec::new();
     let mut total_matches = 0usize;
 
-    let walker = WalkDir::new(root_path)
+    let walker = WalkDir::new(root)
         .follow_links(false)
         .into_iter()
         .filter_entry(|entry| !is_excluded_dir(entry));
@@ -268,7 +315,7 @@ fn search_files(
 
 #[cfg(test)]
 mod tests {
-    use super::{apply_patch, fuzzy_find_indices};
+    use super::{apply_patch, fuzzy_find_indices, resolve_tool_path};
 
     #[test]
     fn fuzzy_patch_handles_indentation_mismatch() {
@@ -288,26 +335,69 @@ mod tests {
         let err = fuzzy_find_indices(source, search).expect_err("fuzzy match should be ambiguous");
         assert!(err.contains("ambiguous"));
     }
+
+    #[test]
+    fn resolve_tool_path_uses_working_directory_for_relative_paths() {
+        let cwd = std::env::current_dir().expect("current dir should resolve");
+        let cwd_str = cwd.to_string_lossy().to_string();
+        let resolved =
+            resolve_tool_path("nested/file.txt", Some(&cwd_str)).expect("path should resolve");
+        assert_eq!(resolved, cwd.join("nested/file.txt"));
+    }
+
+    #[test]
+    fn resolve_tool_path_preserves_absolute_paths() {
+        let cwd = std::env::current_dir().expect("current dir should resolve");
+        let absolute = cwd.join("absolute.txt");
+        let absolute_str = absolute.to_string_lossy().to_string();
+        let resolved =
+            resolve_tool_path(&absolute_str, Some(".")).expect("absolute path should pass");
+        assert_eq!(resolved, absolute);
+    }
 }
 
-pub async fn handle(_exec: &ToolExecutor, tool: AgentTool) -> ToolExecutionResult {
+pub async fn handle(exec: &ToolExecutor, tool: AgentTool) -> ToolExecutionResult {
+    let cwd = exec.working_directory.as_deref();
+
     match tool {
-        AgentTool::FsRead { path } => match fs::read_to_string(&path) {
-            Ok(content) => ToolExecutionResult::success(content),
-            Err(e) => ToolExecutionResult::failure(format!("Failed to read {}: {}", path, e)),
-        },
+        AgentTool::FsRead { path } => {
+            let resolved_path = match resolve_tool_path(&path, cwd) {
+                Ok(path) => path,
+                Err(e) => {
+                    return ToolExecutionResult::failure(format!("Failed to read {}: {}", path, e))
+                }
+            };
+
+            match fs::read_to_string(&resolved_path) {
+                Ok(content) => ToolExecutionResult::success(content),
+                Err(e) => ToolExecutionResult::failure(format!(
+                    "Failed to read {}: {}",
+                    resolved_path.display(),
+                    e
+                )),
+            }
+        }
         AgentTool::FsWrite {
             path,
             content,
             line_number,
         } => {
+            let resolved_path = match resolve_tool_path(&path, cwd) {
+                Ok(path) => path,
+                Err(e) => {
+                    return ToolExecutionResult::failure(format!("Failed to write {}: {}", path, e))
+                }
+            };
+
             if let Some(line_number) = line_number {
-                let existing = match fs::read_to_string(&path) {
+                let existing = match fs::read_to_string(&resolved_path) {
                     Ok(content) => content,
                     Err(e) => {
                         return ToolExecutionResult::failure(format!(
                             "Failed to edit line {} in {}: {}",
-                            line_number, path, e
+                            line_number,
+                            resolved_path.display(),
+                            e
                         ));
                     }
                 };
@@ -317,31 +407,42 @@ pub async fn handle(_exec: &ToolExecutor, tool: AgentTool) -> ToolExecutionResul
                     Err(e) => {
                         return ToolExecutionResult::failure(format!(
                             "Failed to edit line {} in {}: {}",
-                            line_number, path, e
+                            line_number,
+                            resolved_path.display(),
+                            e
                         ));
                     }
                 };
 
-                return match fs::write(&path, updated) {
+                return match fs::write(&resolved_path, updated) {
                     Ok(_) => ToolExecutionResult::success(format!(
                         "Edited line {} in {}",
-                        line_number, path
+                        line_number,
+                        resolved_path.display()
                     )),
                     Err(e) => ToolExecutionResult::failure(format!(
                         "Failed to edit line {} in {}: {}",
-                        line_number, path, e
+                        line_number,
+                        resolved_path.display(),
+                        e
                     )),
                 };
             }
 
-            if let Some(parent) = Path::new(&path).parent() {
+            if let Some(parent) = resolved_path.parent() {
                 if !parent.exists() {
                     let _ = fs::create_dir_all(parent);
                 }
             }
-            match fs::write(&path, content) {
-                Ok(_) => ToolExecutionResult::success(format!("Wrote to {}", path)),
-                Err(e) => ToolExecutionResult::failure(format!("Failed to write {}: {}", path, e)),
+            match fs::write(&resolved_path, content) {
+                Ok(_) => {
+                    ToolExecutionResult::success(format!("Wrote to {}", resolved_path.display()))
+                }
+                Err(e) => ToolExecutionResult::failure(format!(
+                    "Failed to write {}: {}",
+                    resolved_path.display(),
+                    e
+                )),
             }
         }
         AgentTool::FsPatch {
@@ -349,10 +450,24 @@ pub async fn handle(_exec: &ToolExecutor, tool: AgentTool) -> ToolExecutionResul
             search,
             replace,
         } => {
-            let existing = match fs::read_to_string(&path) {
+            let resolved_path = match resolve_tool_path(&path, cwd) {
+                Ok(path) => path,
+                Err(e) => {
+                    return ToolExecutionResult::failure(format!(
+                        "Patch failed for {}: {}",
+                        path, e
+                    ))
+                }
+            };
+
+            let existing = match fs::read_to_string(&resolved_path) {
                 Ok(content) => content,
                 Err(e) => {
-                    return ToolExecutionResult::failure(format!("Failed to read {}: {}", path, e));
+                    return ToolExecutionResult::failure(format!(
+                        "Failed to read {}: {}",
+                        resolved_path.display(),
+                        e
+                    ));
                 }
             };
 
@@ -361,38 +476,60 @@ pub async fn handle(_exec: &ToolExecutor, tool: AgentTool) -> ToolExecutionResul
                 Err(e) => {
                     return ToolExecutionResult::failure(format!(
                         "Patch failed for {}: {}",
-                        path, e
+                        resolved_path.display(),
+                        e
                     ));
                 }
             };
 
-            match fs::write(&path, updated) {
-                Ok(_) => ToolExecutionResult::success(format!("Patched {}", path)),
+            match fs::write(&resolved_path, updated) {
+                Ok(_) => {
+                    ToolExecutionResult::success(format!("Patched {}", resolved_path.display()))
+                }
                 Err(e) => ToolExecutionResult::failure(format!(
                     "Failed to write patch to {}: {}",
-                    path, e
+                    resolved_path.display(),
+                    e
                 )),
             }
         }
-        AgentTool::FsList { path } => match fs::read_dir(&path) {
-            Ok(entries) => {
-                let mut list = Vec::new();
-                for entry in entries.flatten() {
-                    let name = entry.file_name().to_string_lossy().into_owned();
-                    let type_char = if entry.path().is_dir() { "D" } else { "F" };
-                    list.push(format!("[{}] {}", type_char, name));
+        AgentTool::FsList { path } => {
+            let resolved_path = match resolve_tool_path(&path, cwd) {
+                Ok(path) => path,
+                Err(e) => {
+                    return ToolExecutionResult::failure(format!("Failed to list {}: {}", path, e))
                 }
-                ToolExecutionResult::success(list.join("\n"))
+            };
+
+            match fs::read_dir(&resolved_path) {
+                Ok(entries) => {
+                    let mut list = Vec::new();
+                    for entry in entries.flatten() {
+                        let name = entry.file_name().to_string_lossy().into_owned();
+                        let type_char = if entry.path().is_dir() { "D" } else { "F" };
+                        list.push(format!("[{}] {}", type_char, name));
+                    }
+                    ToolExecutionResult::success(list.join("\n"))
+                }
+                Err(e) => ToolExecutionResult::failure(format!(
+                    "Failed to list {}: {}",
+                    resolved_path.display(),
+                    e
+                )),
             }
-            Err(e) => ToolExecutionResult::failure(format!("Failed to list {}: {}", path, e)),
-        },
+        }
         AgentTool::FsSearch {
             path,
             regex,
             file_pattern,
         } => {
+            let resolved_path = match resolve_tool_path(&path, cwd) {
+                Ok(path) => path,
+                Err(e) => return ToolExecutionResult::failure(format!("Search failed: {}", e)),
+            };
+
             let task = tokio::task::spawn_blocking(move || {
-                search_files(&path, &regex, file_pattern.as_deref())
+                search_files(&resolved_path, &regex, file_pattern.as_deref())
             })
             .await;
 
