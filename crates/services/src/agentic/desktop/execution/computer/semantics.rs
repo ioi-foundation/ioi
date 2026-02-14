@@ -198,6 +198,32 @@ fn score_ui_find_candidate(
     score
 }
 
+fn collect_semantic_candidates(
+    node: &AccessibilityNode,
+    out: &mut Vec<(String, String, String, Rect)>,
+) {
+    if node.is_visible {
+        let has_semantic_hint = SEMANTIC_HINT_ATTR_KEYS.iter().any(|key| {
+            node.attributes
+                .get(*key)
+                .is_some_and(|v| !v.trim().is_empty())
+        });
+        let id_present = !node.id.trim().is_empty();
+        if id_present && (node.is_interactive() || has_node_content(node) || has_semantic_hint) {
+            out.push((
+                node.id.clone(),
+                node.role.clone(),
+                node_label(node),
+                node.rect,
+            ));
+        }
+    }
+
+    for child in &node.children {
+        collect_semantic_candidates(child, out);
+    }
+}
+
 pub fn find_semantic_ui_match(
     tree: &AccessibilityNode,
     query: &str,
@@ -227,8 +253,14 @@ pub fn find_semantic_ui_match(
     let query_norm = normalize_semantic_key(query);
     let query_terms = tokenize_query_terms(query);
     let mut best: Option<(i32, UiFindSemanticMatch)> = None;
+    let mut candidates = tree.find_matches(query);
+    if candidates.is_empty() {
+        // Recover semantic matches for multi-clause queries where only part of the
+        // phrase exists in attributes (for example: "save draft icon").
+        collect_semantic_candidates(tree, &mut candidates);
+    }
 
-    for (id, role, label, rect) in tree.find_matches(query) {
+    for (id, role, label, rect) in candidates {
         let resolved_node = find_node_by_id(tree, &id);
         let semantic_hints = semantic_hint_tokens(resolved_node);
         let score = score_ui_find_candidate(
@@ -910,6 +942,53 @@ mod tests {
         assert!(
             found.confidence >= 0.8,
             "expected strong semantic confidence, got {}",
+            found.confidence
+        );
+    }
+
+    #[test]
+    fn find_semantic_ui_match_recovers_visual_clause_query_from_semantic_hints() {
+        let mut button = node(
+            "button_17",
+            "button",
+            Rect {
+                x: 120,
+                y: 80,
+                width: 100,
+                height: 36,
+            },
+            vec![],
+            None,
+        );
+        button
+            .attributes
+            .insert("aria-label".to_string(), "Save Draft".to_string());
+        button
+            .attributes
+            .insert("data-testid".to_string(), "editor-save-button".to_string());
+
+        let root = node(
+            "window_editor",
+            "window",
+            Rect {
+                x: 0,
+                y: 0,
+                width: 800,
+                height: 600,
+            },
+            vec![button],
+            Some("Editor"),
+        );
+
+        let found = find_semantic_ui_match(&root, "save draft icon")
+            .expect("semantic match should ignore extra visual clause when hints match");
+
+        assert_eq!(found.id.as_deref(), Some("button_17"));
+        assert_eq!(found.label.as_deref(), Some("Save Draft"));
+        assert_eq!(found.source, "semantic_tree");
+        assert!(
+            found.confidence >= 0.40,
+            "expected semantic confidence above fallback threshold, got {}",
             found.confidence
         );
     }

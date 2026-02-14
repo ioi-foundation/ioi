@@ -22,9 +22,13 @@ fn build_ui_find_success(
     found: UiFindSemanticMatch,
     active_lens: Option<&str>,
     tier: Option<ExecutionTier>,
+    routing_reason_code: &'static str,
+    escalation_chain: &'static str,
+    fallback_used: bool,
 ) -> ToolExecutionResult {
     let payload = json!({
         "query": query,
+        "query_is_visual": is_visual_query(query),
         "x": found.x,
         "y": found.y,
         "id": found.id,
@@ -34,6 +38,9 @@ fn build_ui_find_success(
         "confidence": found.confidence,
         "tier": execution_tier_label(tier),
         "lens": active_lens.unwrap_or("none"),
+        "routing_reason_code": routing_reason_code,
+        "escalation_chain": escalation_chain,
+        "fallback_used": fallback_used,
     });
     ToolExecutionResult::success(format!("UI find resolved: {}", payload))
 }
@@ -137,6 +144,7 @@ async fn find_ui_with_vision(
     hint_xml: Option<&str>,
     tree_rect: Option<Rect>,
     active_lens: Option<&str>,
+    escalation_chain: &'static str,
 ) -> ToolExecutionResult {
     let screenshot = match exec.gui.capture_raw_screen().await {
         Ok(bytes) => bytes,
@@ -180,6 +188,9 @@ async fn find_ui_with_vision(
         },
         active_lens,
         exec.current_tier,
+        "primary_failed_escalated",
+        escalation_chain,
+        true,
     )
 }
 
@@ -198,9 +209,8 @@ pub(super) async fn find_element_coordinates(
     let mut tree_rect: Option<Rect> = None;
     let mut hint_xml: Option<String> = None;
     let mut tree_fetch_error: Option<String> = None;
-    let mut semantic_fallback: Option<UiFindSemanticMatch> = None;
     let allow_vision = resilience::allow_vision_fallback_for_tier(exec.current_tier);
-    let prefer_vision = allow_vision && is_visual_query(query);
+    let mut semantic_attempted = false;
 
     match fetch_lensed_tree(exec, active_lens).await {
         Ok(tree) => {
@@ -210,11 +220,17 @@ pub(super) async fn find_element_coordinates(
             hint_xml = Some(ioi_drivers::gui::accessibility::serialize_tree_to_xml(
                 &tree, 0,
             ));
-
-            if prefer_vision {
-                semantic_fallback = find_semantic_ui_match(&tree, query);
-            } else if let Some(found) = find_semantic_ui_match(&tree, query) {
-                return build_ui_find_success(query, found, active_lens, exec.current_tier);
+            semantic_attempted = true;
+            if let Some(found) = find_semantic_ui_match(&tree, query) {
+                return build_ui_find_success(
+                    query,
+                    found,
+                    active_lens,
+                    exec.current_tier,
+                    "primary_success",
+                    "ToolFirst(ui__find.semantic)",
+                    false,
+                );
             }
         }
         Err(err) => {
@@ -223,16 +239,20 @@ pub(super) async fn find_element_coordinates(
     }
 
     if allow_vision {
-        let visual_result =
-            find_ui_with_vision(exec, query, hint_xml.as_deref(), tree_rect, active_lens).await;
-        if visual_result.success {
-            return visual_result;
-        }
-
-        if let Some(found) = semantic_fallback {
-            return build_ui_find_success(query, found, active_lens, exec.current_tier);
-        }
-
+        let escalation_chain = if semantic_attempted {
+            "ToolFirst(ui__find.semantic)->VisualLast(ui__find.visual_locator)"
+        } else {
+            "ToolFirst(ui__find.semantic_unavailable)->VisualLast(ui__find.visual_locator)"
+        };
+        let visual_result = find_ui_with_vision(
+            exec,
+            query,
+            hint_xml.as_deref(),
+            tree_rect,
+            active_lens,
+            escalation_chain,
+        )
+        .await;
         return visual_result;
     }
 
@@ -241,10 +261,6 @@ pub(super) async fn find_element_coordinates(
             "ERROR_CLASS=MissingDependency ui__find could not inspect accessibility tree: {}",
             err
         ));
-    }
-
-    if let Some(found) = semantic_fallback {
-        return build_ui_find_success(query, found, active_lens, exec.current_tier);
     }
 
     ToolExecutionResult::failure(format!(
