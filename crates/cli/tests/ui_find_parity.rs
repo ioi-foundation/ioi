@@ -193,6 +193,173 @@ fn ui_find_primary_semantic_path_uses_aria_label_hints() {
     assert_eq!(found.id.as_deref(), Some("button_17"));
     assert_eq!(found.label.as_deref(), Some("Save Draft"));
     assert_eq!(found.source, "semantic_tree");
+
+    let visual_clause = find_semantic_ui_match(&tree, "save draft icon")
+        .expect("semantic ui__find should recover match with extra visual clause");
+    assert_eq!(visual_clause.id.as_deref(), Some("button_17"));
+    assert_eq!(visual_clause.label.as_deref(), Some("Save Draft"));
+    assert_eq!(visual_clause.source, "semantic_tree");
+}
+
+#[test]
+fn ui_find_react_lens_preserves_semantic_wrapper_labels() {
+    let mut wrapper_attrs = HashMap::new();
+    wrapper_attrs.insert("aria-label".to_string(), "Save Draft".to_string());
+
+    let raw_tree = AccessibilityNode {
+        id: "window_editor".to_string(),
+        role: "window".to_string(),
+        name: Some("Editor".to_string()),
+        value: None,
+        rect: Rect {
+            x: 0,
+            y: 0,
+            width: 1200,
+            height: 800,
+        },
+        is_visible: true,
+        attributes: HashMap::new(),
+        som_id: None,
+        children: vec![AccessibilityNode {
+            id: "wrapper_42".to_string(),
+            role: "generic".to_string(),
+            name: None,
+            value: None,
+            rect: Rect {
+                x: 420,
+                y: 188,
+                width: 132,
+                height: 40,
+            },
+            is_visible: true,
+            attributes: wrapper_attrs,
+            som_id: None,
+            children: vec![AccessibilityNode {
+                id: "icon_save".to_string(),
+                role: "image".to_string(),
+                name: None,
+                value: None,
+                rect: Rect {
+                    x: 456,
+                    y: 196,
+                    width: 16,
+                    height: 16,
+                },
+                is_visible: true,
+                attributes: HashMap::new(),
+                som_id: None,
+                children: vec![],
+            }],
+        }],
+    };
+
+    let mut registry = LensRegistry::new();
+    registry.register(Box::new(ReactLens));
+    registry.register(Box::new(AutoLens));
+
+    let transformed = registry
+        .get("ReactLens")
+        .expect("react lens should be registered")
+        .transform(&raw_tree)
+        .expect("react lens should keep semantic wrapper node");
+
+    let found = find_semantic_ui_match(&transformed, "save draft")
+        .expect("semantic query should resolve wrapper aria-label after lens transform");
+    assert_eq!(found.id.as_deref(), Some("wrapper_42"));
+    assert_eq!(found.label.as_deref(), Some("Save Draft"));
+    assert_eq!(found.source, "semantic_tree");
+}
+
+#[test]
+fn ui_find_react_lens_resolves_aria_labelledby_to_primary_control() {
+    let mut target_attrs = HashMap::new();
+    target_attrs.insert("data-testid".to_string(), "primary-action".to_string());
+    target_attrs.insert("aria-labelledby".to_string(), "lbl_9f3".to_string());
+
+    let mut distractor_attrs = HashMap::new();
+    distractor_attrs.insert("data-testid".to_string(), "secondary-action".to_string());
+
+    let raw_tree = AccessibilityNode {
+        id: "window_editor".to_string(),
+        role: "window".to_string(),
+        name: Some("Editor".to_string()),
+        value: None,
+        rect: Rect {
+            x: 0,
+            y: 0,
+            width: 1200,
+            height: 800,
+        },
+        is_visible: true,
+        attributes: HashMap::new(),
+        som_id: None,
+        children: vec![
+            AccessibilityNode {
+                id: "lbl_9f3".to_string(),
+                role: "text".to_string(),
+                name: Some("Save Draft".to_string()),
+                value: None,
+                rect: Rect {
+                    x: 410,
+                    y: 172,
+                    width: 120,
+                    height: 18,
+                },
+                is_visible: true,
+                attributes: HashMap::new(),
+                som_id: None,
+                children: vec![],
+            },
+            AccessibilityNode {
+                id: "btn_unlabeled".to_string(),
+                role: "button".to_string(),
+                name: None,
+                value: None,
+                rect: Rect {
+                    x: 410,
+                    y: 192,
+                    width: 132,
+                    height: 40,
+                },
+                is_visible: true,
+                attributes: target_attrs,
+                som_id: None,
+                children: vec![],
+            },
+            AccessibilityNode {
+                id: "btn_other".to_string(),
+                role: "button".to_string(),
+                name: None,
+                value: None,
+                rect: Rect {
+                    x: 560,
+                    y: 192,
+                    width: 92,
+                    height: 40,
+                },
+                is_visible: true,
+                attributes: distractor_attrs,
+                som_id: None,
+                children: vec![],
+            },
+        ],
+    };
+
+    let mut registry = LensRegistry::new();
+    registry.register(Box::new(ReactLens));
+    registry.register(Box::new(AutoLens));
+
+    let transformed = registry
+        .get("ReactLens")
+        .expect("react lens should be registered")
+        .transform(&raw_tree)
+        .expect("react lens should preserve action controls");
+
+    let found = find_semantic_ui_match(&transformed, "save draft")
+        .expect("semantic query should resolve the labelled control, not only the label text node");
+    assert_eq!(found.id.as_deref(), Some("primary-action"));
+    assert_eq!(found.label.as_deref(), Some("Save Draft"));
+    assert_eq!(found.source, "semantic_tree");
 }
 
 fn test_agent_state() -> AgentState {
@@ -415,6 +582,14 @@ async fn ui_find_uses_visual_locator_for_visual_queries() {
     assert_eq!(parsed["x"], 120);
     assert_eq!(parsed["y"], 160);
     assert_eq!(parsed["query"], "gear icon");
+    assert_eq!(parsed["query_is_visual"], true);
+    assert_eq!(parsed["routing_reason_code"], "primary_failed_escalated");
+    assert_eq!(parsed["fallback_used"], true);
+    let escalation_chain = parsed["escalation_chain"]
+        .as_str()
+        .expect("escalation_chain should be a string");
+    assert!(escalation_chain.starts_with("ToolFirst(ui__find.semantic"));
+    assert!(escalation_chain.ends_with("VisualLast(ui__find.visual_locator)"));
 
     let prompt = inference_runtime
         .first_prompt()
