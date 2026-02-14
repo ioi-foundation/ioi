@@ -1,5 +1,5 @@
 use crate::kernel::state::{get_rpc_client, now, update_task_state};
-use crate::models::{AgentPhase, AppState, ChatMessage, GateResponse};
+use crate::models::{AgentPhase, AppState, ChatMessage, EventType, GateResponse};
 use crate::windows;
 use ioi_api::crypto::{SerializableKey, SigningKeyPair};
 use ioi_crypto::sign::eddsa::Ed25519KeyPair;
@@ -44,8 +44,27 @@ pub async fn gate_respond(
                 approved,
             });
             if let Some(task) = &s.current_task {
-                session_id_hex = task.session_id.clone();
-                request_hash_hex = task.pending_request_hash.clone();
+                session_id_hex = task.session_id.clone().or_else(|| Some(task.id.clone()));
+                request_hash_hex = task.pending_request_hash.clone().or_else(|| {
+                    task.events.iter().rev().find_map(|event| {
+                        if event.event_type != EventType::Warning {
+                            return None;
+                        }
+                        let verdict = event
+                            .digest
+                            .get("verdict")
+                            .and_then(|v| v.as_str())
+                            .unwrap_or_default();
+                        if !verdict.eq_ignore_ascii_case("REQUIRE_APPROVAL") {
+                            return None;
+                        }
+                        event
+                            .digest
+                            .get("request_hash")
+                            .and_then(|v| v.as_str())
+                            .map(str::to_string)
+                    })
+                });
                 visual_hash_hex = task.visual_hash.clone(); // [NEW] Capture visual hash
             }
         }

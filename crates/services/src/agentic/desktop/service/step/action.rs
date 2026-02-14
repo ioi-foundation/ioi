@@ -8,6 +8,11 @@ use super::anti_loop::{
     retry_budget_remaining, should_block_retry_without_change, should_trip_retry_guard,
     tier_as_str, to_routing_failure_class, FailureClass, TierRoutingDecision,
 };
+use super::incident::{
+    advance_incident_after_action_outcome, incident_receipt_fields, load_incident_state,
+    register_pending_approval, should_enter_incident_recovery,
+    start_or_continue_incident_recovery, ApprovalDirective, IncidentDirective,
+};
 use crate::agentic::desktop::keys::{get_state_key, AGENT_POLICY_PREFIX};
 use crate::agentic::desktop::middleware;
 use crate::agentic::desktop::service::DesktopAgentService;
@@ -143,13 +148,12 @@ pub fn canonical_intent_hash(
 pub fn canonical_retry_intent_hash(
     tool_name: &str,
     args: &serde_json::Value,
-    tier: ExecutionTier,
+    _tier: ExecutionTier,
     tool_version: &str,
 ) -> String {
     let payload = json!({
         "tool_name": tool_name,
         "args": args,
-        "tier": tier_as_str(tier),
         "tool_version": tool_version,
         "retry_scope": "attempt_dedupe_v1",
     });
@@ -604,6 +608,7 @@ pub async fn process_tool_output(
         artifacts.push(format!("trace://session/{}", hex::encode(&session_id[..4])));
         let post_state = build_post_state_summary(agent_state, false, verification_checks);
         let policy_binding = policy_binding_hash(&refusal_intent_hash, &refusal_policy_decision);
+        let incident_fields = incident_receipt_fields(load_incident_state(state, &session_id)?.as_ref());
         let receipt = RoutingReceiptEvent {
             session_id,
             step_index: pre_state_summary.step_index,
@@ -617,6 +622,14 @@ pub async fn process_tool_output(
             post_state,
             artifacts,
             failure_class: Some(to_routing_failure_class(refusal_failure_class)),
+            failure_class_name: refusal_failure_class.as_str().to_string(),
+            intent_class: incident_fields.intent_class,
+            incident_id: incident_fields.incident_id,
+            incident_stage: incident_fields.incident_stage,
+            strategy_name: incident_fields.strategy_name,
+            strategy_node: incident_fields.strategy_node,
+            gate_state: incident_fields.gate_state,
+            resolution_action: incident_fields.resolution_action,
             stop_condition_hit: refusal_stop_condition_hit,
             escalation_path: refusal_escalation_path,
             scs_lineage_ptr: lineage_pointer(agent_state.active_skill_hash),
@@ -716,9 +729,11 @@ pub async fn process_tool_output(
     let mut current_tool_name = "unknown".to_string();
     let mut history_entry: Option<String> = None;
     let mut action_output: Option<String> = None;
+    let mut executed_tool_jcs: Option<Vec<u8>> = None;
     let mut failure_class: Option<FailureClass> = None;
     let mut stop_condition_hit = false;
     let mut escalation_path: Option<String> = None;
+    let mut remediation_queued = false;
     let mut verification_checks = Vec::new();
 
     match tool_call {
@@ -730,6 +745,9 @@ pub async fn process_tool_output(
             action_payload = serde_json::to_value(&tool).unwrap_or_else(|_| json!({}));
             let (tool_name, tool_args) = canonical_tool_identity(&tool);
             current_tool_name = tool_name;
+            executed_tool_jcs = serde_jcs::to_vec(&tool)
+                .or_else(|_| serde_json::to_vec(&tool))
+                .ok();
             intent_hash = canonical_intent_hash(
                 &current_tool_name,
                 &tool_args,
@@ -863,36 +881,139 @@ pub async fn process_tool_output(
                 }
                 Err(TransactionError::PendingApproval(h)) => {
                     policy_decision = "require_approval".to_string();
-                    // [NEW] Capture Canonical Context for Resume
                     let tool_jcs = serde_jcs::to_vec(&tool).unwrap();
                     let tool_hash_bytes = ioi_crypto::algorithms::hash::sha256(&tool_jcs).unwrap();
                     let mut hash_arr = [0u8; 32];
                     hash_arr.copy_from_slice(tool_hash_bytes.as_ref());
+
+                    let action_fingerprint = sha256(&tool_jcs)
+                        .map(hex::encode)
+                        .unwrap_or_else(|_| String::new());
+                    let root_retry_hash =
+                        retry_intent_hash.as_deref().unwrap_or(intent_hash.as_str());
+                    let incident_before = load_incident_state(state, &session_id)?;
+                    let incident_stage_before = incident_before
+                        .as_ref()
+                        .map(|incident| incident.stage.clone())
+                        .unwrap_or_else(|| "None".to_string());
+
+                    let approval_directive = register_pending_approval(
+                        state,
+                        &rules,
+                        agent_state,
+                        session_id,
+                        root_retry_hash,
+                        &current_tool_name,
+                        &tool_jcs,
+                        &action_fingerprint,
+                        &h,
+                    )?;
+                    let incident_after = load_incident_state(state, &session_id)?;
+                    let incident_stage_after = incident_after
+                        .as_ref()
+                        .map(|incident| incident.stage.clone())
+                        .unwrap_or_else(|| "None".to_string());
+                    verification_checks.push(format!(
+                        "approval_suppressed_single_pending={}",
+                        matches!(approval_directive, ApprovalDirective::SuppressDuplicatePrompt)
+                    ));
+                    verification_checks.push(format!(
+                        "incident_id_stable={}",
+                        match (incident_before.as_ref(), incident_after.as_ref()) {
+                            (Some(before), Some(after)) => before.incident_id == after.incident_id,
+                            _ => true,
+                        }
+                    ));
+                    verification_checks.push(format!(
+                        "incident_stage_before={}",
+                        incident_stage_before
+                    ));
+                    verification_checks.push(format!("incident_stage_after={}", incident_stage_after));
 
                     agent_state.pending_tool_jcs = Some(tool_jcs);
                     agent_state.pending_tool_hash = Some(hash_arr);
                     agent_state.pending_visual_hash = Some(final_visual_phash);
                     agent_state.pending_tool_call = Some(tool_call_result.clone());
                     agent_state.last_screen_phash = Some(final_visual_phash);
-
                     is_gated = true;
                     is_lifecycle_action = true;
                     agent_state.status = AgentStatus::Paused("Waiting for approval".into());
 
-                    let msg = format!("System: Action halted by Agency Firewall (Hash: {}). Requesting authorization.", h);
-                    let sys_msg = ioi_types::app::agentic::ChatMessage {
-                        role: "system".to_string(),
-                        content: msg,
-                        timestamp: SystemTime::now()
-                            .duration_since(UNIX_EPOCH)
-                            .unwrap()
-                            .as_millis() as u64,
-                        trace_hash: None,
-                    };
-                    let _ = service
-                        .append_chat_to_scs(session_id, &sys_msg, block_height)
-                        .await?;
-                    success = true;
+                    if let Some(incident_state) = load_incident_state(state, &session_id)? {
+                        if incident_state.active {
+                            log::info!(
+                                "incident.approval_intercepted session={} incident_id={} root_tool={} gated_tool={}",
+                                hex::encode(&session_id[..4]),
+                                incident_state.incident_id,
+                                incident_state.root_tool_name,
+                                current_tool_name
+                            );
+                        }
+                    }
+
+                    match approval_directive {
+                        ApprovalDirective::PromptUser => {
+                            let msg = format!("System: Action halted by Agency Firewall (Hash: {}). Requesting authorization.", h);
+                            let sys_msg = ioi_types::app::agentic::ChatMessage {
+                                role: "system".to_string(),
+                                content: msg,
+                                timestamp: SystemTime::now()
+                                    .duration_since(UNIX_EPOCH)
+                                    .unwrap()
+                                    .as_millis() as u64,
+                                trace_hash: None,
+                            };
+                            let _ = service
+                                .append_chat_to_scs(session_id, &sys_msg, block_height)
+                                .await?;
+                            success = true;
+                        }
+                        ApprovalDirective::SuppressDuplicatePrompt => {
+                            let sys_msg = ioi_types::app::agentic::ChatMessage {
+                                role: "system".to_string(),
+                                content:
+                                    "System: Approval already pending for this incident/action. Waiting for your decision."
+                                        .to_string(),
+                                timestamp: SystemTime::now()
+                                    .duration_since(UNIX_EPOCH)
+                                    .unwrap()
+                                    .as_millis() as u64,
+                                trace_hash: None,
+                            };
+                            let _ = service
+                                .append_chat_to_scs(session_id, &sys_msg, block_height)
+                                .await?;
+                            success = true;
+                        }
+                        ApprovalDirective::PauseLoop => {
+                            policy_decision = "denied".to_string();
+                            success = false;
+                            let loop_msg = format!(
+                                "ERROR_CLASS=PermissionOrApprovalRequired Approval loop policy paused this incident for request hash {}.",
+                                h
+                            );
+                            error_msg = Some(loop_msg.clone());
+                            agent_state.status = AgentStatus::Paused(
+                                "Approval loop detected for the same incident/action. Automatic retries paused."
+                                    .to_string(),
+                            );
+                            let sys_msg = ioi_types::app::agentic::ChatMessage {
+                                role: "system".to_string(),
+                                content: format!(
+                                    "System: {} Please approve, deny, or change policy settings.",
+                                    loop_msg
+                                ),
+                                timestamp: SystemTime::now()
+                                    .duration_since(UNIX_EPOCH)
+                                    .unwrap()
+                                    .as_millis() as u64,
+                                trace_hash: None,
+                            };
+                            let _ = service
+                                .append_chat_to_scs(session_id, &sys_msg, block_height)
+                                .await?;
+                        }
+                    }
                 }
                 Err(e) => {
                     success = false;
@@ -945,9 +1066,38 @@ pub async fn process_tool_output(
         }
     }
 
-    if success {
+    if !is_gated {
+        if let Some(tool_jcs) = executed_tool_jcs.as_deref() {
+            let resolved_retry_hash = retry_intent_hash
+                .as_deref()
+                .unwrap_or(intent_hash.as_str())
+                .to_string();
+            let incident_directive = advance_incident_after_action_outcome(
+                service,
+                state,
+                agent_state,
+                session_id,
+                &resolved_retry_hash,
+                tool_jcs,
+                success,
+                block_height,
+                error_msg.as_deref(),
+                &mut verification_checks,
+            )
+            .await?;
+            if matches!(incident_directive, IncidentDirective::QueueActions) {
+                remediation_queued = true;
+                stop_condition_hit = false;
+                escalation_path = None;
+                is_lifecycle_action = true;
+                agent_state.status = AgentStatus::Running;
+            }
+        }
+    }
+
+    if success && !is_gated {
         agent_state.recent_actions.clear();
-    } else {
+    } else if !success {
         failure_class = classify_failure(error_msg.as_deref(), &policy_decision);
         if let Some(class) = failure_class {
             let target_id = agent_state.target.as_ref().and_then(|target| {
@@ -989,7 +1139,61 @@ pub async fn process_tool_output(
                 "attempt_retry_blocked_without_change={}",
                 blocked_without_change
             ));
-            if matches!(class, FailureClass::UserInterventionNeeded) {
+            let incident_state = load_incident_state(state, &session_id)?;
+            if should_enter_incident_recovery(
+                Some(class),
+                &policy_decision,
+                stop_condition_hit,
+                incident_state.as_ref(),
+            ) {
+                if let Some(root_tool_jcs) = executed_tool_jcs.as_deref() {
+                    let (resolved_retry_hash, recovery_tool_name, recovery_tool_jcs): (
+                        String,
+                        String,
+                        Vec<u8>,
+                    ) = if let Some(existing) = incident_state.as_ref().filter(|i| i.active) {
+                        (
+                            existing.root_retry_hash.clone(),
+                            existing.root_tool_name.clone(),
+                            existing.root_tool_jcs.clone(),
+                        )
+                    } else {
+                        (
+                            retry_intent_hash
+                                .as_deref()
+                                .unwrap_or(intent_hash.as_str())
+                                .to_string(),
+                            current_tool_name.clone(),
+                            root_tool_jcs.to_vec(),
+                        )
+                    };
+                    remediation_queued = matches!(
+                        start_or_continue_incident_recovery(
+                            service,
+                            state,
+                            agent_state,
+                            session_id,
+                            block_height,
+                            &rules,
+                            &resolved_retry_hash,
+                            &recovery_tool_name,
+                            &recovery_tool_jcs,
+                            class,
+                            error_msg.as_deref(),
+                            &mut verification_checks,
+                        )
+                        .await?,
+                        IncidentDirective::QueueActions
+                    );
+                }
+            }
+
+            if remediation_queued {
+                stop_condition_hit = false;
+                escalation_path = None;
+                is_lifecycle_action = true;
+                agent_state.status = AgentStatus::Running;
+            } else if matches!(class, FailureClass::UserInterventionNeeded) {
                 stop_condition_hit = true;
                 escalation_path = Some(escalation_path_for_failure(class).to_string());
                 is_lifecycle_action = true;
@@ -1069,6 +1273,7 @@ pub async fn process_tool_output(
 
     verification_checks.push(format!("policy_decision={}", policy_decision));
     verification_checks.push(format!("was_gated={}", is_gated));
+    verification_checks.push(format!("remediation_queued={}", remediation_queued));
     verification_checks.push(format!("stop_condition_hit={}", stop_condition_hit));
     verification_checks.push(format!(
         "routing_tier_selected={}",
@@ -1143,6 +1348,10 @@ pub async fn process_tool_output(
 
     let post_state = build_post_state_summary(agent_state, success, verification_checks);
     let policy_binding = policy_binding_hash(&intent_hash, &policy_decision);
+    let incident_fields = incident_receipt_fields(load_incident_state(state, &session_id)?.as_ref());
+    let failure_class_name = failure_class
+        .map(|class| class.as_str().to_string())
+        .unwrap_or_default();
 
     let receipt = RoutingReceiptEvent {
         session_id,
@@ -1156,6 +1365,14 @@ pub async fn process_tool_output(
         post_state,
         artifacts,
         failure_class: failure_class.map(to_routing_failure_class),
+        failure_class_name,
+        intent_class: incident_fields.intent_class,
+        incident_id: incident_fields.incident_id,
+        incident_stage: incident_fields.incident_stage,
+        strategy_name: incident_fields.strategy_name,
+        strategy_node: incident_fields.strategy_node,
+        gate_state: incident_fields.gate_state,
+        resolution_action: incident_fields.resolution_action,
         stop_condition_hit,
         escalation_path,
         scs_lineage_ptr: lineage_pointer(agent_state.active_skill_hash),

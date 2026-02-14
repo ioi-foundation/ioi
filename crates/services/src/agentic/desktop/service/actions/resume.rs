@@ -14,6 +14,11 @@ use crate::agentic::desktop::service::step::anti_loop::{
     tier_as_str, to_routing_failure_class, FailureClass, TierRoutingDecision,
 };
 use crate::agentic::desktop::service::step::helpers::default_safe_policy;
+use crate::agentic::desktop::service::step::incident::{
+    advance_incident_after_action_outcome, incident_receipt_fields, load_incident_state,
+    mark_gate_approved, should_enter_incident_recovery, start_or_continue_incident_recovery,
+    IncidentDirective,
+};
 use crate::agentic::desktop::service::step::visual::hamming_distance;
 use crate::agentic::desktop::service::DesktopAgentService;
 use crate::agentic::desktop::types::{AgentState, AgentStatus};
@@ -116,13 +121,15 @@ pub async fn resume_pending_action(
     let mut failure_class: Option<FailureClass> = None;
     let mut stop_condition_hit = false;
     let mut escalation_path: Option<String> = None;
+    let mut remediation_queued = false;
     let mut verification_checks = Vec::new();
 
     // 1. Load Canonical Request Bytes
     let tool_jcs = agent_state
         .pending_tool_jcs
         .as_ref()
-        .ok_or(TransactionError::Invalid("Missing pending_tool_jcs".into()))?;
+        .ok_or(TransactionError::Invalid("Missing pending_tool_jcs".into()))?
+        .clone();
 
     let tool_hash = agent_state
         .pending_tool_hash
@@ -131,7 +138,7 @@ pub async fn resume_pending_action(
         ))?;
 
     // 2. Deserialize Tool FIRST
-    let tool: AgentTool = serde_json::from_slice(tool_jcs)
+    let tool: AgentTool = serde_json::from_slice(&tool_jcs)
         .map_err(|e| TransactionError::Serialization(format!("Corrupt pending tool: {}", e)))?;
     let (tool_name, tool_args) = canonical_tool_identity(&tool);
     let action_json = serde_json::to_string(&tool).unwrap_or_else(|_| "{}".to_string());
@@ -160,6 +167,8 @@ pub async fn resume_pending_action(
             "Approval token hash mismatch".into(),
         ));
     }
+
+    mark_gate_approved(state, session_id)?;
 
     let os_driver = service
         .os_driver
@@ -456,6 +465,26 @@ pub async fn resume_pending_action(
         }
     }
 
+    let incident_directive = advance_incident_after_action_outcome(
+        service,
+        state,
+        agent_state,
+        session_id,
+        &retry_intent_hash,
+        &tool_jcs,
+        success,
+        block_height,
+        err.as_deref(),
+        &mut verification_checks,
+    )
+    .await?;
+    if matches!(incident_directive, IncidentDirective::QueueActions) {
+        remediation_queued = true;
+        stop_condition_hit = false;
+        escalation_path = None;
+        agent_state.status = AgentStatus::Running;
+    }
+
     if success {
         agent_state.recent_actions.clear();
     } else {
@@ -499,7 +528,51 @@ pub async fn resume_pending_action(
                 "attempt_retry_blocked_without_change={}",
                 blocked_without_change
             ));
-            if matches!(class, FailureClass::UserInterventionNeeded) {
+            let incident_state = load_incident_state(state, &session_id)?;
+            if should_enter_incident_recovery(
+                Some(class),
+                &policy_decision,
+                stop_condition_hit,
+                incident_state.as_ref(),
+            ) {
+                let (resolved_retry_hash, recovery_tool_name, recovery_tool_jcs): (
+                    String,
+                    String,
+                    Vec<u8>,
+                ) = if let Some(existing) = incident_state.as_ref().filter(|i| i.active) {
+                    (
+                        existing.root_retry_hash.clone(),
+                        existing.root_tool_name.clone(),
+                        existing.root_tool_jcs.clone(),
+                    )
+                } else {
+                    (retry_intent_hash.clone(), tool_name.clone(), tool_jcs.clone())
+                };
+                remediation_queued = matches!(
+                    start_or_continue_incident_recovery(
+                        service,
+                        state,
+                        agent_state,
+                        session_id,
+                        block_height,
+                        &rules,
+                        &resolved_retry_hash,
+                        &recovery_tool_name,
+                        &recovery_tool_jcs,
+                        class,
+                        err.as_deref(),
+                        &mut verification_checks,
+                    )
+                    .await?,
+                    IncidentDirective::QueueActions
+                );
+            }
+
+            if remediation_queued {
+                stop_condition_hit = false;
+                escalation_path = None;
+                agent_state.status = AgentStatus::Running;
+            } else if matches!(class, FailureClass::UserInterventionNeeded) {
                 stop_condition_hit = true;
                 escalation_path = Some(escalation_path_for_failure(class).to_string());
                 agent_state.status = AgentStatus::Paused(
@@ -557,6 +630,7 @@ pub async fn resume_pending_action(
 
     verification_checks.push(format!("policy_decision={}", policy_decision));
     verification_checks.push(format!("was_resume=true"));
+    verification_checks.push(format!("remediation_queued={}", remediation_queued));
     verification_checks.push(format!("stop_condition_hit={}", stop_condition_hit));
     verification_checks.push(format!(
         "routing_tier_selected={}",
@@ -601,6 +675,10 @@ pub async fn resume_pending_action(
     artifacts.push(format!("trace://session/{}", hex::encode(&session_id[..4])));
     let post_state = build_post_state_summary(agent_state, success, verification_checks);
     let policy_binding = policy_binding_hash(&intent_hash, &policy_decision);
+    let incident_fields = incident_receipt_fields(load_incident_state(state, &session_id)?.as_ref());
+    let failure_class_name = failure_class
+        .map(|class| class.as_str().to_string())
+        .unwrap_or_default();
     let receipt = RoutingReceiptEvent {
         session_id,
         step_index: pre_state_summary.step_index,
@@ -613,6 +691,14 @@ pub async fn resume_pending_action(
         post_state,
         artifacts,
         failure_class: failure_class.map(to_routing_failure_class),
+        failure_class_name,
+        intent_class: incident_fields.intent_class,
+        incident_id: incident_fields.incident_id,
+        incident_stage: incident_fields.incident_stage,
+        strategy_name: incident_fields.strategy_name,
+        strategy_node: incident_fields.strategy_node,
+        gate_state: incident_fields.gate_state,
+        resolution_action: incident_fields.resolution_action,
         stop_condition_hit,
         escalation_path,
         scs_lineage_ptr: lineage_pointer(agent_state.active_skill_hash),

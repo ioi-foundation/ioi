@@ -231,6 +231,24 @@ fn resolve_tool_path(path: &str, cwd: Option<&str>) -> Result<PathBuf, String> {
     }
 }
 
+fn list_directory_entries(path: &Path) -> Result<Vec<(String, &'static str)>, String> {
+    let entries =
+        fs::read_dir(path).map_err(|e| format!("Failed to list {}: {}", path.display(), e))?;
+
+    let mut list = Vec::new();
+    for entry in entries.flatten() {
+        let name = entry.file_name().to_string_lossy().into_owned();
+        let type_char = if entry.path().is_dir() { "D" } else { "F" };
+        list.push((name, type_char));
+    }
+
+    // Deterministic output order prevents flaky tool responses across platforms/filesystems.
+    list.sort_by(|(name_a, kind_a), (name_b, kind_b)| {
+        name_a.cmp(name_b).then_with(|| kind_a.cmp(kind_b))
+    });
+    Ok(list)
+}
+
 fn search_files(
     root: &Path,
     regex_pattern: &str,
@@ -249,6 +267,7 @@ fn search_files(
 
     let walker = WalkDir::new(root)
         .follow_links(false)
+        .sort_by_file_name()
         .into_iter()
         .filter_entry(|entry| !is_excluded_dir(entry));
 
@@ -315,7 +334,27 @@ fn search_files(
 
 #[cfg(test)]
 mod tests {
-    use super::{apply_patch, fuzzy_find_indices, resolve_tool_path};
+    use super::{
+        apply_patch, fuzzy_find_indices, list_directory_entries, resolve_tool_path, search_files,
+    };
+    use std::fs;
+    use std::path::PathBuf;
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    fn make_temp_dir(name: &str) -> PathBuf {
+        let nanos = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("system time should be after epoch")
+            .as_nanos();
+        let dir = std::env::temp_dir().join(format!(
+            "ioi-services-fs-test-{}-{}-{}",
+            name,
+            std::process::id(),
+            nanos
+        ));
+        fs::create_dir_all(&dir).expect("test temp directory should be created");
+        dir
+    }
 
     #[test]
     fn fuzzy_patch_handles_indentation_mismatch() {
@@ -353,6 +392,40 @@ mod tests {
         let resolved =
             resolve_tool_path(&absolute_str, Some(".")).expect("absolute path should pass");
         assert_eq!(resolved, absolute);
+    }
+
+    #[test]
+    fn list_directory_entries_returns_sorted_output() {
+        let dir = make_temp_dir("list-order");
+        fs::write(dir.join("zeta.txt"), "z").expect("zeta file should be written");
+        fs::write(dir.join("alpha.txt"), "a").expect("alpha file should be written");
+        fs::create_dir_all(dir.join("beta")).expect("beta dir should be created");
+
+        let listing = list_directory_entries(&dir).expect("listing should succeed");
+        let rendered: Vec<String> = listing
+            .into_iter()
+            .map(|(name, kind)| format!("[{}] {}", kind, name))
+            .collect();
+
+        assert_eq!(rendered, vec!["[F] alpha.txt", "[D] beta", "[F] zeta.txt"]);
+
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn search_files_traversal_is_sorted_by_filename() {
+        let dir = make_temp_dir("search-order");
+        fs::write(dir.join("b.txt"), "needle in b").expect("b file should be written");
+        fs::write(dir.join("a.txt"), "needle in a").expect("a file should be written");
+
+        let output = search_files(&dir, "needle", Some("*.txt")).expect("search should succeed");
+        let lines: Vec<&str> = output.lines().collect();
+
+        assert_eq!(lines.len(), 2);
+        assert!(lines[0].contains("a.txt:1: needle in a"));
+        assert!(lines[1].contains("b.txt:1: needle in b"));
+
+        let _ = fs::remove_dir_all(&dir);
     }
 }
 
@@ -501,21 +574,16 @@ pub async fn handle(exec: &ToolExecutor, tool: AgentTool) -> ToolExecutionResult
                 }
             };
 
-            match fs::read_dir(&resolved_path) {
+            match list_directory_entries(&resolved_path) {
                 Ok(entries) => {
-                    let mut list = Vec::new();
-                    for entry in entries.flatten() {
-                        let name = entry.file_name().to_string_lossy().into_owned();
-                        let type_char = if entry.path().is_dir() { "D" } else { "F" };
-                        list.push(format!("[{}] {}", type_char, name));
-                    }
-                    ToolExecutionResult::success(list.join("\n"))
+                    let rendered = entries
+                        .into_iter()
+                        .map(|(name, kind)| format!("[{}] {}", kind, name))
+                        .collect::<Vec<_>>()
+                        .join("\n");
+                    ToolExecutionResult::success(rendered)
                 }
-                Err(e) => ToolExecutionResult::failure(format!(
-                    "Failed to list {}: {}",
-                    resolved_path.display(),
-                    e
-                )),
+                Err(e) => ToolExecutionResult::failure(e),
             }
         }
         AgentTool::FsSearch {

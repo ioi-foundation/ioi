@@ -6,6 +6,7 @@ fn action_target_for_macro_step(target: &str, _params: &serde_json::Value) -> Ac
         "gui__type" => ActionTarget::GuiType,
         "gui__click" => ActionTarget::GuiClick,
         "sys__exec" | "sys__change_directory" => ActionTarget::SysExec,
+        "sys__install_package" => ActionTarget::SysInstallPackage,
         _ => ActionTarget::Custom(target.to_string()),
     }
 }
@@ -378,6 +379,7 @@ impl OptimizerService {
                 hex::encode(ioi_crypto::algorithms::hash::sha256(b"trace").unwrap())
             ),
             defaults: DefaultPolicy::DenyAll,
+            ontology_policy: Default::default(),
             rules,
         })
     }

@@ -58,6 +58,7 @@ export interface AgentTask {
   total_steps: number;
   current_step: string;
   gate_info?: GateInfo;
+  pending_request_hash?: string;
   receipt?: Receipt;
   visual_hash?: string; // Added to match Rust backend
 

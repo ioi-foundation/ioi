@@ -34,6 +34,7 @@ pub struct Receipt {
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum EventType {
     CommandRun,
+    CommandStream,
     CodeSearch,
     FileRead,
     FileEdit,

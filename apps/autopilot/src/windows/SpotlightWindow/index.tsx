@@ -30,7 +30,6 @@ import { SpotlightApprovalCard } from "./components/SpotlightApprovalCard";
 import { ThoughtChain } from "./components/ThoughtChain";
 import { Dropdown, DropdownOption } from "./components/SpotlightDropdown";
 import { ArtifactSidebar } from "./components/ArtifactSidebar";
-import { MicroEventCard } from "./components/MicroEventCard";
 
 // Styles
 import "./styles/Layout.css";
@@ -328,7 +327,7 @@ export function SpotlightWindow({ variant = "overlay" }: SpotlightWindowProps) {
   const handleSubmit = useCallback(async () => {
     const text = intent.trim();
     if (!text) return;
-    if (task?.phase === "Gate") return;
+    if (task?.phase === "Gate" || task?.pending_request_hash) return;
 
     setIntent("");
 
@@ -430,7 +429,19 @@ export function SpotlightWindow({ variant = "overlay" }: SpotlightWindowProps) {
     activeArtifacts.find((a) => a.artifact_id === selectedArtifactId) || null;
 
   const isRunning = task?.phase === "Running";
-  const isGated = task?.phase === "Gate" && !!task?.gate_info;
+  const hasPendingApproval = !!task?.pending_request_hash;
+  const gateInfo = task?.gate_info
+    ? task.gate_info
+    : hasPendingApproval
+      ? {
+          title: "Approval Required",
+          description: task?.pending_request_hash
+            ? `Authorization required for request ${task.pending_request_hash}.`
+            : "Authorization required before execution can continue.",
+          risk: "high" as const,
+        }
+      : undefined;
+  const isGated = (task?.phase === "Gate" || hasPendingApproval) && !!gateInfo;
   const hasContent =
     !!task ||
     localHistory.length > 0 ||
@@ -456,26 +467,27 @@ export function SpotlightWindow({ variant = "overlay" }: SpotlightWindowProps) {
 
   const { chatElements, hasChainContent } = useMemo(() => {
     if (activeEvents.length > 0) {
-      const elements: React.ReactNode[] = activeEvents.map((event) => (
-        <MicroEventCard
-          key={event.event_id}
-          event={event}
+      const byStep = new Map<number, AgentEvent[]>();
+      for (const event of activeEvents) {
+        const list = byStep.get(event.step_index) || [];
+        list.push(event);
+        byStep.set(event.step_index, list);
+      }
+      const orderedSteps = Array.from(byStep.keys()).sort((a, b) => a - b);
+      const latestStep = orderedSteps[orderedSteps.length - 1];
+      const elements: React.ReactNode[] = orderedSteps.map((stepIndex) => (
+        <ThoughtChain
+          key={`thinking-${stepIndex}`}
+          messages={[]}
+          events={byStep.get(stepIndex) || []}
           onOpenArtifact={openArtifactById}
+          activeStep={isRunning && stepIndex === latestStep ? task?.current_step : null}
+          agentName={task?.agent}
+          generation={task?.generation}
+          progress={task?.progress}
+          totalSteps={task?.total_steps}
         />
       ));
-
-      if (task?.phase === "Gate" && task.gate_info) {
-        elements.push(
-          <SpotlightApprovalCard
-            key={`gate-${task.id}-${task.current_step}`}
-            title={task.gate_info.title}
-            description={task.gate_info.description}
-            risk={task.gate_info.risk}
-            onApprove={handleApprove}
-            onDeny={handleDeny}
-          />,
-        );
-      }
 
       return {
         chatElements: elements,
@@ -555,15 +567,7 @@ export function SpotlightWindow({ variant = "overlay" }: SpotlightWindowProps) {
           />
         )}
 
-        {g.type === "gate" && (
-          <SpotlightApprovalCard
-            title={g.content.title}
-            description={g.content.description}
-            risk={g.content.risk}
-            onApprove={handleApprove}
-            onDeny={handleDeny}
-          />
-        )}
+        {g.type === "gate" && null}
       </React.Fragment>
     ));
 
@@ -650,6 +654,18 @@ export function SpotlightWindow({ variant = "overlay" }: SpotlightWindowProps) {
               visible={showScrollButton}
               onClick={scrollToBottom}
             />
+
+            {isGated && gateInfo && (
+              <div className="spot-gate-dock">
+                <SpotlightApprovalCard
+                  title={gateInfo.title}
+                  description={gateInfo.description}
+                  risk={gateInfo.risk}
+                  onApprove={handleApprove}
+                  onDeny={handleDeny}
+                />
+              </div>
+            )}
 
             {/* Input Section */}
             <div

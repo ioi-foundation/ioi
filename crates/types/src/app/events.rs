@@ -92,6 +92,22 @@ pub struct RoutingReceiptEvent {
     pub artifacts: Vec<String>,
     /// Optional classified failure reason.
     pub failure_class: Option<RoutingFailureClass>,
+    /// Canonical failure class name used by clients without enum mapping tables.
+    pub failure_class_name: String,
+    /// Ontology intent class for this routed action.
+    pub intent_class: String,
+    /// Active ontology incident identifier.
+    pub incident_id: String,
+    /// Incident stage at receipt emission time.
+    pub incident_stage: String,
+    /// Ontology strategy name used by resolver.
+    pub strategy_name: String,
+    /// Ontology strategy node/cursor.
+    pub strategy_node: String,
+    /// Approval gate state (None/Pending/Approved/Denied/Cleared).
+    pub gate_state: String,
+    /// Resolver action decided for this step (wait_for_user/execute_remedy/retry_root/etc).
+    pub resolution_action: String,
     /// Whether retry guard stop condition was triggered.
     pub stop_condition_hit: bool,
     /// Optional escalation path selected by the router.
@@ -166,6 +182,30 @@ pub enum KernelEvent {
         /// [NEW] The authoritative lifecycle state after this action.
         /// e.g. "Running", "Paused", "Completed", "Failed".
         agent_status: String,
+    },
+
+    /// Live stdout/stderr/status activity for a running process tool.
+    ProcessActivity {
+        /// The session ID the process belongs to.
+        session_id: [u8; 32],
+        /// The sequence number of the step.
+        step_index: u32,
+        /// The tool currently running (for example "sys__install_package").
+        tool_name: String,
+        /// Stable ID for stream correlation within a step.
+        stream_id: String,
+        /// Stream channel ("stdout", "stderr", "status").
+        channel: String,
+        /// Stream chunk payload.
+        chunk: String,
+        /// Monotonic sequence number for chunk ordering.
+        seq: u64,
+        /// Marks terminal chunk for this stream.
+        is_final: bool,
+        /// Exit code when available.
+        exit_code: Option<i32>,
+        /// User-friendly command preview.
+        command_preview: String,
     },
 
     /// A fully typed per-action routing receipt from the Parity Router.

@@ -52,7 +52,14 @@ fn map_routing_receipt(
     receipt: RoutingReceiptEvent,
     signer: Option<(&libp2p::identity::Keypair, &str)>,
 ) -> ioi_ipc::public::RoutingReceipt {
-    let (failure_class, has_failure_class) = if let Some(class) = receipt.failure_class {
+    let failure_class_name = if !receipt.failure_class_name.is_empty() {
+        receipt.failure_class_name.clone()
+    } else if let Some(class) = receipt.failure_class.as_ref() {
+        format!("{:?}", class)
+    } else {
+        String::new()
+    };
+    let (failure_class, has_failure_class) = if let Some(class) = receipt.failure_class.as_ref() {
         let code = match class {
             ioi_types::app::RoutingFailureClass::FocusMismatch => 1,
             ioi_types::app::RoutingFailureClass::TargetNotFound => 2,
@@ -128,6 +135,14 @@ fn map_routing_receipt(
         policy_binding_hash,
         policy_binding_sig,
         policy_binding_signer,
+        failure_class_name,
+        intent_class: receipt.intent_class,
+        incident_id: receipt.incident_id,
+        incident_stage: receipt.incident_stage,
+        strategy_name: receipt.strategy_name,
+        strategy_node: receipt.strategy_node,
+        gate_state: receipt.gate_state,
+        resolution_action: receipt.resolution_action,
     }
 }
 
@@ -571,6 +586,23 @@ where
                                          role,
                                          budget,
                                          goal,
+                                     }
+                                 ))
+                             },
+                             ioi_types::app::KernelEvent::ProcessActivity { session_id, step_index, tool_name, stream_id, channel, chunk, seq, is_final, exit_code, command_preview } => {
+                                 Some(ChainEventEnum::ProcessActivity(
+                                     ioi_ipc::public::ProcessActivity {
+                                         session_id: hex::encode(session_id),
+                                         step_index,
+                                         tool_name,
+                                         stream_id,
+                                         channel,
+                                         chunk,
+                                         seq,
+                                         is_final,
+                                         exit_code: exit_code.unwrap_or_default(),
+                                         has_exit_code: exit_code.is_some(),
+                                         command_preview,
                                      }
                                  ))
                              },

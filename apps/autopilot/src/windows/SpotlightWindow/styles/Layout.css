@@ -319,13 +319,29 @@ body.spotlight-shell-host,
    INPUT SECTION - Refined Composer
    ============================================ */
 .spot-input-section {
-  padding: 12px 16px 16px;
+  padding: 12px 0 16px;
   background:
     linear-gradient(to top, var(--spot-bg-primary) 60%, transparent 100%),
     rgba(12, 12, 14, 0.98);
   position: relative;
   flex-shrink: 0;
   z-index: 30;
+  display: grid;
+  grid-template-columns: minmax(12px, 1fr) minmax(0, 5fr) minmax(12px, 1fr);
+}
+
+/* Persistent approval dock shown while task is in Gate phase. */
+.spot-gate-dock {
+  padding: 0 16px 10px;
+  flex-shrink: 0;
+  position: relative;
+  z-index: 32;
+  background: linear-gradient(
+    to top,
+    rgba(12, 12, 14, 0.98) 0%,
+    rgba(12, 12, 14, 0.85) 45%,
+    transparent 100%
+  );
 }
 
 /* Fade gradient above input */
@@ -346,6 +362,7 @@ body.spotlight-shell-host,
 
 /* Input Wrapper - Clean Card */
 .spot-input-wrapper {
+  grid-column: 2;
   border-radius: var(--spot-radius-xl);
   padding: 12px 14px;
   background: var(--spot-bg-secondary);
@@ -515,6 +532,7 @@ body.spotlight-shell-host,
 
 /* Toggle Row - Compact */
 .spot-toggles {
+  grid-column: 2;
   display: flex;
   gap: 6px;
   margin-top: 10px;

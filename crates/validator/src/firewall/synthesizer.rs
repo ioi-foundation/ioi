@@ -61,6 +61,7 @@ impl PolicySynthesizer {
         ActionRules {
             policy_id: policy_id.to_string(),
             defaults: DefaultPolicy::DenyAll, // Safe by default
+            ontology_policy: Default::default(),
             rules,
         }
     }

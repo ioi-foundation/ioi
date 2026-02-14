@@ -35,6 +35,7 @@ export interface ChatMessage {
 
 export type EventType =
   | "COMMAND_RUN"
+  | "COMMAND_STREAM"
   | "CODE_SEARCH"
   | "FILE_READ"
   | "FILE_EDIT"

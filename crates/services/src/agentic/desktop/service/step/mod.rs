@@ -4,6 +4,8 @@ pub mod action;
 pub mod anti_loop;
 pub mod cognition;
 pub mod helpers;
+pub mod incident;
+pub mod ontology;
 pub mod perception;
 pub mod queue;
 pub mod visual;
@@ -176,7 +178,8 @@ pub async fn handle_step(
 
     // 3. Execution Queue
     if !agent_state.execution_queue.is_empty() {
-        return queue::process_queue_item(service, state, &mut agent_state, &p).await;
+        return queue::process_queue_item(service, state, &mut agent_state, &p, ctx.block_height)
+            .await;
     }
 
     // 4. Resume Pending

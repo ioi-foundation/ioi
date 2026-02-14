@@ -169,6 +169,7 @@ rl.on('line', (line) => {
     let policy = ActionRules {
         policy_id: "mcp-test-policy".to_string(),
         defaults: DefaultPolicy::DenyAll,
+        ontology_policy: Default::default(),
         rules: vec![
             Rule {
                 rule_id: Some("allow-echo".into()),

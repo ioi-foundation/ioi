@@ -1,7 +1,7 @@
 // Path: crates/services/src/agentic/desktop/service/lifecycle.rs
 
 use super::DesktopAgentService;
-use crate::agentic::desktop::keys::get_state_key;
+use crate::agentic::desktop::keys::{get_incident_key, get_remediation_key, get_state_key};
 use crate::agentic::desktop::types::{
     AgentMode, AgentState, AgentStatus, ExecutionTier, InteractionTarget, PostMessageParams,
     ResumeAgentParams, SessionSummary, StartAgentParams, SwarmContext,
@@ -20,9 +20,14 @@ pub async fn handle_start(
     p: StartAgentParams,
 ) -> Result<(), TransactionError> {
     let key = get_state_key(&p.session_id);
+    let remediation_key = get_remediation_key(&p.session_id);
+    let incident_key = get_incident_key(&p.session_id);
     if state.get(&key)?.is_some() {
         return Err(TransactionError::Invalid("Session already exists".into()));
     }
+    // Ensure stale remediation metadata from prior sessions cannot leak.
+    state.delete(&remediation_key)?;
+    state.delete(&incident_key)?;
 
     // [NEW] Swarm Hydration Logic
     // If the goal starts with "SWARM:", we treat it as a request to instantiate a Swarm Manifest.
@@ -261,6 +266,10 @@ pub async fn handle_post_message(
             agent_state.step_count = 0;
             agent_state.last_action_type = None;
             agent_state.pending_search_completion = None;
+            let remediation_key = get_remediation_key(&p.session_id);
+            let incident_key = get_incident_key(&p.session_id);
+            state.delete(&remediation_key)?;
+            state.delete(&incident_key)?;
         }
 
         if agent_state.status != AgentStatus::Running {
@@ -357,6 +366,10 @@ pub async fn handle_delete_session(
 
     let state_key = get_state_key(&session_id);
     state.delete(&state_key)?;
+    let remediation_key = get_remediation_key(&session_id);
+    state.delete(&remediation_key)?;
+    let incident_key = get_incident_key(&session_id);
+    state.delete(&incident_key)?;
 
     let history_key = b"agent::history".to_vec();
     if let Some(bytes) = state.get(&history_key)? {

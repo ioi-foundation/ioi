@@ -16,6 +16,14 @@ use ioi_types::app::agentic::FirewallPolicy;
 /// The core engine for evaluating actions against firewall policies.
 pub struct PolicyEngine;
 
+fn is_safe_package_identifier(package: &str) -> bool {
+    !package.is_empty()
+        && package.len() <= 128
+        && package.chars().all(|c| {
+            c.is_ascii_alphanumeric() || matches!(c, '.' | '_' | '-' | '+' | '@' | '/' | ':')
+        })
+}
+
 impl PolicyEngine {
     /// Evaluates an ActionRequest against the active policy.
     /// This is the core "Compliance Layer" logic.
@@ -51,6 +59,7 @@ impl PolicyEngine {
             ActionTarget::UiClick => "ui::click",
             ActionTarget::UiType => "ui::type",
             ActionTarget::SysExec => "sys::exec",
+            ActionTarget::SysInstallPackage => "sys::install_package",
             ActionTarget::WalletSign => "wallet::sign",
             ActionTarget::WalletSend => "wallet::send",
 
@@ -161,6 +170,47 @@ impl PolicyEngine {
                 }
             } else {
                 return false; // Failed to parse params
+            }
+        }
+
+        if let ActionTarget::SysInstallPackage = target {
+            if let Ok(json) = serde_json::from_slice::<serde_json::Value>(params) {
+                let package = json["package"].as_str().unwrap_or("").trim();
+                if !is_safe_package_identifier(package) {
+                    tracing::warn!(
+                        "Policy Violation: install package '{}' is not a safe identifier.",
+                        package
+                    );
+                    return false;
+                }
+
+                let manager = json["manager"].as_str().unwrap_or("").trim().to_ascii_lowercase();
+                if !manager.is_empty()
+                    && !matches!(
+                        manager.as_str(),
+                        "apt-get"
+                            | "apt"
+                            | "brew"
+                            | "pip"
+                            | "pip3"
+                            | "npm"
+                            | "pnpm"
+                            | "cargo"
+                            | "winget"
+                            | "choco"
+                            | "chocolatey"
+                            | "yum"
+                            | "dnf"
+                    )
+                {
+                    tracing::warn!(
+                        "Policy Violation: install manager '{}' is unsupported.",
+                        manager
+                    );
+                    return false;
+                }
+            } else {
+                return false;
             }
         }
 

@@ -8,6 +8,7 @@ interface MicroEventCardProps {
 
 const ICONS: Record<EventType, string> = {
   COMMAND_RUN: "⌘",
+  COMMAND_STREAM: "⋯",
   CODE_SEARCH: "⌕",
   FILE_READ: "📄",
   FILE_EDIT: "✎",
@@ -21,7 +22,31 @@ const ICONS: Record<EventType, string> = {
   ERROR: "⛔",
 };
 
-function toDigestLine(digest: Record<string, unknown>): string {
+function toDigestLine(event: AgentEvent): string {
+  const digest = (event.digest || {}) as Record<string, unknown>;
+  if (event.event_type === "RECEIPT") {
+    const ordered = [
+      "intent_class",
+      "incident_stage",
+      "strategy_node",
+      "gate_state",
+      "resolution_action",
+      "tool_name",
+      "decision",
+    ];
+    const lines = ordered
+      .filter((k) => digest[k] !== undefined && String(digest[k]).length > 0)
+      .slice(0, 5)
+      .map((k) => `${k}: ${String(digest[k])}`);
+    if (lines.length > 0) return lines.join(" · ");
+  }
+  if (event.event_type === "COMMAND_STREAM") {
+    const ordered = ["tool_name", "channel", "seq", "is_final", "exit_code"];
+    return ordered
+      .filter((k) => digest[k] !== undefined && String(digest[k]).length > 0)
+      .map((k) => `${k}: ${String(digest[k])}`)
+      .join(" · ");
+  }
   const keys = Object.keys(digest || {});
   if (keys.length === 0) return "";
   const lines = keys.slice(0, 3).map((k) => `${k}: ${String(digest[k])}`);
@@ -30,7 +55,7 @@ function toDigestLine(digest: Record<string, unknown>): string {
 
 export function MicroEventCard({ event, onOpenArtifact }: MicroEventCardProps) {
   const [expanded, setExpanded] = useState(false);
-  const digestLine = useMemo(() => toDigestLine(event.digest || {}), [event.digest]);
+  const digestLine = useMemo(() => toDigestLine(event), [event]);
   const statusClass = event.status.toLowerCase();
 
   return (

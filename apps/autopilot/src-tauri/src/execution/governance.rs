@@ -54,6 +54,7 @@ pub(super) fn synthesize_node_policy(node_type: &str, law_config: &Value) -> Act
         policy_id: "studio-simulation".into(),
         defaults: DefaultPolicy::DenyAll,
         rules,
+        ontology_policy: Default::default(),
     }
 }
 
