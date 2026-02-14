@@ -362,6 +362,246 @@ fn ui_find_react_lens_resolves_aria_labelledby_to_primary_control() {
     assert_eq!(found.source, "semantic_tree");
 }
 
+#[test]
+fn ui_find_react_lens_resolves_aria_labelledby_via_html_id_attribute() {
+    let mut label_attrs = HashMap::new();
+    label_attrs.insert("id".to_string(), "save_label".to_string());
+
+    let mut target_attrs = HashMap::new();
+    target_attrs.insert("data-testid".to_string(), "primary-action".to_string());
+    target_attrs.insert("aria-labelledby".to_string(), "save_label".to_string());
+
+    let raw_tree = AccessibilityNode {
+        id: "window_editor".to_string(),
+        role: "window".to_string(),
+        name: Some("Editor".to_string()),
+        value: None,
+        rect: Rect {
+            x: 0,
+            y: 0,
+            width: 1200,
+            height: 800,
+        },
+        is_visible: true,
+        attributes: HashMap::new(),
+        som_id: None,
+        children: vec![
+            AccessibilityNode {
+                id: "generated_label_node".to_string(),
+                role: "text".to_string(),
+                name: Some("Save Draft".to_string()),
+                value: None,
+                rect: Rect {
+                    x: 410,
+                    y: 172,
+                    width: 120,
+                    height: 18,
+                },
+                is_visible: true,
+                attributes: label_attrs,
+                som_id: None,
+                children: vec![],
+            },
+            AccessibilityNode {
+                id: "btn_unlabeled".to_string(),
+                role: "button".to_string(),
+                name: None,
+                value: None,
+                rect: Rect {
+                    x: 410,
+                    y: 192,
+                    width: 132,
+                    height: 40,
+                },
+                is_visible: true,
+                attributes: target_attrs,
+                som_id: None,
+                children: vec![],
+            },
+        ],
+    };
+
+    let mut registry = LensRegistry::new();
+    registry.register(Box::new(ReactLens));
+    registry.register(Box::new(AutoLens));
+
+    let transformed = registry
+        .get("ReactLens")
+        .expect("react lens should be registered")
+        .transform(&raw_tree)
+        .expect("react lens should preserve action controls");
+
+    let found = find_semantic_ui_match(&transformed, "save draft")
+        .expect("semantic query should resolve html id-labelled control");
+    assert_eq!(found.id.as_deref(), Some("primary-action"));
+    assert_eq!(found.label.as_deref(), Some("Save Draft"));
+    assert_eq!(found.source, "semantic_tree");
+}
+
+#[test]
+fn ui_find_react_lens_resolves_nested_labelledby_container_text() {
+    let mut target_attrs = HashMap::new();
+    target_attrs.insert("data-testid".to_string(), "primary-action".to_string());
+    target_attrs.insert("aria-labelledby".to_string(), "lbl_container".to_string());
+
+    let raw_tree = AccessibilityNode {
+        id: "window_editor".to_string(),
+        role: "window".to_string(),
+        name: Some("Editor".to_string()),
+        value: None,
+        rect: Rect {
+            x: 0,
+            y: 0,
+            width: 1200,
+            height: 800,
+        },
+        is_visible: true,
+        attributes: HashMap::new(),
+        som_id: None,
+        children: vec![
+            AccessibilityNode {
+                id: "lbl_container".to_string(),
+                role: "group".to_string(),
+                name: None,
+                value: None,
+                rect: Rect {
+                    x: 410,
+                    y: 170,
+                    width: 140,
+                    height: 22,
+                },
+                is_visible: true,
+                attributes: HashMap::new(),
+                som_id: None,
+                children: vec![AccessibilityNode {
+                    id: "lbl_text".to_string(),
+                    role: "text".to_string(),
+                    name: Some("Save Draft".to_string()),
+                    value: None,
+                    rect: Rect {
+                        x: 412,
+                        y: 172,
+                        width: 120,
+                        height: 18,
+                    },
+                    is_visible: true,
+                    attributes: HashMap::new(),
+                    som_id: None,
+                    children: vec![],
+                }],
+            },
+            AccessibilityNode {
+                id: "btn_unlabeled".to_string(),
+                role: "button".to_string(),
+                name: None,
+                value: None,
+                rect: Rect {
+                    x: 410,
+                    y: 192,
+                    width: 132,
+                    height: 40,
+                },
+                is_visible: true,
+                attributes: target_attrs,
+                som_id: None,
+                children: vec![],
+            },
+        ],
+    };
+
+    let mut registry = LensRegistry::new();
+    registry.register(Box::new(ReactLens));
+    registry.register(Box::new(AutoLens));
+
+    let transformed = registry
+        .get("ReactLens")
+        .expect("react lens should be registered")
+        .transform(&raw_tree)
+        .expect("react lens should preserve action controls");
+
+    let found = find_semantic_ui_match(&transformed, "save draft")
+        .expect("semantic query should resolve labelledby container text onto control");
+    assert_eq!(found.id.as_deref(), Some("primary-action"));
+    assert_eq!(found.label.as_deref(), Some("Save Draft"));
+    assert_eq!(found.source, "semantic_tree");
+}
+
+#[test]
+fn ui_find_react_lens_resolves_htmlfor_label_to_form_control() {
+    let mut label_attrs = HashMap::new();
+    label_attrs.insert("htmlFor".to_string(), "profile_email".to_string());
+
+    let mut input_attrs = HashMap::new();
+    input_attrs.insert("id".to_string(), "profile_email".to_string());
+    input_attrs.insert("data-testid".to_string(), "profile-email-field".to_string());
+
+    let raw_tree = AccessibilityNode {
+        id: "window_profile".to_string(),
+        role: "window".to_string(),
+        name: Some("Profile".to_string()),
+        value: None,
+        rect: Rect {
+            x: 0,
+            y: 0,
+            width: 1200,
+            height: 800,
+        },
+        is_visible: true,
+        attributes: HashMap::new(),
+        som_id: None,
+        children: vec![
+            AccessibilityNode {
+                id: "label_email".to_string(),
+                role: "text".to_string(),
+                name: Some("Email Address".to_string()),
+                value: None,
+                rect: Rect {
+                    x: 380,
+                    y: 220,
+                    width: 150,
+                    height: 22,
+                },
+                is_visible: true,
+                attributes: label_attrs,
+                som_id: None,
+                children: vec![],
+            },
+            AccessibilityNode {
+                id: "input_email".to_string(),
+                role: "textbox".to_string(),
+                name: None,
+                value: None,
+                rect: Rect {
+                    x: 380,
+                    y: 248,
+                    width: 260,
+                    height: 40,
+                },
+                is_visible: true,
+                attributes: input_attrs,
+                som_id: None,
+                children: vec![],
+            },
+        ],
+    };
+
+    let mut registry = LensRegistry::new();
+    registry.register(Box::new(ReactLens));
+    registry.register(Box::new(AutoLens));
+
+    let transformed = registry
+        .get("ReactLens")
+        .expect("react lens should be registered")
+        .transform(&raw_tree)
+        .expect("react lens should preserve form controls");
+
+    let found = find_semantic_ui_match(&transformed, "email address")
+        .expect("semantic query should resolve htmlFor-labelled textbox");
+    assert_eq!(found.id.as_deref(), Some("profile-email-field"));
+    assert_eq!(found.label.as_deref(), Some("Email Address"));
+    assert_eq!(found.source, "semantic_tree");
+}
+
 fn test_agent_state() -> AgentState {
     AgentState {
         session_id: [0x33; 32],
