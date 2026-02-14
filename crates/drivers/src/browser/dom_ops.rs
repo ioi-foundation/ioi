@@ -392,15 +392,102 @@ impl BrowserDriver {
             .map_err(|e| BrowserError::Internal(format!("JS decode failed: {}", e)))
     }
 
+    fn deep_dom_helper_js() -> &'static str {
+        r#"
+                const deepQuerySelector = (selector) => {
+                    const queue = [document];
+                    const visited = new Set();
+                    while (queue.length > 0) {
+                        const root = queue.shift();
+                        if (!root || visited.has(root)) {
+                            continue;
+                        }
+                        visited.add(root);
+
+                        const matchEl = root.querySelector(selector);
+                        if (matchEl) {
+                            return matchEl;
+                        }
+
+                        let nodes = [];
+                        try {
+                            nodes = root.querySelectorAll("*");
+                        } catch (_e) {}
+
+                        for (const node of nodes) {
+                            if (node && node.shadowRoot) {
+                                queue.push(node.shadowRoot);
+                            }
+                        }
+                    }
+                    return null;
+                };
+
+                const deepElementFromPoint = (x, y) => {
+                    let current = document.elementFromPoint(x, y);
+                    let guard = 0;
+                    while (current && current.shadowRoot && guard < 32) {
+                        const inner = current.shadowRoot.elementFromPoint(x, y);
+                        if (!inner || inner === current) {
+                            break;
+                        }
+                        current = inner;
+                        guard += 1;
+                    }
+                    return current;
+                };
+
+                const composedContains = (ancestor, node) => {
+                    if (!ancestor || !node) {
+                        return false;
+                    }
+                    let current = node;
+                    const visited = new Set();
+                    while (current && !visited.has(current)) {
+                        visited.add(current);
+                        if (current === ancestor) {
+                            return true;
+                        }
+                        if (typeof ancestor.contains === "function" && ancestor.contains(current)) {
+                            return true;
+                        }
+                        const root = current.getRootNode ? current.getRootNode() : null;
+                        if (root && root.host) {
+                            current = root.host;
+                        } else {
+                            current = current.parentElement;
+                        }
+                    }
+                    return false;
+                };
+
+                const deepActiveElement = () => {
+                    let active = document.activeElement;
+                    const visited = new Set();
+                    while (active && !visited.has(active)) {
+                        visited.add(active);
+                        if (active.shadowRoot && active.shadowRoot.activeElement) {
+                            active = active.shadowRoot.activeElement;
+                            continue;
+                        }
+                        break;
+                    }
+                    return active;
+                };
+        "#
+    }
+
     fn selector_probe_script(selector: &str) -> Result<String, BrowserError> {
         let selector_json = serde_json::to_string(selector)
             .map_err(|e| BrowserError::Internal(format!("Selector encode failed: {}", e)))?;
+        let helpers = Self::deep_dom_helper_js();
 
         Ok(format!(
             r##"(() => {{
                 const selector = {selector_json};
                 const url = window.location.href || "";
-                const el = document.querySelector(selector);
+                {helpers}
+                const el = deepQuerySelector(selector);
                 if (!el) {{
                     return {{
                         url,
@@ -442,11 +529,11 @@ impl BrowserDriver {
                     const maxY = Math.max(0, (window.innerHeight || 1) - 1);
                     const px = Math.max(0, Math.min(maxX, cx));
                     const py = Math.max(0, Math.min(maxY, cy));
-                    topEl = document.elementFromPoint(px, py);
+                    topEl = deepElementFromPoint(px, py);
                 }}
 
-                const topmost = !!topEl && (topEl === el || el.contains(topEl) || topEl.contains(el));
-                const focused = document.activeElement === el;
+                const topmost = !!topEl && (composedContains(el, topEl) || composedContains(topEl, el));
+                const focused = deepActiveElement() === el;
                 const tag = (el.tagName || "").toLowerCase();
                 const role = (el.getAttribute && (el.getAttribute("role") || "").toLowerCase()) || "";
                 const editable =
@@ -474,7 +561,9 @@ impl BrowserDriver {
                     tag,
                     role
                 }};
-            }})()"##
+            }})()"##,
+            selector_json = selector_json,
+            helpers = helpers
         ))
     }
 
@@ -489,10 +578,12 @@ impl BrowserDriver {
     pub async fn focus_selector(&self, selector: &str) -> std::result::Result<bool, BrowserError> {
         let selector_json = serde_json::to_string(selector)
             .map_err(|e| BrowserError::Internal(format!("Selector encode failed: {}", e)))?;
+        let helpers = Self::deep_dom_helper_js();
         let script = format!(
             r#"(() => {{
                 const selector = {selector_json};
-                const el = document.querySelector(selector);
+                {helpers}
+                const el = deepQuerySelector(selector);
                 if (!el) return false;
                 try {{
                     el.scrollIntoView({{ block: "center", inline: "center", behavior: "instant" }});
@@ -502,8 +593,10 @@ impl BrowserDriver {
                         el.focus({{ preventScroll: true }});
                     }}
                 }} catch (_e) {{}}
-                return document.activeElement === el;
-            }})()"#
+                return deepActiveElement() === el;
+            }})()"#,
+            selector_json = selector_json,
+            helpers = helpers
         );
 
         self.evaluate_js(&script).await
@@ -515,11 +608,13 @@ impl BrowserDriver {
     ) -> std::result::Result<Option<String>, BrowserError> {
         let selectors_json = serde_json::to_string(selectors)
             .map_err(|e| BrowserError::Internal(format!("Selector list encode failed: {}", e)))?;
+        let helpers = Self::deep_dom_helper_js();
         let script = format!(
             r#"(() => {{
                 const selectors = {selectors_json};
+                {helpers}
                 for (const selector of selectors) {{
-                    const el = document.querySelector(selector);
+                    const el = deepQuerySelector(selector);
                     if (!el) continue;
 
                     const style = window.getComputedStyle(el);
@@ -541,20 +636,97 @@ impl BrowserDriver {
                             el.focus({{ preventScroll: true }});
                         }}
                     }} catch (_e) {{}}
-                    if (document.activeElement === el) {{
+                    if (deepActiveElement() === el) {{
                         return selector;
                     }}
                 }}
                 return null;
-            }})()"#
+            }})()"#,
+            selectors_json = selectors_json,
+            helpers = helpers
         );
 
         self.evaluate_js(&script).await
     }
 
+    pub(crate) async fn click_selector_deep(
+        &self,
+        selector: &str,
+    ) -> std::result::Result<(), BrowserError> {
+        #[derive(Deserialize)]
+        struct SelectorClickResult {
+            found: bool,
+            clicked: bool,
+            reason: Option<String>,
+        }
+
+        let selector_json = serde_json::to_string(selector)
+            .map_err(|e| BrowserError::Internal(format!("Selector encode failed: {}", e)))?;
+        let helpers = Self::deep_dom_helper_js();
+
+        let script = format!(
+            r#"(() => {{
+                const selector = {selector_json};
+                {helpers}
+                const el = deepQuerySelector(selector);
+                if (!el) {{
+                    return {{ found: false, clicked: false, reason: "not_found" }};
+                }}
+
+                try {{
+                    el.scrollIntoView({{ block: "center", inline: "center", behavior: "instant" }});
+                }} catch (_e) {{}}
+
+                const rect = el.getBoundingClientRect();
+                if (!(rect.width > 0 && rect.height > 0)) {{
+                    return {{ found: true, clicked: false, reason: "zero_sized_target" }};
+                }}
+
+                try {{
+                    if (typeof el.click === "function") {{
+                        el.click();
+                    }} else {{
+                        const evt = new MouseEvent("click", {{
+                            bubbles: true,
+                            cancelable: true,
+                            composed: true
+                        }});
+                        el.dispatchEvent(evt);
+                    }}
+                    return {{ found: true, clicked: true, reason: null }};
+                }} catch (e) {{
+                    return {{ found: true, clicked: false, reason: String(e) }};
+                }}
+            }})()"#,
+            selector_json = selector_json,
+            helpers = helpers
+        );
+
+        let result: SelectorClickResult = self.evaluate_js(&script).await?;
+        if !result.found {
+            return Err(BrowserError::Internal(format!(
+                "Element '{}' not found in document or open shadow roots",
+                selector
+            )));
+        }
+        if result.clicked {
+            return Ok(());
+        }
+
+        Err(BrowserError::Internal(format!(
+            "Click failed for '{}': {}",
+            selector,
+            result.reason.unwrap_or_else(|| "unknown error".to_string())
+        )))
+    }
+
     pub async fn is_active_element_editable(&self) -> std::result::Result<bool, BrowserError> {
-        let script = r#"(() => {
-            const el = document.activeElement;
+        let helpers = Self::deep_dom_helper_js();
+        let script = [
+            "(() => {\n",
+            helpers,
+            r#"
+            const el = deepActiveElement();
             if (!el) return false;
             const tag = (el.tagName || "").toLowerCase();
             if (el.isContentEditable) return true;
@@ -569,8 +741,10 @@ impl BrowserDriver {
             }
             const role = (el.getAttribute && (el.getAttribute("role") || "").toLowerCase()) || "";
             return role === "textbox";
-        })()"#;
+        })()"#,
+        ]
+        .concat();
 
-        self.evaluate_js(script).await
+        self.evaluate_js(&script).await
     }
 }

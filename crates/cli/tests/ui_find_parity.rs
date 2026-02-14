@@ -363,6 +363,81 @@ fn ui_find_react_lens_resolves_aria_labelledby_to_primary_control() {
 }
 
 #[test]
+fn ui_find_react_lens_prefers_control_when_name_is_generic_role_word() {
+    let mut target_attrs = HashMap::new();
+    target_attrs.insert("data-testid".to_string(), "publish-primary".to_string());
+    target_attrs.insert("aria-labelledby".to_string(), "lbl_publish".to_string());
+
+    let raw_tree = AccessibilityNode {
+        id: "window_editor".to_string(),
+        role: "window".to_string(),
+        name: Some("Editor".to_string()),
+        value: None,
+        rect: Rect {
+            x: 0,
+            y: 0,
+            width: 1200,
+            height: 800,
+        },
+        is_visible: true,
+        attributes: HashMap::new(),
+        som_id: None,
+        children: vec![
+            AccessibilityNode {
+                id: "lbl_publish".to_string(),
+                role: "text".to_string(),
+                name: Some("Publish".to_string()),
+                value: None,
+                rect: Rect {
+                    x: 410,
+                    y: 172,
+                    width: 120,
+                    height: 18,
+                },
+                is_visible: true,
+                attributes: HashMap::new(),
+                som_id: None,
+                children: vec![],
+            },
+            AccessibilityNode {
+                id: "btn_generic_name".to_string(),
+                role: "button".to_string(),
+                // Many platform trees expose role words as names.
+                // This should not block labelledby recovery.
+                name: Some("button".to_string()),
+                value: None,
+                rect: Rect {
+                    x: 410,
+                    y: 192,
+                    width: 132,
+                    height: 40,
+                },
+                is_visible: true,
+                attributes: target_attrs,
+                som_id: None,
+                children: vec![],
+            },
+        ],
+    };
+
+    let mut registry = LensRegistry::new();
+    registry.register(Box::new(ReactLens));
+    registry.register(Box::new(AutoLens));
+
+    let transformed = registry
+        .get("ReactLens")
+        .expect("react lens should be registered")
+        .transform(&raw_tree)
+        .expect("react lens should preserve action controls");
+
+    let found = find_semantic_ui_match(&transformed, "publish")
+        .expect("semantic query should resolve control with generic role-word name");
+    assert_eq!(found.id.as_deref(), Some("publish-primary"));
+    assert_eq!(found.label.as_deref(), Some("Publish"));
+    assert_eq!(found.source, "semantic_tree");
+}
+
+#[test]
 fn ui_find_react_lens_resolves_aria_labelledby_via_html_id_attribute() {
     let mut label_attrs = HashMap::new();
     label_attrs.insert("id".to_string(), "save_label".to_string());

@@ -240,15 +240,20 @@ impl BrowserDriver {
         let page = { self.active_page.lock().await.clone() };
 
         if let Some(p) = page {
-            let element = p
-                .find_element(selector)
-                .await
-                .map_err(|e| BrowserError::Internal(format!("Element not found: {}", e)))?;
-
-            element
-                .click()
-                .await
-                .map_err(|e| BrowserError::Internal(format!("Click failed: {}", e)))?;
+            let primary_click_result = match p.find_element(selector).await {
+                Ok(element) => match element.click().await {
+                    Ok(_) => Ok(()),
+                    Err(e) => Err(format!("Click failed: {}", e)),
+                },
+                Err(e) => Err(format!("Element not found: {}", e)),
+            };
+            if let Err(primary_error) = primary_click_result {
+                self.click_selector_deep(selector).await.map_err(|fallback_error| {
+                    BrowserError::Internal(format!(
+                        "Primary click failed ({primary_error}); deep selector fallback failed: {fallback_error}"
+                    ))
+                })?;
+            }
 
             tokio::time::sleep(Duration::from_millis(100)).await;
             Ok(())
