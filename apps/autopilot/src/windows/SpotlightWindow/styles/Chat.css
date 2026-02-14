@@ -409,6 +409,51 @@
   opacity: 1;
 }
 
+.thought-stream-panel {
+  border: 1px solid var(--spot-border);
+  border-radius: var(--spot-radius-sm);
+  background: rgba(0, 0, 0, 0.22);
+  padding: 8px;
+}
+
+.thought-stream-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 11px;
+  color: var(--spot-text-muted);
+  margin-bottom: 6px;
+}
+
+.thought-stream-output {
+  margin: 0;
+  max-height: 220px;
+  overflow: auto;
+  font-size: 11px;
+  line-height: 1.35;
+  white-space: pre-wrap;
+  word-break: break-word;
+  color: var(--spot-text-secondary);
+  font-family: var(--spot-font-mono);
+}
+
+.thought-stream-note {
+  margin-top: 6px;
+  font-size: 11px;
+  color: var(--spot-text-muted);
+}
+
+.thought-artifact-link {
+  margin-top: 8px;
+  border: 1px solid var(--spot-border);
+  background: transparent;
+  color: var(--spot-text-secondary);
+  border-radius: var(--spot-radius-sm);
+  padding: 4px 8px;
+  font-size: 11px;
+  cursor: pointer;
+}
+
 /* ============================================
    GATE CARD - Approval Request
    ============================================ */
@@ -418,7 +463,7 @@
   border-radius: var(--spot-radius-md);
   border: 1px solid var(--gate-color, var(--spot-border));
   background: var(--spot-bg-secondary);
-  overflow: hidden;
+  overflow: visible;
   display: flex;
   animation: gateSlide 300ms var(--spot-spring);
 }

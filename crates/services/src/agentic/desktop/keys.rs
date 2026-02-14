@@ -8,6 +8,8 @@ pub const AGENT_POLICY_PREFIX: &[u8] = b"agent::policy::";
 pub const SKILL_STATS_PREFIX: &[u8] = b"skills::stats::";
 // [NEW] Prefix for the latest mutation receipt pointer for a session.
 pub const MUTATION_RECEIPT_PTR_PREFIX: &[u8] = b"agent::mutation_receipt_ptr::";
+pub const REMEDIATION_PREFIX: &[u8] = b"agent::remediation::";
+pub const INCIDENT_PREFIX: &[u8] = b"agent::incident::";
 
 // [NEW] Prefix for storing results of completed child sessions
 // Key: session::result::{child_session_id}
@@ -31,4 +33,12 @@ pub fn get_session_result_key(session_id: &[u8; 32]) -> Vec<u8> {
 
 pub fn get_mutation_receipt_ptr_key(session_id: &[u8; 32]) -> Vec<u8> {
     [MUTATION_RECEIPT_PTR_PREFIX, session_id.as_slice()].concat()
+}
+
+pub fn get_remediation_key(session_id: &[u8; 32]) -> Vec<u8> {
+    [REMEDIATION_PREFIX, session_id.as_slice()].concat()
+}
+
+pub fn get_incident_key(session_id: &[u8; 32]) -> Vec<u8> {
+    [INCIDENT_PREFIX, session_id.as_slice()].concat()
 }

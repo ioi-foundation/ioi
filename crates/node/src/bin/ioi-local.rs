@@ -155,6 +155,7 @@ async fn main() -> Result<()> {
     let local_policy = ActionRules {
         policy_id: "interactive-mode".to_string(),
         defaults: DefaultPolicy::RequireApproval,
+        ontology_policy: Default::default(),
         rules: vec![
             Rule {
                 rule_id: Some("allow-ui-read".into()),

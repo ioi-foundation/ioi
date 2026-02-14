@@ -1,11 +1,15 @@
 // apps/autopilot/src-tauri/src/kernel/task.rs
 use crate::kernel::state::update_task_state;
-use crate::models::{AgentPhase, AgentTask, AppState, ChatMessage, SessionSummary};
+use crate::models::{
+    AgentEvent, AgentPhase, AgentTask, AppState, ChatMessage, EventStatus, EventType,
+    SessionSummary,
+};
 use crate::orchestrator;
 use crate::windows;
 use ioi_ipc::public::public_api_client::PublicApiClient;
 use ioi_ipc::public::{DraftTransactionRequest, SubmitTransactionRequest};
 use parity_scale_codec::{Decode, Encode};
+use serde_json::json;
 use std::collections::HashSet;
 use std::sync::Mutex;
 use tauri::{AppHandle, Emitter, Manager, State};
@@ -28,6 +32,33 @@ fn input_probe_logging_enabled() -> bool {
                 || t.eq_ignore_ascii_case("on")
         })
         .unwrap_or(false)
+}
+
+fn now_iso() -> String {
+    chrono::Utc::now().to_rfc3339()
+}
+
+fn build_user_input_event(thread_id: &str, step_index: u32, text: &str) -> AgentEvent {
+    AgentEvent {
+        event_id: uuid::Uuid::new_v4().to_string(),
+        timestamp: now_iso(),
+        thread_id: thread_id.to_string(),
+        step_index,
+        event_type: EventType::InfoNote,
+        title: "User request".to_string(),
+        digest: json!({
+            "query": text,
+        }),
+        details: json!({
+            "kind": "user_input",
+            "text": text,
+        }),
+        artifact_refs: Vec::new(),
+        receipt_ref: None,
+        input_refs: Vec::new(),
+        status: EventStatus::Success,
+        duration_ms: None,
+    }
 }
 
 // [FIX] Local definition to avoid dependency on private/missing service types
@@ -76,7 +107,7 @@ pub fn start_task(
         visual_hash: None,
         pending_request_hash: None,
         history,
-        events: Vec::new(),
+        events: vec![build_user_input_event(&task_id, 0, &intent)],
         artifacts: Vec::new(),
         run_bundle_id: None,
         processed_steps: HashSet::new(),
@@ -198,9 +229,17 @@ pub async fn continue_task(
         text: user_input.clone(),
         timestamp: crate::kernel::state::now(),
     };
+    let user_input_for_event = user_input.clone();
 
     update_task_state(&app, move |t| {
         t.history.push(user_msg_ui.clone());
+        let thread_id = t.session_id.clone().unwrap_or_else(|| t.id.clone());
+        let step_index = t.progress;
+        t.events.push(build_user_input_event(
+            &thread_id,
+            step_index,
+            &user_input_for_event,
+        ));
         t.current_step = "Sending message...".to_string();
         t.phase = crate::models::AgentPhase::Running;
     });

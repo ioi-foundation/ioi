@@ -15,6 +15,72 @@ pub enum Verdict {
     RequireApproval,
 }
 
+/// Approval orchestration mode for ontology incident flows.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Encode, Decode)]
+#[serde(rename_all = "snake_case")]
+pub enum ApprovalMode {
+    /// Keep one gate prompt active per incident/action fingerprint.
+    SinglePending,
+    /// Re-prompt up to a bounded count.
+    BoundedReprompt,
+    /// Prompt on every intercepted attempt.
+    AlwaysPrompt,
+}
+
+impl Default for ApprovalMode {
+    fn default() -> Self {
+        Self::SinglePending
+    }
+}
+
+/// Per-intent/failure policy override for ontology strategy selection.
+#[derive(Debug, Clone, Serialize, Deserialize, Default, Encode, Decode)]
+pub struct IntentFailureOverride {
+    pub intent_class: String,
+    pub failure_class: String,
+    pub strategy_name: Option<String>,
+    pub max_transitions: Option<u32>,
+}
+
+/// Optional operator preferences for ontology strategy planning.
+#[derive(Debug, Clone, Serialize, Deserialize, Default, Encode, Decode)]
+pub struct ToolPreferences {
+    /// Preferred install manager order (for example: ["apt-get", "dnf", "yum"]).
+    pub install_manager_priority: Vec<String>,
+    /// Forbidden recovery tools at policy level.
+    pub forbidden_remediation_tools: Vec<String>,
+    /// Prompt cap used when `approval_mode=bounded_reprompt`.
+    pub bounded_reprompt_limit: u32,
+}
+
+/// Ontology incident policy settings.
+#[derive(Debug, Clone, Serialize, Deserialize, Encode, Decode)]
+pub struct OntologyPolicy {
+    /// Gate handling mode for repeated approval interceptions.
+    pub approval_mode: ApprovalMode,
+    /// Maximum transitions allowed inside a single incident state machine.
+    pub max_incident_transitions: u32,
+    /// Intent/failure-specific override table.
+    pub intent_failure_overrides: Vec<IntentFailureOverride>,
+    /// Planner preferences and constraints.
+    pub tool_preferences: ToolPreferences,
+}
+
+impl Default for OntologyPolicy {
+    fn default() -> Self {
+        Self {
+            approval_mode: ApprovalMode::SinglePending,
+            max_incident_transitions: 32,
+            intent_failure_overrides: Vec::new(),
+            tool_preferences: ToolPreferences {
+                install_manager_priority: Vec::new(),
+                forbidden_remediation_tools: Vec::new(),
+                bounded_reprompt_limit: 2,
+            },
+        }
+    }
+}
+
 /// A collection of rules defining the security boundary for an agent.
 #[derive(Debug, Clone, Serialize, Deserialize, Default, Encode, Decode)]
 pub struct ActionRules {
@@ -25,6 +91,9 @@ pub struct ActionRules {
     pub defaults: DefaultPolicy,
     /// The list of specific rules to evaluate.
     pub rules: Vec<Rule>,
+    /// Ontology/incident orchestration policy.
+    #[serde(default)]
+    pub ontology_policy: OntologyPolicy,
 }
 
 /// The default policy behavior when no specific rule matches an action.

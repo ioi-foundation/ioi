@@ -2,9 +2,68 @@
 
 use anyhow::{anyhow, Result};
 use std::path::Path;
-use std::process::Command;
+use std::process::Stdio;
+use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::Arc;
 use std::time::Duration;
-use wait_timeout::ChildExt;
+use tokio::io::{AsyncRead, AsyncReadExt};
+use tokio::process::Command;
+use tokio::time;
+
+#[derive(Clone, Debug)]
+pub enum ProcessStreamChannel {
+    Stdout,
+    Stderr,
+    Status,
+}
+
+impl ProcessStreamChannel {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            Self::Stdout => "stdout",
+            Self::Stderr => "stderr",
+            Self::Status => "status",
+        }
+    }
+}
+
+#[derive(Clone, Debug)]
+pub struct ProcessStreamChunk {
+    pub channel: ProcessStreamChannel,
+    pub chunk: String,
+    pub seq: u64,
+    pub is_final: bool,
+    pub exit_code: Option<i32>,
+}
+
+pub type ProcessStreamObserver = Arc<dyn Fn(ProcessStreamChunk) + Send + Sync>;
+
+#[derive(Clone)]
+pub struct CommandExecutionOptions {
+    pub timeout: Duration,
+    pub stream_observer: Option<ProcessStreamObserver>,
+}
+
+impl Default for CommandExecutionOptions {
+    fn default() -> Self {
+        Self {
+            timeout: Duration::from_secs(5),
+            stream_observer: None,
+        }
+    }
+}
+
+impl CommandExecutionOptions {
+    pub fn with_timeout(mut self, timeout: Duration) -> Self {
+        self.timeout = timeout;
+        self
+    }
+
+    pub fn with_stream_observer(mut self, stream_observer: Option<ProcessStreamObserver>) -> Self {
+        self.stream_observer = stream_observer;
+        self
+    }
+}
 
 pub struct TerminalDriver;
 
@@ -15,7 +74,7 @@ impl TerminalDriver {
 
     /// Executes a command.
     /// If `detach` is true, it spawns the process and returns immediately (for GUI apps).
-    /// If `detach` is false, it waits up to 5 seconds for the command to finish.
+    /// If `detach` is false, it waits using default timeout options.
     pub async fn execute(&self, command: &str, args: &[String], detach: bool) -> Result<String> {
         self.execute_in_dir(command, args, detach, None).await
     }
@@ -28,31 +87,39 @@ impl TerminalDriver {
         detach: bool,
         cwd: Option<&Path>,
     ) -> Result<String> {
+        self.execute_in_dir_with_options(
+            command,
+            args,
+            detach,
+            cwd,
+            CommandExecutionOptions::default(),
+        )
+        .await
+    }
+
+    pub async fn execute_in_dir_with_options(
+        &self,
+        command: &str,
+        args: &[String],
+        detach: bool,
+        cwd: Option<&Path>,
+        options: CommandExecutionOptions,
+    ) -> Result<String> {
         let mut cmd = Command::new(command);
         cmd.args(args);
         if let Some(dir) = cwd {
             cmd.current_dir(dir);
         }
 
-        // Security: In a real production build, this is where you would sandbox the process.
-        // For local mode, we run it directly but enforce a timeout or detach policy.
-
         if detach {
-            // Detached mode: Spawn and forget (letting it run in background)
-            // Redirect stdout/stderr to null to avoid holding pipe handles which might hang the parent
-            cmd.stdout(std::process::Stdio::null());
-            cmd.stderr(std::process::Stdio::null());
-            cmd.stdin(std::process::Stdio::null());
+            cmd.stdout(Stdio::null());
+            cmd.stderr(Stdio::null());
+            cmd.stdin(Stdio::null());
 
-            // [FIX] On Unix, create a new session to prevent the child from receiving
-            // SIGINT when the parent (ioi-local) is Ctrl+C'd.
             #[cfg(unix)]
             {
-                use std::os::unix::process::CommandExt;
                 unsafe {
                     cmd.pre_exec(|| {
-                        // setsid() creates a new session. The process becomes the session leader
-                        // of a new process group and has no controlling terminal.
                         if libc::setsid() == -1 {
                             return Err(std::io::Error::last_os_error());
                         }
@@ -64,42 +131,115 @@ impl TerminalDriver {
             let child = cmd
                 .spawn()
                 .map_err(|e| anyhow!("Failed to spawn detached command '{}': {}", command, e))?;
-            let pid = child.id();
+            let pid = child.id().unwrap_or_default();
             return Ok(format!(
                 "Launched background process '{}' (PID: {})",
                 command, pid
             ));
         }
 
-        // Standard blocking mode (with timeout)
-        cmd.stdout(std::process::Stdio::piped());
-        cmd.stderr(std::process::Stdio::piped());
+        cmd.stdout(Stdio::piped());
+        cmd.stderr(Stdio::piped());
+        cmd.stdin(Stdio::null());
 
         let mut child = cmd
             .spawn()
             .map_err(|e| anyhow!("Failed to spawn command '{}': {}", command, e))?;
 
-        let timeout = Duration::from_secs(5);
+        let stdout = child
+            .stdout
+            .take()
+            .ok_or_else(|| anyhow!("Failed to capture stdout for '{}'", command))?;
+        let stderr = child
+            .stderr
+            .take()
+            .ok_or_else(|| anyhow!("Failed to capture stderr for '{}'", command))?;
 
-        match child.wait_timeout(timeout)? {
-            Some(status) => {
-                let output = child.wait_with_output()?;
-                let stdout = String::from_utf8_lossy(&output.stdout);
-                let stderr = String::from_utf8_lossy(&output.stderr);
+        let observer = options.stream_observer.clone();
+        let seq = Arc::new(AtomicU64::new(0));
+        let stdout_task = tokio::spawn(read_stream(
+            stdout,
+            ProcessStreamChannel::Stdout,
+            seq.clone(),
+            observer.clone(),
+        ));
+        let stderr_task = tokio::spawn(read_stream(
+            stderr,
+            ProcessStreamChannel::Stderr,
+            seq.clone(),
+            observer.clone(),
+        ));
 
-                if status.success() {
-                    Ok(stdout.to_string())
-                } else {
-                    Ok(format!("Command failed: {}\nStderr: {}", status, stderr))
-                }
+        let mut timed_out = false;
+        let status = match time::timeout(options.timeout, child.wait()).await {
+            Ok(wait_result) => wait_result?,
+            Err(_) => {
+                timed_out = true;
+                let _ = child.kill().await;
+                child.wait().await?
             }
-            None => {
-                child.kill()?;
-                child.wait()?;
-                Err(anyhow!(
-                    "Command timed out after 5 seconds. Use 'detach: true' for long-running apps."
-                ))
-            }
+        };
+
+        let stdout_bytes = stdout_task
+            .await
+            .map_err(|e| anyhow!("stdout reader join failed: {}", e))??;
+        let stderr_bytes = stderr_task
+            .await
+            .map_err(|e| anyhow!("stderr reader join failed: {}", e))??;
+
+        if let Some(cb) = observer {
+            let final_seq = seq.fetch_add(1, Ordering::Relaxed);
+            (cb)(ProcessStreamChunk {
+                channel: ProcessStreamChannel::Status,
+                chunk: String::new(),
+                seq: final_seq,
+                is_final: true,
+                exit_code: status.code(),
+            });
+        }
+
+        if timed_out {
+            return Err(anyhow!(
+                "Command timed out after {} seconds.",
+                options.timeout.as_secs()
+            ));
+        }
+
+        let stdout_text = String::from_utf8_lossy(&stdout_bytes).to_string();
+        let stderr_text = String::from_utf8_lossy(&stderr_bytes).to_string();
+
+        if status.success() {
+            Ok(stdout_text)
+        } else {
+            Ok(format!("Command failed: {}\nStderr: {}", status, stderr_text))
         }
     }
+}
+
+async fn read_stream<R: AsyncRead + Unpin>(
+    mut reader: R,
+    channel: ProcessStreamChannel,
+    seq: Arc<AtomicU64>,
+    observer: Option<ProcessStreamObserver>,
+) -> Result<Vec<u8>> {
+    let mut buf = [0u8; 2048];
+    let mut out = Vec::<u8>::new();
+    loop {
+        let read = reader.read(&mut buf).await?;
+        if read == 0 {
+            break;
+        }
+        out.extend_from_slice(&buf[..read]);
+        if let Some(cb) = observer.as_ref() {
+            let seq_value = seq.fetch_add(1, Ordering::Relaxed);
+            (cb)(ProcessStreamChunk {
+                channel: channel.clone(),
+                chunk: String::from_utf8_lossy(&buf[..read]).to_string(),
+                seq: seq_value,
+                is_final: false,
+                exit_code: None,
+            });
+        }
+    }
+    Ok(out)
 }

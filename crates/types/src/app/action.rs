@@ -27,6 +27,9 @@ pub enum ActionTarget {
     /// Execute a system command (highly restricted).
     #[serde(rename = "sys::exec")]
     SysExec,
+    /// Install a package through deterministic manager adapters.
+    #[serde(rename = "sys::install_package")]
+    SysInstallPackage,
     /// Request a signature from the user's wallet.
     #[serde(rename = "wallet::sign")]
     WalletSign,

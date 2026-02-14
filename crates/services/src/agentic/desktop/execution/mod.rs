@@ -220,9 +220,10 @@ impl ToolExecutor {
             // System Domain
             AgentTool::SysExec { .. }
             | AgentTool::SysChangeDir { .. }
+            | AgentTool::SysInstallPackage { .. }
             | AgentTool::OsLaunchApp { .. } => {
                 let cwd = self.working_directory.as_deref().unwrap_or(".");
-                system::handle(self, tool, cwd).await
+                system::handle(self, tool, cwd, session_id, step_index).await
             }
 
             // MCP / Dynamic Domain

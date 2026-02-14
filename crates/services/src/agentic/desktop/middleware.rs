@@ -53,7 +53,7 @@ fn is_safe_package_identifier(package: &str) -> bool {
         })
 }
 
-fn lower_install_package_to_sys_exec(arguments: &Value) -> Result<Value> {
+fn normalize_install_package_arguments(arguments: &Value) -> Result<Value> {
     let args_obj = arguments
         .as_object()
         .ok_or_else(|| anyhow!("sys__install_package arguments must be an object"))?;
@@ -73,81 +73,10 @@ fn lower_install_package_to_sys_exec(arguments: &Value) -> Result<Value> {
     }
 
     let manager = normalize_install_manager(args_obj.get("manager").and_then(|v| v.as_str()))?;
-    let (command, args): (&str, Vec<String>) = match manager.as_str() {
-        "apt-get" => (
-            "sudo",
-            vec![
-                "-n".to_string(),
-                "apt-get".to_string(),
-                "install".to_string(),
-                "-y".to_string(),
-                package.to_string(),
-            ],
-        ),
-        "brew" => ("brew", vec!["install".to_string(), package.to_string()]),
-        "pip" => (
-            "python",
-            vec![
-                "-m".to_string(),
-                "pip".to_string(),
-                "install".to_string(),
-                package.to_string(),
-            ],
-        ),
-        "npm" => (
-            "npm",
-            vec!["install".to_string(), "-g".to_string(), package.to_string()],
-        ),
-        "pnpm" => (
-            "pnpm",
-            vec!["add".to_string(), "-g".to_string(), package.to_string()],
-        ),
-        "cargo" => ("cargo", vec!["install".to_string(), package.to_string()]),
-        "winget" => (
-            "winget",
-            vec![
-                "install".to_string(),
-                "--id".to_string(),
-                package.to_string(),
-                "--silent".to_string(),
-                "--accept-package-agreements".to_string(),
-                "--accept-source-agreements".to_string(),
-            ],
-        ),
-        "choco" => (
-            "choco",
-            vec!["install".to_string(), package.to_string(), "-y".to_string()],
-        ),
-        "yum" => (
-            "sudo",
-            vec![
-                "-n".to_string(),
-                "yum".to_string(),
-                "install".to_string(),
-                "-y".to_string(),
-                package.to_string(),
-            ],
-        ),
-        "dnf" => (
-            "sudo",
-            vec![
-                "-n".to_string(),
-                "dnf".to_string(),
-                "install".to_string(),
-                "-y".to_string(),
-                package.to_string(),
-            ],
-        ),
-        _ => unreachable!("manager already validated"),
-    };
 
     Ok(json!({
-        "name": "sys__exec",
-        "arguments": {
-            "command": command,
-            "args": args,
-            "detach": false
-        }
+        "package": package,
+        "manager": manager
     }))
 }
 
@@ -326,7 +255,11 @@ impl ToolNormalizer {
             }
 
             if let Some(install_args) = install_package_args {
-                raw_val = lower_install_package_to_sys_exec(&install_args)?;
+                let normalized = normalize_install_package_arguments(&install_args)?;
+                raw_val = json!({
+                    "name": "sys__install_package",
+                    "arguments": normalized,
+                });
             } else if let Some(edit_args) = edit_line_args {
                 raw_val = lower_edit_line_to_fs_write(&edit_args)?;
             }
@@ -491,19 +424,14 @@ mod tests {
     }
 
     #[test]
-    fn test_normalize_install_package_to_sys_exec() {
+    fn test_normalize_install_package_preserves_typed_tool() {
         let input =
             r#"{"name":"sys__install_package","arguments":{"manager":"pip","package":"pydantic"}}"#;
         let tool = ToolNormalizer::normalize(input).unwrap();
         match tool {
-            AgentTool::SysExec {
-                command,
-                args,
-                detach,
-            } => {
-                assert_eq!(command, "python");
-                assert_eq!(args, vec!["-m", "pip", "install", "pydantic"]);
-                assert!(!detach);
+            AgentTool::SysInstallPackage { package, manager } => {
+                assert_eq!(package, "pydantic");
+                assert_eq!(manager.as_deref(), Some("pip"));
             }
             _ => panic!("Wrong tool type"),
         }

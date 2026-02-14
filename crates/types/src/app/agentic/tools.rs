@@ -218,6 +218,16 @@ pub enum AgentTool {
         detach: bool,
     },
 
+    /// Installs a package using a deterministic package manager mapping.
+    #[serde(rename = "sys__install_package")]
+    SysInstallPackage {
+        /// Package name or identifier.
+        package: String,
+        /// Optional package manager override.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        manager: Option<String>,
+    },
+
     /// Changes the persistent working directory for subsequent system commands.
     #[serde(rename = "sys__change_directory")]
     SysChangeDir {
@@ -432,6 +442,7 @@ impl AgentTool {
             }
 
             AgentTool::SysExec { .. } | AgentTool::SysChangeDir { .. } => ActionTarget::SysExec,
+            AgentTool::SysInstallPackage { .. } => ActionTarget::SysInstallPackage,
 
             AgentTool::BrowserNavigate { .. } => ActionTarget::BrowserNavigateHermetic,
 
@@ -495,6 +506,7 @@ impl AgentTool {
                         "os__launch_app" | "sys__exec" | "sys__change_directory" => {
                             ActionTarget::SysExec
                         }
+                        "sys__install_package" => ActionTarget::SysInstallPackage,
                         _ => ActionTarget::Custom(name.to_string()),
                     }
                 } else {

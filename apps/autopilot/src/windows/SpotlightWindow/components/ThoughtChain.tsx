@@ -1,7 +1,7 @@
 // apps/autopilot/src/windows/SpotlightWindow/components/ThoughtChain.tsx
 
-import React, { useState, useEffect } from "react";
-import { ChatMessage } from "../../../types";
+import { useMemo, useState } from "react";
+import { AgentEvent, ChatMessage } from "../../../types";
 
 interface ThoughtChainProps {
   messages: ChatMessage[];
@@ -10,15 +10,19 @@ interface ThoughtChainProps {
   generation?: number;
   progress?: number;
   totalSteps?: number;
+  events?: AgentEvent[];
+  onOpenArtifact?: (artifactId: string) => void;
 }
 
-// Chevron icon component
+const MAX_STREAM_CHARS = 16 * 1024;
+const MAX_STREAM_LINES = 200;
+
 const ChevronIcon = () => (
-  <svg 
-    width="12" 
-    height="12" 
-    viewBox="0 0 20 20" 
-    fill="currentColor" 
+  <svg
+    width="12"
+    height="12"
+    viewBox="0 0 20 20"
+    fill="currentColor"
     xmlns="http://www.w3.org/2000/svg"
     aria-hidden="true"
   >
@@ -26,94 +30,121 @@ const ChevronIcon = () => (
   </svg>
 );
 
-// Pulsing dot for active state
-const PulsingDot = () => (
-  <span className="thought-pulse" />
-);
+const PulsingDot = () => <span className="thought-pulse" />;
 
-// Generate a summary of what the agent is doing/did
-function generateSummary(
-  messages: ChatMessage[], 
-  activeStep?: string | null,
-  isActive?: boolean
-): string {
-  if (isActive && activeStep) {
-    const step = activeStep.toLowerCase();
-    if (step.includes("search") || step.includes("brows")) {
-      return "Searching the web...";
-    }
-    if (step.includes("read") || step.includes("analyz")) {
-      return "Analyzing information...";
-    }
-    if (step.includes("writ") || step.includes("generat")) {
-      return "Generating response...";
-    }
-    if (step.includes("code") || step.includes("script")) {
-      return "Writing code...";
-    }
-    if (step.includes("think") || step.includes("reason")) {
-      return "Thinking through the problem...";
-    }
-    if (step.includes("plan")) {
-      return "Planning approach...";
-    }
-    return activeStep;
+function summarizeEventMode(events: AgentEvent[], activeStep?: string | null): string {
+  if (activeStep) return activeStep;
+  const receipt = [...events].reverse().find((e) => e.event_type === "RECEIPT");
+  if (receipt) {
+    const digest = receipt.digest || {};
+    const stage = String(digest.incident_stage || "").trim();
+    const tool = String(digest.tool_name || "").trim();
+    if (stage || tool) return `Thinking... ${stage}${stage && tool ? " · " : ""}${tool}`;
   }
-
-  // Completed state - summarize what was done
-  if (messages.length === 0) {
-    return "Processing...";
-  }
-
-  const toolCalls = messages.filter(m => m.role === "tool");
-  
-  if (toolCalls.length > 0) {
-    if (toolCalls.length === 1) {
-      const toolText = toolCalls[0].text || "";
-      if (toolText.toLowerCase().includes("search")) return "Searched the web";
-      if (toolText.toLowerCase().includes("code")) return "Executed code";
-      if (toolText.toLowerCase().includes("file")) return "Processed file";
-      return "Completed task";
-    }
-    return `Completed ${toolCalls.length} steps`;
-  }
-
-  return `Processed ${messages.length} operations`;
+  const firstTitle = events[0]?.title;
+  if (firstTitle) return firstTitle;
+  return "Thinking...";
 }
 
-export function ThoughtChain({ 
-  messages, 
-  activeStep, 
+function summarizeMessageMode(messages: ChatMessage[], activeStep?: string | null): string {
+  if (activeStep) return activeStep;
+  if (messages.length === 0) return "Processing...";
+  const toolCalls = messages.filter((m) => m.role === "tool");
+  if (toolCalls.length > 0) return `Completed ${toolCalls.length} step(s)`;
+  return `Processed ${messages.length} operation(s)`;
+}
+
+export function ThoughtChain({
+  messages,
+  activeStep,
   agentName,
   generation,
   progress,
-  totalSteps 
+  totalSteps,
+  events,
+  onOpenArtifact,
 }: ThoughtChainProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const isActive = !!activeStep;
-  
-  // Auto-expand on error
-  useEffect(() => {
-    const hasError = messages.some(m => 
-      m.text?.toLowerCase().includes("error") || 
-      m.text?.toLowerCase().includes("failed")
-    );
-    if (hasError) setIsExpanded(true);
-  }, [messages]);
+  const hasEventMode = !!events && events.length > 0;
 
-  const summary = generateSummary(messages, activeStep, isActive);
-  
-  // Format metadata string
+  const streamData = useMemo(() => {
+    if (!events) return { text: "", truncated: false, hasFinal: false };
+    const streamEvents = events.filter((e) => e.event_type === "COMMAND_STREAM");
+    const sorted = [...streamEvents].sort((a, b) => {
+      const left = Number((a.digest as any)?.seq ?? 0);
+      const right = Number((b.digest as any)?.seq ?? 0);
+      return left - right;
+    });
+    const merged = sorted
+      .map((e) => String((e.details as any)?.chunk ?? ""))
+      .join("");
+    const lines = merged.split("\n");
+    const byLine = lines.slice(0, MAX_STREAM_LINES).join("\n");
+    const capped = byLine.slice(0, MAX_STREAM_CHARS);
+    const truncated =
+      merged.length > capped.length || lines.length > MAX_STREAM_LINES;
+    const hasFinal = sorted.some((e) => Boolean((e.digest as any)?.is_final));
+    return { text: capped, truncated, hasFinal };
+  }, [events]);
+
+  const summary = hasEventMode
+    ? summarizeEventMode(events || [], activeStep)
+    : summarizeMessageMode(messages, activeStep);
+
   const metadata = [
     agentName || "Agent",
     generation !== undefined ? `Gen ${generation}` : null,
     totalSteps ? `${progress || 0}/${totalSteps}` : null,
-  ].filter(Boolean).join(" · ");
+  ]
+    .filter(Boolean)
+    .join(" · ");
+
+  const receiptDigest = useMemo(() => {
+    if (!events) return null;
+    const receipt = [...events].reverse().find((e) => e.event_type === "RECEIPT");
+    if (!receipt) return null;
+    const digest = receipt.digest || {};
+    const ordered = [
+      "intent_class",
+      "incident_stage",
+      "strategy_node",
+      "gate_state",
+      "resolution_action",
+    ];
+    return ordered
+      .map((k) => {
+        const v = (digest as Record<string, unknown>)[k];
+        if (v === undefined || String(v).trim().length === 0) return null;
+        return `${k}: ${String(v)}`;
+      })
+      .filter(Boolean)
+      .join(" · ");
+  }, [events]);
+
+  const eventLines = useMemo(() => {
+    if (!events) return [];
+    return events
+      .filter((event) => event.event_type !== "COMMAND_STREAM")
+      .map((event) => event.title)
+      .filter((title) => title.trim().length > 0)
+      .slice(0, 8);
+  }, [events]);
+
+  const fallbackArtifact = useMemo(() => {
+    if (!events) return null;
+    for (const event of events) {
+      const artifact = (event.artifact_refs || []).find(
+        (ref) => ref.artifact_type === "LOG" || ref.artifact_type === "REPORT",
+      );
+      if (artifact) return artifact.artifact_id;
+    }
+    return null;
+  }, [events]);
 
   return (
     <div className="thought-chain">
-      {/* Minimal Header Button */}
-      <button 
+      <button
         className="thought-header"
         onClick={() => setIsExpanded(!isExpanded)}
         type="button"
@@ -129,33 +160,55 @@ export function ThoughtChain({
         </div>
       </button>
 
-      {/* Expandable Content */}
       <div className={`thought-content ${isExpanded ? "open" : ""}`}>
-        {/* Metadata row */}
-        <div className="thought-meta">
-          {metadata}
-        </div>
-        
-        {/* Steps list */}
-        <div className="thought-steps">
-          {messages.map((msg, i) => (
-            <div key={i} className="thought-step">
-              <span className="thought-step-indicator" />
-              <span className="thought-step-text">
-                {msg.text || `Step ${i + 1}`}
-              </span>
+        <div className="thought-meta">{metadata}</div>
+
+        {hasEventMode ? (
+          <div className="thought-steps">
+            {eventLines.map((line, idx) => (
+              <div className="thought-step" key={`evt-line-${idx}`}>
+                <span className="thought-step-indicator" />
+                <span className="thought-step-text">{line}</span>
+              </div>
+            ))}
+            {receiptDigest && (
+              <div className="thought-step">
+                <span className="thought-step-indicator" />
+                <span className="thought-step-text">{receiptDigest}</span>
+              </div>
+            )}
+            <div className="thought-stream-panel">
+              <div className="thought-stream-header">
+                <span>Command Stream</span>
+                <span>{streamData.hasFinal ? "finalized" : "live"}</span>
+              </div>
+              <pre className="thought-stream-output">{streamData.text || "(no stream output yet)"}</pre>
+              {streamData.truncated && (
+                <div className="thought-stream-note">
+                  Stream truncated. Open full output artifact for complete logs.
+                </div>
+              )}
+              {streamData.truncated && fallbackArtifact && onOpenArtifact && (
+                <button
+                  className="thought-artifact-link"
+                  onClick={() => onOpenArtifact(fallbackArtifact)}
+                  type="button"
+                >
+                  Open full log artifact
+                </button>
+              )}
             </div>
-          ))}
-          
-          {isActive && activeStep && (
-            <div className="thought-step current">
-              <span className="thought-step-indicator current" />
-              <span className="thought-step-text">
-                {activeStep}
-              </span>
-            </div>
-          )}
-        </div>
+          </div>
+        ) : (
+          <div className="thought-steps">
+            {messages.map((msg, i) => (
+              <div key={i} className="thought-step">
+                <span className="thought-step-indicator" />
+                <span className="thought-step-text">{msg.text || `Step ${i + 1}`}</span>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );

@@ -312,6 +312,8 @@ OPERATING RULES:
 9. APP LAUNCH RULE: To open applications, ALWAYS prefer `os__launch_app`.
    - It handles system paths automatically (e.g. finds 'Calculator' on Mac/Linux/Windows).
    - ONLY if that fails should you try `ui__find` to locate the icon visually and click it.
+   - APP LAUNCH VERIFICATION: After launching, verify the app is actually open/focused before calling `agent__complete`.
+     If launch cannot be verified, treat it as failure and continue recovery instead of claiming success.
    - NEVER try to click random ID #1 (the background) hoping it opens a menu.
    - RECOVERY HINT: If 'sys__exec' previously failed due to missing capabilities, check if you have been escalated. If so, 'os__launch_app' is your best option.
 10. DELEGATION RULE: Do NOT use 'agent__delegate' for simple, atomic actions like opening an app, clicking a button, or typing text. Use the direct tool.

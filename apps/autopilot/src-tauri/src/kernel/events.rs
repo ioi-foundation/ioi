@@ -350,6 +350,56 @@ pub fn emit_command_run(
     )
 }
 
+pub fn emit_command_stream(
+    thread_id: &str,
+    step_index: u32,
+    tool_name: &str,
+    stream_id: &str,
+    channel: &str,
+    chunk: &str,
+    seq: u64,
+    is_final: bool,
+    exit_code: Option<i32>,
+    command_preview: &str,
+) -> AgentEvent {
+    let status = if is_final {
+        if exit_code.unwrap_or(0) == 0 {
+            EventStatus::Success
+        } else {
+            EventStatus::Failure
+        }
+    } else {
+        EventStatus::Partial
+    };
+
+    let digest = json!({
+        "tool_name": tool_name,
+        "stream_id": stream_id,
+        "channel": channel,
+        "seq": seq,
+        "is_final": is_final,
+        "exit_code": exit_code,
+        "command_preview": command_preview,
+    });
+    let details = json!({
+        "chunk": thresholds::trim_for_expanded_view(chunk),
+    });
+
+    build_event(
+        thread_id,
+        step_index,
+        EventType::CommandStream,
+        format!("Streaming {} ({})", tool_name, channel),
+        digest,
+        details,
+        status,
+        Vec::new(),
+        None,
+        Vec::new(),
+        None,
+    )
+}
+
 pub fn emit_file_edit(
     thread_id: &str,
     step_index: u32,
@@ -527,6 +577,11 @@ pub fn emit_receipt_digest(
     tool_name: &str,
     tier: &str,
     decision: &str,
+    intent_class: &str,
+    incident_stage: &str,
+    strategy_node: &str,
+    gate_state: &str,
+    resolution_action: &str,
     summary: &str,
     report_ref: Option<ArtifactRef>,
     input_refs: Vec<String>,
@@ -537,6 +592,11 @@ pub fn emit_receipt_digest(
     }
 
     let digest = json!({
+        "intent_class": intent_class,
+        "incident_stage": incident_stage,
+        "strategy_node": strategy_node,
+        "gate_state": gate_state,
+        "resolution_action": resolution_action,
         "tool_name": tool_name,
         "tier": tier,
         "decision": decision,
@@ -856,21 +916,45 @@ pub async fn monitor_kernel_events(app: tauri::AppHandle) {
                         };
                         register_event(&app, event);
                     }
-                    ChainEventEnum::RoutingReceipt(receipt) => {
-                        let failure_class = if receipt.has_failure_class {
-                            Some(match receipt.failure_class {
-                                1 => "FocusMismatch",
-                                2 => "TargetNotFound",
-                                3 => "PermissionOrApprovalRequired",
-                                4 => "ToolUnavailable",
-                                5 => "NonDeterministicUI",
-                                6 => "UnexpectedState",
-                                7 => "TimeoutOrHang",
-                                8 => "UserInterventionNeeded",
-                                _ => "Unknown",
-                            })
+                    ChainEventEnum::ProcessActivity(activity) => {
+                        let thread_id = thread_id_from_session(&app, &activity.session_id);
+                        let exit_code = if activity.has_exit_code {
+                            Some(activity.exit_code)
                         } else {
                             None
+                        };
+                        update_task_state(&app, |t| {
+                            if !activity.session_id.is_empty() {
+                                t.session_id = Some(activity.session_id.clone());
+                            }
+                            if matches!(t.phase, AgentPhase::Idle | AgentPhase::Running) {
+                                t.phase = AgentPhase::Running;
+                            }
+                            t.current_step = format!(
+                                "Streaming {} ({})",
+                                activity.tool_name, activity.channel
+                            );
+                        });
+
+                        let event = emit_command_stream(
+                            &thread_id,
+                            activity.step_index,
+                            &activity.tool_name,
+                            &activity.stream_id,
+                            &activity.channel,
+                            &activity.chunk,
+                            activity.seq,
+                            activity.is_final,
+                            exit_code,
+                            &activity.command_preview,
+                        );
+                        register_event(&app, event);
+                    }
+                    ChainEventEnum::RoutingReceipt(receipt) => {
+                        let failure_class = if receipt.failure_class_name.is_empty() {
+                            None
+                        } else {
+                            Some(receipt.failure_class_name.as_str())
                         };
 
                         let verification = receipt
@@ -902,6 +986,30 @@ pub async fn monitor_kernel_events(app: tauri::AppHandle) {
                         if let Some(class) = failure_class {
                             summary.push_str(&format!(", failure_class={}", class));
                         }
+                        if !receipt.intent_class.is_empty() {
+                            summary.push_str(&format!(", intent_class={}", receipt.intent_class));
+                        }
+                        if !receipt.incident_id.is_empty() {
+                            summary.push_str(&format!(", incident_id={}", receipt.incident_id));
+                        }
+                        if !receipt.incident_stage.is_empty() {
+                            summary.push_str(&format!(", incident_stage={}", receipt.incident_stage));
+                        }
+                        if !receipt.strategy_name.is_empty() {
+                            summary.push_str(&format!(", strategy_name={}", receipt.strategy_name));
+                        }
+                        if !receipt.strategy_node.is_empty() {
+                            summary.push_str(&format!(", strategy_node={}", receipt.strategy_node));
+                        }
+                        if !receipt.gate_state.is_empty() {
+                            summary.push_str(&format!(", gate_state={}", receipt.gate_state));
+                        }
+                        if !receipt.resolution_action.is_empty() {
+                            summary.push_str(&format!(
+                                ", resolution_action={}",
+                                receipt.resolution_action
+                            ));
+                        }
                         if !receipt.escalation_path.is_empty() {
                             summary.push_str(&format!(", escalation={}", receipt.escalation_path));
                         }
@@ -919,6 +1027,23 @@ pub async fn monitor_kernel_events(app: tauri::AppHandle) {
                         update_task_state(&app, |t| {
                             if !receipt.session_id.is_empty() {
                                 t.session_id = Some(receipt.session_id.clone());
+                            }
+
+                            if receipt
+                                .policy_decision
+                                .eq_ignore_ascii_case("require_approval")
+                            {
+                                t.phase = AgentPhase::Gate;
+                                if t.gate_info.is_none() {
+                                    t.gate_info = Some(GateInfo {
+                                        title: "Restricted Action Intercepted".to_string(),
+                                        description: format!(
+                                            "The agent is attempting to execute: {}",
+                                            receipt.tool_name
+                                        ),
+                                        risk: "high".to_string(),
+                                    });
+                                }
                             }
 
                             t.current_step = format!(
@@ -948,6 +1073,14 @@ pub async fn monitor_kernel_events(app: tauri::AppHandle) {
                                     "step_index": receipt.step_index,
                                     "tool_name": receipt.tool_name,
                                     "decision": receipt.policy_decision,
+                                    "intent_class": receipt.intent_class,
+                                    "incident_id": receipt.incident_id,
+                                    "incident_stage": receipt.incident_stage,
+                                    "strategy_name": receipt.strategy_name,
+                                    "strategy_node": receipt.strategy_node,
+                                    "gate_state": receipt.gate_state,
+                                    "resolution_action": receipt.resolution_action,
+                                    "failure_class_name": receipt.failure_class_name,
                                     "summary": summary,
                                     "artifacts": receipt.artifacts,
                                     "policy_binding_hash": receipt.policy_binding_hash,
@@ -983,6 +1116,11 @@ pub async fn monitor_kernel_events(app: tauri::AppHandle) {
                                 .unwrap_or_else(|| "unknown".to_string())
                                 .as_str(),
                             &receipt.policy_decision,
+                            &receipt.intent_class,
+                            &receipt.incident_stage,
+                            &receipt.strategy_node,
+                            &receipt.gate_state,
+                            &receipt.resolution_action,
                             &summary,
                             report_ref,
                             Vec::new(),
