@@ -58,18 +58,63 @@ fn node_semantic_text(node: &AccessibilityNode) -> Option<String> {
         .or_else(|| first_non_empty_attr(node, &["aria-label", "title", "placeholder"]))
 }
 
-fn collect_text_index(node: &AccessibilityNode, index: &mut HashMap<String, String>) {
-    if let Some(text) = node_semantic_text(node) {
-        let trimmed_id = node.id.trim();
-        if !trimmed_id.is_empty() {
-            index.entry(trimmed_id.to_string()).or_insert(text.clone());
-            index.entry(trimmed_id.to_ascii_lowercase()).or_insert(text);
+fn push_deduped_text(parts: &mut Vec<String>, seen: &mut HashSet<String>, value: &str) {
+    let trimmed = value.trim();
+    if trimmed.is_empty() {
+        return;
+    }
+
+    let folded = trimmed.to_ascii_lowercase();
+    if seen.insert(folded) {
+        parts.push(trimmed.to_string());
+    }
+}
+
+fn index_text_for_id(index: &mut HashMap<String, String>, raw_id: &str, text: &str) {
+    let trimmed = raw_id.trim().trim_start_matches('#');
+    if trimmed.is_empty() {
+        return;
+    }
+
+    index
+        .entry(trimmed.to_string())
+        .or_insert_with(|| text.to_string());
+    index
+        .entry(trimmed.to_ascii_lowercase())
+        .or_insert_with(|| text.to_string());
+}
+
+fn collect_text_index(
+    node: &AccessibilityNode,
+    index: &mut HashMap<String, String>,
+) -> Option<String> {
+    let mut child_parts = Vec::new();
+    let mut seen_child_parts = HashSet::new();
+
+    for child in &node.children {
+        if let Some(child_text) = collect_text_index(child, index) {
+            push_deduped_text(&mut child_parts, &mut seen_child_parts, &child_text);
+        }
+        if child_parts.len() >= 4 {
+            break;
         }
     }
 
-    for child in &node.children {
-        collect_text_index(child, index);
+    let text = node_semantic_text(node).or_else(|| {
+        if child_parts.is_empty() {
+            None
+        } else {
+            Some(child_parts.join(" "))
+        }
+    });
+
+    if let Some(text) = text.clone() {
+        index_text_for_id(index, &node.id, &text);
+        if let Some(raw_id) = node.attributes.get("id") {
+            index_text_for_id(index, raw_id, &text);
+        }
     }
+    text
 }
 
 fn resolve_idref_text(
@@ -86,7 +131,7 @@ fn resolve_idref_text(
     let mut seen = HashSet::new();
 
     for raw_ref in refs.split_whitespace() {
-        let idref = raw_ref.trim();
+        let idref = raw_ref.trim().trim_start_matches('#');
         if idref.is_empty() {
             continue;
         }
@@ -111,11 +156,113 @@ fn resolve_idref_text(
     }
 }
 
+fn normalize_idref(value: &str) -> Option<String> {
+    let trimmed = value.trim().trim_start_matches('#');
+    if trimmed.is_empty() {
+        None
+    } else {
+        Some(trimmed.to_ascii_lowercase())
+    }
+}
+
+fn merge_label_text(existing: &mut String, next: &str) {
+    let next_trimmed = next.trim();
+    if next_trimmed.is_empty() {
+        return;
+    }
+
+    let next_lc = next_trimmed.to_ascii_lowercase();
+    if existing.to_ascii_lowercase().contains(&next_lc) {
+        return;
+    }
+
+    if !existing.trim().is_empty() {
+        existing.push(' ');
+    }
+    existing.push_str(next_trimmed);
+}
+
+fn collect_label_for_index(
+    node: &AccessibilityNode,
+    text_index: &HashMap<String, String>,
+    index: &mut HashMap<String, String>,
+) {
+    let label_text = node_semantic_text(node).or_else(|| {
+        for candidate in [
+            Some(node.id.as_str()),
+            node.attributes.get("id").map(String::as_str),
+        ]
+        .into_iter()
+        .flatten()
+        {
+            let trimmed_id = candidate.trim();
+            if trimmed_id.is_empty() {
+                continue;
+            }
+
+            if let Some(text) = text_index
+                .get(trimmed_id)
+                .or_else(|| text_index.get(&trimmed_id.to_ascii_lowercase()))
+            {
+                return Some(text.clone());
+            }
+        }
+
+        None
+    });
+    if let Some(text) = label_text {
+        for (attr_key, attr_value) in &node.attributes {
+            let attr_key_lc = attr_key.to_ascii_lowercase();
+            if !matches!(attr_key_lc.as_str(), "for" | "htmlfor" | "html-for") {
+                continue;
+            }
+
+            for raw_ref in attr_value.split_whitespace() {
+                let Some(target_id) = normalize_idref(raw_ref) else {
+                    continue;
+                };
+                match index.get_mut(&target_id) {
+                    Some(existing) => merge_label_text(existing, &text),
+                    None => {
+                        index.insert(target_id, text.clone());
+                    }
+                }
+            }
+        }
+    }
+
+    for child in &node.children {
+        collect_label_for_index(child, text_index, index);
+    }
+}
+
+fn label_for_text(
+    node: &AccessibilityNode,
+    label_for_index: &HashMap<String, String>,
+) -> Option<String> {
+    let mut candidates = Vec::new();
+    candidates.push(node.id.as_str());
+    if let Some(raw_id) = node.attributes.get("id").map(String::as_str) {
+        candidates.push(raw_id);
+    }
+
+    for candidate in candidates {
+        let Some(key) = normalize_idref(candidate) else {
+            continue;
+        };
+        if let Some(text) = label_for_index.get(&key) {
+            return Some(text.clone());
+        }
+    }
+    None
+}
+
 impl ReactLens {
     fn transform_with_index(
         &self,
         node: &AccessibilityNode,
         index: &HashMap<String, String>,
+        label_for_index: &HashMap<String, String>,
     ) -> Option<AccessibilityNode> {
         // 1. Prune invisible nodes immediately.
         if !node.is_visible {
@@ -161,6 +308,16 @@ impl ReactLens {
                 .or_insert(described_text);
         }
 
+        // Recover form semantics in React trees where labels use `for/htmlFor`.
+        if normalized_text(node.name.as_deref()).is_none() {
+            if let Some(for_label) = label_for_text(&node, label_for_index) {
+                node.name = Some(for_label.clone());
+                node.attributes
+                    .entry("aria-label".to_string())
+                    .or_insert(for_label);
+            }
+        }
+
         // 3. Flattening "Div Soup".
         // If a node is a generic container (group/generic) with NO semantic ID
         // and ONLY ONE child, it is likely a layout wrapper (Flexbox/Grid).
@@ -173,7 +330,7 @@ impl ReactLens {
 
         if !is_semantic_container && (node.role == "group" || node.role == "generic") {
             if node.children.len() == 1 {
-                return self.transform_with_index(&node.children[0], index);
+                return self.transform_with_index(&node.children[0], index, label_for_index);
             }
         }
 
@@ -181,7 +338,7 @@ impl ReactLens {
         node.children = node
             .children
             .into_iter()
-            .filter_map(|c| self.transform_with_index(&c, index))
+            .filter_map(|c| self.transform_with_index(&c, index, label_for_index))
             .collect();
 
         // 4. Post-recursion prune: Empty containers
@@ -227,7 +384,9 @@ impl AppLens for ReactLens {
     fn transform(&self, node: &AccessibilityNode) -> Option<AccessibilityNode> {
         let mut index = HashMap::new();
         collect_text_index(node, &mut index);
-        self.transform_with_index(node, &index)
+        let mut label_for_index = HashMap::new();
+        collect_label_for_index(node, &index, &mut label_for_index);
+        self.transform_with_index(node, &index, &label_for_index)
     }
 
     fn render(&self, node: &AccessibilityNode, depth: usize) -> String {
