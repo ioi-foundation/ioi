@@ -223,21 +223,23 @@ pub(super) async fn browser_surface_regions(exec: &ToolExecutor) -> Option<Brows
 
 pub async fn handle(exec: &ToolExecutor, tool: AgentTool) -> ToolExecutionResult {
     match tool {
-        AgentTool::BrowserNavigate { url } => {
-            match exec.browser.navigate(&url).await {
-                Ok(content) => {
-                    if let Some(reason) = detect_human_challenge(&url, &content) {
-                        return ToolExecutionResult::failure(format!(
+        AgentTool::BrowserNavigate { url } => match exec.browser.navigate(&url).await {
+            Ok(content) => {
+                if let Some(reason) = detect_human_challenge(&url, &content) {
+                    return ToolExecutionResult::failure(format!(
                             "ERROR_CLASS=HumanChallengeRequired {}. Complete the challenge manually in your own browser/app, then resume: {}",
                             reason, url
                         ));
-                    }
-
-                    ToolExecutionResult::success(format!("Navigated to {}. Content len: {}", url, content.len()))
                 }
-                Err(e) => ToolExecutionResult::failure(format!("Navigation failed: {}", e)),
+
+                ToolExecutionResult::success(format!(
+                    "Navigated to {}. Content len: {}",
+                    url,
+                    content.len()
+                ))
             }
-        }
+            Err(e) => ToolExecutionResult::failure(format!("Navigation failed: {}", e)),
+        },
         AgentTool::BrowserExtract {} => match exec.browser.get_accessibility_tree().await {
             Ok(raw_tree) => {
                 let transformed = apply_browser_auto_lens(raw_tree);

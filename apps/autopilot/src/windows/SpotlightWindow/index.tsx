@@ -1,11 +1,22 @@
 // apps/autopilot/src/windows/SpotlightWindow/index.tsx
 
-import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
+import React, {
+  useState,
+  useEffect,
+  useRef,
+  useMemo,
+  useCallback,
+} from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { emit } from "@tauri-apps/api/event";
 import { useAgentStore, initEventListeners } from "../../store/agentStore";
-import { AgentTask, ChatMessage, SessionSummary } from "../../types";
-import { formatTimeAgo } from "./utils";
+import {
+  AgentEvent,
+  AgentTask,
+  Artifact,
+  ChatMessage,
+  SessionSummary,
+} from "../../types";
 import { useSpotlightLayout } from "./hooks/useSpotlightLayout";
 
 // Sub-components
@@ -13,12 +24,12 @@ import { icons } from "./components/Icons";
 import { IOIWatermark } from "./components/IOIWatermark";
 import { MessageActions } from "./components/MessageActions";
 import { ScrollToBottom } from "./components/ScrollToBottom";
-import { VisualArtifact } from "./components/VisualArtifact";
 import { HistorySidebar } from "./components/HistorySidebar";
 import { SpotlightApprovalCard } from "./components/SpotlightApprovalCard";
 import { ThoughtChain } from "./components/ThoughtChain";
 import { Dropdown, DropdownOption } from "./components/SpotlightDropdown";
-import { ArtifactPanel } from "./components/ArtifactPanel";
+import { ArtifactSidebar } from "./components/ArtifactSidebar";
+import { MicroEventCard } from "./components/MicroEventCard";
 
 // Styles
 import "./styles/Layout.css";
@@ -28,6 +39,7 @@ import "./styles/Components.css";
 import "./styles/Visuals.css";
 import "./styles/ArtifactPanel.css";
 import "./styles/Overrides.css";
+import "./styles/MicroEventCard.css";
 
 // ============================================
 // CONSTANTS
@@ -44,26 +56,28 @@ const modelOptions: DropdownOption[] = [
   { value: "Llama 3", label: "Llama 3", desc: "Meta" },
 ];
 
-type ChatEvent = ChatMessage & { 
-  isGate?: boolean; 
-  gateData?: any; 
-  isArtifact?: boolean; 
-  artifactData?: any; 
+const BASE_PANEL_WIDTH = 450;
+const SIDEBAR_PANEL_WIDTH = 260;
+const ARTIFACT_PANEL_WIDTH = 400;
+
+type ChatEvent = ChatMessage & {
+  isGate?: boolean;
+  gateData?: any;
+};
+
+type SpotlightWindowProps = {
+  variant?: "overlay" | "studio";
 };
 
 // ============================================
 // MAIN COMPONENT
 // ============================================
 
-export function SpotlightWindow() {
+export function SpotlightWindow({ variant = "overlay" }: SpotlightWindowProps) {
+  const isStudioVariant = variant === "studio";
+
   // Layout management (synced with Tauri backend)
-  const { 
-    layout, 
-    toggleSidebar, 
-    toggleArtifactPanel, 
-    dockRight,
-    setDockPosition 
-  } = useSpotlightLayout();
+  const { layout, toggleSidebar, toggleArtifactPanel } = useSpotlightLayout();
 
   // Core state
   const [intent, setIntent] = useState("");
@@ -74,15 +88,12 @@ export function SpotlightWindow() {
   const [workspaceMode, setWorkspaceMode] = useState("local");
   const [selectedModel, setSelectedModel] = useState("GPT-4o");
   const [chatEvents, setChatEvents] = useState<ChatEvent[]>([]);
-  
+
   // UI state
   const [inputFocused, setInputFocused] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [showScrollButton, setShowScrollButton] = useState(false);
-  const [isDraggingFile, setIsDraggingFile] = useState(false);
-  
-  // Artifact state
-  const [currentArtifact, setCurrentArtifact] = useState<{name: string, content: string} | null>(null);
+  const [isDraggingFile] = useState(false);
 
   // Refs
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -91,21 +102,45 @@ export function SpotlightWindow() {
   // [FIX] Track user scroll intention explicitly
   const isUserAtBottomRef = useRef(true);
 
-  const { task, startTask, continueTask, resetSession } = useAgentStore();
+  const {
+    task,
+    events,
+    artifacts,
+    selectedArtifactId,
+    startTask,
+    continueTask,
+    resetSession,
+    setSelectedArtifactId,
+    loadThreadEvents,
+    loadThreadArtifacts,
+  } = useAgentStore();
 
   // ============================================
   // INITIALIZATION
   // ============================================
 
   useEffect(() => {
+    if (isStudioVariant) {
+      return;
+    }
+
+    const className = "spotlight-shell-host";
+    const root = document.getElementById("root");
+    document.documentElement.classList.add(className);
+    document.body.classList.add(className);
+    root?.classList.add(className);
+    return () => {
+      document.documentElement.classList.remove(className);
+      document.body.classList.remove(className);
+      root?.classList.remove(className);
+    };
+  }, [isStudioVariant]);
+
+  useEffect(() => {
     initEventListeners();
-    
-    // Set initial dock mode
-    invoke("set_spotlight_mode", { mode: "right" }).catch(console.error);
-    
-    // Focus input after mount
-    const timer = setTimeout(() => inputRef.current?.focus(), 150);
-    return () => clearTimeout(timer);
+    window.setTimeout(() => {
+      inputRef.current?.focus();
+    }, 0);
   }, []);
 
   // Load session history
@@ -114,11 +149,11 @@ export function SpotlightWindow() {
       try {
         const history = await invoke<SessionSummary[]>("get_session_history");
         setSessions(history);
-      } catch (e) { 
-        console.error("Failed to load history:", e); 
+      } catch (e) {
+        console.error("Failed to load history:", e);
       }
     };
-    
+
     loadHistory();
     const interval = setInterval(loadHistory, 5000);
     return () => clearInterval(interval);
@@ -136,7 +171,7 @@ export function SpotlightWindow() {
       const { scrollTop, scrollHeight, clientHeight } = chatArea;
       const distFromBottom = scrollHeight - scrollTop - clientHeight;
       const isNearBottom = distFromBottom < 100; // Threshold
-      
+
       // [FIX] Update ref immediately on scroll to track intent
       isUserAtBottomRef.current = isNearBottom;
       setShowScrollButton(!isNearBottom);
@@ -147,24 +182,25 @@ export function SpotlightWindow() {
   }, []);
 
   // Auto-scroll on new messages
-  const activeHistory: ChatMessage[] = (task as AgentTask | null)?.history || localHistory;
-  
+  const activeHistory: ChatMessage[] =
+    (task as AgentTask | null)?.history || localHistory;
+
   useEffect(() => {
     // [FIX] Scroll only if user was already at bottom (stick-to-bottom behavior)
     // or if this is likely the first load (e.g. no scroll happened yet)
     if (chatAreaRef.current && isUserAtBottomRef.current) {
-        chatAreaRef.current.scrollTo({ 
-          top: chatAreaRef.current.scrollHeight, 
-          behavior: "smooth" 
-        });
+      chatAreaRef.current.scrollTo({
+        top: chatAreaRef.current.scrollHeight,
+        behavior: "smooth",
+      });
     }
-  }, [activeHistory, chatEvents, task?.current_step]);
+  }, [activeHistory, chatEvents, task?.current_step, task?.events, events]);
 
   const scrollToBottom = useCallback(() => {
     if (chatAreaRef.current) {
-      chatAreaRef.current.scrollTo({ 
-        top: chatAreaRef.current.scrollHeight, 
-        behavior: "smooth" 
+      chatAreaRef.current.scrollTo({
+        top: chatAreaRef.current.scrollHeight,
+        behavior: "smooth",
       });
       // Force state update
       isUserAtBottomRef.current = true;
@@ -180,83 +216,58 @@ export function SpotlightWindow() {
     if (task && task.phase === "Gate" && task.gate_info) {
       const last = chatEvents[chatEvents.length - 1];
       if (!last || !last.isGate) {
-        setChatEvents((prev) => [...prev, { 
-          role: "system", 
-          text: "", 
-          timestamp: Date.now(), 
-          isGate: true, 
-          gateData: task.gate_info 
-        }]);
+        setChatEvents((prev) => [
+          ...prev,
+          {
+            role: "system",
+            text: "",
+            timestamp: Date.now(),
+            isGate: true,
+            gateData: task.gate_info,
+          },
+        ]);
       }
     }
-    
-    // Handle code artifacts
-    if (task && task.phase === "Running" && task.current_step?.toLowerCase().includes("code")) {
-      if (!currentArtifact) {
-        setCurrentArtifact({
-          name: "generated_script.ts",
-          content: `// Automatically generated by Autopilot
-import { Tool } from "@ioi/sdk";
+  }, [task?.phase, task?.gate_info, chatEvents]);
 
-export const myTool = new Tool({
-  name: "demo",
-  handler: async () => {
-    console.log("Hello World");
-  }
-});`
-        });
-        // Auto-show artifact panel
-        toggleArtifactPanel(true);
-      }
-    }
-    
-    // Handle browsing artifacts
-    if (task && task.phase === "Running" && task.current_step?.toLowerCase().includes("brows")) {
-      const hasArtifact = chatEvents.some(e => e.isArtifact);
-      if (!hasArtifact) {
-        setChatEvents((prev) => [...prev, { 
-          role: "system", 
-          text: "", 
-          timestamp: Date.now(), 
-          isArtifact: true, 
-          artifactData: { url: "loading...", isActive: true } 
-        }]);
-      }
-    }
-  }, [task?.phase, task?.gate_info, task?.current_step, toggleArtifactPanel]);
-
-  // Update artifact URL when step changes
   useEffect(() => {
-    if (task?.current_step) {
-      setChatEvents((prev) => prev.map(e => 
-        e.isArtifact 
-          ? { 
-              ...e, 
-              artifactData: { 
-                ...e.artifactData, 
-                url: task.current_step, 
-                title: task.current_step, 
-                isActive: task.phase === "Running" 
-              } 
-            } 
-          : e
-      ));
-    }
-  }, [task?.current_step, task?.phase]);
+    const threadId = task?.session_id || task?.id;
+    if (!threadId) return;
+    void loadThreadEvents(threadId).catch(console.error);
+    void loadThreadArtifacts(threadId).catch(console.error);
+  }, [task?.session_id, task?.id, loadThreadEvents, loadThreadArtifacts]);
 
   // ============================================
   // KEYBOARD SHORTCUTS
   // ============================================
 
   useEffect(() => {
+    const isEditableTarget = (target: EventTarget | null): boolean => {
+      if (!(target instanceof HTMLElement)) return false;
+      const tag = target.tagName.toLowerCase();
+      return (
+        target.isContentEditable ||
+        tag === "input" ||
+        tag === "textarea" ||
+        tag === "select"
+      );
+    };
+
     const handleKeyDown = (e: KeyboardEvent) => {
+      const editableTarget = isEditableTarget(e.target);
+
+      // Never run global shortcuts while typing in editable fields.
+      if (editableTarget) {
+        return;
+      }
+
       // Escape to close/dismiss
       if (e.key === "Escape") {
         if (activeDropdown) {
           setActiveDropdown(null);
         } else if (layout.artifactPanelVisible) {
           toggleArtifactPanel(false);
-        } else {
+        } else if (!isStudioVariant) {
           invoke("hide_spotlight").catch(console.error);
         }
         return;
@@ -275,159 +286,233 @@ export const myTool = new Tool({
         handleNewChat();
         return;
       }
-
-      // Cmd/Ctrl + D to re-dock
-      if ((e.metaKey || e.ctrlKey) && e.key === "d") {
-        e.preventDefault();
-        dockRight();
-        return;
-      }
     };
 
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [activeDropdown, layout.artifactPanelVisible, toggleSidebar, toggleArtifactPanel, dockRight]);
+    window.addEventListener("keydown", handleKeyDown, true);
+    return () => window.removeEventListener("keydown", handleKeyDown, true);
+  }, [
+    activeDropdown,
+    isStudioVariant,
+    layout.artifactPanelVisible,
+    toggleSidebar,
+    toggleArtifactPanel,
+  ]);
 
   // ============================================
   // HANDLERS
   // ============================================
 
-  const openStudio = useCallback(async (targetView: string = "compose") => {
-    await emit("request-studio-view", targetView);
-    await invoke("hide_spotlight");
-    await invoke("show_studio");
-  }, []);
+  const openStudio = useCallback(
+    async (targetView: string = "compose") => {
+      await emit("request-studio-view", targetView);
+      if (isStudioVariant) {
+        return;
+      }
+      await invoke("hide_spotlight");
+      await invoke("show_studio");
+    },
+    [isStudioVariant],
+  );
 
   const handleLoadSession = useCallback(async (id: string) => {
-    try { 
-      await invoke("load_session", { sessionId: id }); 
-    } catch (e) { 
-      console.error("Failed to load session:", e); 
+    try {
+      await invoke("load_session", { sessionId: id });
+    } catch (e) {
+      console.error("Failed to load session:", e);
     }
   }, []);
 
   const handleSubmit = useCallback(async () => {
     const text = intent.trim();
     if (!text) return;
-    
+    if (task?.phase === "Gate") return;
+
     setIntent("");
-    
+
     // Reset textarea height
     if (inputRef.current) {
-      inputRef.current.style.height = 'auto';
+      inputRef.current.style.height = "auto";
     }
-    
+
     if (task && task.phase === "Running") return;
-    
+
     try {
       if (task && task.id && task.phase !== "Failed") {
         await continueTask(task.id, text);
       } else {
-        if (text.toLowerCase().includes("swarm") || text.toLowerCase().includes("team")) {
+        if (
+          !isStudioVariant &&
+          (text.toLowerCase().includes("swarm") ||
+            text.toLowerCase().includes("team"))
+        ) {
           await openStudio("copilot");
         }
         await startTask(text);
       }
-    } catch (e) { 
-      console.error(e); 
+    } catch (e) {
+      console.error(e);
     }
-  }, [intent, task, continueTask, startTask, openStudio]);
+  }, [intent, isStudioVariant, task, continueTask, startTask, openStudio]);
 
   const handleApprove = useCallback(async () => {
     await invoke("gate_respond", { approved: true });
-    setChatEvents((prev) => prev.map((m) => 
-      m.isGate ? { ...m, isGate: false, text: "✓ Authorized" } : m
-    ));
+    setChatEvents((prev) =>
+      prev.map((m) =>
+        m.isGate ? { ...m, isGate: false, text: "✓ Authorized" } : m,
+      ),
+    );
   }, []);
 
   const handleDeny = useCallback(async () => {
     await invoke("gate_respond", { approved: false });
-    setChatEvents((prev) => prev.map((m) => 
-      m.isGate ? { ...m, isGate: false, text: "✗ Denied" } : m
-    ));
+    setChatEvents((prev) =>
+      prev.map((m) =>
+        m.isGate ? { ...m, isGate: false, text: "✗ Denied" } : m,
+      ),
+    );
   }, []);
 
   const handleNewChat = useCallback(() => {
     resetSession();
     setLocalHistory([]);
     setChatEvents([]);
-    setCurrentArtifact(null);
+    setSelectedArtifactId(null);
     toggleArtifactPanel(false);
     setTimeout(() => inputRef.current?.focus(), 50);
-  }, [resetSession, toggleArtifactPanel]);
+  }, [resetSession, setSelectedArtifactId, toggleArtifactPanel]);
 
   const handleGlobalClick = useCallback(() => {
     if (activeDropdown) setActiveDropdown(null);
   }, [activeDropdown]);
 
-  const handleInputChange = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    setIntent(e.target.value);
-    // Auto-resize textarea
-    e.target.style.height = 'auto';
-    e.target.style.height = Math.min(e.target.scrollHeight, 120) + 'px';
-  }, []);
+  const handleInputChange = useCallback(
+    (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+      setIntent(e.target.value);
+      // Auto-resize textarea
+      e.target.style.height = "auto";
+      e.target.style.height = Math.min(e.target.scrollHeight, 120) + "px";
+    },
+    [],
+  );
 
-  const handleInputKeyDown = useCallback((e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === "Enter" && !e.shiftKey) {
-      e.preventDefault();
-      handleSubmit();
-    }
-  }, [handleSubmit]);
+  const handleInputKeyDown = useCallback(
+    (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+      if (e.key === "Escape") {
+        if (!isStudioVariant) {
+          e.preventDefault();
+          invoke("hide_spotlight").catch(console.error);
+        }
+        return;
+      }
+
+      if (e.key === "Enter" && !e.shiftKey) {
+        e.preventDefault();
+        handleSubmit();
+      }
+    },
+    [handleSubmit, isStudioVariant],
+  );
 
   // ============================================
   // COMPUTED VALUES
   // ============================================
 
+  const activeEvents: AgentEvent[] = task?.events?.length
+    ? task.events
+    : events;
+  const activeArtifacts: Artifact[] = task?.artifacts?.length
+    ? task.artifacts
+    : artifacts;
+  const selectedArtifact =
+    activeArtifacts.find((a) => a.artifact_id === selectedArtifactId) || null;
+
   const isRunning = task?.phase === "Running";
-  const isGated = task?.phase === "Gate";
-  const hasContent = task || localHistory.length > 0 || chatEvents.length > 0;
-  const isFloating = layout.dockPosition === "float";
+  const isGated = task?.phase === "Gate" && !!task?.gate_info;
+  const hasContent =
+    !!task ||
+    localHistory.length > 0 ||
+    chatEvents.length > 0 ||
+    activeEvents.length > 0;
+  const panelWidth =
+    BASE_PANEL_WIDTH +
+    (layout.sidebarVisible ? SIDEBAR_PANEL_WIDTH : 0) +
+    (layout.artifactPanelVisible ? ARTIFACT_PANEL_WIDTH : 0);
+  const containerStyle = isStudioVariant ? undefined : { width: `${panelWidth}px` };
+
+  const openArtifactById = useCallback(
+    (artifactId: string) => {
+      setSelectedArtifactId(artifactId);
+      toggleArtifactPanel(true);
+    },
+    [setSelectedArtifactId, toggleArtifactPanel],
+  );
 
   // ============================================
   // RENDER CHAT STREAM
   // ============================================
 
   const { chatElements, hasChainContent } = useMemo(() => {
+    if (activeEvents.length > 0) {
+      const elements: React.ReactNode[] = activeEvents.map((event) => (
+        <MicroEventCard
+          key={event.event_id}
+          event={event}
+          onOpenArtifact={openArtifactById}
+        />
+      ));
+
+      if (task?.phase === "Gate" && task.gate_info) {
+        elements.push(
+          <SpotlightApprovalCard
+            key={`gate-${task.id}-${task.current_step}`}
+            title={task.gate_info.title}
+            description={task.gate_info.description}
+            risk={task.gate_info.risk}
+            onApprove={handleApprove}
+            onDeny={handleDeny}
+          />,
+        );
+      }
+
+      return {
+        chatElements: elements,
+        hasChainContent: true,
+      };
+    }
+
     const combined: ChatEvent[] = [
-      ...activeHistory.map((m) => ({ ...m, isGate: false, gateData: null })), 
-      ...chatEvents
+      ...activeHistory.map((m) => ({ ...m, isGate: false, gateData: null })),
+      ...chatEvents,
     ];
-    
-    const groups: Array<{ 
-      type: "message" | "chain" | "gate" | "artifact"; 
-      content: any 
+
+    const groups: Array<{
+      type: "message" | "chain" | "gate";
+      content: any;
     }> = [];
-    
+
     let currentChain: ChatMessage[] = [];
     let foundChain = false;
 
     combined.forEach((msg) => {
-      if (msg.isArtifact) {
-        if (currentChain.length > 0) { 
-          groups.push({ type: "chain", content: [...currentChain] }); 
-          foundChain = true;
-          currentChain = []; 
-        }
-        groups.push({ type: "artifact", content: msg.artifactData });
-      } else if (msg.role === "tool" || (msg.role === "system" && !msg.isGate)) {
+      if (msg.role === "tool" || (msg.role === "system" && !msg.isGate)) {
         currentChain.push(msg);
       } else if (msg.isGate) {
-        if (currentChain.length > 0) { 
-          groups.push({ type: "chain", content: [...currentChain] }); 
+        if (currentChain.length > 0) {
+          groups.push({ type: "chain", content: [...currentChain] });
           foundChain = true;
-          currentChain = []; 
+          currentChain = [];
         }
         groups.push({ type: "gate", content: msg.gateData });
       } else {
-        if (currentChain.length > 0) { 
-          groups.push({ type: "chain", content: [...currentChain] }); 
+        if (currentChain.length > 0) {
+          groups.push({ type: "chain", content: [...currentChain] });
           foundChain = true;
-          currentChain = []; 
+          currentChain = [];
         }
         groups.push({ type: "message", content: msg });
       }
     });
-    
+
     if (currentChain.length > 0) {
       groups.push({ type: "chain", content: currentChain });
       foundChain = true;
@@ -436,52 +521,56 @@ export const myTool = new Tool({
     const elements = groups.map((g, i) => (
       <React.Fragment key={i}>
         {g.type === "message" && (
-          <div className={`spot-message ${g.content.role === "user" ? "user" : "agent"}`}>
+          <div
+            className={`spot-message ${g.content.role === "user" ? "user" : "agent"}`}
+          >
             <div className="message-content">{g.content.text}</div>
             {g.content.role !== "user" && (
-              <MessageActions 
-                text={g.content.text} 
-                showRetry={true} 
-                onRetry={() => {}} 
+              <MessageActions
+                text={g.content.text}
+                showRetry={true}
+                onRetry={() => {}}
               />
             )}
           </div>
         )}
-        
+
         {g.type === "chain" && (
-          <ThoughtChain 
-            messages={g.content} 
-            activeStep={(isRunning && i === groups.length - 1) ? task?.current_step : null} 
+          <ThoughtChain
+            messages={g.content}
+            activeStep={
+              isRunning && i === groups.length - 1 ? task?.current_step : null
+            }
             agentName={task?.agent}
             generation={task?.generation}
             progress={task?.progress}
             totalSteps={task?.total_steps}
           />
         )}
-        
+
         {g.type === "gate" && (
-          <SpotlightApprovalCard 
-            title={g.content.title} 
-            description={g.content.description} 
-            risk={g.content.risk} 
-            onApprove={handleApprove} 
-            onDeny={handleDeny} 
-          />
-        )}
-        
-        {g.type === "artifact" && (
-          <VisualArtifact 
-            url={g.content.url} 
-            title={g.content.title} 
-            isActive={g.content.isActive} 
-            screenshot={g.content.screenshot} 
+          <SpotlightApprovalCard
+            title={g.content.title}
+            description={g.content.description}
+            risk={g.content.risk}
+            onApprove={handleApprove}
+            onDeny={handleDeny}
           />
         )}
       </React.Fragment>
     ));
 
     return { chatElements: elements, hasChainContent: foundChain };
-  }, [activeHistory, chatEvents, handleApprove, handleDeny, isRunning, task]);
+  }, [
+    activeEvents,
+    activeHistory,
+    chatEvents,
+    handleApprove,
+    handleDeny,
+    isRunning,
+    openArtifactById,
+    task,
+  ]);
 
   // Only show initial loader if running AND no chain content exists yet
   const showInitialLoader = isRunning && !hasChainContent;
@@ -491,13 +580,15 @@ export const myTool = new Tool({
   // ============================================
 
   return (
-    <div 
-      className={`spot-window ${isFloating ? "floating" : ""}`} 
-      onClick={handleGlobalClick} 
+    <div
+      className={`spot-window ${isStudioVariant ? "spot-window--studio" : ""}`}
+      onClick={handleGlobalClick}
       ref={containerRef}
     >
-      <div className={`spot-container ${layout.sidebarVisible ? "sidebar-open" : ""}`}>
-        
+      <div
+        className={`spot-container ${layout.sidebarVisible ? "sidebar-open" : ""}`}
+        style={containerStyle}
+      >
         {/* ============================================
             UNIFIED HEADER - Window controls only
             ============================================ */}
@@ -507,61 +598,61 @@ export const myTool = new Tool({
 
           {/* Right section: Window controls */}
           <div className="spot-header-right">
-            {/* Floating indicator / re-dock button */}
-            {isFloating && (
-              <button 
-                className="spot-icon-btn dock-btn"
-                onClick={dockRight}
-                title="Dock to right (⌘D)"
-              >
-                {icons.sidebar}
-              </button>
-            )}
-            
             {/* Artifact panel toggle */}
-            {currentArtifact && (
-              <button 
-                className={`spot-icon-btn ${layout.artifactPanelVisible ? 'active' : ''}`}
-                onClick={() => toggleArtifactPanel()}
-                title="View Code"
+            {activeArtifacts.length > 0 && (
+              <button
+                className={`spot-icon-btn ${layout.artifactPanelVisible ? "active" : ""}`}
+                onClick={() => {
+                  if (!selectedArtifactId && activeArtifacts.length > 0) {
+                    setSelectedArtifactId(
+                      activeArtifacts[activeArtifacts.length - 1].artifact_id,
+                    );
+                  }
+                  toggleArtifactPanel();
+                }}
+                title="View Artifacts"
               >
                 {icons.code}
               </button>
             )}
-            
-            <button 
-              className="spot-icon-btn" 
-              onClick={() => openStudio("settings")} 
-              title="Settings"
-            >
-              {icons.settings}
-            </button>
-            
-            <div className="spot-header-divider" />
-            
-            <div className="spot-header-window-controls">
-              <button 
-                className="spot-icon-btn" 
-                onClick={() => invoke("hide_spotlight")} 
-                title="Minimize"
-              >
-                {icons.minimize}
-              </button>
-              <button 
-                className="spot-icon-btn" 
-                onClick={() => openStudio("copilot")} 
-                title="Expand"
-              >
-                {icons.expand}
-              </button>
-              <button 
-                className="spot-icon-btn close" 
-                onClick={() => invoke("hide_spotlight")} 
-                title="Close (Esc)"
-              >
-                {icons.close}
-              </button>
-            </div>
+
+            {!isStudioVariant && (
+              <>
+                <button
+                  className="spot-icon-btn"
+                  onClick={() => openStudio("settings")}
+                  title="Settings"
+                >
+                  {icons.settings}
+                </button>
+
+                <div className="spot-header-divider" />
+
+                <div className="spot-header-window-controls">
+                  <button
+                    className="spot-icon-btn"
+                    onClick={() => invoke("hide_spotlight")}
+                    title="Minimize"
+                  >
+                    {icons.minimize}
+                  </button>
+                  <button
+                    className="spot-icon-btn"
+                    onClick={() => openStudio("copilot")}
+                    title="Expand"
+                  >
+                    {icons.expand}
+                  </button>
+                  <button
+                    className="spot-icon-btn close"
+                    onClick={() => invoke("hide_spotlight")}
+                    title="Close (Esc)"
+                  >
+                    {icons.close}
+                  </button>
+                </div>
+              </>
+            )}
           </div>
         </header>
 
@@ -585,9 +676,9 @@ export const myTool = new Tool({
           <div className="spot-main">
             {/* Sidebar toggle - shown when sidebar is hidden */}
             {!layout.sidebarVisible && (
-              <button 
+              <button
                 className="spot-sidebar-toggle"
-                onClick={() => toggleSidebar(true)} 
+                onClick={() => toggleSidebar(true)}
                 title="Show Sidebar (⌘K)"
               >
                 {icons.sidebar}
@@ -599,13 +690,13 @@ export const myTool = new Tool({
               {!hasContent && (
                 <IOIWatermark onSuggestionClick={(text) => setIntent(text)} />
               )}
-              
+
               {chatElements}
-              
+
               {showInitialLoader && (
-                <ThoughtChain 
-                  messages={[]} 
-                  activeStep={task?.current_step || "Initializing..."} 
+                <ThoughtChain
+                  messages={[]}
+                  activeStep={task?.current_step || "Initializing..."}
                   agentName={task?.agent || "Autopilot"}
                   generation={task?.generation || 0}
                   progress={0}
@@ -613,12 +704,17 @@ export const myTool = new Tool({
                 />
               )}
             </div>
-            
+
             {/* [FIX] Moved ScrollToBottom outside spot-chat to float over it correctly */}
-            <ScrollToBottom visible={showScrollButton} onClick={scrollToBottom} />
+            <ScrollToBottom
+              visible={showScrollButton}
+              onClick={scrollToBottom}
+            />
 
             {/* Input Section */}
-            <div className={`spot-input-section ${inputFocused ? "focused" : ""} ${isDraggingFile ? "drag-active" : ""}`}>
+            <div
+              className={`spot-input-section ${inputFocused ? "focused" : ""} ${isDraggingFile ? "drag-active" : ""}`}
+            >
               <div className="spot-input-wrapper">
                 <textarea
                   ref={inputRef}
@@ -629,48 +725,44 @@ export const myTool = new Tool({
                   onKeyDown={handleInputKeyDown}
                   onFocus={() => setInputFocused(true)}
                   onBlur={() => setInputFocused(false)}
-                  disabled={isGated}
                   rows={1}
                 />
-                
+
                 <div className="spot-controls">
                   <div className="spot-controls-left">
-                    <button 
-                      className="spot-action-btn" 
+                    <button
+                      className="spot-action-btn"
                       title="Attach file (⌘U)"
                     >
                       {icons.paperclip}
                     </button>
-                    <button 
-                      className="spot-action-btn" 
-                      title="Commands (/)"
-                    >
+                    <button className="spot-action-btn" title="Commands (/)">
                       {icons.slash}
                     </button>
-                    <button 
-                      className={`spot-context-btn ${autoContext ? "active" : ""}`} 
-                      onClick={() => setAutoContext(!autoContext)} 
+                    <button
+                      className={`spot-context-btn ${autoContext ? "active" : ""}`}
+                      onClick={() => setAutoContext(!autoContext)}
                       title="Auto context (⌘.)"
                     >
                       {icons.sparkles}
                       <span>Context</span>
                     </button>
                   </div>
-                  
+
                   {isRunning ? (
-                    <button 
-                      className="spot-stop-btn" 
-                      onClick={() => invoke("cancel_task").catch(console.error)} 
+                    <button
+                      className="spot-stop-btn"
+                      onClick={() => invoke("cancel_task").catch(console.error)}
                       title="Stop (Esc)"
                     >
                       {icons.stop}
                       <span>Stop</span>
                     </button>
                   ) : (
-                    <button 
-                      className="spot-send-btn" 
-                      onClick={handleSubmit} 
-                      disabled={!intent.trim()} 
+                    <button
+                      className="spot-send-btn"
+                      onClick={handleSubmit}
+                      disabled={!intent.trim() || isGated}
                       title="Send (⏎)"
                     >
                       {icons.send}
@@ -678,41 +770,48 @@ export const myTool = new Tool({
                   )}
                 </div>
               </div>
-              
+
               <div className="spot-toggles">
-                <Dropdown 
-                  icon={icons.laptop} 
-                  options={workspaceOptions} 
-                  selected={workspaceMode} 
-                  onSelect={setWorkspaceMode} 
-                  isOpen={activeDropdown === "workspace"} 
-                  onToggle={() => setActiveDropdown(
-                    activeDropdown === "workspace" ? null : "workspace"
-                  )} 
+                <Dropdown
+                  icon={icons.laptop}
+                  options={workspaceOptions}
+                  selected={workspaceMode}
+                  onSelect={setWorkspaceMode}
+                  isOpen={activeDropdown === "workspace"}
+                  onToggle={() =>
+                    setActiveDropdown(
+                      activeDropdown === "workspace" ? null : "workspace",
+                    )
+                  }
                 />
-                <Dropdown 
-                  icon={icons.cube} 
-                  options={modelOptions} 
-                  selected={selectedModel} 
-                  onSelect={setSelectedModel} 
-                  isOpen={activeDropdown === "model"} 
-                  onToggle={() => setActiveDropdown(
-                    activeDropdown === "model" ? null : "model"
-                  )}
-                  footer={{
-                    label: "Manage Models...",
-                    onClick: () => openStudio("settings")
-                  }}
+                <Dropdown
+                  icon={icons.cube}
+                  options={modelOptions}
+                  selected={selectedModel}
+                  onSelect={setSelectedModel}
+                  isOpen={activeDropdown === "model"}
+                  onToggle={() =>
+                    setActiveDropdown(
+                      activeDropdown === "model" ? null : "model",
+                    )
+                  }
+                  footer={
+                    isStudioVariant
+                      ? undefined
+                      : {
+                          label: "Manage Models...",
+                          onClick: () => openStudio("settings"),
+                        }
+                  }
                 />
               </div>
             </div>
           </div>
 
           {/* Artifact Panel */}
-          {layout.artifactPanelVisible && currentArtifact && (
-            <ArtifactPanel 
-              fileName={currentArtifact.name}
-              content={currentArtifact.content}
+          {layout.artifactPanelVisible && selectedArtifact && (
+            <ArtifactSidebar
+              artifact={selectedArtifact}
               onClose={() => toggleArtifactPanel(false)}
             />
           )}

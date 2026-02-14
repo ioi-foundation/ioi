@@ -134,6 +134,9 @@ pub async fn load_session(
                     pending_request_hash: None,
                     session_id: Some(session_id.clone()),
                     history,
+                    events: Vec::new(),
+                    artifacts: Vec::new(),
+                    run_bundle_id: None,
                     processed_steps: HashSet::new(),
                     swarm_tree: Vec::new(),
                     // [FIX] Initialize missing evolutionary fields

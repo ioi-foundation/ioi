@@ -33,6 +33,64 @@ export interface ChatMessage {
   timestamp: number;
 }
 
+export type EventType =
+  | "COMMAND_RUN"
+  | "CODE_SEARCH"
+  | "FILE_READ"
+  | "FILE_EDIT"
+  | "DIFF_CREATED"
+  | "TEST_RUN"
+  | "BROWSER_NAVIGATE"
+  | "BROWSER_EXTRACT"
+  | "RECEIPT"
+  | "INFO_NOTE"
+  | "WARNING"
+  | "ERROR";
+
+export type EventStatus = "SUCCESS" | "FAILURE" | "PARTIAL";
+
+export type ArtifactType = "DIFF" | "FILE" | "WEB" | "RUN_BUNDLE" | "REPORT" | "LOG";
+
+export interface ArtifactRef {
+  artifact_id: string;
+  artifact_type: ArtifactType;
+}
+
+export interface AgentEvent {
+  event_id: string;
+  timestamp: string;
+  thread_id: string;
+  step_index: number;
+  event_type: EventType;
+  title: string;
+  digest: Record<string, unknown>;
+  details: Record<string, unknown>;
+  artifact_refs: ArtifactRef[];
+  receipt_ref?: string | null;
+  input_refs: string[];
+  status: EventStatus;
+  duration_ms?: number | null;
+}
+
+export interface Artifact {
+  artifact_id: string;
+  created_at: string;
+  thread_id: string;
+  artifact_type: ArtifactType;
+  title: string;
+  description: string;
+  content_ref: string;
+  metadata: Record<string, unknown>;
+  version?: number | null;
+  parent_artifact_id?: string | null;
+}
+
+export interface ArtifactContentPayload {
+  artifact_id: string;
+  encoding: "utf-8" | "base64" | string;
+  content: string;
+}
+
 export type AgentStatus = 
   | 'requisition'
   | 'pending'
@@ -87,6 +145,9 @@ export interface AgentTask {
   receipt?: Receipt;
   gate_info?: GateInfo;
   history: ChatMessage[];
+  events: AgentEvent[];
+  artifacts: Artifact[];
+  run_bundle_id?: string;
   liability_level?: LiabilityLevel;
   generation: number;
   lineage_id: string;

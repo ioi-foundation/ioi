@@ -5,7 +5,7 @@ use crate::orchestrator;
 use crate::windows;
 use ioi_ipc::public::public_api_client::PublicApiClient;
 use ioi_ipc::public::{DraftTransactionRequest, SubmitTransactionRequest};
-use parity_scale_codec::Encode;
+use parity_scale_codec::{Decode, Encode};
 use std::collections::HashSet;
 use std::sync::Mutex;
 use tauri::{AppHandle, Emitter, Manager, State};
@@ -18,8 +18,20 @@ use ioi_types::app::{
 };
 use ioi_types::codec;
 
+fn input_probe_logging_enabled() -> bool {
+    std::env::var("AUTOPILOT_INPUT_PROBE_LOG")
+        .map(|v| {
+            let t = v.trim();
+            t == "1"
+                || t.eq_ignore_ascii_case("true")
+                || t.eq_ignore_ascii_case("yes")
+                || t.eq_ignore_ascii_case("on")
+        })
+        .unwrap_or(false)
+}
+
 // [FIX] Local definition to avoid dependency on private/missing service types
-#[derive(Encode)]
+#[derive(Encode, Decode)]
 struct PostMessageParams {
     pub session_id: [u8; 32],
     pub role: String,
@@ -32,6 +44,14 @@ pub fn start_task(
     app: AppHandle,
     intent: String,
 ) -> Result<AgentTask, String> {
+    if input_probe_logging_enabled() {
+        println!(
+            "[Autopilot][InputProbe] start_task intent_len={} intent='{}'",
+            intent.chars().count(),
+            intent
+        );
+    }
+
     let history = vec![ChatMessage {
         role: "user".to_string(),
         text: intent.clone(),
@@ -41,7 +61,7 @@ pub fn start_task(
     let task_id = uuid::Uuid::new_v4().to_string();
 
     // We treat task_id as session_id for local context unless provided otherwise
-    let task = AgentTask {
+    let mut task = AgentTask {
         id: task_id.clone(),
         session_id: Some(task_id.clone()),
         intent: intent.clone(),
@@ -56,6 +76,9 @@ pub fn start_task(
         visual_hash: None,
         pending_request_hash: None,
         history,
+        events: Vec::new(),
+        artifacts: Vec::new(),
+        run_bundle_id: None,
         processed_steps: HashSet::new(),
         swarm_tree: Vec::new(),
         generation: 0,
@@ -66,14 +89,17 @@ pub fn start_task(
     let scs_handle;
 
     {
-        let mut app_state = state.lock().map_err(|_| "Failed to lock state")?;
-        app_state.current_task = Some(task.clone());
-        app_state.gate_response = None;
+        let app_state = state.lock().map_err(|_| "Failed to lock state")?;
         scs_handle = app_state.studio_scs.clone();
     }
 
     // Persist Initial Session State Locally
-    if let Some(scs) = scs_handle {
+    if let Some(scs) = scs_handle.clone() {
+        let run_bundle =
+            crate::kernel::artifacts::create_run_bundle(&scs, &task_id, &task_id, vec![]);
+        task.run_bundle_id = Some(run_bundle.artifact_id.clone());
+        task.artifacts.push(run_bundle.clone());
+
         let summary = SessionSummary {
             session_id: task_id.clone(),
             title: if intent.len() > 30 {
@@ -85,6 +111,12 @@ pub fn start_task(
         };
         orchestrator::save_local_session_summary(&scs, summary);
         orchestrator::save_local_task_state(&scs, &task);
+    }
+
+    {
+        let mut app_state = state.lock().map_err(|_| "Failed to lock state")?;
+        app_state.current_task = Some(task.clone());
+        app_state.gate_response = None;
     }
 
     let _ = app.emit("task-started", &task);
@@ -151,6 +183,15 @@ pub async fn continue_task(
     session_id: String,
     user_input: String,
 ) -> Result<(), String> {
+    if input_probe_logging_enabled() {
+        println!(
+            "[Autopilot][InputProbe] continue_task input_len={} input='{}' session_id='{}'",
+            user_input.chars().count(),
+            user_input,
+            session_id
+        );
+    }
+
     // 1. Optimistic UI Update
     let user_msg_ui = ChatMessage {
         role: "user".to_string(),

@@ -1,14 +1,565 @@
 // apps/autopilot/src-tauri/src/kernel/events.rs
 
 use crate::kernel::state::update_task_state;
+use crate::kernel::{artifacts as artifact_store, thresholds};
 use crate::models::{
-    AgentPhase, AppState, ChatMessage, GateInfo, GhostInputEvent, Receipt, SwarmAgent,
+    AgentEvent, AgentPhase, AppState, Artifact, ArtifactRef, ArtifactType, ChatMessage,
+    EventStatus, EventType, GateInfo, GhostInputEvent, Receipt, SwarmAgent,
 };
+use crate::orchestrator;
 use ioi_ipc::public::chain_event::Event as ChainEventEnum;
 use ioi_ipc::public::public_api_client::PublicApiClient;
 use ioi_ipc::public::SubscribeEventsRequest;
+use serde_json::{json, Value};
 use std::sync::Mutex;
 use tauri::{Emitter, Manager};
+use uuid::Uuid;
+
+fn now_iso() -> String {
+    chrono::Utc::now().to_rfc3339()
+}
+
+fn thread_id_from_session(app: &tauri::AppHandle, session_id: &str) -> String {
+    if !session_id.is_empty() {
+        return session_id.to_string();
+    }
+    let state = app.state::<Mutex<AppState>>();
+    if let Ok(guard) = state.lock() {
+        if let Some(task) = &guard.current_task {
+            return task.session_id.clone().unwrap_or_else(|| task.id.clone());
+        }
+    }
+    "unknown-thread".to_string()
+}
+
+fn snippet(text: &str) -> String {
+    thresholds::trim_excerpt(text, 4, 320)
+}
+
+fn collect_urls(text: &str, limit: usize) -> Vec<String> {
+    let mut out = Vec::new();
+    for token in text.split_whitespace() {
+        let normalized = token
+            .trim_matches(|c: char| ",.;:()[]{}<>\"'`".contains(c))
+            .to_string();
+        if normalized.starts_with("http://") || normalized.starts_with("https://") {
+            if !out.iter().any(|u| u == &normalized) {
+                out.push(normalized);
+            }
+        }
+        if out.len() >= limit {
+            break;
+        }
+    }
+    out
+}
+
+fn event_status_from_agent_status(agent_status: &str) -> EventStatus {
+    match agent_status {
+        "Failed" => EventStatus::Failure,
+        "Paused" => EventStatus::Partial,
+        _ => EventStatus::Success,
+    }
+}
+
+fn event_type_for_tool(tool_name: &str) -> EventType {
+    let t = tool_name.to_lowercase();
+    if t.contains("browser__navigate") || t.contains("browser::navigate") {
+        EventType::BrowserNavigate
+    } else if t.contains("browser__extract") || t.contains("browser::extract") {
+        EventType::BrowserExtract
+    } else if t.contains("search")
+        || t.contains("grep")
+        || t.contains("ripgrep")
+        || t == "rg"
+        || t.contains("find")
+    {
+        EventType::CodeSearch
+    } else if t.contains("test") || t.contains("pytest") || t.contains("cargo test") {
+        EventType::TestRun
+    } else if t.contains("edit")
+        || t.contains("patch")
+        || t.contains("write")
+        || t.contains("replace")
+    {
+        EventType::FileEdit
+    } else if t.contains("read") || t.contains("cat") {
+        EventType::FileRead
+    } else {
+        EventType::CommandRun
+    }
+}
+
+fn register_event(app: &tauri::AppHandle, mut event: AgentEvent) {
+    let mut scs_handle = None;
+
+    {
+        let state = app.state::<Mutex<AppState>>();
+        if let Ok(mut s) = state.lock() {
+            let refs = s.event_index.entry(event.thread_id.clone()).or_default();
+            if event.input_refs.is_empty() {
+                if let Some(prev_id) = refs.last() {
+                    event.input_refs.push(prev_id.clone());
+                }
+            }
+            refs.push(event.event_id.clone());
+            scs_handle = s.studio_scs.clone();
+        };
+    }
+
+    update_task_state(app, |t| {
+        let thread = t.session_id.clone().unwrap_or_else(|| t.id.clone());
+        if thread == event.thread_id {
+            t.events.push(event.clone());
+        }
+    });
+
+    if let Some(scs) = scs_handle {
+        orchestrator::append_event(&scs, &event);
+    }
+
+    let _ = app.emit("agent-event", &event);
+}
+
+fn register_artifact(app: &tauri::AppHandle, artifact: Artifact) {
+    let thread_id = artifact.thread_id.clone();
+    let mut run_bundle_id = None;
+    let mut scs_handle = None;
+
+    {
+        let state = app.state::<Mutex<AppState>>();
+        if let Ok(mut s) = state.lock() {
+            let refs = s.artifact_index.entry(thread_id.clone()).or_default();
+            if !refs.iter().any(|id| id == &artifact.artifact_id) {
+                refs.push(artifact.artifact_id.clone());
+            }
+            if let Some(task) = &s.current_task {
+                let task_thread = task.session_id.clone().unwrap_or_else(|| task.id.clone());
+                if task_thread == thread_id {
+                    run_bundle_id = task.run_bundle_id.clone();
+                }
+            }
+            scs_handle = s.studio_scs.clone();
+        };
+    }
+
+    update_task_state(app, |t| {
+        let task_thread = t.session_id.clone().unwrap_or_else(|| t.id.clone());
+        if task_thread == thread_id
+            && !t
+                .artifacts
+                .iter()
+                .any(|existing| existing.artifact_id == artifact.artifact_id)
+        {
+            t.artifacts.push(artifact.clone());
+        }
+    });
+
+    let _ = app.emit("artifact-created", &artifact);
+
+    if artifact.artifact_type != ArtifactType::RunBundle {
+        if let (Some(bundle_id), Some(scs)) = (run_bundle_id, scs_handle) {
+            if let Some(updated_bundle) = artifact_store::append_run_bundle_ref(
+                &scs,
+                &thread_id,
+                &bundle_id,
+                &artifact.artifact_id,
+            ) {
+                update_task_state(app, |t| {
+                    let task_thread = t.session_id.clone().unwrap_or_else(|| t.id.clone());
+                    if task_thread == thread_id
+                        && !t
+                            .artifacts
+                            .iter()
+                            .any(|a| a.artifact_id == updated_bundle.artifact_id)
+                    {
+                        t.artifacts.push(updated_bundle.clone());
+                    }
+                });
+                let _ = app.emit("artifact-created", &updated_bundle);
+            }
+        }
+    }
+}
+
+fn planned_artifact_types(event_type: &EventType, output: &str) -> Vec<ArtifactType> {
+    if matches!(
+        event_type,
+        EventType::BrowserNavigate | EventType::BrowserExtract
+    ) {
+        return vec![ArtifactType::Web];
+    }
+
+    let (diff_lines, diff_files) = thresholds::estimate_diff_stats(output);
+    if diff_lines > 0 && thresholds::should_spill_diff(diff_lines, diff_files) {
+        return vec![ArtifactType::Diff];
+    }
+
+    if thresholds::should_spill_command_output(output) {
+        return vec![ArtifactType::Log];
+    }
+
+    Vec::new()
+}
+
+fn create_macro_artifacts_for_action(
+    app: &tauri::AppHandle,
+    thread_id: &str,
+    event_type: &EventType,
+    tool_name: &str,
+    output: &str,
+) -> Vec<ArtifactRef> {
+    let scs = {
+        let state = app.state::<Mutex<AppState>>();
+        state.lock().ok().and_then(|s| s.studio_scs.clone())
+    };
+    let Some(scs) = scs else {
+        return Vec::new();
+    };
+
+    let mut refs = Vec::new();
+
+    for artifact_type in planned_artifact_types(event_type, output) {
+        match artifact_type {
+            ArtifactType::Web => {
+                let urls = collect_urls(output, 5);
+                let primary_url = urls
+                    .first()
+                    .cloned()
+                    .unwrap_or_else(|| format!("tool://{}", tool_name));
+                let artifact = artifact_store::create_web_artifact(
+                    &scs,
+                    thread_id,
+                    &primary_url,
+                    output,
+                    urls,
+                );
+                refs.push(ArtifactRef {
+                    artifact_id: artifact.artifact_id.clone(),
+                    artifact_type: ArtifactType::Web,
+                });
+                register_artifact(app, artifact);
+            }
+            ArtifactType::Diff => {
+                let (diff_lines, diff_files) = thresholds::estimate_diff_stats(output);
+                let metadata = json!({
+                    "tool_name": tool_name,
+                    "line_changes": diff_lines,
+                    "files_touched": diff_files,
+                });
+                let artifact = artifact_store::create_diff_artifact(
+                    &scs,
+                    thread_id,
+                    "Large Diff",
+                    "Diff exceeded inline thresholds",
+                    output,
+                    metadata,
+                );
+                refs.push(ArtifactRef {
+                    artifact_id: artifact.artifact_id.clone(),
+                    artifact_type: ArtifactType::Diff,
+                });
+                register_artifact(app, artifact);
+            }
+            ArtifactType::Log => {
+                let metadata = json!({
+                    "tool_name": tool_name,
+                    "line_count": thresholds::line_count(output),
+                });
+                let artifact = artifact_store::create_log_artifact(
+                    &scs,
+                    thread_id,
+                    &format!("{} output", tool_name),
+                    "Command output spilled due to threshold",
+                    output,
+                    metadata,
+                );
+                refs.push(ArtifactRef {
+                    artifact_id: artifact.artifact_id.clone(),
+                    artifact_type: ArtifactType::Log,
+                });
+                register_artifact(app, artifact);
+            }
+            _ => {}
+        }
+    }
+
+    refs
+}
+
+fn build_event(
+    thread_id: &str,
+    step_index: u32,
+    event_type: EventType,
+    title: String,
+    digest: Value,
+    details: Value,
+    status: EventStatus,
+    artifact_refs: Vec<ArtifactRef>,
+    receipt_ref: Option<String>,
+    input_refs: Vec<String>,
+    duration_ms: Option<u64>,
+) -> AgentEvent {
+    AgentEvent {
+        event_id: Uuid::new_v4().to_string(),
+        timestamp: now_iso(),
+        thread_id: thread_id.to_string(),
+        step_index,
+        event_type,
+        title,
+        digest,
+        details,
+        artifact_refs,
+        receipt_ref,
+        input_refs,
+        status,
+        duration_ms,
+    }
+}
+
+pub fn emit_command_run(
+    thread_id: &str,
+    step_index: u32,
+    tool_name: &str,
+    output: &str,
+    status: EventStatus,
+    artifact_refs: Vec<ArtifactRef>,
+    input_refs: Vec<String>,
+) -> AgentEvent {
+    let digest = json!({
+        "tool_name": tool_name,
+        "output_snippet": snippet(output),
+        "line_count": thresholds::line_count(output),
+    });
+    let details = json!({
+        "output": thresholds::trim_for_expanded_view(output),
+    });
+
+    build_event(
+        thread_id,
+        step_index,
+        EventType::CommandRun,
+        format!("Ran {}", tool_name),
+        digest,
+        details,
+        status,
+        artifact_refs,
+        None,
+        input_refs,
+        None,
+    )
+}
+
+pub fn emit_file_edit(
+    thread_id: &str,
+    step_index: u32,
+    tool_name: &str,
+    diff_text: &str,
+    status: EventStatus,
+    artifact_refs: Vec<ArtifactRef>,
+    input_refs: Vec<String>,
+) -> AgentEvent {
+    let (line_changes, files_touched) = thresholds::estimate_diff_stats(diff_text);
+    let digest = json!({
+        "tool_name": tool_name,
+        "line_changes": line_changes,
+        "files_touched": files_touched,
+        "excerpt": thresholds::trim_edit_excerpt(diff_text),
+    });
+    let details = json!({
+        "diff_excerpt": thresholds::trim_for_expanded_view(diff_text),
+    });
+
+    build_event(
+        thread_id,
+        step_index,
+        EventType::FileEdit,
+        format!("Edited files via {}", tool_name),
+        digest,
+        details,
+        status,
+        artifact_refs,
+        None,
+        input_refs,
+        None,
+    )
+}
+
+pub fn emit_code_search(
+    thread_id: &str,
+    step_index: u32,
+    tool_name: &str,
+    output: &str,
+    status: EventStatus,
+    artifact_refs: Vec<ArtifactRef>,
+    input_refs: Vec<String>,
+) -> AgentEvent {
+    let digest = json!({
+        "query": tool_name,
+        "result_lines": thresholds::line_count(output),
+        "snippet": snippet(output),
+    });
+    let details = json!({
+        "results": thresholds::trim_for_expanded_view(output),
+    });
+
+    build_event(
+        thread_id,
+        step_index,
+        EventType::CodeSearch,
+        format!("Searched code with {}", tool_name),
+        digest,
+        details,
+        status,
+        artifact_refs,
+        None,
+        input_refs,
+        None,
+    )
+}
+
+pub fn emit_browser_navigate(
+    thread_id: &str,
+    step_index: u32,
+    tool_name: &str,
+    output: &str,
+    status: EventStatus,
+    artifact_refs: Vec<ArtifactRef>,
+    input_refs: Vec<String>,
+) -> AgentEvent {
+    let urls = collect_urls(output, 5);
+    let digest = json!({
+        "tool_name": tool_name,
+        "url": urls.first().cloned().unwrap_or_else(|| "unknown".to_string()),
+        "snippet": snippet(output),
+        "citations": urls,
+    });
+    let details = json!({
+        "output": thresholds::trim_for_expanded_view(output),
+    });
+
+    build_event(
+        thread_id,
+        step_index,
+        EventType::BrowserNavigate,
+        "Navigated browser".to_string(),
+        digest,
+        details,
+        status,
+        artifact_refs,
+        None,
+        input_refs,
+        None,
+    )
+}
+
+pub fn emit_browser_extract(
+    thread_id: &str,
+    step_index: u32,
+    tool_name: &str,
+    output: &str,
+    status: EventStatus,
+    artifact_refs: Vec<ArtifactRef>,
+    input_refs: Vec<String>,
+) -> AgentEvent {
+    let urls = collect_urls(output, 5);
+    let digest = json!({
+        "tool_name": tool_name,
+        "extract_length": output.len(),
+        "top_links": urls,
+        "snippet": snippet(output),
+    });
+    let details = json!({
+        "extract": thresholds::trim_for_expanded_view(output),
+    });
+
+    build_event(
+        thread_id,
+        step_index,
+        EventType::BrowserExtract,
+        "Extracted browser content".to_string(),
+        digest,
+        details,
+        status,
+        artifact_refs,
+        None,
+        input_refs,
+        None,
+    )
+}
+
+pub fn emit_test_run(
+    thread_id: &str,
+    step_index: u32,
+    tool_name: &str,
+    output: &str,
+    status: EventStatus,
+    artifact_refs: Vec<ArtifactRef>,
+    input_refs: Vec<String>,
+) -> AgentEvent {
+    let digest = json!({
+        "command": tool_name,
+        "summary": snippet(output),
+    });
+    let details = json!({
+        "output": thresholds::trim_for_expanded_view(output),
+    });
+
+    build_event(
+        thread_id,
+        step_index,
+        EventType::TestRun,
+        format!("Ran tests via {}", tool_name),
+        digest,
+        details,
+        status,
+        artifact_refs,
+        None,
+        input_refs,
+        None,
+    )
+}
+
+pub fn emit_receipt_digest(
+    thread_id: &str,
+    step_index: u32,
+    receipt_id: String,
+    tool_name: &str,
+    tier: &str,
+    decision: &str,
+    summary: &str,
+    report_ref: Option<ArtifactRef>,
+    input_refs: Vec<String>,
+) -> AgentEvent {
+    let mut artifact_refs = Vec::new();
+    if let Some(r) = report_ref {
+        artifact_refs.push(r);
+    }
+
+    let digest = json!({
+        "tool_name": tool_name,
+        "tier": tier,
+        "decision": decision,
+        "summary": snippet(summary),
+    });
+    let details = json!({
+        "receipt_summary": thresholds::trim_for_expanded_view(summary),
+    });
+
+    build_event(
+        thread_id,
+        step_index,
+        EventType::Receipt,
+        format!("Receipt: {} ({})", tool_name, decision),
+        digest,
+        details,
+        EventStatus::Success,
+        artifact_refs,
+        Some(receipt_id),
+        input_refs,
+        None,
+    )
+}
 
 pub async fn monitor_kernel_events(app: tauri::AppHandle) {
     loop {
@@ -84,8 +635,48 @@ pub async fn monitor_kernel_events(app: tauri::AppHandle) {
                                 t.session_id = Some(thought.session_id.clone());
                             }
                         });
+
+                        if thought.is_final {
+                            let thread_id = thread_id_from_session(&app, &thought.session_id);
+                            let event = build_event(
+                                &thread_id,
+                                0,
+                                EventType::InfoNote,
+                                "Captured reasoning step".to_string(),
+                                json!({
+                                    "session_id": thought.session_id,
+                                    "visual_hash": thought.visual_hash,
+                                    "token_count": thought.content.chars().count(),
+                                }),
+                                json!({
+                                    "content": thresholds::trim_for_expanded_view(&thought.content),
+                                }),
+                                EventStatus::Success,
+                                Vec::new(),
+                                None,
+                                Vec::new(),
+                                None,
+                            );
+                            register_event(&app, event);
+                        }
                     }
                     ChainEventEnum::ActionResult(res) => {
+                        let dedup_key = format!("{}:{}", res.step_index, res.tool_name);
+                        let already_processed = {
+                            if let Ok(guard) = state_handle.lock() {
+                                if let Some(task) = &guard.current_task {
+                                    task.processed_steps.contains(&dedup_key)
+                                } else {
+                                    false
+                                }
+                            } else {
+                                false
+                            }
+                        };
+                        if already_processed {
+                            continue;
+                        }
+
                         update_task_state(&app, |t| {
                             let dedup_key = format!("{}:{}", res.step_index, res.tool_name);
 
@@ -105,8 +696,6 @@ pub async fn monitor_kernel_events(app: tauri::AppHandle) {
                                 agent.artifacts_produced += 1;
                             }
 
-                            // [FIX] STATE-BASED TRUTH
-                            // We use the authoritative status from the Kernel event instead of parsing output strings.
                             match res.agent_status.as_str() {
                                 "Completed" => {
                                     t.phase = AgentPhase::Complete;
@@ -140,7 +729,6 @@ pub async fn monitor_kernel_events(app: tauri::AppHandle) {
                                         agent.status = "failed".to_string();
                                     }
 
-                                    // Log failure message
                                     t.history.push(ChatMessage {
                                         role: "system".to_string(),
                                         text: format!("Task Failed: {}", res.output),
@@ -148,10 +736,6 @@ pub async fn monitor_kernel_events(app: tauri::AppHandle) {
                                     });
                                 }
                                 "Paused" => {
-                                    // ChatReply or AgentPause sets status to Paused.
-                                    // UI should reflect this, potentially hiding spinner or showing "Waiting".
-                                    // For now, we handle ChatReply specifically below for messages.
-
                                     if let Some(agent) =
                                         t.swarm_tree.iter_mut().find(|a| a.id == res.session_id)
                                     {
@@ -159,20 +743,13 @@ pub async fn monitor_kernel_events(app: tauri::AppHandle) {
                                     }
                                 }
                                 _ => {
-                                    // Default to Running
                                     if t.phase != AgentPhase::Gate {
                                         t.phase = AgentPhase::Running;
                                     }
                                 }
                             }
 
-                            // Log chat messages for specific tools
                             if res.tool_name == "chat::reply" || res.tool_name == "chat__reply" {
-                                // Chat reply implies completion of that turn or pause for input.
-                                // If status is Paused, we show the input bar.
-                                // If status is Completed, we show checkmark.
-
-                                // For UI: if Paused, we treat as "Ready for Input" visually (Complete phase hides spinner)
                                 if res.agent_status == "Paused" {
                                     t.phase = AgentPhase::Complete;
                                     t.current_step = "Ready for input".to_string();
@@ -199,7 +776,6 @@ pub async fn monitor_kernel_events(app: tauri::AppHandle) {
                             } else if res.agent_status == "Running"
                                 && res.tool_name != "agent__complete"
                             {
-                                // Log standard tool output if running
                                 t.history.push(ChatMessage {
                                     role: "tool".to_string(),
                                     text: format!(
@@ -210,72 +786,140 @@ pub async fn monitor_kernel_events(app: tauri::AppHandle) {
                                 });
                             }
                         });
+
+                        let thread_id = thread_id_from_session(&app, &res.session_id);
+                        let kind = event_type_for_tool(&res.tool_name);
+                        let status = event_status_from_agent_status(&res.agent_status);
+                        let artifact_refs = create_macro_artifacts_for_action(
+                            &app,
+                            &thread_id,
+                            &kind,
+                            &res.tool_name,
+                            &res.output,
+                        );
+
+                        let event = match kind {
+                            EventType::CodeSearch => emit_code_search(
+                                &thread_id,
+                                res.step_index,
+                                &res.tool_name,
+                                &res.output,
+                                status,
+                                artifact_refs,
+                                Vec::new(),
+                            ),
+                            EventType::FileEdit => emit_file_edit(
+                                &thread_id,
+                                res.step_index,
+                                &res.tool_name,
+                                &res.output,
+                                status,
+                                artifact_refs,
+                                Vec::new(),
+                            ),
+                            EventType::BrowserNavigate => emit_browser_navigate(
+                                &thread_id,
+                                res.step_index,
+                                &res.tool_name,
+                                &res.output,
+                                status,
+                                artifact_refs,
+                                Vec::new(),
+                            ),
+                            EventType::BrowserExtract => emit_browser_extract(
+                                &thread_id,
+                                res.step_index,
+                                &res.tool_name,
+                                &res.output,
+                                status,
+                                artifact_refs,
+                                Vec::new(),
+                            ),
+                            EventType::TestRun => emit_test_run(
+                                &thread_id,
+                                res.step_index,
+                                &res.tool_name,
+                                &res.output,
+                                status,
+                                artifact_refs,
+                                Vec::new(),
+                            ),
+                            _ => emit_command_run(
+                                &thread_id,
+                                res.step_index,
+                                &res.tool_name,
+                                &res.output,
+                                status,
+                                artifact_refs,
+                                Vec::new(),
+                            ),
+                        };
+                        register_event(&app, event);
                     }
                     ChainEventEnum::RoutingReceipt(receipt) => {
+                        let failure_class = if receipt.has_failure_class {
+                            Some(match receipt.failure_class {
+                                1 => "FocusMismatch",
+                                2 => "TargetNotFound",
+                                3 => "PermissionOrApprovalRequired",
+                                4 => "ToolUnavailable",
+                                5 => "NonDeterministicUI",
+                                6 => "UnexpectedState",
+                                7 => "TimeoutOrHang",
+                                8 => "UserInterventionNeeded",
+                                _ => "Unknown",
+                            })
+                        } else {
+                            None
+                        };
+
+                        let verification = receipt
+                            .post_state
+                            .as_ref()
+                            .map(|s| {
+                                if s.verification_checks.is_empty() {
+                                    "none".to_string()
+                                } else {
+                                    s.verification_checks.join(", ")
+                                }
+                            })
+                            .unwrap_or_else(|| "none".to_string());
+
+                        let mut summary = format!(
+                            "RoutingReceipt(step={}, tier={}, tool={}, decision={}, stop={}, policy_hash={})",
+                            receipt.step_index,
+                            receipt
+                                .pre_state
+                                .as_ref()
+                                .map(|s| s.tier.as_str())
+                                .unwrap_or("unknown"),
+                            receipt.tool_name,
+                            receipt.policy_decision,
+                            receipt.stop_condition_hit,
+                            receipt.policy_binding_hash
+                        );
+
+                        if let Some(class) = failure_class {
+                            summary.push_str(&format!(", failure_class={}", class));
+                        }
+                        if !receipt.escalation_path.is_empty() {
+                            summary.push_str(&format!(", escalation={}", receipt.escalation_path));
+                        }
+                        if !receipt.scs_lineage_ptr.is_empty() {
+                            summary.push_str(&format!(", lineage={}", receipt.scs_lineage_ptr));
+                        }
+                        if !receipt.mutation_receipt_ptr.is_empty() {
+                            summary.push_str(&format!(
+                                ", mutation_receipt={}",
+                                receipt.mutation_receipt_ptr
+                            ));
+                        }
+                        summary.push_str(&format!(", verify=[{}]", verification));
+
                         update_task_state(&app, |t| {
                             if !receipt.session_id.is_empty() {
                                 t.session_id = Some(receipt.session_id.clone());
                             }
-
-                            let failure_class = if receipt.has_failure_class {
-                                Some(match receipt.failure_class {
-                                    1 => "FocusMismatch",
-                                    2 => "TargetNotFound",
-                                    3 => "PermissionOrApprovalRequired",
-                                    4 => "ToolUnavailable",
-                                    5 => "NonDeterministicUI",
-                                    6 => "UnexpectedState",
-                                    7 => "TimeoutOrHang",
-                                    8 => "UserInterventionNeeded",
-                                    _ => "Unknown",
-                                })
-                            } else {
-                                None
-                            };
-
-                            let verification = receipt
-                                .post_state
-                                .as_ref()
-                                .map(|s| {
-                                    if s.verification_checks.is_empty() {
-                                        "none".to_string()
-                                    } else {
-                                        s.verification_checks.join(", ")
-                                    }
-                                })
-                                .unwrap_or_else(|| "none".to_string());
-
-                            let mut summary = format!(
-                                "RoutingReceipt(step={}, tier={}, tool={}, decision={}, stop={}, policy_hash={})",
-                                receipt.step_index,
-                                receipt
-                                    .pre_state
-                                    .as_ref()
-                                    .map(|s| s.tier.as_str())
-                                    .unwrap_or("unknown"),
-                                receipt.tool_name,
-                                receipt.policy_decision,
-                                receipt.stop_condition_hit,
-                                receipt.policy_binding_hash
-                            );
-
-                            if let Some(class) = failure_class {
-                                summary.push_str(&format!(", failure_class={}", class));
-                            }
-                            if !receipt.escalation_path.is_empty() {
-                                summary
-                                    .push_str(&format!(", escalation={}", receipt.escalation_path));
-                            }
-                            if !receipt.scs_lineage_ptr.is_empty() {
-                                summary.push_str(&format!(", lineage={}", receipt.scs_lineage_ptr));
-                            }
-                            if !receipt.mutation_receipt_ptr.is_empty() {
-                                summary.push_str(&format!(
-                                    ", mutation_receipt={}",
-                                    receipt.mutation_receipt_ptr
-                                ));
-                            }
-                            summary.push_str(&format!(", verify=[{}]", verification));
 
                             t.current_step = format!(
                                 "Routing: {} ({})",
@@ -283,10 +927,67 @@ pub async fn monitor_kernel_events(app: tauri::AppHandle) {
                             );
                             t.history.push(ChatMessage {
                                 role: "system".to_string(),
-                                text: summary,
+                                text: summary.clone(),
                                 timestamp: crate::kernel::state::now(),
                             });
                         });
+
+                        let thread_id = thread_id_from_session(&app, &receipt.session_id);
+                        let receipt_id =
+                            format!("{}:{}:{}", thread_id, receipt.step_index, receipt.tool_name);
+
+                        let report_ref = {
+                            let scs = {
+                                let state = app.state::<Mutex<AppState>>();
+                                state.lock().ok().and_then(|s| s.studio_scs.clone())
+                            };
+                            if let Some(scs) = scs {
+                                let report_payload = json!({
+                                    "receipt_id": receipt_id,
+                                    "session_id": receipt.session_id,
+                                    "step_index": receipt.step_index,
+                                    "tool_name": receipt.tool_name,
+                                    "decision": receipt.policy_decision,
+                                    "summary": summary,
+                                    "artifacts": receipt.artifacts,
+                                    "policy_binding_hash": receipt.policy_binding_hash,
+                                    "verification": receipt.post_state.as_ref().map(|v| v.verification_checks.clone()).unwrap_or_default(),
+                                });
+                                let report = artifact_store::create_report_artifact(
+                                    &scs,
+                                    &thread_id,
+                                    &format!("Receipt {}", receipt.step_index),
+                                    "Routing policy decision receipt",
+                                    &report_payload,
+                                );
+                                let report_ref = ArtifactRef {
+                                    artifact_id: report.artifact_id.clone(),
+                                    artifact_type: ArtifactType::Report,
+                                };
+                                register_artifact(&app, report);
+                                Some(report_ref)
+                            } else {
+                                None
+                            }
+                        };
+
+                        let event = emit_receipt_digest(
+                            &thread_id,
+                            receipt.step_index,
+                            receipt_id,
+                            &receipt.tool_name,
+                            receipt
+                                .pre_state
+                                .as_ref()
+                                .map(|s| s.tier.clone())
+                                .unwrap_or_else(|| "unknown".to_string())
+                                .as_str(),
+                            &receipt.policy_decision,
+                            &summary,
+                            report_ref,
+                            Vec::new(),
+                        );
+                        register_event(&app, event);
                     }
                     ChainEventEnum::Ghost(input) => {
                         let payload = GhostInputEvent {
@@ -304,6 +1005,25 @@ pub async fn monitor_kernel_events(app: tauri::AppHandle) {
                                 });
                             }
                         });
+
+                        let thread_id = thread_id_from_session(&app, "");
+                        let event = build_event(
+                            &thread_id,
+                            0,
+                            EventType::InfoNote,
+                            "Captured ghost input".to_string(),
+                            json!({
+                                "device": input.device,
+                                "description": input.description,
+                            }),
+                            json!({}),
+                            EventStatus::Success,
+                            Vec::new(),
+                            None,
+                            Vec::new(),
+                            None,
+                        );
+                        register_event(&app, event);
                     }
                     ChainEventEnum::Action(action) => {
                         if action.verdict == "REQUIRE_APPROVAL" {
@@ -359,7 +1079,29 @@ pub async fn monitor_kernel_events(app: tauri::AppHandle) {
                                     }
                                 });
 
-                                if let Some(w) = app.get_webview_window("spotlight") {
+                                let thread_id = thread_id_from_session(&app, &action.session_id);
+                                let event = build_event(
+                                    &thread_id,
+                                    0,
+                                    EventType::Warning,
+                                    "Approval required".to_string(),
+                                    json!({
+                                        "target": action.target,
+                                        "verdict": action.verdict,
+                                        "request_hash": action.reason,
+                                    }),
+                                    json!({
+                                        "message": "Policy gate triggered",
+                                    }),
+                                    EventStatus::Partial,
+                                    Vec::new(),
+                                    None,
+                                    Vec::new(),
+                                    None,
+                                );
+                                register_event(&app, event);
+
+                                if let Some(w) = app.get_webview_window("studio") {
                                     if w.is_visible().unwrap_or(false) {
                                         let _ = w.set_focus();
                                     }
@@ -382,6 +1124,25 @@ pub async fn monitor_kernel_events(app: tauri::AppHandle) {
                                     timestamp: crate::kernel::state::now(),
                                 });
                             });
+
+                            let thread_id = thread_id_from_session(&app, &action.session_id);
+                            let event = build_event(
+                                &thread_id,
+                                0,
+                                EventType::Error,
+                                "Action blocked".to_string(),
+                                json!({
+                                    "target": action.target,
+                                    "verdict": action.verdict,
+                                }),
+                                json!({}),
+                                EventStatus::Failure,
+                                Vec::new(),
+                                None,
+                                Vec::new(),
+                                None,
+                            );
+                            register_event(&app, event);
                         }
                     }
                     ChainEventEnum::Spawn(spawn) => {
@@ -410,6 +1171,28 @@ pub async fn monitor_kernel_events(app: tauri::AppHandle) {
                                 t.swarm_tree.push(agent);
                             }
                         });
+
+                        let thread_id = thread_id_from_session(&app, &spawn.parent_session_id);
+                        let event = build_event(
+                            &thread_id,
+                            0,
+                            EventType::InfoNote,
+                            format!("Spawned agent {}", spawn.name),
+                            json!({
+                                "agent_id": spawn.new_session_id,
+                                "role": spawn.role,
+                                "budget": spawn.budget,
+                            }),
+                            json!({
+                                "goal": spawn.goal,
+                            }),
+                            EventStatus::Success,
+                            Vec::new(),
+                            None,
+                            Vec::new(),
+                            None,
+                        );
+                        register_event(&app, event);
                     }
                     ChainEventEnum::System(update) => {
                         update_task_state(&app, |t| {
@@ -419,6 +1202,25 @@ pub async fn monitor_kernel_events(app: tauri::AppHandle) {
                                 timestamp: crate::kernel::state::now(),
                             });
                         });
+
+                        let thread_id = thread_id_from_session(&app, "");
+                        let event = build_event(
+                            &thread_id,
+                            0,
+                            EventType::InfoNote,
+                            format!("System update: {}", update.component),
+                            json!({
+                                "component": update.component,
+                                "status": update.status,
+                            }),
+                            json!({}),
+                            EventStatus::Success,
+                            Vec::new(),
+                            None,
+                            Vec::new(),
+                            None,
+                        );
+                        register_event(&app, event);
                     }
                     ChainEventEnum::Block(block) => {
                         #[cfg(debug_assertions)]
@@ -433,5 +1235,81 @@ pub async fn monitor_kernel_events(app: tauri::AppHandle) {
 
         eprintln!("[Autopilot] Event Stream Disconnected. Attempting reconnection...");
         tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn long_output(lines: usize) -> String {
+        (0..lines)
+            .map(|i| format!("line {i}"))
+            .collect::<Vec<_>>()
+            .join("\n")
+    }
+
+    #[test]
+    fn search_flow_events_link_to_web_artifact_and_prior_step() {
+        let web_ref = ArtifactRef {
+            artifact_id: "web-1".to_string(),
+            artifact_type: ArtifactType::Web,
+        };
+
+        let navigate = emit_browser_navigate(
+            "thread-1",
+            1,
+            "browser__navigate",
+            "https://example.com?q=rust",
+            EventStatus::Success,
+            vec![web_ref.clone()],
+            vec![],
+        );
+        assert_eq!(navigate.event_type, EventType::BrowserNavigate);
+        assert_eq!(navigate.artifact_refs.len(), 1);
+        assert_eq!(navigate.artifact_refs[0].artifact_type, ArtifactType::Web);
+
+        let extract = emit_browser_extract(
+            "thread-1",
+            2,
+            "browser__extract",
+            "Top links https://example.com/a https://example.com/b",
+            EventStatus::Success,
+            vec![web_ref],
+            vec![navigate.event_id.clone()],
+        );
+        assert_eq!(extract.event_type, EventType::BrowserExtract);
+        assert_eq!(extract.input_refs[0], navigate.event_id);
+
+        let completion = emit_command_run(
+            "thread-1",
+            3,
+            "agent__complete",
+            "Completed web synthesis",
+            EventStatus::Success,
+            extract.artifact_refs.clone(),
+            vec![extract.event_id.clone()],
+        );
+        assert_eq!(completion.input_refs[0], extract.event_id);
+        assert_eq!(completion.artifact_refs[0].artifact_type, ArtifactType::Web);
+    }
+
+    #[test]
+    fn large_command_output_plans_log_artifact() {
+        let output = long_output(210);
+        let planned = planned_artifact_types(&EventType::CommandRun, &output);
+        assert_eq!(planned, vec![ArtifactType::Log]);
+    }
+
+    #[test]
+    fn large_diff_plans_diff_artifact() {
+        let mut diff = String::new();
+        for file in 0..4 {
+            diff.push_str(&format!("diff --git a/f{file}.rs b/f{file}.rs\n"));
+            diff.push_str("--- a/file\n+++ b/file\n");
+            diff.push_str("-old\n+new\n");
+        }
+        let planned = planned_artifact_types(&EventType::FileEdit, &diff);
+        assert_eq!(planned, vec![ArtifactType::Diff]);
     }
 }

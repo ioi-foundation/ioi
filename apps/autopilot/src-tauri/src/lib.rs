@@ -41,8 +41,22 @@ fn init_x11_threads() {
     // No-op on non-Linux platforms
 }
 
+fn is_env_var_truthy(key: &str) -> bool {
+    std::env::var(key)
+        .map(|v| {
+            let s = v.trim().to_lowercase();
+            s == "1" || s == "true" || s == "yes" || s == "on"
+        })
+        .unwrap_or(false)
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    #[cfg(target_os = "linux")]
+    if is_env_var_truthy("AUTOPILOT_FORCE_X11") {
+        std::env::set_var("WINIT_UNIX_BACKEND", "x11");
+    }
+
     // Initialize X11 threading BEFORE anything else on Linux
     init_x11_threads();
 
@@ -69,25 +83,11 @@ pub fn run() {
             let app_handle = app.handle();
 
             #[cfg(target_os = "linux")]
-            windows::ensure_cosmic_tiling_exception_rules();
-
-            // --- APPLY NATIVE WINDOW EFFECTS ---
-            if let Some(window) = app_handle.get_webview_window("spotlight") {
-                #[cfg(target_os = "macos")]
-                let _ = apply_vibrancy(
-                    &window,
-                    NSVisualEffectMaterial::UnderWindowBackground,
-                    Some(NSVisualEffectState::Active),
-                    Some(12.0),
-                );
-
-                #[cfg(target_os = "windows")]
-                let _ = apply_mica(&window, None);
-
-                #[cfg(target_os = "linux")]
-                kernel::linux_blur::setup_kwin_blur(&window);
+            {
+                kernel::cosmic::ensure_cosmic_window_rules();
             }
 
+            // --- APPLY NATIVE WINDOW EFFECTS ---
             if let Some(window) = app_handle.get_webview_window("gate") {
                 #[cfg(target_os = "macos")]
                 let _ = apply_vibrancy(
@@ -166,7 +166,7 @@ pub fn run() {
             let show_spotlight_item = MenuItem::with_id(
                 app,
                 "spotlight",
-                "Open Spotlight (Ctrl+Space)",
+                "Open Copilot (Ctrl+Space)",
                 true,
                 None::<&str>,
             )?;
@@ -212,13 +212,10 @@ pub fn run() {
                 .global_shortcut()
                 .on_shortcut(shortcut, move |_app, _shortcut, event| {
                     if event.state == ShortcutState::Pressed {
-                        if let Some(window) = app_handle.get_webview_window("spotlight") {
+                        if let Some(window) = app_handle.get_webview_window("studio") {
                             if window.is_visible().unwrap_or(false) {
                                 windows::hide_spotlight(app_handle.clone());
                             } else {
-                                // Force right-dock, then open via shared show path so Linux can
-                                // apply geometry after visibility changes.
-                                windows::dock_spotlight_right(app_handle.clone());
                                 windows::show_spotlight(app_handle.clone());
                             }
                         }
@@ -230,7 +227,7 @@ pub fn run() {
                 let handle = app.handle().clone();
                 tauri::async_runtime::spawn(async move {
                     tokio::time::sleep(std::time::Duration::from_millis(1500)).await;
-                    if let Some(window) = handle.get_webview_window("spotlight") {
+                    if let Some(window) = handle.get_webview_window("studio") {
                         if let Ok(visible) = window.is_visible() {
                             if !visible {
                                 windows::show_spotlight(handle);
@@ -253,11 +250,8 @@ pub fn run() {
             // Window Management
             windows::show_spotlight,
             windows::hide_spotlight,
-            windows::resize_spotlight,
-            windows::set_spotlight_mode,
             windows::toggle_spotlight_sidebar,
             windows::toggle_spotlight_artifact_panel,
-            windows::dock_spotlight_right,
             windows::get_spotlight_layout,
             windows::show_gate,
             windows::hide_gate,
@@ -277,6 +271,10 @@ pub fn run() {
             // Data / Context
             kernel::data::get_context_blob,
             kernel::data::get_available_tools,
+            kernel::artifacts::get_thread_events,
+            kernel::artifacts::get_thread_artifacts,
+            kernel::artifacts::get_artifact_content,
+            kernel::artifacts::get_run_bundle,
             // Session
             kernel::session::get_session_history,
             kernel::session::load_session,

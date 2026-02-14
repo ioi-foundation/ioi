@@ -20,25 +20,6 @@
         "height": 1
       },
       {
-        "label": "spotlight",
-        "title": "Autopilot",
-        "url": "/spotlight",
-        "transparent": true,
-        "decorations": false,
-        "alwaysOnTop": true,
-        "skipTaskbar": false,
-        "visible": false,
-        "resizable": true,
-        "minWidth": 450,
-        "minHeight": 400,
-        "width": 450,
-        "height": 900,
-        "x": 1000,
-        "y": 0,
-        "center": false,
-        "focus": true
-      },
-      {
         "label": "studio",
         "title": "Autopilot Studio",
         "url": "/studio",
