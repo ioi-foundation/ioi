@@ -23,6 +23,7 @@ import { useSpotlightLayout } from "./hooks/useSpotlightLayout";
 import { icons } from "./components/Icons";
 import { IOIWatermark } from "./components/IOIWatermark";
 import { MessageActions } from "./components/MessageActions";
+import { MarkdownMessage } from "./components/MarkdownMessage";
 import { ScrollToBottom } from "./components/ScrollToBottom";
 import { HistorySidebar } from "./components/HistorySidebar";
 import { SpotlightApprovalCard } from "./components/SpotlightApprovalCard";
@@ -304,7 +305,9 @@ export function SpotlightWindow({ variant = "overlay" }: SpotlightWindowProps) {
 
   const openStudio = useCallback(
     async (targetView: string = "compose") => {
-      await emit("request-studio-view", targetView);
+      // "settings" is not a first-class Studio tab yet; route to an existing view.
+      const resolvedView = targetView === "settings" ? "marketplace" : targetView;
+      await emit("request-studio-view", resolvedView);
       if (isStudioVariant) {
         return;
       }
@@ -345,7 +348,7 @@ export function SpotlightWindow({ variant = "overlay" }: SpotlightWindowProps) {
           (text.toLowerCase().includes("swarm") ||
             text.toLowerCase().includes("team"))
         ) {
-          await openStudio("copilot");
+          await openStudio("autopilot");
         }
         await startTask(text);
       }
@@ -524,7 +527,11 @@ export function SpotlightWindow({ variant = "overlay" }: SpotlightWindowProps) {
           <div
             className={`spot-message ${g.content.role === "user" ? "user" : "agent"}`}
           >
-            <div className="message-content">{g.content.text}</div>
+            {g.content.role === "agent" ? (
+              <MarkdownMessage text={g.content.text} />
+            ) : (
+              <div className="message-content-text">{g.content.text}</div>
+            )}
             {g.content.role !== "user" && (
               <MessageActions
                 text={g.content.text}
@@ -590,74 +597,7 @@ export function SpotlightWindow({ variant = "overlay" }: SpotlightWindowProps) {
         style={containerStyle}
       >
         {/* ============================================
-            UNIFIED HEADER - Window controls only
-            ============================================ */}
-        <header className="spot-header">
-          {/* Drag region (fills available space) */}
-          <div className="spot-header-drag" />
-
-          {/* Right section: Window controls */}
-          <div className="spot-header-right">
-            {/* Artifact panel toggle */}
-            {activeArtifacts.length > 0 && (
-              <button
-                className={`spot-icon-btn ${layout.artifactPanelVisible ? "active" : ""}`}
-                onClick={() => {
-                  if (!selectedArtifactId && activeArtifacts.length > 0) {
-                    setSelectedArtifactId(
-                      activeArtifacts[activeArtifacts.length - 1].artifact_id,
-                    );
-                  }
-                  toggleArtifactPanel();
-                }}
-                title="View Artifacts"
-              >
-                {icons.code}
-              </button>
-            )}
-
-            {!isStudioVariant && (
-              <>
-                <button
-                  className="spot-icon-btn"
-                  onClick={() => openStudio("settings")}
-                  title="Settings"
-                >
-                  {icons.settings}
-                </button>
-
-                <div className="spot-header-divider" />
-
-                <div className="spot-header-window-controls">
-                  <button
-                    className="spot-icon-btn"
-                    onClick={() => invoke("hide_spotlight")}
-                    title="Minimize"
-                  >
-                    {icons.minimize}
-                  </button>
-                  <button
-                    className="spot-icon-btn"
-                    onClick={() => openStudio("copilot")}
-                    title="Expand"
-                  >
-                    {icons.expand}
-                  </button>
-                  <button
-                    className="spot-icon-btn close"
-                    onClick={() => invoke("hide_spotlight")}
-                    title="Close (Esc)"
-                  >
-                    {icons.close}
-                  </button>
-                </div>
-              </>
-            )}
-          </div>
-        </header>
-
-        {/* ============================================
-            CONTENT AREA - Below unified header
+            CONTENT AREA
             ============================================ */}
         <div className="spot-content">
           {/* Left Sidebar */}
@@ -783,6 +723,10 @@ export function SpotlightWindow({ variant = "overlay" }: SpotlightWindowProps) {
                       activeDropdown === "workspace" ? null : "workspace",
                     )
                   }
+                  footer={{
+                    label: "Manage Workspaces...",
+                    onClick: () => openStudio("settings"),
+                  }}
                 />
                 <Dropdown
                   icon={icons.cube}
@@ -795,14 +739,10 @@ export function SpotlightWindow({ variant = "overlay" }: SpotlightWindowProps) {
                       activeDropdown === "model" ? null : "model",
                     )
                   }
-                  footer={
-                    isStudioVariant
-                      ? undefined
-                      : {
-                          label: "Manage Models...",
-                          onClick: () => openStudio("settings"),
-                        }
-                  }
+                  footer={{
+                    label: "Manage Models...",
+                    onClick: () => openStudio("settings"),
+                  }}
                 />
               </div>
             </div>

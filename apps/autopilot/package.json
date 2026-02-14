@@ -22,8 +22,10 @@
     "clsx": "^2.1.1",
     "lucide-react": "^0.469.0",
     "react": "^18.3.1",
+    "react-markdown": "^10.1.0",
     "react-dom": "^18.3.1",
     "react-router-dom": "^7.1.1",
+    "remark-gfm": "^4.0.1",
     "uuid": "^11.0.3",
     "zustand": "^5.0.2"
   },

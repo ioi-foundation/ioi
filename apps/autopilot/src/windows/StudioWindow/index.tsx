@@ -3,7 +3,6 @@ import { useState, useEffect } from "react";
 import { listen } from "@tauri-apps/api/event";
 import { 
     AgentEditor, 
-    ActivityBar, 
     AgentsDashboard, 
     BuilderView, 
     FleetView, 
@@ -18,6 +17,7 @@ import { AgentInstallModal } from "../../components/AgentInstallModal";
 import { CommandPalette } from "../../components/CommandPalette";
 import { StatusBar } from "../../components/StatusBar";
 import { VisionHUD } from "../../components/VisionHUD";
+import { LocalActivityBar } from "./components/LocalActivityBar";
 
 // Ensure shared CSS is loaded
 import "@ioi/agent-ide/dist/style.css";
@@ -43,7 +43,7 @@ export function StudioWindow() {
   useEffect(() => {
     // Allow other windows (Spotlight) to request a view change via backend event
     const unlistenPromise = listen<string>("request-studio-view", (event) => {
-      setActiveView(event.payload);
+      setActiveView(event.payload === "copilot" ? "autopilot" : event.payload);
     });
     return () => { unlistenPromise.then((unlisten) => unlisten()); };
   }, []);
@@ -55,8 +55,7 @@ export function StudioWindow() {
 
   return (
     <div className="studio-window">
-      {/* Shared Activity Bar from Agent IDE Package */}
-      <ActivityBar 
+      <LocalActivityBar
         activeView={activeView} 
         onViewChange={(view) => { 
             setActiveView(view); 
@@ -98,8 +97,8 @@ export function StudioWindow() {
               <FleetView runtime={runtime} />
           )}
 
-          {/* VIEW: COPILOT */}
-          {activeView === "copilot" && <StudioCopilotView />}
+          {/* VIEW: AUTOPILOT */}
+          {activeView === "autopilot" && <StudioCopilotView />}
 
           {/* VIEW: MARKETPLACE */}
           {activeView === "marketplace" && (

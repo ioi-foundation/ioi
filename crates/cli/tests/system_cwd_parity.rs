@@ -134,3 +134,35 @@ async fn sys_exec_respects_cwd() {
         "marker file should not exist in root"
     );
 }
+
+#[tokio::test]
+async fn filesystem_read_respects_executor_working_directory() {
+    let dir = tempdir().expect("tempdir should be created");
+    let subdir = dir.path().join("subdir");
+    fs::create_dir(&subdir).expect("subdir should be created");
+    fs::write(subdir.join("note.txt"), "from_subdir").expect("note should be written");
+
+    let exec = create_executor().with_working_directory(Some(
+        subdir
+            .to_str()
+            .expect("subdir path should be utf-8")
+            .to_string(),
+    ));
+
+    let result = exec
+        .execute(
+            AgentTool::FsRead {
+                path: "note.txt".to_string(),
+            },
+            [0u8; 32],
+            3,
+            [0u8; 32],
+            None,
+            None,
+            None,
+        )
+        .await;
+
+    assert!(result.success, "{:?}", result.error);
+    assert_eq!(result.history_entry.as_deref(), Some("from_subdir"));
+}

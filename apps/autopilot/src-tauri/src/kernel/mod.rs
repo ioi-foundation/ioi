@@ -10,7 +10,5 @@ pub mod session;
 pub mod state;
 pub mod task;
 pub mod thresholds;
-// [NEW] Linux specific logic
-pub mod linux_blur;
 
 pub use events::monitor_kernel_events;

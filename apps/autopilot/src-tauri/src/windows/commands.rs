@@ -5,7 +5,7 @@ use super::state::SPOTLIGHT_LAYOUT;
 
 pub fn show_spotlight(app: AppHandle) {
     show_studio(app.clone());
-    let _ = app.emit("request-studio-view", "copilot");
+    let _ = app.emit("request-studio-view", "autopilot");
 }
 
 pub fn hide_spotlight(app: AppHandle) {
