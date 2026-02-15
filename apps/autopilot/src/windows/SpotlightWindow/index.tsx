@@ -106,6 +106,10 @@ export function SpotlightWindow({ variant = "overlay" }: SpotlightWindowProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [showScrollButton, setShowScrollButton] = useState(false);
   const [isDraggingFile] = useState(false);
+  const [runtimePasswordPending, setRuntimePasswordPending] = useState(false);
+  const [runtimePasswordSessionId, setRuntimePasswordSessionId] = useState<
+    string | null
+  >(null);
 
   // Refs
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -380,7 +384,15 @@ export function SpotlightWindow({ variant = "overlay" }: SpotlightWindowProps) {
       if (!sessionId) {
         throw new Error("No active session found");
       }
-      await invoke("submit_runtime_password", { sessionId, password });
+      setRuntimePasswordPending(true);
+      setRuntimePasswordSessionId(sessionId);
+      try {
+        await invoke("submit_runtime_password", { sessionId, password });
+      } catch (err) {
+        setRuntimePasswordPending(false);
+        setRuntimePasswordSessionId(null);
+        throw err;
+      }
     },
     [task?.id, task?.session_id],
   );
@@ -516,11 +528,19 @@ export function SpotlightWindow({ variant = "overlay" }: SpotlightWindowProps) {
   const hasPendingApproval = !!task?.pending_request_hash;
   const credentialRequest = task?.credential_request;
   const clarificationRequest = task?.clarification_request;
+  const activeSessionId = task?.session_id || task?.id || null;
   const waitingForSudoByStep = (task?.current_step || "")
     .toLowerCase()
     .includes("waiting for sudo password");
+  const waitingForSudoPrompt =
+    credentialRequest?.kind === "sudo_password" || waitingForSudoByStep;
+  const suppressPasswordPrompt =
+    runtimePasswordPending &&
+    !!runtimePasswordSessionId &&
+    runtimePasswordSessionId === activeSessionId;
   const showPasswordPrompt =
-    (credentialRequest?.kind === "sudo_password" || waitingForSudoByStep) &&
+    waitingForSudoPrompt &&
+    !suppressPasswordPrompt &&
     !!(task?.session_id || task?.id);
   const showClarificationPrompt =
     isIdentityResolutionClarificationKind(clarificationRequest?.kind) &&
@@ -552,6 +572,26 @@ export function SpotlightWindow({ variant = "overlay" }: SpotlightWindowProps) {
     (layout.sidebarVisible ? SIDEBAR_PANEL_WIDTH : 0) +
     (layout.artifactPanelVisible ? ARTIFACT_PANEL_WIDTH : 0);
   const containerStyle = isStudioVariant ? undefined : { width: `${panelWidth}px` };
+
+  useEffect(() => {
+    if (!runtimePasswordPending) return;
+    const activeId = task?.session_id || task?.id || null;
+    if (!activeId || runtimePasswordSessionId !== activeId) {
+      setRuntimePasswordPending(false);
+      setRuntimePasswordSessionId(null);
+      return;
+    }
+    if (!waitingForSudoPrompt) {
+      setRuntimePasswordPending(false);
+      setRuntimePasswordSessionId(null);
+    }
+  }, [
+    runtimePasswordPending,
+    runtimePasswordSessionId,
+    task?.id,
+    task?.session_id,
+    waitingForSudoPrompt,
+  ]);
 
   const openArtifactById = useCallback(
     (artifactId: string) => {
