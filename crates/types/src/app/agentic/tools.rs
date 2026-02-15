@@ -242,6 +242,16 @@ pub enum AgentTool {
         ignore_missing: bool,
     },
 
+    /// Creates a directory deterministically.
+    #[serde(rename = "filesystem__create_directory")]
+    FsCreateDirectory {
+        /// Directory path to create.
+        path: String,
+        /// When true, create missing parent directories as well.
+        #[serde(default)]
+        recursive: bool,
+    },
+
     /// Executes a system command.
     #[serde(rename = "sys__exec")]
     SysExec {
@@ -479,6 +489,9 @@ impl AgentTool {
             AgentTool::FsRead { .. } | AgentTool::FsList { .. } | AgentTool::FsSearch { .. } => {
                 ActionTarget::FsRead
             }
+            AgentTool::FsCreateDirectory { .. } => {
+                ActionTarget::Custom("filesystem__create_directory".into())
+            }
             AgentTool::FsMove { .. } => ActionTarget::Custom("filesystem__move_path".into()),
             AgentTool::FsCopy { .. } => ActionTarget::Custom("filesystem__copy_path".into()),
 
@@ -624,6 +637,18 @@ mod tests {
             ignore_missing: false,
         };
         assert_eq!(tool.target(), ActionTarget::FsWrite);
+    }
+
+    #[test]
+    fn filesystem_create_directory_target_maps_to_custom_scope() {
+        let tool = AgentTool::FsCreateDirectory {
+            path: "/tmp/work".to_string(),
+            recursive: true,
+        };
+        assert_eq!(
+            tool.target(),
+            ActionTarget::Custom("filesystem__create_directory".into())
+        );
     }
 
     #[test]
