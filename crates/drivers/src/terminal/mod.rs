@@ -229,7 +229,7 @@ impl TerminalDriver {
         let stderr_text = String::from_utf8_lossy(&stderr_bytes).to_string();
 
         if status.success() {
-            Ok(stdout_text)
+            Ok(combine_success_output(&stdout_text, &stderr_text))
         } else {
             Ok(format!(
                 "Command failed: {}\nStderr: {}",
@@ -265,4 +265,39 @@ async fn read_stream<R: AsyncRead + Unpin>(
         }
     }
     Ok(out)
+}
+
+fn combine_success_output(stdout_text: &str, stderr_text: &str) -> String {
+    let stdout = stdout_text.trim_end_matches('\n');
+    let stderr = stderr_text.trim_end_matches('\n');
+
+    match (stdout.is_empty(), stderr.is_empty()) {
+        (true, true) => String::new(),
+        (false, true) => stdout.to_string(),
+        (true, false) => format!("Stderr:\n{}", stderr),
+        (false, false) => format!("Stdout:\n{}\nStderr:\n{}", stdout, stderr),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::combine_success_output;
+
+    #[test]
+    fn combine_success_output_keeps_stdout_when_stderr_empty() {
+        let output = combine_success_output("hello world\n", "");
+        assert_eq!(output, "hello world");
+    }
+
+    #[test]
+    fn combine_success_output_surfaces_stderr_when_stdout_empty() {
+        let output = combine_success_output("", "warning: fallback path used\n");
+        assert_eq!(output, "Stderr:\nwarning: fallback path used");
+    }
+
+    #[test]
+    fn combine_success_output_labels_mixed_streams() {
+        let output = combine_success_output("ready\n", "warning: cache miss\n");
+        assert_eq!(output, "Stdout:\nready\nStderr:\nwarning: cache miss");
+    }
 }
