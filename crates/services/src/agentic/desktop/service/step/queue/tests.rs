@@ -205,6 +205,46 @@ fn queue_preserves_filesystem_delete_from_fswrite_target() {
 }
 
 #[test]
+fn queue_preserves_filesystem_delete_from_fswrite_target_when_recursive() {
+    let request = build_fs_write_request(serde_json::json!({
+        "path": "/tmp/demo-dir",
+        "recursive": true,
+        "ignore_missing": false
+    }));
+
+    let tool = queue_action_request_to_tool(&request).expect("queue mapping should succeed");
+    match tool {
+        AgentTool::FsDelete {
+            path,
+            recursive,
+            ignore_missing,
+        } => {
+            assert_eq!(path, "/tmp/demo-dir");
+            assert!(recursive);
+            assert!(!ignore_missing);
+        }
+        other => panic!("expected FsDelete, got {:?}", other),
+    }
+}
+
+#[test]
+fn queue_preserves_filesystem_create_directory_from_fswrite_target() {
+    let request = build_fs_write_request(serde_json::json!({
+        "path": "/tmp/new-dir",
+        "recursive": true
+    }));
+
+    let tool = queue_action_request_to_tool(&request).expect("queue mapping should succeed");
+    match tool {
+        AgentTool::FsCreateDirectory { path, recursive } => {
+            assert_eq!(path, "/tmp/new-dir");
+            assert!(recursive);
+        }
+        other => panic!("expected FsCreateDirectory, got {:?}", other),
+    }
+}
+
+#[test]
 fn queue_preserves_launch_app_for_sys_exec_target_with_app_name() {
     let request = build_sys_exec_request(serde_json::json!({
         "app_name": "calculator"
