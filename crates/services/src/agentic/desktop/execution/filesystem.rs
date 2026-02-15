@@ -374,6 +374,38 @@ fn is_cross_device_rename_error(err: &std::io::Error) -> bool {
     matches!(err.raw_os_error(), Some(18) | Some(17))
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum FsEntryKind {
+    File,
+    Directory,
+    Symlink,
+    Other,
+}
+
+fn path_entry_kind(path: &Path) -> Result<Option<FsEntryKind>, String> {
+    match fs::symlink_metadata(path) {
+        Ok(metadata) => {
+            let file_type = metadata.file_type();
+            if file_type.is_symlink() {
+                return Ok(Some(FsEntryKind::Symlink));
+            }
+            if metadata.is_file() {
+                return Ok(Some(FsEntryKind::File));
+            }
+            if metadata.is_dir() {
+                return Ok(Some(FsEntryKind::Directory));
+            }
+            Ok(Some(FsEntryKind::Other))
+        }
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(None),
+        Err(e) => Err(format!(
+            "Failed to inspect path '{}': {}",
+            path.display(),
+            e
+        )),
+    }
+}
+
 fn copy_dir_recursive(source: &Path, destination: &Path) -> Result<(), String> {
     if !source.is_dir() {
         return Err(format!("Source '{}' is not a directory.", source.display()));
@@ -449,12 +481,15 @@ fn move_path_deterministic(
     destination: &Path,
     overwrite: bool,
 ) -> Result<(), String> {
-    if !source.exists() {
-        return Err(format!(
-            "Source path '{}' does not exist.",
-            source.display()
-        ));
-    }
+    let source_kind = match path_entry_kind(source)? {
+        Some(kind) => kind,
+        None => {
+            return Err(format!(
+                "Source path '{}' does not exist.",
+                source.display()
+            ))
+        }
+    };
 
     if source == destination {
         return Ok(());
@@ -484,67 +519,78 @@ fn move_path_deterministic(
                 ));
             }
 
-            if source.is_file() {
-                fs::copy(source, destination).map_err(|e| {
-                    format!(
-                        "Cross-device fallback failed while copying '{}' to '{}': {}",
-                        source.display(),
-                        destination.display(),
-                        e
-                    )
-                })?;
-                fs::remove_file(source).map_err(|e| {
-                    format!(
-                        "Cross-device fallback failed while removing source '{}': {}",
-                        source.display(),
-                        e
-                    )
-                })?;
-                return Ok(());
+            match source_kind {
+                FsEntryKind::File => {
+                    fs::copy(source, destination).map_err(|e| {
+                        format!(
+                            "Cross-device fallback failed while copying '{}' to '{}': {}",
+                            source.display(),
+                            destination.display(),
+                            e
+                        )
+                    })?;
+                    fs::remove_file(source).map_err(|e| {
+                        format!(
+                            "Cross-device fallback failed while removing source '{}': {}",
+                            source.display(),
+                            e
+                        )
+                    })?;
+                    Ok(())
+                }
+                FsEntryKind::Directory => {
+                    copy_dir_recursive(source, destination)?;
+                    fs::remove_dir_all(source).map_err(|e| {
+                        format!(
+                            "Cross-device fallback failed while removing source directory '{}': {}",
+                            source.display(),
+                            e
+                        )
+                    })?;
+                    Ok(())
+                }
+                FsEntryKind::Symlink => Err(format!(
+                    "Cross-device fallback does not support symlink source '{}'.",
+                    source.display()
+                )),
+                FsEntryKind::Other => Err(format!(
+                    "Cross-device fallback does not support special filesystem entry '{}'.",
+                    source.display()
+                )),
             }
-
-            if source.is_dir() {
-                copy_dir_recursive(source, destination)?;
-                fs::remove_dir_all(source).map_err(|e| {
-                    format!(
-                        "Cross-device fallback failed while removing source directory '{}': {}",
-                        source.display(),
-                        e
-                    )
-                })?;
-                return Ok(());
-            }
-
-            Err(format!(
-                "Cross-device fallback does not support special filesystem entry '{}'.",
-                source.display()
-            ))
         }
     }
 }
 
 fn remove_existing_destination(destination: &Path, overwrite: bool) -> Result<(), String> {
-    if destination.exists() {
-        if !overwrite {
-            return Err(format!(
-                "Destination '{}' already exists. Set overwrite=true to replace it.",
-                destination.display()
-            ));
-        }
+    let Some(destination_kind) = path_entry_kind(destination)? else {
+        return Ok(());
+    };
 
-        let remove_result = if destination.is_dir() {
-            fs::remove_dir_all(destination)
-        } else {
-            fs::remove_file(destination)
-        };
-        remove_result.map_err(|e| {
-            format!(
-                "Failed to remove existing destination '{}': {}",
-                destination.display(),
-                e
-            )
-        })?;
+    if !overwrite {
+        return Err(format!(
+            "Destination '{}' already exists. Set overwrite=true to replace it.",
+            destination.display()
+        ));
     }
+
+    let remove_result = match destination_kind {
+        FsEntryKind::Directory => fs::remove_dir_all(destination),
+        FsEntryKind::File | FsEntryKind::Symlink => fs::remove_file(destination),
+        FsEntryKind::Other => {
+            return Err(format!(
+                "Cannot overwrite special filesystem entry '{}'.",
+                destination.display()
+            ))
+        }
+    };
+    remove_result.map_err(|e| {
+        format!(
+            "Failed to remove existing destination '{}': {}",
+            destination.display(),
+            e
+        )
+    })?;
 
     Ok(())
 }
@@ -554,18 +600,21 @@ fn copy_path_deterministic(
     destination: &Path,
     overwrite: bool,
 ) -> Result<(), String> {
-    if !source.exists() {
-        return Err(format!(
-            "Source path '{}' does not exist.",
-            source.display()
-        ));
-    }
+    let source_kind = match path_entry_kind(source)? {
+        Some(kind) => kind,
+        None => {
+            return Err(format!(
+                "Source path '{}' does not exist.",
+                source.display()
+            ))
+        }
+    };
 
     if source == destination {
         return Err("Source and destination are the same path.".to_string());
     }
 
-    if source.is_dir() && destination.starts_with(source) {
+    if source_kind == FsEntryKind::Directory && destination.starts_with(source) {
         return Err(format!(
             "Destination '{}' cannot be inside source directory '{}'.",
             destination.display(),
@@ -575,36 +624,38 @@ fn copy_path_deterministic(
 
     remove_existing_destination(destination, overwrite)?;
 
-    if source.is_file() {
-        if let Some(parent) = destination.parent() {
-            fs::create_dir_all(parent).map_err(|e| {
+    match source_kind {
+        FsEntryKind::File => {
+            if let Some(parent) = destination.parent() {
+                fs::create_dir_all(parent).map_err(|e| {
+                    format!(
+                        "Failed to create destination parent '{}': {}",
+                        parent.display(),
+                        e
+                    )
+                })?;
+            }
+
+            fs::copy(source, destination).map_err(|e| {
                 format!(
-                    "Failed to create destination parent '{}': {}",
-                    parent.display(),
+                    "Failed to copy '{}' to '{}': {}",
+                    source.display(),
+                    destination.display(),
                     e
                 )
             })?;
+            Ok(())
         }
-
-        fs::copy(source, destination).map_err(|e| {
-            format!(
-                "Failed to copy '{}' to '{}': {}",
-                source.display(),
-                destination.display(),
-                e
-            )
-        })?;
-        return Ok(());
+        FsEntryKind::Directory => copy_dir_recursive(source, destination),
+        FsEntryKind::Symlink => Err(format!(
+            "Copy does not support symlink source '{}'.",
+            source.display()
+        )),
+        FsEntryKind::Other => Err(format!(
+            "Copy does not support special filesystem entry '{}'.",
+            source.display()
+        )),
     }
-
-    if source.is_dir() {
-        return copy_dir_recursive(source, destination);
-    }
-
-    Err(format!(
-        "Copy does not support special filesystem entry '{}'.",
-        source.display()
-    ))
 }
 
 fn delete_path_deterministic(
@@ -690,6 +741,8 @@ mod tests {
         move_path_deterministic, resolve_home_directory, resolve_tool_path, search_files,
     };
     use std::fs;
+    #[cfg(unix)]
+    use std::os::unix::fs::symlink;
     use std::path::PathBuf;
     use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -828,6 +881,52 @@ mod tests {
         let _ = fs::remove_dir_all(&dir);
     }
 
+    #[cfg(unix)]
+    #[test]
+    fn copy_path_rejects_symlink_source() {
+        let dir = make_temp_dir("copy-symlink-source");
+        let source_target = dir.join("source-target.txt");
+        let source_link = dir.join("source-link.txt");
+        let destination = dir.join("copied.txt");
+        fs::write(&source_target, "payload").expect("source target should be written");
+        symlink(&source_target, &source_link).expect("source symlink should be created");
+
+        let err = copy_path_deterministic(&source_link, &destination, false)
+            .expect_err("symlink source should be rejected");
+        assert!(err.contains("symlink source"));
+        assert!(!destination.exists());
+
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn copy_path_overwrite_replaces_symlink_destination_only() {
+        let dir = make_temp_dir("copy-symlink-destination-overwrite");
+        let source = dir.join("source.txt");
+        let destination_target = dir.join("destination-target.txt");
+        let destination_link = dir.join("destination-link.txt");
+        fs::write(&source, "fresh").expect("source file should be written");
+        fs::write(&destination_target, "keep").expect("destination target should be written");
+        symlink(&destination_target, &destination_link)
+            .expect("destination symlink should be created");
+
+        copy_path_deterministic(&source, &destination_link, true)
+            .expect("overwrite copy should replace symlink path");
+
+        let copied = fs::read_to_string(&destination_link).expect("destination file should exist");
+        assert_eq!(copied, "fresh");
+        let target = fs::read_to_string(&destination_target)
+            .expect("symlink target should remain untouched");
+        assert_eq!(target, "keep");
+        assert!(!fs::symlink_metadata(&destination_link)
+            .expect("destination metadata should exist")
+            .file_type()
+            .is_symlink());
+
+        let _ = fs::remove_dir_all(&dir);
+    }
+
     #[test]
     fn copy_path_requires_overwrite_for_existing_destination() {
         let dir = make_temp_dir("copy-overwrite-required");
@@ -903,6 +1002,35 @@ mod tests {
         assert!(!src.exists());
         let moved = fs::read_to_string(&dst).expect("destination file should be readable");
         assert_eq!(moved, "fresh");
+
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn move_path_overwrite_replaces_symlink_destination_only() {
+        let dir = make_temp_dir("move-symlink-destination-overwrite");
+        let source = dir.join("source.txt");
+        let destination_target = dir.join("destination-target.txt");
+        let destination_link = dir.join("destination-link.txt");
+        fs::write(&source, "fresh").expect("source file should be written");
+        fs::write(&destination_target, "keep").expect("destination target should be written");
+        symlink(&destination_target, &destination_link)
+            .expect("destination symlink should be created");
+
+        move_path_deterministic(&source, &destination_link, true)
+            .expect("overwrite move should replace symlink path");
+
+        let moved = fs::read_to_string(&destination_link).expect("destination file should exist");
+        assert_eq!(moved, "fresh");
+        let target = fs::read_to_string(&destination_target)
+            .expect("symlink target should remain untouched");
+        assert_eq!(target, "keep");
+        assert!(!source.exists());
+        assert!(!fs::symlink_metadata(&destination_link)
+            .expect("destination metadata should exist")
+            .file_type()
+            .is_symlink());
 
         let _ = fs::remove_dir_all(&dir);
     }
