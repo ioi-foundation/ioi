@@ -693,6 +693,26 @@ pub async fn discover_tools(
         parameters: fs_search_params.to_string(),
     });
 
+    let fs_move_params = json!({
+        "type": "object",
+        "properties": {
+            "source_path": { "type": "string", "description": "Source path to move or rename." },
+            "destination_path": { "type": "string", "description": "Destination path." },
+            "overwrite": {
+                "type": "boolean",
+                "description": "When true, replace an existing destination path."
+            }
+        },
+        "required": ["source_path", "destination_path"]
+    });
+    tools.push(LlmToolDefinition {
+        name: "filesystem__move_path".to_string(),
+        description:
+            "Move or rename a file/directory deterministically without invoking shell commands."
+                .to_string(),
+        parameters: fs_move_params.to_string(),
+    });
+
     let install_pkg_params = json!({
         "type": "object",
         "properties": {
