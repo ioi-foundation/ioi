@@ -15,7 +15,7 @@ use tokio::sync::broadcast::Sender;
 
 use crate::agentic::desktop::types::ExecutionTier;
 use ioi_api::vm::drivers::gui::GuiDriver;
-use ioi_api::vm::drivers::os::WindowInfo;
+use ioi_api::vm::drivers::os::{OsDriver, WindowInfo};
 use ioi_api::vm::inference::InferenceRuntime;
 use ioi_drivers::browser::BrowserDriver;
 use ioi_drivers::gui::geometry::{DisplayTransform, Point};
@@ -67,6 +67,7 @@ impl ToolExecutionResult {
 /// `AgentTool` enums to specific implementation logic.
 pub struct ToolExecutor {
     pub(crate) gui: Arc<dyn GuiDriver>,
+    pub(crate) os: Arc<dyn OsDriver>,
     pub(crate) terminal: Arc<TerminalDriver>,
     pub(crate) browser: Arc<BrowserDriver>,
     pub(crate) mcp: Arc<McpManager>,
@@ -85,6 +86,7 @@ pub struct ToolExecutor {
 impl ToolExecutor {
     pub fn new(
         gui: Arc<dyn GuiDriver>,
+        os: Arc<dyn OsDriver>,
         terminal: Arc<TerminalDriver>,
         browser: Arc<BrowserDriver>,
         mcp: Arc<McpManager>,
@@ -94,6 +96,7 @@ impl ToolExecutor {
     ) -> Self {
         Self {
             gui,
+            os,
             terminal,
             browser,
             mcp,
