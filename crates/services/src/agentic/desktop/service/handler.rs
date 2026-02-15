@@ -280,6 +280,7 @@ pub async fn handle_action_execution(
     // Construct executor locally with all dependencies after focus recovery.
     let executor = ToolExecutor::new(
         service.gui.clone(),
+        os_driver.clone(),
         service.terminal.clone(),
         service.browser.clone(),
         mcp,

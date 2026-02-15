@@ -262,6 +262,7 @@ pub async fn process_tool_output(
             // Construct executor
             let executor = ToolExecutor::new(
                 service.gui.clone(),
+                os_driver.clone(),
                 service.terminal.clone(),
                 service.browser.clone(),
                 mcp,

@@ -27,6 +27,13 @@ pub use input::{build_cursor_click_sequence, build_cursor_drag_sequence};
 pub use semantics::{find_semantic_ui_match, UiFindSemanticMatch};
 pub(super) use tree::fetch_lensed_tree;
 
+fn is_missing_focus_dependency_error(msg: &str) -> bool {
+    let lower = msg.to_ascii_lowercase();
+    lower.contains("missing focus dependency")
+        || lower.contains("wmctrl")
+        || lower.contains("not found")
+}
+
 fn center_from_rect(x: i32, y: i32, w: i32, h: i32) -> [u32; 2] {
     let cx = x + (w / 2);
     let cy = y + (h / 2);
@@ -251,25 +258,43 @@ pub async fn handle(
 
         AgentTool::UiFind { query } => find_element_coordinates(exec, &query, active_lens).await,
 
-        AgentTool::OsFocusWindow { title } => {
-            // This requires OsDriver, which is injected into the service but not directly
-            // exposed on ToolExecutor struct in this refactor.
-            // We assume the caller handles this or we inject OsDriver into executor.
-            // For now, return failure or TODO if missing.
-            let _ = title;
-            ToolExecutionResult::failure("OS Driver access required for focus")
-        }
+        AgentTool::OsFocusWindow { title } => match exec.os.focus_window(&title).await {
+            Ok(true) => {
+                tokio::time::sleep(std::time::Duration::from_millis(250)).await;
+                let focused = exec.os.get_active_window_info().await.unwrap_or(None);
+                let msg = if let Some(win) = focused {
+                    format!("Focused '{}' ({})", win.title, win.app_name)
+                } else {
+                    format!("Focus requested for '{}'", title)
+                };
+                ToolExecutionResult::success(msg)
+            }
+            Ok(false) => ToolExecutionResult::failure(format!("No window matched '{}'", title)),
+            Err(e) => {
+                let err = e.to_string();
+                if is_missing_focus_dependency_error(&err) {
+                    ToolExecutionResult::failure(format!(
+                        "ERROR_CLASS=MissingDependency Focus dependency unavailable for '{}': {}",
+                        title, err
+                    ))
+                } else {
+                    ToolExecutionResult::failure(format!(
+                        "Window focus failed for '{}': {}",
+                        title, err
+                    ))
+                }
+            }
+        },
 
-        AgentTool::OsCopy { content } => {
-            // Requires OS Driver
-            let _ = content;
-            ToolExecutionResult::failure("OS Driver access required for copy")
-        }
+        AgentTool::OsCopy { content } => match exec.os.set_clipboard(&content).await {
+            Ok(()) => ToolExecutionResult::success("Copied to clipboard"),
+            Err(e) => ToolExecutionResult::failure(format!("Clipboard write failed: {}", e)),
+        },
 
-        AgentTool::OsPaste { .. } => {
-            // Requires OS Driver
-            ToolExecutionResult::failure("OS Driver access required for paste")
-        }
+        AgentTool::OsPaste { .. } => match exec.os.get_clipboard().await {
+            Ok(content) => ToolExecutionResult::success(content),
+            Err(e) => ToolExecutionResult::failure(format!("Clipboard read failed: {}", e)),
+        },
 
         _ => ToolExecutionResult::failure("Unsupported GUI action"),
     }
