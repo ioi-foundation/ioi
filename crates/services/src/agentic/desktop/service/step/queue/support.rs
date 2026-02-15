@@ -180,6 +180,18 @@ fn infer_fs_write_tool_name(args: &serde_json::Value) -> &'static str {
         return "filesystem__patch";
     }
 
+    // Preserve deterministic delete requests queued under ActionTarget::FsWrite.
+    // FsDelete is mapped to FsWrite for policy scope, so queued replays must infer
+    // the delete tool from delete-specific argument shape.
+    if obj.contains_key("path")
+        && (obj.contains_key("recursive") || obj.contains_key("ignore_missing"))
+        && !obj.contains_key("content")
+        && !obj.contains_key("line")
+        && !obj.contains_key("line_number")
+    {
+        return "filesystem__delete_path";
+    }
+
     "filesystem__write_file"
 }
 

@@ -154,6 +154,29 @@ fn queue_preserves_filesystem_patch_from_fswrite_target() {
 }
 
 #[test]
+fn queue_preserves_filesystem_delete_from_fswrite_target() {
+    let request = build_fs_write_request(serde_json::json!({
+        "path": "/tmp/demo.txt",
+        "recursive": false,
+        "ignore_missing": true
+    }));
+
+    let tool = queue_action_request_to_tool(&request).expect("queue mapping should succeed");
+    match tool {
+        AgentTool::FsDelete {
+            path,
+            recursive,
+            ignore_missing,
+        } => {
+            assert_eq!(path, "/tmp/demo.txt");
+            assert!(!recursive);
+            assert!(ignore_missing);
+        }
+        other => panic!("expected FsDelete, got {:?}", other),
+    }
+}
+
+#[test]
 fn queue_preserves_launch_app_for_sys_exec_target_with_app_name() {
     let request = build_sys_exec_request(serde_json::json!({
         "app_name": "calculator"
