@@ -280,6 +280,96 @@ impl BrowserDriver {
         rects_by_node
     }
 
+    fn quad_center(quad: &[f64]) -> Option<(f64, f64, f64)> {
+        if quad.len() < 8 {
+            return None;
+        }
+
+        let xs = [quad[0], quad[2], quad[4], quad[6]];
+        let ys = [quad[1], quad[3], quad[5], quad[7]];
+
+        let min_x = xs.iter().copied().fold(f64::INFINITY, f64::min);
+        let max_x = xs.iter().copied().fold(f64::NEG_INFINITY, f64::max);
+        let min_y = ys.iter().copied().fold(f64::INFINITY, f64::min);
+        let max_y = ys.iter().copied().fold(f64::NEG_INFINITY, f64::max);
+
+        let width = max_x - min_x;
+        let height = max_y - min_y;
+        if !width.is_finite() || !height.is_finite() || width <= 1.0 || height <= 1.0 {
+            return None;
+        }
+
+        let cx = xs.iter().sum::<f64>() / 4.0;
+        let cy = ys.iter().sum::<f64>() / 4.0;
+        if !cx.is_finite() || !cy.is_finite() {
+            return None;
+        }
+
+        Some((cx, cy, width * height))
+    }
+
+    async fn resolve_click_center_for_backend_node(
+        page: &Page,
+        backend_node_id: chromiumoxide::cdp::browser_protocol::dom::BackendNodeId,
+    ) -> std::result::Result<(f64, f64), BrowserError> {
+        let content_quads = page
+            .execute(
+                GetContentQuadsParams::builder()
+                    .backend_node_id(backend_node_id)
+                    .build(),
+            )
+            .await
+            .map_err(|e| BrowserError::Internal(format!("CDP getContentQuads failed: {}", e)))?;
+
+        let mut best_center = content_quads
+            .quads
+            .iter()
+            .filter_map(|q| Self::quad_center(q.inner().as_slice()))
+            .max_by(|a, b| a.2.partial_cmp(&b.2).unwrap_or(std::cmp::Ordering::Equal))
+            .map(|(x, y, _)| (x, y));
+
+        if best_center.is_none() {
+            let model = page
+                .execute(
+                    GetBoxModelParams::builder()
+                        .backend_node_id(backend_node_id)
+                        .build(),
+                )
+                .await
+                .map_err(|e| BrowserError::Internal(format!("CDP getBoxModel failed: {}", e)))?;
+            best_center =
+                Self::quad_center(model.model.border.inner().as_slice()).map(|(x, y, _)| (x, y));
+        }
+
+        best_center.ok_or_else(|| {
+            BrowserError::Internal(format!(
+                "Backend DOM node '{}' has no visible clickable geometry",
+                backend_node_id.inner()
+            ))
+        })
+    }
+
+    pub async fn click_backend_dom_node(
+        &self,
+        backend_dom_node_id: &str,
+    ) -> std::result::Result<(), BrowserError> {
+        self.require_runtime()?;
+        self.ensure_page().await?;
+        let page = { self.active_page.lock().await.clone() }.ok_or(BrowserError::NoActivePage)?;
+
+        let parsed_backend_id = backend_dom_node_id.trim().parse::<i64>().map_err(|e| {
+            BrowserError::Internal(format!(
+                "Backend DOM node id '{}' is not a valid integer: {}",
+                backend_dom_node_id, e
+            ))
+        })?;
+        let backend_node_id =
+            chromiumoxide::cdp::browser_protocol::dom::BackendNodeId::new(parsed_backend_id);
+
+        let (x, y) = Self::resolve_click_center_for_backend_node(&page, backend_node_id).await?;
+        self.synthetic_click(x, y).await
+    }
+
     /// Click an element by raw CDP Accessibility node id.
     ///
     /// This is used by semantic browser interaction:
@@ -320,69 +410,14 @@ impl BrowserDriver {
             ))
         })?;
 
-        fn quad_center(quad: &[f64]) -> Option<(f64, f64, f64)> {
-            if quad.len() < 8 {
-                return None;
-            }
-
-            let xs = [quad[0], quad[2], quad[4], quad[6]];
-            let ys = [quad[1], quad[3], quad[5], quad[7]];
-
-            let min_x = xs.iter().copied().fold(f64::INFINITY, f64::min);
-            let max_x = xs.iter().copied().fold(f64::NEG_INFINITY, f64::max);
-            let min_y = ys.iter().copied().fold(f64::INFINITY, f64::min);
-            let max_y = ys.iter().copied().fold(f64::NEG_INFINITY, f64::max);
-
-            let width = max_x - min_x;
-            let height = max_y - min_y;
-            if !width.is_finite() || !height.is_finite() || width <= 1.0 || height <= 1.0 {
-                return None;
-            }
-
-            let cx = xs.iter().sum::<f64>() / 4.0;
-            let cy = ys.iter().sum::<f64>() / 4.0;
-            if !cx.is_finite() || !cy.is_finite() {
-                return None;
-            }
-
-            Some((cx, cy, width * height))
-        }
-
-        let content_quads = page
-            .execute(
-                GetContentQuadsParams::builder()
-                    .backend_node_id(backend_node_id)
-                    .build(),
-            )
+        let (x, y) = Self::resolve_click_center_for_backend_node(&page, backend_node_id)
             .await
-            .map_err(|e| BrowserError::Internal(format!("CDP getContentQuads failed: {}", e)))?;
-
-        let mut best_center = content_quads
-            .quads
-            .iter()
-            .filter_map(|q| quad_center(q.inner().as_slice()))
-            .max_by(|a, b| a.2.partial_cmp(&b.2).unwrap_or(std::cmp::Ordering::Equal))
-            .map(|(x, y, _)| (x, y));
-
-        if best_center.is_none() {
-            let model = page
-                .execute(
-                    GetBoxModelParams::builder()
-                        .backend_node_id(backend_node_id)
-                        .build(),
-                )
-                .await
-                .map_err(|e| BrowserError::Internal(format!("CDP getBoxModel failed: {}", e)))?;
-            best_center =
-                quad_center(model.model.border.inner().as_slice()).map(|(x, y, _)| (x, y));
-        }
-
-        let (x, y) = best_center.ok_or_else(|| {
-            BrowserError::Internal(format!(
-                "Element '{}' has no visible clickable geometry",
-                target_cdp_id
-            ))
-        })?;
+            .map_err(|e| {
+                BrowserError::Internal(format!(
+                    "Failed to resolve click center for element '{}': {}",
+                    target_cdp_id, e
+                ))
+            })?;
 
         self.synthetic_click(x, y).await
     }
