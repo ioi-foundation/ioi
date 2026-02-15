@@ -6,6 +6,7 @@ use serde_json::json;
 use std::path::Path;
 
 const MAX_SEARCH_EXTRACT_CHARS: usize = 8_000;
+const QUEUE_TOOL_NAME_KEY: &str = "__ioi_tool_name";
 
 pub(super) fn fallback_search_summary(query: &str, url: &str) -> String {
     format!(
@@ -219,10 +220,80 @@ fn infer_custom_tool_name(name: &str, args: &serde_json::Value) -> String {
     }
 }
 
+fn is_explicit_tool_name_allowed_for_target(target: &ActionTarget, tool_name: &str) -> bool {
+    match target {
+        ActionTarget::FsRead => matches!(
+            tool_name,
+            "filesystem__read_file" | "filesystem__list_directory" | "filesystem__search"
+        ),
+        ActionTarget::FsWrite => matches!(
+            tool_name,
+            "filesystem__write_file"
+                | "filesystem__patch"
+                | "filesystem__delete_path"
+                | "filesystem__create_directory"
+        ),
+        _ => false,
+    }
+}
+
+fn extract_explicit_tool_name(
+    target: &ActionTarget,
+    raw_args: &serde_json::Value,
+) -> Result<Option<String>, TransactionError> {
+    let Some(obj) = raw_args.as_object() else {
+        return Ok(None);
+    };
+
+    let Some(name) = obj.get(QUEUE_TOOL_NAME_KEY) else {
+        return Ok(None);
+    };
+
+    let tool_name = name.as_str().map(str::trim).ok_or_else(|| {
+        TransactionError::Invalid(format!(
+            "Queued {} must be a non-empty string when present.",
+            QUEUE_TOOL_NAME_KEY
+        ))
+    })?;
+
+    if tool_name.is_empty() {
+        return Err(TransactionError::Invalid(format!(
+            "Queued {} cannot be empty.",
+            QUEUE_TOOL_NAME_KEY
+        )));
+    }
+
+    if !is_explicit_tool_name_allowed_for_target(target, tool_name) {
+        return Err(TransactionError::Invalid(format!(
+            "Queued {} '{}' is incompatible with target {:?}.",
+            QUEUE_TOOL_NAME_KEY, tool_name, target
+        )));
+    }
+
+    Ok(Some(tool_name.to_string()))
+}
+
+fn strip_internal_queue_metadata(raw_args: serde_json::Value) -> serde_json::Value {
+    match raw_args {
+        serde_json::Value::Object(mut obj) => {
+            obj.remove(QUEUE_TOOL_NAME_KEY);
+            serde_json::Value::Object(obj)
+        }
+        other => other,
+    }
+}
+
 fn queue_target_to_tool_name_and_args(
     target: &ActionTarget,
     raw_args: serde_json::Value,
 ) -> Result<(String, serde_json::Value), TransactionError> {
+    let explicit_tool_name = extract_explicit_tool_name(target, &raw_args)?;
+    let raw_args = strip_internal_queue_metadata(raw_args);
+
+    if let Some(tool_name) = explicit_tool_name {
+        return Ok((tool_name, raw_args));
+    }
+
     match target {
         ActionTarget::Custom(name) => Ok((infer_custom_tool_name(name, &raw_args), raw_args)),
         ActionTarget::FsRead => Ok((infer_fs_read_tool_name(&raw_args).to_string(), raw_args)),

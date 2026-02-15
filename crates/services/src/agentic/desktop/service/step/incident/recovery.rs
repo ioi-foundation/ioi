@@ -13,6 +13,8 @@ use ioi_types::error::TransactionError;
 use serde_json::json;
 use std::collections::BTreeSet;
 
+const QUEUE_TOOL_NAME_KEY: &str = "__ioi_tool_name";
+
 pub(super) fn policy_max_transitions(
     rules: &ActionRules,
     intent_class: IntentClass,
@@ -205,7 +207,13 @@ fn tool_to_action_request(
     session_id: [u8; 32],
     nonce: u64,
 ) -> Result<ActionRequest, TransactionError> {
-    let args = canonical_tool_args(tool);
+    let mut args = canonical_tool_args(tool);
+    if let Some(obj) = args.as_object_mut() {
+        obj.insert(
+            QUEUE_TOOL_NAME_KEY.to_string(),
+            json!(canonical_tool_name(tool)),
+        );
+    }
     let params = serde_jcs::to_vec(&args)
         .or_else(|_| serde_json::to_vec(&args))
         .map_err(|e| TransactionError::Serialization(e.to_string()))?;

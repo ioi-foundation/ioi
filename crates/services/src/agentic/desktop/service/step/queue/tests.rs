@@ -116,6 +116,34 @@ fn queue_infers_list_directory_for_existing_directory_path() {
 }
 
 #[test]
+fn queue_uses_explicit_fsread_tool_name_override() {
+    let request = build_fs_read_request(serde_json::json!({
+        "path": "/tmp/not-a-real-directory",
+        "__ioi_tool_name": "filesystem__list_directory"
+    }));
+
+    let tool = queue_action_request_to_tool(&request).expect("queue mapping should succeed");
+    match tool {
+        AgentTool::FsList { path } => {
+            assert_eq!(path, "/tmp/not-a-real-directory");
+        }
+        other => panic!("expected FsList, got {:?}", other),
+    }
+}
+
+#[test]
+fn queue_rejects_incompatible_explicit_tool_name_for_target() {
+    let request = build_fs_read_request(serde_json::json!({
+        "path": "/tmp/demo.txt",
+        "__ioi_tool_name": "filesystem__write_file"
+    }));
+
+    let err = queue_action_request_to_tool(&request)
+        .expect_err("queue mapping should fail for incompatible explicit tool name");
+    assert!(err.to_string().contains("incompatible"));
+}
+
+#[test]
 fn queue_defaults_to_read_file_when_not_search_or_directory() {
     let request = build_fs_read_request(serde_json::json!({
         "path": "/tmp/not-a-real-file.txt"
