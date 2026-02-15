@@ -770,7 +770,9 @@ mod tests {
         let aliases = policy_target_aliases(&ActionTarget::Custom("browser::click_element".into()));
         assert_eq!(aliases[0], "browser::click_element");
         assert!(aliases.iter().any(|alias| alias == "browser::click"));
-        assert!(aliases.iter().any(|alias| alias == "browser__click_element"));
+        assert!(aliases
+            .iter()
+            .any(|alias| alias == "browser__click_element"));
     }
 
     #[test]

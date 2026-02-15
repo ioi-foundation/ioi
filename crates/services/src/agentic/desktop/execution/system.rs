@@ -18,6 +18,13 @@ struct LaunchAttempt {
     detach: bool,
 }
 
+#[derive(Clone, Debug, PartialEq, Eq)]
+struct SysExecInvocation {
+    command: String,
+    args: Vec<String>,
+    shell_wrapped: bool,
+}
+
 const INSTALL_COMMAND_TIMEOUT: Duration = Duration::from_secs(600);
 const SYS_EXEC_DEFAULT_TIMEOUT: Duration = Duration::from_secs(120);
 const SYS_EXEC_EXTENDED_TIMEOUT: Duration = Duration::from_secs(600);
@@ -41,8 +48,12 @@ pub async fn handle(
                 Ok(path) => path,
                 Err(error) => return ToolExecutionResult::failure(error),
             };
+            let invocation = match resolve_sys_exec_invocation(&command, &args) {
+                Ok(invocation) => invocation,
+                Err(error) => return ToolExecutionResult::failure(error),
+            };
             let command_preview = command_preview(&command, &args);
-            let timeout = resolve_sys_exec_timeout(&command, &args, detach);
+            let timeout = resolve_sys_exec_timeout(&invocation.command, &invocation.args, detach);
             let observer = if detach {
                 None
             } else {
@@ -61,7 +72,13 @@ pub async fn handle(
 
             match exec
                 .terminal
-                .execute_in_dir_with_options(&command, &args, detach, Some(&resolved_cwd), options)
+                .execute_in_dir_with_options(
+                    &invocation.command,
+                    &invocation.args,
+                    detach,
+                    Some(&resolved_cwd),
+                    options,
+                )
                 .await
             {
                 Ok(out) => {
@@ -180,6 +197,84 @@ fn normalize_stdin_data(stdin: Option<String>) -> Option<Vec<u8>> {
     stdin
         .map(|value| value.into_bytes())
         .filter(|bytes| !bytes.is_empty())
+}
+
+fn resolve_sys_exec_invocation(
+    command: &str,
+    args: &[String],
+) -> Result<SysExecInvocation, String> {
+    let trimmed = command.trim();
+    if trimmed.is_empty() {
+        return Err("ERROR_CLASS=ToolUnavailable sys__exec requires a non-empty command.".into());
+    }
+
+    if !args.is_empty() {
+        return Ok(SysExecInvocation {
+            command: trimmed.to_string(),
+            args: args.to_vec(),
+            shell_wrapped: false,
+        });
+    }
+
+    if should_shell_wrap_sys_exec(trimmed) {
+        return Ok(wrap_sys_exec_with_shell(trimmed));
+    }
+
+    let mut tokens = trimmed.split_whitespace();
+    let binary = tokens.next().ok_or_else(|| {
+        "ERROR_CLASS=ToolUnavailable sys__exec requires a non-empty command.".to_string()
+    })?;
+
+    Ok(SysExecInvocation {
+        command: binary.to_string(),
+        args: tokens.map(|token| token.to_string()).collect(),
+        shell_wrapped: false,
+    })
+}
+
+fn should_shell_wrap_sys_exec(command: &str) -> bool {
+    let shell_tokens = ["&&", "||", "|", ";", ">", "<", "$(", "`", "\n", "\r"];
+    if shell_tokens
+        .iter()
+        .any(|token| !token.is_empty() && command.contains(token))
+    {
+        return true;
+    }
+
+    command.contains('"')
+        || command.contains('\'')
+        || command.contains('*')
+        || command.contains('?')
+        || command.contains('{')
+        || command.contains('}')
+}
+
+fn wrap_sys_exec_with_shell(command: &str) -> SysExecInvocation {
+    if cfg!(target_os = "windows") {
+        return SysExecInvocation {
+            command: "powershell".to_string(),
+            args: vec![
+                "-NoProfile".to_string(),
+                "-NonInteractive".to_string(),
+                "-Command".to_string(),
+                command.to_string(),
+            ],
+            shell_wrapped: true,
+        };
+    }
+
+    let shell = env::var("SHELL")
+        .ok()
+        .map(|value| value.trim().to_string())
+        .filter(|value| !value.is_empty())
+        .filter(|value| Path::new(value).is_file())
+        .unwrap_or_else(|| "/bin/sh".to_string());
+
+    SysExecInvocation {
+        command: shell,
+        args: vec!["-lc".to_string(), command.to_string()],
+        shell_wrapped: true,
+    }
 }
 
 fn resolve_sys_exec_timeout(command: &str, args: &[String], detach: bool) -> Duration {
@@ -758,7 +853,12 @@ fn command_output_indicates_failure(output: &str) -> bool {
 
 fn classify_sys_exec_failure(error: &str, command: &str) -> &'static str {
     let msg = error.to_ascii_lowercase();
-    let command_lc = command.to_ascii_lowercase();
+    let command_lc = command
+        .split_whitespace()
+        .next()
+        .map(|token| token.trim_matches(|ch| ch == '"' || ch == '\''))
+        .unwrap_or(command)
+        .to_ascii_lowercase();
 
     if msg.contains("timed out") || msg.contains("timeout") {
         return "TimeoutOrHang";
@@ -775,12 +875,19 @@ fn classify_sys_exec_failure(error: &str, command: &str) -> &'static str {
         return "PermissionOrApprovalRequired";
     }
 
+    if msg.contains("command not found")
+        || msg.contains("is not recognized as an internal or external command")
+        || msg.contains("not recognized as the name of a cmdlet")
+    {
+        return "ToolUnavailable";
+    }
+
     if msg.contains("failed to spawn")
         || msg.contains("no such file")
         || msg.contains("command not found")
         || msg.contains("not found")
     {
-        if msg.contains(&command_lc) || msg.contains("executable") {
+        if !command_lc.is_empty() && (msg.contains(&command_lc) || msg.contains("executable")) {
             return "ToolUnavailable";
         }
     }
@@ -880,11 +987,11 @@ fn launch_errors_indicate_missing_app(errors: &[String]) -> bool {
 mod tests {
     use super::{
         build_linux_launch_plan, classify_install_failure, classify_sys_exec_failure,
-        command_output_indicates_failure, launch_attempt_failed, launch_errors_indicate_missing_app,
-        normalize_stdin_data, resolve_home_directory, resolve_sys_exec_timeout,
-        resolve_target_directory, resolve_working_directory, summarize_sys_exec_failure_output,
-        sys_exec_failure_result, LaunchAttempt, SYS_EXEC_DEFAULT_TIMEOUT,
-        SYS_EXEC_EXTENDED_TIMEOUT,
+        command_output_indicates_failure, launch_attempt_failed,
+        launch_errors_indicate_missing_app, normalize_stdin_data, resolve_home_directory,
+        resolve_sys_exec_invocation, resolve_sys_exec_timeout, resolve_target_directory,
+        resolve_working_directory, summarize_sys_exec_failure_output, sys_exec_failure_result,
+        LaunchAttempt, SYS_EXEC_DEFAULT_TIMEOUT, SYS_EXEC_EXTENDED_TIMEOUT,
     };
 
     #[test]
@@ -907,6 +1014,44 @@ mod tests {
     fn sys_exec_timeout_extends_for_build_subcommands() {
         let timeout = resolve_sys_exec_timeout("git", &["clone".to_string()], false);
         assert_eq!(timeout, SYS_EXEC_EXTENDED_TIMEOUT);
+    }
+
+    #[test]
+    fn sys_exec_invocation_preserves_explicit_args() {
+        let args = vec!["status".to_string(), "--short".to_string()];
+        let invocation =
+            resolve_sys_exec_invocation("git", &args).expect("invocation should normalize");
+
+        assert_eq!(invocation.command, "git");
+        assert_eq!(invocation.args, args);
+        assert!(!invocation.shell_wrapped);
+    }
+
+    #[test]
+    fn sys_exec_invocation_splits_plain_command_string() {
+        let invocation = resolve_sys_exec_invocation("git status --short", &[])
+            .expect("plain command string should split");
+
+        assert_eq!(invocation.command, "git");
+        assert_eq!(
+            invocation.args,
+            vec!["status".to_string(), "--short".to_string()]
+        );
+        assert!(!invocation.shell_wrapped);
+    }
+
+    #[test]
+    fn sys_exec_invocation_shell_wraps_pipeline_syntax() {
+        let invocation = resolve_sys_exec_invocation("cat Cargo.toml | head -n 1", &[])
+            .expect("pipeline syntax should wrap via shell");
+
+        assert!(invocation.shell_wrapped);
+        if cfg!(target_os = "windows") {
+            assert_eq!(invocation.command, "powershell");
+            assert!(invocation.args.iter().any(|arg| arg == "-Command"));
+        } else {
+            assert_eq!(invocation.args.first(), Some(&"-lc".to_string()));
+        }
     }
 
     #[test]
@@ -1000,8 +1145,14 @@ mod tests {
     #[test]
     fn classify_sys_exec_not_found_as_tool_unavailable() {
         let err = "Command failed: exit status: 127\nStderr: bash: fooctl: command not found";
+        assert_eq!(classify_sys_exec_failure(err, "fooctl"), "ToolUnavailable");
+    }
+
+    #[test]
+    fn classify_sys_exec_not_found_with_compound_command_as_tool_unavailable() {
+        let err = "Command failed: exit status: 127\nStderr: bash: fooctl: command not found";
         assert_eq!(
-            classify_sys_exec_failure(err, "fooctl"),
+            classify_sys_exec_failure(err, "fooctl --version"),
             "ToolUnavailable"
         );
     }
