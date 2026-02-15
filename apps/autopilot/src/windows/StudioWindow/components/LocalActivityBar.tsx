@@ -246,13 +246,14 @@ function RailButton({
             position: "absolute",
             left: 0,
             top: "50%",
-            width: 2,
-            height: isActive ? 20 : 0,
+            width: 4,
+            height: isActive ? 20 : hovered ? 8 : 0,
             background: activeColor,
-            borderRadius: "0 1px 1px 0",
-            transform: "translateY(-50%)",
-            transition: "height 0.2s ease, opacity 0.15s ease",
-            opacity: isActive ? 1 : 0,
+            borderRadius: "999px",
+            transform: `translateY(-50%) translateX(${isActive || hovered ? "0px" : "-4px"})`,
+            transition:
+              "height 0.3s cubic-bezier(0.2, 0.8, 0.2, 1), transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1), opacity 0.15s ease",
+            opacity: isActive || hovered ? 1 : 0,
           }}
         />
         {item.icon}
