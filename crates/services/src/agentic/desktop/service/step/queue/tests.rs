@@ -218,3 +218,37 @@ fn queue_preserves_launch_app_for_sys_exec_target_with_app_name() {
         other => panic!("expected OsLaunchApp, got {:?}", other),
     }
 }
+
+#[test]
+fn queue_ignores_explicit_tool_name_metadata_for_sys_exec_target() {
+    let request = build_sys_exec_request(serde_json::json!({
+        "app_name": "calculator",
+        "__ioi_tool_name": "os__launch_app"
+    }));
+
+    let tool = queue_action_request_to_tool(&request).expect("queue mapping should succeed");
+    match tool {
+        AgentTool::OsLaunchApp { app_name } => {
+            assert_eq!(app_name, "calculator");
+        }
+        other => panic!("expected OsLaunchApp, got {:?}", other),
+    }
+}
+
+#[test]
+fn queue_does_not_allow_metadata_to_override_non_fs_target_inference() {
+    let request = build_sys_exec_request(serde_json::json!({
+        "command": "echo",
+        "args": ["ok"],
+        "__ioi_tool_name": "os__launch_app"
+    }));
+
+    let tool = queue_action_request_to_tool(&request).expect("queue mapping should succeed");
+    match tool {
+        AgentTool::SysExec { command, args, .. } => {
+            assert_eq!(command, "echo");
+            assert_eq!(args, vec!["ok".to_string()]);
+        }
+        other => panic!("expected SysExec, got {:?}", other),
+    }
+}
