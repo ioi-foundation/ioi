@@ -6,43 +6,33 @@ use ioi_types::app::{ActionContext, ActionRequest, ActionTarget};
 use std::fs;
 use std::time::{SystemTime, UNIX_EPOCH};
 
-fn build_fs_read_request(args: serde_json::Value) -> ActionRequest {
+fn build_request(target: ActionTarget, nonce: u64, args: serde_json::Value) -> ActionRequest {
     ActionRequest {
-        target: ActionTarget::FsRead,
+        target,
         params: serde_json::to_vec(&args).expect("params should serialize"),
         context: ActionContext {
             agent_id: "desktop_agent".to_string(),
             session_id: None,
             window_id: None,
         },
-        nonce: 7,
+        nonce,
     }
+}
+
+fn build_fs_read_request(args: serde_json::Value) -> ActionRequest {
+    build_request(ActionTarget::FsRead, 7, args)
 }
 
 fn build_fs_write_request(args: serde_json::Value) -> ActionRequest {
-    ActionRequest {
-        target: ActionTarget::FsWrite,
-        params: serde_json::to_vec(&args).expect("params should serialize"),
-        context: ActionContext {
-            agent_id: "desktop_agent".to_string(),
-            session_id: None,
-            window_id: None,
-        },
-        nonce: 11,
-    }
+    build_request(ActionTarget::FsWrite, 11, args)
+}
+
+fn build_custom_request(name: &str, nonce: u64, args: serde_json::Value) -> ActionRequest {
+    build_request(ActionTarget::Custom(name.to_string()), nonce, args)
 }
 
 fn build_sys_exec_request(args: serde_json::Value) -> ActionRequest {
-    ActionRequest {
-        target: ActionTarget::SysExec,
-        params: serde_json::to_vec(&args).expect("params should serialize"),
-        context: ActionContext {
-            agent_id: "desktop_agent".to_string(),
-            session_id: None,
-            window_id: None,
-        },
-        nonce: 13,
-    }
+    build_request(ActionTarget::SysExec, 13, args)
 }
 
 #[test]
@@ -121,6 +111,26 @@ fn queue_uses_explicit_fsread_tool_name_override() {
         "path": "/tmp/not-a-real-directory",
         "__ioi_tool_name": "filesystem__list_directory"
     }));
+
+    let tool = queue_action_request_to_tool(&request).expect("queue mapping should succeed");
+    match tool {
+        AgentTool::FsList { path } => {
+            assert_eq!(path, "/tmp/not-a-real-directory");
+        }
+        other => panic!("expected FsList, got {:?}", other),
+    }
+}
+
+#[test]
+fn queue_uses_explicit_fsread_tool_name_override_for_custom_alias_target() {
+    let request = build_custom_request(
+        "fs::read",
+        8,
+        serde_json::json!({
+            "path": "/tmp/not-a-real-directory",
+            "__ioi_tool_name": "filesystem__list_directory"
+        }),
+    );
 
     let tool = queue_action_request_to_tool(&request).expect("queue mapping should succeed");
     match tool {
@@ -241,6 +251,81 @@ fn queue_preserves_filesystem_create_directory_from_fswrite_target() {
             assert!(recursive);
         }
         other => panic!("expected FsCreateDirectory, got {:?}", other),
+    }
+}
+
+#[test]
+fn queue_uses_explicit_fswrite_tool_name_override_for_copy_path() {
+    let request = build_fs_write_request(serde_json::json!({
+        "source_path": "/tmp/source.txt",
+        "destination_path": "/tmp/destination.txt",
+        "overwrite": true,
+        "__ioi_tool_name": "filesystem__copy_path"
+    }));
+
+    let tool = queue_action_request_to_tool(&request).expect("queue mapping should succeed");
+    match tool {
+        AgentTool::FsCopy {
+            source_path,
+            destination_path,
+            overwrite,
+        } => {
+            assert_eq!(source_path, "/tmp/source.txt");
+            assert_eq!(destination_path, "/tmp/destination.txt");
+            assert!(overwrite);
+        }
+        other => panic!("expected FsCopy, got {:?}", other),
+    }
+}
+
+#[test]
+fn queue_uses_explicit_fswrite_tool_name_override_for_move_path() {
+    let request = build_fs_write_request(serde_json::json!({
+        "source_path": "/tmp/source.txt",
+        "destination_path": "/tmp/destination.txt",
+        "overwrite": false,
+        "__ioi_tool_name": "filesystem__move_path"
+    }));
+
+    let tool = queue_action_request_to_tool(&request).expect("queue mapping should succeed");
+    match tool {
+        AgentTool::FsMove {
+            source_path,
+            destination_path,
+            overwrite,
+        } => {
+            assert_eq!(source_path, "/tmp/source.txt");
+            assert_eq!(destination_path, "/tmp/destination.txt");
+            assert!(!overwrite);
+        }
+        other => panic!("expected FsMove, got {:?}", other),
+    }
+}
+
+#[test]
+fn queue_uses_explicit_fswrite_tool_name_override_for_custom_alias_target() {
+    let request = build_custom_request(
+        "fs::write",
+        17,
+        serde_json::json!({
+            "source_path": "/tmp/source.txt",
+            "destination_path": "/tmp/destination.txt",
+            "__ioi_tool_name": "filesystem__move_path"
+        }),
+    );
+
+    let tool = queue_action_request_to_tool(&request).expect("queue mapping should succeed");
+    match tool {
+        AgentTool::FsMove {
+            source_path,
+            destination_path,
+            overwrite,
+        } => {
+            assert_eq!(source_path, "/tmp/source.txt");
+            assert_eq!(destination_path, "/tmp/destination.txt");
+            assert!(!overwrite);
+        }
+        other => panic!("expected FsMove, got {:?}", other),
     }
 }
 
