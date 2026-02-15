@@ -34,6 +34,7 @@ pub async fn handle(
         AgentTool::SysExec {
             command,
             args,
+            stdin,
             detach,
         } => {
             let resolved_cwd = match resolve_working_directory(cwd) {
@@ -55,6 +56,7 @@ pub async fn handle(
             };
             let options = CommandExecutionOptions::default()
                 .with_timeout(timeout)
+                .with_stdin_data(normalize_stdin_data(stdin))
                 .with_stream_observer(observer);
 
             match exec
@@ -172,6 +174,12 @@ fn command_preview(command: &str, args: &[String]) -> String {
     } else {
         preview
     }
+}
+
+fn normalize_stdin_data(stdin: Option<String>) -> Option<Vec<u8>> {
+    stdin
+        .map(|value| value.into_bytes())
+        .filter(|bytes| !bytes.is_empty())
 }
 
 fn resolve_sys_exec_timeout(command: &str, args: &[String], detach: bool) -> Duration {
@@ -873,9 +881,10 @@ mod tests {
     use super::{
         build_linux_launch_plan, classify_install_failure, classify_sys_exec_failure,
         command_output_indicates_failure, launch_attempt_failed, launch_errors_indicate_missing_app,
-        resolve_home_directory, resolve_sys_exec_timeout, resolve_target_directory,
-        resolve_working_directory, summarize_sys_exec_failure_output, sys_exec_failure_result,
-        LaunchAttempt, SYS_EXEC_DEFAULT_TIMEOUT, SYS_EXEC_EXTENDED_TIMEOUT,
+        normalize_stdin_data, resolve_home_directory, resolve_sys_exec_timeout,
+        resolve_target_directory, resolve_working_directory, summarize_sys_exec_failure_output,
+        sys_exec_failure_result, LaunchAttempt, SYS_EXEC_DEFAULT_TIMEOUT,
+        SYS_EXEC_EXTENDED_TIMEOUT,
     };
 
     #[test]
@@ -1037,5 +1046,17 @@ mod tests {
         let resolved =
             resolve_target_directory(".", "~").expect("tilde target directory should resolve");
         assert_eq!(resolved, expected);
+    }
+
+    #[test]
+    fn normalize_stdin_data_preserves_non_empty_payload() {
+        let stdin = normalize_stdin_data(Some("line1\nline2".to_string()));
+        assert_eq!(stdin, Some(b"line1\nline2".to_vec()));
+    }
+
+    #[test]
+    fn normalize_stdin_data_drops_empty_payload() {
+        assert!(normalize_stdin_data(Some(String::new())).is_none());
+        assert!(normalize_stdin_data(None).is_none());
     }
 }
