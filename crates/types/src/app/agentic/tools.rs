@@ -217,6 +217,18 @@ pub enum AgentTool {
         overwrite: bool,
     },
 
+    /// Copies a file/directory deterministically.
+    #[serde(rename = "filesystem__copy_path")]
+    FsCopy {
+        /// Source path to copy from.
+        source_path: String,
+        /// Destination path to copy to.
+        destination_path: String,
+        /// When true, replace an existing destination.
+        #[serde(default)]
+        overwrite: bool,
+    },
+
     /// Executes a system command.
     #[serde(rename = "sys__exec")]
     SysExec {
@@ -453,6 +465,7 @@ impl AgentTool {
                 ActionTarget::FsRead
             }
             AgentTool::FsMove { .. } => ActionTarget::Custom("filesystem__move_path".into()),
+            AgentTool::FsCopy { .. } => ActionTarget::Custom("filesystem__copy_path".into()),
 
             AgentTool::SysExec { .. } | AgentTool::SysChangeDir { .. } => ActionTarget::SysExec,
             AgentTool::SysInstallPackage { .. } => ActionTarget::SysInstallPackage,
@@ -572,6 +585,19 @@ mod tests {
         assert_eq!(
             tool.target(),
             ActionTarget::Custom("filesystem__move_path".into())
+        );
+    }
+
+    #[test]
+    fn filesystem_copy_target_maps_to_custom_scope() {
+        let tool = AgentTool::FsCopy {
+            source_path: "/tmp/a.txt".to_string(),
+            destination_path: "/tmp/b.txt".to_string(),
+            overwrite: false,
+        };
+        assert_eq!(
+            tool.target(),
+            ActionTarget::Custom("filesystem__copy_path".into())
         );
     }
 
