@@ -19,6 +19,8 @@ struct LaunchAttempt {
 }
 
 const INSTALL_COMMAND_TIMEOUT: Duration = Duration::from_secs(600);
+const SYS_EXEC_DEFAULT_TIMEOUT: Duration = Duration::from_secs(120);
+const SYS_EXEC_EXTENDED_TIMEOUT: Duration = Duration::from_secs(600);
 const RUNTIME_SECRET_KIND_SUDO_PASSWORD: &str = "sudo_password";
 
 pub async fn handle(
@@ -39,6 +41,7 @@ pub async fn handle(
                 Err(error) => return ToolExecutionResult::failure(error),
             };
             let command_preview = command_preview(&command, &args);
+            let timeout = resolve_sys_exec_timeout(&command, &args, detach);
             let observer = if detach {
                 None
             } else {
@@ -50,7 +53,9 @@ pub async fn handle(
                     command_preview.clone(),
                 )
             };
-            let options = CommandExecutionOptions::default().with_stream_observer(observer);
+            let options = CommandExecutionOptions::default()
+                .with_timeout(timeout)
+                .with_stream_observer(observer);
 
             match exec
                 .terminal
@@ -167,6 +172,77 @@ fn command_preview(command: &str, args: &[String]) -> String {
     } else {
         preview
     }
+}
+
+fn resolve_sys_exec_timeout(command: &str, args: &[String], detach: bool) -> Duration {
+    if detach {
+        return SYS_EXEC_DEFAULT_TIMEOUT;
+    }
+
+    let command_lc = command.trim().to_ascii_lowercase();
+    if command_lc.is_empty() {
+        return SYS_EXEC_DEFAULT_TIMEOUT;
+    }
+
+    if is_extended_timeout_command(command_lc.as_str())
+        || args
+            .iter()
+            .any(|arg| is_extended_timeout_arg(arg.trim().to_ascii_lowercase().as_str()))
+    {
+        return SYS_EXEC_EXTENDED_TIMEOUT;
+    }
+
+    SYS_EXEC_DEFAULT_TIMEOUT
+}
+
+fn is_extended_timeout_command(command: &str) -> bool {
+    matches!(
+        command,
+        "bash"
+            | "sh"
+            | "zsh"
+            | "fish"
+            | "pwsh"
+            | "powershell"
+            | "cmd"
+            | "cmd.exe"
+            | "cargo"
+            | "npm"
+            | "pnpm"
+            | "yarn"
+            | "python"
+            | "python3"
+            | "node"
+            | "go"
+            | "gradle"
+            | "mvn"
+            | "make"
+            | "cmake"
+            | "docker"
+            | "podman"
+    )
+}
+
+fn is_extended_timeout_arg(arg: &str) -> bool {
+    matches!(
+        arg,
+        "build"
+            | "check"
+            | "test"
+            | "bench"
+            | "run"
+            | "install"
+            | "update"
+            | "upgrade"
+            | "compile"
+            | "clippy"
+            | "watch"
+            | "serve"
+            | "dev"
+            | "clone"
+            | "fetch"
+            | "pull"
+    )
 }
 
 fn process_stream_observer(
@@ -797,9 +873,32 @@ mod tests {
     use super::{
         build_linux_launch_plan, classify_install_failure, classify_sys_exec_failure,
         command_output_indicates_failure, launch_attempt_failed, launch_errors_indicate_missing_app,
-        resolve_home_directory, resolve_target_directory, resolve_working_directory,
-        summarize_sys_exec_failure_output, sys_exec_failure_result, LaunchAttempt,
+        resolve_home_directory, resolve_sys_exec_timeout, resolve_target_directory,
+        resolve_working_directory, summarize_sys_exec_failure_output, sys_exec_failure_result,
+        LaunchAttempt, SYS_EXEC_DEFAULT_TIMEOUT, SYS_EXEC_EXTENDED_TIMEOUT,
     };
+
+    #[test]
+    fn sys_exec_timeout_defaults_for_simple_commands() {
+        let timeout = resolve_sys_exec_timeout("ls", &["-la".to_string()], false);
+        assert_eq!(timeout, SYS_EXEC_DEFAULT_TIMEOUT);
+    }
+
+    #[test]
+    fn sys_exec_timeout_extends_for_shell_wrappers() {
+        let timeout = resolve_sys_exec_timeout(
+            "bash",
+            &["-lc".to_string(), "cargo test".to_string()],
+            false,
+        );
+        assert_eq!(timeout, SYS_EXEC_EXTENDED_TIMEOUT);
+    }
+
+    #[test]
+    fn sys_exec_timeout_extends_for_build_subcommands() {
+        let timeout = resolve_sys_exec_timeout("git", &["clone".to_string()], false);
+        assert_eq!(timeout, SYS_EXEC_EXTENDED_TIMEOUT);
+    }
 
     #[test]
     fn linux_plan_prefers_gtk_launch_when_available() {
