@@ -447,12 +447,49 @@ pub(crate) fn is_sudo_password_required_install_error(error: &str) -> bool {
         || msg.contains("error_class=permissionorapprovalrequired")
 }
 
+fn resolve_home_directory() -> Result<PathBuf, String> {
+    if let Some(home) = env::var_os("HOME") {
+        if !home.is_empty() {
+            return Ok(PathBuf::from(home));
+        }
+    }
+
+    if let Some(user_profile) = env::var_os("USERPROFILE") {
+        if !user_profile.is_empty() {
+            return Ok(PathBuf::from(user_profile));
+        }
+    }
+
+    if let (Some(home_drive), Some(home_path)) = (env::var_os("HOMEDRIVE"), env::var_os("HOMEPATH"))
+    {
+        if !home_drive.is_empty() && !home_path.is_empty() {
+            let mut combined = PathBuf::from(home_drive);
+            combined.push(home_path);
+            return Ok(combined);
+        }
+    }
+
+    Err("Home directory is not configured (HOME/USERPROFILE).".to_string())
+}
+
+fn expand_tilde_path(path: &str) -> Result<PathBuf, String> {
+    if path == "~" {
+        return resolve_home_directory();
+    }
+
+    if let Some(remainder) = path.strip_prefix("~/").or_else(|| path.strip_prefix("~\\")) {
+        return Ok(resolve_home_directory()?.join(remainder));
+    }
+
+    Ok(PathBuf::from(path))
+}
+
 fn resolve_working_directory(cwd: &str) -> Result<PathBuf, String> {
     let normalized = cwd.trim();
     let candidate = if normalized.is_empty() {
         PathBuf::from(".")
     } else {
-        PathBuf::from(normalized)
+        expand_tilde_path(normalized)?
     };
 
     let absolute = if candidate.is_absolute() {
@@ -486,7 +523,7 @@ fn resolve_target_directory(current_cwd: &str, requested_path: &str) -> Result<P
         return Err("Target path cannot be empty.".to_string());
     }
 
-    let requested = PathBuf::from(trimmed);
+    let requested = expand_tilde_path(trimmed)?;
     let candidate = if requested.is_absolute() {
         requested
     } else {
@@ -685,7 +722,8 @@ fn launch_errors_indicate_missing_app(errors: &[String]) -> bool {
 mod tests {
     use super::{
         build_linux_launch_plan, classify_install_failure, command_output_indicates_failure,
-        launch_attempt_failed, launch_errors_indicate_missing_app, LaunchAttempt,
+        launch_attempt_failed, launch_errors_indicate_missing_app, resolve_home_directory,
+        resolve_target_directory, resolve_working_directory, LaunchAttempt,
     };
 
     #[test]
@@ -774,5 +812,23 @@ mod tests {
             classify_install_failure(password, "sudo", "apt-get"),
             "PermissionOrApprovalRequired"
         );
+    }
+
+    #[test]
+    fn resolve_working_directory_expands_tilde_home() {
+        let home = resolve_home_directory().expect("home directory should resolve");
+        let resolved =
+            resolve_working_directory("~").expect("tilde working directory should resolve");
+        assert_eq!(resolved, home);
+    }
+
+    #[test]
+    fn resolve_target_directory_expands_tilde_path() {
+        let expected =
+            std::fs::canonicalize(resolve_home_directory().expect("home directory should resolve"))
+                .expect("canonical home path should resolve");
+        let resolved =
+            resolve_target_directory(".", "~").expect("tilde target directory should resolve");
+        assert_eq!(resolved, expected);
     }
 }
