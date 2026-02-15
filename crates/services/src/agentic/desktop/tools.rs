@@ -705,6 +705,25 @@ pub async fn discover_tools(
         },
         "required": ["source_path", "destination_path"]
     });
+    let fs_copy_params = json!({
+        "type": "object",
+        "properties": {
+            "source_path": { "type": "string", "description": "Source path to copy." },
+            "destination_path": { "type": "string", "description": "Destination path." },
+            "overwrite": {
+                "type": "boolean",
+                "description": "When true, replace an existing destination path."
+            }
+        },
+        "required": ["source_path", "destination_path"]
+    });
+    tools.push(LlmToolDefinition {
+        name: "filesystem__copy_path".to_string(),
+        description: "Copy a file/directory deterministically without invoking shell commands."
+            .to_string(),
+        parameters: fs_copy_params.to_string(),
+    });
+
     tools.push(LlmToolDefinition {
         name: "filesystem__move_path".to_string(),
         description:

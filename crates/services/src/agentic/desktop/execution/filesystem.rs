@@ -423,27 +423,7 @@ fn move_path_deterministic(
         return Ok(());
     }
 
-    if destination.exists() {
-        if !overwrite {
-            return Err(format!(
-                "Destination '{}' already exists. Set overwrite=true to replace it.",
-                destination.display()
-            ));
-        }
-
-        let remove_result = if destination.is_dir() {
-            fs::remove_dir_all(destination)
-        } else {
-            fs::remove_file(destination)
-        };
-        remove_result.map_err(|e| {
-            format!(
-                "Failed to remove existing destination '{}': {}",
-                destination.display(),
-                e
-            )
-        })?;
-    }
+    remove_existing_destination(destination, overwrite)?;
 
     if let Some(parent) = destination.parent() {
         fs::create_dir_all(parent).map_err(|e| {
@@ -506,11 +486,95 @@ fn move_path_deterministic(
     }
 }
 
+fn remove_existing_destination(destination: &Path, overwrite: bool) -> Result<(), String> {
+    if destination.exists() {
+        if !overwrite {
+            return Err(format!(
+                "Destination '{}' already exists. Set overwrite=true to replace it.",
+                destination.display()
+            ));
+        }
+
+        let remove_result = if destination.is_dir() {
+            fs::remove_dir_all(destination)
+        } else {
+            fs::remove_file(destination)
+        };
+        remove_result.map_err(|e| {
+            format!(
+                "Failed to remove existing destination '{}': {}",
+                destination.display(),
+                e
+            )
+        })?;
+    }
+
+    Ok(())
+}
+
+fn copy_path_deterministic(
+    source: &Path,
+    destination: &Path,
+    overwrite: bool,
+) -> Result<(), String> {
+    if !source.exists() {
+        return Err(format!(
+            "Source path '{}' does not exist.",
+            source.display()
+        ));
+    }
+
+    if source == destination {
+        return Err("Source and destination are the same path.".to_string());
+    }
+
+    if source.is_dir() && destination.starts_with(source) {
+        return Err(format!(
+            "Destination '{}' cannot be inside source directory '{}'.",
+            destination.display(),
+            source.display()
+        ));
+    }
+
+    remove_existing_destination(destination, overwrite)?;
+
+    if source.is_file() {
+        if let Some(parent) = destination.parent() {
+            fs::create_dir_all(parent).map_err(|e| {
+                format!(
+                    "Failed to create destination parent '{}': {}",
+                    parent.display(),
+                    e
+                )
+            })?;
+        }
+
+        fs::copy(source, destination).map_err(|e| {
+            format!(
+                "Failed to copy '{}' to '{}': {}",
+                source.display(),
+                destination.display(),
+                e
+            )
+        })?;
+        return Ok(());
+    }
+
+    if source.is_dir() {
+        return copy_dir_recursive(source, destination);
+    }
+
+    Err(format!(
+        "Copy does not support special filesystem entry '{}'.",
+        source.display()
+    ))
+}
+
 #[cfg(test)]
 mod tests {
     use super::{
-        apply_patch, fuzzy_find_indices, list_directory_entries, move_path_deterministic,
-        resolve_tool_path, search_files,
+        apply_patch, copy_path_deterministic, fuzzy_find_indices, list_directory_entries,
+        move_path_deterministic, resolve_tool_path, search_files,
     };
     use std::fs;
     use std::path::PathBuf;
@@ -615,6 +679,69 @@ mod tests {
         assert!(!src.exists());
         let moved = fs::read_to_string(&dst).expect("destination file should be readable");
         assert_eq!(moved, "payload");
+
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn copy_path_copies_file() {
+        let dir = make_temp_dir("copy-file");
+        let src = dir.join("src.txt");
+        let dst = dir.join("nested").join("dst.txt");
+        fs::write(&src, "payload").expect("source file should be written");
+
+        copy_path_deterministic(&src, &dst, false).expect("copy should succeed");
+
+        assert!(src.exists());
+        let copied = fs::read_to_string(&dst).expect("destination file should be readable");
+        assert_eq!(copied, "payload");
+
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn copy_path_requires_overwrite_for_existing_destination() {
+        let dir = make_temp_dir("copy-overwrite-required");
+        let src = dir.join("src.txt");
+        let dst = dir.join("dst.txt");
+        fs::write(&src, "src").expect("source file should be written");
+        fs::write(&dst, "dst").expect("destination file should be written");
+
+        let err = copy_path_deterministic(&src, &dst, false)
+            .expect_err("copy without overwrite should fail when destination exists");
+        assert!(err.contains("already exists"));
+
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn copy_path_overwrite_replaces_existing_destination() {
+        let dir = make_temp_dir("copy-overwrite");
+        let src = dir.join("src.txt");
+        let dst = dir.join("dst.txt");
+        fs::write(&src, "fresh").expect("source file should be written");
+        fs::write(&dst, "stale").expect("destination file should be written");
+
+        copy_path_deterministic(&src, &dst, true).expect("overwrite copy should succeed");
+
+        assert!(src.exists());
+        let copied = fs::read_to_string(&dst).expect("destination file should be readable");
+        assert_eq!(copied, "fresh");
+
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn copy_path_rejects_copying_directory_into_itself() {
+        let dir = make_temp_dir("copy-dir-into-self");
+        let src = dir.join("src");
+        let dst = src.join("nested").join("copy");
+        fs::create_dir_all(src.join("nested")).expect("source subtree should be created");
+        fs::write(src.join("file.txt"), "payload").expect("source file should be written");
+
+        let err = copy_path_deterministic(&src, &dst, false)
+            .expect_err("copying a directory into itself should fail");
+        assert!(err.contains("cannot be inside source directory"));
 
         let _ = fs::remove_dir_all(&dir);
     }
@@ -861,6 +988,39 @@ pub async fn handle(exec: &ToolExecutor, tool: AgentTool) -> ToolExecutionResult
                     destination.display()
                 )),
                 Err(e) => ToolExecutionResult::failure(format!("Move failed: {}", e)),
+            }
+        }
+        AgentTool::FsCopy {
+            source_path,
+            destination_path,
+            overwrite,
+        } => {
+            let source = match resolve_tool_path(&source_path, cwd) {
+                Ok(path) => path,
+                Err(e) => {
+                    return ToolExecutionResult::failure(format!(
+                        "Copy failed for '{}': {}",
+                        source_path, e
+                    ))
+                }
+            };
+            let destination = match resolve_tool_path(&destination_path, cwd) {
+                Ok(path) => path,
+                Err(e) => {
+                    return ToolExecutionResult::failure(format!(
+                        "Copy failed for '{}': {}",
+                        destination_path, e
+                    ))
+                }
+            };
+
+            match copy_path_deterministic(&source, &destination, overwrite) {
+                Ok(_) => ToolExecutionResult::success(format!(
+                    "Copied {} -> {}",
+                    source.display(),
+                    destination.display()
+                )),
+                Err(e) => ToolExecutionResult::failure(format!("Copy failed: {}", e)),
             }
         }
         _ => ToolExecutionResult::failure("Unsupported FS action"),
