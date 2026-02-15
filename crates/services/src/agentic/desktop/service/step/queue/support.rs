@@ -228,6 +228,7 @@ fn infer_custom_tool_name(name: &str, args: &serde_json::Value) -> String {
                 "browser__click".to_string()
             }
         }
+        "browser::click_element" => "browser__click_element".to_string(),
         "browser::synthetic_click" => "browser__synthetic_click".to_string(),
         "browser::scroll" => "browser__scroll".to_string(),
         "ui::find" => "ui__find".to_string(),

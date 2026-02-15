@@ -93,6 +93,17 @@ fn canonical_policy_target(target: &ActionTarget) -> String {
 
 fn policy_target_aliases(target: &ActionTarget) -> Vec<String> {
     let mut aliases = vec![canonical_policy_target(target)];
+    if let ActionTarget::Custom(name) = target {
+        let compatibility_aliases: &[&str] = match name.as_str() {
+            "browser::click_element" => &["browser::click", "browser__click_element"],
+            _ => &[],
+        };
+        for alias in compatibility_aliases {
+            if !aliases.iter().any(|candidate| candidate == alias) {
+                aliases.push((*alias).to_string());
+            }
+        }
+    }
     if let Some(scope) = filesystem_scope_for_target(target) {
         let scope_target = scope.policy_target();
         if !aliases.iter().any(|alias| alias == scope_target) {
@@ -752,6 +763,14 @@ mod tests {
         let aliases = policy_target_aliases(&ActionTarget::Custom("filesystem__copy_path".into()));
         assert_eq!(aliases[0], "filesystem__copy_path");
         assert!(aliases.iter().any(|alias| alias == "fs::write"));
+    }
+
+    #[test]
+    fn browser_click_element_target_keeps_compatibility_aliases() {
+        let aliases = policy_target_aliases(&ActionTarget::Custom("browser::click_element".into()));
+        assert_eq!(aliases[0], "browser::click_element");
+        assert!(aliases.iter().any(|alias| alias == "browser::click"));
+        assert!(aliases.iter().any(|alias| alias == "browser__click_element"));
     }
 
     #[test]

@@ -60,6 +60,25 @@ fn fallback_summary_is_deterministic() {
 }
 
 #[test]
+fn queue_maps_browser_click_element_custom_target_deterministically() {
+    let request = build_custom_request(
+        "browser::click_element",
+        21,
+        serde_json::json!({
+            "id": "btn_submit"
+        }),
+    );
+
+    let tool = queue_action_request_to_tool(&request).expect("queue mapping should succeed");
+    match tool {
+        AgentTool::BrowserClickElement { id } => {
+            assert_eq!(id, "btn_submit");
+        }
+        other => panic!("expected BrowserClickElement, got {:?}", other),
+    }
+}
+
+#[test]
 fn queue_preserves_filesystem_search_from_fsread_target() {
     let request = build_fs_read_request(serde_json::json!({
         "path": "/tmp/workspace",
