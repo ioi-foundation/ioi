@@ -502,7 +502,9 @@ impl AgentTool {
 
             AgentTool::BrowserExtract { .. } => ActionTarget::BrowserExtract,
             AgentTool::BrowserClick { .. } => ActionTarget::Custom("browser::click".into()),
-            AgentTool::BrowserClickElement { .. } => ActionTarget::Custom("browser::click".into()),
+            AgentTool::BrowserClickElement { .. } => {
+                ActionTarget::Custom("browser::click_element".into())
+            }
             AgentTool::BrowserSyntheticClick { .. } => {
                 ActionTarget::Custom("browser::synthetic_click".into())
             }
@@ -652,11 +654,14 @@ mod tests {
     }
 
     #[test]
-    fn browser_click_element_target_maps_to_browser_click_scope() {
+    fn browser_click_element_target_maps_to_browser_click_element_scope() {
         let tool = AgentTool::BrowserClickElement {
             id: "btn_submit".to_string(),
         };
-        assert_eq!(tool.target(), ActionTarget::Custom("browser::click".into()));
+        assert_eq!(
+            tool.target(),
+            ActionTarget::Custom("browser::click_element".into())
+        );
     }
 
     #[test]
