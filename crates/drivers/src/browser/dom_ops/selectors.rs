@@ -40,27 +40,24 @@ impl BrowserDriver {
         &self,
         selectors: &[&str],
     ) -> std::result::Result<Option<String>, BrowserError> {
+        let script = Self::focus_first_selector_script(selectors)?;
+
+        self.evaluate_js(&script).await
+    }
+
+    fn focus_first_selector_script(selectors: &[&str]) -> Result<String, BrowserError> {
         let selectors_json = serde_json::to_string(selectors)
             .map_err(|e| BrowserError::Internal(format!("Selector list encode failed: {}", e)))?;
         let helpers = Self::deep_dom_helper_js();
-        let script = format!(
+
+        Ok(format!(
             r#"(() => {{
                 const selectors = {selectors_json};
                 {helpers}
                 for (const selector of selectors) {{
                     const el = deepQuerySelector(selector);
                     if (!el) continue;
-
-                    const style = window.getComputedStyle(el);
-                    const rect = el.getBoundingClientRect();
-                    const visible =
-                        rect.width > 0 &&
-                        rect.height > 0 &&
-                        style &&
-                        style.visibility !== "hidden" &&
-                        style.display !== "none" &&
-                        parseFloat(style.opacity || "1") > 0.01;
-                    if (!visible) continue;
+                    if (!isElementVisibleCandidate(el)) continue;
 
                     try {{
                         el.scrollIntoView({{ block: "center", inline: "center", behavior: "instant" }});
@@ -78,9 +75,7 @@ impl BrowserDriver {
             }})()"#,
             selectors_json = selectors_json,
             helpers = helpers
-        );
-
-        self.evaluate_js(&script).await
+        ))
     }
 
     pub(crate) async fn click_selector_deep(
@@ -180,5 +175,27 @@ impl BrowserDriver {
         .concat();
 
         self.evaluate_js(&script).await
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::BrowserDriver;
+
+    #[test]
+    fn focus_first_selector_script_uses_deep_visibility_checks() {
+        let script = BrowserDriver::focus_first_selector_script(&["input[name='q']"])
+            .expect("selector focus script should serialize selector list");
+        assert!(script.contains("deepQuerySelector(selector)"));
+        assert!(script.contains("isElementVisibleCandidate(el)"));
+        assert!(!script.contains("window.getComputedStyle(el)"));
+    }
+
+    #[test]
+    fn focus_first_selector_script_returns_matched_selector_when_focused() {
+        let script = BrowserDriver::focus_first_selector_script(&["input[type='search']"])
+            .expect("selector focus script should serialize selector list");
+        assert!(script.contains("if (deepActiveElement() === el) {"));
+        assert!(script.contains("return selector;"));
     }
 }
