@@ -203,6 +203,21 @@ fn infer_fs_write_tool_name(args: &serde_json::Value) -> &'static str {
     "filesystem__write_file"
 }
 
+fn has_non_empty_string_field(obj: &serde_json::Map<String, serde_json::Value>, key: &str) -> bool {
+    obj.get(key)
+        .and_then(|value| value.as_str())
+        .map(str::trim)
+        .is_some_and(|value| !value.is_empty())
+}
+
+fn is_ambiguous_fs_write_transfer_payload(args: &serde_json::Value) -> bool {
+    let Some(obj) = args.as_object() else {
+        return false;
+    };
+    has_non_empty_string_field(obj, "source_path")
+        && has_non_empty_string_field(obj, "destination_path")
+}
+
 fn infer_custom_tool_name(name: &str, args: &serde_json::Value) -> String {
     match name {
         // Backward-compatible aliases emitted by ActionTarget::Custom values.
@@ -322,6 +337,15 @@ fn queue_target_to_tool_name_and_args(
 
     if let Some(tool_name) = explicit_tool_name {
         return Ok((tool_name, raw_args));
+    }
+
+    if matches!(explicit_queue_fs_scope(target), Some(QueueFsScope::Write))
+        && is_ambiguous_fs_write_transfer_payload(&raw_args)
+    {
+        return Err(TransactionError::Invalid(format!(
+            "Queued fs::write transfer payloads must include {} set to filesystem__copy_path or filesystem__move_path.",
+            QUEUE_TOOL_NAME_KEY
+        )));
     }
 
     match target {

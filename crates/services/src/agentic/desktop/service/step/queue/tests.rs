@@ -154,6 +154,36 @@ fn queue_rejects_incompatible_explicit_tool_name_for_target() {
 }
 
 #[test]
+fn queue_rejects_ambiguous_fswrite_transfer_without_explicit_tool_name() {
+    let request = build_fs_write_request(serde_json::json!({
+        "source_path": "/tmp/source.txt",
+        "destination_path": "/tmp/destination.txt"
+    }));
+
+    let err = queue_action_request_to_tool(&request)
+        .expect_err("queue mapping should fail for ambiguous transfer without explicit tool name");
+    assert!(err.to_string().contains("__ioi_tool_name"));
+    assert!(err.to_string().contains("filesystem__copy_path"));
+}
+
+#[test]
+fn queue_rejects_ambiguous_fswrite_transfer_without_explicit_tool_name_for_custom_alias_target() {
+    let request = build_custom_request(
+        "fs::write",
+        9,
+        serde_json::json!({
+            "source_path": "/tmp/source.txt",
+            "destination_path": "/tmp/destination.txt"
+        }),
+    );
+
+    let err = queue_action_request_to_tool(&request)
+        .expect_err("queue mapping should fail for ambiguous transfer without explicit tool name");
+    assert!(err.to_string().contains("__ioi_tool_name"));
+    assert!(err.to_string().contains("filesystem__move_path"));
+}
+
+#[test]
 fn queue_defaults_to_read_file_when_not_search_or_directory() {
     let request = build_fs_read_request(serde_json::json!({
         "path": "/tmp/not-a-real-file.txt"
