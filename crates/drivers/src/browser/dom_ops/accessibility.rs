@@ -28,7 +28,8 @@ impl BrowserDriver {
         }
 
         let root_ax = &nodes_vec[0];
-        Ok(self.convert_ax_node(root_ax, &nodes_vec))
+        let rect_lookup = self.collect_ax_node_rects(&p, &nodes_vec).await;
+        Ok(self.convert_ax_node(root_ax, &nodes_vec, &rect_lookup))
     }
 
     pub async fn get_visual_tree(&self) -> std::result::Result<AccessibilityNode, BrowserError> {
@@ -52,19 +53,21 @@ impl BrowserDriver {
             return Err(BrowserError::Internal("Empty tree".into()));
         }
 
-        Ok(self.convert_ax_node(&nodes[0], &nodes))
+        let rect_lookup = self.collect_ax_node_rects(&page, &nodes).await;
+        Ok(self.convert_ax_node(&nodes[0], &nodes, &rect_lookup))
     }
 
     fn convert_ax_node(
         &self,
         ax_node: &accessibility::AxNode,
         all_nodes: &[accessibility::AxNode],
+        rect_lookup: &HashMap<String, AccessibilityRect>,
     ) -> AccessibilityNode {
         let mut children = Vec::new();
         if let Some(child_ids) = &ax_node.child_ids {
             for cid in child_ids {
                 if let Some(child_ax) = all_nodes.iter().find(|n| &n.node_id == cid) {
-                    children.push(self.convert_ax_node(child_ax, all_nodes));
+                    children.push(self.convert_ax_node(child_ax, all_nodes, rect_lookup));
                 }
             }
         }
@@ -152,12 +155,15 @@ impl BrowserDriver {
             }
         }
 
-        let rect = AccessibilityRect {
-            x: 0,
-            y: 0,
-            width: 0,
-            height: 0,
-        };
+        let rect = rect_lookup
+            .get(&id_string)
+            .copied()
+            .unwrap_or(AccessibilityRect {
+                x: 0,
+                y: 0,
+                width: 0,
+                height: 0,
+            });
 
         AccessibilityNode {
             id: id_string,
@@ -170,6 +176,108 @@ impl BrowserDriver {
             attributes,
             som_id: None,
         }
+    }
+
+    fn rect_from_dom_quad(quad: &[f64]) -> Option<(AccessibilityRect, f64)> {
+        if quad.len() < 8 {
+            return None;
+        }
+
+        let xs = [quad[0], quad[2], quad[4], quad[6]];
+        let ys = [quad[1], quad[3], quad[5], quad[7]];
+        if xs.iter().any(|v| !v.is_finite()) || ys.iter().any(|v| !v.is_finite()) {
+            return None;
+        }
+
+        let min_x = xs.iter().copied().fold(f64::INFINITY, f64::min);
+        let max_x = xs.iter().copied().fold(f64::NEG_INFINITY, f64::max);
+        let min_y = ys.iter().copied().fold(f64::INFINITY, f64::min);
+        let max_y = ys.iter().copied().fold(f64::NEG_INFINITY, f64::max);
+
+        let width = max_x - min_x;
+        let height = max_y - min_y;
+        if width <= 1.0 || height <= 1.0 {
+            return None;
+        }
+
+        let rect = AccessibilityRect {
+            x: min_x.floor().clamp(i32::MIN as f64, i32::MAX as f64) as i32,
+            y: min_y.floor().clamp(i32::MIN as f64, i32::MAX as f64) as i32,
+            width: width.ceil().clamp(1.0, i32::MAX as f64) as i32,
+            height: height.ceil().clamp(1.0, i32::MAX as f64) as i32,
+        };
+
+        Some((rect, width * height))
+    }
+
+    async fn resolve_backend_node_rect(
+        page: &Page,
+        backend_node_id: chromiumoxide::cdp::browser_protocol::dom::BackendNodeId,
+    ) -> Option<AccessibilityRect> {
+        let quad_rect = page
+            .execute(
+                GetContentQuadsParams::builder()
+                    .backend_node_id(backend_node_id)
+                    .build(),
+            )
+            .await
+            .ok()
+            .and_then(|quads| {
+                quads
+                    .quads
+                    .iter()
+                    .filter_map(|q| Self::rect_from_dom_quad(q.inner().as_slice()))
+                    .max_by(|a, b| a.1.partial_cmp(&b.1).unwrap_or(std::cmp::Ordering::Equal))
+                    .map(|(rect, _)| rect)
+            });
+
+        if quad_rect.is_some() {
+            return quad_rect;
+        }
+
+        page.execute(
+            GetBoxModelParams::builder()
+                .backend_node_id(backend_node_id)
+                .build(),
+        )
+        .await
+        .ok()
+        .and_then(|model| Self::rect_from_dom_quad(model.model.border.inner().as_slice()))
+        .map(|(rect, _)| rect)
+    }
+
+    async fn collect_ax_node_rects(
+        &self,
+        page: &Page,
+        nodes: &[accessibility::AxNode],
+    ) -> HashMap<String, AccessibilityRect> {
+        let mut rects_by_node = HashMap::new();
+        let mut rects_by_backend = HashMap::new();
+
+        for ax_node in nodes {
+            let backend_node_id = match ax_node.backend_dom_node_id {
+                Some(id) => id,
+                None => continue,
+            };
+            let backend_key = *backend_node_id.inner();
+
+            let rect = if let Some(cached) = rects_by_backend.get(&backend_key).copied() {
+                Some(cached)
+            } else {
+                let resolved = Self::resolve_backend_node_rect(page, backend_node_id).await;
+                if let Some(found) = resolved {
+                    rects_by_backend.insert(backend_key, found);
+                }
+                resolved
+            };
+
+            if let Some(found) = rect {
+                let node_id: String = ax_node.node_id.clone().into();
+                rects_by_node.insert(node_id, found);
+            }
+        }
+
+        rects_by_node
     }
 
     /// Click an element by raw CDP Accessibility node id.
@@ -277,5 +385,33 @@ impl BrowserDriver {
         })?;
 
         self.synthetic_click(x, y).await
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::BrowserDriver;
+
+    #[test]
+    fn rect_from_dom_quad_builds_bounds() {
+        let quad = [10.2, 20.8, 50.0, 20.1, 49.6, 60.4, 10.1, 60.9];
+        let (rect, area) = BrowserDriver::rect_from_dom_quad(&quad).expect("quad should resolve");
+        assert_eq!(rect.x, 10);
+        assert_eq!(rect.y, 20);
+        assert_eq!(rect.width, 40);
+        assert_eq!(rect.height, 41);
+        assert!(area > 1500.0);
+    }
+
+    #[test]
+    fn rect_from_dom_quad_rejects_degenerate_geometry() {
+        let tiny = [10.0, 10.0, 10.5, 10.0, 10.5, 10.4, 10.0, 10.4];
+        assert!(BrowserDriver::rect_from_dom_quad(&tiny).is_none());
+    }
+
+    #[test]
+    fn rect_from_dom_quad_rejects_non_finite_values() {
+        let bad = [10.0, 10.0, f64::NAN, 10.0, 50.0, 50.0, 10.0, 50.0];
+        assert!(BrowserDriver::rect_from_dom_quad(&bad).is_none());
     }
 }
