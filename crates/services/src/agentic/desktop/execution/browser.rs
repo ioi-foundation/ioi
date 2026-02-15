@@ -62,15 +62,25 @@ fn detect_human_challenge(url: &str, content: &str) -> Option<&'static str> {
     None
 }
 
-fn selector_focus_postcondition(probe: &SelectorProbe) -> bool {
-    if !probe.found || !probe.visible {
+fn selector_focus_postcondition(pre: &SelectorProbe, post: Option<&SelectorProbe>) -> bool {
+    let Some(post) = post else {
         return false;
+    };
+
+    if pre.editable {
+        return post.found && post.visible && post.focused;
     }
-    if probe.editable {
-        probe.focused
-    } else {
-        true
+
+    // Accept successful state transitions where the click navigated or the
+    // target disappeared after activation.
+    if !pre.url.is_empty() && !post.url.is_empty() && post.url != pre.url {
+        return true;
     }
+    if pre.found && !post.found {
+        return true;
+    }
+
+    post.found && post.visible && post.topmost
 }
 
 fn selector_looks_like_search_target(selector: &str) -> bool {
@@ -318,20 +328,14 @@ pub async fn handle(exec: &ToolExecutor, tool: AgentTool) -> ToolExecutionResult
             }
 
             let mut post = exec.browser.probe_selector(&selector).await.ok();
-            let mut postcondition_met = post
-                .as_ref()
-                .map(selector_focus_postcondition)
-                .unwrap_or(false);
+            let mut postcondition_met = selector_focus_postcondition(&pre, post.as_ref());
 
             if !postcondition_met {
                 match exec.browser.focus_selector(&selector).await {
                     Ok(true) => {
                         fallback_used = "selector_focus".to_string();
                         post = exec.browser.probe_selector(&selector).await.ok();
-                        postcondition_met = post
-                            .as_ref()
-                            .map(selector_focus_postcondition)
-                            .unwrap_or(false);
+                        postcondition_met = selector_focus_postcondition(&pre, post.as_ref());
                     }
                     Ok(false) => {}
                     Err(e) => click_errors.push(format!("focus_post={}", e)),
@@ -553,11 +557,13 @@ mod tests {
     use ioi_api::vm::drivers::os::WindowInfo;
     use std::collections::HashMap;
 
-    fn probe(editable: bool, focused: bool, visible: bool) -> SelectorProbe {
+    fn probe(editable: bool, focused: bool, visible: bool, topmost: bool) -> SelectorProbe {
         SelectorProbe {
+            url: "https://example.test".to_string(),
             editable,
             focused,
             visible,
+            topmost,
             found: true,
             ..Default::default()
         }
@@ -565,13 +571,41 @@ mod tests {
 
     #[test]
     fn focus_postcondition_requires_focus_for_editable_targets() {
-        assert!(!selector_focus_postcondition(&probe(true, false, true)));
-        assert!(selector_focus_postcondition(&probe(true, true, true)));
+        let pre = probe(true, false, true, true);
+        let post_not_focused = probe(true, false, true, true);
+        let post_focused = probe(true, true, true, true);
+        assert!(!selector_focus_postcondition(&pre, Some(&post_not_focused)));
+        assert!(selector_focus_postcondition(&pre, Some(&post_focused)));
     }
 
     #[test]
-    fn focus_postcondition_accepts_non_editable_click_targets() {
-        assert!(selector_focus_postcondition(&probe(false, false, true)));
+    fn focus_postcondition_requires_topmost_for_non_editable_targets() {
+        let pre = probe(false, false, true, false);
+        let post_occluded = probe(false, false, true, false);
+        let post_topmost = probe(false, false, true, true);
+
+        assert!(!selector_focus_postcondition(&pre, Some(&post_occluded)));
+        assert!(selector_focus_postcondition(&pre, Some(&post_topmost)));
+    }
+
+    #[test]
+    fn focus_postcondition_accepts_navigation_transition() {
+        let pre = probe(false, false, true, true);
+        let mut post = probe(false, false, false, false);
+        post.found = false;
+        post.url = "https://example.test/next".to_string();
+
+        assert!(selector_focus_postcondition(&pre, Some(&post)));
+    }
+
+    #[test]
+    fn focus_postcondition_accepts_disappearing_target_transition() {
+        let pre = probe(false, false, true, true);
+        let mut post = probe(false, false, false, false);
+        post.found = false;
+        post.url = pre.url.clone();
+
+        assert!(selector_focus_postcondition(&pre, Some(&post)));
     }
 
     #[test]

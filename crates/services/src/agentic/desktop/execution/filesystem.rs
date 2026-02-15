@@ -495,6 +495,14 @@ fn move_path_deterministic(
         return Ok(());
     }
 
+    if source_kind == FsEntryKind::Directory && destination.starts_with(source) {
+        return Err(format!(
+            "Destination '{}' cannot be inside source directory '{}'.",
+            destination.display(),
+            source.display()
+        ));
+    }
+
     remove_existing_destination(destination, overwrite)?;
 
     if let Some(parent) = destination.parent() {
@@ -970,6 +978,23 @@ mod tests {
         let err = copy_path_deterministic(&src, &dst, false)
             .expect_err("copying a directory into itself should fail");
         assert!(err.contains("cannot be inside source directory"));
+
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn move_path_rejects_moving_directory_into_itself() {
+        let dir = make_temp_dir("move-dir-into-self");
+        let src = dir.join("src");
+        let dst = src.join("nested").join("moved");
+        fs::create_dir_all(src.join("nested")).expect("source subtree should be created");
+        fs::write(src.join("file.txt"), "payload").expect("source file should be written");
+
+        let err = move_path_deterministic(&src, &dst, false)
+            .expect_err("moving a directory into itself should fail");
+        assert!(err.contains("cannot be inside source directory"));
+        assert!(src.exists());
+        assert!(!dst.exists());
 
         let _ = fs::remove_dir_all(&dir);
     }

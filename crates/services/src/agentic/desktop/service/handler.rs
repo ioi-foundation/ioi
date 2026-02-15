@@ -538,10 +538,9 @@ mod tests {
         assert!(!is_focus_sensitive_tool(&AgentTool::BrowserClickElement {
             id: "btn_submit".to_string(),
         }));
-        assert!(!is_focus_sensitive_tool(&AgentTool::BrowserSyntheticClick {
-            x: 20,
-            y: 30,
-        }));
+        assert!(!is_focus_sensitive_tool(
+            &AgentTool::BrowserSyntheticClick { x: 20, y: 30 }
+        ));
     }
 
     #[test]

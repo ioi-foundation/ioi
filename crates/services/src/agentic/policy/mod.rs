@@ -249,7 +249,11 @@ fn validate_allow_paths_condition(
             if allowed {
                 None
             } else {
-                Some(format!("{} (normalized: {})", path, normalized_path.display()))
+                Some(format!(
+                    "{} (normalized: {})",
+                    path,
+                    normalized_path.display()
+                ))
             }
         })
         .collect();
