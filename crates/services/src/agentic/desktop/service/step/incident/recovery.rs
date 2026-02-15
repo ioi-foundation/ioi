@@ -8,7 +8,7 @@ use crate::agentic::desktop::service::step::ontology::{IntentClass, StrategyName
 use crate::agentic::desktop::types::AgentState;
 use crate::agentic::rules::ActionRules;
 use ioi_types::app::agentic::AgentTool;
-use ioi_types::app::{ActionContext, ActionRequest};
+use ioi_types::app::{ActionContext, ActionRequest, ActionTarget};
 use ioi_types::error::TransactionError;
 use serde_json::json;
 use std::collections::BTreeSet;
@@ -207,18 +207,21 @@ fn tool_to_action_request(
     session_id: [u8; 32],
     nonce: u64,
 ) -> Result<ActionRequest, TransactionError> {
+    let target = tool.target();
     let mut args = canonical_tool_args(tool);
-    if let Some(obj) = args.as_object_mut() {
-        obj.insert(
-            QUEUE_TOOL_NAME_KEY.to_string(),
-            json!(canonical_tool_name(tool)),
-        );
+    if matches!(target, ActionTarget::FsRead | ActionTarget::FsWrite) {
+        if let Some(obj) = args.as_object_mut() {
+            obj.insert(
+                QUEUE_TOOL_NAME_KEY.to_string(),
+                json!(canonical_tool_name(tool)),
+            );
+        }
     }
     let params = serde_jcs::to_vec(&args)
         .or_else(|_| serde_json::to_vec(&args))
         .map_err(|e| TransactionError::Serialization(e.to_string()))?;
     Ok(ActionRequest {
-        target: tool.target(),
+        target,
         params,
         context: ActionContext {
             agent_id: "desktop_agent".to_string(),
@@ -260,4 +263,41 @@ pub(super) fn queue_root_retry(
 
     agent_state.execution_queue.insert(0, retry_request);
     Ok(true)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{tool_to_action_request, QUEUE_TOOL_NAME_KEY};
+    use ioi_types::app::agentic::AgentTool;
+
+    fn queued_params(tool: AgentTool) -> serde_json::Value {
+        let request = tool_to_action_request(&tool, [7u8; 32], 99)
+            .expect("request should serialize for deterministic queueing");
+        serde_json::from_slice(&request.params).expect("request params should decode as JSON")
+    }
+
+    #[test]
+    fn fs_targets_embed_tool_name_metadata() {
+        let value = queued_params(AgentTool::FsPatch {
+            path: "/tmp/demo.txt".to_string(),
+            search: "before".to_string(),
+            replace: "after".to_string(),
+        });
+        let tool_name = value
+            .get(QUEUE_TOOL_NAME_KEY)
+            .and_then(|v| v.as_str())
+            .expect("fs queue metadata should be present");
+        assert_eq!(tool_name, "filesystem__patch");
+    }
+
+    #[test]
+    fn non_fs_targets_do_not_embed_tool_name_metadata() {
+        let value = queued_params(AgentTool::BrowserClickElement {
+            id: "submit_button".to_string(),
+        });
+        assert!(
+            value.get(QUEUE_TOOL_NAME_KEY).is_none(),
+            "non-fs targets should not carry explicit queue metadata"
+        );
+    }
 }

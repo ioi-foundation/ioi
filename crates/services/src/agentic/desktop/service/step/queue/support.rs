@@ -241,6 +241,13 @@ fn extract_explicit_tool_name(
     target: &ActionTarget,
     raw_args: &serde_json::Value,
 ) -> Result<Option<String>, TransactionError> {
+    // Explicit queue metadata is currently only used to disambiguate FsRead/FsWrite
+    // replay inference. For all other targets, ignore it and rely on canonical target
+    // mapping so older queued payloads do not fail hard.
+    if !matches!(target, ActionTarget::FsRead | ActionTarget::FsWrite) {
+        return Ok(None);
+    }
+
     let Some(obj) = raw_args.as_object() else {
         return Ok(None);
     };
