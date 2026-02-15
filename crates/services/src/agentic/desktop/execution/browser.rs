@@ -1,6 +1,7 @@
 // Path: crates/services/src/agentic/desktop/execution/browser.rs
 
 use super::{ToolExecutionResult, ToolExecutor};
+use crate::agentic::desktop::types::ExecutionTier;
 use ioi_api::vm::drivers::gui::{AtomicInput, InputEvent};
 use ioi_api::vm::drivers::os::WindowInfo;
 use ioi_drivers::browser::{context::BrowserContentFrame, SelectorProbe};
@@ -115,6 +116,10 @@ pub(super) fn is_probable_browser_window(title: &str, app_name: &str) -> bool {
     browsers
         .iter()
         .any(|name| title_lc.contains(name) || app_lc.contains(name))
+}
+
+fn requires_browser_focus_guard(tier: Option<ExecutionTier>) -> bool {
+    !matches!(tier, Some(ExecutionTier::DomHeadless))
 }
 
 fn to_rect_from_window(window: &WindowInfo) -> Option<Rect> {
@@ -248,12 +253,14 @@ pub async fn handle(exec: &ToolExecutor, tool: AgentTool) -> ToolExecutionResult
             Err(e) => ToolExecutionResult::failure(format!("Extraction failed: {}", e)),
         },
         AgentTool::BrowserClick { selector } => {
-            if let Some(win) = exec.active_window.as_ref() {
-                if !is_probable_browser_window(&win.title, &win.app_name) {
-                    return ToolExecutionResult::failure(format!(
-                        "ERROR_CLASS=FocusMismatch Active window is '{}' ({}) but browser click requires a focused browser surface.",
-                        win.title, win.app_name
-                    ));
+            if requires_browser_focus_guard(exec.current_tier) {
+                if let Some(win) = exec.active_window.as_ref() {
+                    if !is_probable_browser_window(&win.title, &win.app_name) {
+                        return ToolExecutionResult::failure(format!(
+                            "ERROR_CLASS=FocusMismatch Active window is '{}' ({}) but browser click requires a focused browser surface.",
+                            win.title, win.app_name
+                        ));
+                    }
                 }
             }
 
@@ -432,12 +439,14 @@ pub async fn handle(exec: &ToolExecutor, tool: AgentTool) -> ToolExecutionResult
             }
         }
         AgentTool::BrowserClickElement { id } => {
-            if let Some(win) = exec.active_window.as_ref() {
-                if !is_probable_browser_window(&win.title, &win.app_name) {
-                    return ToolExecutionResult::failure(format!(
-                        "ERROR_CLASS=FocusMismatch Active window is '{}' ({}) but browser click requires a focused browser surface.",
-                        win.title, win.app_name
-                    ));
+            if requires_browser_focus_guard(exec.current_tier) {
+                if let Some(win) = exec.active_window.as_ref() {
+                    if !is_probable_browser_window(&win.title, &win.app_name) {
+                        return ToolExecutionResult::failure(format!(
+                            "ERROR_CLASS=FocusMismatch Active window is '{}' ({}) but browser click requires a focused browser surface.",
+                            win.title, win.app_name
+                        ));
+                    }
                 }
             }
 
@@ -559,6 +568,21 @@ mod tests {
             "Calculator",
             "gnome-calculator"
         ));
+    }
+
+    #[test]
+    fn browser_focus_guard_is_disabled_for_dom_headless() {
+        assert!(!requires_browser_focus_guard(Some(ExecutionTier::DomHeadless)));
+    }
+
+    #[test]
+    fn browser_focus_guard_is_enabled_for_visual_tiers() {
+        assert!(requires_browser_focus_guard(Some(
+            ExecutionTier::VisualForeground
+        )));
+        assert!(requires_browser_focus_guard(Some(
+            ExecutionTier::VisualBackground
+        )));
     }
 
     #[test]
