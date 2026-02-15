@@ -8,6 +8,8 @@ use ioi_types::app::{ActionRequest, ActionTarget, ApprovalToken};
 use ioi_types::service_configs::{ActiveServiceMeta, MethodPermission};
 use ioi_types::{codec, error::TransactionError, keys::active_service_key};
 use serde_json::Value;
+use std::ffi::OsString;
+use std::path::{Component, Path, PathBuf};
 use std::sync::Arc;
 
 // [FIX] Renamed NodeLaw to FirewallPolicy
@@ -22,6 +24,246 @@ fn is_safe_package_identifier(package: &str) -> bool {
         && package.chars().all(|c| {
             c.is_ascii_alphanumeric() || matches!(c, '.' | '_' | '-' | '+' | '@' | '/' | ':')
         })
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum FilesystemScope {
+    Read,
+    Write,
+}
+
+impl FilesystemScope {
+    fn policy_target(self) -> &'static str {
+        match self {
+            Self::Read => "fs::read",
+            Self::Write => "fs::write",
+        }
+    }
+}
+
+fn filesystem_scope_for_target(target: &ActionTarget) -> Option<FilesystemScope> {
+    match target {
+        ActionTarget::FsRead => Some(FilesystemScope::Read),
+        ActionTarget::FsWrite => Some(FilesystemScope::Write),
+        ActionTarget::Custom(name) => match name.as_str() {
+            "fs::read"
+            | "filesystem__read_file"
+            | "filesystem__list_directory"
+            | "filesystem__search" => Some(FilesystemScope::Read),
+            "fs::write"
+            | "filesystem__write_file"
+            | "filesystem__patch"
+            | "filesystem__delete_path"
+            | "filesystem__create_directory"
+            | "filesystem__move_path"
+            | "filesystem__copy_path" => Some(FilesystemScope::Write),
+            _ => None,
+        },
+        _ => None,
+    }
+}
+
+fn canonical_policy_target(target: &ActionTarget) -> String {
+    match target {
+        ActionTarget::NetFetch => "net::fetch".to_string(),
+        ActionTarget::FsWrite => "fs::write".to_string(),
+        ActionTarget::FsRead => "fs::read".to_string(),
+        ActionTarget::UiClick => "ui::click".to_string(),
+        ActionTarget::UiType => "ui::type".to_string(),
+        ActionTarget::SysExec => "sys::exec".to_string(),
+        ActionTarget::SysInstallPackage => "sys::install_package".to_string(),
+        ActionTarget::WalletSign => "wallet::sign".to_string(),
+        ActionTarget::WalletSend => "wallet::send".to_string(),
+        ActionTarget::GuiMouseMove => "gui::mouse_move".to_string(),
+        ActionTarget::GuiClick => "gui::click".to_string(),
+        ActionTarget::GuiType => "gui::type".to_string(),
+        ActionTarget::GuiScreenshot => "gui::screenshot".to_string(),
+        ActionTarget::GuiScroll => "gui::scroll".to_string(),
+        ActionTarget::GuiSequence => "gui::sequence".to_string(),
+        ActionTarget::BrowserNavigateHermetic => "browser::navigate::hermetic".to_string(),
+        ActionTarget::BrowserExtract => "browser::extract".to_string(),
+        ActionTarget::CommerceDiscovery => "ucp::discovery".to_string(),
+        ActionTarget::CommerceCheckout => "ucp::checkout".to_string(),
+        ActionTarget::WindowFocus => "os::focus".to_string(),
+        ActionTarget::ClipboardRead => "clipboard::read".to_string(),
+        ActionTarget::ClipboardWrite => "clipboard::write".to_string(),
+        ActionTarget::Custom(name) => name.clone(),
+    }
+}
+
+fn policy_target_aliases(target: &ActionTarget) -> Vec<String> {
+    let mut aliases = vec![canonical_policy_target(target)];
+    if let Some(scope) = filesystem_scope_for_target(target) {
+        let scope_target = scope.policy_target();
+        if !aliases.iter().any(|alias| alias == scope_target) {
+            aliases.push(scope_target.to_string());
+        }
+    }
+    aliases
+}
+
+fn required_filesystem_path_keys(target: &ActionTarget) -> Option<&'static [&'static str]> {
+    match target {
+        ActionTarget::FsRead | ActionTarget::FsWrite => Some(&["path"]),
+        ActionTarget::Custom(name) => match name.as_str() {
+            "fs::read"
+            | "filesystem__read_file"
+            | "filesystem__list_directory"
+            | "filesystem__search"
+            | "fs::write"
+            | "filesystem__write_file"
+            | "filesystem__patch"
+            | "filesystem__delete_path"
+            | "filesystem__create_directory" => Some(&["path"]),
+            "filesystem__move_path" | "filesystem__copy_path" => {
+                Some(&["source_path", "destination_path"])
+            }
+            _ => None,
+        },
+        _ => None,
+    }
+}
+
+fn extract_required_paths(params: &Value, keys: &[&str]) -> Option<Vec<String>> {
+    let mut paths = Vec::with_capacity(keys.len());
+    for key in keys {
+        let path = params.get(*key)?.as_str()?.trim();
+        if path.is_empty() {
+            return None;
+        }
+        paths.push(path.to_string());
+    }
+    Some(paths)
+}
+
+fn normalize_policy_path(path: &str) -> Option<PathBuf> {
+    let trimmed = path.trim();
+    if trimmed.is_empty() {
+        return None;
+    }
+
+    let mut prefix: Option<OsString> = None;
+    let mut has_root = false;
+    let mut segments: Vec<OsString> = Vec::new();
+
+    for component in Path::new(trimmed).components() {
+        match component {
+            Component::Prefix(value) => {
+                if prefix.replace(value.as_os_str().to_os_string()).is_some() {
+                    return None;
+                }
+            }
+            Component::RootDir => has_root = true,
+            Component::CurDir => {}
+            Component::Normal(segment) => segments.push(segment.to_os_string()),
+            Component::ParentDir => {
+                if segments.pop().is_none() {
+                    return None;
+                }
+            }
+        }
+    }
+
+    let mut normalized = PathBuf::new();
+    if let Some(value) = prefix {
+        normalized.push(value);
+    }
+    if has_root {
+        normalized.push(std::path::MAIN_SEPARATOR.to_string());
+    }
+    for segment in segments {
+        normalized.push(segment);
+    }
+
+    if normalized.as_os_str().is_empty() {
+        if has_root {
+            normalized.push(std::path::MAIN_SEPARATOR.to_string());
+        } else {
+            normalized.push(".");
+        }
+    }
+
+    Some(normalized)
+}
+
+fn validate_allow_paths_condition(
+    allowed_paths: &[String],
+    target: &ActionTarget,
+    params: &[u8],
+) -> bool {
+    let Some(required_keys) = required_filesystem_path_keys(target) else {
+        return true;
+    };
+
+    let parsed = match serde_json::from_slice::<Value>(params) {
+        Ok(json) => json,
+        Err(e) => {
+            tracing::warn!(
+                "Policy Blocking FS Access: Failed to decode params for {:?}: {}",
+                target,
+                e
+            );
+            return false;
+        }
+    };
+
+    let requested_paths = match extract_required_paths(&parsed, required_keys) {
+        Some(paths) => paths,
+        None => {
+            tracing::warn!(
+                "Policy Blocking FS Access: Missing required path fields {:?} for {:?}.",
+                required_keys,
+                target
+            );
+            return false;
+        }
+    };
+
+    let normalized_allowed_paths = match allowed_paths
+        .iter()
+        .map(|allowed| normalize_policy_path(allowed))
+        .collect::<Option<Vec<_>>>()
+    {
+        Some(paths) => paths,
+        None => {
+            tracing::warn!(
+                "Policy Blocking FS Access: allow_paths contains invalid root(s): {:?}",
+                allowed_paths
+            );
+            return false;
+        }
+    };
+
+    let denied_paths: Vec<String> = requested_paths
+        .into_iter()
+        .filter_map(|path| {
+            let normalized_path = match normalize_policy_path(&path) {
+                Some(value) => value,
+                None => return Some(format!("{path} (invalid path traversal)")),
+            };
+
+            let allowed = normalized_allowed_paths
+                .iter()
+                .any(|allowed| normalized_path.starts_with(allowed));
+
+            if allowed {
+                None
+            } else {
+                Some(format!("{} (normalized: {})", path, normalized_path.display()))
+            }
+        })
+        .collect();
+
+    if !denied_paths.is_empty() {
+        tracing::warn!(
+            "Policy Blocking FS Access: Requested path(s) {:?} outside allowed roots {:?}",
+            denied_paths,
+            normalized_allowed_paths
+        );
+        return false;
+    }
+
+    true
 }
 
 impl PolicyEngine {
@@ -52,46 +294,12 @@ impl PolicyEngine {
             }
         }
 
-        let target_str = match &request.target {
-            ActionTarget::NetFetch => "net::fetch",
-            ActionTarget::FsWrite => "fs::write",
-            ActionTarget::FsRead => "fs::read",
-            ActionTarget::UiClick => "ui::click",
-            ActionTarget::UiType => "ui::type",
-            ActionTarget::SysExec => "sys::exec",
-            ActionTarget::SysInstallPackage => "sys::install_package",
-            ActionTarget::WalletSign => "wallet::sign",
-            ActionTarget::WalletSend => "wallet::send",
-
-            // Phase 1/3 Additions
-            ActionTarget::GuiMouseMove => "gui::mouse_move",
-            ActionTarget::GuiClick => "gui::click",
-            ActionTarget::GuiType => "gui::type",
-            ActionTarget::GuiScreenshot => "gui::screenshot",
-            ActionTarget::GuiScroll => "gui::scroll",
-
-            ActionTarget::GuiSequence => "gui::sequence",
-
-            // Hermetic browser navigation
-            ActionTarget::BrowserNavigateHermetic => "browser::navigate::hermetic",
-            ActionTarget::BrowserExtract => "browser::extract",
-
-            // UCP Support
-            ActionTarget::CommerceDiscovery => "ucp::discovery",
-            ActionTarget::CommerceCheckout => "ucp::checkout",
-
-            // --- OS Control Primitives ---
-            ActionTarget::WindowFocus => "os::focus",
-            ActionTarget::ClipboardRead => "clipboard::read",
-            ActionTarget::ClipboardWrite => "clipboard::write",
-
-            ActionTarget::Custom(s) => s.as_str(),
-        };
+        let target_aliases = policy_target_aliases(&request.target);
 
         // 2. Specific Rules: Linear scan (specific overrides general)
         // First matching rule wins.
         for rule in &rules.rules {
-            if rule.target == target_str || rule.target == "*" {
+            if rule.target == "*" || target_aliases.iter().any(|target| rule.target == *target) {
                 if Self::check_conditions(
                     rule,
                     &request.target,
@@ -220,23 +428,8 @@ impl PolicyEngine {
 
         // Filesystem Path Check
         if let Some(allowed_paths) = &conditions.allow_paths {
-            if let ActionTarget::FsWrite | ActionTarget::FsRead = target {
-                if let Ok(json) = serde_json::from_slice::<Value>(params) {
-                    if let Some(path) = json.get("path").and_then(|p| p.as_str()) {
-                        // Check if the requested path starts with any allowed path prefix
-                        let is_allowed = allowed_paths
-                            .iter()
-                            .any(|allowed| path.starts_with(allowed));
-
-                        if !is_allowed {
-                            tracing::warn!(
-                                 "Policy Blocking FS Access: Requested '{}' does not start with any allowed path: {:?}", 
-                                 path, allowed_paths
-                             );
-                            return false;
-                        }
-                    }
-                }
+            if !validate_allow_paths_condition(allowed_paths, target, params) {
+                return false;
             }
         }
 
@@ -540,5 +733,102 @@ impl PolicyEngine {
             require_human_gate: gate,
             privacy_level: None,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{
+        policy_target_aliases, required_filesystem_path_keys, validate_allow_paths_condition,
+    };
+    use ioi_types::app::ActionTarget;
+
+    #[test]
+    fn custom_copy_target_keeps_exact_name_and_fs_write_alias() {
+        let aliases = policy_target_aliases(&ActionTarget::Custom("filesystem__copy_path".into()));
+        assert_eq!(aliases[0], "filesystem__copy_path");
+        assert!(aliases.iter().any(|alias| alias == "fs::write"));
+    }
+
+    #[test]
+    fn copy_and_move_require_source_and_destination_paths() {
+        let keys = required_filesystem_path_keys(&ActionTarget::Custom(
+            "filesystem__move_path".to_string(),
+        ))
+        .expect("move path should require deterministic path keys");
+        assert_eq!(keys, ["source_path", "destination_path"]);
+    }
+
+    #[test]
+    fn allow_paths_blocks_copy_when_destination_outside_allowed_roots() {
+        let allowed = vec!["/workspace".to_string()];
+        let params = serde_json::json!({
+            "source_path": "/workspace/src.txt",
+            "destination_path": "/tmp/out.txt"
+        });
+        let params = serde_json::to_vec(&params).expect("params should serialize");
+
+        let allowed_by_policy = validate_allow_paths_condition(
+            &allowed,
+            &ActionTarget::Custom("filesystem__copy_path".into()),
+            &params,
+        );
+        assert!(!allowed_by_policy);
+    }
+
+    #[test]
+    fn allow_paths_accepts_copy_when_all_paths_are_within_allowed_roots() {
+        let allowed = vec!["/workspace".to_string()];
+        let params = serde_json::json!({
+            "source_path": "/workspace/src.txt",
+            "destination_path": "/workspace/out/dst.txt"
+        });
+        let params = serde_json::to_vec(&params).expect("params should serialize");
+
+        let allowed_by_policy = validate_allow_paths_condition(
+            &allowed,
+            &ActionTarget::Custom("filesystem__copy_path".into()),
+            &params,
+        );
+        assert!(allowed_by_policy);
+    }
+
+    #[test]
+    fn allow_paths_blocks_prefix_collision_path() {
+        let allowed = vec!["/workspace".to_string()];
+        let params = serde_json::json!({
+            "path": "/workspace2/private.txt"
+        });
+        let params = serde_json::to_vec(&params).expect("params should serialize");
+
+        let allowed_by_policy =
+            validate_allow_paths_condition(&allowed, &ActionTarget::FsRead, &params);
+        assert!(!allowed_by_policy);
+    }
+
+    #[test]
+    fn allow_paths_blocks_parent_traversal_segments() {
+        let allowed = vec!["/workspace".to_string()];
+        let params = serde_json::json!({
+            "path": "/workspace/../../etc/passwd"
+        });
+        let params = serde_json::to_vec(&params).expect("params should serialize");
+
+        let allowed_by_policy =
+            validate_allow_paths_condition(&allowed, &ActionTarget::FsRead, &params);
+        assert!(!allowed_by_policy);
+    }
+
+    #[test]
+    fn allow_paths_accepts_normalized_path_within_allowed_root() {
+        let allowed = vec!["/workspace".to_string()];
+        let params = serde_json::json!({
+            "path": "/workspace/subdir/../notes.txt"
+        });
+        let params = serde_json::to_vec(&params).expect("params should serialize");
+
+        let allowed_by_policy =
+            validate_allow_paths_condition(&allowed, &ActionTarget::FsRead, &params);
+        assert!(allowed_by_policy);
     }
 }
