@@ -184,12 +184,49 @@ fn is_excluded_dir(entry: &DirEntry) -> bool {
             .any(|name| entry.file_name().to_string_lossy() == *name)
 }
 
+fn resolve_home_directory() -> Result<PathBuf, String> {
+    if let Some(home) = env::var_os("HOME") {
+        if !home.is_empty() {
+            return Ok(PathBuf::from(home));
+        }
+    }
+
+    if let Some(user_profile) = env::var_os("USERPROFILE") {
+        if !user_profile.is_empty() {
+            return Ok(PathBuf::from(user_profile));
+        }
+    }
+
+    if let (Some(home_drive), Some(home_path)) = (env::var_os("HOMEDRIVE"), env::var_os("HOMEPATH"))
+    {
+        if !home_drive.is_empty() && !home_path.is_empty() {
+            let mut combined = PathBuf::from(home_drive);
+            combined.push(home_path);
+            return Ok(combined);
+        }
+    }
+
+    Err("Home directory is not configured (HOME/USERPROFILE).".to_string())
+}
+
+fn expand_tilde_path(path: &str) -> Result<PathBuf, String> {
+    if path == "~" {
+        return resolve_home_directory();
+    }
+
+    if let Some(remainder) = path.strip_prefix("~/").or_else(|| path.strip_prefix("~\\")) {
+        return Ok(resolve_home_directory()?.join(remainder));
+    }
+
+    Ok(PathBuf::from(path))
+}
+
 fn resolve_working_directory(cwd: Option<&str>) -> Result<PathBuf, String> {
     let normalized = cwd.unwrap_or(".").trim();
     let candidate = if normalized.is_empty() {
         PathBuf::from(".")
     } else {
-        PathBuf::from(normalized)
+        expand_tilde_path(normalized)?
     };
 
     let absolute = if candidate.is_absolute() {
@@ -223,7 +260,7 @@ fn resolve_tool_path(path: &str, cwd: Option<&str>) -> Result<PathBuf, String> {
         return Err("Path cannot be empty.".to_string());
     }
 
-    let requested = PathBuf::from(trimmed);
+    let requested = expand_tilde_path(trimmed)?;
     if requested.is_absolute() {
         Ok(requested)
     } else {
@@ -650,7 +687,7 @@ mod tests {
     use super::{
         apply_patch, copy_path_deterministic, create_directory_deterministic,
         delete_path_deterministic, fuzzy_find_indices, list_directory_entries,
-        move_path_deterministic, resolve_tool_path, search_files,
+        move_path_deterministic, resolve_home_directory, resolve_tool_path, search_files,
     };
     use std::fs;
     use std::path::PathBuf;
@@ -707,6 +744,22 @@ mod tests {
         let resolved =
             resolve_tool_path(&absolute_str, Some(".")).expect("absolute path should pass");
         assert_eq!(resolved, absolute);
+    }
+
+    #[test]
+    fn resolve_tool_path_expands_tilde_prefix() {
+        let home = resolve_home_directory().expect("home directory should resolve");
+        let resolved =
+            resolve_tool_path("~/projects/ioi.txt", Some(".")).expect("path should resolve");
+        assert_eq!(resolved, home.join("projects/ioi.txt"));
+    }
+
+    #[test]
+    fn resolve_tool_path_expands_tilde_working_directory() {
+        let home = resolve_home_directory().expect("home directory should resolve");
+        let resolved = resolve_tool_path("workspace/file.txt", Some("~"))
+            .expect("path should resolve against home");
+        assert_eq!(resolved, home.join("workspace/file.txt"));
     }
 
     #[test]
