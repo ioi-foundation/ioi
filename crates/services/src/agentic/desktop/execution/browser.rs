@@ -93,13 +93,25 @@ fn render_browser_tree_xml(tree: &AccessibilityNode) -> String {
     lens.render(tree, 0)
 }
 
-fn find_cdp_id_by_semantic_id(node: &AccessibilityNode, target_id: &str) -> Option<String> {
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+struct BrowserSemanticTarget {
+    cdp_node_id: Option<String>,
+    backend_dom_node_id: Option<String>,
+}
+
+fn find_semantic_target_by_id(
+    node: &AccessibilityNode,
+    target_id: &str,
+) -> Option<BrowserSemanticTarget> {
     if node.id == target_id {
-        return node.attributes.get("cdp_node_id").cloned();
+        return Some(BrowserSemanticTarget {
+            cdp_node_id: node.attributes.get("cdp_node_id").cloned(),
+            backend_dom_node_id: node.attributes.get("backend_dom_node_id").cloned(),
+        });
     }
 
     for child in &node.children {
-        if let Some(found) = find_cdp_id_by_semantic_id(child, target_id) {
+        if let Some(found) = find_semantic_target_by_id(child, target_id) {
             return Some(found);
         }
     }
@@ -461,8 +473,8 @@ pub async fn handle(exec: &ToolExecutor, tool: AgentTool) -> ToolExecutionResult
             };
 
             let transformed = apply_browser_auto_lens(raw_tree);
-            let cdp_node_id = match find_cdp_id_by_semantic_id(&transformed, &id) {
-                Some(cdp_id) => cdp_id,
+            let semantic_target = match find_semantic_target_by_id(&transformed, &id) {
+                Some(target) => target,
                 None => {
                     return ToolExecutionResult::failure(format!(
                         "ERROR_CLASS=TargetNotFound Element '{}' not found in current browser view. Run `browser__extract` again and retry with a fresh ID.",
@@ -471,13 +483,40 @@ pub async fn handle(exec: &ToolExecutor, tool: AgentTool) -> ToolExecutionResult
                 }
             };
 
-            match exec.browser.click_ax_node(&cdp_node_id).await {
-                Ok(()) => ToolExecutionResult::success(format!("Clicked element '{}'", id)),
-                Err(e) => ToolExecutionResult::failure(format!(
-                    "ERROR_CLASS=NoEffectAfterAction Failed to click element '{}': {}",
-                    id, e
-                )),
+            if semantic_target.backend_dom_node_id.is_none()
+                && semantic_target.cdp_node_id.is_none()
+            {
+                return ToolExecutionResult::failure(format!(
+                    "ERROR_CLASS=TargetNotFound Element '{}' is present but does not expose actionable browser node identifiers.",
+                    id
+                ));
             }
+
+            let mut click_errors: Vec<String> = Vec::new();
+
+            if let Some(backend_id) = semantic_target.backend_dom_node_id.as_deref() {
+                match exec.browser.click_backend_dom_node(backend_id).await {
+                    Ok(()) => {
+                        return ToolExecutionResult::success(format!("Clicked element '{}'", id))
+                    }
+                    Err(e) => click_errors.push(format!("backend_dom_node_id={}", e)),
+                }
+            }
+
+            if let Some(cdp_id) = semantic_target.cdp_node_id.as_deref() {
+                match exec.browser.click_ax_node(cdp_id).await {
+                    Ok(()) => {
+                        return ToolExecutionResult::success(format!("Clicked element '{}'", id))
+                    }
+                    Err(e) => click_errors.push(format!("cdp_node_id={}", e)),
+                }
+            }
+
+            ToolExecutionResult::failure(format!(
+                "ERROR_CLASS=NoEffectAfterAction Failed to click element '{}': {}",
+                id,
+                click_errors.join("; ")
+            ))
         }
         AgentTool::BrowserSyntheticClick { x, y } => {
             match exec.browser.synthetic_click(x as f64, y as f64).await {
@@ -572,7 +611,9 @@ mod tests {
 
     #[test]
     fn browser_focus_guard_is_disabled_for_dom_headless() {
-        assert!(!requires_browser_focus_guard(Some(ExecutionTier::DomHeadless)));
+        assert!(!requires_browser_focus_guard(Some(
+            ExecutionTier::DomHeadless
+        )));
     }
 
     #[test]
@@ -628,7 +669,7 @@ mod tests {
     }
 
     #[test]
-    fn semantic_id_lookup_returns_cdp_node_id() {
+    fn semantic_target_lookup_returns_backend_and_cdp_ids() {
         let node = AccessibilityNode {
             id: "root".to_string(),
             role: "root".to_string(),
@@ -653,7 +694,10 @@ mod tests {
                 },
                 children: vec![],
                 is_visible: true,
-                attributes: HashMap::from([("cdp_node_id".to_string(), "ax-node-42".to_string())]),
+                attributes: HashMap::from([
+                    ("cdp_node_id".to_string(), "ax-node-42".to_string()),
+                    ("backend_dom_node_id".to_string(), "73".to_string()),
+                ]),
                 som_id: None,
             }],
             is_visible: true,
@@ -661,12 +705,14 @@ mod tests {
             som_id: None,
         };
 
-        let cdp_id = find_cdp_id_by_semantic_id(&node, "btn_submit");
-        assert_eq!(cdp_id.as_deref(), Some("ax-node-42"));
+        let target = find_semantic_target_by_id(&node, "btn_submit")
+            .expect("semantic target should resolve");
+        assert_eq!(target.cdp_node_id.as_deref(), Some("ax-node-42"));
+        assert_eq!(target.backend_dom_node_id.as_deref(), Some("73"));
     }
 
     #[test]
-    fn semantic_id_lookup_returns_none_for_missing_id() {
+    fn semantic_target_lookup_returns_none_for_missing_id() {
         let node = AccessibilityNode {
             id: "root".to_string(),
             role: "root".to_string(),
@@ -684,6 +730,6 @@ mod tests {
             som_id: None,
         };
 
-        assert!(find_cdp_id_by_semantic_id(&node, "btn_missing").is_none());
+        assert!(find_semantic_target_by_id(&node, "btn_missing").is_none());
     }
 }

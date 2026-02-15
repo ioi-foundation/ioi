@@ -248,11 +248,27 @@ impl BrowserDriver {
                 Err(e) => Err(format!("Element not found: {}", e)),
             };
             if let Err(primary_error) = primary_click_result {
-                self.click_selector_deep(selector).await.map_err(|fallback_error| {
-                    BrowserError::Internal(format!(
-                        "Primary click failed ({primary_error}); deep selector fallback failed: {fallback_error}"
-                    ))
-                })?;
+                if let Err(deep_error) = self.click_selector_deep(selector).await {
+                    // Tier-2 fallback: resolve element geometry across open shadow roots/iframes,
+                    // then issue a real pointer-style click via CDP coordinates.
+                    match self.get_selector_rect_window_logical(selector).await {
+                        Ok(rect) => {
+                            let center = rect.center();
+                            if let Err(geometry_error) =
+                                self.synthetic_click(center.x, center.y).await
+                            {
+                                return Err(BrowserError::Internal(format!(
+                                    "Primary click failed ({primary_error}); deep selector fallback failed: {deep_error}; geometry click fallback failed: {geometry_error}"
+                                )));
+                            }
+                        }
+                        Err(geometry_error) => {
+                            return Err(BrowserError::Internal(format!(
+                                "Primary click failed ({primary_error}); deep selector fallback failed: {deep_error}; geometry resolution failed: {geometry_error}"
+                            )));
+                        }
+                    }
+                }
             }
 
             tokio::time::sleep(Duration::from_millis(100)).await;
