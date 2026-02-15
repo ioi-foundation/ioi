@@ -575,6 +575,7 @@ mod tests {
         let non_install = AgentTool::SysExec {
             command: "echo".to_string(),
             args: vec!["ok".to_string()],
+            stdin: None,
             detach: false,
         };
         assert!(!is_runtime_secret_install_retry_approved(

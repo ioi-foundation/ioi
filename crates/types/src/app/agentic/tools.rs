@@ -260,6 +260,9 @@ pub enum AgentTool {
         /// Arguments for the command.
         #[serde(default)]
         args: Vec<String>,
+        /// Optional stdin payload forwarded to the process.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        stdin: Option<String>,
         /// Whether to detach the process.
         #[serde(default)]
         detach: bool,

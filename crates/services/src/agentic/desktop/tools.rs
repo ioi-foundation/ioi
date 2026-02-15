@@ -436,6 +436,10 @@ pub async fn discover_tools(
                 "items": { "type": "string" },
                 "description": "Arguments for the command"
             },
+            "stdin": {
+                "type": "string",
+                "description": "Optional stdin payload sent to the process before waiting for output."
+            },
             "detach": {
                 "type": "boolean",
                 "description": "Set to true if launching a GUI application."
