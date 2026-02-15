@@ -57,8 +57,14 @@ pub async fn handle(
                 .execute_in_dir_with_options(&command, &args, detach, Some(&resolved_cwd), options)
                 .await
             {
-                Ok(out) => ToolExecutionResult::success(out),
-                Err(e) => ToolExecutionResult::failure(e.to_string()),
+                Ok(out) => {
+                    if command_output_indicates_failure(&out) {
+                        sys_exec_failure_result(&command, &out)
+                    } else {
+                        ToolExecutionResult::success(out)
+                    }
+                }
+                Err(e) => sys_exec_failure_result(&command, &e.to_string()),
             }
         }
 
@@ -666,6 +672,74 @@ fn command_output_indicates_failure(output: &str) -> bool {
         .starts_with("command failed:")
 }
 
+fn classify_sys_exec_failure(error: &str, command: &str) -> &'static str {
+    let msg = error.to_ascii_lowercase();
+    let command_lc = command.to_ascii_lowercase();
+
+    if msg.contains("timed out") || msg.contains("timeout") {
+        return "TimeoutOrHang";
+    }
+
+    if msg.contains("permission denied")
+        || msg.contains("a password is required")
+        || msg.contains("not in the sudoers")
+        || msg.contains("requires elevated privileges")
+        || msg.contains("operation not permitted")
+        || msg.contains("error_class=permissionorapprovalrequired")
+        || (command_lc == "sudo" && msg.contains("sudo:"))
+    {
+        return "PermissionOrApprovalRequired";
+    }
+
+    if msg.contains("failed to spawn")
+        || msg.contains("no such file")
+        || msg.contains("command not found")
+        || msg.contains("not found")
+    {
+        if msg.contains(&command_lc) || msg.contains("executable") {
+            return "ToolUnavailable";
+        }
+    }
+
+    "UnexpectedState"
+}
+
+fn summarize_sys_exec_failure_output(output: &str) -> String {
+    let trimmed = output.trim();
+    if trimmed.is_empty() {
+        return "unknown error".to_string();
+    }
+    let stderr_or_full = trimmed
+        .split_once("Stderr:")
+        .map(|(_, stderr)| stderr.trim())
+        .unwrap_or(trimmed);
+    let compact = stderr_or_full
+        .split_whitespace()
+        .collect::<Vec<_>>()
+        .join(" ");
+    if compact.is_empty() {
+        return "unknown error".to_string();
+    }
+    let max_chars = 480;
+    let compact_chars = compact.chars().count();
+    if compact_chars > max_chars {
+        let truncated = compact.chars().take(max_chars).collect::<String>();
+        format!("{}...", truncated)
+    } else {
+        compact
+    }
+}
+
+fn sys_exec_failure_result(command: &str, error: &str) -> ToolExecutionResult {
+    let class = classify_sys_exec_failure(error, command);
+    ToolExecutionResult::failure(format!(
+        "ERROR_CLASS={} sys__exec '{}' failed: {}",
+        class,
+        command,
+        summarize_sys_exec_failure_output(error)
+    ))
+}
+
 fn summarize_command_output(output: &str) -> String {
     output
         .lines()
@@ -721,9 +795,10 @@ fn launch_errors_indicate_missing_app(errors: &[String]) -> bool {
 #[cfg(test)]
 mod tests {
     use super::{
-        build_linux_launch_plan, classify_install_failure, command_output_indicates_failure,
-        launch_attempt_failed, launch_errors_indicate_missing_app, resolve_home_directory,
-        resolve_target_directory, resolve_working_directory, LaunchAttempt,
+        build_linux_launch_plan, classify_install_failure, classify_sys_exec_failure,
+        command_output_indicates_failure, launch_attempt_failed, launch_errors_indicate_missing_app,
+        resolve_home_directory, resolve_target_directory, resolve_working_directory,
+        summarize_sys_exec_failure_output, sys_exec_failure_result, LaunchAttempt,
     };
 
     #[test]
@@ -812,6 +887,39 @@ mod tests {
             classify_install_failure(password, "sudo", "apt-get"),
             "PermissionOrApprovalRequired"
         );
+    }
+
+    #[test]
+    fn classify_sys_exec_not_found_as_tool_unavailable() {
+        let err = "Command failed: exit status: 127\nStderr: bash: fooctl: command not found";
+        assert_eq!(
+            classify_sys_exec_failure(err, "fooctl"),
+            "ToolUnavailable"
+        );
+    }
+
+    #[test]
+    fn classify_sys_exec_timeout_as_timeout_or_hang() {
+        let err = "Command timed out after 5 seconds.";
+        assert_eq!(classify_sys_exec_failure(err, "sleep"), "TimeoutOrHang");
+    }
+
+    #[test]
+    fn summarize_sys_exec_failure_prefers_stderr_payload() {
+        let err = "Command failed: exit status: 1\nStderr: permission denied";
+        assert_eq!(summarize_sys_exec_failure_output(err), "permission denied");
+    }
+
+    #[test]
+    fn sys_exec_failure_result_emits_error_class_prefix() {
+        let result = sys_exec_failure_result(
+            "fooctl",
+            "Command failed: exit status: 127\nStderr: fooctl: command not found",
+        );
+        assert!(!result.success);
+        assert!(result.history_entry.is_none());
+        let err = result.error.expect("error payload must exist");
+        assert!(err.starts_with("ERROR_CLASS=ToolUnavailable"));
     }
 
     #[test]
