@@ -227,20 +227,37 @@ fn infer_custom_tool_name(name: &str, args: &serde_json::Value) -> String {
     }
 }
 
-fn is_explicit_tool_name_allowed_for_target(target: &ActionTarget, tool_name: &str) -> bool {
+#[derive(Clone, Copy)]
+enum QueueFsScope {
+    Read,
+    Write,
+}
+
+fn explicit_queue_fs_scope(target: &ActionTarget) -> Option<QueueFsScope> {
     match target {
-        ActionTarget::FsRead => matches!(
+        ActionTarget::FsRead => Some(QueueFsScope::Read),
+        ActionTarget::FsWrite => Some(QueueFsScope::Write),
+        ActionTarget::Custom(name) if name == "fs::read" => Some(QueueFsScope::Read),
+        ActionTarget::Custom(name) if name == "fs::write" => Some(QueueFsScope::Write),
+        _ => None,
+    }
+}
+
+fn is_explicit_tool_name_allowed_for_scope(scope: QueueFsScope, tool_name: &str) -> bool {
+    match scope {
+        QueueFsScope::Read => matches!(
             tool_name,
             "filesystem__read_file" | "filesystem__list_directory" | "filesystem__search"
         ),
-        ActionTarget::FsWrite => matches!(
+        QueueFsScope::Write => matches!(
             tool_name,
             "filesystem__write_file"
                 | "filesystem__patch"
                 | "filesystem__delete_path"
                 | "filesystem__create_directory"
+                | "filesystem__copy_path"
+                | "filesystem__move_path"
         ),
-        _ => false,
     }
 }
 
@@ -248,12 +265,11 @@ fn extract_explicit_tool_name(
     target: &ActionTarget,
     raw_args: &serde_json::Value,
 ) -> Result<Option<String>, TransactionError> {
-    // Explicit queue metadata is currently only used to disambiguate FsRead/FsWrite
-    // replay inference. For all other targets, ignore it and rely on canonical target
-    // mapping so older queued payloads do not fail hard.
-    if !matches!(target, ActionTarget::FsRead | ActionTarget::FsWrite) {
+    // Explicit queue metadata is only used to disambiguate fs::read/fs::write replay
+    // inference (including legacy ActionTarget::Custom aliases).
+    let Some(fs_scope) = explicit_queue_fs_scope(target) else {
         return Ok(None);
-    }
+    };
 
     let Some(obj) = raw_args.as_object() else {
         return Ok(None);
@@ -277,7 +293,7 @@ fn extract_explicit_tool_name(
         )));
     }
 
-    if !is_explicit_tool_name_allowed_for_target(target, tool_name) {
+    if !is_explicit_tool_name_allowed_for_scope(fs_scope, tool_name) {
         return Err(TransactionError::Invalid(format!(
             "Queued {} '{}' is incompatible with target {:?}.",
             QUEUE_TOOL_NAME_KEY, tool_name, target
