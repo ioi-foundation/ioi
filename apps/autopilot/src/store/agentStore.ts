@@ -34,6 +34,10 @@ export interface ClarificationOption {
 export interface ClarificationRequest {
   kind: string;
   question: string;
+  tool_name?: string;
+  failure_class?: string;
+  evidence_snippet?: string;
+  context_hint?: string;
   options: ClarificationOption[];
   allow_other?: boolean;
 }

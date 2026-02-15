@@ -11,6 +11,8 @@ use crate::orchestrator;
 use ioi_ipc::public::chain_event::Event as ChainEventEnum;
 use ioi_ipc::public::public_api_client::PublicApiClient;
 use ioi_ipc::public::SubscribeEventsRequest;
+use ioi_types::app::agentic::InferenceOptions;
+use serde::Deserialize;
 use serde_json::{json, Value};
 use std::sync::Mutex;
 use tauri::{Emitter, Manager};
@@ -19,6 +21,12 @@ use uuid::Uuid;
 fn now_iso() -> String {
     chrono::Utc::now().to_rfc3339()
 }
+
+const CLARIFICATION_WAIT_STEP: &str = "Waiting for clarification on target identity.";
+const LEGACY_CLARIFICATION_WAIT_STEP: &str = "Waiting for user clarification on app/package name.";
+const LEGACY_INSTALL_CLARIFICATION_STEP: &str = "Waiting for install clarification";
+const WAIT_FOR_CLARIFICATION_PROMPT: &str =
+    "System: WAIT_FOR_CLARIFICATION. Target identity could not be resolved. Provide clarification input to continue.";
 
 fn thread_id_from_session(app: &tauri::AppHandle, session_id: &str) -> String {
     if !session_id.is_empty() {
@@ -91,12 +99,15 @@ fn event_type_for_tool(tool_name: &str) -> EventType {
     }
 }
 
-fn is_sudo_password_required_install(tool_name: &str, output: &str) -> bool {
+fn is_install_package_tool(tool_name: &str) -> bool {
     let tool = tool_name.to_ascii_lowercase();
-    if tool != "sys__install_package"
-        && tool != "sys::install_package"
-        && !tool.ends_with("install_package")
-    {
+    tool == "sys__install_package"
+        || tool == "sys::install_package"
+        || tool.ends_with("install_package")
+}
+
+fn is_sudo_password_required_install(tool_name: &str, output: &str) -> bool {
+    if !is_install_package_tool(tool_name) {
         return false;
     }
     let text = output.to_ascii_lowercase();
@@ -116,11 +127,7 @@ fn is_sudo_password_required_install(tool_name: &str, output: &str) -> bool {
 }
 
 fn is_install_package_lookup_failure(tool_name: &str, output: &str) -> bool {
-    let tool = tool_name.to_ascii_lowercase();
-    if tool != "sys__install_package"
-        && tool != "sys::install_package"
-        && !tool.ends_with("install_package")
-    {
+    if !is_install_package_tool(tool_name) {
         return false;
     }
     let text = output.to_ascii_lowercase();
@@ -148,9 +155,44 @@ fn is_launch_app_lookup_failure(tool_name: &str, output: &str) -> bool {
     marker_launch_miss || detailed_launch_miss
 }
 
-fn is_clarification_required_failure(tool_name: &str, output: &str) -> bool {
-    is_install_package_lookup_failure(tool_name, output)
-        || is_launch_app_lookup_failure(tool_name, output)
+#[derive(Clone, Copy)]
+enum ClarificationPreset {
+    IdentityLookup,
+    InstallLookup,
+    LaunchLookup,
+}
+
+fn clarification_preset_for_tool(tool_name: &str) -> Option<ClarificationPreset> {
+    if is_install_package_tool(tool_name) {
+        return Some(ClarificationPreset::InstallLookup);
+    }
+    let tool = tool_name.to_ascii_lowercase();
+    if tool == "os__launch_app" || tool == "os::launch_app" || tool.ends_with("launch_app") {
+        return Some(ClarificationPreset::LaunchLookup);
+    }
+    None
+}
+
+fn detect_clarification_preset(tool_name: &str, output: &str) -> Option<ClarificationPreset> {
+    if is_install_package_lookup_failure(tool_name, output) {
+        return Some(ClarificationPreset::InstallLookup);
+    }
+    if is_launch_app_lookup_failure(tool_name, output) {
+        return Some(ClarificationPreset::LaunchLookup);
+    }
+    None
+}
+
+fn is_identity_resolution_kind(kind: &str) -> bool {
+    kind.eq_ignore_ascii_case("identity_resolution")
+        || kind.eq_ignore_ascii_case("tool_lookup")
+        || kind.eq_ignore_ascii_case("install_package_lookup")
+}
+
+fn is_waiting_for_identity_clarification_step(step: &str) -> bool {
+    step.eq_ignore_ascii_case(CLARIFICATION_WAIT_STEP)
+        || step.eq_ignore_ascii_case(LEGACY_CLARIFICATION_WAIT_STEP)
+        || step.eq_ignore_ascii_case(LEGACY_INSTALL_CLARIFICATION_STEP)
 }
 
 fn extract_missing_package_hint(output: &str) -> Option<String> {
@@ -169,49 +211,298 @@ fn extract_missing_package_hint(output: &str) -> Option<String> {
     }
 }
 
-fn build_install_package_clarification_request(output: &str) -> ClarificationRequest {
-    let package_hint = extract_missing_package_hint(output);
-    let question = if let Some(pkg) = package_hint {
-        format!(
-            "I could not resolve app/package '{}'. Which clarification strategy should I use?",
-            pkg
-        )
+fn extract_launch_target_hint(output: &str) -> Option<String> {
+    let lower = output.to_ascii_lowercase();
+    let marker = "failed to launch ";
+    let idx = lower.find(marker)?;
+    let token_start = idx + marker.len();
+    let remainder = output.get(token_start..)?.trim();
+    let raw = remainder
+        .split('|')
+        .next()
+        .unwrap_or(remainder)
+        .split(':')
+        .next()
+        .unwrap_or(remainder)
+        .split_whitespace()
+        .next()
+        .unwrap_or(remainder)
+        .trim();
+    let cleaned = raw.trim_matches(|c: char| {
+        !(c.is_ascii_alphanumeric() || c == '-' || c == '_' || c == '.' || c == '/' || c == ':')
+    });
+    if cleaned.is_empty() {
+        None
     } else {
-        "I could not resolve the app/package identity. Which clarification strategy should I use?"
-            .to_string()
-    };
+        Some(cleaned.to_string())
+    }
+}
 
+fn build_clarification_request(
+    preset: ClarificationPreset,
+    tool_name: &str,
+    output: &str,
+) -> ClarificationRequest {
+    let evidence = if output.trim().is_empty() {
+        None
+    } else {
+        Some(snippet(output))
+    };
+    let (question, context_hint) = match preset {
+        ClarificationPreset::IdentityLookup => {
+            let question =
+                "I could not resolve the target identity for this step. How should I proceed?"
+                    .to_string();
+            (question, None)
+        }
+        ClarificationPreset::InstallLookup => {
+            let package_hint = extract_missing_package_hint(output);
+            let question = if let Some(pkg) = package_hint.as_deref() {
+                format!(
+                    "I could not resolve software identity for install target '{}'. How should I proceed?",
+                    pkg
+                )
+            } else {
+                "I could not resolve software identity for this install attempt. How should I proceed?"
+                    .to_string()
+            };
+            (question, package_hint)
+        }
+        ClarificationPreset::LaunchLookup => {
+            let launch_hint = extract_launch_target_hint(output);
+            let question = if let Some(target) = launch_hint.as_deref() {
+                format!(
+                    "I could not resolve launch identity for target '{}'. How should I proceed?",
+                    target
+                )
+            } else {
+                "I could not resolve which executable or desktop entry to launch. How should I proceed?"
+                    .to_string()
+            };
+            (question, launch_hint)
+        }
+    };
     ClarificationRequest {
-        kind: "install_package_lookup".to_string(),
+        kind: "identity_resolution".to_string(),
         question,
-        options: vec![
-            ClarificationOption {
-                id: "discover_candidates".to_string(),
-                label: "Discover candidates".to_string(),
-                description:
-                    "Use package-manager/executable discovery to generate candidates, then retry with the best match."
-                        .to_string(),
-                recommended: true,
-            },
-            ClarificationOption {
-                id: "launch_only".to_string(),
-                label: "Launch without install".to_string(),
-                description:
-                    "Skip install attempts and try direct app launch with known executable IDs."
-                        .to_string(),
-                recommended: false,
-            },
-            ClarificationOption {
-                id: "provide_exact".to_string(),
-                label: "Use exact package".to_string(),
-                description:
-                    "Wait for an exact package/app identifier and retry once with that value."
-                        .to_string(),
-                recommended: false,
-            },
-        ],
+        tool_name: tool_name.to_string(),
+        failure_class: Some("UserInterventionNeeded".to_string()),
+        evidence_snippet: evidence,
+        context_hint,
+        options: Vec::new(),
         allow_other: true,
     }
+}
+
+fn clarification_option_ids_for_preset(preset: ClarificationPreset) -> [&'static str; 3] {
+    match preset {
+        ClarificationPreset::IdentityLookup => {
+            ["discover_candidates", "provide_exact", "skip_retry"]
+        }
+        ClarificationPreset::InstallLookup => {
+            ["discover_candidates", "launch_only", "provide_exact"]
+        }
+        ClarificationPreset::LaunchLookup => {
+            ["discover_candidates", "provide_desktop_id", "provide_exact"]
+        }
+    }
+}
+
+fn clarification_option_semantics_for_preset(preset: ClarificationPreset) -> [&'static str; 3] {
+    match preset {
+        ClarificationPreset::IdentityLookup => [
+            "Discover likely target identifiers from runtime evidence and retry once.",
+            "Use an exact identifier provided by the user for a single retry.",
+            "Stop retries and provide a blocker summary with concrete evidence.",
+        ],
+        ClarificationPreset::InstallLookup => [
+            "Discover package candidates via package manager signals and retry once.",
+            "Skip install retry and attempt direct launch path resolution instead.",
+            "Use an exact package identifier supplied by the user for one retry.",
+        ],
+        ClarificationPreset::LaunchLookup => [
+            "Discover executable/desktop-entry candidates and retry once.",
+            "Use an explicit desktop entry identifier for the next launch retry.",
+            "Use an exact executable name or absolute path for one retry.",
+        ],
+    }
+}
+
+#[derive(Debug, Deserialize)]
+struct ClarificationOptionInference {
+    id: String,
+    label: String,
+    description: String,
+}
+
+#[derive(Debug, Deserialize)]
+struct ClarificationOptionsInferenceEnvelope {
+    options: Vec<ClarificationOptionInference>,
+}
+
+fn sanitize_option_label(value: &str) -> Option<String> {
+    let compact = value
+        .split_whitespace()
+        .collect::<Vec<_>>()
+        .join(" ")
+        .trim()
+        .to_string();
+    if compact.is_empty() {
+        None
+    } else {
+        Some(compact.chars().take(48).collect::<String>())
+    }
+}
+
+fn sanitize_option_description(value: &str) -> Option<String> {
+    let compact = value
+        .split_whitespace()
+        .collect::<Vec<_>>()
+        .join(" ")
+        .trim()
+        .to_string();
+    if compact.is_empty() {
+        None
+    } else {
+        Some(compact.chars().take(180).collect::<String>())
+    }
+}
+
+fn extract_json_object(raw: &str) -> Option<String> {
+    let start = raw.find('{')?;
+    let end = raw.rfind('}')?;
+    if end <= start {
+        None
+    } else {
+        Some(raw[start..=end].to_string())
+    }
+}
+
+fn parse_inferred_clarification_options(
+    raw: &str,
+) -> Option<ClarificationOptionsInferenceEnvelope> {
+    serde_json::from_str::<ClarificationOptionsInferenceEnvelope>(raw)
+        .ok()
+        .or_else(|| {
+            let trimmed = extract_json_object(raw)?;
+            serde_json::from_str::<ClarificationOptionsInferenceEnvelope>(&trimmed).ok()
+        })
+}
+
+async fn infer_clarification_option_text(
+    app: &tauri::AppHandle,
+    request: &ClarificationRequest,
+    preset: ClarificationPreset,
+    output: &str,
+) -> Option<Vec<ClarificationOption>> {
+    let runtime = {
+        let state = app.state::<Mutex<AppState>>();
+        let guard = state.lock().ok()?;
+        guard.inference_runtime.clone()?
+    };
+    let option_ids = clarification_option_ids_for_preset(preset);
+    let option_semantics = clarification_option_semantics_for_preset(preset);
+
+    let option_id_order = option_ids.join(", ");
+    let option_semantic_lines = option_ids
+        .iter()
+        .enumerate()
+        .map(|(idx, id)| format!("{} => {}", id, option_semantics[idx]))
+        .collect::<Vec<_>>()
+        .join("\n");
+    let evidence = request
+        .evidence_snippet
+        .clone()
+        .unwrap_or_else(|| snippet(output));
+
+    let prompt = format!(
+        "You are generating clarification UX options for an agent failure.\n\
+Return strict JSON only using this schema:\n\
+{{\"options\":[{{\"id\":\"string\",\"label\":\"string\",\"description\":\"string\"}},{{\"id\":\"string\",\"label\":\"string\",\"description\":\"string\"}},{{\"id\":\"string\",\"label\":\"string\",\"description\":\"string\"}}]}}\n\
+	Constraints:\n\
+	- Use exactly 3 options.\n\
+	- Use exactly these ids and preserve this order: [{option_id_order}].\n\
+	- Option 1 must be the strongest recommended next action.\n\
+	- Keep labels concise (2-5 words).\n\
+	- Keep each description to one short sentence.\n\
+	- No markdown, no extra fields, no prose outside JSON.\n\
+	Context:\n\
+	question={question}\n\
+	tool_name={tool}\n\
+	failure_class={failure_class}\n\
+	context_hint={context_hint}\n\
+	evidence={evidence}\n\
+	Option semantics:\n\
+	{semantics}",
+        option_id_order = option_id_order,
+        question = request.question,
+        tool = request.tool_name,
+        failure_class = request
+            .failure_class
+            .as_deref()
+            .unwrap_or("UserInterventionNeeded"),
+        context_hint = request.context_hint.as_deref().unwrap_or(""),
+        evidence = evidence,
+        semantics = option_semantic_lines
+    );
+
+    let infer_options = InferenceOptions {
+        temperature: 0.2,
+        json_mode: true,
+        max_tokens: 320,
+        ..Default::default()
+    };
+
+    let bytes = runtime
+        .execute_inference([0u8; 32], prompt.as_bytes(), infer_options)
+        .await
+        .ok()?;
+    let raw = match String::from_utf8(bytes.clone()) {
+        Ok(s) => s,
+        Err(_) => String::from_utf8_lossy(&bytes).to_string(),
+    };
+    let parsed = parse_inferred_clarification_options(&raw)?;
+    if parsed.options.len() != 3 {
+        return None;
+    }
+
+    let mut mapped = Vec::with_capacity(option_ids.len());
+    for (idx, id) in option_ids.iter().enumerate() {
+        let inferred = parsed
+            .options
+            .iter()
+            .find(|opt| opt.id.eq_ignore_ascii_case(id))?;
+        let label = sanitize_option_label(&inferred.label)?;
+        let description = sanitize_option_description(&inferred.description)?;
+        mapped.push(ClarificationOption {
+            id: (*id).to_string(),
+            label,
+            description,
+            recommended: idx == 0,
+        });
+    }
+    Some(mapped)
+}
+
+async fn build_clarification_request_with_inference(
+    app: &tauri::AppHandle,
+    preset: ClarificationPreset,
+    tool_name: &str,
+    output: &str,
+) -> ClarificationRequest {
+    let mut request = build_clarification_request(preset, tool_name, output);
+    if let Some(options) = infer_clarification_option_text(app, &request, preset, output).await {
+        request.options = options;
+    } else {
+        request.options.clear();
+    }
+    if request.options.is_empty() {
+        println!(
+            "[Autopilot] Clarification options unavailable; awaiting custom clarification input (tool={}, kind={})",
+            request.tool_name, request.kind
+        );
+    }
+    request
 }
 
 fn register_event(app: &tauri::AppHandle, mut event: AgentEvent) {
@@ -847,9 +1138,28 @@ pub async fn monitor_kernel_events(app: tauri::AppHandle) {
                     ChainEventEnum::ActionResult(res) => {
                         let password_required =
                             is_sudo_password_required_install(&res.tool_name, &res.output);
-                        let clarification_required =
-                            is_clarification_required_failure(&res.tool_name, &res.output)
-                                && res.agent_status.eq_ignore_ascii_case("paused");
+                        let clarification_preset =
+                            if res.agent_status.eq_ignore_ascii_case("paused") {
+                                detect_clarification_preset(&res.tool_name, &res.output)
+                            } else {
+                                None
+                            };
+                        let clarification_required = clarification_preset.is_some();
+                        let clarification_request = if clarification_required {
+                            let preset =
+                                clarification_preset.unwrap_or(ClarificationPreset::IdentityLookup);
+                            Some(
+                                build_clarification_request_with_inference(
+                                    &app,
+                                    preset,
+                                    &res.tool_name,
+                                    &res.output,
+                                )
+                                .await,
+                            )
+                        } else {
+                            None
+                        };
                         let dedup_key = format!("{}:{}", res.step_index, res.tool_name);
                         let already_processed = {
                             if let Ok(guard) = state_handle.lock() {
@@ -895,13 +1205,9 @@ pub async fn monitor_kernel_events(app: tauri::AppHandle) {
                             let waiting_for_clarification = t
                                 .clarification_request
                                 .as_ref()
-                                .map(|req| req.kind == "install_package_lookup")
+                                .map(|req| is_identity_resolution_kind(&req.kind))
                                 .unwrap_or(false)
-                                || t.current_step.eq_ignore_ascii_case(
-                                    "Waiting for user clarification on app/package name.",
-                                )
-                                || t.current_step
-                                    .eq_ignore_ascii_case("Waiting for install clarification");
+                                || is_waiting_for_identity_clarification_step(&t.current_step);
 
                             if password_required {
                                 t.phase = AgentPhase::Complete;
@@ -946,14 +1252,11 @@ pub async fn monitor_kernel_events(app: tauri::AppHandle) {
 
                             if clarification_required {
                                 t.phase = AgentPhase::Complete;
-                                t.current_step =
-                                    "Waiting for user clarification on app/package name."
-                                        .to_string();
+                                t.current_step = CLARIFICATION_WAIT_STEP.to_string();
                                 t.gate_info = None;
                                 t.pending_request_hash = None;
                                 t.credential_request = None;
-                                t.clarification_request =
-                                    Some(build_install_package_clarification_request(&res.output));
+                                t.clarification_request = clarification_request.clone();
                                 if !res.output.trim().is_empty() {
                                     let tool_msg =
                                         format!("Tool Output ({}): {}", res.tool_name, res.output);
@@ -966,8 +1269,7 @@ pub async fn monitor_kernel_events(app: tauri::AppHandle) {
                                         });
                                     }
                                 }
-                                let prompt_msg = "System: WAIT_FOR_CLARIFICATION. App/package identity could not be resolved. Choose a clarification option to continue."
-                                    .to_string();
+                                let prompt_msg = WAIT_FOR_CLARIFICATION_PROMPT.to_string();
                                 if t.history
                                     .last()
                                     .map(|m| m.text != prompt_msg)
@@ -984,7 +1286,13 @@ pub async fn monitor_kernel_events(app: tauri::AppHandle) {
 
                             // Keep password prompt stable even if later receipts/actions arrive
                             // before user submits credentials.
-                            if waiting_for_sudo {
+                            let terminal_status = res.agent_status.eq_ignore_ascii_case("failed")
+                                || res.agent_status.eq_ignore_ascii_case("completed");
+                            let keep_waiting_for_sudo = waiting_for_sudo
+                                && !terminal_status
+                                && is_install_package_tool(&res.tool_name)
+                                && password_required;
+                            if keep_waiting_for_sudo {
                                 if !res.output.trim().is_empty() {
                                     let tool_msg =
                                         format!("Tool Output ({}): {}", res.tool_name, res.output);
@@ -1000,7 +1308,10 @@ pub async fn monitor_kernel_events(app: tauri::AppHandle) {
                                 return;
                             }
 
-                            if waiting_for_clarification {
+                            let keep_waiting_for_clarification = waiting_for_clarification
+                                && !terminal_status
+                                && clarification_required;
+                            if keep_waiting_for_clarification {
                                 if !res.output.trim().is_empty() {
                                     let tool_msg =
                                         format!("Tool Output ({}): {}", res.tool_name, res.output);
@@ -1191,11 +1502,27 @@ pub async fn monitor_kernel_events(app: tauri::AppHandle) {
                                 &activity.tool_name,
                                 &activity.chunk,
                             );
-                        let stream_clarification_required = activity.is_final
-                            && is_clarification_required_failure(
-                                &activity.tool_name,
-                                &activity.chunk,
-                            );
+                        let stream_clarification_preset = if activity.is_final {
+                            detect_clarification_preset(&activity.tool_name, &activity.chunk)
+                        } else {
+                            None
+                        };
+                        let stream_clarification_required = stream_clarification_preset.is_some();
+                        let stream_clarification_request = if stream_clarification_required {
+                            let preset = stream_clarification_preset
+                                .unwrap_or(ClarificationPreset::IdentityLookup);
+                            Some(
+                                build_clarification_request_with_inference(
+                                    &app,
+                                    preset,
+                                    &activity.tool_name,
+                                    &activity.chunk,
+                                )
+                                .await,
+                            )
+                        } else {
+                            None
+                        };
                         update_task_state(&app, |t| {
                             if !activity.session_id.is_empty() {
                                 t.session_id = Some(activity.session_id.clone());
@@ -1255,15 +1582,11 @@ pub async fn monitor_kernel_events(app: tauri::AppHandle) {
                         } else if stream_clarification_required {
                             update_task_state(&app, |t| {
                                 t.phase = AgentPhase::Complete;
-                                t.current_step =
-                                    "Waiting for user clarification on app/package name."
-                                        .to_string();
+                                t.current_step = CLARIFICATION_WAIT_STEP.to_string();
                                 t.gate_info = None;
                                 t.pending_request_hash = None;
                                 t.credential_request = None;
-                                t.clarification_request = Some(
-                                    build_install_package_clarification_request(&activity.chunk),
-                                );
+                                t.clarification_request = stream_clarification_request.clone();
 
                                 if !activity.chunk.trim().is_empty() {
                                     let tool_msg = format!(
@@ -1280,8 +1603,7 @@ pub async fn monitor_kernel_events(app: tauri::AppHandle) {
                                     }
                                 }
 
-                                let prompt_msg = "System: WAIT_FOR_CLARIFICATION. App/package identity could not be resolved. Choose a clarification option to continue."
-                                    .to_string();
+                                let prompt_msg = WAIT_FOR_CLARIFICATION_PROMPT.to_string();
                                 if t.history
                                     .last()
                                     .map(|m| m.text != prompt_msg)
@@ -1311,6 +1633,9 @@ pub async fn monitor_kernel_events(app: tauri::AppHandle) {
                         register_event(&app, event);
                     }
                     ChainEventEnum::RoutingReceipt(receipt) => {
+                        let receipt_is_install_tool = is_install_package_tool(&receipt.tool_name);
+                        let receipt_is_identity_lookup_tool =
+                            clarification_preset_for_tool(&receipt.tool_name).is_some();
                         let receipt_waiting_for_sudo = receipt
                             .post_state
                             .as_ref()
@@ -1323,12 +1648,13 @@ pub async fn monitor_kernel_events(app: tauri::AppHandle) {
                                     })
                             })
                             .unwrap_or(false)
-                            || receipt
-                                .resolution_action
-                                .eq_ignore_ascii_case("wait_for_sudo_password")
-                            || receipt
-                                .escalation_path
-                                .eq_ignore_ascii_case("wait_for_sudo_password");
+                            || (receipt_is_install_tool
+                                && (receipt
+                                    .resolution_action
+                                    .eq_ignore_ascii_case("wait_for_sudo_password")
+                                    || receipt
+                                        .escalation_path
+                                        .eq_ignore_ascii_case("wait_for_sudo_password")));
                         let receipt_waiting_for_clarification = receipt
                             .post_state
                             .as_ref()
@@ -1338,12 +1664,28 @@ pub async fn monitor_kernel_events(app: tauri::AppHandle) {
                                 })
                             })
                             .unwrap_or(false)
-                            || receipt
-                                .resolution_action
-                                .eq_ignore_ascii_case("wait_for_clarification")
-                            || receipt
-                                .escalation_path
-                                .eq_ignore_ascii_case("wait_for_clarification");
+                            || (receipt_is_identity_lookup_tool
+                                && (receipt
+                                    .resolution_action
+                                    .eq_ignore_ascii_case("wait_for_clarification")
+                                    || receipt
+                                        .escalation_path
+                                        .eq_ignore_ascii_case("wait_for_clarification")));
+                        let receipt_clarification_request = if receipt_waiting_for_clarification {
+                            let preset = clarification_preset_for_tool(&receipt.tool_name)
+                                .unwrap_or(ClarificationPreset::IdentityLookup);
+                            Some(
+                                build_clarification_request_with_inference(
+                                    &app,
+                                    preset,
+                                    &receipt.tool_name,
+                                    "",
+                                )
+                                .await,
+                            )
+                        } else {
+                            None
+                        };
                         let failure_class = if receipt.failure_class_name.is_empty() {
                             None
                         } else {
@@ -1433,13 +1775,21 @@ pub async fn monitor_kernel_events(app: tauri::AppHandle) {
                             let waiting_for_clarification = t
                                 .clarification_request
                                 .as_ref()
-                                .map(|req| req.kind == "install_package_lookup")
+                                .map(|req| is_identity_resolution_kind(&req.kind))
                                 .unwrap_or(false)
-                                || t.current_step.eq_ignore_ascii_case(
-                                    "Waiting for user clarification on app/package name.",
-                                )
-                                || t.current_step
-                                    .eq_ignore_ascii_case("Waiting for install clarification");
+                                || is_waiting_for_identity_clarification_step(&t.current_step);
+                            let mut effective_waiting_for_sudo = waiting_for_sudo;
+                            let mut effective_waiting_for_clarification = waiting_for_clarification;
+
+                            if waiting_for_sudo && !receipt_waiting_for_sudo {
+                                t.credential_request = None;
+                                effective_waiting_for_sudo = false;
+                            }
+
+                            if waiting_for_clarification && !receipt_waiting_for_clarification {
+                                t.clarification_request = None;
+                                effective_waiting_for_clarification = false;
+                            }
 
                             if receipt_waiting_for_sudo {
                                 t.phase = AgentPhase::Complete;
@@ -1458,22 +1808,19 @@ pub async fn monitor_kernel_events(app: tauri::AppHandle) {
 
                             if receipt_waiting_for_clarification {
                                 t.phase = AgentPhase::Complete;
-                                t.current_step =
-                                    "Waiting for user clarification on app/package name."
-                                        .to_string();
+                                t.current_step = CLARIFICATION_WAIT_STEP.to_string();
                                 t.gate_info = None;
                                 t.pending_request_hash = None;
                                 t.credential_request = None;
-                                t.clarification_request =
-                                    Some(build_install_package_clarification_request(""));
+                                t.clarification_request = receipt_clarification_request.clone();
                             }
 
                             if receipt
                                 .policy_decision
                                 .eq_ignore_ascii_case("require_approval")
-                                && !waiting_for_sudo
+                                && !effective_waiting_for_sudo
                                 && !receipt_waiting_for_sudo
-                                && !waiting_for_clarification
+                                && !effective_waiting_for_clarification
                                 && !receipt_waiting_for_clarification
                             {
                                 t.phase = AgentPhase::Gate;
@@ -1610,34 +1957,38 @@ pub async fn monitor_kernel_events(app: tauri::AppHandle) {
                     }
                     ChainEventEnum::Action(action) => {
                         if action.verdict == "REQUIRE_APPROVAL" {
-                            let waiting_for_sudo = {
+                            let (waiting_for_sudo, waiting_for_clarification) = {
                                 if let Ok(guard) = state_handle.lock() {
                                     if let Some(task) = &guard.current_task {
-                                        task.credential_request
+                                        let waiting_for_sudo = task
+                                            .credential_request
                                             .as_ref()
                                             .map(|req| req.kind == "sudo_password")
                                             .unwrap_or(false)
                                             || task
                                                 .current_step
-                                                .eq_ignore_ascii_case("Waiting for sudo password")
-                                            || task
-                                                .clarification_request
-                                                .as_ref()
-                                                .map(|req| req.kind == "install_package_lookup")
-                                                .unwrap_or(false)
-                                            || task.current_step.eq_ignore_ascii_case(
-                                                "Waiting for user clarification on app/package name.",
-                                            )
-                                            || task.current_step.eq_ignore_ascii_case(
-                                                "Waiting for install clarification",
-                                            )
+                                                .eq_ignore_ascii_case("Waiting for sudo password");
+                                        let waiting_for_clarification = task
+                                            .clarification_request
+                                            .as_ref()
+                                            .map(|req| is_identity_resolution_kind(&req.kind))
+                                            .unwrap_or(false)
+                                            || is_waiting_for_identity_clarification_step(
+                                                &task.current_step,
+                                            );
+                                        (waiting_for_sudo, waiting_for_clarification)
                                     } else {
-                                        false
+                                        (false, false)
                                     }
                                 } else {
-                                    false
+                                    (false, false)
                                 }
                             };
+                            let action_is_install = is_install_package_tool(&action.target);
+                            let action_is_identity_lookup_tool =
+                                clarification_preset_for_tool(&action.target).is_some();
+                            let suppress_gate_for_wait = (waiting_for_sudo && action_is_install)
+                                || (waiting_for_clarification && action_is_identity_lookup_tool);
 
                             let already_gating = {
                                 if let Ok(guard) = state_handle.lock() {
@@ -1653,12 +2004,15 @@ pub async fn monitor_kernel_events(app: tauri::AppHandle) {
                                 }
                             };
 
-                            if !already_gating && !waiting_for_sudo {
+                            if !already_gating && !suppress_gate_for_wait {
                                 println!("[Autopilot] Policy Gate Triggered for {}", action.target);
 
                                 update_task_state(&app, |t| {
                                     t.phase = AgentPhase::Gate;
                                     t.current_step = "Policy Gate: Approval Required".to_string();
+                                    // Gate takes precedence over credential/clarification prompts.
+                                    t.credential_request = None;
+                                    t.clarification_request = None;
 
                                     t.gate_info = Some(GateInfo {
                                         title: "Restricted Action Intercepted".to_string(),

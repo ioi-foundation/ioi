@@ -152,3 +152,90 @@ pub fn extract_window_titles(xml: &str) -> String {
         titles.join(", ")
     }
 }
+
+pub fn should_auto_complete_open_app_goal(
+    goal: &str,
+    app_name: &str,
+    target_hint: Option<&str>,
+) -> bool {
+    let goal_lc = goal.to_ascii_lowercase();
+    if goal_lc.trim().is_empty() {
+        return false;
+    }
+
+    let has_launch_verb = ["open ", "launch ", "start ", "run "]
+        .iter()
+        .any(|verb| goal_lc.contains(verb));
+    if !has_launch_verb {
+        return false;
+    }
+
+    let app_lc = app_name.trim().to_ascii_lowercase();
+    let hint_lc = target_hint.unwrap_or("").trim().to_ascii_lowercase();
+    if app_lc.is_empty() && hint_lc.is_empty() {
+        return false;
+    }
+    let mentions_target = (!app_lc.is_empty() && goal_lc.contains(&app_lc))
+        || (!hint_lc.is_empty() && goal_lc.contains(&hint_lc));
+    if !mentions_target {
+        return false;
+    }
+
+    // If the goal clearly includes follow-up interaction, launching is not terminal.
+    let follow_up_actions = [
+        " click ",
+        " type ",
+        " enter ",
+        " compute ",
+        " calculate ",
+        " solve ",
+        " search ",
+        " browse ",
+        " navigate ",
+        " extract ",
+        " summarize ",
+        " read ",
+        " write ",
+        " edit ",
+        " create ",
+        " delete ",
+        " screenshot ",
+        " test ",
+        " run tests",
+    ];
+    !follow_up_actions
+        .iter()
+        .any(|marker| goal_lc.contains(marker))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::should_auto_complete_open_app_goal;
+
+    #[test]
+    fn auto_complete_open_app_goal_for_simple_launch() {
+        assert!(should_auto_complete_open_app_goal(
+            "Open calculator",
+            "calculator",
+            Some("calculator")
+        ));
+    }
+
+    #[test]
+    fn does_not_auto_complete_when_follow_up_actions_exist() {
+        assert!(!should_auto_complete_open_app_goal(
+            "Open calculator and compute 2+2",
+            "calculator",
+            Some("calculator")
+        ));
+    }
+
+    #[test]
+    fn requires_goal_to_mention_target_app() {
+        assert!(!should_auto_complete_open_app_goal(
+            "Open the app",
+            "calculator",
+            Some("calculator")
+        ));
+    }
+}

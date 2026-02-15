@@ -31,17 +31,25 @@ export function SpotlightClarificationCard({
       .trim();
 
   const handleSubmit = async () => {
-    if (!selectedOptionId || submitting) return;
+    if (submitting) return;
     setSubmitting(true);
     setError(null);
     try {
       const normalizedOther = normalizeOtherInput(otherText);
       const hasCustomInput = request.allow_other && normalizedOther.length > 0;
+      const canUseSelected = selectedOptionId.length > 0;
+      if (!canUseSelected && !hasCustomInput) {
+        setSubmitting(false);
+        return;
+      }
       // If user provides custom text, treat it as an exact identifier flow by default.
-      const effectiveOptionId =
-        hasCustomInput && request.options.some((option) => option.id === "provide_exact")
+      const effectiveOptionId = hasCustomInput
+        ? request.options.some((option) => option.id === "provide_exact")
           ? "provide_exact"
-          : selectedOptionId;
+          : "custom_input"
+        : canUseSelected
+          ? selectedOptionId
+          : "custom_input";
       await onSubmit(effectiveOptionId, normalizedOther);
       setOtherText("");
     } catch (e) {
@@ -50,6 +58,9 @@ export function SpotlightClarificationCard({
       setSubmitting(false);
     }
   };
+
+  const canSubmit =
+    !!selectedOptionId || (request.allow_other && normalizeOtherInput(otherText).length > 0);
 
   const handleCancel = () => {
     setOtherText("");
@@ -66,49 +77,55 @@ export function SpotlightClarificationCard({
             <span className="gate-icon">{icons.sparkles}</span>
             <span className="gate-title">Clarification Needed</span>
           </div>
-          <span className="gate-badge">3 OPTIONS</span>
+          <span className="gate-badge">
+            {request.options.length > 0
+              ? `${request.options.length} OPTIONS`
+              : "CUSTOM INPUT"}
+          </span>
         </div>
 
         <p className="gate-desc">{request.question}</p>
 
-        <div className="clarification-option-list">
-          {request.options.map((option) => {
-            const selected = selectedOptionId === option.id;
-            return (
-              <label
-                key={option.id}
-                className={`clarification-option ${selected ? "selected" : ""}`}
-              >
-                <input
-                  type="radio"
-                  name="clarification-option"
-                  value={option.id}
-                  checked={selected}
-                  onChange={() => setSelectedOptionId(option.id)}
-                  disabled={submitting}
-                />
-                <div className="clarification-option-content">
-                  <div className="clarification-option-label-row">
-                    <span className="clarification-option-label">{option.label}</span>
-                    {option.recommended && (
-                      <span className="clarification-option-recommended">Recommended</span>
-                    )}
+        {request.options.length > 0 && (
+          <div className="clarification-option-list">
+            {request.options.map((option) => {
+              const selected = selectedOptionId === option.id;
+              return (
+                <label
+                  key={option.id}
+                  className={`clarification-option ${selected ? "selected" : ""}`}
+                >
+                  <input
+                    type="radio"
+                    name="clarification-option"
+                    value={option.id}
+                    checked={selected}
+                    onChange={() => setSelectedOptionId(option.id)}
+                    disabled={submitting}
+                  />
+                  <div className="clarification-option-content">
+                    <div className="clarification-option-label-row">
+                      <span className="clarification-option-label">{option.label}</span>
+                      {option.recommended && (
+                        <span className="clarification-option-recommended">Recommended</span>
+                      )}
+                    </div>
+                    <div className="clarification-option-description">
+                      {option.description}
+                    </div>
                   </div>
-                  <div className="clarification-option-description">
-                    {option.description}
-                  </div>
-                </div>
-              </label>
-            );
-          })}
-        </div>
+                </label>
+              );
+            })}
+          </div>
+        )}
 
         {request.allow_other && (
           <textarea
             className="spot-clarification-other"
             value={otherText}
             onChange={(e) => setOtherText(e.target.value)}
-            placeholder="Optional: provide the exact app/package name or extra context."
+            placeholder="Provide the exact target identifier or extra context."
             disabled={submitting}
             rows={3}
           />
@@ -120,7 +137,7 @@ export function SpotlightClarificationCard({
           <button
             onClick={() => void handleSubmit()}
             className="gate-btn primary"
-            disabled={!selectedOptionId || submitting}
+            disabled={!canSubmit || submitting}
           >
             {icons.check}
             <span>{submitting ? "Submitting..." : "Submit Choice"}</span>

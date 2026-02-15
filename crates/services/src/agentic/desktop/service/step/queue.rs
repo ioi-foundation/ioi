@@ -1,6 +1,6 @@
 // Path: crates/services/src/agentic/desktop/service/step/queue.rs
 
-use self::super::helpers::default_safe_policy;
+use self::super::helpers::{default_safe_policy, should_auto_complete_open_app_goal};
 use super::action::{canonical_intent_hash, canonical_retry_intent_hash, canonical_tool_identity};
 use super::anti_loop::{
     build_attempt_key, build_post_state_summary, build_state_summary, choose_routing_tier,
@@ -541,6 +541,9 @@ pub async fn process_queue_item(
             FailureClass::PermissionOrApprovalRequired,
             err.as_deref(),
         )?;
+        // Clear queued remedies while waiting for credentials so resume retries
+        // the original install action instead of stale fallback actions.
+        agent_state.execution_queue.clear();
         agent_state.pending_approval = None;
         agent_state.pending_tool_call = Some(action_json.clone());
         agent_state.pending_tool_jcs = Some(tool_jcs.clone());
@@ -592,7 +595,7 @@ pub async fn process_queue_item(
             err.as_deref(),
         )?;
         agent_state.status =
-            AgentStatus::Paused("Waiting for user clarification on app/package name.".to_string());
+            AgentStatus::Paused("Waiting for clarification on target identity.".to_string());
         agent_state.pending_approval = None;
         agent_state.pending_tool_call = None;
         agent_state.pending_tool_jcs = None;
@@ -617,7 +620,7 @@ pub async fn process_queue_item(
         let sys_msg = ioi_types::app::agentic::ChatMessage {
             role: "system".to_string(),
             content:
-                "System: WAIT_FOR_CLARIFICATION. App/package identity could not be resolved. Choose a clarification option to continue."
+                "System: WAIT_FOR_CLARIFICATION. Target identity could not be resolved. Provide clarification input to continue."
                     .to_string(),
             timestamp: SystemTime::now()
                 .duration_since(UNIX_EPOCH)
@@ -651,6 +654,31 @@ pub async fn process_queue_item(
                 "Search flow completed after browser__extract for session {}.",
                 hex::encode(&p.session_id[..4])
             );
+        }
+    }
+
+    if !is_gated && success && completion_summary.is_none() {
+        if let AgentTool::OsLaunchApp { app_name } = &tool_wrapper {
+            if should_auto_complete_open_app_goal(
+                &agent_state.goal,
+                app_name,
+                agent_state
+                    .target
+                    .as_ref()
+                    .and_then(|target| target.app_hint.as_deref()),
+            ) {
+                let summary = format!("Opened {}.", app_name);
+                completion_summary = Some(summary.clone());
+                out = Some(summary.clone());
+                err = None;
+                agent_state.status = AgentStatus::Completed(Some(summary));
+                agent_state.execution_queue.clear();
+                agent_state.recent_actions.clear();
+                log::info!(
+                    "Auto-completed app-launch queue flow for session {}.",
+                    hex::encode(&p.session_id[..4])
+                );
+            }
         }
     }
 
@@ -824,7 +852,7 @@ pub async fn process_queue_item(
                 )?;
                 agent_state.execution_queue.clear();
                 agent_state.status = AgentStatus::Paused(
-                    "Waiting for user clarification on app/package name.".to_string(),
+                    "Waiting for clarification on target identity.".to_string(),
                 );
             } else if matches!(class, FailureClass::UserInterventionNeeded) {
                 stop_condition_hit = true;

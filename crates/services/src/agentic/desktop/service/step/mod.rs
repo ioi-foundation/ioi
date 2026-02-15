@@ -13,6 +13,7 @@ pub mod visual;
 use super::DesktopAgentService;
 // [FIX] Import actions module from parent service directory
 use crate::agentic::desktop::keys::{get_mutation_receipt_ptr_key, get_state_key};
+use crate::agentic::desktop::runtime_secret;
 use crate::agentic::desktop::service::actions;
 use crate::agentic::desktop::service::step::anti_loop::choose_routing_tier;
 use crate::agentic::desktop::types::{AgentState, AgentStatus, StepAgentParams};
@@ -25,6 +26,8 @@ use ioi_types::app::agentic::{AgentTool, StepTrace};
 use ioi_types::codec;
 use ioi_types::error::TransactionError;
 use serde_json::json;
+
+const RUNTIME_SECRET_KIND_SUDO_PASSWORD: &str = "sudo_password";
 
 pub async fn handle_step(
     service: &DesktopAgentService,
@@ -176,13 +179,7 @@ pub async fn handle_step(
         }
     }
 
-    // 3. Execution Queue
-    if !agent_state.execution_queue.is_empty() {
-        return queue::process_queue_item(service, state, &mut agent_state, &p, ctx.block_height)
-            .await;
-    }
-
-    // 4. Resume Pending
+    // 3. Resume Pending
     // [FIX] Prioritize canonical JCS resume if available.
     // This ensures we execute EXACTLY what was approved, using the exact visual context.
     if agent_state.pending_tool_jcs.is_some() {
@@ -192,6 +189,27 @@ pub async fn handle_step(
             .and_then(|raw| serde_json::from_slice::<AgentTool>(raw).ok())
             .map(|tool| matches!(tool, AgentTool::SysInstallPackage { .. }))
             .unwrap_or(false);
+        if allow_runtime_secret_retry && agent_state.pending_approval.is_none() {
+            let session_id_hex = hex::encode(p.session_id);
+            if !runtime_secret::has_secret(&session_id_hex, RUNTIME_SECRET_KIND_SUDO_PASSWORD) {
+                // Guard against accidental auto-resume loops. A pending install retry
+                // must only continue once a runtime sudo secret is present.
+                if !matches!(
+                    agent_state.status,
+                    AgentStatus::Paused(reason)
+                        if reason.eq_ignore_ascii_case("Waiting for sudo password")
+                ) {
+                    log::warn!(
+                        "Pending install retry without runtime secret for session {}; forcing pause.",
+                        hex::encode(&p.session_id[..4])
+                    );
+                    agent_state.status =
+                        AgentStatus::Paused("Waiting for sudo password".to_string());
+                    state.insert(&key, &codec::to_bytes_canonical(&agent_state)?)?;
+                }
+                return Ok(());
+            }
+        }
         if agent_state.pending_approval.is_some() || allow_runtime_secret_retry {
             log::info!("Resuming canonical pending action.");
             // [FIX] Call resume_pending_action from service::actions module
@@ -223,6 +241,12 @@ pub async fn handle_step(
             ctx.block_height,
         )
         .await;
+    }
+
+    // 4. Execution Queue
+    if !agent_state.execution_queue.is_empty() {
+        return queue::process_queue_item(service, state, &mut agent_state, &p, ctx.block_height)
+            .await;
     }
 
     // --- COGNITIVE LOOP (System 2) ---
