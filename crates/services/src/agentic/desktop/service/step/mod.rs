@@ -21,7 +21,7 @@ use ioi_api::state::StateAccess;
 use ioi_api::transaction::context::TxContext;
 use ioi_crypto::algorithms::hash::sha256;
 use ioi_scs::{FrameType, RetentionClass};
-use ioi_types::app::agentic::StepTrace;
+use ioi_types::app::agentic::{AgentTool, StepTrace};
 use ioi_types::codec;
 use ioi_types::error::TransactionError;
 use serde_json::json;
@@ -186,8 +186,14 @@ pub async fn handle_step(
     // [FIX] Prioritize canonical JCS resume if available.
     // This ensures we execute EXACTLY what was approved, using the exact visual context.
     if agent_state.pending_tool_jcs.is_some() {
-        if agent_state.pending_approval.is_some() {
-            log::info!("Resuming canonical pending action with approval.");
+        let allow_runtime_secret_retry = agent_state
+            .pending_tool_jcs
+            .as_ref()
+            .and_then(|raw| serde_json::from_slice::<AgentTool>(raw).ok())
+            .map(|tool| matches!(tool, AgentTool::SysInstallPackage { .. }))
+            .unwrap_or(false);
+        if agent_state.pending_approval.is_some() || allow_runtime_secret_retry {
+            log::info!("Resuming canonical pending action.");
             // [FIX] Call resume_pending_action from service::actions module
             return actions::resume_pending_action(
                 service,

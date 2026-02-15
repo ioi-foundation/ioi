@@ -128,7 +128,7 @@ async fn main() -> Result<()> {
     };
 
     let scs = if scs_path.exists() {
-        SovereignContextStore::open(&scs_path)?
+        SovereignContextStore::open_with_config(&scs_path, scs_config.clone())?
     } else {
         SovereignContextStore::create(&scs_path, scs_config)?
     };

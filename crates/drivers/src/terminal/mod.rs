@@ -6,7 +6,7 @@ use std::process::Stdio;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 use std::time::Duration;
-use tokio::io::{AsyncRead, AsyncReadExt};
+use tokio::io::{AsyncRead, AsyncReadExt, AsyncWriteExt};
 use tokio::process::Command;
 use tokio::time;
 
@@ -42,6 +42,7 @@ pub type ProcessStreamObserver = Arc<dyn Fn(ProcessStreamChunk) + Send + Sync>;
 pub struct CommandExecutionOptions {
     pub timeout: Duration,
     pub stream_observer: Option<ProcessStreamObserver>,
+    pub stdin_data: Option<Vec<u8>>,
 }
 
 impl Default for CommandExecutionOptions {
@@ -49,6 +50,7 @@ impl Default for CommandExecutionOptions {
         Self {
             timeout: Duration::from_secs(5),
             stream_observer: None,
+            stdin_data: None,
         }
     }
 }
@@ -61,6 +63,11 @@ impl CommandExecutionOptions {
 
     pub fn with_stream_observer(mut self, stream_observer: Option<ProcessStreamObserver>) -> Self {
         self.stream_observer = stream_observer;
+        self
+    }
+
+    pub fn with_stdin_data(mut self, stdin_data: Option<Vec<u8>>) -> Self {
+        self.stdin_data = stdin_data;
         self
     }
 }
@@ -140,11 +147,24 @@ impl TerminalDriver {
 
         cmd.stdout(Stdio::piped());
         cmd.stderr(Stdio::piped());
-        cmd.stdin(Stdio::null());
+        if options.stdin_data.is_some() {
+            cmd.stdin(Stdio::piped());
+        } else {
+            cmd.stdin(Stdio::null());
+        }
 
         let mut child = cmd
             .spawn()
             .map_err(|e| anyhow!("Failed to spawn command '{}': {}", command, e))?;
+
+        if let Some(stdin_data) = options.stdin_data.clone() {
+            let mut stdin = child
+                .stdin
+                .take()
+                .ok_or_else(|| anyhow!("Failed to capture stdin for '{}'", command))?;
+            stdin.write_all(&stdin_data).await?;
+            stdin.flush().await?;
+        }
 
         let stdout = child
             .stdout
@@ -211,7 +231,10 @@ impl TerminalDriver {
         if status.success() {
             Ok(stdout_text)
         } else {
-            Ok(format!("Command failed: {}\nStderr: {}", status, stderr_text))
+            Ok(format!(
+                "Command failed: {}\nStderr: {}",
+                status, stderr_text
+            ))
         }
     }
 }

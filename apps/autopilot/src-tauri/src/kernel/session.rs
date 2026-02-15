@@ -133,6 +133,8 @@ pub async fn load_session(
                     visual_hash: None,
                     pending_request_hash: None,
                     session_id: Some(session_id.clone()),
+                    credential_request: None,
+                    clarification_request: None,
                     history,
                     events: Vec::new(),
                     artifacts: Vec::new(),

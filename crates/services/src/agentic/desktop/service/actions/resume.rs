@@ -2,6 +2,7 @@
 
 use super::checks::requires_visual_integrity;
 use super::evaluation::evaluate_and_crystallize;
+use crate::agentic::desktop::execution::system::is_sudo_password_required_install_error;
 use crate::agentic::desktop::keys::{get_state_key, AGENT_POLICY_PREFIX};
 use crate::agentic::desktop::service::step::action::{
     canonical_intent_hash, canonical_retry_intent_hash, canonical_tool_identity,
@@ -10,14 +11,15 @@ use crate::agentic::desktop::service::step::anti_loop::{
     build_attempt_key, build_post_state_summary, build_state_summary, classify_failure,
     emit_routing_receipt, escalation_path_for_failure, extract_artifacts, latest_failure_class,
     lineage_pointer, mutation_receipt_pointer, policy_binding_hash, register_failure_attempt,
-    retry_budget_remaining, should_block_retry_without_change, should_trip_retry_guard,
-    tier_as_str, to_routing_failure_class, FailureClass, TierRoutingDecision,
+    requires_wait_for_clarification, retry_budget_remaining, should_block_retry_without_change,
+    should_trip_retry_guard, tier_as_str, to_routing_failure_class, FailureClass,
+    TierRoutingDecision,
 };
 use crate::agentic::desktop::service::step::helpers::default_safe_policy;
 use crate::agentic::desktop::service::step::incident::{
     advance_incident_after_action_outcome, incident_receipt_fields, load_incident_state,
-    mark_gate_approved, should_enter_incident_recovery, start_or_continue_incident_recovery,
-    IncidentDirective,
+    mark_gate_approved, mark_incident_wait_for_user, should_enter_incident_recovery,
+    start_or_continue_incident_recovery, IncidentDirective,
 };
 use crate::agentic::desktop::service::step::visual::hamming_distance;
 use crate::agentic::desktop::service::DesktopAgentService;
@@ -123,6 +125,8 @@ pub async fn resume_pending_action(
     let mut escalation_path: Option<String> = None;
     let mut remediation_queued = false;
     let mut verification_checks = Vec::new();
+    let mut awaiting_sudo_password = false;
+    let mut awaiting_clarification = false;
 
     // 1. Load Canonical Request Bytes
     let tool_jcs = agent_state
@@ -157,18 +161,19 @@ pub async fn resume_pending_action(
     );
 
     // 3. Validate approval token before executing anything.
-    let token = agent_state
-        .pending_approval
-        .as_ref()
-        .ok_or(TransactionError::Invalid("Missing approval token".into()))?;
-
-    if token.request_hash != tool_hash {
-        return Err(TransactionError::Invalid(
-            "Approval token hash mismatch".into(),
-        ));
+    // Runtime secret retries for sys__install_package are allowed without approval token.
+    if let Some(token) = agent_state.pending_approval.as_ref() {
+        if token.request_hash != tool_hash {
+            return Err(TransactionError::Invalid(
+                "Approval token hash mismatch".into(),
+            ));
+        }
+        mark_gate_approved(state, session_id)?;
+    } else if !matches!(tool, AgentTool::SysInstallPackage { .. }) {
+        return Err(TransactionError::Invalid("Missing approval token".into()));
+    } else {
+        verification_checks.push("resume_without_approval_runtime_secret=true".to_string());
     }
-
-    mark_gate_approved(state, session_id)?;
 
     let os_driver = service
         .os_driver
@@ -332,6 +337,49 @@ pub async fn resume_pending_action(
             policy_decision = "denied".to_string();
         }
     }
+    let is_install_package_tool = matches!(tool, AgentTool::SysInstallPackage { .. });
+    let clarification_required = !success
+        && err
+            .as_deref()
+            .map(|msg| requires_wait_for_clarification(&tool_name, msg))
+            .unwrap_or(false);
+
+    if !success
+        && is_install_package_tool
+        && err
+            .as_deref()
+            .map(is_sudo_password_required_install_error)
+            .unwrap_or(false)
+    {
+        awaiting_sudo_password = true;
+        failure_class = Some(FailureClass::PermissionOrApprovalRequired);
+        stop_condition_hit = true;
+        escalation_path = Some("wait_for_sudo_password".to_string());
+        agent_state.status = AgentStatus::Paused("Waiting for sudo password".to_string());
+        mark_incident_wait_for_user(
+            state,
+            session_id,
+            "wait_for_sudo_password",
+            FailureClass::PermissionOrApprovalRequired,
+            err.as_deref(),
+        )?;
+    }
+
+    if clarification_required {
+        awaiting_clarification = true;
+        failure_class = Some(FailureClass::UserInterventionNeeded);
+        stop_condition_hit = true;
+        escalation_path = Some("wait_for_clarification".to_string());
+        mark_incident_wait_for_user(
+            state,
+            session_id,
+            "wait_for_clarification",
+            FailureClass::UserInterventionNeeded,
+            err.as_deref(),
+        )?;
+        agent_state.status =
+            AgentStatus::Paused("Waiting for user clarification on app/package name.".to_string());
+    }
 
     let output_str = out
         .clone()
@@ -377,12 +425,65 @@ pub async fn resume_pending_action(
         .append_chat_to_scs(session_id, &msg, block_height)
         .await?;
 
-    // Clear pending state
-    agent_state.pending_tool_jcs = None;
-    agent_state.pending_tool_hash = None;
-    agent_state.pending_visual_hash = None;
-    agent_state.pending_tool_call = None;
-    agent_state.pending_approval = None;
+    if awaiting_sudo_password {
+        agent_state.pending_tool_jcs = Some(tool_jcs.clone());
+        agent_state.pending_tool_hash = Some(tool_hash);
+        agent_state.pending_visual_hash = Some(pending_vhash);
+        agent_state.pending_tool_call = Some(action_json.clone());
+        agent_state.pending_approval = None;
+        let sys_msg = ioi_types::app::agentic::ChatMessage {
+            role: "system".to_string(),
+            content: "System: WAIT_FOR_SUDO_PASSWORD. Install requires sudo password. Enter password to retry once."
+                .to_string(),
+            timestamp: SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap()
+                .as_millis() as u64,
+            trace_hash: None,
+        };
+        service
+            .append_chat_to_scs(session_id, &sys_msg, block_height)
+            .await?;
+        if let Some(tx) = &service.event_sender {
+            let _ = tx.send(KernelEvent::AgentActionResult {
+                session_id,
+                step_index: agent_state.step_count,
+                tool_name: "sys__install_package".to_string(),
+                output: err.clone().unwrap_or_default(),
+                agent_status: "Paused".to_string(),
+            });
+        }
+        verification_checks.push("awaiting_sudo_password=true".to_string());
+    } else if awaiting_clarification {
+        agent_state.pending_tool_jcs = None;
+        agent_state.pending_tool_hash = None;
+        agent_state.pending_visual_hash = None;
+        agent_state.pending_tool_call = None;
+        agent_state.pending_approval = None;
+        agent_state.execution_queue.clear();
+        let sys_msg = ioi_types::app::agentic::ChatMessage {
+            role: "system".to_string(),
+            content:
+                "System: WAIT_FOR_CLARIFICATION. App/package identity could not be resolved. Choose a clarification option to continue."
+                    .to_string(),
+            timestamp: SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap()
+                .as_millis() as u64,
+            trace_hash: None,
+        };
+        service
+            .append_chat_to_scs(session_id, &sys_msg, block_height)
+            .await?;
+        verification_checks.push("awaiting_clarification=true".to_string());
+    } else {
+        // Clear pending state
+        agent_state.pending_tool_jcs = None;
+        agent_state.pending_tool_hash = None;
+        agent_state.pending_visual_hash = None;
+        agent_state.pending_tool_call = None;
+        agent_state.pending_approval = None;
+    }
 
     // [FIX] Reflexive Agent State Update (Ported from process.rs)
     // Check if the resumed action output a completion signal
@@ -421,7 +522,7 @@ pub async fn resume_pending_action(
         }
     }
 
-    if !reflexive_completion {
+    if !reflexive_completion && !awaiting_sudo_password && !awaiting_clarification {
         match &tool {
             AgentTool::AgentComplete { result } => {
                 agent_state.status = AgentStatus::Completed(Some(result.clone()));
@@ -465,29 +566,31 @@ pub async fn resume_pending_action(
         }
     }
 
-    let incident_directive = advance_incident_after_action_outcome(
-        service,
-        state,
-        agent_state,
-        session_id,
-        &retry_intent_hash,
-        &tool_jcs,
-        success,
-        block_height,
-        err.as_deref(),
-        &mut verification_checks,
-    )
-    .await?;
-    if matches!(incident_directive, IncidentDirective::QueueActions) {
-        remediation_queued = true;
-        stop_condition_hit = false;
-        escalation_path = None;
-        agent_state.status = AgentStatus::Running;
+    if !awaiting_sudo_password && !awaiting_clarification {
+        let incident_directive = advance_incident_after_action_outcome(
+            service,
+            state,
+            agent_state,
+            session_id,
+            &retry_intent_hash,
+            &tool_jcs,
+            success,
+            block_height,
+            err.as_deref(),
+            &mut verification_checks,
+        )
+        .await?;
+        if matches!(incident_directive, IncidentDirective::QueueActions) {
+            remediation_queued = true;
+            stop_condition_hit = false;
+            escalation_path = None;
+            agent_state.status = AgentStatus::Running;
+        }
     }
 
     if success {
         agent_state.recent_actions.clear();
-    } else {
+    } else if !awaiting_sudo_password && !awaiting_clarification {
         failure_class = classify_failure(err.as_deref(), &policy_decision);
         if let Some(class) = failure_class {
             let target_id = agent_state.target.as_ref().and_then(|target| {
@@ -546,7 +649,11 @@ pub async fn resume_pending_action(
                         existing.root_tool_jcs.clone(),
                     )
                 } else {
-                    (retry_intent_hash.clone(), tool_name.clone(), tool_jcs.clone())
+                    (
+                        retry_intent_hash.clone(),
+                        tool_name.clone(),
+                        tool_jcs.clone(),
+                    )
                 };
                 remediation_queued = matches!(
                     start_or_continue_incident_recovery(
@@ -568,10 +675,30 @@ pub async fn resume_pending_action(
                 );
             }
 
+            let install_lookup_failure = err
+                .as_deref()
+                .map(|msg| requires_wait_for_clarification(&tool_name, msg))
+                .unwrap_or(false);
+
             if remediation_queued {
                 stop_condition_hit = false;
                 escalation_path = None;
                 agent_state.status = AgentStatus::Running;
+            } else if install_lookup_failure {
+                stop_condition_hit = true;
+                escalation_path = Some("wait_for_clarification".to_string());
+                awaiting_clarification = true;
+                mark_incident_wait_for_user(
+                    state,
+                    session_id,
+                    "wait_for_clarification",
+                    FailureClass::UserInterventionNeeded,
+                    err.as_deref(),
+                )?;
+                agent_state.execution_queue.clear();
+                agent_state.status = AgentStatus::Paused(
+                    "Waiting for user clarification on app/package name.".to_string(),
+                );
             } else if matches!(class, FailureClass::UserInterventionNeeded) {
                 stop_condition_hit = true;
                 escalation_path = Some(escalation_path_for_failure(class).to_string());
@@ -630,6 +757,8 @@ pub async fn resume_pending_action(
 
     verification_checks.push(format!("policy_decision={}", policy_decision));
     verification_checks.push(format!("was_resume=true"));
+    verification_checks.push(format!("awaiting_sudo_password={}", awaiting_sudo_password));
+    verification_checks.push(format!("awaiting_clarification={}", awaiting_clarification));
     verification_checks.push(format!("remediation_queued={}", remediation_queued));
     verification_checks.push(format!("stop_condition_hit={}", stop_condition_hit));
     verification_checks.push(format!(
@@ -655,7 +784,9 @@ pub async fn resume_pending_action(
         verification_checks.push(format!("failure_class={}", class.as_str()));
     }
 
-    agent_state.step_count += 1;
+    if !awaiting_sudo_password && !awaiting_clarification {
+        agent_state.step_count += 1;
+    }
 
     if success {
         if !stop_condition_hit {
@@ -675,7 +806,8 @@ pub async fn resume_pending_action(
     artifacts.push(format!("trace://session/{}", hex::encode(&session_id[..4])));
     let post_state = build_post_state_summary(agent_state, success, verification_checks);
     let policy_binding = policy_binding_hash(&intent_hash, &policy_decision);
-    let incident_fields = incident_receipt_fields(load_incident_state(state, &session_id)?.as_ref());
+    let incident_fields =
+        incident_receipt_fields(load_incident_state(state, &session_id)?.as_ref());
     let failure_class_name = failure_class
         .map(|class| class.as_str().to_string())
         .unwrap_or_default();

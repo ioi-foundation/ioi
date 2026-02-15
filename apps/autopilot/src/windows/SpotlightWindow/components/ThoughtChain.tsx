@@ -111,6 +111,7 @@ export function ThoughtChain({
       "strategy_node",
       "gate_state",
       "resolution_action",
+      "escalation_path",
     ];
     return ordered
       .map((k) => {

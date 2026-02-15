@@ -27,6 +27,8 @@ import { MarkdownMessage } from "./components/MarkdownMessage";
 import { ScrollToBottom } from "./components/ScrollToBottom";
 import { HistorySidebar } from "./components/HistorySidebar";
 import { SpotlightApprovalCard } from "./components/SpotlightApprovalCard";
+import { SpotlightPasswordCard } from "./components/SpotlightPasswordCard";
+import { SpotlightClarificationCard } from "./components/SpotlightClarificationCard";
 import { ThoughtChain } from "./components/ThoughtChain";
 import { Dropdown, DropdownOption } from "./components/SpotlightDropdown";
 import { ArtifactSidebar } from "./components/ArtifactSidebar";
@@ -328,6 +330,20 @@ export function SpotlightWindow({ variant = "overlay" }: SpotlightWindowProps) {
     const text = intent.trim();
     if (!text) return;
     if (task?.phase === "Gate" || task?.pending_request_hash) return;
+    if (task?.credential_request?.kind === "sudo_password") return;
+    if (task?.clarification_request) return;
+    if (
+      (task?.current_step || "").toLowerCase().includes("waiting for sudo password")
+    ) {
+      return;
+    }
+    if (
+      (task?.current_step || "")
+        .toLowerCase()
+        .includes("waiting for user clarification on app/package name")
+    ) {
+      return;
+    }
 
     setIntent("");
 
@@ -340,7 +356,7 @@ export function SpotlightWindow({ variant = "overlay" }: SpotlightWindowProps) {
 
     try {
       if (task && task.id && task.phase !== "Failed") {
-        await continueTask(task.id, text);
+        await continueTask(task.session_id || task.id, text);
       } else {
         if (
           !isStudioVariant &&
@@ -355,6 +371,67 @@ export function SpotlightWindow({ variant = "overlay" }: SpotlightWindowProps) {
       console.error(e);
     }
   }, [intent, isStudioVariant, task, continueTask, startTask, openStudio]);
+
+  const handleSubmitRuntimePassword = useCallback(
+    async (password: string) => {
+      const sessionId = task?.session_id || task?.id;
+      if (!sessionId) {
+        throw new Error("No active session found");
+      }
+      await invoke("submit_runtime_password", { sessionId, password });
+    },
+    [task?.id, task?.session_id],
+  );
+
+  const handleCancelRuntimePassword = useCallback(() => {
+    // Intentionally no-op: keep task paused until user provides password or starts a new chat.
+  }, []);
+
+  const handleSubmitClarification = useCallback(
+    async (optionId: string, otherText: string) => {
+      const sessionId = task?.session_id || task?.id;
+      if (!sessionId) {
+        throw new Error("No active session found");
+      }
+      const request = task?.clarification_request;
+      const selected = request?.options?.find((option) => option.id === optionId);
+      const exactIdentifier = otherText.trim();
+      const structuredPrompt = [
+        "Clarification response:",
+        request?.question ? `question=${request.question}` : undefined,
+        `strategy=${optionId}`,
+        selected ? `strategy_label=${selected.label}` : undefined,
+        exactIdentifier ? `exact_identifier=${exactIdentifier}` : undefined,
+        task?.intent ? `original_request=${task.intent}` : undefined,
+        "Execution constraints:",
+        exactIdentifier
+          ? `- Treat '${exactIdentifier}' as the authoritative app/package identifier for the next retry.`
+          : "- Use the selected strategy to resolve the app/package identity.",
+        "- Retry once on the same session.",
+        "- If still unresolved, provide concrete discovered candidates and why each failed.",
+        "- Do not ask the same clarification again without new evidence.",
+      ]
+        .filter(Boolean)
+        .join("\n");
+      console.info("[Autopilot][Clarification] submit", {
+        sessionId,
+        optionId,
+        exactIdentifier,
+      });
+      await continueTask(sessionId, structuredPrompt);
+    },
+    [continueTask, task],
+  );
+
+  const handleCancelClarification = useCallback(() => {
+    const sessionId = task?.session_id || task?.id;
+    if (!sessionId) return;
+    console.info("[Autopilot][Clarification] cancel", { sessionId });
+    void continueTask(
+      sessionId,
+      "User canceled clarification. Stop retries for this task, summarize the blocker, and remain idle until a new user request.",
+    ).catch(console.error);
+  }, [continueTask, task?.id, task?.session_id]);
 
   const handleApprove = useCallback(async () => {
     await invoke("gate_respond", { approved: true });
@@ -430,6 +507,54 @@ export function SpotlightWindow({ variant = "overlay" }: SpotlightWindowProps) {
 
   const isRunning = task?.phase === "Running";
   const hasPendingApproval = !!task?.pending_request_hash;
+  const credentialRequest = task?.credential_request;
+  const clarificationRequest = task?.clarification_request;
+  const waitingForSudoByStep = (task?.current_step || "")
+    .toLowerCase()
+    .includes("waiting for sudo password");
+  const waitingForClarificationByStep = (task?.current_step || "")
+    .toLowerCase()
+    .includes("waiting for user clarification on app/package name");
+  const fallbackClarificationRequest = waitingForClarificationByStep
+    ? {
+        kind: "install_package_lookup",
+        question:
+          "The app/package identity could not be resolved. Which clarification strategy should be used?",
+        options: [
+          {
+            id: "discover_candidates",
+            label: "Discover candidates",
+            description:
+              "Use package-manager/executable discovery to generate candidates, then retry with the best match.",
+            recommended: true,
+          },
+          {
+            id: "launch_only",
+            label: "Launch without install",
+            description:
+              "Skip install attempts and try direct app launch with known executable IDs.",
+            recommended: false,
+          },
+          {
+            id: "provide_exact",
+            label: "Use exact package",
+            description:
+              "Wait for an exact package/app identifier and retry once with that value.",
+            recommended: false,
+          },
+        ],
+        allow_other: true,
+      }
+    : undefined;
+  const effectiveClarificationRequest =
+    clarificationRequest || fallbackClarificationRequest;
+  const showPasswordPrompt =
+    (credentialRequest?.kind === "sudo_password" || waitingForSudoByStep) &&
+    !!(task?.session_id || task?.id);
+  const showClarificationPrompt =
+    effectiveClarificationRequest?.kind === "install_package_lookup" &&
+    !!(task?.session_id || task?.id);
+  const inputLockedByCredential = showPasswordPrompt || showClarificationPrompt;
   const gateInfo = task?.gate_info
     ? task.gate_info
     : hasPendingApproval
@@ -441,7 +566,11 @@ export function SpotlightWindow({ variant = "overlay" }: SpotlightWindowProps) {
           risk: "high" as const,
         }
       : undefined;
-  const isGated = (task?.phase === "Gate" || hasPendingApproval) && !!gateInfo;
+  const isGated =
+    !showPasswordPrompt &&
+    !showClarificationPrompt &&
+    (task?.phase === "Gate" || hasPendingApproval) &&
+    !!gateInfo;
   const hasContent =
     !!task ||
     localHistory.length > 0 ||
@@ -667,6 +796,29 @@ export function SpotlightWindow({ variant = "overlay" }: SpotlightWindowProps) {
               </div>
             )}
 
+            {showPasswordPrompt && (
+              <div className="spot-gate-dock">
+                <SpotlightPasswordCard
+                  prompt={
+                    credentialRequest?.prompt ||
+                    "A one-time sudo password is required to continue."
+                  }
+                  onSubmit={handleSubmitRuntimePassword}
+                  onCancel={handleCancelRuntimePassword}
+                />
+              </div>
+            )}
+
+            {showClarificationPrompt && effectiveClarificationRequest && (
+              <div className="spot-gate-dock">
+                <SpotlightClarificationCard
+                  request={effectiveClarificationRequest}
+                  onSubmit={handleSubmitClarification}
+                  onCancel={handleCancelClarification}
+                />
+              </div>
+            )}
+
             {/* Input Section */}
             <div
               className={`spot-input-section ${inputFocused ? "focused" : ""} ${isDraggingFile ? "drag-active" : ""}`}
@@ -675,13 +827,20 @@ export function SpotlightWindow({ variant = "overlay" }: SpotlightWindowProps) {
                 <textarea
                   ref={inputRef}
                   className="spot-input"
-                  placeholder="How can I help you today?"
+                  placeholder={
+                    inputLockedByCredential
+                      ? showPasswordPrompt
+                        ? "Sudo password required below to continue install..."
+                        : "Clarification required below to continue..."
+                      : "How can I help you today?"
+                  }
                   value={intent}
                   onChange={handleInputChange}
                   onKeyDown={handleInputKeyDown}
                   onFocus={() => setInputFocused(true)}
                   onBlur={() => setInputFocused(false)}
                   rows={1}
+                  disabled={inputLockedByCredential}
                 />
 
                 <div className="spot-controls">
@@ -718,7 +877,7 @@ export function SpotlightWindow({ variant = "overlay" }: SpotlightWindowProps) {
                     <button
                       className="spot-send-btn"
                       onClick={handleSubmit}
-                      disabled={!intent.trim() || isGated}
+                      disabled={!intent.trim() || isGated || inputLockedByCredential}
                       title="Send (⏎)"
                     >
                       {icons.send}

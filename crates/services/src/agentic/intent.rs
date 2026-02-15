@@ -15,6 +15,26 @@ use serde::Deserialize;
 use serde_json::Value;
 use std::sync::Arc; // [FIX] Required for decoding session ID
 
+fn decode_session_id_hex_compat(session_id_hex: &str) -> Option<[u8; 32]> {
+    let normalized = session_id_hex
+        .trim()
+        .trim_start_matches("0x")
+        .replace('-', "");
+    let bytes = hex::decode(normalized).ok()?;
+    let mut session_id = [0u8; 32];
+    match bytes.len() {
+        32 => {
+            session_id.copy_from_slice(&bytes);
+            Some(session_id)
+        }
+        16 => {
+            session_id[..16].copy_from_slice(&bytes);
+            Some(session_id)
+        }
+        _ => None,
+    }
+}
+
 /// A service to translate natural language user intent into a canonical, signable transaction.
 pub struct IntentResolver {
     inference: Arc<dyn InferenceRuntime>,
@@ -201,12 +221,8 @@ impl IntentResolver {
                 // [NEW] Check for explicit session ID in params (e.g. resumption context)
                 let mut session_id = [0u8; 32];
                 if let Some(sid_hex) = plan.params.get("session_id_hex").and_then(|v| v.as_str()) {
-                    if let Ok(bytes) = hex::decode(sid_hex) {
-                        if bytes.len() == 32 {
-                            session_id.copy_from_slice(&bytes);
-                        } else {
-                            rand::thread_rng().fill_bytes(&mut session_id);
-                        }
+                    if let Some(parsed) = decode_session_id_hex_compat(sid_hex) {
+                        session_id = parsed;
                     } else {
                         rand::thread_rng().fill_bytes(&mut session_id);
                     }
@@ -265,4 +281,30 @@ struct IntentPlan {
 
     #[serde(default, alias = "gasCeiling", alias = "gas_limit")]
     gas_ceiling: u64,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::decode_session_id_hex_compat;
+
+    #[test]
+    fn session_id_32_bytes_is_preserved() {
+        let input = "ab".repeat(32);
+        let parsed = decode_session_id_hex_compat(&input).expect("must decode");
+        assert_eq!(hex::encode(parsed), input);
+    }
+
+    #[test]
+    fn session_id_16_bytes_is_zero_extended() {
+        let input = "cd".repeat(16);
+        let parsed = decode_session_id_hex_compat(&input).expect("must decode");
+        assert_eq!(hex::encode(&parsed[..16]), input);
+        assert_eq!(parsed[16..], [0u8; 16]);
+    }
+
+    #[test]
+    fn invalid_session_id_returns_none() {
+        assert!(decode_session_id_hex_compat("xyz").is_none());
+        assert!(decode_session_id_hex_compat(&"aa".repeat(15)).is_none());
+    }
 }

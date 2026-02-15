@@ -18,6 +18,26 @@ export interface Receipt {
   cost?: string;
 }
 
+export interface CredentialRequest {
+  kind: string;
+  prompt: string;
+  one_time?: boolean;
+}
+
+export interface ClarificationOption {
+  id: string;
+  label: string;
+  description: string;
+  recommended?: boolean;
+}
+
+export interface ClarificationRequest {
+  kind: string;
+  question: string;
+  options: ClarificationOption[];
+  allow_other?: boolean;
+}
+
 // [NEW] Sovereignty Context: Defines the active constraints on the agent
 export interface PolicyContext {
   name: string; // e.g., "Finance Safe"
@@ -59,6 +79,8 @@ export interface AgentTask {
   current_step: string;
   gate_info?: GateInfo;
   pending_request_hash?: string;
+  credential_request?: CredentialRequest;
+  clarification_request?: ClarificationRequest;
   receipt?: Receipt;
   visual_hash?: string; // Added to match Rust backend
 
@@ -188,7 +210,16 @@ export const useAgentStore = create<AgentStore>((set, get) => ({
         { role: "user", text: input, timestamp: Date.now() },
       ];
       // Set phase to Running so spinner appears
-      set({ task: { ...currentTask, history: newHistory, phase: "Running" } });
+      set({
+        task: {
+          ...currentTask,
+          history: newHistory,
+          phase: "Running",
+          current_step: "Sending message...",
+          credential_request: undefined,
+          clarification_request: undefined,
+        },
+      });
     }
 
     try {

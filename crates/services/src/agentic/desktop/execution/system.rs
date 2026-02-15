@@ -1,6 +1,7 @@
 // Path: crates/services/src/agentic/desktop/execution/system.rs
 
 use super::{ToolExecutionResult, ToolExecutor};
+use crate::agentic::desktop::runtime_secret;
 use ioi_crypto::algorithms::hash::sha256;
 use ioi_drivers::terminal::{CommandExecutionOptions, ProcessStreamChunk, ProcessStreamObserver};
 use ioi_types::app::agentic::AgentTool;
@@ -18,6 +19,7 @@ struct LaunchAttempt {
 }
 
 const INSTALL_COMMAND_TIMEOUT: Duration = Duration::from_secs(600);
+const RUNTIME_SECRET_KIND_SUDO_PASSWORD: &str = "sudo_password";
 
 pub async fn handle(
     exec: &ToolExecutor,
@@ -218,7 +220,9 @@ async fn handle_install_package(
     }
 
     let manager = normalize_install_manager(manager);
-    let (command, args): (&str, Vec<String>) = match manager.as_str() {
+    let mut stdin_data: Option<Vec<u8>> = None;
+    let mut used_runtime_password = false;
+    let (command, mut args): (&str, Vec<String>) = match manager.as_str() {
         "apt-get" => (
             "sudo",
             vec![
@@ -291,9 +295,28 @@ async fn handle_install_package(
         }
     };
 
+    if matches!(manager.as_str(), "apt-get" | "yum" | "dnf") {
+        let session_id_hex = hex::encode(session_id);
+        if let Some(secret) =
+            runtime_secret::take_secret(&session_id_hex, RUNTIME_SECRET_KIND_SUDO_PASSWORD)
+        {
+            used_runtime_password = true;
+            args = vec![
+                "-S".to_string(),
+                "-k".to_string(),
+                manager.clone(),
+                "install".to_string(),
+                "-y".to_string(),
+                trimmed.to_string(),
+            ];
+            stdin_data = Some(format!("{}\n", secret).into_bytes());
+        }
+    }
+
     let cmd_preview = command_preview(command, &args);
     let options = CommandExecutionOptions::default()
         .with_timeout(INSTALL_COMMAND_TIMEOUT)
+        .with_stdin_data(stdin_data)
         .with_stream_observer(process_stream_observer(
             exec,
             session_id,
@@ -309,24 +332,29 @@ async fn handle_install_package(
     {
         Ok(output) => {
             if command_output_indicates_failure(&output) {
-                let class = classify_install_failure(output.as_str(), command, &manager, trimmed);
+                let class = classify_install_failure(output.as_str(), command, &manager);
                 ToolExecutionResult::failure(format!(
                     "ERROR_CLASS={} Failed to install '{}' via '{}': {}",
                     class,
                     trimmed,
                     manager,
-                    summarize_command_output(&output)
+                    summarize_install_failure_output(&output)
                 ))
             } else {
+                let mode_note = if used_runtime_password {
+                    "sudo-password"
+                } else {
+                    command
+                };
                 ToolExecutionResult::success(format!(
                     "Installed '{}' via '{}' ({})",
-                    trimmed, manager, command
+                    trimmed, manager, mode_note
                 ))
             }
         }
         Err(e) => {
             let msg = e.to_string();
-            let class = classify_install_failure(msg.as_str(), command, &manager, trimmed);
+            let class = classify_install_failure(msg.as_str(), command, &manager);
             ToolExecutionResult::failure(format!(
                 "ERROR_CLASS={} Failed to install '{}' via '{}': {}",
                 class, trimmed, manager, msg
@@ -365,19 +393,20 @@ fn normalize_install_manager(raw: Option<&str>) -> String {
     }
 }
 
-fn classify_install_failure(error: &str, command: &str, manager: &str, package: &str) -> &'static str {
+fn classify_install_failure(error: &str, command: &str, manager: &str) -> &'static str {
     let msg = error.to_ascii_lowercase();
 
     if msg.contains("timed out") || msg.contains("timeout") {
         return "TimeoutOrHang";
     }
 
-    if msg.contains("sudo:")
-        || msg.contains("permission denied")
-        || msg.contains("not in the sudoers")
-        || msg.contains("a password is required")
-        || msg.contains("requires elevated privileges")
-    {
+    // Prefer deterministic package lookup failures over incidental sudo text.
+    // Some environments can surface both in a single stderr stream.
+    if is_install_package_lookup_error(error) {
+        return "MissingDependency";
+    }
+
+    if is_sudo_password_required_install_error(error) || msg.contains("permission denied") {
         return "PermissionOrApprovalRequired";
     }
 
@@ -391,16 +420,31 @@ fn classify_install_failure(error: &str, command: &str, manager: &str, package: 
         }
     }
 
-    if msg.contains("unable to locate package")
+    "UnexpectedState"
+}
+
+pub(crate) fn is_install_package_lookup_error(error: &str) -> bool {
+    let msg = error.to_ascii_lowercase();
+    msg.contains("unable to locate package")
         || msg.contains("no package")
         || msg.contains("could not find")
         || msg.contains("has no installation candidate")
-        || msg.contains(package)
-    {
-        return "MissingDependency";
-    }
+        || msg.contains("no match for argument")
+        || msg.contains("cannot find a package")
+}
 
-    "UnexpectedState"
+pub(crate) fn is_sudo_password_required_install_error(error: &str) -> bool {
+    if is_install_package_lookup_error(error) {
+        return false;
+    }
+    let msg = error.to_ascii_lowercase();
+    msg.contains("sudo:")
+        || msg.contains("a password is required")
+        || msg.contains("not in the sudoers")
+        || msg.contains("requires elevated privileges")
+        || msg.contains("incorrect password")
+        || msg.contains("sorry, try again")
+        || msg.contains("error_class=permissionorapprovalrequired")
 }
 
 fn resolve_working_directory(cwd: &str) -> Result<PathBuf, String> {
@@ -474,41 +518,6 @@ fn build_linux_launch_plan(app_name: &str, has_gtk_launch: bool) -> Vec<LaunchAt
     let mut desktop_ids = Vec::new();
     let mut binaries = Vec::new();
 
-    let app_lower = trimmed.to_lowercase();
-
-    // Existing targeted mappings.
-    if app_lower.contains("calculator") {
-        push_unique(&mut desktop_ids, "gnome-calculator");
-        push_unique(&mut binaries, "gnome-calculator");
-    }
-    if app_lower.contains("code") {
-        push_unique(&mut desktop_ids, "code");
-        push_unique(&mut binaries, "code");
-    }
-
-    // Browser aliases for common Linux installations.
-    if app_lower.contains("browser")
-        || app_lower.contains("chrome")
-        || app_lower.contains("chromium")
-        || app_lower.contains("brave")
-    {
-        for candidate in [
-            "google-chrome",
-            "google-chrome-stable",
-            "chrome",
-            "chromium",
-            "chromium-browser",
-            "brave-browser",
-            "firefox",
-        ] {
-            push_unique(&mut desktop_ids, candidate);
-            push_unique(&mut binaries, candidate);
-        }
-    } else if app_lower.contains("firefox") {
-        push_unique(&mut desktop_ids, "firefox");
-        push_unique(&mut binaries, "firefox");
-    }
-
     let slug_dash = slugify(trimmed, '-');
     let slug_underscore = slugify(trimmed, '_');
     let trimmed_lower = trimmed.to_lowercase();
@@ -529,13 +538,15 @@ fn build_linux_launch_plan(app_name: &str, has_gtk_launch: bool) -> Vec<LaunchAt
     }
 
     // Candidate binaries for direct spawning.
+    if trimmed.contains('/') {
+        push_unique(&mut binaries, trimmed);
+    }
     for candidate in [
-        trimmed,
         trimmed_lower.as_str(),
         slug_dash.as_str(),
         slug_underscore.as_str(),
     ] {
-        if !candidate.is_empty() {
+        if !candidate.is_empty() && !candidate.contains(' ') {
             push_unique(&mut binaries, candidate);
         }
     }
@@ -628,6 +639,32 @@ fn summarize_command_output(output: &str) -> String {
         .to_string()
 }
 
+fn summarize_install_failure_output(output: &str) -> String {
+    let trimmed = output.trim();
+    if trimmed.is_empty() {
+        return "unknown error".to_string();
+    }
+    let stderr_or_full = trimmed
+        .split_once("Stderr:")
+        .map(|(_, stderr)| stderr.trim())
+        .unwrap_or(trimmed);
+    let compact = stderr_or_full
+        .split_whitespace()
+        .collect::<Vec<_>>()
+        .join(" ");
+    if compact.is_empty() {
+        return summarize_command_output(trimmed);
+    }
+    let max_chars = 480;
+    let compact_chars = compact.chars().count();
+    if compact_chars > max_chars {
+        let truncated = compact.chars().take(max_chars).collect::<String>();
+        format!("{}...", truncated)
+    } else {
+        compact
+    }
+}
+
 fn launch_errors_indicate_missing_app(errors: &[String]) -> bool {
     if errors.is_empty() {
         return false;
@@ -647,8 +684,8 @@ fn launch_errors_indicate_missing_app(errors: &[String]) -> bool {
 #[cfg(test)]
 mod tests {
     use super::{
-        build_linux_launch_plan, command_output_indicates_failure, launch_attempt_failed,
-        launch_errors_indicate_missing_app, LaunchAttempt,
+        build_linux_launch_plan, classify_install_failure, command_output_indicates_failure,
+        launch_attempt_failed, launch_errors_indicate_missing_app, LaunchAttempt,
     };
 
     #[test]
@@ -662,13 +699,11 @@ mod tests {
     }
 
     #[test]
-    fn linux_plan_includes_browser_binary_fallbacks() {
+    fn linux_plan_includes_generic_binary_fallbacks() {
         let plan = build_linux_launch_plan("Google Chrome", false);
         let commands: Vec<&str> = plan.iter().map(|a| a.command.as_str()).collect();
         assert!(commands.contains(&"google-chrome"));
-        assert!(commands.contains(&"google-chrome-stable"));
-        assert!(commands.contains(&"chromium"));
-        assert!(commands.contains(&"brave-browser"));
+        assert!(commands.contains(&"google_chrome"));
     }
 
     #[test]
@@ -721,5 +756,23 @@ mod tests {
     fn do_not_classify_generic_runtime_errors_as_missing_app() {
         let errors = vec!["google-chrome (Command timed out after 5 seconds)".to_string()];
         assert!(!launch_errors_indicate_missing_app(&errors));
+    }
+
+    #[test]
+    fn classify_mixed_sudo_and_package_lookup_as_missing_dependency() {
+        let mixed = "[sudo] password for user: sudo: a password is required\nE: Unable to locate package calculator";
+        assert_eq!(
+            classify_install_failure(mixed, "sudo", "apt-get"),
+            "MissingDependency"
+        );
+    }
+
+    #[test]
+    fn classify_password_required_as_permission_error() {
+        let password = "sudo: a password is required";
+        assert_eq!(
+            classify_install_failure(password, "sudo", "apt-get"),
+            "PermissionOrApprovalRequired"
+        );
     }
 }

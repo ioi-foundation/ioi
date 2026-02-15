@@ -3,6 +3,7 @@
 pub mod execution; // Points to execution/mod.rs now
 pub mod keys;
 pub mod middleware;
+pub mod runtime_secret;
 pub mod service;
 pub mod tools;
 pub mod types;

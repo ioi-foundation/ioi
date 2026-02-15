@@ -12,10 +12,13 @@ use ioi_ipc::public::public_api_server::PublicApi;
 use ioi_ipc::public::{
     chain_event::Event as ChainEventEnum, BlockCommitted, ChainEvent, DraftTransactionRequest,
     DraftTransactionResponse, GetBlockByHeightRequest, GetBlockByHeightResponse,
-    GetContextBlobRequest, GetContextBlobResponse, GetTransactionStatusRequest,
-    GetTransactionStatusResponse, SubmissionStatus, SubmitTransactionRequest,
-    SubmitTransactionResponse, SubscribeEventsRequest, TxStatus,
+    GetContextBlobRequest, GetContextBlobResponse, GetSessionHistoryRequest,
+    GetSessionHistoryResponse, GetTransactionStatusRequest, GetTransactionStatusResponse,
+    SessionHistoryMessage, SetRuntimeSecretRequest, SetRuntimeSecretResponse, SubmissionStatus,
+    SubmitTransactionRequest, SubmitTransactionResponse, SubscribeEventsRequest, TxStatus,
 };
+use ioi_scs::FrameType;
+use ioi_services::agentic::desktop::runtime_secret;
 use ioi_types::app::{
     account_id_from_key_material, AccountId, ChainTransaction, RoutingReceiptEvent, SignatureProof,
     SignatureSuite, StateRoot, TxHash,
@@ -46,6 +49,29 @@ fn routing_policy_binding_hash(intent_hash: &str, policy_decision: &str) -> Stri
     sha256(payload.as_bytes())
         .map(hex::encode)
         .unwrap_or_else(|_| String::new())
+}
+
+fn parse_session_id_hex(session_id_hex: &str) -> Result<[u8; 32], Status> {
+    let normalized = session_id_hex
+        .trim()
+        .trim_start_matches("0x")
+        .replace('-', "");
+    let bytes = hex::decode(normalized)
+        .map_err(|_| Status::invalid_argument("Invalid session_id_hex encoding"))?;
+    let mut session_id = [0u8; 32];
+    match bytes.len() {
+        32 => {
+            session_id.copy_from_slice(&bytes);
+            Ok(session_id)
+        }
+        16 => {
+            session_id[..16].copy_from_slice(&bytes);
+            Ok(session_id)
+        }
+        _ => Err(Status::invalid_argument(
+            "Invalid session_id_hex length (expected 16 or 32 bytes)",
+        )),
+    }
 }
 
 fn map_routing_receipt(
@@ -754,6 +780,98 @@ where
             ),
             required_capabilities: vec!["wallet::sign".into()],
         }))
+    }
+
+    async fn get_session_history(
+        &self,
+        request: Request<GetSessionHistoryRequest>,
+    ) -> Result<Response<GetSessionHistoryResponse>, Status> {
+        let req = request.into_inner();
+        let session_id = parse_session_id_hex(&req.session_id_hex)?;
+        let ctx_arc = self.get_context().await?;
+        let scs_arc = {
+            let ctx = ctx_arc.lock().await;
+            ctx.scs.clone()
+        };
+
+        let Some(scs_arc) = scs_arc else {
+            return Ok(Response::new(GetSessionHistoryResponse {
+                messages: vec![],
+            }));
+        };
+
+        let scs = scs_arc
+            .lock()
+            .map_err(|_| Status::internal("SCS lock poisoned"))?;
+
+        let mut messages = Vec::<SessionHistoryMessage>::new();
+        if let Some(frame_ids) = scs.session_index.get(&session_id) {
+            for &frame_id in frame_ids {
+                let Some(frame) = scs.toc.frames.get(frame_id as usize) else {
+                    continue;
+                };
+                if frame.frame_type != FrameType::Thought {
+                    continue;
+                }
+                let payload = match scs.read_frame_payload(frame_id) {
+                    Ok(payload) => payload,
+                    Err(_) => continue,
+                };
+                let decoded = match codec::from_bytes_canonical::<
+                    ioi_types::app::agentic::ChatMessage,
+                >(&payload)
+                {
+                    Ok(msg) => msg,
+                    Err(_) => continue,
+                };
+                messages.push(SessionHistoryMessage {
+                    role: decoded.role,
+                    content: decoded.content,
+                    timestamp: decoded.timestamp,
+                });
+            }
+        }
+
+        messages.sort_by_key(|msg| msg.timestamp);
+        if !req.ascending {
+            messages.reverse();
+        }
+        if req.limit > 0 && messages.len() > req.limit as usize {
+            messages.truncate(req.limit as usize);
+        }
+
+        Ok(Response::new(GetSessionHistoryResponse { messages }))
+    }
+
+    async fn set_runtime_secret(
+        &self,
+        request: Request<SetRuntimeSecretRequest>,
+    ) -> Result<Response<SetRuntimeSecretResponse>, Status> {
+        let req = request.into_inner();
+        if !req.secret_kind.eq_ignore_ascii_case("sudo_password") {
+            return Err(Status::invalid_argument("Unsupported secret_kind"));
+        }
+        if req.secret_value.is_empty() {
+            return Err(Status::invalid_argument("secret_value must be non-empty"));
+        }
+
+        let session_id = parse_session_id_hex(&req.session_id_hex)?;
+        let ttl_seconds = if req.ttl_seconds == 0 {
+            120u64
+        } else {
+            req.ttl_seconds.min(900) as u64
+        };
+
+        runtime_secret::set_secret(
+            &hex::encode(session_id),
+            "sudo_password",
+            req.secret_value,
+            req.one_time,
+            ttl_seconds,
+        )
+        .map_err(Status::invalid_argument)?;
+
+        Ok(Response::new(SetRuntimeSecretResponse { accepted: true }))
     }
 
     async fn get_context_blob(

@@ -410,7 +410,7 @@ pub fn save_local_task_state(scs: &Arc<Mutex<SovereignContextStore>>, task: &Age
                 0,
                 [0u8; 32],
                 key,
-                RetentionClass::Ephemeral, // [FIX] Task state is snapshots, can be Ephemeral
+                RetentionClass::Archival,
             );
         }
     }

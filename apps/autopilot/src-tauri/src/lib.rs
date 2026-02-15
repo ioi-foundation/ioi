@@ -17,6 +17,8 @@ mod windows;
 
 use ioi_api::vm::inference::{HttpInferenceRuntime, InferenceRuntime};
 use ioi_scs::{SovereignContextStore, StoreConfig};
+use ioi_types::app::{account_id_from_key_material, SignatureSuite};
+use ioi_validator::common::GuardianContainer;
 use models::AppState;
 
 /// Initialize X11 for multi-threaded access (Linux only)
@@ -43,6 +45,58 @@ fn is_env_var_truthy(key: &str) -> bool {
             s == "1" || s == "true" || s == "yes" || s == "on"
         })
         .unwrap_or(false)
+}
+
+fn derive_studio_scs_config(data_dir: &std::path::Path) -> StoreConfig {
+    let mut config = StoreConfig {
+        chain_id: 0,
+        owner_id: [0u8; 32],
+        identity_key: [0u8; 32],
+    };
+    let key_path = data_dir.join("identity.key");
+    if !key_path.exists() {
+        return config;
+    }
+
+    if std::env::var("IOI_GUARDIAN_KEY_PASS").is_err() {
+        unsafe {
+            std::env::set_var("IOI_GUARDIAN_KEY_PASS", "local-mode");
+        }
+    }
+
+    let raw = match GuardianContainer::load_encrypted_file(&key_path) {
+        Ok(raw) => raw,
+        Err(e) => {
+            eprintln!(
+                "[Autopilot] Failed to load identity key for SCS config (fallback active): {}",
+                e
+            );
+            return config;
+        }
+    };
+
+    let keypair = match libp2p::identity::Keypair::from_protobuf_encoding(&raw) {
+        Ok(kp) => kp,
+        Err(e) => {
+            eprintln!(
+                "[Autopilot] Failed to decode identity key for SCS config (fallback active): {}",
+                e
+            );
+            return config;
+        }
+    };
+
+    if let Ok(ed_kp) = keypair.clone().try_into_ed25519() {
+        config.identity_key.copy_from_slice(ed_kp.secret().as_ref());
+    }
+
+    if let Ok(owner_id) =
+        account_id_from_key_material(SignatureSuite::ED25519, &keypair.public().encode_protobuf())
+    {
+        config.owner_id = owner_id;
+    }
+
+    config
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -89,19 +143,12 @@ pub fn run() {
 
             // 1. Initialize Studio SCS
             let scs_path = data_dir.join("studio.scs");
+            let scs_config = derive_studio_scs_config(&data_dir);
             let studio_scs = if scs_path.exists() {
-                SovereignContextStore::open(&scs_path).ok()
+                SovereignContextStore::open_with_config(&scs_path, scs_config.clone()).ok()
             } else {
                 std::fs::create_dir_all(&data_dir).ok();
-                SovereignContextStore::create(
-                    &scs_path,
-                    StoreConfig {
-                        chain_id: 0,
-                        owner_id: [0u8; 32],
-                        identity_key: [0u8; 32], // [FIX] Field added (Dummy key for Studio)
-                    },
-                )
-                .ok()
+                SovereignContextStore::create(&scs_path, scs_config).ok()
             };
 
             if let Some(scs) = studio_scs {
@@ -245,6 +292,7 @@ pub fn run() {
             kernel::governance::gate_respond,
             kernel::governance::get_gate_response,
             kernel::governance::clear_gate_response,
+            kernel::governance::submit_runtime_password,
             // Data / Context
             kernel::data::get_context_blob,
             kernel::data::get_available_tools,

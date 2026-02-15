@@ -326,10 +326,9 @@ pub fn default_strategy_for(
             }
             _ => (StrategyName::OpenAppRecovery, StrategyNode::DiscoverRemedy),
         },
-        IntentClass::InstallDependency => (
-            StrategyName::InstallRecovery,
-            StrategyNode::RetryRootAction,
-        ),
+        IntentClass::InstallDependency => {
+            (StrategyName::InstallRecovery, StrategyNode::RetryRootAction)
+        }
         IntentClass::BrowserTask => match failure {
             FailureClass::UserInterventionNeeded => {
                 (StrategyName::BrowserRecovery, StrategyNode::PauseForUser)

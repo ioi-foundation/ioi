@@ -123,7 +123,7 @@ async fn main() -> Result<()> {
             "Opening existing Sovereign Context Substrate at {:?}",
             scs_path
         );
-        SovereignContextStore::open(&scs_path)?
+        SovereignContextStore::open_with_config(&scs_path, scs_config.clone())?
     } else {
         println!("Creating new Sovereign Context Substrate at {:?}", scs_path);
         SovereignContextStore::create(&scs_path, scs_config)?
@@ -135,6 +135,7 @@ async fn main() -> Result<()> {
     agent_methods.insert("start@v1".to_string(), MethodPermission::User);
     agent_methods.insert("step@v1".to_string(), MethodPermission::User);
     agent_methods.insert("resume@v1".to_string(), MethodPermission::User);
+    agent_methods.insert("post_message@v1".to_string(), MethodPermission::User);
 
     let agent_meta = ActiveServiceMeta {
         id: "desktop_agent".to_string(),
@@ -178,6 +179,12 @@ async fn main() -> Result<()> {
             Rule {
                 rule_id: Some("allow-resume".into()),
                 target: "resume@v1".into(),
+                conditions: Default::default(),
+                action: Verdict::Allow,
+            },
+            Rule {
+                rule_id: Some("allow-post-message".into()),
+                target: "post_message@v1".into(),
                 conditions: Default::default(),
                 action: Verdict::Allow,
             },

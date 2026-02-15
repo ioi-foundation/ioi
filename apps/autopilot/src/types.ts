@@ -114,6 +114,26 @@ export interface Receipt {
   cost?: string;
 }
 
+export interface CredentialRequest {
+  kind: string;
+  prompt: string;
+  one_time?: boolean;
+}
+
+export interface ClarificationOption {
+  id: string;
+  label: string;
+  description: string;
+  recommended?: boolean;
+}
+
+export interface ClarificationRequest {
+  kind: string;
+  question: string;
+  options: ClarificationOption[];
+  allow_other?: boolean;
+}
+
 export interface PolicyContext {
   name: string;
   mode: "strict" | "standard" | "elevated";
@@ -158,6 +178,8 @@ export interface AgentTask {
   visual_hash?: string;
   pending_request_hash?: string;
   session_id?: string;
+  credential_request?: CredentialRequest;
+  clarification_request?: ClarificationRequest;
 }
 
 export interface SessionSummary {

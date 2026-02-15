@@ -36,6 +36,12 @@ service PublicApi {
   // [NEW] Retrieve a raw context chunk (e.g. screenshot PNG) by its hash/ID from the SCS.
   // This allows the GUI to display the agent's visual memory.
   rpc GetContextBlob (GetContextBlobRequest) returns (GetContextBlobResponse);
+
+  // Hydrate chat transcript messages for a specific session.
+  rpc GetSessionHistory (GetSessionHistoryRequest) returns (GetSessionHistoryResponse);
+
+  // Set an in-memory runtime secret scoped to a session (never persisted).
+  rpc SetRuntimeSecret (SetRuntimeSecretRequest) returns (SetRuntimeSecretResponse);
 }
 
 message SubmitTransactionRequest {
@@ -286,4 +292,32 @@ message GetContextBlobResponse {
   // Suggested MIME type (e.g. "image/png"). 
   // In a real implementation, this might be inferred or stored in metadata.
   string mime_type = 2; 
+}
+
+message GetSessionHistoryRequest {
+  string session_id_hex = 1;
+  uint32 limit = 2;
+  bool ascending = 3;
+}
+
+message SessionHistoryMessage {
+  string role = 1;
+  string content = 2;
+  uint64 timestamp = 3;
+}
+
+message GetSessionHistoryResponse {
+  repeated SessionHistoryMessage messages = 1;
+}
+
+message SetRuntimeSecretRequest {
+  string session_id_hex = 1;
+  string secret_kind = 2;
+  string secret_value = 3;
+  bool one_time = 4;
+  uint32 ttl_seconds = 5;
+}
+
+message SetRuntimeSecretResponse {
+  bool accepted = 1;
 }
