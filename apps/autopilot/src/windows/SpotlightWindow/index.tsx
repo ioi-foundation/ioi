@@ -62,6 +62,16 @@ const BASE_PANEL_WIDTH = 450;
 const SIDEBAR_PANEL_WIDTH = 260;
 const ARTIFACT_PANEL_WIDTH = 400;
 
+function isIdentityResolutionClarificationKind(kind?: string): boolean {
+  if (!kind) return false;
+  const normalized = kind.trim().toLowerCase();
+  return (
+    normalized === "identity_resolution" ||
+    normalized === "tool_lookup" ||
+    normalized === "install_package_lookup"
+  );
+}
+
 type ChatEvent = ChatMessage & {
   isGate?: boolean;
   gateData?: any;
@@ -337,14 +347,6 @@ export function SpotlightWindow({ variant = "overlay" }: SpotlightWindowProps) {
     ) {
       return;
     }
-    if (
-      (task?.current_step || "")
-        .toLowerCase()
-        .includes("waiting for user clarification on app/package name")
-    ) {
-      return;
-    }
-
     setIntent("");
 
     // Reset textarea height
@@ -399,14 +401,19 @@ export function SpotlightWindow({ variant = "overlay" }: SpotlightWindowProps) {
       const structuredPrompt = [
         "Clarification response:",
         request?.question ? `question=${request.question}` : undefined,
+        request?.tool_name ? `tool_name=${request.tool_name}` : undefined,
+        request?.failure_class
+          ? `failure_class=${request.failure_class}`
+          : undefined,
+        request?.context_hint ? `context_hint=${request.context_hint}` : undefined,
         `strategy=${optionId}`,
         selected ? `strategy_label=${selected.label}` : undefined,
         exactIdentifier ? `exact_identifier=${exactIdentifier}` : undefined,
         task?.intent ? `original_request=${task.intent}` : undefined,
         "Execution constraints:",
         exactIdentifier
-          ? `- Treat '${exactIdentifier}' as the authoritative app/package identifier for the next retry.`
-          : "- Use the selected strategy to resolve the app/package identity.",
+          ? `- Treat '${exactIdentifier}' as the authoritative target identifier for the next retry.`
+          : "- Use the selected strategy to resolve target identity.",
         "- Retry once on the same session.",
         "- If still unresolved, provide concrete discovered candidates and why each failed.",
         "- Do not ask the same clarification again without new evidence.",
@@ -512,47 +519,11 @@ export function SpotlightWindow({ variant = "overlay" }: SpotlightWindowProps) {
   const waitingForSudoByStep = (task?.current_step || "")
     .toLowerCase()
     .includes("waiting for sudo password");
-  const waitingForClarificationByStep = (task?.current_step || "")
-    .toLowerCase()
-    .includes("waiting for user clarification on app/package name");
-  const fallbackClarificationRequest = waitingForClarificationByStep
-    ? {
-        kind: "install_package_lookup",
-        question:
-          "The app/package identity could not be resolved. Which clarification strategy should be used?",
-        options: [
-          {
-            id: "discover_candidates",
-            label: "Discover candidates",
-            description:
-              "Use package-manager/executable discovery to generate candidates, then retry with the best match.",
-            recommended: true,
-          },
-          {
-            id: "launch_only",
-            label: "Launch without install",
-            description:
-              "Skip install attempts and try direct app launch with known executable IDs.",
-            recommended: false,
-          },
-          {
-            id: "provide_exact",
-            label: "Use exact package",
-            description:
-              "Wait for an exact package/app identifier and retry once with that value.",
-            recommended: false,
-          },
-        ],
-        allow_other: true,
-      }
-    : undefined;
-  const effectiveClarificationRequest =
-    clarificationRequest || fallbackClarificationRequest;
   const showPasswordPrompt =
     (credentialRequest?.kind === "sudo_password" || waitingForSudoByStep) &&
     !!(task?.session_id || task?.id);
   const showClarificationPrompt =
-    effectiveClarificationRequest?.kind === "install_package_lookup" &&
+    isIdentityResolutionClarificationKind(clarificationRequest?.kind) &&
     !!(task?.session_id || task?.id);
   const inputLockedByCredential = showPasswordPrompt || showClarificationPrompt;
   const gateInfo = task?.gate_info
@@ -809,10 +780,10 @@ export function SpotlightWindow({ variant = "overlay" }: SpotlightWindowProps) {
               </div>
             )}
 
-            {showClarificationPrompt && effectiveClarificationRequest && (
+            {showClarificationPrompt && clarificationRequest && (
               <div className="spot-gate-dock">
                 <SpotlightClarificationCard
-                  request={effectiveClarificationRequest}
+                  request={clarificationRequest}
                   onSubmit={handleSubmitClarification}
                   onCancel={handleCancelClarification}
                 />

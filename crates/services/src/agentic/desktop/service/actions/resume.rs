@@ -15,7 +15,9 @@ use crate::agentic::desktop::service::step::anti_loop::{
     should_trip_retry_guard, tier_as_str, to_routing_failure_class, FailureClass,
     TierRoutingDecision,
 };
-use crate::agentic::desktop::service::step::helpers::default_safe_policy;
+use crate::agentic::desktop::service::step::helpers::{
+    default_safe_policy, should_auto_complete_open_app_goal,
+};
 use crate::agentic::desktop::service::step::incident::{
     advance_incident_after_action_outcome, incident_receipt_fields, load_incident_state,
     mark_gate_approved, mark_incident_wait_for_user, should_enter_incident_recovery,
@@ -363,6 +365,8 @@ pub async fn resume_pending_action(
             FailureClass::PermissionOrApprovalRequired,
             err.as_deref(),
         )?;
+        // Drop any queued remediation actions while awaiting credentials.
+        agent_state.execution_queue.clear();
     }
 
     if clarification_required {
@@ -378,7 +382,7 @@ pub async fn resume_pending_action(
             err.as_deref(),
         )?;
         agent_state.status =
-            AgentStatus::Paused("Waiting for user clarification on app/package name.".to_string());
+            AgentStatus::Paused("Waiting for clarification on target identity.".to_string());
     }
 
     let output_str = out
@@ -431,6 +435,7 @@ pub async fn resume_pending_action(
         agent_state.pending_visual_hash = Some(pending_vhash);
         agent_state.pending_tool_call = Some(action_json.clone());
         agent_state.pending_approval = None;
+        agent_state.execution_queue.clear();
         let sys_msg = ioi_types::app::agentic::ChatMessage {
             role: "system".to_string(),
             content: "System: WAIT_FOR_SUDO_PASSWORD. Install requires sudo password. Enter password to retry once."
@@ -464,7 +469,7 @@ pub async fn resume_pending_action(
         let sys_msg = ioi_types::app::agentic::ChatMessage {
             role: "system".to_string(),
             content:
-                "System: WAIT_FOR_CLARIFICATION. App/package identity could not be resolved. Choose a clarification option to continue."
+                "System: WAIT_FOR_CLARIFICATION. Target identity could not be resolved. Provide clarification input to continue."
                     .to_string(),
             timestamp: SystemTime::now()
                 .duration_since(UNIX_EPOCH)
@@ -558,6 +563,33 @@ pub async fn resume_pending_action(
                     agent_state.working_directory = content.clone();
                 }
                 agent_state.status = AgentStatus::Running;
+            }
+            AgentTool::OsLaunchApp { app_name } => {
+                if success
+                    && should_auto_complete_open_app_goal(
+                        &agent_state.goal,
+                        app_name,
+                        agent_state
+                            .target
+                            .as_ref()
+                            .and_then(|target| target.app_hint.as_deref()),
+                    )
+                {
+                    let summary = format!("Opened {}.", app_name);
+                    agent_state.status = AgentStatus::Completed(Some(summary.clone()));
+                    evaluate_and_crystallize(service, agent_state, session_id, &summary).await;
+                    if let Some(tx) = &service.event_sender {
+                        let _ = tx.send(KernelEvent::AgentActionResult {
+                            session_id,
+                            step_index: agent_state.step_count,
+                            tool_name: "agent__complete".to_string(),
+                            output: summary,
+                            agent_status: get_status_str(&agent_state.status),
+                        });
+                    }
+                } else {
+                    agent_state.status = AgentStatus::Running;
+                }
             }
             _ => {
                 // For standard actions, just return to running state
@@ -697,7 +729,7 @@ pub async fn resume_pending_action(
                 )?;
                 agent_state.execution_queue.clear();
                 agent_state.status = AgentStatus::Paused(
-                    "Waiting for user clarification on app/package name.".to_string(),
+                    "Waiting for clarification on target identity.".to_string(),
                 );
             } else if matches!(class, FailureClass::UserInterventionNeeded) {
                 stop_condition_hit = true;

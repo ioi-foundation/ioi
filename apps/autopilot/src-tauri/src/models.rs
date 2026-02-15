@@ -172,6 +172,14 @@ pub struct ClarificationRequest {
     pub kind: String,
     pub question: String,
     #[serde(default)]
+    pub tool_name: String,
+    #[serde(default)]
+    pub failure_class: Option<String>,
+    #[serde(default)]
+    pub evidence_snippet: Option<String>,
+    #[serde(default)]
+    pub context_hint: Option<String>,
+    #[serde(default)]
     pub options: Vec<ClarificationOption>,
     #[serde(default)]
     pub allow_other: bool,

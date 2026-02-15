@@ -2,6 +2,7 @@
 
 use super::DesktopAgentService;
 use crate::agentic::desktop::execution::ToolExecutor;
+use crate::agentic::desktop::runtime_secret;
 use crate::agentic::desktop::types::AgentState;
 use ioi_api::vm::drivers::os::{OsDriver, WindowInfo};
 use ioi_drivers::mcp::McpManager;
@@ -10,6 +11,8 @@ use ioi_types::error::TransactionError;
 use serde_jcs;
 use serde_json::json;
 use std::sync::Arc;
+
+const RUNTIME_SECRET_KIND_SUDO_PASSWORD: &str = "sudo_password";
 
 fn is_focus_sensitive_tool(tool: &AgentTool) -> bool {
     match tool {
@@ -60,6 +63,23 @@ fn is_missing_focus_dependency_error(msg: &str) -> bool {
             && (lower.contains("no such file")
                 || lower.contains("not found")
                 || lower.contains("missing dependency")))
+}
+
+fn is_runtime_secret_install_retry_approved(
+    tool: &AgentTool,
+    tool_hash: [u8; 32],
+    session_id: [u8; 32],
+    agent_state: &AgentState,
+) -> bool {
+    if !matches!(tool, AgentTool::SysInstallPackage { .. }) {
+        return false;
+    }
+    if agent_state.pending_tool_hash != Some(tool_hash) {
+        return false;
+    }
+
+    let session_id_hex = hex::encode(session_id);
+    runtime_secret::has_secret(&session_id_hex, RUNTIME_SECRET_KIND_SUDO_PASSWORD)
 }
 
 pub async fn handle_action_execution(
@@ -128,17 +148,27 @@ pub async fn handle_action_execution(
     let skip_policy = matches!(tool, AgentTool::SystemFail { .. });
 
     if !skip_policy {
-        let is_approved = if let Some(token) = &agent_state.pending_approval {
-            token.request_hash == tool_hash
-        } else {
-            false
-        };
+        let approved_by_token = agent_state
+            .pending_approval
+            .as_ref()
+            .map(|token| token.request_hash == tool_hash)
+            .unwrap_or(false);
+        let approved_by_runtime_secret =
+            is_runtime_secret_install_retry_approved(&tool, tool_hash, session_id, agent_state);
+        let is_approved = approved_by_token || approved_by_runtime_secret;
 
         if is_approved {
-            log::info!(
-                "Policy Gate: Pre-approved via Token for hash {}",
-                hex::encode(tool_hash)
-            );
+            if approved_by_token {
+                log::info!(
+                    "Policy Gate: Pre-approved via Token for hash {}",
+                    hex::encode(tool_hash)
+                );
+            } else {
+                log::info!(
+                    "Policy Gate: Pre-approved via runtime secret retry for hash {}",
+                    hex::encode(tool_hash)
+                );
+            }
         } else {
             // Import PolicyEngine from service level
             use crate::agentic::policy::PolicyEngine;
@@ -443,8 +473,47 @@ pub fn select_runtime(
 
 #[cfg(test)]
 mod tests {
-    use super::is_focus_sensitive_tool;
+    use super::{is_focus_sensitive_tool, is_runtime_secret_install_retry_approved};
+    use crate::agentic::desktop::runtime_secret;
+    use crate::agentic::desktop::types::{AgentMode, AgentState, AgentStatus, ExecutionTier};
     use ioi_types::app::agentic::{AgentTool, ComputerAction};
+    use std::collections::BTreeMap;
+
+    fn test_agent_state() -> AgentState {
+        AgentState {
+            session_id: [0u8; 32],
+            goal: "test".to_string(),
+            transcript_root: [0u8; 32],
+            status: AgentStatus::Running,
+            step_count: 0,
+            max_steps: 8,
+            last_action_type: None,
+            parent_session_id: None,
+            child_session_ids: vec![],
+            budget: 1,
+            tokens_used: 0,
+            consecutive_failures: 0,
+            pending_approval: None,
+            pending_tool_call: None,
+            pending_tool_jcs: None,
+            pending_tool_hash: None,
+            pending_visual_hash: None,
+            recent_actions: vec![],
+            mode: AgentMode::Agent,
+            current_tier: ExecutionTier::DomHeadless,
+            last_screen_phash: None,
+            execution_queue: vec![],
+            active_skill_hash: None,
+            tool_execution_log: BTreeMap::new(),
+            visual_som_map: None,
+            visual_semantic_map: None,
+            swarm_context: None,
+            target: None,
+            working_directory: ".".to_string(),
+            active_lens: None,
+            pending_search_completion: None,
+        }
+    }
 
     #[test]
     fn right_click_variants_require_focus_recovery() {
@@ -461,5 +530,47 @@ mod tests {
                 id: "file_row".to_string(),
             },
         )));
+    }
+
+    #[test]
+    fn runtime_secret_retry_is_approved_only_for_matching_pending_install() {
+        let session_id = [9u8; 32];
+        let session_hex = hex::encode(session_id);
+        runtime_secret::set_secret(&session_hex, "sudo_password", "pw".to_string(), true, 60)
+            .expect("set runtime sudo secret");
+
+        let mut state = test_agent_state();
+        let hash = [7u8; 32];
+        state.pending_tool_hash = Some(hash);
+
+        let install_tool = AgentTool::SysInstallPackage {
+            package: "gnome-calculator".to_string(),
+            manager: Some("apt-get".to_string()),
+        };
+        assert!(is_runtime_secret_install_retry_approved(
+            &install_tool,
+            hash,
+            session_id,
+            &state
+        ));
+
+        assert!(!is_runtime_secret_install_retry_approved(
+            &install_tool,
+            [8u8; 32],
+            session_id,
+            &state
+        ));
+
+        let non_install = AgentTool::SysExec {
+            command: "echo".to_string(),
+            args: vec!["ok".to_string()],
+            detach: false,
+        };
+        assert!(!is_runtime_secret_install_retry_approved(
+            &non_install,
+            hash,
+            session_id,
+            &state
+        ));
     }
 }

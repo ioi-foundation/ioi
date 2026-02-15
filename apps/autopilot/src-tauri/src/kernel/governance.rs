@@ -350,6 +350,8 @@ pub async fn submit_runtime_password(
         .into_inner();
 
     let mut attempts = 0;
+    let mut committed = false;
+    let mut last_status: Option<i32> = None;
     loop {
         tokio::time::sleep(std::time::Duration::from_millis(400)).await;
         attempts += 1;
@@ -362,11 +364,28 @@ pub async fn submit_runtime_password(
             }))
             .await;
         if let Ok(status_resp) = status_resp {
-            let status = status_resp.into_inner().status;
-            if status == 3 || status == 4 {
+            let status_body = status_resp.into_inner();
+            let status = status_body.status;
+            last_status = Some(status);
+            if status == 3 {
+                committed = true;
                 break;
             }
+            if status == 4 {
+                let base = "Resume transaction was rejected by the chain";
+                if status_body.error_message.trim().is_empty() {
+                    return Err(base.to_string());
+                }
+                return Err(format!("{}: {}", base, status_body.error_message));
+            }
         }
+    }
+
+    if !committed {
+        return Err(format!(
+            "Timed out waiting for resume transaction commit (last_status={})",
+            last_status.unwrap_or_default()
+        ));
     }
 
     update_task_state(&app, |t| {

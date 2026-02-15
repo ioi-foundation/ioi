@@ -2,6 +2,9 @@
 
 use super::DesktopAgentService;
 use crate::agentic::desktop::keys::{get_incident_key, get_remediation_key, get_state_key};
+use crate::agentic::desktop::middleware;
+use crate::agentic::desktop::runtime_secret;
+use crate::agentic::desktop::service::step::incident::{mark_incident_retry_root, IncidentState};
 use crate::agentic::desktop::types::{
     AgentMode, AgentState, AgentStatus, ExecutionTier, InteractionTarget, PostMessageParams,
     ResumeAgentParams, SessionSummary, StartAgentParams, SwarmContext,
@@ -9,10 +12,122 @@ use crate::agentic::desktop::types::{
 use hex;
 use ioi_api::state::StateAccess;
 use ioi_api::transaction::context::TxContext;
+use ioi_crypto::algorithms::hash::sha256;
+use ioi_types::app::agentic::AgentTool;
 use ioi_types::codec;
 use ioi_types::error::TransactionError;
+use serde_jcs;
 use std::collections::BTreeMap;
 use std::time::{SystemTime, UNIX_EPOCH};
+
+const RUNTIME_SECRET_KIND_SUDO_PASSWORD: &str = "sudo_password";
+
+fn is_waiting_for_sudo_password(status: &AgentStatus) -> bool {
+    matches!(
+        status,
+        AgentStatus::Paused(reason) if reason.eq_ignore_ascii_case("Waiting for sudo password")
+    )
+}
+
+fn status_mentions_sudo_password(status: &AgentStatus) -> bool {
+    match status {
+        AgentStatus::Paused(reason) | AgentStatus::Failed(reason) => {
+            let lower = reason.to_ascii_lowercase();
+            lower.contains("sudo password") || lower.contains("administrative privileges")
+        }
+        _ => false,
+    }
+}
+
+fn incident_waiting_for_sudo_password(
+    state: &mut dyn StateAccess,
+    session_id: [u8; 32],
+) -> Result<bool, TransactionError> {
+    let incident_key = get_incident_key(&session_id);
+    let Some(incident_bytes) = state.get(&incident_key)? else {
+        return Ok(false);
+    };
+    let incident: IncidentState = codec::from_bytes_canonical(&incident_bytes)?;
+    Ok(incident
+        .resolution_action
+        .eq_ignore_ascii_case("wait_for_sudo_password"))
+}
+
+fn restore_pending_install_from_tool_call(
+    agent_state: &mut AgentState,
+) -> Result<bool, TransactionError> {
+    if agent_state.pending_tool_jcs.is_some() {
+        return Ok(true);
+    }
+    let Some(raw) = agent_state.pending_tool_call.as_deref() else {
+        return Ok(false);
+    };
+    let parsed = match middleware::normalize_tool_call(raw) {
+        Ok(tool) => tool,
+        Err(_) => return Ok(false),
+    };
+    if !matches!(parsed, AgentTool::SysInstallPackage { .. }) {
+        return Ok(false);
+    }
+
+    let tool_jcs = serde_jcs::to_vec(&parsed).map_err(|e| {
+        TransactionError::Serialization(format!("Failed to encode pending install tool: {}", e))
+    })?;
+    let hash_bytes = sha256(&tool_jcs).map_err(|e| TransactionError::Invalid(e.to_string()))?;
+    let mut hash_arr = [0u8; 32];
+    hash_arr.copy_from_slice(hash_bytes.as_ref());
+
+    agent_state.pending_tool_jcs = Some(tool_jcs);
+    agent_state.pending_tool_hash = Some(hash_arr);
+    if agent_state.pending_visual_hash.is_none() {
+        agent_state.pending_visual_hash = Some(agent_state.last_screen_phash.unwrap_or([0u8; 32]));
+    }
+    agent_state.pending_approval = None;
+    Ok(true)
+}
+
+fn maybe_restore_pending_install_from_incident(
+    state: &mut dyn StateAccess,
+    session_id: [u8; 32],
+    agent_state: &mut AgentState,
+) -> Result<(), TransactionError> {
+    if agent_state.pending_tool_jcs.is_some() {
+        return Ok(());
+    }
+
+    if restore_pending_install_from_tool_call(agent_state)? {
+        return Ok(());
+    }
+
+    let incident_key = get_incident_key(&session_id);
+    let Some(incident_bytes) = state.get(&incident_key)? else {
+        return Ok(());
+    };
+    let incident: IncidentState = codec::from_bytes_canonical(&incident_bytes)?;
+    let waiting_for_sudo = incident
+        .resolution_action
+        .eq_ignore_ascii_case("wait_for_sudo_password");
+    let is_install_root = incident
+        .root_tool_name
+        .eq_ignore_ascii_case("sys__install_package")
+        || incident
+            .root_tool_name
+            .eq_ignore_ascii_case("sys::install_package")
+        || incident.root_tool_name.ends_with("install_package");
+    if !waiting_for_sudo || !is_install_root || incident.root_tool_jcs.is_empty() {
+        return Ok(());
+    }
+
+    let hash_bytes =
+        sha256(&incident.root_tool_jcs).map_err(|e| TransactionError::Invalid(e.to_string()))?;
+    let mut hash_arr = [0u8; 32];
+    hash_arr.copy_from_slice(hash_bytes.as_ref());
+    agent_state.pending_tool_jcs = Some(incident.root_tool_jcs);
+    agent_state.pending_tool_hash = Some(hash_arr);
+    agent_state.pending_approval = None;
+    agent_state.execution_queue.clear();
+    Ok(())
+}
 
 pub async fn handle_start(
     service: &DesktopAgentService,
@@ -241,36 +356,74 @@ pub async fn handle_post_message(
     p: PostMessageParams,
     ctx: &TxContext<'_>,
 ) -> Result<(), TransactionError> {
-    let msg = ioi_types::app::agentic::ChatMessage {
-        role: p.role,
-        content: p.content,
-        timestamp: SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap()
-            .as_millis() as u64,
-        trace_hash: None,
-    };
-
-    let new_root = service
-        .append_chat_to_scs(p.session_id, &msg, ctx.block_height)
-        .await?;
-
     let key = get_state_key(&p.session_id);
     if let Some(bytes) = state.get(&key)? {
         let mut agent_state: AgentState = codec::from_bytes_canonical(&bytes)?;
-
-        agent_state.transcript_root = new_root;
-
-        if msg.role == "user" {
-            agent_state.goal = msg.content.clone();
-            agent_state.step_count = 0;
-            agent_state.last_action_type = None;
-            agent_state.pending_search_completion = None;
-            let remediation_key = get_remediation_key(&p.session_id);
-            let incident_key = get_incident_key(&p.session_id);
-            state.delete(&remediation_key)?;
-            state.delete(&incident_key)?;
+        let timestamp_ms = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_millis() as u64;
+        let role = p.role.clone();
+        let content = p.content.clone();
+        let incident_waiting_for_sudo = incident_waiting_for_sudo_password(state, p.session_id)?;
+        let waiting_for_sudo_password =
+            is_waiting_for_sudo_password(&agent_state.status) || incident_waiting_for_sudo;
+        if role == "user" {
+            if waiting_for_sudo_password {
+                if content.trim().is_empty() {
+                    return Err(TransactionError::Invalid(
+                        "Sudo password input cannot be empty".into(),
+                    ));
+                }
+                let session_id_hex = hex::encode(p.session_id);
+                runtime_secret::set_secret(
+                    &session_id_hex,
+                    RUNTIME_SECRET_KIND_SUDO_PASSWORD,
+                    content.clone(),
+                    true,
+                    120,
+                )
+                .map_err(TransactionError::Invalid)?;
+                log::info!(
+                    "Captured runtime sudo credential from user message for session {}",
+                    hex::encode(&p.session_id[..4])
+                );
+                // Move incident state out of wait-for-user immediately so UI does not
+                // re-surface the sudo prompt card while the retry is already in-flight.
+                mark_incident_retry_root(state, p.session_id)?;
+                maybe_restore_pending_install_from_incident(state, p.session_id, &mut agent_state)?;
+            } else {
+                agent_state.goal = content.clone();
+                agent_state.step_count = 0;
+                agent_state.last_action_type = None;
+                agent_state.pending_search_completion = None;
+                let remediation_key = get_remediation_key(&p.session_id);
+                let incident_key = get_incident_key(&p.session_id);
+                state.delete(&remediation_key)?;
+                state.delete(&incident_key)?;
+            }
         }
+        let transcript_msg = if role == "user" && waiting_for_sudo_password {
+            ioi_types::app::agentic::ChatMessage {
+                role: "system".to_string(),
+                content: "System: Runtime sudo credential received. Retrying pending install."
+                    .to_string(),
+                timestamp: timestamp_ms,
+                trace_hash: None,
+            }
+        } else {
+            ioi_types::app::agentic::ChatMessage {
+                role,
+                content,
+                timestamp: timestamp_ms,
+                trace_hash: None,
+            }
+        };
+
+        let new_root = service
+            .append_chat_to_scs(p.session_id, &transcript_msg, ctx.block_height)
+            .await?;
+        agent_state.transcript_root = new_root;
 
         if agent_state.status != AgentStatus::Running {
             log::info!(
@@ -299,14 +452,55 @@ pub async fn handle_resume(
         .get(&key)?
         .ok_or(TransactionError::Invalid("Session not found".into()))?;
     let mut agent_state: AgentState = codec::from_bytes_canonical(&bytes)?;
+    let session_id_hex = hex::encode(p.session_id);
+    let waiting_for_sudo_password_before_resume = is_waiting_for_sudo_password(&agent_state.status);
+    let status_hints_sudo_wait = status_mentions_sudo_password(&agent_state.status);
+    let incident_waiting_for_sudo = incident_waiting_for_sudo_password(state, p.session_id)?;
+    let runtime_secret_ready =
+        runtime_secret::has_secret(&session_id_hex, RUNTIME_SECRET_KIND_SUDO_PASSWORD);
+    let sudo_retry_resume = p.approval_token.is_none()
+        && (waiting_for_sudo_password_before_resume
+            || status_hints_sudo_wait
+            || incident_waiting_for_sudo
+            || runtime_secret_ready);
 
     // [FIX] Allow resume even if already running (Idempotency)
     // This handles the race where the UI sends resume but the system auto-recovered
     // or received another event that flipped it back to Running.
     if matches!(agent_state.status, AgentStatus::Paused(_))
         || agent_state.status == AgentStatus::Running
+        || sudo_retry_resume
     {
         agent_state.status = AgentStatus::Running;
+        if sudo_retry_resume {
+            maybe_restore_pending_install_from_incident(state, p.session_id, &mut agent_state)?;
+        }
+
+        let resuming_pending_install = agent_state
+            .pending_tool_jcs
+            .as_ref()
+            .and_then(|raw| serde_json::from_slice::<ioi_types::app::agentic::AgentTool>(raw).ok())
+            .map(|tool| {
+                matches!(
+                    tool,
+                    ioi_types::app::agentic::AgentTool::SysInstallPackage { .. }
+                )
+            })
+            .unwrap_or(false);
+        if sudo_retry_resume {
+            // Runtime-secret resume should retry canonical pending install directly.
+            // Drop stale remediation queue entries that can redirect into system__fail.
+            agent_state.execution_queue.clear();
+            if !resuming_pending_install {
+                log::warn!(
+                    "Resume requested for sudo retry, but pending install tool is unavailable for session {}. Keeping session paused.",
+                    hex::encode(&p.session_id[..4])
+                );
+                agent_state.status = AgentStatus::Paused("Waiting for sudo password".to_string());
+                state.insert(&key, &codec::to_bytes_canonical(&agent_state)?)?;
+                return Ok(());
+            }
+        }
 
         if let Some(token) = p.approval_token {
             log::info!(

@@ -876,6 +876,23 @@ pub fn mark_gate_approved(
     Ok(())
 }
 
+pub fn mark_incident_retry_root(
+    state: &mut dyn StateAccess,
+    session_id: [u8; 32],
+) -> Result<(), TransactionError> {
+    let Some(mut incident) = load_incident_state(state, &session_id)? else {
+        return Ok(());
+    };
+    incident.active = true;
+    incident.stage = IncidentStage::RetryRoot.as_str().to_string();
+    incident.strategy_cursor = StrategyNode::RetryRootAction.as_str().to_string();
+    incident.gate_state = GateState::Cleared.as_str().to_string();
+    incident.resolution_action = ResolutionAction::RetryRoot.as_str().to_string();
+    incident.pending_gate = None;
+    persist_incident_state(state, &session_id, &incident)?;
+    Ok(())
+}
+
 pub fn mark_incident_wait_for_user(
     state: &mut dyn StateAccess,
     session_id: [u8; 32],
