@@ -208,16 +208,17 @@ fn resolve_sys_exec_invocation(
         return Err("ERROR_CLASS=ToolUnavailable sys__exec requires a non-empty command.".into());
     }
 
+    if should_shell_wrap_sys_exec(trimmed) {
+        let shell_command = build_shell_wrapped_command_line(trimmed, args);
+        return Ok(wrap_sys_exec_with_shell(&shell_command));
+    }
+
     if !args.is_empty() {
         return Ok(SysExecInvocation {
             command: trimmed.to_string(),
             args: args.to_vec(),
             shell_wrapped: false,
         });
-    }
-
-    if should_shell_wrap_sys_exec(trimmed) {
-        return Ok(wrap_sys_exec_with_shell(trimmed));
     }
 
     let mut tokens = trimmed.split_whitespace();
@@ -233,20 +234,106 @@ fn resolve_sys_exec_invocation(
 }
 
 fn should_shell_wrap_sys_exec(command: &str) -> bool {
+    let trimmed = command.trim();
+    if trimmed.is_empty() {
+        return false;
+    }
+
+    if starts_with_shell_builtin(trimmed) || starts_with_env_assignment_prefix(trimmed) {
+        return true;
+    }
+
     let shell_tokens = ["&&", "||", "|", ";", ">", "<", "$(", "`", "\n", "\r"];
     if shell_tokens
         .iter()
-        .any(|token| !token.is_empty() && command.contains(token))
+        .any(|token| !token.is_empty() && trimmed.contains(token))
     {
         return true;
     }
 
-    command.contains('"')
-        || command.contains('\'')
-        || command.contains('*')
-        || command.contains('?')
-        || command.contains('{')
-        || command.contains('}')
+    trimmed.contains('"')
+        || trimmed.contains('\'')
+        || trimmed.contains('*')
+        || trimmed.contains('?')
+        || trimmed.contains('{')
+        || trimmed.contains('}')
+}
+
+fn starts_with_shell_builtin(command: &str) -> bool {
+    let Some(first_token) = command.split_whitespace().next() else {
+        return false;
+    };
+
+    let token = first_token.to_ascii_lowercase();
+    matches!(
+        token.as_str(),
+        "." | "cd" | "source" | "export" | "unset" | "alias" | "unalias" | "pushd" | "popd"
+    )
+}
+
+fn starts_with_env_assignment_prefix(command: &str) -> bool {
+    if cfg!(target_os = "windows") {
+        return false;
+    }
+
+    let mut saw_assignment = false;
+    for token in command.split_whitespace() {
+        if is_env_assignment_token(token) {
+            saw_assignment = true;
+            continue;
+        }
+        break;
+    }
+
+    saw_assignment
+}
+
+fn is_env_assignment_token(token: &str) -> bool {
+    let Some((name, _value)) = token.split_once('=') else {
+        return false;
+    };
+
+    let mut chars = name.chars();
+    let Some(first) = chars.next() else {
+        return false;
+    };
+    if !(first.is_ascii_alphabetic() || first == '_') {
+        return false;
+    }
+
+    chars.all(|ch| ch.is_ascii_alphanumeric() || ch == '_')
+}
+
+fn build_shell_wrapped_command_line(command: &str, args: &[String]) -> String {
+    if args.is_empty() {
+        return command.to_string();
+    }
+
+    let mut out = String::from(command);
+    for arg in args {
+        out.push(' ');
+        out.push_str(&quote_shell_argument(arg));
+    }
+    out
+}
+
+fn quote_shell_argument(arg: &str) -> String {
+    if arg.is_empty() {
+        return "''".to_string();
+    }
+
+    if arg
+        .chars()
+        .all(|ch| ch.is_ascii_alphanumeric() || matches!(ch, '_' | '-' | '.' | '/' | ':' | '@'))
+    {
+        return arg.to_string();
+    }
+
+    if cfg!(target_os = "windows") {
+        return format!("'{}'", arg.replace('\'', "''"));
+    }
+
+    format!("'{}'", arg.replace('\'', "'\"'\"'"))
 }
 
 fn wrap_sys_exec_with_shell(command: &str) -> SysExecInvocation {
@@ -1051,6 +1138,45 @@ mod tests {
             assert!(invocation.args.iter().any(|arg| arg == "-Command"));
         } else {
             assert_eq!(invocation.args.first(), Some(&"-lc".to_string()));
+        }
+    }
+
+    #[test]
+    fn sys_exec_invocation_shell_wraps_builtins_with_explicit_args() {
+        let args = vec!["/tmp/my project".to_string()];
+        let invocation =
+            resolve_sys_exec_invocation("cd", &args).expect("shell builtins should wrap");
+
+        assert!(invocation.shell_wrapped);
+        if cfg!(target_os = "windows") {
+            assert_eq!(invocation.command, "powershell");
+            assert!(invocation.args.iter().any(|arg| arg == "-Command"));
+        } else {
+            assert_eq!(invocation.args.first(), Some(&"-lc".to_string()));
+            let command_line = invocation
+                .args
+                .get(1)
+                .expect("shell command should be passed as second arg");
+            assert!(command_line.contains("cd"));
+            assert!(command_line.contains("'/tmp/my project'"));
+        }
+    }
+
+    #[test]
+    fn sys_exec_invocation_shell_wraps_env_assignment_prefix() {
+        let invocation = resolve_sys_exec_invocation("FOO=bar npm run test", &[])
+            .expect("env-prefix commands should wrap via shell");
+
+        if cfg!(target_os = "windows") {
+            assert!(!invocation.shell_wrapped);
+            assert_eq!(invocation.command, "FOO=bar");
+        } else {
+            assert!(invocation.shell_wrapped);
+            assert_eq!(invocation.args.first(), Some(&"-lc".to_string()));
+            assert_eq!(
+                invocation.args.get(1),
+                Some(&"FOO=bar npm run test".to_string())
+            );
         }
     }
 
