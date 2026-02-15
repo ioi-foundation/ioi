@@ -1,6 +1,5 @@
 // Path: crates/services/src/agentic/desktop/service/actions/process.rs
 
-use crate::agentic::desktop::execution::ToolExecutor;
 use crate::agentic::desktop::keys::{get_session_result_key, get_state_key, AGENT_POLICY_PREFIX};
 use crate::agentic::desktop::middleware;
 use crate::agentic::desktop::service::step::helpers::default_safe_policy;
@@ -10,7 +9,8 @@ use crate::agentic::desktop::utils::goto_trace_log;
 use crate::agentic::rules::ActionRules;
 use hex;
 use ioi_api::state::StateAccess;
-use ioi_drivers::mcp::McpManager;
+use ioi_api::vm::drivers::os::OsDriver;
+use ioi_drivers::os::UnavailableOsDriver;
 use ioi_types::app::agentic::AgentTool;
 use ioi_types::app::{ActionContext, ActionRequest, KernelEvent};
 use ioi_types::codec;
@@ -218,15 +218,10 @@ pub async fn process_tool_output(
 
     match tool_call {
         Ok(tool) => {
-            let mcp = service
-                .mcp
-                .clone()
-                .unwrap_or_else(|| Arc::new(McpManager::new()));
-            let lens_registry_arc = service.lens_registry.clone();
-            let os_driver = service
+            let os_driver: Arc<dyn OsDriver> = service
                 .os_driver
                 .clone()
-                .ok_or(TransactionError::Invalid("OS driver missing".into()))?;
+                .unwrap_or_else(|| Arc::new(UnavailableOsDriver::default()));
 
             // Set name for logging
             if let AgentTool::ChatReply { .. } = &tool {
@@ -258,18 +253,6 @@ pub async fn process_tool_output(
             if let Some(target_hash) = target_hash_opt {
                 let _ = service.restore_visual_context(target_hash).await;
             }
-
-            // Construct executor
-            let executor = ToolExecutor::new(
-                service.gui.clone(),
-                os_driver.clone(),
-                service.terminal.clone(),
-                service.browser.clone(),
-                mcp,
-                service.event_sender.clone(),
-                Some(lens_registry_arc),
-                service.reasoning_inference.clone(),
-            );
 
             // Execute Action
             match service

@@ -18,10 +18,7 @@ fn is_focus_sensitive_tool(tool: &AgentTool) -> bool {
     match tool {
         AgentTool::GuiClick { .. }
         | AgentTool::GuiScroll { .. }
-        | AgentTool::GuiClickElement { .. }
-        | AgentTool::BrowserClick { .. }
-        | AgentTool::BrowserClickElement { .. }
-        | AgentTool::BrowserSyntheticClick { .. } => true,
+        | AgentTool::GuiClickElement { .. } => true,
         AgentTool::Computer(action) => matches!(
             action,
             ComputerAction::LeftClick { .. }
@@ -531,6 +528,20 @@ mod tests {
                 id: "file_row".to_string(),
             },
         )));
+    }
+
+    #[test]
+    fn browser_click_tools_do_not_require_native_focus_recovery() {
+        assert!(!is_focus_sensitive_tool(&AgentTool::BrowserClick {
+            selector: "#submit".to_string(),
+        }));
+        assert!(!is_focus_sensitive_tool(&AgentTool::BrowserClickElement {
+            id: "btn_submit".to_string(),
+        }));
+        assert!(!is_focus_sensitive_tool(&AgentTool::BrowserSyntheticClick {
+            x: 20,
+            y: 30,
+        }));
     }
 
     #[test]

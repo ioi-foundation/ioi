@@ -10,6 +10,25 @@ use std::io::ErrorKind;
 use std::process::Command;
 use std::sync::Mutex;
 
+/// Deterministic fallback OS driver used when a runtime does not provide
+/// native OS integrations.
+pub struct UnavailableOsDriver;
+
+impl UnavailableOsDriver {
+    fn missing_dependency_error(action: &str) -> VmError {
+        VmError::HostError(format!(
+            "ERROR_CLASS=MissingDependency OS driver is unavailable for {} in this runtime.",
+            action
+        ))
+    }
+}
+
+impl Default for UnavailableOsDriver {
+    fn default() -> Self {
+        Self
+    }
+}
+
 /// Native implementation of the OS Driver using `active-win-pos-rs` and `arboard`.
 pub struct NativeOsDriver {
     clipboard: Mutex<Option<Clipboard>>,
@@ -35,6 +54,29 @@ impl NativeOsDriver {
 impl Default for NativeOsDriver {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+#[async_trait]
+impl OsDriver for UnavailableOsDriver {
+    async fn get_active_window_title(&self) -> Result<Option<String>, VmError> {
+        Ok(None)
+    }
+
+    async fn get_active_window_info(&self) -> Result<Option<WindowInfo>, VmError> {
+        Ok(None)
+    }
+
+    async fn focus_window(&self, _title_query: &str) -> Result<bool, VmError> {
+        Err(Self::missing_dependency_error("window focus"))
+    }
+
+    async fn set_clipboard(&self, _content: &str) -> Result<(), VmError> {
+        Err(Self::missing_dependency_error("clipboard write"))
+    }
+
+    async fn get_clipboard(&self) -> Result<String, VmError> {
+        Err(Self::missing_dependency_error("clipboard read"))
     }
 }
 
