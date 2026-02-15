@@ -3,7 +3,7 @@
 use crate::kernel::state::update_task_state;
 use crate::kernel::{artifacts as artifact_store, thresholds};
 use crate::models::{
-    AgentEvent, AgentPhase, AppState, Artifact, ArtifactRef, ArtifactType, ChatMessage,
+    AgentEvent, AgentPhase, AgentTask, AppState, Artifact, ArtifactRef, ArtifactType, ChatMessage,
     ClarificationOption, ClarificationRequest, CredentialRequest, EventStatus, EventType, GateInfo,
     GhostInputEvent, Receipt, SwarmAgent,
 };
@@ -193,6 +193,31 @@ fn is_waiting_for_identity_clarification_step(step: &str) -> bool {
     step.eq_ignore_ascii_case(CLARIFICATION_WAIT_STEP)
         || step.eq_ignore_ascii_case(LEGACY_CLARIFICATION_WAIT_STEP)
         || step.eq_ignore_ascii_case(LEGACY_INSTALL_CLARIFICATION_STEP)
+}
+
+fn is_waiting_prompt_active(task: &AgentTask) -> bool {
+    task.credential_request.is_some()
+        || task.clarification_request.is_some()
+        || task
+            .current_step
+            .eq_ignore_ascii_case("Waiting for sudo password")
+        || is_waiting_for_identity_clarification_step(&task.current_step)
+}
+
+fn is_hard_terminal_task(task: &AgentTask) -> bool {
+    if task.phase == AgentPhase::Failed {
+        return true;
+    }
+    if task.phase != AgentPhase::Complete {
+        return false;
+    }
+    if task.current_step.eq_ignore_ascii_case("Task completed") {
+        return true;
+    }
+    task.receipt.is_some()
+        && task.gate_info.is_none()
+        && task.pending_request_hash.is_none()
+        && !is_waiting_prompt_active(task)
 }
 
 fn extract_missing_package_hint(output: &str) -> Option<String> {
@@ -1175,6 +1200,25 @@ pub async fn monitor_kernel_events(app: tauri::AppHandle) {
                         if already_processed {
                             continue;
                         }
+                        let suppress_terminal_action_result = {
+                            if let Ok(guard) = state_handle.lock() {
+                                if let Some(task) = &guard.current_task {
+                                    is_hard_terminal_task(task)
+                                        && !password_required
+                                        && !clarification_required
+                                        && !res.agent_status.eq_ignore_ascii_case("completed")
+                                        && !res.agent_status.eq_ignore_ascii_case("failed")
+                                        && !res.tool_name.eq_ignore_ascii_case("agent__complete")
+                                } else {
+                                    false
+                                }
+                            } else {
+                                false
+                            }
+                        };
+                        if suppress_terminal_action_result {
+                            continue;
+                        }
 
                         update_task_state(&app, |t| {
                             let dedup_key = format!("{}:{}", res.step_index, res.tool_name);
@@ -1333,6 +1377,11 @@ pub async fn monitor_kernel_events(app: tauri::AppHandle) {
                             match res.agent_status.as_str() {
                                 "Completed" => {
                                     t.phase = AgentPhase::Complete;
+                                    t.current_step = "Task completed".to_string();
+                                    t.gate_info = None;
+                                    t.pending_request_hash = None;
+                                    t.credential_request = None;
+                                    t.clarification_request = None;
 
                                     if let Some(agent) =
                                         t.swarm_tree.iter_mut().find(|a| a.id == res.session_id)
@@ -1357,6 +1406,10 @@ pub async fn monitor_kernel_events(app: tauri::AppHandle) {
                                 }
                                 "Failed" => {
                                     t.phase = AgentPhase::Failed;
+                                    t.gate_info = None;
+                                    t.pending_request_hash = None;
+                                    t.credential_request = None;
+                                    t.clarification_request = None;
                                     if let Some(agent) =
                                         t.swarm_tree.iter_mut().find(|a| a.id == res.session_id)
                                     {
@@ -1671,6 +1724,45 @@ pub async fn monitor_kernel_events(app: tauri::AppHandle) {
                                     || receipt
                                         .escalation_path
                                         .eq_ignore_ascii_case("wait_for_clarification")));
+                        let receipt_dedup_key = format!(
+                            "receipt:{}:{}:{}:{}:{}:{}",
+                            receipt.step_index,
+                            receipt.tool_name,
+                            receipt.policy_decision,
+                            receipt.incident_stage,
+                            receipt.gate_state,
+                            receipt.resolution_action
+                        );
+                        let already_processed_receipt = {
+                            if let Ok(guard) = state_handle.lock() {
+                                if let Some(task) = &guard.current_task {
+                                    task.processed_steps.contains(&receipt_dedup_key)
+                                } else {
+                                    false
+                                }
+                            } else {
+                                false
+                            }
+                        };
+                        if already_processed_receipt {
+                            continue;
+                        }
+                        let suppress_terminal_receipt = {
+                            if let Ok(guard) = state_handle.lock() {
+                                if let Some(task) = &guard.current_task {
+                                    is_hard_terminal_task(task)
+                                        && !receipt_waiting_for_sudo
+                                        && !receipt_waiting_for_clarification
+                                } else {
+                                    false
+                                }
+                            } else {
+                                false
+                            }
+                        };
+                        if suppress_terminal_receipt {
+                            continue;
+                        }
                         let receipt_clarification_request = if receipt_waiting_for_clarification {
                             let preset = clarification_preset_for_tool(&receipt.tool_name)
                                 .unwrap_or(ClarificationPreset::IdentityLookup);
@@ -1761,6 +1853,11 @@ pub async fn monitor_kernel_events(app: tauri::AppHandle) {
                         summary.push_str(&format!(", verify=[{}]", verification));
 
                         update_task_state(&app, |t| {
+                            if t.processed_steps.contains(&receipt_dedup_key) {
+                                return;
+                            }
+                            t.processed_steps.insert(receipt_dedup_key.clone());
+
                             if !receipt.session_id.is_empty() {
                                 t.session_id = Some(receipt.session_id.clone());
                             }
@@ -1957,7 +2054,7 @@ pub async fn monitor_kernel_events(app: tauri::AppHandle) {
                     }
                     ChainEventEnum::Action(action) => {
                         if action.verdict == "REQUIRE_APPROVAL" {
-                            let (waiting_for_sudo, waiting_for_clarification) = {
+                            let (waiting_for_sudo, waiting_for_clarification, hard_terminal_task) = {
                                 if let Ok(guard) = state_handle.lock() {
                                     if let Some(task) = &guard.current_task {
                                         let waiting_for_sudo = task
@@ -1976,12 +2073,16 @@ pub async fn monitor_kernel_events(app: tauri::AppHandle) {
                                             || is_waiting_for_identity_clarification_step(
                                                 &task.current_step,
                                             );
-                                        (waiting_for_sudo, waiting_for_clarification)
+                                        (
+                                            waiting_for_sudo,
+                                            waiting_for_clarification,
+                                            is_hard_terminal_task(task),
+                                        )
                                     } else {
-                                        (false, false)
+                                        (false, false, false)
                                     }
                                 } else {
-                                    (false, false)
+                                    (false, false, false)
                                 }
                             };
                             let action_is_install = is_install_package_tool(&action.target);
@@ -2004,7 +2105,7 @@ pub async fn monitor_kernel_events(app: tauri::AppHandle) {
                                 }
                             };
 
-                            if !already_gating && !suppress_gate_for_wait {
+                            if !already_gating && !suppress_gate_for_wait && !hard_terminal_task {
                                 println!("[Autopilot] Policy Gate Triggered for {}", action.target);
 
                                 update_task_state(&app, |t| {
