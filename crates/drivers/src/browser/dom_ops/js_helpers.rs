@@ -327,15 +327,24 @@ impl BrowserDriver {
                     }};
                 }}
 
-                const style = window.getComputedStyle(el);
-                const rect = el.getBoundingClientRect();
-                const hasBox = rect.width > 0 && rect.height > 0;
+                const ownerDoc = el.ownerDocument || document;
+                const ownerWin = ownerDoc && ownerDoc.defaultView ? ownerDoc.defaultView : window;
+                const rect = typeof el.getBoundingClientRect === "function" ? el.getBoundingClientRect() : null;
+                const hasBox = !!rect && rect.width > 0 && rect.height > 0;
+                const viewportWidth = ownerWin.innerWidth || 0;
+                const viewportHeight = ownerWin.innerHeight || 0;
                 const inViewport =
-                    hasBox &&
-                    rect.bottom >= 0 &&
-                    rect.right >= 0 &&
-                    rect.top <= (window.innerHeight || 0) &&
-                    rect.left <= (window.innerWidth || 0);
+                    !!(
+                        hasBox &&
+                        rect.bottom >= 0 &&
+                        rect.right >= 0 &&
+                        rect.top <= viewportHeight &&
+                        rect.left <= viewportWidth
+                    );
+                let style = null;
+                try {{
+                    style = ownerWin.getComputedStyle(el);
+                }} catch (_e) {{}}
                 const visible =
                     !!(
                         inViewport &&
@@ -345,15 +354,12 @@ impl BrowserDriver {
                         parseFloat(style.opacity || "1") > 0.01
                     );
 
-                const cx = rect.left + (rect.width / 2);
-                const cy = rect.top + (rect.height / 2);
                 let topEl = null;
                 if (hasBox) {{
-                    const maxX = Math.max(0, (window.innerWidth || 1) - 1);
-                    const maxY = Math.max(0, (window.innerHeight || 1) - 1);
-                    const px = Math.max(0, Math.min(maxX, cx));
-                    const py = Math.max(0, Math.min(maxY, cy));
-                    topEl = deepElementFromPoint(px, py);
+                    const center = elementCenterInTopWindow(el);
+                    if (center) {{
+                        topEl = deepElementFromPoint(center.x, center.y);
+                    }}
                 }}
 
                 const topmost = !!topEl && (composedContains(el, topEl) || composedContains(topEl, el));
@@ -479,6 +485,17 @@ mod tests {
         assert!(script.contains("frameOffsetX"));
         assert!(script.contains("frameElement"));
         assert!(script.contains("getBoundingClientRect"));
+    }
+
+    #[test]
+    fn selector_probe_script_uses_cross_frame_viewport_and_center() {
+        let script = BrowserDriver::selector_probe_script("input.search")
+            .expect("selector probe script should serialize selector");
+        assert!(script.contains("const ownerWin ="));
+        assert!(script.contains("ownerWin.getComputedStyle(el)"));
+        assert!(script.contains("const viewportHeight = ownerWin.innerHeight || 0;"));
+        assert!(script.contains("elementCenterInTopWindow(el)"));
+        assert!(script.contains("deepElementFromPoint(center.x, center.y)"));
     }
 
     #[test]
