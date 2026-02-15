@@ -570,11 +570,55 @@ fn copy_path_deterministic(
     ))
 }
 
+fn delete_path_deterministic(
+    path: &Path,
+    recursive: bool,
+    ignore_missing: bool,
+) -> Result<(), String> {
+    let metadata = match fs::symlink_metadata(path) {
+        Ok(meta) => meta,
+        Err(e) => {
+            if e.kind() == std::io::ErrorKind::NotFound && ignore_missing {
+                return Ok(());
+            }
+            if e.kind() == std::io::ErrorKind::NotFound {
+                return Err(format!("Path '{}' does not exist.", path.display()));
+            }
+            return Err(format!(
+                "Failed to inspect path '{}': {}",
+                path.display(),
+                e
+            ));
+        }
+    };
+
+    if metadata.file_type().is_symlink() || metadata.is_file() {
+        return fs::remove_file(path)
+            .map_err(|e| format!("Failed to delete file/symlink '{}': {}", path.display(), e));
+    }
+
+    if metadata.is_dir() {
+        if !recursive {
+            return Err(format!(
+                "Path '{}' is a directory. Set recursive=true to delete directories.",
+                path.display()
+            ));
+        }
+        return fs::remove_dir_all(path)
+            .map_err(|e| format!("Failed to delete directory '{}': {}", path.display(), e));
+    }
+
+    Err(format!(
+        "Delete does not support special filesystem entry '{}'.",
+        path.display()
+    ))
+}
+
 #[cfg(test)]
 mod tests {
     use super::{
-        apply_patch, copy_path_deterministic, fuzzy_find_indices, list_directory_entries,
-        move_path_deterministic, resolve_tool_path, search_files,
+        apply_patch, copy_path_deterministic, delete_path_deterministic, fuzzy_find_indices,
+        list_directory_entries, move_path_deterministic, resolve_tool_path, search_files,
     };
     use std::fs;
     use std::path::PathBuf;
@@ -774,6 +818,58 @@ mod tests {
         assert!(!src.exists());
         let moved = fs::read_to_string(&dst).expect("destination file should be readable");
         assert_eq!(moved, "fresh");
+
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn delete_path_removes_file() {
+        let dir = make_temp_dir("delete-file");
+        let file = dir.join("temp.txt");
+        fs::write(&file, "payload").expect("test file should be written");
+
+        delete_path_deterministic(&file, false, false).expect("file delete should succeed");
+
+        assert!(!file.exists());
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn delete_path_requires_recursive_for_directories() {
+        let dir = make_temp_dir("delete-dir-non-recursive");
+        let nested = dir.join("nested");
+        fs::create_dir_all(&nested).expect("nested dir should be created");
+        fs::write(nested.join("file.txt"), "payload").expect("nested file should be written");
+
+        let err = delete_path_deterministic(&nested, false, false)
+            .expect_err("non-recursive directory delete should fail");
+        assert!(err.contains("recursive=true"));
+
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn delete_path_recursive_removes_directory_tree() {
+        let dir = make_temp_dir("delete-dir-recursive");
+        let nested = dir.join("nested");
+        fs::create_dir_all(nested.join("child")).expect("nested subtree should be created");
+        fs::write(nested.join("child").join("file.txt"), "payload")
+            .expect("nested file should be written");
+
+        delete_path_deterministic(&nested, true, false)
+            .expect("recursive directory delete should succeed");
+
+        assert!(!nested.exists());
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn delete_path_ignore_missing_treats_absent_target_as_success() {
+        let dir = make_temp_dir("delete-ignore-missing");
+        let missing = dir.join("nope.txt");
+
+        delete_path_deterministic(&missing, false, true)
+            .expect("ignore_missing delete should succeed");
 
         let _ = fs::remove_dir_all(&dir);
     }
@@ -1021,6 +1117,31 @@ pub async fn handle(exec: &ToolExecutor, tool: AgentTool) -> ToolExecutionResult
                     destination.display()
                 )),
                 Err(e) => ToolExecutionResult::failure(format!("Copy failed: {}", e)),
+            }
+        }
+        AgentTool::FsDelete {
+            path,
+            recursive,
+            ignore_missing,
+        } => {
+            let resolved_path = match resolve_tool_path(&path, cwd) {
+                Ok(path) => path,
+                Err(e) => return ToolExecutionResult::failure(format!("Delete failed: {}", e)),
+            };
+            let existed_before = fs::symlink_metadata(&resolved_path).is_ok();
+
+            match delete_path_deterministic(&resolved_path, recursive, ignore_missing) {
+                Ok(_) => {
+                    if ignore_missing && !existed_before {
+                        ToolExecutionResult::success(format!(
+                            "Delete no-op (path already missing): {}",
+                            resolved_path.display()
+                        ))
+                    } else {
+                        ToolExecutionResult::success(format!("Deleted {}", resolved_path.display()))
+                    }
+                }
+                Err(e) => ToolExecutionResult::failure(format!("Delete failed: {}", e)),
             }
         }
         _ => ToolExecutionResult::failure("Unsupported FS action"),

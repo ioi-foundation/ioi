@@ -229,6 +229,19 @@ pub enum AgentTool {
         overwrite: bool,
     },
 
+    /// Deletes a file, symlink, or directory deterministically.
+    #[serde(rename = "filesystem__delete_path")]
+    FsDelete {
+        /// Path to delete.
+        path: String,
+        /// When true, directory deletion is recursive.
+        #[serde(default)]
+        recursive: bool,
+        /// When true, missing paths are treated as success.
+        #[serde(default)]
+        ignore_missing: bool,
+    },
+
     /// Executes a system command.
     #[serde(rename = "sys__exec")]
     SysExec {
@@ -460,7 +473,9 @@ impl AgentTool {
     /// Maps the tool to its corresponding `ActionTarget` for policy enforcement.
     pub fn target(&self) -> ActionTarget {
         match self {
-            AgentTool::FsWrite { .. } | AgentTool::FsPatch { .. } => ActionTarget::FsWrite,
+            AgentTool::FsWrite { .. } | AgentTool::FsPatch { .. } | AgentTool::FsDelete { .. } => {
+                ActionTarget::FsWrite
+            }
             AgentTool::FsRead { .. } | AgentTool::FsList { .. } | AgentTool::FsSearch { .. } => {
                 ActionTarget::FsRead
             }
@@ -599,6 +614,16 @@ mod tests {
             tool.target(),
             ActionTarget::Custom("filesystem__copy_path".into())
         );
+    }
+
+    #[test]
+    fn filesystem_delete_target_maps_to_fs_write_scope() {
+        let tool = AgentTool::FsDelete {
+            path: "/tmp/a.txt".to_string(),
+            recursive: false,
+            ignore_missing: false,
+        };
+        assert_eq!(tool.target(), ActionTarget::FsWrite);
     }
 
     #[test]

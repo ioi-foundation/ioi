@@ -217,7 +217,8 @@ impl ToolExecutor {
             | AgentTool::FsList { .. }
             | AgentTool::FsSearch { .. }
             | AgentTool::FsMove { .. }
-            | AgentTool::FsCopy { .. } => filesystem::handle(self, tool).await,
+            | AgentTool::FsCopy { .. }
+            | AgentTool::FsDelete { .. } => filesystem::handle(self, tool).await,
 
             // System Domain
             AgentTool::SysExec { .. }

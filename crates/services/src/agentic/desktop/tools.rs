@@ -732,6 +732,29 @@ pub async fn discover_tools(
         parameters: fs_move_params.to_string(),
     });
 
+    let fs_delete_params = json!({
+        "type": "object",
+        "properties": {
+            "path": { "type": "string", "description": "Path to delete." },
+            "recursive": {
+                "type": "boolean",
+                "description": "When true, delete directories recursively."
+            },
+            "ignore_missing": {
+                "type": "boolean",
+                "description": "When true, treat missing paths as success."
+            }
+        },
+        "required": ["path"]
+    });
+    tools.push(LlmToolDefinition {
+        name: "filesystem__delete_path".to_string(),
+        description:
+            "Delete a file/symlink, or a directory when recursive=true, using deterministic filesystem APIs."
+                .to_string(),
+        parameters: fs_delete_params.to_string(),
+    });
+
     let install_pkg_params = json!({
         "type": "object",
         "properties": {
