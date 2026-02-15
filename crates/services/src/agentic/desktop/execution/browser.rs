@@ -103,10 +103,22 @@ fn render_browser_tree_xml(tree: &AccessibilityNode) -> String {
     lens.render(tree, 0)
 }
 
-#[derive(Debug, Clone, Default, PartialEq, Eq)]
+fn rect_center(rect: Rect) -> Option<(f64, f64)> {
+    if rect.width <= 0 || rect.height <= 0 {
+        return None;
+    }
+
+    Some((
+        rect.x as f64 + (rect.width as f64 / 2.0),
+        rect.y as f64 + (rect.height as f64 / 2.0),
+    ))
+}
+
+#[derive(Debug, Clone, Default, PartialEq)]
 struct BrowserSemanticTarget {
     cdp_node_id: Option<String>,
     backend_dom_node_id: Option<String>,
+    center_point: Option<(f64, f64)>,
 }
 
 fn find_semantic_target_by_id(
@@ -117,6 +129,7 @@ fn find_semantic_target_by_id(
         return Some(BrowserSemanticTarget {
             cdp_node_id: node.attributes.get("cdp_node_id").cloned(),
             backend_dom_node_id: node.attributes.get("backend_dom_node_id").cloned(),
+            center_point: rect_center(node.rect),
         });
     }
 
@@ -489,9 +502,10 @@ pub async fn handle(exec: &ToolExecutor, tool: AgentTool) -> ToolExecutionResult
 
             if semantic_target.backend_dom_node_id.is_none()
                 && semantic_target.cdp_node_id.is_none()
+                && semantic_target.center_point.is_none()
             {
                 return ToolExecutionResult::failure(format!(
-                    "ERROR_CLASS=TargetNotFound Element '{}' is present but does not expose actionable browser node identifiers.",
+                    "ERROR_CLASS=TargetNotFound Element '{}' is present but does not expose actionable browser node identifiers or clickable geometry.",
                     id
                 ));
             }
@@ -513,6 +527,21 @@ pub async fn handle(exec: &ToolExecutor, tool: AgentTool) -> ToolExecutionResult
                         return ToolExecutionResult::success(format!("Clicked element '{}'", id))
                     }
                     Err(e) => click_errors.push(format!("cdp_node_id={}", e)),
+                }
+            }
+
+            if let Some((x, y)) = semantic_target.center_point {
+                match exec.browser.synthetic_click(x, y).await {
+                    Ok(()) => {
+                        return ToolExecutionResult::success(format!(
+                            "Clicked element '{}' via geometry fallback",
+                            id
+                        ))
+                    }
+                    Err(e) => click_errors.push(format!(
+                        "geometry_center=({:.2},{:.2})={}",
+                        x, y, e
+                    )),
                 }
             }
 
@@ -743,6 +772,31 @@ mod tests {
             .expect("semantic target should resolve");
         assert_eq!(target.cdp_node_id.as_deref(), Some("ax-node-42"));
         assert_eq!(target.backend_dom_node_id.as_deref(), Some("73"));
+        assert_eq!(target.center_point, Some((70.0, 30.0)));
+    }
+
+    #[test]
+    fn semantic_target_lookup_omits_center_for_degenerate_rect() {
+        let node = AccessibilityNode {
+            id: "btn_submit".to_string(),
+            role: "button".to_string(),
+            name: Some("Submit".to_string()),
+            value: None,
+            rect: Rect {
+                x: 10,
+                y: 10,
+                width: 0,
+                height: 40,
+            },
+            children: vec![],
+            is_visible: true,
+            attributes: HashMap::new(),
+            som_id: None,
+        };
+
+        let target = find_semantic_target_by_id(&node, "btn_submit")
+            .expect("semantic target should resolve");
+        assert!(target.center_point.is_none());
     }
 
     #[test]
