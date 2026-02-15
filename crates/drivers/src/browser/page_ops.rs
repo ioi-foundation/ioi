@@ -75,7 +75,12 @@ impl BrowserDriver {
             .y(y)
             .build()
             .map_err(|e| BrowserError::Internal(e))?;
-        page.execute(cmd_move).await.ok();
+        page.execute(cmd_move).await.map_err(|e| {
+            BrowserError::Internal(format!(
+                "Mouse move dispatch failed at ({:.2}, {:.2}): {}",
+                x, y, e
+            ))
+        })?;
 
         let cmd_down = DispatchMouseEventParams::builder()
             .r#type(DispatchMouseEventType::MousePressed)
@@ -85,7 +90,12 @@ impl BrowserDriver {
             .click_count(1)
             .build()
             .map_err(|e| BrowserError::Internal(e))?;
-        page.execute(cmd_down).await.ok();
+        page.execute(cmd_down).await.map_err(|e| {
+            BrowserError::Internal(format!(
+                "Mouse press dispatch failed at ({:.2}, {:.2}): {}",
+                x, y, e
+            ))
+        })?;
 
         let cmd_up = DispatchMouseEventParams::builder()
             .r#type(DispatchMouseEventType::MouseReleased)
@@ -95,7 +105,12 @@ impl BrowserDriver {
             .click_count(1)
             .build()
             .map_err(|e| BrowserError::Internal(e))?;
-        page.execute(cmd_up).await.ok();
+        page.execute(cmd_up).await.map_err(|e| {
+            BrowserError::Internal(format!(
+                "Mouse release dispatch failed at ({:.2}, {:.2}): {}",
+                x, y, e
+            ))
+        })?;
 
         Ok(())
     }
