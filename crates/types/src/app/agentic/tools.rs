@@ -205,6 +205,18 @@ pub enum AgentTool {
         file_pattern: Option<String>,
     },
 
+    /// Moves or renames a file/directory deterministically.
+    #[serde(rename = "filesystem__move_path")]
+    FsMove {
+        /// Source path to move from.
+        source_path: String,
+        /// Destination path to move to.
+        destination_path: String,
+        /// When true, replace an existing destination.
+        #[serde(default)]
+        overwrite: bool,
+    },
+
     /// Executes a system command.
     #[serde(rename = "sys__exec")]
     SysExec {
@@ -440,6 +452,7 @@ impl AgentTool {
             AgentTool::FsRead { .. } | AgentTool::FsList { .. } | AgentTool::FsSearch { .. } => {
                 ActionTarget::FsRead
             }
+            AgentTool::FsMove { .. } => ActionTarget::Custom("filesystem__move_path".into()),
 
             AgentTool::SysExec { .. } | AgentTool::SysChangeDir { .. } => ActionTarget::SysExec,
             AgentTool::SysInstallPackage { .. } => ActionTarget::SysInstallPackage,
@@ -547,6 +560,19 @@ mod tests {
             file_pattern: Some("*.rs".to_string()),
         };
         assert_eq!(tool.target(), ActionTarget::FsRead);
+    }
+
+    #[test]
+    fn filesystem_move_target_maps_to_custom_scope() {
+        let tool = AgentTool::FsMove {
+            source_path: "/tmp/a.txt".to_string(),
+            destination_path: "/tmp/b.txt".to_string(),
+            overwrite: false,
+        };
+        assert_eq!(
+            tool.target(),
+            ActionTarget::Custom("filesystem__move_path".into())
+        );
     }
 
     #[test]

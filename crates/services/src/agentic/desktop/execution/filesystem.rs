@@ -332,10 +332,185 @@ fn search_files(
     }
 }
 
+fn is_cross_device_rename_error(err: &std::io::Error) -> bool {
+    // Unix EXDEV=18, Windows ERROR_NOT_SAME_DEVICE=17.
+    matches!(err.raw_os_error(), Some(18) | Some(17))
+}
+
+fn copy_dir_recursive(source: &Path, destination: &Path) -> Result<(), String> {
+    if !source.is_dir() {
+        return Err(format!("Source '{}' is not a directory.", source.display()));
+    }
+
+    fs::create_dir_all(destination).map_err(|e| {
+        format!(
+            "Failed to create destination directory '{}': {}",
+            destination.display(),
+            e
+        )
+    })?;
+
+    let walker = WalkDir::new(source)
+        .follow_links(false)
+        .sort_by_file_name()
+        .into_iter();
+
+    for entry in walker {
+        let entry = entry.map_err(|e| format!("Directory traversal failed: {}", e))?;
+        let entry_path = entry.path();
+        let relative = entry_path
+            .strip_prefix(source)
+            .map_err(|e| format!("Failed to normalize copied path: {}", e))?;
+        if relative.as_os_str().is_empty() {
+            continue;
+        }
+
+        let dest_path = destination.join(relative);
+        if entry.file_type().is_dir() {
+            fs::create_dir_all(&dest_path).map_err(|e| {
+                format!(
+                    "Failed to create destination directory '{}': {}",
+                    dest_path.display(),
+                    e
+                )
+            })?;
+            continue;
+        }
+
+        if entry.file_type().is_file() {
+            if let Some(parent) = dest_path.parent() {
+                fs::create_dir_all(parent).map_err(|e| {
+                    format!(
+                        "Failed to create destination parent '{}': {}",
+                        parent.display(),
+                        e
+                    )
+                })?;
+            }
+            fs::copy(entry_path, &dest_path).map_err(|e| {
+                format!(
+                    "Failed to copy '{}' to '{}': {}",
+                    entry_path.display(),
+                    dest_path.display(),
+                    e
+                )
+            })?;
+            continue;
+        }
+
+        return Err(format!(
+            "Unsupported filesystem entry '{}' (symlinks and special files are not supported).",
+            entry_path.display()
+        ));
+    }
+
+    Ok(())
+}
+
+fn move_path_deterministic(
+    source: &Path,
+    destination: &Path,
+    overwrite: bool,
+) -> Result<(), String> {
+    if !source.exists() {
+        return Err(format!(
+            "Source path '{}' does not exist.",
+            source.display()
+        ));
+    }
+
+    if source == destination {
+        return Ok(());
+    }
+
+    if destination.exists() {
+        if !overwrite {
+            return Err(format!(
+                "Destination '{}' already exists. Set overwrite=true to replace it.",
+                destination.display()
+            ));
+        }
+
+        let remove_result = if destination.is_dir() {
+            fs::remove_dir_all(destination)
+        } else {
+            fs::remove_file(destination)
+        };
+        remove_result.map_err(|e| {
+            format!(
+                "Failed to remove existing destination '{}': {}",
+                destination.display(),
+                e
+            )
+        })?;
+    }
+
+    if let Some(parent) = destination.parent() {
+        fs::create_dir_all(parent).map_err(|e| {
+            format!(
+                "Failed to create destination parent '{}': {}",
+                parent.display(),
+                e
+            )
+        })?;
+    }
+
+    match fs::rename(source, destination) {
+        Ok(_) => Ok(()),
+        Err(rename_err) => {
+            if !is_cross_device_rename_error(&rename_err) {
+                return Err(format!(
+                    "Failed to move '{}' to '{}': {}",
+                    source.display(),
+                    destination.display(),
+                    rename_err
+                ));
+            }
+
+            if source.is_file() {
+                fs::copy(source, destination).map_err(|e| {
+                    format!(
+                        "Cross-device fallback failed while copying '{}' to '{}': {}",
+                        source.display(),
+                        destination.display(),
+                        e
+                    )
+                })?;
+                fs::remove_file(source).map_err(|e| {
+                    format!(
+                        "Cross-device fallback failed while removing source '{}': {}",
+                        source.display(),
+                        e
+                    )
+                })?;
+                return Ok(());
+            }
+
+            if source.is_dir() {
+                copy_dir_recursive(source, destination)?;
+                fs::remove_dir_all(source).map_err(|e| {
+                    format!(
+                        "Cross-device fallback failed while removing source directory '{}': {}",
+                        source.display(),
+                        e
+                    )
+                })?;
+                return Ok(());
+            }
+
+            Err(format!(
+                "Cross-device fallback does not support special filesystem entry '{}'.",
+                source.display()
+            ))
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::{
-        apply_patch, fuzzy_find_indices, list_directory_entries, resolve_tool_path, search_files,
+        apply_patch, fuzzy_find_indices, list_directory_entries, move_path_deterministic,
+        resolve_tool_path, search_files,
     };
     use std::fs;
     use std::path::PathBuf;
@@ -424,6 +599,54 @@ mod tests {
         assert_eq!(lines.len(), 2);
         assert!(lines[0].contains("a.txt:1: needle in a"));
         assert!(lines[1].contains("b.txt:1: needle in b"));
+
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn move_path_moves_file() {
+        let dir = make_temp_dir("move-file");
+        let src = dir.join("src.txt");
+        let dst = dir.join("nested").join("dst.txt");
+        fs::write(&src, "payload").expect("source file should be written");
+
+        move_path_deterministic(&src, &dst, false).expect("move should succeed");
+
+        assert!(!src.exists());
+        let moved = fs::read_to_string(&dst).expect("destination file should be readable");
+        assert_eq!(moved, "payload");
+
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn move_path_requires_overwrite_for_existing_destination() {
+        let dir = make_temp_dir("move-overwrite-required");
+        let src = dir.join("src.txt");
+        let dst = dir.join("dst.txt");
+        fs::write(&src, "src").expect("source file should be written");
+        fs::write(&dst, "dst").expect("destination file should be written");
+
+        let err = move_path_deterministic(&src, &dst, false)
+            .expect_err("move without overwrite should fail when destination exists");
+        assert!(err.contains("already exists"));
+
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn move_path_overwrite_replaces_existing_destination() {
+        let dir = make_temp_dir("move-overwrite");
+        let src = dir.join("src.txt");
+        let dst = dir.join("dst.txt");
+        fs::write(&src, "fresh").expect("source file should be written");
+        fs::write(&dst, "stale").expect("destination file should be written");
+
+        move_path_deterministic(&src, &dst, true).expect("overwrite move should succeed");
+
+        assert!(!src.exists());
+        let moved = fs::read_to_string(&dst).expect("destination file should be readable");
+        assert_eq!(moved, "fresh");
 
         let _ = fs::remove_dir_all(&dir);
     }
@@ -605,6 +828,39 @@ pub async fn handle(exec: &ToolExecutor, tool: AgentTool) -> ToolExecutionResult
                 Ok(Ok(output)) => ToolExecutionResult::success(output),
                 Ok(Err(e)) => ToolExecutionResult::failure(format!("Search failed: {}", e)),
                 Err(e) => ToolExecutionResult::failure(format!("Search task panicked: {}", e)),
+            }
+        }
+        AgentTool::FsMove {
+            source_path,
+            destination_path,
+            overwrite,
+        } => {
+            let source = match resolve_tool_path(&source_path, cwd) {
+                Ok(path) => path,
+                Err(e) => {
+                    return ToolExecutionResult::failure(format!(
+                        "Move failed for '{}': {}",
+                        source_path, e
+                    ))
+                }
+            };
+            let destination = match resolve_tool_path(&destination_path, cwd) {
+                Ok(path) => path,
+                Err(e) => {
+                    return ToolExecutionResult::failure(format!(
+                        "Move failed for '{}': {}",
+                        destination_path, e
+                    ))
+                }
+            };
+
+            match move_path_deterministic(&source, &destination, overwrite) {
+                Ok(_) => ToolExecutionResult::success(format!(
+                    "Moved {} -> {}",
+                    source.display(),
+                    destination.display()
+                )),
+                Err(e) => ToolExecutionResult::failure(format!("Move failed: {}", e)),
             }
         }
         _ => ToolExecutionResult::failure("Unsupported FS action"),
