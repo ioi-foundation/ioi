@@ -4,8 +4,8 @@ use crate::agentic::desktop::keys::get_incident_key;
 use crate::agentic::desktop::middleware;
 use crate::agentic::desktop::service::step::anti_loop::FailureClass;
 use crate::agentic::desktop::service::step::ontology::{
-    classify_intent, default_strategy_for, GateState, IncidentStage, IntentClass,
-    ResolutionAction, StrategyName, StrategyNode,
+    classify_intent, default_strategy_for, GateState, IncidentStage, IntentClass, ResolutionAction,
+    StrategyName, StrategyNode,
 };
 use crate::agentic::desktop::service::DesktopAgentService;
 use crate::agentic::desktop::tools::discover_tools;
@@ -244,9 +244,7 @@ fn policy_max_transitions(
 ) -> u32 {
     let mut max = rules.ontology_policy.max_incident_transitions.max(1);
     for ov in &rules.ontology_policy.intent_failure_overrides {
-        if !ov
-            .intent_class
-            .eq_ignore_ascii_case(intent_class.as_str())
+        if !ov.intent_class.eq_ignore_ascii_case(intent_class.as_str())
             || !ov
                 .failure_class
                 .eq_ignore_ascii_case(failure_class.as_str())
@@ -266,9 +264,7 @@ fn policy_strategy_override(
     failure_class: FailureClass,
 ) -> Option<StrategyName> {
     for ov in &rules.ontology_policy.intent_failure_overrides {
-        if !ov
-            .intent_class
-            .eq_ignore_ascii_case(intent_class.as_str())
+        if !ov.intent_class.eq_ignore_ascii_case(intent_class.as_str())
             || !ov
                 .failure_class
                 .eq_ignore_ascii_case(failure_class.as_str())
@@ -287,7 +283,11 @@ fn effective_forbidden_tools(rules: &ActionRules) -> BTreeSet<String> {
     for name in FORBIDDEN_LIFECYCLE_TOOLS {
         set.insert((*name).to_string());
     }
-    for name in &rules.ontology_policy.tool_preferences.forbidden_remediation_tools {
+    for name in &rules
+        .ontology_policy
+        .tool_preferences
+        .forbidden_remediation_tools
+    {
         if !name.trim().is_empty() {
             set.insert(name.trim().to_string());
         }
@@ -313,159 +313,12 @@ fn parse_launch_app_name(root_tool_jcs: &[u8]) -> Option<String> {
     None
 }
 
-fn normalize_app_name(value: &str) -> String {
-    value
-        .trim()
-        .to_ascii_lowercase()
-        .split_whitespace()
-        .collect::<Vec<_>>()
-        .join(" ")
-}
-
-pub fn app_install_candidates(app_name: &str) -> Vec<String> {
-    let app = normalize_app_name(app_name);
-    let mut candidates = Vec::<String>::new();
-
-    let mut push_candidate = |value: &str| {
-        let trimmed = value.trim();
-        if trimmed.is_empty() {
-            return;
-        }
-        if !candidates.iter().any(|existing| existing == trimmed) {
-            candidates.push(trimmed.to_string());
-        }
-    };
-
-    #[cfg(target_os = "linux")]
-    {
-        if app.contains("calculator") {
-            push_candidate("gnome-calculator");
-            push_candidate("kcalc");
-            push_candidate("qalculate-gtk");
-        }
-        if app.contains("code") || app.contains("vscode") {
-            push_candidate("code");
-            push_candidate("code-insiders");
-        }
-        if app.contains("chrome") {
-            push_candidate("google-chrome-stable");
-            push_candidate("chromium-browser");
-        }
-        if app.contains("firefox") {
-            push_candidate("firefox");
-        }
-        if app.contains("terminal") {
-            push_candidate("gnome-terminal");
-            push_candidate("konsole");
-            push_candidate("xterm");
-        }
-    }
-
-    #[cfg(target_os = "macos")]
-    {
-        if app.contains("calculator") {
-            push_candidate("apple-calculator");
-        }
-        if app.contains("code") || app.contains("vscode") {
-            push_candidate("visual-studio-code");
-        }
-        if app.contains("chrome") {
-            push_candidate("google-chrome");
-        }
-        if app.contains("firefox") {
-            push_candidate("firefox");
-        }
-        if app.contains("terminal") {
-            push_candidate("iterm2");
-        }
-    }
-
-    #[cfg(target_os = "windows")]
-    {
-        if app.contains("calculator") {
-            push_candidate("Microsoft.WindowsCalculator");
-        }
-        if app.contains("code") || app.contains("vscode") {
-            push_candidate("Microsoft.VisualStudioCode");
-        }
-        if app.contains("chrome") {
-            push_candidate("Google.Chrome");
-        }
-        if app.contains("firefox") {
-            push_candidate("Mozilla.Firefox");
-        }
-        if app.contains("terminal") {
-            push_candidate("Microsoft.WindowsTerminal");
-        }
-    }
-
-    push_candidate(&app.replace(' ', "-"));
-    push_candidate(&app);
-    candidates
-}
-
-fn build_install_tool(package: &str, manager: Option<&str>) -> Result<AgentTool, TransactionError> {
-    let mut args = json!({
-        "package": package
-    });
-    if let Some(mgr) = manager.filter(|m| !m.trim().is_empty()) {
-        args["manager"] = json!(mgr.trim());
-    }
-    let payload = json!({
-        "name": "sys__install_package",
-        "arguments": args
-    });
-    middleware::normalize_tool_call(&payload.to_string())
-        .map_err(|e| TransactionError::Invalid(format!("Install tool normalization failed: {}", e)))
-}
-
-fn preferred_install_manager(rules: &ActionRules, attempt_idx: usize) -> Option<String> {
-    let prefs = &rules.ontology_policy.tool_preferences.install_manager_priority;
-    if prefs.is_empty() {
-        return None;
-    }
-    let idx = attempt_idx.min(prefs.len().saturating_sub(1));
-    let manager = prefs[idx].trim();
-    if manager.is_empty() {
-        None
-    } else {
-        Some(manager.to_string())
-    }
-}
-
 fn deterministic_recovery_tool(
     available_tool_names: &BTreeSet<String>,
     incident_state: &IncidentState,
     agent_state: &AgentState,
-    rules: &ActionRules,
+    _rules: &ActionRules,
 ) -> Result<Option<AgentTool>, TransactionError> {
-    let failure = FailureClass::from_str(&incident_state.root_failure_class)
-        .unwrap_or(FailureClass::UnexpectedState);
-    let intent = IntentClass::from_str(&incident_state.intent_class);
-
-    if intent == IntentClass::OpenApp
-        && matches!(
-            failure,
-            FailureClass::ToolUnavailable
-                | FailureClass::MissingDependency
-                | FailureClass::TargetNotFound
-        )
-        && available_tool_names.contains("sys__install_package")
-    {
-        if let Some(app_name) = parse_launch_app_name(&incident_state.root_tool_jcs) {
-            let candidates = app_install_candidates(&app_name);
-            if !candidates.is_empty() {
-                let idx = incident_state.transitions_used as usize;
-                let pkg_idx = idx.min(candidates.len() - 1);
-                let manager = preferred_install_manager(rules, idx);
-                return Ok(Some(build_install_tool(
-                    &candidates[pkg_idx],
-                    manager.as_deref(),
-                )?));
-            }
-        }
-    }
-
     if available_tool_names.contains("ui__find") {
         let query = parse_launch_app_name(&incident_state.root_tool_jcs)
             .or_else(|| {
@@ -609,18 +462,14 @@ fn queue_root_retry(
     root_tool_jcs: &[u8],
 ) -> Result<bool, TransactionError> {
     let root_tool: AgentTool = serde_json::from_slice(root_tool_jcs).map_err(|e| {
-        TransactionError::Serialization(format!(
-            "Failed to deserialize root incident tool: {}",
-            e
-        ))
+        TransactionError::Serialization(format!("Failed to deserialize root incident tool: {}", e))
     })?;
 
     let nonce = agent_state.step_count as u64 + agent_state.execution_queue.len() as u64 + 1;
     let retry_request = tool_to_action_request(&root_tool, session_id, nonce)?;
-    let duplicate = agent_state
-        .execution_queue
-        .iter()
-        .any(|queued| queued.target == retry_request.target && queued.params == retry_request.params);
+    let duplicate = agent_state.execution_queue.iter().any(|queued| {
+        queued.target == retry_request.target && queued.params == retry_request.params
+    });
     if duplicate {
         return Ok(false);
     }
@@ -662,7 +511,8 @@ fn persist_incident_state(
     incident_state: &IncidentState,
 ) -> Result<(), TransactionError> {
     let key = get_incident_key(session_id);
-    let bytes = codec::to_bytes_canonical(incident_state).map_err(TransactionError::Serialization)?;
+    let bytes =
+        codec::to_bytes_canonical(incident_state).map_err(TransactionError::Serialization)?;
     state.insert(&key, &bytes)?;
     Ok(())
 }
@@ -1026,6 +876,32 @@ pub fn mark_gate_approved(
     Ok(())
 }
 
+pub fn mark_incident_wait_for_user(
+    state: &mut dyn StateAccess,
+    session_id: [u8; 32],
+    resolution_action: &str,
+    root_failure_class: FailureClass,
+    root_error: Option<&str>,
+) -> Result<(), TransactionError> {
+    let Some(mut incident) = load_incident_state(state, &session_id)? else {
+        return Ok(());
+    };
+
+    incident.active = true;
+    incident.stage = IncidentStage::PausedForUser.as_str().to_string();
+    incident.strategy_cursor = StrategyNode::PauseForUser.as_str().to_string();
+    incident.gate_state = GateState::Cleared.as_str().to_string();
+    incident.resolution_action = resolution_action.to_string();
+    incident.root_failure_class = root_failure_class.as_str().to_string();
+    incident.root_error = root_error.map(|v| v.to_string());
+    incident.pending_gate = None;
+    incident.pending_remedy_fingerprint = None;
+    incident.pending_remedy_tool_jcs = None;
+    incident.retry_enqueued = false;
+    persist_incident_state(state, &session_id, &incident)?;
+    Ok(())
+}
+
 pub async fn start_or_continue_incident_recovery(
     service: &DesktopAgentService,
     state: &mut dyn StateAccess,
@@ -1145,12 +1021,8 @@ pub async fn start_or_continue_incident_recovery(
         ));
     }
 
-    let mut chosen_tool = deterministic_recovery_tool(
-        &available_tool_names,
-        &incident_state,
-        agent_state,
-        rules,
-    )?;
+    let mut chosen_tool =
+        deterministic_recovery_tool(&available_tool_names, &incident_state, agent_state, rules)?;
 
     if chosen_tool.is_none() {
         let prompt = build_planner_prompt(&incident_state, &forbidden_tools);
@@ -1273,8 +1145,8 @@ pub async fn start_or_continue_incident_recovery(
 #[cfg(test)]
 mod tests {
     use super::{
-        app_install_candidates, effective_forbidden_tools, policy_max_transitions,
-        should_enter_incident_recovery, ApprovalDirective,
+        effective_forbidden_tools, policy_max_transitions, should_enter_incident_recovery,
+        ApprovalDirective,
     };
     use crate::agentic::desktop::service::step::anti_loop::FailureClass;
     use crate::agentic::rules::{ActionRules, ApprovalMode, OntologyPolicy, ToolPreferences};
@@ -1302,12 +1174,6 @@ mod tests {
     }
 
     #[test]
-    fn install_candidates_include_normalized_name() {
-        let candidates = app_install_candidates("Calculator");
-        assert!(candidates.iter().any(|candidate| candidate == "calculator"));
-    }
-
-    #[test]
     fn policy_max_transitions_defaults_to_ontology_policy() {
         let rules = ActionRules {
             ontology_policy: OntologyPolicy {
@@ -1319,7 +1185,11 @@ mod tests {
             ..Default::default()
         };
         assert_eq!(
-            policy_max_transitions(&rules, super::IntentClass::Unknown, FailureClass::UnexpectedState),
+            policy_max_transitions(
+                &rules,
+                super::IntentClass::Unknown,
+                FailureClass::UnexpectedState
+            ),
             19
         );
     }

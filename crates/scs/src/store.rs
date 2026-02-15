@@ -15,7 +15,6 @@ use crate::format::{
 };
 use crate::index::VectorIndex;
 use anyhow::{anyhow, Result};
-use dcrypt::algorithms::ByteSerializable;
 use fs2::FileExt;
 use ioi_crypto::algorithms::hash::sha256;
 use memmap2::Mmap;
@@ -145,20 +144,33 @@ impl SovereignContextStore {
         })
     }
 
-    /// Opens an existing .scs file.
+    /// Opens an existing .scs file with an explicit runtime configuration.
     ///
     /// NOTE: In a real implementation, this would also need to load the `epoch_keys`
     /// from a separate secure keystore. For this implementation, we regenerate/mock them
     /// or assume they are managed externally and injected via `with_keys` (not shown).
     /// For local dev, we restart with empty keys which effectively shreds history on restart
     /// unless we persist them. We default to a fresh epoch key for the *new* epoch.
-    pub fn open(path: &Path) -> Result<Self> {
+    pub fn open_with_config(path: &Path, config: StoreConfig) -> Result<Self> {
         let mut file = OpenOptions::new().read(true).write(true).open(path)?;
         file.lock_exclusive()?;
 
         let mut header_bytes = [0u8; HEADER_SIZE as usize];
         file.read_exact(&mut header_bytes)?;
-        let header = ScsHeader::from_bytes(&header_bytes).map_err(|e| anyhow!(e))?;
+        let mut header = ScsHeader::from_bytes(&header_bytes).map_err(|e| anyhow!(e))?;
+        if header.chain_id != config.chain_id || header.owner_id != config.owner_id {
+            log::warn!(
+                "SCS header context mismatch for {:?}: file(chain_id={}, owner={}), runtime(chain_id={}, owner={})",
+                path,
+                header.chain_id,
+                hex::encode(header.owner_id),
+                config.chain_id,
+                hex::encode(config.owner_id)
+            );
+        }
+        // Runtime context should be deterministic across create/open.
+        header.chain_id = config.chain_id;
+        header.owner_id = config.owner_id;
 
         // Read TOC
         file.seek(SeekFrom::Start(header.toc_offset))?;
@@ -205,10 +217,6 @@ impl SovereignContextStore {
         thread_rng().fill_bytes(&mut current_key);
         epoch_keys.insert(max_epoch, current_key);
 
-        // Mock identity key for open (since it wasn't passed in)
-        // In real usage, use a builder pattern to inject keys.
-        let identity_key = [0x1D; 32];
-
         Ok(Self {
             file,
             path: path.to_path_buf(),
@@ -220,10 +228,28 @@ impl SovereignContextStore {
             session_index,
             skill_index,
             current_epoch: max_epoch,
-            identity_key,
+            identity_key: config.identity_key,
             epoch_keys,
             session_keys: HashMap::new(),
         })
+    }
+
+    /// Opens an existing `.scs` file using legacy defaults for compatibility.
+    pub fn open(path: &Path) -> Result<Self> {
+        let mut file = OpenOptions::new().read(true).open(path)?;
+        let mut header_bytes = [0u8; HEADER_SIZE as usize];
+        file.read_exact(&mut header_bytes)?;
+        let header = ScsHeader::from_bytes(&header_bytes).map_err(|e| anyhow!(e))?;
+        drop(file);
+
+        Self::open_with_config(
+            path,
+            StoreConfig {
+                chain_id: header.chain_id,
+                owner_id: header.owner_id,
+                identity_key: [0x1D; 32],
+            },
+        )
     }
 
     /// Helper to get or create a session key.
@@ -579,5 +605,73 @@ impl SovereignContextStore {
 impl Drop for SovereignContextStore {
     fn drop(&mut self) {
         let _ = self.file.unlock();
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use tempfile::tempdir;
+
+    fn base_config(identity_key: [u8; 32]) -> StoreConfig {
+        StoreConfig {
+            chain_id: 7,
+            owner_id: [0xAB; 32],
+            identity_key,
+        }
+    }
+
+    #[test]
+    fn archival_frame_survives_reopen_with_same_config() -> Result<()> {
+        let tmp = tempdir()?;
+        let path = tmp.path().join("store.scs");
+        let cfg = base_config([0x11; 32]);
+        let session_id = [0x22; 32];
+        let payload = b"persisted archival frame";
+
+        {
+            let mut store = SovereignContextStore::create(&path, cfg.clone())?;
+            let frame_id = store.append_frame(
+                FrameType::Thought,
+                payload,
+                1,
+                [0u8; 32],
+                session_id,
+                RetentionClass::Archival,
+            )?;
+            assert_eq!(store.read_frame_payload(frame_id)?, payload);
+        }
+
+        {
+            let reopened = SovereignContextStore::open_with_config(&path, cfg)?;
+            assert_eq!(reopened.read_frame_payload(0)?, payload);
+        }
+
+        Ok(())
+    }
+
+    #[test]
+    fn archival_frame_fails_reopen_with_wrong_identity_key() -> Result<()> {
+        let tmp = tempdir()?;
+        let path = tmp.path().join("store.scs");
+        let good_cfg = base_config([0x33; 32]);
+        let bad_cfg = base_config([0x44; 32]);
+        let session_id = [0x55; 32];
+
+        {
+            let mut store = SovereignContextStore::create(&path, good_cfg)?;
+            store.append_frame(
+                FrameType::Thought,
+                b"secret",
+                1,
+                [0u8; 32],
+                session_id,
+                RetentionClass::Archival,
+            )?;
+        }
+
+        let reopened = SovereignContextStore::open_with_config(&path, bad_cfg)?;
+        assert!(reopened.read_frame_payload(0).is_err());
+        Ok(())
     }
 }

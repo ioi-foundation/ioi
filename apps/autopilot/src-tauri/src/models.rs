@@ -151,6 +151,33 @@ pub struct SwarmAgent {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CredentialRequest {
+    pub kind: String,
+    pub prompt: String,
+    #[serde(default)]
+    pub one_time: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ClarificationOption {
+    pub id: String,
+    pub label: String,
+    pub description: String,
+    #[serde(default)]
+    pub recommended: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ClarificationRequest {
+    pub kind: String,
+    pub question: String,
+    #[serde(default)]
+    pub options: Vec<ClarificationOption>,
+    #[serde(default)]
+    pub allow_other: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AgentTask {
     pub id: String,
     pub intent: String,
@@ -164,6 +191,10 @@ pub struct AgentTask {
     pub visual_hash: Option<String>,
     pub pending_request_hash: Option<String>,
     pub session_id: Option<String>,
+    #[serde(default)]
+    pub credential_request: Option<CredentialRequest>,
+    #[serde(default)]
+    pub clarification_request: Option<ClarificationRequest>,
 
     // History source of truth.
     // This is populated by hydrating from the blockchain state (Audit Log).

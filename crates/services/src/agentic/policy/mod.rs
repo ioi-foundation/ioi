@@ -184,7 +184,11 @@ impl PolicyEngine {
                     return false;
                 }
 
-                let manager = json["manager"].as_str().unwrap_or("").trim().to_ascii_lowercase();
+                let manager = json["manager"]
+                    .as_str()
+                    .unwrap_or("")
+                    .trim()
+                    .to_ascii_lowercase();
                 if !manager.is_empty()
                     && !matches!(
                         manager.as_str(),

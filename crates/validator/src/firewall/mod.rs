@@ -109,6 +109,15 @@ pub async fn enforce_firewall(
             || service_id == "desktop_agent"
             || service_id == "compute_market"
         {
+            let allow_approval_bypass_for_message =
+                service_id == "desktop_agent" && method == "post_message@v1";
+            if allow_approval_bypass_for_message {
+                tracing::info!(
+                    target: "firewall",
+                    "Approval-gate bypass enabled for desktop_agent post_message@v1"
+                );
+            }
+
             // [NEW] Attempt to extract session_id and approval token from state
             let mut session_id_opt = None;
             let mut approval_token: Option<ApprovalToken> = None;
@@ -206,43 +215,50 @@ pub async fn enforce_firewall(
                     return Err(TransactionError::Invalid("Blocked by Policy".into()));
                 }
                 Verdict::RequireApproval => {
-                    let req_hash_bytes = dummy_request.hash();
-                    let req_hash_hex = hex::encode(req_hash_bytes);
+                    if allow_approval_bypass_for_message {
+                        tracing::info!(
+                            target: "firewall",
+                            "Downgrading REQUIRE_APPROVAL to ALLOW for desktop_agent post_message@v1"
+                        );
+                    } else {
+                        let req_hash_bytes = dummy_request.hash();
+                        let req_hash_hex = hex::encode(req_hash_bytes);
 
-                    // [NEW] Attempt to extract visual hash from params for the event
-                    // This allows the UI to display the screenshot the agent saw when requesting the action.
-                    let mut visual_hash_opt: Option<[u8; 32]> = None;
-                    if let Ok(json) =
-                        serde_json::from_slice::<serde_json::Value>(&dummy_request.params)
-                    {
-                        if let Some(hex_hash) =
-                            json.get("expected_visual_hash").and_then(|s| s.as_str())
+                        // [NEW] Attempt to extract visual hash from params for the event
+                        // This allows the UI to display the screenshot the agent saw when requesting the action.
+                        let mut visual_hash_opt: Option<[u8; 32]> = None;
+                        if let Ok(json) =
+                            serde_json::from_slice::<serde_json::Value>(&dummy_request.params)
                         {
-                            if let Ok(bytes) = hex::decode(hex_hash) {
-                                if bytes.len() == 32 {
-                                    let mut arr = [0u8; 32];
-                                    arr.copy_from_slice(&bytes);
-                                    visual_hash_opt = Some(arr);
+                            if let Some(hex_hash) =
+                                json.get("expected_visual_hash").and_then(|s| s.as_str())
+                            {
+                                if let Ok(bytes) = hex::decode(hex_hash) {
+                                    if bytes.len() == 32 {
+                                        let mut arr = [0u8; 32];
+                                        arr.copy_from_slice(&bytes);
+                                        visual_hash_opt = Some(arr);
+                                    }
                                 }
                             }
                         }
-                    }
 
-                    // [NEW] Emit RequireApproval Event (Triggers Gate UI)
-                    if let Some(tx) = event_broadcaster {
-                        let _ = tx.send(KernelEvent::FirewallInterception {
-                            verdict: "REQUIRE_APPROVAL".to_string(),
-                            target: method.clone(),
-                            request_hash: req_hash_bytes,
-                            session_id: session_id_opt,
-                            // KernelEvent currently doesn't have a visual_hash field in FirewallInterception.
-                            // The UI must fetch the StepTrace or reconstruct it.
-                            // For now, we rely on the `request_hash` matching the pending tool call in state.
-                        });
-                    }
+                        // [NEW] Emit RequireApproval Event (Triggers Gate UI)
+                        if let Some(tx) = event_broadcaster {
+                            let _ = tx.send(KernelEvent::FirewallInterception {
+                                verdict: "REQUIRE_APPROVAL".to_string(),
+                                target: method.clone(),
+                                request_hash: req_hash_bytes,
+                                session_id: session_id_opt,
+                                // KernelEvent currently doesn't have a visual_hash field in FirewallInterception.
+                                // The UI must fetch the StepTrace or reconstruct it.
+                                // For now, we rely on the `request_hash` matching the pending tool call in state.
+                            });
+                        }
 
-                    tracing::info!(target: "firewall", "Gating action {} (Hash: {})", method, req_hash_hex);
-                    return Err(TransactionError::PendingApproval(req_hash_hex));
+                        tracing::info!(target: "firewall", "Gating action {} (Hash: {})", method, req_hash_hex);
+                        return Err(TransactionError::PendingApproval(req_hash_hex));
+                    }
                 }
             }
 

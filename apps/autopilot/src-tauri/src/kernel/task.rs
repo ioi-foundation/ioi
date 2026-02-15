@@ -38,6 +38,14 @@ fn now_iso() -> String {
     chrono::Utc::now().to_rfc3339()
 }
 
+fn generate_session_id_hex() -> String {
+    // Use two UUIDv4 values to build a canonical 32-byte session id (64 hex chars).
+    let mut session_bytes = [0u8; 32];
+    session_bytes[..16].copy_from_slice(uuid::Uuid::new_v4().as_bytes());
+    session_bytes[16..].copy_from_slice(uuid::Uuid::new_v4().as_bytes());
+    hex::encode(session_bytes)
+}
+
 fn build_user_input_event(thread_id: &str, step_index: u32, text: &str) -> AgentEvent {
     AgentEvent {
         event_id: uuid::Uuid::new_v4().to_string(),
@@ -59,6 +67,53 @@ fn build_user_input_event(thread_id: &str, step_index: u32, text: &str) -> Agent
         status: EventStatus::Success,
         duration_ms: None,
     }
+}
+
+async fn submit_continue_via_ephemeral_post_message(
+    client: &mut PublicApiClient<tonic::transport::Channel>,
+    params_bytes: Vec<u8>,
+) -> Result<(), String> {
+    let keypair = libp2p::identity::Keypair::generate_ed25519();
+    let public_key = keypair.public().encode_protobuf();
+    let account_id = AccountId(
+        account_id_from_key_material(SignatureSuite::ED25519, &public_key)
+            .map_err(|e| e.to_string())?,
+    );
+
+    let payload = SystemPayload::CallService {
+        service_id: "desktop_agent".to_string(),
+        method: "post_message@v1".to_string(),
+        params: params_bytes,
+    };
+    let mut sys_tx = SystemTransaction {
+        header: SignHeader {
+            account_id,
+            nonce: 0,
+            chain_id: ChainId(0),
+            tx_version: 1,
+            session_auth: None,
+        },
+        payload,
+        signature_proof: SignatureProof::default(),
+    };
+
+    let sign_bytes = sys_tx.to_sign_bytes().map_err(|e| e.to_string())?;
+    let signature = keypair.sign(&sign_bytes).map_err(|e| e.to_string())?;
+    sys_tx.signature_proof = SignatureProof {
+        suite: SignatureSuite::ED25519,
+        public_key,
+        signature,
+    };
+
+    let tx = ChainTransaction::System(Box::new(sys_tx));
+    let tx_bytes = codec::to_bytes_canonical(&tx).map_err(|e| e.to_string())?;
+    client
+        .submit_transaction(tonic::Request::new(SubmitTransactionRequest {
+            transaction_bytes: tx_bytes,
+        }))
+        .await
+        .map_err(|e| format!("Submission Error: {}", e))?;
+    Ok(())
 }
 
 // [FIX] Local definition to avoid dependency on private/missing service types
@@ -89,7 +144,7 @@ pub fn start_task(
         timestamp: crate::kernel::state::now(),
     }];
 
-    let task_id = uuid::Uuid::new_v4().to_string();
+    let task_id = generate_session_id_hex();
 
     // We treat task_id as session_id for local context unless provided otherwise
     let mut task = AgentTask {
@@ -106,6 +161,8 @@ pub fn start_task(
         receipt: None,
         visual_hash: None,
         pending_request_hash: None,
+        credential_request: None,
+        clarification_request: None,
         history,
         events: vec![build_user_input_event(&task_id, 0, &intent)],
         artifacts: Vec::new(),
@@ -159,8 +216,7 @@ pub fn start_task(
     let intent_clone = intent.clone();
 
     // [MODIFIED] Unified Intent Construction
-    let session_hex = hex::encode(uuid::Uuid::parse_str(&task_id).unwrap().as_bytes());
-    let effective_intent = format!("SESSION:{} {}", session_hex, intent_clone);
+    let effective_intent = format!("SESSION:{} {}", task_id, intent_clone);
 
     // Async submission to Kernel
     tauri::async_runtime::spawn(async move {
@@ -233,6 +289,8 @@ pub async fn continue_task(
 
     update_task_state(&app, move |t| {
         t.history.push(user_msg_ui.clone());
+        t.credential_request = None;
+        t.clarification_request = None;
         let thread_id = t.session_id.clone().unwrap_or_else(|| t.id.clone());
         let step_index = t.progress;
         t.events.push(build_user_input_event(
@@ -266,6 +324,7 @@ pub async fn continue_task(
     };
 
     let params_bytes = codec::to_bytes_canonical(&params).map_err(|e| e.to_string())?;
+    let fallback_params_bytes = params_bytes.clone();
 
     // 3. Async Kernel Call with Backoff Retry
     let app_clone = app.clone();
@@ -295,19 +354,68 @@ pub async fn continue_task(
         {
             Ok(k) => k,
             Err(e) => {
-                eprintln!("[Autopilot] Failed to load identity key: {}", e);
-                update_task_state(&app_clone, |t| {
-                    t.phase = crate::models::AgentPhase::Failed;
-                    t.current_step = format!("Identity Error: {}", e);
-                });
+                eprintln!(
+                    "[Autopilot] Failed to load identity key: {}. Falling back to ephemeral post_message flow.",
+                    e
+                );
+                if let Err(err) = submit_continue_via_ephemeral_post_message(
+                    &mut client,
+                    fallback_params_bytes.clone(),
+                )
+                .await
+                {
+                    update_task_state(&app_clone, move |t| {
+                        t.phase = crate::models::AgentPhase::Failed;
+                        t.current_step = format!("Failed to send message: {}", err);
+                    });
+                }
                 return;
             }
         };
 
-        let keypair = libp2p::identity::Keypair::from_protobuf_encoding(&raw_key).unwrap();
+        let keypair = match libp2p::identity::Keypair::from_protobuf_encoding(&raw_key) {
+            Ok(kp) => kp,
+            Err(e) => {
+                eprintln!(
+                    "[Autopilot] Failed to decode identity key: {}. Falling back to ephemeral post_message flow.",
+                    e
+                );
+                if let Err(err) = submit_continue_via_ephemeral_post_message(
+                    &mut client,
+                    fallback_params_bytes.clone(),
+                )
+                .await
+                {
+                    update_task_state(&app_clone, move |t| {
+                        t.phase = crate::models::AgentPhase::Failed;
+                        t.current_step = format!("Failed to send message: {}", err);
+                    });
+                }
+                return;
+            }
+        };
         let pk_bytes = keypair.public().encode_protobuf();
-        let account_id =
-            AccountId(account_id_from_key_material(SignatureSuite::ED25519, &pk_bytes).unwrap());
+        let account_id = match account_id_from_key_material(SignatureSuite::ED25519, &pk_bytes) {
+            Ok(id) => AccountId(id),
+            Err(e) => {
+                eprintln!(
+                    "[Autopilot] Failed to derive account id from identity key: {}. Falling back to ephemeral post_message flow.",
+                    e
+                );
+                if let Err(err) = submit_continue_via_ephemeral_post_message(
+                    &mut client,
+                    fallback_params_bytes.clone(),
+                )
+                .await
+                {
+                    update_task_state(&app_clone, move |t| {
+                        t.phase = crate::models::AgentPhase::Failed;
+                        t.current_step = format!("Failed to send message: {}", err);
+                    });
+                }
+                return;
+            }
+        };
 
         // --- CONVERGENT RETRY LOOP ---
         let mut attempts = 0;
@@ -365,8 +473,20 @@ pub async fn continue_task(
                 signature_proof: SignatureProof::default(),
             };
 
-            let sign_bytes = sys_tx.to_sign_bytes().unwrap();
-            let sig = keypair.sign(&sign_bytes).unwrap();
+            let sign_bytes = match sys_tx.to_sign_bytes() {
+                Ok(bytes) => bytes,
+                Err(e) => {
+                    last_error = Some(format!("Failed to build sign bytes: {}", e));
+                    break;
+                }
+            };
+            let sig = match keypair.sign(&sign_bytes) {
+                Ok(sig) => sig,
+                Err(e) => {
+                    last_error = Some(format!("Failed to sign transaction: {}", e));
+                    break;
+                }
+            };
 
             sys_tx.signature_proof = SignatureProof {
                 suite: SignatureSuite::ED25519,
@@ -375,7 +495,13 @@ pub async fn continue_task(
             };
 
             let tx = ChainTransaction::System(Box::new(sys_tx));
-            let tx_bytes = codec::to_bytes_canonical(&tx).unwrap();
+            let tx_bytes = match codec::to_bytes_canonical(&tx) {
+                Ok(bytes) => bytes,
+                Err(e) => {
+                    last_error = Some(format!("Failed to encode transaction: {}", e));
+                    break;
+                }
+            };
 
             // Submit
             match client
@@ -432,11 +558,20 @@ pub async fn continue_task(
         }
 
         if !success {
-            let err_msg = last_error.unwrap_or_else(|| "Network busy (Nonce Lock)".to_string());
-            update_task_state(&app_clone, move |t| {
-                t.phase = crate::models::AgentPhase::Failed;
-                t.current_step = format!("Failed to send message: {}", err_msg);
-            });
+            eprintln!(
+                "[Autopilot] post_message@v1 submission did not converge. Falling back to ephemeral post_message flow."
+            );
+            if let Err(err) =
+                submit_continue_via_ephemeral_post_message(&mut client, fallback_params_bytes).await
+            {
+                let base_err =
+                    last_error.unwrap_or_else(|| "Network busy (Nonce Lock)".to_string());
+                update_task_state(&app_clone, move |t| {
+                    t.phase = crate::models::AgentPhase::Failed;
+                    t.current_step =
+                        format!("Failed to send message: {} | fallback: {}", base_err, err);
+                });
+            }
         }
     });
 

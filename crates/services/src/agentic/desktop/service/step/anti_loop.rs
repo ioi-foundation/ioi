@@ -194,6 +194,49 @@ fn parse_error_class_marker(lower_error: &str) -> Option<FailureClass> {
     }
 }
 
+fn is_package_lookup_failure(msg: &str) -> bool {
+    msg.contains("unable to locate package")
+        || msg.contains("no match for argument")
+        || msg.contains("has no installation candidate")
+        || msg.contains("cannot find a package")
+}
+
+fn is_install_missing_dependency_failure(msg: &str) -> bool {
+    msg.contains("error_class=missingdependency") && msg.contains("failed to install")
+}
+
+fn is_launch_lookup_failure(msg: &str) -> bool {
+    let launch_miss = msg.contains("failed to launch")
+        && (msg.contains("no such file")
+            || msg.contains("not found")
+            || msg.contains("unable to locate")
+            || msg.contains("cannot find")
+            || msg.contains("gtk-launch"));
+    launch_miss || (msg.contains("error_class=toolunavailable") && msg.contains("failed to launch"))
+}
+
+pub fn requires_wait_for_clarification(tool_name: &str, error: &str) -> bool {
+    let tool = tool_name.to_ascii_lowercase();
+    let msg = error.to_ascii_lowercase();
+
+    let is_install_tool = tool == "sys__install_package"
+        || tool == "sys::install_package"
+        || tool.ends_with("install_package");
+    if is_install_tool
+        && (is_package_lookup_failure(&msg) || is_install_missing_dependency_failure(&msg))
+    {
+        return true;
+    }
+
+    let is_launch_tool =
+        tool == "os__launch_app" || tool == "os::launch_app" || tool.ends_with("launch_app");
+    if is_launch_tool && is_launch_lookup_failure(&msg) {
+        return true;
+    }
+
+    false
+}
+
 pub fn classify_failure(error: Option<&str>, policy_decision: &str) -> Option<FailureClass> {
     if policy_decision == "require_approval" || policy_decision == "denied" {
         return Some(FailureClass::PermissionOrApprovalRequired);
@@ -201,7 +244,22 @@ pub fn classify_failure(error: Option<&str>, policy_decision: &str) -> Option<Fa
 
     let msg = error?.to_lowercase();
 
+    if is_package_lookup_failure(&msg) || is_launch_lookup_failure(&msg) {
+        return Some(FailureClass::UserInterventionNeeded);
+    }
+
     if let Some(class) = parse_error_class_marker(&msg) {
+        if matches!(class, FailureClass::MissingDependency) && is_package_lookup_failure(&msg) {
+            return Some(FailureClass::UserInterventionNeeded);
+        }
+        if matches!(class, FailureClass::MissingDependency)
+            && is_install_missing_dependency_failure(&msg)
+        {
+            return Some(FailureClass::UserInterventionNeeded);
+        }
+        if matches!(class, FailureClass::ToolUnavailable) && msg.contains("failed to launch") {
+            return Some(FailureClass::UserInterventionNeeded);
+        }
         return Some(class);
     }
 
@@ -233,6 +291,9 @@ pub fn classify_failure(error: Option<&str>, policy_decision: &str) -> Option<Fa
         || msg.contains("missing focus dependency")
         || msg.contains("missingdependency")
     {
+        if is_package_lookup_failure(&msg) {
+            return Some(FailureClass::UserInterventionNeeded);
+        }
         return Some(FailureClass::MissingDependency);
     }
 
@@ -730,6 +791,17 @@ mod tests {
         );
         assert_eq!(missing_dep, Some(FailureClass::MissingDependency));
 
+        let package_not_found = classify_failure(
+            Some(
+                "ERROR_CLASS=MissingDependency Failed to install 'calculator': E: Unable to locate package calculator",
+            ),
+            "allowed",
+        );
+        assert_eq!(
+            package_not_found,
+            Some(FailureClass::UserInterventionNeeded)
+        );
+
         let context_drift = classify_failure(
             Some("ERROR_CLASS=ContextDrift Visual context drift detected before resume."),
             "allowed",
@@ -767,6 +839,45 @@ mod tests {
             "allowed",
         );
         assert_eq!(unexpected, Some(FailureClass::UnexpectedState));
+    }
+
+    #[test]
+    fn classify_plain_package_lookup_failures_as_user_intervention_needed() {
+        let apt_missing =
+            classify_failure(Some("E: Unable to locate package calculator"), "allowed");
+        assert_eq!(apt_missing, Some(FailureClass::UserInterventionNeeded));
+
+        let dnf_missing = classify_failure(Some("No match for argument: myapp"), "allowed");
+        assert_eq!(dnf_missing, Some(FailureClass::UserInterventionNeeded));
+    }
+
+    #[test]
+    fn classify_marker_only_install_missing_dependency_as_user_intervention_needed() {
+        let marker_only = classify_failure(
+            Some(
+                "ERROR_CLASS=MissingDependency Failed to install 'calculator' via 'apt-get': Command failed: exit status: 100",
+            ),
+            "allowed",
+        );
+        assert_eq!(marker_only, Some(FailureClass::UserInterventionNeeded));
+    }
+
+    #[test]
+    fn classify_launch_lookup_failures_as_user_intervention_needed() {
+        let launch_missing = classify_failure(
+            Some(
+                "ERROR_CLASS=ToolUnavailable Failed to launch calculator after 5 attempt(s): gtk-launch calculator (non-zero exit: Command failed: exit status: 2) | calculator (Failed to spawn detached command 'calculator': No such file or directory (os error 2))",
+            ),
+            "allowed",
+        );
+        assert_eq!(launch_missing, Some(FailureClass::UserInterventionNeeded));
+    }
+
+    #[test]
+    fn clarification_gate_detects_marker_only_install_failures() {
+        let msg =
+            "ERROR_CLASS=MissingDependency Failed to install 'calculator' via 'apt-get': Command failed: exit status: 100";
+        assert!(requires_wait_for_clarification("sys__install_package", msg));
     }
 
     #[test]

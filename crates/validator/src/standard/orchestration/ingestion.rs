@@ -310,6 +310,15 @@ pub async fn run_ingestion_worker<CS>(
                     || service_id == "desktop_agent"
                     || service_id == "compute_market"
                 {
+                    let allow_approval_bypass_for_message =
+                        service_id == "desktop_agent" && method == "post_message@v1";
+                    if allow_approval_bypass_for_message {
+                        info!(
+                            target: "ingestion",
+                            "Approval-gate bypass enabled for desktop_agent post_message@v1"
+                        );
+                    }
+
                     // 1. Construct ActionRequest for PolicyEngine
                     let request = ActionRequest {
                         target: ActionTarget::Custom(method.clone()),
@@ -371,21 +380,28 @@ pub async fn run_ingestion_worker<CS>(
                             );
                         }
                         Verdict::RequireApproval => {
-                            // [FIX] Allow the transaction into mempool so it can execute and transition state to Paused.
-                            is_safe = true;
+                            if allow_approval_bypass_for_message {
+                                info!(
+                                    target: "ingestion",
+                                    "Downgrading REQUIRE_APPROVAL to ALLOW for desktop_agent post_message@v1"
+                                );
+                            } else {
+                                // [FIX] Allow the transaction into mempool so it can execute and transition state to Paused.
+                                is_safe = true;
 
-                            let reason = "Manual approval required";
-                            warn!(target: "ingestion", "Transaction halted (Policy Gate): {}. Allowing for state transition.", reason);
+                                let reason = "Manual approval required";
+                                warn!(target: "ingestion", "Transaction halted (Policy Gate): {}. Allowing for state transition.", reason);
 
-                            let _ = event_broadcaster.send(KernelEvent::FirewallInterception {
-                                verdict: "REQUIRE_APPROVAL".to_string(),
-                                target: method.clone(),
-                                request_hash: p_tx.canonical_hash,
-                                session_id: None,
-                            });
+                                let _ = event_broadcaster.send(KernelEvent::FirewallInterception {
+                                    verdict: "REQUIRE_APPROVAL".to_string(),
+                                    target: method.clone(),
+                                    request_hash: p_tx.canonical_hash,
+                                    session_id: None,
+                                });
 
-                            // Note: We don't set status to Rejected here anymore.
-                            // It will be set to Pending/InMempool if it passes downstream checks.
+                                // Note: We don't set status to Rejected here anymore.
+                                // It will be set to Pending/InMempool if it passes downstream checks.
+                            }
                         }
                     }
 

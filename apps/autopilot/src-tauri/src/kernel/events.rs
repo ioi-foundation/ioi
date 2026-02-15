@@ -4,7 +4,8 @@ use crate::kernel::state::update_task_state;
 use crate::kernel::{artifacts as artifact_store, thresholds};
 use crate::models::{
     AgentEvent, AgentPhase, AppState, Artifact, ArtifactRef, ArtifactType, ChatMessage,
-    EventStatus, EventType, GateInfo, GhostInputEvent, Receipt, SwarmAgent,
+    ClarificationOption, ClarificationRequest, CredentialRequest, EventStatus, EventType, GateInfo,
+    GhostInputEvent, Receipt, SwarmAgent,
 };
 use crate::orchestrator;
 use ioi_ipc::public::chain_event::Event as ChainEventEnum;
@@ -87,6 +88,129 @@ fn event_type_for_tool(tool_name: &str) -> EventType {
         EventType::FileRead
     } else {
         EventType::CommandRun
+    }
+}
+
+fn is_sudo_password_required_install(tool_name: &str, output: &str) -> bool {
+    let tool = tool_name.to_ascii_lowercase();
+    if tool != "sys__install_package"
+        && tool != "sys::install_package"
+        && !tool.ends_with("install_package")
+    {
+        return false;
+    }
+    let text = output.to_ascii_lowercase();
+    let package_lookup_failure = text.contains("unable to locate package")
+        || text.contains("no match for argument")
+        || text.contains("has no installation candidate")
+        || text.contains("cannot find a package");
+    if package_lookup_failure {
+        return false;
+    }
+    text.contains("sudo:")
+        || text.contains("a password is required")
+        || text.contains("not in the sudoers")
+        || text.contains("incorrect password")
+        || text.contains("sorry, try again")
+        || (text.contains("error_class=permissionorapprovalrequired") && text.contains("sudo"))
+}
+
+fn is_install_package_lookup_failure(tool_name: &str, output: &str) -> bool {
+    let tool = tool_name.to_ascii_lowercase();
+    if tool != "sys__install_package"
+        && tool != "sys::install_package"
+        && !tool.ends_with("install_package")
+    {
+        return false;
+    }
+    let text = output.to_ascii_lowercase();
+    text.contains("unable to locate package")
+        || text.contains("no match for argument")
+        || text.contains("has no installation candidate")
+        || text.contains("cannot find a package")
+        || text.contains("error_class=missingdependency")
+}
+
+fn is_launch_app_lookup_failure(tool_name: &str, output: &str) -> bool {
+    let tool = tool_name.to_ascii_lowercase();
+    if tool != "os__launch_app" && tool != "os::launch_app" && !tool.ends_with("launch_app") {
+        return false;
+    }
+    let text = output.to_ascii_lowercase();
+    let marker_launch_miss =
+        text.contains("error_class=toolunavailable") && text.contains("failed to launch");
+    let detailed_launch_miss = text.contains("failed to launch")
+        && (text.contains("no such file")
+            || text.contains("not found")
+            || text.contains("unable to locate")
+            || text.contains("cannot find")
+            || text.contains("gtk-launch"));
+    marker_launch_miss || detailed_launch_miss
+}
+
+fn is_clarification_required_failure(tool_name: &str, output: &str) -> bool {
+    is_install_package_lookup_failure(tool_name, output)
+        || is_launch_app_lookup_failure(tool_name, output)
+}
+
+fn extract_missing_package_hint(output: &str) -> Option<String> {
+    let lower = output.to_ascii_lowercase();
+    let marker = "unable to locate package ";
+    let idx = lower.find(marker)?;
+    let token_start = idx + marker.len();
+    let remainder = output.get(token_start..)?.trim();
+    let raw = remainder.split_whitespace().next()?;
+    let cleaned = raw
+        .trim_matches(|c: char| !(c.is_ascii_alphanumeric() || c == '-' || c == '_' || c == '.'));
+    if cleaned.is_empty() {
+        None
+    } else {
+        Some(cleaned.to_string())
+    }
+}
+
+fn build_install_package_clarification_request(output: &str) -> ClarificationRequest {
+    let package_hint = extract_missing_package_hint(output);
+    let question = if let Some(pkg) = package_hint {
+        format!(
+            "I could not resolve app/package '{}'. Which clarification strategy should I use?",
+            pkg
+        )
+    } else {
+        "I could not resolve the app/package identity. Which clarification strategy should I use?"
+            .to_string()
+    };
+
+    ClarificationRequest {
+        kind: "install_package_lookup".to_string(),
+        question,
+        options: vec![
+            ClarificationOption {
+                id: "discover_candidates".to_string(),
+                label: "Discover candidates".to_string(),
+                description:
+                    "Use package-manager/executable discovery to generate candidates, then retry with the best match."
+                        .to_string(),
+                recommended: true,
+            },
+            ClarificationOption {
+                id: "launch_only".to_string(),
+                label: "Launch without install".to_string(),
+                description:
+                    "Skip install attempts and try direct app launch with known executable IDs."
+                        .to_string(),
+                recommended: false,
+            },
+            ClarificationOption {
+                id: "provide_exact".to_string(),
+                label: "Use exact package".to_string(),
+                description:
+                    "Wait for an exact package/app identifier and retry once with that value."
+                        .to_string(),
+                recommended: false,
+            },
+        ],
+        allow_other: true,
     }
 }
 
@@ -721,6 +845,11 @@ pub async fn monitor_kernel_events(app: tauri::AppHandle) {
                         }
                     }
                     ChainEventEnum::ActionResult(res) => {
+                        let password_required =
+                            is_sudo_password_required_install(&res.tool_name, &res.output);
+                        let clarification_required =
+                            is_clarification_required_failure(&res.tool_name, &res.output)
+                                && res.agent_status.eq_ignore_ascii_case("paused");
                         let dedup_key = format!("{}:{}", res.step_index, res.tool_name);
                         let already_processed = {
                             if let Ok(guard) = state_handle.lock() {
@@ -755,6 +884,140 @@ pub async fn monitor_kernel_events(app: tauri::AppHandle) {
                             {
                                 agent.artifacts_produced += 1;
                             }
+
+                            let waiting_for_sudo = t
+                                .credential_request
+                                .as_ref()
+                                .map(|req| req.kind == "sudo_password")
+                                .unwrap_or(false)
+                                || t.current_step
+                                    .eq_ignore_ascii_case("Waiting for sudo password");
+                            let waiting_for_clarification = t
+                                .clarification_request
+                                .as_ref()
+                                .map(|req| req.kind == "install_package_lookup")
+                                .unwrap_or(false)
+                                || t.current_step.eq_ignore_ascii_case(
+                                    "Waiting for user clarification on app/package name.",
+                                )
+                                || t.current_step
+                                    .eq_ignore_ascii_case("Waiting for install clarification");
+
+                            if password_required {
+                                t.phase = AgentPhase::Complete;
+                                t.current_step = "Waiting for sudo password".to_string();
+                                t.gate_info = None;
+                                t.pending_request_hash = None;
+                                t.clarification_request = None;
+                                t.credential_request = Some(CredentialRequest {
+                                    kind: "sudo_password".to_string(),
+                                    prompt: "A one-time sudo password is required to continue the install."
+                                        .to_string(),
+                                    one_time: true,
+                                });
+                                if !res.output.trim().is_empty() {
+                                    let tool_msg =
+                                        format!("Tool Output ({}): {}", res.tool_name, res.output);
+                                    if t.history.last().map(|m| m.text != tool_msg).unwrap_or(true)
+                                    {
+                                        t.history.push(ChatMessage {
+                                            role: "tool".to_string(),
+                                            text: tool_msg,
+                                            timestamp: crate::kernel::state::now(),
+                                        });
+                                    }
+                                }
+                                let prompt_msg =
+                                    "System: Install requires sudo password. Enter password to retry."
+                                        .to_string();
+                                if t.history
+                                    .last()
+                                    .map(|m| m.text != prompt_msg)
+                                    .unwrap_or(true)
+                                {
+                                    t.history.push(ChatMessage {
+                                        role: "system".to_string(),
+                                        text: prompt_msg,
+                                        timestamp: crate::kernel::state::now(),
+                                    });
+                                }
+                                return;
+                            }
+
+                            if clarification_required {
+                                t.phase = AgentPhase::Complete;
+                                t.current_step =
+                                    "Waiting for user clarification on app/package name."
+                                        .to_string();
+                                t.gate_info = None;
+                                t.pending_request_hash = None;
+                                t.credential_request = None;
+                                t.clarification_request =
+                                    Some(build_install_package_clarification_request(&res.output));
+                                if !res.output.trim().is_empty() {
+                                    let tool_msg =
+                                        format!("Tool Output ({}): {}", res.tool_name, res.output);
+                                    if t.history.last().map(|m| m.text != tool_msg).unwrap_or(true)
+                                    {
+                                        t.history.push(ChatMessage {
+                                            role: "tool".to_string(),
+                                            text: tool_msg,
+                                            timestamp: crate::kernel::state::now(),
+                                        });
+                                    }
+                                }
+                                let prompt_msg = "System: WAIT_FOR_CLARIFICATION. App/package identity could not be resolved. Choose a clarification option to continue."
+                                    .to_string();
+                                if t.history
+                                    .last()
+                                    .map(|m| m.text != prompt_msg)
+                                    .unwrap_or(true)
+                                {
+                                    t.history.push(ChatMessage {
+                                        role: "system".to_string(),
+                                        text: prompt_msg,
+                                        timestamp: crate::kernel::state::now(),
+                                    });
+                                }
+                                return;
+                            }
+
+                            // Keep password prompt stable even if later receipts/actions arrive
+                            // before user submits credentials.
+                            if waiting_for_sudo {
+                                if !res.output.trim().is_empty() {
+                                    let tool_msg =
+                                        format!("Tool Output ({}): {}", res.tool_name, res.output);
+                                    if t.history.last().map(|m| m.text != tool_msg).unwrap_or(true)
+                                    {
+                                        t.history.push(ChatMessage {
+                                            role: "tool".to_string(),
+                                            text: tool_msg,
+                                            timestamp: crate::kernel::state::now(),
+                                        });
+                                    }
+                                }
+                                return;
+                            }
+
+                            if waiting_for_clarification {
+                                if !res.output.trim().is_empty() {
+                                    let tool_msg =
+                                        format!("Tool Output ({}): {}", res.tool_name, res.output);
+                                    if t.history.last().map(|m| m.text != tool_msg).unwrap_or(true)
+                                    {
+                                        t.history.push(ChatMessage {
+                                            role: "tool".to_string(),
+                                            text: tool_msg,
+                                            timestamp: crate::kernel::state::now(),
+                                        });
+                                    }
+                                }
+                                return;
+                            }
+
+                            t.credential_request = None;
+                            t.clarification_request = None;
 
                             match res.agent_status.as_str() {
                                 "Completed" => {
@@ -923,6 +1186,16 @@ pub async fn monitor_kernel_events(app: tauri::AppHandle) {
                         } else {
                             None
                         };
+                        let stream_password_required = activity.is_final
+                            && is_sudo_password_required_install(
+                                &activity.tool_name,
+                                &activity.chunk,
+                            );
+                        let stream_clarification_required = activity.is_final
+                            && is_clarification_required_failure(
+                                &activity.tool_name,
+                                &activity.chunk,
+                            );
                         update_task_state(&app, |t| {
                             if !activity.session_id.is_empty() {
                                 t.session_id = Some(activity.session_id.clone());
@@ -930,11 +1203,98 @@ pub async fn monitor_kernel_events(app: tauri::AppHandle) {
                             if matches!(t.phase, AgentPhase::Idle | AgentPhase::Running) {
                                 t.phase = AgentPhase::Running;
                             }
-                            t.current_step = format!(
-                                "Streaming {} ({})",
-                                activity.tool_name, activity.channel
-                            );
+                            t.current_step =
+                                format!("Streaming {} ({})", activity.tool_name, activity.channel);
                         });
+
+                        if stream_password_required {
+                            update_task_state(&app, |t| {
+                                t.phase = AgentPhase::Complete;
+                                t.current_step = "Waiting for sudo password".to_string();
+                                t.gate_info = None;
+                                t.pending_request_hash = None;
+                                t.clarification_request = None;
+                                t.credential_request = Some(CredentialRequest {
+                                    kind: "sudo_password".to_string(),
+                                    prompt:
+                                        "A one-time sudo password is required to continue the install."
+                                            .to_string(),
+                                    one_time: true,
+                                });
+
+                                if !activity.chunk.trim().is_empty() {
+                                    let tool_msg = format!(
+                                        "Tool Output ({}): {}",
+                                        activity.tool_name, activity.chunk
+                                    );
+                                    if t.history.last().map(|m| m.text != tool_msg).unwrap_or(true)
+                                    {
+                                        t.history.push(ChatMessage {
+                                            role: "tool".to_string(),
+                                            text: tool_msg,
+                                            timestamp: crate::kernel::state::now(),
+                                        });
+                                    }
+                                }
+
+                                let prompt_msg =
+                                    "System: Install requires sudo password. Enter password to retry."
+                                        .to_string();
+                                if t.history
+                                    .last()
+                                    .map(|m| m.text != prompt_msg)
+                                    .unwrap_or(true)
+                                {
+                                    t.history.push(ChatMessage {
+                                        role: "system".to_string(),
+                                        text: prompt_msg,
+                                        timestamp: crate::kernel::state::now(),
+                                    });
+                                }
+                            });
+                        } else if stream_clarification_required {
+                            update_task_state(&app, |t| {
+                                t.phase = AgentPhase::Complete;
+                                t.current_step =
+                                    "Waiting for user clarification on app/package name."
+                                        .to_string();
+                                t.gate_info = None;
+                                t.pending_request_hash = None;
+                                t.credential_request = None;
+                                t.clarification_request = Some(
+                                    build_install_package_clarification_request(&activity.chunk),
+                                );
+
+                                if !activity.chunk.trim().is_empty() {
+                                    let tool_msg = format!(
+                                        "Tool Output ({}): {}",
+                                        activity.tool_name, activity.chunk
+                                    );
+                                    if t.history.last().map(|m| m.text != tool_msg).unwrap_or(true)
+                                    {
+                                        t.history.push(ChatMessage {
+                                            role: "tool".to_string(),
+                                            text: tool_msg,
+                                            timestamp: crate::kernel::state::now(),
+                                        });
+                                    }
+                                }
+
+                                let prompt_msg = "System: WAIT_FOR_CLARIFICATION. App/package identity could not be resolved. Choose a clarification option to continue."
+                                    .to_string();
+                                if t.history
+                                    .last()
+                                    .map(|m| m.text != prompt_msg)
+                                    .unwrap_or(true)
+                                {
+                                    t.history.push(ChatMessage {
+                                        role: "system".to_string(),
+                                        text: prompt_msg,
+                                        timestamp: crate::kernel::state::now(),
+                                    });
+                                }
+                            });
+                        }
 
                         let event = emit_command_stream(
                             &thread_id,
@@ -951,6 +1311,39 @@ pub async fn monitor_kernel_events(app: tauri::AppHandle) {
                         register_event(&app, event);
                     }
                     ChainEventEnum::RoutingReceipt(receipt) => {
+                        let receipt_waiting_for_sudo = receipt
+                            .post_state
+                            .as_ref()
+                            .map(|s| {
+                                s.agent_status
+                                    .to_ascii_lowercase()
+                                    .contains("waiting for sudo password")
+                                    || s.verification_checks.iter().any(|check| {
+                                        check.eq_ignore_ascii_case("awaiting_sudo_password=true")
+                                    })
+                            })
+                            .unwrap_or(false)
+                            || receipt
+                                .resolution_action
+                                .eq_ignore_ascii_case("wait_for_sudo_password")
+                            || receipt
+                                .escalation_path
+                                .eq_ignore_ascii_case("wait_for_sudo_password");
+                        let receipt_waiting_for_clarification = receipt
+                            .post_state
+                            .as_ref()
+                            .map(|s| {
+                                s.verification_checks.iter().any(|check| {
+                                    check.eq_ignore_ascii_case("awaiting_clarification=true")
+                                })
+                            })
+                            .unwrap_or(false)
+                            || receipt
+                                .resolution_action
+                                .eq_ignore_ascii_case("wait_for_clarification")
+                            || receipt
+                                .escalation_path
+                                .eq_ignore_ascii_case("wait_for_clarification");
                         let failure_class = if receipt.failure_class_name.is_empty() {
                             None
                         } else {
@@ -993,7 +1386,8 @@ pub async fn monitor_kernel_events(app: tauri::AppHandle) {
                             summary.push_str(&format!(", incident_id={}", receipt.incident_id));
                         }
                         if !receipt.incident_stage.is_empty() {
-                            summary.push_str(&format!(", incident_stage={}", receipt.incident_stage));
+                            summary
+                                .push_str(&format!(", incident_stage={}", receipt.incident_stage));
                         }
                         if !receipt.strategy_name.is_empty() {
                             summary.push_str(&format!(", strategy_name={}", receipt.strategy_name));
@@ -1029,9 +1423,58 @@ pub async fn monitor_kernel_events(app: tauri::AppHandle) {
                                 t.session_id = Some(receipt.session_id.clone());
                             }
 
+                            let waiting_for_sudo = t
+                                .credential_request
+                                .as_ref()
+                                .map(|req| req.kind == "sudo_password")
+                                .unwrap_or(false)
+                                || t.current_step
+                                    .eq_ignore_ascii_case("Waiting for sudo password");
+                            let waiting_for_clarification = t
+                                .clarification_request
+                                .as_ref()
+                                .map(|req| req.kind == "install_package_lookup")
+                                .unwrap_or(false)
+                                || t.current_step.eq_ignore_ascii_case(
+                                    "Waiting for user clarification on app/package name.",
+                                )
+                                || t.current_step
+                                    .eq_ignore_ascii_case("Waiting for install clarification");
+
+                            if receipt_waiting_for_sudo {
+                                t.phase = AgentPhase::Complete;
+                                t.current_step = "Waiting for sudo password".to_string();
+                                t.gate_info = None;
+                                t.pending_request_hash = None;
+                                t.clarification_request = None;
+                                t.credential_request = Some(CredentialRequest {
+                                    kind: "sudo_password".to_string(),
+                                    prompt:
+                                        "A one-time sudo password is required to continue the install."
+                                            .to_string(),
+                                    one_time: true,
+                                });
+                            }
+
+                            if receipt_waiting_for_clarification {
+                                t.phase = AgentPhase::Complete;
+                                t.current_step =
+                                    "Waiting for user clarification on app/package name."
+                                        .to_string();
+                                t.gate_info = None;
+                                t.pending_request_hash = None;
+                                t.credential_request = None;
+                                t.clarification_request =
+                                    Some(build_install_package_clarification_request(""));
+                            }
+
                             if receipt
                                 .policy_decision
                                 .eq_ignore_ascii_case("require_approval")
+                                && !waiting_for_sudo
+                                && !receipt_waiting_for_sudo
+                                && !waiting_for_clarification
+                                && !receipt_waiting_for_clarification
                             {
                                 t.phase = AgentPhase::Gate;
                                 if t.gate_info.is_none() {
@@ -1046,10 +1489,12 @@ pub async fn monitor_kernel_events(app: tauri::AppHandle) {
                                 }
                             }
 
-                            t.current_step = format!(
-                                "Routing: {} ({})",
-                                receipt.tool_name, receipt.policy_decision
-                            );
+                            if !receipt_waiting_for_sudo && !receipt_waiting_for_clarification {
+                                t.current_step = format!(
+                                    "Routing: {} ({})",
+                                    receipt.tool_name, receipt.policy_decision
+                                );
+                            }
                             t.history.push(ChatMessage {
                                 role: "system".to_string(),
                                 text: summary.clone(),
@@ -1165,6 +1610,35 @@ pub async fn monitor_kernel_events(app: tauri::AppHandle) {
                     }
                     ChainEventEnum::Action(action) => {
                         if action.verdict == "REQUIRE_APPROVAL" {
+                            let waiting_for_sudo = {
+                                if let Ok(guard) = state_handle.lock() {
+                                    if let Some(task) = &guard.current_task {
+                                        task.credential_request
+                                            .as_ref()
+                                            .map(|req| req.kind == "sudo_password")
+                                            .unwrap_or(false)
+                                            || task
+                                                .current_step
+                                                .eq_ignore_ascii_case("Waiting for sudo password")
+                                            || task
+                                                .clarification_request
+                                                .as_ref()
+                                                .map(|req| req.kind == "install_package_lookup")
+                                                .unwrap_or(false)
+                                            || task.current_step.eq_ignore_ascii_case(
+                                                "Waiting for user clarification on app/package name.",
+                                            )
+                                            || task.current_step.eq_ignore_ascii_case(
+                                                "Waiting for install clarification",
+                                            )
+                                    } else {
+                                        false
+                                    }
+                                } else {
+                                    false
+                                }
+                            };
+
                             let already_gating = {
                                 if let Ok(guard) = state_handle.lock() {
                                     if let Some(task) = &guard.current_task {
@@ -1179,7 +1653,7 @@ pub async fn monitor_kernel_events(app: tauri::AppHandle) {
                                 }
                             };
 
-                            if !already_gating {
+                            if !already_gating && !waiting_for_sudo {
                                 println!("[Autopilot] Policy Gate Triggered for {}", action.target);
 
                                 update_task_state(&app, |t| {

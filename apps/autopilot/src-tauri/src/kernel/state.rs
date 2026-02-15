@@ -1,8 +1,8 @@
 use crate::models::{AgentPhase, AgentTask, AppState, ChatMessage};
 use crate::orchestrator;
 use hex;
-use ioi_ipc::blockchain::QueryRawStateRequest;
 use ioi_ipc::public::public_api_client::PublicApiClient;
+use ioi_ipc::public::GetSessionHistoryRequest;
 use std::sync::Mutex;
 use std::time::{SystemTime, UNIX_EPOCH};
 use tauri::{AppHandle, Emitter, Manager, State};
@@ -78,28 +78,31 @@ pub async fn hydrate_session_history(
     client: &mut PublicApiClient<Channel>,
     session_id_hex: &str,
 ) -> Result<Vec<ChatMessage>, String> {
-    let session_id_bytes = hex::decode(session_id_hex).map_err(|e| e.to_string())?;
+    let normalized_session = session_id_hex
+        .trim()
+        .trim_start_matches("0x")
+        .replace('-', "");
+    let _ = hex::decode(&normalized_session).map_err(|e| e.to_string())?;
 
-    let ns_prefix = ioi_api::state::service_namespace_prefix("desktop_agent");
-    let state_prefix = b"agent::state::";
-
-    let key = [ns_prefix.as_slice(), state_prefix, &session_id_bytes].concat();
-
-    let req = tonic::Request::new(QueryRawStateRequest { key });
+    let req = tonic::Request::new(GetSessionHistoryRequest {
+        session_id_hex: normalized_session,
+        limit: 0,
+        ascending: true,
+    });
 
     let resp = client
-        .query_raw_state(req)
+        .get_session_history(req)
         .await
         .map_err(|e| e.to_string())?
         .into_inner();
 
-    if resp.found && !resp.value.is_empty() {
-        return Ok(vec![ChatMessage {
-            role: "system".to_string(),
-            text: "Session history is archived in SCS (Offline Hydration pending).".to_string(),
-            timestamp: now(),
-        }]);
-    }
-
-    Ok(vec![])
+    Ok(resp
+        .messages
+        .into_iter()
+        .map(|m| ChatMessage {
+            role: m.role,
+            text: m.content,
+            timestamp: if m.timestamp == 0 { now() } else { m.timestamp },
+        })
+        .collect())
 }

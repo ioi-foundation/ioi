@@ -3,7 +3,9 @@ use crate::models::{AgentPhase, AppState, ChatMessage, EventType, GateResponse};
 use crate::windows;
 use ioi_api::crypto::{SerializableKey, SigningKeyPair};
 use ioi_crypto::sign::eddsa::Ed25519KeyPair;
-use ioi_ipc::public::{GetTransactionStatusRequest, SubmitTransactionRequest};
+use ioi_ipc::public::{
+    GetTransactionStatusRequest, SetRuntimeSecretRequest, SubmitTransactionRequest,
+};
 use ioi_types::app::action::{ApprovalScope, ApprovalToken};
 use ioi_types::app::agentic::ResumeAgentParams;
 use ioi_types::app::{
@@ -13,6 +15,26 @@ use ioi_types::app::{
 use ioi_types::codec;
 use std::sync::Mutex;
 use tauri::{AppHandle, Emitter, State};
+
+fn decode_session_id_hex(session_id_hex: &str) -> Result<[u8; 32], String> {
+    let normalized = session_id_hex
+        .trim()
+        .trim_start_matches("0x")
+        .replace('-', "");
+    let bytes = hex::decode(normalized).map_err(|e| e.to_string())?;
+    let mut session_id = [0u8; 32];
+    match bytes.len() {
+        32 => {
+            session_id.copy_from_slice(&bytes);
+            Ok(session_id)
+        }
+        16 => {
+            session_id[..16].copy_from_slice(&bytes);
+            Ok(session_id)
+        }
+        _ => Err("Invalid session ID length".to_string()),
+    }
+}
 
 #[tauri::command]
 pub fn get_gate_response(state: State<Mutex<AppState>>) -> Option<GateResponse> {
@@ -80,12 +102,7 @@ pub async fn gate_respond(
                 sid_hex, hash_hex
             );
 
-            let session_id_bytes = hex::decode(&sid_hex).map_err(|e| e.to_string())?;
-            let mut session_id_arr = [0u8; 32];
-            if session_id_bytes.len() != 32 {
-                return Err("Invalid session ID len".into());
-            }
-            session_id_arr.copy_from_slice(&session_id_bytes);
+            let session_id_arr = decode_session_id_hex(&sid_hex)?;
 
             let request_hash_bytes = hex::decode(&hash_hex).map_err(|e| e.to_string())?;
             let mut request_hash_arr = [0u8; 32];
@@ -220,6 +237,8 @@ pub async fn gate_respond(
                         t.phase = AgentPhase::Running;
                         t.gate_info = None;
                         t.pending_request_hash = None;
+                        t.credential_request = None;
+                        t.clarification_request = None;
                         t.current_step = "Approval granted. Resuming agent...".to_string();
                         t.history.push(ChatMessage {
                             role: "system".to_string(),
@@ -241,6 +260,8 @@ pub async fn gate_respond(
             t.phase = AgentPhase::Failed;
             t.current_step = "Action blocked by user".to_string();
             t.gate_info = None;
+            t.credential_request = None;
+            t.clarification_request = None;
             t.history.push(ChatMessage {
                 role: "system".to_string(),
                 text: "❌ Action Denied by User.".to_string(),
@@ -248,5 +269,119 @@ pub async fn gate_respond(
             });
         });
     }
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn submit_runtime_password(
+    state: State<'_, Mutex<AppState>>,
+    app: AppHandle,
+    session_id: String,
+    password: String,
+) -> Result<(), String> {
+    if password.trim().is_empty() {
+        return Err("Password cannot be empty".to_string());
+    }
+
+    let session_id_arr = decode_session_id_hex(&session_id)?;
+    let session_id_hex = hex::encode(session_id_arr);
+    let mut client = get_rpc_client(&state).await?;
+
+    let secret_resp = client
+        .set_runtime_secret(tonic::Request::new(SetRuntimeSecretRequest {
+            session_id_hex: session_id_hex.clone(),
+            secret_kind: "sudo_password".to_string(),
+            secret_value: password,
+            one_time: true,
+            ttl_seconds: 120,
+        }))
+        .await
+        .map_err(|e| format!("Failed to set runtime secret: {}", e))?
+        .into_inner();
+
+    if !secret_resp.accepted {
+        return Err("Runtime secret was rejected".to_string());
+    }
+
+    let resume_params = ResumeAgentParams {
+        session_id: session_id_arr,
+        approval_token: None,
+    };
+    let params_bytes = codec::to_bytes_canonical(&resume_params).map_err(|e| e.to_string())?;
+    let payload = SystemPayload::CallService {
+        service_id: "desktop_agent".to_string(),
+        method: "resume@v1".to_string(),
+        params: params_bytes,
+    };
+
+    let approver_kp = Ed25519KeyPair::generate().map_err(|e| e.to_string())?;
+    let approver_pub = approver_kp.public_key();
+    let header = SignHeader {
+        account_id: AccountId(
+            account_id_from_key_material(SignatureSuite::ED25519, &approver_pub.to_bytes())
+                .unwrap(),
+        ),
+        nonce: 0,
+        chain_id: ChainId(0),
+        tx_version: 1,
+        session_auth: None,
+    };
+    let mut tx = SystemTransaction {
+        header,
+        payload,
+        signature_proof: SignatureProof::default(),
+    };
+    let sign_bytes = tx.to_sign_bytes().map_err(|e| e.to_string())?;
+    let sig = approver_kp.sign(&sign_bytes).map_err(|e| e.to_string())?;
+    tx.signature_proof = SignatureProof {
+        suite: SignatureSuite::ED25519,
+        public_key: approver_pub.to_bytes(),
+        signature: sig.to_bytes(),
+    };
+
+    let tx_bytes = codec::to_bytes_canonical(&ChainTransaction::System(Box::new(tx)))
+        .map_err(|e| e.to_string())?;
+    let submit_resp = client
+        .submit_transaction(tonic::Request::new(SubmitTransactionRequest {
+            transaction_bytes: tx_bytes,
+        }))
+        .await
+        .map_err(|e| format!("Failed to submit resume transaction: {}", e))?
+        .into_inner();
+
+    let mut attempts = 0;
+    loop {
+        tokio::time::sleep(std::time::Duration::from_millis(400)).await;
+        attempts += 1;
+        if attempts > 20 {
+            break;
+        }
+        let status_resp = client
+            .get_transaction_status(tonic::Request::new(GetTransactionStatusRequest {
+                tx_hash: submit_resp.tx_hash.clone(),
+            }))
+            .await;
+        if let Ok(status_resp) = status_resp {
+            let status = status_resp.into_inner().status;
+            if status == 3 || status == 4 {
+                break;
+            }
+        }
+    }
+
+    update_task_state(&app, |t| {
+        t.phase = AgentPhase::Running;
+        t.gate_info = None;
+        t.pending_request_hash = None;
+        t.credential_request = None;
+        t.clarification_request = None;
+        t.current_step = "Retrying install with provided sudo password...".to_string();
+        t.history.push(ChatMessage {
+            role: "system".to_string(),
+            text: "Retrying installation with provided sudo password.".to_string(),
+            timestamp: now(),
+        });
+    });
+
     Ok(())
 }
