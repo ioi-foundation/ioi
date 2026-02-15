@@ -538,10 +538,9 @@ pub async fn handle(exec: &ToolExecutor, tool: AgentTool) -> ToolExecutionResult
                             id
                         ))
                     }
-                    Err(e) => click_errors.push(format!(
-                        "geometry_center=({:.2},{:.2})={}",
-                        x, y, e
-                    )),
+                    Err(e) => {
+                        click_errors.push(format!("geometry_center=({:.2},{:.2})={}", x, y, e))
+                    }
                 }
             }
 
