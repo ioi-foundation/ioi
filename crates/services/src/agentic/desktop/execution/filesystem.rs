@@ -614,11 +614,43 @@ fn delete_path_deterministic(
     ))
 }
 
+fn create_directory_deterministic(path: &Path, recursive: bool) -> Result<(), String> {
+    match fs::symlink_metadata(path) {
+        Ok(metadata) => {
+            if metadata.is_dir() {
+                return Ok(());
+            }
+            return Err(format!(
+                "Path '{}' already exists and is not a directory.",
+                path.display()
+            ));
+        }
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => {}
+        Err(e) => {
+            return Err(format!(
+                "Failed to inspect path '{}': {}",
+                path.display(),
+                e
+            ));
+        }
+    }
+
+    let create_result = if recursive {
+        fs::create_dir_all(path)
+    } else {
+        fs::create_dir(path)
+    };
+
+    create_result.map_err(|e| format!("Failed to create directory '{}': {}", path.display(), e))?;
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::{
-        apply_patch, copy_path_deterministic, delete_path_deterministic, fuzzy_find_indices,
-        list_directory_entries, move_path_deterministic, resolve_tool_path, search_files,
+        apply_patch, copy_path_deterministic, create_directory_deterministic,
+        delete_path_deterministic, fuzzy_find_indices, list_directory_entries,
+        move_path_deterministic, resolve_tool_path, search_files,
     };
     use std::fs;
     use std::path::PathBuf;
@@ -873,6 +905,41 @@ mod tests {
 
         let _ = fs::remove_dir_all(&dir);
     }
+
+    #[test]
+    fn create_directory_creates_single_directory() {
+        let dir = make_temp_dir("create-dir-single");
+        let target = dir.join("new-dir");
+
+        create_directory_deterministic(&target, false).expect("create dir should succeed");
+
+        assert!(target.is_dir());
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn create_directory_recursive_creates_parent_chain() {
+        let dir = make_temp_dir("create-dir-recursive");
+        let target = dir.join("a").join("b").join("c");
+
+        create_directory_deterministic(&target, true).expect("recursive create should succeed");
+
+        assert!(target.is_dir());
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn create_directory_rejects_existing_file_path() {
+        let dir = make_temp_dir("create-dir-file-collision");
+        let target = dir.join("occupied");
+        fs::write(&target, "payload").expect("collision file should be created");
+
+        let err = create_directory_deterministic(&target, true)
+            .expect_err("create directory should fail for file path");
+        assert!(err.contains("not a directory"));
+
+        let _ = fs::remove_dir_all(&dir);
+    }
 }
 
 pub async fn handle(exec: &ToolExecutor, tool: AgentTool) -> ToolExecutionResult {
@@ -1051,6 +1118,25 @@ pub async fn handle(exec: &ToolExecutor, tool: AgentTool) -> ToolExecutionResult
                 Ok(Ok(output)) => ToolExecutionResult::success(output),
                 Ok(Err(e)) => ToolExecutionResult::failure(format!("Search failed: {}", e)),
                 Err(e) => ToolExecutionResult::failure(format!("Search task panicked: {}", e)),
+            }
+        }
+        AgentTool::FsCreateDirectory { path, recursive } => {
+            let resolved_path = match resolve_tool_path(&path, cwd) {
+                Ok(path) => path,
+                Err(e) => {
+                    return ToolExecutionResult::failure(format!(
+                        "Create directory failed for '{}': {}",
+                        path, e
+                    ))
+                }
+            };
+
+            match create_directory_deterministic(&resolved_path, recursive) {
+                Ok(_) => ToolExecutionResult::success(format!(
+                    "Created directory {}",
+                    resolved_path.display()
+                )),
+                Err(e) => ToolExecutionResult::failure(format!("Create directory failed: {}", e)),
             }
         }
         AgentTool::FsMove {

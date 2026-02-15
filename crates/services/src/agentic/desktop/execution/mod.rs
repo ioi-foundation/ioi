@@ -216,6 +216,7 @@ impl ToolExecutor {
             | AgentTool::FsPatch { .. }
             | AgentTool::FsList { .. }
             | AgentTool::FsSearch { .. }
+            | AgentTool::FsCreateDirectory { .. }
             | AgentTool::FsMove { .. }
             | AgentTool::FsCopy { .. }
             | AgentTool::FsDelete { .. } => filesystem::handle(self, tool).await,

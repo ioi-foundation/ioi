@@ -755,6 +755,24 @@ pub async fn discover_tools(
         parameters: fs_delete_params.to_string(),
     });
 
+    let fs_create_directory_params = json!({
+        "type": "object",
+        "properties": {
+            "path": { "type": "string", "description": "Directory path to create." },
+            "recursive": {
+                "type": "boolean",
+                "description": "When true, create missing parent directories as needed."
+            }
+        },
+        "required": ["path"]
+    });
+    tools.push(LlmToolDefinition {
+        name: "filesystem__create_directory".to_string(),
+        description: "Create a directory deterministically without invoking shell commands."
+            .to_string(),
+        parameters: fs_create_directory_params.to_string(),
+    });
+
     let install_pkg_params = json!({
         "type": "object",
         "properties": {
