@@ -1,7 +1,7 @@
 use super::support::{
     fallback_search_summary, queue_action_request_to_tool, summarize_search_results,
 };
-use ioi_types::app::agentic::AgentTool;
+use ioi_types::app::agentic::{AgentTool, ComputerAction};
 use ioi_types::app::{ActionContext, ActionRequest, ActionTarget};
 use std::fs;
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -424,5 +424,72 @@ fn queue_does_not_allow_metadata_to_override_non_fs_target_inference() {
             assert_eq!(args, vec!["ok".to_string()]);
         }
         other => panic!("expected SysExec, got {:?}", other),
+    }
+}
+
+#[test]
+fn queue_preserves_computer_left_click_payload_for_guiclick_target() {
+    let request = build_request(
+        ActionTarget::GuiClick,
+        31,
+        serde_json::json!({
+            "action": "left_click",
+            "coordinate": [120, 240]
+        }),
+    );
+
+    let tool = queue_action_request_to_tool(&request).expect("queue mapping should succeed");
+    match tool {
+        AgentTool::Computer(ComputerAction::LeftClick { coordinate }) => {
+            assert_eq!(coordinate, Some([120, 240]));
+        }
+        other => panic!("expected Computer LeftClick, got {:?}", other),
+    }
+}
+
+#[test]
+fn queue_maps_guimousemove_target_to_computer_tool() {
+    let request = build_request(
+        ActionTarget::GuiMouseMove,
+        33,
+        serde_json::json!({
+            "coordinate": [55, 89]
+        }),
+    );
+
+    let tool = queue_action_request_to_tool(&request).expect("queue mapping should succeed");
+    match tool {
+        AgentTool::Computer(ComputerAction::MouseMove { coordinate }) => {
+            assert_eq!(coordinate, [55, 89]);
+        }
+        other => panic!("expected Computer MouseMove, got {:?}", other),
+    }
+}
+
+#[test]
+fn queue_maps_guiscreenshot_target_to_computer_tool() {
+    let request = build_request(ActionTarget::GuiScreenshot, 35, serde_json::json!({}));
+
+    let tool = queue_action_request_to_tool(&request).expect("queue mapping should succeed");
+    match tool {
+        AgentTool::Computer(ComputerAction::Screenshot) => {}
+        other => panic!("expected Computer Screenshot, got {:?}", other),
+    }
+}
+
+#[test]
+fn queue_maps_custom_computer_cursor_alias_to_computer_tool() {
+    let request = build_custom_request(
+        "computer::cursor",
+        37,
+        serde_json::json!({
+            "action": "cursor_position"
+        }),
+    );
+
+    let tool = queue_action_request_to_tool(&request).expect("queue mapping should succeed");
+    match tool {
+        AgentTool::Computer(ComputerAction::CursorPosition) => {}
+        other => panic!("expected Computer CursorPosition, got {:?}", other),
     }
 }
