@@ -1,5 +1,6 @@
 // Path: crates/services/src/agentic/rules.rs
 
+use ioi_types::app::agentic::{IntentRoutingPolicy, PiiControls};
 use parity_scale_codec::{Decode, Encode};
 use serde::{Deserialize, Serialize};
 
@@ -64,6 +65,9 @@ pub struct OntologyPolicy {
     pub intent_failure_overrides: Vec<IntentFailureOverride>,
     /// Planner preferences and constraints.
     pub tool_preferences: ToolPreferences,
+    /// Global intent-routing policy for step/action ontology resolution.
+    #[serde(default)]
+    pub intent_routing: IntentRoutingPolicy,
 }
 
 impl Default for OntologyPolicy {
@@ -77,6 +81,7 @@ impl Default for OntologyPolicy {
                 forbidden_remediation_tools: Vec::new(),
                 bounded_reprompt_limit: 2,
             },
+            intent_routing: IntentRoutingPolicy::default(),
         }
     }
 }
@@ -94,6 +99,9 @@ pub struct ActionRules {
     /// Ontology/incident orchestration policy.
     #[serde(default)]
     pub ontology_policy: OntologyPolicy,
+    /// Local-only PII firewall policy.
+    #[serde(default, alias = "pii_policy")]
+    pub pii_controls: PiiControls,
 }
 
 /// The default policy behavior when no specific rule matches an action.

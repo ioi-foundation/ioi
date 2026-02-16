@@ -6,6 +6,7 @@ use crate::standard::orchestration::mempool::{AddResult, Mempool};
 use futures::stream::{self, StreamExt};
 use ioi_api::chain::WorkloadClientApi;
 use ioi_api::commitment::CommitmentScheme;
+use ioi_api::state::service_namespace_prefix;
 use ioi_api::transaction::TransactionModel;
 use ioi_client::WorkloadClient;
 use ioi_ipc::public::TxStatus;
@@ -27,11 +28,21 @@ use tokio::sync::{mpsc, watch, Mutex};
 use tracing::{error, info, warn};
 
 use ioi_api::vm::drivers::os::OsDriver;
-use ioi_api::vm::inference::{LocalSafetyModel, SafetyVerdict};
+use ioi_api::vm::inference::{LocalSafetyModel, PiiRiskSurface};
+use ioi_pii::{
+    build_decision_material, build_review_summary, check_exception_usage_increment_ok,
+    decode_exception_usage_state, inspect_and_route_with_for_target, mint_default_scoped_exception,
+    resolve_expected_request_hash, validate_resume_review_contract, validate_review_request_compat,
+    verify_scoped_exception_for_decision, RiskSurface, ScopedExceptionVerifyError,
+};
 
 // [FIX] Update imports for Policy Engine Integration
+use ioi_services::agentic::desktop::keys::{get_incident_key, get_state_key, pii};
+use ioi_services::agentic::desktop::service::step::incident::IncidentState;
+use ioi_services::agentic::desktop::{AgentState, ResumeAgentParams};
 use ioi_services::agentic::policy::PolicyEngine;
 use ioi_services::agentic::rules::{ActionRules, Verdict};
+use ioi_types::app::agentic::{AgentTool, PiiEgressRiskSurface, PiiReviewRequest, PiiTarget};
 use ioi_types::app::{ActionContext, ActionRequest, ActionTarget, ApprovalToken};
 
 /// Configuration for the ingestion worker.
@@ -50,6 +61,29 @@ impl Default for IngestionConfig {
             batch_timeout_ms: 10,
         }
     }
+}
+
+fn to_shared_risk_surface(risk_surface: PiiRiskSurface) -> RiskSurface {
+    match risk_surface {
+        PiiRiskSurface::LocalProcessing => RiskSurface::LocalProcessing,
+        PiiRiskSurface::Egress => RiskSurface::Egress,
+    }
+}
+
+fn to_shared_risk_surface_from_egress(risk_surface: PiiEgressRiskSurface) -> RiskSurface {
+    match risk_surface {
+        PiiEgressRiskSurface::Egress => RiskSurface::Egress,
+    }
+}
+
+fn parse_hash_hex(input: &str) -> Option<[u8; 32]> {
+    let bytes = hex::decode(input).ok()?;
+    if bytes.len() != 32 {
+        return None;
+    }
+    let mut out = [0u8; 32];
+    out.copy_from_slice(&bytes);
+    Some(out)
 }
 
 /// A simplified view of the chain tip needed for ante checks.
@@ -319,13 +353,241 @@ pub async fn run_ingestion_worker<CS>(
                         );
                     }
 
+                    let mut approval_token: Option<ApprovalToken> = None;
+                    let mut resume_session_id: Option<[u8; 32]> = None;
+                    let mut agent_state_opt: Option<AgentState> = None;
+                    let mut expected_request_hash_opt: Option<[u8; 32]> = None;
+                    let mut pii_request_opt: Option<PiiReviewRequest> = None;
+
+                    if service_id == "desktop_agent" && method == "resume@v1" {
+                        match codec::from_bytes_canonical::<ResumeAgentParams>(params) {
+                            Ok(resume) => {
+                                resume_session_id = Some(resume.session_id);
+                                approval_token = resume.approval_token.clone();
+
+                                let ns_prefix = service_namespace_prefix("desktop_agent");
+                                let state_key = get_state_key(&resume.session_id);
+                                let state_full_key =
+                                    [ns_prefix.as_slice(), state_key.as_slice()].concat();
+                                let incident_key = get_incident_key(&resume.session_id);
+                                let incident_full_key =
+                                    [ns_prefix.as_slice(), incident_key.as_slice()].concat();
+
+                                let agent_state = match workload_client
+                                    .query_raw_state(&state_full_key)
+                                    .await
+                                {
+                                    Ok(Some(bytes)) => {
+                                        match codec::from_bytes_canonical::<AgentState>(&bytes) {
+                                            Ok(v) => Some(v),
+                                            Err(_) => {
+                                                is_safe = false;
+                                                let reason = "Invalid desktop agent state bytes";
+                                                warn!(target: "ingestion", "{}", reason);
+                                                status_guard.put(
+                                                    p_tx.receipt_hash_hex.clone(),
+                                                    TxStatusEntry {
+                                                        status: TxStatus::Rejected,
+                                                        error: Some(format!(
+                                                            "Firewall: {}",
+                                                            reason
+                                                        )),
+                                                        block_height: None,
+                                                    },
+                                                );
+                                                None
+                                            }
+                                        }
+                                    }
+                                    Ok(None) => {
+                                        is_safe = false;
+                                        let reason = "Missing desktop agent state for resume";
+                                        warn!(target: "ingestion", "{}", reason);
+                                        status_guard.put(
+                                            p_tx.receipt_hash_hex.clone(),
+                                            TxStatusEntry {
+                                                status: TxStatus::Rejected,
+                                                error: Some(format!("Firewall: {}", reason)),
+                                                block_height: None,
+                                            },
+                                        );
+                                        None
+                                    }
+                                    Err(e) => {
+                                        is_safe = false;
+                                        let reason =
+                                            format!("Failed to query desktop agent state: {}", e);
+                                        warn!(target: "ingestion", "{}", reason);
+                                        status_guard.put(
+                                            p_tx.receipt_hash_hex.clone(),
+                                            TxStatusEntry {
+                                                status: TxStatus::Rejected,
+                                                error: Some(format!("Firewall: {}", reason)),
+                                                block_height: None,
+                                            },
+                                        );
+                                        None
+                                    }
+                                };
+
+                                if let Some(agent_state) = agent_state {
+                                    if approval_token.is_none() {
+                                        approval_token = agent_state.pending_approval.clone();
+                                    }
+                                    let pending_tool_hash = match agent_state.pending_tool_hash {
+                                        Some(v) => v,
+                                        None => {
+                                            is_safe = false;
+                                            let reason =
+                                                "Missing pending tool hash for resume review verification";
+                                            warn!(target: "ingestion", "{}", reason);
+                                            status_guard.put(
+                                                p_tx.receipt_hash_hex.clone(),
+                                                TxStatusEntry {
+                                                    status: TxStatus::Rejected,
+                                                    error: Some(format!("Firewall: {}", reason)),
+                                                    block_height: None,
+                                                },
+                                            );
+                                            [0u8; 32]
+                                        }
+                                    };
+
+                                    let pending_gate_hash = match workload_client
+                                        .query_raw_state(&incident_full_key)
+                                        .await
+                                    {
+                                        Ok(Some(bytes)) => {
+                                            codec::from_bytes_canonical::<IncidentState>(&bytes)
+                                                .ok()
+                                                .and_then(|incident| {
+                                                    incident.pending_gate.as_ref().and_then(
+                                                        |pending| {
+                                                            parse_hash_hex(&pending.request_hash)
+                                                        },
+                                                    )
+                                                })
+                                        }
+                                        Ok(None) => None,
+                                        Err(_) => None,
+                                    };
+
+                                    if is_safe {
+                                        let expected_request_hash = resolve_expected_request_hash(
+                                            pending_gate_hash,
+                                            pending_tool_hash,
+                                        );
+                                        expected_request_hash_opt = Some(expected_request_hash);
+
+                                        let request_key_local =
+                                            pii::review::request(&expected_request_hash);
+                                        let request_key =
+                                            [ns_prefix.as_slice(), request_key_local.as_slice()]
+                                                .concat();
+                                        match workload_client.query_raw_state(&request_key).await {
+                                            Ok(Some(bytes)) => {
+                                                match codec::from_bytes_canonical::<
+                                                    PiiReviewRequest,
+                                                >(
+                                                    &bytes
+                                                ) {
+                                                    Ok(req) => {
+                                                        if let Err(e) =
+                                                            validate_review_request_compat(&req)
+                                                        {
+                                                            is_safe = false;
+                                                            let reason = format!(
+                                                                "Incompatible PII review request: {}",
+                                                                e
+                                                            );
+                                                            warn!(
+                                                                target: "ingestion",
+                                                                "{}",
+                                                                reason
+                                                            );
+                                                            status_guard.put(
+                                                                p_tx.receipt_hash_hex.clone(),
+                                                                TxStatusEntry {
+                                                                    status: TxStatus::Rejected,
+                                                                    error: Some(format!(
+                                                                        "Firewall: {}",
+                                                                        reason
+                                                                    )),
+                                                                    block_height: None,
+                                                                },
+                                                            );
+                                                        } else {
+                                                            pii_request_opt = Some(req);
+                                                        }
+                                                    }
+                                                    Err(_) => {
+                                                        is_safe = false;
+                                                        let reason =
+                                                            "Invalid PII review request bytes";
+                                                        warn!(target: "ingestion", "{}", reason);
+                                                        status_guard.put(
+                                                            p_tx.receipt_hash_hex.clone(),
+                                                            TxStatusEntry {
+                                                                status: TxStatus::Rejected,
+                                                                error: Some(format!(
+                                                                    "Firewall: {}",
+                                                                    reason
+                                                                )),
+                                                                block_height: None,
+                                                            },
+                                                        );
+                                                    }
+                                                }
+                                            }
+                                            Ok(None) => {}
+                                            Err(e) => {
+                                                is_safe = false;
+                                                let reason = format!(
+                                                    "Failed to query PII review request: {}",
+                                                    e
+                                                );
+                                                warn!(target: "ingestion", "{}", reason);
+                                                status_guard.put(
+                                                    p_tx.receipt_hash_hex.clone(),
+                                                    TxStatusEntry {
+                                                        status: TxStatus::Rejected,
+                                                        error: Some(format!(
+                                                            "Firewall: {}",
+                                                            reason
+                                                        )),
+                                                        block_height: None,
+                                                    },
+                                                );
+                                            }
+                                        }
+                                    }
+
+                                    agent_state_opt = Some(agent_state);
+                                }
+                            }
+                            Err(_) => {
+                                is_safe = false;
+                                let reason = "Invalid resume params payload";
+                                warn!(target: "ingestion", "{}", reason);
+                                status_guard.put(
+                                    p_tx.receipt_hash_hex.clone(),
+                                    TxStatusEntry {
+                                        status: TxStatus::Rejected,
+                                        error: Some(format!("Firewall: {}", reason)),
+                                        block_height: None,
+                                    },
+                                );
+                            }
+                        }
+                    }
+
                     // 1. Construct ActionRequest for PolicyEngine
                     let request = ActionRequest {
                         target: ActionTarget::Custom(method.clone()),
                         params: params.clone(),
                         context: ActionContext {
                             agent_id: "unknown".into(),
-                            session_id: None,
+                            session_id: resume_session_id,
                             window_id: None,
                         },
                         nonce: 0,
@@ -342,7 +604,359 @@ pub async fn run_ingestion_worker<CS>(
                         _ => ActionRules::default(), // DenyAll
                     };
 
-                    let approval_token: Option<ApprovalToken> = None;
+                    if is_safe && service_id == "desktop_agent" && method == "resume@v1" {
+                        if pii_request_opt.is_some() && approval_token.is_none() {
+                            is_safe = false;
+                            let reason = "Missing approval token for review request";
+                            warn!(target: "ingestion", "{}", reason);
+                            status_guard.put(
+                                p_tx.receipt_hash_hex.clone(),
+                                TxStatusEntry {
+                                    status: TxStatus::Rejected,
+                                    error: Some(format!("Firewall: {}", reason)),
+                                    block_height: None,
+                                },
+                            );
+                        } else if let (Some(expected_request_hash), Some(token)) =
+                            (expected_request_hash_opt, approval_token.as_ref())
+                        {
+                            if let Err(e) = validate_resume_review_contract(
+                                expected_request_hash,
+                                token,
+                                pii_request_opt.as_ref(),
+                                expected_ts.saturating_mul(1000),
+                            ) {
+                                is_safe = false;
+                                let reason = e.to_string();
+                                warn!(target: "ingestion", "{}", reason);
+                                status_guard.put(
+                                    p_tx.receipt_hash_hex.clone(),
+                                    TxStatusEntry {
+                                        status: TxStatus::Rejected,
+                                        error: Some(format!("Firewall: {}", reason)),
+                                        block_height: None,
+                                    },
+                                );
+                            }
+                        }
+                    }
+
+                    if is_safe
+                        && service_id == "desktop_agent"
+                        && method == "resume@v1"
+                        && matches!(
+                            approval_token.as_ref().and_then(|t| t.pii_action.clone()),
+                            Some(ioi_types::app::action::PiiApprovalAction::GrantScopedException)
+                        )
+                    {
+                        let expected_request_hash = match expected_request_hash_opt {
+                            Some(v) => v,
+                            None => {
+                                is_safe = false;
+                                let reason =
+                                    "Missing expected request hash for scoped exception verification";
+                                warn!(target: "ingestion", "{}", reason);
+                                status_guard.put(
+                                    p_tx.receipt_hash_hex.clone(),
+                                    TxStatusEntry {
+                                        status: TxStatus::Rejected,
+                                        error: Some(format!("Firewall: {}", reason)),
+                                        block_height: None,
+                                    },
+                                );
+                                [0u8; 32]
+                            }
+                        };
+                        if is_safe {
+                            let token = approval_token.as_ref().expect("checked above");
+                            let agent_state = match agent_state_opt.as_ref() {
+                                Some(v) => v,
+                                None => {
+                                    is_safe = false;
+                                    let reason = "Missing desktop agent state for scoped exception verification";
+                                    warn!(target: "ingestion", "{}", reason);
+                                    status_guard.put(
+                                        p_tx.receipt_hash_hex.clone(),
+                                        TxStatusEntry {
+                                            status: TxStatus::Rejected,
+                                            error: Some(format!("Firewall: {}", reason)),
+                                            block_height: None,
+                                        },
+                                    );
+                                    continue;
+                                }
+                            };
+                            let pending_tool_jcs = match agent_state.pending_tool_jcs.as_ref() {
+                                Some(v) => v,
+                                None => {
+                                    is_safe = false;
+                                    let reason =
+                                        "Missing pending tool for scoped exception verification";
+                                    warn!(target: "ingestion", "{}", reason);
+                                    status_guard.put(
+                                        p_tx.receipt_hash_hex.clone(),
+                                        TxStatusEntry {
+                                            status: TxStatus::Rejected,
+                                            error: Some(format!("Firewall: {}", reason)),
+                                            block_height: None,
+                                        },
+                                    );
+                                    continue;
+                                }
+                            };
+                            let mut tool: AgentTool = match serde_json::from_slice(pending_tool_jcs)
+                            {
+                                Ok(v) => v,
+                                Err(e) => {
+                                    is_safe = false;
+                                    let reason = format!(
+                                        "Failed to decode pending tool for scoped exception verification: {}",
+                                        e
+                                    );
+                                    warn!(target: "ingestion", "{}", reason);
+                                    status_guard.put(
+                                        p_tx.receipt_hash_hex.clone(),
+                                        TxStatusEntry {
+                                            status: TxStatus::Rejected,
+                                            error: Some(format!("Firewall: {}", reason)),
+                                            block_height: None,
+                                        },
+                                    );
+                                    continue;
+                                }
+                            };
+
+                            let block_timestamp_secs = expected_ts;
+                            let mut verified = false;
+                            for spec in tool.pii_egress_specs() {
+                                let Some(text) = tool.pii_egress_field_mut(spec.field) else {
+                                    continue;
+                                };
+
+                                let risk_surface =
+                                    to_shared_risk_surface_from_egress(spec.risk_surface);
+                                let safety_model = Arc::clone(&safety_model);
+                                let result = inspect_and_route_with_for_target(
+                                    |input, shared_risk_surface| {
+                                        let safety_model = safety_model.clone();
+                                        Box::pin(async move {
+                                            let api_risk_surface = match shared_risk_surface {
+                                                RiskSurface::LocalProcessing => {
+                                                    PiiRiskSurface::LocalProcessing
+                                                }
+                                                RiskSurface::Egress => PiiRiskSurface::Egress,
+                                            };
+                                            let inspection = safety_model
+                                                .inspect_pii(input, api_risk_surface)
+                                                .await?;
+                                            Ok(inspection.evidence)
+                                        })
+                                    },
+                                    text,
+                                    &spec.target,
+                                    risk_surface,
+                                    &rules.pii_controls,
+                                    spec.supports_transform,
+                                )
+                                .await;
+
+                                let (evidence, routed) = match result {
+                                    Ok(v) => v,
+                                    Err(e) => {
+                                        is_safe = false;
+                                        let reason = format!(
+                                            "Scoped exception PII verification failed: {}",
+                                            e
+                                        );
+                                        warn!(target: "ingestion", "{}", reason);
+                                        status_guard.put(
+                                            p_tx.receipt_hash_hex.clone(),
+                                            TxStatusEntry {
+                                                status: TxStatus::Rejected,
+                                                error: Some(format!("Firewall: {}", reason)),
+                                                block_height: None,
+                                            },
+                                        );
+                                        break;
+                                    }
+                                };
+
+                                if !is_safe {
+                                    break;
+                                }
+
+                                if routed.decision_hash != expected_request_hash {
+                                    continue;
+                                }
+
+                                let scoped_exception = if let Some(existing) =
+                                    token.scoped_exception.as_ref()
+                                {
+                                    existing.clone()
+                                } else {
+                                    match mint_default_scoped_exception(
+                                        &evidence,
+                                        &spec.target,
+                                        risk_surface,
+                                        expected_request_hash,
+                                        block_timestamp_secs,
+                                        "deterministic-default",
+                                    ) {
+                                        Ok(v) => v,
+                                        Err(e) => {
+                                            is_safe = false;
+                                            let reason = format!(
+                                                "Failed to mint deterministic scoped exception: {}",
+                                                e
+                                            );
+                                            warn!(target: "ingestion", "{}", reason);
+                                            status_guard.put(
+                                                p_tx.receipt_hash_hex.clone(),
+                                                TxStatusEntry {
+                                                    status: TxStatus::Rejected,
+                                                    error: Some(format!("Firewall: {}", reason)),
+                                                    block_height: None,
+                                                },
+                                            );
+                                            break;
+                                        }
+                                    }
+                                };
+
+                                let usage_key_local = pii::review::exception_usage(
+                                    &scoped_exception.exception_id,
+                                );
+                                let usage_key = [
+                                    service_namespace_prefix("desktop_agent").as_slice(),
+                                    usage_key_local.as_slice(),
+                                ]
+                                .concat();
+                                let raw_usage =
+                                    match workload_client.query_raw_state(&usage_key).await {
+                                        Ok(v) => v,
+                                        Err(e) => {
+                                            is_safe = false;
+                                            let reason = format!(
+                                                "Failed to query scoped exception usage: {}",
+                                                e
+                                            );
+                                            warn!(target: "ingestion", "{}", reason);
+                                            status_guard.put(
+                                                p_tx.receipt_hash_hex.clone(),
+                                                TxStatusEntry {
+                                                    status: TxStatus::Rejected,
+                                                    error: Some(format!("Firewall: {}", reason)),
+                                                    block_height: None,
+                                                },
+                                            );
+                                            break;
+                                        }
+                                    };
+                                let uses_consumed =
+                                    match decode_exception_usage_state(raw_usage.as_deref()) {
+                                        Ok(v) => v,
+                                        Err(e) => {
+                                            is_safe = false;
+                                            let reason = e.to_string();
+                                            warn!(target: "ingestion", "{}", reason);
+                                            status_guard.put(
+                                                p_tx.receipt_hash_hex.clone(),
+                                                TxStatusEntry {
+                                                    status: TxStatus::Rejected,
+                                                    error: Some(format!("Firewall: {}", reason)),
+                                                    block_height: None,
+                                                },
+                                            );
+                                            break;
+                                        }
+                                    };
+
+                                if let Err(e) = verify_scoped_exception_for_decision(
+                                    &scoped_exception,
+                                    &evidence,
+                                    &spec.target,
+                                    risk_surface,
+                                    expected_request_hash,
+                                    &rules.pii_controls,
+                                    block_timestamp_secs,
+                                    uses_consumed,
+                                ) {
+                                    is_safe = false;
+                                    let reason = match e {
+                                        ScopedExceptionVerifyError::PolicyDisabled => {
+                                            "Scoped exception policy disabled"
+                                        }
+                                        ScopedExceptionVerifyError::MissingAllowedClasses => {
+                                            "Scoped exception missing allowed classes"
+                                        }
+                                        ScopedExceptionVerifyError::DestinationMismatch => {
+                                            "Scoped exception destination mismatch"
+                                        }
+                                        ScopedExceptionVerifyError::ActionMismatch => {
+                                            "Scoped exception action mismatch"
+                                        }
+                                        ScopedExceptionVerifyError::Expired => {
+                                            "Scoped exception expired"
+                                        }
+                                        ScopedExceptionVerifyError::Overused => {
+                                            "Scoped exception overused"
+                                        }
+                                        ScopedExceptionVerifyError::IneligibleEvidence => {
+                                            "Scoped exception not eligible for this evidence"
+                                        }
+                                        ScopedExceptionVerifyError::ClassMismatch => {
+                                            "Scoped exception class mismatch"
+                                        }
+                                        ScopedExceptionVerifyError::InvalidMaxUses => {
+                                            "Scoped exception max_uses invalid"
+                                        }
+                                    };
+                                    warn!(target: "ingestion", "{}", reason);
+                                    status_guard.put(
+                                        p_tx.receipt_hash_hex.clone(),
+                                        TxStatusEntry {
+                                            status: TxStatus::Rejected,
+                                            error: Some(format!("Firewall: {}", reason)),
+                                            block_height: None,
+                                        },
+                                    );
+                                    break;
+                                }
+
+                                if let Err(e) = check_exception_usage_increment_ok(uses_consumed) {
+                                    is_safe = false;
+                                    let reason = e.to_string();
+                                    warn!(target: "ingestion", "{}", reason);
+                                    status_guard.put(
+                                        p_tx.receipt_hash_hex.clone(),
+                                        TxStatusEntry {
+                                            status: TxStatus::Rejected,
+                                            error: Some(format!("Firewall: {}", reason)),
+                                            block_height: None,
+                                        },
+                                    );
+                                    break;
+                                }
+
+                                verified = true;
+                                break;
+                            }
+
+                            if is_safe && !verified {
+                                is_safe = false;
+                                let reason = "Scoped exception does not match pending PII decision";
+                                warn!(target: "ingestion", "{}", reason);
+                                status_guard.put(
+                                    p_tx.receipt_hash_hex.clone(),
+                                    TxStatusEntry {
+                                        status: TxStatus::Rejected,
+                                        error: Some(format!("Firewall: {}", reason)),
+                                        block_height: None,
+                                    },
+                                );
+                            }
+                        }
+                    }
 
                     // 2. Evaluate Policy (Context-Aware)
                     let verdict = PolicyEngine::evaluate(
@@ -405,54 +1019,203 @@ pub async fn run_ingestion_worker<CS>(
                         }
                     }
 
-                    // 3. Semantic Safety Check (Legacy Fallback / Deep Content Inspection)
+                    // 3. Local-only PII inspection + Stage B routing (fail-closed on egress)
                     if is_safe {
-                        if let Ok(input_str) = std::str::from_utf8(params) {
-                            let result = safety_model.classify_intent(input_str).await;
-                            match result {
-                                Ok(SafetyVerdict::Safe) => {}
-                                Ok(v) => {
-                                    is_safe = false;
-                                    let (verdict_str, reason) = match v {
-                                        SafetyVerdict::Unsafe(r) => {
-                                            ("BLOCK", format!("Blocked by Safety Firewall: {}", r))
+                        let input_str = match std::str::from_utf8(params) {
+                            Ok(s) => Some(s),
+                            Err(_) if service_id == "desktop_agent" => None,
+                            Err(_) => {
+                                is_safe = false;
+                                let reason =
+                                    "PII firewall requires UTF-8 payload for egress evaluation";
+                                warn!(target: "ingestion", "{}", reason);
+                                status_guard.put(
+                                    p_tx.receipt_hash_hex.clone(),
+                                    TxStatusEntry {
+                                        status: TxStatus::Rejected,
+                                        error: Some(format!("Firewall: {}", reason)),
+                                        block_height: None,
+                                    },
+                                );
+                                None
+                            }
+                        };
+
+                        if is_safe {
+                            if let Some(input_str) = input_str {
+                                let pii_target = PiiTarget::ServiceCall {
+                                    service_id: service_id.clone(),
+                                    method: method.clone(),
+                                };
+                                let pii_target_label = pii_target.canonical_label();
+                                let safety_model = Arc::clone(&safety_model);
+                                let result = inspect_and_route_with_for_target(
+                                    |input, shared_risk_surface| {
+                                        let safety_model = safety_model.clone();
+                                        Box::pin(async move {
+                                            let api_risk_surface = match shared_risk_surface {
+                                                RiskSurface::LocalProcessing => {
+                                                    PiiRiskSurface::LocalProcessing
+                                                }
+                                                RiskSurface::Egress => PiiRiskSurface::Egress,
+                                            };
+                                            let inspection = safety_model
+                                                .inspect_pii(input, api_risk_surface)
+                                                .await?;
+                                            Ok(inspection.evidence)
+                                        })
+                                    },
+                                    input_str,
+                                    &pii_target,
+                                    to_shared_risk_surface(PiiRiskSurface::Egress),
+                                    &rules.pii_controls,
+                                    false, // Ingestion cannot mutate arbitrary payloads.
+                                )
+                                .await;
+                                match result {
+                                    Ok((evidence, routed)) => {
+                                        let _ =
+                                        event_broadcaster.send(KernelEvent::PiiDecisionReceipt(
+                                            ioi_types::app::PiiDecisionReceiptEvent {
+                                                session_id: None,
+                                                target: pii_target_label.clone(),
+                                                target_id: Some(pii_target.clone()),
+                                                risk_surface: "egress".to_string(),
+                                                decision_hash: routed.decision_hash,
+                                                decision: routed.decision.clone(),
+                                                transform_plan_id: routed
+                                                    .transform_plan
+                                                    .as_ref()
+                                                    .map(|p| p.plan_id.clone()),
+                                                span_count: evidence.spans.len() as u32,
+                                                ambiguous: evidence.ambiguous,
+                                                stage2_kind: routed
+                                                    .stage2_decision
+                                                    .as_ref()
+                                                    .map(|d| match d {
+                                                        ioi_types::app::agentic::Stage2Decision::ApproveTransformPlan { .. } => {
+                                                            "approve_transform_plan"
+                                                        }
+                                                        ioi_types::app::agentic::Stage2Decision::Deny { .. } => "deny",
+                                                        ioi_types::app::agentic::Stage2Decision::RequestMoreInfo { .. } => {
+                                                            "request_more_info"
+                                                        }
+                                                        ioi_types::app::agentic::Stage2Decision::GrantScopedException { .. } => {
+                                                            "grant_scoped_exception"
+                                                        }
+                                                    }
+                                                    .to_string()),
+                                                assist_invoked: routed.assist.assist_invoked,
+                                                assist_applied: routed.assist.assist_applied,
+                                                assist_kind: routed.assist.assist_kind.clone(),
+                                                assist_version: routed.assist.assist_version.clone(),
+                                                assist_identity_hash: routed.assist.assist_identity_hash,
+                                                assist_input_graph_hash: routed.assist.assist_input_graph_hash,
+                                                assist_output_graph_hash: routed.assist.assist_output_graph_hash,
+                                            },
+                                        ));
+
+                                        match routed.decision {
+                                        ioi_types::app::agentic::FirewallDecision::Allow
+                                        | ioi_types::app::agentic::FirewallDecision::AllowLocalOnly => {}
+                                        ioi_types::app::agentic::FirewallDecision::RedactThenAllow
+                                        | ioi_types::app::agentic::FirewallDecision::TokenizeThenAllow
+                                        | ioi_types::app::agentic::FirewallDecision::Quarantine
+                                        | ioi_types::app::agentic::FirewallDecision::RequireUserReview => {
+                                            is_safe = false;
+                                            let reason = format!(
+                                                "PII review required ({:?}, stage2={:?})",
+                                                routed.decision, routed.stage2_decision
+                                            );
+                                            warn!(
+                                                target: "ingestion",
+                                                "Transaction gated by PII firewall: {}",
+                                                reason
+                                            );
+                                            let material = build_decision_material(
+                                                &evidence,
+                                                &routed.decision,
+                                                routed.transform_plan.as_ref(),
+                                                routed.stage2_decision.as_ref(),
+                                                to_shared_risk_surface(PiiRiskSurface::Egress),
+                                                &pii_target,
+                                                false,
+                                                &routed.assist,
+                                            );
+                                            let summary = build_review_summary(
+                                                &evidence,
+                                                &pii_target,
+                                                routed.stage2_decision.as_ref(),
+                                            );
+                                            let created_at_ms = expected_ts.saturating_mul(1000);
+                                            let deadline_ms = created_at_ms
+                                                .saturating_add(rules.pii_controls.stage2_timeout_ms as u64);
+                                            let _ = event_broadcaster.send(
+                                                KernelEvent::PiiReviewRequested {
+                                                    decision_hash: routed.decision_hash,
+                                                    material,
+                                                    summary,
+                                                    deadline_ms,
+                                                    session_id: None,
+                                                },
+                                            );
+                                            let _ = event_broadcaster.send(
+                                                KernelEvent::FirewallInterception {
+                                                    verdict: "REQUIRE_APPROVAL".to_string(),
+                                                    target: pii_target_label.clone(),
+                                                    request_hash: routed.decision_hash,
+                                                    session_id: None,
+                                                },
+                                            );
+
+                                            status_guard.put(
+                                                p_tx.receipt_hash_hex.clone(),
+                                                TxStatusEntry {
+                                                    status: TxStatus::Rejected,
+                                                    error: Some(format!("Firewall: {}", reason)),
+                                                    block_height: None,
+                                                },
+                                            );
                                         }
-                                        SafetyVerdict::ContainsPII => {
-                                            ("REQUIRE_APPROVAL", "PII detected".to_string())
+                                        ioi_types::app::agentic::FirewallDecision::Deny => {
+                                            is_safe = false;
+                                            let reason = format!(
+                                                "PII firewall denied raw egress ({:?})",
+                                                routed.stage2_decision
+                                            );
+                                            warn!(target: "ingestion", "{}", reason);
+                                            let _ = event_broadcaster.send(
+                                                KernelEvent::FirewallInterception {
+                                                    verdict: "BLOCK".to_string(),
+                                                    target: pii_target_label.clone(),
+                                                    request_hash: p_tx.canonical_hash,
+                                                    session_id: None,
+                                                },
+                                            );
+
+                                            status_guard.put(
+                                                p_tx.receipt_hash_hex.clone(),
+                                                TxStatusEntry {
+                                                    status: TxStatus::Rejected,
+                                                    error: Some(format!("Firewall: {}", reason)),
+                                                    block_height: None,
+                                                },
+                                            );
                                         }
-                                        SafetyVerdict::Safe => unreachable!(),
-                                    };
-
-                                    warn!(target: "ingestion", "Transaction blocked by semantic firewall: {}", reason);
-
-                                    let _ =
-                                        event_broadcaster.send(KernelEvent::FirewallInterception {
-                                            verdict: verdict_str.to_string(),
-                                            target: method.clone(),
-                                            request_hash: p_tx.canonical_hash,
-                                            session_id: None,
-                                        });
-
-                                    status_guard.put(
-                                        p_tx.receipt_hash_hex.clone(),
-                                        TxStatusEntry {
-                                            status: TxStatus::Rejected,
-                                            error: Some(format!("Firewall: {}", reason)),
-                                            block_height: None,
-                                        },
-                                    );
-                                }
-                                Err(e) => {
-                                    is_safe = false;
-                                    warn!(target: "ingestion", "Safety model failure: {}", e);
-                                    status_guard.put(
-                                        p_tx.receipt_hash_hex.clone(),
-                                        TxStatusEntry {
-                                            status: TxStatus::Rejected,
-                                            error: Some(format!("Firewall Error: {}", e)),
-                                            block_height: None,
-                                        },
-                                    );
+                                    }
+                                    }
+                                    Err(e) => {
+                                        is_safe = false;
+                                        warn!(target: "ingestion", "PII inspection failure: {}", e);
+                                        status_guard.put(
+                                            p_tx.receipt_hash_hex.clone(),
+                                            TxStatusEntry {
+                                                status: TxStatus::Rejected,
+                                                error: Some(format!("Firewall Error: {}", e)),
+                                                block_height: None,
+                                            },
+                                        );
+                                    }
                                 }
                             }
                         }
@@ -571,5 +1334,22 @@ pub async fn run_ingestion_worker<CS>(
             let _ = consensus_kick_tx.send(());
         }
         metrics().set_mempool_size(tx_pool.len() as f64);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn ingestion_is_verify_only_for_scoped_exception_usage() {
+        let src = include_str!("ingestion.rs");
+        let src = src.split("\n#[cfg(test)]").next().unwrap_or(src);
+        assert!(
+            !src.contains("insert(&usage_key"),
+            "ingestion must not persist scoped exception usage counters"
+        );
+        assert!(
+            !src.contains("insert(&usage_key_local"),
+            "ingestion must not persist scoped exception usage counters"
+        );
     }
 }

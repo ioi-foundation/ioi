@@ -2,8 +2,8 @@
 use super::{DesktopAgentService, VisualContextCache};
 use crate::agentic::fitness::LlmEvaluator;
 use crate::agentic::optimizer::OptimizerService;
-use crate::agentic::scrub_adapter::RuntimeAsSafetyModel;
-use crate::agentic::scrubber::SemanticScrubber;
+use crate::agentic::pii_adapter::RuntimeAsPiiModel;
+use crate::agentic::pii_scrubber::PiiScrubber;
 
 use ioi_api::ibc::AgentZkVerifier;
 use ioi_api::vm::drivers::gui::GuiDriver;
@@ -28,8 +28,8 @@ impl DesktopAgentService {
         browser: Arc<BrowserDriver>,
         inference: Arc<dyn InferenceRuntime>,
     ) -> Self {
-        let safety_adapter = Arc::new(RuntimeAsSafetyModel::new(inference.clone()));
-        let scrubber = SemanticScrubber::new(safety_adapter);
+        let safety_adapter = Arc::new(RuntimeAsPiiModel::new(inference.clone()));
+        let scrubber = PiiScrubber::new(safety_adapter);
 
         let evaluator = Arc::new(LlmEvaluator::new(inference.clone()));
 
@@ -70,8 +70,8 @@ impl DesktopAgentService {
         fast_inference: Arc<dyn InferenceRuntime>,
         reasoning_inference: Arc<dyn InferenceRuntime>,
     ) -> Self {
-        let safety_adapter = Arc::new(RuntimeAsSafetyModel::new(fast_inference.clone()));
-        let scrubber = SemanticScrubber::new(safety_adapter);
+        let safety_adapter = Arc::new(RuntimeAsPiiModel::new(fast_inference.clone()));
+        let scrubber = PiiScrubber::new(safety_adapter);
 
         let evaluator = Arc::new(LlmEvaluator::new(reasoning_inference.clone()));
 

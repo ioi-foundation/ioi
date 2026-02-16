@@ -36,7 +36,7 @@
 
 pub mod format;
 pub mod index;
-pub mod scrubber;
+pub mod pii_scrubber;
 pub mod store;
 
 // Re-export primary types for consumer ergonomics

@@ -13,6 +13,7 @@ ioi-types = { path = "../types" }
 ioi-state = { path = "../state" }   # Provides MHnswIndex implementation
 ioi-api = { path = "../api" }       
 ioi-crypto = { path = "../crypto" }
+ioi-pii = { path = "../pii" }
 # [FIX] Removed ioi-services dependency to break cycle
 
 # Error Handling & Logging

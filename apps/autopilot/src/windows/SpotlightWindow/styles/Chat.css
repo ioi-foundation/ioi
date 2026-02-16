@@ -551,6 +551,50 @@
   line-height: 1.5;
 }
 
+.gate-details-toggle {
+  border: 1px solid var(--spot-border);
+  background: transparent;
+  color: var(--spot-text-secondary);
+  border-radius: var(--spot-radius-sm);
+  padding: 6px 10px;
+  font-size: 12px;
+  margin: 0 0 10px;
+  cursor: pointer;
+}
+
+.gate-details-toggle:hover {
+  color: var(--spot-text-primary);
+  border-color: var(--gate-color);
+}
+
+.gate-details {
+  border: 1px solid var(--spot-border);
+  border-radius: var(--spot-radius-sm);
+  background: var(--spot-bg-tertiary);
+  padding: 10px;
+  margin: 0 0 12px;
+}
+
+.gate-details-json {
+  margin: 6px 0 0;
+  border-radius: var(--spot-radius-sm);
+  border: 1px solid var(--spot-border);
+  background: rgba(0, 0, 0, 0.22);
+  color: var(--spot-text-secondary);
+  font-size: 11px;
+  line-height: 1.4;
+  font-family: var(--spot-font-mono);
+  padding: 8px;
+  max-height: 180px;
+  overflow: auto;
+}
+
+.gate-error {
+  color: #fca5a5;
+  font-size: 12px;
+  margin: 0 0 10px;
+}
+
 .gate-actions {
   display: flex;
   gap: 8px;

@@ -17,6 +17,7 @@ ioi-execution = { path = "../execution" }
 ioi-tx = { path = "../tx" }
 ioi-vm-wasm = { path = "../vm/wasm", optional = true }
 ioi-crypto = { path = "../crypto" }
+ioi-pii = { path = "../pii" }
 
 # [FIX] Explicitly disable default features here too, just to be safe/explicit
 ioi-services = { path = "../services", default-features = false }
@@ -90,12 +91,6 @@ atty = "0.2"
 ahash = "0.8"
 parking_lot = "0.12"
 
-# [NEW] Candle ML Framework (Optional)
-candle-core = { version = "0.3.3", optional = true }
-candle-nn = { version = "0.3.3", optional = true }
-candle-transformers = { version = "0.3.3", optional = true }
-tokenizers = { version = "0.15.2", optional = true }
-
 [dev-dependencies]
 tempfile = "3.3"
 
@@ -126,10 +121,3 @@ commitment-kzg = ["ioi-state/commitment-kzg"]
 # IBC plugin feature forwarding
 ibc-deps = ["dep:ioi-plugin-ibc-service"]
 ethereum-zk = ["ioi-plugin-ibc-service/ethereum-zk", "dep:zk-driver-succinct"]
-
-real-ai = [
-    "dep:candle-core",
-    "dep:candle-nn",
-    "dep:candle-transformers",
-    "dep:tokenizers",
-]

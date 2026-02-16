@@ -19,6 +19,7 @@ pub fn default_safe_policy() -> ActionRules {
         policy_id: "default-safe".to_string(),
         defaults: crate::agentic::rules::DefaultPolicy::RequireApproval,
         ontology_policy: OntologyPolicy::default(),
+        pii_controls: Default::default(),
         rules: vec![
             // Lifecycle / Meta-Tools
             Rule {
@@ -151,6 +152,16 @@ pub fn extract_window_titles(xml: &str) -> String {
     } else {
         titles.join(", ")
     }
+}
+
+pub fn should_log_raw_prompt_content() -> bool {
+    std::env::var("IOI_LOG_RAW_PROMPTS")
+        .ok()
+        .map(|value| {
+            let normalized = value.trim().to_ascii_lowercase();
+            normalized == "1" || normalized == "true" || normalized == "yes"
+        })
+        .unwrap_or(false)
 }
 
 pub fn should_auto_complete_open_app_goal(

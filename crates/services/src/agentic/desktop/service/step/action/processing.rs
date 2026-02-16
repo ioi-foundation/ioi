@@ -1,6 +1,6 @@
 use super::refusal_eval::{evaluate_and_crystallize, handle_refusal};
 use super::search::{
-    extract_navigation_url, is_search_intent, is_search_results_url, search_query_from_url,
+    extract_navigation_url, is_search_results_url, is_search_scope, search_query_from_url,
 };
 use super::support::{
     canonical_intent_hash, canonical_retry_intent_hash, canonical_tool_identity,
@@ -9,6 +9,9 @@ use super::support::{
 use crate::agentic::desktop::execution::system::is_sudo_password_required_install_error;
 use crate::agentic::desktop::keys::{get_state_key, AGENT_POLICY_PREFIX};
 use crate::agentic::desktop::middleware;
+use crate::agentic::desktop::service::handler::{
+    build_pii_review_request_for_tool, emit_pii_review_requested, persist_pii_review_request,
+};
 use crate::agentic::desktop::service::step::anti_loop::{
     build_attempt_key, build_post_state_summary, build_state_summary, choose_routing_tier,
     classify_failure, emit_routing_receipt, escalation_path_for_failure, extract_artifacts,
@@ -25,6 +28,7 @@ use crate::agentic::desktop::service::step::incident::{
     mark_incident_wait_for_user, register_pending_approval, should_enter_incident_recovery,
     start_or_continue_incident_recovery, ApprovalDirective, IncidentDirective,
 };
+use crate::agentic::desktop::service::step::intent_resolver::is_tool_allowed_for_resolution;
 use crate::agentic::desktop::service::DesktopAgentService;
 use crate::agentic::desktop::types::{
     AgentState, AgentStatus, PendingSearchCompletion, ToolCallStatus,
@@ -61,6 +65,7 @@ pub async fn process_tool_output(
     strategy_used: String,
     session_id: [u8; 32],
     block_height: u64,
+    block_timestamp_ns: u64,
 ) -> Result<(), TransactionError> {
     let key = get_state_key(&session_id);
     let policy_key = [AGENT_POLICY_PREFIX, session_id.as_slice()].concat();
@@ -310,237 +315,279 @@ pub async fn process_tool_output(
                 tool_version,
             ));
 
-            let target_hash_opt = agent_state
-                .pending_approval
-                .as_ref()
-                .and_then(|t| t.visual_hash)
-                .or(agent_state.last_screen_phash);
-            if let Some(target_hash) = target_hash_opt {
-                let _ = service.restore_visual_context(target_hash).await;
-            }
+            if !is_tool_allowed_for_resolution(
+                agent_state.resolved_intent.as_ref(),
+                &current_tool_name,
+            ) {
+                policy_decision = "denied".to_string();
+                success = false;
+                error_msg = Some(format!(
+                    "ERROR_CLASS=PermissionOrApprovalRequired Tool '{}' blocked by global intent scope.",
+                    current_tool_name
+                ));
+                if !req_hash_hex.is_empty() {
+                    agent_state.tool_execution_log.insert(
+                        req_hash_hex.clone(),
+                        ToolCallStatus::Failed("intent_scope_block".to_string()),
+                    );
+                }
+            } else {
+                let target_hash_opt = agent_state
+                    .pending_approval
+                    .as_ref()
+                    .and_then(|t| t.visual_hash)
+                    .or(agent_state.last_screen_phash);
+                if let Some(target_hash) = target_hash_opt {
+                    let _ = service.restore_visual_context(target_hash).await;
+                }
 
-            // [FIX] Pass the required InferenceRuntime (reasoning) to ToolExecutor constructor inside handle_action_execution
-            match service
-                .handle_action_execution(
-                    tool.clone(),
-                    session_id,
-                    agent_state.step_count,
-                    final_visual_phash,
-                    &rules,
-                    &agent_state,
-                    &os_driver,
-                )
-                .await
-            {
-                Ok((s, entry, e)) => {
-                    success = s;
-                    error_msg = e;
-                    history_entry = entry.clone();
+                // [FIX] Pass the required InferenceRuntime (reasoning) to ToolExecutor constructor inside handle_action_execution
+                match service
+                    .handle_action_execution(
+                        tool.clone(),
+                        session_id,
+                        agent_state.step_count,
+                        final_visual_phash,
+                        &rules,
+                        &agent_state,
+                        &os_driver,
+                        None,
+                    )
+                    .await
+                {
+                    Ok((s, entry, e)) => {
+                        success = s;
+                        error_msg = e;
+                        history_entry = entry.clone();
 
-                    if s && !req_hash_hex.is_empty() {
-                        agent_state.tool_execution_log.insert(
-                            req_hash_hex.clone(),
-                            ToolCallStatus::Executed("success".into()),
-                        );
-                        agent_state.pending_approval = None;
-                        agent_state.pending_tool_jcs = None;
-                    }
-
-                    if s {
-                        if let Some(entry) = entry.clone() {
-                            let tool_msg = ioi_types::app::agentic::ChatMessage {
-                                role: "tool".to_string(),
-                                content: entry,
-                                timestamp: SystemTime::now()
-                                    .duration_since(UNIX_EPOCH)
-                                    .unwrap()
-                                    .as_millis() as u64,
-                                trace_hash: None,
-                            };
-                            let _ = service
-                                .append_chat_to_scs(session_id, &tool_msg, block_height)
-                                .await?;
+                        if s && !req_hash_hex.is_empty() {
+                            agent_state.tool_execution_log.insert(
+                                req_hash_hex.clone(),
+                                ToolCallStatus::Executed("success".into()),
+                            );
+                            agent_state.pending_approval = None;
+                            agent_state.pending_tool_jcs = None;
                         }
-                    }
 
-                    match &tool {
-                        AgentTool::AgentComplete { result } => {
-                            agent_state.status = AgentStatus::Completed(Some(result.clone()));
-                            is_lifecycle_action = true;
-                            action_output = Some(result.clone());
-                            evaluate_and_crystallize(service, agent_state, session_id, result)
-                                .await;
-                        }
-                        AgentTool::SysChangeDir { .. } => {
-                            if s {
-                                if let Some(new_cwd) = history_entry.as_ref() {
-                                    agent_state.working_directory = new_cwd.clone();
-                                }
+                        if s {
+                            if let Some(entry) = entry.clone() {
+                                let tool_msg = ioi_types::app::agentic::ChatMessage {
+                                    role: "tool".to_string(),
+                                    content: entry,
+                                    timestamp: SystemTime::now()
+                                        .duration_since(UNIX_EPOCH)
+                                        .unwrap()
+                                        .as_millis()
+                                        as u64,
+                                    trace_hash: None,
+                                };
+                                let _ = service
+                                    .append_chat_to_scs(session_id, &tool_msg, block_height)
+                                    .await?;
                             }
                         }
-                        AgentTool::ChatReply { message } => {
-                            agent_state.status =
-                                AgentStatus::Paused("Waiting for user input".to_string());
-                            is_lifecycle_action = true;
-                            action_output = Some(message.clone());
-                        }
-                        AgentTool::OsLaunchApp { app_name } => {
-                            if s && should_auto_complete_open_app_goal(
-                                &agent_state.goal,
-                                app_name,
-                                agent_state
-                                    .target
-                                    .as_ref()
-                                    .and_then(|target| target.app_hint.as_deref()),
-                            ) {
-                                let summary = format!("Opened {}.", app_name);
-                                agent_state.status = AgentStatus::Completed(Some(summary.clone()));
+
+                        match &tool {
+                            AgentTool::AgentComplete { result } => {
+                                agent_state.status = AgentStatus::Completed(Some(result.clone()));
                                 is_lifecycle_action = true;
-                                action_output = Some(summary);
-                                agent_state.execution_queue.clear();
-                                agent_state.pending_search_completion = None;
-                                log::info!(
+                                action_output = Some(result.clone());
+                                evaluate_and_crystallize(service, agent_state, session_id, result)
+                                    .await;
+                            }
+                            AgentTool::SysChangeDir { .. } => {
+                                if s {
+                                    if let Some(new_cwd) = history_entry.as_ref() {
+                                        agent_state.working_directory = new_cwd.clone();
+                                    }
+                                }
+                            }
+                            AgentTool::ChatReply { message } => {
+                                agent_state.status =
+                                    AgentStatus::Paused("Waiting for user input".to_string());
+                                is_lifecycle_action = true;
+                                action_output = Some(message.clone());
+                            }
+                            AgentTool::OsLaunchApp { app_name } => {
+                                if s && should_auto_complete_open_app_goal(
+                                    &agent_state.goal,
+                                    app_name,
+                                    agent_state
+                                        .target
+                                        .as_ref()
+                                        .and_then(|target| target.app_hint.as_deref()),
+                                ) {
+                                    let summary = format!("Opened {}.", app_name);
+                                    agent_state.status =
+                                        AgentStatus::Completed(Some(summary.clone()));
+                                    is_lifecycle_action = true;
+                                    action_output = Some(summary);
+                                    agent_state.execution_queue.clear();
+                                    agent_state.pending_search_completion = None;
+                                    log::info!(
                                     "Auto-completed app-launch session {} after successful os__launch_app.",
                                     hex::encode(&session_id[..4])
                                 );
+                                }
                             }
+                            AgentTool::SystemFail { reason, .. } => {
+                                mark_system_fail_status(&mut agent_state.status, reason.clone());
+                                is_lifecycle_action = true;
+                                action_output = Some(format!("Agent Failed: {}", reason));
+                            }
+                            _ => {}
                         }
-                        AgentTool::SystemFail { reason, .. } => {
-                            mark_system_fail_status(&mut agent_state.status, reason.clone());
-                            is_lifecycle_action = true;
-                            action_output = Some(format!("Agent Failed: {}", reason));
-                        }
-                        _ => {}
-                    }
 
-                    if s && current_tool_name == "browser__navigate"
-                        && agent_state.pending_search_completion.is_none()
-                        && is_search_intent(&agent_state.goal)
-                    {
-                        if let Some(url) = extract_navigation_url(&tool_args) {
-                            if is_search_results_url(&url) {
-                                let query = search_query_from_url(&url)
-                                    .filter(|value| !value.trim().is_empty())
-                                    .unwrap_or_else(|| agent_state.goal.clone());
-                                let extract_params = serde_jcs::to_vec(&json!({}))
-                                    .or_else(|_| serde_json::to_vec(&json!({})))
-                                    .unwrap_or_else(|_| b"{}".to_vec());
-                                agent_state.execution_queue.push(ActionRequest {
-                                    target: ActionTarget::BrowserExtract,
-                                    params: extract_params,
-                                    context: ActionContext {
-                                        agent_id: "desktop_agent".to_string(),
-                                        session_id: Some(session_id),
-                                        window_id: None,
-                                    },
-                                    nonce: agent_state.step_count as u64 + 1,
-                                });
-                                agent_state.pending_search_completion =
-                                    Some(PendingSearchCompletion {
-                                        query,
-                                        url,
-                                        started_step: pre_state_summary.step_index,
+                        if s && current_tool_name == "browser__navigate"
+                            && agent_state.pending_search_completion.is_none()
+                            && is_search_scope(agent_state.resolved_intent.as_ref())
+                        {
+                            if let Some(url) = extract_navigation_url(&tool_args) {
+                                if is_search_results_url(&url) {
+                                    let query = search_query_from_url(&url)
+                                        .filter(|value| !value.trim().is_empty())
+                                        .unwrap_or_else(|| agent_state.goal.clone());
+                                    let extract_params = serde_jcs::to_vec(&json!({}))
+                                        .or_else(|_| serde_json::to_vec(&json!({})))
+                                        .unwrap_or_else(|_| b"{}".to_vec());
+                                    agent_state.execution_queue.push(ActionRequest {
+                                        target: ActionTarget::BrowserExtract,
+                                        params: extract_params,
+                                        context: ActionContext {
+                                            agent_id: "desktop_agent".to_string(),
+                                            session_id: Some(session_id),
+                                            window_id: None,
+                                        },
+                                        nonce: agent_state.step_count as u64 + 1,
                                     });
-                                log::info!(
+                                    agent_state.pending_search_completion =
+                                        Some(PendingSearchCompletion {
+                                            query,
+                                            url,
+                                            started_step: pre_state_summary.step_index,
+                                        });
+                                    log::info!(
                                     "Search intent detected after browser__navigate. Queued browser__extract for deterministic completion."
                                 );
+                                }
                             }
                         }
                     }
-                }
-                Err(TransactionError::PendingApproval(h)) => {
-                    policy_decision = "require_approval".to_string();
-                    let tool_jcs = serde_jcs::to_vec(&tool).unwrap();
-                    let tool_hash_bytes = ioi_crypto::algorithms::hash::sha256(&tool_jcs).unwrap();
-                    let mut hash_arr = [0u8; 32];
-                    hash_arr.copy_from_slice(tool_hash_bytes.as_ref());
+                    Err(TransactionError::PendingApproval(h)) => {
+                        policy_decision = "require_approval".to_string();
+                        let tool_jcs = serde_jcs::to_vec(&tool).unwrap();
+                        let tool_hash_bytes =
+                            ioi_crypto::algorithms::hash::sha256(&tool_jcs).unwrap();
+                        let mut hash_arr = [0u8; 32];
+                        hash_arr.copy_from_slice(tool_hash_bytes.as_ref());
 
-                    let action_fingerprint = sha256(&tool_jcs)
-                        .map(hex::encode)
-                        .unwrap_or_else(|_| String::new());
-                    let root_retry_hash =
-                        retry_intent_hash.as_deref().unwrap_or(intent_hash.as_str());
-                    let incident_before = load_incident_state(state, &session_id)?;
-                    let incident_stage_before = incident_before
-                        .as_ref()
-                        .map(|incident| incident.stage.clone())
-                        .unwrap_or_else(|| "None".to_string());
-
-                    let approval_directive = register_pending_approval(
-                        state,
-                        &rules,
-                        agent_state,
-                        session_id,
-                        root_retry_hash,
-                        &current_tool_name,
-                        &tool_jcs,
-                        &action_fingerprint,
-                        &h,
-                    )?;
-                    let incident_after = load_incident_state(state, &session_id)?;
-                    let incident_stage_after = incident_after
-                        .as_ref()
-                        .map(|incident| incident.stage.clone())
-                        .unwrap_or_else(|| "None".to_string());
-                    verification_checks.push(format!(
-                        "approval_suppressed_single_pending={}",
-                        matches!(
-                            approval_directive,
-                            ApprovalDirective::SuppressDuplicatePrompt
-                        )
-                    ));
-                    verification_checks.push(format!(
-                        "incident_id_stable={}",
-                        match (incident_before.as_ref(), incident_after.as_ref()) {
-                            (Some(before), Some(after)) => before.incident_id == after.incident_id,
-                            _ => true,
+                        let action_fingerprint = sha256(&tool_jcs)
+                            .map(hex::encode)
+                            .unwrap_or_else(|_| String::new());
+                        let root_retry_hash =
+                            retry_intent_hash.as_deref().unwrap_or(intent_hash.as_str());
+                        if let Ok(bytes) = hex::decode(&h) {
+                            if bytes.len() == 32 {
+                                let mut decision_hash = [0u8; 32];
+                                decision_hash.copy_from_slice(&bytes);
+                                if let Some(request) = build_pii_review_request_for_tool(
+                                    service,
+                                    &rules,
+                                    session_id,
+                                    &tool,
+                                    decision_hash,
+                                    block_timestamp_ns / 1_000_000,
+                                )
+                                .await?
+                                {
+                                    persist_pii_review_request(state, &request)?;
+                                    emit_pii_review_requested(service, &request);
+                                }
+                            }
                         }
-                    ));
-                    verification_checks
-                        .push(format!("incident_stage_before={}", incident_stage_before));
-                    verification_checks
-                        .push(format!("incident_stage_after={}", incident_stage_after));
+                        let incident_before = load_incident_state(state, &session_id)?;
+                        let incident_stage_before = incident_before
+                            .as_ref()
+                            .map(|incident| incident.stage.clone())
+                            .unwrap_or_else(|| "None".to_string());
 
-                    agent_state.pending_tool_jcs = Some(tool_jcs);
-                    agent_state.pending_tool_hash = Some(hash_arr);
-                    agent_state.pending_visual_hash = Some(final_visual_phash);
-                    agent_state.pending_tool_call = Some(tool_call_result.clone());
-                    agent_state.last_screen_phash = Some(final_visual_phash);
-                    is_gated = true;
-                    is_lifecycle_action = true;
-                    agent_state.status = AgentStatus::Paused("Waiting for approval".into());
+                        let approval_directive = register_pending_approval(
+                            state,
+                            &rules,
+                            agent_state,
+                            session_id,
+                            root_retry_hash,
+                            &current_tool_name,
+                            &tool_jcs,
+                            &action_fingerprint,
+                            &h,
+                        )?;
+                        let incident_after = load_incident_state(state, &session_id)?;
+                        let incident_stage_after = incident_after
+                            .as_ref()
+                            .map(|incident| incident.stage.clone())
+                            .unwrap_or_else(|| "None".to_string());
+                        verification_checks.push(format!(
+                            "approval_suppressed_single_pending={}",
+                            matches!(
+                                approval_directive,
+                                ApprovalDirective::SuppressDuplicatePrompt
+                            )
+                        ));
+                        verification_checks.push(format!(
+                            "incident_id_stable={}",
+                            match (incident_before.as_ref(), incident_after.as_ref()) {
+                                (Some(before), Some(after)) =>
+                                    before.incident_id == after.incident_id,
+                                _ => true,
+                            }
+                        ));
+                        verification_checks
+                            .push(format!("incident_stage_before={}", incident_stage_before));
+                        verification_checks
+                            .push(format!("incident_stage_after={}", incident_stage_after));
 
-                    if let Some(incident_state) = load_incident_state(state, &session_id)? {
-                        if incident_state.active {
-                            log::info!(
+                        agent_state.pending_tool_jcs = Some(tool_jcs);
+                        agent_state.pending_tool_hash = Some(hash_arr);
+                        agent_state.pending_visual_hash = Some(final_visual_phash);
+                        agent_state.pending_tool_call = Some(tool_call_result.clone());
+                        agent_state.last_screen_phash = Some(final_visual_phash);
+                        is_gated = true;
+                        is_lifecycle_action = true;
+                        agent_state.status = AgentStatus::Paused("Waiting for approval".into());
+
+                        if let Some(incident_state) = load_incident_state(state, &session_id)? {
+                            if incident_state.active {
+                                log::info!(
                                 "incident.approval_intercepted session={} incident_id={} root_tool={} gated_tool={}",
                                 hex::encode(&session_id[..4]),
                                 incident_state.incident_id,
                                 incident_state.root_tool_name,
                                 current_tool_name
                             );
+                            }
                         }
-                    }
 
-                    match approval_directive {
-                        ApprovalDirective::PromptUser => {
-                            let msg = format!("System: Action halted by Agency Firewall (Hash: {}). Requesting authorization.", h);
-                            let sys_msg = ioi_types::app::agentic::ChatMessage {
-                                role: "system".to_string(),
-                                content: msg,
-                                timestamp: SystemTime::now()
-                                    .duration_since(UNIX_EPOCH)
-                                    .unwrap()
-                                    .as_millis() as u64,
-                                trace_hash: None,
-                            };
-                            let _ = service
-                                .append_chat_to_scs(session_id, &sys_msg, block_height)
-                                .await?;
-                            success = true;
-                        }
-                        ApprovalDirective::SuppressDuplicatePrompt => {
-                            let sys_msg = ioi_types::app::agentic::ChatMessage {
+                        match approval_directive {
+                            ApprovalDirective::PromptUser => {
+                                let msg = format!("System: Action halted by Agency Firewall (Hash: {}). Requesting authorization.", h);
+                                let sys_msg = ioi_types::app::agentic::ChatMessage {
+                                    role: "system".to_string(),
+                                    content: msg,
+                                    timestamp: SystemTime::now()
+                                        .duration_since(UNIX_EPOCH)
+                                        .unwrap()
+                                        .as_millis()
+                                        as u64,
+                                    trace_hash: None,
+                                };
+                                let _ = service
+                                    .append_chat_to_scs(session_id, &sys_msg, block_height)
+                                    .await?;
+                                success = true;
+                            }
+                            ApprovalDirective::SuppressDuplicatePrompt => {
+                                let sys_msg = ioi_types::app::agentic::ChatMessage {
                                 role: "system".to_string(),
                                 content:
                                     "System: Approval already pending for this incident/action. Waiting for your decision."
@@ -551,52 +598,54 @@ pub async fn process_tool_output(
                                     .as_millis() as u64,
                                 trace_hash: None,
                             };
-                            let _ = service
-                                .append_chat_to_scs(session_id, &sys_msg, block_height)
-                                .await?;
-                            success = true;
-                        }
-                        ApprovalDirective::PauseLoop => {
-                            policy_decision = "denied".to_string();
-                            success = false;
-                            let loop_msg = format!(
+                                let _ = service
+                                    .append_chat_to_scs(session_id, &sys_msg, block_height)
+                                    .await?;
+                                success = true;
+                            }
+                            ApprovalDirective::PauseLoop => {
+                                policy_decision = "denied".to_string();
+                                success = false;
+                                let loop_msg = format!(
                                 "ERROR_CLASS=PermissionOrApprovalRequired Approval loop policy paused this incident for request hash {}.",
                                 h
                             );
-                            error_msg = Some(loop_msg.clone());
-                            agent_state.status = AgentStatus::Paused(
+                                error_msg = Some(loop_msg.clone());
+                                agent_state.status = AgentStatus::Paused(
                                 "Approval loop detected for the same incident/action. Automatic retries paused."
                                     .to_string(),
                             );
-                            let sys_msg = ioi_types::app::agentic::ChatMessage {
-                                role: "system".to_string(),
-                                content: format!(
+                                let sys_msg = ioi_types::app::agentic::ChatMessage {
+                                    role: "system".to_string(),
+                                    content: format!(
                                     "System: {} Please approve, deny, or change policy settings.",
                                     loop_msg
                                 ),
-                                timestamp: SystemTime::now()
-                                    .duration_since(UNIX_EPOCH)
-                                    .unwrap()
-                                    .as_millis() as u64,
-                                trace_hash: None,
-                            };
-                            let _ = service
-                                .append_chat_to_scs(session_id, &sys_msg, block_height)
-                                .await?;
+                                    timestamp: SystemTime::now()
+                                        .duration_since(UNIX_EPOCH)
+                                        .unwrap()
+                                        .as_millis()
+                                        as u64,
+                                    trace_hash: None,
+                                };
+                                let _ = service
+                                    .append_chat_to_scs(session_id, &sys_msg, block_height)
+                                    .await?;
+                            }
                         }
                     }
-                }
-                Err(e) => {
-                    success = false;
-                    let msg = e.to_string();
-                    if msg.to_lowercase().contains("blocked by policy") {
-                        policy_decision = "denied".to_string();
-                    }
-                    error_msg = Some(msg.clone());
-                    if !req_hash_hex.is_empty() {
-                        agent_state
-                            .tool_execution_log
-                            .insert(req_hash_hex.clone(), ToolCallStatus::Failed(msg));
+                    Err(e) => {
+                        success = false;
+                        let msg = e.to_string();
+                        if msg.to_lowercase().contains("blocked by policy") {
+                            policy_decision = "denied".to_string();
+                        }
+                        error_msg = Some(msg.clone());
+                        if !req_hash_hex.is_empty() {
+                            agent_state
+                                .tool_execution_log
+                                .insert(req_hash_hex.clone(), ToolCallStatus::Failed(msg));
+                        }
                     }
                 }
             }
@@ -972,25 +1021,6 @@ pub async fn process_tool_output(
         }
     }
 
-    if !is_gated {
-        if let Some(tx) = &service.event_sender {
-            let output_str = action_output
-                .or_else(|| if success { history_entry.clone() } else { None })
-                .unwrap_or_else(|| {
-                    error_msg
-                        .clone()
-                        .unwrap_or_else(|| "Unknown error".to_string())
-                });
-            let _ = tx.send(KernelEvent::AgentActionResult {
-                session_id,
-                step_index: agent_state.step_count,
-                tool_name: current_tool_name.clone(),
-                output: output_str,
-                agent_status: get_status_str(&agent_state.status),
-            });
-        }
-    }
-
     verification_checks.push(format!("policy_decision={}", policy_decision));
     verification_checks.push(format!("was_gated={}", is_gated));
     verification_checks.push(format!("awaiting_sudo_password={}", awaiting_sudo_password));
@@ -1046,6 +1076,25 @@ pub async fn process_tool_output(
         agent_state.consecutive_failures = 3;
     } else if !stop_condition_hit && (success || is_lifecycle_action) {
         agent_state.consecutive_failures = 0;
+    }
+
+    if !is_gated {
+        if let Some(tx) = &service.event_sender {
+            let output_str = action_output
+                .or_else(|| if success { history_entry.clone() } else { None })
+                .unwrap_or_else(|| {
+                    error_msg
+                        .clone()
+                        .unwrap_or_else(|| "Unknown error".to_string())
+                });
+            let _ = tx.send(KernelEvent::AgentActionResult {
+                session_id,
+                step_index: pre_state_summary.step_index,
+                tool_name: current_tool_name.clone(),
+                output: output_str,
+                agent_status: get_status_str(&agent_state.status),
+            });
+        }
     }
 
     if !is_gated && !awaiting_sudo_password && !awaiting_clarification {

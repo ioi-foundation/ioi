@@ -1,0 +1,51 @@
+name: PII Nightly Quality
+
+on:
+  schedule:
+    - cron: "0 4 * * *"
+  workflow_dispatch:
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  pii_quality:
+    name: PII Quality Thresholds
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Install Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: 1.93.1
+          override: true
+
+      - name: Cache dependencies
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-pii-nightly-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Run nightly PII metric thresholds
+        run: |
+          PII_ADVERSARIAL=1 \
+          PII_NIGHTLY_ENFORCE=1 \
+          PII_METRICS_OUT=${{ github.workspace }}/target/pii_metrics.json \
+          cargo test --locked -p ioi-services --test pii_metrics -- --nocapture
+
+      - name: Run deterministic PII unit suite
+        run: cargo test --locked -p ioi-pii
+
+      - name: Run review determinism E2E
+        run: cargo test --locked -p ioi-cli --test pii_review_determinism_e2e --features "consensus-admft vm-wasm state-iavl" -- --nocapture
+
+      - name: Upload PII metrics artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: pii-metrics
+          path: target/pii_metrics.json

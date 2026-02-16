@@ -13,6 +13,7 @@ use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
 use tokio::sync::broadcast::Sender;
 
+use crate::agentic::pii_scrubber::PiiScrubber;
 use crate::agentic::desktop::types::ExecutionTier;
 use ioi_api::vm::drivers::gui::GuiDriver;
 use ioi_api::vm::drivers::os::{OsDriver, WindowInfo};
@@ -74,6 +75,7 @@ pub struct ToolExecutor {
     pub(crate) event_sender: Option<Sender<KernelEvent>>,
     pub(crate) lens_registry: Option<Arc<LensRegistry>>,
     pub(crate) inference: Arc<dyn InferenceRuntime>,
+    pub(crate) pii_scrubber: Option<PiiScrubber>,
 
     // Context fields populated via builder pattern
     pub(crate) active_window: Option<WindowInfo>,
@@ -93,6 +95,7 @@ impl ToolExecutor {
         event_sender: Option<Sender<KernelEvent>>,
         lens_registry: Option<Arc<LensRegistry>>,
         inference: Arc<dyn InferenceRuntime>,
+        pii_scrubber: Option<PiiScrubber>,
     ) -> Self {
         Self {
             gui,
@@ -103,6 +106,7 @@ impl ToolExecutor {
             event_sender,
             lens_registry,
             inference,
+            pii_scrubber,
             active_window: None,
             target_app_hint: None,
             current_tier: None,

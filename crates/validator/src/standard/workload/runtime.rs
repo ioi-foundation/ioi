@@ -62,19 +62,9 @@ impl InferenceRuntime for StandardInferenceRuntime {
         // 2. Parse input (AgentContext or raw bytes)
         // For Phase 3, we assume raw bytes are prompt tokens for simplicity.
 
-        #[cfg(feature = "real-ai")]
-        {
-            // Real execution logic would go here, retrieving the model from the driver
-            // and running the forward pass.
-            // Since `HardwareDriver` trait doesn't expose `forward` directly (it returns opaque handle),
-            // we would need to downcast or extend the trait.
-            // For now, we return a mock response to prove the wiring,
-            // as full tensor execution is a large module.
-            Ok(b"Start of generated text...".to_vec())
-        }
-        #[cfg(not(feature = "real-ai"))]
-        {
-            Ok(b"Mock inference result".to_vec())
-        }
+        // Native runtime path; model execution is wired by the loaded hardware driver.
+        // Full tensor generation remains driver-specific, so this runtime returns a
+        // deterministic placeholder until model forward integration is expanded.
+        Ok(b"Mock inference result".to_vec())
     }
 }

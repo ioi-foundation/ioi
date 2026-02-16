@@ -12,18 +12,62 @@ use super::support::{
     CLARIFICATION_WAIT_STEP, WAIT_FOR_CLARIFICATION_PROMPT,
 };
 use crate::kernel::artifacts as artifact_store;
+use crate::kernel::state::get_rpc_client;
 use crate::kernel::state::update_task_state;
 use crate::kernel::thresholds;
 use crate::models::{
     AgentPhase, AppState, ArtifactRef, ArtifactType, ChatMessage, CredentialRequest, EventStatus,
-    EventType, GateInfo, GhostInputEvent, Receipt, SwarmAgent,
+    EventType, GateInfo, GhostInputEvent, PiiReviewInfo, Receipt, SwarmAgent,
 };
+use ioi_ipc::blockchain::QueryRawStateRequest;
 use ioi_ipc::public::chain_event::Event as ChainEventEnum;
 use ioi_ipc::public::public_api_client::PublicApiClient;
 use ioi_ipc::public::SubscribeEventsRequest;
+use ioi_pii::validate_review_request_compat;
+use ioi_types::app::agentic::PiiReviewRequest;
+use ioi_types::codec;
 use serde_json::json;
 use std::sync::Mutex;
 use tauri::{Emitter, Manager};
+
+async fn fetch_pii_review_info(
+    app: &tauri::AppHandle,
+    request_hash_hex: &str,
+) -> Option<PiiReviewInfo> {
+    let hash_bytes = hex::decode(request_hash_hex).ok()?;
+    if hash_bytes.len() != 32 {
+        return None;
+    }
+    let mut decision_hash = [0u8; 32];
+    decision_hash.copy_from_slice(&hash_bytes);
+
+    let state_handle = app.state::<Mutex<AppState>>();
+    let mut client = get_rpc_client(&state_handle).await.ok()?;
+    let ns_prefix = ioi_api::state::service_namespace_prefix("desktop_agent");
+    let key = [ns_prefix.as_slice(), b"pii::review::request::", &decision_hash].concat();
+    let resp = client
+        .query_raw_state(tonic::Request::new(QueryRawStateRequest { key }))
+        .await
+        .ok()?
+        .into_inner();
+    if !resp.found || resp.value.is_empty() {
+        return None;
+    }
+    let request: PiiReviewRequest = codec::from_bytes_canonical(&resp.value).ok()?;
+    if validate_review_request_compat(&request).is_err() {
+        return None;
+    }
+    Some(PiiReviewInfo {
+        decision_hash: hex::encode(request.decision_hash),
+        target_label: request.summary.target_label,
+        span_summary: request.summary.span_summary,
+        class_counts: request.summary.class_counts,
+        severity_counts: request.summary.severity_counts,
+        stage2_prompt: request.summary.stage2_prompt,
+        deadline_ms: request.deadline_ms,
+        target_id: Some(request.material.target),
+    })
+}
 
 pub async fn monitor_kernel_events(app: tauri::AppHandle) {
     loop {
@@ -893,6 +937,8 @@ pub async fn monitor_kernel_events(app: tauri::AppHandle) {
                                             receipt.tool_name
                                         ),
                                         risk: "high".to_string(),
+                                        deadline_ms: None,
+                                        pii: None,
                                     });
                                 }
                             }
@@ -1017,7 +1063,29 @@ pub async fn monitor_kernel_events(app: tauri::AppHandle) {
                         register_event(&app, event);
                     }
                     ChainEventEnum::Action(action) => {
+                        if action.verdict == "PII_REVIEW_REQUESTED" {
+                            let pii_info =
+                                fetch_pii_review_info(&app, &action.reason).await;
+                            if let Some(pii) = pii_info {
+                                update_task_state(&app, |t| {
+                                    t.gate_info = Some(GateInfo {
+                                        title: "PII Review".to_string(),
+                                        description: "Sensitive content was detected before egress. Review and choose a deterministic action.".to_string(),
+                                        risk: "high".to_string(),
+                                        deadline_ms: Some(pii.deadline_ms),
+                                        pii: Some(pii.clone()),
+                                    });
+                                    t.pending_request_hash = Some(action.reason.clone());
+                                    if !action.session_id.is_empty() {
+                                        t.session_id = Some(action.session_id.clone());
+                                    }
+                                });
+                            }
+                            continue;
+                        }
+
                         if action.verdict == "REQUIRE_APPROVAL" {
+                            let pii_info = fetch_pii_review_info(&app, &action.reason).await;
                             let (waiting_for_sudo, waiting_for_clarification, hard_terminal_task) = {
                                 if let Ok(guard) = state_handle.lock() {
                                     if let Some(task) = &guard.current_task {
@@ -1079,13 +1147,27 @@ pub async fn monitor_kernel_events(app: tauri::AppHandle) {
                                     t.credential_request = None;
                                     t.clarification_request = None;
 
-                                    t.gate_info = Some(GateInfo {
-                                        title: "Restricted Action Intercepted".to_string(),
-                                        description: format!(
-                                            "The agent is attempting to execute: {}",
-                                            action.target
-                                        ),
-                                        risk: "high".to_string(),
+                                    t.gate_info = Some(if let Some(pii) = pii_info.clone() {
+                                        GateInfo {
+                                            title: "PII Review".to_string(),
+                                            description:
+                                                "Sensitive content was detected before egress. Choose transform, deny, or scoped exception."
+                                                    .to_string(),
+                                            risk: "high".to_string(),
+                                            deadline_ms: Some(pii.deadline_ms),
+                                            pii: Some(pii),
+                                        }
+                                    } else {
+                                        GateInfo {
+                                            title: "Restricted Action Intercepted".to_string(),
+                                            description: format!(
+                                                "The agent is attempting to execute: {}",
+                                                action.target
+                                            ),
+                                            risk: "high".to_string(),
+                                            deadline_ms: None,
+                                            pii: None,
+                                        }
                                     });
 
                                     t.pending_request_hash = Some(action.reason.clone());

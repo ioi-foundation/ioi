@@ -47,8 +47,8 @@ use ioi_validator::standard::orchestration::operator_tasks::{
 use ioi_api::vm::inference::{HttpInferenceRuntime, InferenceRuntime, LocalSafetyModel};
 use ioi_drivers::os::NativeOsDriver;
 use ioi_services::agentic::desktop::DesktopAgentService;
+use ioi_services::agentic::pii_adapter::RuntimeAsPiiModel;
 use ioi_services::agentic::rules::{ActionRules, DefaultPolicy, Rule, Verdict};
-use ioi_services::agentic::scrub_adapter::RuntimeAsSafetyModel;
 use ioi_types::codec;
 
 // [UPDATED] Import Market Service types
@@ -157,6 +157,7 @@ async fn main() -> Result<()> {
         policy_id: "interactive-mode".to_string(),
         defaults: DefaultPolicy::RequireApproval,
         ontology_policy: Default::default(),
+        pii_controls: Default::default(),
         rules: vec![
             Rule {
                 rule_id: Some("allow-ui-read".into()),
@@ -626,7 +627,7 @@ async fn main() -> Result<()> {
         };
 
     let safety_model: Arc<dyn LocalSafetyModel> =
-        Arc::new(RuntimeAsSafetyModel::new(inference_runtime.clone()));
+        Arc::new(RuntimeAsPiiModel::new(inference_runtime.clone()));
 
     let verifier = FlatVerifier::default();
 
@@ -692,7 +693,7 @@ async fn main() -> Result<()> {
 
     // Configure Optimizer with SCS access
     let safety_adapter: Arc<dyn LocalSafetyModel> =
-        Arc::new(RuntimeAsSafetyModel::new(inference_runtime.clone()));
+        Arc::new(RuntimeAsPiiModel::new(inference_runtime.clone()));
     let optimizer_service =
         OptimizerService::new(inference_runtime.clone(), safety_adapter.clone())
             .with_scs(scs_arc.clone());

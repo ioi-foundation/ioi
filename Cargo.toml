@@ -1,10 +1,5 @@
 # Path: Cargo.toml
 
-# Explicitly opt-in to the unstable 'profile-rustflags' feature.
-# This is required by the nightly toolchain to allow setting rustflags
-# on a per-package basis, which is necessary for our mixed std/no_std build.
-cargo-features = ["profile-rustflags"]
-
 [workspace]
 resolver = "2"
 exclude = [
@@ -32,6 +27,7 @@ members = [
     "crates/vm/wasm",
     "crates/ipc",
     "crates/drivers",
+    "crates/pii",
     "crates/scs",
     "crates/macros",
     

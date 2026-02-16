@@ -380,6 +380,7 @@ impl OptimizerService {
             ),
             defaults: DefaultPolicy::DenyAll,
             ontology_policy: Default::default(),
+            pii_controls: Default::default(),
             rules,
         })
     }

@@ -101,10 +101,10 @@ The codebase is organized as a Rust workspace.
 ## 🚀 Getting Started
 
 ### Prerequisites
-*   **Rust (via rustup):** Nightly toolchain (this workspace uses `cargo-features = ["profile-rustflags"]`)
+*   **Rust (via rustup):** Stable toolchain (`1.93.1` pinned in `rust-toolchain.toml`)
     ```bash
-    rustup toolchain install nightly
-    rustup override set nightly
+    rustup toolchain install 1.93.1
+    rustup override set 1.93.1
     ```
 *   **Protobuf:** `protoc` (required for `tonic-build`; Debian/Ubuntu package: `protobuf-compiler`)
 *   **Node.js/NPM:** Required for the Autopilot UI.
@@ -118,8 +118,8 @@ Mode 0 runs the full stack locally for agent development.
 In a terminal, build and initialize the local node. This generates your identity keys and genesis state in `./ioi-data`.
 
 ```bash
-# Ensure you're using nightly in this repo
-rustup override set nightly
+# Ensure you're using the pinned stable toolchain in this repo
+rustup override set 1.93.1
 
 # First run (initializes genesis and keys)
 cargo run --bin ioi-local --features "local-mode" 

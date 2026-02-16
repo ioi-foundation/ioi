@@ -46,7 +46,7 @@ use ioi_api::vm::inference::LocalSafetyModel;
 use ioi_api::vm::inference::{mock::MockInferenceRuntime, HttpInferenceRuntime};
 
 use crate::standard::workload::drivers::verified_http::VerifiedHttpRuntime;
-use ioi_services::agentic::scrub_adapter::RuntimeAsSafetyModel;
+use ioi_services::agentic::pii_adapter::RuntimeAsPiiModel;
 
 use tonic::transport::{Certificate, Channel, ClientTlsConfig, Identity};
 
@@ -439,7 +439,7 @@ where
 
     // [NEW] Instantiate Optimizer Service
     let safety_adapter: Arc<dyn LocalSafetyModel> =
-        Arc::new(RuntimeAsSafetyModel::new(fast_runtime.clone()));
+        Arc::new(RuntimeAsPiiModel::new(fast_runtime.clone()));
 
     let mut optimizer_service =
         OptimizerService::new(reasoning_runtime.clone(), safety_adapter.clone());

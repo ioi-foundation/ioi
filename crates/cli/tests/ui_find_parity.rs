@@ -711,6 +711,10 @@ fn test_agent_state() -> AgentState {
             app_hint: Some("calculator".to_string()),
             title_pattern: None,
         }),
+        resolved_intent: None,
+
+        awaiting_intent_clarification: false,
+
         working_directory: ".".to_string(),
         active_lens: Some("ReactLens".to_string()),
     }

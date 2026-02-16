@@ -38,6 +38,7 @@ ioi-tx = { path = "../tx" }
 ioi-ipc = { path = "../ipc" }
 ioi-services = { path = "../services" }
 ioi-networking = { path = "../networking" }
+ioi-pii = { path = "../pii" }
 
 toml = { workspace = true }
 

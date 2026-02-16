@@ -106,6 +106,43 @@ export interface GateInfo {
   title: string;
   description: string;
   risk: "low" | "medium" | "high";
+  deadline_ms?: number;
+  pii?: PiiReviewInfo;
+}
+
+export interface PiiTargetServiceCall {
+  kind: "service_call";
+  service_id: string;
+  method: string;
+}
+
+export interface PiiTargetCloudInference {
+  kind: "cloud_inference";
+  provider: string;
+  model: string;
+}
+
+export interface PiiTargetAction {
+  kind: "action";
+  // Action target is tagged in Rust; we treat as opaque for UI rendering.
+  [key: string]: unknown;
+}
+
+export type PiiTarget =
+  | PiiTargetServiceCall
+  | PiiTargetCloudInference
+  | PiiTargetAction
+  | Record<string, unknown>;
+
+export interface PiiReviewInfo {
+  decision_hash: string;
+  target_label: string;
+  span_summary: string;
+  class_counts?: Record<string, number>;
+  severity_counts?: Record<string, number>;
+  stage2_prompt: string;
+  deadline_ms: number;
+  target_id?: PiiTarget | null;
 }
 
 export interface Receipt {

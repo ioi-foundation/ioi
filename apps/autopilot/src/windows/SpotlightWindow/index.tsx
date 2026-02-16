@@ -110,6 +110,7 @@ export function SpotlightWindow({ variant = "overlay" }: SpotlightWindowProps) {
   const [runtimePasswordSessionId, setRuntimePasswordSessionId] = useState<
     string | null
   >(null);
+  const [gateActionError, setGateActionError] = useState<string | null>(null);
 
   // Refs
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -453,21 +454,54 @@ export function SpotlightWindow({ variant = "overlay" }: SpotlightWindowProps) {
   }, [continueTask, task?.id, task?.session_id]);
 
   const handleApprove = useCallback(async () => {
-    await invoke("gate_respond", { approved: true });
-    setChatEvents((prev) =>
-      prev.map((m) =>
-        m.isGate ? { ...m, isGate: false, text: "✓ Authorized" } : m,
-      ),
-    );
+    setGateActionError(null);
+    try {
+      await invoke("gate_respond", { approved: true, action: "approve_transform" });
+      setChatEvents((prev) =>
+        prev.map((m) =>
+          m.isGate ? { ...m, isGate: false, text: "✓ Transform approved" } : m,
+        ),
+      );
+    } catch (err) {
+      const reason =
+        err instanceof Error ? err.message : String(err || "Gate action failed");
+      setGateActionError(`Submit failed: ${reason}`);
+    }
   }, []);
 
   const handleDeny = useCallback(async () => {
-    await invoke("gate_respond", { approved: false });
-    setChatEvents((prev) =>
-      prev.map((m) =>
-        m.isGate ? { ...m, isGate: false, text: "✗ Denied" } : m,
-      ),
-    );
+    setGateActionError(null);
+    try {
+      await invoke("gate_respond", { approved: false, action: "deny" });
+      setChatEvents((prev) =>
+        prev.map((m) =>
+          m.isGate ? { ...m, isGate: false, text: "✗ Denied" } : m,
+        ),
+      );
+    } catch (err) {
+      const reason =
+        err instanceof Error ? err.message : String(err || "Gate action failed");
+      setGateActionError(`Submit failed: ${reason}`);
+    }
+  }, []);
+
+  const handleGrantScopedException = useCallback(async () => {
+    setGateActionError(null);
+    try {
+      await invoke("gate_respond", {
+        approved: true,
+        action: "grant_scoped_exception",
+      });
+      setChatEvents((prev) =>
+        prev.map((m) =>
+          m.isGate ? { ...m, isGate: false, text: "✓ Scoped exception granted" } : m,
+        ),
+      );
+    } catch (err) {
+      const reason =
+        err instanceof Error ? err.message : String(err || "Gate action failed");
+      setGateActionError(`Submit failed: ${reason}`);
+    }
   }, []);
 
   const handleNewChat = useCallback(() => {
@@ -562,6 +596,10 @@ export function SpotlightWindow({ variant = "overlay" }: SpotlightWindowProps) {
     !showClarificationPrompt &&
     (task?.phase === "Gate" || hasPendingApproval) &&
     !!gateInfo;
+  const gateDeadlineMs =
+    gateInfo?.deadline_ms ??
+    gateInfo?.pii?.deadline_ms ??
+    undefined;
   const hasContent =
     !!task ||
     localHistory.length > 0 ||
@@ -592,6 +630,37 @@ export function SpotlightWindow({ variant = "overlay" }: SpotlightWindowProps) {
     task?.session_id,
     waitingForSudoPrompt,
   ]);
+
+  useEffect(() => {
+    if (!isGated) {
+      setGateActionError(null);
+    }
+  }, [isGated]);
+
+  useEffect(() => {
+    if (!isGated || typeof gateDeadlineMs !== "number") return;
+    const emitTimeoutNote = () => {
+      setChatEvents((prev) => [
+        ...prev,
+        {
+          role: "system",
+          text: "⏱ Approval timed out. Submitting deny action.",
+          timestamp: Date.now(),
+        },
+      ]);
+    };
+    const remaining = gateDeadlineMs - Date.now();
+    if (remaining <= 0) {
+      emitTimeoutNote();
+      void handleDeny();
+      return;
+    }
+    const timer = window.setTimeout(() => {
+      emitTimeoutNote();
+      void handleDeny();
+    }, remaining);
+    return () => window.clearTimeout(timer);
+  }, [gateDeadlineMs, handleDeny, isGated]);
 
   const openArtifactById = useCallback(
     (artifactId: string) => {
@@ -801,7 +870,16 @@ export function SpotlightWindow({ variant = "overlay" }: SpotlightWindowProps) {
                   title={gateInfo.title}
                   description={gateInfo.description}
                   risk={gateInfo.risk}
-                  onApprove={handleApprove}
+                  deadlineMs={gateDeadlineMs}
+                  targetLabel={gateInfo.pii?.target_label}
+                  spanSummary={gateInfo.pii?.span_summary}
+                  classCounts={gateInfo.pii?.class_counts}
+                  severityCounts={gateInfo.pii?.severity_counts}
+                  stage2Prompt={gateInfo.pii?.stage2_prompt}
+                  targetId={(gateInfo.pii?.target_id as Record<string, unknown> | null) ?? null}
+                  errorMessage={gateActionError}
+                  onApproveTransform={handleApprove}
+                  onGrantScopedException={handleGrantScopedException}
                   onDeny={handleDeny}
                 />
               </div>

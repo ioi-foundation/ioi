@@ -73,12 +73,6 @@ parking_lot = "0.12"
 rust-embed = "8.0"
 mime_guess = "2.0"
 
-# Candle ML Framework (Optional)
-candle-core = { version = "0.3.3", optional = true }
-candle-nn = { version = "0.3.3", optional = true }
-candle-transformers = { version = "0.3.3", optional = true }
-tokenizers = { version = "0.15.2", optional = true }
-
 [dev-dependencies]
 tempfile = "3.3"
 
@@ -140,13 +134,6 @@ ethereum-zk = [
     "ioi-validator/ethereum-zk",
 ]
 
-real-ai = [
-    "dep:candle-core",
-    "dep:candle-nn",
-    "dep:candle-transformers",
-    "dep:tokenizers",
-]
-
 # --- Distribution Profiles (Binary Modes) ---
 
 # 1. Local Mode (Desktop App)
@@ -190,7 +177,6 @@ provider-mode = [
     "ioi-validator/validator-bins",
     "consensus-admft", 
     "state-iavl",      
-    "real-ai",
     # Providers might need ZK to generate proofs, but verify?
     # Usually they GENERATE proofs (prover role), not verify.
     # Verification is done by Bridge/Validators.

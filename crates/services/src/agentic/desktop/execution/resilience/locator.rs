@@ -1,20 +1,33 @@
 use crate::agentic::desktop::types::ExecutionTier;
+use crate::agentic::pii_scrubber::PiiScrubber;
 use base64::{engine::general_purpose::STANDARD as BASE64, Engine as _};
 use ioi_api::vm::inference::InferenceRuntime;
 use ioi_drivers::gui::accessibility::Rect;
 use ioi_drivers::gui::geometry::{CoordinateSpace, Point};
 use ioi_types::app::agentic::InferenceOptions;
+use ioi_types::app::KernelEvent;
 use serde::Deserialize;
 use serde_json::json;
 use std::sync::Arc;
+use tokio::sync::broadcast::Sender;
 
 pub struct VisualLocator {
     runtime: Arc<dyn InferenceRuntime>,
+    pii_scrubber: Option<PiiScrubber>,
+    event_sender: Option<Sender<KernelEvent>>,
 }
 
 impl VisualLocator {
-    pub fn new(runtime: Arc<dyn InferenceRuntime>) -> Self {
-        Self { runtime }
+    pub fn new(
+        runtime: Arc<dyn InferenceRuntime>,
+        pii_scrubber: Option<PiiScrubber>,
+        event_sender: Option<Sender<KernelEvent>>,
+    ) -> Self {
+        Self {
+            runtime,
+            pii_scrubber,
+            event_sender,
+        }
     }
 
     pub async fn localize(
@@ -74,11 +87,24 @@ impl VisualLocator {
             ..Default::default()
         };
 
-        let output_bytes = self
-            .runtime
-            .execute_inference([0u8; 32], &input_bytes, options)
-            .await
-            .map_err(|e| LocalizationError::Runtime(e.to_string()))?;
+        let scrubber = self.pii_scrubber.as_ref().ok_or_else(|| {
+            LocalizationError::Runtime(
+                "PII airlock unavailable for visual localization inference.".to_string(),
+            )
+        })?;
+        let output_bytes = crate::agentic::desktop::cloud_airlock::execute_cloud_inference(
+            &self.runtime,
+            scrubber,
+            self.event_sender.as_ref(),
+            None,
+            "desktop_agent",
+            "visual_locator:model_hash:0000000000000000000000000000000000000000000000000000000000000000",
+            [0u8; 32],
+            &input_bytes,
+            options,
+        )
+        .await
+        .map_err(|e| LocalizationError::Runtime(e.to_string()))?;
 
         let raw = String::from_utf8_lossy(&output_bytes).to_string();
         if raw.to_ascii_lowercase().contains("refusal") {

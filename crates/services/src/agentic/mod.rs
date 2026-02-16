@@ -12,11 +12,13 @@ pub mod intent;
 pub mod leakage;
 pub mod normaliser;
 pub mod optimizer;
+pub mod pii_adapter;
+pub mod pii_router;
+pub mod pii_scrubber;
+pub mod pii_substrate;
 pub mod policy;
 pub mod prompt_wrapper;
 pub mod rules;
-pub mod scrub_adapter;
-pub mod scrubber;
 pub mod session;
 
 /// A service for agentic operations.

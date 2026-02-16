@@ -1,4 +1,5 @@
 use super::*;
+use ioi_types::app::agentic::PiiControls;
 
 // Governance Logic: Synthesize ActionRules from UI Config
 pub(super) fn synthesize_node_policy(node_type: &str, law_config: &Value) -> ActionRules {
@@ -55,6 +56,7 @@ pub(super) fn synthesize_node_policy(node_type: &str, law_config: &Value) -> Act
         defaults: DefaultPolicy::DenyAll,
         rules,
         ontology_policy: Default::default(),
+        pii_controls: PiiControls::default(),
     }
 }
 

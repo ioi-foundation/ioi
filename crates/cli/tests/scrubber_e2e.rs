@@ -13,17 +13,15 @@ use ioi_types::{
         SignatureProof, SignatureSuite, SystemPayload, SystemTransaction, ValidatorSetV1,
         ValidatorSetsV1, ValidatorV1,
     },
-    codec,
     config::{InitialServiceConfig, ValidatorRole},
     keys::active_service_key, // Added import
     service_configs::{ActiveServiceMeta, Capabilities, MethodPermission, MigrationConfig}, // Added imports
 };
-use libp2p::identity::Keypair;
 use std::collections::BTreeMap; // Added import
 use std::time::Duration;
 
 #[tokio::test(flavor = "multi_thread")]
-async fn test_semantic_firewall_scrubs_pii() -> Result<()> {
+async fn test_pii_firewall_blocks_raw_egress_and_allows_clean_payload() -> Result<()> {
     // 1. Setup
     build_test_artifacts();
 
@@ -74,6 +72,10 @@ async fn test_semantic_firewall_scrubs_pii() -> Result<()> {
                 activated_at: 0,
                 methods,
                 allowed_system_prefixes: vec![],
+                generation_id: 0,
+                parent_hash: None,
+                author: None,
+                context_filter: None,
             };
 
             let key = active_service_key("agentic");
@@ -91,7 +93,7 @@ async fn test_semantic_firewall_scrubs_pii() -> Result<()> {
 
     // 2. Craft a Transaction with PII
     // The MockBitNet is configured to flag "sk_live_" as PII.
-    let sensitive_payload = b"Execute trade using key sk_live_12345secret";
+    let sensitive_payload = b"Execute trade using key sk_live_1234567890abcd";
 
     // We send this to the 'agentic' service which triggers the scrubber in `enforce_firewall`.
     let sys_payload = SystemPayload::CallService {
@@ -137,7 +139,11 @@ async fn test_semantic_firewall_scrubs_pii() -> Result<()> {
 
     let err_msg = result.unwrap_err().to_string();
     println!("Firewall correctly rejected tx: {}", err_msg);
-    assert!(err_msg.contains("PII detected") || err_msg.contains("Blocked by Safety Firewall"));
+    assert!(
+        err_msg.contains("PII detected")
+            || err_msg.contains("Blocked by Safety Firewall")
+            || err_msg.contains("PII firewall denied raw egress")
+    );
 
     // 4. Submit Clean Transaction
     // "Safe" payload should pass

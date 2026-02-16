@@ -264,6 +264,7 @@ pub async fn process_tool_output(
                     &rules,
                     &agent_state,
                     &os_driver,
+                    None,
                 )
                 .await
             {

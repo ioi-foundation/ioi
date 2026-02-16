@@ -13,6 +13,7 @@ ioi-api = { path = "../api" }
 ioi-types = { path = "../types" }
 ioi-macros = { path = "../macros" }
 ioi-scs = { path = "../scs" }
+ioi-pii = { path = "../pii" }
 
 log = { workspace = true }
 tracing = { workspace = true }
@@ -50,6 +51,7 @@ image_hasher = "2.0"
 
 # [FIX] Added missing dependencies
 regex = "1.10"
+unicode-normalization = "0.1"
 walkdir = "2.4"
 ioi-state = { path = "../state" }
 ioi-client = { path = "../client" }

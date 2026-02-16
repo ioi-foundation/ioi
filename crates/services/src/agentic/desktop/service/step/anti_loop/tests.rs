@@ -33,6 +33,10 @@ fn test_agent_state() -> AgentState {
         visual_semantic_map: None,
         swarm_context: None,
         target: None,
+        resolved_intent: None,
+
+        awaiting_intent_clarification: false,
+
         working_directory: ".".to_string(),
         active_lens: None,
         pending_search_completion: None,

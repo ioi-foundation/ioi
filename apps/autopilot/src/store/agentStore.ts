@@ -10,6 +10,17 @@ export interface GateInfo {
   title: string;
   description: string;
   risk: "low" | "medium" | "high";
+  deadline_ms?: number;
+  pii?: {
+    decision_hash: string;
+    target_label: string;
+    span_summary: string;
+    class_counts?: Record<string, number>;
+    severity_counts?: Record<string, number>;
+    stage2_prompt: string;
+    deadline_ms: number;
+    target_id?: Record<string, unknown> | null;
+  };
 }
 
 export interface Receipt {

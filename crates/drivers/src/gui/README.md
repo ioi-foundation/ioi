@@ -7,7 +7,7 @@ This module provides the IOI Kernel with the ability to perceive and interact wi
 ### 1. Vision (`vision.rs`)
 *   **Capture:** Uses `xcap` to capture screenshots of the active display.
 *   **Format:** Returns raw PNG bytes.
-*   **Privacy:** These bytes are fed into the **Semantic Scrubber** before ever leaving the device or being stored in the SCS.
+*   **Privacy:** These bytes are fed into the **PII Scrubber** before ever leaving the device or being stored in the SCS.
 
 ### 2. Accessibility (`platform.rs`)
 *   **Tree Parsing:** Uses platform-specific APIs (via `accesskit` or native stubs) to read the UI Accessibility Tree (DOM).

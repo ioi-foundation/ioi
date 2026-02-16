@@ -35,6 +35,7 @@ fn policy_max_transitions_defaults_to_ontology_policy() {
             max_incident_transitions: 19,
             intent_failure_overrides: Vec::new(),
             tool_preferences: ToolPreferences::default(),
+            intent_routing: Default::default(),
         },
         ..Default::default()
     };

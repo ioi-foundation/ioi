@@ -150,7 +150,11 @@ async fn attempt_visual_click(
             height: 1080,
         });
 
-    let locator = VisualLocator::new(exec.inference.clone());
+    let locator = VisualLocator::new(
+        exec.inference.clone(),
+        exec.pii_scrubber.clone(),
+        exec.event_sender.clone(),
+    );
     let point = match locator
         .localize(
             &screenshot,

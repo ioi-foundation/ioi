@@ -1,6 +1,7 @@
 // apps/autopilot/src-tauri/src/models.rs
 use ioi_api::vm::inference::InferenceRuntime;
 use ioi_ipc::public::public_api_client::PublicApiClient;
+use ioi_types::app::agentic::PiiTarget;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::collections::{HashMap, HashSet};
@@ -21,6 +22,25 @@ pub struct GateInfo {
     pub title: String,
     pub description: String,
     pub risk: String,
+    #[serde(default)]
+    pub deadline_ms: Option<u64>,
+    #[serde(default)]
+    pub pii: Option<PiiReviewInfo>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PiiReviewInfo {
+    pub decision_hash: String,
+    pub target_label: String,
+    pub span_summary: String,
+    #[serde(default)]
+    pub class_counts: std::collections::BTreeMap<String, u32>,
+    #[serde(default)]
+    pub severity_counts: std::collections::BTreeMap<String, u32>,
+    pub stage2_prompt: String,
+    pub deadline_ms: u64,
+    #[serde(default)]
+    pub target_id: Option<PiiTarget>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

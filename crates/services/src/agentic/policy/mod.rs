@@ -3,7 +3,9 @@
 use crate::agentic::rules::{ActionRules, DefaultPolicy, Rule, Verdict};
 use ioi_api::state::StateAccess;
 use ioi_api::vm::drivers::os::OsDriver;
-use ioi_api::vm::inference::{LocalSafetyModel, SafetyVerdict};
+use ioi_api::vm::inference::{LocalSafetyModel, PiiRiskSurface, SafetyVerdict};
+use ioi_pii::{build_decision_material, inspect_and_route_with_for_target, RiskSurface};
+use ioi_types::app::agentic::{FirewallDecision, PiiDecisionMaterial, PiiTarget};
 use ioi_types::app::{ActionRequest, ActionTarget, ApprovalToken};
 use ioi_types::service_configs::{ActiveServiceMeta, MethodPermission};
 use ioi_types::{codec, error::TransactionError, keys::active_service_key};
@@ -63,36 +65,8 @@ fn filesystem_scope_for_target(target: &ActionTarget) -> Option<FilesystemScope>
     }
 }
 
-fn canonical_policy_target(target: &ActionTarget) -> String {
-    match target {
-        ActionTarget::NetFetch => "net::fetch".to_string(),
-        ActionTarget::FsWrite => "fs::write".to_string(),
-        ActionTarget::FsRead => "fs::read".to_string(),
-        ActionTarget::UiClick => "ui::click".to_string(),
-        ActionTarget::UiType => "ui::type".to_string(),
-        ActionTarget::SysExec => "sys::exec".to_string(),
-        ActionTarget::SysInstallPackage => "sys::install_package".to_string(),
-        ActionTarget::WalletSign => "wallet::sign".to_string(),
-        ActionTarget::WalletSend => "wallet::send".to_string(),
-        ActionTarget::GuiMouseMove => "gui::mouse_move".to_string(),
-        ActionTarget::GuiClick => "gui::click".to_string(),
-        ActionTarget::GuiType => "gui::type".to_string(),
-        ActionTarget::GuiScreenshot => "gui::screenshot".to_string(),
-        ActionTarget::GuiScroll => "gui::scroll".to_string(),
-        ActionTarget::GuiSequence => "gui::sequence".to_string(),
-        ActionTarget::BrowserNavigateHermetic => "browser::navigate::hermetic".to_string(),
-        ActionTarget::BrowserExtract => "browser::extract".to_string(),
-        ActionTarget::CommerceDiscovery => "ucp::discovery".to_string(),
-        ActionTarget::CommerceCheckout => "ucp::checkout".to_string(),
-        ActionTarget::WindowFocus => "os::focus".to_string(),
-        ActionTarget::ClipboardRead => "clipboard::read".to_string(),
-        ActionTarget::ClipboardWrite => "clipboard::write".to_string(),
-        ActionTarget::Custom(name) => name.clone(),
-    }
-}
-
 fn policy_target_aliases(target: &ActionTarget) -> Vec<String> {
-    let mut aliases = vec![canonical_policy_target(target)];
+    let mut aliases = vec![target.canonical_label()];
     if let ActionTarget::Custom(name) = target {
         let compatibility_aliases: &[&str] = match name.as_str() {
             "browser::click_element" => &["browser::click", "browser__click_element"],
@@ -111,6 +85,35 @@ fn policy_target_aliases(target: &ActionTarget) -> Vec<String> {
         }
     }
     aliases
+}
+
+fn is_high_risk_target_for_rules(rules: &ActionRules, target: &ActionTarget) -> bool {
+    let aliases = policy_target_aliases(target);
+    aliases.iter().any(|alias| {
+        rules
+            .pii_controls
+            .high_risk_targets
+            .iter()
+            .any(|configured| configured == alias)
+    })
+}
+
+fn pii_decision_to_verdict(decision: &FirewallDecision) -> Verdict {
+    match decision {
+        FirewallDecision::Allow | FirewallDecision::AllowLocalOnly => Verdict::Allow,
+        FirewallDecision::RedactThenAllow
+        | FirewallDecision::TokenizeThenAllow
+        | FirewallDecision::Quarantine
+        | FirewallDecision::RequireUserReview => Verdict::RequireApproval,
+        FirewallDecision::Deny => Verdict::Block,
+    }
+}
+
+fn to_shared_risk_surface(risk_surface: PiiRiskSurface) -> RiskSurface {
+    match risk_surface {
+        PiiRiskSurface::LocalProcessing => RiskSurface::LocalProcessing,
+        PiiRiskSurface::Egress => RiskSurface::Egress,
+    }
 }
 
 fn required_filesystem_path_keys(target: &ActionTarget) -> Option<&'static [&'static str]> {
@@ -313,6 +316,7 @@ impl PolicyEngine {
 
         // 2. Specific Rules: Linear scan (specific overrides general)
         // First matching rule wins.
+        let mut base_verdict = None;
         for rule in &rules.rules {
             if rule.target == "*" || target_aliases.iter().any(|target| rule.target == *target) {
                 if Self::check_conditions(
@@ -324,17 +328,137 @@ impl PolicyEngine {
                 )
                 .await
                 {
-                    return rule.action;
+                    base_verdict = Some(rule.action);
+                    break;
                 }
             }
         }
 
-        // 3. Default Behavior
-        match rules.defaults {
-            DefaultPolicy::AllowAll => Verdict::Allow,
-            DefaultPolicy::DenyAll => Verdict::Block,
-            DefaultPolicy::RequireApproval => Verdict::RequireApproval,
+        let base_verdict = match base_verdict {
+            Some(v) => v,
+            None => match rules.defaults {
+                DefaultPolicy::AllowAll => Verdict::Allow,
+                DefaultPolicy::DenyAll => Verdict::Block,
+                DefaultPolicy::RequireApproval => Verdict::RequireApproval,
+            },
+        };
+
+        // 3. Stage B/C PII router overlay.
+        let pii_verdict = Self::evaluate_pii_overlay(rules, request, safety_model).await;
+
+        // Preserve explicit policy blocks regardless of PII route.
+        if matches!(base_verdict, Verdict::Block) {
+            return Verdict::Block;
         }
+
+        match pii_verdict {
+            Some(Verdict::Block) => Verdict::Block,
+            Some(Verdict::RequireApproval) => Verdict::RequireApproval,
+            _ => base_verdict,
+        }
+    }
+
+    async fn evaluate_pii_overlay(
+        rules: &ActionRules,
+        request: &ActionRequest,
+        safety_model: &Arc<dyn LocalSafetyModel>,
+    ) -> Option<Verdict> {
+        Self::evaluate_pii_overlay_details(rules, request, safety_model)
+            .await
+            .map(|(verdict, _material)| verdict)
+    }
+
+    async fn evaluate_pii_overlay_details(
+        rules: &ActionRules,
+        request: &ActionRequest,
+        safety_model: &Arc<dyn LocalSafetyModel>,
+    ) -> Option<(Verdict, Option<PiiDecisionMaterial>)> {
+        let high_risk = is_high_risk_target_for_rules(rules, &request.target);
+        let risk_surface = if high_risk {
+            PiiRiskSurface::Egress
+        } else {
+            PiiRiskSurface::LocalProcessing
+        };
+
+        let input = match std::str::from_utf8(&request.params) {
+            Ok(s) => s,
+            Err(_) => {
+                if high_risk && !request.params.is_empty() {
+                    tracing::warn!(
+                        "PII policy: non-UTF8 payload on high-risk target {:?}; blocking (fail-closed).",
+                        request.target
+                    );
+                    return Some((Verdict::Block, None));
+                }
+                return None;
+            }
+        };
+
+        let target = PiiTarget::Action(request.target.clone());
+        let safety_model = Arc::clone(safety_model);
+        let (evidence, routed) = match inspect_and_route_with_for_target(
+            |input, shared_risk_surface| {
+                let safety_model = safety_model.clone();
+                Box::pin(async move {
+                    let api_risk_surface = match shared_risk_surface {
+                        RiskSurface::LocalProcessing => PiiRiskSurface::LocalProcessing,
+                        RiskSurface::Egress => PiiRiskSurface::Egress,
+                    };
+                    let inspection = safety_model.inspect_pii(input, api_risk_surface).await?;
+                    Ok(inspection.evidence)
+                })
+            },
+            input,
+            &target,
+            to_shared_risk_surface(risk_surface),
+            &rules.pii_controls,
+            false, // Policy engine cannot mutate payloads directly.
+        )
+        .await
+        {
+            Ok(v) => v,
+            Err(e) => {
+                tracing::warn!(
+                    "PII policy inspection failed for {:?} (risk={:?}): {}",
+                    request.target,
+                    risk_surface,
+                    e
+                );
+                return Some((
+                    if high_risk {
+                        Verdict::Block
+                    } else {
+                        Verdict::Allow
+                    },
+                    None,
+                ));
+            }
+        };
+
+        if !evidence.spans.is_empty() {
+            tracing::info!(
+                "PII route target={} risk={:?} spans={} ambiguous={} decision={:?} hash={}",
+                target.canonical_label(),
+                risk_surface,
+                evidence.spans.len(),
+                evidence.ambiguous,
+                routed.decision,
+                hex::encode(routed.decision_hash)
+            );
+        }
+
+        let material = build_decision_material(
+            &evidence,
+            &routed.decision,
+            routed.transform_plan.as_ref(),
+            routed.stage2_decision.as_ref(),
+            to_shared_risk_surface(risk_surface),
+            &target,
+            false,
+            &routed.assist,
+        );
+
+        Some((pii_decision_to_verdict(&routed.decision), Some(material)))
     }
 
     /// Evaluates specific conditions for a rule.
@@ -612,23 +736,6 @@ impl PolicyEngine {
             }
         }
 
-        // [NEW] 6. Clipboard Policy (DLP)
-        if let ActionTarget::ClipboardWrite = target {
-            if let Ok(json) = serde_json::from_slice::<Value>(params) {
-                if let Some(text) = json.get("content").and_then(|t| t.as_str()) {
-                    // Check for PII in clipboard data
-                    let classification = safety_model
-                        .classify_intent(text)
-                        .await
-                        .unwrap_or(SafetyVerdict::Safe);
-                    if let SafetyVerdict::ContainsPII = classification {
-                        tracing::warn!("Policy Blocking Clipboard Write: PII detected.");
-                        return false;
-                    }
-                }
-            }
-        }
-
         // Default: If no specific conditions failed (or if there were no conditions set in the rule),
         // then the rule matches. This enables "Catch-All" rules where conditions are None/Default.
         true
@@ -755,8 +862,73 @@ impl PolicyEngine {
 mod tests {
     use super::{
         policy_target_aliases, required_filesystem_path_keys, validate_allow_paths_condition,
+        PolicyEngine,
     };
-    use ioi_types::app::ActionTarget;
+    use crate::agentic::rules::{ActionRules, DefaultPolicy};
+    use anyhow::Result;
+    use async_trait::async_trait;
+    use ioi_api::vm::drivers::os::{OsDriver, WindowInfo};
+    use ioi_api::vm::inference::{LocalSafetyModel, PiiInspection, PiiRiskSurface, SafetyVerdict};
+    use ioi_pii::{compute_decision_hash, route_pii_decision_for_target, RiskSurface};
+    use ioi_types::app::agentic::{
+        EvidenceGraph, EvidenceSpan, PiiClass, PiiConfidenceBucket, PiiControls, PiiSeverity,
+        PiiTarget,
+    };
+    use ioi_types::app::{ActionContext, ActionRequest, ActionTarget};
+    use ioi_types::error::VmError;
+    use std::sync::Arc;
+
+    struct DummySafety {
+        graph: EvidenceGraph,
+    }
+
+    #[async_trait]
+    impl LocalSafetyModel for DummySafety {
+        async fn classify_intent(&self, _input: &str) -> anyhow::Result<SafetyVerdict> {
+            Ok(SafetyVerdict::Safe)
+        }
+
+        async fn detect_pii(&self, _input: &str) -> anyhow::Result<Vec<(usize, usize, String)>> {
+            Ok(vec![])
+        }
+
+        async fn inspect_pii(
+            &self,
+            _input: &str,
+            _risk_surface: PiiRiskSurface,
+        ) -> anyhow::Result<PiiInspection> {
+            Ok(PiiInspection {
+                evidence: self.graph.clone(),
+                ambiguous: self.graph.ambiguous,
+                stage2_status: None,
+            })
+        }
+    }
+
+    struct DummyOs;
+
+    #[async_trait]
+    impl OsDriver for DummyOs {
+        async fn get_active_window_title(&self) -> Result<Option<String>, VmError> {
+            Ok(None)
+        }
+
+        async fn get_active_window_info(&self) -> Result<Option<WindowInfo>, VmError> {
+            Ok(None)
+        }
+
+        async fn focus_window(&self, _title_query: &str) -> Result<bool, VmError> {
+            Ok(false)
+        }
+
+        async fn set_clipboard(&self, _content: &str) -> Result<(), VmError> {
+            Ok(())
+        }
+
+        async fn get_clipboard(&self) -> Result<String, VmError> {
+            Ok(String::new())
+        }
+    }
 
     #[test]
     fn custom_copy_target_keeps_exact_name_and_fs_write_alias() {
@@ -855,5 +1027,68 @@ mod tests {
         let allowed_by_policy =
             validate_allow_paths_condition(&allowed, &ActionTarget::FsRead, &params);
         assert!(allowed_by_policy);
+    }
+
+    #[test]
+    fn pii_overlay_material_hash_matches_direct_router_hash() {
+        let graph = EvidenceGraph {
+            version: 1,
+            source_hash: [7u8; 32],
+            ambiguous: false,
+            spans: vec![EvidenceSpan {
+                start_index: 5,
+                end_index: 27,
+                pii_class: PiiClass::ApiKey,
+                severity: PiiSeverity::High,
+                confidence_bucket: PiiConfidenceBucket::High,
+                pattern_id: "test/api_key".to_string(),
+                validator_passed: true,
+                context_keywords: vec!["api key".to_string()],
+                evidence_source: "test".to_string(),
+            }],
+        };
+        let rules = ActionRules {
+            policy_id: "policy".to_string(),
+            defaults: DefaultPolicy::AllowAll,
+            ontology_policy: Default::default(),
+            pii_controls: PiiControls::default(),
+            rules: vec![],
+        };
+        let request = ActionRequest {
+            target: ActionTarget::ClipboardWrite,
+            params: b"copy sk_live_abcd1234abcd1234".to_vec(),
+            context: ActionContext {
+                agent_id: "agent".to_string(),
+                session_id: None,
+                window_id: None,
+            },
+            nonce: 1,
+        };
+
+        let safety = Arc::new(DummySafety {
+            graph: graph.clone(),
+        }) as Arc<dyn LocalSafetyModel>;
+
+        let rt = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .expect("runtime");
+
+        let (_verdict, material_opt) = rt
+            .block_on(PolicyEngine::evaluate_pii_overlay_details(
+                &rules, &request, &safety,
+            ))
+            .expect("pii overlay details");
+        let material = material_opt.expect("expected material from successful route");
+        let overlay_hash = compute_decision_hash(&material);
+
+        let direct = route_pii_decision_for_target(
+            &graph,
+            &rules.pii_controls,
+            RiskSurface::Egress,
+            &PiiTarget::Action(ActionTarget::ClipboardWrite),
+            false,
+        );
+        assert_eq!(overlay_hash, direct.decision_hash);
     }
 }
