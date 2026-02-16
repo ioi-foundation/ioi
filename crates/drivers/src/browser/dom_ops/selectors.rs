@@ -156,20 +156,7 @@ impl BrowserDriver {
             helpers,
             r#"
             const el = deepActiveElement();
-            if (!el) return false;
-            const tag = (el.tagName || "").toLowerCase();
-            if (el.isContentEditable) return true;
-            if (tag === "textarea" || tag === "select") return true;
-            if (tag === "input") {
-                const type = (el.getAttribute("type") || "").toLowerCase();
-                const nonEditable = [
-                    "button", "submit", "checkbox", "radio",
-                    "range", "color", "file", "image", "reset"
-                ];
-                return !nonEditable.includes(type);
-            }
-            const role = (el.getAttribute && (el.getAttribute("role") || "").toLowerCase()) || "";
-            return role === "textbox";
+            return isElementEditable(el);
         })()"#,
         ]
         .concat();

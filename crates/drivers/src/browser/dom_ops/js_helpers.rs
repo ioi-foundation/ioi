@@ -277,6 +277,74 @@ impl BrowserDriver {
                     return false;
                 };
 
+                const ariaBoolAttrIsTrue = (el, attr) => {
+                    if (!el || typeof el.getAttribute !== "function") {
+                        return false;
+                    }
+                    const value = (el.getAttribute(attr) || "").toLowerCase();
+                    return value === "true" || value === "1";
+                };
+
+                const isElementEditable = (el) => {
+                    if (!el) {
+                        return false;
+                    }
+
+                    if (ariaBoolAttrIsTrue(el, "aria-disabled")) {
+                        return false;
+                    }
+
+                    try {
+                        if (el.disabled) {
+                            return false;
+                        }
+                    } catch (_e) {}
+
+                    const tag = (el.tagName || "").toLowerCase();
+                    const role =
+                        (el.getAttribute && (el.getAttribute("role") || "").toLowerCase()) || "";
+                    const contentEditableValue =
+                        (el.getAttribute && (el.getAttribute("contenteditable") || "").toLowerCase()) || "";
+                    const hasContentEditableAttr =
+                        !!(el.hasAttribute && el.hasAttribute("contenteditable"));
+                    const contentEditableEnabled =
+                        !!(el.isContentEditable || (hasContentEditableAttr && contentEditableValue !== "false"));
+
+                    if (contentEditableEnabled) {
+                        return !ariaBoolAttrIsTrue(el, "aria-readonly");
+                    }
+
+                    if (tag === "textarea") {
+                        return !el.readOnly && !ariaBoolAttrIsTrue(el, "aria-readonly");
+                    }
+
+                    if (tag === "input") {
+                        const type = (el.getAttribute("type") || "text").toLowerCase();
+                        const nonEditableTypes = [
+                            "button",
+                            "submit",
+                            "checkbox",
+                            "radio",
+                            "range",
+                            "color",
+                            "file",
+                            "image",
+                            "reset",
+                            "hidden"
+                        ];
+                        if (nonEditableTypes.includes(type)) {
+                            return false;
+                        }
+                        return !el.readOnly && !ariaBoolAttrIsTrue(el, "aria-readonly");
+                    }
+
+                    if (tag === "select") {
+                        return true;
+                    }
+
+                    return role === "textbox" || role === "searchbox";
+                };
+
                 const deepActiveElement = () => {
                     let active = document.activeElement;
                     const visited = new Set();
@@ -348,10 +416,11 @@ impl BrowserDriver {
                 const visible =
                     !!(
                         inViewport &&
-                        style &&
-                        style.visibility !== "hidden" &&
-                        style.display !== "none" &&
-                        parseFloat(style.opacity || "1") > 0.01
+                        (!style || (
+                            style.visibility !== "hidden" &&
+                            style.display !== "none" &&
+                            parseFloat(style.opacity || "1") > 0.01
+                        ))
                     );
 
                 let topEl = null;
@@ -366,15 +435,7 @@ impl BrowserDriver {
                 const focused = deepActiveElement() === el;
                 const tag = (el.tagName || "").toLowerCase();
                 const role = (el.getAttribute && (el.getAttribute("role") || "").toLowerCase()) || "";
-                const editable =
-                    !!(
-                        el.isContentEditable ||
-                        tag === "input" ||
-                        tag === "textarea" ||
-                        tag === "select" ||
-                        role === "textbox" ||
-                        el.getAttribute("contenteditable") === "true"
-                    );
+                const editable = isElementEditable(el);
                 const blockedBy = topEl && !topmost
                     ? (topEl.id ? ("#" + topEl.id) : ((topEl.tagName || "unknown").toLowerCase()))
                     : null;
@@ -496,6 +557,7 @@ mod tests {
         assert!(script.contains("const viewportHeight = ownerWin.innerHeight || 0;"));
         assert!(script.contains("elementCenterInTopWindow(el)"));
         assert!(script.contains("deepElementFromPoint(center.x, center.y)"));
+        assert!(script.contains("const editable = isElementEditable(el);"));
     }
 
     #[test]
@@ -505,5 +567,15 @@ mod tests {
         assert!(helpers.contains("isElementTopmostCandidate"));
         assert!(helpers.contains("querySelectorAll(selector)"));
         assert!(helpers.contains("return firstVisible"));
+    }
+
+    #[test]
+    fn deep_dom_helpers_define_editable_semantics_for_form_controls() {
+        let helpers = BrowserDriver::deep_dom_helper_js();
+        assert!(helpers.contains("const isElementEditable"));
+        assert!(helpers.contains("nonEditableTypes"));
+        assert!(helpers.contains("\"submit\""));
+        assert!(helpers.contains("\"checkbox\""));
+        assert!(helpers.contains("aria-readonly"));
     }
 }
