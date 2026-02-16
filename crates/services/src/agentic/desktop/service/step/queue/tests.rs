@@ -448,6 +448,26 @@ fn queue_preserves_computer_left_click_payload_for_guiclick_target() {
 }
 
 #[test]
+fn queue_uses_explicit_guiclick_tool_name_override_for_click_element() {
+    let request = build_request(
+        ActionTarget::GuiClick,
+        32,
+        serde_json::json!({
+            "id": "btn_submit",
+            "__ioi_tool_name": "gui__click_element"
+        }),
+    );
+
+    let tool = queue_action_request_to_tool(&request).expect("queue mapping should succeed");
+    match tool {
+        AgentTool::GuiClickElement { id } => {
+            assert_eq!(id, "btn_submit");
+        }
+        other => panic!("expected GuiClickElement, got {:?}", other),
+    }
+}
+
+#[test]
 fn queue_maps_guimousemove_target_to_computer_tool() {
     let request = build_request(
         ActionTarget::GuiMouseMove,

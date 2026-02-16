@@ -208,13 +208,11 @@ fn tool_to_action_request(
     nonce: u64,
 ) -> Result<ActionRequest, TransactionError> {
     let target = tool.target();
+    let tool_name = canonical_tool_name(tool);
     let mut args = canonical_tool_args(tool);
-    if matches!(target, ActionTarget::FsRead | ActionTarget::FsWrite) {
+    if should_embed_queue_tool_name_metadata(&target, &tool_name) {
         if let Some(obj) = args.as_object_mut() {
-            obj.insert(
-                QUEUE_TOOL_NAME_KEY.to_string(),
-                json!(canonical_tool_name(tool)),
-            );
+            obj.insert(QUEUE_TOOL_NAME_KEY.to_string(), json!(tool_name));
         }
     }
     let params = serde_jcs::to_vec(&args)
@@ -230,6 +228,12 @@ fn tool_to_action_request(
         },
         nonce,
     })
+}
+
+fn should_embed_queue_tool_name_metadata(target: &ActionTarget, tool_name: &str) -> bool {
+    matches!(target, ActionTarget::FsRead | ActionTarget::FsWrite)
+        || (matches!(target, ActionTarget::GuiClick | ActionTarget::UiClick)
+            && tool_name == "gui__click_element")
 }
 
 pub(super) fn queue_recovery_action(
@@ -288,6 +292,18 @@ mod tests {
             .and_then(|v| v.as_str())
             .expect("fs queue metadata should be present");
         assert_eq!(tool_name, "filesystem__patch");
+    }
+
+    #[test]
+    fn gui_click_element_embeds_tool_name_metadata() {
+        let value = queued_params(AgentTool::GuiClickElement {
+            id: "btn_submit".to_string(),
+        });
+        let tool_name = value
+            .get(QUEUE_TOOL_NAME_KEY)
+            .and_then(|v| v.as_str())
+            .expect("gui click element metadata should be present");
+        assert_eq!(tool_name, "gui__click_element");
     }
 
     #[test]

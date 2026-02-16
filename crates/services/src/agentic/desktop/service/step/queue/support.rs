@@ -264,28 +264,30 @@ fn ensure_computer_action(raw_args: serde_json::Value, action: &str) -> serde_js
 }
 
 #[derive(Clone, Copy)]
-enum QueueFsScope {
+enum QueueToolNameScope {
     Read,
     Write,
+    GuiClick,
 }
 
-fn explicit_queue_fs_scope(target: &ActionTarget) -> Option<QueueFsScope> {
+fn explicit_queue_tool_name_scope(target: &ActionTarget) -> Option<QueueToolNameScope> {
     match target {
-        ActionTarget::FsRead => Some(QueueFsScope::Read),
-        ActionTarget::FsWrite => Some(QueueFsScope::Write),
-        ActionTarget::Custom(name) if name == "fs::read" => Some(QueueFsScope::Read),
-        ActionTarget::Custom(name) if name == "fs::write" => Some(QueueFsScope::Write),
+        ActionTarget::FsRead => Some(QueueToolNameScope::Read),
+        ActionTarget::FsWrite => Some(QueueToolNameScope::Write),
+        ActionTarget::Custom(name) if name == "fs::read" => Some(QueueToolNameScope::Read),
+        ActionTarget::Custom(name) if name == "fs::write" => Some(QueueToolNameScope::Write),
+        ActionTarget::GuiClick | ActionTarget::UiClick => Some(QueueToolNameScope::GuiClick),
         _ => None,
     }
 }
 
-fn is_explicit_tool_name_allowed_for_scope(scope: QueueFsScope, tool_name: &str) -> bool {
+fn is_explicit_tool_name_allowed_for_scope(scope: QueueToolNameScope, tool_name: &str) -> bool {
     match scope {
-        QueueFsScope::Read => matches!(
+        QueueToolNameScope::Read => matches!(
             tool_name,
             "filesystem__read_file" | "filesystem__list_directory" | "filesystem__search"
         ),
-        QueueFsScope::Write => matches!(
+        QueueToolNameScope::Write => matches!(
             tool_name,
             "filesystem__write_file"
                 | "filesystem__patch"
@@ -294,6 +296,9 @@ fn is_explicit_tool_name_allowed_for_scope(scope: QueueFsScope, tool_name: &str)
                 | "filesystem__copy_path"
                 | "filesystem__move_path"
         ),
+        QueueToolNameScope::GuiClick => {
+            matches!(tool_name, "gui__click" | "gui__click_element" | "computer")
+        }
     }
 }
 
@@ -301,9 +306,9 @@ fn extract_explicit_tool_name(
     target: &ActionTarget,
     raw_args: &serde_json::Value,
 ) -> Result<Option<String>, TransactionError> {
-    // Explicit queue metadata is only used to disambiguate fs::read/fs::write replay
-    // inference (including legacy ActionTarget::Custom aliases).
-    let Some(fs_scope) = explicit_queue_fs_scope(target) else {
+    // Explicit queue metadata is used for targets where ActionTarget-level replay can collapse
+    // distinct tool variants into ambiguous defaults.
+    let Some(scope) = explicit_queue_tool_name_scope(target) else {
         return Ok(None);
     };
 
@@ -329,7 +334,7 @@ fn extract_explicit_tool_name(
         )));
     }
 
-    if !is_explicit_tool_name_allowed_for_scope(fs_scope, tool_name) {
+    if !is_explicit_tool_name_allowed_for_scope(scope, tool_name) {
         return Err(TransactionError::Invalid(format!(
             "Queued {} '{}' is incompatible with target {:?}.",
             QUEUE_TOOL_NAME_KEY, tool_name, target
@@ -360,7 +365,10 @@ fn queue_target_to_tool_name_and_args(
         return Ok((tool_name, raw_args));
     }
 
-    if matches!(explicit_queue_fs_scope(target), Some(QueueFsScope::Write))
+    if matches!(
+        explicit_queue_tool_name_scope(target),
+        Some(QueueToolNameScope::Write)
+    )
         && is_ambiguous_fs_write_transfer_payload(&raw_args)
     {
         return Err(TransactionError::Invalid(format!(
