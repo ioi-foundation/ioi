@@ -11,7 +11,7 @@ use ioi_api::vm::drivers::os::OsDriver;
 use ioi_api::vm::inference::InferenceRuntime;
 use ioi_drivers::browser::BrowserDriver;
 use ioi_drivers::mcp::McpManager;
-use ioi_drivers::os::UnavailableOsDriver;
+use ioi_drivers::os::NativeOsDriver;
 use ioi_drivers::terminal::TerminalDriver;
 use ioi_scs::SovereignContextStore;
 use ioi_types::app::KernelEvent;
@@ -53,7 +53,7 @@ impl DesktopAgentService {
             zk_verifier: None,
             scs: None,
             event_sender: None,
-            os_driver: Some(Arc::new(UnavailableOsDriver::default())),
+            os_driver: Some(Arc::new(NativeOsDriver::new())),
             workspace_path: "./ioi-data".to_string(),
             enable_som: false,
             // [FIX] Increased cache size from 5 to 100 to prevent eviction during human approval delays
@@ -95,7 +95,7 @@ impl DesktopAgentService {
             zk_verifier: None,
             scs: None,
             event_sender: None,
-            os_driver: Some(Arc::new(UnavailableOsDriver::default())),
+            os_driver: Some(Arc::new(NativeOsDriver::new())),
             workspace_path: "./ioi-data".to_string(),
             enable_som: false,
             // [FIX] Increased cache size from 5 to 100 to prevent eviction during human approval delays
