@@ -39,7 +39,7 @@ use tokio::time::Duration;
 use ioi_api::vm::inference::{HttpInferenceRuntime, InferenceRuntime, LocalSafetyModel};
 use ioi_drivers::os::NativeOsDriver;
 use ioi_networking::libp2p::Libp2pSync;
-use ioi_services::agentic::scrub_adapter::RuntimeAsSafetyModel;
+use ioi_services::agentic::pii_adapter::RuntimeAsPiiModel;
 
 // [FIX] Compute Specific Drivers
 use ioi_validator::standard::workload::drivers::cpu::CpuDriver;
@@ -111,7 +111,7 @@ async fn main() -> Result<()> {
     // The "Standard" runtime supports hydration and hardware offload
     let inference_runtime = Arc::new(StandardInferenceRuntime::new(hydrator, cpu_driver));
 
-    let safety_model = Arc::new(RuntimeAsSafetyModel::new(inference_runtime.clone()));
+    let safety_model = Arc::new(RuntimeAsPiiModel::new(inference_runtime.clone()));
 
     // 4. Workload Config
     let workload_config = WorkloadConfig {

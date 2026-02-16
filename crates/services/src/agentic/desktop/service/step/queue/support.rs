@@ -368,8 +368,7 @@ fn queue_target_to_tool_name_and_args(
     if matches!(
         explicit_queue_tool_name_scope(target),
         Some(QueueToolNameScope::Write)
-    )
-        && is_ambiguous_fs_write_transfer_payload(&raw_args)
+    ) && is_ambiguous_fs_write_transfer_payload(&raw_args)
     {
         return Err(TransactionError::Invalid(format!(
             "Queued fs::write transfer payloads must include {} set to filesystem__copy_path or filesystem__move_path.",

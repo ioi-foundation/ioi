@@ -5,6 +5,7 @@ pub mod anti_loop;
 pub mod cognition;
 pub mod helpers;
 pub mod incident;
+pub mod intent_resolver;
 pub mod ontology;
 pub mod perception;
 pub mod queue;
@@ -12,11 +13,13 @@ pub mod visual;
 
 use super::DesktopAgentService;
 // [FIX] Import actions module from parent service directory
-use crate::agentic::desktop::keys::{get_mutation_receipt_ptr_key, get_state_key};
+use crate::agentic::desktop::keys::{get_mutation_receipt_ptr_key, get_state_key, AGENT_POLICY_PREFIX};
 use crate::agentic::desktop::runtime_secret;
 use crate::agentic::desktop::service::actions;
 use crate::agentic::desktop::service::step::anti_loop::choose_routing_tier;
+use crate::agentic::desktop::service::step::helpers::default_safe_policy;
 use crate::agentic::desktop::types::{AgentState, AgentStatus, StepAgentParams};
+use crate::agentic::rules::ActionRules;
 use hex;
 use ioi_api::state::StateAccess;
 use ioi_api::transaction::context::TxContext;
@@ -172,6 +175,58 @@ pub async fn handle_step(
         return Ok(());
     }
 
+    // Global intent resolver (authoritative for step/action routing).
+    let policy_key = [AGENT_POLICY_PREFIX, p.session_id.as_slice()].concat();
+    let rules: ActionRules = state
+        .get(&policy_key)?
+        .and_then(|b| codec::from_bytes_canonical(&b).ok())
+        .unwrap_or_else(default_safe_policy);
+    let active_window_title = if let Some(os_driver) = service.os_driver.as_ref() {
+        match os_driver.get_active_window_info().await {
+            Ok(Some(win)) => format!("{} ({})", win.title, win.app_name),
+            Ok(None) => "Unknown".to_string(),
+            Err(_) => "Unknown".to_string(),
+        }
+    } else {
+        "Unknown".to_string()
+    };
+    let resolved_intent = intent_resolver::resolve_step_intent(
+        service,
+        &agent_state,
+        &rules,
+        &active_window_title,
+    )
+    .await?;
+    let was_waiting_intent = agent_state.awaiting_intent_clarification;
+    let should_wait_for_clarification = !rules.ontology_policy.intent_routing.shadow_mode
+        && intent_resolver::should_pause_for_clarification(
+            &resolved_intent,
+            &rules.ontology_policy.intent_routing,
+        );
+    agent_state.resolved_intent = Some(resolved_intent);
+    agent_state.awaiting_intent_clarification = should_wait_for_clarification;
+    if should_wait_for_clarification {
+        agent_state.status = AgentStatus::Paused("Waiting for intent clarification".to_string());
+        if !was_waiting_intent {
+            let msg = ioi_types::app::agentic::ChatMessage {
+                role: "system".to_string(),
+                content:
+                    "System: Intent confidence is low. Please clarify your request before I continue."
+                        .to_string(),
+                timestamp: std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .unwrap()
+                    .as_millis() as u64,
+                trace_hash: None,
+            };
+            let _ = service
+                .append_chat_to_scs(p.session_id, &msg, ctx.block_height)
+                .await?;
+        }
+        state.insert(&key, &codec::to_bytes_canonical(&agent_state)?)?;
+        return Ok(());
+    }
+
     // [NEW] Browser Lease Management
     if let Some(pending) = &agent_state.pending_tool_call {
         if pending.contains("browser__") {
@@ -219,6 +274,7 @@ pub async fn handle_step(
                 &mut agent_state,
                 p.session_id,
                 ctx.block_height,
+                ctx.block_timestamp,
             )
             .await;
         }
@@ -239,14 +295,22 @@ pub async fn handle_step(
             "Resumed".to_string(),
             p.session_id,
             ctx.block_height,
+            ctx.block_timestamp,
         )
         .await;
     }
 
     // 4. Execution Queue
     if !agent_state.execution_queue.is_empty() {
-        return queue::process_queue_item(service, state, &mut agent_state, &p, ctx.block_height)
-            .await;
+        return queue::process_queue_item(
+            service,
+            state,
+            &mut agent_state,
+            &p,
+            ctx.block_height,
+            ctx.block_timestamp,
+        )
+        .await;
     }
 
     // --- COGNITIVE LOOP (System 2) ---
@@ -282,6 +346,7 @@ pub async fn handle_step(
         cognition_result.strategy_used,
         p.session_id,
         ctx.block_height,
+        ctx.block_timestamp,
     )
     .await
     {

@@ -1,6 +1,7 @@
 // Path: crates/services/src/agentic/desktop/types.rs
 
 use ioi_types::app::action::ApprovalToken;
+use ioi_types::app::agentic::ResolvedIntentState;
 use ioi_types::app::ActionRequest;
 use parity_scale_codec::{Decode, Encode};
 use serde::{Deserialize, Serialize};
@@ -125,6 +126,14 @@ pub struct AgentState {
 
     #[serde(default)]
     pub target: Option<InteractionTarget>,
+
+    /// Global resolver output used by step/action/incident routing.
+    #[serde(default)]
+    pub resolved_intent: Option<ResolvedIntentState>,
+
+    /// True when the session is paused waiting for intent clarification.
+    #[serde(default)]
+    pub awaiting_intent_clarification: bool,
 
     /// Persistent working directory used by `sys__exec`.
     #[serde(default = "default_working_directory")]

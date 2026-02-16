@@ -217,41 +217,6 @@ pub async fn gather_context(
 ) -> Result<PerceptionContext, TransactionError> {
     // 1. Determine Execution Tier (Explicit Control)
     let current_tier = forced_tier.unwrap_or_else(|| {
-        // [FIX] Strict override: If failures >= 3, force Tier 3 (Computer).
-        // This prevents the heuristic below from "optimizing" us back to Headless
-        // just because the goal doesn't explicitly say "click".
-        if agent_state.consecutive_failures >= 3 {
-            return ExecutionTier::VisualForeground;
-        }
-
-        let goal_lower = agent_state.goal.to_lowercase();
-
-        // [FIX] Refined Heuristic:
-        // 1. "Open/Launch" -> Handled by os__launch_app (Tier 2/VisualBackground is sufficient)
-        // 2. "Click/Type" inside Browser -> Handled by CDP (Tier 1/VisualBackground is sufficient)
-        // 3. "Click/Type" outside Browser -> REQUIRES Tier 3 (VisualForeground)
-
-        let is_interaction = goal_lower.contains("click")
-            || goal_lower.contains("type")
-            || goal_lower.contains("press");
-
-        // We infer browser context here roughly to optimize the preflight check.
-        // The definitive check happens in capture_background_visuals, but this helps select the right
-        // initial tier to avoid an escalation loop. If we can't tell, we default to safe (VisualForeground).
-        // Since we can't easily await async `os_driver.get_active_window_info()` inside this closure
-        // without making `unwrap_or_else` async, we rely on the heuristic.
-        // A better approach would be to fetch window info *before* this closure, but that requires
-        // refactoring the caller. For now, assume non-browser if the goal doesn't mention "browser" or "web".
-        let intent_implies_browser = goal_lower.contains("browser")
-            || goal_lower.contains("web")
-            || goal_lower.contains("http");
-        let is_likely_browser = intent_implies_browser; // Simple heuristic
-
-        if is_interaction && !is_likely_browser && agent_state.consecutive_failures == 0 {
-            log::info!("Preflight: Non-browser interaction detected. Forcing VisualForeground.");
-            return ExecutionTier::VisualForeground;
-        }
-
         if agent_state.consecutive_failures == 0 {
             ExecutionTier::DomHeadless
         } else if agent_state.consecutive_failures <= 2 {
@@ -365,6 +330,7 @@ pub async fn gather_context(
         tools_runtime,
         current_tier, // [FIX] Use the resolved tier here
         &active_window_title,
+        agent_state.resolved_intent.as_ref(),
     )
     .await;
 

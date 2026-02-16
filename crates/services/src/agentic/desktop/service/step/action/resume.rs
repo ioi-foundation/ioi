@@ -120,6 +120,7 @@ pub async fn resume_pending_action(
             &rules,
             &agent_state,
             &os_driver,
+            None,
         )
         .await
     {

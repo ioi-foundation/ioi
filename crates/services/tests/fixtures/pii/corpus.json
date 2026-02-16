@@ -1,0 +1,60 @@
+{
+  "positives": [
+    { "input": "Use key sk_live_abcd1234abcd1234 for payment", "expected_classes": ["api_key"] },
+    { "input": "token=supersecretvalue123456", "expected_classes": ["secret_token"] },
+    { "input": "Reach me at john@example.com", "expected_classes": ["email"] },
+    { "input": "Call me at (415) 555-1212", "expected_classes": ["phone"] },
+    { "input": "SSN 123-45-6789", "expected_classes": ["ssn"] },
+    { "input": "Card 4242 4242 4242 4242", "expected_classes": ["card_pan"] },
+    { "input": "backup key sk_test_abcdefghijklmnop", "expected_classes": ["api_key"] },
+    { "input": "access token: abcdefghijklmnop123456", "expected_classes": ["secret_token"] },
+    { "input": "billing email jane.doe+ops@company.org", "expected_classes": ["email"] },
+    { "input": "customer phone +1 212-555-9898", "expected_classes": ["phone"] }
+  ],
+  "adversarial_positives": [
+    { "input": "copy sk\u200D_live_abcd1234abcd1234 now", "expected_classes": ["api_key"] },
+    { "input": "token:\u200Babc1234567890abcdef", "expected_classes": ["secret_token"] },
+    { "input": "my key is ｓｋ＿ｌｉｖｅ＿abcd1234abcd1234", "expected_classes": ["api_key"] },
+    { "input": "panic if secret = abcd1234abcd5678", "expected_classes": ["secret_token"] },
+    { "input": "reach jane+ops@bücher.example", "expected_classes": ["email"] },
+    { "input": "card candidate 4242-4242-4242-4242", "expected_classes": ["card_pan"] }
+  ],
+  "adversarial_negatives": [
+    { "input": "tracking number ZX-443-991" },
+    { "input": "order id INV-2026-001" },
+    { "input": "shipment code 11-22-33" },
+    { "input": "meeting at noon tomorrow" },
+    { "input": "status green and all checks passed" },
+    { "input": "build hash deadbeefcafebabe" },
+    { "input": "device serial AA-BB-CC-DD" },
+    { "input": "temperature is 72 degrees" },
+    { "input": "port 8080 is open" },
+    { "input": "invoice ref ORD-XY-7788" },
+    { "input": "notes: rotate logs weekly" },
+    { "input": "ticket TCK-55431 resolved" },
+    { "input": "service uptime 99 percent" },
+    { "input": "cache key prefix users:v1" },
+    { "input": "retry count equals 3" },
+    { "input": "product sku ABC-123-XYZ" },
+    { "input": "window title: Dashboard" },
+    { "input": "local path /tmp/build/out" },
+    { "input": "cluster node id node-17" },
+    { "input": "runbook section four" }
+  ],
+  "adversarial_evasion_negatives": [
+    { "input": "cache key prefix users:v1" },
+    { "input": "order id ORD-0001-ALPHA" },
+    { "input": "tracking code TRK-991-AB" },
+    { "input": "invoice ref INV-2026-4451" },
+    { "input": "device token bucket = 32" },
+    { "input": "build secret sauce ratio 3:1" },
+    { "input": "phone extension ext-2048 only" },
+    { "input": "api keyspace utilization 72%" },
+    { "input": "render key frame at t=12" },
+    { "input": "checkout url /v1/cart/preview" }
+  ],
+  "cim_ambiguous_cases": [
+    "tracking 4242 4242 4242 4242",
+    "invoice 5555 5555 5555 4444"
+  ]
+}

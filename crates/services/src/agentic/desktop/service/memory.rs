@@ -158,9 +158,22 @@ async fn extract_facts(service: &DesktopAgentService, text: &str) -> Vec<Semanti
 
     let model_hash = [0u8; 32];
 
+    let airlocked_prompt = match service
+        .prepare_cloud_inference_input(
+            None,
+            "desktop_agent",
+            "model_hash:0000000000000000000000000000000000000000000000000000000000000000",
+            prompt.as_bytes(),
+        )
+        .await
+    {
+        Ok(v) => v,
+        Err(_) => return vec![],
+    };
+
     match service
         .reasoning_inference
-        .execute_inference(model_hash, prompt.as_bytes(), options)
+        .execute_inference(model_hash, &airlocked_prompt, options)
         .await
     {
         Ok(bytes) => {
@@ -371,7 +384,18 @@ pub async fn inspect_frame(
 
             let out_bytes = service
                 .fast_inference
-                .execute_inference([0u8; 32], &input_bytes, options)
+                .execute_inference(
+                    [0u8; 32],
+                    &service
+                        .prepare_cloud_inference_input(
+                            None,
+                            "desktop_agent",
+                            "model_hash:0000000000000000000000000000000000000000000000000000000000000000",
+                            &input_bytes,
+                        )
+                        .await?,
+                    options,
+                )
                 .await
                 .map_err(|e| TransactionError::Invalid(format!("Captioning failed: {}", e)))?;
 

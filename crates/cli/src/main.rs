@@ -71,6 +71,9 @@ enum Commands {
     /// Policy management tools.
     Policy(policy::PolicyArgs),
 
+    /// PII review tools.
+    Pii(pii::PiiArgs),
+
     /// [NEW] Ghost Mode Tools
     Ghost {
         #[clap(subcommand)]
@@ -119,6 +122,9 @@ async fn main() -> Result<()> {
 
         // --- Policy ---
         Commands::Policy(args) => policy::run(args).await,
+
+        // --- PII ---
+        Commands::Pii(args) => pii::run(args).await,
 
         // --- Ghost ---
         Commands::Ghost { command } => ghost::run(command).await,

@@ -1,5 +1,6 @@
 // Path: crates/types/src/app/agentic/tools.rs
 
+use crate::app::agentic::security::PiiTarget;
 use crate::app::ActionTarget;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -11,6 +12,41 @@ pub struct CommerceItem {
     pub id: String,
     /// Quantity.
     pub quantity: u32,
+}
+
+/// Mutable text slot identifiers for deterministic PII egress enforcement.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum PiiEgressField {
+    /// Clipboard payload for `os__copy`.
+    OsCopyContent,
+    /// Destination URL for `browser__navigate`.
+    BrowserNavigateUrl,
+    /// Free-form text payload for `browser__type`.
+    BrowserTypeText,
+    /// Buyer email field in `commerce__checkout`.
+    CommerceBuyerEmail,
+    /// Merchant URL field in `commerce__checkout`.
+    CommerceMerchantUrl,
+}
+
+/// Risk surface for tool-level PII egress specs.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum PiiEgressRiskSurface {
+    /// Content is leaving local processing boundaries.
+    Egress,
+}
+
+/// Deterministic PII egress specification for an agent tool field.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PiiEgressSpec {
+    /// Which mutable field is covered by this spec.
+    pub field: PiiEgressField,
+    /// Canonical target identity bound into routing material.
+    pub target: PiiTarget,
+    /// Whether deterministic transform is allowed on this path.
+    pub supports_transform: bool,
+    /// Risk-surface classification for this field.
+    pub risk_surface: PiiEgressRiskSurface,
 }
 
 /// Actions available via the Computer meta-tool.
@@ -574,11 +610,112 @@ impl AgentTool {
             }
         }
     }
+
+    /// Returns deterministic egress specs for all text fields that can cross trust boundaries.
+    pub fn pii_egress_specs(&self) -> Vec<PiiEgressSpec> {
+        match self {
+            AgentTool::OsCopy { .. } => vec![PiiEgressSpec {
+                field: PiiEgressField::OsCopyContent,
+                target: PiiTarget::Action(ActionTarget::ClipboardWrite),
+                supports_transform: true,
+                risk_surface: PiiEgressRiskSurface::Egress,
+            }],
+            AgentTool::BrowserNavigate { .. } => vec![PiiEgressSpec {
+                field: PiiEgressField::BrowserNavigateUrl,
+                target: PiiTarget::Action(ActionTarget::BrowserNavigateHermetic),
+                supports_transform: false,
+                risk_surface: PiiEgressRiskSurface::Egress,
+            }],
+            AgentTool::BrowserType { .. } => vec![PiiEgressSpec {
+                field: PiiEgressField::BrowserTypeText,
+                target: PiiTarget::Action(ActionTarget::Custom("browser__type".to_string())),
+                supports_transform: true,
+                risk_surface: PiiEgressRiskSurface::Egress,
+            }],
+            AgentTool::CommerceCheckout { .. } => vec![
+                PiiEgressSpec {
+                    field: PiiEgressField::CommerceBuyerEmail,
+                    target: PiiTarget::Action(ActionTarget::CommerceCheckout),
+                    supports_transform: true,
+                    risk_surface: PiiEgressRiskSurface::Egress,
+                },
+                PiiEgressSpec {
+                    field: PiiEgressField::CommerceMerchantUrl,
+                    target: PiiTarget::Action(ActionTarget::CommerceCheckout),
+                    supports_transform: false,
+                    risk_surface: PiiEgressRiskSurface::Egress,
+                },
+            ],
+            _ => vec![],
+        }
+    }
+
+    /// Resolves a mutable reference to the requested egress text field.
+    pub fn pii_egress_field_mut(&mut self, field: PiiEgressField) -> Option<&mut String> {
+        match (self, field) {
+            (AgentTool::OsCopy { content }, PiiEgressField::OsCopyContent) => Some(content),
+            (AgentTool::BrowserNavigate { url }, PiiEgressField::BrowserNavigateUrl) => Some(url),
+            (AgentTool::BrowserType { text, .. }, PiiEgressField::BrowserTypeText) => Some(text),
+            (
+                AgentTool::CommerceCheckout { buyer_email, .. },
+                PiiEgressField::CommerceBuyerEmail,
+            ) => buyer_email.as_mut(),
+            (
+                AgentTool::CommerceCheckout { merchant_url, .. },
+                PiiEgressField::CommerceMerchantUrl,
+            ) => Some(merchant_url),
+            _ => None,
+        }
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn is_expected_egress_tool_exhaustive(tool: &AgentTool) -> bool {
+        match tool {
+            AgentTool::OsCopy { .. }
+            | AgentTool::BrowserNavigate { .. }
+            | AgentTool::BrowserType { .. }
+            | AgentTool::CommerceCheckout { .. } => true,
+
+            AgentTool::Computer(_)
+            | AgentTool::FsWrite { .. }
+            | AgentTool::FsPatch { .. }
+            | AgentTool::FsRead { .. }
+            | AgentTool::FsList { .. }
+            | AgentTool::FsSearch { .. }
+            | AgentTool::FsMove { .. }
+            | AgentTool::FsCopy { .. }
+            | AgentTool::FsDelete { .. }
+            | AgentTool::FsCreateDirectory { .. }
+            | AgentTool::SysExec { .. }
+            | AgentTool::SysInstallPackage { .. }
+            | AgentTool::SysChangeDir { .. }
+            | AgentTool::BrowserExtract {}
+            | AgentTool::BrowserClick { .. }
+            | AgentTool::BrowserClickElement { .. }
+            | AgentTool::BrowserSyntheticClick { .. }
+            | AgentTool::BrowserScroll { .. }
+            | AgentTool::BrowserKey { .. }
+            | AgentTool::GuiClick { .. }
+            | AgentTool::GuiType { .. }
+            | AgentTool::GuiScroll { .. }
+            | AgentTool::GuiClickElement { .. }
+            | AgentTool::UiFind { .. }
+            | AgentTool::OsFocusWindow { .. }
+            | AgentTool::OsPaste {}
+            | AgentTool::OsLaunchApp { .. }
+            | AgentTool::ChatReply { .. }
+            | AgentTool::AgentDelegate { .. }
+            | AgentTool::AgentAwait { .. }
+            | AgentTool::AgentPause { .. }
+            | AgentTool::AgentComplete { .. }
+            | AgentTool::SystemFail { .. }
+            | AgentTool::Dynamic(_) => false,
+        }
+    }
 
     #[test]
     fn browser_navigate_target_maps_to_hermetic_scope() {
@@ -694,5 +831,117 @@ mod tests {
             key: "Enter".to_string(),
         };
         assert_eq!(tool.target(), ActionTarget::Custom("browser__key".into()));
+    }
+
+    #[test]
+    fn pii_egress_specs_cover_known_egress_tools() {
+        assert!(is_expected_egress_tool_exhaustive(&AgentTool::OsCopy {
+            content: "secret".to_string()
+        }));
+        assert!(is_expected_egress_tool_exhaustive(
+            &AgentTool::BrowserNavigate {
+                url: "https://example.com".to_string()
+            }
+        ));
+        assert!(is_expected_egress_tool_exhaustive(
+            &AgentTool::BrowserType {
+                text: "hello".to_string(),
+                selector: None,
+            }
+        ));
+        assert!(is_expected_egress_tool_exhaustive(
+            &AgentTool::CommerceCheckout {
+                merchant_url: "https://merchant.example".to_string(),
+                items: vec![],
+                total_amount: 1.0,
+                currency: "USD".to_string(),
+                buyer_email: Some("buyer@example.com".to_string()),
+            }
+        ));
+        assert!(!is_expected_egress_tool_exhaustive(&AgentTool::ChatReply {
+            message: "ok".to_string(),
+        }));
+
+        let os_copy_specs = AgentTool::OsCopy {
+            content: "secret".to_string(),
+        }
+        .pii_egress_specs();
+        assert_eq!(os_copy_specs.len(), 1);
+        assert_eq!(os_copy_specs[0].field, PiiEgressField::OsCopyContent);
+        assert!(os_copy_specs[0].supports_transform);
+        assert_eq!(
+            os_copy_specs[0].target,
+            PiiTarget::Action(ActionTarget::ClipboardWrite)
+        );
+
+        let nav_specs = AgentTool::BrowserNavigate {
+            url: "https://example.com".to_string(),
+        }
+        .pii_egress_specs();
+        assert_eq!(nav_specs.len(), 1);
+        assert_eq!(nav_specs[0].field, PiiEgressField::BrowserNavigateUrl);
+        assert!(!nav_specs[0].supports_transform);
+        assert_eq!(
+            nav_specs[0].target,
+            PiiTarget::Action(ActionTarget::BrowserNavigateHermetic)
+        );
+
+        let browser_type_specs = AgentTool::BrowserType {
+            text: "hello".to_string(),
+            selector: None,
+        }
+        .pii_egress_specs();
+        assert_eq!(browser_type_specs.len(), 1);
+        assert_eq!(browser_type_specs[0].field, PiiEgressField::BrowserTypeText);
+        assert!(browser_type_specs[0].supports_transform);
+
+        let checkout_specs = AgentTool::CommerceCheckout {
+            merchant_url: "https://merchant.example".to_string(),
+            items: vec![],
+            total_amount: 1.0,
+            currency: "USD".to_string(),
+            buyer_email: Some("buyer@example.com".to_string()),
+        }
+        .pii_egress_specs();
+        assert_eq!(checkout_specs.len(), 2);
+        assert!(checkout_specs
+            .iter()
+            .any(|s| { s.field == PiiEgressField::CommerceBuyerEmail && s.supports_transform }));
+        assert!(checkout_specs
+            .iter()
+            .any(|s| { s.field == PiiEgressField::CommerceMerchantUrl && !s.supports_transform }));
+    }
+
+    #[test]
+    fn pii_egress_field_mut_maps_to_expected_text_slots() {
+        let mut tool = AgentTool::CommerceCheckout {
+            merchant_url: "https://merchant.example".to_string(),
+            items: vec![],
+            total_amount: 1.0,
+            currency: "USD".to_string(),
+            buyer_email: Some("buyer@example.com".to_string()),
+        };
+
+        let merchant = tool
+            .pii_egress_field_mut(PiiEgressField::CommerceMerchantUrl)
+            .expect("merchant url");
+        *merchant = "https://clean.example".to_string();
+
+        let buyer = tool
+            .pii_egress_field_mut(PiiEgressField::CommerceBuyerEmail)
+            .expect("buyer email");
+        *buyer = "clean@example.com".to_string();
+
+        match tool {
+            AgentTool::CommerceCheckout {
+                merchant_url,
+                buyer_email,
+                ..
+            } => {
+                assert_eq!(merchant_url, "https://clean.example");
+                assert_eq!(buyer_email.as_deref(), Some("clean@example.com"));
+            }
+            _ => panic!("unexpected tool variant"),
+        }
     }
 }

@@ -15,6 +15,21 @@ pub const INCIDENT_PREFIX: &[u8] = b"agent::incident::";
 // Key: session::result::{child_session_id}
 pub const SESSION_RESULT_PREFIX: &[u8] = b"session::result::";
 
+pub mod pii {
+    pub mod review {
+        pub const REQUEST_PREFIX: &[u8] = b"pii::review::request::";
+        pub const EXCEPTION_USAGE_PREFIX: &[u8] = b"pii::review::exception_usage::";
+
+        pub fn request(decision_hash: &[u8; 32]) -> Vec<u8> {
+            [REQUEST_PREFIX, decision_hash.as_slice()].concat()
+        }
+
+        pub fn exception_usage(exception_id: &str) -> Vec<u8> {
+            [EXCEPTION_USAGE_PREFIX, exception_id.as_bytes()].concat()
+        }
+    }
+}
+
 pub fn get_state_key(session_id: &[u8; 32]) -> Vec<u8> {
     [AGENT_STATE_PREFIX, session_id.as_slice()].concat()
 }

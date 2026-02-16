@@ -1,6 +1,9 @@
 // Path: crates/types/src/app/events.rs
 
-use crate::app::agentic::StepTrace;
+use crate::app::agentic::{
+    FirewallDecision, IntentCandidateScore, IntentConfidenceBand, IntentScopeProfile,
+    PiiDecisionMaterial, PiiReviewSummary, PiiTarget, StepTrace,
+};
 use parity_scale_codec::{Decode, Encode};
 use serde::{Deserialize, Serialize};
 
@@ -124,6 +127,87 @@ pub struct RoutingReceiptEvent {
     pub policy_binding_signer: Option<String>,
 }
 
+/// PII decision receipt emitted by the local-only PII firewall pipeline.
+#[derive(Clone, Debug, Serialize, Deserialize, Encode, Decode, PartialEq, Eq)]
+pub struct PiiDecisionReceiptEvent {
+    /// Session this decision belongs to (if available).
+    pub session_id: Option<[u8; 32]>,
+    /// Action target being evaluated.
+    pub target: String,
+    /// Optional typed action target for deterministic tooling/debug.
+    #[serde(default)]
+    pub target_id: Option<PiiTarget>,
+    /// Risk surface ("local_processing" or "egress").
+    pub risk_surface: String,
+    /// Deterministic decision hash.
+    pub decision_hash: [u8; 32],
+    /// Final decision selected by the router.
+    #[serde(default)]
+    pub decision: FirewallDecision,
+    /// Optional chosen transform plan identifier.
+    #[serde(default)]
+    pub transform_plan_id: Option<String>,
+    /// Number of evidence spans considered during routing.
+    #[serde(default)]
+    pub span_count: u32,
+    /// Whether ambiguity remained after deterministic refinement.
+    #[serde(default)]
+    pub ambiguous: bool,
+    /// Optional stage2 decision kind.
+    #[serde(default)]
+    pub stage2_kind: Option<String>,
+    /// Whether an assist provider was invoked.
+    #[serde(default)]
+    pub assist_invoked: bool,
+    /// Whether the assist output graph differs from the input graph.
+    #[serde(default)]
+    pub assist_applied: bool,
+    /// Deterministic assist provider kind.
+    #[serde(default)]
+    pub assist_kind: String,
+    /// Deterministic assist provider version.
+    #[serde(default)]
+    pub assist_version: String,
+    /// Hash commitment to assist identity/config.
+    #[serde(default)]
+    pub assist_identity_hash: [u8; 32],
+    /// Hash of assist input EvidenceGraph SCALE bytes.
+    #[serde(default)]
+    pub assist_input_graph_hash: [u8; 32],
+    /// Hash of assist output EvidenceGraph SCALE bytes.
+    #[serde(default)]
+    pub assist_output_graph_hash: [u8; 32],
+}
+
+/// Intent resolution receipt emitted by the global step/action intent router.
+#[derive(Clone, Debug, Serialize, Deserialize, Encode, Decode, PartialEq)]
+pub struct IntentResolutionReceiptEvent {
+    /// Session this resolution belongs to.
+    pub session_id: Option<[u8; 32]>,
+    /// Canonical winning intent id.
+    pub intent_id: String,
+    /// Ontological scope selected for this step.
+    pub scope: IntentScopeProfile,
+    /// Confidence band used for downstream policy.
+    pub band: IntentConfidenceBand,
+    /// Winning confidence score in [0.0, 1.0].
+    pub score: f32,
+    /// Ranked top-k candidates for diagnostics.
+    #[serde(default)]
+    pub top_k: Vec<IntentCandidateScore>,
+    /// Preferred tier selected from the matrix profile.
+    pub preferred_tier: String,
+    /// Matrix version used for this decision.
+    pub matrix_version: String,
+    /// Hash commitment to the active matrix source.
+    pub matrix_source_hash: [u8; 32],
+    /// Deterministic receipt hash over resolution material.
+    pub receipt_hash: [u8; 32],
+    /// True when routing was constrained by ambiguity policy.
+    #[serde(default)]
+    pub constrained: bool,
+}
+
 /// A unified event type representing observable state changes within the Kernel.
 /// These events are streamed to the UI (Autopilot) to provide visual feedback
 /// and "Visual Sovereignty".
@@ -234,4 +318,56 @@ pub enum KernelEvent {
         /// The status message or value.
         status: String,
     },
+
+    /// Receipt emitted when the PII firewall pipeline reaches a deterministic decision.
+    PiiDecisionReceipt(PiiDecisionReceiptEvent),
+
+    /// Canonical review request emitted when PII flow requires approval.
+    PiiReviewRequested {
+        /// Deterministic decision hash key.
+        decision_hash: [u8; 32],
+        /// Canonical deterministic decision material.
+        material: PiiDecisionMaterial,
+        /// Human-readable summary for review UI.
+        summary: PiiReviewSummary,
+        /// Governance deadline in milliseconds since UNIX epoch.
+        deadline_ms: u64,
+        /// Session this request belongs to when available.
+        session_id: Option<[u8; 32]>,
+    },
+
+    /// Receipt emitted when the global intent resolver classifies a step/action.
+    IntentResolutionReceipt(IntentResolutionReceiptEvent),
+}
+
+#[cfg(test)]
+mod tests {
+    use super::PiiDecisionReceiptEvent;
+
+    #[test]
+    fn pii_decision_receipt_event_back_compat_defaults() {
+        let legacy_json = r#"{
+            "session_id": null,
+            "target": "clipboard::write",
+            "target_id": null,
+            "risk_surface": "egress",
+            "decision_hash": [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+            "decision": "allow",
+            "transform_plan_id": null,
+            "span_count": 0,
+            "ambiguous": false,
+            "stage2_kind": null
+        }"#;
+
+        let parsed: PiiDecisionReceiptEvent =
+            serde_json::from_str(legacy_json).expect("legacy pii receipt event");
+        assert!(!parsed.assist_invoked);
+        assert!(!parsed.assist_applied);
+        assert_eq!(parsed.assist_kind, "");
+        assert_eq!(parsed.assist_version, "");
+        assert_eq!(parsed.assist_identity_hash, [0u8; 32]);
+        assert_eq!(parsed.assist_input_graph_hash, [0u8; 32]);
+        assert_eq!(parsed.assist_output_graph_hash, [0u8; 32]);
+        assert!(parsed.target_id.is_none());
+    }
 }

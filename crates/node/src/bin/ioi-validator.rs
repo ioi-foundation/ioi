@@ -45,7 +45,7 @@ use ioi_state::tree::iavl::IAVLTree;
 
 use ioi_api::vm::inference::{InferenceRuntime, LocalSafetyModel};
 use ioi_drivers::os::NativeOsDriver;
-use ioi_services::agentic::scrub_adapter::RuntimeAsSafetyModel;
+use ioi_services::agentic::pii_adapter::RuntimeAsPiiModel;
 
 #[derive(Parser, Debug)]
 #[clap(name = "ioi-validator", about = "IOI Consensus Validator (Type A)")]
@@ -169,7 +169,7 @@ async fn main() -> Result<()> {
     let os_driver = Arc::new(NativeOsDriver::new());
     // Mock inference for safety checks (Validator doesn't need heavy models)
     let inference_runtime = Arc::new(ioi_api::vm::inference::mock::MockInferenceRuntime);
-    let safety_model = Arc::new(RuntimeAsSafetyModel::new(inference_runtime.clone()));
+    let safety_model = Arc::new(RuntimeAsPiiModel::new(inference_runtime.clone()));
 
     // 5. Setup Workload
     let (workload_container, machine) = setup_workload(

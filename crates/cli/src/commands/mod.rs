@@ -7,6 +7,7 @@ pub mod ghost;
 pub mod init;
 pub mod keys;
 pub mod node;
+pub mod pii;
 pub mod policy;
 pub mod query;
 pub mod scaffold;

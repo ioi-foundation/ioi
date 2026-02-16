@@ -1,0 +1,18 @@
+# Path: crates/pii/Cargo.toml
+[package]
+name = "ioi-pii"
+version = "0.1.0"
+edition = "2021"
+description = "Deterministic PII routing, transform, and shared scrubber core"
+license-file = "../../LICENSE-BBSL"
+repository = "https://github.com/ioi-foundation/ioi"
+
+[dependencies]
+ioi-types = { path = "../types" }
+anyhow = { workspace = true }
+hex = { workspace = true }
+parity-scale-codec = { workspace = true, features = ["std"] }
+dcrypt = { workspace = true }
+
+[features]
+default = []

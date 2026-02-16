@@ -1,7 +1,7 @@
 // Path: crates/api/src/vm/inference/mod.rs
 
 use async_trait::async_trait;
-use ioi_types::app::agentic::InferenceOptions;
+use ioi_types::app::agentic::{EvidenceGraph, InferenceOptions};
 use ioi_types::error::VmError;
 use std::path::Path;
 use tokio::sync::mpsc::Sender;
@@ -73,6 +73,26 @@ pub enum SafetyVerdict {
     ContainsPII,
 }
 
+/// The risk surface being evaluated by the local PII firewall.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum PiiRiskSurface {
+    /// Content remains on-device and does not cross trust boundaries.
+    LocalProcessing,
+    /// Content may leave the device (network egress, clipboard, external sink).
+    Egress,
+}
+
+/// Structured result of a local-only PII inspection pass.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PiiInspection {
+    /// Deterministic evidence produced by Stage A/C.
+    pub evidence: EvidenceGraph,
+    /// Indicates unresolved ambiguity after local routing/refinement.
+    pub ambiguous: bool,
+    /// Optional stage status string for review/event logging.
+    pub stage2_status: Option<String>,
+}
+
 /// Abstract interface for the local CPU-based inference engine (BitNet b1.58).
 /// This engine is optimized for low-latency classification and scrubbing.
 #[async_trait]
@@ -83,6 +103,13 @@ pub trait LocalSafetyModel: Send + Sync {
     /// Identifies spans of text that contain PII or secrets.
     /// Returns a list of (start_index, end_index, category).
     async fn detect_pii(&self, input: &str) -> anyhow::Result<Vec<(usize, usize, String)>>;
+
+    /// Runs local-only PII inspection and returns structured evidence for ontology routing.
+    async fn inspect_pii(
+        &self,
+        input: &str,
+        risk_surface: PiiRiskSurface,
+    ) -> anyhow::Result<PiiInspection>;
 }
 
 // [NEW] Strategy Pattern for Provider Logic (Internal to `api` crate but used in `http_adapter`)

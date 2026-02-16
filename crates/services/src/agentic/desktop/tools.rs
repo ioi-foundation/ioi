@@ -1,12 +1,13 @@
 // Path: crates/services/src/agentic/desktop/tools.rs
 
 use crate::agentic::desktop::keys::get_skill_stats_key;
+use crate::agentic::desktop::service::step::intent_resolver::is_tool_allowed_for_resolution;
 use crate::agentic::desktop::types::ExecutionTier;
 use ioi_api::state::StateAccess;
 use ioi_api::vm::inference::InferenceRuntime;
 use ioi_scs::{FrameType, SovereignContextStore};
 use ioi_types::app::agentic::AgentMacro;
-use ioi_types::app::agentic::{LlmToolDefinition, SkillStats};
+use ioi_types::app::agentic::{LlmToolDefinition, ResolvedIntentState, SkillStats};
 use ioi_types::codec;
 use ioi_types::keys::UPGRADE_ACTIVE_SERVICE_PREFIX;
 use ioi_types::service_configs::ActiveServiceMeta;
@@ -14,8 +15,11 @@ use regex::Regex;
 use serde_json::json;
 use std::sync::Arc;
 
-fn should_expose_headless_browser_followups(tier: ExecutionTier, is_browser_active: bool) -> bool {
-    is_browser_active || tier == ExecutionTier::DomHeadless
+fn should_expose_headless_browser_followups(
+    tier: ExecutionTier,
+    browser_tools_allowed: bool,
+) -> bool {
+    browser_tools_allowed && tier == ExecutionTier::DomHeadless
 }
 
 /// Discovers tools available to the agent.
@@ -26,6 +30,7 @@ pub async fn discover_tools(
     runtime: Arc<dyn InferenceRuntime>,
     tier: ExecutionTier,
     active_window_title: &str,
+    resolved_intent: Option<&ResolvedIntentState>,
 ) -> Vec<LlmToolDefinition> {
     let mut tools = Vec::new();
 
@@ -36,6 +41,8 @@ pub async fn discover_tools(
         || t.contains("brave")
         || t.contains("edge")
         || t.contains("safari");
+    let allow_browser_navigation =
+        is_tool_allowed_for_resolution(resolved_intent, "browser__navigate");
 
     // 2. Dynamic Service Tools (On-Chain Services)
     if let Ok(iter) = state.prefix_scan(UPGRADE_ACTIVE_SERVICE_PREFIX) {
@@ -93,23 +100,25 @@ pub async fn discover_tools(
 
     // 3. Native Capabilities
 
-    // Browser Navigation (ALWAYS AVAILABLE)
-    // This allows the agent to open a browser from the Desktop/Terminal context.
-    let nav_params = json!({
-        "type": "object",
-        "properties": {
-            "url": {
-                "type": "string",
-                "description": "The URL to navigate to (must start with http/https)."
-            }
-        },
-        "required": ["url"]
-    });
-    tools.push(LlmToolDefinition {
-        name: "browser__navigate".to_string(),
-        description: "Navigates the agent's dedicated secure browser to a URL. To interact with your running applications, use os__focus_window and visual tools.".to_string(),
-        parameters: nav_params.to_string(),
-    });
+    // Browser Navigation (intent-gated)
+    // Avoid exposing browser actions for pure text tasks (e.g. summarize/draft/reply).
+    if allow_browser_navigation {
+        let nav_params = json!({
+            "type": "object",
+            "properties": {
+                "url": {
+                    "type": "string",
+                    "description": "The URL to navigate to (must start with http/https)."
+                }
+            },
+            "required": ["url"]
+        });
+        tools.push(LlmToolDefinition {
+            name: "browser__navigate".to_string(),
+            description: "Navigates the agent's dedicated secure browser to a URL. To interact with your running applications, use os__focus_window and visual tools.".to_string(),
+            parameters: nav_params.to_string(),
+        });
+    }
 
     // [MOVED] App Launching (Global Capability)
     // We expose this in all tiers to allow the agent to open applications (like Calculator) immediately.
@@ -188,7 +197,10 @@ pub async fn discover_tools(
     // Browser Interaction (CONDITIONAL)
     // Follow-up browser tools are exposed for active browser windows and DomHeadless
     // to prevent navigate-only loops in hermetic search flows.
-    if is_browser_active && tier == ExecutionTier::VisualBackground {
+    if is_browser_active
+        && tier == ExecutionTier::VisualBackground
+        && is_tool_allowed_for_resolution(resolved_intent, "browser__synthetic_click")
+    {
         let synthetic_click_params = json!({
             "type": "object",
             "properties": {
@@ -205,87 +217,103 @@ pub async fn discover_tools(
         });
     }
 
-    if should_expose_headless_browser_followups(tier, is_browser_active) {
-        let browser_scroll_params = json!({
-            "type": "object",
-            "properties": {
-                "delta_y": { "type": "integer", "description": "Vertical scroll amount. Positive = Down." },
-                "delta_x": { "type": "integer", "description": "Horizontal scroll amount. Positive = Right." }
-            }
-        });
-        tools.push(LlmToolDefinition {
-            name: "browser__scroll".to_string(),
-            description: "Scroll the browser page via CDP. Works in headless mode.".to_string(),
-            parameters: browser_scroll_params.to_string(),
-        });
-
-        let browser_type_params = json!({
-            "type": "object",
-            "properties": {
-                "text": { "type": "string", "description": "Text to type." },
-                "selector": { "type": "string", "description": "Optional CSS selector to focus before typing." }
-            },
-            "required": ["text"]
-        });
-        tools.push(LlmToolDefinition {
-            name: "browser__type".to_string(),
-            description: "Type text into the browser via CDP. Works in headless mode.".to_string(),
-            parameters: browser_type_params.to_string(),
-        });
-
-        let browser_key_params = json!({
-            "type": "object",
-            "properties": {
-                "key": { "type": "string", "description": "Key to press (for example: 'Enter', 'Tab', 'Backspace', 'ArrowDown')." }
-            },
-            "required": ["key"]
-        });
-        tools.push(LlmToolDefinition {
-            name: "browser__key".to_string(),
-            description: "Press a keyboard key in the browser via CDP. Works in headless mode."
-                .to_string(),
-            parameters: browser_key_params.to_string(),
-        });
-
-        let extract_params = json!({
-            "type": "object",
-            "properties": {},
-            "required": []
-        });
-        tools.push(LlmToolDefinition {
-            name: "browser__extract".to_string(),
-            description: "Extract the current browser accessibility tree as semantic XML with stable element IDs.".to_string(),
-            parameters: extract_params.to_string(),
-        });
-
-        let click_id_params = json!({
-            "type": "object",
-            "properties": {
-                "id": {
-                    "type": "string",
-                    "description": "Semantic element ID from browser__extract output (e.g. 'btn_sign_in')."
+    if should_expose_headless_browser_followups(
+        tier,
+        allow_browser_navigation,
+    ) {
+        if is_tool_allowed_for_resolution(resolved_intent, "browser__scroll") {
+            let browser_scroll_params = json!({
+                "type": "object",
+                "properties": {
+                    "delta_y": { "type": "integer", "description": "Vertical scroll amount. Positive = Down." },
+                    "delta_x": { "type": "integer", "description": "Horizontal scroll amount. Positive = Right." }
                 }
-            },
-            "required": ["id"]
-        });
-        tools.push(LlmToolDefinition {
-            name: "browser__click_element".to_string(),
-            description: "Click a page element by semantic ID from browser__extract. Preferred over CSS selectors in headless mode.".to_string(),
-            parameters: click_id_params.to_string(),
-        });
+            });
+            tools.push(LlmToolDefinition {
+                name: "browser__scroll".to_string(),
+                description: "Scroll the browser page via CDP. Works in headless mode.".to_string(),
+                parameters: browser_scroll_params.to_string(),
+            });
+        }
 
-        let click_selector_params = json!({
-            "type": "object",
-            "properties": {
-                "selector": { "type": "string", "description": "CSS selector to click (e.g. '#login-button')" }
-            },
-            "required": ["selector"]
-        });
-        tools.push(LlmToolDefinition {
-            name: "browser__click".to_string(),
-            description: "Click/focus a page element via CSS selector with built-in precondition checks and keyboard fallback for search inputs.".to_string(),
-            parameters: click_selector_params.to_string(),
-        });
+        if is_tool_allowed_for_resolution(resolved_intent, "browser__type") {
+            let browser_type_params = json!({
+                "type": "object",
+                "properties": {
+                    "text": { "type": "string", "description": "Text to type." },
+                    "selector": { "type": "string", "description": "Optional CSS selector to focus before typing." }
+                },
+                "required": ["text"]
+            });
+            tools.push(LlmToolDefinition {
+                name: "browser__type".to_string(),
+                description: "Type text into the browser via CDP. Works in headless mode."
+                    .to_string(),
+                parameters: browser_type_params.to_string(),
+            });
+        }
+
+        if is_tool_allowed_for_resolution(resolved_intent, "browser__key") {
+            let browser_key_params = json!({
+                "type": "object",
+                "properties": {
+                    "key": { "type": "string", "description": "Key to press (for example: 'Enter', 'Tab', 'Backspace', 'ArrowDown')." }
+                },
+                "required": ["key"]
+            });
+            tools.push(LlmToolDefinition {
+                name: "browser__key".to_string(),
+                description: "Press a keyboard key in the browser via CDP. Works in headless mode."
+                    .to_string(),
+                parameters: browser_key_params.to_string(),
+            });
+        }
+
+        if is_tool_allowed_for_resolution(resolved_intent, "browser__extract") {
+            let extract_params = json!({
+                "type": "object",
+                "properties": {},
+                "required": []
+            });
+            tools.push(LlmToolDefinition {
+                name: "browser__extract".to_string(),
+                description: "Extract the current browser accessibility tree as semantic XML with stable element IDs.".to_string(),
+                parameters: extract_params.to_string(),
+            });
+        }
+
+        if is_tool_allowed_for_resolution(resolved_intent, "browser__click_element") {
+            let click_id_params = json!({
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "string",
+                        "description": "Semantic element ID from browser__extract output (e.g. 'btn_sign_in')."
+                    }
+                },
+                "required": ["id"]
+            });
+            tools.push(LlmToolDefinition {
+                name: "browser__click_element".to_string(),
+                description: "Click a page element by semantic ID from browser__extract. Preferred over CSS selectors in headless mode.".to_string(),
+                parameters: click_id_params.to_string(),
+            });
+        }
+
+        if is_tool_allowed_for_resolution(resolved_intent, "browser__click") {
+            let click_selector_params = json!({
+                "type": "object",
+                "properties": {
+                    "selector": { "type": "string", "description": "CSS selector to click (e.g. '#login-button')" }
+                },
+                "required": ["selector"]
+            });
+            tools.push(LlmToolDefinition {
+                name: "browser__click".to_string(),
+                description: "Click/focus a page element via CSS selector with built-in precondition checks and keyboard fallback for search inputs.".to_string(),
+                parameters: click_selector_params.to_string(),
+            });
+        }
     }
 
     // [NEW] Memory Tools
@@ -896,27 +924,94 @@ pub async fn discover_tools(
         }
     }
 
+    tools.retain(|tool| is_tool_allowed_for_resolution(resolved_intent, &tool.name));
     tools
 }
 
 #[cfg(test)]
 mod tests {
-    use super::should_expose_headless_browser_followups;
+    use super::{discover_tools, should_expose_headless_browser_followups};
     use crate::agentic::desktop::types::ExecutionTier;
+    use ioi_api::vm::inference::{mock::MockInferenceRuntime, InferenceRuntime};
+    use ioi_state::primitives::hash::HashCommitmentScheme;
+    use ioi_state::tree::iavl::IAVLTree;
+    use ioi_types::app::agentic::{IntentConfidenceBand, IntentScopeProfile, ResolvedIntentState};
+    use std::sync::Arc;
+
+    fn resolved(scope: IntentScopeProfile) -> ResolvedIntentState {
+        ResolvedIntentState {
+            intent_id: format!("{scope:?}"),
+            scope,
+            band: IntentConfidenceBand::High,
+            score: 0.95,
+            top_k: vec![],
+            preferred_tier: "tool_first".to_string(),
+            matrix_version: "intent-matrix-v1".to_string(),
+            matrix_source_hash: [1u8; 32],
+            receipt_hash: [2u8; 32],
+            constrained: false,
+        }
+    }
 
     #[test]
-    fn headless_tier_exposes_browser_followups_without_browser_focus() {
-        assert!(should_expose_headless_browser_followups(
+    fn headless_tier_hides_browser_followups_when_not_allowed() {
+        assert!(!should_expose_headless_browser_followups(
             ExecutionTier::DomHeadless,
             false
         ));
     }
 
     #[test]
-    fn non_headless_without_browser_focus_hides_browser_followups() {
+    fn headless_tier_exposes_browser_followups_when_allowed() {
+        assert!(should_expose_headless_browser_followups(
+            ExecutionTier::DomHeadless,
+            true
+        ));
+    }
+
+    #[test]
+    fn non_headless_hides_followups() {
         assert!(!should_expose_headless_browser_followups(
             ExecutionTier::VisualForeground,
-            false
+            true
         ));
+    }
+
+    #[tokio::test(flavor = "current_thread")]
+    async fn conversation_scope_hides_browser_tools_in_discovery() {
+        let intent = resolved(IntentScopeProfile::Conversation);
+        let state = IAVLTree::new(HashCommitmentScheme::new());
+        let runtime: Arc<dyn InferenceRuntime> = Arc::new(MockInferenceRuntime);
+        let tools = discover_tools(
+            &state,
+            None,
+            "summarize this note",
+            runtime,
+            ExecutionTier::DomHeadless,
+            "terminal",
+            Some(&intent),
+        )
+        .await;
+        assert!(tools.iter().any(|t| t.name == "chat__reply"));
+        assert!(!tools.iter().any(|t| t.name == "browser__navigate"));
+    }
+
+    #[tokio::test(flavor = "current_thread")]
+    async fn web_research_scope_keeps_browser_tools_in_discovery() {
+        let intent = resolved(IntentScopeProfile::WebResearch);
+        let state = IAVLTree::new(HashCommitmentScheme::new());
+        let runtime: Arc<dyn InferenceRuntime> = Arc::new(MockInferenceRuntime);
+        let tools = discover_tools(
+            &state,
+            None,
+            "crawl this url and summarize key details",
+            runtime,
+            ExecutionTier::DomHeadless,
+            "terminal",
+            Some(&intent),
+        )
+        .await;
+        assert!(tools.iter().any(|t| t.name == "browser__navigate"));
+        assert!(tools.iter().any(|t| t.name == "chat__reply"));
     }
 }

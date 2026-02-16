@@ -3,7 +3,7 @@
 use super::checks::requires_visual_integrity;
 use super::evaluation::evaluate_and_crystallize;
 use crate::agentic::desktop::execution::system::is_sudo_password_required_install_error;
-use crate::agentic::desktop::keys::{get_state_key, AGENT_POLICY_PREFIX};
+use crate::agentic::desktop::keys::{get_state_key, pii, AGENT_POLICY_PREFIX};
 use crate::agentic::desktop::service::step::action::{
     canonical_intent_hash, canonical_retry_intent_hash, canonical_tool_identity,
 };
@@ -20,8 +20,8 @@ use crate::agentic::desktop::service::step::helpers::{
 };
 use crate::agentic::desktop::service::step::incident::{
     advance_incident_after_action_outcome, incident_receipt_fields, load_incident_state,
-    mark_gate_approved, mark_incident_wait_for_user, should_enter_incident_recovery,
-    start_or_continue_incident_recovery, IncidentDirective,
+    mark_gate_approved, mark_gate_denied, mark_incident_wait_for_user,
+    should_enter_incident_recovery, start_or_continue_incident_recovery, IncidentDirective,
 };
 use crate::agentic::desktop::service::step::visual::hamming_distance;
 use crate::agentic::desktop::service::DesktopAgentService;
@@ -34,7 +34,14 @@ use crate::agentic::desktop::middleware;
 
 use hex;
 use ioi_api::state::StateAccess;
-use ioi_types::app::agentic::AgentTool;
+use ioi_pii::{
+    check_exception_usage_increment_ok, decode_exception_usage_state,
+    mint_default_scoped_exception, resolve_expected_request_hash,
+    validate_resume_review_contract, verify_scoped_exception_for_decision, RiskSurface,
+    ScopedExceptionVerifyError,
+};
+use ioi_types::app::action::PiiApprovalAction;
+use ioi_types::app::agentic::{AgentTool, PiiEgressRiskSurface, PiiReviewRequest};
 use ioi_types::app::{KernelEvent, RoutingReceiptEvent};
 use ioi_types::codec;
 use ioi_types::error::TransactionError;
@@ -69,6 +76,22 @@ fn compute_context_phash(
         return cropped;
     }
     compute_phash(image_bytes).unwrap_or([0u8; 32])
+}
+
+fn parse_hash_hex(input: &str) -> Option<[u8; 32]> {
+    let bytes = hex::decode(input).ok()?;
+    if bytes.len() != 32 {
+        return None;
+    }
+    let mut out = [0u8; 32];
+    out.copy_from_slice(&bytes);
+    Some(out)
+}
+
+fn to_shared_risk_surface(risk_surface: PiiEgressRiskSurface) -> RiskSurface {
+    match risk_surface {
+        PiiEgressRiskSurface::Egress => RiskSurface::Egress,
+    }
 }
 
 fn compute_window_cropped_phash(
@@ -114,6 +137,7 @@ pub async fn resume_pending_action(
     agent_state: &mut AgentState,
     session_id: [u8; 32],
     block_height: u64,
+    block_timestamp_ns: u64,
 ) -> Result<(), TransactionError> {
     let pre_state_summary = build_state_summary(agent_state);
     let routing_decision = TierRoutingDecision {
@@ -162,15 +186,161 @@ pub async fn resume_pending_action(
         env!("CARGO_PKG_VERSION"),
     );
 
+    let policy_key = [AGENT_POLICY_PREFIX, session_id.as_slice()].concat();
+    let mut rules: ActionRules = state
+        .get(&policy_key)?
+        .and_then(|b| codec::from_bytes_canonical(&b).ok())
+        .unwrap_or_else(default_safe_policy);
+    let block_timestamp_ms = block_timestamp_ns / 1_000_000;
+    let block_timestamp_secs = block_timestamp_ns / 1_000_000_000;
+    let incident_state = load_incident_state(state, &session_id)?;
+    let pending_gate_hash = incident_state
+        .as_ref()
+        .and_then(|incident| incident.pending_gate.as_ref())
+        .and_then(|pending| parse_hash_hex(&pending.request_hash));
+    let expected_request_hash = resolve_expected_request_hash(pending_gate_hash, tool_hash);
+    let request_key = pii::review::request(&expected_request_hash);
+    let pii_request: Option<PiiReviewRequest> = state
+        .get(&request_key)?
+        .and_then(|bytes| codec::from_bytes_canonical(&bytes).ok());
+    let mut scoped_exception_override_hash: Option<[u8; 32]> = None;
+    let mut explicit_pii_deny = false;
+
     // 3. Validate approval token before executing anything.
     // Runtime secret retries for sys__install_package are allowed without approval token.
     if let Some(token) = agent_state.pending_approval.as_ref() {
-        if token.request_hash != tool_hash {
-            return Err(TransactionError::Invalid(
-                "Approval token hash mismatch".into(),
-            ));
+        validate_resume_review_contract(
+            expected_request_hash,
+            token,
+            pii_request.as_ref(),
+            block_timestamp_ms,
+        )
+        .map_err(|e| TransactionError::Invalid(e.to_string()))?;
+
+        if matches!(token.pii_action, Some(PiiApprovalAction::ApproveTransform)) {
+            rules.pii_controls.safe_transform_enabled = true;
+            verification_checks.push("pii_action=approve_transform".to_string());
         }
-        mark_gate_approved(state, session_id)?;
+
+        if matches!(
+            token.pii_action,
+            Some(PiiApprovalAction::GrantScopedException)
+        ) {
+            let mut probe_tool = tool.clone();
+            let mut verified = false;
+            for spec in probe_tool.pii_egress_specs() {
+                let Some(text) = probe_tool.pii_egress_field_mut(spec.field) else {
+                    continue;
+                };
+                let (_scrubbed, _map, _report, routed, evidence) = service
+                    .scrubber
+                    .inspect_route_transform(
+                        text,
+                        &spec.target,
+                        to_shared_risk_surface(spec.risk_surface),
+                        &rules.pii_controls,
+                        spec.supports_transform,
+                    )
+                    .await
+                    .map_err(|e| {
+                        TransactionError::Invalid(format!(
+                            "PII verification failed while consuming scoped exception: {}",
+                            e
+                        ))
+                    })?;
+
+                if routed.decision_hash != expected_request_hash {
+                    continue;
+                }
+
+                let scoped_exception = if let Some(existing) = token.scoped_exception.as_ref() {
+                    existing.clone()
+                } else {
+                    mint_default_scoped_exception(
+                        &evidence,
+                        &spec.target,
+                        to_shared_risk_surface(spec.risk_surface),
+                        expected_request_hash,
+                        block_timestamp_secs,
+                        "deterministic-default",
+                    )
+                    .map_err(|e| {
+                        TransactionError::Invalid(format!(
+                            "Failed to mint deterministic scoped exception: {}",
+                            e
+                        ))
+                    })?
+                };
+
+                let usage_key = pii::review::exception_usage(&scoped_exception.exception_id);
+                let raw_usage = state.get(&usage_key)?;
+                let uses_consumed = decode_exception_usage_state(raw_usage.as_deref())
+                    .map_err(|e| TransactionError::Invalid(e.to_string()))?;
+                verify_scoped_exception_for_decision(
+                    &scoped_exception,
+                    &evidence,
+                    &spec.target,
+                    to_shared_risk_surface(spec.risk_surface),
+                    expected_request_hash,
+                    &rules.pii_controls,
+                    block_timestamp_secs,
+                    uses_consumed,
+                )
+                .map_err(|e| {
+                    let reason = match e {
+                        ScopedExceptionVerifyError::PolicyDisabled => {
+                            "Scoped exception policy disabled"
+                        }
+                        ScopedExceptionVerifyError::MissingAllowedClasses => {
+                            "Scoped exception missing allowed classes"
+                        }
+                        ScopedExceptionVerifyError::DestinationMismatch => {
+                            "Scoped exception destination mismatch"
+                        }
+                        ScopedExceptionVerifyError::ActionMismatch => {
+                            "Scoped exception action mismatch"
+                        }
+                        ScopedExceptionVerifyError::Expired => "Scoped exception expired",
+                        ScopedExceptionVerifyError::Overused => "Scoped exception overused",
+                        ScopedExceptionVerifyError::IneligibleEvidence => {
+                            "Scoped exception not eligible for this evidence"
+                        }
+                        ScopedExceptionVerifyError::ClassMismatch => {
+                            "Scoped exception class mismatch"
+                        }
+                        ScopedExceptionVerifyError::InvalidMaxUses => {
+                            "Scoped exception max_uses invalid"
+                        }
+                    };
+                    TransactionError::Invalid(reason.to_string())
+                })?;
+
+                let next_uses = check_exception_usage_increment_ok(uses_consumed)
+                    .map_err(|e| TransactionError::Invalid(e.to_string()))?;
+                state.insert(&usage_key, &codec::to_bytes_canonical(&next_uses)?)?;
+                scoped_exception_override_hash = Some(expected_request_hash);
+                verified = true;
+                break;
+            }
+
+            if !verified {
+                return Err(TransactionError::Invalid(
+                    "Scoped exception does not match the pending PII decision".into(),
+                ));
+            }
+            verification_checks.push("pii_action=grant_scoped_exception".to_string());
+        }
+
+        if matches!(token.pii_action, Some(PiiApprovalAction::Deny)) {
+            explicit_pii_deny = true;
+            verification_checks.push("pii_action=deny".to_string());
+        } else {
+            mark_gate_approved(state, session_id)?;
+        }
+    } else if pii_request.is_some() {
+        return Err(TransactionError::Invalid(
+            "Missing approval token for review request".into(),
+        ));
     } else if !matches!(tool, AgentTool::SysInstallPackage { .. }) {
         return Err(TransactionError::Invalid("Missing approval token".into()));
     } else {
@@ -223,11 +393,49 @@ pub async fn resume_pending_action(
         }
     }
 
-    let policy_key = [AGENT_POLICY_PREFIX, session_id.as_slice()].concat();
-    let rules: ActionRules = state
-        .get(&policy_key)?
-        .and_then(|b| codec::from_bytes_canonical(&b).ok())
-        .unwrap_or_else(default_safe_policy);
+    if explicit_pii_deny {
+        mark_gate_denied(state, session_id)?;
+        let deny_error = "PII review denied by approver. Step failed closed.".to_string();
+        let key = get_state_key(&session_id);
+        goto_trace_log(
+            agent_state,
+            state,
+            &key,
+            session_id,
+            pending_vhash,
+            "[Resumed Action]".to_string(),
+            deny_error.clone(),
+            false,
+            Some(deny_error.clone()),
+            "resumed_action".to_string(),
+            service.event_sender.clone(),
+            agent_state.active_skill_hash,
+        )?;
+
+        let deny_msg = ioi_types::app::agentic::ChatMessage {
+            role: "system".to_string(),
+            content: "System: PII approval denied. Current step failed closed.".to_string(),
+            timestamp: SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap()
+                .as_millis() as u64,
+            trace_hash: None,
+        };
+        service
+            .append_chat_to_scs(session_id, &deny_msg, block_height)
+            .await?;
+
+        agent_state.pending_tool_jcs = None;
+        agent_state.pending_tool_hash = None;
+        agent_state.pending_visual_hash = None;
+        agent_state.pending_tool_call = None;
+        agent_state.pending_approval = None;
+        agent_state.status = AgentStatus::Running;
+        agent_state.step_count = agent_state.step_count.saturating_add(1);
+        agent_state.consecutive_failures = agent_state.consecutive_failures.saturating_add(1);
+        state.insert(&key, &codec::to_bytes_canonical(&agent_state)?)?;
+        return Ok(());
+    }
 
     // Focus Guard: approval UX can steal focus to Autopilot shell.
     // For resumed spatial actions, force-focus the target surface before clicking.
@@ -327,6 +535,7 @@ pub async fn resume_pending_action(
                 &rules,
                 &agent_state,
                 &os_driver,
+                scoped_exception_override_hash,
             )
             .await
         {

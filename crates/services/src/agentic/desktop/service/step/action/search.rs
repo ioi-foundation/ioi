@@ -1,21 +1,10 @@
+use ioi_types::app::agentic::{IntentScopeProfile, ResolvedIntentState};
 use url::Url;
 
-pub(super) fn is_search_intent(goal: &str) -> bool {
-    let goal_lc = goal.to_ascii_lowercase();
-    [
-        "search for",
-        "search ",
-        "look up",
-        "lookup ",
-        "find information",
-        "find online",
-        "web search",
-        "google ",
-        "duckduckgo",
-        "bing ",
-    ]
-    .iter()
-    .any(|needle| goal_lc.contains(needle))
+pub(super) fn is_search_scope(resolved_intent: Option<&ResolvedIntentState>) -> bool {
+    resolved_intent
+        .map(|resolved| resolved.scope == IntentScopeProfile::WebResearch)
+        .unwrap_or(false)
 }
 
 pub(super) fn extract_navigation_url(args: &serde_json::Value) -> Option<String> {
@@ -68,13 +57,27 @@ pub(super) fn is_search_results_url(url: &str) -> bool {
 
 #[cfg(test)]
 mod tests {
-    use super::{is_search_intent, is_search_results_url, search_query_from_url};
+    use super::{is_search_results_url, is_search_scope, search_query_from_url};
+    use ioi_types::app::agentic::{
+        IntentConfidenceBand, IntentScopeProfile, ResolvedIntentState,
+    };
 
     #[test]
-    fn detects_search_intent_keywords() {
-        assert!(is_search_intent("Search for internet of intelligence"));
-        assert!(is_search_intent("please look up rust async runtime"));
-        assert!(!is_search_intent("open calculator"));
+    fn detects_search_scope_from_resolved_intent() {
+        let state = ResolvedIntentState {
+            intent_id: "web.research".to_string(),
+            scope: IntentScopeProfile::WebResearch,
+            band: IntentConfidenceBand::High,
+            score: 0.99,
+            top_k: vec![],
+            preferred_tier: "tool_first".to_string(),
+            matrix_version: "v1".to_string(),
+            matrix_source_hash: [0u8; 32],
+            receipt_hash: [0u8; 32],
+            constrained: false,
+        };
+        assert!(is_search_scope(Some(&state)));
+        assert!(!is_search_scope(None));
     }
 
     #[test]

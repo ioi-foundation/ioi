@@ -62,6 +62,7 @@ impl PolicySynthesizer {
             policy_id: policy_id.to_string(),
             defaults: DefaultPolicy::DenyAll, // Safe by default
             ontology_policy: Default::default(),
+            pii_controls: Default::default(),
             rules,
         }
     }

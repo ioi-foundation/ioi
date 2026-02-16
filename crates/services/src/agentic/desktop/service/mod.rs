@@ -42,7 +42,7 @@ use tokio::sync::RwLock;
 
 use crate::agentic::fitness::Evaluator;
 use crate::agentic::optimizer::OptimizerService;
-use crate::agentic::scrubber::SemanticScrubber;
+use crate::agentic::pii_scrubber::PiiScrubber;
 use ioi_api::ibc::AgentZkVerifier;
 use ioi_api::vm::drivers::os::OsDriver;
 
@@ -71,7 +71,7 @@ pub struct DesktopAgentService {
     /// Reasoning/Expensive inference runtime (System 2).
     pub(crate) reasoning_inference: Arc<dyn InferenceRuntime>,
     /// Scrubber for redacting PII from logs/context.
-    pub(crate) scrubber: SemanticScrubber,
+    pub(crate) scrubber: PiiScrubber,
 
     /// Optional evaluator for measuring agent performance (RSI).
     pub(crate) evaluator: Option<Arc<dyn Evaluator>>,
@@ -185,6 +185,7 @@ impl DesktopAgentService {
         rules: &crate::agentic::rules::ActionRules,
         agent_state: &crate::agentic::desktop::types::AgentState,
         os_driver: &Arc<dyn OsDriver>,
+        scoped_exception_hash: Option<[u8; 32]>,
     ) -> Result<(bool, Option<String>, Option<String>), TransactionError> {
         self::handler::handle_action_execution(
             self,
@@ -195,6 +196,7 @@ impl DesktopAgentService {
             rules,
             agent_state,
             os_driver,
+            scoped_exception_hash,
         )
         .await
     }
@@ -279,5 +281,23 @@ impl DesktopAgentService {
 
     pub(crate) async fn inspect_frame(&self, frame_id: u64) -> Result<String, TransactionError> {
         self::memory::inspect_frame(self, frame_id).await
+    }
+
+    pub(crate) async fn prepare_cloud_inference_input(
+        &self,
+        session_id: Option<[u8; 32]>,
+        provider: &str,
+        model: &str,
+        input: &[u8],
+    ) -> Result<Vec<u8>, TransactionError> {
+        crate::agentic::desktop::cloud_airlock::prepare_cloud_inference_input(
+            &self.scrubber,
+            self.event_sender.as_ref(),
+            session_id,
+            provider,
+            model,
+            input,
+        )
+        .await
     }
 }

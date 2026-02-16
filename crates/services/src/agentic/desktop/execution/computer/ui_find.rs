@@ -166,7 +166,11 @@ async fn find_ui_with_vision(
             height: 1080,
         });
 
-    let locator = VisualLocator::new(exec.inference.clone());
+    let locator = VisualLocator::new(
+        exec.inference.clone(),
+        exec.pii_scrubber.clone(),
+        exec.event_sender.clone(),
+    );
     let point = match locator
         .localize(&screenshot, query, window_rect, hint_xml, exec.current_tier)
         .await

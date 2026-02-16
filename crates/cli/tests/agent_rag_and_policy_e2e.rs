@@ -13,13 +13,15 @@ use ioi_api::state::StateAccess;
 use ioi_api::transaction::context::TxContext;
 use ioi_api::vm::drivers::gui::{GuiDriver, InputEvent};
 use ioi_api::vm::drivers::os::OsDriver;
-use ioi_api::vm::inference::{InferenceRuntime, LocalSafetyModel, SafetyVerdict};
+use ioi_api::vm::inference::{
+    InferenceRuntime, LocalSafetyModel, PiiInspection, PiiRiskSurface, SafetyVerdict,
+};
 use ioi_cli::testing::build_test_artifacts;
 use ioi_scs::{FrameType, SovereignContextStore, StoreConfig, VectorIndex};
 use ioi_services::agentic::desktop::{DesktopAgentService, StartAgentParams, StepAgentParams};
 use ioi_state::primitives::hash::HashCommitmentScheme;
 use ioi_state::tree::iavl::IAVLTree;
-use ioi_types::app::agentic::InferenceOptions;
+use ioi_types::app::agentic::{EvidenceGraph, InferenceOptions};
 use ioi_types::app::{ActionContext, ActionRequest, ContextSlice};
 use ioi_types::codec;
 use ioi_types::error::VmError;
@@ -266,6 +268,13 @@ async fn test_agent_rag_and_policy_enforcement() -> Result<()> {
         }
         async fn detect_pii(&self, _: &str) -> Result<Vec<(usize, usize, String)>> {
             Ok(vec![])
+        }
+        async fn inspect_pii(&self, _: &str, _: PiiRiskSurface) -> Result<PiiInspection> {
+            Ok(PiiInspection {
+                evidence: EvidenceGraph::default(),
+                ambiguous: false,
+                stage2_status: None,
+            })
         }
     }
 

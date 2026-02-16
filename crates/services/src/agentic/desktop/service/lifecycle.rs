@@ -299,6 +299,10 @@ pub async fn handle_start(
         target,        // [NEW] Set the target
 
         // Default relative working directory for stateful sys tools.
+        resolved_intent: None,
+
+        awaiting_intent_clarification: false,
+
         working_directory: ".".to_string(),
 
         // [FIX] Initialize active_lens
@@ -672,7 +676,18 @@ pub async fn perform_cognitive_compaction(
     // Use zero hash for model ID
     let summary_bytes = service
         .reasoning_inference
-        .execute_inference([0u8; 32], prompt.as_bytes(), options)
+        .execute_inference(
+            [0u8; 32],
+            &service
+                .prepare_cloud_inference_input(
+                    Some(session_id),
+                    "desktop_agent",
+                    "model_hash:0000000000000000000000000000000000000000000000000000000000000000",
+                    prompt.as_bytes(),
+                )
+                .await?,
+            options,
+        )
         .await
         .map_err(|e| TransactionError::Invalid(format!("Compaction inference failed: {}", e)))?;
 

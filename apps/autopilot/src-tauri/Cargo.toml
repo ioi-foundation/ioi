@@ -43,6 +43,7 @@ ioi-api = { path = "../../../crates/api" }
 ioi-services = { path = "../../../crates/services" }
 ioi-drivers = { path = "../../../crates/drivers" }
 ioi-scs = { path = "../../../crates/scs" }
+ioi-pii = { path = "../../../crates/pii" }
 
 # [FIX] Added validator for key loading and libp2p for key types
 ioi-validator = { path = "../../../crates/validator" }

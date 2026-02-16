@@ -81,7 +81,7 @@ use tokio::sync::Mutex;
 use ioi_api::vm::drivers::os::OsDriver;
 use ioi_api::vm::inference::{HttpInferenceRuntime, InferenceRuntime, LocalSafetyModel};
 use ioi_drivers::os::NativeOsDriver;
-use ioi_services::agentic::scrub_adapter::RuntimeAsSafetyModel;
+use ioi_services::agentic::pii_adapter::RuntimeAsPiiModel;
 
 #[derive(Parser, Debug)]
 struct OrchestrationOpts {
@@ -341,7 +341,7 @@ where
         };
 
     let safety_model: Arc<dyn LocalSafetyModel> =
-        Arc::new(RuntimeAsSafetyModel::new(inference_runtime.clone()));
+        Arc::new(RuntimeAsPiiModel::new(inference_runtime.clone()));
 
     // [FIX] Initialize OS Driver
     let os_driver = Arc::new(NativeOsDriver::new());

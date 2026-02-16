@@ -70,22 +70,82 @@ export function ThoughtChain({
 
   const streamData = useMemo(() => {
     if (!events) return { text: "", truncated: false, hasFinal: false };
-    const streamEvents = events.filter((e) => e.event_type === "COMMAND_STREAM");
-    const sorted = [...streamEvents].sort((a, b) => {
-      const left = Number((a.digest as any)?.seq ?? 0);
-      const right = Number((b.digest as any)?.seq ?? 0);
-      return left - right;
+    const capStreamText = (raw: string) => {
+      const lines = raw.split("\n");
+      const byLine = lines.slice(0, MAX_STREAM_LINES).join("\n");
+      const capped = byLine.slice(0, MAX_STREAM_CHARS);
+      const truncated = raw.length > capped.length || lines.length > MAX_STREAM_LINES;
+      return { text: capped, truncated, rawLength: raw.length };
+    };
+    const latestOutputEvent = [...events].reverse().find((event) => {
+      if (event.event_type !== "COMMAND_RUN") return false;
+      const output = (event.details as any)?.output;
+      return output !== undefined && output !== null && String(output).length > 0;
     });
-    const merged = sorted
-      .map((e) => String((e.details as any)?.chunk ?? ""))
-      .join("");
-    const lines = merged.split("\n");
-    const byLine = lines.slice(0, MAX_STREAM_LINES).join("\n");
-    const capped = byLine.slice(0, MAX_STREAM_CHARS);
-    const truncated =
-      merged.length > capped.length || lines.length > MAX_STREAM_LINES;
-    const hasFinal = sorted.some((e) => Boolean((e.digest as any)?.is_final));
-    return { text: capped, truncated, hasFinal };
+    const runOutput = (() => {
+      if (!latestOutputEvent) return null;
+      const rawOutput = (latestOutputEvent.details as any)?.output;
+      const outputText =
+        typeof rawOutput === "string" ? rawOutput : JSON.stringify(rawOutput, null, 2);
+      if (!outputText) return null;
+      const { text, truncated, rawLength } = capStreamText(outputText);
+      return { text, truncated, hasFinal: true, rawLength };
+    })();
+
+    const streamEvents = events.filter((e) => e.event_type === "COMMAND_STREAM");
+    const streamOutput = (() => {
+      if (streamEvents.length === 0) return null;
+      const latestStreamEvent = streamEvents[streamEvents.length - 1];
+      const latestStreamId = String((latestStreamEvent?.digest as any)?.stream_id ?? "");
+      const scopedEvents = latestStreamId
+        ? streamEvents.filter(
+            (e) => String((e.digest as any)?.stream_id ?? "") === latestStreamId,
+          )
+        : streamEvents;
+      const sorted = [...scopedEvents].sort((a, b) => {
+        const left = Number((a.digest as any)?.seq ?? 0);
+        const right = Number((b.digest as any)?.seq ?? 0);
+        return left - right;
+      });
+      const merged = sorted
+        .map((e) => String((e.details as any)?.chunk ?? ""))
+        .join("");
+      const { text, truncated, rawLength } = capStreamText(merged);
+      const hasFinal = sorted.some((e) => Boolean((e.digest as any)?.is_final));
+      return { text, truncated, hasFinal, rawLength };
+    })();
+
+    if (streamOutput && runOutput) {
+      const streamLooksIncomplete =
+        !streamOutput.hasFinal || streamOutput.text.trim().length === 0;
+      if (streamLooksIncomplete || runOutput.rawLength > streamOutput.rawLength) {
+        return {
+          text: runOutput.text,
+          truncated: runOutput.truncated,
+          hasFinal: runOutput.hasFinal,
+        };
+      }
+      return {
+        text: streamOutput.text,
+        truncated: streamOutput.truncated,
+        hasFinal: streamOutput.hasFinal,
+      };
+    }
+    if (streamOutput) {
+      return {
+        text: streamOutput.text,
+        truncated: streamOutput.truncated,
+        hasFinal: streamOutput.hasFinal,
+      };
+    }
+    if (runOutput) {
+      return {
+        text: runOutput.text,
+        truncated: runOutput.truncated,
+        hasFinal: runOutput.hasFinal,
+      };
+    }
+    return { text: "", truncated: false, hasFinal: false };
   }, [events]);
 
   const summary = hasEventMode

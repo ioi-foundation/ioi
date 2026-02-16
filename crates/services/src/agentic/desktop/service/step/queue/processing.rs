@@ -3,6 +3,10 @@ use super::support::{
 };
 use crate::agentic::desktop::execution::system::is_sudo_password_required_install_error;
 use crate::agentic::desktop::keys::{get_state_key, AGENT_POLICY_PREFIX};
+use crate::agentic::desktop::service::handler::{
+    build_pii_review_request_for_tool, emit_pii_review_requested,
+    persist_pii_review_request,
+};
 use crate::agentic::desktop::service::step::action::{
     canonical_intent_hash, canonical_retry_intent_hash, canonical_tool_identity,
 };
@@ -22,6 +26,7 @@ use crate::agentic::desktop::service::step::incident::{
     mark_incident_wait_for_user, register_pending_approval, should_enter_incident_recovery,
     start_or_continue_incident_recovery, ApprovalDirective, IncidentDirective,
 };
+use crate::agentic::desktop::service::step::intent_resolver::is_tool_allowed_for_resolution;
 use crate::agentic::desktop::service::DesktopAgentService;
 use crate::agentic::desktop::types::{AgentState, AgentStatus, StepAgentParams};
 use crate::agentic::desktop::utils::goto_trace_log;
@@ -51,6 +56,7 @@ pub async fn process_queue_item(
     agent_state: &mut AgentState,
     p: &StepAgentParams,
     block_height: u64,
+    block_timestamp_ns: u64,
 ) -> Result<(), TransactionError> {
     log::info!(
         "Draining execution queue for session {} (Pending: {})",
@@ -105,18 +111,29 @@ pub async fn process_queue_item(
 
     // Execute
     // [FIX] Updated call: removed executor arg
-    let result_tuple = service
-        .handle_action_execution(
-            // &executor,  <-- REMOVED
-            tool_wrapper.clone(),
-            p.session_id,
-            agent_state.step_count,
-            [0u8; 32],
-            &rules,
-            &agent_state,
-            &os_driver,
-        )
-        .await;
+    let result_tuple = if !is_tool_allowed_for_resolution(
+        agent_state.resolved_intent.as_ref(),
+        &tool_name,
+    ) {
+        Err(TransactionError::Invalid(format!(
+            "ERROR_CLASS=PermissionOrApprovalRequired Tool '{}' blocked by global intent scope.",
+            tool_name
+        )))
+    } else {
+        service
+            .handle_action_execution(
+                // &executor,  <-- REMOVED
+                tool_wrapper.clone(),
+                p.session_id,
+                agent_state.step_count,
+                [0u8; 32],
+                &rules,
+                &agent_state,
+                &os_driver,
+                None,
+            )
+            .await
+    };
 
     let mut is_gated = false;
     let mut awaiting_sudo_password = false;
@@ -135,6 +152,25 @@ pub async fn process_queue_item(
             let action_fingerprint = sha256(&tool_jcs)
                 .map(hex::encode)
                 .unwrap_or_else(|_| String::new());
+            if let Ok(bytes) = hex::decode(&h) {
+                if bytes.len() == 32 {
+                    let mut decision_hash = [0u8; 32];
+                    decision_hash.copy_from_slice(&bytes);
+                    if let Some(request) = build_pii_review_request_for_tool(
+                        service,
+                        &rules,
+                        p.session_id,
+                        &tool_wrapper,
+                        decision_hash,
+                        block_timestamp_ns / 1_000_000,
+                    )
+                    .await?
+                    {
+                        persist_pii_review_request(state, &request)?;
+                        emit_pii_review_requested(service, &request);
+                    }
+                }
+            }
             let incident_before = load_incident_state(state, &p.session_id)?;
             let incident_stage_before = incident_before
                 .as_ref()

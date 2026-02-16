@@ -1,5 +1,6 @@
 // Path: crates/types/src/app/action.rs
 
+use crate::app::agentic::PiiScopedException;
 use crate::app::SignatureSuite;
 use dcrypt::algorithms::hash::HashFunction;
 use parity_scale_codec::{Decode, Encode};
@@ -96,6 +97,37 @@ pub enum ActionTarget {
     Custom(String),
 }
 
+impl ActionTarget {
+    /// Returns the canonical deterministic label for this target.
+    pub fn canonical_label(&self) -> String {
+        match self {
+            ActionTarget::NetFetch => "net::fetch".to_string(),
+            ActionTarget::FsWrite => "fs::write".to_string(),
+            ActionTarget::FsRead => "fs::read".to_string(),
+            ActionTarget::UiClick => "ui::click".to_string(),
+            ActionTarget::UiType => "ui::type".to_string(),
+            ActionTarget::SysExec => "sys::exec".to_string(),
+            ActionTarget::SysInstallPackage => "sys::install_package".to_string(),
+            ActionTarget::WalletSign => "wallet::sign".to_string(),
+            ActionTarget::WalletSend => "wallet::send".to_string(),
+            ActionTarget::GuiMouseMove => "gui::mouse_move".to_string(),
+            ActionTarget::GuiClick => "gui::click".to_string(),
+            ActionTarget::GuiType => "gui::type".to_string(),
+            ActionTarget::GuiScreenshot => "gui::screenshot".to_string(),
+            ActionTarget::GuiScroll => "gui::scroll".to_string(),
+            ActionTarget::GuiSequence => "gui::sequence".to_string(),
+            ActionTarget::BrowserNavigateHermetic => "browser::navigate::hermetic".to_string(),
+            ActionTarget::BrowserExtract => "browser::extract".to_string(),
+            ActionTarget::CommerceDiscovery => "ucp::discovery".to_string(),
+            ActionTarget::CommerceCheckout => "ucp::checkout".to_string(),
+            ActionTarget::WindowFocus => "os::focus".to_string(),
+            ActionTarget::ClipboardRead => "clipboard::read".to_string(),
+            ActionTarget::ClipboardWrite => "clipboard::write".to_string(),
+            ActionTarget::Custom(name) => name.clone(),
+        }
+    }
+}
+
 /// Context binding an action to a specific execution scope.
 /// Ensures that an action cannot be replayed outside its intended session or agent context.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Encode, Decode)]
@@ -165,6 +197,18 @@ pub struct ApprovalScope {
     pub max_usages: Option<u32>,
 }
 
+/// Deterministic action selected for a PII review approval flow.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Encode, Decode)]
+#[serde(rename_all = "snake_case")]
+pub enum PiiApprovalAction {
+    /// Approve deterministic transform for this decision.
+    ApproveTransform,
+    /// Deny the pending PII decision.
+    Deny,
+    /// Grant a scoped low-severity raw exception.
+    GrantScopedException,
+}
+
 /// A scoped, time-bounded authorization for an ActionRequest (User Consent).
 /// Acts as a "2FA Token" for high-risk actions blocked by default policy.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Encode, Decode)]
@@ -177,6 +221,14 @@ pub struct ApprovalToken {
     /// [NEW] The hash of the visual context (screenshot) the user saw when approving.
     /// Used to restore the correct Set-of-Marks mapping.
     pub visual_hash: Option<[u8; 32]>,
+
+    /// Optional PII review action attached to this approval.
+    #[serde(default)]
+    pub pii_action: Option<PiiApprovalAction>,
+
+    /// Optional scoped exception attached for deterministic raw override.
+    #[serde(default)]
+    pub scoped_exception: Option<PiiScopedException>,
 
     /// Signature by the user's Local DID (Device Key).
     pub approver_sig: Vec<u8>,

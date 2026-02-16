@@ -1,6 +1,7 @@
 // Path: crates/services/src/agentic/desktop/service/step/ontology.rs
 
 use super::anti_loop::FailureClass;
+use ioi_types::app::agentic::{IntentScopeProfile, ResolvedIntentState};
 use parity_scale_codec::{Decode, Encode};
 use serde::{Deserialize, Serialize};
 
@@ -306,6 +307,29 @@ pub fn classify_intent(goal: &str, root_tool_name: &str, target_hint: Option<&st
         return IntentClass::CommandTask;
     }
     IntentClass::Unknown
+}
+
+pub fn classify_intent_from_resolved(
+    resolved_intent: Option<&ResolvedIntentState>,
+    goal: &str,
+    root_tool_name: &str,
+    target_hint: Option<&str>,
+) -> IntentClass {
+    if let Some(resolved) = resolved_intent {
+        return match resolved.scope {
+            IntentScopeProfile::Conversation => IntentClass::ConversationTask,
+            IntentScopeProfile::WebResearch => IntentClass::BrowserTask,
+            IntentScopeProfile::WorkspaceOps => IntentClass::FileTask,
+            IntentScopeProfile::AppLaunch => IntentClass::OpenApp,
+            IntentScopeProfile::UiInteraction => IntentClass::UIInteraction,
+            IntentScopeProfile::CommandExecution => IntentClass::CommandTask,
+            IntentScopeProfile::Delegation => IntentClass::DelegationTask,
+            IntentScopeProfile::Unknown => {
+                classify_intent(goal, root_tool_name, target_hint)
+            }
+        };
+    }
+    classify_intent(goal, root_tool_name, target_hint)
 }
 
 pub fn default_strategy_for(

@@ -1,5 +1,6 @@
 // crates/services/src/agentic/desktop/mod.rs
 
+pub mod cloud_airlock;
 pub mod execution; // Points to execution/mod.rs now
 pub mod keys;
 pub mod middleware;

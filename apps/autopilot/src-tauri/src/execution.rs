@@ -15,10 +15,13 @@ use tauri::Manager;
 // Governance & Policy Integration
 use async_trait::async_trait;
 use ioi_api::vm::drivers::os::OsDriver;
-use ioi_api::vm::inference::{InferenceRuntime, LocalSafetyModel, SafetyVerdict};
+use ioi_api::vm::inference::{
+    InferenceRuntime, LocalSafetyModel, PiiInspection, PiiRiskSurface, SafetyVerdict,
+};
 use ioi_drivers::os::NativeOsDriver;
 use ioi_services::agentic::policy::PolicyEngine;
 use ioi_services::agentic::rules::{ActionRules, DefaultPolicy, Rule, RuleConditions, Verdict};
+use ioi_types::app::agentic::EvidenceGraph;
 use ioi_types::app::{ActionContext, ActionRequest, ActionTarget};
 
 // SCS Integration
@@ -65,6 +68,17 @@ impl LocalSafetyModel for SimulationSafetyModel {
     }
     async fn detect_pii(&self, _input: &str) -> anyhow::Result<Vec<(usize, usize, String)>> {
         Ok(vec![])
+    }
+    async fn inspect_pii(
+        &self,
+        _input: &str,
+        _risk_surface: PiiRiskSurface,
+    ) -> anyhow::Result<PiiInspection> {
+        Ok(PiiInspection {
+            evidence: EvidenceGraph::default(),
+            ambiguous: false,
+            stage2_status: None,
+        })
     }
 }
 static SAFETY_MODEL: Lazy<Arc<dyn LocalSafetyModel>> =

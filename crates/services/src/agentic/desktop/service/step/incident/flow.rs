@@ -11,7 +11,8 @@ use super::store::{clear_incident_state, load_incident_state, persist_incident_s
 use crate::agentic::desktop::middleware;
 use crate::agentic::desktop::service::step::anti_loop::FailureClass;
 use crate::agentic::desktop::service::step::ontology::{
-    classify_intent, default_strategy_for, GateState, IncidentStage, ResolutionAction, StrategyNode,
+    classify_intent_from_resolved, default_strategy_for, GateState, IncidentStage,
+    ResolutionAction, StrategyNode,
 };
 use crate::agentic::desktop::service::DesktopAgentService;
 use crate::agentic::desktop::tools::discover_tools;
@@ -253,7 +254,8 @@ pub fn register_pending_approval(
     action_fingerprint: &str,
     request_hash: &str,
 ) -> Result<ApprovalDirective, TransactionError> {
-    let intent = classify_intent(
+    let intent = classify_intent_from_resolved(
+        agent_state.resolved_intent.as_ref(),
         &agent_state.goal,
         root_tool_name,
         agent_state
@@ -382,6 +384,21 @@ pub fn mark_gate_approved(
     Ok(())
 }
 
+pub fn mark_gate_denied(
+    state: &mut dyn StateAccess,
+    session_id: [u8; 32],
+) -> Result<(), TransactionError> {
+    let Some(mut incident) = load_incident_state(state, &session_id)? else {
+        return Ok(());
+    };
+    incident.gate_state = GateState::Denied.as_str().to_string();
+    incident.pending_gate = None;
+    incident.resolution_action = ResolutionAction::Pause.as_str().to_string();
+    incident.stage = IncidentStage::PausedForUser.as_str().to_string();
+    persist_incident_state(state, &session_id, &incident)?;
+    Ok(())
+}
+
 pub fn mark_incident_retry_root(
     state: &mut dyn StateAccess,
     session_id: [u8; 32],
@@ -439,7 +456,8 @@ pub async fn start_or_continue_incident_recovery(
     root_error: Option<&str>,
     verification_checks: &mut Vec<String>,
 ) -> Result<IncidentDirective, TransactionError> {
-    let intent = classify_intent(
+    let intent = classify_intent_from_resolved(
+        agent_state.resolved_intent.as_ref(),
         &agent_state.goal,
         root_tool_name,
         agent_state
@@ -528,6 +546,7 @@ pub async fn start_or_continue_incident_recovery(
         service.fast_inference.clone(),
         agent_state.current_tier,
         &active_window_title,
+        agent_state.resolved_intent.as_ref(),
     )
     .await;
 
@@ -563,7 +582,18 @@ pub async fn start_or_continue_incident_recovery(
         };
         let output = service
             .reasoning_inference
-            .execute_inference([0u8; 32], &input, options)
+            .execute_inference(
+                [0u8; 32],
+                &service
+                    .prepare_cloud_inference_input(
+                        Some(session_id),
+                        "desktop_agent",
+                        "model_hash:0000000000000000000000000000000000000000000000000000000000000000",
+                        &input,
+                    )
+                    .await?,
+                options,
+            )
             .await
             .map_err(|e| {
                 TransactionError::Invalid(format!("Incident planner inference failed: {}", e))
