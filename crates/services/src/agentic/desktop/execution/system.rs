@@ -214,6 +214,20 @@ fn resolve_sys_exec_invocation(
     }
 
     if !args.is_empty() {
+        let inline_tokens: Vec<&str> = trimmed.split_whitespace().collect();
+        if inline_tokens.len() > 1 {
+            let mut merged_args: Vec<String> = inline_tokens[1..]
+                .iter()
+                .map(|token| (*token).to_string())
+                .collect();
+            merged_args.extend(args.iter().cloned());
+            return Ok(SysExecInvocation {
+                command: inline_tokens[0].to_string(),
+                args: merged_args,
+                shell_wrapped: false,
+            });
+        }
+
         return Ok(SysExecInvocation {
             command: trimmed.to_string(),
             args: args.to_vec(),
@@ -1111,6 +1125,20 @@ mod tests {
 
         assert_eq!(invocation.command, "git");
         assert_eq!(invocation.args, args);
+        assert!(!invocation.shell_wrapped);
+    }
+
+    #[test]
+    fn sys_exec_invocation_merges_inline_tokens_with_explicit_args() {
+        let args = vec!["HEAD~1".to_string()];
+        let invocation = resolve_sys_exec_invocation("git show", &args)
+            .expect("inline command tokens should merge with explicit args");
+
+        assert_eq!(invocation.command, "git");
+        assert_eq!(
+            invocation.args,
+            vec!["show".to_string(), "HEAD~1".to_string()]
+        );
         assert!(!invocation.shell_wrapped);
     }
 
