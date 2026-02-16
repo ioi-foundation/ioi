@@ -235,11 +235,31 @@ fn infer_custom_tool_name(name: &str, args: &serde_json::Value) -> String {
         "os::focus" => "os__focus_window".to_string(),
         "clipboard::write" => "os__copy".to_string(),
         "clipboard::read" => "os__paste".to_string(),
+        "computer::cursor" => "computer".to_string(),
         "fs::read" => infer_fs_read_tool_name(args).to_string(),
         "fs::write" => infer_fs_write_tool_name(args).to_string(),
         "sys::exec" => infer_sys_tool_name(args).to_string(),
         "sys::install_package" => "sys__install_package".to_string(),
         _ => name.to_string(),
+    }
+}
+
+fn looks_like_computer_action_payload(args: &serde_json::Value) -> bool {
+    args.as_object()
+        .and_then(|obj| obj.get("action"))
+        .and_then(|value| value.as_str())
+        .map(str::trim)
+        .is_some_and(|value| !value.is_empty())
+}
+
+fn ensure_computer_action(raw_args: serde_json::Value, action: &str) -> serde_json::Value {
+    match raw_args {
+        serde_json::Value::Object(mut obj) => {
+            obj.entry("action".to_string())
+                .or_insert_with(|| json!(action));
+            serde_json::Value::Object(obj)
+        }
+        other => other,
     }
 }
 
@@ -355,9 +375,36 @@ fn queue_target_to_tool_name_and_args(
         ActionTarget::FsWrite => Ok((infer_fs_write_tool_name(&raw_args).to_string(), raw_args)),
         ActionTarget::BrowserNavigateHermetic => Ok(("browser__navigate".to_string(), raw_args)),
         ActionTarget::BrowserExtract => Ok(("browser__extract".to_string(), raw_args)),
-        ActionTarget::GuiType | ActionTarget::UiType => Ok(("gui__type".to_string(), raw_args)),
-        ActionTarget::GuiClick | ActionTarget::UiClick => Ok(("gui__click".to_string(), raw_args)),
-        ActionTarget::GuiScroll => Ok(("gui__scroll".to_string(), raw_args)),
+        ActionTarget::GuiType | ActionTarget::UiType => {
+            if looks_like_computer_action_payload(&raw_args) {
+                Ok(("computer".to_string(), raw_args))
+            } else {
+                Ok(("gui__type".to_string(), raw_args))
+            }
+        }
+        ActionTarget::GuiClick | ActionTarget::UiClick => {
+            if looks_like_computer_action_payload(&raw_args) {
+                Ok(("computer".to_string(), raw_args))
+            } else {
+                Ok(("gui__click".to_string(), raw_args))
+            }
+        }
+        ActionTarget::GuiScroll => {
+            if looks_like_computer_action_payload(&raw_args) {
+                Ok(("computer".to_string(), raw_args))
+            } else {
+                Ok(("gui__scroll".to_string(), raw_args))
+            }
+        }
+        ActionTarget::GuiMouseMove => Ok((
+            "computer".to_string(),
+            ensure_computer_action(raw_args, "mouse_move"),
+        )),
+        ActionTarget::GuiScreenshot => Ok((
+            "computer".to_string(),
+            ensure_computer_action(raw_args, "screenshot"),
+        )),
+        ActionTarget::GuiSequence => Ok(("computer".to_string(), raw_args)),
         ActionTarget::SysExec => Ok((infer_sys_tool_name(&raw_args).to_string(), raw_args)),
         ActionTarget::SysInstallPackage => Ok(("sys__install_package".to_string(), raw_args)),
         ActionTarget::WindowFocus => Ok(("os__focus_window".to_string(), raw_args)),
