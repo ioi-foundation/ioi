@@ -317,10 +317,7 @@ pub(crate) fn persist_pii_review_request(
     Ok(())
 }
 
-pub(crate) fn emit_pii_review_requested(
-    service: &DesktopAgentService,
-    request: &PiiReviewRequest,
-) {
+pub(crate) fn emit_pii_review_requested(service: &DesktopAgentService, request: &PiiReviewRequest) {
     if let Some(tx) = &service.event_sender {
         let _ = tx.send(ioi_types::app::KernelEvent::PiiReviewRequested {
             decision_hash: request.decision_hash,
@@ -382,9 +379,16 @@ pub async fn handle_action_execution(
     let mut foreground_window = os_driver.get_active_window_info().await.unwrap_or(None);
     let target_app_hint = agent_state.target.as_ref().and_then(|t| t.app_hint.clone());
 
+    // Pre-policy normalization: `web__search` carries a computed SERP URL for deterministic
+    // policy enforcement + hashing (the model should only provide the query).
+    if let AgentTool::WebSearch { query, url, .. } = &mut tool {
+        if url.as_ref().map(|u| u.trim().is_empty()).unwrap_or(true) {
+            *url = Some(crate::agentic::web::build_ddg_serp_url(query));
+        }
+    }
+
     // Stage D transform-first enforcement for egress-capable tools.
-    apply_pii_transform_first(service, rules, session_id, scoped_exception_hash, &mut tool)
-        .await?;
+    apply_pii_transform_first(service, rules, session_id, scoped_exception_hash, &mut tool).await?;
 
     // 1. Serialization for Policy Check
     let tool_value =
@@ -584,7 +588,7 @@ pub async fn handle_action_execution(
     if matches!(
         tool,
         AgentTool::BrowserNavigate { .. }
-            | AgentTool::BrowserExtract { .. }
+            | AgentTool::BrowserSnapshot { .. }
             | AgentTool::BrowserClick { .. }
             | AgentTool::BrowserClickElement { .. }
             | AgentTool::BrowserSyntheticClick { .. }
@@ -801,6 +805,7 @@ mod tests {
             working_directory: ".".to_string(),
             active_lens: None,
             pending_search_completion: None,
+            command_history: Default::default(),
         }
     }
 

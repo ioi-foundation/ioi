@@ -61,7 +61,7 @@ pub enum EventType {
     DiffCreated,
     TestRun,
     BrowserNavigate,
-    BrowserExtract,
+    BrowserSnapshot,
     Receipt,
     InfoNote,
     Warning,

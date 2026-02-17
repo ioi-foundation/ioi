@@ -6,6 +6,7 @@ pub mod filesystem;
 pub mod mcp;
 pub mod resilience;
 pub mod system;
+pub mod web;
 
 use std::collections::BTreeMap;
 use std::path::PathBuf;
@@ -13,8 +14,8 @@ use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
 use tokio::sync::broadcast::Sender;
 
-use crate::agentic::pii_scrubber::PiiScrubber;
 use crate::agentic::desktop::types::ExecutionTier;
+use crate::agentic::pii_scrubber::PiiScrubber;
 use ioi_api::vm::drivers::gui::GuiDriver;
 use ioi_api::vm::drivers::os::{OsDriver, WindowInfo};
 use ioi_api::vm::inference::InferenceRuntime;
@@ -209,13 +210,18 @@ impl ToolExecutor {
 
             // Browser Domain
             AgentTool::BrowserNavigate { .. }
-            | AgentTool::BrowserExtract { .. }
+            | AgentTool::BrowserSnapshot { .. }
             | AgentTool::BrowserClick { .. }
             | AgentTool::BrowserClickElement { .. }
             | AgentTool::BrowserSyntheticClick { .. }
             | AgentTool::BrowserScroll { .. }
             | AgentTool::BrowserType { .. }
             | AgentTool::BrowserKey { .. } => browser::handle(self, tool).await,
+
+            // Web Retrieval Domain
+            AgentTool::WebSearch { .. } | AgentTool::WebRead { .. } => {
+                web::handle(self, tool).await
+            }
 
             // Filesystem Domain
             AgentTool::FsRead { .. }

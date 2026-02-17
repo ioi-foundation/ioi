@@ -20,6 +20,7 @@ pub mod policy;
 pub mod prompt_wrapper;
 pub mod rules;
 pub mod session;
+pub mod web;
 
 /// A service for agentic operations.
 pub struct AgenticService {

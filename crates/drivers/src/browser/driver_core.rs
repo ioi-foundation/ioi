@@ -18,6 +18,7 @@ impl BrowserDriver {
         Self {
             browser: Arc::new(Mutex::new(None)),
             active_page: Arc::new(Mutex::new(None)),
+            retrieval_page: Arc::new(Mutex::new(None)),
             profile_dir: Arc::new(Mutex::new(None)),
             handler_alive: Arc::new(AtomicBool::new(false)),
             lease_active: Arc::new(AtomicBool::new(false)),
@@ -189,6 +190,10 @@ impl BrowserDriver {
         {
             let mut p_guard = self.active_page.lock().await;
             *p_guard = None;
+        }
+        {
+            let mut guard = self.retrieval_page.lock().await;
+            *guard = None;
         }
         self.handler_alive.store(false, Ordering::SeqCst);
         self.cleanup_profile_dir().await;
@@ -496,6 +501,34 @@ impl BrowserDriver {
             }
         }
         Ok(())
+    }
+
+    pub(crate) async fn ensure_retrieval_page(&self) -> std::result::Result<(), BrowserError> {
+        // Reuse ensure_page for browser health/restart logic.
+        self.ensure_page().await?;
+
+        let has_page = self.retrieval_page.lock().await.is_some();
+        if has_page {
+            return Ok(());
+        }
+
+        log::info!(
+            target: "browser",
+            "ensure_retrieval_page creating a new background page."
+        );
+        let browser_arc = { self.browser.lock().await.clone() };
+        if let Some(b) = browser_arc {
+            let page = b
+                .new_page("about:blank")
+                .await
+                .map_err(|e| BrowserError::Internal(format!("Failed to create page: {}", e)))?;
+            *self.retrieval_page.lock().await = Some(page);
+            Ok(())
+        } else {
+            Err(BrowserError::Internal(
+                "Browser session missing while creating retrieval page".into(),
+            ))
+        }
     }
 }
 

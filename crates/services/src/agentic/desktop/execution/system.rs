@@ -2,6 +2,7 @@
 
 use super::{ToolExecutionResult, ToolExecutor};
 use crate::agentic::desktop::runtime_secret;
+use crate::agentic::desktop::types::CommandExecution;
 use ioi_crypto::algorithms::hash::sha256;
 use ioi_drivers::terminal::{CommandExecutionOptions, ProcessStreamChunk, ProcessStreamObserver};
 use ioi_types::app::agentic::AgentTool;
@@ -9,7 +10,8 @@ use ioi_types::app::KernelEvent;
 use std::env;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
-use std::time::Duration;
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use serde_json;
 
 #[derive(Clone, Debug)]
 struct LaunchAttempt {
@@ -29,6 +31,7 @@ const INSTALL_COMMAND_TIMEOUT: Duration = Duration::from_secs(600);
 const SYS_EXEC_DEFAULT_TIMEOUT: Duration = Duration::from_secs(120);
 const SYS_EXEC_EXTENDED_TIMEOUT: Duration = Duration::from_secs(600);
 const RUNTIME_SECRET_KIND_SUDO_PASSWORD: &str = "sudo_password";
+const COMMAND_HISTORY_PREFIX: &str = "COMMAND_HISTORY:";
 
 pub async fn handle(
     exec: &ToolExecutor,
@@ -78,17 +81,35 @@ pub async fn handle(
                     detach,
                     Some(&resolved_cwd),
                     options,
-                )
-                .await
+            )
+            .await
             {
                 Ok(out) => {
-                    if command_output_indicates_failure(&out) {
-                        sys_exec_failure_result(&command, &out)
+                    let command_failed = command_output_indicates_failure(&out);
+                    let mut result = if command_failed {
+                        let mut failure = sys_exec_failure_result(&command, &out);
+                        // Preserve raw output so command-history metadata can be derived without SCS reads.
+                        failure.history_entry = Some(out);
+                        failure
                     } else {
                         ToolExecutionResult::success(out)
-                    }
+                    };
+                    append_sys_exec_command_history(
+                        &mut result,
+                        &command_preview,
+                        step_index,
+                        if command_failed { 1 } else { 0 },
+                    );
+                    result
                 }
-                Err(e) => sys_exec_failure_result(&command, &e.to_string()),
+                Err(e) => {
+                    let error = e.to_string();
+                    let mut result = sys_exec_failure_result(&command, &error);
+                    // Preserve raw output so command-history metadata can be derived without SCS reads.
+                    result.history_entry = Some(error);
+                    append_sys_exec_command_history(&mut result, &command_preview, step_index, 1);
+                    result
+                }
             }
         }
 
@@ -186,10 +207,71 @@ fn command_preview(command: &str, args: &[String]) -> String {
     }
     let joined = args.join(" ");
     let preview = format!("{} {}", command, joined);
-    if preview.len() > 220 {
-        format!("{}...", &preview[..220])
+    let mut chars = preview.chars();
+    let preview_truncated: String = chars.by_ref().take(220).collect();
+    if chars.next().is_some() {
+        format!("{}...", preview_truncated)
     } else {
         preview
+    }
+}
+
+fn append_sys_exec_command_history(
+    result: &mut ToolExecutionResult,
+    command: &str,
+    step_index: u32,
+    fallback_exit_code: i32,
+) {
+    let Some(mut output) = result.history_entry.take() else {
+        return;
+    };
+    if output.trim().is_empty() {
+        result.history_entry = Some(output);
+        return;
+    }
+
+    let exit_code = extract_exit_code(&output).unwrap_or(fallback_exit_code);
+    let (stdout, stderr) = parse_terminal_output(&output);
+    let timestamp_ms = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|time| time.as_millis() as u64)
+        .unwrap_or(0);
+
+    let payload = CommandExecution {
+        command: command.to_string(),
+        exit_code,
+        stdout,
+        stderr,
+        timestamp_ms,
+        step_index,
+    };
+
+    if let Ok(metadata) = serde_json::to_string(&payload) {
+        let prefixed = format!("{}{}", COMMAND_HISTORY_PREFIX, metadata);
+        output.insert_str(0, "\n");
+        output.insert_str(0, &prefixed);
+    }
+    result.history_entry = Some(output);
+}
+
+fn extract_exit_code(output: &str) -> Option<i32> {
+    output
+        .lines()
+        .find_map(|line| {
+            line.split_once("exit status:").and_then(|(_, status)| {
+                status
+                    .split_whitespace()
+                    .next()
+                    .and_then(|raw_status| raw_status.parse::<i32>().ok())
+            })
+        })
+}
+
+fn parse_terminal_output(output: &str) -> (String, String) {
+    if let Some((stdout, stderr)) = output.split_once("Stderr:") {
+        (stdout.trim().to_string(), stderr.trim().to_string())
+    } else {
+        (output.trim().to_string(), String::new())
     }
 }
 
@@ -1087,12 +1169,15 @@ fn launch_errors_indicate_missing_app(errors: &[String]) -> bool {
 #[cfg(test)]
 mod tests {
     use super::{
+        append_sys_exec_command_history,
         build_linux_launch_plan, classify_install_failure, classify_sys_exec_failure,
         command_output_indicates_failure, launch_attempt_failed,
         launch_errors_indicate_missing_app, normalize_stdin_data, resolve_home_directory,
+        extract_exit_code, parse_terminal_output,
         resolve_sys_exec_invocation, resolve_sys_exec_timeout, resolve_target_directory,
         resolve_working_directory, summarize_sys_exec_failure_output, sys_exec_failure_result,
-        LaunchAttempt, SYS_EXEC_DEFAULT_TIMEOUT, SYS_EXEC_EXTENDED_TIMEOUT,
+        CommandExecution, COMMAND_HISTORY_PREFIX, LaunchAttempt, ToolExecutionResult,
+        SYS_EXEC_DEFAULT_TIMEOUT, SYS_EXEC_EXTENDED_TIMEOUT,
     };
 
     #[test]
@@ -1333,6 +1418,58 @@ mod tests {
         assert!(result.history_entry.is_none());
         let err = result.error.expect("error payload must exist");
         assert!(err.starts_with("ERROR_CLASS=ToolUnavailable"));
+    }
+
+    #[test]
+    fn append_sys_exec_command_history_uses_exit_code_prefix_and_split_output() {
+        let mut result = ToolExecutionResult::failure("command output");
+        let output = "Command failed: exit status: 127\nStderr: boom\n";
+        result.history_entry = Some(output.to_string());
+        append_sys_exec_command_history(&mut result, "fooctl --version", 42, 9);
+        assert!(result.history_entry.is_some());
+        let entry = result.history_entry.as_deref().unwrap_or("");
+        assert!(entry.starts_with(COMMAND_HISTORY_PREFIX));
+        let payload = &entry[COMMAND_HISTORY_PREFIX.len()..];
+        let json_payload = payload.lines().next().unwrap_or("").trim();
+        let parsed = match serde_json::from_str::<CommandExecution>(json_payload) {
+            Ok(value) => value,
+            Err(error) => panic!("history json should parse: {}", error),
+        };
+        assert_eq!(parsed.command, "fooctl --version");
+        assert_eq!(parsed.exit_code, 127);
+        assert_eq!(parsed.stderr, "boom");
+        assert_eq!(parsed.step_index, 42);
+    }
+
+    #[test]
+    fn append_sys_exec_command_history_falls_back_to_provided_exit_code_when_missing() {
+        let mut result = ToolExecutionResult::failure("command output");
+        let output = "Command output without a numeric exit status line";
+        result.history_entry = Some(output.to_string());
+        append_sys_exec_command_history(&mut result, "echo hi", 7, 9);
+        let entry = result.history_entry.as_deref().unwrap_or("");
+        let payload = &entry[COMMAND_HISTORY_PREFIX.len()..];
+        let json_payload = payload.lines().next().unwrap_or("").trim();
+        let parsed = match serde_json::from_str::<CommandExecution>(json_payload) {
+            Ok(value) => value,
+            Err(error) => panic!("history json should parse: {}", error),
+        };
+        assert_eq!(parsed.exit_code, 9);
+        assert_eq!(parsed.command, "echo hi");
+    }
+
+    #[test]
+    fn extract_exit_code_parses_terminal_exit_status() {
+        let output = "Command failed: exit status: 127\nStderr: boom";
+        assert_eq!(extract_exit_code(output), Some(127));
+    }
+
+    #[test]
+    fn parse_terminal_output_splits_stdout_and_stderr() {
+        let output = "line one\nline two\nStderr: boom on stderr";
+        let (stdout, stderr) = parse_terminal_output(output);
+        assert_eq!(stdout, "line one\nline two");
+        assert_eq!(stderr, "boom on stderr");
     }
 
     #[test]

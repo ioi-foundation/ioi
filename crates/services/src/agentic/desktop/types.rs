@@ -6,6 +6,15 @@ use ioi_types::app::ActionRequest;
 use parity_scale_codec::{Decode, Encode};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
+use std::collections::VecDeque;
+
+pub const MAX_COMMAND_HISTORY: usize = 20;
+pub const MAX_PROMPT_HISTORY: usize = 5;
+pub const COMMAND_HISTORY_SANITIZED_PLACEHOLDER: &str = "[REDACTED_PII]";
+pub const MESSAGE_SANITIZED_PLACEHOLDER: &str = "[REDACTED_PII]";
+pub const DEFAULT_MESSAGE_REDACTION_VERSION: &str = "v1";
+pub const DEFAULT_MESSAGE_PRIVACY_POLICY_ID: &str = "desktop-agent/default";
+pub const DEFAULT_MESSAGE_PRIVACY_POLICY_VERSION: &str = "1";
 
 #[derive(Debug, Clone, Serialize, Deserialize, Encode, Decode, PartialEq, Eq)]
 pub struct InteractionTarget {
@@ -58,6 +67,64 @@ pub struct PendingSearchCompletion {
     pub query: String,
     pub url: String,
     pub started_step: u32,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Encode, Decode, PartialEq, Eq)]
+pub struct CommandExecution {
+    pub command: String,
+    pub exit_code: i32,
+    pub stdout: String,
+    pub stderr: String,
+    pub timestamp_ms: u64,
+    pub step_index: u32,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Encode, Decode, PartialEq, Eq)]
+pub struct MessagePrivacyMetadata {
+    #[serde(default)]
+    pub redaction_version: String,
+    #[serde(default)]
+    pub sensitive_fields_mask: Vec<String>,
+    #[serde(default)]
+    pub policy_id: String,
+    #[serde(default)]
+    pub policy_version: String,
+    #[serde(default)]
+    pub scrubbed_for_model_hash: Option<String>,
+}
+
+impl Default for MessagePrivacyMetadata {
+    fn default() -> Self {
+        Self {
+            redaction_version: String::new(),
+            sensitive_fields_mask: Vec::new(),
+            policy_id: String::new(),
+            policy_version: String::new(),
+            scrubbed_for_model_hash: None,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Encode, Decode, PartialEq, Eq)]
+pub struct RecordedMessage {
+    #[serde(default)]
+    pub role: String,
+    #[serde(default)]
+    pub timestamp_ms: u64,
+    #[serde(default)]
+    pub trace_hash: Option<[u8; 32]>,
+    #[serde(default)]
+    pub raw_content: String,
+    #[serde(default)]
+    pub scrubbed_for_model: String,
+    #[serde(default)]
+    pub scrubbed_for_scs: String,
+
+    #[serde(default)]
+    pub raw_reference: Option<String>,
+
+    #[serde(default)]
+    pub privacy_metadata: MessagePrivacyMetadata,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Encode, Decode)]
@@ -138,6 +205,9 @@ pub struct AgentState {
     /// Persistent working directory used by `sys__exec`.
     #[serde(default = "default_working_directory")]
     pub working_directory: String,
+
+    #[serde(default)]
+    pub command_history: VecDeque<CommandExecution>,
 
     // [NEW] The name of the Application Lens used during the last perception step.
     // Required to re-resolve element IDs (e.g. "btn_submit") to coordinates during execution.

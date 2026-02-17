@@ -132,7 +132,10 @@ async fn run_approve(args: PiiApproveArgs) -> Result<()> {
         )
     })?;
     let session_id = request.session_id.ok_or_else(|| {
-        anyhow!("Review request {} is missing session_id", hex::encode(decision_hash))
+        anyhow!(
+            "Review request {} is missing session_id",
+            hex::encode(decision_hash)
+        )
     })?;
 
     let keypair = ioi_crypto::sign::eddsa::Ed25519KeyPair::generate()

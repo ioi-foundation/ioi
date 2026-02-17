@@ -42,6 +42,9 @@ rand = { workspace = true }
 # [FIX] Added url dependency
 url = "2.5"
 
+# HTML parsing for edge web retrieval (`web__search` / `web__read`).
+scraper = "0.18"
+
 # [NEW] Added schemars for schema generation
 schemars = "0.8"
 

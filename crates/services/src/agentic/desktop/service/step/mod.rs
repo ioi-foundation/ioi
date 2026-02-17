@@ -13,7 +13,9 @@ pub mod visual;
 
 use super::DesktopAgentService;
 // [FIX] Import actions module from parent service directory
-use crate::agentic::desktop::keys::{get_mutation_receipt_ptr_key, get_state_key, AGENT_POLICY_PREFIX};
+use crate::agentic::desktop::keys::{
+    get_mutation_receipt_ptr_key, get_state_key, AGENT_POLICY_PREFIX,
+};
 use crate::agentic::desktop::runtime_secret;
 use crate::agentic::desktop::service::actions;
 use crate::agentic::desktop::service::step::anti_loop::choose_routing_tier;
@@ -190,13 +192,9 @@ pub async fn handle_step(
     } else {
         "Unknown".to_string()
     };
-    let resolved_intent = intent_resolver::resolve_step_intent(
-        service,
-        &agent_state,
-        &rules,
-        &active_window_title,
-    )
-    .await?;
+    let resolved_intent =
+        intent_resolver::resolve_step_intent(service, &agent_state, &rules, &active_window_title)
+            .await?;
     let was_waiting_intent = agent_state.awaiting_intent_clarification;
     let should_wait_for_clarification = !rules.ontology_policy.intent_routing.shadow_mode
         && intent_resolver::should_pause_for_clarification(

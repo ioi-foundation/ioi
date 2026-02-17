@@ -2,13 +2,17 @@
 
 use crate::agentic::desktop::service::step::perception::PerceptionContext;
 use crate::agentic::desktop::service::DesktopAgentService;
-use crate::agentic::desktop::types::{AgentState, ExecutionTier};
+use crate::agentic::desktop::service::actions::safe_truncate;
+use crate::agentic::desktop::types::{
+    AgentState, CommandExecution, ExecutionTier, MAX_PROMPT_HISTORY,
+};
 use hex;
 use ioi_crypto::algorithms::hash::sha256;
 use ioi_types::app::agentic::{InferenceOptions, IntentScopeProfile, LlmToolDefinition};
 use ioi_types::error::TransactionError;
 use serde::Deserialize;
 use serde_json::json;
+use std::collections::VecDeque;
 
 // --- Cognitive Router Types (System 1) ---
 #[derive(Debug, Deserialize, Clone, Copy, PartialEq)]
@@ -40,8 +44,10 @@ fn preflight_missing_capability(
     let requires_command_execution = matches!(scope, IntentScopeProfile::CommandExecution);
     let requires_workspace_ops = matches!(scope, IntentScopeProfile::WorkspaceOps);
 
-    let has_browser_tooling = has_tool("browser__navigate")
-        || has_tool("browser__extract")
+    let has_browser_tooling = has_tool("web__search")
+        || has_tool("web__read")
+        || has_tool("browser__navigate")
+        || has_tool("browser__snapshot")
         || has_tool("browser__click")
         || has_tool("browser__click_element");
 
@@ -151,11 +157,9 @@ pub async fn think(
             .to_lowercase()
             .contains("edge");
 
-    if let Some((missing_capability, reason)) = preflight_missing_capability(
-        resolved_scope,
-        is_browser,
-        &perception.available_tools,
-    ) {
+    if let Some((missing_capability, reason)) =
+        preflight_missing_capability(resolved_scope, is_browser, &perception.available_tools)
+    {
         log::info!(
             "Preflight: Missing required capability '{}'. Forcing escalation.",
             missing_capability
@@ -174,7 +178,10 @@ pub async fn think(
         });
     }
 
-    let has_computer_tool = perception.available_tools.iter().any(|t| t.name == "computer");
+    let has_computer_tool = perception
+        .available_tools
+        .iter()
+        .any(|t| t.name == "computer");
 
     // 3. System 1 Router
     // Use the latest user message for routing, as it might change the mode (e.g. "stop" -> Chat)
@@ -231,7 +238,7 @@ pub async fn think(
             if matches!(resolved_scope, IntentScopeProfile::Conversation) {
                 "MODE: HEADLESS CONVERSATION. Treat the latest user message and chat history as the primary source of truth. For summarization/drafting tasks with inline text, respond directly via `chat__reply`; do NOT require browser extraction unless the user explicitly requests web retrieval."
             } else {
-                "MODE: HEADLESS. Use 'browser__extract' for semantic XML and `browser__click_element(id=...)` for robust web interaction."
+                "MODE: HEADLESS. Use 'browser__snapshot' for semantic XML and `browser__click_element(id=...)` for robust web interaction."
             }
         }
         ExecutionTier::VisualBackground => {
@@ -277,7 +284,7 @@ pub async fn think(
         let recovery_hint = if failure_reason.contains("TargetNotFound")
             || failure_reason.contains("VisionTargetNotFound")
         {
-            "Recovery hint: run `ui__find` or `browser__extract` first to reacquire the target before clicking."
+            "Recovery hint: run `ui__find` or `browser__snapshot` first to reacquire the target before clicking."
         } else if failure_reason.contains("TimeoutOrHang")
             || failure_reason.contains("NoEffectAfterAction")
             || failure_reason.contains("NonDeterministicUI")
@@ -311,9 +318,8 @@ pub async fn think(
     };
 
     // Use truncated history for context window
-    let max_history_items = 5;
-    let recent_history = if full_history.len() > max_history_items {
-        &full_history[full_history.len() - max_history_items..]
+    let recent_history = if full_history.len() > MAX_PROMPT_HISTORY {
+        &full_history[full_history.len() - MAX_PROMPT_HISTORY..]
     } else {
         &full_history[..]
     };
@@ -322,6 +328,7 @@ pub async fn think(
         .map(|m| format!("{}: {}", m.role, m.content))
         .collect::<Vec<_>>()
         .join("\n");
+    let command_history_context = build_recent_command_history_context(&agent_state.command_history);
 
     let system_instructions = format!(
  "SYSTEM: You are a local desktop assistant operating inside the IOI runtime.
@@ -345,6 +352,8 @@ Do NOT refuse a task by claiming you cannot see or act. Instead:
 
 {}
 {}{}
+
+{}
 
 TOOLS:
 {}
@@ -373,8 +382,8 @@ OPERATING RULES:
 6. If the current mode fails, output a reason why so the system can escalate to the next tier.
 7. CRITICAL: When using 'computer.type', you MUST first CLICK the input field to ensure focus.
 8. BROWSER RULE: Never launch browsers via `sys__exec`. Treat that as a policy violation. Always start browsing with `browser__navigate`.
-8a. WEB SEARCH RULE: For intents like 'search for X', prefer `browser__navigate` with a hermetic-friendly search URL (e.g. `https://duckduckgo.com/?q=...`) instead of manual click+type; if a CAPTCHA/human-verification challenge appears, stop and ask the user to complete it manually.
-8b. BROWSER CLICK RULE: In a browser window, do NOT use `gui__click` for page elements. Prefer `browser__click_element` with IDs from `browser__extract`; use `browser__click` with concrete CSS selectors only as fallback.
+8a. WEB RETRIEVAL RULE: For retrieval (look up, latest, sources, citations), prefer `web__search` and `web__read` over browser UI automation. Use `browser__*` only when the page requires interaction (auth/forms/CAPTCHA). If a human-verification challenge appears, stop and ask the user to complete it manually, then retry.
+8b. BROWSER CLICK RULE: In a browser window, do NOT use `gui__click` for page elements. Prefer `browser__click_element` with IDs from `browser__snapshot`; use `browser__click` with concrete CSS selectors only as fallback.
 8c. PACKAGE INSTALL RULE: For dependency installation, prefer `sys__install_package` over raw `sys__exec` so command construction stays deterministic and policy-auditable.
 8d. BROWSER RESILIENCE RULE: If `browser__navigate` fails with CDP/connection errors, retry `browser__navigate` once. If it still fails, switch to visual tools.
 9. APP LAUNCH RULE: To open applications, ALWAYS prefer `os__launch_app`.
@@ -392,7 +401,7 @@ OPERATING RULES:
     - If Active Window is 'Calculator' (or any non-browser app), DO NOT use 'browser__*' tools. Use `gui__click_element` first, then `computer.left_click` if needed.
     - If Active Window is 'Chrome' or 'Firefox', prefer 'browser__*' tools for web interaction.
  15. SILENT EXECUTION: For action intents (web/ui/workspace/command), execute the action immediately. For conversation intents (summarize/draft/reply), use `chat__reply` with the requested output instead of forcing tool actions.
- 16. SEARCH COMPLETION RULE: For search intents, do `browser__navigate` then `browser__extract`, summarize the results, and finish with `agent__complete`. Do NOT use `chat__reply` for this completion path unless the user explicitly requests conversational follow-up.
+ 16. SEARCH COMPLETION RULE: For search intents, do `web__search` first. If needed, follow with `web__read` on 1-3 top sources. Summarize and finish with `agent__complete`. Do NOT use `chat__reply` for this completion path unless the user explicitly requests conversational follow-up.
  17. COMMAND PROBE RULE: If resolved intent_id is `command.probe`, treat this as an environment check (not an install task).
      - Use `sys__exec` with a POSIX-sh-safe probe that exits 0 whether the command exists or not.
      - Do NOT execute the target program directly to check existence.
@@ -410,6 +419,7 @@ OPERATING RULES:
         verify_instruction,
         perception.tool_desc,
         hist_str,
+        command_history_context,
         perception.project_index,
         perception.agents_md_content,
         perception.memory_pointers
@@ -520,6 +530,36 @@ OPERATING RULES:
     })
 }
 
+fn build_recent_command_history_context(
+    command_history: &VecDeque<CommandExecution>,
+) -> String {
+    if command_history.is_empty() {
+        return String::new();
+    }
+
+    let mut section = String::new();
+    section.push_str(
+        "\n## RECENT COMMAND EXECUTION HISTORY (Redacted/Reasoning-only)\nYou have access to recent sanitized command context for continuity.\n",
+    );
+
+    for (idx, entry) in command_history.iter().rev().take(MAX_PROMPT_HISTORY).enumerate() {
+        section.push_str(&format!(
+            "{}. [Step {}] {} → exit={} (stdout: {} | stderr: {})\n",
+            idx + 1,
+            entry.step_index,
+            entry.command,
+            entry.exit_code,
+            safe_truncate(&entry.stdout, 60),
+            safe_truncate(&entry.stderr, 60),
+        ));
+    }
+
+    section.push_str(
+        "Use this context to avoid repeating failed commands and to build on successful steps.\n",
+    );
+    section
+}
+
 async fn determine_attention_mode(
     service: &DesktopAgentService,
     latest_input: &str,
@@ -602,6 +642,9 @@ async fn determine_attention_mode(
 #[cfg(test)]
 mod tests {
     use super::preflight_missing_capability;
+    use super::build_recent_command_history_context;
+    use crate::agentic::desktop::types::CommandExecution;
+    use std::collections::VecDeque;
     use ioi_types::app::agentic::{IntentScopeProfile, LlmToolDefinition};
 
     fn tool(name: &str) -> LlmToolDefinition {
@@ -615,19 +658,90 @@ mod tests {
     #[test]
     fn command_execution_does_not_require_clipboard() {
         let tools = vec![tool("sys__exec")];
-        assert!(preflight_missing_capability(
-            IntentScopeProfile::CommandExecution,
-            false,
-            &tools
-        )
-        .is_none());
+        assert!(
+            preflight_missing_capability(IntentScopeProfile::CommandExecution, false, &tools)
+                .is_none()
+        );
     }
 
     #[test]
     fn command_execution_requires_sys_exec_when_missing() {
         let tools = vec![tool("chat__reply")];
-        let missing = preflight_missing_capability(IntentScopeProfile::CommandExecution, false, &tools)
-            .expect("missing capability");
+        let missing =
+            preflight_missing_capability(IntentScopeProfile::CommandExecution, false, &tools)
+                .expect("missing capability");
         assert_eq!(missing.0, "sys__exec");
+    }
+
+    #[test]
+    fn command_history_context_shows_latest_five_entries_reverse_chronological() {
+        let mut history = VecDeque::new();
+        for step in 0..6 {
+            history.push_back(CommandExecution {
+                command: format!("command-{step}"),
+                exit_code: 0,
+                stdout: format!("stdout-{step}"),
+                stderr: String::new(),
+                timestamp_ms: step,
+                step_index: step as u32,
+            });
+        }
+
+        let context = build_recent_command_history_context(&history);
+        assert!(context.contains("1. [Step 5] command-5"));
+        assert!(context.contains("5. [Step 1] command-1"));
+        assert!(!context.contains("command-0"));
+    }
+
+    #[test]
+    fn command_history_context_is_empty_without_history() {
+        let context = build_recent_command_history_context(&VecDeque::new());
+        assert!(context.is_empty());
+    }
+
+    #[test]
+    fn command_history_context_uses_latest_five_and_excludes_older_entries() {
+        let mut history = VecDeque::new();
+        for step in 0..8 {
+            history.push_back(CommandExecution {
+                command: format!("command-{step}"),
+                exit_code: 0,
+                stdout: "no secrets here".to_string(),
+                stderr: String::new(),
+                timestamp_ms: step,
+                step_index: step as u32,
+            });
+        }
+
+        let context = build_recent_command_history_context(&history);
+        assert!(context.contains("1. [Step 7] command-7"));
+        assert!(context.contains("5. [Step 3] command-3"));
+        assert!(!context.contains("command-2"));
+    }
+
+    #[test]
+    fn command_history_context_renders_sanitized_entries() {
+        let mut history = VecDeque::new();
+        history.push_back(CommandExecution {
+            command: "command-1".to_string(),
+            exit_code: 1,
+            stdout: "<REDACTED>".to_string(),
+            stderr: "<REDACTED>".to_string(),
+            timestamp_ms: 1,
+            step_index: 1,
+        });
+        history.push_back(CommandExecution {
+            command: "command-2".to_string(),
+            exit_code: 0,
+            stdout: "healthy".to_string(),
+            stderr: String::new(),
+            timestamp_ms: 2,
+            step_index: 2,
+        });
+
+        let context = build_recent_command_history_context(&history);
+        assert!(context.contains("command-1"));
+        assert!(context.contains("command-2"));
+        assert!(context.contains("<REDACTED>"));
     }
 }

@@ -181,6 +181,8 @@ pub async fn execute_ephemeral_node(
         "model" => runners::run_llm_inference(logic_config, input_json).await,
         "gate" => runners::run_gate_execution(logic_config, input_json).await,
         "browser" => runners::run_browser_execution(logic_config, input_json).await,
+        "web_search" => runners::run_web_search_execution(logic_config, input_json).await,
+        "web_read" => runners::run_web_read_execution(logic_config, input_json).await,
         "tool" => {
             let tool_name = logic_config.get("tool_name").and_then(|s| s.as_str());
             if let Some(name) = tool_name {

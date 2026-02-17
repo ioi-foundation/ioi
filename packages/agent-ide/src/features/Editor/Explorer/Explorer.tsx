@@ -57,6 +57,8 @@ const staticLibrary: LibraryItem[] = [
   { id: "model", name: "LLM Model", icon: <Icons.Brain />, type: "model", description: "Inference node" },
   { id: "trigger", name: "Trigger", icon: <Icons.Trigger />, type: "trigger", description: "Event source" },
   { id: "gate", name: "Logic Gate", icon: <Icons.Gate />, type: "gate", description: "Governance control" },
+  { id: "web_search", name: "Web Search", icon: <span>🌐</span>, type: "web_search", description: "Edge web search (typed evidence bundle with sources + provenance)" },
+  { id: "web_read", name: "Web Read", icon: <span>📄</span>, type: "web_read", description: "Read a URL and extract quote spans for citations" },
 ];
 
 export function Explorer({ runtime, onDragStart }: ExplorerProps) {

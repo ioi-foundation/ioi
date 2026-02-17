@@ -61,8 +61,8 @@ pub(super) fn event_type_for_tool(tool_name: &str) -> EventType {
     let t = tool_name.to_lowercase();
     if t.contains("browser__navigate") || t.contains("browser::navigate") {
         EventType::BrowserNavigate
-    } else if t.contains("browser__extract") || t.contains("browser::extract") {
-        EventType::BrowserExtract
+    } else if t.contains("browser__snapshot") || t.contains("browser::inspect") {
+        EventType::BrowserSnapshot
     } else if t.contains("search")
         || t.contains("grep")
         || t.contains("ripgrep")

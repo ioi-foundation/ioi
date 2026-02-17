@@ -36,7 +36,7 @@ use ioi_state::tree::iavl::IAVLTree;
 use ioi_types::app::action::{ApprovalScope, ApprovalToken, PiiApprovalAction};
 use ioi_types::app::agentic::{
     AgentTool, EvidenceGraph, EvidenceSpan, InferenceOptions, PiiClass, PiiConfidenceBucket,
-    PiiReviewRequest, PiiControls, PiiSeverity, PiiTarget,
+    PiiControls, PiiReviewRequest, PiiSeverity, PiiTarget,
 };
 use ioi_types::app::{
     account_id_from_key_material, AccountId, ActionRequest, ChainId, ChainTransaction,
@@ -177,6 +177,7 @@ fn build_agent_state(session_id: [u8; 32], tool_jcs: Vec<u8>, tool_hash: [u8; 32
         awaiting_intent_clarification: false,
 
         working_directory: ".".to_string(),
+        command_history: Default::default(),
         active_lens: None,
     }
 }

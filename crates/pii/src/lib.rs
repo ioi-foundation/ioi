@@ -4,9 +4,9 @@ use anyhow::Result;
 use dcrypt::algorithms::hash::{HashFunction, Sha256};
 use ioi_types::app::action::{ApprovalToken, PiiApprovalAction};
 use ioi_types::app::agentic::{
-    EvidenceGraph, EvidenceSpan, FirewallDecision, PiiClass, PiiDecisionMaterial,
-    PiiReviewRequest, PiiReviewSummary, PiiControls, PiiSeverity, PiiTarget, RawOverrideMode,
-    PiiScopedException, Stage2Decision, TransformAction, TransformPlan,
+    EvidenceGraph, EvidenceSpan, FirewallDecision, PiiClass, PiiControls, PiiDecisionMaterial,
+    PiiReviewRequest, PiiReviewSummary, PiiScopedException, PiiSeverity, PiiTarget,
+    RawOverrideMode, Stage2Decision, TransformAction, TransformPlan,
 };
 use ioi_types::app::ActionTarget;
 use ioi_types::app::{RedactionEntry, RedactionMap, RedactionType};
@@ -146,6 +146,7 @@ fn stage2_kind(stage2: Option<&Stage2Decision>) -> Option<String> {
 fn action_target_from_label(label: &str) -> Option<ActionTarget> {
     match label {
         "net::fetch" => Some(ActionTarget::NetFetch),
+        "web::retrieve" => Some(ActionTarget::WebRetrieve),
         "fs::write" => Some(ActionTarget::FsWrite),
         "fs::read" => Some(ActionTarget::FsRead),
         "ui::click" => Some(ActionTarget::UiClick),
@@ -160,8 +161,8 @@ fn action_target_from_label(label: &str) -> Option<ActionTarget> {
         "gui::screenshot" => Some(ActionTarget::GuiScreenshot),
         "gui::scroll" => Some(ActionTarget::GuiScroll),
         "gui::sequence" => Some(ActionTarget::GuiSequence),
-        "browser::navigate::hermetic" => Some(ActionTarget::BrowserNavigateHermetic),
-        "browser::extract" => Some(ActionTarget::BrowserExtract),
+        "browser::interact" => Some(ActionTarget::BrowserInteract),
+        "browser::inspect" => Some(ActionTarget::BrowserInspect),
         "ucp::discovery" => Some(ActionTarget::CommerceDiscovery),
         "ucp::checkout" => Some(ActionTarget::CommerceCheckout),
         "os::focus" => Some(ActionTarget::WindowFocus),
@@ -225,10 +226,7 @@ pub enum PiiReviewContractError {
     PiiActionWithoutReviewRequest,
     AssistKindMismatch { found: String, expected: String },
     AssistVersionMismatch { found: String, expected: String },
-    AssistIdentityHashMismatch {
-        found: [u8; 32],
-        expected: [u8; 32],
-    },
+    AssistIdentityHashMismatch { found: [u8; 32], expected: [u8; 32] },
     InvalidExceptionUsageState,
     ExceptionUsageOverflow,
 }
@@ -1447,20 +1445,19 @@ pub fn apply_transform(
 mod tests {
     use super::{
         apply_transform, build_assist_receipt, check_exception_usage_increment_ok,
-        decode_exception_usage_state, graph_hash, mint_default_scoped_exception,
-        route_pii_decision_for_target, route_pii_decision_with_assist_for_target, scrub_text,
-        validate_resume_review_contract, validate_review_request_compat,
-        verify_scoped_exception_for_decision,
-        CimAssistContext, CimAssistProvider, CimAssistReceipt, CimAssistResult,
-        CimAssistV0Provider, PiiReviewContractError, NoopCimAssistProvider, PiiRoutingOutcome,
-        ResumeReviewMode, RiskSurface, ScopedExceptionVerifyError, REVIEW_REQUEST_VERSION,
-        expected_assist_identity,
+        decode_exception_usage_state, expected_assist_identity, graph_hash,
+        mint_default_scoped_exception, route_pii_decision_for_target,
+        route_pii_decision_with_assist_for_target, scrub_text, validate_resume_review_contract,
+        validate_review_request_compat, verify_scoped_exception_for_decision, CimAssistContext,
+        CimAssistProvider, CimAssistReceipt, CimAssistResult, CimAssistV0Provider,
+        NoopCimAssistProvider, PiiReviewContractError, PiiRoutingOutcome, ResumeReviewMode,
+        RiskSurface, ScopedExceptionVerifyError, REVIEW_REQUEST_VERSION,
     };
     use ioi_types::app::action::{ApprovalScope, ApprovalToken, PiiApprovalAction};
     use ioi_types::app::agentic::{
-        EvidenceGraph, EvidenceSpan, FirewallDecision, PiiClass, PiiConfidenceBucket,
-        PiiDecisionMaterial, PiiReviewRequest, PiiReviewSummary, PiiControls, PiiSeverity,
-        PiiTarget, RawOverrideMode,
+        EvidenceGraph, EvidenceSpan, FirewallDecision, PiiClass, PiiConfidenceBucket, PiiControls,
+        PiiDecisionMaterial, PiiReviewRequest, PiiReviewSummary, PiiSeverity, PiiTarget,
+        RawOverrideMode,
     };
     use ioi_types::app::ActionTarget;
 
@@ -1981,8 +1978,7 @@ mod tests {
         let token = sample_approval_token([8u8; 32], Some(PiiApprovalAction::Deny));
         let request = sample_review_request(expected_hash, 10_000);
 
-        let result =
-            validate_resume_review_contract(expected_hash, &token, Some(&request), 9_000);
+        let result = validate_resume_review_contract(expected_hash, &token, Some(&request), 9_000);
         assert_eq!(
             result,
             Err(PiiReviewContractError::ApprovalTokenHashMismatch)
@@ -2015,8 +2011,7 @@ mod tests {
         let token = sample_approval_token(expected_hash, None);
         let request = sample_review_request(expected_hash, 10_000);
 
-        let result =
-            validate_resume_review_contract(expected_hash, &token, Some(&request), 9_000);
+        let result = validate_resume_review_contract(expected_hash, &token, Some(&request), 9_000);
         assert_eq!(
             result,
             Err(PiiReviewContractError::MissingPiiActionForReview)
@@ -2029,8 +2024,7 @@ mod tests {
         let token = sample_approval_token(expected_hash, Some(PiiApprovalAction::Deny));
         let request = sample_review_request(expected_hash, 1_000);
 
-        let result =
-            validate_resume_review_contract(expected_hash, &token, Some(&request), 1_001);
+        let result = validate_resume_review_contract(expected_hash, &token, Some(&request), 1_001);
         assert_eq!(
             result,
             Err(PiiReviewContractError::ReviewApprovalDeadlineExceeded)
@@ -2043,9 +2037,8 @@ mod tests {
         let token = sample_approval_token(expected_hash, Some(PiiApprovalAction::Deny));
         let request = sample_review_request(expected_hash, 1_000);
 
-        let result =
-            validate_resume_review_contract(expected_hash, &token, Some(&request), 1_000)
-                .expect("boundary deadline should be valid");
+        let result = validate_resume_review_contract(expected_hash, &token, Some(&request), 1_000)
+            .expect("boundary deadline should be valid");
         assert_eq!(result, ResumeReviewMode::ReviewBound);
     }
 

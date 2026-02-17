@@ -37,9 +37,8 @@ use hex;
 use ioi_api::state::StateAccess;
 use ioi_pii::{
     check_exception_usage_increment_ok, decode_exception_usage_state,
-    mint_default_scoped_exception, resolve_expected_request_hash,
-    validate_resume_review_contract, verify_scoped_exception_for_decision, RiskSurface,
-    ScopedExceptionVerifyError,
+    mint_default_scoped_exception, resolve_expected_request_hash, validate_resume_review_contract,
+    verify_scoped_exception_for_decision, RiskSurface, ScopedExceptionVerifyError,
 };
 use ioi_types::app::action::PiiApprovalAction;
 use ioi_types::app::agentic::{AgentTool, PiiEgressRiskSurface, PiiReviewRequest};

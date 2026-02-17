@@ -486,10 +486,8 @@ pub async fn run_ingestion_worker<CS>(
                                                 .concat();
                                         match workload_client.query_raw_state(&request_key).await {
                                             Ok(Some(bytes)) => {
-                                                match codec::from_bytes_canonical::<
-                                                    PiiReviewRequest,
-                                                >(
-                                                    &bytes
+                                                match codec::from_bytes_canonical::<PiiReviewRequest>(
+                                                    &bytes,
                                                 ) {
                                                     Ok(req) => {
                                                         if let Err(e) =
@@ -823,9 +821,8 @@ pub async fn run_ingestion_worker<CS>(
                                     }
                                 };
 
-                                let usage_key_local = pii::review::exception_usage(
-                                    &scoped_exception.exception_id,
-                                );
+                                let usage_key_local =
+                                    pii::review::exception_usage(&scoped_exception.exception_id);
                                 let usage_key = [
                                     service_namespace_prefix("desktop_agent").as_slice(),
                                     usage_key_local.as_slice(),
@@ -962,11 +959,12 @@ pub async fn run_ingestion_worker<CS>(
                     // NOTE: `resume@v1` carries an approval token for the *pending gated tool*,
                     // not for the resume transaction itself. Passing it into PolicyEngine causes
                     // misleading "token mismatch" logs (and doesn't change behavior).
-                    let presented_approval = if service_id == "desktop_agent" && method == "resume@v1" {
-                        None
-                    } else {
-                        approval_token.as_ref()
-                    };
+                    let presented_approval =
+                        if service_id == "desktop_agent" && method == "resume@v1" {
+                            None
+                        } else {
+                            approval_token.as_ref()
+                        };
                     let verdict = PolicyEngine::evaluate(
                         &rules,
                         &request,

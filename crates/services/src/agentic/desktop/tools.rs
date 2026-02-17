@@ -43,6 +43,8 @@ pub async fn discover_tools(
         || t.contains("safari");
     let allow_browser_navigation =
         is_tool_allowed_for_resolution(resolved_intent, "browser__navigate");
+    let allow_web_search = is_tool_allowed_for_resolution(resolved_intent, "web__search");
+    let allow_web_read = is_tool_allowed_for_resolution(resolved_intent, "web__read");
 
     // 2. Dynamic Service Tools (On-Chain Services)
     if let Ok(iter) = state.prefix_scan(UPGRADE_ACTIVE_SERVICE_PREFIX) {
@@ -117,6 +119,42 @@ pub async fn discover_tools(
             name: "browser__navigate".to_string(),
             description: "Navigates the agent's dedicated secure browser to a URL. To interact with your running applications, use os__focus_window and visual tools.".to_string(),
             parameters: nav_params.to_string(),
+        });
+    }
+
+    // Typed Web Retrieval (intent-gated)
+    // Prefer these for web research so the model gets a provenance-tracked evidence bundle.
+    if allow_web_search {
+        let params = json!({
+            "type": "object",
+            "properties": {
+                "query": { "type": "string", "description": "Search query." },
+                "limit": { "type": "integer", "description": "Optional max results (default small)." }
+            },
+            "required": ["query"]
+        });
+        tools.push(LlmToolDefinition {
+            name: "web__search".to_string(),
+            description: "Search the web using an edge/local SERP and return typed sources with provenance (no UI automation).".to_string(),
+            parameters: params.to_string(),
+        });
+    }
+
+    if allow_web_read {
+        let params = json!({
+            "type": "object",
+            "properties": {
+                "url": { "type": "string", "description": "URL to read (http/https)." },
+                "max_chars": { "type": "integer", "description": "Optional max extracted characters." }
+            },
+            "required": ["url"]
+        });
+        tools.push(LlmToolDefinition {
+            name: "web__read".to_string(),
+            description:
+                "Read a URL and return extracted text with deterministic quote spans for citations."
+                    .to_string(),
+            parameters: params.to_string(),
         });
     }
 
@@ -217,10 +255,7 @@ pub async fn discover_tools(
         });
     }
 
-    if should_expose_headless_browser_followups(
-        tier,
-        allow_browser_navigation,
-    ) {
+    if should_expose_headless_browser_followups(tier, allow_browser_navigation) {
         if is_tool_allowed_for_resolution(resolved_intent, "browser__scroll") {
             let browser_scroll_params = json!({
                 "type": "object",
@@ -269,16 +304,18 @@ pub async fn discover_tools(
             });
         }
 
-        if is_tool_allowed_for_resolution(resolved_intent, "browser__extract") {
-            let extract_params = json!({
+        if is_tool_allowed_for_resolution(resolved_intent, "browser__snapshot") {
+            let snapshot_params = json!({
                 "type": "object",
                 "properties": {},
                 "required": []
             });
             tools.push(LlmToolDefinition {
-                name: "browser__extract".to_string(),
-                description: "Extract the current browser accessibility tree as semantic XML with stable element IDs.".to_string(),
-                parameters: extract_params.to_string(),
+                name: "browser__snapshot".to_string(),
+                description:
+                    "Snapshot the current browser page as semantic XML with stable element IDs."
+                        .to_string(),
+                parameters: snapshot_params.to_string(),
             });
         }
 
@@ -288,14 +325,14 @@ pub async fn discover_tools(
                 "properties": {
                     "id": {
                         "type": "string",
-                        "description": "Semantic element ID from browser__extract output (e.g. 'btn_sign_in')."
+                        "description": "Semantic element ID from browser__snapshot output (e.g. 'btn_sign_in')."
                     }
                 },
                 "required": ["id"]
             });
             tools.push(LlmToolDefinition {
                 name: "browser__click_element".to_string(),
-                description: "Click a page element by semantic ID from browser__extract. Preferred over CSS selectors in headless mode.".to_string(),
+                description: "Click a page element by semantic ID from browser__snapshot. Preferred over CSS selectors in headless mode.".to_string(),
                 parameters: click_id_params.to_string(),
             });
         }
@@ -994,6 +1031,8 @@ mod tests {
         .await;
         assert!(tools.iter().any(|t| t.name == "chat__reply"));
         assert!(!tools.iter().any(|t| t.name == "browser__navigate"));
+        assert!(!tools.iter().any(|t| t.name == "web__search"));
+        assert!(!tools.iter().any(|t| t.name == "web__read"));
     }
 
     #[tokio::test(flavor = "current_thread")]
@@ -1012,6 +1051,8 @@ mod tests {
         )
         .await;
         assert!(tools.iter().any(|t| t.name == "browser__navigate"));
+        assert!(tools.iter().any(|t| t.name == "web__search"));
+        assert!(tools.iter().any(|t| t.name == "web__read"));
         assert!(tools.iter().any(|t| t.name == "chat__reply"));
     }
 }

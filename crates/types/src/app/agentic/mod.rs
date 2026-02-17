@@ -23,9 +23,13 @@ pub mod security;
 /// Definitions for native driver tools and capabilities.
 pub mod tools;
 
+/// Typed web retrieval evidence bundles (sources, quotes, provenance).
+pub mod web;
+
 // Re-export all types to maintain a flat API surface for consumers
 pub use execution::*;
 pub use knowledge::*;
 pub use market::*;
 pub use security::*;
 pub use tools::*;
+pub use web::*;

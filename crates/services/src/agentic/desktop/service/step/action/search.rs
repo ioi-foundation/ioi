@@ -58,9 +58,7 @@ pub(super) fn is_search_results_url(url: &str) -> bool {
 #[cfg(test)]
 mod tests {
     use super::{is_search_results_url, is_search_scope, search_query_from_url};
-    use ioi_types::app::agentic::{
-        IntentConfidenceBand, IntentScopeProfile, ResolvedIntentState,
-    };
+    use ioi_types::app::agentic::{IntentConfidenceBand, IntentScopeProfile, ResolvedIntentState};
 
     #[test]
     fn detects_search_scope_from_resolved_intent() {

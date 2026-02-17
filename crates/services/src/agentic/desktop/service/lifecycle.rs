@@ -7,7 +7,7 @@ use crate::agentic::desktop::runtime_secret;
 use crate::agentic::desktop::service::step::incident::{mark_incident_retry_root, IncidentState};
 use crate::agentic::desktop::types::{
     AgentMode, AgentState, AgentStatus, ExecutionTier, InteractionTarget, PostMessageParams,
-    ResumeAgentParams, SessionSummary, StartAgentParams, SwarmContext,
+    RecordedMessage, ResumeAgentParams, SessionSummary, StartAgentParams, SwarmContext,
 };
 use hex;
 use ioi_api::state::StateAccess;
@@ -308,6 +308,7 @@ pub async fn handle_start(
         // [FIX] Initialize active_lens
         active_lens: None,
         pending_search_completion: None,
+        command_history: Default::default(),
     };
     state.insert(&key, &codec::to_bytes_canonical(&agent_state)?)?;
 
@@ -631,12 +632,13 @@ pub async fn perform_cognitive_compaction(
                     {
                         // Attempt to read payload (will fail if key is already gone, which is fine)
                         if let Ok(bytes) = store.read_frame_payload(fid) {
-                            // Assuming ChatMessage structure
-                            if let Ok(msg) = codec::from_bytes_canonical::<
-                                ioi_types::app::agentic::ChatMessage,
-                            >(&bytes)
-                            {
-                                return Some(format!("{}: {}", msg.role, msg.content));
+                            if let Ok(message) = codec::from_bytes_canonical::<RecordedMessage>(&bytes) {
+                                let content = if message.scrubbed_for_scs.is_empty() {
+                                    message.scrubbed_for_model
+                                } else {
+                                    message.scrubbed_for_scs
+                                };
+                                return Some(format!("{}: {}", message.role, content));
                             }
                         }
                     }

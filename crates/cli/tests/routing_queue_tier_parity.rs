@@ -67,6 +67,7 @@ fn queue_failure_state() -> AgentState {
         awaiting_intent_clarification: false,
 
         working_directory: ".".to_string(),
+        command_history: Default::default(),
         active_lens: None,
         pending_search_completion: None,
     }
@@ -170,9 +171,9 @@ fn queue_routing_receipt_uses_visual_last_tier_for_pre_state_and_intent_hash() {
 }
 
 #[test]
-fn queue_browser_target_normalizes_to_hermetic_navigation() {
+fn queue_browser_target_normalizes_to_browser_interact_bucket() {
     let request = ActionRequest {
-        target: ActionTarget::BrowserNavigateHermetic,
+        target: ActionTarget::BrowserInteract,
         params: serde_jcs::to_vec(&json!({
             "url": "https://example.com"
         }))
@@ -193,13 +194,13 @@ fn queue_browser_target_normalizes_to_hermetic_navigation() {
         other => panic!("expected BrowserNavigate, got {:?}", other),
     }
 
-    assert_eq!(tool.target(), ActionTarget::BrowserNavigateHermetic);
+    assert_eq!(tool.target(), ActionTarget::BrowserInteract);
 }
 
 #[test]
 fn queue_browser_target_feeds_routing_receipt_intent_hash() {
     let request = ActionRequest {
-        target: ActionTarget::BrowserNavigateHermetic,
+        target: ActionTarget::BrowserInteract,
         params: serde_jcs::to_vec(&json!({
             "url": "https://example.com"
         }))
@@ -277,7 +278,7 @@ fn queue_browser_target_feeds_routing_receipt_intent_hash() {
 #[test]
 fn queue_custom_browser_click_target_maps_selector_and_id_variants() {
     let selector_request = ActionRequest {
-        target: ActionTarget::Custom("browser::click".to_string()),
+        target: ActionTarget::BrowserInteract,
         params: serde_jcs::to_vec(&json!({
             "selector": "#submit"
         }))
@@ -299,7 +300,7 @@ fn queue_custom_browser_click_target_maps_selector_and_id_variants() {
     }
 
     let id_request = ActionRequest {
-        target: ActionTarget::Custom("browser::click".to_string()),
+        target: ActionTarget::BrowserInteract,
         params: serde_jcs::to_vec(&json!({
             "id": "btn_submit"
         }))
@@ -323,7 +324,7 @@ fn queue_custom_browser_click_target_maps_selector_and_id_variants() {
 #[test]
 fn queue_custom_browser_scroll_target_maps_to_browser_scroll_tool() {
     let request = ActionRequest {
-        target: ActionTarget::Custom("browser::scroll".to_string()),
+        target: ActionTarget::BrowserInteract,
         params: serde_jcs::to_vec(&json!({
             "delta_y": 500,
             "delta_x": -20

@@ -244,6 +244,64 @@ fn infer_custom_tool_name(name: &str, args: &serde_json::Value) -> String {
     }
 }
 
+fn infer_web_retrieve_tool_name(
+    args: &serde_json::Value,
+) -> Result<&'static str, TransactionError> {
+    let Some(obj) = args.as_object() else {
+        return Err(TransactionError::Invalid(
+            "Queued web::retrieve args must be a JSON object.".into(),
+        ));
+    };
+
+    if obj.contains_key("query") {
+        return Ok("web__search");
+    }
+    if obj.contains_key("url") {
+        return Ok("web__read");
+    }
+
+    Err(TransactionError::Invalid(
+        "Queued web::retrieve must include either 'query' (web__search) or 'url' (web__read)."
+            .into(),
+    ))
+}
+
+fn infer_browser_interact_tool_name(
+    args: &serde_json::Value,
+) -> Result<&'static str, TransactionError> {
+    let Some(obj) = args.as_object() else {
+        return Err(TransactionError::Invalid(
+            "Queued browser::interact args must be a JSON object.".into(),
+        ));
+    };
+
+    if obj.contains_key("url") {
+        return Ok("browser__navigate");
+    }
+    if obj.contains_key("text") {
+        return Ok("browser__type");
+    }
+    if obj.contains_key("id") {
+        return Ok("browser__click_element");
+    }
+    if obj.contains_key("selector") {
+        return Ok("browser__click");
+    }
+    if obj.contains_key("key") {
+        return Ok("browser__key");
+    }
+    if obj.contains_key("x") && obj.contains_key("y") {
+        return Ok("browser__synthetic_click");
+    }
+    if obj.contains_key("delta_x") || obj.contains_key("delta_y") {
+        return Ok("browser__scroll");
+    }
+
+    Err(TransactionError::Invalid(
+        "Queued browser::interact args did not match any known browser__* tool signature.".into(),
+    ))
+}
+
 fn looks_like_computer_action_payload(args: &serde_json::Value) -> bool {
     args.as_object()
         .and_then(|obj| obj.get("action"))
@@ -380,8 +438,15 @@ fn queue_target_to_tool_name_and_args(
         ActionTarget::Custom(name) => Ok((infer_custom_tool_name(name, &raw_args), raw_args)),
         ActionTarget::FsRead => Ok((infer_fs_read_tool_name(&raw_args).to_string(), raw_args)),
         ActionTarget::FsWrite => Ok((infer_fs_write_tool_name(&raw_args).to_string(), raw_args)),
-        ActionTarget::BrowserNavigateHermetic => Ok(("browser__navigate".to_string(), raw_args)),
-        ActionTarget::BrowserExtract => Ok(("browser__extract".to_string(), raw_args)),
+        ActionTarget::WebRetrieve => Ok((
+            infer_web_retrieve_tool_name(&raw_args)?.to_string(),
+            raw_args,
+        )),
+        ActionTarget::BrowserInteract => Ok((
+            infer_browser_interact_tool_name(&raw_args)?.to_string(),
+            raw_args,
+        )),
+        ActionTarget::BrowserInspect => Ok(("browser__snapshot".to_string(), raw_args)),
         ActionTarget::GuiType | ActionTarget::UiType => {
             if looks_like_computer_action_payload(&raw_args) {
                 Ok(("computer".to_string(), raw_args))

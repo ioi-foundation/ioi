@@ -4,8 +4,7 @@ use super::support::{
 use crate::agentic::desktop::execution::system::is_sudo_password_required_install_error;
 use crate::agentic::desktop::keys::{get_state_key, AGENT_POLICY_PREFIX};
 use crate::agentic::desktop::service::handler::{
-    build_pii_review_request_for_tool, emit_pii_review_requested,
-    persist_pii_review_request,
+    build_pii_review_request_for_tool, emit_pii_review_requested, persist_pii_review_request,
 };
 use crate::agentic::desktop::service::step::action::{
     canonical_intent_hash, canonical_retry_intent_hash, canonical_tool_identity,
@@ -112,29 +111,27 @@ pub async fn process_queue_item(
 
     // Execute
     // [FIX] Updated call: removed executor arg
-    let result_tuple = if !is_tool_allowed_for_resolution(
-        agent_state.resolved_intent.as_ref(),
-        &tool_name,
-    ) {
-        Err(TransactionError::Invalid(format!(
+    let result_tuple =
+        if !is_tool_allowed_for_resolution(agent_state.resolved_intent.as_ref(), &tool_name) {
+            Err(TransactionError::Invalid(format!(
             "ERROR_CLASS=PermissionOrApprovalRequired Tool '{}' blocked by global intent scope.",
             tool_name
         )))
-    } else {
-        service
-            .handle_action_execution(
-                // &executor,  <-- REMOVED
-                tool_wrapper.clone(),
-                p.session_id,
-                agent_state.step_count,
-                [0u8; 32],
-                &rules,
-                &agent_state,
-                &os_driver,
-                None,
-            )
-            .await
-    };
+        } else {
+            service
+                .handle_action_execution(
+                    // &executor,  <-- REMOVED
+                    tool_wrapper.clone(),
+                    p.session_id,
+                    agent_state.step_count,
+                    [0u8; 32],
+                    &rules,
+                    &agent_state,
+                    &os_driver,
+                    None,
+                )
+                .await
+        };
 
     let mut is_gated = false;
     let mut awaiting_sudo_password = false;
@@ -424,7 +421,7 @@ pub async fn process_queue_item(
     }
     let mut completion_summary: Option<String> = None;
 
-    if !is_gated && tool_name == "browser__extract" {
+    if !is_gated && tool_name == "browser__snapshot" {
         if let Some(pending) = agent_state.pending_search_completion.clone() {
             let summary = if success {
                 summarize_search_results(&pending.query, &pending.url, out.as_deref().unwrap_or(""))
@@ -440,7 +437,7 @@ pub async fn process_queue_item(
             agent_state.execution_queue.clear();
             agent_state.recent_actions.clear();
             log::info!(
-                "Search flow completed after browser__extract for session {}.",
+                "Search flow completed after browser__snapshot for session {}.",
                 hex::encode(&p.session_id[..4])
             );
         }

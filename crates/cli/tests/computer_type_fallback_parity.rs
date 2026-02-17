@@ -141,6 +141,7 @@ fn test_agent_state() -> AgentState {
         awaiting_intent_clarification: false,
 
         working_directory: ".".to_string(),
+        command_history: Default::default(),
         active_lens: None,
     }
 }

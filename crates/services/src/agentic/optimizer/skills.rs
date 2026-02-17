@@ -2,7 +2,15 @@ use super::*;
 
 fn action_target_for_macro_step(target: &str, _params: &serde_json::Value) -> ActionTarget {
     match target {
-        "browser__navigate" => ActionTarget::BrowserNavigateHermetic,
+        "web__search" | "web__read" => ActionTarget::WebRetrieve,
+        "browser__snapshot" => ActionTarget::BrowserInspect,
+        "browser__navigate"
+        | "browser__click"
+        | "browser__click_element"
+        | "browser__synthetic_click"
+        | "browser__scroll"
+        | "browser__type"
+        | "browser__key" => ActionTarget::BrowserInteract,
         "gui__type" => ActionTarget::GuiType,
         "gui__click" => ActionTarget::GuiClick,
         "sys__exec" | "sys__change_directory" => ActionTarget::SysExec,
@@ -454,11 +462,11 @@ mod tests {
     use serde_json::json;
 
     #[test]
-    fn macro_step_browser_navigate_defaults_to_hermetic() {
+    fn macro_step_browser_navigate_maps_to_browser_interact_bucket() {
         let target = action_target_for_macro_step(
             "browser__navigate",
             &json!({"url": "https://example.com"}),
         );
-        assert_eq!(target, ActionTarget::BrowserNavigateHermetic);
+        assert_eq!(target, ActionTarget::BrowserInteract);
     }
 }

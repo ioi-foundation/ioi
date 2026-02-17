@@ -557,7 +557,8 @@ impl Default for PiiControls {
             high_risk_targets: vec![
                 "clipboard::write".to_string(),
                 "net::fetch".to_string(),
-                "browser::navigate::hermetic".to_string(),
+                "web::retrieve".to_string(),
+                "browser::interact".to_string(),
                 "ucp::checkout".to_string(),
             ],
         }

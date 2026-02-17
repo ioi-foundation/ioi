@@ -674,7 +674,8 @@ impl PolicyEngine {
         if let Some(allowed_domains) = &conditions.allow_domains {
             // [MODIFIED] Check new targets
             if let ActionTarget::NetFetch
-            | ActionTarget::BrowserNavigateHermetic
+            | ActionTarget::WebRetrieve
+            | ActionTarget::BrowserInteract
             | ActionTarget::CommerceDiscovery
             | ActionTarget::CommerceCheckout = target
             {
