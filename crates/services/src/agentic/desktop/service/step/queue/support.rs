@@ -239,6 +239,8 @@ fn infer_custom_tool_name(name: &str, args: &serde_json::Value) -> String {
         "fs::read" => infer_fs_read_tool_name(args).to_string(),
         "fs::write" => infer_fs_write_tool_name(args).to_string(),
         "sys::exec" => infer_sys_tool_name(args).to_string(),
+        "sys::exec_session" => "sys__exec_session".to_string(),
+        "sys::exec_session_reset" => "sys__exec_session_reset".to_string(),
         "sys::install_package" => "sys__install_package".to_string(),
         _ => name.to_string(),
     }

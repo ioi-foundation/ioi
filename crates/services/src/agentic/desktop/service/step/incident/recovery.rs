@@ -207,8 +207,14 @@ fn tool_to_action_request(
     session_id: [u8; 32],
     nonce: u64,
 ) -> Result<ActionRequest, TransactionError> {
-    let target = tool.target();
+    let mut target = tool.target();
     let tool_name = canonical_tool_name(tool);
+    if matches!(tool_name.as_str(), "sys__exec_session" | "sys__exec_session_reset") {
+        target = match tool_name.as_str() {
+            "sys__exec_session" => ActionTarget::Custom("sys::exec_session".to_string()),
+            _ => ActionTarget::Custom("sys::exec_session_reset".to_string()),
+        };
+    }
     let mut args = canonical_tool_args(tool);
     if should_embed_queue_tool_name_metadata(&target, &tool_name) {
         if let Some(obj) = args.as_object_mut() {
@@ -272,7 +278,7 @@ pub(super) fn queue_root_retry(
 #[cfg(test)]
 mod tests {
     use super::{tool_to_action_request, QUEUE_TOOL_NAME_KEY};
-    use ioi_types::app::agentic::AgentTool;
+    use ioi_types::app::{ActionTarget, agentic::AgentTool};
 
     fn queued_params(tool: AgentTool) -> serde_json::Value {
         let request = tool_to_action_request(&tool, [7u8; 32], 99)
@@ -304,6 +310,25 @@ mod tests {
             .and_then(|v| v.as_str())
             .expect("gui click element metadata should be present");
         assert_eq!(tool_name, "gui__click_element");
+    }
+
+    #[test]
+    fn sys_exec_session_recovery_request_uses_custom_alias_target() {
+        let request = tool_to_action_request(
+            &AgentTool::SysExecSession {
+                command: "bash".to_string(),
+                args: vec!["-lc".to_string(), "echo session".to_string()],
+                stdin: None,
+            },
+            [7u8; 32],
+            101,
+        )
+        .expect("request should serialize for deterministic queueing");
+
+        match request.target {
+            ActionTarget::Custom(name) => assert_eq!(name, "sys::exec_session"),
+            _ => panic!("sys_exec_session should be queued as custom alias target"),
+        }
     }
 
     #[test]

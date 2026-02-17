@@ -428,6 +428,42 @@ fn queue_does_not_allow_metadata_to_override_non_fs_target_inference() {
 }
 
 #[test]
+fn queue_maps_sys_exec_session_custom_alias() {
+    let request = build_custom_request(
+        "sys::exec_session",
+        151,
+        serde_json::json!({
+            "command": "bash",
+            "args": ["-lc", "echo ok"]
+        }),
+    );
+
+    let tool = queue_action_request_to_tool(&request).expect("queue mapping should succeed");
+    match tool {
+        AgentTool::SysExecSession {
+            command,
+            args,
+            ..
+        } => {
+            assert_eq!(command, "bash");
+            assert_eq!(args, vec!["-lc".to_string(), "echo ok".to_string()]);
+        }
+        other => panic!("expected SysExecSession, got {:?}", other),
+    }
+}
+
+#[test]
+fn queue_maps_sys_exec_session_reset_custom_alias() {
+    let request = build_custom_request("sys::exec_session_reset", 152, serde_json::json!({}));
+
+    let tool = queue_action_request_to_tool(&request).expect("queue mapping should succeed");
+    match tool {
+        AgentTool::SysExecSessionReset {} => {}
+        other => panic!("expected SysExecSessionReset, got {:?}", other),
+    }
+}
+
+#[test]
 fn queue_preserves_computer_left_click_payload_for_guiclick_target() {
     let request = build_request(
         ActionTarget::GuiClick,
