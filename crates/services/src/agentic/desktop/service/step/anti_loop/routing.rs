@@ -1,5 +1,6 @@
 use super::attempts::latest_failure_class;
 use super::model::{tier_as_str, FailureClass, TierRoutingDecision};
+use crate::agentic::desktop::service::step::intent_resolver;
 use crate::agentic::desktop::types::{AgentState, AgentStatus, ExecutionTier};
 use ioi_types::app::{RoutingPostStateSummary, RoutingStateSummary};
 
@@ -16,6 +17,21 @@ pub fn choose_routing_tier(agent_state: &AgentState) -> TierRoutingDecision {
     let source_failure = latest_failure_class(agent_state);
 
     if failures == 0 {
+        if let Some(resolved) = agent_state.resolved_intent.as_ref() {
+            let preferred = intent_resolver::preferred_tier(resolved);
+            if preferred != ExecutionTier::DomHeadless {
+                let reason_code = match preferred {
+                    ExecutionTier::DomHeadless => "tool_first_default",
+                    ExecutionTier::VisualBackground => "ax_first_intent_preferred",
+                    ExecutionTier::VisualForeground => "visual_last_intent_preferred",
+                };
+                return TierRoutingDecision {
+                    tier: preferred,
+                    reason_code,
+                    source_failure: None,
+                };
+            }
+        }
         return TierRoutingDecision {
             tier: ExecutionTier::DomHeadless,
             reason_code: "tool_first_default",

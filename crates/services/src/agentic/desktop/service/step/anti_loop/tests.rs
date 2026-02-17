@@ -1,5 +1,6 @@
 use super::*;
 use crate::agentic::desktop::types::{AgentMode, AgentState, AgentStatus, ExecutionTier};
+use ioi_types::app::agentic::{IntentConfidenceBand, IntentScopeProfile, ResolvedIntentState};
 use ioi_types::app::RoutingFailureClass;
 use std::collections::BTreeMap;
 
@@ -314,6 +315,28 @@ fn routing_defaults_to_tool_first() {
     let decision = choose_routing_tier(&state);
     assert_eq!(decision.tier, ExecutionTier::DomHeadless);
     assert_eq!(decision.reason_code, "tool_first_default");
+    assert_eq!(decision.source_failure, None);
+}
+
+#[test]
+fn routing_honors_intent_preferred_tier_on_first_step() {
+    let mut state = test_agent_state();
+    state.resolved_intent = Some(ResolvedIntentState {
+        intent_id: "ui.interaction".to_string(),
+        scope: IntentScopeProfile::UiInteraction,
+        band: IntentConfidenceBand::High,
+        score: 0.95,
+        top_k: vec![],
+        preferred_tier: "visual_last".to_string(),
+        matrix_version: "intent-matrix-v2".to_string(),
+        matrix_source_hash: [0u8; 32],
+        receipt_hash: [0u8; 32],
+        constrained: false,
+    });
+
+    let decision = choose_routing_tier(&state);
+    assert_eq!(decision.tier, ExecutionTier::VisualForeground);
+    assert_eq!(decision.reason_code, "visual_last_intent_preferred");
     assert_eq!(decision.source_failure, None);
 }
 
