@@ -338,6 +338,7 @@ fn tool_allowed_for_scope(scope: IntentScopeProfile, tool_name: &str) -> bool {
     let is_browser = tool_name.starts_with("browser__");
     let is_web_retrieval = tool_name.starts_with("web__");
     let is_filesystem = tool_name.starts_with("filesystem__");
+    let is_clipboard = tool_name == "os__copy" || tool_name == "os__paste";
     let is_shell = tool_name == "sys__exec"
         || tool_name == "sys__exec_session"
         || tool_name == "sys__exec_session_reset"
@@ -355,12 +356,14 @@ fn tool_allowed_for_scope(scope: IntentScopeProfile, tool_name: &str) -> bool {
     match scope {
         IntentScopeProfile::Conversation => is_chat || is_system,
         IntentScopeProfile::WebResearch => is_browser || is_web_retrieval || is_chat || is_system,
-        IntentScopeProfile::WorkspaceOps => is_filesystem || is_chat || is_system,
-        IntentScopeProfile::AppLaunch => is_launch || is_ui || is_chat || is_system,
+        IntentScopeProfile::WorkspaceOps => is_filesystem || is_clipboard || is_chat || is_system,
+        IntentScopeProfile::AppLaunch => is_launch || is_ui || is_clipboard || is_chat || is_system,
         IntentScopeProfile::UiInteraction => {
-            is_ui || is_browser || is_chat || is_system || is_launch
+            is_ui || is_clipboard || is_browser || is_chat || is_system || is_launch
         }
-        IntentScopeProfile::CommandExecution => is_shell || is_chat || is_system || is_filesystem,
+        IntentScopeProfile::CommandExecution => {
+            is_shell || is_filesystem || is_clipboard || is_chat || is_system
+        }
         IntentScopeProfile::Delegation => is_delegate || is_chat || is_system,
         IntentScopeProfile::Unknown => is_chat || is_system,
     }
@@ -635,7 +638,63 @@ mod tests {
             Some(&state),
             "browser__navigate"
         ));
+        assert!(!is_tool_allowed_for_resolution(Some(&state), "os__copy"));
+        assert!(!is_tool_allowed_for_resolution(Some(&state), "os__paste"));
         assert!(is_tool_allowed_for_resolution(Some(&state), "chat__reply"));
+    }
+
+    #[test]
+    fn ui_interaction_scope_allows_clipboard() {
+        let state = ResolvedIntentState {
+            intent_id: "ui.interact".to_string(),
+            scope: IntentScopeProfile::UiInteraction,
+            band: IntentConfidenceBand::High,
+            score: 0.95,
+            top_k: vec![],
+            preferred_tier: "visual_last".to_string(),
+            matrix_version: "v1".to_string(),
+            matrix_source_hash: [1u8; 32],
+            receipt_hash: [2u8; 32],
+            constrained: false,
+        };
+        assert!(is_tool_allowed_for_resolution(Some(&state), "os__copy"));
+        assert!(is_tool_allowed_for_resolution(Some(&state), "os__paste"));
+    }
+
+    #[test]
+    fn command_execution_scope_allows_clipboard() {
+        let state = ResolvedIntentState {
+            intent_id: "command.exec".to_string(),
+            scope: IntentScopeProfile::CommandExecution,
+            band: IntentConfidenceBand::High,
+            score: 0.95,
+            top_k: vec![],
+            preferred_tier: "tool_first".to_string(),
+            matrix_version: "v1".to_string(),
+            matrix_source_hash: [1u8; 32],
+            receipt_hash: [2u8; 32],
+            constrained: false,
+        };
+        assert!(is_tool_allowed_for_resolution(Some(&state), "os__copy"));
+        assert!(is_tool_allowed_for_resolution(Some(&state), "os__paste"));
+    }
+
+    #[test]
+    fn workspace_ops_scope_allows_clipboard() {
+        let state = ResolvedIntentState {
+            intent_id: "workspace.ops".to_string(),
+            scope: IntentScopeProfile::WorkspaceOps,
+            band: IntentConfidenceBand::High,
+            score: 0.95,
+            top_k: vec![],
+            preferred_tier: "tool_first".to_string(),
+            matrix_version: "v1".to_string(),
+            matrix_source_hash: [1u8; 32],
+            receipt_hash: [2u8; 32],
+            constrained: false,
+        };
+        assert!(is_tool_allowed_for_resolution(Some(&state), "os__copy"));
+        assert!(is_tool_allowed_for_resolution(Some(&state), "os__paste"));
     }
 
     #[test]
