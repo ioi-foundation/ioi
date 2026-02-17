@@ -650,27 +650,10 @@ pub async fn handle_action_execution(
             Ok((false, None, Some(error_msg)))
         }
         AgentTool::AgentDelegate { goal, budget } => {
-            let mut child_session_id = [0u8; 32];
-            use rand::RngCore;
-            rand::thread_rng().fill_bytes(&mut child_session_id);
-            if let Some(tx) = &service.event_sender {
-                let _ = tx.send(ioi_types::app::KernelEvent::AgentSpawn {
-                    parent_session_id: session_id,
-                    new_session_id: child_session_id,
-                    name: format!("Agent-{}", hex::encode(&child_session_id[0..2])),
-                    role: "Sub-Worker".to_string(),
-                    budget,
-                    goal: goal.clone(),
-                });
-            }
-            Ok((
-                true,
-                Some(format!(
-                    "Delegated to child agent. Session ID: {}",
-                    hex::encode(child_session_id)
-                )),
-                None,
-            ))
+            // Orchestration is stateful; spawning the child session is handled in the step layer
+            // so receipts + session state mutations remain atomic and auditable.
+            let _ = (goal, budget);
+            Ok((true, None, None))
         }
         AgentTool::AgentAwait { .. } => Ok((true, None, None)),
         AgentTool::AgentPause { .. } => Ok((true, None, None)),

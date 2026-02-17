@@ -26,6 +26,7 @@ use crate::agentic::desktop::service::step::incident::{
 };
 use crate::agentic::desktop::service::step::visual::hamming_distance;
 use crate::agentic::desktop::service::DesktopAgentService;
+use crate::agentic::desktop::service::lifecycle::spawn_delegated_child_session;
 use crate::agentic::desktop::types::{AgentState, AgentStatus};
 use crate::agentic::desktop::utils::compute_phash;
 use crate::agentic::desktop::utils::goto_trace_log;
@@ -532,7 +533,8 @@ pub async fn resume_pending_action(
     }
 
     // Execute with SNAPSHOT MAP unless prechecks failed.
-    let (success, out, err) = match precheck_error {
+    let has_precheck_error = precheck_error.is_some();
+    let (mut success, mut out, mut err) = match precheck_error {
         Some(err) => (false, None, Some(err)),
         None => match service
             .handle_action_execution(
@@ -551,6 +553,126 @@ pub async fn resume_pending_action(
             Err(e) => (false, None, Some(e.to_string())),
         },
     };
+
+    if !has_precheck_error && success {
+        match &tool {
+            AgentTool::AgentDelegate { goal, budget } => {
+                match spawn_delegated_child_session(
+                    service,
+                    state,
+                    agent_state,
+                    tool_hash,
+                    goal,
+                    *budget,
+                    pre_state_summary.step_index,
+                    block_height,
+                )
+                .await
+                {
+                    Ok(child_session_id) => {
+                        out = Some(format!(
+                            "{{\"child_session_id_hex\":\"{}\"}}",
+                            hex::encode(child_session_id)
+                        ));
+                        err = None;
+                    }
+                    Err(e) => {
+                        success = false;
+                        out = None;
+                        err = Some(e.to_string());
+                    }
+                }
+            }
+            AgentTool::AgentAwait {
+                child_session_id_hex,
+            } => {
+                let parsed = parse_hash_hex(child_session_id_hex);
+                match parsed {
+                    Some(child_session_id) => {
+                        let child_key = get_state_key(&child_session_id);
+                        let bytes = match state.get(&child_key) {
+                            Ok(Some(bytes)) => bytes,
+                            Ok(None) => {
+                                success = false;
+                                out = None;
+                                err = Some(format!(
+                                    "ERROR_CLASS=UnexpectedState Child session '{}' not found.",
+                                    child_session_id_hex
+                                ));
+                                vec![]
+                            }
+                            Err(e) => {
+                                success = false;
+                                out = None;
+                                err = Some(format!(
+                                    "ERROR_CLASS=UnexpectedState Child state lookup failed: {}",
+                                    e
+                                ));
+                                vec![]
+                            }
+                        };
+
+                        if success {
+                            match codec::from_bytes_canonical::<AgentState>(&bytes) {
+                                Ok(child_state) => match child_state.status {
+                                    AgentStatus::Running | AgentStatus::Idle => {
+                                        out = Some("Running".to_string());
+                                        err = None;
+                                    }
+                                    AgentStatus::Paused(reason) => {
+                                        out = Some(format!("Running (paused: {})", reason));
+                                        err = None;
+                                    }
+                                    AgentStatus::Completed(Some(result)) => {
+                                        out = Some(result);
+                                        err = None;
+                                    }
+                                    AgentStatus::Completed(None) => {
+                                        out = Some("Completed".to_string());
+                                        err = None;
+                                    }
+                                    AgentStatus::Failed(reason) => {
+                                        success = false;
+                                        out = None;
+                                        err = Some(format!(
+                                            "ERROR_CLASS=UnexpectedState Child agent failed: {}",
+                                            reason
+                                        ));
+                                    }
+                                    AgentStatus::Terminated => {
+                                        success = false;
+                                        out = None;
+                                        err = Some(
+                                            "ERROR_CLASS=UnexpectedState Child agent terminated."
+                                                .to_string(),
+                                        );
+                                    }
+                                },
+                                Err(e) => {
+                                    success = false;
+                                    out = None;
+                                    err = Some(format!(
+                                        "ERROR_CLASS=UnexpectedState Failed to decode child session '{}': {}",
+                                        child_session_id_hex, e
+                                    ));
+                                }
+                            }
+                        }
+                    }
+                    None => {
+                        success = false;
+                        out = None;
+                        err = Some(format!(
+                            "ERROR_CLASS=ToolUnavailable Invalid child_session_id_hex '{}'.",
+                            child_session_id_hex
+                        ));
+                    }
+                }
+            }
+            _ => {}
+        }
+    }
+
     if let Some(err_msg) = err.as_deref() {
         if err_msg.to_lowercase().contains("blocked by policy") {
             policy_decision = "denied".to_string();
