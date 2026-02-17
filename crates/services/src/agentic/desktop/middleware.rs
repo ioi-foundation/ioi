@@ -39,6 +39,8 @@ fn is_deterministic_tool_name(name: &str) -> bool {
             | "browser__key"
             | "web__search"
             | "web__read"
+            | "memory__search"
+            | "memory__inspect"
             | "gui__click"
             | "gui__type"
             | "gui__scroll"

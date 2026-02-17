@@ -521,6 +521,20 @@ pub enum AgentTool {
         budget: u64,
     },
 
+    /// Memory Tool: Semantic search over the agent's long-term memory (SCS).
+    #[serde(rename = "memory__search")]
+    MemorySearch {
+        /// Semantic search query.
+        query: String,
+    },
+
+    /// Memory Tool: Inspect a specific memory frame by ID.
+    #[serde(rename = "memory__inspect")]
+    MemoryInspect {
+        /// Frame ID to inspect (from memory__search).
+        frame_id: u64,
+    },
+
     /// Meta Tool: Awaits result from a sub-agent.
     #[serde(rename = "agent__await_result")]
     AgentAwait {
@@ -642,6 +656,9 @@ impl AgentTool {
             },
 
             AgentTool::CommerceCheckout { .. } => ActionTarget::CommerceCheckout,
+
+            AgentTool::MemorySearch { .. } => ActionTarget::Custom("memory::search".into()),
+            AgentTool::MemoryInspect { .. } => ActionTarget::Custom("memory::inspect".into()),
 
             AgentTool::AgentDelegate { .. } => ActionTarget::Custom("agent__delegate".into()),
             AgentTool::AgentAwait { .. } => ActionTarget::Custom("agent__await_result".into()),
@@ -792,6 +809,8 @@ mod tests {
             | AgentTool::OsPaste {}
             | AgentTool::OsLaunchApp { .. }
             | AgentTool::ChatReply { .. }
+            | AgentTool::MemorySearch { .. }
+            | AgentTool::MemoryInspect { .. }
             | AgentTool::AgentDelegate { .. }
             | AgentTool::AgentAwait { .. }
             | AgentTool::AgentPause { .. }

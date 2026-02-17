@@ -242,6 +242,12 @@ pub async fn process_tool_output(
             if let AgentTool::SysChangeDir { .. } = &tool {
                 current_tool_name = "sys__change_directory".to_string();
             }
+            if let AgentTool::MemorySearch { .. } = &tool {
+                current_tool_name = "memory__search".to_string();
+            }
+            if let AgentTool::MemoryInspect { .. } = &tool {
+                current_tool_name = "memory__inspect".to_string();
+            }
             if let AgentTool::Dynamic(val) = &tool {
                 if let Some(n) = val.get("name").and_then(|s| s.as_str()) {
                     current_tool_name = n.to_string();
