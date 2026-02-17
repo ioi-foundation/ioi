@@ -326,10 +326,34 @@ pub async fn process_tool_output(
                 tool_version,
             ));
 
-            if !is_tool_allowed_for_resolution(
+            let mut tool_allowed = is_tool_allowed_for_resolution(
                 agent_state.resolved_intent.as_ref(),
                 &current_tool_name,
-            ) {
+            );
+            if !tool_allowed {
+                let allow_mcp_tools = agent_state
+                    .resolved_intent
+                    .as_ref()
+                    .map(|resolved| {
+                        !matches!(
+                            resolved.scope,
+                            ioi_types::app::agentic::IntentScopeProfile::Conversation
+                                | ioi_types::app::agentic::IntentScopeProfile::Unknown
+                        )
+                    })
+                    .unwrap_or(false);
+                if allow_mcp_tools {
+                    if let Some(mcp) = service.mcp.as_ref() {
+                        tool_allowed = mcp
+                            .get_all_tools()
+                            .await
+                            .iter()
+                            .any(|tool| tool.name == current_tool_name);
+                    }
+                }
+            }
+
+            if !tool_allowed {
                 policy_decision = "denied".to_string();
                 success = false;
                 error_msg = Some(format!(

@@ -5,6 +5,7 @@ use crate::agentic::desktop::service::step::intent_resolver::is_tool_allowed_for
 use crate::agentic::desktop::types::ExecutionTier;
 use ioi_api::state::StateAccess;
 use ioi_api::vm::inference::InferenceRuntime;
+use ioi_drivers::mcp::McpManager;
 use ioi_scs::{FrameType, SovereignContextStore};
 use ioi_types::app::agentic::AgentMacro;
 use ioi_types::app::agentic::{LlmToolDefinition, ResolvedIntentState, SkillStats};
@@ -13,6 +14,7 @@ use ioi_types::keys::UPGRADE_ACTIVE_SERVICE_PREFIX;
 use ioi_types::service_configs::ActiveServiceMeta;
 use regex::Regex;
 use serde_json::json;
+use std::collections::HashSet;
 use std::sync::Arc;
 
 fn should_expose_headless_browser_followups(
@@ -26,6 +28,7 @@ fn should_expose_headless_browser_followups(
 pub async fn discover_tools(
     state: &dyn StateAccess,
     scs: Option<&std::sync::Mutex<SovereignContextStore>>,
+    mcp: Option<&McpManager>,
     query: &str,
     runtime: Arc<dyn InferenceRuntime>,
     tier: ExecutionTier,
@@ -33,6 +36,7 @@ pub async fn discover_tools(
     resolved_intent: Option<&ResolvedIntentState>,
 ) -> Vec<LlmToolDefinition> {
     let mut tools = Vec::new();
+    let mut mcp_tool_names: HashSet<String> = HashSet::new();
 
     // 1. Browser Detection
     let t = active_window_title.to_lowercase();
@@ -97,6 +101,21 @@ pub async fn discover_tools(
                     }
                 }
             }
+        }
+    }
+
+    // 2b. MCP Tool Discovery (External Tool Servers)
+    // Prefer cached definitions from the MCP manager so the model sees accurate schemas.
+    // Note: we DO NOT override built-in tool names (filesystem__/browser__/sys__/etc) since
+    // those are strictly typed in `AgentTool` and are executed by deterministic adapters.
+    if let Some(mcp) = mcp {
+        let mcp_tools = mcp.get_all_tools().await;
+        for tool in mcp_tools {
+            if tools.iter().any(|t| t.name == tool.name) {
+                continue;
+            }
+            mcp_tool_names.insert(tool.name.clone());
+            tools.push(tool);
         }
     }
 
@@ -999,7 +1018,21 @@ pub async fn discover_tools(
         }
     }
 
-    tools.retain(|tool| is_tool_allowed_for_resolution(resolved_intent, &tool.name));
+    let allow_mcp_tools = resolved_intent
+        .map(|resolved| {
+            !matches!(
+                resolved.scope,
+                ioi_types::app::agentic::IntentScopeProfile::Conversation
+                    | ioi_types::app::agentic::IntentScopeProfile::Unknown
+            )
+        })
+        .unwrap_or(true);
+    tools.retain(|tool| {
+        if is_tool_allowed_for_resolution(resolved_intent, &tool.name) {
+            return true;
+        }
+        allow_mcp_tools && mcp_tool_names.contains(&tool.name)
+    });
     tools
 }
 
@@ -1060,6 +1093,7 @@ mod tests {
         let tools = discover_tools(
             &state,
             None,
+            None,
             "summarize this note",
             runtime,
             ExecutionTier::DomHeadless,
@@ -1080,6 +1114,7 @@ mod tests {
         let runtime: Arc<dyn InferenceRuntime> = Arc::new(MockInferenceRuntime);
         let tools = discover_tools(
             &state,
+            None,
             None,
             "crawl this url and summarize key details",
             runtime,

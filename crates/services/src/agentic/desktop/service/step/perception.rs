@@ -347,6 +347,7 @@ pub async fn gather_context(
     let tools = discover_tools(
         state,
         service.scs.as_deref(),
+        service.mcp.as_deref(),
         &agent_state.goal,
         tools_runtime,
         current_tier, // [FIX] Use the resolved tier here
