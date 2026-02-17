@@ -11,6 +11,53 @@ pub fn normalize_tool_call(raw_llm_output: &str) -> Result<AgentTool> {
 
 pub struct ToolNormalizer;
 
+fn is_deterministic_tool_name(name: &str) -> bool {
+    matches!(
+        name,
+        "computer"
+            | "filesystem__write_file"
+            | "filesystem__patch"
+            | "filesystem__read_file"
+            | "filesystem__list_directory"
+            | "filesystem__search"
+            | "filesystem__move_path"
+            | "filesystem__copy_path"
+            | "filesystem__delete_path"
+            | "filesystem__create_directory"
+            | "sys__exec"
+            | "sys__exec_session"
+            | "sys__exec_session_reset"
+            | "sys__install_package"
+            | "sys__change_directory"
+            | "browser__navigate"
+            | "browser__snapshot"
+            | "browser__click"
+            | "browser__click_element"
+            | "browser__synthetic_click"
+            | "browser__scroll"
+            | "browser__type"
+            | "browser__key"
+            | "web__search"
+            | "web__read"
+            | "gui__click"
+            | "gui__type"
+            | "gui__scroll"
+            | "gui__click_element"
+            | "ui__find"
+            | "os__focus_window"
+            | "os__copy"
+            | "os__paste"
+            | "os__launch_app"
+            | "chat__reply"
+            | "agent__delegate"
+            | "agent__await_result"
+            | "agent__pause"
+            | "agent__complete"
+            | "commerce__checkout"
+            | "system__fail"
+    )
+}
+
 fn default_install_manager() -> &'static str {
     if cfg!(target_os = "macos") {
         "brew"
@@ -270,6 +317,21 @@ impl ToolNormalizer {
         let tool_call: AgentTool = serde_json::from_value(raw_val)
             .map_err(|e| anyhow!("Schema Validation Error: {}", e))?;
 
+        // Guardrail: `AgentTool` has an untagged `Dynamic` catch-all, so serde will happily
+        // deserialize malformed built-in tool calls into `Dynamic`. That is dangerous because
+        // it routes deterministic tools through the MCP executor path (tool-not-found loops)
+        // instead of surfacing a schema error the model can correct.
+        if let AgentTool::Dynamic(val) = &tool_call {
+            if let Some(name) = val.get("name").and_then(|n| n.as_str()) {
+                if is_deterministic_tool_name(name) {
+                    return Err(anyhow!(
+                        "Schema Validation Error: '{}' is a built-in tool but arguments did not match its typed schema.",
+                        name
+                    ));
+                }
+            }
+        }
+
         Ok(tool_call)
     }
 
@@ -368,14 +430,13 @@ mod tests {
     }
 
     #[test]
-    fn test_schema_violation_falls_back_to_dynamic() {
-        // Missing required field
+    fn test_schema_violation_for_builtin_tool_is_rejected() {
+        // Missing required field for deterministic tool name should be a hard schema error
+        // (not `Dynamic` fallback routed to MCP).
         let input = r#"{"name": "browser__navigate", "arguments": {}}"#;
-        let tool = ToolNormalizer::normalize(input).unwrap();
-        match tool {
-            AgentTool::Dynamic(_) => {}
-            _ => panic!("Expected Dynamic fallback for schema mismatch"),
-        }
+        let err = ToolNormalizer::normalize(input).expect_err("expected schema error");
+        assert!(err.to_string().contains("Schema Validation Error"));
+        assert!(err.to_string().contains("browser__navigate"));
     }
 
     #[test]
