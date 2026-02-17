@@ -332,6 +332,9 @@ fn tool_allowed_for_scope(scope: IntentScopeProfile, tool_name: &str) -> bool {
     ) {
         return true;
     }
+    if tool_name.starts_with("memory__") {
+        return true;
+    }
     let is_browser = tool_name.starts_with("browser__");
     let is_web_retrieval = tool_name.starts_with("web__");
     let is_filesystem = tool_name.starts_with("filesystem__");

@@ -3,12 +3,13 @@
 use super::DesktopAgentService;
 use crate::agentic::desktop::execution::ToolExecutor;
 use crate::agentic::desktop::runtime_secret;
-use crate::agentic::desktop::types::AgentState;
+use crate::agentic::desktop::types::{AgentState, RecordedMessage};
 use crate::agentic::rules::ActionRules;
 use ioi_api::state::StateAccess;
 use ioi_api::vm::drivers::os::{OsDriver, WindowInfo};
 use ioi_drivers::mcp::McpManager;
 use ioi_pii::{build_decision_material, build_review_summary, RiskSurface, REVIEW_REQUEST_VERSION};
+use ioi_scs::FrameType;
 use ioi_types::app::agentic::{
     AgentTool, ComputerAction, PiiEgressRiskSurface, PiiReviewRequest, PiiTarget,
 };
@@ -432,7 +433,12 @@ pub async fn handle_action_execution(
     };
 
     // 3. Policy Check
-    let skip_policy = matches!(tool, AgentTool::SystemFail { .. });
+    let skip_policy = matches!(
+        tool,
+        AgentTool::SystemFail { .. }
+            | AgentTool::MemorySearch { .. }
+            | AgentTool::MemoryInspect { .. }
+    );
 
     if !skip_policy {
         let approved_by_token = agent_state
@@ -648,6 +654,158 @@ pub async fn handle_action_execution(
                 });
             }
             Ok((false, None, Some(error_msg)))
+        }
+        AgentTool::MemorySearch { query } => {
+            if service.scs.is_none() {
+                return Ok((
+                    false,
+                    None,
+                    Some(
+                        "ERROR_CLASS=ToolUnavailable memory__search requires an SCS-backed memory store."
+                            .to_string(),
+                    ),
+                ));
+            }
+
+            let trimmed = query.trim();
+            if trimmed.is_empty() {
+                return Ok((
+                    false,
+                    None,
+                    Some(
+                        "ERROR_CLASS=TargetNotFound memory__search requires a non-empty query."
+                            .to_string(),
+                    ),
+                ));
+            }
+
+            let out = service.retrieve_context_hybrid(trimmed, None).await;
+            let out = if out.trim().is_empty() {
+                "No matching memories found.".to_string()
+            } else {
+                out
+            };
+            Ok((true, Some(out), None))
+        }
+        AgentTool::MemoryInspect { frame_id } => {
+            let scs_mutex = match service.scs.as_ref() {
+                Some(m) => m,
+                None => {
+                    return Ok((
+                        false,
+                        None,
+                        Some(
+                            "ERROR_CLASS=ToolUnavailable memory__inspect requires an SCS-backed memory store."
+                                .to_string(),
+                        ),
+                    ))
+                }
+            };
+
+            let frame_type = {
+                let store = match scs_mutex.lock() {
+                    Ok(store) => store,
+                    Err(_) => {
+                        return Ok((
+                            false,
+                            None,
+                            Some("ERROR_CLASS=UnexpectedState SCS lock poisoned.".to_string()),
+                        ))
+                    }
+                };
+
+                match store.toc.frames.get(frame_id as usize) {
+                    Some(frame) => frame.frame_type,
+                    None => {
+                        return Ok((
+                            false,
+                            None,
+                            Some(format!(
+                                "ERROR_CLASS=TargetNotFound Frame {} not found in memory store.",
+                                frame_id
+                            )),
+                        ))
+                    }
+                }
+            };
+
+            match frame_type {
+                FrameType::Observation => match service.inspect_frame(frame_id).await {
+                    Ok(desc) => Ok((true, Some(desc), None)),
+                    Err(e) => Ok((
+                        false,
+                        None,
+                        Some(format!(
+                            "ERROR_CLASS=UnexpectedState memory__inspect failed: {}",
+                            e
+                        )),
+                    )),
+                },
+                FrameType::Thought | FrameType::Action => {
+                    let payload = {
+                        let store = match scs_mutex.lock() {
+                            Ok(store) => store,
+                            Err(_) => {
+                                return Ok((
+                                    false,
+                                    None,
+                                    Some("ERROR_CLASS=UnexpectedState SCS lock poisoned."
+                                        .to_string()),
+                                ))
+                            }
+                        };
+
+                        match store.read_frame_payload(frame_id) {
+                            Ok(payload) => payload,
+                            Err(e) => {
+                                return Ok((
+                                    false,
+                                    None,
+                                    Some(format!(
+                                        "ERROR_CLASS=UnexpectedState Failed to read frame payload: {}",
+                                        e
+                                    )),
+                                ))
+                            }
+                        }
+                    };
+
+                    match codec::from_bytes_canonical::<RecordedMessage>(&payload) {
+                        Ok(recorded) => {
+                            let content = if recorded.scrubbed_for_model.is_empty() {
+                                recorded.scrubbed_for_scs
+                            } else {
+                                recorded.scrubbed_for_model
+                            };
+                            let out = json!({
+                                "frame_id": frame_id,
+                                "frame_type": format!("{:?}", frame_type),
+                                "role": recorded.role,
+                                "timestamp_ms": recorded.timestamp_ms,
+                                "content": content,
+                            })
+                            .to_string();
+                            Ok((true, Some(out), None))
+                        }
+                        Err(_) => Ok((
+                            true,
+                            Some(format!(
+                                "{{\"frame_id\":{},\"frame_type\":\"{:?}\",\"content\":\"<Non-Recorded Payload>\"}}",
+                                frame_id, frame_type
+                            )),
+                            None,
+                        )),
+                    }
+                }
+                _ => Ok((
+                    true,
+                    Some(format!(
+                        "{{\"frame_id\":{},\"frame_type\":\"{:?}\",\"content\":\"<Unsupported Frame Type>\"}}",
+                        frame_id, frame_type
+                    )),
+                    None,
+                )),
+            }
         }
         AgentTool::AgentDelegate { goal, budget } => {
             // Orchestration is stateful; spawning the child session is handled in the step layer
