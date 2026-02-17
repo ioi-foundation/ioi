@@ -4,7 +4,7 @@
 mod clarification;
 #[path = "events/emission.rs"]
 mod emission;
-#[path = "events/stream.rs"]
+#[path = "events/stream/mod.rs"]
 mod stream;
 #[path = "events/support.rs"]
 mod support;
