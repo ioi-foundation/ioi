@@ -606,31 +606,32 @@ pub async fn discover_tools(
             description: "Bring a specific application window to the foreground. REQUIRED before clicking buttons in that app.".to_string(),
             parameters: focus_params.to_string(),
         });
-
-        let copy_params = json!({
-            "type": "object",
-            "properties": {
-                "content": { "type": "string", "description": "Text to place in the clipboard" }
-            },
-            "required": ["content"]
-        });
-        tools.push(LlmToolDefinition {
-            name: "os__copy".to_string(),
-            description: "Write text to the system clipboard (Copy).".to_string(),
-            parameters: copy_params.to_string(),
-        });
-
-        let paste_params = json!({
-            "type": "object",
-            "properties": {},
-            "required": []
-        });
-        tools.push(LlmToolDefinition {
-            name: "os__paste".to_string(),
-            description: "Read text from the system clipboard (Paste).".to_string(),
-            parameters: paste_params.to_string(),
-        });
     }
+
+    // Clipboard is a Tier-1 deterministic primitive and should not be tier-restricted.
+    let copy_params = json!({
+        "type": "object",
+        "properties": {
+            "content": { "type": "string", "description": "Text to place in the clipboard" }
+        },
+        "required": ["content"]
+    });
+    tools.push(LlmToolDefinition {
+        name: "os__copy".to_string(),
+        description: "Write text to the system clipboard (Copy).".to_string(),
+        parameters: copy_params.to_string(),
+    });
+
+    let paste_params = json!({
+        "type": "object",
+        "properties": {},
+        "required": []
+    });
+    tools.push(LlmToolDefinition {
+        name: "os__paste".to_string(),
+        description: "Read text from the system clipboard (Paste).".to_string(),
+        parameters: paste_params.to_string(),
+    });
 
     // Common Tools (Chat, FS) - Available in all tiers
 
@@ -1105,6 +1106,28 @@ mod tests {
         assert!(!tools.iter().any(|t| t.name == "browser__navigate"));
         assert!(!tools.iter().any(|t| t.name == "web__search"));
         assert!(!tools.iter().any(|t| t.name == "web__read"));
+        assert!(!tools.iter().any(|t| t.name == "os__copy"));
+        assert!(!tools.iter().any(|t| t.name == "os__paste"));
+    }
+
+    #[tokio::test(flavor = "current_thread")]
+    async fn workspace_ops_scope_exposes_clipboard_tools_in_headless_discovery() {
+        let intent = resolved(IntentScopeProfile::WorkspaceOps);
+        let state = IAVLTree::new(HashCommitmentScheme::new());
+        let runtime: Arc<dyn InferenceRuntime> = Arc::new(MockInferenceRuntime);
+        let tools = discover_tools(
+            &state,
+            None,
+            None,
+            "copy this text into clipboard",
+            runtime,
+            ExecutionTier::DomHeadless,
+            "terminal",
+            Some(&intent),
+        )
+        .await;
+        assert!(tools.iter().any(|t| t.name == "os__copy"));
+        assert!(tools.iter().any(|t| t.name == "os__paste"));
     }
 
     #[tokio::test(flavor = "current_thread")]
