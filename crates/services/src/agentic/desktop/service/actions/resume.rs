@@ -930,7 +930,7 @@ pub async fn resume_pending_action(
                     agent_state.status = AgentStatus::Running;
                 }
             }
-            AgentTool::SysExec { .. } => {
+            AgentTool::SysExec { .. } | AgentTool::SysExecSession { .. } => {
                 if success && is_command_probe_intent(agent_state.resolved_intent.as_ref()) {
                     if let Some(summary) = out
                         .as_deref()

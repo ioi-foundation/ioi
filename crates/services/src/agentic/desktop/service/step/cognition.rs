@@ -55,7 +55,7 @@ fn preflight_missing_capability(
         has_tool("computer") || has_tool("gui__click_element") || has_tool("gui__click");
     let can_type = has_tool("computer") || has_tool("gui__type");
 
-    let has_sys_exec = has_tool("sys__exec");
+    let has_command_tool = has_tool("sys__exec") || has_tool("sys__exec_session");
     let has_filesystem_tooling = tools.iter().any(|t| t.name.starts_with("filesystem__"));
 
     if requires_browser_interaction && !has_browser_tooling {
@@ -81,10 +81,11 @@ fn preflight_missing_capability(
         ));
     }
 
-    if requires_command_execution && !has_sys_exec {
+    if requires_command_execution && !has_command_tool {
         return Some((
             "sys__exec".to_string(),
-            "Resolver selected command_execution scope but sys__exec is unavailable.".to_string(),
+            "Resolver selected command_execution scope but neither sys__exec nor sys__exec_session is available."
+                .to_string(),
         ));
     }
 
@@ -658,6 +659,15 @@ mod tests {
     #[test]
     fn command_execution_does_not_require_clipboard() {
         let tools = vec![tool("sys__exec")];
+        assert!(
+            preflight_missing_capability(IntentScopeProfile::CommandExecution, false, &tools)
+                .is_none()
+        );
+    }
+
+    #[test]
+    fn command_execution_does_not_require_clipboard_when_exec_session_available() {
+        let tools = vec![tool("sys__exec_session")];
         assert!(
             preflight_missing_capability(IntentScopeProfile::CommandExecution, false, &tools)
                 .is_none()
