@@ -1,4 +1,4 @@
-use crate::agentic::rules::{Verdict};
+use crate::agentic::rules::Verdict;
 use ioi_api::vm::inference::PiiRiskSurface;
 use ioi_pii::RiskSurface;
 use ioi_types::app::agentic::FirewallDecision;
@@ -20,4 +20,3 @@ pub(super) fn to_shared_risk_surface(risk_surface: PiiRiskSurface) -> RiskSurfac
         PiiRiskSurface::Egress => RiskSurface::Egress,
     }
 }
-

@@ -34,4 +34,3 @@ pub(super) fn is_high_risk_target_for_rules(rules: &ActionRules, target: &Action
             .any(|configured| configured == alias)
     })
 }
-

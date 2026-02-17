@@ -86,10 +86,9 @@ fn browser_click_element_target_keeps_compatibility_aliases() {
 
 #[test]
 fn copy_and_move_require_source_and_destination_paths() {
-    let keys = required_filesystem_path_keys(&ActionTarget::Custom(
-        "filesystem__move_path".to_string(),
-    ))
-    .expect("move path should require deterministic path keys");
+    let keys =
+        required_filesystem_path_keys(&ActionTarget::Custom("filesystem__move_path".to_string()))
+            .expect("move path should require deterministic path keys");
     assert_eq!(keys, ["source_path", "destination_path"]);
 }
 
@@ -135,7 +134,8 @@ fn allow_paths_blocks_prefix_collision_path() {
     });
     let params = serde_json::to_vec(&params).expect("params should serialize");
 
-    let allowed_by_policy = validate_allow_paths_condition(&allowed, &ActionTarget::FsRead, &params);
+    let allowed_by_policy =
+        validate_allow_paths_condition(&allowed, &ActionTarget::FsRead, &params);
     assert!(!allowed_by_policy);
 }
 
@@ -147,7 +147,8 @@ fn allow_paths_blocks_parent_traversal_segments() {
     });
     let params = serde_json::to_vec(&params).expect("params should serialize");
 
-    let allowed_by_policy = validate_allow_paths_condition(&allowed, &ActionTarget::FsRead, &params);
+    let allowed_by_policy =
+        validate_allow_paths_condition(&allowed, &ActionTarget::FsRead, &params);
     assert!(!allowed_by_policy);
 }
 
@@ -159,7 +160,8 @@ fn allow_paths_accepts_normalized_path_within_allowed_root() {
     });
     let params = serde_json::to_vec(&params).expect("params should serialize");
 
-    let allowed_by_policy = validate_allow_paths_condition(&allowed, &ActionTarget::FsRead, &params);
+    let allowed_by_policy =
+        validate_allow_paths_condition(&allowed, &ActionTarget::FsRead, &params);
     assert!(allowed_by_policy);
 }
 
@@ -199,7 +201,9 @@ fn pii_overlay_material_hash_matches_direct_router_hash() {
         nonce: 1,
     };
 
-    let safety = Arc::new(DummySafety { graph: graph.clone() }) as Arc<dyn LocalSafetyModel>;
+    let safety = Arc::new(DummySafety {
+        graph: graph.clone(),
+    }) as Arc<dyn LocalSafetyModel>;
 
     let rt = tokio::runtime::Builder::new_current_thread()
         .enable_all()
@@ -207,7 +211,9 @@ fn pii_overlay_material_hash_matches_direct_router_hash() {
         .expect("runtime");
 
     let (_verdict, material_opt) = rt
-        .block_on(PolicyEngine::evaluate_pii_overlay_details(&rules, &request, &safety))
+        .block_on(PolicyEngine::evaluate_pii_overlay_details(
+            &rules, &request, &safety,
+        ))
         .expect("pii overlay details");
     let material = material_opt.expect("expected material from successful route");
     let overlay_hash = compute_decision_hash(&material);
@@ -221,4 +227,3 @@ fn pii_overlay_material_hash_matches_direct_router_hash() {
     );
     assert_eq!(overlay_hash, direct.decision_hash);
 }
-

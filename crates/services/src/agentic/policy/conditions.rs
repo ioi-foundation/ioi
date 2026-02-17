@@ -64,7 +64,9 @@ impl PolicyEngine {
                     for arg in args {
                         let s = arg.as_str().unwrap_or("");
                         if s.contains(';') || s.contains('|') || s.contains('>') {
-                            tracing::warn!("Policy Violation: Dangerous argument characters detected.");
+                            tracing::warn!(
+                                "Policy Violation: Dangerous argument characters detected."
+                            );
                             return false;
                         }
                     }
@@ -196,7 +198,9 @@ impl PolicyEngine {
                         }
                     } else {
                         // If we can't determine the window, fail closed for safety
-                        tracing::warn!("Policy Violation: Could not determine active window context");
+                        tracing::warn!(
+                            "Policy Violation: Could not determine active window context"
+                        );
                         return false;
                     }
                 }
@@ -294,4 +298,3 @@ impl PolicyEngine {
         true
     }
 }
-

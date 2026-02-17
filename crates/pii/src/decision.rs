@@ -145,4 +145,4 @@ fn with_hash(
     }
 }
 
-/// Returns true if the target is configured as high-risk egress.
+// (removed stray doc comment that was left without an item; see `targets.rs` for high-risk helpers)
