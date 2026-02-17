@@ -444,7 +444,7 @@ pub async fn process_queue_item(
     }
 
     if !is_gated && success && completion_summary.is_none() {
-        if matches!(&tool_wrapper, AgentTool::SysExec { .. })
+        if matches!(&tool_wrapper, AgentTool::SysExec { .. } | AgentTool::SysExecSession { .. })
             && is_command_probe_intent(agent_state.resolved_intent.as_ref())
         {
             if let Some(raw) = out.as_deref() {
@@ -454,7 +454,7 @@ pub async fn process_queue_item(
                     agent_state.execution_queue.clear();
                     agent_state.recent_actions.clear();
                     log::info!(
-                        "Auto-completed command probe after sys__exec for session {}.",
+                        "Auto-completed command probe after shell-command tool for session {}.",
                         hex::encode(&p.session_id[..4])
                     );
                 }

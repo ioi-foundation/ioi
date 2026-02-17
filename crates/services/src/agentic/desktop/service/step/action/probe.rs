@@ -81,8 +81,10 @@ fn extract_shell_script_arg(command: &str, args: &[String]) -> Option<String> {
 }
 
 fn extract_probed_subject(tool: &AgentTool) -> Option<String> {
-    let AgentTool::SysExec { command, args, .. } = tool else {
-        return None;
+    let (command, args) = match tool {
+        AgentTool::SysExec { command, args, .. } => (command, args),
+        AgentTool::SysExecSession { command, args, .. } => (command, args),
+        _ => return None,
     };
 
     // Prefer the shell script argument when available (sh -c "<script>").
@@ -235,6 +237,21 @@ mod tests {
             ],
             stdin: None,
             detach: false,
+        };
+        let summary = summarize_command_probe_output(&tool, "NOT_FOUND_IN_PATH")
+            .expect("should produce summary");
+        assert!(summary.contains("gimp is not installed"));
+    }
+
+    #[test]
+    fn summarizes_not_found_probe_for_exec_session() {
+        let tool = ioi_types::app::agentic::AgentTool::SysExecSession {
+            command: "sh".to_string(),
+            args: vec![
+                "-c".to_string(),
+                "if command -v gimp >/dev/null 2>&1; then echo \"FOUND: $(command -v gimp)\"; else echo \"NOT_FOUND_IN_PATH\"; fi".to_string(),
+            ],
+            stdin: None,
         };
         let summary = summarize_command_probe_output(&tool, "NOT_FOUND_IN_PATH")
             .expect("should produce summary");

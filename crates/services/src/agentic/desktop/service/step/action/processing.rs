@@ -469,7 +469,7 @@ pub async fn process_tool_output(
                             }
                         }
 
-                        if let AgentTool::SysExec { .. } = &tool {
+                        if matches!(&tool, AgentTool::SysExec { .. } | AgentTool::SysExecSession { .. }) {
                             if let Some(raw_entry) = extract_command_history(&history_entry) {
                                 let history_entry = scrub_command_history_fields(
                                     &service.scrubber,
@@ -555,7 +555,7 @@ pub async fn process_tool_output(
                                 );
                                 }
                             }
-                            AgentTool::SysExec { .. } => {
+                            AgentTool::SysExec { .. } | AgentTool::SysExecSession { .. } => {
                                 if success
                                     && is_command_probe_intent(
                                     agent_state.resolved_intent.as_ref(),

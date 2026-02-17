@@ -236,6 +236,9 @@ pub async fn process_tool_output(
             if let AgentTool::SysExec { .. } = &tool {
                 current_tool_name = "sys__exec".to_string();
             }
+            if let AgentTool::SysExecSession { .. } = &tool {
+                current_tool_name = "sys__exec_session".to_string();
+            }
             if let AgentTool::SysChangeDir { .. } = &tool {
                 current_tool_name = "sys__change_directory".to_string();
             }
