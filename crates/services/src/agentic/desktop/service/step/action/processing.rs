@@ -13,6 +13,7 @@ use crate::agentic::desktop::middleware;
 use crate::agentic::desktop::service::handler::{
     build_pii_review_request_for_tool, emit_pii_review_requested, persist_pii_review_request,
 };
+use crate::agentic::desktop::service::lifecycle::spawn_delegated_child_session;
 use crate::agentic::desktop::service::step::anti_loop::{
     build_attempt_key, build_post_state_summary, build_state_summary, choose_routing_tier,
     classify_failure, emit_routing_receipt, escalation_path_for_failure, extract_artifacts,
@@ -31,10 +32,9 @@ use crate::agentic::desktop::service::step::incident::{
 };
 use crate::agentic::desktop::service::step::intent_resolver::is_tool_allowed_for_resolution;
 use crate::agentic::desktop::service::DesktopAgentService;
-use crate::agentic::desktop::service::lifecycle::spawn_delegated_child_session;
 use crate::agentic::desktop::types::{
-    AgentState, AgentStatus, CommandExecution, MAX_COMMAND_HISTORY, PendingSearchCompletion,
-    ToolCallStatus,
+    AgentState, AgentStatus, CommandExecution, PendingSearchCompletion, ToolCallStatus,
+    MAX_COMMAND_HISTORY,
 };
 use crate::agentic::desktop::utils::goto_trace_log;
 use crate::agentic::rules::ActionRules;
@@ -47,8 +47,8 @@ use ioi_types::app::{
 };
 use ioi_types::codec;
 use ioi_types::error::TransactionError;
-use serde_json::json;
 use serde_json;
+use serde_json::json;
 use std::collections::VecDeque;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -454,28 +454,31 @@ pub async fn process_tool_output(
                                 }
                                 AgentTool::AgentAwait {
                                     child_session_id_hex,
-                                } => match await_child_session_status(state, child_session_id_hex) {
-                                    Ok(out) => {
-                                        history_entry = Some(out);
-                                        error_msg = None;
+                                } => {
+                                    match await_child_session_status(state, child_session_id_hex) {
+                                        Ok(out) => {
+                                            history_entry = Some(out);
+                                            error_msg = None;
+                                        }
+                                        Err(err) => {
+                                            success = false;
+                                            error_msg = Some(err);
+                                            history_entry = None;
+                                        }
                                     }
-                                    Err(err) => {
-                                        success = false;
-                                        error_msg = Some(err);
-                                        history_entry = None;
-                                    }
-                                },
+                                }
                                 _ => {}
                             }
                         }
 
-                        if matches!(&tool, AgentTool::SysExec { .. } | AgentTool::SysExecSession { .. }) {
+                        if matches!(
+                            &tool,
+                            AgentTool::SysExec { .. } | AgentTool::SysExecSession { .. }
+                        ) {
                             if let Some(raw_entry) = extract_command_history(&history_entry) {
-                                let history_entry = scrub_command_history_fields(
-                                    &service.scrubber,
-                                    raw_entry,
-                                )
-                                .await;
+                                let history_entry =
+                                    scrub_command_history_fields(&service.scrubber, raw_entry)
+                                        .await;
                                 append_to_bounded_history(
                                     &mut agent_state.command_history,
                                     history_entry,
@@ -535,13 +538,14 @@ pub async fn process_tool_output(
                             AgentTool::OsLaunchApp { app_name } => {
                                 if success
                                     && should_auto_complete_open_app_goal(
-                                    &agent_state.goal,
-                                    app_name,
-                                    agent_state
-                                        .target
-                                        .as_ref()
-                                        .and_then(|target| target.app_hint.as_deref()),
-                                ) {
+                                        &agent_state.goal,
+                                        app_name,
+                                        agent_state
+                                            .target
+                                            .as_ref()
+                                            .and_then(|target| target.app_hint.as_deref()),
+                                    )
+                                {
                                     let summary = format!("Opened {}.", app_name);
                                     agent_state.status =
                                         AgentStatus::Completed(Some(summary.clone()));
@@ -557,9 +561,8 @@ pub async fn process_tool_output(
                             }
                             AgentTool::SysExec { .. } | AgentTool::SysExecSession { .. } => {
                                 if success
-                                    && is_command_probe_intent(
-                                    agent_state.resolved_intent.as_ref(),
-                                ) {
+                                    && is_command_probe_intent(agent_state.resolved_intent.as_ref())
+                                {
                                     if let Some(raw) = entry.as_deref() {
                                         if let Some(summary) =
                                             summarize_command_probe_output(&tool, raw)
@@ -1311,7 +1314,12 @@ fn await_child_session_status(
     let key = get_state_key(&child_session_id);
     let bytes = state
         .get(&key)
-        .map_err(|e| format!("ERROR_CLASS=UnexpectedState Child state lookup failed: {}", e))?
+        .map_err(|e| {
+            format!(
+                "ERROR_CLASS=UnexpectedState Child state lookup failed: {}",
+                e
+            )
+        })?
         .ok_or_else(|| {
             format!(
                 "ERROR_CLASS=UnexpectedState Child session '{}' not found.",
@@ -1335,7 +1343,9 @@ fn await_child_session_status(
             "ERROR_CLASS=UnexpectedState Child agent failed: {}",
             reason
         )),
-        AgentStatus::Terminated => Err("ERROR_CLASS=UnexpectedState Child agent terminated.".to_string()),
+        AgentStatus::Terminated => {
+            Err("ERROR_CLASS=UnexpectedState Child agent terminated.".to_string())
+        }
     }
 }
 
@@ -1358,9 +1368,7 @@ fn parse_session_id_hex(input: &str) -> Result<[u8; 32], String> {
     Ok(out)
 }
 
-fn extract_command_history(
-    history_entry: &Option<String>,
-) -> Option<CommandExecution> {
+fn extract_command_history(history_entry: &Option<String>) -> Option<CommandExecution> {
     let entry = history_entry.as_deref()?;
     if !entry.starts_with(COMMAND_HISTORY_PREFIX) {
         let _ = COMMAND_HISTORY_MARKER_MISS_COUNT.fetch_add(1, Ordering::Relaxed);
@@ -1368,7 +1376,10 @@ fn extract_command_history(
     }
 
     let suffix = &entry[COMMAND_HISTORY_PREFIX.len()..];
-    let json_payload = suffix.find('\n').map_or(suffix, |idx| &suffix[..idx]).trim();
+    let json_payload = suffix
+        .find('\n')
+        .map_or(suffix, |idx| &suffix[..idx])
+        .trim();
     if json_payload.is_empty() {
         let _ = COMMAND_HISTORY_PARSE_FAIL_COUNT.fetch_add(1, Ordering::Relaxed);
         return None;
@@ -1422,9 +1433,7 @@ mod tests {
     use super::*;
     use crate::agentic::pii_scrubber::PiiScrubber;
     use async_trait::async_trait;
-    use ioi_api::vm::inference::{
-        LocalSafetyModel, PiiInspection, PiiRiskSurface, SafetyVerdict,
-    };
+    use ioi_api::vm::inference::{LocalSafetyModel, PiiInspection, PiiRiskSurface, SafetyVerdict};
     use serde_json;
     use std::sync::Arc;
 
@@ -1509,10 +1518,7 @@ mod tests {
         assert_eq!(parsed.step_index, 3);
         assert_eq!(parsed.exit_code, 0);
 
-        let malformed = Some(format!(
-            "{}{}",
-            COMMAND_HISTORY_PREFIX, "{ invalid "
-        ));
+        let malformed = Some(format!("{}{}", COMMAND_HISTORY_PREFIX, "{ invalid "));
         assert!(extract_command_history(&malformed).is_none());
 
         let unrelated = Some("no metadata here".to_string());

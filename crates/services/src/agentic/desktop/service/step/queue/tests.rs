@@ -440,11 +440,7 @@ fn queue_maps_sys_exec_session_custom_alias() {
 
     let tool = queue_action_request_to_tool(&request).expect("queue mapping should succeed");
     match tool {
-        AgentTool::SysExecSession {
-            command,
-            args,
-            ..
-        } => {
+        AgentTool::SysExecSession { command, args, .. } => {
             assert_eq!(command, "bash");
             assert_eq!(args, vec!["-lc".to_string(), "echo ok".to_string()]);
         }

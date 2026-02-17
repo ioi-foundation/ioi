@@ -7,9 +7,9 @@ use ioi_api::state::service_namespace_prefix;
 use ioi_api::vm::inference::{LocalSafetyModel, PiiRiskSurface};
 use ioi_client::WorkloadClient;
 use ioi_pii::{
-    check_exception_usage_increment_ok, decode_exception_usage_state, inspect_and_route_with_for_target,
-    mint_default_scoped_exception, verify_scoped_exception_for_decision, RiskSurface,
-    ScopedExceptionVerifyError,
+    check_exception_usage_increment_ok, decode_exception_usage_state,
+    inspect_and_route_with_for_target, mint_default_scoped_exception,
+    verify_scoped_exception_for_decision, RiskSurface, ScopedExceptionVerifyError,
 };
 use ioi_services::agentic::desktop::AgentState;
 use ioi_services::agentic::rules::ActionRules;
@@ -145,8 +145,11 @@ pub(crate) async fn verify_scoped_exception(
         let usage_key_local = ioi_services::agentic::desktop::keys::pii::review::exception_usage(
             &scoped_exception.exception_id,
         );
-        let usage_key = [service_namespace_prefix("desktop_agent").as_slice(), usage_key_local.as_slice()]
-            .concat();
+        let usage_key = [
+            service_namespace_prefix("desktop_agent").as_slice(),
+            usage_key_local.as_slice(),
+        ]
+        .concat();
         let raw_usage = match workload_client.query_raw_state(&usage_key).await {
             Ok(v) => v,
             Err(e) => {

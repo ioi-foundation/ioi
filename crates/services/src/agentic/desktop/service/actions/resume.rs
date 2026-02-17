@@ -4,6 +4,7 @@ use super::checks::requires_visual_integrity;
 use super::evaluation::evaluate_and_crystallize;
 use crate::agentic::desktop::execution::system::is_sudo_password_required_install_error;
 use crate::agentic::desktop::keys::{get_state_key, pii, AGENT_POLICY_PREFIX};
+use crate::agentic::desktop::service::lifecycle::spawn_delegated_child_session;
 use crate::agentic::desktop::service::step::action::{
     canonical_intent_hash, canonical_retry_intent_hash, canonical_tool_identity,
     is_command_probe_intent, summarize_command_probe_output,
@@ -26,7 +27,6 @@ use crate::agentic::desktop::service::step::incident::{
 };
 use crate::agentic::desktop::service::step::visual::hamming_distance;
 use crate::agentic::desktop::service::DesktopAgentService;
-use crate::agentic::desktop::service::lifecycle::spawn_delegated_child_session;
 use crate::agentic::desktop::types::{AgentState, AgentStatus};
 use crate::agentic::desktop::utils::compute_phash;
 use crate::agentic::desktop::utils::goto_trace_log;

@@ -1,7 +1,5 @@
 use crate::standard::orchestration::context::TxStatusEntry;
-use crate::standard::orchestration::ingestion::types::{
-    parse_hash_hex, ProcessedTx,
-};
+use crate::standard::orchestration::ingestion::types::{parse_hash_hex, ProcessedTx};
 use ioi_api::chain::WorkloadClientApi;
 use ioi_api::state::service_namespace_prefix;
 use ioi_client::WorkloadClient;
@@ -124,24 +122,20 @@ pub(crate) async fn resolve_resume_context(
     };
 
     let pending_gate_hash = match workload_client.query_raw_state(&incident_full_key).await {
-        Ok(Some(bytes)) => {
-            codec::from_bytes_canonical::<IncidentState>(&bytes)
-                .ok()
-                .and_then(|incident| {
-                    incident
-                        .pending_gate
-                        .as_ref()
-                        .and_then(|pending| parse_hash_hex(&pending.request_hash))
-                })
-        }
+        Ok(Some(bytes)) => codec::from_bytes_canonical::<IncidentState>(&bytes)
+            .ok()
+            .and_then(|incident| {
+                incident
+                    .pending_gate
+                    .as_ref()
+                    .and_then(|pending| parse_hash_hex(&pending.request_hash))
+            }),
         Ok(None) => None,
         Err(_) => None,
     };
 
-    let expected_request_hash = ioi_pii::resolve_expected_request_hash(
-        pending_gate_hash,
-        pending_tool_hash,
-    );
+    let expected_request_hash =
+        ioi_pii::resolve_expected_request_hash(pending_gate_hash, pending_tool_hash);
 
     let request_key_local = pii::review::request(&expected_request_hash);
     let request_key = [ns_prefix.as_slice(), request_key_local.as_slice()].concat();

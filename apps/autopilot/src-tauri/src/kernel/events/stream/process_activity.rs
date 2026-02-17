@@ -1,9 +1,8 @@
 use crate::kernel::events::clarification::build_clarification_request_with_inference;
 use crate::kernel::events::emission::{emit_command_stream, register_event};
 use crate::kernel::events::support::{
-    detect_clarification_preset, is_sudo_password_required_install,
-    thread_id_from_session, ClarificationPreset, WAIT_FOR_CLARIFICATION_PROMPT,
-    CLARIFICATION_WAIT_STEP,
+    detect_clarification_preset, is_sudo_password_required_install, thread_id_from_session,
+    ClarificationPreset, CLARIFICATION_WAIT_STEP, WAIT_FOR_CLARIFICATION_PROMPT,
 };
 use crate::kernel::state::update_task_state;
 use crate::models::CredentialRequest;
@@ -16,8 +15,8 @@ pub(super) async fn handle_process_activity(app: &tauri::AppHandle, activity: Pr
     } else {
         None
     };
-    let stream_password_required =
-        activity.is_final && is_sudo_password_required_install(&activity.tool_name, &activity.chunk);
+    let stream_password_required = activity.is_final
+        && is_sudo_password_required_install(&activity.tool_name, &activity.chunk);
     let stream_clarification_preset = if activity.is_final {
         detect_clarification_preset(&activity.tool_name, &activity.chunk)
     } else {
@@ -43,7 +42,10 @@ pub(super) async fn handle_process_activity(app: &tauri::AppHandle, activity: Pr
         if !activity.session_id.is_empty() {
             t.session_id = Some(activity.session_id.clone());
         }
-        if matches!(t.phase, crate::models::AgentPhase::Idle | crate::models::AgentPhase::Running) {
+        if matches!(
+            t.phase,
+            crate::models::AgentPhase::Idle | crate::models::AgentPhase::Running
+        ) {
             t.phase = crate::models::AgentPhase::Running;
         }
         t.current_step = format!("Streaming {} ({})", activity.tool_name, activity.channel);
@@ -58,14 +60,12 @@ pub(super) async fn handle_process_activity(app: &tauri::AppHandle, activity: Pr
             t.clarification_request = None;
             t.credential_request = Some(CredentialRequest {
                 kind: "sudo_password".to_string(),
-                prompt: "A one-time sudo password is required to continue the install."
-                    .to_string(),
+                prompt: "A one-time sudo password is required to continue the install.".to_string(),
                 one_time: true,
             });
 
             if !activity.chunk.trim().is_empty() {
-                let tool_msg =
-                    format!("Tool Output ({}): {}", activity.tool_name, activity.chunk);
+                let tool_msg = format!("Tool Output ({}): {}", activity.tool_name, activity.chunk);
                 if t.history.last().map(|m| m.text != tool_msg).unwrap_or(true) {
                     t.history.push(crate::models::ChatMessage {
                         role: "tool".to_string(),
@@ -99,8 +99,7 @@ pub(super) async fn handle_process_activity(app: &tauri::AppHandle, activity: Pr
             t.clarification_request = stream_clarification_request.clone();
 
             if !activity.chunk.trim().is_empty() {
-                let tool_msg =
-                    format!("Tool Output ({}): {}", activity.tool_name, activity.chunk);
+                let tool_msg = format!("Tool Output ({}): {}", activity.tool_name, activity.chunk);
                 if t.history.last().map(|m| m.text != tool_msg).unwrap_or(true) {
                     t.history.push(crate::models::ChatMessage {
                         role: "tool".to_string(),

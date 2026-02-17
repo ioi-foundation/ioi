@@ -66,7 +66,8 @@ pub(super) async fn handle_action(app: &tauri::AppHandle, action: ActionIntercep
         };
 
         let action_is_install = is_install_package_tool(&action.target);
-        let action_is_identity_lookup_tool = clarification_preset_for_tool(&action.target).is_some();
+        let action_is_identity_lookup_tool =
+            clarification_preset_for_tool(&action.target).is_some();
         let suppress_gate_for_wait = (waiting_for_sudo && action_is_install)
             || (waiting_for_clarification && action_is_identity_lookup_tool);
 
@@ -106,7 +107,10 @@ pub(super) async fn handle_action(app: &tauri::AppHandle, action: ActionIntercep
                 } else {
                     GateInfo {
                         title: "Restricted Action Intercepted".to_string(),
-                        description: format!("The agent is attempting to execute: {}", action.target),
+                        description: format!(
+                            "The agent is attempting to execute: {}",
+                            action.target
+                        ),
                         risk: "high".to_string(),
                         deadline_ms: None,
                         pii: None,

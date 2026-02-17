@@ -15,7 +15,8 @@ use std::sync::Mutex;
 
 pub(super) async fn handle_routing_receipt(app: &tauri::AppHandle, receipt: RoutingReceipt) {
     let receipt_is_install_tool = is_install_package_tool(&receipt.tool_name);
-    let receipt_is_identity_lookup_tool = clarification_preset_for_tool(&receipt.tool_name).is_some();
+    let receipt_is_identity_lookup_tool =
+        clarification_preset_for_tool(&receipt.tool_name).is_some();
     let receipt_waiting_for_sudo = receipt
         .post_state
         .as_ref()
@@ -99,10 +100,7 @@ pub(super) async fn handle_routing_receipt(app: &tauri::AppHandle, receipt: Rout
     let receipt_clarification_request = if receipt_waiting_for_clarification {
         let preset = clarification_preset_for_tool(&receipt.tool_name)
             .unwrap_or(ClarificationPreset::IdentityLookup);
-        Some(
-            build_clarification_request_with_inference(&app, preset, &receipt.tool_name, "")
-                .await,
-        )
+        Some(build_clarification_request_with_inference(&app, preset, &receipt.tool_name, "").await)
     } else {
         None
     };
@@ -127,7 +125,11 @@ pub(super) async fn handle_routing_receipt(app: &tauri::AppHandle, receipt: Rout
     let mut summary = format!(
         "RoutingReceipt(step={}, tier={}, tool={}, decision={}, stop={}, policy_hash={})",
         receipt.step_index,
-        receipt.pre_state.as_ref().map(|s| s.tier.as_str()).unwrap_or("unknown"),
+        receipt
+            .pre_state
+            .as_ref()
+            .map(|s| s.tier.as_str())
+            .unwrap_or("unknown"),
         receipt.tool_name,
         receipt.policy_decision,
         receipt.stop_condition_hit,
@@ -156,7 +158,10 @@ pub(super) async fn handle_routing_receipt(app: &tauri::AppHandle, receipt: Rout
         summary.push_str(&format!(", gate_state={}", receipt.gate_state));
     }
     if !receipt.resolution_action.is_empty() {
-        summary.push_str(&format!(", resolution_action={}", receipt.resolution_action));
+        summary.push_str(&format!(
+            ", resolution_action={}",
+            receipt.resolution_action
+        ));
     }
     if !receipt.escalation_path.is_empty() {
         summary.push_str(&format!(", escalation={}", receipt.escalation_path));
@@ -165,7 +170,10 @@ pub(super) async fn handle_routing_receipt(app: &tauri::AppHandle, receipt: Rout
         summary.push_str(&format!(", lineage={}", receipt.scs_lineage_ptr));
     }
     if !receipt.mutation_receipt_ptr.is_empty() {
-        summary.push_str(&format!(", mutation_receipt={}", receipt.mutation_receipt_ptr));
+        summary.push_str(&format!(
+            ", mutation_receipt={}",
+            receipt.mutation_receipt_ptr
+        ));
     }
     summary.push_str(&format!(", verify=[{}]", verification));
 
@@ -184,7 +192,8 @@ pub(super) async fn handle_routing_receipt(app: &tauri::AppHandle, receipt: Rout
             .as_ref()
             .map(|req| req.kind == "sudo_password")
             .unwrap_or(false)
-            || t.current_step.eq_ignore_ascii_case("Waiting for sudo password");
+            || t.current_step
+                .eq_ignore_ascii_case("Waiting for sudo password");
         let waiting_for_clarification = t
             .clarification_request
             .as_ref()
@@ -211,8 +220,7 @@ pub(super) async fn handle_routing_receipt(app: &tauri::AppHandle, receipt: Rout
             t.clarification_request = None;
             t.credential_request = Some(crate::models::CredentialRequest {
                 kind: "sudo_password".to_string(),
-                prompt: "A one-time sudo password is required to continue the install."
-                    .to_string(),
+                prompt: "A one-time sudo password is required to continue the install.".to_string(),
                 one_time: true,
             });
         }
@@ -226,7 +234,9 @@ pub(super) async fn handle_routing_receipt(app: &tauri::AppHandle, receipt: Rout
             t.clarification_request = receipt_clarification_request.clone();
         }
 
-        if receipt.policy_decision.eq_ignore_ascii_case("require_approval")
+        if receipt
+            .policy_decision
+            .eq_ignore_ascii_case("require_approval")
             && !effective_waiting_for_sudo
             && !receipt_waiting_for_sudo
             && !effective_waiting_for_clarification

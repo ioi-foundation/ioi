@@ -1,5 +1,5 @@
-use crate::kernel::events::support::thread_id_from_session;
 use crate::kernel::events::emission::{build_event, register_event};
+use crate::kernel::events::support::thread_id_from_session;
 use crate::kernel::state::update_task_state;
 use crate::models::{EventStatus, EventType, GhostInputEvent};
 use ioi_ipc::public::chain_event::GhostInput;

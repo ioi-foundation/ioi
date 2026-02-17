@@ -20,14 +20,8 @@ pub(crate) async fn evaluate_policy_verdict(
     event_broadcaster: &tokio::sync::broadcast::Sender<KernelEvent>,
     allow_approval_bypass_for_message: bool,
 ) -> bool {
-    let verdict = PolicyEngine::evaluate(
-        rules,
-        request,
-        safety_model,
-        os_driver,
-        presented_approval,
-    )
-    .await;
+    let verdict =
+        PolicyEngine::evaluate(rules, request, safety_model, os_driver, presented_approval).await;
 
     let mut is_safe = true;
     match verdict {

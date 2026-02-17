@@ -444,8 +444,10 @@ pub async fn process_queue_item(
     }
 
     if !is_gated && success && completion_summary.is_none() {
-        if matches!(&tool_wrapper, AgentTool::SysExec { .. } | AgentTool::SysExecSession { .. })
-            && is_command_probe_intent(agent_state.resolved_intent.as_ref())
+        if matches!(
+            &tool_wrapper,
+            AgentTool::SysExec { .. } | AgentTool::SysExecSession { .. }
+        ) && is_command_probe_intent(agent_state.resolved_intent.as_ref())
         {
             if let Some(raw) = out.as_deref() {
                 if let Some(summary) = summarize_command_probe_output(&tool_wrapper, raw) {

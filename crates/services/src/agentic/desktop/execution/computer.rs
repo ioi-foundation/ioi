@@ -216,7 +216,14 @@ pub async fn handle(
                 }
             }
 
-            exec_input(exec, InputEvent::Scroll { dx: delta_x, dy: delta_y }).await
+            exec_input(
+                exec,
+                InputEvent::Scroll {
+                    dx: delta_x,
+                    dy: delta_y,
+                },
+            )
+            .await
         }
 
         AgentTool::GuiClickElement { id } => {
@@ -841,7 +848,9 @@ mod tests {
         }
 
         async fn capture_raw_screen(&self) -> Result<Vec<u8>, VmError> {
-            Err(VmError::HostError("capture_raw_screen not implemented".into()))
+            Err(VmError::HostError(
+                "capture_raw_screen not implemented".into(),
+            ))
         }
 
         async fn capture_tree(&self) -> Result<String, VmError> {

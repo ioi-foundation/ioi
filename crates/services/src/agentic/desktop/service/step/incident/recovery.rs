@@ -209,7 +209,10 @@ fn tool_to_action_request(
 ) -> Result<ActionRequest, TransactionError> {
     let mut target = tool.target();
     let tool_name = canonical_tool_name(tool);
-    if matches!(tool_name.as_str(), "sys__exec_session" | "sys__exec_session_reset") {
+    if matches!(
+        tool_name.as_str(),
+        "sys__exec_session" | "sys__exec_session_reset"
+    ) {
         target = match tool_name.as_str() {
             "sys__exec_session" => ActionTarget::Custom("sys::exec_session".to_string()),
             _ => ActionTarget::Custom("sys::exec_session_reset".to_string()),
@@ -278,7 +281,7 @@ pub(super) fn queue_root_retry(
 #[cfg(test)]
 mod tests {
     use super::{tool_to_action_request, QUEUE_TOOL_NAME_KEY};
-    use ioi_types::app::{ActionTarget, agentic::AgentTool};
+    use ioi_types::app::{agentic::AgentTool, ActionTarget};
 
     fn queued_params(tool: AgentTool) -> serde_json::Value {
         let request = tool_to_action_request(&tool, [7u8; 32], 99)
