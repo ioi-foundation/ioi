@@ -203,28 +203,20 @@ pub async fn handle(
         AgentTool::GuiType { text } => exec_input(exec, InputEvent::Type { text }).await,
 
         AgentTool::GuiScroll { delta_x, delta_y } => {
-            let allow_raw = matches!(exec.current_tier, Some(ExecutionTier::VisualForeground));
-            if !allow_raw {
-                return ToolExecutionResult::failure(
-                    "ERROR_CLASS=TierViolation Scrolling requires VisualForeground (VisualLast) tier.",
-                );
-            }
-            if let Some(regions) = browser_surface_regions(exec).await {
-                let (x, y) = regions.viewport_center();
-                let hover = exec_input(exec, InputEvent::MouseMove { x, y }).await;
-                if !hover.success {
-                    return hover;
+            // Scroll is a tier-independent primitive (used for UI parity), but cursor repositioning
+            // remains VisualForeground-only to avoid background cursor churn.
+            if matches!(exec.current_tier, Some(ExecutionTier::VisualForeground)) {
+                if let Some(regions) = browser_surface_regions(exec).await {
+                    let (x, y) = regions.viewport_center();
+                    let hover = exec_input(exec, InputEvent::MouseMove { x, y }).await;
+                    if !hover.success {
+                        return hover;
+                    }
+                    tokio::time::sleep(std::time::Duration::from_millis(40)).await;
                 }
-                tokio::time::sleep(std::time::Duration::from_millis(40)).await;
             }
-            exec_input(
-                exec,
-                InputEvent::Scroll {
-                    dx: delta_x,
-                    dy: delta_y,
-                },
-            )
-            .await
+
+            exec_input(exec, InputEvent::Scroll { dx: delta_x, dy: delta_y }).await
         }
 
         AgentTool::GuiClickElement { id } => {
@@ -809,5 +801,138 @@ async fn handle_computer_action(
             )
             .await
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use async_trait::async_trait;
+    use ioi_api::vm::drivers::gui::GuiDriver;
+    use ioi_api::vm::drivers::os::{OsDriver, WindowInfo};
+    use ioi_api::vm::inference::{mock::MockInferenceRuntime, InferenceRuntime};
+    use ioi_drivers::browser::BrowserDriver;
+    use ioi_drivers::mcp::McpManager;
+    use ioi_drivers::terminal::TerminalDriver;
+    use ioi_types::app::{ActionRequest, ContextSlice};
+    use ioi_types::error::VmError;
+    use std::collections::HashMap;
+    use std::sync::{Arc, Mutex};
+
+    #[derive(Default)]
+    struct RecordingGuiDriver {
+        injected: Mutex<Vec<InputEvent>>,
+    }
+
+    impl RecordingGuiDriver {
+        fn take_events(&self) -> Vec<InputEvent> {
+            let mut guard = self.injected.lock().unwrap_or_else(|e| e.into_inner());
+            std::mem::take(&mut *guard)
+        }
+    }
+
+    #[async_trait]
+    impl GuiDriver for RecordingGuiDriver {
+        async fn capture_screen(
+            &self,
+            _crop_rect: Option<(i32, i32, u32, u32)>,
+        ) -> Result<Vec<u8>, VmError> {
+            Err(VmError::HostError("capture_screen not implemented".into()))
+        }
+
+        async fn capture_raw_screen(&self) -> Result<Vec<u8>, VmError> {
+            Err(VmError::HostError("capture_raw_screen not implemented".into()))
+        }
+
+        async fn capture_tree(&self) -> Result<String, VmError> {
+            Err(VmError::HostError("capture_tree not implemented".into()))
+        }
+
+        async fn capture_context(&self, _intent: &ActionRequest) -> Result<ContextSlice, VmError> {
+            Err(VmError::HostError("capture_context not implemented".into()))
+        }
+
+        async fn inject_input(&self, event: InputEvent) -> Result<(), VmError> {
+            let mut guard = self.injected.lock().unwrap_or_else(|e| e.into_inner());
+            guard.push(event);
+            Ok(())
+        }
+
+        async fn get_element_center(&self, _id: u32) -> Result<Option<(u32, u32)>, VmError> {
+            Ok(None)
+        }
+
+        async fn register_som_overlay(
+            &self,
+            _map: HashMap<u32, (i32, i32, i32, i32)>,
+        ) -> Result<(), VmError> {
+            Ok(())
+        }
+    }
+
+    struct NoopOsDriver;
+
+    #[async_trait]
+    impl OsDriver for NoopOsDriver {
+        async fn get_active_window_title(&self) -> Result<Option<String>, VmError> {
+            Ok(None)
+        }
+
+        async fn get_active_window_info(&self) -> Result<Option<WindowInfo>, VmError> {
+            Ok(None)
+        }
+
+        async fn focus_window(&self, _title_query: &str) -> Result<bool, VmError> {
+            Ok(false)
+        }
+
+        async fn set_clipboard(&self, _content: &str) -> Result<(), VmError> {
+            Ok(())
+        }
+
+        async fn get_clipboard(&self) -> Result<String, VmError> {
+            Ok(String::new())
+        }
+    }
+
+    #[tokio::test(flavor = "current_thread")]
+    async fn gui_scroll_is_allowed_outside_visual_foreground() {
+        let gui = Arc::new(RecordingGuiDriver::default());
+        let os: Arc<dyn OsDriver> = Arc::new(NoopOsDriver);
+        let terminal = Arc::new(TerminalDriver::new());
+        let browser = Arc::new(BrowserDriver::new());
+        let mcp = Arc::new(McpManager::new());
+        let inference: Arc<dyn InferenceRuntime> = Arc::new(MockInferenceRuntime::default());
+
+        let exec = ToolExecutor::new(
+            gui.clone(),
+            os,
+            terminal,
+            browser,
+            mcp,
+            None,
+            None,
+            inference,
+            None,
+        )
+        .with_window_context(None, None, Some(ExecutionTier::VisualBackground));
+
+        let result = handle(
+            &exec,
+            AgentTool::GuiScroll {
+                delta_x: 12,
+                delta_y: 340,
+            },
+            None,
+            None,
+            None,
+        )
+        .await;
+
+        assert!(result.success);
+        assert_eq!(
+            gui.take_events(),
+            vec![InputEvent::Scroll { dx: 12, dy: 340 }]
+        );
     }
 }
