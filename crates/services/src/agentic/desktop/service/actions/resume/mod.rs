@@ -1,10 +1,16 @@
-// Path: crates/services/src/agentic/desktop/service/actions/resume.rs
+// Path: crates/services/src/agentic/desktop/service/actions/resume/mod.rs
+
+mod approvals;
+mod execution;
+mod focus;
+mod hashing;
+mod status;
+mod visual;
 
 use super::checks::requires_visual_integrity;
 use super::evaluation::evaluate_and_crystallize;
 use crate::agentic::desktop::execution::system::is_sudo_password_required_install_error;
 use crate::agentic::desktop::keys::{get_state_key, pii, AGENT_POLICY_PREFIX};
-use crate::agentic::desktop::service::lifecycle::spawn_delegated_child_session;
 use crate::agentic::desktop::service::step::action::{
     canonical_intent_hash, canonical_retry_intent_hash, canonical_tool_identity,
     is_command_probe_intent, summarize_command_probe_output,
@@ -22,13 +28,11 @@ use crate::agentic::desktop::service::step::helpers::{
 };
 use crate::agentic::desktop::service::step::incident::{
     advance_incident_after_action_outcome, incident_receipt_fields, load_incident_state,
-    mark_gate_approved, mark_gate_denied, mark_incident_wait_for_user,
-    should_enter_incident_recovery, start_or_continue_incident_recovery, IncidentDirective,
+    mark_gate_denied, mark_incident_wait_for_user, should_enter_incident_recovery,
+    start_or_continue_incident_recovery, IncidentDirective,
 };
-use crate::agentic::desktop::service::step::visual::hamming_distance;
 use crate::agentic::desktop::service::DesktopAgentService;
 use crate::agentic::desktop::types::{AgentState, AgentStatus};
-use crate::agentic::desktop::utils::compute_phash;
 use crate::agentic::desktop::utils::goto_trace_log;
 use crate::agentic::rules::ActionRules;
 
@@ -36,101 +40,12 @@ use crate::agentic::desktop::middleware;
 
 use hex;
 use ioi_api::state::StateAccess;
-use ioi_pii::{
-    check_exception_usage_increment_ok, decode_exception_usage_state,
-    mint_default_scoped_exception, resolve_expected_request_hash, validate_resume_review_contract,
-    verify_scoped_exception_for_decision, RiskSurface, ScopedExceptionVerifyError,
-};
-use ioi_types::app::action::PiiApprovalAction;
-use ioi_types::app::agentic::{AgentTool, PiiEgressRiskSurface, PiiReviewRequest};
+use ioi_pii::resolve_expected_request_hash;
+use ioi_types::app::agentic::{AgentTool, PiiReviewRequest};
 use ioi_types::app::{KernelEvent, RoutingReceiptEvent};
 use ioi_types::codec;
 use ioi_types::error::TransactionError;
 use std::time::{SystemTime, UNIX_EPOCH};
-use tokio::time::{sleep, Duration};
-
-const RESUME_DRIFT_THRESHOLD: u32 = 48;
-
-/// Helper to get a string representation of the agent status for event emission.
-fn get_status_str(status: &AgentStatus) -> String {
-    format!("{:?}", status)
-        .split('(')
-        .next()
-        .unwrap_or("Unknown")
-        .to_string()
-}
-
-fn is_missing_focus_dependency_error(msg: &str) -> bool {
-    let lower = msg.to_ascii_lowercase();
-    lower.contains("error_class=missingdependency")
-        || (lower.contains("wmctrl")
-            && (lower.contains("no such file")
-                || lower.contains("not found")
-                || lower.contains("missing dependency")))
-}
-
-fn compute_context_phash(
-    image_bytes: &[u8],
-    window: Option<&ioi_api::vm::drivers::os::WindowInfo>,
-) -> [u8; 32] {
-    if let Some(cropped) = compute_window_cropped_phash(image_bytes, window) {
-        return cropped;
-    }
-    compute_phash(image_bytes).unwrap_or([0u8; 32])
-}
-
-fn parse_hash_hex(input: &str) -> Option<[u8; 32]> {
-    let bytes = hex::decode(input).ok()?;
-    if bytes.len() != 32 {
-        return None;
-    }
-    let mut out = [0u8; 32];
-    out.copy_from_slice(&bytes);
-    Some(out)
-}
-
-fn to_shared_risk_surface(risk_surface: PiiEgressRiskSurface) -> RiskSurface {
-    match risk_surface {
-        PiiEgressRiskSurface::Egress => RiskSurface::Egress,
-    }
-}
-
-fn compute_window_cropped_phash(
-    image_bytes: &[u8],
-    window: Option<&ioi_api::vm::drivers::os::WindowInfo>,
-) -> Option<[u8; 32]> {
-    use image_hasher::{HashAlg, HasherConfig};
-
-    let window = window?;
-    if window.width <= 0 || window.height <= 0 {
-        return None;
-    }
-
-    let img = image::load_from_memory(image_bytes).ok()?;
-    let img_w = img.width() as i32;
-    let img_h = img.height() as i32;
-    if img_w <= 0 || img_h <= 0 {
-        return None;
-    }
-
-    let x1 = window.x.clamp(0, img_w);
-    let y1 = window.y.clamp(0, img_h);
-    let x2 = (window.x + window.width).clamp(0, img_w);
-    let y2 = (window.y + window.height).clamp(0, img_h);
-    if x2 <= x1 || y2 <= y1 {
-        return None;
-    }
-
-    let cropped = img.crop_imm(x1 as u32, y1 as u32, (x2 - x1) as u32, (y2 - y1) as u32);
-    let hasher = HasherConfig::new().hash_alg(HashAlg::Gradient).to_hasher();
-    let hash = hasher.hash_image(&cropped);
-    let hash_bytes = hash.as_bytes();
-
-    let mut out = [0u8; 32];
-    let len = hash_bytes.len().min(32);
-    out[..len].copy_from_slice(&hash_bytes[..len]);
-    Some(out)
-}
 
 pub async fn resume_pending_action(
     service: &DesktopAgentService,
@@ -198,155 +113,32 @@ pub async fn resume_pending_action(
     let pending_gate_hash = incident_state
         .as_ref()
         .and_then(|incident| incident.pending_gate.as_ref())
-        .and_then(|pending| parse_hash_hex(&pending.request_hash));
+        .and_then(|pending| hashing::parse_hash_hex(&pending.request_hash));
     let expected_request_hash = resolve_expected_request_hash(pending_gate_hash, tool_hash);
     let request_key = pii::review::request(&expected_request_hash);
     let pii_request: Option<PiiReviewRequest> = state
         .get(&request_key)?
         .and_then(|bytes| codec::from_bytes_canonical(&bytes).ok());
-    let mut scoped_exception_override_hash: Option<[u8; 32]> = None;
-    let mut explicit_pii_deny = false;
 
     // 3. Validate approval token before executing anything.
     // Runtime secret retries for sys__install_package are allowed without approval token.
-    if let Some(token) = agent_state.pending_approval.as_ref() {
-        validate_resume_review_contract(
-            expected_request_hash,
-            token,
-            pii_request.as_ref(),
-            block_timestamp_ms,
-        )
-        .map_err(|e| TransactionError::Invalid(e.to_string()))?;
-
-        if matches!(token.pii_action, Some(PiiApprovalAction::ApproveTransform)) {
-            rules.pii_controls.safe_transform_enabled = true;
-            verification_checks.push("pii_action=approve_transform".to_string());
-        }
-
-        if matches!(
-            token.pii_action,
-            Some(PiiApprovalAction::GrantScopedException)
-        ) {
-            let mut probe_tool = tool.clone();
-            let mut verified = false;
-            for spec in probe_tool.pii_egress_specs() {
-                let Some(text) = probe_tool.pii_egress_field_mut(spec.field) else {
-                    continue;
-                };
-                let (_scrubbed, _map, _report, routed, evidence) = service
-                    .scrubber
-                    .inspect_route_transform(
-                        text,
-                        &spec.target,
-                        to_shared_risk_surface(spec.risk_surface),
-                        &rules.pii_controls,
-                        spec.supports_transform,
-                    )
-                    .await
-                    .map_err(|e| {
-                        TransactionError::Invalid(format!(
-                            "PII verification failed while consuming scoped exception: {}",
-                            e
-                        ))
-                    })?;
-
-                if routed.decision_hash != expected_request_hash {
-                    continue;
-                }
-
-                let scoped_exception = if let Some(existing) = token.scoped_exception.as_ref() {
-                    existing.clone()
-                } else {
-                    mint_default_scoped_exception(
-                        &evidence,
-                        &spec.target,
-                        to_shared_risk_surface(spec.risk_surface),
-                        expected_request_hash,
-                        block_timestamp_secs,
-                        "deterministic-default",
-                    )
-                    .map_err(|e| {
-                        TransactionError::Invalid(format!(
-                            "Failed to mint deterministic scoped exception: {}",
-                            e
-                        ))
-                    })?
-                };
-
-                let usage_key = pii::review::exception_usage(&scoped_exception.exception_id);
-                let raw_usage = state.get(&usage_key)?;
-                let uses_consumed = decode_exception_usage_state(raw_usage.as_deref())
-                    .map_err(|e| TransactionError::Invalid(e.to_string()))?;
-                verify_scoped_exception_for_decision(
-                    &scoped_exception,
-                    &evidence,
-                    &spec.target,
-                    to_shared_risk_surface(spec.risk_surface),
-                    expected_request_hash,
-                    &rules.pii_controls,
-                    block_timestamp_secs,
-                    uses_consumed,
-                )
-                .map_err(|e| {
-                    let reason = match e {
-                        ScopedExceptionVerifyError::PolicyDisabled => {
-                            "Scoped exception policy disabled"
-                        }
-                        ScopedExceptionVerifyError::MissingAllowedClasses => {
-                            "Scoped exception missing allowed classes"
-                        }
-                        ScopedExceptionVerifyError::DestinationMismatch => {
-                            "Scoped exception destination mismatch"
-                        }
-                        ScopedExceptionVerifyError::ActionMismatch => {
-                            "Scoped exception action mismatch"
-                        }
-                        ScopedExceptionVerifyError::Expired => "Scoped exception expired",
-                        ScopedExceptionVerifyError::Overused => "Scoped exception overused",
-                        ScopedExceptionVerifyError::IneligibleEvidence => {
-                            "Scoped exception not eligible for this evidence"
-                        }
-                        ScopedExceptionVerifyError::ClassMismatch => {
-                            "Scoped exception class mismatch"
-                        }
-                        ScopedExceptionVerifyError::InvalidMaxUses => {
-                            "Scoped exception max_uses invalid"
-                        }
-                    };
-                    TransactionError::Invalid(reason.to_string())
-                })?;
-
-                let next_uses = check_exception_usage_increment_ok(uses_consumed)
-                    .map_err(|e| TransactionError::Invalid(e.to_string()))?;
-                state.insert(&usage_key, &codec::to_bytes_canonical(&next_uses)?)?;
-                scoped_exception_override_hash = Some(expected_request_hash);
-                verified = true;
-                break;
-            }
-
-            if !verified {
-                return Err(TransactionError::Invalid(
-                    "Scoped exception does not match the pending PII decision".into(),
-                ));
-            }
-            verification_checks.push("pii_action=grant_scoped_exception".to_string());
-        }
-
-        if matches!(token.pii_action, Some(PiiApprovalAction::Deny)) {
-            explicit_pii_deny = true;
-            verification_checks.push("pii_action=deny".to_string());
-        } else {
-            mark_gate_approved(state, session_id)?;
-        }
-    } else if pii_request.is_some() {
-        return Err(TransactionError::Invalid(
-            "Missing approval token for review request".into(),
-        ));
-    } else if !matches!(tool, AgentTool::SysInstallPackage { .. }) {
-        return Err(TransactionError::Invalid("Missing approval token".into()));
-    } else {
-        verification_checks.push("resume_without_approval_runtime_secret=true".to_string());
-    }
+    let approval = approvals::validate_and_apply(
+        service,
+        state,
+        agent_state,
+        session_id,
+        &tool,
+        tool_hash,
+        expected_request_hash,
+        pii_request.as_ref(),
+        block_timestamp_ms,
+        block_timestamp_secs,
+        &mut rules,
+        &mut verification_checks,
+    )
+    .await?;
+    let scoped_exception_override_hash = approval.scoped_exception_override_hash;
+    let explicit_pii_deny = approval.explicit_pii_deny;
 
     let os_driver = service
         .os_driver
@@ -360,39 +152,14 @@ pub async fn resume_pending_action(
             "Missing pending_visual_hash".into(),
         ))?;
 
-    let mut precheck_error: Option<String> = None;
-    let mut log_visual_hash = pending_vhash;
-
-    if requires_visual_integrity(&tool) {
-        let current_bytes = service.gui.capture_raw_screen().await.unwrap_or_default();
-        let active_window = os_driver.get_active_window_info().await.unwrap_or(None);
-        let current_phash = compute_context_phash(&current_bytes, active_window.as_ref());
-        log_visual_hash = current_phash;
-        let drift = hamming_distance(&pending_vhash, &current_phash);
-        verification_checks.push(format!("resume_drift_distance={}", drift));
-
-        if drift > RESUME_DRIFT_THRESHOLD {
-            log::warn!("Context Drift Detected before resume (Dist: {}).", drift);
-            precheck_error = Some(format!(
-                "ERROR_CLASS=ContextDrift Visual context drift detected before resume (distance={}).",
-                drift
-            ));
-        }
-    } else {
-        log::info!(
-            "Skipping visual drift check for non-spatial tool (Hash: {}).",
-            hex::encode(&tool_hash[0..4])
-        );
-    }
-
-    if precheck_error.is_none() {
-        if let Err(e) = service.restore_visual_context(pending_vhash).await {
-            precheck_error = Some(format!(
-                "ERROR_CLASS=ContextDrift Failed to restore visual context: {}",
-                e
-            ));
-        }
-    }
+    let (mut precheck_error, log_visual_hash) = visual::run_visual_prechecks(
+        service,
+        &os_driver,
+        &tool,
+        pending_vhash,
+        &mut verification_checks,
+    )
+    .await;
 
     if explicit_pii_deny {
         mark_gate_denied(state, session_id)?;
@@ -449,229 +216,31 @@ pub async fn resume_pending_action(
     // Focus Guard: approval UX can steal focus to Autopilot shell.
     // For resumed spatial actions, force-focus the target surface before clicking.
     if precheck_error.is_none() && requires_visual_integrity(&tool) {
-        if let Some(target) = &agent_state.target {
-            let hint = target.app_hint.as_deref().unwrap_or("").trim();
-            if !hint.is_empty() {
-                let hint_lower = hint.to_lowercase();
-                let matches_target = |fg: &ioi_api::vm::drivers::os::WindowInfo| {
-                    let fg_title = fg.title.to_lowercase();
-                    let fg_app = fg.app_name.to_lowercase();
-                    fg_title.contains(&hint_lower) || fg_app.contains(&hint_lower)
-                };
-
-                let mut fg_info = os_driver.get_active_window_info().await.unwrap_or(None);
-                let mut is_target_focused = fg_info.as_ref().map(matches_target).unwrap_or(false);
-
-                if !is_target_focused {
-                    log::info!(
-                        "Resume focus guard: foreground drifted. Attempting focus to '{}'",
-                        hint
-                    );
-
-                    let mut focus_queries = vec![hint.to_string()];
-                    if let Some(pattern) = target.title_pattern.as_deref().map(str::trim) {
-                        if !pattern.is_empty()
-                            && !focus_queries
-                                .iter()
-                                .any(|q| q.eq_ignore_ascii_case(pattern))
-                        {
-                            focus_queries.push(pattern.to_string());
-                        }
-                    }
-
-                    for query in focus_queries {
-                        match os_driver.focus_window(&query).await {
-                            Ok(true) => {
-                                // Give WM time to apply focus before injecting input.
-                                sleep(Duration::from_millis(180)).await;
-                                fg_info = os_driver.get_active_window_info().await.unwrap_or(None);
-                                is_target_focused =
-                                    fg_info.as_ref().map(matches_target).unwrap_or(false);
-                                if is_target_focused {
-                                    break;
-                                }
-                            }
-                            Ok(false) => {
-                                log::warn!("Resume focus guard: no window matched '{}'", query);
-                            }
-                            Err(e) => {
-                                let err = e.to_string();
-                                if is_missing_focus_dependency_error(&err) {
-                                    precheck_error = Some(format!(
-                                        "ERROR_CLASS=MissingDependency Focus dependency unavailable while focusing '{}': {}",
-                                        query, err
-                                    ));
-                                    break;
-                                }
-                                log::warn!(
-                                    "Resume focus guard: focus_window failed for '{}': {}",
-                                    query,
-                                    err
-                                );
-                            }
-                        }
-                    }
-
-                    if !is_target_focused {
-                        if let Some(fg) = fg_info {
-                            log::warn!(
-                                "Resume focus guard: still unfocused after attempts. Foreground is '{}' ({}) while target is '{}'.",
-                                fg.title,
-                                fg.app_name,
-                                hint
-                            );
-                        } else {
-                            log::warn!(
-                                "Resume focus guard: unable to verify foreground window after focus attempts for '{}'.",
-                                hint
-                            );
-                        }
-                    }
-                }
-            }
+        if let Some(err) = focus::ensure_target_focused_for_resume(&os_driver, agent_state).await {
+            precheck_error = Some(err);
         }
     }
 
     // Execute with SNAPSHOT MAP unless prechecks failed.
     let has_precheck_error = precheck_error.is_some();
-    let (mut success, mut out, mut err) = match precheck_error {
-        Some(err) => (false, None, Some(err)),
-        None => match service
-            .handle_action_execution(
-                tool.clone(),
-                session_id,
-                agent_state.step_count,
-                pending_vhash,
-                &rules,
-                &agent_state,
-                &os_driver,
-                scoped_exception_override_hash,
-            )
-            .await
-        {
-            Ok(t) => t,
-            Err(e) => (false, None, Some(e.to_string())),
-        },
-    };
-
-    if !has_precheck_error && success {
-        match &tool {
-            AgentTool::AgentDelegate { goal, budget } => {
-                match spawn_delegated_child_session(
-                    service,
-                    state,
-                    agent_state,
-                    tool_hash,
-                    goal,
-                    *budget,
-                    pre_state_summary.step_index,
-                    block_height,
-                )
-                .await
-                {
-                    Ok(child_session_id) => {
-                        out = Some(format!(
-                            "{{\"child_session_id_hex\":\"{}\"}}",
-                            hex::encode(child_session_id)
-                        ));
-                        err = None;
-                    }
-                    Err(e) => {
-                        success = false;
-                        out = None;
-                        err = Some(e.to_string());
-                    }
-                }
-            }
-            AgentTool::AgentAwait {
-                child_session_id_hex,
-            } => {
-                let parsed = parse_hash_hex(child_session_id_hex);
-                match parsed {
-                    Some(child_session_id) => {
-                        let child_key = get_state_key(&child_session_id);
-                        let bytes = match state.get(&child_key) {
-                            Ok(Some(bytes)) => bytes,
-                            Ok(None) => {
-                                success = false;
-                                out = None;
-                                err = Some(format!(
-                                    "ERROR_CLASS=UnexpectedState Child session '{}' not found.",
-                                    child_session_id_hex
-                                ));
-                                vec![]
-                            }
-                            Err(e) => {
-                                success = false;
-                                out = None;
-                                err = Some(format!(
-                                    "ERROR_CLASS=UnexpectedState Child state lookup failed: {}",
-                                    e
-                                ));
-                                vec![]
-                            }
-                        };
-
-                        if success {
-                            match codec::from_bytes_canonical::<AgentState>(&bytes) {
-                                Ok(child_state) => match child_state.status {
-                                    AgentStatus::Running | AgentStatus::Idle => {
-                                        out = Some("Running".to_string());
-                                        err = None;
-                                    }
-                                    AgentStatus::Paused(reason) => {
-                                        out = Some(format!("Running (paused: {})", reason));
-                                        err = None;
-                                    }
-                                    AgentStatus::Completed(Some(result)) => {
-                                        out = Some(result);
-                                        err = None;
-                                    }
-                                    AgentStatus::Completed(None) => {
-                                        out = Some("Completed".to_string());
-                                        err = None;
-                                    }
-                                    AgentStatus::Failed(reason) => {
-                                        success = false;
-                                        out = None;
-                                        err = Some(format!(
-                                            "ERROR_CLASS=UnexpectedState Child agent failed: {}",
-                                            reason
-                                        ));
-                                    }
-                                    AgentStatus::Terminated => {
-                                        success = false;
-                                        out = None;
-                                        err = Some(
-                                            "ERROR_CLASS=UnexpectedState Child agent terminated."
-                                                .to_string(),
-                                        );
-                                    }
-                                },
-                                Err(e) => {
-                                    success = false;
-                                    out = None;
-                                    err = Some(format!(
-                                        "ERROR_CLASS=UnexpectedState Failed to decode child session '{}': {}",
-                                        child_session_id_hex, e
-                                    ));
-                                }
-                            }
-                        }
-                    }
-                    None => {
-                        success = false;
-                        out = None;
-                        err = Some(format!(
-                            "ERROR_CLASS=ToolUnavailable Invalid child_session_id_hex '{}'.",
-                            child_session_id_hex
-                        ));
-                    }
-                }
-            }
-            _ => {}
-        }
-    }
+    let exec = execution::execute(
+        service,
+        state,
+        agent_state,
+        &os_driver,
+        &tool,
+        &rules,
+        session_id,
+        tool_hash,
+        pending_vhash,
+        scoped_exception_override_hash,
+        has_precheck_error,
+        precheck_error,
+        pre_state_summary.step_index,
+        block_height,
+    )
+    .await;
+    let (mut success, mut out, mut err) = (exec.success, exec.out, exec.err);
 
     if let Some(err_msg) = err.as_deref() {
         if err_msg.to_lowercase().contains("blocked by policy") {
@@ -852,7 +421,7 @@ pub async fn resume_pending_action(
                                         tool_name: "agent__complete".to_string(),
                                         output: result.clone(),
                                         // [NEW] Authoritative Status
-                                        agent_status: get_status_str(&agent_state.status),
+                                        agent_status: status::status_str(&agent_state.status),
                                     });
                                 }
 
@@ -879,7 +448,7 @@ pub async fn resume_pending_action(
                         tool_name: "agent__complete".to_string(),
                         output: format!("Result: {}\nFitness: {:.2}", result, 0.0),
                         // [NEW] Authoritative Status
-                        agent_status: get_status_str(&agent_state.status),
+                        agent_status: status::status_str(&agent_state.status),
                     });
                 }
             }
@@ -893,7 +462,7 @@ pub async fn resume_pending_action(
                         tool_name: "chat__reply".to_string(),
                         output: message.clone(),
                         // [NEW] Authoritative Status
-                        agent_status: get_status_str(&agent_state.status),
+                        agent_status: status::status_str(&agent_state.status),
                     });
                 }
             }
@@ -923,7 +492,7 @@ pub async fn resume_pending_action(
                             step_index: agent_state.step_count,
                             tool_name: "agent__complete".to_string(),
                             output: summary,
-                            agent_status: get_status_str(&agent_state.status),
+                            agent_status: status::status_str(&agent_state.status),
                         });
                     }
                 } else {
@@ -945,7 +514,7 @@ pub async fn resume_pending_action(
                                 step_index: agent_state.step_count,
                                 tool_name: "agent__complete".to_string(),
                                 output: summary,
-                                agent_status: get_status_str(&agent_state.status),
+                                agent_status: status::status_str(&agent_state.status),
                             });
                         }
                     } else {
