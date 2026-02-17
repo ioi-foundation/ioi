@@ -3,7 +3,7 @@ use crate::kernel::events::support::thread_id_from_session;
 use crate::kernel::state::update_task_state;
 use crate::kernel::thresholds;
 use crate::models::{AgentPhase, EventStatus, EventType};
-use ioi_ipc::public::chain_event::AgentThought;
+use ioi_ipc::public::AgentThought;
 use serde_json::json;
 
 pub(super) async fn handle_thought(app: &tauri::AppHandle, thought: AgentThought) {

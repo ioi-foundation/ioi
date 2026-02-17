@@ -10,6 +10,7 @@ use ioi_types::app::agentic::{EvidenceGraph, PiiControls, PiiTarget, Stage2Decis
 
 use crate::hashing::{graph_hash, sha256_array};
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum RiskSurface {
     LocalProcessing,
     Egress,
@@ -94,7 +95,6 @@ impl CimAssistProvider for NoopCimAssistProvider {
 }
 
 /// Stage B/C rules-only routing outcome for the local PII firewall.
-#[derive(Debug, Clone)]
 pub(crate) fn risk_surface_label(risk_surface: RiskSurface) -> &'static str {
     match risk_surface {
         RiskSurface::LocalProcessing => "local_processing",

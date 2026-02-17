@@ -1,18 +1,26 @@
 // Submodule: routing (policy-only routing + assist integration)
 
-use ioi_types::app::ActionTarget;
+use anyhow::Result;
 use ioi_types::app::agentic::{
     EvidenceGraph, FirewallDecision, PiiControls, PiiDecisionMaterial, PiiReviewRequest,
-    PiiScopedException, PiiTarget, RawOverrideMode, Stage2Decision, TransformPlan,
+    PiiScopedException, PiiTarget, RawOverrideMode, Stage2Decision, TransformAction, TransformPlan,
 };
+use ioi_types::app::ActionTarget;
 
 use crate::assist::{
-    build_assist_receipt, CimAssistContext, CimAssistProvider, CimAssistReceipt, NoopCimAssistProvider,
-    RiskSurface,
+    build_assist_receipt, CimAssistContext, CimAssistProvider, CimAssistReceipt, CimAssistResult,
+    InspectFuture, NoopCimAssistProvider, RiskSurface,
 };
-use crate::decision::{build_decision_material, compute_decision_hash};
+use crate::cim_v0::CimAssistV0Provider;
+use crate::decision::{
+    build_decision_material, build_transform_plan, compute_decision_hash, has_high_severity,
+    has_only_low_severity, is_secret_heavy, with_hash,
+};
 use crate::review_summary::build_review_summary;
-use crate::scoped_exception::{mint_default_scoped_exception, verify_scoped_exception_for_decision};
+use crate::scoped_exception::{
+    mint_default_scoped_exception, verify_scoped_exception_for_decision,
+};
+use crate::targets::is_high_risk_target;
 use crate::targets::legacy_target_from_str;
 
 pub struct PiiRoutingOutcome {
@@ -22,9 +30,6 @@ pub struct PiiRoutingOutcome {
     pub assist: CimAssistReceipt,
     pub decision_hash: [u8; 32],
 }
-
-/// Post-transform enforcement report for deterministic Stage C checks.
-#[derive(Debug, Clone, PartialEq, Eq)]
 
 pub fn route_pii_decision_with_assist_for_target(
     graph: &EvidenceGraph,
@@ -411,4 +416,3 @@ where
     )
     .await
 }
-

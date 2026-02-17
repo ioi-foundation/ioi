@@ -6,7 +6,7 @@ use crate::kernel::events::support::{
 };
 use crate::kernel::state::update_task_state;
 use crate::models::CredentialRequest;
-use ioi_ipc::public::chain_event::ProcessActivity;
+use ioi_ipc::public::ProcessActivity;
 
 pub(super) async fn handle_process_activity(app: &tauri::AppHandle, activity: ProcessActivity) {
     let thread_id = thread_id_from_session(&app, &activity.session_id);

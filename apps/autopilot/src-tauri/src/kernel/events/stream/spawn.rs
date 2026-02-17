@@ -2,7 +2,7 @@ use crate::kernel::events::emission::{build_event, register_event};
 use crate::kernel::events::support::thread_id_from_session;
 use crate::kernel::state::update_task_state;
 use crate::models::{EventStatus, EventType, SwarmAgent};
-use ioi_ipc::public::chain_event::AgentSpawn;
+use ioi_ipc::public::AgentSpawn;
 use serde_json::json;
 
 pub(super) async fn handle_spawn(app: &tauri::AppHandle, spawn: AgentSpawn) {

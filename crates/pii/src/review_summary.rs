@@ -1,11 +1,10 @@
 // Submodule: review_summary (user-facing deterministic review summary)
 
-use ioi_types::app::agentic::{
-    EvidenceGraph, PiiClass, PiiReviewRequest, PiiReviewSummary, PiiSeverity, PiiTarget,
-    Stage2Decision,
-};
+use std::collections::BTreeMap;
 
-use crate::assist::stage2_kind;
+use ioi_types::app::agentic::{
+    EvidenceGraph, PiiClass, PiiReviewSummary, PiiSeverity, PiiTarget, Stage2Decision,
+};
 
 fn pii_class_key(class: &PiiClass) -> String {
     match class {
@@ -30,7 +29,7 @@ fn severity_key(severity: PiiSeverity) -> &'static str {
     }
 }
 
-fn collect_low_severity_classes(graph: &EvidenceGraph) -> Vec<PiiClass> {
+pub(crate) fn collect_low_severity_classes(graph: &EvidenceGraph) -> Vec<PiiClass> {
     let mut by_key = BTreeMap::<String, PiiClass>::new();
     for span in &graph.spans {
         if matches!(span.severity, PiiSeverity::Low) {
@@ -40,14 +39,14 @@ fn collect_low_severity_classes(graph: &EvidenceGraph) -> Vec<PiiClass> {
     by_key.into_values().collect()
 }
 
-fn has_blocking_scoped_exception_evidence(graph: &EvidenceGraph) -> bool {
+pub(crate) fn has_blocking_scoped_exception_evidence(graph: &EvidenceGraph) -> bool {
     graph.spans.iter().any(|span| {
         matches!(span.severity, PiiSeverity::High | PiiSeverity::Critical)
             || matches!(span.pii_class, PiiClass::ApiKey | PiiClass::SecretToken)
     })
 }
 
-fn canonical_class_keys(classes: &[PiiClass]) -> Vec<String> {
+pub(crate) fn canonical_class_keys(classes: &[PiiClass]) -> Vec<String> {
     let mut keys = classes.iter().map(pii_class_key).collect::<Vec<_>>();
     keys.sort();
     keys.dedup();
@@ -120,5 +119,3 @@ pub fn build_review_summary(
         stage2_prompt: stage2_prompt(stage2_decision),
     }
 }
-
-/// Computes destination binding hash for scoped exception verification.

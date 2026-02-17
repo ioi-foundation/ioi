@@ -1,7 +1,11 @@
 // Submodule: transform (deterministic redaction + post-transform enforcement)
 
+use anyhow::Result;
+use ioi_types::app::agentic::{EvidenceGraph, EvidenceSpan, FirewallDecision, PiiClass};
 use ioi_types::app::{RedactionEntry, RedactionMap, RedactionType};
-use ioi_types::app::agentic::{EvidenceGraph, EvidenceSpan, PiiClass, TransformAction, TransformPlan};
+
+use crate::hashing::sha256_array;
+use crate::routing::PiiRoutingOutcome;
 
 pub struct PostTransformReport {
     pub transformed: bool,
@@ -189,4 +193,3 @@ pub fn apply_transform(
         },
     ))
 }
-

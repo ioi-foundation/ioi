@@ -2,21 +2,22 @@
 
 use ioi_types::app::agentic::{
     EvidenceGraph, EvidenceSpan, FirewallDecision, PiiClass, PiiControls, PiiDecisionMaterial,
-    PiiSeverity, PiiTarget, RawOverrideMode, Stage2Decision, TransformPlan,
+    PiiSeverity, PiiTarget, RawOverrideMode, Stage2Decision, TransformAction, TransformPlan,
 };
 use parity_scale_codec::Encode;
 
-use crate::assist::{risk_surface_label, stage2_kind};
+use crate::assist::{risk_surface_label, stage2_kind, CimAssistReceipt, RiskSurface};
 use crate::hashing::sha256_array;
+use crate::routing::PiiRoutingOutcome;
 
-fn has_high_severity(graph: &EvidenceGraph) -> bool {
+pub(crate) fn has_high_severity(graph: &EvidenceGraph) -> bool {
     graph
         .spans
         .iter()
         .any(|s| matches!(s.severity, PiiSeverity::High | PiiSeverity::Critical))
 }
 
-fn has_only_low_severity(graph: &EvidenceGraph) -> bool {
+pub(crate) fn has_only_low_severity(graph: &EvidenceGraph) -> bool {
     !graph.spans.is_empty()
         && graph
             .spans
@@ -24,14 +25,14 @@ fn has_only_low_severity(graph: &EvidenceGraph) -> bool {
             .all(|s| matches!(s.severity, PiiSeverity::Low))
 }
 
-fn is_secret_heavy(graph: &EvidenceGraph) -> bool {
+pub(crate) fn is_secret_heavy(graph: &EvidenceGraph) -> bool {
     graph
         .spans
         .iter()
         .any(|s| matches!(s.pii_class, PiiClass::ApiKey | PiiClass::SecretToken))
 }
 
-fn build_transform_plan(target: &PiiTarget, graph: &EvidenceGraph) -> TransformPlan {
+pub(crate) fn build_transform_plan(target: &PiiTarget, graph: &EvidenceGraph) -> TransformPlan {
     let target_label = target.canonical_label();
     let span_indices = (0..graph.spans.len() as u32).collect::<Vec<_>>();
 
@@ -115,7 +116,7 @@ fn decision_hash(
     compute_decision_hash(&material)
 }
 
-fn with_hash(
+pub(crate) fn with_hash(
     graph: &EvidenceGraph,
     decision: FirewallDecision,
     transform_plan: Option<TransformPlan>,

@@ -1,5 +1,5 @@
 use super::probe::{is_command_probe_intent, summarize_command_probe_output};
-use super::refusal_eval::{evaluate_and_crystallize, handle_refusal};
+use super::refusal_eval::evaluate_and_crystallize;
 use super::search::{
     extract_navigation_url, is_search_results_url, is_search_scope, search_query_from_url,
 };
@@ -33,8 +33,7 @@ use crate::agentic::desktop::service::step::incident::{
 use crate::agentic::desktop::service::step::intent_resolver::is_tool_allowed_for_resolution;
 use crate::agentic::desktop::service::DesktopAgentService;
 use crate::agentic::desktop::types::{
-    AgentState, AgentStatus, CommandExecution, PendingSearchCompletion, ToolCallStatus,
-    MAX_COMMAND_HISTORY,
+    AgentState, AgentStatus, PendingSearchCompletion, ToolCallStatus, MAX_COMMAND_HISTORY,
 };
 use crate::agentic::desktop::utils::goto_trace_log;
 use crate::agentic::rules::ActionRules;
@@ -49,15 +48,14 @@ use ioi_types::codec;
 use ioi_types::error::TransactionError;
 use serde_json;
 use serde_json::json;
-use std::collections::VecDeque;
-use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{SystemTime, UNIX_EPOCH};
 
-const COMMAND_HISTORY_PREFIX: &str = "COMMAND_HISTORY:";
-const COMMAND_HISTORY_SCRUBBED_PLACEHOLDER: &str = "[REDACTED_PII]";
-static COMMAND_HISTORY_MARKER_MISS_COUNT: AtomicU64 = AtomicU64::new(0);
-static COMMAND_HISTORY_PARSE_FAIL_COUNT: AtomicU64 = AtomicU64::new(0);
-static COMMAND_HISTORY_SCRUB_FAIL_COUNT: AtomicU64 = AtomicU64::new(0);
+#[path = "processing/child_session.rs"]
+mod child_session;
+#[path = "processing/command_history.rs"]
+mod command_history;
+#[path = "processing/refusal.rs"]
+mod refusal;
 
 pub fn resolve_action_routing_context(
     agent_state: &mut AgentState,
@@ -95,113 +93,20 @@ pub async fn process_tool_output(
     let mut retry_intent_hash: Option<String> = None;
 
     // 1. Raw Refusal Interceptor
-    if tool_call_result.contains("\"name\":\"system::refusal\"") {
-        let reason = if let Ok(val) = serde_json::from_str::<serde_json::Value>(&tool_call_result) {
-            val.get("arguments")
-                .and_then(|a| a.get("reason"))
-                .and_then(|m| m.as_str())
-                .unwrap_or("Refused")
-                .to_string()
-        } else {
-            "Refused".to_string()
-        };
-        let refusal_tool_name = "system::refusal".to_string();
-        let refusal_args = json!({
-            "reason": reason
-        });
-        let refusal_action_payload = json!({
-            "name": refusal_tool_name,
-            "arguments": refusal_args
-        });
-        let refusal_intent_hash = canonical_intent_hash(
-            &refusal_tool_name,
-            &refusal_args,
-            routing_decision.tier,
-            pre_state_summary.step_index,
-            tool_version,
-        );
-        let refusal_policy_decision = "denied".to_string();
-        let refusal_failure_class = FailureClass::UserInterventionNeeded;
-        let refusal_stop_condition_hit = true;
-        let refusal_escalation_path =
-            Some(escalation_path_for_failure(refusal_failure_class).to_string());
-
-        handle_refusal(
-            service,
-            state,
-            agent_state,
-            &key,
-            session_id,
-            final_visual_phash,
-            &reason,
-        )
-        .await?;
-
-        let verification_checks = vec![
-            format!("policy_decision={}", refusal_policy_decision),
-            "was_refusal=true".to_string(),
-            format!("stop_condition_hit={}", refusal_stop_condition_hit),
-            format!(
-                "routing_tier_selected={}",
-                tier_as_str(routing_decision.tier)
-            ),
-            format!("routing_reason_code={}", routing_decision.reason_code),
-            format!(
-                "routing_source_failure={}",
-                routing_decision
-                    .source_failure
-                    .map(|class| class.as_str().to_string())
-                    .unwrap_or_else(|| "None".to_string())
-            ),
-            format!(
-                "routing_tier_matches_pre_state={}",
-                pre_state_summary.tier == tier_as_str(routing_decision.tier)
-            ),
-            format!("failure_class={}", refusal_failure_class.as_str()),
-        ];
-        let mut artifacts = extract_artifacts(
-            Some("ERROR_CLASS=HumanChallengeRequired"),
-            Some(&tool_call_result),
-        );
-        artifacts.push(format!(
-            "trace://agent_step/{}",
-            pre_state_summary.step_index
-        ));
-        artifacts.push(format!("trace://session/{}", hex::encode(&session_id[..4])));
-        let post_state = build_post_state_summary(agent_state, false, verification_checks);
-        let policy_binding = policy_binding_hash(&refusal_intent_hash, &refusal_policy_decision);
-        let incident_fields =
-            incident_receipt_fields(load_incident_state(state, &session_id)?.as_ref());
-        let receipt = RoutingReceiptEvent {
-            session_id,
-            step_index: pre_state_summary.step_index,
-            intent_hash: refusal_intent_hash,
-            policy_decision: refusal_policy_decision,
-            tool_name: refusal_tool_name,
-            tool_version: tool_version.to_string(),
-            pre_state: pre_state_summary,
-            action_json: serde_json::to_string(&refusal_action_payload)
-                .unwrap_or_else(|_| "{}".to_string()),
-            post_state,
-            artifacts,
-            failure_class: Some(to_routing_failure_class(refusal_failure_class)),
-            failure_class_name: refusal_failure_class.as_str().to_string(),
-            intent_class: incident_fields.intent_class,
-            incident_id: incident_fields.incident_id,
-            incident_stage: incident_fields.incident_stage,
-            strategy_name: incident_fields.strategy_name,
-            strategy_node: incident_fields.strategy_node,
-            gate_state: incident_fields.gate_state,
-            resolution_action: incident_fields.resolution_action,
-            stop_condition_hit: refusal_stop_condition_hit,
-            escalation_path: refusal_escalation_path,
-            scs_lineage_ptr: lineage_pointer(agent_state.active_skill_hash),
-            mutation_receipt_ptr: mutation_receipt_pointer(state, &session_id),
-            policy_binding_hash: policy_binding,
-            policy_binding_sig: None,
-            policy_binding_signer: None,
-        };
-        emit_routing_receipt(service.event_sender.as_ref(), receipt);
+    if refusal::intercept_raw_refusal(
+        service,
+        state,
+        agent_state,
+        &key,
+        session_id,
+        final_visual_phash,
+        &tool_call_result,
+        &routing_decision,
+        &pre_state_summary,
+        tool_version,
+    )
+    .await?
+    {
         return Ok(());
     }
 
@@ -455,7 +360,10 @@ pub async fn process_tool_output(
                                 AgentTool::AgentAwait {
                                     child_session_id_hex,
                                 } => {
-                                    match await_child_session_status(state, child_session_id_hex) {
+                                    match child_session::await_child_session_status(
+                                        state,
+                                        child_session_id_hex,
+                                    ) {
                                         Ok(out) => {
                                             history_entry = Some(out);
                                             error_msg = None;
@@ -475,11 +383,15 @@ pub async fn process_tool_output(
                             &tool,
                             AgentTool::SysExec { .. } | AgentTool::SysExecSession { .. }
                         ) {
-                            if let Some(raw_entry) = extract_command_history(&history_entry) {
-                                let history_entry =
-                                    scrub_command_history_fields(&service.scrubber, raw_entry)
-                                        .await;
-                                append_to_bounded_history(
+                            if let Some(raw_entry) =
+                                command_history::extract_command_history(&history_entry)
+                            {
+                                let history_entry = command_history::scrub_command_history_fields(
+                                    &service.scrubber,
+                                    raw_entry,
+                                )
+                                .await;
+                                command_history::append_to_bounded_history(
                                     &mut agent_state.command_history,
                                     history_entry,
                                     MAX_COMMAND_HISTORY,
@@ -1304,289 +1216,4 @@ pub async fn process_tool_output(
     emit_routing_receipt(service.event_sender.as_ref(), receipt);
 
     Ok(())
-}
-
-fn await_child_session_status(
-    state: &mut dyn StateAccess,
-    child_session_id_hex: &str,
-) -> Result<String, String> {
-    let child_session_id = parse_session_id_hex(child_session_id_hex)?;
-    let key = get_state_key(&child_session_id);
-    let bytes = state
-        .get(&key)
-        .map_err(|e| {
-            format!(
-                "ERROR_CLASS=UnexpectedState Child state lookup failed: {}",
-                e
-            )
-        })?
-        .ok_or_else(|| {
-            format!(
-                "ERROR_CLASS=UnexpectedState Child session '{}' not found.",
-                child_session_id_hex
-            )
-        })?;
-
-    let child_state: AgentState = codec::from_bytes_canonical(&bytes).map_err(|e| {
-        format!(
-            "ERROR_CLASS=UnexpectedState Failed to decode child session '{}': {}",
-            child_session_id_hex, e
-        )
-    })?;
-
-    match child_state.status {
-        AgentStatus::Running | AgentStatus::Idle => Ok("Running".to_string()),
-        AgentStatus::Paused(reason) => Ok(format!("Running (paused: {})", reason)),
-        AgentStatus::Completed(Some(result)) => Ok(result),
-        AgentStatus::Completed(None) => Ok("Completed".to_string()),
-        AgentStatus::Failed(reason) => Err(format!(
-            "ERROR_CLASS=UnexpectedState Child agent failed: {}",
-            reason
-        )),
-        AgentStatus::Terminated => {
-            Err("ERROR_CLASS=UnexpectedState Child agent terminated.".to_string())
-        }
-    }
-}
-
-fn parse_session_id_hex(input: &str) -> Result<[u8; 32], String> {
-    let bytes = hex::decode(input.trim()).map_err(|e| {
-        format!(
-            "ERROR_CLASS=ToolUnavailable Invalid child_session_id_hex '{}': {}",
-            input, e
-        )
-    })?;
-    if bytes.len() != 32 {
-        return Err(format!(
-            "ERROR_CLASS=ToolUnavailable child_session_id_hex '{}' must be 32 bytes (got {}).",
-            input,
-            bytes.len()
-        ));
-    }
-    let mut out = [0u8; 32];
-    out.copy_from_slice(&bytes);
-    Ok(out)
-}
-
-fn extract_command_history(history_entry: &Option<String>) -> Option<CommandExecution> {
-    let entry = history_entry.as_deref()?;
-    if !entry.starts_with(COMMAND_HISTORY_PREFIX) {
-        let _ = COMMAND_HISTORY_MARKER_MISS_COUNT.fetch_add(1, Ordering::Relaxed);
-        return None;
-    }
-
-    let suffix = &entry[COMMAND_HISTORY_PREFIX.len()..];
-    let json_payload = suffix
-        .find('\n')
-        .map_or(suffix, |idx| &suffix[..idx])
-        .trim();
-    if json_payload.is_empty() {
-        let _ = COMMAND_HISTORY_PARSE_FAIL_COUNT.fetch_add(1, Ordering::Relaxed);
-        return None;
-    }
-
-    match serde_json::from_str::<CommandExecution>(json_payload) {
-        Ok(entry) => Some(entry),
-        Err(_) => {
-            let _ = COMMAND_HISTORY_PARSE_FAIL_COUNT.fetch_add(1, Ordering::Relaxed);
-            None
-        }
-    }
-}
-
-async fn scrub_command_history_fields(
-    scrubber: &crate::agentic::pii_scrubber::PiiScrubber,
-    mut entry: CommandExecution,
-) -> CommandExecution {
-    entry.command = scrub_text_field(scrubber, &entry.command).await;
-    entry.stdout = scrub_text_field(scrubber, &entry.stdout).await;
-    entry.stderr = scrub_text_field(scrubber, &entry.stderr).await;
-    entry
-}
-
-async fn scrub_text_field(
-    scrubber: &crate::agentic::pii_scrubber::PiiScrubber,
-    input: &str,
-) -> String {
-    match scrubber.scrub(input).await {
-        Ok((scrubbed, _)) => scrubbed,
-        Err(_) => {
-            let _ = COMMAND_HISTORY_SCRUB_FAIL_COUNT.fetch_add(1, Ordering::Relaxed);
-            COMMAND_HISTORY_SCRUBBED_PLACEHOLDER.to_string()
-        }
-    }
-}
-
-fn append_to_bounded_history(
-    history: &mut VecDeque<CommandExecution>,
-    entry: CommandExecution,
-    max_size: usize,
-) {
-    history.push_back(entry);
-    while history.len() > max_size {
-        let _ = history.pop_front();
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::agentic::pii_scrubber::PiiScrubber;
-    use async_trait::async_trait;
-    use ioi_api::vm::inference::{LocalSafetyModel, PiiInspection, PiiRiskSurface, SafetyVerdict};
-    use serde_json;
-    use std::sync::Arc;
-
-    struct DetectingSafetyModel;
-
-    #[async_trait]
-    impl LocalSafetyModel for DetectingSafetyModel {
-        async fn classify_intent(&self, _input: &str) -> anyhow::Result<SafetyVerdict> {
-            Ok(SafetyVerdict::Safe)
-        }
-
-        async fn detect_pii(&self, input: &str) -> anyhow::Result<Vec<(usize, usize, String)>> {
-            let mut findings = Vec::new();
-            if let Some(start) = input.find("API_KEY=") {
-                findings.push((start, input.len(), "api_key".to_string()));
-            }
-            if let Some(start) = input.find("password=") {
-                findings.push((start, input.len(), "password".to_string()));
-            }
-            if let Some(start) = input.find("token=") {
-                findings.push((start, input.len(), "token".to_string()));
-            }
-            Ok(findings)
-        }
-
-        async fn inspect_pii(
-            &self,
-            _input: &str,
-            _risk_surface: PiiRiskSurface,
-        ) -> anyhow::Result<PiiInspection> {
-            Ok(PiiInspection {
-                evidence: Default::default(),
-                ambiguous: false,
-                stage2_status: None,
-            })
-        }
-    }
-
-    struct FailingSafetyModel;
-
-    #[async_trait]
-    impl LocalSafetyModel for FailingSafetyModel {
-        async fn classify_intent(&self, _input: &str) -> anyhow::Result<SafetyVerdict> {
-            Ok(SafetyVerdict::Safe)
-        }
-
-        async fn detect_pii(&self, _input: &str) -> anyhow::Result<Vec<(usize, usize, String)>> {
-            Err(anyhow::anyhow!("failure"))
-        }
-
-        async fn inspect_pii(
-            &self,
-            _input: &str,
-            _risk_surface: PiiRiskSurface,
-        ) -> anyhow::Result<PiiInspection> {
-            Ok(PiiInspection {
-                evidence: Default::default(),
-                ambiguous: false,
-                stage2_status: None,
-            })
-        }
-    }
-
-    #[test]
-    fn command_history_parse_valid_and_invalid_payloads() {
-        let valid_entry = CommandExecution {
-            command: "echo hi".to_string(),
-            exit_code: 0,
-            stdout: "ok".to_string(),
-            stderr: String::new(),
-            timestamp_ms: 1,
-            step_index: 3,
-        };
-        let valid = serde_json::to_string(&valid_entry).map_or_else(
-            |_| String::new(),
-            |serialized| format!("{}{}", COMMAND_HISTORY_PREFIX, serialized),
-        );
-        let parsed = match extract_command_history(&Some(valid)) {
-            Some(payload) => payload,
-            None => panic!("valid command history should parse"),
-        };
-        assert_eq!(parsed.step_index, 3);
-        assert_eq!(parsed.exit_code, 0);
-
-        let malformed = Some(format!("{}{}", COMMAND_HISTORY_PREFIX, "{ invalid "));
-        assert!(extract_command_history(&malformed).is_none());
-
-        let unrelated = Some("no metadata here".to_string());
-        assert!(extract_command_history(&unrelated).is_none());
-    }
-
-    #[test]
-    fn append_to_bounded_history_evictions() {
-        let mut history: VecDeque<CommandExecution> = VecDeque::new();
-        for step in 0..25 {
-            append_to_bounded_history(
-                &mut history,
-                CommandExecution {
-                    command: format!("cmd {step}"),
-                    exit_code: 0,
-                    stdout: String::new(),
-                    stderr: String::new(),
-                    timestamp_ms: step,
-                    step_index: step as u32,
-                },
-                20,
-            );
-        }
-
-        assert_eq!(history.len(), 20);
-        assert_eq!(history.front().map(|entry| entry.step_index), Some(5));
-        assert_eq!(history.back().map(|entry| entry.step_index), Some(24));
-    }
-
-    #[tokio::test]
-    async fn scrub_command_history_fields_uses_pii_scrubber_and_fallback() {
-        let raw = CommandExecution {
-            command: "echo API_KEY=abc123".to_string(),
-            exit_code: 0,
-            stdout: "password=xyz".to_string(),
-            stderr: "token=secret".to_string(),
-            timestamp_ms: 9,
-            step_index: 1,
-        };
-        let tagged = serde_json::to_string(&raw).map_or_else(
-            |_| String::new(),
-            |serialized| format!("{}{}", COMMAND_HISTORY_PREFIX, serialized),
-        );
-        let parsed = match extract_command_history(&Some(tagged)) {
-            Some(payload) => payload,
-            None => panic!("valid payload should parse"),
-        };
-        let scrubber = PiiScrubber::new(Arc::new(DetectingSafetyModel));
-        let scrubbed = scrub_command_history_fields(&scrubber, parsed).await;
-        assert!(!scrubbed.command.contains("API_KEY"));
-        assert!(!scrubbed.stdout.contains("password"));
-        assert!(scrubbed.stderr.contains("<REDACTED"));
-
-        let fallback_scrubber = PiiScrubber::new(Arc::new(FailingSafetyModel));
-        let fallback = scrub_command_history_fields(
-            &fallback_scrubber,
-            CommandExecution {
-                command: "token=bad".to_string(),
-                exit_code: 0,
-                stdout: String::new(),
-                stderr: String::new(),
-                timestamp_ms: 10,
-                step_index: 2,
-            },
-        )
-        .await;
-        assert_eq!(fallback.command, COMMAND_HISTORY_SCRUBBED_PLACEHOLDER);
-        assert_eq!(fallback.stdout, COMMAND_HISTORY_SCRUBBED_PLACEHOLDER);
-        assert_eq!(fallback.stderr, COMMAND_HISTORY_SCRUBBED_PLACEHOLDER);
-    }
 }

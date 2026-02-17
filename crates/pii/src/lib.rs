@@ -23,7 +23,7 @@ pub use assist::{
 };
 
 pub use review_contract::{
-    expected_assist_identity, check_exception_usage_increment_ok, decode_exception_usage_state,
+    check_exception_usage_increment_ok, decode_exception_usage_state, expected_assist_identity,
     resolve_expected_request_hash, validate_resume_review_contract, validate_review_request_compat,
     PiiReviewContractError, ResumeReviewMode, REVIEW_REQUEST_VERSION,
 };
@@ -39,13 +39,16 @@ pub use scoped_exception::{
 };
 
 pub use routing::{
+    inspect_and_route_with_for_target, inspect_and_route_with_provider_for_target,
     route_pii_decision, route_pii_decision_for_target, route_pii_decision_with_assist,
     route_pii_decision_with_assist_for_target, PiiRoutingOutcome,
 };
 
 pub use targets::{is_high_risk_target, is_high_risk_target_legacy};
 
-pub use transform::{apply_transform, canonical_placeholder_label, scrub_text, PostTransformReport};
+pub use transform::{
+    apply_transform, canonical_placeholder_label, scrub_text, PostTransformReport,
+};
 
 // Re-export a few crate-private helpers used by unit tests.
 pub(crate) use assist::build_assist_receipt;

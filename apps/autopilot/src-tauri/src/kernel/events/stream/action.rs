@@ -6,7 +6,7 @@ use crate::kernel::events::support::{
 };
 use crate::kernel::state::update_task_state;
 use crate::models::{AgentPhase, EventStatus, EventType, GateInfo};
-use ioi_ipc::public::chain_event::ActionIntercepted;
+use ioi_ipc::public::ActionIntercepted;
 use serde_json::json;
 use tauri::Manager;
 
@@ -36,33 +36,35 @@ pub(super) async fn handle_action(app: &tauri::AppHandle, action: ActionIntercep
         let pii_info = fetch_pii_review_info(&app, &action.reason).await;
         let (waiting_for_sudo, waiting_for_clarification, hard_terminal_task) = {
             let state_handle = app.state::<std::sync::Mutex<crate::models::AppState>>();
-            if let Ok(guard) = state_handle.lock() {
-                if let Some(task) = &guard.current_task {
-                    let waiting_for_sudo = task
-                        .credential_request
-                        .as_ref()
-                        .map(|req| req.kind == "sudo_password")
-                        .unwrap_or(false)
-                        || task
-                            .current_step
-                            .eq_ignore_ascii_case("Waiting for sudo password");
-                    let waiting_for_clarification = task
-                        .clarification_request
-                        .as_ref()
-                        .map(|req| is_identity_resolution_kind(&req.kind))
-                        .unwrap_or(false)
-                        || is_waiting_for_identity_clarification_step(&task.current_step);
-                    (
-                        waiting_for_sudo,
-                        waiting_for_clarification,
-                        is_hard_terminal_task(task),
-                    )
-                } else {
-                    (false, false, false)
-                }
-            } else {
-                (false, false, false)
-            }
+            let out = match state_handle.lock() {
+                Ok(guard) => guard
+                    .current_task
+                    .as_ref()
+                    .map(|task| {
+                        let waiting_for_sudo = task
+                            .credential_request
+                            .as_ref()
+                            .map(|req| req.kind == "sudo_password")
+                            .unwrap_or(false)
+                            || task
+                                .current_step
+                                .eq_ignore_ascii_case("Waiting for sudo password");
+                        let waiting_for_clarification = task
+                            .clarification_request
+                            .as_ref()
+                            .map(|req| is_identity_resolution_kind(&req.kind))
+                            .unwrap_or(false)
+                            || is_waiting_for_identity_clarification_step(&task.current_step);
+                        (
+                            waiting_for_sudo,
+                            waiting_for_clarification,
+                            is_hard_terminal_task(task),
+                        )
+                    })
+                    .unwrap_or((false, false, false)),
+                Err(_) => (false, false, false),
+            };
+            out
         };
 
         let action_is_install = is_install_package_tool(&action.target);
@@ -73,16 +75,18 @@ pub(super) async fn handle_action(app: &tauri::AppHandle, action: ActionIntercep
 
         let already_gating = {
             let state_handle = app.state::<std::sync::Mutex<crate::models::AppState>>();
-            if let Ok(guard) = state_handle.lock() {
-                if let Some(task) = &guard.current_task {
-                    task.phase == AgentPhase::Gate
-                        && task.pending_request_hash.as_deref() == Some(action.reason.as_str())
-                } else {
-                    false
-                }
-            } else {
-                false
-            }
+            let out = match state_handle.lock() {
+                Ok(guard) => guard
+                    .current_task
+                    .as_ref()
+                    .map(|task| {
+                        task.phase == AgentPhase::Gate
+                            && task.pending_request_hash.as_deref() == Some(action.reason.as_str())
+                    })
+                    .unwrap_or(false),
+                Err(_) => false,
+            };
+            out
         };
 
         if !already_gating && !suppress_gate_for_wait && !hard_terminal_task {
