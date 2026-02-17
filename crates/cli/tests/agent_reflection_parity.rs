@@ -121,6 +121,7 @@ fn reflection_test_agent_state(session_id: [u8; 32]) -> AgentState {
         awaiting_intent_clarification: false,
 
         working_directory: ".".to_string(),
+        command_history: Default::default(),
         active_lens: None,
         pending_search_completion: None,
     }

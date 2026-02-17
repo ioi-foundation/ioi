@@ -610,11 +610,28 @@ where
             context.insert(node_id.clone(), output_val);
             result.input_snapshot = Some(effective_input.clone());
 
+            let router_route = result
+                .data
+                .as_ref()
+                .and_then(|d| d.get("route").and_then(|v| v.as_str()))
+                .map(|s| s.to_string())
+                .or_else(|| {
+                    let trimmed = result.output.trim();
+                    if trimmed.is_empty() {
+                        None
+                    } else {
+                        Some(trimmed.to_string())
+                    }
+                });
+
             let active_handle = match result.status.as_str() {
-                "success" => "out",
-                "blocked" => "blocked",
-                "failed" | "error" => "error",
-                _ => "out",
+                "success" if node.node_type == "router" => {
+                    router_route.unwrap_or_else(|| "out".to_string())
+                }
+                "success" => "out".to_string(),
+                "blocked" => "blocked".to_string(),
+                "failed" | "error" => "error".to_string(),
+                _ => "out".to_string(),
             };
 
             emit_event(GraphEvent {
@@ -627,9 +644,9 @@ where
 
             if let Some(children) = adj.get(&node_id) {
                 for (edge_handle, child_id) in children {
-                    let is_active_path = edge_handle == active_handle
-                        || (active_handle == "out"
-                            && (edge_handle == "source" || edge_handle == "out"));
+                    let active = active_handle.as_str();
+                    let is_active_path = edge_handle == active
+                        || (active == "out" && (edge_handle == "source" || edge_handle == "out"));
                     if is_active_path {
                         if let Some(degree) = in_degree.get_mut(child_id) {
                             if *degree > 0 {
@@ -673,11 +690,28 @@ where
                 };
                 context.insert(node_id.clone(), output_val);
 
+                let router_route = res
+                    .data
+                    .as_ref()
+                    .and_then(|d| d.get("route").and_then(|v| v.as_str()))
+                    .map(|s| s.to_string())
+                    .or_else(|| {
+                        let trimmed = res.output.trim();
+                        if trimmed.is_empty() {
+                            None
+                        } else {
+                            Some(trimmed.to_string())
+                        }
+                    });
+
                 let active_handle = match res.status.as_str() {
-                    "success" => "out",
-                    "blocked" => "blocked",
-                    "failed" | "error" => "error",
-                    _ => "out",
+                    "success" if node.node_type == "router" => {
+                        router_route.unwrap_or_else(|| "out".to_string())
+                    }
+                    "success" => "out".to_string(),
+                    "blocked" => "blocked".to_string(),
+                    "failed" | "error" => "error".to_string(),
+                    _ => "out".to_string(),
                 };
 
                 inject_execution_result(
@@ -709,8 +743,9 @@ where
 
                 if let Some(children) = adj.get(&node_id) {
                     for (edge_handle, child_id) in children {
-                        let is_active_path = edge_handle == active_handle
-                            || (active_handle == "out"
+                        let active = active_handle.as_str();
+                        let is_active_path = edge_handle == active
+                            || (active == "out"
                                 && (edge_handle == "source" || edge_handle == "out"));
 
                         if is_active_path {

@@ -105,7 +105,7 @@ pub(super) fn register_artifact(app: &tauri::AppHandle, artifact: Artifact) {
 pub(super) fn planned_artifact_types(event_type: &EventType, output: &str) -> Vec<ArtifactType> {
     if matches!(
         event_type,
-        EventType::BrowserNavigate | EventType::BrowserExtract
+        EventType::BrowserNavigate | EventType::BrowserSnapshot
     ) {
         return vec![ArtifactType::Web];
     }
@@ -423,7 +423,7 @@ pub(super) fn emit_browser_navigate(
     )
 }
 
-pub(super) fn emit_browser_extract(
+pub(super) fn emit_browser_snapshot(
     thread_id: &str,
     step_index: u32,
     tool_name: &str,
@@ -435,19 +435,19 @@ pub(super) fn emit_browser_extract(
     let urls = collect_urls(output, 5);
     let digest = json!({
         "tool_name": tool_name,
-        "extract_length": output.len(),
+        "snapshot_length": output.len(),
         "top_links": urls,
         "snippet": snippet(output),
     });
     let details = json!({
-        "extract": thresholds::trim_for_expanded_view(output),
+        "snapshot": thresholds::trim_for_expanded_view(output),
     });
 
     build_event(
         thread_id,
         step_index,
-        EventType::BrowserExtract,
-        "Extracted browser content".to_string(),
+        EventType::BrowserSnapshot,
+        "Snapshotted browser page".to_string(),
         digest,
         details,
         status,
@@ -572,17 +572,17 @@ mod tests {
         assert_eq!(navigate.artifact_refs.len(), 1);
         assert_eq!(navigate.artifact_refs[0].artifact_type, ArtifactType::Web);
 
-        let extract = emit_browser_extract(
+        let snapshot = emit_browser_snapshot(
             "thread-1",
             2,
-            "browser__extract",
+            "browser__snapshot",
             "Top links https://example.com/a https://example.com/b",
             EventStatus::Success,
             vec![web_ref],
             vec![navigate.event_id.clone()],
         );
-        assert_eq!(extract.event_type, EventType::BrowserExtract);
-        assert_eq!(extract.input_refs[0], navigate.event_id);
+        assert_eq!(snapshot.event_type, EventType::BrowserSnapshot);
+        assert_eq!(snapshot.input_refs[0], navigate.event_id);
 
         let completion = emit_command_run(
             "thread-1",
@@ -590,10 +590,10 @@ mod tests {
             "agent__complete",
             "Completed web synthesis",
             EventStatus::Success,
-            extract.artifact_refs.clone(),
-            vec![extract.event_id.clone()],
+            snapshot.artifact_refs.clone(),
+            vec![snapshot.event_id.clone()],
         );
-        assert_eq!(completion.input_refs[0], extract.event_id);
+        assert_eq!(completion.input_refs[0], snapshot.event_id);
         assert_eq!(completion.artifact_refs[0].artifact_type, ArtifactType::Web);
     }
 

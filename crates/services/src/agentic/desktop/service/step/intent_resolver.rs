@@ -333,6 +333,7 @@ fn tool_allowed_for_scope(scope: IntentScopeProfile, tool_name: &str) -> bool {
         return true;
     }
     let is_browser = tool_name.starts_with("browser__");
+    let is_web_retrieval = tool_name.starts_with("web__");
     let is_filesystem = tool_name.starts_with("filesystem__");
     let is_shell = tool_name == "sys__exec"
         || tool_name == "sys__install_package"
@@ -348,7 +349,7 @@ fn tool_allowed_for_scope(scope: IntentScopeProfile, tool_name: &str) -> bool {
 
     match scope {
         IntentScopeProfile::Conversation => is_chat || is_system,
-        IntentScopeProfile::WebResearch => is_browser || is_chat || is_system,
+        IntentScopeProfile::WebResearch => is_browser || is_web_retrieval || is_chat || is_system,
         IntentScopeProfile::WorkspaceOps => is_filesystem || is_chat || is_system,
         IntentScopeProfile::AppLaunch => is_launch || is_ui || is_chat || is_system,
         IntentScopeProfile::UiInteraction => {
@@ -525,8 +526,8 @@ mod tests {
     use ioi_drivers::browser::BrowserDriver;
     use ioi_drivers::terminal::TerminalDriver;
     use ioi_types::app::agentic::{
-        IntentAmbiguityAction, IntentConfidenceBand, IntentConfidenceBandPolicy, IntentRoutingPolicy,
-        IntentScopeProfile, ResolvedIntentState,
+        IntentAmbiguityAction, IntentConfidenceBand, IntentConfidenceBandPolicy,
+        IntentRoutingPolicy, IntentScopeProfile, ResolvedIntentState,
     };
     use ioi_types::app::{ActionRequest, ContextSlice};
     use ioi_types::error::VmError;
@@ -607,6 +608,7 @@ mod tests {
             awaiting_intent_clarification: false,
             working_directory: ".".to_string(),
             active_lens: None,
+            command_history: Default::default(),
         }
     }
 
@@ -672,10 +674,16 @@ mod tests {
         let agent_state = test_agent_state();
 
         let mut rules = ActionRules::default();
-        rules.ontology_policy.intent_routing.ambiguity.medium_confidence_action =
-            IntentAmbiguityAction::ConstrainedProceed;
-        rules.ontology_policy.intent_routing.ambiguity.low_confidence_action =
-            IntentAmbiguityAction::ConstrainedProceed;
+        rules
+            .ontology_policy
+            .intent_routing
+            .ambiguity
+            .medium_confidence_action = IntentAmbiguityAction::ConstrainedProceed;
+        rules
+            .ontology_policy
+            .intent_routing
+            .ambiguity
+            .low_confidence_action = IntentAmbiguityAction::ConstrainedProceed;
 
         let resolved = resolve_step_intent(&service, &agent_state, &rules, "terminal")
             .await

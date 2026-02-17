@@ -1,6 +1,6 @@
 use super::clarification::build_clarification_request_with_inference;
 use super::emission::{
-    build_event, create_macro_artifacts_for_action, emit_browser_extract, emit_browser_navigate,
+    build_event, create_macro_artifacts_for_action, emit_browser_navigate, emit_browser_snapshot,
     emit_code_search, emit_command_run, emit_command_stream, emit_file_edit, emit_receipt_digest,
     emit_test_run, register_artifact, register_event,
 };
@@ -44,7 +44,12 @@ async fn fetch_pii_review_info(
     let state_handle = app.state::<Mutex<AppState>>();
     let mut client = get_rpc_client(&state_handle).await.ok()?;
     let ns_prefix = ioi_api::state::service_namespace_prefix("desktop_agent");
-    let key = [ns_prefix.as_slice(), b"pii::review::request::", &decision_hash].concat();
+    let key = [
+        ns_prefix.as_slice(),
+        b"pii::review::request::",
+        &decision_hash,
+    ]
+    .concat();
     let resp = client
         .query_raw_state(tonic::Request::new(QueryRawStateRequest { key }))
         .await
@@ -521,7 +526,7 @@ pub async fn monitor_kernel_events(app: tauri::AppHandle) {
                                 artifact_refs,
                                 Vec::new(),
                             ),
-                            EventType::BrowserExtract => emit_browser_extract(
+                            EventType::BrowserSnapshot => emit_browser_snapshot(
                                 &thread_id,
                                 res.step_index,
                                 &res.tool_name,
@@ -1064,8 +1069,7 @@ pub async fn monitor_kernel_events(app: tauri::AppHandle) {
                     }
                     ChainEventEnum::Action(action) => {
                         if action.verdict == "PII_REVIEW_REQUESTED" {
-                            let pii_info =
-                                fetch_pii_review_info(&app, &action.reason).await;
+                            let pii_info = fetch_pii_review_info(&app, &action.reason).await;
                             if let Some(pii) = pii_info {
                                 update_task_state(&app, |t| {
                                     t.gate_info = Some(GateInfo {

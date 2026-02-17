@@ -246,8 +246,7 @@ pub async fn enforce_firewall(
             if service_id == "desktop_agent" && method == "resume@v1" {
                 let agent_state = agent_state_opt.as_ref().ok_or_else(|| {
                     TransactionError::Invalid(
-                        "Missing desktop agent state for resume review verification"
-                            .to_string(),
+                        "Missing desktop agent state for resume review verification".to_string(),
                     )
                 })?;
                 let pending_tool_hash = agent_state.pending_tool_hash.ok_or_else(|| {
@@ -665,8 +664,8 @@ pub async fn enforce_firewall(
                             routed.stage2_decision.as_ref(),
                         );
                         let created_at_ms = expected_timestamp_secs.saturating_mul(1000);
-                        let deadline_ms =
-                            created_at_ms.saturating_add(rules.pii_controls.stage2_timeout_ms as u64);
+                        let deadline_ms = created_at_ms
+                            .saturating_add(rules.pii_controls.stage2_timeout_ms as u64);
 
                         if let Some(tx) = event_broadcaster {
                             let _ = tx.send(KernelEvent::PiiReviewRequested {

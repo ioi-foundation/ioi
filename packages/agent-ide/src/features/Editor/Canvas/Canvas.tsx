@@ -36,7 +36,9 @@ export function Canvas({
     router: CanvasNode,
     wait: CanvasNode,
     context: CanvasNode,
-    retrieval: CanvasNode
+    retrieval: CanvasNode,
+    web_search: CanvasNode,
+    web_read: CanvasNode,
   }), []);
 
   const edgeTypes = useMemo(() => ({

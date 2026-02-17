@@ -21,6 +21,10 @@ pub enum PiiEgressField {
     OsCopyContent,
     /// Destination URL for `browser__navigate`.
     BrowserNavigateUrl,
+    /// Computed destination URL for `web__search`.
+    WebSearchUrl,
+    /// Destination URL for `web__read`.
+    WebReadUrl,
     /// Free-form text payload for `browser__type`.
     BrowserTypeText,
     /// Buyer email field in `commerce__checkout`.
@@ -328,9 +332,12 @@ pub enum AgentTool {
         url: String,
     },
 
-    /// Extracts content from the browser.
-    #[serde(rename = "browser__extract")]
-    BrowserExtract {},
+    /// Snapshot/inspect the current browser page.
+    ///
+    /// Returns a semantic representation (a11y tree / DOM-derived view) suitable for
+    /// robust follow-up actions like `browser__click_element`.
+    #[serde(rename = "browser__snapshot")]
+    BrowserSnapshot {},
 
     /// Clicks an element in the browser.
     #[serde(rename = "browser__click")]
@@ -339,7 +346,7 @@ pub enum AgentTool {
         selector: String,
     },
 
-    /// Clicks an element in the browser by semantic ID from `browser__extract`.
+    /// Clicks an element in the browser by semantic ID from `browser__snapshot`.
     #[serde(rename = "browser__click_element")]
     BrowserClickElement {
         /// Stable semantic ID of element (e.g. "btn_submit").
@@ -381,6 +388,32 @@ pub enum AgentTool {
     BrowserKey {
         /// Key name (for example: "Enter", "Tab", "ArrowDown").
         key: String,
+    },
+
+    /// Search the web via an edge/local SERP and return typed sources with provenance.
+    ///
+    /// Note: the `url` field is computed deterministically by the runtime and is not intended
+    /// to be provided by the model directly.
+    #[serde(rename = "web__search")]
+    WebSearch {
+        /// Search query.
+        query: String,
+        /// Optional max results to return.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        limit: Option<u32>,
+        /// Computed SERP URL (filled by the runtime for policy enforcement + hashing).
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        url: Option<String>,
+    },
+
+    /// Read a URL and return extracted text + deterministic quote spans.
+    #[serde(rename = "web__read")]
+    WebRead {
+        /// URL to read.
+        url: String,
+        /// Optional max characters of extracted text to return.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        max_chars: Option<u32>,
     },
 
     /// Legacy GUI click tool.
@@ -537,19 +570,17 @@ impl AgentTool {
             AgentTool::SysExec { .. } | AgentTool::SysChangeDir { .. } => ActionTarget::SysExec,
             AgentTool::SysInstallPackage { .. } => ActionTarget::SysInstallPackage,
 
-            AgentTool::BrowserNavigate { .. } => ActionTarget::BrowserNavigateHermetic,
+            AgentTool::WebSearch { .. } | AgentTool::WebRead { .. } => ActionTarget::WebRetrieve,
 
-            AgentTool::BrowserExtract { .. } => ActionTarget::BrowserExtract,
-            AgentTool::BrowserClick { .. } => ActionTarget::Custom("browser::click".into()),
-            AgentTool::BrowserClickElement { .. } => {
-                ActionTarget::Custom("browser::click_element".into())
-            }
-            AgentTool::BrowserSyntheticClick { .. } => {
-                ActionTarget::Custom("browser::synthetic_click".into())
-            }
-            AgentTool::BrowserScroll { .. } => ActionTarget::Custom("browser::scroll".into()),
-            AgentTool::BrowserType { .. } => ActionTarget::Custom("browser__type".into()),
-            AgentTool::BrowserKey { .. } => ActionTarget::Custom("browser__key".into()),
+            AgentTool::BrowserNavigate { .. }
+            | AgentTool::BrowserClick { .. }
+            | AgentTool::BrowserClickElement { .. }
+            | AgentTool::BrowserSyntheticClick { .. }
+            | AgentTool::BrowserScroll { .. }
+            | AgentTool::BrowserType { .. }
+            | AgentTool::BrowserKey { .. } => ActionTarget::BrowserInteract,
+
+            AgentTool::BrowserSnapshot { .. } => ActionTarget::BrowserInspect,
 
             AgentTool::GuiClick { .. } => ActionTarget::GuiClick,
             AgentTool::GuiType { .. } => ActionTarget::GuiType,
@@ -598,6 +629,15 @@ impl AgentTool {
                 if let Some(name) = val.get("name").and_then(|n| n.as_str()) {
                     match name {
                         "ui__click_component" | "gui__click_element" => ActionTarget::GuiClick,
+                        "web__search" | "web__read" => ActionTarget::WebRetrieve,
+                        "browser__snapshot" => ActionTarget::BrowserInspect,
+                        "browser__navigate"
+                        | "browser__click"
+                        | "browser__click_element"
+                        | "browser__synthetic_click"
+                        | "browser__scroll"
+                        | "browser__type"
+                        | "browser__key" => ActionTarget::BrowserInteract,
                         "os__launch_app" | "sys__exec" | "sys__change_directory" => {
                             ActionTarget::SysExec
                         }
@@ -622,13 +662,25 @@ impl AgentTool {
             }],
             AgentTool::BrowserNavigate { .. } => vec![PiiEgressSpec {
                 field: PiiEgressField::BrowserNavigateUrl,
-                target: PiiTarget::Action(ActionTarget::BrowserNavigateHermetic),
+                target: PiiTarget::Action(ActionTarget::BrowserInteract),
+                supports_transform: false,
+                risk_surface: PiiEgressRiskSurface::Egress,
+            }],
+            AgentTool::WebSearch { .. } => vec![PiiEgressSpec {
+                field: PiiEgressField::WebSearchUrl,
+                target: PiiTarget::Action(ActionTarget::WebRetrieve),
+                supports_transform: false,
+                risk_surface: PiiEgressRiskSurface::Egress,
+            }],
+            AgentTool::WebRead { .. } => vec![PiiEgressSpec {
+                field: PiiEgressField::WebReadUrl,
+                target: PiiTarget::Action(ActionTarget::WebRetrieve),
                 supports_transform: false,
                 risk_surface: PiiEgressRiskSurface::Egress,
             }],
             AgentTool::BrowserType { .. } => vec![PiiEgressSpec {
                 field: PiiEgressField::BrowserTypeText,
-                target: PiiTarget::Action(ActionTarget::Custom("browser__type".to_string())),
+                target: PiiTarget::Action(ActionTarget::BrowserInteract),
                 supports_transform: true,
                 risk_surface: PiiEgressRiskSurface::Egress,
             }],
@@ -655,6 +707,8 @@ impl AgentTool {
         match (self, field) {
             (AgentTool::OsCopy { content }, PiiEgressField::OsCopyContent) => Some(content),
             (AgentTool::BrowserNavigate { url }, PiiEgressField::BrowserNavigateUrl) => Some(url),
+            (AgentTool::WebSearch { url, .. }, PiiEgressField::WebSearchUrl) => url.as_mut(),
+            (AgentTool::WebRead { url, .. }, PiiEgressField::WebReadUrl) => Some(url),
             (AgentTool::BrowserType { text, .. }, PiiEgressField::BrowserTypeText) => Some(text),
             (
                 AgentTool::CommerceCheckout { buyer_email, .. },
@@ -677,6 +731,8 @@ mod tests {
         match tool {
             AgentTool::OsCopy { .. }
             | AgentTool::BrowserNavigate { .. }
+            | AgentTool::WebSearch { .. }
+            | AgentTool::WebRead { .. }
             | AgentTool::BrowserType { .. }
             | AgentTool::CommerceCheckout { .. } => true,
 
@@ -693,7 +749,7 @@ mod tests {
             | AgentTool::SysExec { .. }
             | AgentTool::SysInstallPackage { .. }
             | AgentTool::SysChangeDir { .. }
-            | AgentTool::BrowserExtract {}
+            | AgentTool::BrowserSnapshot {}
             | AgentTool::BrowserClick { .. }
             | AgentTool::BrowserClickElement { .. }
             | AgentTool::BrowserSyntheticClick { .. }
@@ -718,11 +774,36 @@ mod tests {
     }
 
     #[test]
-    fn browser_navigate_target_maps_to_hermetic_scope() {
+    fn browser_navigate_target_maps_to_browser_interact_scope() {
         let tool = AgentTool::BrowserNavigate {
             url: "https://news.ycombinator.com".to_string(),
         };
-        assert_eq!(tool.target(), ActionTarget::BrowserNavigateHermetic);
+        assert_eq!(tool.target(), ActionTarget::BrowserInteract);
+    }
+
+    #[test]
+    fn web_search_target_maps_to_web_retrieve_scope() {
+        let tool = AgentTool::WebSearch {
+            query: "internet of intelligence".to_string(),
+            limit: None,
+            url: None,
+        };
+        assert_eq!(tool.target(), ActionTarget::WebRetrieve);
+    }
+
+    #[test]
+    fn web_read_target_maps_to_web_retrieve_scope() {
+        let tool = AgentTool::WebRead {
+            url: "https://example.com".to_string(),
+            max_chars: None,
+        };
+        assert_eq!(tool.target(), ActionTarget::WebRetrieve);
+    }
+
+    #[test]
+    fn browser_snapshot_target_maps_to_browser_inspect_scope() {
+        let tool = AgentTool::BrowserSnapshot {};
+        assert_eq!(tool.target(), ActionTarget::BrowserInspect);
     }
 
     #[test]
@@ -798,10 +879,7 @@ mod tests {
         let tool = AgentTool::BrowserClickElement {
             id: "btn_submit".to_string(),
         };
-        assert_eq!(
-            tool.target(),
-            ActionTarget::Custom("browser::click_element".into())
-        );
+        assert_eq!(tool.target(), ActionTarget::BrowserInteract);
     }
 
     #[test]
@@ -810,10 +888,7 @@ mod tests {
             delta_x: 0,
             delta_y: 480,
         };
-        assert_eq!(
-            tool.target(),
-            ActionTarget::Custom("browser::scroll".into())
-        );
+        assert_eq!(tool.target(), ActionTarget::BrowserInteract);
     }
 
     #[test]
@@ -822,7 +897,7 @@ mod tests {
             text: "hello".to_string(),
             selector: Some("input[name='q']".to_string()),
         };
-        assert_eq!(tool.target(), ActionTarget::Custom("browser__type".into()));
+        assert_eq!(tool.target(), ActionTarget::BrowserInteract);
     }
 
     #[test]
@@ -830,7 +905,7 @@ mod tests {
         let tool = AgentTool::BrowserKey {
             key: "Enter".to_string(),
         };
-        assert_eq!(tool.target(), ActionTarget::Custom("browser__key".into()));
+        assert_eq!(tool.target(), ActionTarget::BrowserInteract);
     }
 
     #[test]
@@ -843,6 +918,15 @@ mod tests {
                 url: "https://example.com".to_string()
             }
         ));
+        assert!(is_expected_egress_tool_exhaustive(&AgentTool::WebSearch {
+            query: "internet of intelligence".to_string(),
+            limit: None,
+            url: Some("https://duckduckgo.com/?q=internet+of+intelligence".to_string()),
+        }));
+        assert!(is_expected_egress_tool_exhaustive(&AgentTool::WebRead {
+            url: "https://example.com".to_string(),
+            max_chars: None,
+        }));
         assert!(is_expected_egress_tool_exhaustive(
             &AgentTool::BrowserType {
                 text: "hello".to_string(),
@@ -883,7 +967,34 @@ mod tests {
         assert!(!nav_specs[0].supports_transform);
         assert_eq!(
             nav_specs[0].target,
-            PiiTarget::Action(ActionTarget::BrowserNavigateHermetic)
+            PiiTarget::Action(ActionTarget::BrowserInteract)
+        );
+
+        let web_search_specs = AgentTool::WebSearch {
+            query: "internet of intelligence".to_string(),
+            limit: None,
+            url: Some("https://duckduckgo.com/?q=internet+of+intelligence".to_string()),
+        }
+        .pii_egress_specs();
+        assert_eq!(web_search_specs.len(), 1);
+        assert_eq!(web_search_specs[0].field, PiiEgressField::WebSearchUrl);
+        assert!(!web_search_specs[0].supports_transform);
+        assert_eq!(
+            web_search_specs[0].target,
+            PiiTarget::Action(ActionTarget::WebRetrieve)
+        );
+
+        let web_read_specs = AgentTool::WebRead {
+            url: "https://example.com".to_string(),
+            max_chars: None,
+        }
+        .pii_egress_specs();
+        assert_eq!(web_read_specs.len(), 1);
+        assert_eq!(web_read_specs[0].field, PiiEgressField::WebReadUrl);
+        assert!(!web_read_specs[0].supports_transform);
+        assert_eq!(
+            web_read_specs[0].target,
+            PiiTarget::Action(ActionTarget::WebRetrieve)
         );
 
         let browser_type_specs = AgentTool::BrowserType {
@@ -894,6 +1005,10 @@ mod tests {
         assert_eq!(browser_type_specs.len(), 1);
         assert_eq!(browser_type_specs[0].field, PiiEgressField::BrowserTypeText);
         assert!(browser_type_specs[0].supports_transform);
+        assert_eq!(
+            browser_type_specs[0].target,
+            PiiTarget::Action(ActionTarget::BrowserInteract)
+        );
 
         let checkout_specs = AgentTool::CommerceCheckout {
             merchant_url: "https://merchant.example".to_string(),

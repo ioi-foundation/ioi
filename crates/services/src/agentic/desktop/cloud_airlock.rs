@@ -1,7 +1,9 @@
 use crate::agentic::pii_scrubber::PiiScrubber;
 use ioi_api::vm::inference::InferenceRuntime;
 use ioi_pii::RiskSurface;
-use ioi_types::app::agentic::{FirewallDecision, InferenceOptions, PiiControls, PiiTarget, Stage2Decision};
+use ioi_types::app::agentic::{
+    FirewallDecision, InferenceOptions, PiiControls, PiiTarget, Stage2Decision,
+};
 use ioi_types::app::KernelEvent;
 use ioi_types::error::TransactionError;
 use std::sync::Arc;
@@ -28,7 +30,9 @@ pub async fn prepare_cloud_inference_input(
     let (scrubbed, _map, report, routed, evidence) = scrubber
         .inspect_route_transform(input_str, &target, RiskSurface::Egress, &policy, true)
         .await
-        .map_err(|e| TransactionError::Invalid(format!("PII pre-cloud inspection failed: {}", e)))?;
+        .map_err(|e| {
+            TransactionError::Invalid(format!("PII pre-cloud inspection failed: {}", e))
+        })?;
 
     if let Some(tx) = event_sender {
         let _ = tx.send(KernelEvent::PiiDecisionReceipt(

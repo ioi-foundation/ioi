@@ -280,7 +280,7 @@ pub async fn handle(exec: &ToolExecutor, tool: AgentTool) -> ToolExecutionResult
             }
             Err(e) => ToolExecutionResult::failure(format!("Navigation failed: {}", e)),
         },
-        AgentTool::BrowserExtract {} => match exec.browser.get_accessibility_tree().await {
+        AgentTool::BrowserSnapshot {} => match exec.browser.get_accessibility_tree().await {
             Ok(raw_tree) => {
                 let transformed = apply_browser_auto_lens(raw_tree);
                 ToolExecutionResult::success(render_browser_tree_xml(&transformed))
@@ -494,7 +494,7 @@ pub async fn handle(exec: &ToolExecutor, tool: AgentTool) -> ToolExecutionResult
                 Some(target) => target,
                 None => {
                     return ToolExecutionResult::failure(format!(
-                        "ERROR_CLASS=TargetNotFound Element '{}' not found in current browser view. Run `browser__extract` again and retry with a fresh ID.",
+                        "ERROR_CLASS=TargetNotFound Element '{}' not found in current browser view. Run `browser__snapshot` again and retry with a fresh ID.",
                         id
                     ))
                 }

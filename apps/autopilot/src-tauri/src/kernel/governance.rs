@@ -10,8 +10,8 @@ use ioi_ipc::public::{
     GetTransactionStatusRequest, SetRuntimeSecretRequest, SubmitTransactionRequest,
 };
 use ioi_services::agentic::desktop::keys as desktop_keys;
-use ioi_services::agentic::desktop::AgentState;
 use ioi_services::agentic::desktop::service::step::incident::IncidentState;
+use ioi_services::agentic::desktop::AgentState;
 use ioi_types::app::action::{ApprovalScope, ApprovalToken, PiiApprovalAction};
 use ioi_types::app::agentic::ResumeAgentParams;
 use ioi_types::app::{
@@ -72,9 +72,10 @@ async fn wait_for_gate_ready(
         if resp.found && !resp.value.is_empty() {
             if let Ok(agent_state) = codec::from_bytes_canonical::<AgentState>(&resp.value) {
                 // Not ready until both pending_tool_hash and pending_tool_jcs are committed.
-                if let (Some(pending_tool_hash), Some(_pending_tool_jcs)) =
-                    (agent_state.pending_tool_hash, agent_state.pending_tool_jcs.as_ref())
-                {
+                if let (Some(pending_tool_hash), Some(_pending_tool_jcs)) = (
+                    agent_state.pending_tool_hash,
+                    agent_state.pending_tool_jcs.as_ref(),
+                ) {
                     // Policy gates bind directly to the pending tool hash.
                     if pending_tool_hash == expected_request_hash {
                         return Ok(());
@@ -96,10 +97,8 @@ async fn wait_for_gate_ready(
                         if let Ok(incident) =
                             codec::from_bytes_canonical::<IncidentState>(&incident_resp.value)
                         {
-                            let pending_gate_hash = incident
-                                .pending_gate
-                                .as_ref()
-                                .and_then(|pending| {
+                            let pending_gate_hash =
+                                incident.pending_gate.as_ref().and_then(|pending| {
                                     let normalized = pending
                                         .request_hash
                                         .trim()
@@ -231,9 +230,7 @@ pub async fn gate_respond(
 
     // Policy gate "cancel" means: don't submit anything; keep the agent paused.
     if !is_pii_gate && action_label == "cancel" {
-        println!(
-            "[Autopilot] Gate action 'cancel' for policy gate (no-op; agent remains paused)."
-        );
+        println!("[Autopilot] Gate action 'cancel' for policy gate (no-op; agent remains paused).");
         return Ok(());
     }
 
@@ -253,7 +250,8 @@ pub async fn gate_respond(
     if !is_pii_gate
         && matches!(
             pii_action,
-            Some(PiiApprovalAction::ApproveTransform) | Some(PiiApprovalAction::GrantScopedException)
+            Some(PiiApprovalAction::ApproveTransform)
+                | Some(PiiApprovalAction::GrantScopedException)
         )
     {
         return Err(format!(
@@ -263,7 +261,9 @@ pub async fn gate_respond(
     }
 
     let (Some(sid_hex), Some(hash_hex)) = (session_id_hex, request_hash_hex) else {
-        return Err("Missing session_id or request_hash in state. Cannot submit gate response.".to_string());
+        return Err(
+            "Missing session_id or request_hash in state. Cannot submit gate response.".to_string(),
+        );
     };
 
     println!(
@@ -358,7 +358,9 @@ pub async fn gate_respond(
     };
 
     let tx_sign_bytes = tx.to_sign_bytes().map_err(|e| e.to_string())?;
-    let tx_sig = approver_kp.sign(&tx_sign_bytes).map_err(|e| e.to_string())?;
+    let tx_sig = approver_kp
+        .sign(&tx_sign_bytes)
+        .map_err(|e| e.to_string())?;
 
     tx.signature_proof = SignatureProof {
         suite: SignatureSuite::ED25519,
@@ -383,9 +385,7 @@ pub async fn gate_respond(
                 tokio::time::sleep(std::time::Duration::from_millis(500)).await;
                 attempts += 1;
                 if attempts > 20 {
-                    return Err(
-                        "Timed out waiting for gate action transaction commit".to_string(),
-                    );
+                    return Err("Timed out waiting for gate action transaction commit".to_string());
                 }
 
                 let status_req = tonic::Request::new(GetTransactionStatusRequest {
@@ -449,7 +449,10 @@ pub async fn gate_respond(
             let _ = app.emit("gate-response", approved);
         }
         Err(e) => {
-            eprintln!("[Autopilot] Failed to submit gate action transaction: {}", e);
+            eprintln!(
+                "[Autopilot] Failed to submit gate action transaction: {}",
+                e
+            );
             return Err(format!("Failed to submit gate action: {}", e));
         }
     }

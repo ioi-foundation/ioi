@@ -48,14 +48,14 @@ pub fn default_safe_policy() -> ActionRules {
                 action: Verdict::Allow,
             },
             Rule {
-                rule_id: Some("allow-browser-read".into()),
-                target: "browser::extract".into(),
+                rule_id: Some("allow-browser-inspect".into()),
+                target: "browser::inspect".into(),
                 conditions: Default::default(),
                 action: Verdict::Allow,
             },
             Rule {
-                rule_id: Some("allow-browser-scroll".into()),
-                target: "browser::scroll".into(),
+                rule_id: Some("allow-web-retrieve".into()),
+                target: "web::retrieve".into(),
                 conditions: Default::default(),
                 action: Verdict::Allow,
             },
@@ -99,13 +99,6 @@ pub fn default_safe_policy() -> ActionRules {
             Rule {
                 rule_id: Some("allow-sys-exec-echo".into()),
                 target: "sys::exec".into(),
-                conditions: Default::default(),
-                action: Verdict::Allow,
-            },
-            // [NEW] Allow Hermetic Navigation
-            Rule {
-                rule_id: Some("allow-hermetic-nav".into()),
-                target: "browser::navigate::hermetic".into(),
                 conditions: Default::default(),
                 action: Verdict::Allow,
             },

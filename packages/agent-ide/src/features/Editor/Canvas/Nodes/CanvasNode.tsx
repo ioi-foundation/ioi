@@ -18,6 +18,8 @@ const typeIcons: Record<string, string> = {
   wait: "⏳",
   context: "📦",
   retrieval: "🔍",
+  web_search: "🌐",
+  web_read: "📄",
 };
 
 export const CanvasNode = memo(({ data, selected }: NodeProps) => {

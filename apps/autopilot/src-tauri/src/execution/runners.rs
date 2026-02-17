@@ -177,6 +177,117 @@ pub(super) async fn run_browser_execution(
     }
 }
 
+pub(super) async fn run_web_search_execution(
+    config: &Value,
+    input: &str,
+) -> Result<ExecutionResult, Box<dyn Error>> {
+    let start = std::time::Instant::now();
+    let input_obj: Value = serde_json::from_str(input).unwrap_or(serde_json::json!({}));
+
+    if let Err(e) = BROWSER_DRIVER.launch(false).await {
+        return Ok(ExecutionResult {
+            status: "error".to_string(),
+            output: format!("Failed to launch browser driver: {}", e),
+            data: None,
+            metrics: None,
+            input_snapshot: Some(input_obj),
+            context_slice: None,
+        });
+    }
+
+    let query_template = config
+        .get("query")
+        .and_then(|v| v.as_str())
+        .unwrap_or("{{input}}");
+    let query = interpolate_template(query_template, &input_obj);
+
+    let limit = config
+        .get("limit")
+        .and_then(|v| v.as_u64())
+        .map(|v| v as u32)
+        .unwrap_or(5)
+        .clamp(1, 10);
+
+    match ioi_services::agentic::web::edge_web_search(&*BROWSER_DRIVER, &query, limit).await {
+        Ok(bundle) => {
+            let data = serde_json::to_value(&bundle).ok();
+            let output = serde_json::to_string_pretty(&bundle).unwrap_or_else(|_| query.clone());
+            Ok(ExecutionResult {
+                status: "success".to_string(),
+                output,
+                data,
+                metrics: Some(serde_json::json!({ "latency_ms": start.elapsed().as_millis() })),
+                input_snapshot: Some(input_obj),
+                context_slice: None,
+            })
+        }
+        Err(e) => Ok(ExecutionResult {
+            status: "error".to_string(),
+            output: format!("Web search failed: {}", e),
+            data: None,
+            metrics: Some(serde_json::json!({ "latency_ms": start.elapsed().as_millis() })),
+            input_snapshot: Some(input_obj),
+            context_slice: None,
+        }),
+    }
+}
+
+pub(super) async fn run_web_read_execution(
+    config: &Value,
+    input: &str,
+) -> Result<ExecutionResult, Box<dyn Error>> {
+    let start = std::time::Instant::now();
+    let input_obj: Value = serde_json::from_str(input).unwrap_or(serde_json::json!({}));
+
+    if let Err(e) = BROWSER_DRIVER.launch(false).await {
+        return Ok(ExecutionResult {
+            status: "error".to_string(),
+            output: format!("Failed to launch browser driver: {}", e),
+            data: None,
+            metrics: None,
+            input_snapshot: Some(input_obj),
+            context_slice: None,
+        });
+    }
+
+    let url_template = config
+        .get("url")
+        .or_else(|| config.get("endpoint"))
+        .and_then(|v| v.as_str())
+        .ok_or("Missing 'url' in logic config")?;
+    let url = interpolate_template(url_template, &input_obj);
+
+    let max_chars = config
+        .get("max_chars")
+        .or_else(|| config.get("maxChars"))
+        .and_then(|v| v.as_u64())
+        .map(|v| v as u32)
+        .or(Some(12_000));
+
+    match ioi_services::agentic::web::edge_web_read(&*BROWSER_DRIVER, &url, max_chars).await {
+        Ok(bundle) => {
+            let data = serde_json::to_value(&bundle).ok();
+            let output = serde_json::to_string_pretty(&bundle).unwrap_or_else(|_| url.clone());
+            Ok(ExecutionResult {
+                status: "success".to_string(),
+                output,
+                data,
+                metrics: Some(serde_json::json!({ "latency_ms": start.elapsed().as_millis() })),
+                input_snapshot: Some(input_obj),
+                context_slice: None,
+            })
+        }
+        Err(e) => Ok(ExecutionResult {
+            status: "error".to_string(),
+            output: format!("Web read failed: {}", e),
+            data: None,
+            metrics: Some(serde_json::json!({ "latency_ms": start.elapsed().as_millis() })),
+            input_snapshot: Some(input_obj),
+            context_slice: None,
+        }),
+    }
+}
+
 pub(super) async fn run_gate_execution(
     config: &Value,
     input: &str,

@@ -209,7 +209,7 @@ impl DesktopAgentService {
         self::skills::recall_skills(self, state, goal).await
     }
 
-    pub(crate) async fn retrieve_context_hybrid(
+    pub async fn retrieve_context_hybrid(
         &self,
         query: &str,
         visual_phash: Option<[u8; 32]>,
@@ -224,7 +224,7 @@ impl DesktopAgentService {
         self::handler::select_runtime(self, state)
     }
 
-    pub(crate) async fn append_chat_to_scs(
+    pub async fn append_chat_to_scs(
         &self,
         session_id: [u8; 32],
         msg: &ioi_types::app::agentic::ChatMessage,
@@ -233,11 +233,18 @@ impl DesktopAgentService {
         self::memory::append_chat_to_scs(self, session_id, msg, block_height).await
     }
 
-    pub(crate) fn hydrate_session_history(
+    pub fn hydrate_session_history(
         &self,
         session_id: [u8; 32],
     ) -> Result<Vec<ioi_types::app::agentic::ChatMessage>, TransactionError> {
         self::memory::hydrate_session_history(self, session_id)
+    }
+
+    pub fn hydrate_session_history_raw(
+        &self,
+        session_id: [u8; 32],
+    ) -> Result<Vec<ioi_types::app::agentic::ChatMessage>, TransactionError> {
+        self::memory::hydrate_session_history_raw(self, session_id)
     }
 
     pub(crate) fn fetch_failure_context(

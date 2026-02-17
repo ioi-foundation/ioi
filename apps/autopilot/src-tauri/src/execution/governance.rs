@@ -26,7 +26,8 @@ pub(super) fn synthesize_node_policy(node_type: &str, law_config: &Value) -> Act
     }
 
     let target = match node_type {
-        "browser" => "browser::navigate",
+        "browser" => "browser::interact",
+        "web_search" | "web_read" => "web::retrieve",
         "tool" => "net::fetch",
         "model" => "model::inference",
         "gate" => "gov::gate",
@@ -68,7 +69,8 @@ pub(super) fn map_to_action_request(
     session_id: Option<String>,
 ) -> ActionRequest {
     let target = match node_type {
-        "browser" => ActionTarget::BrowserNavigateHermetic,
+        "browser" => ActionTarget::BrowserInteract,
+        "web_search" | "web_read" => ActionTarget::WebRetrieve,
         "tool" => {
             if let Some(endpoint) = logic_config.get("endpoint").and_then(|s| s.as_str()) {
                 if endpoint.starts_with("http") {
@@ -85,6 +87,16 @@ pub(super) fn map_to_action_request(
 
     let mut params_obj = json!({});
     let input_ctx: Value = serde_json::from_str(input_json).unwrap_or(json!({}));
+
+    if node_type == "web_search" {
+        let query_template = logic_config
+            .get("query")
+            .and_then(|s| s.as_str())
+            .unwrap_or("{{input}}");
+        let query = interpolate_template(query_template, &input_ctx);
+        let serp_url = ioi_services::agentic::web::build_ddg_serp_url(&query);
+        params_obj["url"] = json!(serp_url);
+    }
 
     if let Some(url_template) = logic_config
         .get("url")

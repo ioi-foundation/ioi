@@ -241,7 +241,9 @@ fn pii_metrics_thresholds_and_artifact() {
     let cim = CimAssistV0Provider::default();
 
     let (baseline_pos_hits, baseline_pos_totals) =
-        collect_recall_with(&corpus.positives, |input| refine_with_provider(input, &noop));
+        collect_recall_with(&corpus.positives, |input| {
+            refine_with_provider(input, &noop)
+        });
     let (baseline_adv_hits, baseline_adv_totals) =
         collect_recall_with(&corpus.adversarial_positives, |input| {
             refine_with_provider(input, &noop)
@@ -295,8 +297,18 @@ fn pii_metrics_thresholds_and_artifact() {
         .iter()
         .map(|input| input.as_str())
         .chain(corpus.positives.iter().map(|case| case.input.as_str()))
-        .chain(corpus.adversarial_positives.iter().map(|case| case.input.as_str()))
-        .chain(corpus.adversarial_negatives.iter().map(|case| case.input.as_str()))
+        .chain(
+            corpus
+                .adversarial_positives
+                .iter()
+                .map(|case| case.input.as_str()),
+        )
+        .chain(
+            corpus
+                .adversarial_negatives
+                .iter()
+                .map(|case| case.input.as_str()),
+        )
         .chain(
             corpus
                 .adversarial_evasion_negatives

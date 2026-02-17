@@ -2,6 +2,11 @@
 
 use super::DesktopAgentService;
 use crate::agentic::normaliser::OutputNormaliser;
+use crate::agentic::desktop::types::{
+    DEFAULT_MESSAGE_PRIVACY_POLICY_ID, DEFAULT_MESSAGE_PRIVACY_POLICY_VERSION,
+    DEFAULT_MESSAGE_REDACTION_VERSION, MessagePrivacyMetadata, RecordedMessage,
+    MESSAGE_SANITIZED_PLACEHOLDER,
+};
 use base64::{engine::general_purpose::STANDARD as BASE64, Engine as _};
 use ioi_api::vm::inference::InferenceRuntime;
 use ioi_crypto::algorithms::hash::sha256;
@@ -9,9 +14,13 @@ use ioi_scs::{FrameType, RetentionClass};
 use ioi_types::app::agentic::{
     ChatMessage, InferenceOptions, SemanticFact, StepTrace, SwarmManifest,
 };
+use ioi_types::app::{RedactionMap, RedactionType};
 use ioi_types::codec;
 use ioi_types::error::TransactionError;
 use serde_json::json;
+use hex;
+use std::collections::HashSet;
+ 
 
 /// Retrieve a Swarm Manifest from the Market or SCS.
 pub async fn fetch_swarm_manifest(
@@ -106,7 +115,11 @@ pub async fn retrieve_context_hybrid(
         } // Relevance threshold
 
         if let Ok(payload) = scs.read_frame_payload(*frame_id) {
-            if let Ok(text) = String::from_utf8(payload.to_vec()) {
+            let text = codec::from_bytes_canonical::<RecordedMessage>(&payload)
+                .ok()
+                .map(|message| message.scrubbed_for_scs);
+
+            if let Some(text) = text {
                 let confidence = (1.0 - distance) * 100.0;
                 let type_str = format!("{:?}", f_type);
 
@@ -124,11 +137,10 @@ pub async fn retrieve_context_hybrid(
                     top_snippet_included = true;
                 } else {
                     // Just the first 60 chars (Header/Summary)
-                    let summary = if text.len() > 60 {
-                        format!("{}...", &text[..60])
-                    } else {
-                        text
-                    };
+                    let mut summary: String = text.chars().take(60).collect();
+                    if text.chars().count() > 60 {
+                        summary.push_str("...");
+                    }
                     output.push_str(&format!("Summary: \"{}\"\n", summary));
                 }
             }
@@ -200,14 +212,16 @@ pub async fn append_chat_to_scs(
         "Internal: SCS not available".into(),
     ))?;
 
-    // 1. Persist Raw Frame
+    let recorded_message = build_recorded_message(&service.scrubber, msg).await;
+
+    // 1. Persist Canonical Message Envelope
     let (frame_id, checksum) = {
         let mut store = scs_mutex
             .lock()
             .map_err(|_| TransactionError::Invalid("Internal: SCS lock poisoned".into()))?;
 
         let payload =
-            codec::to_bytes_canonical(msg).map_err(|e| TransactionError::Serialization(e))?;
+            codec::to_bytes_canonical(&recorded_message).map_err(|e| TransactionError::Serialization(e))?;
 
         let id = store
             .append_frame(
@@ -232,10 +246,14 @@ pub async fn append_chat_to_scs(
     };
 
     // 2. Semantic Indexing
-    let facts = extract_facts(service, &msg.content).await;
+    let facts = extract_facts(service, &recorded_message.scrubbed_for_scs).await;
     let mut vectors = Vec::new();
 
-    if let Ok(vec) = service.reasoning_inference.embed_text(&msg.content).await {
+    if let Ok(vec) = service
+        .reasoning_inference
+        .embed_text(&recorded_message.scrubbed_for_scs)
+        .await
+    {
         vectors.push(vec);
     }
 
@@ -277,6 +295,21 @@ pub fn hydrate_session_history(
     service: &DesktopAgentService,
     session_id: [u8; 32],
 ) -> Result<Vec<ChatMessage>, TransactionError> {
+    hydrate_session_history_surface(service, session_id, false)
+}
+
+pub fn hydrate_session_history_raw(
+    service: &DesktopAgentService,
+    session_id: [u8; 32],
+) -> Result<Vec<ChatMessage>, TransactionError> {
+    hydrate_session_history_surface(service, session_id, true)
+}
+
+fn hydrate_session_history_surface(
+    service: &DesktopAgentService,
+    session_id: [u8; 32],
+    raw: bool,
+) -> Result<Vec<ChatMessage>, TransactionError> {
     let scs_mutex = service.scs.as_ref().ok_or(TransactionError::Invalid(
         "Internal: SCS not available".into(),
     ))?;
@@ -289,14 +322,16 @@ pub fn hydrate_session_history(
 
     if let Some(frame_ids) = store.session_index.get(&session_id) {
         for &id in frame_ids {
-            let frame = store.toc.frames.get(id as usize).unwrap();
+            let Some(frame) = store.toc.frames.get(id as usize) else {
+                continue;
+            };
 
             if matches!(frame.frame_type, FrameType::Thought) {
                 let payload = store
                     .read_frame_payload(id)
                     .map_err(|e| TransactionError::Invalid(format!("Internal: {}", e)))?;
 
-                if let Ok(msg) = codec::from_bytes_canonical::<ChatMessage>(&payload) {
+                if let Some(msg) = decode_session_message(&payload, raw) {
                     history.push(msg);
                 }
             }
@@ -305,6 +340,88 @@ pub fn hydrate_session_history(
 
     history.sort_by_key(|m| m.timestamp);
     Ok(history)
+}
+
+fn decode_session_message(payload: &[u8], raw: bool) -> Option<ChatMessage> {
+    if let Ok(message) = codec::from_bytes_canonical::<RecordedMessage>(&payload) {
+        let content = if raw {
+            if message.raw_content.is_empty() {
+                message.scrubbed_for_model.clone()
+            } else {
+                message.raw_content
+            }
+        } else if message.scrubbed_for_model.is_empty() {
+            message.scrubbed_for_scs
+        } else {
+            message.scrubbed_for_model
+        };
+
+        Some(ChatMessage {
+            role: message.role,
+            content,
+            timestamp: message.timestamp_ms,
+            trace_hash: message.trace_hash,
+        })
+    } else {
+        None
+    }
+}
+
+fn redact_fields_from_map(redaction_map: &RedactionMap) -> Vec<String> {
+    let mut fields: Vec<String> = redaction_map
+        .entries
+        .iter()
+        .map(|entry| match &entry.redaction_type {
+            RedactionType::Pii => "pii".to_string(),
+            RedactionType::Secret => "secret".to_string(),
+            RedactionType::Custom(custom) => format!("custom:{custom}"),
+        })
+        .collect();
+
+    let unique: HashSet<String> = fields.drain(..).collect();
+    let mut normalized: Vec<String> = unique.into_iter().collect();
+    normalized.sort_unstable();
+    normalized
+}
+
+async fn scrub_message_text_for_ingest(
+    scrubber: &crate::agentic::pii_scrubber::PiiScrubber,
+    input: &str,
+) -> (String, Vec<String>) {
+    match scrubber.scrub(input).await {
+        Ok((scrubbed, redaction_map)) => (scrubbed, redact_fields_from_map(&redaction_map)),
+        Err(_) => (
+            MESSAGE_SANITIZED_PLACEHOLDER.to_string(),
+            vec!["scrubber_failure".to_string()],
+        ),
+    }
+}
+
+async fn build_recorded_message(
+    scrubber: &crate::agentic::pii_scrubber::PiiScrubber,
+    msg: &ChatMessage,
+) -> RecordedMessage {
+    let (scrubbed_for_model, sensitive_fields_mask) =
+        scrub_message_text_for_ingest(scrubber, &msg.content).await;
+    let scrubbed_for_model_hash = sha256(scrubbed_for_model.as_bytes())
+        .ok()
+        .map(|digest| hex::encode(digest));
+    RecordedMessage {
+        role: msg.role.clone(),
+        timestamp_ms: msg.timestamp,
+        trace_hash: msg.trace_hash,
+        raw_content: msg.content.clone(),
+        scrubbed_for_model: scrubbed_for_model.clone(),
+        scrubbed_for_scs: scrubbed_for_model,
+        raw_reference: None,
+        privacy_metadata: MessagePrivacyMetadata {
+            redaction_version: DEFAULT_MESSAGE_REDACTION_VERSION.to_string(),
+            sensitive_fields_mask,
+            policy_id: DEFAULT_MESSAGE_PRIVACY_POLICY_ID.to_string(),
+            policy_version: DEFAULT_MESSAGE_PRIVACY_POLICY_VERSION.to_string(),
+            scrubbed_for_model_hash,
+        },
+    }
 }
 
 pub fn fetch_failure_context(
@@ -402,12 +519,217 @@ pub async fn inspect_frame(
             Ok(String::from_utf8_lossy(&out_bytes).to_string())
         }
         FrameType::Thought | FrameType::Action => {
-            if let Ok(s) = String::from_utf8(payload) {
-                Ok(s)
-            } else {
-                Ok("<Binary Data>".into())
+            if let Ok(recorded) = codec::from_bytes_canonical::<RecordedMessage>(&payload) {
+                return Ok(recorded.raw_content);
             }
+            Ok("<Non-Recorded Payload>".into())
         }
         _ => Ok(format!("<Frame Type {:?}>", frame_type)),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::sync::{Arc, Mutex};
+    use std::time::{SystemTime, UNIX_EPOCH};
+    use ioi_api::vm::drivers::gui::{GuiDriver, InputEvent};
+    use ioi_api::vm::inference::mock::MockInferenceRuntime;
+    use ioi_drivers::browser::BrowserDriver;
+    use ioi_drivers::terminal::TerminalDriver;
+    use ioi_scs::{SovereignContextStore, StoreConfig, FrameType, RetentionClass};
+    use ioi_types::error::VmError;
+    use async_trait::async_trait;
+    use ioi_types::app::{ActionRequest, ContextSlice};
+
+    fn sample_recorded_message() -> RecordedMessage {
+        RecordedMessage {
+            role: "user".to_string(),
+            timestamp_ms: 123,
+            trace_hash: None,
+            raw_content: "raw secret: password=abc123".to_string(),
+            scrubbed_for_model: "raw secret: [REDACTED_PII]".to_string(),
+            scrubbed_for_scs: "raw secret: [REDACTED_PII]".to_string(),
+            raw_reference: None,
+            privacy_metadata: MessagePrivacyMetadata {
+                redaction_version: "v1".to_string(),
+                sensitive_fields_mask: vec!["pii".to_string()],
+                policy_id: "desktop-agent/default".to_string(),
+                policy_version: "1".to_string(),
+                scrubbed_for_model_hash: None,
+            },
+        }
+    }
+
+    #[test]
+    fn decode_recorded_messages_for_model_surface() {
+        let encoded_recorded =
+            codec::to_bytes_canonical(&sample_recorded_message()).expect("recorded encode");
+        let model_msg = decode_session_message(&encoded_recorded, false);
+        assert!(model_msg.is_some());
+        let model_msg = model_msg.expect("model decode");
+        assert_eq!(model_msg.role, "user");
+        assert_eq!(model_msg.content, "raw secret: [REDACTED_PII]");
+    }
+
+    #[test]
+    fn decode_recorded_message_prefers_raw_content_for_raw_surface() {
+        let encoded_recorded =
+            codec::to_bytes_canonical(&sample_recorded_message()).expect("recorded encode");
+        let raw_msg = decode_session_message(&encoded_recorded, true);
+        assert!(raw_msg.is_some());
+        let raw_msg = raw_msg.expect("raw decode");
+        assert_eq!(raw_msg.content, "raw secret: password=abc123");
+    }
+
+    #[test]
+    fn decode_session_message_rejects_legacy_chat_payload() {
+        let legacy = ChatMessage {
+            role: "user".to_string(),
+            content: "legacy api_key=sk_live_foo".to_string(),
+            timestamp: 99,
+            trace_hash: None,
+        };
+        let encoded_raw = codec::to_bytes_canonical(&legacy).expect("legacy encode");
+        assert!(decode_session_message(&encoded_raw, false).is_none());
+        assert!(decode_session_message(&encoded_raw, true).is_none());
+    }
+
+    struct NoopGuiDriver;
+
+    #[async_trait]
+    impl GuiDriver for NoopGuiDriver {
+        async fn capture_screen(
+            &self,
+            _crop_rect: Option<(i32, i32, u32, u32)>,
+        ) -> Result<Vec<u8>, VmError> {
+            Err(VmError::HostError("noop gui".into()))
+        }
+
+        async fn capture_raw_screen(&self) -> Result<Vec<u8>, VmError> {
+            Err(VmError::HostError("noop gui".into()))
+        }
+
+        async fn capture_tree(&self) -> Result<String, VmError> {
+            Err(VmError::HostError("noop gui".into()))
+        }
+
+        async fn capture_context(&self, _intent: &ActionRequest) -> Result<ContextSlice, VmError> {
+            Err(VmError::HostError("noop gui".into()))
+        }
+
+        async fn inject_input(&self, _event: InputEvent) -> Result<(), VmError> {
+            Err(VmError::HostError("noop gui".into()))
+        }
+
+        async fn get_element_center(&self, _id: u32) -> Result<Option<(u32, u32)>, VmError> {
+            Ok(None)
+        }
+
+        async fn register_som_overlay(
+            &self,
+            _map: std::collections::HashMap<u32, (i32, i32, i32, i32)>,
+        ) -> Result<(), VmError> {
+            Ok(())
+        }
+    }
+
+    fn build_test_service_with_temp_scs() -> (
+        DesktopAgentService,
+        std::path::PathBuf,
+    ) {
+        let ts = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .map_or(0, |time| time.as_nanos());
+        let path = std::env::temp_dir().join(format!("ioi_service_memory_tests_{ts}.scs"));
+
+        let config = StoreConfig {
+            chain_id: 1,
+            owner_id: [9u8; 32],
+            identity_key: [7u8; 32],
+        };
+
+        let store = SovereignContextStore::create(&path, config).expect("scs create");
+        let service = DesktopAgentService::new(
+            Arc::new(NoopGuiDriver),
+            Arc::new(TerminalDriver::new()),
+            Arc::new(BrowserDriver::new()),
+            Arc::new(MockInferenceRuntime),
+        )
+        .with_scs(Arc::new(Mutex::new(store)));
+
+        (service, path)
+    }
+
+    #[tokio::test]
+    async fn append_and_hydrate_session_history_keeps_raw_and_model_surfaces_separated() {
+        let (service, path) = build_test_service_with_temp_scs();
+        let session_id = [11u8; 32];
+        let msg = ChatMessage {
+            role: "user".to_string(),
+            content: "please use API_KEY=sk_live_123456789".to_string(),
+            timestamp: 1_700_000_000_000u64,
+            trace_hash: None,
+        };
+
+        let append_res = service
+            .append_chat_to_scs(session_id, &msg, 0)
+            .await;
+        assert!(append_res.is_ok());
+
+        let model_surface = service.hydrate_session_history(session_id);
+        assert!(model_surface.is_ok());
+        let model_msgs = model_surface.expect("model hydration");
+        assert_eq!(model_msgs.len(), 1);
+        assert!(!model_msgs[0].content.contains("sk_live_123456789"));
+
+        let raw_surface = service.hydrate_session_history_raw(session_id);
+        assert!(raw_surface.is_ok());
+        let raw_msgs = raw_surface.expect("raw hydration");
+        assert_eq!(raw_msgs.len(), 1);
+        assert!(raw_msgs[0].content.contains("sk_live_123456789"));
+
+        let _ = std::fs::remove_file(path);
+    }
+
+    #[tokio::test]
+    async fn legacy_sc_payload_is_ignored_without_compat_fallback() {
+        let (service, path) = build_test_service_with_temp_scs();
+        let session_id = [22u8; 32];
+
+        {
+            let guard = service.scs.clone();
+            let scs_mutex = guard.expect("missing scs");
+            let mut store = scs_mutex
+                .lock()
+                .map_err(|_| "scs lock")
+                .expect("lock");
+
+            let legacy = ChatMessage {
+                role: "user".to_string(),
+                content: "legacy token=abc123".to_string(),
+                timestamp: 2,
+                trace_hash: None,
+            };
+            let payload = codec::to_bytes_canonical(&legacy).expect("legacy encode");
+            let _ = store.append_frame(
+                FrameType::Thought,
+                &payload,
+                0,
+                [0u8; 32],
+                session_id,
+                RetentionClass::Ephemeral,
+            );
+        }
+
+        let model_surface = service.hydrate_session_history(session_id);
+        assert!(model_surface.is_ok());
+        assert!(model_surface.expect("model hydration").is_empty());
+
+        let raw_surface = service.hydrate_session_history_raw(session_id);
+        assert!(raw_surface.is_ok());
+        assert!(raw_surface.expect("raw hydration").is_empty());
+
+        let _ = std::fs::remove_file(path);
     }
 }

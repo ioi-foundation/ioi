@@ -50,6 +50,7 @@ fn refusal_state() -> AgentState {
         awaiting_intent_clarification: false,
 
         working_directory: ".".to_string(),
+        command_history: Default::default(),
         active_lens: None,
         pending_search_completion: None,
     }

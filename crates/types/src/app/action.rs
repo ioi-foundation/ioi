@@ -13,6 +13,9 @@ pub enum ActionTarget {
     /// Perform an outbound network request (HTTP, etc.).
     #[serde(rename = "net::fetch")]
     NetFetch,
+    /// Deterministic web retrieval (search/read) producing provenance-tracked evidence.
+    #[serde(rename = "web::retrieve")]
+    WebRetrieve,
     /// Write to the local filesystem (subject to sandbox restrictions).
     #[serde(rename = "fs::write")]
     FsWrite,
@@ -60,16 +63,14 @@ pub enum ActionTarget {
     #[serde(rename = "gui::sequence")]
     GuiSequence,
 
-    // --- Browser Primitives (Hermetic-Only) ---
-    /// Navigate the disposable, safe browser.
-    /// Context: A fresh isolated process and temporary profile.
-    /// Policy: Typically ALLOW.
-    #[serde(rename = "browser::navigate::hermetic")]
-    BrowserNavigateHermetic,
+    // --- Browser Intent Buckets ---
+    /// Interact with the hermetic browser (navigate/click/type/scroll/etc.).
+    #[serde(rename = "browser::interact")]
+    BrowserInteract,
 
-    /// Extract the DOM or accessibility tree from the current browser page.
-    #[serde(rename = "browser__extract")]
-    BrowserExtract,
+    /// Inspect the current browser page (DOM/a11y snapshot) without interaction.
+    #[serde(rename = "browser::inspect")]
+    BrowserInspect,
 
     // --- New Commerce Primitives (UCP) ---
     /// Discovery phase: Fetch /.well-known/ucp to see what a merchant supports.
@@ -102,6 +103,7 @@ impl ActionTarget {
     pub fn canonical_label(&self) -> String {
         match self {
             ActionTarget::NetFetch => "net::fetch".to_string(),
+            ActionTarget::WebRetrieve => "web::retrieve".to_string(),
             ActionTarget::FsWrite => "fs::write".to_string(),
             ActionTarget::FsRead => "fs::read".to_string(),
             ActionTarget::UiClick => "ui::click".to_string(),
@@ -116,8 +118,8 @@ impl ActionTarget {
             ActionTarget::GuiScreenshot => "gui::screenshot".to_string(),
             ActionTarget::GuiScroll => "gui::scroll".to_string(),
             ActionTarget::GuiSequence => "gui::sequence".to_string(),
-            ActionTarget::BrowserNavigateHermetic => "browser::navigate::hermetic".to_string(),
-            ActionTarget::BrowserExtract => "browser::extract".to_string(),
+            ActionTarget::BrowserInteract => "browser::interact".to_string(),
+            ActionTarget::BrowserInspect => "browser::inspect".to_string(),
             ActionTarget::CommerceDiscovery => "ucp::discovery".to_string(),
             ActionTarget::CommerceCheckout => "ucp::checkout".to_string(),
             ActionTarget::WindowFocus => "os::focus".to_string(),

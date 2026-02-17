@@ -10,8 +10,7 @@ pub fn is_command_probe_intent(resolved_intent: Option<&ResolvedIntentState>) ->
 fn cleaned_probe_token(token: &str) -> String {
     token
         .trim_matches(|ch: char| {
-            !(ch.is_ascii_alphanumeric()
-                || matches!(ch, '_' | '-' | '.' | '/' | '+' | ':' | '='))
+            !(ch.is_ascii_alphanumeric() || matches!(ch, '_' | '-' | '.' | '/' | '+' | ':' | '='))
         })
         .to_string()
 }
@@ -171,8 +170,8 @@ pub fn summarize_command_probe_output(tool: &AgentTool, output: &str) -> Option<
         None => (None, None),
     };
 
-    let subject = extract_probed_subject(tool)
-        .or_else(|| found_path.as_deref().and_then(basename_from_path));
+    let subject =
+        extract_probed_subject(tool).or_else(|| found_path.as_deref().and_then(basename_from_path));
 
     if not_found {
         let name = subject.unwrap_or_else(|| "The command".to_string());
@@ -191,7 +190,10 @@ pub fn summarize_command_probe_output(tool: &AgentTool, output: &str) -> Option<
     }
 
     if let Some(version) = extract_version_hint(trimmed, found_line_idx) {
-        return Some(format!("{} is installed{} Version: {}", name, suffix, version));
+        return Some(format!(
+            "{} is installed{} Version: {}",
+            name, suffix, version
+        ));
     }
 
     Some(format!("{} is installed{}", name, suffix))
@@ -258,4 +260,3 @@ mod tests {
         assert!(summary.contains("Version:"));
     }
 }
-

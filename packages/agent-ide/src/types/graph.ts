@@ -41,6 +41,8 @@ export interface NodeLogic {
   // --- Retrieval ---
   query?: string;
   limit?: number;
+  url?: string;
+  max_chars?: number;
 
   // --- Logic ---
   conditionScript?: string;

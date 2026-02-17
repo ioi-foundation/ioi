@@ -18,9 +18,8 @@ use ioi_services::agentic::pii_scrubber::PiiScrubber;
 use ioi_services::agentic::policy::PolicyEngine;
 use ioi_services::agentic::rules::{ActionRules, DefaultPolicy, Verdict};
 use ioi_types::app::agentic::{
-    EvidenceGraph, EvidenceSpan, FirewallDecision, InferenceOptions, PiiClass,
-    PiiConfidenceBucket, PiiReviewRequest, PiiControls, PiiSeverity, PiiTarget,
-    RawOverrideMode,
+    EvidenceGraph, EvidenceSpan, FirewallDecision, InferenceOptions, PiiClass, PiiConfidenceBucket,
+    PiiControls, PiiReviewRequest, PiiSeverity, PiiTarget, RawOverrideMode,
 };
 use ioi_types::app::{ActionContext, ActionRequest, ActionTarget};
 use ioi_types::codec;
@@ -345,8 +344,7 @@ fn review_request_persisted_and_retrievable_by_decision_hash() {
     let mut policy = PiiControls::default();
     policy.safe_transform_enabled = false;
 
-    let routed =
-        route_pii_decision_for_target(&graph, &policy, RiskSurface::Egress, &target, true);
+    let routed = route_pii_decision_for_target(&graph, &policy, RiskSurface::Egress, &target, true);
     assert!(matches!(routed.decision, FirewallDecision::Quarantine));
 
     let material = build_decision_material(
@@ -403,13 +401,8 @@ fn quarantine_then_approve_transform_paths_to_deterministic_scrubbed_pass() {
 
     let mut approved_policy = denied_policy.clone();
     approved_policy.safe_transform_enabled = true;
-    let transformed = route_pii_decision_for_target(
-        &graph,
-        &approved_policy,
-        RiskSurface::Egress,
-        &target,
-        true,
-    );
+    let transformed =
+        route_pii_decision_for_target(&graph, &approved_policy, RiskSurface::Egress, &target, true);
     assert!(matches!(
         transformed.decision,
         FirewallDecision::RedactThenAllow | FirewallDecision::TokenizeThenAllow
@@ -433,7 +426,10 @@ fn low_severity_scoped_exception_grant_passes_once_then_fails_second_use() {
     };
 
     let routed = route_pii_decision_for_target(&graph, &policy, RiskSurface::Egress, &target, true);
-    assert!(matches!(routed.decision, FirewallDecision::RequireUserReview));
+    assert!(matches!(
+        routed.decision,
+        FirewallDecision::RequireUserReview
+    ));
 
     let exception = mint_default_scoped_exception(
         &graph,
@@ -526,11 +522,7 @@ async fn hard_gate_cloud_airlock_redacts_secret_before_runtime_bytes() {
     .await
     .expect("airlocked cloud inference");
 
-    let captured = runtime
-        .last_input
-        .lock()
-        .expect("capture lock")
-        .clone();
+    let captured = runtime.last_input.lock().expect("capture lock").clone();
     let captured_str = String::from_utf8(captured).expect("utf8 captured payload");
     assert!(!captured_str.contains("sk_live_abcd1234abcd1234"));
     assert!(!captured_str.contains("john@example.com"));
