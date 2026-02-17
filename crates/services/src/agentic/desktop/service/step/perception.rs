@@ -68,6 +68,27 @@ fn format_window_label(win: &WindowInfo) -> String {
     }
 }
 
+fn default_browser_chrome_ui_height() -> i32 {
+    if cfg!(target_os = "macos") {
+        80
+    } else {
+        115
+    }
+}
+
+fn normalize_browser_chrome_top(raw: f64) -> Option<i32> {
+    if !raw.is_finite() {
+        return None;
+    }
+
+    let rounded = raw.round() as i32;
+    if (16..=260).contains(&rounded) {
+        Some(rounded)
+    } else {
+        None
+    }
+}
+
 // [NEW] Helper to extract the ID map from a tagged tree
 fn extract_semantic_map(root: &AccessibilityNode) -> BTreeMap<u32, String> {
     let mut map = BTreeMap::new();
@@ -582,7 +603,13 @@ async fn capture_foreground_visuals(
     if is_active_window_browser(service, &active_window_info) {
         if let Some(win) = &active_window_info {
             if let Ok(dom_tree) = service.browser.get_visual_tree().await {
-                let chrome_ui_height = if cfg!(target_os = "macos") { 80 } else { 115 };
+                let chrome_ui_height = service
+                    .browser
+                    .get_content_frame()
+                    .await
+                    .ok()
+                    .and_then(|frame| normalize_browser_chrome_top(frame.chrome_top))
+                    .unwrap_or_else(default_browser_chrome_ui_height);
                 os_tree = merge_trees(
                     os_tree,
                     dom_tree,
@@ -694,4 +721,21 @@ async fn capture_foreground_visuals(
         title,
         Some(som_map),
     ))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::normalize_browser_chrome_top;
+
+    #[test]
+    fn normalize_browser_chrome_top_clamps_reasonable_values() {
+        assert_eq!(normalize_browser_chrome_top(115.0), Some(115));
+        assert_eq!(normalize_browser_chrome_top(115.4), Some(115));
+        assert_eq!(normalize_browser_chrome_top(115.6), Some(116));
+        assert_eq!(normalize_browser_chrome_top(0.0), None);
+        assert_eq!(normalize_browser_chrome_top(12.0), None);
+        assert_eq!(normalize_browser_chrome_top(999.0), None);
+        assert_eq!(normalize_browser_chrome_top(f64::NAN), None);
+        assert_eq!(normalize_browser_chrome_top(f64::INFINITY), None);
+    }
 }
