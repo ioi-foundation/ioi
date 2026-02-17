@@ -236,6 +236,8 @@ impl ToolExecutor {
 
             // System Domain
             AgentTool::SysExec { .. }
+            | AgentTool::SysExecSession { .. }
+            | AgentTool::SysExecSessionReset {}
             | AgentTool::SysChangeDir { .. }
             | AgentTool::SysInstallPackage { .. }
             | AgentTool::OsLaunchApp { .. } => {

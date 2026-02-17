@@ -336,6 +336,8 @@ fn tool_allowed_for_scope(scope: IntentScopeProfile, tool_name: &str) -> bool {
     let is_web_retrieval = tool_name.starts_with("web__");
     let is_filesystem = tool_name.starts_with("filesystem__");
     let is_shell = tool_name == "sys__exec"
+        || tool_name == "sys__exec_session"
+        || tool_name == "sys__exec_session_reset"
         || tool_name == "sys__install_package"
         || tool_name == "sys__change_directory";
     let is_ui = tool_name.starts_with("gui__")
@@ -649,6 +651,14 @@ mod tests {
             constrained: true,
         };
         assert!(is_tool_allowed_for_resolution(Some(&state), "sys__exec"));
+        assert!(is_tool_allowed_for_resolution(
+            Some(&state),
+            "sys__exec_session"
+        ));
+        assert!(is_tool_allowed_for_resolution(
+            Some(&state),
+            "sys__exec_session_reset"
+        ));
     }
 
     #[test]
