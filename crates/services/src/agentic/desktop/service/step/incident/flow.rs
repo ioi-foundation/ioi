@@ -542,6 +542,7 @@ pub async fn start_or_continue_incident_recovery(
     let tools = discover_tools(
         state,
         service.scs.as_deref(),
+        service.mcp.as_deref(),
         &agent_state.goal,
         service.fast_inference.clone(),
         agent_state.current_tier,
