@@ -44,7 +44,9 @@ pub(super) fn filesystem_scope_policy_target(target: &ActionTarget) -> Option<&'
     filesystem_scope_for_target(target).map(|scope| scope.policy_target())
 }
 
-pub(super) fn required_filesystem_path_keys(target: &ActionTarget) -> Option<&'static [&'static str]> {
+pub(super) fn required_filesystem_path_keys(
+    target: &ActionTarget,
+) -> Option<&'static [&'static str]> {
     match target {
         ActionTarget::FsRead | ActionTarget::FsWrite => Some(&["path"]),
         ActionTarget::Custom(name) => match name.as_str() {
@@ -57,7 +59,9 @@ pub(super) fn required_filesystem_path_keys(target: &ActionTarget) -> Option<&'s
             | "filesystem__patch"
             | "filesystem__delete_path"
             | "filesystem__create_directory" => Some(&["path"]),
-            "filesystem__move_path" | "filesystem__copy_path" => Some(&["source_path", "destination_path"]),
+            "filesystem__move_path" | "filesystem__copy_path" => {
+                Some(&["source_path", "destination_path"])
+            }
             _ => None,
         },
         _ => None,
@@ -209,4 +213,3 @@ pub(super) fn validate_allow_paths_condition(
 
     true
 }
-
