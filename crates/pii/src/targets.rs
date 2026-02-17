@@ -1,7 +1,7 @@
 // Submodule: targets (legacy target parsing + policy routing helpers)
 
-use ioi_types::app::ActionTarget;
 use ioi_types::app::agentic::{PiiControls, PiiTarget};
+use ioi_types::app::ActionTarget;
 
 pub(crate) fn action_target_from_label(label: &str) -> Option<ActionTarget> {
     match label {

@@ -6,6 +6,7 @@ use ioi_pii::validate_review_request_compat;
 use ioi_types::app::agentic::PiiReviewRequest;
 use ioi_types::codec;
 use std::sync::Mutex;
+use tauri::Manager;
 
 pub(super) async fn fetch_pii_review_info(
     app: &tauri::AppHandle,

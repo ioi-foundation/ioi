@@ -9,9 +9,10 @@ use crate::kernel::events::support::{
 use crate::kernel::state::update_task_state;
 use crate::models::AppState;
 use crate::models::{AgentPhase, ArtifactRef, ArtifactType, ChatMessage, GateInfo};
-use ioi_ipc::public::chain_event::RoutingReceipt;
+use ioi_ipc::public::RoutingReceipt;
 use serde_json::json;
 use std::sync::Mutex;
+use tauri::Manager;
 
 pub(super) async fn handle_routing_receipt(app: &tauri::AppHandle, receipt: RoutingReceipt) {
     let receipt_is_install_tool = is_install_package_tool(&receipt.tool_name);
@@ -26,7 +27,7 @@ pub(super) async fn handle_routing_receipt(app: &tauri::AppHandle, receipt: Rout
                 .contains("waiting for sudo password")
                 || s.verification_checks
                     .iter()
-                    .any(|check| check.eq_ignore_ascii_case("awaiting_sudo_password=true"))
+                    .any(|check: &String| check.eq_ignore_ascii_case("awaiting_sudo_password=true"))
         })
         .unwrap_or(false)
         || (receipt_is_install_tool
@@ -42,7 +43,7 @@ pub(super) async fn handle_routing_receipt(app: &tauri::AppHandle, receipt: Rout
         .map(|s| {
             s.verification_checks
                 .iter()
-                .any(|check| check.eq_ignore_ascii_case("awaiting_clarification=true"))
+                .any(|check: &String| check.eq_ignore_ascii_case("awaiting_clarification=true"))
         })
         .unwrap_or(false)
         || (receipt_is_identity_lookup_tool
@@ -65,15 +66,15 @@ pub(super) async fn handle_routing_receipt(app: &tauri::AppHandle, receipt: Rout
 
     let already_processed_receipt = {
         let state_handle = app.state::<Mutex<AppState>>();
-        if let Ok(guard) = state_handle.lock() {
-            if let Some(task) = &guard.current_task {
-                task.processed_steps.contains(&receipt_dedup_key)
-            } else {
-                false
-            }
-        } else {
-            false
-        }
+        let out = match state_handle.lock() {
+            Ok(guard) => guard
+                .current_task
+                .as_ref()
+                .map(|task| task.processed_steps.contains(&receipt_dedup_key))
+                .unwrap_or(false),
+            Err(_) => false,
+        };
+        out
     };
     if already_processed_receipt {
         return;
@@ -81,17 +82,19 @@ pub(super) async fn handle_routing_receipt(app: &tauri::AppHandle, receipt: Rout
 
     let suppress_terminal_receipt = {
         let state_handle = app.state::<Mutex<AppState>>();
-        if let Ok(guard) = state_handle.lock() {
-            if let Some(task) = &guard.current_task {
-                is_hard_terminal_task(task)
-                    && !receipt_waiting_for_sudo
-                    && !receipt_waiting_for_clarification
-            } else {
-                false
-            }
-        } else {
-            false
-        }
+        let out = match state_handle.lock() {
+            Ok(guard) => guard
+                .current_task
+                .as_ref()
+                .map(|task| {
+                    is_hard_terminal_task(task)
+                        && !receipt_waiting_for_sudo
+                        && !receipt_waiting_for_clarification
+                })
+                .unwrap_or(false),
+            Err(_) => false,
+        };
+        out
     };
     if suppress_terminal_receipt {
         return;

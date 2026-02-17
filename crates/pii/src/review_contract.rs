@@ -3,8 +3,8 @@
 use ioi_types::app::action::{ApprovalToken, PiiApprovalAction};
 use ioi_types::app::agentic::{PiiDecisionMaterial, PiiReviewRequest, PiiReviewSummary};
 
-use crate::cim_v0::CimAssistV0Provider;
 use crate::assist::CimAssistProvider;
+use crate::cim_v0::CimAssistV0Provider;
 
 pub const DEFAULT_SCOPED_EXCEPTION_TTL_SECS: u64 = 300;
 pub const DEFAULT_SCOPED_EXCEPTION_MAX_USES: u32 = 1;
@@ -200,4 +200,3 @@ pub fn check_exception_usage_increment_ok(
         .checked_add(1)
         .ok_or(PiiReviewContractError::ExceptionUsageOverflow)
 }
-

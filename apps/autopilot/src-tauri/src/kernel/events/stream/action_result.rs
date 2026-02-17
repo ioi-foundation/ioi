@@ -13,9 +13,10 @@ use crate::kernel::events::support::{
 use crate::kernel::state::update_task_state;
 use crate::models::AppState;
 use crate::models::{AgentPhase, ChatMessage, CredentialRequest, EventType, Receipt};
-use ioi_ipc::public::chain_event::AgentActionResult;
+use ioi_ipc::public::AgentActionResult;
 use serde_json::json;
 use std::sync::Mutex;
+use tauri::Manager;
 
 pub(super) async fn handle_action_result(app: &tauri::AppHandle, res: AgentActionResult) {
     let password_required = is_sudo_password_required_install(&res.tool_name, &res.output);
@@ -38,15 +39,15 @@ pub(super) async fn handle_action_result(app: &tauri::AppHandle, res: AgentActio
     let dedup_key = format!("{}:{}", res.step_index, res.tool_name);
     let already_processed = {
         let state_handle = app.state::<Mutex<AppState>>();
-        if let Ok(guard) = state_handle.lock() {
-            if let Some(task) = &guard.current_task {
-                task.processed_steps.contains(&dedup_key)
-            } else {
-                false
-            }
-        } else {
-            false
-        }
+        let out = match state_handle.lock() {
+            Ok(guard) => guard
+                .current_task
+                .as_ref()
+                .map(|task| task.processed_steps.contains(&dedup_key))
+                .unwrap_or(false),
+            Err(_) => false,
+        };
+        out
     };
     if already_processed {
         return;
@@ -54,20 +55,22 @@ pub(super) async fn handle_action_result(app: &tauri::AppHandle, res: AgentActio
 
     let suppress_terminal_action_result = {
         let state_handle = app.state::<Mutex<AppState>>();
-        if let Ok(guard) = state_handle.lock() {
-            if let Some(task) = &guard.current_task {
-                is_hard_terminal_task(task)
-                    && !password_required
-                    && !clarification_required
-                    && !res.agent_status.eq_ignore_ascii_case("completed")
-                    && !res.agent_status.eq_ignore_ascii_case("failed")
-                    && !res.tool_name.eq_ignore_ascii_case("agent__complete")
-            } else {
-                false
-            }
-        } else {
-            false
-        }
+        let out = match state_handle.lock() {
+            Ok(guard) => guard
+                .current_task
+                .as_ref()
+                .map(|task| {
+                    is_hard_terminal_task(task)
+                        && !password_required
+                        && !clarification_required
+                        && !res.agent_status.eq_ignore_ascii_case("completed")
+                        && !res.agent_status.eq_ignore_ascii_case("failed")
+                        && !res.tool_name.eq_ignore_ascii_case("agent__complete")
+                })
+                .unwrap_or(false),
+            Err(_) => false,
+        };
+        out
     };
     if suppress_terminal_action_result {
         return;

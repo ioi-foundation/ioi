@@ -1,13 +1,18 @@
 // Submodule: scoped_exception (minting + verification)
 
-use ioi_types::app::agentic::{EvidenceGraph, EvidenceSpan, PiiControls, PiiScopedException, PiiTarget};
+use anyhow::Result;
+use ioi_types::app::agentic::{
+    EvidenceGraph, PiiClass, PiiControls, PiiScopedException, PiiTarget, RawOverrideMode,
+};
+use parity_scale_codec::Encode;
 
-use crate::assist::RiskSurface;
-use crate::decision::compute_decision_hash;
+use crate::assist::{risk_surface_label, RiskSurface};
 use crate::hashing::sha256_array;
-use crate::review_contract::{
-    check_exception_usage_increment_ok, decode_exception_usage_state,
+pub use crate::review_contract::{
     DEFAULT_SCOPED_EXCEPTION_MAX_USES, DEFAULT_SCOPED_EXCEPTION_TTL_SECS,
+};
+use crate::review_summary::{
+    canonical_class_keys, collect_low_severity_classes, has_blocking_scoped_exception_evidence,
 };
 
 pub fn scoped_exception_destination_hash(
@@ -179,5 +184,3 @@ pub fn mint_scoped_exception(
         justification_hash,
     }
 }
-
-/// Deterministic Stage B/C CIM routing over structured evidence.
