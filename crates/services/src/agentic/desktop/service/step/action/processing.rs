@@ -31,6 +31,7 @@ use crate::agentic::desktop::service::step::incident::{
 };
 use crate::agentic::desktop::service::step::intent_resolver::is_tool_allowed_for_resolution;
 use crate::agentic::desktop::service::DesktopAgentService;
+use crate::agentic::desktop::service::lifecycle::spawn_delegated_child_session;
 use crate::agentic::desktop::types::{
     AgentState, AgentStatus, CommandExecution, MAX_COMMAND_HISTORY, PendingSearchCompletion,
     ToolCallStatus,
@@ -394,6 +395,80 @@ pub async fn process_tool_output(
                         success = s;
                         error_msg = e;
                         history_entry = entry.clone();
+
+                        // Orchestration meta-tools require access to chain state; execute them
+                        // on the primary path here instead of the stateless ToolExecutor.
+                        if success {
+                            match &tool {
+                                AgentTool::AgentDelegate { goal, budget } => {
+                                    let tool_jcs = match serde_jcs::to_vec(&tool) {
+                                        Ok(bytes) => bytes,
+                                        Err(err) => {
+                                            success = false;
+                                            error_msg = Some(format!(
+                                                "ERROR_CLASS=UnexpectedState Failed to encode delegation tool: {}",
+                                                err
+                                            ));
+                                            history_entry = None;
+                                            Vec::new()
+                                        }
+                                    };
+
+                                    if success {
+                                        match sha256(&tool_jcs) {
+                                            Ok(tool_hash) => match spawn_delegated_child_session(
+                                                service,
+                                                state,
+                                                agent_state,
+                                                tool_hash,
+                                                goal,
+                                                *budget,
+                                                pre_state_summary.step_index,
+                                                block_height,
+                                            )
+                                            .await
+                                            {
+                                                Ok(child_session_id) => {
+                                                    history_entry = Some(format!(
+                                                        "{{\"child_session_id_hex\":\"{}\"}}",
+                                                        hex::encode(child_session_id)
+                                                    ));
+                                                    error_msg = None;
+                                                }
+                                                Err(err) => {
+                                                    success = false;
+                                                    error_msg = Some(err.to_string());
+                                                    history_entry = None;
+                                                }
+                                            },
+                                            Err(err) => {
+                                                success = false;
+                                                error_msg = Some(format!(
+                                                    "ERROR_CLASS=UnexpectedState Delegation hash failed: {}",
+                                                    err
+                                                ));
+                                                history_entry = None;
+                                            }
+                                        }
+                                    }
+                                }
+                                AgentTool::AgentAwait {
+                                    child_session_id_hex,
+                                } => match await_child_session_status(state, child_session_id_hex) {
+                                    Ok(out) => {
+                                        history_entry = Some(out);
+                                        error_msg = None;
+                                    }
+                                    Err(err) => {
+                                        success = false;
+                                        error_msg = Some(err);
+                                        history_entry = None;
+                                    }
+                                },
+                                _ => {}
+                            }
+                        }
+
                         if let AgentTool::SysExec { .. } = &tool {
                             if let Some(raw_entry) = extract_command_history(&history_entry) {
                                 let history_entry = scrub_command_history_fields(
@@ -409,7 +484,7 @@ pub async fn process_tool_output(
                             }
                         }
 
-                        if s && !req_hash_hex.is_empty() {
+                        if success && !req_hash_hex.is_empty() {
                             agent_state.tool_execution_log.insert(
                                 req_hash_hex.clone(),
                                 ToolCallStatus::Executed("success".into()),
@@ -418,8 +493,8 @@ pub async fn process_tool_output(
                             agent_state.pending_tool_jcs = None;
                         }
 
-                        if s {
-                            if let Some(entry) = entry.clone() {
+                        if success {
+                            if let Some(entry) = history_entry.clone() {
                                 let tool_msg = ioi_types::app::agentic::ChatMessage {
                                     role: "tool".to_string(),
                                     content: entry,
@@ -445,7 +520,7 @@ pub async fn process_tool_output(
                                     .await;
                             }
                             AgentTool::SysChangeDir { .. } => {
-                                if s {
+                                if success {
                                     if let Some(new_cwd) = history_entry.as_ref() {
                                         agent_state.working_directory = new_cwd.clone();
                                     }
@@ -458,7 +533,8 @@ pub async fn process_tool_output(
                                 action_output = Some(message.clone());
                             }
                             AgentTool::OsLaunchApp { app_name } => {
-                                if s && should_auto_complete_open_app_goal(
+                                if success
+                                    && should_auto_complete_open_app_goal(
                                     &agent_state.goal,
                                     app_name,
                                     agent_state
@@ -480,7 +556,8 @@ pub async fn process_tool_output(
                                 }
                             }
                             AgentTool::SysExec { .. } => {
-                                if s && is_command_probe_intent(
+                                if success
+                                    && is_command_probe_intent(
                                     agent_state.resolved_intent.as_ref(),
                                 ) {
                                     if let Some(raw) = entry.as_deref() {
@@ -505,7 +582,8 @@ pub async fn process_tool_output(
                             _ => {}
                         }
 
-                        if s && current_tool_name == "browser__navigate"
+                        if success
+                            && current_tool_name == "browser__navigate"
                             && agent_state.pending_search_completion.is_none()
                             && is_search_scope(agent_state.resolved_intent.as_ref())
                         {
@@ -1223,6 +1301,61 @@ pub async fn process_tool_output(
     emit_routing_receipt(service.event_sender.as_ref(), receipt);
 
     Ok(())
+}
+
+fn await_child_session_status(
+    state: &mut dyn StateAccess,
+    child_session_id_hex: &str,
+) -> Result<String, String> {
+    let child_session_id = parse_session_id_hex(child_session_id_hex)?;
+    let key = get_state_key(&child_session_id);
+    let bytes = state
+        .get(&key)
+        .map_err(|e| format!("ERROR_CLASS=UnexpectedState Child state lookup failed: {}", e))?
+        .ok_or_else(|| {
+            format!(
+                "ERROR_CLASS=UnexpectedState Child session '{}' not found.",
+                child_session_id_hex
+            )
+        })?;
+
+    let child_state: AgentState = codec::from_bytes_canonical(&bytes).map_err(|e| {
+        format!(
+            "ERROR_CLASS=UnexpectedState Failed to decode child session '{}': {}",
+            child_session_id_hex, e
+        )
+    })?;
+
+    match child_state.status {
+        AgentStatus::Running | AgentStatus::Idle => Ok("Running".to_string()),
+        AgentStatus::Paused(reason) => Ok(format!("Running (paused: {})", reason)),
+        AgentStatus::Completed(Some(result)) => Ok(result),
+        AgentStatus::Completed(None) => Ok("Completed".to_string()),
+        AgentStatus::Failed(reason) => Err(format!(
+            "ERROR_CLASS=UnexpectedState Child agent failed: {}",
+            reason
+        )),
+        AgentStatus::Terminated => Err("ERROR_CLASS=UnexpectedState Child agent terminated.".to_string()),
+    }
+}
+
+fn parse_session_id_hex(input: &str) -> Result<[u8; 32], String> {
+    let bytes = hex::decode(input.trim()).map_err(|e| {
+        format!(
+            "ERROR_CLASS=ToolUnavailable Invalid child_session_id_hex '{}': {}",
+            input, e
+        )
+    })?;
+    if bytes.len() != 32 {
+        return Err(format!(
+            "ERROR_CLASS=ToolUnavailable child_session_id_hex '{}' must be 32 bytes (got {}).",
+            input,
+            bytes.len()
+        ));
+    }
+    let mut out = [0u8; 32];
+    out.copy_from_slice(&bytes);
+    Ok(out)
 }
 
 fn extract_command_history(
