@@ -59,6 +59,25 @@ pub fn default_safe_policy() -> ActionRules {
                 conditions: Default::default(),
                 action: Verdict::Allow,
             },
+            // Memory (SCS-backed, read-only) defaults.
+            Rule {
+                rule_id: Some("allow-memory-search".into()),
+                target: "memory::search".into(),
+                conditions: Default::default(),
+                action: Verdict::Allow,
+            },
+            Rule {
+                rule_id: Some("allow-memory-inspect".into()),
+                target: "memory::inspect".into(),
+                conditions: Default::default(),
+                action: Verdict::Allow,
+            },
+            Rule {
+                rule_id: Some("gate-memory-inspect-observation".into()),
+                target: "memory::inspect_observation".into(),
+                conditions: Default::default(),
+                action: Verdict::RequireApproval,
+            },
             // Low-risk browser interaction defaults.
             Rule {
                 rule_id: Some("allow-browser-gui-click".into()),

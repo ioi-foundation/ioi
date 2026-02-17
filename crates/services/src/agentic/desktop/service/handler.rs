@@ -411,7 +411,22 @@ pub async fn handle_action_execution(
     let mut tool_hash = [0u8; 32];
     tool_hash.copy_from_slice(tool_hash_bytes.as_ref());
 
-    let target = tool.target();
+    let mut target = tool.target();
+    // `FrameType::Observation` inspection can invoke screenshot captioning; gate it via a
+    // distinct policy target so default-safe rules can require explicit approval.
+    if let AgentTool::MemoryInspect { frame_id } = &tool {
+        if let Some(scs_mutex) = service.scs.as_ref() {
+            if let Ok(store) = scs_mutex.lock() {
+                if let Some(frame) = store.toc.frames.get(*frame_id as usize) {
+                    if matches!(frame.frame_type, FrameType::Observation) {
+                        target = ioi_types::app::ActionTarget::Custom(
+                            "memory::inspect_observation".to_string(),
+                        );
+                    }
+                }
+            }
+        }
+    }
 
     let dummy_request = ioi_types::app::ActionRequest {
         target: target.clone(),
@@ -433,12 +448,7 @@ pub async fn handle_action_execution(
     };
 
     // 3. Policy Check
-    let skip_policy = matches!(
-        tool,
-        AgentTool::SystemFail { .. }
-            | AgentTool::MemorySearch { .. }
-            | AgentTool::MemoryInspect { .. }
-    );
+    let skip_policy = matches!(tool, AgentTool::SystemFail { .. });
 
     if !skip_policy {
         let approved_by_token = agent_state
