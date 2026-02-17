@@ -1,8 +1,8 @@
 // Path: crates/services/src/agentic/desktop/service/step/cognition.rs
 
+use crate::agentic::desktop::service::actions::safe_truncate;
 use crate::agentic::desktop::service::step::perception::PerceptionContext;
 use crate::agentic::desktop::service::DesktopAgentService;
-use crate::agentic::desktop::service::actions::safe_truncate;
 use crate::agentic::desktop::types::{
     AgentState, CommandExecution, ExecutionTier, MAX_PROMPT_HISTORY,
 };
@@ -329,7 +329,8 @@ pub async fn think(
         .map(|m| format!("{}: {}", m.role, m.content))
         .collect::<Vec<_>>()
         .join("\n");
-    let command_history_context = build_recent_command_history_context(&agent_state.command_history);
+    let command_history_context =
+        build_recent_command_history_context(&agent_state.command_history);
 
     let system_instructions = format!(
  "SYSTEM: You are a local desktop assistant operating inside the IOI runtime.
@@ -531,9 +532,7 @@ OPERATING RULES:
     })
 }
 
-fn build_recent_command_history_context(
-    command_history: &VecDeque<CommandExecution>,
-) -> String {
+fn build_recent_command_history_context(command_history: &VecDeque<CommandExecution>) -> String {
     if command_history.is_empty() {
         return String::new();
     }
@@ -543,7 +542,12 @@ fn build_recent_command_history_context(
         "\n## RECENT COMMAND EXECUTION HISTORY (Redacted/Reasoning-only)\nYou have access to recent sanitized command context for continuity.\n",
     );
 
-    for (idx, entry) in command_history.iter().rev().take(MAX_PROMPT_HISTORY).enumerate() {
+    for (idx, entry) in command_history
+        .iter()
+        .rev()
+        .take(MAX_PROMPT_HISTORY)
+        .enumerate()
+    {
         section.push_str(&format!(
             "{}. [Step {}] {} → exit={} (stdout: {} | stderr: {})\n",
             idx + 1,
@@ -642,11 +646,11 @@ async fn determine_attention_mode(
 
 #[cfg(test)]
 mod tests {
-    use super::preflight_missing_capability;
     use super::build_recent_command_history_context;
+    use super::preflight_missing_capability;
     use crate::agentic::desktop::types::CommandExecution;
-    use std::collections::VecDeque;
     use ioi_types::app::agentic::{IntentScopeProfile, LlmToolDefinition};
+    use std::collections::VecDeque;
 
     fn tool(name: &str) -> LlmToolDefinition {
         LlmToolDefinition {

@@ -11,8 +11,8 @@ use lru::LruCache;
 use std::sync::Arc;
 use tracing::{info, warn};
 
-use super::review::{resolve_resume_context, verify_scoped_exception};
 use super::policy::evaluate_service_policy_and_egress;
+use super::review::{resolve_resume_context, verify_scoped_exception};
 use ioi_types::codec;
 
 pub(crate) async fn evaluate_system_transaction(
@@ -38,10 +38,7 @@ pub(crate) async fn evaluate_system_transaction(
         return true;
     };
 
-    if service_id != "agentic"
-        && service_id != "desktop_agent"
-        && service_id != "compute_market"
-    {
+    if service_id != "agentic" && service_id != "desktop_agent" && service_id != "compute_market" {
         return true;
     }
 
@@ -61,10 +58,11 @@ pub(crate) async fn evaluate_system_transaction(
     let mut pii_request_opt = None;
 
     if service_id == "desktop_agent" && method == "resume@v1" {
-        let context = match resolve_resume_context(p_tx, workload_client, params, status_guard).await {
-            Some(v) => v,
-            None => return false,
-        };
+        let context =
+            match resolve_resume_context(p_tx, workload_client, params, status_guard).await {
+                Some(v) => v,
+                None => return false,
+            };
 
         approval_token = context.approval_token;
         resume_session_id = context.resume_session_id;
@@ -128,9 +126,7 @@ pub(crate) async fn evaluate_system_transaction(
             }
         }
 
-        if approval_token
-            .as_ref()
-            .and_then(|t| t.pii_action.clone())
+        if approval_token.as_ref().and_then(|t| t.pii_action.clone())
             == Some(ioi_types::app::action::PiiApprovalAction::GrantScopedException)
         {
             let token = approval_token.as_ref().expect("checked above");
@@ -152,8 +148,7 @@ pub(crate) async fn evaluate_system_transaction(
                         return false;
                     }
                 } else {
-                    let reason =
-                        "Missing expected request hash for scoped exception verification";
+                    let reason = "Missing expected request hash for scoped exception verification";
                     warn!(target: "ingestion", "{}", reason);
                     status_guard.put(
                         p_tx.receipt_hash_hex.clone(),

@@ -12,9 +12,9 @@ use ioi_drivers::browser::BrowserDriver;
 use ioi_drivers::terminal::TerminalDriver;
 use ioi_scs::{SovereignContextStore, StoreConfig};
 use ioi_services::agentic::desktop::service::DesktopAgentService;
+use ioi_types::app::agentic::ChatMessage;
 use ioi_types::app::{ActionRequest, ContextSlice};
 use ioi_types::error::VmError;
-use ioi_types::app::agentic::ChatMessage;
 
 struct NoopGuiDriver;
 
@@ -106,9 +106,7 @@ async fn model_surface_is_scrubbed_and_raw_surface_preserves_input() {
     assert_eq!(model_history.len(), 1);
     assert_eq!(raw_history.len(), 1);
     assert!(raw_history[0].content.contains("john@example.com"));
-    assert!(raw_history[0]
-        .content
-        .contains("sk_live_abcd1234abcd1234"));
+    assert!(raw_history[0].content.contains("sk_live_abcd1234abcd1234"));
     assert!(!model_history[0].content.contains("john@example.com"));
     assert!(!model_history[0]
         .content

@@ -4,17 +4,15 @@ use crate::kernel::events::emission::{
     emit_code_search, emit_command_run, emit_file_edit, emit_test_run, register_event,
 };
 use crate::kernel::events::support::{
-    detect_clarification_preset, event_status_from_agent_status,
-    event_type_for_tool, is_hard_terminal_task, is_identity_resolution_kind,
-    is_install_package_tool, is_sudo_password_required_install,
-    is_waiting_for_identity_clarification_step, thread_id_from_session, ClarificationPreset,
-    CLARIFICATION_WAIT_STEP, WAIT_FOR_CLARIFICATION_PROMPT,
+    detect_clarification_preset, event_status_from_agent_status, event_type_for_tool,
+    is_hard_terminal_task, is_identity_resolution_kind, is_install_package_tool,
+    is_sudo_password_required_install, is_waiting_for_identity_clarification_step,
+    thread_id_from_session, ClarificationPreset, CLARIFICATION_WAIT_STEP,
+    WAIT_FOR_CLARIFICATION_PROMPT,
 };
 use crate::kernel::state::update_task_state;
 use crate::models::AppState;
-use crate::models::{
-    AgentPhase, ChatMessage, CredentialRequest, EventType, Receipt,
-};
+use crate::models::{AgentPhase, ChatMessage, CredentialRequest, EventType, Receipt};
 use ioi_ipc::public::chain_event::AgentActionResult;
 use serde_json::json;
 use std::sync::Mutex;
@@ -30,13 +28,8 @@ pub(super) async fn handle_action_result(app: &tauri::AppHandle, res: AgentActio
     let clarification_request = if clarification_required {
         let preset = clarification_preset.unwrap_or(ClarificationPreset::IdentityLookup);
         Some(
-            build_clarification_request_with_inference(
-                &app,
-                preset,
-                &res.tool_name,
-                &res.output,
-            )
-            .await,
+            build_clarification_request_with_inference(&app, preset, &res.tool_name, &res.output)
+                .await,
         )
     } else {
         None
@@ -101,7 +94,8 @@ pub(super) async fn handle_action_result(app: &tauri::AppHandle, res: AgentActio
             .as_ref()
             .map(|req| req.kind == "sudo_password")
             .unwrap_or(false)
-            || t.current_step.eq_ignore_ascii_case("Waiting for sudo password");
+            || t.current_step
+                .eq_ignore_ascii_case("Waiting for sudo password");
         let waiting_for_clarification = t
             .clarification_request
             .as_ref()
@@ -116,8 +110,7 @@ pub(super) async fn handle_action_result(app: &tauri::AppHandle, res: AgentActio
             t.pending_request_hash = None;
             t.credential_request = Some(CredentialRequest {
                 kind: "sudo_password".to_string(),
-                prompt: "A one-time sudo password is required to continue the install."
-                    .to_string(),
+                prompt: "A one-time sudo password is required to continue the install.".to_string(),
                 one_time: true,
             });
             t.clarification_request = None;
@@ -134,7 +127,11 @@ pub(super) async fn handle_action_result(app: &tauri::AppHandle, res: AgentActio
             }
             let prompt_msg =
                 "System: Install requires sudo password. Enter password to retry.".to_string();
-            if t.history.last().map(|m| m.text != prompt_msg).unwrap_or(true) {
+            if t.history
+                .last()
+                .map(|m| m.text != prompt_msg)
+                .unwrap_or(true)
+            {
                 t.history.push(ChatMessage {
                     role: "system".to_string(),
                     text: prompt_msg,
@@ -163,7 +160,11 @@ pub(super) async fn handle_action_result(app: &tauri::AppHandle, res: AgentActio
                 }
             }
             let prompt_msg = WAIT_FOR_CLARIFICATION_PROMPT.to_string();
-            if t.history.last().map(|m| m.text != prompt_msg).unwrap_or(true) {
+            if t.history
+                .last()
+                .map(|m| m.text != prompt_msg)
+                .unwrap_or(true)
+            {
                 t.history.push(ChatMessage {
                     role: "system".to_string(),
                     text: prompt_msg,
@@ -173,9 +174,8 @@ pub(super) async fn handle_action_result(app: &tauri::AppHandle, res: AgentActio
             return;
         }
 
-        let terminal_status =
-            res.agent_status.eq_ignore_ascii_case("failed")
-                || res.agent_status.eq_ignore_ascii_case("completed");
+        let terminal_status = res.agent_status.eq_ignore_ascii_case("failed")
+            || res.agent_status.eq_ignore_ascii_case("completed");
         let keep_waiting_for_sudo = waiting_for_sudo
             && !terminal_status
             && is_install_package_tool(&res.tool_name)
@@ -194,9 +194,8 @@ pub(super) async fn handle_action_result(app: &tauri::AppHandle, res: AgentActio
             return;
         }
 
-        let keep_waiting_for_clarification = waiting_for_clarification
-            && !terminal_status
-            && clarification_required;
+        let keep_waiting_for_clarification =
+            waiting_for_clarification && !terminal_status && clarification_required;
         if keep_waiting_for_clarification {
             if !res.output.trim().is_empty() {
                 let tool_msg = format!("Tool Output ({}): {}", res.tool_name, res.output);
@@ -277,7 +276,11 @@ pub(super) async fn handle_action_result(app: &tauri::AppHandle, res: AgentActio
                 t.current_step = "Ready for input".to_string();
             }
 
-            let duplicate = t.history.last().map(|m| m.text == res.output).unwrap_or(false);
+            let duplicate = t
+                .history
+                .last()
+                .map(|m| m.text == res.output)
+                .unwrap_or(false);
             if !duplicate {
                 t.history.push(ChatMessage {
                     role: "agent".to_string(),
@@ -303,13 +306,8 @@ pub(super) async fn handle_action_result(app: &tauri::AppHandle, res: AgentActio
     let thread_id = thread_id_from_session(&app, &res.session_id);
     let kind = event_type_for_tool(&res.tool_name);
     let status = event_status_from_agent_status(&res.agent_status);
-    let artifact_refs = create_macro_artifacts_for_action(
-        &app,
-        &thread_id,
-        &kind,
-        &res.tool_name,
-        &res.output,
-    );
+    let artifact_refs =
+        create_macro_artifacts_for_action(&app, &thread_id, &kind, &res.tool_name, &res.output);
 
     let event = match kind {
         EventType::CodeSearch => emit_code_search(

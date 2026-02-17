@@ -1,8 +1,8 @@
 use crate::standard::orchestration::context::TxStatusEntry;
-use crate::standard::orchestration::mempool::Mempool;
 use crate::standard::orchestration::ingestion::types::{
     ChainTipInfo, IngestionConfig, TimingCache,
 };
+use crate::standard::orchestration::mempool::Mempool;
 use ioi_api::commitment::CommitmentScheme;
 use ioi_api::vm::drivers::os::OsDriver;
 use ioi_api::vm::inference::LocalSafetyModel;
@@ -134,7 +134,10 @@ mod tests {
             ("runner.rs", include_str!("runner.rs")),
             ("runner/collect.rs", include_str!("runner/collect.rs")),
             ("runner/finalize.rs", include_str!("runner/finalize.rs")),
-            ("runner/semantic/system.rs", include_str!("runner/semantic/system.rs")),
+            (
+                "runner/semantic/system.rs",
+                include_str!("runner/semantic/system.rs"),
+            ),
             (
                 "runner/semantic/review/context.rs",
                 include_str!("runner/semantic/review/context.rs"),

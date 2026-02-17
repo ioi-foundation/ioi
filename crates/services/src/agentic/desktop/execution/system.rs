@@ -7,11 +7,11 @@ use ioi_crypto::algorithms::hash::sha256;
 use ioi_drivers::terminal::{CommandExecutionOptions, ProcessStreamChunk, ProcessStreamObserver};
 use ioi_types::app::agentic::AgentTool;
 use ioi_types::app::KernelEvent;
+use serde_json;
 use std::env;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
-use serde_json;
 
 #[derive(Clone, Debug)]
 struct LaunchAttempt {
@@ -81,8 +81,8 @@ pub async fn handle(
                     detach,
                     Some(&resolved_cwd),
                     options,
-            )
-            .await
+                )
+                .await
             {
                 Ok(out) => {
                     let command_failed = command_output_indicates_failure(&out);
@@ -113,7 +113,11 @@ pub async fn handle(
             }
         }
 
-        AgentTool::SysExecSession { command, args, stdin } => {
+        AgentTool::SysExecSession {
+            command,
+            args,
+            stdin,
+        } => {
             let resolved_cwd = match resolve_working_directory(cwd) {
                 Ok(path) => path,
                 Err(error) => return ToolExecutionResult::failure(error),
@@ -334,16 +338,14 @@ fn append_sys_exec_command_history(
 }
 
 fn extract_exit_code(output: &str) -> Option<i32> {
-    output
-        .lines()
-        .find_map(|line| {
-            line.split_once("exit status:").and_then(|(_, status)| {
-                status
-                    .split_whitespace()
-                    .next()
-                    .and_then(|raw_status| raw_status.parse::<i32>().ok())
-            })
+    output.lines().find_map(|line| {
+        line.split_once("exit status:").and_then(|(_, status)| {
+            status
+                .split_whitespace()
+                .next()
+                .and_then(|raw_status| raw_status.parse::<i32>().ok())
         })
+    })
 }
 
 fn parse_terminal_output(output: &str) -> (String, String) {
@@ -1248,15 +1250,14 @@ fn launch_errors_indicate_missing_app(errors: &[String]) -> bool {
 #[cfg(test)]
 mod tests {
     use super::{
-        append_sys_exec_command_history,
-        build_linux_launch_plan, classify_install_failure, classify_sys_exec_failure,
-        command_output_indicates_failure, launch_attempt_failed,
-        launch_errors_indicate_missing_app, normalize_stdin_data, resolve_home_directory,
-        extract_exit_code, parse_terminal_output,
-        resolve_sys_exec_invocation, resolve_sys_exec_timeout, resolve_target_directory,
-        resolve_working_directory, summarize_sys_exec_failure_output, sys_exec_failure_result,
-        CommandExecution, COMMAND_HISTORY_PREFIX, LaunchAttempt, ToolExecutionResult,
-        SYS_EXEC_DEFAULT_TIMEOUT, SYS_EXEC_EXTENDED_TIMEOUT,
+        append_sys_exec_command_history, build_linux_launch_plan, classify_install_failure,
+        classify_sys_exec_failure, command_output_indicates_failure, extract_exit_code,
+        launch_attempt_failed, launch_errors_indicate_missing_app, normalize_stdin_data,
+        parse_terminal_output, resolve_home_directory, resolve_sys_exec_invocation,
+        resolve_sys_exec_timeout, resolve_target_directory, resolve_working_directory,
+        summarize_sys_exec_failure_output, sys_exec_failure_result, CommandExecution,
+        LaunchAttempt, ToolExecutionResult, COMMAND_HISTORY_PREFIX, SYS_EXEC_DEFAULT_TIMEOUT,
+        SYS_EXEC_EXTENDED_TIMEOUT,
     };
 
     #[test]

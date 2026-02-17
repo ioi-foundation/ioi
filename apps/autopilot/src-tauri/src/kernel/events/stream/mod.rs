@@ -2,15 +2,15 @@ use ioi_ipc::public::chain_event::Event as ChainEventEnum;
 use ioi_ipc::public::public_api_client::PublicApiClient;
 use ioi_ipc::public::SubscribeEventsRequest;
 
-mod fetch_pii;
-mod thought;
+mod action;
 mod action_result;
+mod fetch_pii;
+mod ghost;
 mod process_activity;
 mod routing_receipt;
-mod ghost;
-mod action;
 mod spawn;
 mod system;
+mod thought;
 
 pub async fn monitor_kernel_events(app: tauri::AppHandle) {
     loop {

@@ -13,8 +13,8 @@ use hex;
 use ioi_api::state::StateAccess;
 use ioi_api::transaction::context::TxContext;
 use ioi_crypto::algorithms::hash::sha256;
-use ioi_types::app::KernelEvent;
 use ioi_types::app::agentic::AgentTool;
+use ioi_types::app::KernelEvent;
 use ioi_types::codec;
 use ioi_types::error::TransactionError;
 use serde_jcs;
@@ -802,7 +802,9 @@ pub async fn perform_cognitive_compaction(
                     {
                         // Attempt to read payload (will fail if key is already gone, which is fine)
                         if let Ok(bytes) = store.read_frame_payload(fid) {
-                            if let Ok(message) = codec::from_bytes_canonical::<RecordedMessage>(&bytes) {
+                            if let Ok(message) =
+                                codec::from_bytes_canonical::<RecordedMessage>(&bytes)
+                            {
                                 let content = if message.scrubbed_for_scs.is_empty() {
                                     message.scrubbed_for_model
                                 } else {

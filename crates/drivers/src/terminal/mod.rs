@@ -287,7 +287,11 @@ impl TerminalDriver {
         Ok(())
     }
 
-    async fn get_or_create_session(&self, session_key: &str, cwd: Option<&Path>) -> Result<Arc<ShellSession>> {
+    async fn get_or_create_session(
+        &self,
+        session_key: &str,
+        cwd: Option<&Path>,
+    ) -> Result<Arc<ShellSession>> {
         if let Some(existing) = { self.sessions.lock().await.get(session_key).cloned() } {
             return Ok(existing);
         }

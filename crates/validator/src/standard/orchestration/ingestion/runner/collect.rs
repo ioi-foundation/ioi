@@ -2,19 +2,19 @@ use crate::standard::orchestration::context::TxStatusEntry;
 use crate::standard::orchestration::mempool::Mempool;
 use futures::stream::{self, StreamExt};
 use ioi_api::chain::WorkloadClientApi;
-use ioi_api::transaction::TransactionModel;
 use ioi_api::commitment::CommitmentScheme;
+use ioi_api::transaction::TransactionModel;
 use ioi_client::WorkloadClient;
+use ioi_tx::unified::UnifiedTransactionModel;
 use ioi_types::app::{compute_next_timestamp, AccountId, ChainTransaction, StateRoot, TxHash};
 use ioi_types::codec;
 use ioi_types::keys::ACCOUNT_NONCE_PREFIX;
-use ioi_tx::unified::UnifiedTransactionModel;
 use parity_scale_codec::{Decode, Encode};
 use serde::Serialize;
 use std::collections::HashSet;
 use std::fmt::Debug;
 use std::time::{Duration, Instant};
-use tokio::sync::{watch, mpsc};
+use tokio::sync::{mpsc, watch};
 
 use crate::standard::orchestration::ingestion::types::{ChainTipInfo, ProcessedTx, TimingCache};
 
@@ -81,10 +81,12 @@ where
                             (Some(s.header.account_id), Some(s.header.nonce))
                         }
                         ChainTransaction::Application(a) => match a {
-                            ioi_types::app::ApplicationTransaction::DeployContract { header, .. }
-                            | ioi_types::app::ApplicationTransaction::CallContract {
+                            ioi_types::app::ApplicationTransaction::DeployContract {
                                 header,
                                 ..
+                            }
+                            | ioi_types::app::ApplicationTransaction::CallContract {
+                                header, ..
                             } => (Some(header.account_id), Some(header.nonce)),
                             _ => (None, None),
                         },
@@ -108,32 +110,26 @@ where
                 }
                 Err(e) => {
                     tracing::warn!(target: "ingestion", "Canonical hashing failed: {}", e);
-                    status_cache
-                        .lock()
-                        .await
-                        .put(
-                            receipt_hash_hex,
-                            TxStatusEntry {
-                                status: ioi_ipc::public::TxStatus::Rejected,
-                                error: Some(format!("Canonical hashing failed: {}", e)),
-                                block_height: None,
-                            },
-                        );
+                    status_cache.lock().await.put(
+                        receipt_hash_hex,
+                        TxStatusEntry {
+                            status: ioi_ipc::public::TxStatus::Rejected,
+                            error: Some(format!("Canonical hashing failed: {}", e)),
+                            block_height: None,
+                        },
+                    );
                 }
             },
             Err(e) => {
                 tracing::warn!(target: "ingestion", "Deserialization failed: {}", e);
-                status_cache
-                    .lock()
-                    .await
-                    .put(
-                        receipt_hash_hex,
-                        TxStatusEntry {
-                            status: ioi_ipc::public::TxStatus::Rejected,
-                            error: Some(format!("Deserialization failed: {}", e)),
-                            block_height: None,
-                        },
-                    );
+                status_cache.lock().await.put(
+                    receipt_hash_hex,
+                    TxStatusEntry {
+                        status: ioi_ipc::public::TxStatus::Rejected,
+                        error: Some(format!("Deserialization failed: {}", e)),
+                        block_height: None,
+                    },
+                );
             }
         }
     }
@@ -206,7 +202,15 @@ where
 
     let expected_ts = timing_cache
         .as_ref()
-        .and_then(|c| compute_next_timestamp(&c.params, &c.runtime, tip.height, tip.timestamp, tip.gas_used))
+        .and_then(|c| {
+            compute_next_timestamp(
+                &c.params,
+                &c.runtime,
+                tip.height,
+                tip.timestamp,
+                tip.gas_used,
+            )
+        })
         .unwrap_or(0);
 
     let anchor = root_struct.to_anchor().unwrap_or_default();

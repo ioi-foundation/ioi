@@ -1,13 +1,14 @@
 // Path: crates/services/src/agentic/desktop/service/memory.rs
 
 use super::DesktopAgentService;
-use crate::agentic::normaliser::OutputNormaliser;
 use crate::agentic::desktop::types::{
-    DEFAULT_MESSAGE_PRIVACY_POLICY_ID, DEFAULT_MESSAGE_PRIVACY_POLICY_VERSION,
-    DEFAULT_MESSAGE_REDACTION_VERSION, MessagePrivacyMetadata, RecordedMessage,
+    MessagePrivacyMetadata, RecordedMessage, DEFAULT_MESSAGE_PRIVACY_POLICY_ID,
+    DEFAULT_MESSAGE_PRIVACY_POLICY_VERSION, DEFAULT_MESSAGE_REDACTION_VERSION,
     MESSAGE_SANITIZED_PLACEHOLDER,
 };
+use crate::agentic::normaliser::OutputNormaliser;
 use base64::{engine::general_purpose::STANDARD as BASE64, Engine as _};
+use hex;
 use ioi_api::vm::inference::InferenceRuntime;
 use ioi_crypto::algorithms::hash::sha256;
 use ioi_scs::{FrameType, RetentionClass};
@@ -18,9 +19,7 @@ use ioi_types::app::{RedactionMap, RedactionType};
 use ioi_types::codec;
 use ioi_types::error::TransactionError;
 use serde_json::json;
-use hex;
 use std::collections::HashSet;
- 
 
 /// Retrieve a Swarm Manifest from the Market or SCS.
 pub async fn fetch_swarm_manifest(
@@ -220,8 +219,8 @@ pub async fn append_chat_to_scs(
             .lock()
             .map_err(|_| TransactionError::Invalid("Internal: SCS lock poisoned".into()))?;
 
-        let payload =
-            codec::to_bytes_canonical(&recorded_message).map_err(|e| TransactionError::Serialization(e))?;
+        let payload = codec::to_bytes_canonical(&recorded_message)
+            .map_err(|e| TransactionError::Serialization(e))?;
 
         let id = store
             .append_frame(
@@ -531,16 +530,16 @@ pub async fn inspect_frame(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::sync::{Arc, Mutex};
-    use std::time::{SystemTime, UNIX_EPOCH};
+    use async_trait::async_trait;
     use ioi_api::vm::drivers::gui::{GuiDriver, InputEvent};
     use ioi_api::vm::inference::mock::MockInferenceRuntime;
     use ioi_drivers::browser::BrowserDriver;
     use ioi_drivers::terminal::TerminalDriver;
-    use ioi_scs::{SovereignContextStore, StoreConfig, FrameType, RetentionClass};
-    use ioi_types::error::VmError;
-    use async_trait::async_trait;
+    use ioi_scs::{FrameType, RetentionClass, SovereignContextStore, StoreConfig};
     use ioi_types::app::{ActionRequest, ContextSlice};
+    use ioi_types::error::VmError;
+    use std::sync::{Arc, Mutex};
+    use std::time::{SystemTime, UNIX_EPOCH};
 
     fn sample_recorded_message() -> RecordedMessage {
         RecordedMessage {
@@ -634,10 +633,7 @@ mod tests {
         }
     }
 
-    fn build_test_service_with_temp_scs() -> (
-        DesktopAgentService,
-        std::path::PathBuf,
-    ) {
+    fn build_test_service_with_temp_scs() -> (DesktopAgentService, std::path::PathBuf) {
         let ts = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .map_or(0, |time| time.as_nanos());
@@ -672,9 +668,7 @@ mod tests {
             trace_hash: None,
         };
 
-        let append_res = service
-            .append_chat_to_scs(session_id, &msg, 0)
-            .await;
+        let append_res = service.append_chat_to_scs(session_id, &msg, 0).await;
         assert!(append_res.is_ok());
 
         let model_surface = service.hydrate_session_history(session_id);
@@ -700,10 +694,7 @@ mod tests {
         {
             let guard = service.scs.clone();
             let scs_mutex = guard.expect("missing scs");
-            let mut store = scs_mutex
-                .lock()
-                .map_err(|_| "scs lock")
-                .expect("lock");
+            let mut store = scs_mutex.lock().map_err(|_| "scs lock").expect("lock");
 
             let legacy = ChatMessage {
                 role: "user".to_string(),

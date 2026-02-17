@@ -1,8 +1,8 @@
 use crate::standard::orchestration::context::TxStatusEntry;
-use ioi_client::WorkloadClient;
-use ioi_types::app::{ChainTransaction, KernelEvent};
 use ioi_api::vm::drivers::os::OsDriver;
 use ioi_api::vm::inference::LocalSafetyModel;
+use ioi_client::WorkloadClient;
+use ioi_types::app::{ChainTransaction, KernelEvent};
 use std::sync::Arc;
 
 use crate::standard::orchestration::ingestion::types::ProcessedTx;
@@ -17,9 +17,7 @@ pub(crate) async fn select_semantically_valid_indices(
     workload_client: &Arc<WorkloadClient>,
     safety_model: &Arc<dyn LocalSafetyModel>,
     os_driver: &Arc<dyn OsDriver>,
-    status_cache: &std::sync::Arc<
-        tokio::sync::Mutex<lru::LruCache<String, TxStatusEntry>>,
-    >,
+    status_cache: &std::sync::Arc<tokio::sync::Mutex<lru::LruCache<String, TxStatusEntry>>>,
     event_broadcaster: &tokio::sync::broadcast::Sender<KernelEvent>,
 ) -> Vec<usize> {
     let mut semantically_valid_indices = Vec::new();
