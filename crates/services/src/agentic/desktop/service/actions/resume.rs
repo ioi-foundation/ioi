@@ -6,6 +6,7 @@ use crate::agentic::desktop::execution::system::is_sudo_password_required_instal
 use crate::agentic::desktop::keys::{get_state_key, pii, AGENT_POLICY_PREFIX};
 use crate::agentic::desktop::service::step::action::{
     canonical_intent_hash, canonical_retry_intent_hash, canonical_tool_identity,
+    is_command_probe_intent, summarize_command_probe_output,
 };
 use crate::agentic::desktop::service::step::anti_loop::{
     build_attempt_key, build_post_state_summary, build_state_summary, classify_failure,
@@ -395,7 +396,11 @@ pub async fn resume_pending_action(
 
     if explicit_pii_deny {
         mark_gate_denied(state, session_id)?;
-        let deny_error = "PII review denied by approver. Step failed closed.".to_string();
+        let deny_error = if pii_request.is_some() {
+            "PII review denied by approver. Step failed closed.".to_string()
+        } else {
+            "Approval denied by approver. Step failed closed.".to_string()
+        };
         let key = get_state_key(&session_id);
         goto_trace_log(
             agent_state,
@@ -414,7 +419,11 @@ pub async fn resume_pending_action(
 
         let deny_msg = ioi_types::app::agentic::ChatMessage {
             role: "system".to_string(),
-            content: "System: PII approval denied. Current step failed closed.".to_string(),
+            content: if pii_request.is_some() {
+                "System: PII review denied. Current step failed closed.".to_string()
+            } else {
+                "System: Approval denied. Current step failed closed.".to_string()
+            },
             timestamp: SystemTime::now()
                 .duration_since(UNIX_EPOCH)
                 .unwrap()
@@ -795,6 +804,31 @@ pub async fn resume_pending_action(
                             output: summary,
                             agent_status: get_status_str(&agent_state.status),
                         });
+                    }
+                } else {
+                    agent_state.status = AgentStatus::Running;
+                }
+            }
+            AgentTool::SysExec { .. } => {
+                if success && is_command_probe_intent(agent_state.resolved_intent.as_ref()) {
+                    if let Some(summary) = out
+                        .as_deref()
+                        .and_then(|raw| summarize_command_probe_output(&tool, raw))
+                    {
+                        agent_state.status = AgentStatus::Completed(Some(summary.clone()));
+                        agent_state.execution_queue.clear();
+                        evaluate_and_crystallize(service, agent_state, session_id, &summary).await;
+                        if let Some(tx) = &service.event_sender {
+                            let _ = tx.send(KernelEvent::AgentActionResult {
+                                session_id,
+                                step_index: agent_state.step_count,
+                                tool_name: "agent__complete".to_string(),
+                                output: summary,
+                                agent_status: get_status_str(&agent_state.status),
+                            });
+                        }
+                    } else {
+                        agent_state.status = AgentStatus::Running;
                     }
                 } else {
                     agent_state.status = AgentStatus::Running;

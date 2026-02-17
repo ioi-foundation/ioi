@@ -755,3 +755,274 @@
   border-color: var(--gate-color);
   box-shadow: 0 0 0 2px rgba(14, 165, 233, 0.18);
 }
+
+/* ============================================
+   STREAM CARD - Per-command output card
+   Replaces the old monolithic "thought-stream-panel"
+   ============================================ */
+
+.sc-card {
+  margin-top: 8px;
+  border: 1px solid var(--spot-border);
+  border-radius: var(--spot-radius-sm);
+  background: rgba(0, 0, 0, 0.18);
+  overflow: hidden;
+  transition: border-color 200ms ease;
+}
+
+.sc-card-live {
+  border-color: rgba(99, 144, 255, 0.25);
+}
+
+.sc-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  padding: 6px 8px;
+  background: rgba(255, 255, 255, 0.02);
+  min-height: 32px;
+}
+
+.sc-header-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: transparent;
+  border: none;
+  color: var(--spot-text-secondary);
+  cursor: pointer;
+  padding: 0;
+  min-width: 0;
+  flex: 1;
+  text-align: left;
+  font-family: var(--spot-font-mono);
+  font-size: 11.5px;
+  transition: color 150ms ease;
+}
+
+.sc-header-toggle:hover {
+  color: var(--spot-text-primary);
+}
+
+.sc-chevron {
+  display: inline-flex;
+  flex-shrink: 0;
+  transition: transform 200ms ease;
+  transform: rotate(-90deg);
+  opacity: 0.5;
+}
+
+.sc-chevron.expanded {
+  transform: rotate(0deg);
+}
+
+.sc-command-preview {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+
+.sc-header-right {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.sc-live-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--spot-accent);
+  flex-shrink: 0;
+  animation: pulseRing 2s ease-in-out infinite;
+}
+
+.sc-status-badge {
+  font-size: 10px;
+  font-weight: 600;
+  padding: 2px 6px;
+  border-radius: 4px;
+  letter-spacing: 0.02em;
+  font-family: var(--spot-font-mono);
+  white-space: nowrap;
+  user-select: none;
+}
+
+.sc-status-live {
+  color: var(--spot-accent);
+  background: rgba(99, 144, 255, 0.12);
+}
+
+.sc-exit-ok {
+  color: var(--spot-success, #34d399);
+  background: rgba(52, 211, 153, 0.1);
+}
+
+.sc-exit-err {
+  color: var(--spot-error, #f87171);
+  background: rgba(248, 113, 113, 0.12);
+}
+
+.sc-action-btn {
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  color: var(--spot-text-dim);
+  cursor: pointer;
+  transition: all 150ms ease;
+  flex-shrink: 0;
+}
+
+.sc-action-btn:hover {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: var(--spot-border-subtle);
+  color: var(--spot-text-secondary);
+}
+
+.sc-action-btn:active {
+  transform: scale(0.92);
+}
+
+.sc-action-btn.sc-copied {
+  color: var(--spot-success, #34d399);
+}
+
+.sc-body {
+  border-top: 1px solid var(--spot-border-subtle, rgba(255, 255, 255, 0.06));
+}
+
+.sc-channel-tabs {
+  display: flex;
+  gap: 0;
+  padding: 0 8px;
+  border-bottom: 1px solid var(--spot-border-subtle, rgba(255, 255, 255, 0.06));
+  background: rgba(0, 0, 0, 0.08);
+}
+
+.sc-channel-tab {
+  padding: 4px 10px;
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: var(--spot-text-dim);
+  font-size: 10px;
+  font-weight: 600;
+  font-family: var(--spot-font-mono);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  transition: all 150ms ease;
+}
+
+.sc-channel-tab:hover {
+  color: var(--spot-text-secondary);
+}
+
+.sc-channel-tab.active {
+  color: var(--spot-text-primary);
+  border-bottom-color: var(--spot-accent);
+}
+
+.sc-channel-tab.sc-tab-stderr.active {
+  color: var(--spot-error, #f87171);
+  border-bottom-color: var(--spot-error, #f87171);
+}
+
+.sc-output {
+  margin: 0;
+  padding: 8px 10px;
+  max-height: 240px;
+  overflow: auto;
+  font-size: 11px;
+  line-height: 1.4;
+  white-space: pre-wrap;
+  word-break: break-word;
+  color: var(--spot-text-secondary);
+  font-family: "SF Mono", "JetBrains Mono", "Fira Code", monospace;
+  background: transparent;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.06) transparent;
+}
+
+.sc-output::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+
+.sc-output::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.sc-output::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.06);
+  border-radius: 3px;
+}
+
+.sc-output-stderr {
+  color: rgba(248, 113, 113, 0.85);
+}
+
+.sc-truncation-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 5px 10px;
+  background: rgba(255, 180, 50, 0.06);
+  border-top: 1px solid rgba(255, 180, 50, 0.12);
+  font-size: 11px;
+}
+
+.sc-truncation-bar-subtle {
+  background: transparent;
+  border-top: 1px solid var(--spot-border-subtle, rgba(255, 255, 255, 0.06));
+  justify-content: flex-end;
+}
+
+.sc-truncation-text {
+  color: rgba(255, 180, 50, 0.8);
+  font-family: var(--spot-font-mono);
+  font-size: 10.5px;
+}
+
+.sc-artifact-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--spot-border);
+  border-radius: 4px;
+  color: var(--spot-text-secondary);
+  font-size: 10.5px;
+  font-family: var(--spot-font-mono);
+  cursor: pointer;
+  transition: all 150ms ease;
+  white-space: nowrap;
+}
+
+.sc-artifact-btn:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: var(--spot-accent);
+  color: var(--spot-text-primary);
+}
+
+.sc-artifact-btn:active {
+  transform: scale(0.97);
+}
+
+.sc-empty-state {
+  padding: 12px 0;
+  text-align: center;
+  font-size: 11px;
+  color: var(--spot-text-dim);
+  font-family: var(--spot-font-mono);
+}

@@ -2,10 +2,16 @@ use crate::kernel::state::{get_rpc_client, now, update_task_state};
 use crate::models::{AgentPhase, AppState, ChatMessage, EventType, GateResponse};
 use crate::windows;
 use ioi_api::crypto::{SerializableKey, SigningKeyPair};
+use ioi_api::state::service_namespace_prefix;
 use ioi_crypto::sign::eddsa::Ed25519KeyPair;
+use ioi_ipc::blockchain::QueryRawStateRequest;
+use ioi_ipc::public::public_api_client::PublicApiClient;
 use ioi_ipc::public::{
     GetTransactionStatusRequest, SetRuntimeSecretRequest, SubmitTransactionRequest,
 };
+use ioi_services::agentic::desktop::keys as desktop_keys;
+use ioi_services::agentic::desktop::AgentState;
+use ioi_services::agentic::desktop::service::step::incident::IncidentState;
 use ioi_types::app::action::{ApprovalScope, ApprovalToken, PiiApprovalAction};
 use ioi_types::app::agentic::ResumeAgentParams;
 use ioi_types::app::{
@@ -15,6 +21,7 @@ use ioi_types::app::{
 use ioi_types::codec;
 use std::sync::Mutex;
 use tauri::{AppHandle, Emitter, State};
+use tonic::transport::Channel;
 
 fn decode_session_id_hex(session_id_hex: &str) -> Result<[u8; 32], String> {
     let normalized = session_id_hex
@@ -33,6 +40,108 @@ fn decode_session_id_hex(session_id_hex: &str) -> Result<[u8; 32], String> {
             Ok(session_id)
         }
         _ => Err("Invalid session ID length".to_string()),
+    }
+}
+
+async fn wait_for_gate_ready(
+    client: &mut PublicApiClient<Channel>,
+    session_id: [u8; 32],
+    expected_request_hash: [u8; 32],
+) -> Result<(), String> {
+    // Race fix: the UI can receive REQUIRE_APPROVAL before the agent state (pending_tool_hash/jcs)
+    // is committed on-chain. Submitting a resume tx too early is rejected by the validator.
+    let ns_prefix = service_namespace_prefix("desktop_agent");
+    let agent_state_key_local = desktop_keys::get_state_key(&session_id);
+    let agent_state_key = [ns_prefix.as_slice(), agent_state_key_local.as_slice()].concat();
+    let incident_key_local = desktop_keys::get_incident_key(&session_id);
+    let incident_key = [ns_prefix.as_slice(), incident_key_local.as_slice()].concat();
+
+    let poll_ms = 150u64;
+    let timeout_ms = 5_000u64;
+    let mut waited_ms = 0u64;
+
+    loop {
+        let resp = client
+            .query_raw_state(tonic::Request::new(QueryRawStateRequest {
+                key: agent_state_key.clone(),
+            }))
+            .await
+            .map_err(|e| format!("Failed to query agent state for gate readiness: {}", e))?
+            .into_inner();
+
+        if resp.found && !resp.value.is_empty() {
+            if let Ok(agent_state) = codec::from_bytes_canonical::<AgentState>(&resp.value) {
+                // Not ready until both pending_tool_hash and pending_tool_jcs are committed.
+                if let (Some(pending_tool_hash), Some(_pending_tool_jcs)) =
+                    (agent_state.pending_tool_hash, agent_state.pending_tool_jcs.as_ref())
+                {
+                    // Policy gates bind directly to the pending tool hash.
+                    if pending_tool_hash == expected_request_hash {
+                        return Ok(());
+                    }
+
+                    // PII gates bind to an incident pending gate hash (decision hash), which can differ
+                    // from the pending tool hash. Check incident state for a matching pending gate.
+                    let incident_resp = client
+                        .query_raw_state(tonic::Request::new(QueryRawStateRequest {
+                            key: incident_key.clone(),
+                        }))
+                        .await
+                        .map_err(|e| {
+                            format!("Failed to query incident state for gate readiness: {}", e)
+                        })?
+                        .into_inner();
+
+                    if incident_resp.found && !incident_resp.value.is_empty() {
+                        if let Ok(incident) =
+                            codec::from_bytes_canonical::<IncidentState>(&incident_resp.value)
+                        {
+                            let pending_gate_hash = incident
+                                .pending_gate
+                                .as_ref()
+                                .and_then(|pending| {
+                                    let normalized = pending
+                                        .request_hash
+                                        .trim()
+                                        .trim_start_matches("0x")
+                                        .to_string();
+                                    hex::decode(normalized).ok().and_then(|bytes| {
+                                        if bytes.len() == 32 {
+                                            let mut arr = [0u8; 32];
+                                            arr.copy_from_slice(&bytes);
+                                            Some(arr)
+                                        } else {
+                                            None
+                                        }
+                                    })
+                                });
+
+                            if pending_gate_hash == Some(expected_request_hash) {
+                                return Ok(());
+                            }
+
+                            if let Some(pending_gate_hash) = pending_gate_hash {
+                                return Err(format!(
+                                    "Approval request mismatch: expected {}, pending_gate {} (pending_tool {})",
+                                    hex::encode(expected_request_hash),
+                                    hex::encode(pending_gate_hash),
+                                    hex::encode(pending_tool_hash)
+                                ));
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        if waited_ms >= timeout_ms {
+            return Err(format!(
+                "Gate not ready yet (pending action not committed after {}ms). Please try again.",
+                timeout_ms
+            ));
+        }
+        tokio::time::sleep(std::time::Duration::from_millis(poll_ms)).await;
+        waited_ms = waited_ms.saturating_add(poll_ms);
     }
 }
 
@@ -59,24 +168,8 @@ pub async fn gate_respond(
     let mut session_id_hex = None;
     let mut request_hash_hex = None;
     let mut visual_hash_hex = None; // [NEW] Capture visual hash
-    let action_label = action.unwrap_or_else(|| {
-        if approved {
-            "approve_transform".to_string()
-        } else {
-            "deny".to_string()
-        }
-    });
-    let pii_action = match action_label.as_str() {
-        "approve_transform" => PiiApprovalAction::ApproveTransform,
-        "deny" => PiiApprovalAction::Deny,
-        "grant_scoped_exception" => PiiApprovalAction::GrantScopedException,
-        _ => {
-            return Err(format!(
-                "Unsupported gate action '{}'. Expected approve_transform|deny|grant_scoped_exception.",
-                action_label
-            ));
-        }
-    };
+    let mut is_pii_gate = false;
+    let action_label = action;
 
     {
         if let Ok(mut s) = state.lock() {
@@ -85,6 +178,11 @@ pub async fn gate_respond(
                 approved,
             });
             if let Some(task) = &s.current_task {
+                is_pii_gate = task
+                    .gate_info
+                    .as_ref()
+                    .and_then(|info| info.pii.as_ref())
+                    .is_some();
                 session_id_hex = task.session_id.clone().or_else(|| Some(task.id.clone()));
                 request_hash_hex = task.pending_request_hash.clone().or_else(|| {
                     task.events.iter().rev().find_map(|event| {
@@ -111,6 +209,59 @@ pub async fn gate_respond(
         }
     }
 
+    // Default gate action depends on whether the gate is PII-review bound or a normal policy gate.
+    let mut action_label = action_label.unwrap_or_else(|| {
+        if approved {
+            if is_pii_gate {
+                "approve_transform".to_string()
+            } else {
+                "approve".to_string()
+            }
+        } else if is_pii_gate {
+            "deny".to_string()
+        } else {
+            "cancel".to_string()
+        }
+    });
+
+    // Back-compat: older UI always sent approve_transform even for policy gates.
+    if !is_pii_gate && action_label == "approve_transform" {
+        action_label = "approve".to_string();
+    }
+
+    // Policy gate "cancel" means: don't submit anything; keep the agent paused.
+    if !is_pii_gate && action_label == "cancel" {
+        println!(
+            "[Autopilot] Gate action 'cancel' for policy gate (no-op; agent remains paused)."
+        );
+        return Ok(());
+    }
+
+    let pii_action = match action_label.as_str() {
+        "approve" => None,
+        "approve_transform" => Some(PiiApprovalAction::ApproveTransform),
+        "deny" => Some(PiiApprovalAction::Deny),
+        "grant_scoped_exception" => Some(PiiApprovalAction::GrantScopedException),
+        _ => {
+            return Err(format!(
+                "Unsupported gate action '{}'. Expected approve|approve_transform|deny|grant_scoped_exception|cancel.",
+                action_label
+            ));
+        }
+    };
+
+    if !is_pii_gate
+        && matches!(
+            pii_action,
+            Some(PiiApprovalAction::ApproveTransform) | Some(PiiApprovalAction::GrantScopedException)
+        )
+    {
+        return Err(format!(
+            "Unsupported gate action '{}' for policy gate. Expected 'approve' (or cancel).",
+            action_label
+        ));
+    }
+
     let (Some(sid_hex), Some(hash_hex)) = (session_id_hex, request_hash_hex) else {
         return Err("Missing session_id or request_hash in state. Cannot submit gate response.".to_string());
     };
@@ -127,6 +278,11 @@ pub async fn gate_respond(
     }
     let mut request_hash_arr = [0u8; 32];
     request_hash_arr.copy_from_slice(&request_hash_bytes);
+
+    // Ensure the pending approval state is actually committed before submitting a resume tx.
+    // This prevents "approved" cards re-appearing due to validator rejection races.
+    let mut client = get_rpc_client(&state).await?;
+    wait_for_gate_ready(&mut client, session_id_arr, request_hash_arr).await?;
 
     // [NEW] Decode visual hash if present
     let visual_hash_arr = if let Some(v_hex) = visual_hash_hex {
@@ -159,7 +315,7 @@ pub async fn gate_respond(
             max_usages: Some(1),
         },
         visual_hash: visual_hash_arr,
-        pii_action: Some(pii_action.clone()),
+        pii_action: pii_action.clone(),
         scoped_exception: None,
         approver_sig: vec![],
         approver_suite: SignatureSuite::ED25519,
@@ -183,8 +339,6 @@ pub async fn gate_respond(
         method: "resume@v1".to_string(),
         params: params_bytes,
     };
-
-    let mut client = get_rpc_client(&state).await?;
 
     let header = SignHeader {
         account_id: AccountId(
@@ -263,22 +417,30 @@ pub async fn gate_respond(
                 t.credential_request = None;
                 t.clarification_request = None;
                 t.current_step = match pii_action {
-                    PiiApprovalAction::Deny => {
+                    Some(PiiApprovalAction::Deny) => {
                         "Deny submitted. Failing current step...".to_string()
                     }
-                    PiiApprovalAction::GrantScopedException => {
+                    Some(PiiApprovalAction::GrantScopedException) => {
                         "Scoped exception granted. Resuming agent...".to_string()
                     }
-                    PiiApprovalAction::ApproveTransform => {
+                    Some(PiiApprovalAction::ApproveTransform) => {
                         "Transform approved. Resuming agent...".to_string()
                     }
+                    None => "Approved. Resuming agent...".to_string(),
                 };
                 t.history.push(ChatMessage {
                     role: "system".to_string(),
                     text: match pii_action {
-                        PiiApprovalAction::Deny => "❌ Deny submitted. Current step will fail closed.".to_string(),
-                        PiiApprovalAction::GrantScopedException => "✅ Scoped exception granted.".to_string(),
-                        PiiApprovalAction::ApproveTransform => "✅ Transform approved.".to_string(),
+                        Some(PiiApprovalAction::Deny) => {
+                            "❌ Deny submitted. Current step will fail closed.".to_string()
+                        }
+                        Some(PiiApprovalAction::GrantScopedException) => {
+                            "✅ Scoped exception granted.".to_string()
+                        }
+                        Some(PiiApprovalAction::ApproveTransform) => {
+                            "✅ Transform approved.".to_string()
+                        }
+                        None => "✅ Approved.".to_string(),
                     },
                     timestamp: now(),
                 });

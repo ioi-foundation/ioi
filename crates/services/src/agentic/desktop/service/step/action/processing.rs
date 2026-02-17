@@ -1,4 +1,5 @@
 use super::refusal_eval::{evaluate_and_crystallize, handle_refusal};
+use super::probe::{is_command_probe_intent, summarize_command_probe_output};
 use super::search::{
     extract_navigation_url, is_search_results_url, is_search_scope, search_query_from_url,
 };
@@ -428,6 +429,23 @@ pub async fn process_tool_output(
                                     "Auto-completed app-launch session {} after successful os__launch_app.",
                                     hex::encode(&session_id[..4])
                                 );
+                                }
+                            }
+                            AgentTool::SysExec { .. } => {
+                                if s && is_command_probe_intent(agent_state.resolved_intent.as_ref())
+                                {
+                                    if let Some(raw) = entry.as_deref() {
+                                        if let Some(summary) =
+                                            summarize_command_probe_output(&tool, raw)
+                                        {
+                                            agent_state.status =
+                                                AgentStatus::Completed(Some(summary.clone()));
+                                            is_lifecycle_action = true;
+                                            action_output = Some(summary);
+                                            agent_state.execution_queue.clear();
+                                            agent_state.pending_search_completion = None;
+                                        }
+                                    }
                                 }
                             }
                             AgentTool::SystemFail { reason, .. } => {

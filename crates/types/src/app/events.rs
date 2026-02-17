@@ -203,7 +203,7 @@ pub struct IntentResolutionReceiptEvent {
     pub matrix_source_hash: [u8; 32],
     /// Deterministic receipt hash over resolution material.
     pub receipt_hash: [u8; 32],
-    /// True when routing was constrained by ambiguity policy.
+    /// Deprecated/compat: always false (constrained mode removed).
     #[serde(default)]
     pub constrained: bool,
 }

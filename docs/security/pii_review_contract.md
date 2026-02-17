@@ -44,6 +44,7 @@ Both keys are stored under `desktop_agent` service namespace.
 4. Action semantics:
 - If request exists, `approval_token.pii_action` is mandatory
 - If no request exists, `approval_token.pii_action` must be absent
+  - Exception: allow `pii_action=deny` to explicitly deny a non-review (policy) gate and clear the pending action deterministically.
 
 5. Scoped-exception usage:
 - Usage decode failures are invalid (fail-closed)
@@ -64,7 +65,8 @@ Both keys are stored under `desktop_agent` service namespace.
 - Continues execution through transform-first enforcement
 
 `Deny`
-- Requires review request + valid deadline + matching hash
+- If review request exists: requires review request + valid deadline + matching hash
+- If no review request exists: requires matching hash (legacy/policy gate denial)
 - Marks gate denied
 - Fails current step closed (pending action not executed)
 

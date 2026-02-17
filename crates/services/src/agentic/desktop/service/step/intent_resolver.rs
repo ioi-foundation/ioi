@@ -181,89 +181,117 @@ impl IntentRankBackend for Arc<dyn InferenceRuntime> {
             return Ok(vec![]);
         }
 
-        if let Ok(query_embedding) = self.embed_text(query).await {
-            let mut scored = Vec::with_capacity(matrix.len());
-            for entry in matrix {
-                let mut best = -1.0f32;
-                let mut exemplars = entry.exemplars.clone();
-                exemplars.push(entry.intent_id.clone());
-                exemplars.extend(entry.aliases.clone());
-                for sample in exemplars {
-                    let emb = self
-                        .embed_text(&sample)
-                        .await
-                        .map_err(vm_error_to_tx)
-                        .unwrap_or_default();
-                    if let Some(cos) = cosine_similarity(&query_embedding, &emb) {
-                        let normalized = ((cos + 1.0) * 0.5).clamp(0.0, 1.0);
-                        if normalized > best {
-                            best = normalized;
-                        }
+        let query_embedding = match self.embed_text(query).await {
+            Ok(v) => v,
+            // Callers can fall back to an airlocked inference-based ranker.
+            Err(_) => return Ok(vec![]),
+        };
+
+        let mut scored = Vec::with_capacity(matrix.len());
+        for entry in matrix {
+            let mut best = -1.0f32;
+            let mut exemplars = entry.exemplars.clone();
+            exemplars.push(entry.intent_id.clone());
+            exemplars.extend(entry.aliases.clone());
+            for sample in exemplars {
+                let emb = self
+                    .embed_text(&sample)
+                    .await
+                    .map_err(vm_error_to_tx)
+                    .unwrap_or_default();
+                if let Some(cos) = cosine_similarity(&query_embedding, &emb) {
+                    let normalized = ((cos + 1.0) * 0.5).clamp(0.0, 1.0);
+                    if normalized > best {
+                        best = normalized;
                     }
                 }
-                scored.push(IntentCandidateScore {
-                    intent_id: entry.intent_id.clone(),
-                    score: best.max(0.0),
-                });
             }
-            scored.sort_by(|a, b| {
-                b.score
-                    .partial_cmp(&a.score)
-                    .unwrap_or(std::cmp::Ordering::Equal)
-            });
-            return Ok(scored);
-        }
-
-        let prompt = matrix_prompt(query, matrix);
-        let options = InferenceOptions {
-            temperature: 0.0,
-            json_mode: true,
-            ..Default::default()
-        };
-        let ranked = self
-            .execute_inference([0u8; 32], prompt.as_bytes(), options)
-            .await
-            .map_err(vm_error_to_tx)
-            .and_then(|bytes| {
-                let raw = String::from_utf8_lossy(&bytes).to_string();
-                let parsed: RankedScoresResponse = serde_json::from_str(&raw).map_err(|e| {
-                    TransactionError::Invalid(format!(
-                        "Intent rank fallback parse failed: {} | raw={}",
-                        e, raw
-                    ))
-                })?;
-                Ok(parsed.scores)
-            })
-            .unwrap_or_default();
-
-        if ranked.is_empty() {
-            return Ok(matrix
-                .iter()
-                .map(|entry| IntentCandidateScore {
-                    intent_id: entry.intent_id.clone(),
-                    score: 0.0,
-                })
-                .collect());
-        }
-
-        let mut by_id = BTreeMap::<String, f32>::new();
-        for score in ranked {
-            by_id.insert(score.intent_id, score.score.clamp(0.0, 1.0));
-        }
-        let mut out = matrix
-            .iter()
-            .map(|entry| IntentCandidateScore {
+            scored.push(IntentCandidateScore {
                 intent_id: entry.intent_id.clone(),
-                score: *by_id.get(&entry.intent_id).unwrap_or(&0.0),
-            })
-            .collect::<Vec<_>>();
-        out.sort_by(|a, b| {
+                score: best.max(0.0),
+            });
+        }
+        scored.sort_by(|a, b| {
             b.score
                 .partial_cmp(&a.score)
                 .unwrap_or(std::cmp::Ordering::Equal)
         });
-        Ok(out)
+        Ok(scored)
     }
+}
+
+async fn rank_with_airlocked_inference(
+    service: &DesktopAgentService,
+    session_id: Option<[u8; 32]>,
+    runtime: &Arc<dyn InferenceRuntime>,
+    query: &str,
+    matrix: &[IntentMatrixEntry],
+) -> Vec<IntentCandidateScore> {
+    if matrix.is_empty() {
+        return vec![];
+    }
+
+    let prompt = matrix_prompt(query, matrix);
+    let options = InferenceOptions {
+        temperature: 0.0,
+        json_mode: true,
+        ..Default::default()
+    };
+    let model_hash = [0u8; 32];
+
+    let airlocked = match service
+        .prepare_cloud_inference_input(
+            session_id,
+            "desktop_agent",
+            &format!("model_hash:{}", hex::encode(model_hash)),
+            prompt.as_bytes(),
+        )
+        .await
+    {
+        Ok(v) => v,
+        Err(e) => {
+            log::warn!("Intent rank fallback airlock rejected payload: {}", e);
+            return vec![];
+        }
+    };
+
+    let ranked = runtime
+        .execute_inference(model_hash, &airlocked, options)
+        .await
+        .map_err(vm_error_to_tx)
+        .and_then(|bytes| {
+            let raw = String::from_utf8_lossy(&bytes).to_string();
+            let parsed: RankedScoresResponse = serde_json::from_str(&raw).map_err(|e| {
+                TransactionError::Invalid(format!(
+                    "Intent rank fallback parse failed: {} | raw={}",
+                    e, raw
+                ))
+            })?;
+            Ok(parsed.scores)
+        })
+        .unwrap_or_default();
+
+    if ranked.is_empty() {
+        return vec![];
+    }
+
+    let mut by_id = BTreeMap::<String, f32>::new();
+    for score in ranked {
+        by_id.insert(score.intent_id, score.score.clamp(0.0, 1.0));
+    }
+    let mut out = matrix
+        .iter()
+        .map(|entry| IntentCandidateScore {
+            intent_id: entry.intent_id.clone(),
+            score: *by_id.get(&entry.intent_id).unwrap_or(&0.0),
+        })
+        .collect::<Vec<_>>();
+    out.sort_by(|a, b| {
+        b.score
+            .partial_cmp(&a.score)
+            .unwrap_or(std::cmp::Ordering::Equal)
+    });
+    out
 }
 
 fn scope_for_intent(matrix: &[IntentMatrixEntry], intent_id: &str) -> IntentScopeProfile {
@@ -280,20 +308,6 @@ fn preferred_tier_for_intent(matrix: &[IntentMatrixEntry], intent_id: &str) -> S
         .find(|entry| entry.intent_id == intent_id)
         .map(|entry| entry.preferred_tier.clone())
         .unwrap_or_else(|| fallback_tier_for_scope(IntentScopeProfile::Unknown).to_string())
-}
-
-fn ambiguity_constrained(band: IntentConfidenceBand, policy: &IntentRoutingPolicy) -> bool {
-    match band {
-        IntentConfidenceBand::High => false,
-        IntentConfidenceBand::Medium => matches!(
-            policy.ambiguity.medium_confidence_action,
-            IntentAmbiguityAction::ConstrainedProceed
-        ),
-        IntentConfidenceBand::Low => matches!(
-            policy.ambiguity.low_confidence_action,
-            IntentAmbiguityAction::ConstrainedProceed
-        ),
-    }
 }
 
 pub fn should_pause_for_clarification(
@@ -346,16 +360,6 @@ fn tool_allowed_for_scope(scope: IntentScopeProfile, tool_name: &str) -> bool {
     }
 }
 
-fn tool_allowed_in_constrained_mode(tool_name: &str) -> bool {
-    !(tool_name == "sys__exec"
-        || tool_name == "sys__install_package"
-        || tool_name.starts_with("filesystem__write")
-        || tool_name.starts_with("filesystem__delete")
-        || tool_name.starts_with("filesystem__move")
-        || tool_name.starts_with("filesystem__copy")
-        || tool_name == "browser__synthetic_click")
-}
-
 pub fn is_tool_allowed_for_resolution(
     resolved: Option<&ResolvedIntentState>,
     tool_name: &str,
@@ -363,13 +367,7 @@ pub fn is_tool_allowed_for_resolution(
     let Some(resolved) = resolved else {
         return true;
     };
-    if !tool_allowed_for_scope(resolved.scope, tool_name) {
-        return false;
-    }
-    if resolved.constrained {
-        return tool_allowed_in_constrained_mode(tool_name);
-    }
-    true
+    tool_allowed_for_scope(resolved.scope, tool_name)
 }
 
 pub async fn resolve_step_intent(
@@ -445,6 +443,18 @@ pub async fn resolve_step_intent(
     let runtime = service.reasoning_inference.clone();
     let mut top_k = runtime.embed_or_rank(&query, &matrix).await?;
     if top_k.is_empty() {
+        // If embeddings are unavailable (or produced no signal), fall back to an
+        // inference-based ranker, but run it through the Desktop Agent's cloud airlock.
+        top_k = rank_with_airlocked_inference(
+            service,
+            Some(agent_state.session_id),
+            &runtime,
+            &query,
+            &matrix,
+        )
+        .await;
+    }
+    if top_k.is_empty() {
         top_k.push(IntentCandidateScore {
             intent_id: "unknown".to_string(),
             score: 0.0,
@@ -462,7 +472,6 @@ pub async fn resolve_step_intent(
     let scope = scope_for_intent(&matrix, &winner.intent_id);
     let preferred_tier = preferred_tier_for_intent(&matrix, &winner.intent_id);
     let band = resolve_band(winner.score, policy);
-    let constrained = ambiguity_constrained(band, policy);
     let mut resolved = ResolvedIntentState {
         intent_id: winner.intent_id,
         scope,
@@ -473,7 +482,8 @@ pub async fn resolve_step_intent(
         matrix_version: policy.matrix_version.clone(),
         matrix_source_hash: matrix_hash,
         receipt_hash: [0u8; 32],
-        constrained,
+        // Constrained routing is deprecated (compat field only). We rely on policy gates + ontology.
+        constrained: false,
     };
     resolved.receipt_hash = receipt_hash(
         &query,
@@ -505,11 +515,100 @@ pub async fn resolve_step_intent(
 
 #[cfg(test)]
 mod tests {
-    use super::{is_tool_allowed_for_resolution, resolve_band};
+    use super::{is_tool_allowed_for_resolution, resolve_band, resolve_step_intent};
+    use crate::agentic::desktop::service::DesktopAgentService;
+    use crate::agentic::desktop::types::{AgentMode, AgentState, AgentStatus, ExecutionTier};
+    use crate::agentic::rules::ActionRules;
+    use async_trait::async_trait;
+    use ioi_api::vm::drivers::gui::{GuiDriver, InputEvent};
+    use ioi_api::vm::inference::{mock::MockInferenceRuntime, InferenceRuntime};
+    use ioi_drivers::browser::BrowserDriver;
+    use ioi_drivers::terminal::TerminalDriver;
     use ioi_types::app::agentic::{
-        IntentConfidenceBand, IntentConfidenceBandPolicy, IntentRoutingPolicy, IntentScopeProfile,
-        ResolvedIntentState,
+        IntentAmbiguityAction, IntentConfidenceBand, IntentConfidenceBandPolicy, IntentRoutingPolicy,
+        IntentScopeProfile, ResolvedIntentState,
     };
+    use ioi_types::app::{ActionRequest, ContextSlice};
+    use ioi_types::error::VmError;
+    use std::collections::{BTreeMap, HashMap};
+    use std::sync::Arc;
+
+    struct NoopGuiDriver;
+
+    #[async_trait]
+    impl GuiDriver for NoopGuiDriver {
+        async fn capture_screen(
+            &self,
+            _crop_rect: Option<(i32, i32, u32, u32)>,
+        ) -> Result<Vec<u8>, VmError> {
+            Err(VmError::HostError("noop gui".into()))
+        }
+
+        async fn capture_raw_screen(&self) -> Result<Vec<u8>, VmError> {
+            Err(VmError::HostError("noop gui".into()))
+        }
+
+        async fn capture_tree(&self) -> Result<String, VmError> {
+            Err(VmError::HostError("noop gui".into()))
+        }
+
+        async fn capture_context(&self, _intent: &ActionRequest) -> Result<ContextSlice, VmError> {
+            Err(VmError::HostError("noop gui".into()))
+        }
+
+        async fn inject_input(&self, _event: InputEvent) -> Result<(), VmError> {
+            Err(VmError::HostError("noop gui".into()))
+        }
+
+        async fn get_element_center(&self, _id: u32) -> Result<Option<(u32, u32)>, VmError> {
+            Ok(None)
+        }
+
+        async fn register_som_overlay(
+            &self,
+            _map: HashMap<u32, (i32, i32, i32, i32)>,
+        ) -> Result<(), VmError> {
+            Ok(())
+        }
+    }
+
+    fn test_agent_state() -> AgentState {
+        AgentState {
+            session_id: [0u8; 32],
+            goal: "check and see if we have gimp installed".to_string(),
+            transcript_root: [0u8; 32],
+            status: AgentStatus::Running,
+            step_count: 0,
+            max_steps: 8,
+            last_action_type: None,
+            parent_session_id: None,
+            child_session_ids: vec![],
+            budget: 1,
+            tokens_used: 0,
+            consecutive_failures: 0,
+            pending_approval: None,
+            pending_tool_call: None,
+            pending_tool_jcs: None,
+            pending_tool_hash: None,
+            pending_visual_hash: None,
+            recent_actions: vec![],
+            mode: AgentMode::Agent,
+            current_tier: ExecutionTier::DomHeadless,
+            last_screen_phash: None,
+            execution_queue: vec![],
+            pending_search_completion: None,
+            active_skill_hash: None,
+            tool_execution_log: BTreeMap::new(),
+            visual_som_map: None,
+            visual_semantic_map: None,
+            swarm_context: None,
+            target: None,
+            resolved_intent: None,
+            awaiting_intent_clarification: false,
+            working_directory: ".".to_string(),
+            active_lens: None,
+        }
+    }
 
     #[test]
     fn conversation_scope_blocks_browser() {
@@ -533,6 +632,24 @@ mod tests {
     }
 
     #[test]
+    fn constrained_flag_no_longer_filters_tools() {
+        // Simulate older persisted state where constrained=true.
+        let state = ResolvedIntentState {
+            intent_id: "command.exec".to_string(),
+            scope: IntentScopeProfile::CommandExecution,
+            band: IntentConfidenceBand::Medium,
+            score: 0.6,
+            top_k: vec![],
+            preferred_tier: "tool_first".to_string(),
+            matrix_version: "v1".to_string(),
+            matrix_source_hash: [1u8; 32],
+            receipt_hash: [2u8; 32],
+            constrained: true,
+        };
+        assert!(is_tool_allowed_for_resolution(Some(&state), "sys__exec"));
+    }
+
+    #[test]
     fn confidence_thresholds_map_bands() {
         let mut policy = IntentRoutingPolicy::default();
         policy.confidence = IntentConfidenceBandPolicy {
@@ -542,5 +659,27 @@ mod tests {
         assert_eq!(resolve_band(0.91, &policy), IntentConfidenceBand::High);
         assert_eq!(resolve_band(0.52, &policy), IntentConfidenceBand::Medium);
         assert_eq!(resolve_band(0.2, &policy), IntentConfidenceBand::Low);
+    }
+
+    #[tokio::test(flavor = "current_thread")]
+    async fn resolver_never_emits_constrained_true() {
+        let gui: Arc<dyn GuiDriver> = Arc::new(NoopGuiDriver);
+        let terminal = Arc::new(TerminalDriver::new());
+        let browser = Arc::new(BrowserDriver::new());
+        let inference: Arc<dyn InferenceRuntime> = Arc::new(MockInferenceRuntime);
+        let service = DesktopAgentService::new(gui, terminal, browser, inference);
+
+        let agent_state = test_agent_state();
+
+        let mut rules = ActionRules::default();
+        rules.ontology_policy.intent_routing.ambiguity.medium_confidence_action =
+            IntentAmbiguityAction::ConstrainedProceed;
+        rules.ontology_policy.intent_routing.ambiguity.low_confidence_action =
+            IntentAmbiguityAction::ConstrainedProceed;
+
+        let resolved = resolve_step_intent(&service, &agent_state, &rules, "terminal")
+            .await
+            .unwrap();
+        assert!(!resolved.constrained);
     }
 }

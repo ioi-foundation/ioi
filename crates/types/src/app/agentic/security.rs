@@ -73,7 +73,7 @@ pub struct IntentCandidateScore {
 pub enum IntentAmbiguityAction {
     /// Pause execution and request user clarification.
     PauseForClarification,
-    /// Continue, but keep tool exposure constrained.
+    /// Deprecated: treated as `Proceed` (constrained mode removed).
     ConstrainedProceed,
     /// Continue with full scope.
     Proceed,
@@ -116,7 +116,7 @@ impl Default for IntentAmbiguityPolicy {
     fn default() -> Self {
         Self {
             low_confidence_action: IntentAmbiguityAction::PauseForClarification,
-            medium_confidence_action: IntentAmbiguityAction::ConstrainedProceed,
+            medium_confidence_action: IntentAmbiguityAction::Proceed,
         }
     }
 }
@@ -161,7 +161,7 @@ impl Default for IntentRoutingPolicy {
         Self {
             enabled: true,
             shadow_mode: false,
-            matrix_version: "intent-matrix-v1".to_string(),
+            matrix_version: "intent-matrix-v2".to_string(),
             confidence: IntentConfidenceBandPolicy::default(),
             ambiguity: IntentAmbiguityPolicy::default(),
             matrix: vec![
@@ -232,6 +232,27 @@ impl Default for IntentRoutingPolicy {
                     ],
                 },
                 IntentMatrixEntry {
+                    intent_id: "command.probe".to_string(),
+                    scope: IntentScopeProfile::CommandExecution,
+                    preferred_tier: "tool_first".to_string(),
+                    aliases: vec![
+                        "installed".to_string(),
+                        "in path".to_string(),
+                        "command exists".to_string(),
+                        "which binary".to_string(),
+                        "which command".to_string(),
+                    ],
+                    exemplars: vec![
+                        "check if a program is installed".to_string(),
+                        "is a tool installed on this computer".to_string(),
+                        "check if a command exists on this machine".to_string(),
+                        "find the path of a binary".to_string(),
+                        "verify tool availability".to_string(),
+                        "check a tool version".to_string(),
+                        "is this command available".to_string(),
+                    ],
+                },
+                IntentMatrixEntry {
                     intent_id: "command.exec".to_string(),
                     scope: IntentScopeProfile::CommandExecution,
                     preferred_tier: "tool_first".to_string(),
@@ -239,9 +260,14 @@ impl Default for IntentRoutingPolicy {
                         "shell".to_string(),
                         "terminal".to_string(),
                         "run command".to_string(),
+                        "execute".to_string(),
                     ],
                     exemplars: vec![
                         "run a command".to_string(),
+                        "execute this command".to_string(),
+                        "run a script in the terminal".to_string(),
+                        "run tests from the command line".to_string(),
+                        "build the project".to_string(),
                         "install dependency".to_string(),
                     ],
                 },
@@ -282,7 +308,7 @@ pub struct ResolvedIntentState {
     pub matrix_source_hash: [u8; 32],
     /// Deterministic receipt hash over resolution material.
     pub receipt_hash: [u8; 32],
-    /// True when resolver constrained tool scope due ambiguity policy.
+    /// Deprecated/compat: always false (constrained mode removed).
     #[serde(default)]
     pub constrained: bool,
 }

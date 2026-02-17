@@ -9,6 +9,9 @@ interface ApprovalProps {
   onApproveTransform: () => void;
   onDeny: () => void;
   onGrantScopedException?: () => void;
+  approveLabel?: string;
+  denyLabel?: string;
+  showDeny?: boolean;
   deadlineMs?: number;
   targetLabel?: string;
   spanSummary?: string;
@@ -26,6 +29,9 @@ export function SpotlightApprovalCard({
   onApproveTransform,
   onDeny,
   onGrantScopedException,
+  approveLabel = "Approve",
+  denyLabel = "Deny",
+  showDeny = true,
   deadlineMs,
   targetLabel,
   spanSummary,
@@ -111,11 +117,13 @@ export function SpotlightApprovalCard({
         )}
         {errorMessage && <p className="gate-error">{errorMessage}</p>}
         <div className="gate-actions">
-          <button onClick={onApproveTransform} className="gate-btn primary">{icons.check}<span>Approve Transform</span></button>
+          <button onClick={onApproveTransform} className="gate-btn primary">{icons.check}<span>{approveLabel}</span></button>
           {onGrantScopedException && (
             <button onClick={onGrantScopedException} className="gate-btn secondary"><span>Grant Scoped Exception</span></button>
           )}
-          <button onClick={onDeny} className="gate-btn secondary">{icons.x}<span>Deny</span></button>
+          {showDeny && (
+            <button onClick={onDeny} className="gate-btn secondary">{icons.x}<span>{denyLabel}</span></button>
+          )}
         </div>
       </div>
     </div>
