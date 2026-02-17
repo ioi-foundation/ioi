@@ -113,6 +113,85 @@ pub async fn handle(
             }
         }
 
+        AgentTool::SysExecSession { command, args, stdin } => {
+            let resolved_cwd = match resolve_working_directory(cwd) {
+                Ok(path) => path,
+                Err(error) => return ToolExecutionResult::failure(error),
+            };
+
+            let trimmed = command.trim();
+            if trimmed.is_empty() {
+                return ToolExecutionResult::failure(
+                    "ERROR_CLASS=ToolUnavailable sys__exec_session requires a non-empty command."
+                        .to_string(),
+                );
+            }
+
+            let command_preview = command_preview(&command, &args);
+            let timeout = resolve_sys_exec_timeout(trimmed, &args, false);
+            let observer = process_stream_observer(
+                exec,
+                session_id,
+                step_index,
+                "sys__exec_session",
+                command_preview.clone(),
+            );
+            let options = CommandExecutionOptions::default()
+                .with_timeout(timeout)
+                .with_stdin_data(normalize_stdin_data(stdin))
+                .with_stream_observer(observer);
+
+            let session_key = hex::encode(session_id);
+
+            match exec
+                .terminal
+                .execute_session_in_dir_with_options(
+                    &session_key,
+                    trimmed,
+                    &args,
+                    Some(&resolved_cwd),
+                    options,
+                )
+                .await
+            {
+                Ok(out) => {
+                    let command_failed = command_output_indicates_failure(&out);
+                    let mut result = if command_failed {
+                        let mut failure = sys_exec_failure_result(&command, &out);
+                        failure.history_entry = Some(out);
+                        failure
+                    } else {
+                        ToolExecutionResult::success(out)
+                    };
+                    append_sys_exec_command_history(
+                        &mut result,
+                        &command_preview,
+                        step_index,
+                        if command_failed { 1 } else { 0 },
+                    );
+                    result
+                }
+                Err(e) => {
+                    let error = e.to_string();
+                    let mut result = sys_exec_failure_result(&command, &error);
+                    result.history_entry = Some(error);
+                    append_sys_exec_command_history(&mut result, &command_preview, step_index, 1);
+                    result
+                }
+            }
+        }
+
+        AgentTool::SysExecSessionReset {} => {
+            let session_key = hex::encode(session_id);
+            match exec.terminal.reset_session(&session_key).await {
+                Ok(()) => ToolExecutionResult::success("Reset persistent shell session."),
+                Err(e) => ToolExecutionResult::failure(format!(
+                    "ERROR_CLASS=UnexpectedState Failed to reset persistent shell session: {}",
+                    e
+                )),
+            }
+        }
+
         AgentTool::SysChangeDir { path } => match resolve_target_directory(cwd, &path) {
             Ok(path) => ToolExecutionResult::success(path.to_string_lossy().to_string()),
             Err(error) => ToolExecutionResult::failure(error),

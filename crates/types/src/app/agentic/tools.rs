@@ -308,6 +308,27 @@ pub enum AgentTool {
         detach: bool,
     },
 
+    /// Executes a system command inside a persistent shell session.
+    ///
+    /// This is the OpenInterpreter-style "shell continuity" primitive: state (environment, shell
+    /// variables, etc.) is preserved across calls within the same agent session, while the tool
+    /// interface remains atomic (one invocation -> one command -> one exit code).
+    #[serde(rename = "sys__exec_session")]
+    SysExecSession {
+        /// Command to execute.
+        command: String,
+        /// Arguments for the command.
+        #[serde(default)]
+        args: Vec<String>,
+        /// Optional stdin payload forwarded to the process.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        stdin: Option<String>,
+    },
+
+    /// Resets the persistent shell session used by `sys__exec_session`.
+    #[serde(rename = "sys__exec_session_reset")]
+    SysExecSessionReset {},
+
     /// Installs a package using a deterministic package manager mapping.
     #[serde(rename = "sys__install_package")]
     SysInstallPackage {
@@ -567,7 +588,10 @@ impl AgentTool {
             AgentTool::FsMove { .. } => ActionTarget::Custom("filesystem__move_path".into()),
             AgentTool::FsCopy { .. } => ActionTarget::Custom("filesystem__copy_path".into()),
 
-            AgentTool::SysExec { .. } | AgentTool::SysChangeDir { .. } => ActionTarget::SysExec,
+            AgentTool::SysExec { .. }
+            | AgentTool::SysExecSession { .. }
+            | AgentTool::SysExecSessionReset {}
+            | AgentTool::SysChangeDir { .. } => ActionTarget::SysExec,
             AgentTool::SysInstallPackage { .. } => ActionTarget::SysInstallPackage,
 
             AgentTool::WebSearch { .. } | AgentTool::WebRead { .. } => ActionTarget::WebRetrieve,
@@ -638,9 +662,11 @@ impl AgentTool {
                         | "browser__scroll"
                         | "browser__type"
                         | "browser__key" => ActionTarget::BrowserInteract,
-                        "os__launch_app" | "sys__exec" | "sys__change_directory" => {
-                            ActionTarget::SysExec
-                        }
+                        "os__launch_app"
+                        | "sys__exec"
+                        | "sys__exec_session"
+                        | "sys__exec_session_reset"
+                        | "sys__change_directory" => ActionTarget::SysExec,
                         "sys__install_package" => ActionTarget::SysInstallPackage,
                         _ => ActionTarget::Custom(name.to_string()),
                     }
@@ -747,6 +773,8 @@ mod tests {
             | AgentTool::FsDelete { .. }
             | AgentTool::FsCreateDirectory { .. }
             | AgentTool::SysExec { .. }
+            | AgentTool::SysExecSession { .. }
+            | AgentTool::SysExecSessionReset {}
             | AgentTool::SysInstallPackage { .. }
             | AgentTool::SysChangeDir { .. }
             | AgentTool::BrowserSnapshot {}

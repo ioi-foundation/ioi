@@ -442,7 +442,13 @@ async fn capture_background_visuals(
             if let Some(win) = &active_window_info {
                 wins = format_window_label(win);
                 if let Ok(mut dom_tree) = service.browser.get_visual_tree().await {
-                    let chrome_ui_height = if cfg!(target_os = "macos") { 80 } else { 115 };
+                    let chrome_ui_height = service
+                        .browser
+                        .get_content_frame()
+                        .await
+                        .ok()
+                        .and_then(|frame| normalize_browser_chrome_top(frame.chrome_top))
+                        .unwrap_or_else(default_browser_chrome_ui_height);
                     let content_origin = (win.x, win.y + chrome_ui_height);
                     let transform = build_display_transform(
                         (img.width(), img.height()),
