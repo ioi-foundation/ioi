@@ -959,12 +959,20 @@ pub async fn run_ingestion_worker<CS>(
                     }
 
                     // 2. Evaluate Policy (Context-Aware)
+                    // NOTE: `resume@v1` carries an approval token for the *pending gated tool*,
+                    // not for the resume transaction itself. Passing it into PolicyEngine causes
+                    // misleading "token mismatch" logs (and doesn't change behavior).
+                    let presented_approval = if service_id == "desktop_agent" && method == "resume@v1" {
+                        None
+                    } else {
+                        approval_token.as_ref()
+                    };
                     let verdict = PolicyEngine::evaluate(
                         &rules,
                         &request,
                         &safety_model,
                         &os_driver,
-                        approval_token.as_ref(),
+                        presented_approval,
                     )
                     .await;
 

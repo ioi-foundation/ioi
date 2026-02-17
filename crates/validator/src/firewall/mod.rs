@@ -478,7 +478,12 @@ pub async fn enforce_firewall(
                 &dummy_request,
                 &safety_model,
                 &os_driver,
-                approval_token.as_ref(),
+                // `resume@v1` tokens authorize the pending gated tool, not the resume transaction.
+                if service_id == "desktop_agent" && method == "resume@v1" {
+                    None
+                } else {
+                    approval_token.as_ref()
+                },
             )
             .await;
 

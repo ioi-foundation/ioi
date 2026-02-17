@@ -6,6 +6,8 @@ mod processing;
 mod refusal_eval;
 #[path = "action/resume.rs"]
 mod resume;
+#[path = "action/probe.rs"]
+mod probe;
 #[path = "action/search.rs"]
 mod search;
 #[path = "action/support.rs"]
@@ -13,4 +15,5 @@ mod support;
 
 pub use processing::{process_tool_output, resolve_action_routing_context};
 pub use resume::resume_pending_action;
+pub use probe::{is_command_probe_intent, summarize_command_probe_output};
 pub use support::{canonical_intent_hash, canonical_retry_intent_hash, canonical_tool_identity};

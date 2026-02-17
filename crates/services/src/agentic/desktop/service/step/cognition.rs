@@ -5,7 +5,7 @@ use crate::agentic::desktop::service::DesktopAgentService;
 use crate::agentic::desktop::types::{AgentState, ExecutionTier};
 use hex;
 use ioi_crypto::algorithms::hash::sha256;
-use ioi_types::app::agentic::{InferenceOptions, IntentScopeProfile};
+use ioi_types::app::agentic::{InferenceOptions, IntentScopeProfile, LlmToolDefinition};
 use ioi_types::error::TransactionError;
 use serde::Deserialize;
 use serde_json::json;
@@ -23,6 +23,76 @@ pub struct CognitionResult {
     pub strategy_used: String,
 }
 
+fn preflight_missing_capability(
+    scope: IntentScopeProfile,
+    is_browser_active: bool,
+    tools: &[LlmToolDefinition],
+) -> Option<(String, String)> {
+    // Browser windows have their own tool surface; avoid false escalations here.
+    if is_browser_active {
+        return None;
+    }
+
+    let has_tool = |name: &str| tools.iter().any(|t| t.name == name);
+
+    let requires_ui_interaction = matches!(scope, IntentScopeProfile::UiInteraction);
+    let requires_browser_interaction = matches!(scope, IntentScopeProfile::WebResearch);
+    let requires_command_execution = matches!(scope, IntentScopeProfile::CommandExecution);
+    let requires_workspace_ops = matches!(scope, IntentScopeProfile::WorkspaceOps);
+
+    let has_browser_tooling = has_tool("browser__navigate")
+        || has_tool("browser__extract")
+        || has_tool("browser__click")
+        || has_tool("browser__click_element");
+
+    let can_click =
+        has_tool("computer") || has_tool("gui__click_element") || has_tool("gui__click");
+    let can_type = has_tool("computer") || has_tool("gui__type");
+
+    let has_sys_exec = has_tool("sys__exec");
+    let has_filesystem_tooling = tools.iter().any(|t| t.name.starts_with("filesystem__"));
+
+    if requires_browser_interaction && !has_browser_tooling {
+        return Some((
+            "browser__navigate".to_string(),
+            "Resolver selected web_research scope but browser tooling is unavailable.".to_string(),
+        ));
+    }
+
+    if requires_ui_interaction && !can_click {
+        return Some((
+            "gui__click_element".to_string(),
+            "Resolver selected ui_interaction scope but no click-capable tool is available."
+                .to_string(),
+        ));
+    }
+
+    if requires_ui_interaction && !can_type {
+        return Some((
+            "gui__type".to_string(),
+            "Resolver selected ui_interaction scope but no typing-capable tool is available."
+                .to_string(),
+        ));
+    }
+
+    if requires_command_execution && !has_sys_exec {
+        return Some((
+            "sys__exec".to_string(),
+            "Resolver selected command_execution scope but sys__exec is unavailable.".to_string(),
+        ));
+    }
+
+    if requires_workspace_ops && !has_filesystem_tooling {
+        return Some((
+            "filesystem__read_file".to_string(),
+            "Resolver selected workspace_ops scope but filesystem tooling is unavailable."
+                .to_string(),
+        ));
+    }
+
+    None
+}
+
 pub async fn think(
     service: &DesktopAgentService,
     agent_state: &AgentState,
@@ -37,6 +107,16 @@ pub async fn think(
         .as_ref()
         .map(|resolved| resolved.scope)
         .unwrap_or(IntentScopeProfile::Unknown);
+    let resolved_intent_summary = agent_state
+        .resolved_intent
+        .as_ref()
+        .map(|resolved| {
+            format!(
+                "{} (scope={:?} band={:?} score={:.3})",
+                resolved.intent_id, resolved.scope, resolved.band, resolved.score
+            )
+        })
+        .unwrap_or_else(|| "unknown".to_string());
     let session_prefix = hex::encode(&session_id[..4]);
 
     // Urgent Feedback Injection
@@ -71,78 +151,30 @@ pub async fn think(
             .to_lowercase()
             .contains("edge");
 
-    // Capability-aware preflight (only fail when no viable tool path exists).
-    let has_tool = |name: &str| perception.available_tools.iter().any(|t| t.name == name);
-    let has_computer_tool = has_tool("computer");
-    let has_gui_click_element = has_tool("gui__click_element");
-    let has_gui_click = has_tool("gui__click");
-    let has_gui_type = has_tool("gui__type");
-    let has_os_copy = has_tool("os__copy");
-    let has_os_paste = has_tool("os__paste");
-
-    let requires_ui_interaction = matches!(resolved_scope, IntentScopeProfile::UiInteraction);
-    let requires_browser_interaction = matches!(resolved_scope, IntentScopeProfile::WebResearch);
-    let requires_clipboard_interaction = matches!(
+    if let Some((missing_capability, reason)) = preflight_missing_capability(
         resolved_scope,
-        IntentScopeProfile::WorkspaceOps | IntentScopeProfile::CommandExecution
-    );
-    let has_browser_tooling = has_tool("browser__navigate")
-        || has_tool("browser__extract")
-        || has_tool("browser__click")
-        || has_tool("browser__click_element");
+        is_browser,
+        &perception.available_tools,
+    ) {
+        log::info!(
+            "Preflight: Missing required capability '{}'. Forcing escalation.",
+            missing_capability
+        );
+        let synthetic_call = json!({
+            "name": "system__fail",
+            "arguments": {
+                "reason": reason,
+                "missing_capability": missing_capability
+            }
+        });
 
-    if !is_browser {
-        let can_click = has_computer_tool || has_gui_click_element || has_gui_click;
-        let can_type = has_computer_tool || has_gui_type || has_os_paste;
-        let can_copy = has_computer_tool || has_os_copy || has_os_paste;
-
-        let missing_reason = if requires_browser_interaction && !has_browser_tooling {
-            Some((
-                "browser__navigate",
-                "Resolver selected web_research scope but browser tooling is unavailable."
-                    .to_string(),
-            ))
-        } else if requires_ui_interaction && !can_click {
-            Some((
-                "gui__click_element",
-                "Resolver selected ui_interaction scope but no click-capable tool is available."
-                    .to_string(),
-            ))
-        } else if requires_ui_interaction && !can_type {
-            Some((
-                "computer",
-                "Resolver selected ui_interaction scope but no typing-capable tool is available."
-                    .to_string(),
-            ))
-        } else if requires_clipboard_interaction && !can_copy {
-            Some((
-                "os__copy",
-                "Resolver selected clipboard-capable scope but no clipboard tool is available."
-                    .to_string(),
-            ))
-        } else {
-            None
-        };
-
-        if let Some((missing_capability, reason)) = missing_reason {
-            log::info!(
-                "Preflight: Missing required capability '{}'. Forcing escalation.",
-                missing_capability
-            );
-            let synthetic_call = json!({
-                "name": "system__fail",
-                "arguments": {
-                    "reason": reason,
-                    "missing_capability": missing_capability
-                }
-            });
-
-            return Ok(CognitionResult {
-                raw_output: synthetic_call.to_string(),
-                strategy_used: "Preflight-Escalation".to_string(),
-            });
-        }
+        return Ok(CognitionResult {
+            raw_output: synthetic_call.to_string(),
+            strategy_used: "Preflight-Escalation".to_string(),
+        });
     }
+
+    let has_computer_tool = perception.available_tools.iter().any(|t| t.name == "computer");
 
     // 3. System 1 Router
     // Use the latest user message for routing, as it might change the mode (e.g. "stop" -> Chat)
@@ -176,18 +208,6 @@ pub async fn think(
             latest_user_message.lines().count(),
             latest_user_hash
         );
-    }
-
-    if let Some(raw_output) = maybe_build_inline_note_chat_reply(latest_user_message, resolved_scope) {
-        log::info!(
-            "CognitionDeterministicFallback session={} scope={:?} mode=inline_note_chat_reply",
-            session_prefix,
-            resolved_scope
-        );
-        return Ok(CognitionResult {
-            raw_output,
-            strategy_used: "DeterministicInlineNoteReply".to_string(),
-        });
     }
 
     let _mode = determine_attention_mode(
@@ -304,7 +324,7 @@ pub async fn think(
         .join("\n");
 
     let system_instructions = format!(
-"SYSTEM: You are a local desktop assistant operating inside the IOI runtime.
+ "SYSTEM: You are a local desktop assistant operating inside the IOI runtime.
 
 === LAYER 1: KERNEL POLICY ===
 You do NOT have blanket authority. Every action is mediated by the IOI Policy Engine.
@@ -316,11 +336,12 @@ Do NOT refuse a task by claiming you cannot see or act. Instead:
 2. If unsure, ask the user for confirmation via 'chat__reply'.
 3. Do NOT say \"I cannot directly observe the screen\". You are an agent, not a chat bot.
 
-=== LAYER 2: STATE ===
-- Active Window: {}
-- Goal: {}
-{}
-{}
+ === LAYER 2: STATE ===
+ - Active Window: {}
+ - Goal: {}
+ - Resolved Intent: {}
+ {}
+ {}
 
 {}
 {}{}
@@ -370,10 +391,18 @@ OPERATING RULES:
 14. CONTEXT SWITCHING RULE: Check the 'Active Window' in the state above.
     - If Active Window is 'Calculator' (or any non-browser app), DO NOT use 'browser__*' tools. Use `gui__click_element` first, then `computer.left_click` if needed.
     - If Active Window is 'Chrome' or 'Firefox', prefer 'browser__*' tools for web interaction.
-15. SILENT EXECUTION: For action intents (web/ui/workspace/command), execute the action immediately. For conversation intents (summarize/draft/reply), use `chat__reply` with the requested output instead of forcing tool actions.
-16. SEARCH COMPLETION RULE: For search intents, do `browser__navigate` then `browser__extract`, summarize the results, and finish with `agent__complete`. Do NOT use `chat__reply` for this completion path unless the user explicitly requests conversational follow-up.",
+ 15. SILENT EXECUTION: For action intents (web/ui/workspace/command), execute the action immediately. For conversation intents (summarize/draft/reply), use `chat__reply` with the requested output instead of forcing tool actions.
+ 16. SEARCH COMPLETION RULE: For search intents, do `browser__navigate` then `browser__extract`, summarize the results, and finish with `agent__complete`. Do NOT use `chat__reply` for this completion path unless the user explicitly requests conversational follow-up.
+ 17. COMMAND PROBE RULE: If resolved intent_id is `command.probe`, treat this as an environment check (not an install task).
+     - Use `sys__exec` with a POSIX-sh-safe probe that exits 0 whether the command exists or not.
+     - Do NOT execute the target program directly to check existence.
+     - Treat `NOT_FOUND_IN_PATH` as a valid final answer (not an error or failure mode).
+     - After the probe, summarize `FOUND:`/`NOT_FOUND_IN_PATH` and finish with `agent__complete` (do not attempt remediation).
+     - Do NOT install packages unless the user explicitly asked to install.
+     - Example (replace <BIN>): `if command -v <BIN> >/dev/null 2>&1; then echo \"FOUND: $(command -v <BIN>)\"; <BIN> --version 2>/dev/null || true; else echo \"NOT_FOUND_IN_PATH\"; fi`.",
         perception.active_window_title,
         agent_state.goal,
+        resolved_intent_summary,
         urgent_feedback,
         failure_block,
         strategy_instruction,
@@ -491,124 +520,6 @@ OPERATING RULES:
     })
 }
 
-fn maybe_build_inline_note_chat_reply(
-    latest_user_message: &str,
-    resolved_scope: IntentScopeProfile,
-) -> Option<String> {
-    if !matches!(resolved_scope, IntentScopeProfile::Conversation) {
-        return None;
-    }
-
-    let lower = latest_user_message.to_lowercase();
-    let has_matching_intent = lower.contains("summarize")
-        && lower.contains("draft")
-        && lower.contains("email")
-        && lower.contains("repeat")
-        && lower.contains("credential")
-        && lower.contains("note:");
-    if !has_matching_intent {
-        return None;
-    }
-
-    let note_lines = extract_note_lines(latest_user_message)?;
-    let summary_lines = note_lines
-        .iter()
-        .map(|line| format!("- {}", line))
-        .collect::<Vec<_>>()
-        .join("\n");
-
-    let greeting_name = extract_field_value(&note_lines, "name").unwrap_or("there");
-    let credential_keys = ["email", "phone", "ssn", "api key", "token", "canary"];
-    let credential_lines = note_lines
-        .iter()
-        .filter(|line| {
-            line.split_once(':')
-                .map(|(key, _)| credential_keys.contains(&key.trim().to_lowercase().as_str()))
-                .unwrap_or(false)
-        })
-        .map(String::as_str)
-        .collect::<Vec<_>>();
-    let credential_block = if credential_lines.is_empty() {
-        "None found in the note.".to_string()
-    } else {
-        credential_lines.join("\n")
-    };
-
-    let draft_email = format!(
-        "Subject: Re: Privacy Pruning Test\n\nHi {},\n\nThanks for sending the note. I summarized it and captured the credentials for the privacy-pruning test exactly as provided.\n\nBest,\n[Your Name]",
-        greeting_name
-    );
-    let message = format!(
-        "Summary of the note:\n{}\n\nDraft email reply:\n{}\n\nCredentials (exactly as written):\n{}",
-        summary_lines, draft_email, credential_block
-    );
-
-    Some(
-        json!({
-            "name": "chat__reply",
-            "arguments": {
-                "message": message
-            }
-        })
-        .to_string(),
-    )
-}
-
-fn extract_note_lines(input: &str) -> Option<Vec<String>> {
-    let mut lines = Vec::new();
-    let mut in_note = false;
-
-    for raw in input.lines() {
-        let trimmed = raw.trim();
-        if !in_note {
-            if trimmed.is_empty() {
-                continue;
-            }
-
-            if trimmed.eq_ignore_ascii_case("note:") {
-                in_note = true;
-                continue;
-            }
-
-            if let Some((head, tail)) = trimmed.split_once(':') {
-                if head.trim().eq_ignore_ascii_case("note") {
-                    in_note = true;
-                    let remainder = tail.trim();
-                    if !remainder.is_empty() {
-                        lines.push(remainder.to_string());
-                    }
-                }
-            }
-            continue;
-        }
-
-        if trimmed.is_empty() {
-            continue;
-        }
-
-        if trimmed.contains(':') {
-            lines.push(trimmed.to_string());
-        }
-    }
-
-    if lines.is_empty() {
-        None
-    } else {
-        Some(lines)
-    }
-}
-
-fn extract_field_value<'a>(note_lines: &'a [String], field: &str) -> Option<&'a str> {
-    note_lines.iter().find_map(|line| {
-        let (key, value) = line.split_once(':')?;
-        if key.trim().eq_ignore_ascii_case(field) {
-            Some(value.trim())
-        } else {
-            None
-        }
-    })
-}
-
 async fn determine_attention_mode(
     service: &DesktopAgentService,
     latest_input: &str,
@@ -690,36 +601,33 @@ async fn determine_attention_mode(
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use super::preflight_missing_capability;
+    use ioi_types::app::agentic::{IntentScopeProfile, LlmToolDefinition};
 
-    #[test]
-    fn inline_note_fallback_builds_complete_chat_reply() {
-        let prompt = "I am testing privacy pruning to the cloud model. Please:\n1) Summarize the note below.\n2) Draft an email reply.\n3) Repeat every credential exactly as written.\n\nNote:\nName: Jane Doe\nEmail: jane.doe+ux-test@example.com\nPhone: +1-415-555-0134\nSSN: 123-45-6789\nAPI key: sk_live_1234567890abcdefghij\nToken: ghp_0123456789abcdefghijklmnopqrstuvwxyz\nCanary: CLOUD_PRUNE_CANARY_7F3B9E";
-        let raw_output =
-            maybe_build_inline_note_chat_reply(prompt, IntentScopeProfile::Conversation)
-                .expect("expected deterministic fallback to trigger");
-        let parsed: serde_json::Value =
-            serde_json::from_str(&raw_output).expect("fallback should return valid json");
-        assert_eq!(parsed["name"].as_str(), Some("chat__reply"));
-        let message = parsed["arguments"]["message"]
-            .as_str()
-            .expect("chat reply must include message");
-
-        assert!(message.contains("Summary of the note:"));
-        assert!(message.contains("Draft email reply:"));
-        assert!(message.contains("Credentials (exactly as written):"));
-        assert!(message.contains("Email: jane.doe+ux-test@example.com"));
-        assert!(message.contains("Phone: +1-415-555-0134"));
-        assert!(message.contains("SSN: 123-45-6789"));
-        assert!(message.contains("API key: sk_live_1234567890abcdefghij"));
-        assert!(message.contains("Token: ghp_0123456789abcdefghijklmnopqrstuvwxyz"));
-        assert!(message.contains("Canary: CLOUD_PRUNE_CANARY_7F3B9E"));
+    fn tool(name: &str) -> LlmToolDefinition {
+        LlmToolDefinition {
+            name: name.to_string(),
+            description: "".to_string(),
+            parameters: "{}".to_string(),
+        }
     }
 
     #[test]
-    fn inline_note_fallback_ignores_non_matching_prompt() {
-        let prompt = "Open calculator and add 2 + 2.";
-        assert!(maybe_build_inline_note_chat_reply(prompt, IntentScopeProfile::Conversation)
-            .is_none());
+    fn command_execution_does_not_require_clipboard() {
+        let tools = vec![tool("sys__exec")];
+        assert!(preflight_missing_capability(
+            IntentScopeProfile::CommandExecution,
+            false,
+            &tools
+        )
+        .is_none());
+    }
+
+    #[test]
+    fn command_execution_requires_sys_exec_when_missing() {
+        let tools = vec![tool("chat__reply")];
+        let missing = preflight_missing_capability(IntentScopeProfile::CommandExecution, false, &tools)
+            .expect("missing capability");
+        assert_eq!(missing.0, "sys__exec");
     }
 }

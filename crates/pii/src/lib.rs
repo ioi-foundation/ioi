@@ -2,7 +2,7 @@
 
 use anyhow::Result;
 use dcrypt::algorithms::hash::{HashFunction, Sha256};
-use ioi_types::app::action::ApprovalToken;
+use ioi_types::app::action::{ApprovalToken, PiiApprovalAction};
 use ioi_types::app::agentic::{
     EvidenceGraph, EvidenceSpan, FirewallDecision, PiiClass, PiiDecisionMaterial,
     PiiReviewRequest, PiiReviewSummary, PiiControls, PiiSeverity, PiiTarget, RawOverrideMode,
@@ -353,8 +353,13 @@ pub fn validate_resume_review_contract(
     }
 
     let Some(request) = review_request else {
-        if approval_token.pii_action.is_some() {
-            return Err(PiiReviewContractError::PiiActionWithoutReviewRequest);
+        // Legacy approvals are not review-bound. We still allow explicit denial for
+        // non-review (policy) gates so UIs can deterministically clear pending actions
+        // without minting a review request.
+        if let Some(action) = approval_token.pii_action.as_ref() {
+            if !matches!(action, PiiApprovalAction::Deny) {
+                return Err(PiiReviewContractError::PiiActionWithoutReviewRequest);
+            }
         }
         return Ok(ResumeReviewMode::LegacyApproval);
     };
@@ -1993,6 +1998,15 @@ mod tests {
             result,
             Err(PiiReviewContractError::PiiActionWithoutReviewRequest)
         );
+    }
+
+    #[test]
+    fn resume_contract_accepts_deny_without_review_request() {
+        let expected_hash = [9u8; 32];
+        let token = sample_approval_token(expected_hash, Some(PiiApprovalAction::Deny));
+        let result = validate_resume_review_contract(expected_hash, &token, None, 500)
+            .expect("deny should be allowed without a review request");
+        assert_eq!(result, ResumeReviewMode::LegacyApproval);
     }
 
     #[test]

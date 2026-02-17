@@ -946,7 +946,7 @@ mod tests {
             score: 0.95,
             top_k: vec![],
             preferred_tier: "tool_first".to_string(),
-            matrix_version: "intent-matrix-v1".to_string(),
+            matrix_version: "intent-matrix-v2".to_string(),
             matrix_source_hash: [1u8; 32],
             receipt_hash: [2u8; 32],
             constrained: false,

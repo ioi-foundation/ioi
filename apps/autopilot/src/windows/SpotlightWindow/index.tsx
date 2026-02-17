@@ -456,10 +456,10 @@ export function SpotlightWindow({ variant = "overlay" }: SpotlightWindowProps) {
   const handleApprove = useCallback(async () => {
     setGateActionError(null);
     try {
-      await invoke("gate_respond", { approved: true, action: "approve_transform" });
+      await invoke("gate_respond", { approved: true });
       setChatEvents((prev) =>
         prev.map((m) =>
-          m.isGate ? { ...m, isGate: false, text: "✓ Transform approved" } : m,
+          m.isGate ? { ...m, isGate: false, text: "✓ Approved" } : m,
         ),
       );
     } catch (err) {
@@ -591,6 +591,7 @@ export function SpotlightWindow({ variant = "overlay" }: SpotlightWindowProps) {
           risk: "high" as const,
         }
       : undefined;
+  const isPiiGate = !!gateInfo?.pii;
   const isGated =
     !showPasswordPrompt &&
     !showClarificationPrompt &&
@@ -870,6 +871,9 @@ export function SpotlightWindow({ variant = "overlay" }: SpotlightWindowProps) {
                   title={gateInfo.title}
                   description={gateInfo.description}
                   risk={gateInfo.risk}
+                  approveLabel={isPiiGate ? "Approve Transform" : "Approve"}
+                  showDeny={true}
+                  denyLabel="Deny"
                   deadlineMs={gateDeadlineMs}
                   targetLabel={gateInfo.pii?.target_label}
                   spanSummary={gateInfo.pii?.span_summary}
@@ -879,7 +883,7 @@ export function SpotlightWindow({ variant = "overlay" }: SpotlightWindowProps) {
                   targetId={(gateInfo.pii?.target_id as Record<string, unknown> | null) ?? null}
                   errorMessage={gateActionError}
                   onApproveTransform={handleApprove}
-                  onGrantScopedException={handleGrantScopedException}
+                  onGrantScopedException={isPiiGate ? handleGrantScopedException : undefined}
                   onDeny={handleDeny}
                 />
               </div>
