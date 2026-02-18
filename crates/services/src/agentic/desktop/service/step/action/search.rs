@@ -1,13 +1,13 @@
 use ioi_types::app::agentic::{IntentScopeProfile, ResolvedIntentState};
 use url::Url;
 
-pub(super) fn is_search_scope(resolved_intent: Option<&ResolvedIntentState>) -> bool {
+pub(crate) fn is_search_scope(resolved_intent: Option<&ResolvedIntentState>) -> bool {
     resolved_intent
         .map(|resolved| resolved.scope == IntentScopeProfile::WebResearch)
         .unwrap_or(false)
 }
 
-pub(super) fn extract_navigation_url(args: &serde_json::Value) -> Option<String> {
+pub(crate) fn extract_navigation_url(args: &serde_json::Value) -> Option<String> {
     args.get("url")
         .and_then(|value| value.as_str())
         .map(str::trim)
@@ -15,7 +15,7 @@ pub(super) fn extract_navigation_url(args: &serde_json::Value) -> Option<String>
         .map(|value| value.to_string())
 }
 
-pub(super) fn search_query_from_url(url: &str) -> Option<String> {
+pub(crate) fn search_query_from_url(url: &str) -> Option<String> {
     let parsed = Url::parse(url).ok()?;
     let keys = ["q", "query", "p", "text", "wd", "k"];
     parsed
@@ -24,7 +24,7 @@ pub(super) fn search_query_from_url(url: &str) -> Option<String> {
         .map(|(_, v)| v.to_string())
 }
 
-pub(super) fn is_search_results_url(url: &str) -> bool {
+pub(crate) fn is_search_results_url(url: &str) -> bool {
     let parsed = match Url::parse(url) {
         Ok(parsed) => parsed,
         Err(_) => return false,

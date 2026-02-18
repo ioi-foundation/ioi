@@ -387,8 +387,8 @@ OPERATING RULES:
 5. When goal achieved, call 'agent__complete'.
 6. If the current mode fails, output a reason why so the system can escalate to the next tier.
 7. CRITICAL: When using 'computer.type', you MUST first CLICK the input field to ensure focus.
-8. BROWSER RULE: Never launch browsers via `sys__exec`. Treat that as a policy violation. Always start browsing with `browser__navigate`.
-8a. WEB RETRIEVAL RULE: For retrieval (look up, latest, sources, citations), prefer `web__search` and `web__read` over browser UI automation. Use `browser__*` only when the page requires interaction (auth/forms/CAPTCHA). If a human-verification challenge appears, stop and ask the user to complete it manually, then retry.
+8. BROWSER RULE: Never launch browsers via `sys__exec`. Treat that as a policy violation. Use `browser__navigate` only for interactive browsing actions that require browser UI state.
+8a. WEB RETRIEVAL RULE: For retrieval (look up, latest, sources, citations), use `web__search` and `web__read` first. Do NOT open search engine SERP pages via `browser__navigate` when `web__search` is available. Use `browser__*` only when the page requires interaction (auth/forms/CAPTCHA). If a human-verification challenge appears, stop and ask the user to complete it manually, then retry.
 8aa. DIRECT FETCH RULE: Use `net__fetch` for direct HTTP/API retrieval when you already know the URL and need raw response text/headers (not citations). Use `web__search` / `web__read` for research and sources.
 8b. BROWSER CLICK RULE: In a browser window, never use `gui__click` on web content. Prefer `browser__click_element` with IDs from `browser__snapshot`; use `browser__click` with concrete CSS selectors only as fallback. Use GUI clicks only for OS chrome (address bar/system dialogs) when browser tools cannot target it.
 8c. PACKAGE INSTALL RULE: For dependency installation, prefer `sys__install_package` over raw `sys__exec` so command construction stays deterministic and policy-auditable.

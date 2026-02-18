@@ -2,10 +2,25 @@ use anyhow::{anyhow, Result};
 use ioi_crypto::algorithms::hash::sha256;
 use ioi_drivers::browser::BrowserDriver;
 use ioi_types::app::agentic::{WebDocument, WebEvidenceBundle, WebQuoteSpan, WebSource};
+use reqwest::{redirect, Client};
 use scraper::{Html, Selector};
 use std::collections::HashSet;
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::future::Future;
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use tokio::time::timeout;
 use url::Url;
+
+const BROWSER_RETRIEVAL_TIMEOUT_SECS: u64 = 20;
+const HTTP_FALLBACK_TIMEOUT_SECS: u64 = 15;
+
+fn env_flag_enabled(name: &str) -> bool {
+    std::env::var(name)
+        .map(|raw| {
+            let normalized = raw.trim().to_ascii_lowercase();
+            matches!(normalized.as_str(), "1" | "true" | "yes" | "on")
+        })
+        .unwrap_or(false)
+}
 
 fn now_ms() -> u64 {
     SystemTime::now()
@@ -83,6 +98,107 @@ fn detect_human_challenge(url: &str, content: &str) -> Option<&'static str> {
     }
 
     None
+}
+
+fn is_timeout_or_hang_message(msg: &str) -> bool {
+    let lower = msg.to_ascii_lowercase();
+    lower.contains("timeout")
+        || lower.contains("timed out")
+        || lower.contains("request timed out")
+        || lower.contains("deadline")
+        || lower.contains("hang")
+}
+
+fn should_attempt_http_fallback(err: &anyhow::Error) -> bool {
+    is_timeout_or_hang_message(&err.to_string())
+}
+
+async fn navigate_browser_retrieval(browser: &BrowserDriver, url: &str) -> Result<String> {
+    if env_flag_enabled("IOI_WEB_TEST_FORCE_BROWSER_TIMEOUT") {
+        return Err(anyhow!(
+            "ERROR_CLASS=TimeoutOrHang browser retrieval timed out after {}s: {} (forced)",
+            BROWSER_RETRIEVAL_TIMEOUT_SECS,
+            url
+        ));
+    }
+
+    let retrieval = timeout(
+        Duration::from_secs(BROWSER_RETRIEVAL_TIMEOUT_SECS),
+        browser.navigate_retrieval(url),
+    )
+    .await;
+
+    match retrieval {
+        Ok(Ok(html)) => Ok(html),
+        Ok(Err(e)) => {
+            let msg = format!("browser retrieval navigate failed: {}", e);
+            if is_timeout_or_hang_message(&msg) {
+                return Err(anyhow!("ERROR_CLASS=TimeoutOrHang {}", msg));
+            }
+            Err(anyhow!("{}", msg))
+        }
+        Err(_) => Err(anyhow!(
+            "ERROR_CLASS=TimeoutOrHang browser retrieval timed out after {}s: {}",
+            BROWSER_RETRIEVAL_TIMEOUT_SECS,
+            url
+        )),
+    }
+}
+
+async fn fetch_html_http_fallback(url: &str) -> Result<String> {
+    if env_flag_enabled("IOI_WEB_TEST_FORCE_HTTP_TIMEOUT") {
+        return Err(anyhow!("HTTP fallback request timed out (forced): {}", url));
+    }
+    if let Ok(html) = std::env::var("IOI_WEB_TEST_HTTP_FALLBACK_HTML") {
+        return Ok(html);
+    }
+
+    let client = Client::builder()
+        .redirect(redirect::Policy::limited(5))
+        .timeout(Duration::from_secs(HTTP_FALLBACK_TIMEOUT_SECS))
+        .user_agent("ioi-web-retrieve/1.0")
+        .build()
+        .map_err(|e| anyhow!("HTTP fallback client init failed: {}", e))?;
+
+    let response = client
+        .get(url)
+        .send()
+        .await
+        .map_err(|e| anyhow!("HTTP fallback request failed: {}", e))?;
+
+    response
+        .text()
+        .await
+        .map_err(|e| anyhow!("HTTP fallback body read failed: {}", e))
+}
+
+async fn retrieve_html_with_fallback<FFut, F>(
+    url: &str,
+    primary: Result<String>,
+    fallback_fetch: F,
+) -> Result<String>
+where
+    F: FnOnce() -> FFut,
+    FFut: Future<Output = Result<String>>,
+{
+    match primary {
+        Ok(html) => Ok(html),
+        Err(primary_err) => {
+            if !should_attempt_http_fallback(&primary_err) {
+                return Err(primary_err);
+            }
+
+            match fallback_fetch().await {
+                Ok(html) => Ok(html),
+                Err(fallback_err) => Err(anyhow!(
+                    "ERROR_CLASS=TimeoutOrHang web retrieval timeout exhaustion for {}. primary_error={} fallback_error={}",
+                    url,
+                    primary_err,
+                    fallback_err
+                )),
+            }
+        }
+    }
 }
 
 fn absolutize_ddg_href(href: &str) -> String {
@@ -361,10 +477,11 @@ pub async fn edge_web_search(
     limit: u32,
 ) -> Result<WebEvidenceBundle> {
     let serp_url = build_ddg_serp_url(query);
-    let html = browser
-        .navigate_retrieval(&serp_url)
-        .await
-        .map_err(|e| anyhow!("browser retrieval navigate failed: {}", e))?;
+    let primary = navigate_browser_retrieval(browser, &serp_url).await;
+    let html = retrieve_html_with_fallback(&serp_url, primary, || async {
+        fetch_html_http_fallback(&serp_url).await
+    })
+    .await?;
 
     if let Some(reason) = detect_human_challenge(&serp_url, &html) {
         return Err(anyhow!(
@@ -396,10 +513,11 @@ pub async fn edge_web_read(
     if read_url.is_empty() {
         return Err(anyhow!("Empty URL"));
     }
-    let html = browser
-        .navigate_retrieval(read_url)
-        .await
-        .map_err(|e| anyhow!("browser retrieval navigate failed: {}", e))?;
+    let primary = navigate_browser_retrieval(browser, read_url).await;
+    let html = retrieve_html_with_fallback(read_url, primary, || async {
+        fetch_html_http_fallback(read_url).await
+    })
+    .await?;
 
     if let Some(reason) = detect_human_challenge(read_url, &html) {
         return Err(anyhow!(
@@ -511,5 +629,63 @@ mod tests {
             &content[spans[0].start_byte as usize..spans[0].end_byte as usize],
             spans[0].quote
         );
+    }
+
+    #[tokio::test(flavor = "current_thread")]
+    async fn retrieval_timeout_uses_http_fallback_for_search_flow() {
+        let html = retrieve_html_with_fallback(
+            "https://duckduckgo.com/?q=latest+news",
+            Err(anyhow!(
+                "ERROR_CLASS=TimeoutOrHang browser retrieval timed out after 20s"
+            )),
+            || async {
+                Ok(r#"
+                <html><body>
+                  <div class="result">
+                    <a class="result__a" href="https://example.com/a">Result A</a>
+                  </div>
+                </body></html>
+                "#
+                .to_string())
+            },
+        )
+        .await
+        .expect("fallback should succeed");
+
+        let sources = parse_ddg_sources_from_html(&html, 5);
+        assert_eq!(sources.len(), 1);
+        assert_eq!(sources[0].url, "https://example.com/a");
+    }
+
+    #[tokio::test(flavor = "current_thread")]
+    async fn retrieval_timeout_uses_http_fallback_for_read_flow() {
+        let html = retrieve_html_with_fallback(
+            "https://example.com/article",
+            Err(anyhow!(
+                "browser retrieval navigate failed: Request timed out"
+            )),
+            || async {
+                Ok(r#"
+                <html><head><title>Doc</title></head>
+                <body><article><p>Alpha.</p><p>Beta.</p></article></body></html>
+                "#
+                .to_string())
+            },
+        )
+        .await
+        .expect("fallback should succeed");
+
+        let (title, blocks) = extract_read_blocks(&html);
+        assert_eq!(title.as_deref(), Some("Doc"));
+        assert_eq!(blocks.len(), 2);
+    }
+
+    #[test]
+    fn challenge_detection_still_triggers() {
+        let reason = detect_human_challenge(
+            "https://duckduckgo.com/?q=latest+news",
+            "Please verify you are human to continue",
+        );
+        assert!(reason.is_some());
     }
 }
