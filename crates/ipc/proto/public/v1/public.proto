@@ -212,6 +212,7 @@ message WorkloadReceipt {
     oneof receipt {
         WorkloadExecReceipt exec = 10;
         WorkloadNetFetchReceipt net_fetch = 11;
+        WorkloadWebRetrieveReceipt web_retrieve = 12;
     }
 }
 
@@ -254,6 +255,31 @@ message WorkloadNetFetchReceipt {
 
     string error_class = 16;
     bool has_error_class = 17;
+}
+
+message WorkloadWebRetrieveReceipt {
+    string tool_name = 1; // "web__search" | "web__read"
+    string backend = 2;   // "edge:ddg" | "edge:read"
+
+    string query = 3;
+    bool has_query = 4;
+
+    string url = 5; // redacted/scrubbed
+    bool has_url = 6;
+
+    uint32 limit = 7;
+    bool has_limit = 8;
+
+    uint32 max_chars = 9;
+    bool has_max_chars = 10;
+
+    uint32 sources_count = 11;
+    uint32 documents_count = 12;
+
+    bool success = 13;
+
+    string error_class = 14;
+    bool has_error_class = 15;
 }
 
 // [NEW] Message for agent spawning

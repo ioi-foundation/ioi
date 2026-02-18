@@ -2,7 +2,9 @@
 
 use super::{workload, ToolExecutionResult, ToolExecutor};
 use ioi_types::app::agentic::AgentTool;
-use ioi_types::app::{WorkloadActivityKind, WorkloadNetFetchReceipt, WorkloadReceipt};
+use ioi_types::app::{
+    WorkloadActivityKind, WorkloadNetFetchReceipt, WorkloadReceipt, WorkloadWebRetrieveReceipt,
+};
 use reqwest::{redirect, Client, Url};
 use serde_json::json;
 use std::time::Duration;
@@ -10,6 +12,8 @@ use std::time::Duration;
 const NET_FETCH_DEFAULT_MAX_CHARS: u32 = 12_000;
 const NET_FETCH_MAX_CHARS_LIMIT: u32 = 120_000;
 const NET_FETCH_MAX_BYTES_LIMIT: usize = 2_000_000;
+const WEB_RETRIEVE_RECEIPT_MAX_CHARS: usize = 512;
+const WEB_RETRIEVE_PREVIEW_MAX_CHARS: usize = 256;
 
 fn is_text_like_content_type(content_type: &str) -> bool {
     let ct = content_type
@@ -117,29 +121,191 @@ pub async fn handle(
     match tool {
         AgentTool::WebSearch { query, limit, .. } => {
             let limit = limit.unwrap_or(5).clamp(1, 10);
-            match crate::agentic::web::edge_web_search(&exec.browser, &query, limit).await {
-                Ok(bundle) => match serde_json::to_string_pretty(&bundle) {
-                    Ok(out) => ToolExecutionResult::success(out),
-                    Err(e) => ToolExecutionResult::failure(format!(
-                        "ERROR_CLASS=SerializationFailed Failed to serialize web evidence: {}",
-                        e
-                    )),
-                },
-                Err(e) => ToolExecutionResult::failure(e.to_string()),
+            let query_trimmed = query.trim();
+            let query_for_receipt_raw =
+                workload::scrub_workload_text_field_for_receipt(exec, query_trimmed).await;
+            let (query_for_receipt, _) =
+                truncate_chars(&query_for_receipt_raw, WEB_RETRIEVE_RECEIPT_MAX_CHARS);
+
+            let receipt_preview_raw = if query_for_receipt.trim().is_empty() {
+                "web__search".to_string()
+            } else {
+                format!("web__search {}", query_for_receipt)
+            };
+            let (receipt_preview, _) =
+                truncate_chars(&receipt_preview_raw, WEB_RETRIEVE_PREVIEW_MAX_CHARS);
+            let workload_id = workload::compute_workload_id(
+                session_id,
+                step_index,
+                "web__search",
+                &receipt_preview,
+            );
+
+            if let Some(tx) = exec.event_sender.as_ref() {
+                workload::emit_workload_activity(
+                    tx,
+                    session_id,
+                    step_index,
+                    workload_id.clone(),
+                    WorkloadActivityKind::Lifecycle {
+                        phase: "started".to_string(),
+                        exit_code: None,
+                    },
+                );
             }
+
+            let mut sources_count: u32 = 0;
+            let mut documents_count: u32 = 0;
+            let result =
+                match crate::agentic::web::edge_web_search(&exec.browser, &query, limit).await {
+                    Ok(bundle) => match serde_json::to_string_pretty(&bundle) {
+                        Ok(out) => {
+                            sources_count = bundle.sources.len() as u32;
+                            documents_count = bundle.documents.len() as u32;
+                            ToolExecutionResult::success(out)
+                        }
+                        Err(e) => ToolExecutionResult::failure(format!(
+                            "ERROR_CLASS=SerializationFailed Failed to serialize web evidence: {}",
+                            e
+                        )),
+                    },
+                    Err(e) => ToolExecutionResult::failure(e.to_string()),
+                };
+
+            if let Some(tx) = exec.event_sender.as_ref() {
+                workload::emit_workload_activity(
+                    tx,
+                    session_id,
+                    step_index,
+                    workload_id.clone(),
+                    WorkloadActivityKind::Lifecycle {
+                        phase: if result.success {
+                            "completed".to_string()
+                        } else {
+                            "failed".to_string()
+                        },
+                        exit_code: None,
+                    },
+                );
+                workload::emit_workload_receipt(
+                    tx,
+                    session_id,
+                    step_index,
+                    workload_id.clone(),
+                    WorkloadReceipt::WebRetrieve(WorkloadWebRetrieveReceipt {
+                        tool_name: "web__search".to_string(),
+                        backend: "edge:ddg".to_string(),
+                        query: (!query_for_receipt.trim().is_empty()).then_some(query_for_receipt),
+                        url: None,
+                        limit: Some(limit),
+                        max_chars: None,
+                        sources_count: if result.success { sources_count } else { 0 },
+                        documents_count: if result.success { documents_count } else { 0 },
+                        success: result.success,
+                        error_class: workload::extract_error_class(result.error.as_deref()),
+                    }),
+                );
+            }
+            result
         }
         AgentTool::WebRead { url, max_chars } => {
-            let max_chars = Some(max_chars.unwrap_or(NET_FETCH_DEFAULT_MAX_CHARS));
-            match crate::agentic::web::edge_web_read(&exec.browser, &url, max_chars).await {
+            let max_chars = max_chars.unwrap_or(NET_FETCH_DEFAULT_MAX_CHARS);
+            let url_trimmed = url.trim();
+            let url_redacted = Url::parse(url_trimmed)
+                .ok()
+                .map(|parsed| redact_url_for_receipt(&parsed).to_string())
+                .unwrap_or_else(|| strip_userinfo_from_urlish(strip_query_fragment(url_trimmed)));
+            let url_for_receipt_raw =
+                workload::scrub_workload_text_field_for_receipt(exec, url_redacted.as_str()).await;
+            let (url_for_receipt, _) =
+                truncate_chars(&url_for_receipt_raw, WEB_RETRIEVE_RECEIPT_MAX_CHARS);
+
+            let receipt_preview_raw = if url_for_receipt.trim().is_empty() {
+                "web__read".to_string()
+            } else {
+                format!("web__read {}", url_for_receipt)
+            };
+            let (receipt_preview, _) =
+                truncate_chars(&receipt_preview_raw, WEB_RETRIEVE_PREVIEW_MAX_CHARS);
+            let workload_id = workload::compute_workload_id(
+                session_id,
+                step_index,
+                "web__read",
+                &receipt_preview,
+            );
+
+            if let Some(tx) = exec.event_sender.as_ref() {
+                workload::emit_workload_activity(
+                    tx,
+                    session_id,
+                    step_index,
+                    workload_id.clone(),
+                    WorkloadActivityKind::Lifecycle {
+                        phase: "started".to_string(),
+                        exit_code: None,
+                    },
+                );
+            }
+
+            let mut sources_count: u32 = 0;
+            let mut documents_count: u32 = 0;
+            let result = match crate::agentic::web::edge_web_read(
+                &exec.browser,
+                &url,
+                Some(max_chars),
+            )
+            .await
+            {
                 Ok(bundle) => match serde_json::to_string_pretty(&bundle) {
-                    Ok(out) => ToolExecutionResult::success(out),
+                    Ok(out) => {
+                        sources_count = bundle.sources.len() as u32;
+                        documents_count = bundle.documents.len() as u32;
+                        ToolExecutionResult::success(out)
+                    }
                     Err(e) => ToolExecutionResult::failure(format!(
                         "ERROR_CLASS=SerializationFailed Failed to serialize web evidence: {}",
                         e
                     )),
                 },
                 Err(e) => ToolExecutionResult::failure(e.to_string()),
+            };
+
+            if let Some(tx) = exec.event_sender.as_ref() {
+                workload::emit_workload_activity(
+                    tx,
+                    session_id,
+                    step_index,
+                    workload_id.clone(),
+                    WorkloadActivityKind::Lifecycle {
+                        phase: if result.success {
+                            "completed".to_string()
+                        } else {
+                            "failed".to_string()
+                        },
+                        exit_code: None,
+                    },
+                );
+                workload::emit_workload_receipt(
+                    tx,
+                    session_id,
+                    step_index,
+                    workload_id.clone(),
+                    WorkloadReceipt::WebRetrieve(WorkloadWebRetrieveReceipt {
+                        tool_name: "web__read".to_string(),
+                        backend: "edge:read".to_string(),
+                        query: None,
+                        url: (!url_for_receipt.trim().is_empty()).then_some(url_for_receipt),
+                        limit: None,
+                        max_chars: Some(max_chars),
+                        sources_count: if result.success { sources_count } else { 0 },
+                        documents_count: if result.success { documents_count } else { 0 },
+                        success: result.success,
+                        error_class: workload::extract_error_class(result.error.as_deref()),
+                    }),
+                );
             }
+
+            result
         }
         AgentTool::Dynamic(val) => {
             if val.get("name").and_then(|n| n.as_str()) != Some("net__fetch") {
@@ -149,10 +315,7 @@ pub async fn handle(
                 ));
             }
 
-            let args = val
-                .get("arguments")
-                .cloned()
-                .unwrap_or_else(|| json!({}));
+            let args = val.get("arguments").cloned().unwrap_or_else(|| json!({}));
             let url = args
                 .get("url")
                 .and_then(|v| v.as_str())
@@ -532,7 +695,9 @@ pub async fn handle(
                                     truncated: truncated_by_bytes,
                                     timeout_ms,
                                     success: false,
-                                    error_class: workload::extract_error_class(result.error.as_deref()),
+                                    error_class: workload::extract_error_class(
+                                        result.error.as_deref(),
+                                    ),
                                 }),
                             );
                         }
