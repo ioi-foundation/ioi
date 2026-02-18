@@ -319,9 +319,9 @@ impl ToolExecutor {
             | AgentTool::BrowserKey { .. } => browser::handle(self, tool).await,
 
             // Web Retrieval Domain
-            AgentTool::WebSearch { .. } | AgentTool::WebRead { .. } | AgentTool::NetFetch { .. } => {
-                web::handle(self, tool, session_id, step_index).await
-            }
+            AgentTool::WebSearch { .. }
+            | AgentTool::WebRead { .. }
+            | AgentTool::NetFetch { .. } => web::handle(self, tool, session_id, step_index).await,
 
             // Filesystem Domain
             AgentTool::FsRead { .. }
@@ -346,9 +346,7 @@ impl ToolExecutor {
             }
 
             // MCP / Dynamic Domain
-            AgentTool::Dynamic(val) => {
-                mcp::handle(self, val).await
-            }
+            AgentTool::Dynamic(val) => mcp::handle(self, val).await,
 
             // Handled by Service Logic (Lifecycle/Meta), should not reach here
             _ => ToolExecutionResult::failure(format!("Tool {:?} not handled by executor", tool)),

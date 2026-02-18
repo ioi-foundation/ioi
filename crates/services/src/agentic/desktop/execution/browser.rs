@@ -119,6 +119,92 @@ struct BrowserSemanticTarget {
     cdp_node_id: Option<String>,
     backend_dom_node_id: Option<String>,
     center_point: Option<(f64, f64)>,
+    focused: bool,
+    editable: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct ClickElementPostcondition {
+    target_disappeared: bool,
+    editable_focus_transition: bool,
+    tree_changed: bool,
+}
+
+impl ClickElementPostcondition {
+    fn met(&self) -> bool {
+        self.target_disappeared || self.editable_focus_transition || self.tree_changed
+    }
+}
+
+fn parse_attr_bool(raw: &str) -> Option<bool> {
+    let trimmed = raw.trim().to_ascii_lowercase();
+    match trimmed.as_str() {
+        "true" | "1" | "yes" | "on" => Some(true),
+        "false" | "0" | "no" | "off" => Some(false),
+        _ => None,
+    }
+}
+
+fn node_attr_flag(node: &AccessibilityNode, key: &str) -> Option<bool> {
+    let value = node
+        .attributes
+        .iter()
+        .find(|(k, _)| k.eq_ignore_ascii_case(key))
+        .map(|(_, v)| v.as_str())?;
+
+    if value.trim().is_empty() {
+        return Some(true);
+    }
+
+    parse_attr_bool(value).or(Some(true))
+}
+
+fn node_is_focused(node: &AccessibilityNode) -> bool {
+    matches!(node_attr_flag(node, "focused"), Some(true))
+}
+
+fn node_is_editable(node: &AccessibilityNode) -> bool {
+    let disabled = matches!(node_attr_flag(node, "disabled"), Some(true))
+        || matches!(node_attr_flag(node, "aria_disabled"), Some(true));
+    if disabled {
+        return false;
+    }
+
+    let readonly = matches!(node_attr_flag(node, "readonly"), Some(true))
+        || matches!(node_attr_flag(node, "aria_readonly"), Some(true))
+        || matches!(node_attr_flag(node, "read_only"), Some(true));
+    if readonly {
+        return false;
+    }
+
+    if matches!(node_attr_flag(node, "editable"), Some(true))
+        || matches!(node_attr_flag(node, "contenteditable"), Some(true))
+    {
+        return true;
+    }
+
+    matches!(
+        node.role.trim().to_ascii_lowercase().as_str(),
+        "textbox"
+            | "text box"
+            | "searchbox"
+            | "search box"
+            | "text"
+            | "edit"
+            | "entry"
+            | "textarea"
+            | "input"
+    )
+}
+
+fn semantic_target_from_node(node: &AccessibilityNode) -> BrowserSemanticTarget {
+    BrowserSemanticTarget {
+        cdp_node_id: node.attributes.get("cdp_node_id").cloned(),
+        backend_dom_node_id: node.attributes.get("backend_dom_node_id").cloned(),
+        center_point: rect_center(node.rect),
+        focused: node_is_focused(node),
+        editable: node_is_editable(node),
+    }
 }
 
 fn find_semantic_target_by_id(
@@ -126,11 +212,7 @@ fn find_semantic_target_by_id(
     target_id: &str,
 ) -> Option<BrowserSemanticTarget> {
     if node.id == target_id {
-        return Some(BrowserSemanticTarget {
-            cdp_node_id: node.attributes.get("cdp_node_id").cloned(),
-            backend_dom_node_id: node.attributes.get("backend_dom_node_id").cloned(),
-            center_point: rect_center(node.rect),
-        });
+        return Some(semantic_target_from_node(node));
     }
 
     for child in &node.children {
@@ -140,6 +222,73 @@ fn find_semantic_target_by_id(
     }
 
     None
+}
+
+fn find_semantic_target_by_browser_ids(
+    node: &AccessibilityNode,
+    cdp_node_id: Option<&str>,
+    backend_dom_node_id: Option<&str>,
+) -> Option<BrowserSemanticTarget> {
+    let node_cdp = node.attributes.get("cdp_node_id").map(String::as_str);
+    let node_backend = node
+        .attributes
+        .get("backend_dom_node_id")
+        .map(String::as_str);
+
+    let cdp_match = cdp_node_id
+        .filter(|id| !id.trim().is_empty())
+        .is_some_and(|id| node_cdp == Some(id));
+    let backend_match = backend_dom_node_id
+        .filter(|id| !id.trim().is_empty())
+        .is_some_and(|id| node_backend == Some(id));
+
+    if cdp_match || backend_match {
+        return Some(semantic_target_from_node(node));
+    }
+
+    for child in &node.children {
+        if let Some(found) =
+            find_semantic_target_by_browser_ids(child, cdp_node_id, backend_dom_node_id)
+        {
+            return Some(found);
+        }
+    }
+
+    None
+}
+
+fn click_element_postcondition_met(
+    pre_tree_xml: &str,
+    pre_target: &BrowserSemanticTarget,
+    post_tree_xml: &str,
+    post_target: Option<&BrowserSemanticTarget>,
+) -> ClickElementPostcondition {
+    let has_browser_ids =
+        pre_target.backend_dom_node_id.is_some() || pre_target.cdp_node_id.is_some();
+    let target_disappeared = has_browser_ids && post_target.is_none();
+    let editable_focus_transition = pre_target.editable
+        && !pre_target.focused
+        && post_target.is_some_and(|target| target.focused);
+    let tree_changed = pre_tree_xml != post_tree_xml;
+
+    ClickElementPostcondition {
+        target_disappeared,
+        editable_focus_transition,
+        tree_changed,
+    }
+}
+
+fn semantic_target_verification_json(target: Option<&BrowserSemanticTarget>) -> serde_json::Value {
+    match target {
+        Some(target) => json!({
+            "cdp_node_id": target.cdp_node_id,
+            "backend_dom_node_id": target.backend_dom_node_id,
+            "focused": target.focused,
+            "editable": target.editable,
+            "center_point": target.center_point.map(|(x, y)| vec![x, y]),
+        }),
+        None => serde_json::Value::Null,
+    }
 }
 
 pub(super) fn is_probable_browser_window(title: &str, app_name: &str) -> bool {
@@ -510,12 +659,58 @@ pub async fn handle(exec: &ToolExecutor, tool: AgentTool) -> ToolExecutionResult
                 ));
             }
 
+            let pre_tree_xml = render_browser_tree_xml(&transformed);
             let mut click_errors: Vec<String> = Vec::new();
+            let mut attempt_verification: Vec<serde_json::Value> = Vec::new();
 
             if let Some(backend_id) = semantic_target.backend_dom_node_id.as_deref() {
                 match exec.browser.click_backend_dom_node(backend_id).await {
                     Ok(()) => {
-                        return ToolExecutionResult::success(format!("Clicked element '{}'", id))
+                        sleep(Duration::from_millis(120)).await;
+                        match exec.browser.get_accessibility_tree().await {
+                            Ok(post_raw_tree) => {
+                                let post_transformed = apply_browser_auto_lens(post_raw_tree);
+                                let post_tree_xml = render_browser_tree_xml(&post_transformed);
+                                let post_target = find_semantic_target_by_browser_ids(
+                                    &post_transformed,
+                                    semantic_target.cdp_node_id.as_deref(),
+                                    semantic_target.backend_dom_node_id.as_deref(),
+                                );
+                                let postcondition = click_element_postcondition_met(
+                                    &pre_tree_xml,
+                                    &semantic_target,
+                                    &post_tree_xml,
+                                    post_target.as_ref(),
+                                );
+                                let verify = json!({
+                                    "method": "backend_dom_node_id",
+                                    "dispatch_succeeded": true,
+                                    "pre_target": semantic_target_verification_json(Some(&semantic_target)),
+                                    "post_target": semantic_target_verification_json(post_target.as_ref()),
+                                    "postcondition": {
+                                        "met": postcondition.met(),
+                                        "target_disappeared": postcondition.target_disappeared,
+                                        "editable_focus_transition": postcondition.editable_focus_transition,
+                                        "tree_changed": postcondition.tree_changed,
+                                    },
+                                });
+                                if postcondition.met() {
+                                    return ToolExecutionResult::success(format!(
+                                        "Clicked element '{}'. verify={}",
+                                        id, verify
+                                    ));
+                                }
+                                attempt_verification.push(verify);
+                            }
+                            Err(e) => {
+                                attempt_verification.push(json!({
+                                    "method": "backend_dom_node_id",
+                                    "dispatch_succeeded": true,
+                                    "postcondition": { "met": false },
+                                    "post_snapshot_error": e.to_string(),
+                                }));
+                            }
+                        }
                     }
                     Err(e) => click_errors.push(format!("backend_dom_node_id={}", e)),
                 }
@@ -524,7 +719,51 @@ pub async fn handle(exec: &ToolExecutor, tool: AgentTool) -> ToolExecutionResult
             if let Some(cdp_id) = semantic_target.cdp_node_id.as_deref() {
                 match exec.browser.click_ax_node(cdp_id).await {
                     Ok(()) => {
-                        return ToolExecutionResult::success(format!("Clicked element '{}'", id))
+                        sleep(Duration::from_millis(120)).await;
+                        match exec.browser.get_accessibility_tree().await {
+                            Ok(post_raw_tree) => {
+                                let post_transformed = apply_browser_auto_lens(post_raw_tree);
+                                let post_tree_xml = render_browser_tree_xml(&post_transformed);
+                                let post_target = find_semantic_target_by_browser_ids(
+                                    &post_transformed,
+                                    semantic_target.cdp_node_id.as_deref(),
+                                    semantic_target.backend_dom_node_id.as_deref(),
+                                );
+                                let postcondition = click_element_postcondition_met(
+                                    &pre_tree_xml,
+                                    &semantic_target,
+                                    &post_tree_xml,
+                                    post_target.as_ref(),
+                                );
+                                let verify = json!({
+                                    "method": "cdp_node_id",
+                                    "dispatch_succeeded": true,
+                                    "pre_target": semantic_target_verification_json(Some(&semantic_target)),
+                                    "post_target": semantic_target_verification_json(post_target.as_ref()),
+                                    "postcondition": {
+                                        "met": postcondition.met(),
+                                        "target_disappeared": postcondition.target_disappeared,
+                                        "editable_focus_transition": postcondition.editable_focus_transition,
+                                        "tree_changed": postcondition.tree_changed,
+                                    },
+                                });
+                                if postcondition.met() {
+                                    return ToolExecutionResult::success(format!(
+                                        "Clicked element '{}'. verify={}",
+                                        id, verify
+                                    ));
+                                }
+                                attempt_verification.push(verify);
+                            }
+                            Err(e) => {
+                                attempt_verification.push(json!({
+                                    "method": "cdp_node_id",
+                                    "dispatch_succeeded": true,
+                                    "postcondition": { "met": false },
+                                    "post_snapshot_error": e.to_string(),
+                                }));
+                            }
+                        }
                     }
                     Err(e) => click_errors.push(format!("cdp_node_id={}", e)),
                 }
@@ -533,10 +772,53 @@ pub async fn handle(exec: &ToolExecutor, tool: AgentTool) -> ToolExecutionResult
             if let Some((x, y)) = semantic_target.center_point {
                 match exec.browser.synthetic_click(x, y).await {
                     Ok(()) => {
-                        return ToolExecutionResult::success(format!(
-                            "Clicked element '{}' via geometry fallback",
-                            id
-                        ))
+                        sleep(Duration::from_millis(120)).await;
+                        match exec.browser.get_accessibility_tree().await {
+                            Ok(post_raw_tree) => {
+                                let post_transformed = apply_browser_auto_lens(post_raw_tree);
+                                let post_tree_xml = render_browser_tree_xml(&post_transformed);
+                                let post_target = find_semantic_target_by_browser_ids(
+                                    &post_transformed,
+                                    semantic_target.cdp_node_id.as_deref(),
+                                    semantic_target.backend_dom_node_id.as_deref(),
+                                );
+                                let postcondition = click_element_postcondition_met(
+                                    &pre_tree_xml,
+                                    &semantic_target,
+                                    &post_tree_xml,
+                                    post_target.as_ref(),
+                                );
+                                let verify = json!({
+                                    "method": "geometry_center",
+                                    "dispatch_succeeded": true,
+                                    "pre_target": semantic_target_verification_json(Some(&semantic_target)),
+                                    "post_target": semantic_target_verification_json(post_target.as_ref()),
+                                    "center_point": [x, y],
+                                    "postcondition": {
+                                        "met": postcondition.met(),
+                                        "target_disappeared": postcondition.target_disappeared,
+                                        "editable_focus_transition": postcondition.editable_focus_transition,
+                                        "tree_changed": postcondition.tree_changed,
+                                    },
+                                });
+                                if postcondition.met() {
+                                    return ToolExecutionResult::success(format!(
+                                        "Clicked element '{}' via geometry fallback. verify={}",
+                                        id, verify
+                                    ));
+                                }
+                                attempt_verification.push(verify);
+                            }
+                            Err(e) => {
+                                attempt_verification.push(json!({
+                                    "method": "geometry_center",
+                                    "dispatch_succeeded": true,
+                                    "center_point": [x, y],
+                                    "postcondition": { "met": false },
+                                    "post_snapshot_error": e.to_string(),
+                                }));
+                            }
+                        }
                     }
                     Err(e) => {
                         click_errors.push(format!("geometry_center=({:.2},{:.2})={}", x, y, e))
@@ -544,10 +826,15 @@ pub async fn handle(exec: &ToolExecutor, tool: AgentTool) -> ToolExecutionResult
                 }
             }
 
+            let verify = json!({
+                "id": id,
+                "pre_target": semantic_target_verification_json(Some(&semantic_target)),
+                "attempts": attempt_verification,
+                "click_errors": click_errors,
+            });
             ToolExecutionResult::failure(format!(
-                "ERROR_CLASS=NoEffectAfterAction Failed to click element '{}': {}",
-                id,
-                click_errors.join("; ")
+                "ERROR_CLASS=NoEffectAfterAction Failed to click element '{}'. verify={}",
+                id, verify
             ))
         }
         AgentTool::BrowserSyntheticClick { x, y } => {
@@ -818,5 +1105,156 @@ mod tests {
         };
 
         assert!(find_semantic_target_by_id(&node, "btn_missing").is_none());
+    }
+
+    #[test]
+    fn browser_id_lookup_matches_backend_and_cdp_ids() {
+        let node = AccessibilityNode {
+            id: "root".to_string(),
+            role: "root".to_string(),
+            name: None,
+            value: None,
+            rect: Rect {
+                x: 0,
+                y: 0,
+                width: 0,
+                height: 0,
+            },
+            children: vec![AccessibilityNode {
+                id: "search_input".to_string(),
+                role: "textbox".to_string(),
+                name: Some("Search".to_string()),
+                value: None,
+                rect: Rect {
+                    x: 12,
+                    y: 20,
+                    width: 200,
+                    height: 36,
+                },
+                children: vec![],
+                is_visible: true,
+                attributes: HashMap::from([
+                    ("cdp_node_id".to_string(), "ax-100".to_string()),
+                    ("backend_dom_node_id".to_string(), "88".to_string()),
+                    ("focused".to_string(), "true".to_string()),
+                ]),
+                som_id: None,
+            }],
+            is_visible: true,
+            attributes: HashMap::new(),
+            som_id: None,
+        };
+
+        let by_cdp = find_semantic_target_by_browser_ids(&node, Some("ax-100"), None)
+            .expect("lookup by cdp id should resolve");
+        assert_eq!(by_cdp.backend_dom_node_id.as_deref(), Some("88"));
+        assert!(by_cdp.focused);
+
+        let by_backend = find_semantic_target_by_browser_ids(&node, None, Some("88"))
+            .expect("lookup by backend id should resolve");
+        assert_eq!(by_backend.cdp_node_id.as_deref(), Some("ax-100"));
+    }
+
+    #[test]
+    fn click_element_postcondition_succeeds_when_target_disappears() {
+        let pre_target = BrowserSemanticTarget {
+            cdp_node_id: Some("ax-42".to_string()),
+            backend_dom_node_id: Some("73".to_string()),
+            center_point: Some((12.0, 20.0)),
+            focused: false,
+            editable: false,
+        };
+
+        let postcondition = click_element_postcondition_met(
+            "<root><button/></root>",
+            &pre_target,
+            "<root><div/></root>",
+            None,
+        );
+        assert!(postcondition.target_disappeared);
+        assert!(postcondition.met());
+    }
+
+    #[test]
+    fn click_element_postcondition_succeeds_on_editable_focus_transition() {
+        let pre_target = BrowserSemanticTarget {
+            cdp_node_id: Some("ax-100".to_string()),
+            backend_dom_node_id: Some("88".to_string()),
+            center_point: Some((40.0, 22.0)),
+            focused: false,
+            editable: true,
+        };
+        let post_target = BrowserSemanticTarget {
+            cdp_node_id: Some("ax-100".to_string()),
+            backend_dom_node_id: Some("88".to_string()),
+            center_point: Some((40.0, 22.0)),
+            focused: true,
+            editable: true,
+        };
+
+        let postcondition = click_element_postcondition_met(
+            "<root><textbox/></root>",
+            &pre_target,
+            "<root><textbox/></root>",
+            Some(&post_target),
+        );
+        assert!(postcondition.editable_focus_transition);
+        assert!(postcondition.met());
+    }
+
+    #[test]
+    fn click_element_postcondition_succeeds_on_tree_change() {
+        let pre_target = BrowserSemanticTarget {
+            cdp_node_id: Some("ax-77".to_string()),
+            backend_dom_node_id: Some("99".to_string()),
+            center_point: Some((20.0, 20.0)),
+            focused: false,
+            editable: false,
+        };
+        let post_target = BrowserSemanticTarget {
+            cdp_node_id: Some("ax-77".to_string()),
+            backend_dom_node_id: Some("99".to_string()),
+            center_point: Some((20.0, 20.0)),
+            focused: false,
+            editable: false,
+        };
+
+        let postcondition = click_element_postcondition_met(
+            "<root><button name='continue'/></root>",
+            &pre_target,
+            "<root><dialog name='confirm'/></root>",
+            Some(&post_target),
+        );
+        assert!(postcondition.tree_changed);
+        assert!(postcondition.met());
+    }
+
+    #[test]
+    fn click_element_postcondition_fails_without_effect_signals() {
+        let pre_target = BrowserSemanticTarget {
+            cdp_node_id: Some("ax-5".to_string()),
+            backend_dom_node_id: Some("7".to_string()),
+            center_point: Some((8.0, 8.0)),
+            focused: false,
+            editable: false,
+        };
+        let post_target = BrowserSemanticTarget {
+            cdp_node_id: Some("ax-5".to_string()),
+            backend_dom_node_id: Some("7".to_string()),
+            center_point: Some((8.0, 8.0)),
+            focused: false,
+            editable: false,
+        };
+
+        let postcondition = click_element_postcondition_met(
+            "<root><button id='same'/></root>",
+            &pre_target,
+            "<root><button id='same'/></root>",
+            Some(&post_target),
+        );
+        assert!(!postcondition.target_disappeared);
+        assert!(!postcondition.editable_focus_transition);
+        assert!(!postcondition.tree_changed);
+        assert!(!postcondition.met());
     }
 }

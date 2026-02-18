@@ -161,24 +161,19 @@ async fn guard_phase0_browser_drag_by_ids(
     active_lens: Option<&str>,
 ) -> Option<ToolExecutionResult> {
     let rect = active_browser_window_rect(exec)?;
-    let [from_x, from_y] = match resolve_target_point(
-        exec,
-        from_id,
-        som_map,
-        semantic_map,
-        active_lens,
-    )
-    .await
-    {
-        Some(point) => point,
-        None => return Some(phase0_browser_gui_click_denied(
-            action,
-            &format!(
+    let [from_x, from_y] =
+        match resolve_target_point(exec, from_id, som_map, semantic_map, active_lens).await {
+            Some(point) => point,
+            None => {
+                return Some(phase0_browser_gui_click_denied(
+                    action,
+                    &format!(
                 "Could not resolve drag source '{}' while browser window is active (fail-closed)",
                 from_id
             ),
-        )),
-    };
+                ))
+            }
+        };
     let [to_x, to_y] = match resolve_target_point(exec, to_id, som_map, semantic_map, active_lens).await
     {
         Some(point) => point,

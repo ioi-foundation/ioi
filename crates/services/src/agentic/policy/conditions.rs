@@ -72,7 +72,9 @@ fn normalize_sys_exec_command_for_policy(raw: &str) -> Option<String> {
         .map(|(_, tail)| tail)
         .unwrap_or(trimmed);
 
-    let basename = basename.trim_matches(|c: char| c == '"' || c == '\'').trim();
+    let basename = basename
+        .trim_matches(|c: char| c == '"' || c == '\'')
+        .trim();
     if basename.is_empty() {
         return None;
     }
@@ -85,8 +87,7 @@ fn is_denied_sys_exec_command(command_lc: &str) -> bool {
     // effective execution surface expands sharply.
     matches!(
         command_lc,
-        "sh"
-            | "bash"
+        "sh" | "bash"
             | "zsh"
             | "fish"
             | "dash"

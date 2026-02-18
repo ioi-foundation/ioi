@@ -1261,9 +1261,7 @@ pub async fn process_tool_output(
 mod tests {
     use super::should_fail_fast_web_timeout;
     use crate::agentic::desktop::service::step::anti_loop::FailureClass;
-    use ioi_types::app::agentic::{
-        IntentConfidenceBand, IntentScopeProfile, ResolvedIntentState,
-    };
+    use ioi_types::app::agentic::{IntentConfidenceBand, IntentScopeProfile, ResolvedIntentState};
 
     fn resolved(scope: IntentScopeProfile) -> ResolvedIntentState {
         ResolvedIntentState {

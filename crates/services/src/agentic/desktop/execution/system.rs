@@ -1,7 +1,7 @@
 // Path: crates/services/src/agentic/desktop/execution/system.rs
 
-use super::{workload, ToolExecutionResult, ToolExecutor};
 use super::workload::WORKLOAD_RECEIPT_REDACTED_PLACEHOLDER;
+use super::{workload, ToolExecutionResult, ToolExecutor};
 use crate::agentic::desktop::runtime_secret;
 use crate::agentic::desktop::types::CommandExecution;
 use ioi_drivers::terminal::{CommandExecutionOptions, ProcessStreamChunk, ProcessStreamObserver};
@@ -121,7 +121,8 @@ fn redact_authorization_header_value(raw: &str) -> String {
 
 fn looks_like_jwt(arg: &str) -> bool {
     let mut parts = arg.split('.');
-    let (Some(a), Some(b), Some(c), None) = (parts.next(), parts.next(), parts.next(), parts.next())
+    let (Some(a), Some(b), Some(c), None) =
+        (parts.next(), parts.next(), parts.next(), parts.next())
     else {
         return false;
     };
@@ -154,9 +155,8 @@ fn looks_like_long_token(arg: &str) -> bool {
         return false;
     }
 
-    let allowed = |ch: char| {
-        ch.is_ascii_alphanumeric() || matches!(ch, '-' | '_' | '.' | '=' | '+' | '/')
-    };
+    let allowed =
+        |ch: char| ch.is_ascii_alphanumeric() || matches!(ch, '-' | '_' | '.' | '=' | '+' | '/');
     arg.chars().all(allowed)
 }
 
@@ -217,8 +217,7 @@ fn redact_args_for_receipt(args: &[String]) -> Vec<String> {
             if !right.is_empty() && is_sensitive_key_for_receipt(left) {
                 out.push(format!(
                     "{}={}",
-                    left,
-                    WORKLOAD_RECEIPT_REDACTED_PLACEHOLDER
+                    left, WORKLOAD_RECEIPT_REDACTED_PLACEHOLDER
                 ));
                 continue;
             }
@@ -311,12 +310,7 @@ pub async fn handle(
             let observer = if detach {
                 None
             } else {
-                process_stream_observer(
-                    exec,
-                    session_id,
-                    step_index,
-                    workload_id.clone(),
-                )
+                process_stream_observer(exec, session_id, step_index, workload_id.clone())
             };
             if let Some(tx) = exec.event_sender.as_ref() {
                 emit_workload_activity(
@@ -369,7 +363,12 @@ pub async fn handle(
                     let mut result = sys_exec_failure_result(&command, &error);
                     // Preserve raw output so command-history metadata can be derived without SCS reads.
                     result.history_entry = Some(error);
-                    append_sys_exec_command_history(&mut result, &raw_command_preview, step_index, 1);
+                    append_sys_exec_command_history(
+                        &mut result,
+                        &raw_command_preview,
+                        step_index,
+                        1,
+                    );
                     result
                 }
             };
@@ -452,12 +451,8 @@ pub async fn handle(
                 "sys__exec_session",
                 &receipt_preview,
             );
-            let observer = process_stream_observer(
-                exec,
-                session_id,
-                step_index,
-                workload_id.clone(),
-            );
+            let observer =
+                process_stream_observer(exec, session_id, step_index, workload_id.clone());
             let options = CommandExecutionOptions::default()
                 .with_timeout(timeout)
                 .with_stdin_data(normalize_stdin_data(stdin))
@@ -510,7 +505,12 @@ pub async fn handle(
                     let error = e.to_string();
                     let mut result = sys_exec_failure_result(&command, &error);
                     result.history_entry = Some(error);
-                    append_sys_exec_command_history(&mut result, &raw_command_preview, step_index, 1);
+                    append_sys_exec_command_history(
+                        &mut result,
+                        &raw_command_preview,
+                        step_index,
+                        1,
+                    );
                     result
                 }
             };
@@ -521,7 +521,11 @@ pub async fn handle(
                     .as_deref()
                     .and_then(extract_exit_code)
                     .or_else(|| result.error.as_deref().and_then(extract_exit_code));
-                let phase = if result.success { "completed" } else { "failed" };
+                let phase = if result.success {
+                    "completed"
+                } else {
+                    "failed"
+                };
                 emit_workload_activity(
                     tx,
                     session_id,
@@ -587,7 +591,11 @@ pub async fn handle(
             };
 
             if let Some(tx) = exec.event_sender.as_ref() {
-                let phase = if result.success { "completed" } else { "failed" };
+                let phase = if result.success {
+                    "completed"
+                } else {
+                    "failed"
+                };
                 emit_workload_activity(
                     tx,
                     session_id,
@@ -599,8 +607,13 @@ pub async fn handle(
                     },
                 );
 
-                let cwd_for_receipt = if cwd.trim().is_empty() { "." } else { cwd.trim() };
-                let receipt_cwd = scrub_workload_text_field_for_receipt(exec, cwd_for_receipt).await;
+                let cwd_for_receipt = if cwd.trim().is_empty() {
+                    "."
+                } else {
+                    cwd.trim()
+                };
+                let receipt_cwd =
+                    scrub_workload_text_field_for_receipt(exec, cwd_for_receipt).await;
 
                 emit_workload_receipt(
                     tx,
@@ -1238,8 +1251,12 @@ async fn handle_install_package(
     let receipt_cwd =
         scrub_workload_text_field_for_receipt(exec, resolved_cwd_string.as_str()).await;
     let receipt_preview = command_preview(&receipt_command, &receipt_args);
-    let workload_id =
-        compute_workload_id(session_id, step_index, "sys__install_package", &receipt_preview);
+    let workload_id = compute_workload_id(
+        session_id,
+        step_index,
+        "sys__install_package",
+        &receipt_preview,
+    );
     if let Some(tx) = exec.event_sender.as_ref() {
         emit_workload_activity(
             tx,
@@ -1306,7 +1323,11 @@ async fn handle_install_package(
             .as_deref()
             .and_then(extract_exit_code)
             .or_else(|| result.error.as_deref().and_then(extract_exit_code));
-        let phase = if result.success { "completed" } else { "failed" };
+        let phase = if result.success {
+            "completed"
+        } else {
+            "failed"
+        };
         emit_workload_activity(
             tx,
             session_id,
@@ -1814,12 +1835,12 @@ mod tests {
         append_sys_exec_command_history, build_linux_launch_plan, classify_install_failure,
         classify_sys_exec_failure, command_output_indicates_failure, extract_exit_code,
         launch_attempt_failed, launch_errors_indicate_missing_app, normalize_stdin_data,
-        parse_terminal_output, quote_powershell_single_quoted_string, resolve_home_directory,
-        resolve_sys_exec_invocation,
-        resolve_sys_exec_timeout, resolve_target_directory, resolve_working_directory,
-        summarize_sys_exec_failure_output, sys_exec_failure_result, CommandExecution,
-        LaunchAttempt, ToolExecutionResult, COMMAND_HISTORY_PREFIX, SYS_EXEC_DEFAULT_TIMEOUT,
-        SYS_EXEC_EXTENDED_TIMEOUT, WORKLOAD_RECEIPT_REDACTED_PLACEHOLDER, redact_args_for_receipt,
+        parse_terminal_output, quote_powershell_single_quoted_string, redact_args_for_receipt,
+        resolve_home_directory, resolve_sys_exec_invocation, resolve_sys_exec_timeout,
+        resolve_target_directory, resolve_working_directory, summarize_sys_exec_failure_output,
+        sys_exec_failure_result, CommandExecution, LaunchAttempt, ToolExecutionResult,
+        COMMAND_HISTORY_PREFIX, SYS_EXEC_DEFAULT_TIMEOUT, SYS_EXEC_EXTENDED_TIMEOUT,
+        WORKLOAD_RECEIPT_REDACTED_PLACEHOLDER,
     };
     use async_trait::async_trait;
     use ioi_api::vm::drivers::gui::{GuiDriver, InputEvent};
@@ -1927,10 +1948,7 @@ mod tests {
 
         assert!(invocation.shell_wrapped);
         if cfg!(target_os = "windows") {
-            assert!(invocation
-                .command
-                .to_ascii_lowercase()
-                .ends_with("cmd.exe"));
+            assert!(invocation.command.to_ascii_lowercase().ends_with("cmd.exe"));
             assert!(invocation.args.iter().any(|arg| arg == "/C"));
         } else {
             assert_eq!(invocation.args.first(), Some(&"-lc".to_string()));
@@ -1945,10 +1963,7 @@ mod tests {
 
         assert!(invocation.shell_wrapped);
         if cfg!(target_os = "windows") {
-            assert!(invocation
-                .command
-                .to_ascii_lowercase()
-                .ends_with("cmd.exe"));
+            assert!(invocation.command.to_ascii_lowercase().ends_with("cmd.exe"));
             assert!(invocation.args.iter().any(|arg| arg == "/C"));
         } else {
             assert_eq!(invocation.args.first(), Some(&"-lc".to_string()));
@@ -2223,7 +2238,10 @@ mod tests {
         );
         assert_eq!(
             redacted[7],
-            format!("Authorization: Bearer {}", WORKLOAD_RECEIPT_REDACTED_PLACEHOLDER)
+            format!(
+                "Authorization: Bearer {}",
+                WORKLOAD_RECEIPT_REDACTED_PLACEHOLDER
+            )
         );
     }
 
