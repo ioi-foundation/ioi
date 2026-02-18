@@ -246,7 +246,19 @@ impl ToolExecutor {
             }
 
             // MCP / Dynamic Domain
-            AgentTool::Dynamic(val) => mcp::handle(self, val).await,
+            // Special-case deterministic-but-not-yet-typed tools so they don't route into MCP.
+            AgentTool::Dynamic(val) => {
+                let name = val
+                    .get("name")
+                    .and_then(|n| n.as_str())
+                    .unwrap_or("")
+                    .to_string();
+                if name == "net__fetch" {
+                    web::handle(self, AgentTool::Dynamic(val)).await
+                } else {
+                    mcp::handle(self, val).await
+                }
+            }
 
             // Handled by Service Logic (Lifecycle/Meta), should not reach here
             _ => ToolExecutionResult::failure(format!("Tool {:?} not handled by executor", tool)),

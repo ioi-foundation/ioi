@@ -337,6 +337,7 @@ fn tool_allowed_for_scope(scope: IntentScopeProfile, tool_name: &str) -> bool {
     }
     let is_browser = tool_name.starts_with("browser__");
     let is_web_retrieval = tool_name.starts_with("web__");
+    let is_net = tool_name.starts_with("net__");
     let is_filesystem = tool_name.starts_with("filesystem__");
     let is_clipboard = tool_name == "os__copy" || tool_name == "os__paste";
     let is_shell = tool_name == "sys__exec"
@@ -355,14 +356,16 @@ fn tool_allowed_for_scope(scope: IntentScopeProfile, tool_name: &str) -> bool {
 
     match scope {
         IntentScopeProfile::Conversation => is_chat || is_system,
-        IntentScopeProfile::WebResearch => is_browser || is_web_retrieval || is_chat || is_system,
+        IntentScopeProfile::WebResearch => {
+            is_browser || is_web_retrieval || is_net || is_chat || is_system
+        }
         IntentScopeProfile::WorkspaceOps => is_filesystem || is_clipboard || is_chat || is_system,
         IntentScopeProfile::AppLaunch => is_launch || is_ui || is_clipboard || is_chat || is_system,
         IntentScopeProfile::UiInteraction => {
             is_ui || is_clipboard || is_browser || is_chat || is_system || is_launch
         }
         IntentScopeProfile::CommandExecution => {
-            is_shell || is_filesystem || is_clipboard || is_chat || is_system
+            is_shell || is_filesystem || is_clipboard || is_net || is_chat || is_system
         }
         IntentScopeProfile::Delegation => is_delegate || is_chat || is_system,
         IntentScopeProfile::Unknown => is_chat || is_system,
