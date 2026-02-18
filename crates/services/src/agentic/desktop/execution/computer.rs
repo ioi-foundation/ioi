@@ -75,7 +75,10 @@ fn guard_phase0_browser_click_with_coordinate(
     if rect_contains_point(rect, x, y) {
         return Some(phase0_browser_gui_click_denied(
             action,
-            &format!("GUI/computer click at ({}, {}) is inside active browser window", x, y),
+            &format!(
+                "GUI/computer click at ({}, {}) is inside active browser window",
+                x, y
+            ),
         ));
     }
     None
@@ -125,6 +128,83 @@ async fn guard_phase0_browser_click_by_id(
             ),
         )),
     }
+}
+
+fn guard_phase0_browser_drag_with_coordinates(
+    exec: &ToolExecutor,
+    action: &str,
+    from: [u32; 2],
+    to: [u32; 2],
+) -> Option<ToolExecutionResult> {
+    let rect = active_browser_window_rect(exec)?;
+    let from_in_browser = rect_contains_point(rect, from[0] as i32, from[1] as i32);
+    let to_in_browser = rect_contains_point(rect, to[0] as i32, to[1] as i32);
+    if from_in_browser || to_in_browser {
+        return Some(phase0_browser_gui_click_denied(
+            action,
+            &format!(
+                "GUI/computer drag from ({}, {}) to ({}, {}) intersects active browser window",
+                from[0], from[1], to[0], to[1]
+            ),
+        ));
+    }
+    None
+}
+
+async fn guard_phase0_browser_drag_by_ids(
+    exec: &ToolExecutor,
+    action: &str,
+    from_id: &str,
+    to_id: &str,
+    som_map: Option<&BTreeMap<u32, (i32, i32, i32, i32)>>,
+    semantic_map: Option<&BTreeMap<u32, String>>,
+    active_lens: Option<&str>,
+) -> Option<ToolExecutionResult> {
+    let rect = active_browser_window_rect(exec)?;
+    let [from_x, from_y] = match resolve_target_point(
+        exec,
+        from_id,
+        som_map,
+        semantic_map,
+        active_lens,
+    )
+    .await
+    {
+        Some(point) => point,
+        None => return Some(phase0_browser_gui_click_denied(
+            action,
+            &format!(
+                "Could not resolve drag source '{}' while browser window is active (fail-closed)",
+                from_id
+            ),
+        )),
+    };
+    let [to_x, to_y] = match resolve_target_point(exec, to_id, som_map, semantic_map, active_lens).await
+    {
+        Some(point) => point,
+        None => {
+            return Some(phase0_browser_gui_click_denied(
+                action,
+                &format!(
+                    "Could not resolve drag destination '{}' while browser window is active (fail-closed)",
+                    to_id
+                ),
+            ))
+        }
+    };
+
+    let from_in_browser = rect_contains_point(rect, from_x as i32, from_y as i32);
+    let to_in_browser = rect_contains_point(rect, to_x as i32, to_y as i32);
+    if from_in_browser || to_in_browser {
+        return Some(phase0_browser_gui_click_denied(
+            action,
+            &format!(
+                "Resolved drag endpoints '{}' -> ({}, {}), '{}' -> ({}, {}) intersect active browser window",
+                from_id, from_x, from_y, to_id, to_x, to_y
+            ),
+        ));
+    }
+    None
 }
 
 fn center_from_rect(x: i32, y: i32, w: i32, h: i32) -> [u32; 2] {
@@ -832,6 +912,19 @@ async fn handle_computer_action(
             .await
         }
         ComputerAction::RightClickId { id } => {
+            if let Some(blocked) = guard_phase0_browser_click_by_id(
+                exec,
+                "computer.right_click_id",
+                &id.to_string(),
+                som_map,
+                semantic_map,
+                active_lens,
+            )
+            .await
+            {
+                return blocked;
+            }
+
             if let Some(result) = click_by_som_id(exec, id, som_map, MouseButton::Right).await {
                 return result;
             }
@@ -854,6 +947,19 @@ async fn handle_computer_action(
             ToolExecutionResult::failure(format!("SoM ID {} not found in visual context", id))
         }
         ComputerAction::RightClickElement { id } => {
+            if let Some(blocked) = guard_phase0_browser_click_by_id(
+                exec,
+                "computer.right_click_element",
+                &id,
+                som_map,
+                semantic_map,
+                active_lens,
+            )
+            .await
+            {
+                return blocked;
+            }
+
             if let Ok(som_id) = id.trim().parse::<u32>() {
                 if let Some(result) =
                     click_by_som_id(exec, som_id, som_map, MouseButton::Right).await
@@ -893,6 +999,15 @@ async fn handle_computer_action(
             exec_input(exec, InputEvent::AtomicSequence(steps)).await
         }
         ComputerAction::LeftClickDrag { coordinate } => {
+            if let Some(blocked) = guard_phase0_browser_drag_with_coordinates(
+                exec,
+                "computer.left_click_drag",
+                coordinate,
+                coordinate,
+            ) {
+                return blocked;
+            }
+
             exec_input(
                 exec,
                 InputEvent::AtomicSequence(build_cursor_drag_sequence(coordinate)),
@@ -900,10 +1015,30 @@ async fn handle_computer_action(
             .await
         }
         ComputerAction::DragDrop { from, to } => {
+            if let Some(blocked) =
+                guard_phase0_browser_drag_with_coordinates(exec, "computer.drag_drop", from, to)
+            {
+                return blocked;
+            }
+
             let steps = build_drag_drop_sequence(from, to);
             exec_input(exec, InputEvent::AtomicSequence(steps)).await
         }
         ComputerAction::DragDropId { from_id, to_id } => {
+            if let Some(blocked) = guard_phase0_browser_drag_by_ids(
+                exec,
+                "computer.drag_drop_id",
+                &from_id.to_string(),
+                &to_id.to_string(),
+                som_map,
+                semantic_map,
+                active_lens,
+            )
+            .await
+            {
+                return blocked;
+            }
+
             let from = resolve_target_point(
                 exec,
                 &from_id.to_string(),
@@ -930,6 +1065,20 @@ async fn handle_computer_action(
             }
         }
         ComputerAction::DragDropElement { from_id, to_id } => {
+            if let Some(blocked) = guard_phase0_browser_drag_by_ids(
+                exec,
+                "computer.drag_drop_element",
+                &from_id,
+                &to_id,
+                som_map,
+                semantic_map,
+                active_lens,
+            )
+            .await
+            {
+                return blocked;
+            }
+
             let from =
                 resolve_target_point(exec, &from_id, som_map, semantic_map, active_lens).await;
             let to = resolve_target_point(exec, &to_id, som_map, semantic_map, active_lens).await;
@@ -1013,7 +1162,7 @@ mod tests {
     use ioi_drivers::terminal::TerminalDriver;
     use ioi_types::app::{ActionRequest, ContextSlice};
     use ioi_types::error::VmError;
-    use std::collections::HashMap;
+    use std::collections::{BTreeMap, HashMap};
     use std::sync::{Arc, Mutex};
 
     #[derive(Default)]
@@ -1120,18 +1269,8 @@ mod tests {
         let mcp = Arc::new(McpManager::new());
         let inference: Arc<dyn InferenceRuntime> = Arc::new(MockInferenceRuntime::default());
 
-        ToolExecutor::new(
-            gui,
-            os,
-            terminal,
-            browser,
-            mcp,
-            None,
-            None,
-            inference,
-            None,
-        )
-        .with_window_context(active_window, None, Some(tier))
+        ToolExecutor::new(gui, os, terminal, browser, mcp, None, None, inference, None)
+            .with_window_context(active_window, None, Some(tier))
     }
 
     #[tokio::test(flavor = "current_thread")]
@@ -1263,5 +1402,113 @@ mod tests {
         assert!(err.contains("ERROR_CLASS=TierViolation"));
         assert!(err.contains("ERROR_CODE=BrowserGuiClickDisallowedPhase0"));
         assert!(gui.take_events().is_empty());
+    }
+
+    #[tokio::test(flavor = "current_thread")]
+    async fn computer_right_click_element_is_blocked_when_browser_active_and_target_unresolved() {
+        let gui = Arc::new(RecordingGuiDriver::default());
+        let exec = build_executor(
+            gui.clone(),
+            Some(browser_window()),
+            ExecutionTier::VisualForeground,
+        );
+
+        let result = handle(
+            &exec,
+            AgentTool::Computer(ComputerAction::RightClickElement {
+                id: "btn_context_menu".to_string(),
+            }),
+            None,
+            None,
+            None,
+        )
+        .await;
+
+        assert!(!result.success);
+        let err = result.error.unwrap_or_default();
+        assert!(err.contains("ERROR_CLASS=TierViolation"));
+        assert!(err.contains("ERROR_CODE=BrowserGuiClickDisallowedPhase0"));
+        assert!(gui.take_events().is_empty());
+    }
+
+    #[tokio::test(flavor = "current_thread")]
+    async fn computer_drag_drop_with_coordinate_inside_browser_is_blocked() {
+        let gui = Arc::new(RecordingGuiDriver::default());
+        let exec = build_executor(
+            gui.clone(),
+            Some(browser_window()),
+            ExecutionTier::VisualForeground,
+        );
+
+        let result = handle(
+            &exec,
+            AgentTool::Computer(ComputerAction::DragDrop {
+                from: [50, 60],
+                to: [600, 600],
+            }),
+            None,
+            None,
+            None,
+        )
+        .await;
+
+        assert!(!result.success);
+        let err = result.error.unwrap_or_default();
+        assert!(err.contains("ERROR_CLASS=TierViolation"));
+        assert!(err.contains("ERROR_CODE=BrowserGuiClickDisallowedPhase0"));
+        assert!(gui.take_events().is_empty());
+    }
+
+    #[tokio::test(flavor = "current_thread")]
+    async fn computer_drag_drop_id_is_blocked_when_browser_active_and_target_unresolved() {
+        let gui = Arc::new(RecordingGuiDriver::default());
+        let exec = build_executor(
+            gui.clone(),
+            Some(browser_window()),
+            ExecutionTier::VisualForeground,
+        );
+
+        let result = handle(
+            &exec,
+            AgentTool::Computer(ComputerAction::DragDropId {
+                from_id: 111,
+                to_id: 222,
+            }),
+            None,
+            None,
+            None,
+        )
+        .await;
+
+        assert!(!result.success);
+        let err = result.error.unwrap_or_default();
+        assert!(err.contains("ERROR_CLASS=TierViolation"));
+        assert!(err.contains("ERROR_CODE=BrowserGuiClickDisallowedPhase0"));
+        assert!(gui.take_events().is_empty());
+    }
+
+    #[tokio::test(flavor = "current_thread")]
+    async fn computer_right_click_element_outside_browser_is_allowed() {
+        let gui = Arc::new(RecordingGuiDriver::default());
+        let exec = build_executor(
+            gui.clone(),
+            Some(browser_window()),
+            ExecutionTier::VisualForeground,
+        );
+        let som_map = BTreeMap::from([(42u32, (600, 600, 40, 40))]);
+
+        let result = handle(
+            &exec,
+            AgentTool::Computer(ComputerAction::RightClickElement {
+                id: "42".to_string(),
+            }),
+            Some(&som_map),
+            None,
+            None,
+        )
+        .await;
+
+        assert!(result.success);
+        assert!(!gui.take_events().is_empty());
     }
 }
