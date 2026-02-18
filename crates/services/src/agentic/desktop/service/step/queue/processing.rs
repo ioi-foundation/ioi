@@ -443,26 +443,34 @@ pub async fn process_queue_item(
         }
     }
 
-    if !is_gated && success && completion_summary.is_none() {
-        if matches!(
+    if !is_gated
+        && completion_summary.is_none()
+        && matches!(
             &tool_wrapper,
             AgentTool::SysExec { .. } | AgentTool::SysExecSession { .. }
-        ) && is_command_probe_intent(agent_state.resolved_intent.as_ref())
-        {
-            if let Some(raw) = out.as_deref() {
-                if let Some(summary) = summarize_command_probe_output(&tool_wrapper, raw) {
-                    completion_summary = Some(summary.clone());
-                    agent_state.status = AgentStatus::Completed(Some(summary));
-                    agent_state.execution_queue.clear();
-                    agent_state.recent_actions.clear();
-                    log::info!(
-                        "Auto-completed command probe after shell-command tool for session {}.",
-                        hex::encode(&p.session_id[..4])
-                    );
-                }
+        )
+        && is_command_probe_intent(agent_state.resolved_intent.as_ref())
+    {
+        if let Some(raw) = out.as_deref() {
+            if let Some(summary) = summarize_command_probe_output(&tool_wrapper, raw) {
+                // Probe markers are deterministic completion signals even when the underlying
+                // command exits non-zero (e.g. NOT_FOUND_IN_PATH).
+                success = true;
+                out = Some(summary.clone());
+                err = None;
+                completion_summary = Some(summary.clone());
+                agent_state.status = AgentStatus::Completed(Some(summary));
+                agent_state.execution_queue.clear();
+                agent_state.recent_actions.clear();
+                log::info!(
+                    "Auto-completed command probe after shell-command tool for session {}.",
+                    hex::encode(&p.session_id[..4])
+                );
             }
         }
+    }
 
+    if !is_gated && success && completion_summary.is_none() {
         if let AgentTool::OsLaunchApp { app_name } = &tool_wrapper {
             if should_auto_complete_open_app_goal(
                 &agent_state.goal,

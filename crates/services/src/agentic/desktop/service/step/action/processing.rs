@@ -205,6 +205,7 @@ pub async fn process_tool_output(
     let mut verification_checks = Vec::new();
     let mut awaiting_sudo_password = false;
     let mut awaiting_clarification = false;
+    let mut command_probe_completed = false;
 
     match tool_call {
         Ok(tool) => {
@@ -399,7 +400,7 @@ pub async fn process_tool_output(
                             }
                         }
 
-                        if success && !req_hash_hex.is_empty() {
+                        if (success || command_probe_completed) && !req_hash_hex.is_empty() {
                             agent_state.tool_execution_log.insert(
                                 req_hash_hex.clone(),
                                 ToolCallStatus::Executed("success".into()),
@@ -472,13 +473,16 @@ pub async fn process_tool_output(
                                 }
                             }
                             AgentTool::SysExec { .. } | AgentTool::SysExecSession { .. } => {
-                                if success
-                                    && is_command_probe_intent(agent_state.resolved_intent.as_ref())
-                                {
-                                    if let Some(raw) = entry.as_deref() {
+                                if is_command_probe_intent(agent_state.resolved_intent.as_ref()) {
+                                    if let Some(raw) = history_entry.as_deref() {
                                         if let Some(summary) =
                                             summarize_command_probe_output(&tool, raw)
                                         {
+                                            // Probe markers are deterministic completion signals even
+                                            // when the underlying command exits non-zero.
+                                            command_probe_completed = true;
+                                            success = true;
+                                            error_msg = None;
                                             agent_state.status =
                                                 AgentStatus::Completed(Some(summary.clone()));
                                             is_lifecycle_action = true;
