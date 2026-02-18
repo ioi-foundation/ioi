@@ -275,6 +275,8 @@ pub enum WorkloadReceipt {
     Exec(WorkloadExecReceipt),
     /// A network fetch receipt ("net__fetch").
     NetFetch(WorkloadNetFetchReceipt),
+    /// A governed web retrieval receipt ("web__search" / "web__read").
+    WebRetrieve(WorkloadWebRetrieveReceipt),
 }
 
 /// Audit receipt for an `Exec` workload.
@@ -333,6 +335,36 @@ pub struct WorkloadNetFetchReceipt {
     /// Timeout applied (milliseconds).
     pub timeout_ms: u64,
     /// Success flag (request+read+serialization succeeded; independent of HTTP status).
+    pub success: bool,
+    /// Optional error class when failure output includes an `ERROR_CLASS=...` prefix.
+    #[serde(default)]
+    pub error_class: Option<String>,
+}
+
+/// Audit receipt for `web__search` / `web__read` workloads.
+#[derive(Clone, Debug, Serialize, Deserialize, Encode, Decode, PartialEq, Eq)]
+pub struct WorkloadWebRetrieveReceipt {
+    /// Tool that initiated the workload ("web__search" or "web__read").
+    pub tool_name: String,
+    /// Retrieval backend identifier (e.g. "edge:ddg", "edge:read").
+    pub backend: String,
+    /// Optional scrubbed search query (for `web__search`).
+    #[serde(default)]
+    pub query: Option<String>,
+    /// Optional redacted/scrubbed URL (for `web__read`).
+    #[serde(default)]
+    pub url: Option<String>,
+    /// Optional search limit applied (for `web__search`).
+    #[serde(default)]
+    pub limit: Option<u32>,
+    /// Optional max character budget applied (for `web__read`).
+    #[serde(default)]
+    pub max_chars: Option<u32>,
+    /// Number of sources returned on success.
+    pub sources_count: u32,
+    /// Number of documents returned on success.
+    pub documents_count: u32,
+    /// Success flag (retrieve + serialization succeeded).
     pub success: bool,
     /// Optional error class when failure output includes an `ERROR_CLASS=...` prefix.
     #[serde(default)]

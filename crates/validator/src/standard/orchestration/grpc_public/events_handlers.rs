@@ -169,6 +169,22 @@ fn summarize_kernel_event(kernel_event: &ioi_types::app::KernelEvent) -> String 
                 text_fingerprint(net.final_url.as_deref().unwrap_or("")),
                 net.error_class.as_deref().unwrap_or("none")
             ),
+            ioi_types::app::WorkloadReceipt::WebRetrieve(web) => format!(
+                "WorkloadReceipt(WebRetrieve) session={} step_index={} workload_id={} tool_name={} backend={} has_query={} query_{} has_url={} url_{} sources_count={} documents_count={} success={} error_class={}",
+                prefix_hex_4(&receipt.session_id),
+                receipt.step_index,
+                receipt.workload_id,
+                web.tool_name,
+                web.backend,
+                web.query.is_some(),
+                text_fingerprint(web.query.as_deref().unwrap_or("")),
+                web.url.is_some(),
+                text_fingerprint(web.url.as_deref().unwrap_or("")),
+                web.sources_count,
+                web.documents_count,
+                web.success,
+                web.error_class.as_deref().unwrap_or("none")
+            ),
         },
         Ev::RoutingReceipt(receipt) => format!(
             "RoutingReceipt session={} step_index={} tool_name={} policy_decision={} success={} action_json_{}",
@@ -371,8 +387,8 @@ fn map_kernel_event(
                     )),
                 },
             )),
-            ioi_types::app::WorkloadReceipt::NetFetch(net) => {
-                Some(ChainEventEnum::WorkloadReceipt(ioi_ipc::public::WorkloadReceipt {
+            ioi_types::app::WorkloadReceipt::NetFetch(net) => Some(
+                ChainEventEnum::WorkloadReceipt(ioi_ipc::public::WorkloadReceipt {
                     session_id: hex::encode(receipt.session_id),
                     step_index: receipt.step_index,
                     workload_id: receipt.workload_id,
@@ -398,8 +414,35 @@ fn map_kernel_event(
                             has_error_class: net.error_class.is_some(),
                         },
                     )),
-                }))
-            }
+                }),
+            ),
+            ioi_types::app::WorkloadReceipt::WebRetrieve(web) => Some(
+                ChainEventEnum::WorkloadReceipt(ioi_ipc::public::WorkloadReceipt {
+                    session_id: hex::encode(receipt.session_id),
+                    step_index: receipt.step_index,
+                    workload_id: receipt.workload_id,
+                    timestamp_ms: receipt.timestamp_ms,
+                    receipt: Some(ioi_ipc::public::workload_receipt::Receipt::WebRetrieve(
+                        ioi_ipc::public::WorkloadWebRetrieveReceipt {
+                            tool_name: web.tool_name,
+                            backend: web.backend,
+                            query: web.query.clone().unwrap_or_default(),
+                            has_query: web.query.is_some(),
+                            url: web.url.clone().unwrap_or_default(),
+                            has_url: web.url.is_some(),
+                            limit: web.limit.unwrap_or_default(),
+                            has_limit: web.limit.is_some(),
+                            max_chars: web.max_chars.unwrap_or_default(),
+                            has_max_chars: web.max_chars.is_some(),
+                            sources_count: web.sources_count,
+                            documents_count: web.documents_count,
+                            success: web.success,
+                            error_class: web.error_class.clone().unwrap_or_default(),
+                            has_error_class: web.error_class.is_some(),
+                        },
+                    )),
+                }),
+            ),
         },
         ioi_types::app::KernelEvent::RoutingReceipt(receipt) => {
             Some(ChainEventEnum::RoutingReceipt(map_routing_receipt(
@@ -566,7 +609,7 @@ mod workload_event_mapping_tests {
     use ioi_ipc::public::chain_event::Event as ChainEventEnum;
     use ioi_types::app::{
         KernelEvent, WorkloadActivityEvent, WorkloadActivityKind, WorkloadExecReceipt,
-        WorkloadNetFetchReceipt, WorkloadReceipt, WorkloadReceiptEvent,
+        WorkloadNetFetchReceipt, WorkloadReceipt, WorkloadReceiptEvent, WorkloadWebRetrieveReceipt,
     };
 
     #[test]
@@ -687,6 +730,50 @@ mod workload_event_mapping_tests {
                     assert!(!net.has_error_class);
                 }
                 other => panic!("expected net_fetch receipt, got: {:?}", other),
+            },
+            other => panic!("expected workload receipt chain event, got: {:?}", other),
+        }
+
+        let receipt = KernelEvent::WorkloadReceipt(WorkloadReceiptEvent {
+            session_id: [7u8; 32],
+            step_index: 42,
+            workload_id: "wid-web".to_string(),
+            timestamp_ms: 126,
+            receipt: WorkloadReceipt::WebRetrieve(WorkloadWebRetrieveReceipt {
+                tool_name: "web__search".to_string(),
+                backend: "edge:ddg".to_string(),
+                query: Some("query".to_string()),
+                url: None,
+                limit: Some(5),
+                max_chars: None,
+                sources_count: 2,
+                documents_count: 0,
+                success: true,
+                error_class: None,
+            }),
+        });
+        let mapped = map_kernel_event(receipt, &keypair, signer_pk.as_str())
+            .expect("web-retrieve workload receipt should map");
+        match mapped {
+            ChainEventEnum::WorkloadReceipt(payload) => match payload.receipt {
+                Some(ioi_ipc::public::workload_receipt::Receipt::WebRetrieve(web)) => {
+                    assert_eq!(web.tool_name, "web__search");
+                    assert_eq!(web.backend, "edge:ddg");
+                    assert!(web.has_query);
+                    assert_eq!(web.query, "query");
+                    assert!(!web.has_url);
+                    assert_eq!(web.url, "");
+                    assert!(web.has_limit);
+                    assert_eq!(web.limit, 5);
+                    assert!(!web.has_max_chars);
+                    assert_eq!(web.max_chars, 0);
+                    assert_eq!(web.sources_count, 2);
+                    assert_eq!(web.documents_count, 0);
+                    assert!(web.success);
+                    assert!(!web.has_error_class);
+                    assert_eq!(web.error_class, "");
+                }
+                other => panic!("expected web_retrieve receipt, got: {:?}", other),
             },
             other => panic!("expected workload receipt chain event, got: {:?}", other),
         }
