@@ -556,14 +556,73 @@ pub async fn handle(
         }
 
         AgentTool::SysExecSessionReset {} => {
+            let command_preview = "sys__exec_session_reset".to_string();
+            let workload_id = compute_workload_id(
+                session_id,
+                step_index,
+                "sys__exec_session_reset",
+                &command_preview,
+            );
+
+            if let Some(tx) = exec.event_sender.as_ref() {
+                emit_workload_activity(
+                    tx,
+                    session_id,
+                    step_index,
+                    workload_id.clone(),
+                    WorkloadActivityKind::Lifecycle {
+                        phase: "started".to_string(),
+                        exit_code: None,
+                    },
+                );
+            }
+
             let session_key = hex::encode(session_id);
-            match exec.terminal.reset_session(&session_key).await {
+            let result = match exec.terminal.reset_session(&session_key).await {
                 Ok(()) => ToolExecutionResult::success("Reset persistent shell session."),
                 Err(e) => ToolExecutionResult::failure(format!(
                     "ERROR_CLASS=UnexpectedState Failed to reset persistent shell session: {}",
                     e
                 )),
+            };
+
+            if let Some(tx) = exec.event_sender.as_ref() {
+                let phase = if result.success { "completed" } else { "failed" };
+                emit_workload_activity(
+                    tx,
+                    session_id,
+                    step_index,
+                    workload_id.clone(),
+                    WorkloadActivityKind::Lifecycle {
+                        phase: phase.to_string(),
+                        exit_code: None,
+                    },
+                );
+
+                let cwd_for_receipt = if cwd.trim().is_empty() { "." } else { cwd.trim() };
+                let receipt_cwd = scrub_workload_text_field_for_receipt(exec, cwd_for_receipt).await;
+
+                emit_workload_receipt(
+                    tx,
+                    session_id,
+                    step_index,
+                    workload_id.clone(),
+                    WorkloadReceipt::Exec(WorkloadExecReceipt {
+                        tool_name: "sys__exec_session_reset".to_string(),
+                        command: "sys__exec_session_reset".to_string(),
+                        args: Vec::new(),
+                        cwd: receipt_cwd,
+                        detach: false,
+                        timeout_ms: 0,
+                        success: result.success,
+                        exit_code: None,
+                        error_class: extract_error_class(result.error.as_deref()),
+                        command_preview,
+                    }),
+                );
             }
+
+            result
         }
 
         AgentTool::SysChangeDir { path } => match resolve_target_directory(cwd, &path) {
@@ -1762,6 +1821,19 @@ mod tests {
         LaunchAttempt, ToolExecutionResult, COMMAND_HISTORY_PREFIX, SYS_EXEC_DEFAULT_TIMEOUT,
         SYS_EXEC_EXTENDED_TIMEOUT, WORKLOAD_RECEIPT_REDACTED_PLACEHOLDER, redact_args_for_receipt,
     };
+    use async_trait::async_trait;
+    use ioi_api::vm::drivers::gui::{GuiDriver, InputEvent};
+    use ioi_api::vm::drivers::os::{OsDriver, WindowInfo};
+    use ioi_api::vm::inference::{mock::MockInferenceRuntime, InferenceRuntime};
+    use ioi_drivers::browser::BrowserDriver;
+    use ioi_drivers::mcp::McpManager;
+    use ioi_drivers::terminal::TerminalDriver;
+    use ioi_types::app::agentic::AgentTool;
+    use ioi_types::app::{
+        ActionRequest, ContextSlice, KernelEvent, WorkloadActivityKind, WorkloadReceipt,
+    };
+    use ioi_types::error::VmError;
+    use std::sync::Arc;
 
     #[test]
     fn powershell_single_quoted_string_escapes_apostrophes() {
@@ -2153,5 +2225,154 @@ mod tests {
             redacted[7],
             format!("Authorization: Bearer {}", WORKLOAD_RECEIPT_REDACTED_PLACEHOLDER)
         );
+    }
+
+    struct NoopGuiDriver;
+
+    #[async_trait]
+    impl GuiDriver for NoopGuiDriver {
+        async fn capture_screen(
+            &self,
+            _crop_rect: Option<(i32, i32, u32, u32)>,
+        ) -> Result<Vec<u8>, VmError> {
+            Err(VmError::HostError("noop gui".into()))
+        }
+
+        async fn capture_raw_screen(&self) -> Result<Vec<u8>, VmError> {
+            Err(VmError::HostError("noop gui".into()))
+        }
+
+        async fn capture_tree(&self) -> Result<String, VmError> {
+            Err(VmError::HostError("noop gui".into()))
+        }
+
+        async fn capture_context(&self, _intent: &ActionRequest) -> Result<ContextSlice, VmError> {
+            Err(VmError::HostError("noop gui".into()))
+        }
+
+        async fn inject_input(&self, _event: InputEvent) -> Result<(), VmError> {
+            Err(VmError::HostError("noop gui".into()))
+        }
+
+        async fn get_element_center(&self, _id: u32) -> Result<Option<(u32, u32)>, VmError> {
+            Ok(None)
+        }
+
+        async fn register_som_overlay(
+            &self,
+            _map: std::collections::HashMap<u32, (i32, i32, i32, i32)>,
+        ) -> Result<(), VmError> {
+            Ok(())
+        }
+    }
+
+    struct NoopOsDriver;
+
+    #[async_trait]
+    impl OsDriver for NoopOsDriver {
+        async fn get_active_window_title(&self) -> Result<Option<String>, VmError> {
+            Ok(None)
+        }
+
+        async fn get_active_window_info(&self) -> Result<Option<WindowInfo>, VmError> {
+            Ok(None)
+        }
+
+        async fn focus_window(&self, _title_query: &str) -> Result<bool, VmError> {
+            Ok(false)
+        }
+
+        async fn set_clipboard(&self, _content: &str) -> Result<(), VmError> {
+            Ok(())
+        }
+
+        async fn get_clipboard(&self) -> Result<String, VmError> {
+            Ok(String::new())
+        }
+    }
+
+    #[tokio::test(flavor = "current_thread")]
+    async fn sys_exec_session_reset_emits_workload_receipt_and_activity() {
+        let (tx, mut rx) = tokio::sync::broadcast::channel(16);
+
+        let gui: Arc<dyn GuiDriver> = Arc::new(NoopGuiDriver);
+        let os: Arc<dyn OsDriver> = Arc::new(NoopOsDriver);
+        let terminal = Arc::new(TerminalDriver::new());
+        let browser = Arc::new(BrowserDriver::new());
+        let mcp = Arc::new(McpManager::new());
+        let inference: Arc<dyn InferenceRuntime> = Arc::new(MockInferenceRuntime::default());
+
+        let exec = crate::agentic::desktop::execution::ToolExecutor::new(
+            gui,
+            os,
+            terminal,
+            browser,
+            mcp,
+            Some(tx),
+            None,
+            inference,
+            None,
+        );
+
+        let session_id = [9u8; 32];
+        let step_index = 7u32;
+        let result = super::handle(
+            &exec,
+            AgentTool::SysExecSessionReset {},
+            ".",
+            session_id,
+            step_index,
+        )
+        .await;
+
+        assert!(result.success);
+
+        let mut activity_phases: Vec<String> = Vec::new();
+        let mut activity_workload_id: Option<String> = None;
+        let mut receipt_workload_id: Option<String> = None;
+        let mut saw_exec_receipt = false;
+
+        while let Ok(ev) = rx.try_recv() {
+            match ev {
+                KernelEvent::WorkloadActivity(activity) => {
+                    assert_eq!(activity.session_id, session_id);
+                    assert_eq!(activity.step_index, step_index);
+                    if let Some(existing) = activity_workload_id.as_ref() {
+                        assert_eq!(existing, &activity.workload_id);
+                    } else {
+                        activity_workload_id = Some(activity.workload_id.clone());
+                    }
+                    if let WorkloadActivityKind::Lifecycle { phase, .. } = activity.kind {
+                        activity_phases.push(phase);
+                    }
+                }
+                KernelEvent::WorkloadReceipt(receipt_event) => {
+                    assert_eq!(receipt_event.session_id, session_id);
+                    assert_eq!(receipt_event.step_index, step_index);
+                    receipt_workload_id = Some(receipt_event.workload_id.clone());
+                    match receipt_event.receipt {
+                        WorkloadReceipt::Exec(exec_receipt) => {
+                            assert_eq!(exec_receipt.tool_name, "sys__exec_session_reset");
+                            assert_eq!(exec_receipt.command, "sys__exec_session_reset");
+                            assert!(exec_receipt.args.is_empty());
+                            assert!(!exec_receipt.detach);
+                            assert_eq!(exec_receipt.timeout_ms, 0);
+                            assert!(exec_receipt.success);
+                            assert_eq!(exec_receipt.command_preview, "sys__exec_session_reset");
+                            saw_exec_receipt = true;
+                        }
+                        other => panic!("expected Exec receipt, got {:?}", other),
+                    }
+                }
+                _ => {}
+            }
+        }
+
+        assert_eq!(
+            activity_phases,
+            vec!["started".to_string(), "completed".to_string()]
+        );
+        assert!(saw_exec_receipt);
+        assert_eq!(activity_workload_id, receipt_workload_id);
     }
 }
