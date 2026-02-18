@@ -199,6 +199,180 @@ fn normalize_ui_click_component_arguments(arguments: &Value) -> Result<Value> {
     Ok(json!({ "id": id }))
 }
 
+fn parse_u32_like(value: &Value) -> Option<u32> {
+    if let Some(raw) = value.as_u64() {
+        return u32::try_from(raw).ok();
+    }
+    if let Some(raw) = value.as_i64() {
+        if raw >= 0 && raw <= u32::MAX as i64 {
+            return Some(raw as u32);
+        }
+        return None;
+    }
+    if let Some(raw) = value.as_f64() {
+        if raw.is_finite() && raw >= 0.0 && raw <= (u32::MAX as f64) {
+            return Some(raw.trunc() as u32);
+        }
+        return None;
+    }
+    if let Some(raw) = value.as_str() {
+        let trimmed = raw.trim();
+        if trimmed.is_empty() {
+            return None;
+        }
+        if let Ok(parsed) = trimmed.parse::<f64>() {
+            if parsed.is_finite() && parsed >= 0.0 && parsed <= (u32::MAX as f64) {
+                return Some(parsed.trunc() as u32);
+            }
+        }
+    }
+    None
+}
+
+fn parse_i32_like(value: &Value) -> Option<i32> {
+    if let Some(raw) = value.as_i64() {
+        if raw >= i32::MIN as i64 && raw <= i32::MAX as i64 {
+            return Some(raw as i32);
+        }
+        return None;
+    }
+    if let Some(raw) = value.as_u64() {
+        if raw <= i32::MAX as u64 {
+            return Some(raw as i32);
+        }
+        return None;
+    }
+    if let Some(raw) = value.as_f64() {
+        if raw.is_finite() && raw >= (i32::MIN as f64) && raw <= (i32::MAX as f64) {
+            return Some(raw.trunc() as i32);
+        }
+        return None;
+    }
+    if let Some(raw) = value.as_str() {
+        let trimmed = raw.trim();
+        if trimmed.is_empty() {
+            return None;
+        }
+        if let Ok(parsed) = trimmed.parse::<f64>() {
+            if parsed.is_finite() && parsed >= (i32::MIN as f64) && parsed <= (i32::MAX as f64) {
+                return Some(parsed.trunc() as i32);
+            }
+        }
+    }
+    None
+}
+
+fn normalize_ui_type_arguments(arguments: &Value) -> Result<Value> {
+    let args_obj = arguments.as_object().ok_or_else(|| {
+        anyhow!("Schema Validation Error: ui__type arguments must be a JSON object.")
+    })?;
+
+    let text = args_obj
+        .get("text")
+        .or_else(|| args_obj.get("content"))
+        .and_then(|v| v.as_str())
+        .map(str::trim)
+        .filter(|v| !v.is_empty())
+        .ok_or_else(|| anyhow!("Schema Validation Error: ui__type requires non-empty 'text'."))?;
+
+    if args_obj.contains_key("id")
+        || args_obj.contains_key("element_id")
+        || args_obj.contains_key("elementId")
+        || args_obj.contains_key("target_id")
+        || args_obj.contains_key("targetId")
+        || args_obj.contains_key("component_id")
+        || args_obj.contains_key("componentId")
+    {
+        return Err(anyhow!(
+            "Schema Validation Error: ui__type does not support targeting by id. Use gui__click_element(id=...) first, then gui__type(text=...)."
+        ));
+    }
+
+    Ok(json!({ "text": text }))
+}
+
+fn normalize_ui_scroll_arguments(arguments: &Value) -> Result<Value> {
+    let args_obj = arguments.as_object().ok_or_else(|| {
+        anyhow!("Schema Validation Error: ui__scroll arguments must be a JSON object.")
+    })?;
+
+    let delta_x = args_obj
+        .get("delta_x")
+        .or_else(|| args_obj.get("deltaX"))
+        .or_else(|| args_obj.get("dx"))
+        .and_then(parse_i32_like)
+        .unwrap_or(0);
+
+    let delta_y = args_obj
+        .get("delta_y")
+        .or_else(|| args_obj.get("deltaY"))
+        .or_else(|| args_obj.get("dy"))
+        .and_then(parse_i32_like)
+        .unwrap_or(0);
+
+    Ok(json!({ "delta_x": delta_x, "delta_y": delta_y }))
+}
+
+fn normalize_ui_click_arguments(arguments: &Value) -> Result<Value> {
+    let args_obj = arguments.as_object().ok_or_else(|| {
+        anyhow!("Schema Validation Error: ui__click arguments must be a JSON object.")
+    })?;
+
+    let has_any_id = args_obj.contains_key("id")
+        || args_obj.contains_key("component_id")
+        || args_obj.contains_key("componentId")
+        || args_obj.contains_key("element_id")
+        || args_obj.contains_key("elementId")
+        || args_obj.contains_key("target_id")
+        || args_obj.contains_key("targetId");
+
+    if has_any_id {
+        let normalized = normalize_ui_click_component_arguments(arguments)?;
+        return Ok(json!({
+            "name": "gui__click_element",
+            "arguments": normalized,
+        }));
+    }
+
+    let (x, y) = if let Some(coord) = args_obj.get("coordinate").and_then(|v| v.as_array()) {
+        if coord.len() < 2 {
+            return Err(anyhow!(
+                "Schema Validation Error: ui__click 'coordinate' must be [x, y]."
+            ));
+        }
+        let x = coord.get(0).and_then(parse_u32_like).ok_or_else(|| {
+            anyhow!("Schema Validation Error: ui__click requires numeric x/y coordinates.")
+        })?;
+        let y = coord.get(1).and_then(parse_u32_like).ok_or_else(|| {
+            anyhow!("Schema Validation Error: ui__click requires numeric x/y coordinates.")
+        })?;
+        (x, y)
+    } else {
+        let x = args_obj.get("x").and_then(parse_u32_like).ok_or_else(|| {
+            anyhow!("Schema Validation Error: ui__click requires numeric 'x' and 'y'.")
+        })?;
+        let y = args_obj.get("y").and_then(parse_u32_like).ok_or_else(|| {
+            anyhow!("Schema Validation Error: ui__click requires numeric 'x' and 'y'.")
+        })?;
+        (x, y)
+    };
+
+    let button = args_obj
+        .get("button")
+        .and_then(|v| v.as_str())
+        .map(str::trim)
+        .filter(|v| !v.is_empty());
+
+    Ok(json!({
+        "name": "gui__click",
+        "arguments": if let Some(button) = button {
+            json!({"x": x, "y": y, "button": button})
+        } else {
+            json!({"x": x, "y": y})
+        }
+    }))
+}
+
 fn normalize_net_fetch_arguments(arguments: &Value) -> Result<Value> {
     let args_obj = arguments.as_object().ok_or_else(|| {
         anyhow!("Schema Validation Error: net__fetch arguments must be a JSON object.")
@@ -307,8 +481,22 @@ impl ToolNormalizer {
             // Alias check (safe to do in-place if we get mut ref now)
             let mut install_package_args: Option<Value> = None;
             let mut edit_line_args: Option<Value> = None;
+
             let mut ui_click_component_args: Option<Value> = None;
             let mut ui_click_component_present = false;
+
+            let mut ui_click_args: Option<Value> = None;
+            let mut ui_click_present = false;
+
+            let mut ui_click_element_args: Option<Value> = None;
+            let mut ui_click_element_present = false;
+
+            let mut ui_type_args: Option<Value> = None;
+            let mut ui_type_present = false;
+
+            let mut ui_scroll_args: Option<Value> = None;
+            let mut ui_scroll_present = false;
+
             let mut net_fetch_args: Option<Value> = None;
             let mut net_fetch_present = false;
             if let Some(map_mut) = raw_val.as_object_mut() {
@@ -374,6 +562,42 @@ impl ToolNormalizer {
                                 .unwrap_or_else(|| json!({})),
                         );
                     }
+                    if name == "ui__click" {
+                        ui_click_present = true;
+                        ui_click_args = Some(
+                            map_mut
+                                .get("arguments")
+                                .cloned()
+                                .unwrap_or_else(|| json!({})),
+                        );
+                    }
+                    if name == "ui__click_element" {
+                        ui_click_element_present = true;
+                        ui_click_element_args = Some(
+                            map_mut
+                                .get("arguments")
+                                .cloned()
+                                .unwrap_or_else(|| json!({})),
+                        );
+                    }
+                    if name == "ui__type" {
+                        ui_type_present = true;
+                        ui_type_args = Some(
+                            map_mut
+                                .get("arguments")
+                                .cloned()
+                                .unwrap_or_else(|| json!({})),
+                        );
+                    }
+                    if name == "ui__scroll" {
+                        ui_scroll_present = true;
+                        ui_scroll_args = Some(
+                            map_mut
+                                .get("arguments")
+                                .cloned()
+                                .unwrap_or_else(|| json!({})),
+                        );
+                    }
                     if name == "net__fetch" {
                         net_fetch_present = true;
                         net_fetch_args = Some(
@@ -424,6 +648,30 @@ impl ToolNormalizer {
                 let normalized = normalize_ui_click_component_arguments(&args)?;
                 raw_val = json!({
                     "name": "gui__click_element",
+                    "arguments": normalized,
+                });
+            } else if ui_click_present {
+                let args = ui_click_args.unwrap_or_else(|| json!({}));
+                raw_val = normalize_ui_click_arguments(&args)?;
+            } else if ui_click_element_present {
+                let args = ui_click_element_args.unwrap_or_else(|| json!({}));
+                let normalized = normalize_ui_click_component_arguments(&args)?;
+                raw_val = json!({
+                    "name": "gui__click_element",
+                    "arguments": normalized,
+                });
+            } else if ui_type_present {
+                let args = ui_type_args.unwrap_or_else(|| json!({}));
+                let normalized = normalize_ui_type_arguments(&args)?;
+                raw_val = json!({
+                    "name": "gui__type",
+                    "arguments": normalized,
+                });
+            } else if ui_scroll_present {
+                let args = ui_scroll_args.unwrap_or_else(|| json!({}));
+                let normalized = normalize_ui_scroll_arguments(&args)?;
+                raw_val = json!({
+                    "name": "gui__scroll",
                     "arguments": normalized,
                 });
             } else if net_fetch_present {
@@ -735,6 +983,72 @@ mod tests {
         assert!(err.to_string().contains("Schema Validation Error"));
         assert!(err.to_string().contains("ui__click_component"));
         assert!(err.to_string().contains("id"));
+    }
+
+    #[test]
+    fn test_normalize_ui_type_lowers_to_gui_type() {
+        let input = r#"{"name":"ui__type","arguments":{"text":"hello"}}"#;
+        let tool = ToolNormalizer::normalize(input).unwrap();
+        match tool {
+            AgentTool::GuiType { text } => assert_eq!(text, "hello"),
+            other => panic!("Expected GuiType, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn test_normalize_ui_scroll_lowers_to_gui_scroll() {
+        let input = r#"{"name":"ui__scroll","arguments":{"delta_y":120}}"#;
+        let tool = ToolNormalizer::normalize(input).unwrap();
+        match tool {
+            AgentTool::GuiScroll { delta_x, delta_y } => {
+                assert_eq!(delta_x, 0);
+                assert_eq!(delta_y, 120);
+            }
+            other => panic!("Expected GuiScroll, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn test_normalize_ui_click_with_id_lowers_to_gui_click_element() {
+        let input = r#"{"name":"ui__click","arguments":{"id":"btn_submit"}}"#;
+        let tool = ToolNormalizer::normalize(input).unwrap();
+        match tool {
+            AgentTool::GuiClickElement { id } => assert_eq!(id, "btn_submit"),
+            other => panic!("Expected GuiClickElement, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn test_normalize_ui_click_with_coordinate_lowers_to_gui_click() {
+        let input = r#"{"name":"ui__click","arguments":{"coordinate":[100,200]}}"#;
+        let tool = ToolNormalizer::normalize(input).unwrap();
+        match tool {
+            AgentTool::GuiClick { x, y, button } => {
+                assert_eq!(x, 100);
+                assert_eq!(y, 200);
+                assert!(button.is_none());
+            }
+            other => panic!("Expected GuiClick, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn test_normalize_ui_click_element_lowers_to_gui_click_element() {
+        let input = r#"{"name":"ui__click_element","arguments":{"id":"btn_submit"}}"#;
+        let tool = ToolNormalizer::normalize(input).unwrap();
+        match tool {
+            AgentTool::GuiClickElement { id } => assert_eq!(id, "btn_submit"),
+            other => panic!("Expected GuiClickElement, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn test_normalize_ui_type_rejects_missing_text() {
+        let input = r#"{"name":"ui__type","arguments":{}}"#;
+        let err = ToolNormalizer::normalize(input).expect_err("expected schema error");
+        assert!(err.to_string().contains("Schema Validation Error"));
+        assert!(err.to_string().contains("ui__type"));
+        assert!(err.to_string().contains("text"));
     }
 
     #[test]
