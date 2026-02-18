@@ -269,6 +269,164 @@ fn allow_domains_blocks_substring_bypass_host() {
 }
 
 #[test]
+fn sys_exec_allow_commands_allows_rg_with_pipe_arg() -> Result<()> {
+    let graph = EvidenceGraph {
+        version: 1,
+        source_hash: [0u8; 32],
+        ambiguous: false,
+        spans: vec![],
+    };
+
+    let rules = ActionRules {
+        policy_id: "policy".to_string(),
+        defaults: DefaultPolicy::DenyAll,
+        ontology_policy: Default::default(),
+        pii_controls: PiiControls::default(),
+        rules: vec![Rule {
+            rule_id: Some("allow-rg".to_string()),
+            target: "sys::exec".to_string(),
+            conditions: RuleConditions {
+                allow_commands: Some(vec!["rg".to_string()]),
+                ..Default::default()
+            },
+            action: Verdict::Allow,
+        }],
+    };
+
+    let safety = Arc::new(DummySafety { graph }) as Arc<dyn LocalSafetyModel>;
+    let os = Arc::new(DummyOs) as Arc<dyn OsDriver>;
+
+    let rt = tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()?;
+
+    let params = serde_json::json!({
+        "command": "rg",
+        "args": ["foo|bar", "README.md"]
+    });
+    let params = serde_json::to_vec(&params)?;
+    let request = ActionRequest {
+        target: ActionTarget::SysExec,
+        params,
+        context: ActionContext {
+            agent_id: "agent".to_string(),
+            session_id: None,
+            window_id: None,
+        },
+        nonce: 1,
+    };
+
+    let verdict = rt.block_on(PolicyEngine::evaluate(&rules, &request, &safety, &os, None));
+    assert_eq!(verdict, Verdict::Allow);
+    Ok(())
+}
+
+#[test]
+fn sys_exec_allowlist_ignores_missing_command_field() -> Result<()> {
+    let graph = EvidenceGraph {
+        version: 1,
+        source_hash: [0u8; 32],
+        ambiguous: false,
+        spans: vec![],
+    };
+
+    let rules = ActionRules {
+        policy_id: "policy".to_string(),
+        defaults: DefaultPolicy::DenyAll,
+        ontology_policy: Default::default(),
+        pii_controls: PiiControls::default(),
+        rules: vec![Rule {
+            rule_id: Some("allow-sys-noncommand".to_string()),
+            target: "sys::exec".to_string(),
+            conditions: RuleConditions {
+                allow_commands: Some(vec!["rg".to_string()]),
+                ..Default::default()
+            },
+            action: Verdict::Allow,
+        }],
+    };
+
+    let safety = Arc::new(DummySafety { graph }) as Arc<dyn LocalSafetyModel>;
+    let os = Arc::new(DummyOs) as Arc<dyn OsDriver>;
+
+    let rt = tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()?;
+
+    // Simulates a sys::exec-targeted tool whose params do not include `command`
+    // (for example: sys__change_directory).
+    let params = serde_json::json!({ "path": "/tmp" });
+    let params = serde_json::to_vec(&params)?;
+    let request = ActionRequest {
+        target: ActionTarget::SysExec,
+        params,
+        context: ActionContext {
+            agent_id: "agent".to_string(),
+            session_id: None,
+            window_id: None,
+        },
+        nonce: 1,
+    };
+
+    let verdict = rt.block_on(PolicyEngine::evaluate(&rules, &request, &safety, &os, None));
+    assert_eq!(verdict, Verdict::Allow);
+    Ok(())
+}
+
+#[test]
+fn sys_exec_allow_commands_cannot_enable_shell_binaries() -> Result<()> {
+    let graph = EvidenceGraph {
+        version: 1,
+        source_hash: [0u8; 32],
+        ambiguous: false,
+        spans: vec![],
+    };
+
+    let rules = ActionRules {
+        policy_id: "policy".to_string(),
+        defaults: DefaultPolicy::DenyAll,
+        ontology_policy: Default::default(),
+        pii_controls: PiiControls::default(),
+        rules: vec![Rule {
+            rule_id: Some("allow-bash".to_string()),
+            target: "sys::exec".to_string(),
+            conditions: RuleConditions {
+                allow_commands: Some(vec!["bash".to_string(), "/bin/sh".to_string()]),
+                ..Default::default()
+            },
+            action: Verdict::Allow,
+        }],
+    };
+
+    let safety = Arc::new(DummySafety { graph }) as Arc<dyn LocalSafetyModel>;
+    let os = Arc::new(DummyOs) as Arc<dyn OsDriver>;
+
+    let rt = tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()?;
+
+    let params = serde_json::json!({
+        "command": "/bin/bash",
+        "args": ["-lc", "echo ok | cat"]
+    });
+    let params = serde_json::to_vec(&params)?;
+    let request = ActionRequest {
+        target: ActionTarget::SysExec,
+        params,
+        context: ActionContext {
+            agent_id: "agent".to_string(),
+            session_id: None,
+            window_id: None,
+        },
+        nonce: 1,
+    };
+
+    let verdict = rt.block_on(PolicyEngine::evaluate(&rules, &request, &safety, &os, None));
+    assert_eq!(verdict, Verdict::Block);
+    Ok(())
+}
+
+#[test]
 fn pii_overlay_material_hash_matches_direct_router_hash() {
     let graph = EvidenceGraph {
         version: 1,

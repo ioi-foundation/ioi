@@ -57,6 +57,49 @@ fn is_safe_package_identifier(package: &str) -> bool {
         })
 }
 
+fn normalize_sys_exec_command_for_policy(raw: &str) -> Option<String> {
+    let trimmed = raw.trim();
+    if trimmed.is_empty() {
+        return None;
+    }
+
+    // If the command is a path, compare against the basename so `/bin/bash` is treated as `bash`.
+    let basename = trimmed
+        .rsplit_once('/')
+        .map(|(_, tail)| tail)
+        .unwrap_or(trimmed)
+        .rsplit_once('\\')
+        .map(|(_, tail)| tail)
+        .unwrap_or(trimmed);
+
+    let basename = basename.trim_matches(|c: char| c == '"' || c == '\'').trim();
+    if basename.is_empty() {
+        return None;
+    }
+    Some(basename.to_ascii_lowercase())
+}
+
+fn is_denied_sys_exec_command(command_lc: &str) -> bool {
+    // Guardrail: never allow command interpreters/shells via policy configuration.
+    // If these slip into allowlists, metachar args become meaningful again and the
+    // effective execution surface expands sharply.
+    matches!(
+        command_lc,
+        "sh"
+            | "bash"
+            | "zsh"
+            | "fish"
+            | "dash"
+            | "ksh"
+            | "csh"
+            | "tcsh"
+            | "pwsh"
+            | "powershell"
+            | "cmd"
+            | "cmd.exe"
+    )
+}
+
 impl PolicyEngine {
     /// Evaluates specific conditions for a rule.
     /// Returns true if ALL conditions in the rule are met (or if there are no conditions).
@@ -72,44 +115,66 @@ impl PolicyEngine {
         // [NEW] System Command Allowlist
         if let ActionTarget::SysExec = target {
             if let Ok(json) = serde_json::from_slice::<serde_json::Value>(params) {
-                let cmd = json["command"].as_str().unwrap_or("");
+                // Only enforce command allowlists for sys__exec-style payloads that carry a
+                // concrete `command` field. Other sys::exec-targeted tools (for example:
+                // sys__change_directory, sys__exec_session_reset, os__launch_app) omit it.
+                let cmd = json
+                    .get("command")
+                    .and_then(|v| v.as_str())
+                    .map(|s| s.trim())
+                    .filter(|s| !s.is_empty());
 
-                // STRICT Allowlist for System Commands
-                let allowed_commands = vec![
-                    "netstat",
-                    "ping",
-                    "whoami",
-                    "ls",
-                    "echo",
-                    // [FIX] Whitelisted Calculator Apps and Editors
-                    "gnome-calculator",
-                    "kcalc",
-                    "calculator",
-                    "calc",
-                    "code",
-                    "gedit",
-                    "nano",
-                ];
+                if let Some(cmd) = cmd {
+                    // STRICT built-in allowlist for system commands.
+                    const DEFAULT_ALLOWED_COMMANDS: &[&str] = &[
+                        "netstat",
+                        "ping",
+                        "whoami",
+                        "ls",
+                        "echo",
+                        // [FIX] Whitelisted Calculator Apps and Editors
+                        "gnome-calculator",
+                        "kcalc",
+                        "calculator",
+                        "calc",
+                        "code",
+                        "gedit",
+                        "nano",
+                    ];
 
-                if !allowed_commands.contains(&cmd) {
-                    tracing::warn!(
-                        "Policy Violation: Command '{}' is not in the system allowlist.",
-                        cmd
-                    );
-                    return false;
-                }
+                    let Some(cmd_lc) = normalize_sys_exec_command_for_policy(cmd) else {
+                        return false;
+                    };
+                    if is_denied_sys_exec_command(cmd_lc.as_str()) {
+                        tracing::warn!(
+                            "Policy Violation: Command '{}' is a denied interpreter/shell binary.",
+                            cmd
+                        );
+                        return false;
+                    }
 
-                // Optional: Check arguments for dangerous characters
-                // (e.g. prevent chaining like `ls; rm -rf /`)
-                if let Some(args) = json["args"].as_array() {
-                    for arg in args {
-                        let s = arg.as_str().unwrap_or("");
-                        if s.contains(';') || s.contains('|') || s.contains('>') {
-                            tracing::warn!(
-                                "Policy Violation: Dangerous argument characters detected."
-                            );
-                            return false;
+                    let mut is_allowed = DEFAULT_ALLOWED_COMMANDS
+                        .iter()
+                        .any(|allowed| allowed == &cmd_lc);
+
+                    // Policy-configured extensions (exact match, case-insensitive).
+                    if !is_allowed {
+                        if let Some(extra) = conditions.allow_commands.as_ref() {
+                            is_allowed = extra
+                                .iter()
+                                .map(|v| v.trim())
+                                .filter(|v| !v.is_empty())
+                                .filter_map(normalize_sys_exec_command_for_policy)
+                                .any(|allowed| allowed == cmd_lc);
                         }
+                    }
+
+                    if !is_allowed {
+                        tracing::warn!(
+                            "Policy Violation: Command '{}' is not in the system allowlist.",
+                            cmd
+                        );
+                        return false;
                     }
                 }
             } else {
