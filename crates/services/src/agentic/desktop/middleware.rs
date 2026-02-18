@@ -193,6 +193,9 @@ impl ToolNormalizer {
         let mut raw_val: Value =
             serde_json::from_str(&json_str).map_err(|e| anyhow!("JSON Syntax Error: {}", e))?;
 
+        // 2b. Unwrap provider envelopes (OpenAI tool_calls/function wrappers, Anthropic input).
+        raw_val = Self::unwrap_tool_envelope(raw_val)?;
+
         // 3. Heuristic Normalization (Fix "parameters" vs "arguments", Infer missing names)
         // Use flags to avoid borrowing raw_val immutably and mutably at the same time
         let mut needs_wrap_sys = false;
@@ -256,6 +259,38 @@ impl ToolNormalizer {
             if let Some(map_mut) = raw_val.as_object_mut() {
                 if let Some(params) = map_mut.get("parameters").cloned() {
                     map_mut.insert("arguments".to_string(), params);
+                }
+
+                // Anthropic-style alias: {"name":"...", "input": {...}}
+                if !map_mut.contains_key("arguments") {
+                    if let Some(input) = map_mut.remove("input") {
+                        map_mut.insert("arguments".to_string(), input);
+                    }
+                }
+
+                // OpenAI-style: arguments may arrive as a JSON string.
+                let args_string = map_mut
+                    .get("arguments")
+                    .and_then(|v| v.as_str())
+                    .map(|s| s.to_string());
+                if let Some(raw_args) = args_string {
+                    let trimmed = raw_args.trim();
+                    let parsed: Value = if trimmed.is_empty() {
+                        json!({})
+                    } else {
+                        serde_json::from_str(trimmed).map_err(|e| {
+                            anyhow!(
+                                "Schema Validation Error: arguments string must be valid JSON: {}",
+                                e
+                            )
+                        })?
+                    };
+                    if !parsed.is_object() {
+                        return Err(anyhow!(
+                            "Schema Validation Error: arguments must decode to a JSON object."
+                        ));
+                    }
+                    map_mut.insert("arguments".to_string(), parsed);
                 }
 
                 if let Some(name) = map_mut.get("name").and_then(|n| n.as_str()) {
@@ -337,6 +372,85 @@ impl ToolNormalizer {
         Ok(tool_call)
     }
 
+    fn unwrap_tool_envelope(raw_val: Value) -> Result<Value> {
+        let mut current = raw_val;
+
+        // Peel a small bounded set of wrappers deterministically.
+        for _ in 0..4 {
+            let Some(map) = current.as_object() else {
+                break;
+            };
+
+            // OpenAI: {"tool_calls":[{...}]} (we only take the first tool call in this slice)
+            if let Some(tool_calls) = map.get("tool_calls").and_then(|v| v.as_array()) {
+                if let Some(first) = tool_calls.first() {
+                    current = first.clone();
+                    continue;
+                }
+            }
+
+            // Generic: {"tool_call": {...}}
+            if let Some(tool_call) = map.get("tool_call") {
+                current = tool_call.clone();
+                continue;
+            }
+
+            // OpenAI: {"type":"function","function":{"name":"...","arguments":"{...}"}} (or arguments object)
+            let has_name = map.get("name").and_then(|v| v.as_str()).is_some();
+            if !has_name {
+                if let Some(func) = map.get("function").and_then(|v| v.as_object()) {
+                    let name = func
+                        .get("name")
+                        .and_then(|v| v.as_str())
+                        .map(str::trim)
+                        .filter(|v| !v.is_empty())
+                        .ok_or_else(|| {
+                            anyhow!("Schema Validation Error: missing tool function name")
+                        })?
+                        .to_string();
+
+                    let args = func
+                        .get("arguments")
+                        .cloned()
+                        .or_else(|| func.get("input").cloned())
+                        .unwrap_or_else(|| json!({}));
+
+                    let args = if let Some(arg_str) = args.as_str() {
+                        let trimmed = arg_str.trim();
+                        if trimmed.is_empty() {
+                            json!({})
+                        } else {
+                            serde_json::from_str::<Value>(trimmed).map_err(|e| {
+                                anyhow!(
+                                    "Schema Validation Error: function.arguments string must be valid JSON: {}",
+                                    e
+                                )
+                            })?
+                        }
+                    } else {
+                        args
+                    };
+
+                    if !args.is_object() {
+                        return Err(anyhow!(
+                            "Schema Validation Error: function.arguments must be a JSON object."
+                        ));
+                    }
+
+                    current = json!({
+                        "name": name,
+                        "arguments": args
+                    });
+                    continue;
+                }
+            }
+
+            break;
+        }
+
+        Ok(current)
+    }
+
     fn sanitize_json(input: &str) -> String {
         let trimmed = input.trim();
         // Check for markdown code blocks
@@ -377,6 +491,69 @@ mod tests {
         let tool = ToolNormalizer::normalize(input).unwrap();
         match tool {
             AgentTool::SysExec { command, .. } => assert_eq!(command, "ls"),
+            _ => panic!("Wrong tool type"),
+        }
+    }
+
+    #[test]
+    fn test_normalize_openai_tool_calls_wrapper_with_string_arguments() {
+        let input = r#"{
+          "tool_calls": [
+            {
+              "id": "call_1",
+              "type": "function",
+              "function": {
+                "name": "sys__exec",
+                "arguments": "{\"command\":\"ls\",\"args\":[]}"
+              }
+            }
+          ]
+        }"#;
+        let tool = ToolNormalizer::normalize(input).unwrap();
+        match tool {
+            AgentTool::SysExec { command, args, .. } => {
+                assert_eq!(command, "ls");
+                assert!(args.is_empty());
+            }
+            _ => panic!("Wrong tool type"),
+        }
+    }
+
+    #[test]
+    fn test_normalize_openai_function_wrapper_with_object_arguments() {
+        let input = r#"{
+          "type": "function",
+          "function": {
+            "name": "browser__navigate",
+            "arguments": { "url": "https://example.com" }
+          }
+        }"#;
+        let tool = ToolNormalizer::normalize(input).unwrap();
+        match tool {
+            AgentTool::BrowserNavigate { url } => assert_eq!(url, "https://example.com"),
+            _ => panic!("Wrong tool type"),
+        }
+    }
+
+    #[test]
+    fn test_normalize_anthropic_input_alias() {
+        let input = r#"{"name":"sys__exec","input":{"command":"echo","args":["hi"]}}"#;
+        let tool = ToolNormalizer::normalize(input).unwrap();
+        match tool {
+            AgentTool::SysExec { command, args, .. } => {
+                assert_eq!(command, "echo");
+                assert_eq!(args, vec!["hi".to_string()]);
+            }
+            _ => panic!("Wrong tool type"),
+        }
+    }
+
+    #[test]
+    fn test_normalize_arguments_json_string() {
+        let input = r#"{"name":"sys__exec","arguments":"{\"command\":\"pwd\"}"}"#;
+        let tool = ToolNormalizer::normalize(input).unwrap();
+        match tool {
+            AgentTool::SysExec { command, .. } => assert_eq!(command, "pwd"),
             _ => panic!("Wrong tool type"),
         }
     }
