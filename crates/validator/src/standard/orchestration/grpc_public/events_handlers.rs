@@ -131,6 +131,52 @@ fn summarize_kernel_event(kernel_event: &ioi_types::app::KernelEvent) -> String 
             text_fingerprint(command_preview),
             text_fingerprint(chunk)
         ),
+        Ev::WorkloadActivity(activity) => match &activity.kind {
+            ioi_types::app::WorkloadActivityKind::Lifecycle { phase, exit_code } => format!(
+                "WorkloadActivity(Lifecycle) session={} step_index={} workload_id={} phase={} exit_code={}",
+                prefix_hex_4(&activity.session_id),
+                activity.step_index,
+                activity.workload_id,
+                phase,
+                exit_code
+                    .map(|v| v.to_string())
+                    .unwrap_or_else(|| "none".to_string())
+            ),
+            ioi_types::app::WorkloadActivityKind::Stdio {
+                stream,
+                chunk,
+                seq,
+                is_final,
+                exit_code,
+            } => format!(
+                "WorkloadActivity(Stdio) session={} step_index={} workload_id={} stream={} seq={} is_final={} exit_code={} chunk_{}",
+                prefix_hex_4(&activity.session_id),
+                activity.step_index,
+                activity.workload_id,
+                stream,
+                seq,
+                is_final,
+                exit_code
+                    .map(|v| v.to_string())
+                    .unwrap_or_else(|| "none".to_string()),
+                text_fingerprint(chunk)
+            ),
+        },
+        Ev::WorkloadReceipt(receipt) => match &receipt.receipt {
+            ioi_types::app::WorkloadReceipt::Exec(exec) => format!(
+                "WorkloadReceipt(Exec) session={} step_index={} workload_id={} tool_name={} command_preview_{} success={} exit_code={} error_class={}",
+                prefix_hex_4(&receipt.session_id),
+                receipt.step_index,
+                receipt.workload_id,
+                exec.tool_name,
+                text_fingerprint(&exec.command_preview),
+                exec.success,
+                exec.exit_code
+                    .map(|v| v.to_string())
+                    .unwrap_or_else(|| "none".to_string()),
+                exec.error_class.as_deref().unwrap_or("none")
+            ),
+        },
         Ev::RoutingReceipt(receipt) => format!(
             "RoutingReceipt session={} step_index={} tool_name={} policy_decision={} success={} action_json_{}",
             prefix_hex_4(&receipt.session_id),
@@ -294,6 +340,71 @@ fn map_kernel_event(
                 command_preview,
             },
         )),
+        ioi_types::app::KernelEvent::WorkloadActivity(activity) => {
+            let kind = match activity.kind {
+                ioi_types::app::WorkloadActivityKind::Lifecycle { phase, exit_code } => {
+                    Some(ioi_ipc::public::workload_activity::Kind::Lifecycle(
+                        ioi_ipc::public::WorkloadLifecycle {
+                            phase,
+                            exit_code: exit_code.unwrap_or_default(),
+                            has_exit_code: exit_code.is_some(),
+                        },
+                    ))
+                }
+                ioi_types::app::WorkloadActivityKind::Stdio {
+                    stream,
+                    chunk,
+                    seq,
+                    is_final,
+                    exit_code,
+                } => Some(ioi_ipc::public::workload_activity::Kind::Stdio(
+                    ioi_ipc::public::WorkloadStdio {
+                        stream,
+                        chunk,
+                        seq,
+                        is_final,
+                        exit_code: exit_code.unwrap_or_default(),
+                        has_exit_code: exit_code.is_some(),
+                    },
+                )),
+            };
+
+            Some(ChainEventEnum::WorkloadActivity(
+                ioi_ipc::public::WorkloadActivity {
+                    session_id: hex::encode(activity.session_id),
+                    step_index: activity.step_index,
+                    workload_id: activity.workload_id,
+                    timestamp_ms: activity.timestamp_ms,
+                    kind,
+                },
+            ))
+        }
+        ioi_types::app::KernelEvent::WorkloadReceipt(receipt) => match receipt.receipt {
+            ioi_types::app::WorkloadReceipt::Exec(exec) => Some(ChainEventEnum::WorkloadReceipt(
+                ioi_ipc::public::WorkloadReceipt {
+                    session_id: hex::encode(receipt.session_id),
+                    step_index: receipt.step_index,
+                    workload_id: receipt.workload_id,
+                    timestamp_ms: receipt.timestamp_ms,
+                    receipt: Some(ioi_ipc::public::workload_receipt::Receipt::Exec(
+                        ioi_ipc::public::WorkloadExecReceipt {
+                            tool_name: exec.tool_name,
+                            command: exec.command,
+                            args: exec.args,
+                            cwd: exec.cwd,
+                            detach: exec.detach,
+                            timeout_ms: exec.timeout_ms,
+                            success: exec.success,
+                            exit_code: exec.exit_code.unwrap_or_default(),
+                            has_exit_code: exec.exit_code.is_some(),
+                            error_class: exec.error_class.clone().unwrap_or_default(),
+                            has_error_class: exec.error_class.is_some(),
+                            command_preview: exec.command_preview,
+                        },
+                    )),
+                },
+            )),
+        },
         ioi_types::app::KernelEvent::RoutingReceipt(receipt) => {
             Some(ChainEventEnum::RoutingReceipt(map_routing_receipt(
                 receipt,
@@ -450,5 +561,90 @@ where
         });
 
         Ok(Response::new(ReceiverStream::new(rx)))
+    }
+}
+
+#[cfg(test)]
+mod workload_event_mapping_tests {
+    use super::map_kernel_event;
+    use ioi_ipc::public::chain_event::Event as ChainEventEnum;
+    use ioi_types::app::{
+        KernelEvent, WorkloadActivityEvent, WorkloadActivityKind, WorkloadExecReceipt,
+        WorkloadReceipt, WorkloadReceiptEvent,
+    };
+
+    #[test]
+    fn workload_activity_and_receipt_map_to_chain_event_payloads() {
+        let keypair = libp2p::identity::Keypair::generate_ed25519();
+        let signer_pk = hex::encode(keypair.public().encode_protobuf());
+
+        let activity = KernelEvent::WorkloadActivity(WorkloadActivityEvent {
+            session_id: [7u8; 32],
+            step_index: 42,
+            workload_id: "wid".to_string(),
+            timestamp_ms: 123,
+            kind: WorkloadActivityKind::Lifecycle {
+                phase: "started".to_string(),
+                exit_code: None,
+            },
+        });
+        let mapped = map_kernel_event(activity, &keypair, signer_pk.as_str())
+            .expect("workload activity should map");
+        match mapped {
+            ChainEventEnum::WorkloadActivity(payload) => {
+                assert_eq!(payload.session_id, hex::encode([7u8; 32]));
+                assert_eq!(payload.step_index, 42);
+                assert_eq!(payload.workload_id, "wid");
+                assert_eq!(payload.timestamp_ms, 123);
+                match payload.kind {
+                    Some(ioi_ipc::public::workload_activity::Kind::Lifecycle(lifecycle)) => {
+                        assert_eq!(lifecycle.phase, "started");
+                        assert!(!lifecycle.has_exit_code);
+                    }
+                    other => panic!("expected lifecycle kind, got: {:?}", other),
+                }
+            }
+            other => panic!("expected workload activity chain event, got: {:?}", other),
+        }
+
+        let receipt = KernelEvent::WorkloadReceipt(WorkloadReceiptEvent {
+            session_id: [7u8; 32],
+            step_index: 42,
+            workload_id: "wid".to_string(),
+            timestamp_ms: 124,
+            receipt: WorkloadReceipt::Exec(WorkloadExecReceipt {
+                tool_name: "sys__exec".to_string(),
+                command: "echo".to_string(),
+                args: vec!["hi".to_string()],
+                cwd: "/tmp".to_string(),
+                detach: false,
+                timeout_ms: 120_000,
+                success: true,
+                exit_code: Some(0),
+                error_class: None,
+                command_preview: "echo hi".to_string(),
+            }),
+        });
+        let mapped = map_kernel_event(receipt, &keypair, signer_pk.as_str())
+            .expect("workload receipt should map");
+        match mapped {
+            ChainEventEnum::WorkloadReceipt(payload) => match payload.receipt {
+                Some(ioi_ipc::public::workload_receipt::Receipt::Exec(exec)) => {
+                    assert_eq!(exec.tool_name, "sys__exec");
+                    assert_eq!(exec.command, "echo");
+                    assert_eq!(exec.args, vec!["hi".to_string()]);
+                    assert_eq!(exec.cwd, "/tmp");
+                    assert!(!exec.detach);
+                    assert_eq!(exec.timeout_ms, 120_000);
+                    assert!(exec.success);
+                    assert!(exec.has_exit_code);
+                    assert_eq!(exec.exit_code, 0);
+                    assert_eq!(exec.command_preview, "echo hi");
+                    assert!(!exec.has_error_class);
+                }
+                other => panic!("expected exec receipt, got: {:?}", other),
+            },
+            other => panic!("expected workload receipt chain event, got: {:?}", other),
+        }
     }
 }

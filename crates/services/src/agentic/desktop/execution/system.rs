@@ -6,7 +6,10 @@ use crate::agentic::desktop::types::CommandExecution;
 use ioi_crypto::algorithms::hash::sha256;
 use ioi_drivers::terminal::{CommandExecutionOptions, ProcessStreamChunk, ProcessStreamObserver};
 use ioi_types::app::agentic::AgentTool;
-use ioi_types::app::KernelEvent;
+use ioi_types::app::{
+    KernelEvent, WorkloadActivityEvent, WorkloadActivityKind, WorkloadExecReceipt, WorkloadReceipt,
+    WorkloadReceiptEvent,
+};
 use serde_json;
 use std::env;
 use std::path::{Path, PathBuf};
@@ -33,6 +36,80 @@ const SYS_EXEC_EXTENDED_TIMEOUT: Duration = Duration::from_secs(600);
 const RUNTIME_SECRET_KIND_SUDO_PASSWORD: &str = "sudo_password";
 const COMMAND_HISTORY_PREFIX: &str = "COMMAND_HISTORY:";
 
+fn unix_timestamp_ms_now() -> u64 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .ok()
+        .map(|d| d.as_millis() as u64)
+        .unwrap_or(0)
+}
+
+fn compute_workload_id(
+    session_id: [u8; 32],
+    step_index: u32,
+    tool_name: &str,
+    command_preview: &str,
+) -> String {
+    let seed = format!(
+        "{}:{}:{}:{}",
+        hex::encode(session_id),
+        step_index,
+        tool_name,
+        command_preview
+    );
+    sha256(seed.as_bytes())
+        .map(hex::encode)
+        .unwrap_or_else(|_| format!("{}:{}:{}", hex::encode(session_id), step_index, tool_name))
+}
+
+fn extract_error_class(error: Option<&str>) -> Option<String> {
+    let msg = error?;
+    let marker = "ERROR_CLASS=";
+    let start = msg.find(marker)?;
+    let token = msg[start + marker.len()..]
+        .split_whitespace()
+        .next()
+        .unwrap_or("")
+        .trim();
+    if token.is_empty() {
+        None
+    } else {
+        Some(token.to_string())
+    }
+}
+
+fn emit_workload_activity(
+    tx: &tokio::sync::broadcast::Sender<KernelEvent>,
+    session_id: [u8; 32],
+    step_index: u32,
+    workload_id: String,
+    kind: WorkloadActivityKind,
+) {
+    let _ = tx.send(KernelEvent::WorkloadActivity(WorkloadActivityEvent {
+        session_id,
+        step_index,
+        workload_id,
+        timestamp_ms: unix_timestamp_ms_now(),
+        kind,
+    }));
+}
+
+fn emit_workload_receipt(
+    tx: &tokio::sync::broadcast::Sender<KernelEvent>,
+    session_id: [u8; 32],
+    step_index: u32,
+    workload_id: String,
+    receipt: WorkloadReceipt,
+) {
+    let _ = tx.send(KernelEvent::WorkloadReceipt(WorkloadReceiptEvent {
+        session_id,
+        step_index,
+        workload_id,
+        timestamp_ms: unix_timestamp_ms_now(),
+        receipt,
+    }));
+}
+
 pub async fn handle(
     exec: &ToolExecutor,
     tool: AgentTool,
@@ -57,6 +134,7 @@ pub async fn handle(
             };
             let command_preview = command_preview(&command, &args);
             let timeout = resolve_sys_exec_timeout(&invocation.command, &invocation.args, detach);
+            let workload_id = compute_workload_id(session_id, step_index, "sys__exec", &command_preview);
             let observer = if detach {
                 None
             } else {
@@ -65,15 +143,28 @@ pub async fn handle(
                     session_id,
                     step_index,
                     "sys__exec",
+                    workload_id.clone(),
                     command_preview.clone(),
                 )
             };
+            if let Some(tx) = exec.event_sender.as_ref() {
+                emit_workload_activity(
+                    tx,
+                    session_id,
+                    step_index,
+                    workload_id.clone(),
+                    WorkloadActivityKind::Lifecycle {
+                        phase: "started".to_string(),
+                        exit_code: None,
+                    },
+                );
+            }
             let options = CommandExecutionOptions::default()
                 .with_timeout(timeout)
                 .with_stdin_data(normalize_stdin_data(stdin))
                 .with_stream_observer(observer);
 
-            match exec
+            let result = match exec
                 .terminal
                 .execute_in_dir_with_options(
                     &invocation.command,
@@ -110,7 +201,52 @@ pub async fn handle(
                     append_sys_exec_command_history(&mut result, &command_preview, step_index, 1);
                     result
                 }
+            };
+
+            if let Some(tx) = exec.event_sender.as_ref() {
+                let exit_code = result
+                    .history_entry
+                    .as_deref()
+                    .and_then(extract_exit_code)
+                    .or_else(|| result.error.as_deref().and_then(extract_exit_code));
+                let phase = if detach {
+                    "detached"
+                } else if result.success {
+                    "completed"
+                } else {
+                    "failed"
+                };
+                emit_workload_activity(
+                    tx,
+                    session_id,
+                    step_index,
+                    workload_id.clone(),
+                    WorkloadActivityKind::Lifecycle {
+                        phase: phase.to_string(),
+                        exit_code,
+                    },
+                );
+                emit_workload_receipt(
+                    tx,
+                    session_id,
+                    step_index,
+                    workload_id.clone(),
+                    WorkloadReceipt::Exec(WorkloadExecReceipt {
+                        tool_name: "sys__exec".to_string(),
+                        command: invocation.command.clone(),
+                        args: invocation.args.clone(),
+                        cwd: resolved_cwd.to_string_lossy().to_string(),
+                        detach,
+                        timeout_ms: timeout.as_millis() as u64,
+                        success: result.success,
+                        exit_code,
+                        error_class: extract_error_class(result.error.as_deref()),
+                        command_preview: command_preview.clone(),
+                    }),
+                );
             }
+
+            result
         }
 
         AgentTool::SysExecSession {
@@ -133,11 +269,14 @@ pub async fn handle(
 
             let command_preview = command_preview(&command, &args);
             let timeout = resolve_sys_exec_timeout(trimmed, &args, false);
+            let workload_id =
+                compute_workload_id(session_id, step_index, "sys__exec_session", &command_preview);
             let observer = process_stream_observer(
                 exec,
                 session_id,
                 step_index,
                 "sys__exec_session",
+                workload_id.clone(),
                 command_preview.clone(),
             );
             let options = CommandExecutionOptions::default()
@@ -147,7 +286,20 @@ pub async fn handle(
 
             let session_key = hex::encode(session_id);
 
-            match exec
+            if let Some(tx) = exec.event_sender.as_ref() {
+                emit_workload_activity(
+                    tx,
+                    session_id,
+                    step_index,
+                    workload_id.clone(),
+                    WorkloadActivityKind::Lifecycle {
+                        phase: "started".to_string(),
+                        exit_code: None,
+                    },
+                );
+            }
+
+            let result = match exec
                 .terminal
                 .execute_session_in_dir_with_options(
                     &session_key,
@@ -182,7 +334,46 @@ pub async fn handle(
                     append_sys_exec_command_history(&mut result, &command_preview, step_index, 1);
                     result
                 }
+            };
+
+            if let Some(tx) = exec.event_sender.as_ref() {
+                let exit_code = result
+                    .history_entry
+                    .as_deref()
+                    .and_then(extract_exit_code)
+                    .or_else(|| result.error.as_deref().and_then(extract_exit_code));
+                let phase = if result.success { "completed" } else { "failed" };
+                emit_workload_activity(
+                    tx,
+                    session_id,
+                    step_index,
+                    workload_id.clone(),
+                    WorkloadActivityKind::Lifecycle {
+                        phase: phase.to_string(),
+                        exit_code,
+                    },
+                );
+                emit_workload_receipt(
+                    tx,
+                    session_id,
+                    step_index,
+                    workload_id.clone(),
+                    WorkloadReceipt::Exec(WorkloadExecReceipt {
+                        tool_name: "sys__exec_session".to_string(),
+                        command: trimmed.to_string(),
+                        args: args.clone(),
+                        cwd: resolved_cwd.to_string_lossy().to_string(),
+                        detach: false,
+                        timeout_ms: timeout.as_millis() as u64,
+                        success: result.success,
+                        exit_code,
+                        error_class: extract_error_class(result.error.as_deref()),
+                        command_preview: command_preview.clone(),
+                    }),
+                );
             }
+
+            result
         }
 
         AgentTool::SysExecSessionReset {} => {
@@ -669,34 +860,41 @@ fn process_stream_observer(
     session_id: [u8; 32],
     step_index: u32,
     tool_name: &str,
+    workload_id: String,
     command_preview: String,
 ) -> Option<ProcessStreamObserver> {
     let tx = exec.event_sender.clone()?;
     let tool_name = tool_name.to_string();
-    let stream_seed = format!(
-        "{}:{}:{}:{}",
-        hex::encode(session_id),
-        step_index,
-        tool_name,
-        command_preview
-    );
-    let stream_id = sha256(stream_seed.as_bytes())
-        .map(hex::encode)
-        .unwrap_or_else(|_| format!("{}:{}:{}", hex::encode(session_id), step_index, tool_name));
+    let stream_id = workload_id.clone();
 
     Some(Arc::new(move |chunk: ProcessStreamChunk| {
+        let channel = chunk.channel.as_str().to_string();
+        let chunk_payload = chunk.chunk;
         let _ = tx.send(KernelEvent::ProcessActivity {
             session_id,
             step_index,
             tool_name: tool_name.clone(),
             stream_id: stream_id.clone(),
-            channel: chunk.channel.as_str().to_string(),
-            chunk: chunk.chunk,
+            channel: channel.clone(),
+            chunk: chunk_payload.clone(),
             seq: chunk.seq,
             is_final: chunk.is_final,
             exit_code: chunk.exit_code,
             command_preview: command_preview.clone(),
         });
+        emit_workload_activity(
+            &tx,
+            session_id,
+            step_index,
+            workload_id.clone(),
+            WorkloadActivityKind::Stdio {
+                stream: channel,
+                chunk: chunk_payload,
+                seq: chunk.seq,
+                is_final: chunk.is_final,
+                exit_code: chunk.exit_code,
+            },
+        );
     }))
 }
 
@@ -815,6 +1013,21 @@ async fn handle_install_package(
     }
 
     let cmd_preview = command_preview(command, &args);
+    let workload_id =
+        compute_workload_id(session_id, step_index, "sys__install_package", &cmd_preview);
+    if let Some(tx) = exec.event_sender.as_ref() {
+        emit_workload_activity(
+            tx,
+            session_id,
+            step_index,
+            workload_id.clone(),
+            WorkloadActivityKind::Lifecycle {
+                phase: "started".to_string(),
+                exit_code: None,
+            },
+        );
+    }
+
     let options = CommandExecutionOptions::default()
         .with_timeout(INSTALL_COMMAND_TIMEOUT)
         .with_stdin_data(stdin_data)
@@ -823,10 +1036,11 @@ async fn handle_install_package(
             session_id,
             step_index,
             "sys__install_package",
-            cmd_preview,
+            workload_id.clone(),
+            cmd_preview.clone(),
         ));
 
-    match exec
+    let result = match exec
         .terminal
         .execute_in_dir_with_options(command, &args, false, Some(&resolved_cwd), options)
         .await
@@ -861,7 +1075,46 @@ async fn handle_install_package(
                 class, trimmed, manager, msg
             ))
         }
+    };
+
+    if let Some(tx) = exec.event_sender.as_ref() {
+        let exit_code = result
+            .history_entry
+            .as_deref()
+            .and_then(extract_exit_code)
+            .or_else(|| result.error.as_deref().and_then(extract_exit_code));
+        let phase = if result.success { "completed" } else { "failed" };
+        emit_workload_activity(
+            tx,
+            session_id,
+            step_index,
+            workload_id.clone(),
+            WorkloadActivityKind::Lifecycle {
+                phase: phase.to_string(),
+                exit_code,
+            },
+        );
+        emit_workload_receipt(
+            tx,
+            session_id,
+            step_index,
+            workload_id.clone(),
+            WorkloadReceipt::Exec(WorkloadExecReceipt {
+                tool_name: "sys__install_package".to_string(),
+                command: command.to_string(),
+                args: args.clone(),
+                cwd: resolved_cwd.to_string_lossy().to_string(),
+                detach: false,
+                timeout_ms: INSTALL_COMMAND_TIMEOUT.as_millis() as u64,
+                success: result.success,
+                exit_code,
+                error_class: extract_error_class(result.error.as_deref()),
+                command_preview: cmd_preview.clone(),
+            }),
+        );
     }
+
+    result
 }
 
 fn default_install_manager() -> &'static str {

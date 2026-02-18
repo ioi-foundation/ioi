@@ -127,6 +127,12 @@ message ChainEvent {
 
         // Live process stdout/stderr/status activity for command tools.
         ProcessActivity process_activity = 9;
+
+        // [NEW] Structured workload activity stream for orchestration (lifecycle/stdio).
+        WorkloadActivity workload_activity = 10;
+
+        // [NEW] Deterministic workload receipt stream for auditable actions (exec/fs/net).
+        WorkloadReceipt workload_receipt = 11;
     }
 }
 
@@ -183,6 +189,61 @@ message ProcessActivity {
     int32 exit_code = 9;
     bool has_exit_code = 10;
     string command_preview = 11;
+}
+
+// --- Workload Orchestration Events ---
+
+message WorkloadActivity {
+    string session_id = 1; // Hex
+    uint32 step_index = 2;
+    string workload_id = 3;
+    uint64 timestamp_ms = 4;
+
+    oneof kind {
+        WorkloadLifecycle lifecycle = 10;
+        WorkloadStdio stdio = 11;
+    }
+}
+
+message WorkloadLifecycle {
+    string phase = 1; // started|detached|completed|failed
+    int32 exit_code = 2;
+    bool has_exit_code = 3;
+}
+
+message WorkloadStdio {
+    string stream = 1; // stdout|stderr|status
+    string chunk = 2;
+    uint64 seq = 3;
+    bool is_final = 4;
+    int32 exit_code = 5;
+    bool has_exit_code = 6;
+}
+
+message WorkloadReceipt {
+    string session_id = 1; // Hex
+    uint32 step_index = 2;
+    string workload_id = 3;
+    uint64 timestamp_ms = 4;
+
+    oneof receipt {
+        WorkloadExecReceipt exec = 10;
+    }
+}
+
+message WorkloadExecReceipt {
+    string tool_name = 1;
+    string command = 2;
+    repeated string args = 3;
+    string cwd = 4;
+    bool detach = 5;
+    uint64 timeout_ms = 6;
+    bool success = 7;
+    int32 exit_code = 8;
+    bool has_exit_code = 9;
+    string error_class = 10;
+    bool has_error_class = 11;
+    string command_preview = 12;
 }
 
 // [NEW] Message for agent spawning

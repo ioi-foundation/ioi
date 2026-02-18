@@ -746,7 +746,7 @@ mod tests {
     #[test]
     fn review_contract_helper_parity_between_firewall_and_ingestion() {
         let firewall_src = include_str!("mod.rs");
-        let ingestion_src = include_str!("../standard/orchestration/ingestion.rs");
+        let ingestion_src = include_str!("../standard/orchestration/ingestion/mod.rs");
 
         for needle in [
             "resolve_expected_request_hash(",
@@ -768,7 +768,7 @@ mod tests {
     #[test]
     fn desktop_resume_binary_payload_bypass_is_kept_in_parity() {
         let firewall_src = include_str!("mod.rs");
-        let ingestion_src = include_str!("../standard/orchestration/ingestion.rs");
+        let ingestion_src = include_str!("../standard/orchestration/ingestion/mod.rs");
         let needle = "Err(_) if service_id == \"desktop_agent\" => None";
 
         assert!(
