@@ -372,7 +372,11 @@ fn resolve_sys_exec_invocation(
     }
 
     if should_shell_wrap_sys_exec(trimmed) {
-        let shell_command = build_shell_wrapped_command_line(trimmed, args);
+        let shell_command = if cfg!(target_os = "windows") {
+            build_cmd_wrapped_command_line(trimmed, args)
+        } else {
+            build_shell_wrapped_command_line(trimmed, args)
+        };
         return Ok(wrap_sys_exec_with_shell(&shell_command));
     }
 
@@ -506,21 +510,62 @@ fn quote_shell_argument(arg: &str) -> String {
         return arg.to_string();
     }
 
-    if cfg!(target_os = "windows") {
-        return format!("'{}'", arg.replace('\'', "''"));
+    format!("'{}'", arg.replace('\'', "'\"'\"'"))
+}
+
+fn resolve_windows_comspec_path() -> String {
+    env::var("COMSPEC")
+        .ok()
+        .map(|value| value.trim().to_string())
+        .filter(|value| !value.is_empty())
+        .filter(|value| Path::new(value).is_file())
+        .unwrap_or_else(|| "cmd.exe".to_string())
+}
+
+fn build_cmd_wrapped_command_line(command: &str, args: &[String]) -> String {
+    if args.is_empty() {
+        // Allow compound commands ("echo hi", "dir && echo ok") to behave like unix shell wrapping.
+        // The caller can include quotes in `command` when needed (for paths with spaces).
+        return command.to_string();
     }
 
-    format!("'{}'", arg.replace('\'', "'\"'\"'"))
+    let mut out = String::from(command);
+    for arg in args {
+        out.push(' ');
+        out.push_str(&quote_cmd_argument(arg));
+    }
+    out
+}
+
+fn quote_cmd_argument(arg: &str) -> String {
+    if arg.is_empty() {
+        return "\"\"".to_string();
+    }
+
+    let safe = arg.chars().all(|ch| {
+        ch.is_ascii_alphanumeric()
+            || matches!(ch, '_' | '-' | '.' | '\\' | '/' | ':' | '@' | '+' | '=')
+    });
+    if safe {
+        return arg.to_string();
+    }
+
+    // Minimal quoting: wrap in double quotes and escape embedded quotes for cmd parsing.
+    let escaped = arg.replace('"', "\"\"");
+    format!("\"{}\"", escaped)
 }
 
 fn wrap_sys_exec_with_shell(command: &str) -> SysExecInvocation {
     if cfg!(target_os = "windows") {
+        let comspec = resolve_windows_comspec_path();
         return SysExecInvocation {
-            command: "powershell".to_string(),
+            command: comspec,
+            // Prefer cmd.exe for shell-wrapped execution to avoid PowerShell version skew
+            // (e.g. Windows PowerShell 5.1 lacks `&&`).
             args: vec![
-                "-NoProfile".to_string(),
-                "-NonInteractive".to_string(),
-                "-Command".to_string(),
+                "/Q".to_string(),
+                "/D".to_string(),
+                "/C".to_string(),
                 command.to_string(),
             ],
             shell_wrapped: true,
@@ -1327,8 +1372,11 @@ mod tests {
 
         assert!(invocation.shell_wrapped);
         if cfg!(target_os = "windows") {
-            assert_eq!(invocation.command, "powershell");
-            assert!(invocation.args.iter().any(|arg| arg == "-Command"));
+            assert!(invocation
+                .command
+                .to_ascii_lowercase()
+                .ends_with("cmd.exe"));
+            assert!(invocation.args.iter().any(|arg| arg == "/C"));
         } else {
             assert_eq!(invocation.args.first(), Some(&"-lc".to_string()));
         }
@@ -1342,8 +1390,11 @@ mod tests {
 
         assert!(invocation.shell_wrapped);
         if cfg!(target_os = "windows") {
-            assert_eq!(invocation.command, "powershell");
-            assert!(invocation.args.iter().any(|arg| arg == "-Command"));
+            assert!(invocation
+                .command
+                .to_ascii_lowercase()
+                .ends_with("cmd.exe"));
+            assert!(invocation.args.iter().any(|arg| arg == "/C"));
         } else {
             assert_eq!(invocation.args.first(), Some(&"-lc".to_string()));
             let command_line = invocation
