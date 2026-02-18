@@ -319,7 +319,7 @@ impl ToolExecutor {
             | AgentTool::BrowserKey { .. } => browser::handle(self, tool).await,
 
             // Web Retrieval Domain
-            AgentTool::WebSearch { .. } | AgentTool::WebRead { .. } => {
+            AgentTool::WebSearch { .. } | AgentTool::WebRead { .. } | AgentTool::NetFetch { .. } => {
                 web::handle(self, tool, session_id, step_index).await
             }
 
@@ -346,18 +346,8 @@ impl ToolExecutor {
             }
 
             // MCP / Dynamic Domain
-            // Special-case deterministic-but-not-yet-typed tools so they don't route into MCP.
             AgentTool::Dynamic(val) => {
-                let name = val
-                    .get("name")
-                    .and_then(|n| n.as_str())
-                    .unwrap_or("")
-                    .to_string();
-                if name == "net__fetch" {
-                    web::handle(self, AgentTool::Dynamic(val), session_id, step_index).await
-                } else {
-                    mcp::handle(self, val).await
-                }
+                mcp::handle(self, val).await
             }
 
             // Handled by Service Logic (Lifecycle/Meta), should not reach here
