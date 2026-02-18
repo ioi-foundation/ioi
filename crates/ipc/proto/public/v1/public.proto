@@ -125,9 +125,6 @@ message ChainEvent {
         // [NEW] Typed parity routing receipt for an action step.
         RoutingReceipt routing_receipt = 8;
 
-        // Live process stdout/stderr/status activity for command tools.
-        ProcessActivity process_activity = 9;
-
         // [NEW] Structured workload activity stream for orchestration (lifecycle/stdio).
         WorkloadActivity workload_activity = 10;
 
@@ -175,20 +172,6 @@ message AgentActionResult {
     // [NEW] The authoritative lifecycle state after this action.
     // e.g. "Running", "Paused", "Completed", "Failed"
     string agent_status = 5; 
-}
-
-message ProcessActivity {
-    string session_id = 1; // Hex
-    uint32 step_index = 2;
-    string tool_name = 3;
-    string stream_id = 4;
-    string channel = 5; // stdout|stderr|status
-    string chunk = 6;
-    uint64 seq = 7;
-    bool is_final = 8;
-    int32 exit_code = 9;
-    bool has_exit_code = 10;
-    string command_preview = 11;
 }
 
 // --- Workload Orchestration Events ---

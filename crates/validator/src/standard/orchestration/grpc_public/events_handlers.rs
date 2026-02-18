@@ -107,30 +107,6 @@ fn summarize_kernel_event(kernel_event: &ioi_types::app::KernelEvent) -> String 
             budget,
             text_fingerprint(goal)
         ),
-        Ev::ProcessActivity {
-            session_id,
-            step_index,
-            tool_name,
-            stream_id,
-            channel,
-            chunk,
-            seq,
-            is_final,
-            exit_code,
-            command_preview,
-        } => format!(
-            "ProcessActivity session={} step_index={} tool_name={} stream_id={} channel={} seq={} is_final={} exit_code={} command_preview_{} chunk_{}",
-            prefix_hex_4(session_id),
-            step_index,
-            tool_name,
-            stream_id,
-            channel,
-            seq,
-            is_final,
-            exit_code.map(|v| v.to_string()).unwrap_or_else(|| "none".to_string()),
-            text_fingerprint(command_preview),
-            text_fingerprint(chunk)
-        ),
         Ev::WorkloadActivity(activity) => match &activity.kind {
             ioi_types::app::WorkloadActivityKind::Lifecycle { phase, exit_code } => format!(
                 "WorkloadActivity(Lifecycle) session={} step_index={} workload_id={} phase={} exit_code={}",
@@ -314,32 +290,6 @@ fn map_kernel_event(
             budget,
             goal,
         })),
-        ioi_types::app::KernelEvent::ProcessActivity {
-            session_id,
-            step_index,
-            tool_name,
-            stream_id,
-            channel,
-            chunk,
-            seq,
-            is_final,
-            exit_code,
-            command_preview,
-        } => Some(ChainEventEnum::ProcessActivity(
-            ioi_ipc::public::ProcessActivity {
-                session_id: hex::encode(session_id),
-                step_index,
-                tool_name,
-                stream_id,
-                channel,
-                chunk,
-                seq,
-                is_final,
-                exit_code: exit_code.unwrap_or_default(),
-                has_exit_code: exit_code.is_some(),
-                command_preview,
-            },
-        )),
         ioi_types::app::KernelEvent::WorkloadActivity(activity) => {
             let kind = match activity.kind {
                 ioi_types::app::WorkloadActivityKind::Lifecycle { phase, exit_code } => {
