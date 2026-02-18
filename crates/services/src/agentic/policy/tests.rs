@@ -2,7 +2,7 @@ use super::filesystem::{required_filesystem_path_keys, validate_allow_paths_cond
 use super::targets::policy_target_aliases;
 use super::PolicyEngine;
 
-use crate::agentic::rules::{ActionRules, DefaultPolicy};
+use crate::agentic::rules::{ActionRules, DefaultPolicy, Rule, RuleConditions, Verdict};
 use anyhow::Result;
 use async_trait::async_trait;
 use ioi_api::vm::drivers::os::{OsDriver, WindowInfo};
@@ -163,6 +163,109 @@ fn allow_paths_accepts_normalized_path_within_allowed_root() {
     let allowed_by_policy =
         validate_allow_paths_condition(&allowed, &ActionTarget::FsRead, &params);
     assert!(allowed_by_policy);
+}
+
+#[test]
+fn allow_domains_allows_exact_and_subdomain_hosts() {
+    let graph = EvidenceGraph {
+        version: 1,
+        source_hash: [0u8; 32],
+        ambiguous: false,
+        spans: vec![],
+    };
+
+    let rules = ActionRules {
+        policy_id: "policy".to_string(),
+        defaults: DefaultPolicy::DenyAll,
+        ontology_policy: Default::default(),
+        pii_controls: PiiControls::default(),
+        rules: vec![Rule {
+            rule_id: Some("allow-example".to_string()),
+            target: "net::fetch".to_string(),
+            conditions: RuleConditions {
+                allow_domains: Some(vec!["example.com".to_string()]),
+                ..Default::default()
+            },
+            action: Verdict::Allow,
+        }],
+    };
+
+    let safety = Arc::new(DummySafety { graph }) as Arc<dyn LocalSafetyModel>;
+    let os = Arc::new(DummyOs) as Arc<dyn OsDriver>;
+
+    let rt = tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()
+        .expect("runtime");
+
+    for url in ["https://example.com/a", "https://www.example.com/b", "example.com/c"] {
+        let params = serde_json::json!({ "url": url });
+        let params = serde_json::to_vec(&params).expect("params should serialize");
+
+        let request = ActionRequest {
+            target: ActionTarget::NetFetch,
+            params,
+            context: ActionContext {
+                agent_id: "agent".to_string(),
+                session_id: None,
+                window_id: None,
+            },
+            nonce: 1,
+        };
+
+        let verdict = rt.block_on(PolicyEngine::evaluate(&rules, &request, &safety, &os, None));
+        assert_eq!(verdict, Verdict::Allow, "url should be allowed: {}", url);
+    }
+}
+
+#[test]
+fn allow_domains_blocks_substring_bypass_host() {
+    let graph = EvidenceGraph {
+        version: 1,
+        source_hash: [0u8; 32],
+        ambiguous: false,
+        spans: vec![],
+    };
+
+    let rules = ActionRules {
+        policy_id: "policy".to_string(),
+        defaults: DefaultPolicy::DenyAll,
+        ontology_policy: Default::default(),
+        pii_controls: PiiControls::default(),
+        rules: vec![Rule {
+            rule_id: Some("allow-example".to_string()),
+            target: "net::fetch".to_string(),
+            conditions: RuleConditions {
+                allow_domains: Some(vec!["example.com".to_string()]),
+                ..Default::default()
+            },
+            action: Verdict::Allow,
+        }],
+    };
+
+    let safety = Arc::new(DummySafety { graph }) as Arc<dyn LocalSafetyModel>;
+    let os = Arc::new(DummyOs) as Arc<dyn OsDriver>;
+
+    let rt = tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()
+        .expect("runtime");
+
+    let params = serde_json::json!({ "url": "https://example.com.evil.com/" });
+    let params = serde_json::to_vec(&params).expect("params should serialize");
+    let request = ActionRequest {
+        target: ActionTarget::NetFetch,
+        params,
+        context: ActionContext {
+            agent_id: "agent".to_string(),
+            session_id: None,
+            window_id: None,
+        },
+        nonce: 1,
+    };
+
+    let verdict = rt.block_on(PolicyEngine::evaluate(&rules, &request, &safety, &os, None));
+    assert_eq!(verdict, Verdict::Block);
 }
 
 #[test]
