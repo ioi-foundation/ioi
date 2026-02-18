@@ -452,7 +452,11 @@ impl SovereignSubstrateProvider for NativeSubstrateProvider {
 
         let intent_hash = intent.hash();
 
-        let frame = store.toc.frames.get(frame_id as usize).unwrap();
+        let frame = store
+            .toc
+            .frames
+            .get(frame_id as usize)
+            .ok_or_else(|| anyhow!("Frame {} missing after append_frame", frame_id))?;
         let mut proof = Vec::new();
         proof.extend_from_slice(&frame.mhnsw_root);
         proof.extend_from_slice(&frame.checksum);

@@ -221,15 +221,7 @@ pub async fn handle(
                     detach: true,
                 }]
             } else if cfg!(target_os = "windows") {
-                vec![LaunchAttempt {
-                    // Powershell Start-Process for better app resolution.
-                    command: "powershell".to_string(),
-                    args: vec![
-                        "-Command".to_string(),
-                        format!("Start-Process '{}'", app_name),
-                    ],
-                    detach: true,
-                }]
+                build_windows_launch_plan(&app_name)
             } else {
                 build_linux_launch_plan(&app_name, is_command_available("gtk-launch"))
             };
@@ -382,7 +374,7 @@ fn resolve_sys_exec_invocation(
 
     if !args.is_empty() {
         let inline_tokens: Vec<&str> = trimmed.split_whitespace().collect();
-        if inline_tokens.len() > 1 {
+        if inline_tokens.len() > 1 && should_merge_inline_sys_exec_tokens(inline_tokens[0]) {
             let mut merged_args: Vec<String> = inline_tokens[1..]
                 .iter()
                 .map(|token| (*token).to_string())
@@ -412,6 +404,21 @@ fn resolve_sys_exec_invocation(
         args: tokens.map(|token| token.to_string()).collect(),
         shell_wrapped: false,
     })
+}
+
+fn should_merge_inline_sys_exec_tokens(first_token: &str) -> bool {
+    // Heuristic: allow "git show" + explicit args, but do not break paths with spaces such as:
+    // "C:\Program Files\Git\bin\git.exe" + ["status"].
+    //
+    // If callers truly want inline shell parsing, they should include a shell token (e.g. "&&")
+    // or explicit quoting, which routes through `should_shell_wrap_sys_exec`.
+    let token = first_token.trim();
+    if token.is_empty() {
+        return false;
+    }
+
+    // Path-like tokens (unix path, windows path, or drive-prefixed) should be preserved verbatim.
+    !(token.contains('/') || token.contains('\\') || token.contains(':'))
 }
 
 fn should_shell_wrap_sys_exec(command: &str) -> bool {
@@ -1039,6 +1046,39 @@ fn resolve_target_directory(current_cwd: &str, requested_path: &str) -> Result<P
     Ok(canonical)
 }
 
+fn quote_powershell_single_quoted_string(value: &str) -> String {
+    // Treat CRLF as a single separator to avoid producing double spaces.
+    let without_crlf = value.replace("\r\n", " ");
+    let sanitized = without_crlf
+        .chars()
+        .map(|ch| if ch == '\r' || ch == '\n' { ' ' } else { ch })
+        .collect::<String>();
+    let trimmed = sanitized.trim();
+    format!("'{}'", trimmed.replace('\'', "''"))
+}
+
+fn build_windows_launch_plan(app_name: &str) -> Vec<LaunchAttempt> {
+    let trimmed = app_name.trim();
+    if trimmed.is_empty() {
+        return Vec::new();
+    }
+
+    // Use single-quoted PowerShell string literal with correct escaping of apostrophes.
+    let file_path = quote_powershell_single_quoted_string(trimmed);
+    let command = format!("Start-Process -FilePath {}", file_path);
+
+    vec![LaunchAttempt {
+        command: "powershell".to_string(),
+        args: vec![
+            "-NoProfile".to_string(),
+            "-NonInteractive".to_string(),
+            "-Command".to_string(),
+            command,
+        ],
+        detach: true,
+    }]
+}
+
 fn build_linux_launch_plan(app_name: &str, has_gtk_launch: bool) -> Vec<LaunchAttempt> {
     let trimmed = app_name.trim();
     if trimmed.is_empty() {
@@ -1298,12 +1338,26 @@ mod tests {
         append_sys_exec_command_history, build_linux_launch_plan, classify_install_failure,
         classify_sys_exec_failure, command_output_indicates_failure, extract_exit_code,
         launch_attempt_failed, launch_errors_indicate_missing_app, normalize_stdin_data,
-        parse_terminal_output, resolve_home_directory, resolve_sys_exec_invocation,
+        parse_terminal_output, quote_powershell_single_quoted_string, resolve_home_directory,
+        resolve_sys_exec_invocation,
         resolve_sys_exec_timeout, resolve_target_directory, resolve_working_directory,
         summarize_sys_exec_failure_output, sys_exec_failure_result, CommandExecution,
         LaunchAttempt, ToolExecutionResult, COMMAND_HISTORY_PREFIX, SYS_EXEC_DEFAULT_TIMEOUT,
         SYS_EXEC_EXTENDED_TIMEOUT,
     };
+
+    #[test]
+    fn powershell_single_quoted_string_escapes_apostrophes() {
+        assert_eq!(
+            quote_powershell_single_quoted_string("O'Reilly"),
+            "'O''Reilly'"
+        );
+    }
+
+    #[test]
+    fn powershell_single_quoted_string_strips_newlines() {
+        assert_eq!(quote_powershell_single_quoted_string("a\r\nb"), "'a b'");
+    }
 
     #[test]
     fn sys_exec_timeout_defaults_for_simple_commands() {
@@ -1349,6 +1403,18 @@ mod tests {
             invocation.args,
             vec!["show".to_string(), "HEAD~1".to_string()]
         );
+        assert!(!invocation.shell_wrapped);
+    }
+
+    #[test]
+    fn sys_exec_invocation_preserves_windows_style_paths_with_spaces_when_args_present() {
+        let command = r"C:\Program Files\Git\bin\git.exe";
+        let args = vec!["--version".to_string()];
+        let invocation = resolve_sys_exec_invocation(command, &args)
+            .expect("paths with spaces should not be split into inline tokens");
+
+        assert_eq!(invocation.command, command);
+        assert_eq!(invocation.args, args);
         assert!(!invocation.shell_wrapped);
     }
 
