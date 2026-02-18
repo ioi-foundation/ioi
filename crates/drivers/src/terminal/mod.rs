@@ -318,14 +318,6 @@ struct ShellSession {
 
 impl ShellSession {
     async fn spawn(cwd: Option<&Path>) -> Result<Self> {
-        #[cfg(not(unix))]
-        {
-            let _ = cwd;
-            return Err(anyhow!(
-                "Persistent shell sessions are not supported on this platform."
-            ));
-        }
-
         #[cfg(unix)]
         {
             let shell = resolve_shell_path();
@@ -371,6 +363,62 @@ impl ShellSession {
 
             Ok(session)
         }
+
+        #[cfg(windows)]
+        {
+            let comspec = resolve_comspec_path();
+            let mut cmd = Command::new(comspec);
+            cmd.arg("/Q");
+            cmd.arg("/D");
+            if let Some(dir) = cwd {
+                cmd.current_dir(dir);
+            }
+
+            cmd.stdin(Stdio::piped());
+            cmd.stdout(Stdio::piped());
+            // We'll redirect stderr to stdout inside the command line (`2>&1`) to avoid needing
+            // dual-stream parsing and deadlocks when stderr isn't drained.
+            cmd.stderr(Stdio::null());
+
+            let mut child = cmd
+                .spawn()
+                .map_err(|e| anyhow!("Failed to spawn persistent shell session: {}", e))?;
+
+            let stdin = child
+                .stdin
+                .take()
+                .ok_or_else(|| anyhow!("Failed to capture session stdin"))?;
+            let stdout = child
+                .stdout
+                .take()
+                .ok_or_else(|| anyhow!("Failed to capture session stdout"))?;
+
+            let session = Self {
+                exec_lock: Mutex::new(()),
+                child: Mutex::new(child),
+                stdin: Mutex::new(stdin),
+                stdout: Mutex::new(BufReader::new(stdout)),
+                next_marker: AtomicU64::new(1),
+            };
+
+            // Suppress prompt/echo for deterministic output parsing.
+            {
+                let mut stdin = session.stdin.lock().await;
+                stdin.write_all(b"@echo off\r\n").await?;
+                stdin.write_all(b"set PROMPT=\r\n").await?;
+                stdin.flush().await?;
+            }
+
+            Ok(session)
+        }
+
+        #[cfg(not(any(unix, windows)))]
+        {
+            let _ = cwd;
+            Err(anyhow!(
+                "Persistent shell sessions are not supported on this platform."
+            ))
+        }
     }
 
     async fn terminate(&self) -> Result<()> {
@@ -388,14 +436,6 @@ impl ShellSession {
         cwd: Option<&Path>,
         options: CommandExecutionOptions,
     ) -> Result<String> {
-        #[cfg(not(unix))]
-        {
-            let _ = (command, args, cwd, options);
-            return Err(anyhow!(
-                "Persistent shell sessions are not supported on this platform."
-            ));
-        }
-
         #[cfg(unix)]
         {
             let _guard = self.exec_lock.lock().await;
@@ -520,6 +560,154 @@ impl ShellSession {
                 ))
             }
         }
+
+        #[cfg(windows)]
+        {
+            let _guard = self.exec_lock.lock().await;
+
+            // If the shell died, fail fast so the caller can reset.
+            {
+                let mut child = self.child.lock().await;
+                if let Ok(Some(status)) = child.try_wait() {
+                    return Err(anyhow!("Shell session terminated ({}).", status));
+                }
+            }
+
+            let trimmed = command.trim();
+            if trimmed.is_empty() {
+                return Err(anyhow!("Command cannot be empty."));
+            }
+
+            let marker_id = self.next_marker.fetch_add(1, Ordering::Relaxed);
+            let done_marker = format!("__IOI_DONE:{}__", marker_id);
+            let rc_prefix = format!("__IOI_RC:{}__:", marker_id);
+            let end_label = format!("__ioi_end_{}__", marker_id);
+
+            let cmd_line = build_cmd_command_line(trimmed, args);
+
+            let mut stdin_temp_path = None;
+            if let Some(bytes) = options.stdin_data.as_deref() {
+                let path = std::env::temp_dir()
+                    .join(format!("ioi_stdin_{}_{}.tmp", std::process::id(), marker_id));
+                // Best-effort: if we fail to stage stdin, fall back to no-stdin execution.
+                if tokio::fs::write(&path, bytes).await.is_ok() {
+                    stdin_temp_path = Some(path);
+                }
+            }
+
+            let script = build_session_script_windows(
+                cwd,
+                &cmd_line,
+                stdin_temp_path.as_deref(),
+                &rc_prefix,
+                &done_marker,
+                &end_label,
+            );
+
+            let observer = options.stream_observer.clone();
+            let seq = Arc::new(AtomicU64::new(0));
+
+            // Write the script and read until the completion marker is observed.
+            let mut timed_out = false;
+            let run = async {
+                {
+                    let mut stdin = self.stdin.lock().await;
+                    stdin.write_all(script.as_bytes()).await?;
+                    stdin.flush().await?;
+                }
+
+                let mut stdout = self.stdout.lock().await;
+                let mut output = String::new();
+                let mut exit_code: Option<i32> = None;
+
+                loop {
+                    let mut line = String::new();
+                    let read = stdout.read_line(&mut line).await?;
+                    if read == 0 {
+                        return Err(anyhow!(
+                            "Shell session ended before emitting completion marker."
+                        ));
+                    }
+
+                    let trimmed_line = line.trim_end_matches(['\n', '\r']);
+                    if trimmed_line == done_marker {
+                        break;
+                    }
+
+                    if let Some(rest) = trimmed_line.strip_prefix(&rc_prefix) {
+                        exit_code = rest.trim().parse::<i32>().ok();
+                        continue;
+                    }
+
+                    if let Some(cb) = observer.as_ref() {
+                        let seq_value = seq.fetch_add(1, Ordering::Relaxed);
+                        (cb)(ProcessStreamChunk {
+                            channel: ProcessStreamChannel::Stdout,
+                            chunk: line.clone(),
+                            seq: seq_value,
+                            is_final: false,
+                            exit_code: None,
+                        });
+                    }
+
+                    output.push_str(&line);
+                }
+
+                let code = exit_code.ok_or_else(|| anyhow!("Missing exit code marker."))?;
+                Ok((output, code))
+            };
+
+            let (output, exit_code) = match time::timeout(options.timeout, run).await {
+                Ok(res) => res?,
+                Err(_) => {
+                    timed_out = true;
+                    // Kill the session; it's unsafe to keep using a potentially wedged shell.
+                    drop(_guard);
+                    self.terminate().await?;
+                    (String::new(), -1)
+                }
+            };
+
+            if let Some(path) = stdin_temp_path.as_ref() {
+                let _ = tokio::fs::remove_file(path).await;
+            }
+
+            if let Some(cb) = observer.as_ref() {
+                let final_seq = seq.fetch_add(1, Ordering::Relaxed);
+                (cb)(ProcessStreamChunk {
+                    channel: ProcessStreamChannel::Status,
+                    chunk: String::new(),
+                    seq: final_seq,
+                    is_final: true,
+                    exit_code: if timed_out { None } else { Some(exit_code) },
+                });
+            }
+
+            if timed_out {
+                return Err(anyhow!(
+                    "Command timed out after {} seconds.",
+                    options.timeout.as_secs()
+                ));
+            }
+
+            let output_text = output.trim_end_matches(['\n', '\r']).to_string();
+            if exit_code == 0 {
+                Ok(output_text)
+            } else {
+                Ok(format!(
+                    "Command failed: exit status: {}\nStderr: {}",
+                    exit_code, output_text
+                ))
+            }
+        }
+
+        #[cfg(not(any(unix, windows)))]
+        {
+            let _ = (command, args, cwd, options);
+            Err(anyhow!(
+                "Persistent shell sessions are not supported on this platform."
+            ))
+        }
     }
 }
 
@@ -544,6 +732,95 @@ fn build_shell_command_line(command: &str, args: &[String]) -> String {
         out.push_str(&quote_sh_argument(arg));
     }
     out
+}
+
+#[cfg(windows)]
+fn resolve_comspec_path() -> String {
+    env::var("COMSPEC")
+        .ok()
+        .map(|value| value.trim().to_string())
+        .filter(|value| !value.is_empty())
+        .filter(|value| Path::new(value).is_file())
+        .unwrap_or_else(|| "cmd.exe".to_string())
+}
+
+#[cfg(windows)]
+fn build_cmd_command_line(command: &str, args: &[String]) -> String {
+    if args.is_empty() {
+        // Allow compound commands ("echo hi", "dir && echo ok") to behave like unix session mode.
+        // The caller can include quotes in `command` when needed (for paths with spaces).
+        return command.to_string();
+    }
+    let mut out = String::from(command);
+    for arg in args {
+        out.push(' ');
+        out.push_str(&quote_cmd_argument(arg));
+    }
+    out
+}
+
+#[cfg(windows)]
+fn quote_cmd_argument(arg: &str) -> String {
+    if arg.is_empty() {
+        return "\"\"".to_string();
+    }
+
+    let mut s = arg.to_string();
+
+    let safe = s.chars().all(|ch| {
+        ch.is_ascii_alphanumeric()
+            || matches!(ch, '_' | '-' | '.' | '\\' | '/' | ':' | '@' | '+' | '=')
+    });
+    if safe {
+        return s;
+    }
+
+    // Minimal quoting: wrap in double quotes and escape embedded quotes for cmd parsing.
+    s = s.replace('"', "\"\"");
+    format!("\"{}\"", s)
+}
+
+#[cfg(windows)]
+fn build_session_script_windows(
+    cwd: Option<&Path>,
+    cmd_line: &str,
+    stdin_path: Option<&Path>,
+    rc_prefix: &str,
+    done_marker: &str,
+    end_label: &str,
+) -> String {
+    let mut script = String::new();
+    script.push_str("set ioi_rc=0\r\n");
+
+    if let Some(dir) = cwd {
+        let dir_str = dir.to_string_lossy().to_string();
+        script.push_str(&format!("cd /d {}\r\n", quote_cmd_argument(&dir_str)));
+        script.push_str("if errorlevel 1 (\r\n");
+        script.push_str(&format!(
+            "  echo ioi: failed to cd to {}\r\n",
+            quote_cmd_argument(&dir_str)
+        ));
+        script.push_str("  set ioi_rc=%errorlevel%\r\n");
+        script.push_str(&format!("  goto {}\r\n", end_label));
+        script.push_str(")\r\n");
+    }
+
+    if let Some(path) = stdin_path {
+        let path_str = path.to_string_lossy().to_string();
+        script.push_str(&format!(
+            "{} < {} 2>&1\r\n",
+            cmd_line,
+            quote_cmd_argument(&path_str)
+        ));
+    } else {
+        script.push_str(&format!("{} 2>&1\r\n", cmd_line));
+    }
+    script.push_str("set ioi_rc=%errorlevel%\r\n");
+
+    script.push_str(&format!(":{}\r\n", end_label));
+    script.push_str(&format!("echo {}%ioi_rc%\r\n", rc_prefix));
+    script.push_str(&format!("echo {}\r\n", done_marker));
+    script
 }
 
 #[cfg(unix)]
@@ -701,6 +978,39 @@ mod tests {
             .execute_session_in_dir_with_options(
                 key,
                 "echo $IOI_SESSION_TEST",
+                &[],
+                None,
+                CommandExecutionOptions::default().with_timeout(Duration::from_secs(5)),
+            )
+            .await
+            .expect("echo should succeed");
+        assert_eq!(out.trim(), "ok");
+
+        let _ = driver.reset_session(key).await;
+    }
+
+    #[cfg(windows)]
+    #[tokio::test]
+    async fn session_exec_preserves_shell_state_across_calls() {
+        let driver = TerminalDriver::new();
+        let key = "test-session";
+
+        let out = driver
+            .execute_session_in_dir_with_options(
+                key,
+                "set",
+                &["IOI_SESSION_TEST=ok".to_string()],
+                None,
+                CommandExecutionOptions::default().with_timeout(Duration::from_secs(5)),
+            )
+            .await
+            .expect("set should succeed");
+        assert!(out.trim().is_empty());
+
+        let out = driver
+            .execute_session_in_dir_with_options(
+                key,
+                "echo %IOI_SESSION_TEST%",
                 &[],
                 None,
                 CommandExecutionOptions::default().with_timeout(Duration::from_secs(5)),
