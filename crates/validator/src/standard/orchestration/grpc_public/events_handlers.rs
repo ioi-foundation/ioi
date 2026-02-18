@@ -152,6 +152,23 @@ fn summarize_kernel_event(kernel_event: &ioi_types::app::KernelEvent) -> String 
                     .unwrap_or_else(|| "none".to_string()),
                 exec.error_class.as_deref().unwrap_or("none")
             ),
+            ioi_types::app::WorkloadReceipt::NetFetch(net) => format!(
+                "WorkloadReceipt(NetFetch) session={} step_index={} workload_id={} method={} has_status_code={} status_code={} truncated={} success={} requested_url_{} has_final_url={} final_url_{} error_class={}",
+                prefix_hex_4(&receipt.session_id),
+                receipt.step_index,
+                receipt.workload_id,
+                net.method,
+                net.status_code.is_some(),
+                net.status_code
+                    .map(|v| v.to_string())
+                    .unwrap_or_else(|| "none".to_string()),
+                net.truncated,
+                net.success,
+                text_fingerprint(&net.requested_url),
+                net.final_url.is_some(),
+                text_fingerprint(net.final_url.as_deref().unwrap_or("")),
+                net.error_class.as_deref().unwrap_or("none")
+            ),
         },
         Ev::RoutingReceipt(receipt) => format!(
             "RoutingReceipt session={} step_index={} tool_name={} policy_decision={} success={} action_json_{}",
@@ -354,6 +371,35 @@ fn map_kernel_event(
                     )),
                 },
             )),
+            ioi_types::app::WorkloadReceipt::NetFetch(net) => {
+                Some(ChainEventEnum::WorkloadReceipt(ioi_ipc::public::WorkloadReceipt {
+                    session_id: hex::encode(receipt.session_id),
+                    step_index: receipt.step_index,
+                    workload_id: receipt.workload_id,
+                    timestamp_ms: receipt.timestamp_ms,
+                    receipt: Some(ioi_ipc::public::workload_receipt::Receipt::NetFetch(
+                        ioi_ipc::public::WorkloadNetFetchReceipt {
+                            tool_name: net.tool_name,
+                            method: net.method,
+                            requested_url: net.requested_url,
+                            final_url: net.final_url.clone().unwrap_or_default(),
+                            has_final_url: net.final_url.is_some(),
+                            status_code: net.status_code.unwrap_or_default(),
+                            has_status_code: net.status_code.is_some(),
+                            content_type: net.content_type.clone().unwrap_or_default(),
+                            has_content_type: net.content_type.is_some(),
+                            max_chars: net.max_chars,
+                            max_bytes: net.max_bytes,
+                            bytes_read: net.bytes_read,
+                            truncated: net.truncated,
+                            timeout_ms: net.timeout_ms,
+                            success: net.success,
+                            error_class: net.error_class.clone().unwrap_or_default(),
+                            has_error_class: net.error_class.is_some(),
+                        },
+                    )),
+                }))
+            }
         },
         ioi_types::app::KernelEvent::RoutingReceipt(receipt) => {
             Some(ChainEventEnum::RoutingReceipt(map_routing_receipt(
@@ -520,7 +566,7 @@ mod workload_event_mapping_tests {
     use ioi_ipc::public::chain_event::Event as ChainEventEnum;
     use ioi_types::app::{
         KernelEvent, WorkloadActivityEvent, WorkloadActivityKind, WorkloadExecReceipt,
-        WorkloadReceipt, WorkloadReceiptEvent,
+        WorkloadNetFetchReceipt, WorkloadReceipt, WorkloadReceiptEvent,
     };
 
     #[test]
@@ -593,6 +639,54 @@ mod workload_event_mapping_tests {
                     assert!(!exec.has_error_class);
                 }
                 other => panic!("expected exec receipt, got: {:?}", other),
+            },
+            other => panic!("expected workload receipt chain event, got: {:?}", other),
+        }
+
+        let receipt = KernelEvent::WorkloadReceipt(WorkloadReceiptEvent {
+            session_id: [7u8; 32],
+            step_index: 42,
+            workload_id: "wid-net".to_string(),
+            timestamp_ms: 125,
+            receipt: WorkloadReceipt::NetFetch(WorkloadNetFetchReceipt {
+                tool_name: "net__fetch".to_string(),
+                method: "GET".to_string(),
+                requested_url: "https://example.com/".to_string(),
+                final_url: None,
+                status_code: Some(404),
+                content_type: Some("text/html".to_string()),
+                max_chars: 123,
+                max_bytes: 456,
+                bytes_read: 111,
+                truncated: false,
+                timeout_ms: 30_000,
+                success: true,
+                error_class: None,
+            }),
+        });
+        let mapped = map_kernel_event(receipt, &keypair, signer_pk.as_str())
+            .expect("net-fetch workload receipt should map");
+        match mapped {
+            ChainEventEnum::WorkloadReceipt(payload) => match payload.receipt {
+                Some(ioi_ipc::public::workload_receipt::Receipt::NetFetch(net)) => {
+                    assert_eq!(net.tool_name, "net__fetch");
+                    assert_eq!(net.method, "GET");
+                    assert_eq!(net.requested_url, "https://example.com/");
+                    assert!(!net.has_final_url);
+                    assert_eq!(net.final_url, "");
+                    assert!(net.has_status_code);
+                    assert_eq!(net.status_code, 404);
+                    assert!(net.has_content_type);
+                    assert_eq!(net.content_type, "text/html");
+                    assert_eq!(net.max_chars, 123);
+                    assert_eq!(net.max_bytes, 456);
+                    assert_eq!(net.bytes_read, 111);
+                    assert!(!net.truncated);
+                    assert_eq!(net.timeout_ms, 30_000);
+                    assert!(net.success);
+                    assert!(!net.has_error_class);
+                }
+                other => panic!("expected net_fetch receipt, got: {:?}", other),
             },
             other => panic!("expected workload receipt chain event, got: {:?}", other),
         }

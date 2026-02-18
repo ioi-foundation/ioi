@@ -29,6 +29,105 @@ use ioi_types::app::agentic::AgentTool;
 use ioi_types::app::KernelEvent;
 use serde::{Deserialize, Serialize};
 
+pub(crate) mod workload {
+    use super::ToolExecutor;
+    use ioi_crypto::algorithms::hash::sha256;
+    use ioi_types::app::{
+        KernelEvent, WorkloadActivityEvent, WorkloadActivityKind, WorkloadReceipt,
+        WorkloadReceiptEvent,
+    };
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    pub(crate) const WORKLOAD_RECEIPT_REDACTED_PLACEHOLDER: &str = "[REDACTED_PII]";
+
+    fn unix_timestamp_ms_now() -> u64 {
+        SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .ok()
+            .map(|d| d.as_millis() as u64)
+            .unwrap_or(0)
+    }
+
+    pub(crate) fn compute_workload_id(
+        session_id: [u8; 32],
+        step_index: u32,
+        tool_name: &str,
+        command_preview: &str,
+    ) -> String {
+        let seed = format!(
+            "{}:{}:{}:{}",
+            hex::encode(session_id),
+            step_index,
+            tool_name,
+            command_preview
+        );
+        sha256(seed.as_bytes())
+            .map(hex::encode)
+            .unwrap_or_else(|_| format!("{}:{}:{}", hex::encode(session_id), step_index, tool_name))
+    }
+
+    pub(crate) fn extract_error_class(error: Option<&str>) -> Option<String> {
+        let msg = error?;
+        let marker = "ERROR_CLASS=";
+        let start = msg.find(marker)?;
+        let token = msg[start + marker.len()..]
+            .split_whitespace()
+            .next()
+            .unwrap_or("")
+            .trim();
+        if token.is_empty() {
+            None
+        } else {
+            Some(token.to_string())
+        }
+    }
+
+    pub(crate) async fn scrub_workload_text_field_for_receipt(
+        exec: &ToolExecutor,
+        input: &str,
+    ) -> String {
+        let Some(scrubber) = exec.pii_scrubber.as_ref() else {
+            return input.to_string();
+        };
+        match scrubber.scrub(input).await {
+            Ok((scrubbed, _)) => scrubbed,
+            Err(_) => WORKLOAD_RECEIPT_REDACTED_PLACEHOLDER.to_string(),
+        }
+    }
+
+    pub(crate) fn emit_workload_activity(
+        tx: &tokio::sync::broadcast::Sender<KernelEvent>,
+        session_id: [u8; 32],
+        step_index: u32,
+        workload_id: String,
+        kind: WorkloadActivityKind,
+    ) {
+        let _ = tx.send(KernelEvent::WorkloadActivity(WorkloadActivityEvent {
+            session_id,
+            step_index,
+            workload_id,
+            timestamp_ms: unix_timestamp_ms_now(),
+            kind,
+        }));
+    }
+
+    pub(crate) fn emit_workload_receipt(
+        tx: &tokio::sync::broadcast::Sender<KernelEvent>,
+        session_id: [u8; 32],
+        step_index: u32,
+        workload_id: String,
+        receipt: WorkloadReceipt,
+    ) {
+        let _ = tx.send(KernelEvent::WorkloadReceipt(WorkloadReceiptEvent {
+            session_id,
+            step_index,
+            workload_id,
+            timestamp_ms: unix_timestamp_ms_now(),
+            receipt,
+        }));
+    }
+}
+
 /// Result of a single tool execution.
 #[derive(Debug, Clone)]
 pub struct ToolExecutionResult {
@@ -220,7 +319,7 @@ impl ToolExecutor {
 
             // Web Retrieval Domain
             AgentTool::WebSearch { .. } | AgentTool::WebRead { .. } => {
-                web::handle(self, tool).await
+                web::handle(self, tool, session_id, step_index).await
             }
 
             // Filesystem Domain
@@ -254,7 +353,7 @@ impl ToolExecutor {
                     .unwrap_or("")
                     .to_string();
                 if name == "net__fetch" {
-                    web::handle(self, AgentTool::Dynamic(val)).await
+                    web::handle(self, AgentTool::Dynamic(val), session_id, step_index).await
                 } else {
                     mcp::handle(self, val).await
                 }

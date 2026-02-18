@@ -273,6 +273,8 @@ pub struct WorkloadReceiptEvent {
 pub enum WorkloadReceipt {
     /// A command execution receipt.
     Exec(WorkloadExecReceipt),
+    /// A network fetch receipt ("net__fetch").
+    NetFetch(WorkloadNetFetchReceipt),
 }
 
 /// Audit receipt for an `Exec` workload.
@@ -300,6 +302,41 @@ pub struct WorkloadExecReceipt {
     pub error_class: Option<String>,
     /// Human-friendly preview string (for UI correlation).
     pub command_preview: String,
+}
+
+/// Audit receipt for a `net__fetch` workload.
+#[derive(Clone, Debug, Serialize, Deserialize, Encode, Decode, PartialEq, Eq)]
+pub struct WorkloadNetFetchReceipt {
+    /// Tool that initiated the workload (always "net__fetch" for this receipt).
+    pub tool_name: String,
+    /// HTTP method (currently "GET").
+    pub method: String,
+    /// Redacted request URL for receipts (query/fragment/userinfo removed; scrubbed if configured).
+    pub requested_url: String,
+    /// Redacted final URL after redirects (query/fragment/userinfo removed; scrubbed if configured).
+    #[serde(default)]
+    pub final_url: Option<String>,
+    /// HTTP status code when a response was received.
+    #[serde(default)]
+    pub status_code: Option<u32>,
+    /// Response content-type when available.
+    #[serde(default)]
+    pub content_type: Option<String>,
+    /// Max character budget requested.
+    pub max_chars: u32,
+    /// Max byte budget enforced while reading the body.
+    pub max_bytes: u64,
+    /// Bytes actually read into the buffer (post truncation-by-bytes).
+    pub bytes_read: u64,
+    /// True if output was truncated by bytes or chars.
+    pub truncated: bool,
+    /// Timeout applied (milliseconds).
+    pub timeout_ms: u64,
+    /// Success flag (request+read+serialization succeeded; independent of HTTP status).
+    pub success: bool,
+    /// Optional error class when failure output includes an `ERROR_CLASS=...` prefix.
+    #[serde(default)]
+    pub error_class: Option<String>,
 }
 
 /// A unified event type representing observable state changes within the Kernel.

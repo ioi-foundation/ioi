@@ -1,15 +1,12 @@
 // Path: crates/services/src/agentic/desktop/execution/system.rs
 
-use super::{ToolExecutionResult, ToolExecutor};
+use super::{workload, ToolExecutionResult, ToolExecutor};
+use super::workload::WORKLOAD_RECEIPT_REDACTED_PLACEHOLDER;
 use crate::agentic::desktop::runtime_secret;
 use crate::agentic::desktop::types::CommandExecution;
-use ioi_crypto::algorithms::hash::sha256;
 use ioi_drivers::terminal::{CommandExecutionOptions, ProcessStreamChunk, ProcessStreamObserver};
 use ioi_types::app::agentic::AgentTool;
-use ioi_types::app::{
-    KernelEvent, WorkloadActivityEvent, WorkloadActivityKind, WorkloadExecReceipt, WorkloadReceipt,
-    WorkloadReceiptEvent,
-};
+use ioi_types::app::{KernelEvent, WorkloadActivityKind, WorkloadExecReceipt, WorkloadReceipt};
 use serde_json;
 use std::env;
 use std::path::{Path, PathBuf};
@@ -35,16 +32,7 @@ const SYS_EXEC_DEFAULT_TIMEOUT: Duration = Duration::from_secs(120);
 const SYS_EXEC_EXTENDED_TIMEOUT: Duration = Duration::from_secs(600);
 const RUNTIME_SECRET_KIND_SUDO_PASSWORD: &str = "sudo_password";
 const COMMAND_HISTORY_PREFIX: &str = "COMMAND_HISTORY:";
-const WORKLOAD_RECEIPT_REDACTED_PLACEHOLDER: &str = "[REDACTED_PII]";
 const WORKLOAD_RECEIPT_MAX_ARG_LEN: usize = 512;
-
-fn unix_timestamp_ms_now() -> u64 {
-    SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .ok()
-        .map(|d| d.as_millis() as u64)
-        .unwrap_or(0)
-}
 
 fn compute_workload_id(
     session_id: [u8; 32],
@@ -52,32 +40,11 @@ fn compute_workload_id(
     tool_name: &str,
     command_preview: &str,
 ) -> String {
-    let seed = format!(
-        "{}:{}:{}:{}",
-        hex::encode(session_id),
-        step_index,
-        tool_name,
-        command_preview
-    );
-    sha256(seed.as_bytes())
-        .map(hex::encode)
-        .unwrap_or_else(|_| format!("{}:{}:{}", hex::encode(session_id), step_index, tool_name))
+    workload::compute_workload_id(session_id, step_index, tool_name, command_preview)
 }
 
 fn extract_error_class(error: Option<&str>) -> Option<String> {
-    let msg = error?;
-    let marker = "ERROR_CLASS=";
-    let start = msg.find(marker)?;
-    let token = msg[start + marker.len()..]
-        .split_whitespace()
-        .next()
-        .unwrap_or("")
-        .trim();
-    if token.is_empty() {
-        None
-    } else {
-        Some(token.to_string())
-    }
+    workload::extract_error_class(error)
 }
 
 fn is_sensitive_key_for_receipt(raw: &str) -> bool {
@@ -264,13 +231,7 @@ fn redact_args_for_receipt(args: &[String]) -> Vec<String> {
 }
 
 async fn scrub_workload_text_field_for_receipt(exec: &ToolExecutor, input: &str) -> String {
-    let Some(scrubber) = exec.pii_scrubber.as_ref() else {
-        return input.to_string();
-    };
-    match scrubber.scrub(input).await {
-        Ok((scrubbed, _)) => scrubbed,
-        Err(_) => WORKLOAD_RECEIPT_REDACTED_PLACEHOLDER.to_string(),
-    }
+    workload::scrub_workload_text_field_for_receipt(exec, input).await
 }
 
 async fn scrub_workload_args_for_receipt(exec: &ToolExecutor, args: &[String]) -> Vec<String> {
@@ -300,13 +261,7 @@ fn emit_workload_activity(
     workload_id: String,
     kind: WorkloadActivityKind,
 ) {
-    let _ = tx.send(KernelEvent::WorkloadActivity(WorkloadActivityEvent {
-        session_id,
-        step_index,
-        workload_id,
-        timestamp_ms: unix_timestamp_ms_now(),
-        kind,
-    }));
+    workload::emit_workload_activity(tx, session_id, step_index, workload_id, kind);
 }
 
 fn emit_workload_receipt(
@@ -316,13 +271,7 @@ fn emit_workload_receipt(
     workload_id: String,
     receipt: WorkloadReceipt,
 ) {
-    let _ = tx.send(KernelEvent::WorkloadReceipt(WorkloadReceiptEvent {
-        session_id,
-        step_index,
-        workload_id,
-        timestamp_ms: unix_timestamp_ms_now(),
-        receipt,
-    }));
+    workload::emit_workload_receipt(tx, session_id, step_index, workload_id, receipt);
 }
 
 pub async fn handle(
