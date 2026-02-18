@@ -174,6 +174,31 @@ fn lower_edit_line_to_fs_write(arguments: &Value) -> Result<Value> {
     }))
 }
 
+fn normalize_ui_click_component_arguments(arguments: &Value) -> Result<Value> {
+    let args_obj = arguments.as_object().ok_or_else(|| {
+        anyhow!("Schema Validation Error: ui__click_component arguments must be a JSON object.")
+    })?;
+
+    let id = args_obj
+        .get("id")
+        .or_else(|| args_obj.get("component_id"))
+        .or_else(|| args_obj.get("componentId"))
+        .or_else(|| args_obj.get("element_id"))
+        .or_else(|| args_obj.get("elementId"))
+        .or_else(|| args_obj.get("target_id"))
+        .or_else(|| args_obj.get("targetId"))
+        .and_then(|v| v.as_str())
+        .map(str::trim)
+        .filter(|v| !v.is_empty())
+        .ok_or_else(|| {
+            anyhow!(
+                "Schema Validation Error: ui__click_component requires a non-empty 'id' field (aliases: component_id, element_id, target_id)."
+            )
+        })?;
+
+    Ok(json!({ "id": id }))
+}
+
 fn normalize_net_fetch_arguments(arguments: &Value) -> Result<Value> {
     let args_obj = arguments.as_object().ok_or_else(|| {
         anyhow!("Schema Validation Error: net__fetch arguments must be a JSON object.")
@@ -282,6 +307,8 @@ impl ToolNormalizer {
             // Alias check (safe to do in-place if we get mut ref now)
             let mut install_package_args: Option<Value> = None;
             let mut edit_line_args: Option<Value> = None;
+            let mut ui_click_component_args: Option<Value> = None;
+            let mut ui_click_component_present = false;
             let mut net_fetch_args: Option<Value> = None;
             let mut net_fetch_present = false;
             if let Some(map_mut) = raw_val.as_object_mut() {
@@ -338,6 +365,15 @@ impl ToolNormalizer {
                                 .unwrap_or_else(|| json!({})),
                         );
                     }
+                    if name == "ui__click_component" {
+                        ui_click_component_present = true;
+                        ui_click_component_args = Some(
+                            map_mut
+                                .get("arguments")
+                                .cloned()
+                                .unwrap_or_else(|| json!({})),
+                        );
+                    }
                     if name == "net__fetch" {
                         net_fetch_present = true;
                         net_fetch_args = Some(
@@ -383,6 +419,13 @@ impl ToolNormalizer {
                 });
             } else if let Some(edit_args) = edit_line_args {
                 raw_val = lower_edit_line_to_fs_write(&edit_args)?;
+            } else if ui_click_component_present {
+                let args = ui_click_component_args.unwrap_or_else(|| json!({}));
+                let normalized = normalize_ui_click_component_arguments(&args)?;
+                raw_val = json!({
+                    "name": "gui__click_element",
+                    "arguments": normalized,
+                });
             } else if net_fetch_present {
                 let args = net_fetch_args.unwrap_or_else(|| json!({}));
                 let normalized = normalize_net_fetch_arguments(&args)?;
@@ -663,6 +706,35 @@ mod tests {
         let err = ToolNormalizer::normalize(input).expect_err("expected schema error");
         assert!(err.to_string().contains("Schema Validation Error"));
         assert!(err.to_string().contains("browser__navigate"));
+    }
+
+    #[test]
+    fn test_normalize_ui_click_component_lowers_to_gui_click_element() {
+        let input = r#"{"name":"ui__click_component","arguments":{"id":"btn_submit"}}"#;
+        let tool = ToolNormalizer::normalize(input).unwrap();
+        match tool {
+            AgentTool::GuiClickElement { id } => assert_eq!(id, "btn_submit"),
+            other => panic!("Expected GuiClickElement, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn test_normalize_ui_click_component_accepts_component_id_alias() {
+        let input = r#"{"name":"ui__click_component","arguments":{"component_id":"btn_submit"}}"#;
+        let tool = ToolNormalizer::normalize(input).unwrap();
+        match tool {
+            AgentTool::GuiClickElement { id } => assert_eq!(id, "btn_submit"),
+            other => panic!("Expected GuiClickElement, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn test_normalize_ui_click_component_rejects_missing_id() {
+        let input = r#"{"name":"ui__click_component","arguments":{}}"#;
+        let err = ToolNormalizer::normalize(input).expect_err("expected schema error");
+        assert!(err.to_string().contains("Schema Validation Error"));
+        assert!(err.to_string().contains("ui__click_component"));
+        assert!(err.to_string().contains("id"));
     }
 
     #[test]
