@@ -1,6 +1,8 @@
 use super::DesktopAgentService;
 use crate::agentic::desktop::execution::ToolExecutor;
-use crate::agentic::desktop::service::step::action::{is_search_results_url, search_query_from_url};
+use crate::agentic::desktop::service::step::action::{
+    is_search_results_url, search_query_from_url,
+};
 use crate::agentic::desktop::types::{AgentState, RecordedMessage};
 use ioi_api::vm::drivers::os::OsDriver;
 use ioi_drivers::mcp::McpManager;

@@ -17,11 +17,12 @@ fn action_target_for_macro_step(target: &str, _params: &serde_json::Value) -> Ac
         "gui__click" => ActionTarget::GuiClick,
         // Element-targeted click variants should route as GUI clicks (policy/app isolation),
         // but require explicit tool-name preservation for queue replay.
-        "gui__click_element" | "ui__click_element" | "ui__click_component" => ActionTarget::GuiClick,
-        "sys__exec"
-        | "sys__exec_session"
-        | "sys__exec_session_reset"
-        | "sys__change_directory" => ActionTarget::SysExec,
+        "gui__click_element" | "ui__click_element" | "ui__click_component" => {
+            ActionTarget::GuiClick
+        }
+        "sys__exec" | "sys__exec_session" | "sys__exec_session_reset" | "sys__change_directory" => {
+            ActionTarget::SysExec
+        }
         "sys__install_package" => ActionTarget::SysInstallPackage,
         _ => ActionTarget::Custom(target.to_string()),
     }

@@ -361,8 +361,9 @@ mod macos_impl {
     use super::*;
     use accessibility::{AXAttribute, AXUIElement, AXUIElementAttributes};
     use accessibility_sys::{
-        kAXFocusedApplicationAttribute, kAXPositionAttribute, kAXSizeAttribute, AXValueGetType,
-        AXValueGetTypeID, AXValueGetValue, AXValueRef, kAXValueTypeCGPoint, kAXValueTypeCGSize,
+        kAXFocusedApplicationAttribute, kAXPositionAttribute, kAXSizeAttribute,
+        kAXValueTypeCGPoint, kAXValueTypeCGSize, AXValueGetType, AXValueGetTypeID, AXValueGetValue,
+        AXValueRef,
     };
     use core_foundation::base::{CFType, TCFType};
     use core_foundation::string::CFString;
@@ -419,7 +420,11 @@ mod macos_impl {
                 (&mut out as *mut CGPoint).cast::<c_void>(),
             )
         };
-        if ok { Some((out.x, out.y)) } else { None }
+        if ok {
+            Some((out.x, out.y))
+        } else {
+            None
+        }
     }
 
     fn read_ax_size(element: &AXUIElement) -> Option<(f64, f64)> {

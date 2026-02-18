@@ -340,7 +340,9 @@ pub(super) fn queue_root_retry(
 
 #[cfg(test)]
 mod tests {
-    use super::{deterministic_recovery_tool, tool_to_action_request, IncidentState, QUEUE_TOOL_NAME_KEY};
+    use super::{
+        deterministic_recovery_tool, tool_to_action_request, IncidentState, QUEUE_TOOL_NAME_KEY,
+    };
     use crate::agentic::desktop::types::{AgentMode, AgentState, AgentStatus, ExecutionTier};
     use crate::agentic::rules::ActionRules;
     use ioi_types::app::{agentic::AgentTool, ActionTarget};
@@ -478,10 +480,7 @@ mod tests {
 
     #[test]
     fn deterministic_recovery_prefers_browser_snapshot_for_browser_target_not_found() {
-        let available = BTreeSet::from([
-            "browser__snapshot".to_string(),
-            "ui__find".to_string(),
-        ]);
+        let available = BTreeSet::from(["browser__snapshot".to_string(), "ui__find".to_string()]);
         let incident = test_incident_state("browser__click_element", "TargetNotFound");
         let agent_state = test_agent_state("click sign in");
 
@@ -523,10 +522,7 @@ mod tests {
 
     #[test]
     fn deterministic_recovery_prefers_browser_snapshot_for_phase0_gui_click_violation() {
-        let available = BTreeSet::from([
-            "browser__snapshot".to_string(),
-            "ui__find".to_string(),
-        ]);
+        let available = BTreeSet::from(["browser__snapshot".to_string(), "ui__find".to_string()]);
         let mut incident = test_incident_state("gui__click_element", "TierViolation");
         incident.root_error = Some(
             "ERROR_CLASS=TierViolation ERROR_CODE=BrowserGuiClickDisallowedPhase0".to_string(),

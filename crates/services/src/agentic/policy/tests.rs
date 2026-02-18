@@ -188,7 +188,11 @@ fn allow_domains_allows_exact_and_subdomain_hosts() {
         .build()
         .expect("runtime");
 
-    for url in ["https://example.com/a", "https://www.example.com/b", "example.com/c"] {
+    for url in [
+        "https://example.com/a",
+        "https://www.example.com/b",
+        "example.com/c",
+    ] {
         let params = serde_json::json!({ "url": url });
         let params = serde_json::to_vec(&params).expect("params should serialize");
 

@@ -1052,7 +1052,8 @@ mod tests {
 
     #[test]
     fn test_normalize_net_fetch_accepts_valid_args() {
-        let input = r#"{"name":"net__fetch","arguments":{"url":"https://example.com","max_chars":123}}"#;
+        let input =
+            r#"{"name":"net__fetch","arguments":{"url":"https://example.com","max_chars":123}}"#;
         let tool = ToolNormalizer::normalize(input).unwrap();
         match tool {
             AgentTool::NetFetch { url, max_chars } => {

@@ -10,9 +10,9 @@ use std::sync::Arc;
 use std::time::Duration;
 #[cfg(windows)]
 use tokio::io::AsyncBufReadExt;
-use tokio::io::{AsyncRead, AsyncReadExt, AsyncWriteExt};
 #[cfg(windows)]
 use tokio::io::BufReader;
+use tokio::io::{AsyncRead, AsyncReadExt, AsyncWriteExt};
 use tokio::process::Command;
 use tokio::sync::Mutex;
 use tokio::time;
@@ -21,9 +21,7 @@ use tokio::time;
 use portable_pty::{native_pty_system, CommandBuilder, PtySize};
 
 #[cfg(unix)]
-use std::io::{
-    BufReader as StdBufReader, Read as StdRead, Write as StdWrite,
-};
+use std::io::{BufReader as StdBufReader, Read as StdRead, Write as StdWrite};
 
 #[derive(Clone, Debug)]
 pub enum ProcessStreamChannel {
@@ -593,7 +591,8 @@ impl ShellSession {
                         }
 
                         if trimmed == done_marker {
-                            let code = exit_code.ok_or_else(|| anyhow!("Missing exit code marker."))?;
+                            let code =
+                                exit_code.ok_or_else(|| anyhow!("Missing exit code marker."))?;
                             return Ok((output, code));
                         }
 
@@ -609,8 +608,7 @@ impl ShellSession {
             });
 
             let (output, exit_code) = match time::timeout(options.timeout, run).await {
-                Ok(joined) => joined
-                    .map_err(|e| anyhow!("PTY exec join failed: {}", e))??,
+                Ok(joined) => joined.map_err(|e| anyhow!("PTY exec join failed: {}", e))??,
                 Err(_) => {
                     timed_out = true;
                     // Kill the session; it's unsafe to keep using a potentially wedged shell.
@@ -675,8 +673,11 @@ impl ShellSession {
 
             let mut stdin_temp_path = None;
             if let Some(bytes) = options.stdin_data.as_deref() {
-                let path = std::env::temp_dir()
-                    .join(format!("ioi_stdin_{}_{}.tmp", std::process::id(), marker_id));
+                let path = std::env::temp_dir().join(format!(
+                    "ioi_stdin_{}_{}.tmp",
+                    std::process::id(),
+                    marker_id
+                ));
                 // Best-effort: if we fail to stage stdin, fall back to no-stdin execution.
                 if tokio::fs::write(&path, bytes).await.is_ok() {
                     stdin_temp_path = Some(path);
