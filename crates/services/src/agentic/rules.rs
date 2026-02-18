@@ -150,6 +150,14 @@ pub struct RuleConditions {
     /// List of allowed file paths for filesystem access.
     pub allow_paths: Option<Vec<String>>,
 
+    /// Additional allowlisted command binaries for `sys::exec` tools.
+    /// Extends the built-in system allowlist enforced by the PolicyEngine.
+    ///
+    /// Note: the policy engine will still hard-deny known shell/interpreter binaries (for example:
+    /// `sh`, `bash`, `zsh`, `fish`, `pwsh`, `powershell`, `cmd`) even if they appear here, to
+    /// reduce the risk of accidental policy misconfiguration expanding execution surface.
+    pub allow_commands: Option<Vec<String>>,
+
     /// Maximum spend amount allowed per action/session.
     pub max_spend: Option<u64>,
 
