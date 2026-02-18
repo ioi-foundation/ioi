@@ -366,9 +366,7 @@ pub async fn handle(
                     exec,
                     session_id,
                     step_index,
-                    "sys__exec",
                     workload_id.clone(),
-                    raw_command_preview.clone(),
                 )
             };
             if let Some(tx) = exec.event_sender.as_ref() {
@@ -509,9 +507,7 @@ pub async fn handle(
                 exec,
                 session_id,
                 step_index,
-                "sys__exec_session",
                 workload_id.clone(),
-                raw_command_preview.clone(),
             );
             let options = CommandExecutionOptions::default()
                 .with_timeout(timeout)
@@ -1093,37 +1089,19 @@ fn process_stream_observer(
     exec: &ToolExecutor,
     session_id: [u8; 32],
     step_index: u32,
-    tool_name: &str,
     workload_id: String,
-    command_preview: String,
 ) -> Option<ProcessStreamObserver> {
     let tx = exec.event_sender.clone()?;
-    let tool_name = tool_name.to_string();
-    let stream_id = workload_id.clone();
 
     Some(Arc::new(move |chunk: ProcessStreamChunk| {
-        let channel = chunk.channel.as_str().to_string();
-        let chunk_payload = chunk.chunk;
-        let _ = tx.send(KernelEvent::ProcessActivity {
-            session_id,
-            step_index,
-            tool_name: tool_name.clone(),
-            stream_id: stream_id.clone(),
-            channel: channel.clone(),
-            chunk: chunk_payload.clone(),
-            seq: chunk.seq,
-            is_final: chunk.is_final,
-            exit_code: chunk.exit_code,
-            command_preview: command_preview.clone(),
-        });
         emit_workload_activity(
             &tx,
             session_id,
             step_index,
             workload_id.clone(),
             WorkloadActivityKind::Stdio {
-                stream: channel,
-                chunk: chunk_payload,
+                stream: chunk.channel.as_str().to_string(),
+                chunk: chunk.chunk,
                 seq: chunk.seq,
                 is_final: chunk.is_final,
                 exit_code: chunk.exit_code,
@@ -1246,7 +1224,6 @@ async fn handle_install_package(
         }
     }
 
-    let cmd_preview = command_preview(command, &args);
     let resolved_cwd_string = resolved_cwd.to_string_lossy().to_string();
     let receipt_command = scrub_workload_text_field_for_receipt(exec, command).await;
     let receipt_args = scrub_workload_args_for_receipt(exec, &args).await;
@@ -1275,9 +1252,7 @@ async fn handle_install_package(
             exec,
             session_id,
             step_index,
-            "sys__install_package",
             workload_id.clone(),
-            cmd_preview.clone(),
         ));
 
     let result = match exec

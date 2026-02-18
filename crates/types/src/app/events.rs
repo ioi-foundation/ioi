@@ -211,7 +211,7 @@ pub struct IntentResolutionReceiptEvent {
 /// Structured workload activity event for glass-box orchestration.
 ///
 /// This is a higher-level, typed stream intended to back Autopilot rendering and replayable
-/// receipts. It complements (and may eventually subsume) `ProcessActivity`.
+/// receipts.
 #[derive(Clone, Debug, Serialize, Deserialize, Encode, Decode, PartialEq, Eq)]
 pub struct WorkloadActivityEvent {
     /// Session this activity belongs to.
@@ -360,30 +360,6 @@ pub enum KernelEvent {
         /// [NEW] The authoritative lifecycle state after this action.
         /// e.g. "Running", "Paused", "Completed", "Failed".
         agent_status: String,
-    },
-
-    /// Live stdout/stderr/status activity for a running process tool.
-    ProcessActivity {
-        /// The session ID the process belongs to.
-        session_id: [u8; 32],
-        /// The sequence number of the step.
-        step_index: u32,
-        /// The tool currently running (for example "sys__install_package").
-        tool_name: String,
-        /// Stable ID for stream correlation within a step.
-        stream_id: String,
-        /// Stream channel ("stdout", "stderr", "status").
-        channel: String,
-        /// Stream chunk payload.
-        chunk: String,
-        /// Monotonic sequence number for chunk ordering.
-        seq: u64,
-        /// Marks terminal chunk for this stream.
-        is_final: bool,
-        /// Exit code when available.
-        exit_code: Option<i32>,
-        /// User-friendly command preview.
-        command_preview: String,
     },
 
     /// Structured workload activity stream for orchestration and replay.
