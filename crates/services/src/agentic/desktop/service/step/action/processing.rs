@@ -711,13 +711,18 @@ pub async fn process_tool_output(
             }
         }
         Err(e) => {
-            policy_decision = "denied".to_string();
+            // Tool-call schema/parse errors are not policy denials. Mark them as deterministic
+            // UnexpectedState so anti-loop + receipts don't imply approval/policy gating.
+            policy_decision = "allowed".to_string();
             current_tool_name = "system::invalid_tool_call".to_string();
             let parse_error = format!("Failed to parse tool call: {}", e);
             let parse_args = json!({
                 "raw_tool_output": tool_call_result,
                 "parse_error": parse_error,
             });
+
+            verification_checks.push("schema_validation_error=true".to_string());
+
             intent_hash = canonical_intent_hash(
                 &current_tool_name,
                 &parse_args,
@@ -735,14 +740,8 @@ pub async fn process_tool_output(
                 "name": current_tool_name.clone(),
                 "arguments": parse_args,
             });
-            error_msg = Some(
-                action_payload
-                    .get("arguments")
-                    .and_then(|v| v.get("parse_error"))
-                    .and_then(|v| v.as_str())
-                    .unwrap_or("Failed to parse tool call")
-                    .to_string(),
-            );
+            // Prefix ERROR_CLASS so anti-loop classification is deterministic.
+            error_msg = Some(format!("ERROR_CLASS=UnexpectedState {}", parse_error));
         }
     }
 
