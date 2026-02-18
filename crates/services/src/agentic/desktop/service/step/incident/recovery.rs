@@ -109,6 +109,22 @@ fn is_browser_reacquisition_failure(class: FailureClass) -> bool {
     )
 }
 
+fn is_gui_click_root_tool(root_tool_name: &str) -> bool {
+    matches!(
+        root_tool_name.trim().to_ascii_lowercase().as_str(),
+        "gui__click" | "gui__click_element" | "computer"
+    )
+}
+
+fn is_phase0_browser_gui_click_violation(incident_state: &IncidentState) -> bool {
+    is_gui_click_root_tool(&incident_state.root_tool_name)
+        && incident_state
+            .root_error
+            .as_deref()
+            .map(|err| err.contains("ERROR_CODE=BrowserGuiClickDisallowedPhase0"))
+            .unwrap_or(false)
+}
+
 pub(super) fn deterministic_recovery_tool(
     available_tool_names: &BTreeSet<String>,
     incident_state: &IncidentState,
@@ -128,6 +144,22 @@ pub(super) fn deterministic_recovery_tool(
         });
         let tool = middleware::normalize_tool_call(&payload.to_string()).map_err(|e| {
             TransactionError::Invalid(format!("browser__snapshot fallback invalid: {}", e))
+        })?;
+        return Ok(Some(tool));
+    }
+
+    if is_phase0_browser_gui_click_violation(incident_state)
+        && available_tool_names.contains("browser__snapshot")
+    {
+        let payload = json!({
+            "name": "browser__snapshot",
+            "arguments": {}
+        });
+        let tool = middleware::normalize_tool_call(&payload.to_string()).map_err(|e| {
+            TransactionError::Invalid(format!(
+                "browser__snapshot fallback invalid for phase0 click guard: {}",
+                e
+            ))
         })?;
         return Ok(Some(tool));
     }
@@ -472,6 +504,57 @@ mod tests {
     fn deterministic_recovery_falls_back_to_ui_find_without_browser_snapshot() {
         let available = BTreeSet::from(["ui__find".to_string()]);
         let incident = test_incident_state("browser__click_element", "TargetNotFound");
+        let agent_state = test_agent_state("find login button");
+
+        let tool = deterministic_recovery_tool(
+            &available,
+            &incident,
+            &agent_state,
+            &ActionRules::default(),
+        )
+        .expect("deterministic selection should succeed")
+        .expect("deterministic selection should choose a tool");
+
+        match tool {
+            AgentTool::UiFind { query } => assert_eq!(query, "find login button"),
+            other => panic!("expected UiFind, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn deterministic_recovery_prefers_browser_snapshot_for_phase0_gui_click_violation() {
+        let available = BTreeSet::from([
+            "browser__snapshot".to_string(),
+            "ui__find".to_string(),
+        ]);
+        let mut incident = test_incident_state("gui__click_element", "TierViolation");
+        incident.root_error = Some(
+            "ERROR_CLASS=TierViolation ERROR_CODE=BrowserGuiClickDisallowedPhase0".to_string(),
+        );
+        let agent_state = test_agent_state("click sign in");
+
+        let tool = deterministic_recovery_tool(
+            &available,
+            &incident,
+            &agent_state,
+            &ActionRules::default(),
+        )
+        .expect("deterministic selection should succeed")
+        .expect("deterministic selection should choose a tool");
+
+        match tool {
+            AgentTool::BrowserSnapshot {} => {}
+            other => panic!("expected BrowserSnapshot, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn deterministic_recovery_phase0_violation_falls_back_without_browser_snapshot() {
+        let available = BTreeSet::from(["ui__find".to_string()]);
+        let mut incident = test_incident_state("computer", "TierViolation");
+        incident.root_error = Some(
+            "ERROR_CLASS=TierViolation ERROR_CODE=BrowserGuiClickDisallowedPhase0".to_string(),
+        );
         let agent_state = test_agent_state("find login button");
 
         let tool = deterministic_recovery_tool(
