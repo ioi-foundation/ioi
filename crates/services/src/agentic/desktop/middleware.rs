@@ -174,6 +174,32 @@ fn lower_edit_line_to_fs_write(arguments: &Value) -> Result<Value> {
     }))
 }
 
+fn normalize_net_fetch_arguments(arguments: &Value) -> Result<Value> {
+    let args_obj = arguments.as_object().ok_or_else(|| {
+        anyhow!("Schema Validation Error: net__fetch arguments must be a JSON object.")
+    })?;
+
+    let url = args_obj
+        .get("url")
+        .and_then(|v| v.as_str())
+        .map(str::trim)
+        .filter(|v| !v.is_empty())
+        .ok_or_else(|| {
+            anyhow!("Schema Validation Error: net__fetch requires a non-empty 'url' field.")
+        })?;
+
+    let max_chars_u64 = args_obj
+        .get("max_chars")
+        .or_else(|| args_obj.get("maxChars"))
+        .and_then(|v| v.as_u64().or_else(|| v.as_f64().map(|f| f.max(0.0) as u64)));
+
+    Ok(if let Some(max_chars) = max_chars_u64 {
+        json!({ "url": url, "max_chars": max_chars })
+    } else {
+        json!({ "url": url })
+    })
+}
+
 impl ToolNormalizer {
     /// The boundary function.
     /// Input: Raw, potentially hallucinated JSON from LLM.
@@ -256,6 +282,8 @@ impl ToolNormalizer {
             // Alias check (safe to do in-place if we get mut ref now)
             let mut install_package_args: Option<Value> = None;
             let mut edit_line_args: Option<Value> = None;
+            let mut net_fetch_args: Option<Value> = None;
+            let mut net_fetch_present = false;
             if let Some(map_mut) = raw_val.as_object_mut() {
                 if let Some(params) = map_mut.get("parameters").cloned() {
                     map_mut.insert("arguments".to_string(), params);
@@ -310,6 +338,15 @@ impl ToolNormalizer {
                                 .unwrap_or_else(|| json!({})),
                         );
                     }
+                    if name == "net__fetch" {
+                        net_fetch_present = true;
+                        net_fetch_args = Some(
+                            map_mut
+                                .get("arguments")
+                                .cloned()
+                                .unwrap_or_else(|| json!({})),
+                        );
+                    }
                 }
 
                 // [NEW] Handle synthetic click aliases if LLM gets lazy
@@ -346,6 +383,13 @@ impl ToolNormalizer {
                 });
             } else if let Some(edit_args) = edit_line_args {
                 raw_val = lower_edit_line_to_fs_write(&edit_args)?;
+            } else if net_fetch_present {
+                let args = net_fetch_args.unwrap_or_else(|| json!({}));
+                let normalized = normalize_net_fetch_arguments(&args)?;
+                raw_val = json!({
+                    "name": "net__fetch",
+                    "arguments": normalized,
+                });
             }
         }
 
@@ -359,7 +403,10 @@ impl ToolNormalizer {
         // it routes deterministic tools through the MCP executor path (tool-not-found loops)
         // instead of surfacing a schema error the model can correct.
         if let AgentTool::Dynamic(val) = &tool_call {
-            if let Some(name) = val.get("name").and_then(|n| n.as_str()) {
+            if val.get("name").and_then(|n| n.as_str()) == Some("net__fetch") {
+                let args = val.get("arguments").cloned().unwrap_or_else(|| json!({}));
+                let _ = normalize_net_fetch_arguments(&args)?;
+            } else if let Some(name) = val.get("name").and_then(|n| n.as_str()) {
                 if is_deterministic_tool_name(name) {
                     return Err(anyhow!(
                         "Schema Validation Error: '{}' is a built-in tool but arguments did not match its typed schema.",
@@ -616,6 +663,51 @@ mod tests {
         let err = ToolNormalizer::normalize(input).expect_err("expected schema error");
         assert!(err.to_string().contains("Schema Validation Error"));
         assert!(err.to_string().contains("browser__navigate"));
+    }
+
+    #[test]
+    fn test_normalize_net_fetch_accepts_valid_args() {
+        let input = r#"{"name":"net__fetch","arguments":{"url":"https://example.com","max_chars":123}}"#;
+        let tool = ToolNormalizer::normalize(input).unwrap();
+        match tool {
+            AgentTool::Dynamic(val) => {
+                assert_eq!(val.get("name").and_then(|v| v.as_str()), Some("net__fetch"));
+                assert_eq!(
+                    val.get("arguments")
+                        .and_then(|a| a.get("url"))
+                        .and_then(|v| v.as_str()),
+                    Some("https://example.com")
+                );
+            }
+            _ => panic!("Expected Dynamic net__fetch tool"),
+        }
+    }
+
+    #[test]
+    fn test_normalize_net_fetch_rejects_empty_url() {
+        let input = r#"{"name":"net__fetch","arguments":{"url":"   "}}"#;
+        let err = ToolNormalizer::normalize(input).expect_err("expected schema error");
+        assert!(err.to_string().contains("Schema Validation Error"));
+        assert!(err.to_string().contains("net__fetch"));
+        assert!(err.to_string().contains("url"));
+    }
+
+    #[test]
+    fn test_normalize_net_fetch_decodes_arguments_string() {
+        let input = r#"{"name":"net__fetch","arguments":"{\"url\":\"https://example.com\"}"}"#;
+        let tool = ToolNormalizer::normalize(input).unwrap();
+        match tool {
+            AgentTool::Dynamic(val) => {
+                assert_eq!(val.get("name").and_then(|v| v.as_str()), Some("net__fetch"));
+                assert_eq!(
+                    val.get("arguments")
+                        .and_then(|a| a.get("url"))
+                        .and_then(|v| v.as_str()),
+                    Some("https://example.com")
+                );
+            }
+            _ => panic!("Expected Dynamic net__fetch tool"),
+        }
     }
 
     #[test]
