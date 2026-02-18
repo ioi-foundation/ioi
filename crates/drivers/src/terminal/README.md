@@ -2,7 +2,7 @@
 
 The **IOI Terminal Driver** provides the interface for agents to execute system commands. It acts as the "Hands" of the agent for CLI-based tasks within the IOI Kernel.
 
-It wraps Rust's native `std::process::Command` with safety mechanisms to ensure that agent-triggered processes do not destabilize the Kernel or hang indefinitely.
+It wraps Rust's native process execution with safety mechanisms to ensure that agent-triggered processes do not destabilize the Kernel or hang indefinitely.
 
 ## Features
 
@@ -12,7 +12,10 @@ It wraps Rust's native `std::process::Command` with safety mechanisms to ensure 
 
 ## Architecture
 
-This driver is designed to be stateless and synchronous-blocking (within its own async task context). It does not maintain a persistent shell session (like a pty); instead, it performs atomic command execution.
+This driver supports both atomic command execution and persistent shell sessions.
+
+*   `sys__exec`: one-off process execution (piped stdio)
+*   `sys__exec_session`: a persistent shell session keyed by agent session (on unix this is PTY-backed so TTY-gated CLIs work)
 
 It is primarily used by the `DesktopAgentService` to fulfill the `sys__exec` tool capability.
 

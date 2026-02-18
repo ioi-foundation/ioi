@@ -40,6 +40,9 @@ wait-timeout = "0.2"
 libc = "0.2"
 walkdir = "2.4"
 
+# PTY-backed shell sessions for OpenInterpreter parity (`sys__exec_session` on unix).
+portable-pty = "0.9.0"
+
 # [NEW] Clipboard Support
 arboard = "3.3.0"
 
