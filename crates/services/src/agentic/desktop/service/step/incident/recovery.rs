@@ -91,12 +91,47 @@ fn parse_launch_app_name(root_tool_jcs: &[u8]) -> Option<String> {
     None
 }
 
+fn is_browser_root_tool(root_tool_name: &str) -> bool {
+    root_tool_name
+        .trim()
+        .to_ascii_lowercase()
+        .starts_with("browser__")
+}
+
+fn is_browser_reacquisition_failure(class: FailureClass) -> bool {
+    matches!(
+        class,
+        FailureClass::TargetNotFound
+            | FailureClass::VisionTargetNotFound
+            | FailureClass::NoEffectAfterAction
+            | FailureClass::ContextDrift
+            | FailureClass::NonDeterministicUI
+    )
+}
+
 pub(super) fn deterministic_recovery_tool(
     available_tool_names: &BTreeSet<String>,
     incident_state: &IncidentState,
     agent_state: &AgentState,
     _rules: &ActionRules,
 ) -> Result<Option<AgentTool>, TransactionError> {
+    let root_failure_class = FailureClass::from_str(&incident_state.root_failure_class);
+    if is_browser_root_tool(&incident_state.root_tool_name)
+        && root_failure_class
+            .map(is_browser_reacquisition_failure)
+            .unwrap_or(false)
+        && available_tool_names.contains("browser__snapshot")
+    {
+        let payload = json!({
+            "name": "browser__snapshot",
+            "arguments": {}
+        });
+        let tool = middleware::normalize_tool_call(&payload.to_string()).map_err(|e| {
+            TransactionError::Invalid(format!("browser__snapshot fallback invalid: {}", e))
+        })?;
+        return Ok(Some(tool));
+    }
+
     if available_tool_names.contains("ui__find") {
         let query = parse_launch_app_name(&incident_state.root_tool_jcs)
             .or_else(|| {
@@ -273,8 +308,76 @@ pub(super) fn queue_root_retry(
 
 #[cfg(test)]
 mod tests {
-    use super::{tool_to_action_request, QUEUE_TOOL_NAME_KEY};
+    use super::{deterministic_recovery_tool, tool_to_action_request, IncidentState, QUEUE_TOOL_NAME_KEY};
+    use crate::agentic::desktop::types::{AgentMode, AgentState, AgentStatus, ExecutionTier};
+    use crate::agentic::rules::ActionRules;
     use ioi_types::app::{agentic::AgentTool, ActionTarget};
+    use std::collections::{BTreeMap, BTreeSet, VecDeque};
+
+    fn test_agent_state(goal: &str) -> AgentState {
+        AgentState {
+            session_id: [0u8; 32],
+            goal: goal.to_string(),
+            transcript_root: [0u8; 32],
+            status: AgentStatus::Running,
+            step_count: 0,
+            max_steps: 8,
+            last_action_type: None,
+            parent_session_id: None,
+            child_session_ids: vec![],
+            budget: 1,
+            tokens_used: 0,
+            consecutive_failures: 0,
+            pending_approval: None,
+            pending_tool_call: None,
+            pending_tool_jcs: None,
+            pending_tool_hash: None,
+            pending_visual_hash: None,
+            recent_actions: vec![],
+            mode: AgentMode::Agent,
+            current_tier: ExecutionTier::DomHeadless,
+            last_screen_phash: None,
+            execution_queue: vec![],
+            pending_search_completion: None,
+            active_skill_hash: None,
+            tool_execution_log: BTreeMap::new(),
+            visual_som_map: None,
+            visual_semantic_map: None,
+            swarm_context: None,
+            target: None,
+            resolved_intent: None,
+            awaiting_intent_clarification: false,
+            working_directory: ".".to_string(),
+            command_history: VecDeque::new(),
+            active_lens: None,
+        }
+    }
+
+    fn test_incident_state(root_tool_name: &str, root_failure_class: &str) -> IncidentState {
+        IncidentState {
+            active: true,
+            incident_id: "incident-1".to_string(),
+            root_retry_hash: "retry-hash-1".to_string(),
+            root_tool_jcs: vec![],
+            root_tool_name: root_tool_name.to_string(),
+            intent_class: "BrowserTask".to_string(),
+            root_failure_class: root_failure_class.to_string(),
+            root_error: Some("target missing".to_string()),
+            stage: "Diagnose".to_string(),
+            strategy_name: "BrowserRecovery".to_string(),
+            strategy_cursor: "DiscoverRemedy".to_string(),
+            visited_node_fingerprints: vec![],
+            pending_gate: None,
+            gate_state: "None".to_string(),
+            resolution_action: "none".to_string(),
+            transitions_used: 0,
+            max_transitions: 4,
+            started_step: 0,
+            pending_remedy_fingerprint: None,
+            pending_remedy_tool_jcs: None,
+            retry_enqueued: false,
+        }
+    }
 
     fn queued_params(tool: AgentTool) -> serde_json::Value {
         let request = tool_to_action_request(&tool, [7u8; 32], 99)
@@ -339,5 +442,50 @@ mod tests {
             value.get(QUEUE_TOOL_NAME_KEY).is_none(),
             "non-fs targets should not carry explicit queue metadata"
         );
+    }
+
+    #[test]
+    fn deterministic_recovery_prefers_browser_snapshot_for_browser_target_not_found() {
+        let available = BTreeSet::from([
+            "browser__snapshot".to_string(),
+            "ui__find".to_string(),
+        ]);
+        let incident = test_incident_state("browser__click_element", "TargetNotFound");
+        let agent_state = test_agent_state("click sign in");
+
+        let tool = deterministic_recovery_tool(
+            &available,
+            &incident,
+            &agent_state,
+            &ActionRules::default(),
+        )
+        .expect("deterministic selection should succeed")
+        .expect("deterministic selection should choose a tool");
+
+        match tool {
+            AgentTool::BrowserSnapshot {} => {}
+            other => panic!("expected BrowserSnapshot, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn deterministic_recovery_falls_back_to_ui_find_without_browser_snapshot() {
+        let available = BTreeSet::from(["ui__find".to_string()]);
+        let incident = test_incident_state("browser__click_element", "TargetNotFound");
+        let agent_state = test_agent_state("find login button");
+
+        let tool = deterministic_recovery_tool(
+            &available,
+            &incident,
+            &agent_state,
+            &ActionRules::default(),
+        )
+        .expect("deterministic selection should succeed")
+        .expect("deterministic selection should choose a tool");
+
+        match tool {
+            AgentTool::UiFind { query } => assert_eq!(query, "find login button"),
+            other => panic!("expected UiFind, got {:?}", other),
+        }
     }
 }
