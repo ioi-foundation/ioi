@@ -478,6 +478,7 @@ fn queue_target_to_tool_name_and_args(
             "computer".to_string(),
             ensure_computer_action(raw_args, "screenshot"),
         )),
+        ActionTarget::GuiInspect => Ok(("gui__snapshot".to_string(), raw_args)),
         ActionTarget::GuiSequence => Ok(("computer".to_string(), raw_args)),
         ActionTarget::SysExec => Ok((infer_sys_tool_name(&raw_args).to_string(), raw_args)),
         ActionTarget::SysInstallPackage => Ok(("sys__install_package".to_string(), raw_args)),

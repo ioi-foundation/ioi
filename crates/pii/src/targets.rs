@@ -19,6 +19,7 @@ pub(crate) fn action_target_from_label(label: &str) -> Option<ActionTarget> {
         "gui::click" => Some(ActionTarget::GuiClick),
         "gui::type" => Some(ActionTarget::GuiType),
         "gui::screenshot" => Some(ActionTarget::GuiScreenshot),
+        "gui::inspect" => Some(ActionTarget::GuiInspect),
         "gui::scroll" => Some(ActionTarget::GuiScroll),
         "gui::sequence" => Some(ActionTarget::GuiSequence),
         "browser::interact" => Some(ActionTarget::BrowserInteract),

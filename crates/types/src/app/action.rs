@@ -96,6 +96,13 @@ pub enum ActionTarget {
 
     /// Catch-all for application-specific or plugin-defined actions.
     Custom(String),
+
+    /// Inspect the current UI state without pixel capture (e.g., accessibility tree snapshot).
+    ///
+    /// NOTE: This variant is appended (after `Custom`) to preserve SCALE codec variant indices for
+    /// previously persisted `ActionTarget` values.
+    #[serde(rename = "gui::inspect")]
+    GuiInspect,
 }
 
 impl ActionTarget {
@@ -125,6 +132,7 @@ impl ActionTarget {
             ActionTarget::WindowFocus => "os::focus".to_string(),
             ActionTarget::ClipboardRead => "clipboard::read".to_string(),
             ActionTarget::ClipboardWrite => "clipboard::write".to_string(),
+            ActionTarget::GuiInspect => "gui::inspect".to_string(),
             ActionTarget::Custom(name) => name.clone(),
         }
     }

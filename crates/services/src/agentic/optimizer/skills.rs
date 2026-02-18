@@ -4,6 +4,7 @@ fn action_target_for_macro_step(target: &str, _params: &serde_json::Value) -> Ac
     match target {
         "web__search" | "web__read" => ActionTarget::WebRetrieve,
         "browser__snapshot" => ActionTarget::BrowserInspect,
+        "gui__snapshot" => ActionTarget::GuiInspect,
         "browser__navigate"
         | "browser__click"
         | "browser__click_element"
