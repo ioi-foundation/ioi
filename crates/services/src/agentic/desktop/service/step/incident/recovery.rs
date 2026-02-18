@@ -207,17 +207,8 @@ fn tool_to_action_request(
     session_id: [u8; 32],
     nonce: u64,
 ) -> Result<ActionRequest, TransactionError> {
-    let mut target = tool.target();
+    let target = tool.target();
     let tool_name = canonical_tool_name(tool);
-    if matches!(
-        tool_name.as_str(),
-        "sys__exec_session" | "sys__exec_session_reset"
-    ) {
-        target = match tool_name.as_str() {
-            "sys__exec_session" => ActionTarget::Custom("sys::exec_session".to_string()),
-            _ => ActionTarget::Custom("sys::exec_session_reset".to_string()),
-        };
-    }
     let mut args = canonical_tool_args(tool);
     if should_embed_queue_tool_name_metadata(&target, &tool_name) {
         if let Some(obj) = args.as_object_mut() {
@@ -243,6 +234,8 @@ fn should_embed_queue_tool_name_metadata(target: &ActionTarget, tool_name: &str)
     matches!(target, ActionTarget::FsRead | ActionTarget::FsWrite)
         || (matches!(target, ActionTarget::GuiClick | ActionTarget::UiClick)
             && tool_name == "gui__click_element")
+        || (matches!(target, ActionTarget::SysExec)
+            && matches!(tool_name, "sys__exec_session" | "sys__exec_session_reset"))
 }
 
 pub(super) fn queue_recovery_action(
@@ -316,7 +309,7 @@ mod tests {
     }
 
     #[test]
-    fn sys_exec_session_recovery_request_uses_custom_alias_target() {
+    fn sys_exec_session_recovery_request_preserves_sys_exec_target_and_embeds_tool_name() {
         let request = tool_to_action_request(
             &AgentTool::SysExecSession {
                 command: "bash".to_string(),
@@ -328,10 +321,13 @@ mod tests {
         )
         .expect("request should serialize for deterministic queueing");
 
-        match request.target {
-            ActionTarget::Custom(name) => assert_eq!(name, "sys::exec_session"),
-            _ => panic!("sys_exec_session should be queued as custom alias target"),
-        }
+        assert_eq!(request.target, ActionTarget::SysExec);
+        let value: serde_json::Value =
+            serde_json::from_slice(&request.params).expect("params should decode as JSON");
+        assert_eq!(
+            value.get(QUEUE_TOOL_NAME_KEY).and_then(|v| v.as_str()),
+            Some("sys__exec_session")
+        );
     }
 
     #[test]

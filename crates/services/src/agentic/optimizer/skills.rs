@@ -18,7 +18,10 @@ fn action_target_for_macro_step(target: &str, _params: &serde_json::Value) -> Ac
         // Element-targeted click variants should route as GUI clicks (policy/app isolation),
         // but require explicit tool-name preservation for queue replay.
         "gui__click_element" | "ui__click_element" | "ui__click_component" => ActionTarget::GuiClick,
-        "sys__exec" | "sys__change_directory" => ActionTarget::SysExec,
+        "sys__exec"
+        | "sys__exec_session"
+        | "sys__exec_session_reset"
+        | "sys__change_directory" => ActionTarget::SysExec,
         "sys__install_package" => ActionTarget::SysInstallPackage,
         _ => ActionTarget::Custom(target.to_string()),
     }
@@ -33,22 +36,31 @@ fn macro_step_params_with_queue_metadata(
     params: &serde_json::Value,
 ) -> serde_json::Value {
     let mut out = params.clone();
-    if matches!(
+
+    let tool_name_override = if matches!(
         target_str,
         "gui__click_element" | "ui__click_element" | "ui__click_component"
     ) {
+        Some(GUI_CLICK_ELEMENT_TOOL_NAME.to_string())
+    } else if matches!(target_str, "sys__exec_session" | "sys__exec_session_reset") {
+        Some(target_str.to_string())
+    } else {
+        None
+    };
+
+    if let Some(tool_name) = tool_name_override {
         match &mut out {
             serde_json::Value::Object(obj) => {
                 obj.insert(
                     QUEUE_TOOL_NAME_KEY.to_string(),
-                    serde_json::Value::String(GUI_CLICK_ELEMENT_TOOL_NAME.to_string()),
+                    serde_json::Value::String(tool_name),
                 );
             }
             serde_json::Value::Null => {
                 let mut obj = serde_json::Map::new();
                 obj.insert(
                     QUEUE_TOOL_NAME_KEY.to_string(),
-                    serde_json::Value::String(GUI_CLICK_ELEMENT_TOOL_NAME.to_string()),
+                    serde_json::Value::String(tool_name),
                 );
                 out = serde_json::Value::Object(obj);
             }
@@ -518,6 +530,20 @@ mod tests {
             &json!({"url": "https://example.com", "max_chars": 123}),
         );
         assert_eq!(target, ActionTarget::NetFetch);
+    }
+
+    #[test]
+    fn macro_step_sys_exec_session_maps_to_sys_exec_target_and_injects_queue_tool_name() {
+        let params = json!({"command": "echo", "args": ["ok"]});
+        let target = action_target_for_macro_step("sys__exec_session", &params);
+        assert_eq!(target, ActionTarget::SysExec);
+
+        let args = macro_step_params_with_queue_metadata("sys__exec_session", &params);
+        assert_eq!(
+            args.get(QUEUE_TOOL_NAME_KEY).and_then(|v| v.as_str()),
+            Some("sys__exec_session")
+        );
+        assert_eq!(args.get("command").and_then(|v| v.as_str()), Some("echo"));
     }
 
     #[test]

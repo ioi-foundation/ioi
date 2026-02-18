@@ -328,6 +328,7 @@ enum QueueToolNameScope {
     Read,
     Write,
     GuiClick,
+    SysExec,
 }
 
 fn explicit_queue_tool_name_scope(target: &ActionTarget) -> Option<QueueToolNameScope> {
@@ -337,6 +338,7 @@ fn explicit_queue_tool_name_scope(target: &ActionTarget) -> Option<QueueToolName
         ActionTarget::Custom(name) if name == "fs::read" => Some(QueueToolNameScope::Read),
         ActionTarget::Custom(name) if name == "fs::write" => Some(QueueToolNameScope::Write),
         ActionTarget::GuiClick | ActionTarget::UiClick => Some(QueueToolNameScope::GuiClick),
+        ActionTarget::SysExec => Some(QueueToolNameScope::SysExec),
         _ => None,
     }
 }
@@ -358,6 +360,9 @@ fn is_explicit_tool_name_allowed_for_scope(scope: QueueToolNameScope, tool_name:
         ),
         QueueToolNameScope::GuiClick => {
             matches!(tool_name, "gui__click" | "gui__click_element" | "computer")
+        }
+        QueueToolNameScope::SysExec => {
+            matches!(tool_name, "sys__exec_session" | "sys__exec_session_reset")
         }
     }
 }
