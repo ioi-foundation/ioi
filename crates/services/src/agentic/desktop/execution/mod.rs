@@ -299,6 +299,7 @@ impl ToolExecutor {
             | AgentTool::GuiClick { .. }
             | AgentTool::GuiType { .. }
             | AgentTool::GuiScroll { .. }
+            | AgentTool::GuiSnapshot { .. }
             | AgentTool::GuiClickElement { .. }
             | AgentTool::OsFocusWindow { .. }
             | AgentTool::OsCopy { .. }

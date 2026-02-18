@@ -44,6 +44,7 @@ fn is_deterministic_tool_name(name: &str) -> bool {
             | "gui__click"
             | "gui__type"
             | "gui__scroll"
+            | "gui__snapshot"
             | "gui__click_element"
             | "ui__find"
             | "os__focus_window"

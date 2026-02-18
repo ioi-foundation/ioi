@@ -226,6 +226,13 @@ pub async fn handle(
             .await
         }
 
+        AgentTool::GuiSnapshot {} => match fetch_lensed_tree(exec, active_lens).await {
+            Ok(tree) => ToolExecutionResult::success(
+                ioi_drivers::gui::accessibility::serialize_tree_to_xml(&tree, 0),
+            ),
+            Err(e) => ToolExecutionResult::failure(format!("Extraction failed: {}", e)),
+        },
+
         AgentTool::GuiClickElement { id } => {
             let allow_vision_fallback =
                 resilience::allow_vision_fallback_for_tier(exec.current_tier);
