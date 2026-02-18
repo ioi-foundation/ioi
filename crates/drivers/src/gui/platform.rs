@@ -355,8 +355,206 @@ mod linux_impl {
     }
 }
 
-// Fallback for non-Windows/Linux (e.g. MacOS if accesskit not ready)
-#[cfg(all(not(target_os = "windows"), not(target_os = "linux")))]
+// [NEW] Native macOS Implementation using AXUIElement (Accessibility API)
+#[cfg(target_os = "macos")]
+mod macos_impl {
+    use super::*;
+    use accessibility::{AXAttribute, AXUIElement, AXUIElementAttributes};
+    use accessibility_sys::{
+        kAXFocusedApplicationAttribute, kAXPositionAttribute, kAXSizeAttribute, AXValueGetType,
+        AXValueGetTypeID, AXValueGetValue, AXValueRef, kAXValueTypeCGPoint, kAXValueTypeCGSize,
+    };
+    use core_foundation::base::{CFType, TCFType};
+    use core_foundation::string::CFString;
+    use std::collections::HashMap;
+    use std::ffi::c_void;
+
+    #[repr(C)]
+    struct CGPoint {
+        x: f64,
+        y: f64,
+    }
+
+    #[repr(C)]
+    struct CGSize {
+        width: f64,
+        height: f64,
+    }
+
+    fn ax_attr<T>(name: &'static str) -> AXAttribute<T> {
+        AXAttribute::new(&CFString::from_static_string(name))
+    }
+
+    fn cfstring_to_opt_string(value: Result<CFString, accessibility::Error>) -> Option<String> {
+        value
+            .ok()
+            .map(|v| v.to_string())
+            .map(|s| s.trim().to_string())
+            .filter(|s| !s.is_empty())
+    }
+
+    fn cfbool_to_opt_bool(
+        value: Result<core_foundation::boolean::CFBoolean, accessibility::Error>,
+    ) -> Option<bool> {
+        value.ok().map(|v| bool::from(v))
+    }
+
+    fn read_ax_point(element: &AXUIElement) -> Option<(f64, f64)> {
+        let raw = element
+            .attribute(&ax_attr::<CFType>(kAXPositionAttribute))
+            .ok()?;
+        let ax_type = unsafe { AXValueGetTypeID() };
+        if raw.type_of() != ax_type {
+            return None;
+        }
+        let value_ref = raw.as_CFTypeRef() as AXValueRef;
+        if unsafe { AXValueGetType(value_ref) } != kAXValueTypeCGPoint {
+            return None;
+        }
+        let mut out = CGPoint { x: 0.0, y: 0.0 };
+        let ok = unsafe {
+            AXValueGetValue(
+                value_ref,
+                kAXValueTypeCGPoint,
+                (&mut out as *mut CGPoint).cast::<c_void>(),
+            )
+        };
+        if ok { Some((out.x, out.y)) } else { None }
+    }
+
+    fn read_ax_size(element: &AXUIElement) -> Option<(f64, f64)> {
+        let raw = element
+            .attribute(&ax_attr::<CFType>(kAXSizeAttribute))
+            .ok()?;
+        let ax_type = unsafe { AXValueGetTypeID() };
+        if raw.type_of() != ax_type {
+            return None;
+        }
+        let value_ref = raw.as_CFTypeRef() as AXValueRef;
+        if unsafe { AXValueGetType(value_ref) } != kAXValueTypeCGSize {
+            return None;
+        }
+        let mut out = CGSize {
+            width: 0.0,
+            height: 0.0,
+        };
+        let ok = unsafe {
+            AXValueGetValue(
+                value_ref,
+                kAXValueTypeCGSize,
+                (&mut out as *mut CGSize).cast::<c_void>(),
+            )
+        };
+        if ok {
+            Some((out.width, out.height))
+        } else {
+            None
+        }
+    }
+
+    fn element_rect(element: &AXUIElement) -> Rect {
+        let (x, y) = read_ax_point(element).unwrap_or((0.0, 0.0));
+        let (w, h) = read_ax_size(element).unwrap_or((0.0, 0.0));
+        Rect {
+            x: x.round() as i32,
+            y: y.round() as i32,
+            width: w.round() as i32,
+            height: h.round() as i32,
+        }
+    }
+
+    fn crawl_element(element: &AXUIElement, depth: usize) -> Result<AccessibilityNode> {
+        if depth > 50 {
+            return Err(anyhow!("Max depth reached"));
+        }
+
+        let mut attributes: HashMap<String, String> = HashMap::new();
+
+        if let Some(role) = cfstring_to_opt_string(element.role()) {
+            attributes.insert("role".to_string(), role);
+        }
+        if let Some(subrole) = cfstring_to_opt_string(element.subrole()) {
+            attributes.insert("subrole".to_string(), subrole);
+        }
+        if let Some(desc) = cfstring_to_opt_string(element.role_description()) {
+            attributes.insert("role_description".to_string(), desc);
+        }
+        if let Some(identifier) = cfstring_to_opt_string(element.identifier()) {
+            attributes.insert("identifier".to_string(), identifier);
+        }
+        if let Some(help) = cfstring_to_opt_string(element.help()) {
+            attributes.insert("help".to_string(), help);
+        }
+        if let Some(enabled) = cfbool_to_opt_bool(element.enabled()) {
+            if !enabled {
+                attributes.insert("disabled".to_string(), "true".to_string());
+            }
+        }
+        if let Some(focused) = cfbool_to_opt_bool(element.focused()) {
+            if focused {
+                attributes.insert("focused".to_string(), "true".to_string());
+            }
+        }
+
+        let name = cfstring_to_opt_string(element.title())
+            .or_else(|| cfstring_to_opt_string(element.description()))
+            .or_else(|| cfstring_to_opt_string(element.label_value()));
+
+        let value = element
+            .attribute(&AXAttribute::<CFType>::value())
+            .ok()
+            .map(|v| v.to_string())
+            .map(|s| s.trim().to_string())
+            .filter(|s| !s.is_empty());
+
+        let rect = element_rect(element);
+
+        let mut children = Vec::new();
+        if let Ok(kids) = element.children() {
+            for child in kids.into_iter().take(50) {
+                if let Ok(node) = crawl_element(&child, depth + 1) {
+                    children.push(node);
+                }
+            }
+        }
+
+        Ok(AccessibilityNode {
+            id: format!("{:p}", element.as_concrete_TypeRef()),
+            role: attributes
+                .get("role")
+                .cloned()
+                .unwrap_or_else(|| "unknown".to_string()),
+            name,
+            value,
+            rect,
+            children,
+            is_visible: true,
+            attributes,
+            som_id: None,
+        })
+    }
+
+    pub fn fetch_tree() -> Result<AccessibilityNode> {
+        let system = AXUIElement::system_wide();
+
+        // Prefer focused application to keep the tree bounded to the primary interactive surface.
+        let focused_app = system
+            .attribute(&ax_attr::<AXUIElement>(kAXFocusedApplicationAttribute))
+            .unwrap_or(system);
+
+        // Avoid long AX RPC stalls.
+        let _ = focused_app.set_messaging_timeout(0.35);
+
+        crawl_element(&focused_app, 0)
+    }
+}
+
+// Fallback for non-Windows/Linux/macOS (e.g. other Unix targets)
+#[cfg(all(
+    not(target_os = "windows"),
+    not(target_os = "linux"),
+    not(target_os = "macos")
+))]
 mod stub_impl {
     use super::*;
     use std::collections::HashMap;
@@ -390,7 +588,14 @@ pub async fn fetch_tree_direct() -> Result<AccessibilityNode> {
     #[cfg(target_os = "linux")]
     return linux_impl::fetch_tree().await;
 
-    #[cfg(all(not(target_os = "windows"), not(target_os = "linux")))]
+    #[cfg(target_os = "macos")]
+    return macos_impl::fetch_tree();
+
+    #[cfg(all(
+        not(target_os = "windows"),
+        not(target_os = "linux"),
+        not(target_os = "macos")
+    ))]
     return stub_impl::fetch_tree();
 }
 
