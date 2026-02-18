@@ -51,8 +51,11 @@ pub async fn monitor_kernel_events(app: tauri::AppHandle) {
                     ChainEventEnum::ActionResult(res) => {
                         action_result::handle_action_result(&app, res).await;
                     }
-                    ChainEventEnum::ProcessActivity(activity) => {
-                        process_activity::handle_process_activity(&app, activity).await;
+                    ChainEventEnum::WorkloadActivity(activity) => {
+                        process_activity::handle_workload_activity(&app, activity).await;
+                    }
+                    ChainEventEnum::WorkloadReceipt(_receipt) => {
+                        // Receipt details are handled via ActionResult and RoutingReceipt paths.
                     }
                     ChainEventEnum::RoutingReceipt(receipt) => {
                         routing_receipt::handle_routing_receipt(&app, receipt).await;
