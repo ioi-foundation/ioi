@@ -3,6 +3,7 @@ use super::*;
 fn action_target_for_macro_step(target: &str, _params: &serde_json::Value) -> ActionTarget {
     match target {
         "web__search" | "web__read" => ActionTarget::WebRetrieve,
+        "net__fetch" => ActionTarget::NetFetch,
         "browser__snapshot" => ActionTarget::BrowserInspect,
         "gui__snapshot" => ActionTarget::GuiInspect,
         "browser__navigate"
@@ -508,6 +509,15 @@ mod tests {
             &json!({"url": "https://example.com"}),
         );
         assert_eq!(target, ActionTarget::BrowserInteract);
+    }
+
+    #[test]
+    fn macro_step_net_fetch_maps_to_net_fetch_target() {
+        let target = action_target_for_macro_step(
+            "net__fetch",
+            &json!({"url": "https://example.com", "max_chars": 123}),
+        );
+        assert_eq!(target, ActionTarget::NetFetch);
     }
 
     #[test]
