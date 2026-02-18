@@ -4,9 +4,50 @@ use ioi_api::vm::inference::{LocalSafetyModel, SafetyVerdict};
 use ioi_types::app::ActionTarget;
 use serde_json::Value;
 use std::sync::Arc;
+use url::Url;
 
 use super::filesystem::validate_allow_paths_condition;
 use super::PolicyEngine;
+
+fn host_for_allow_domains(raw: &str) -> Option<String> {
+    let trimmed = raw.trim();
+    if trimmed.is_empty() {
+        return None;
+    }
+
+    Url::parse(trimmed)
+        .or_else(|_| Url::parse(&format!("https://{}", trimmed)))
+        .ok()
+        .and_then(|u| u.host_str().map(|h| h.to_ascii_lowercase()))
+}
+
+fn normalize_allowed_domain_entry(raw: &str) -> Option<String> {
+    let trimmed = raw.trim();
+    if trimmed.is_empty() {
+        return None;
+    }
+
+    let trimmed = trimmed.strip_prefix("*.").unwrap_or(trimmed);
+    host_for_allow_domains(trimmed).or_else(|| {
+        let candidate = trimmed.trim_matches('.').trim();
+        if candidate.is_empty() {
+            None
+        } else {
+            Some(candidate.to_ascii_lowercase())
+        }
+    })
+}
+
+fn allow_domains_match_url(allowed_domains: &[String], url: &str) -> bool {
+    let Some(host) = host_for_allow_domains(url) else {
+        return false;
+    };
+
+    allowed_domains
+        .iter()
+        .filter_map(|d| normalize_allowed_domain_entry(d))
+        .any(|allowed| host == allowed || host.ends_with(&format!(".{}", allowed)))
+}
 
 fn is_safe_package_identifier(package: &str) -> bool {
     !package.is_empty()
@@ -228,13 +269,23 @@ impl PolicyEngine {
 
         // 3. Network Domain Check
         if let Some(allowed_domains) = &conditions.allow_domains {
-            // [MODIFIED] Check new targets
             if let ActionTarget::NetFetch
             | ActionTarget::WebRetrieve
             | ActionTarget::BrowserInteract
             | ActionTarget::CommerceDiscovery
             | ActionTarget::CommerceCheckout = target
             {
+                // Only fail-closed when the action is expected to carry an explicit URL in params.
+                // BrowserInteract tools often omit `url` (click/type/scroll), so we do not
+                // hard-block them here without additional runtime evidence wiring.
+                let require_url = matches!(
+                    target,
+                    ActionTarget::NetFetch
+                        | ActionTarget::WebRetrieve
+                        | ActionTarget::CommerceDiscovery
+                        | ActionTarget::CommerceCheckout
+                );
+
                 if let Ok(json) = serde_json::from_slice::<Value>(params) {
                     let url_field = if matches!(
                         target,
@@ -246,11 +297,14 @@ impl PolicyEngine {
                     };
 
                     if let Some(url) = json.get(url_field).and_then(|s| s.as_str()) {
-                        let domain_match = allowed_domains.iter().any(|d| url.contains(d));
-                        if !domain_match {
-                            return false; // URL not in allowlist
+                        if !allow_domains_match_url(allowed_domains, url) {
+                            return false;
                         }
+                    } else if require_url {
+                        return false;
                     }
+                } else if require_url {
+                    return false;
                 }
             }
         }
