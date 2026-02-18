@@ -14,7 +14,6 @@ use crate::kernel::state::update_task_state;
 use crate::models::AppState;
 use crate::models::{AgentPhase, ChatMessage, CredentialRequest, EventType, Receipt};
 use ioi_ipc::public::AgentActionResult;
-use serde_json::json;
 use std::sync::Mutex;
 use tauri::Manager;
 
