@@ -8,6 +8,31 @@ use std::time::Duration;
 
 const NET_FETCH_DEFAULT_MAX_CHARS: u32 = 12_000;
 const NET_FETCH_MAX_CHARS_LIMIT: u32 = 120_000;
+const NET_FETCH_MAX_BYTES_LIMIT: usize = 2_000_000;
+
+fn is_text_like_content_type(content_type: &str) -> bool {
+    let ct = content_type
+        .split(';')
+        .next()
+        .unwrap_or("")
+        .trim()
+        .to_ascii_lowercase();
+    if ct.starts_with("text/") {
+        return true;
+    }
+
+    matches!(
+        ct.as_str(),
+        "application/json"
+            | "application/xml"
+            | "application/xhtml+xml"
+            | "application/javascript"
+            | "application/x-javascript"
+            | "application/rss+xml"
+            | "application/atom+xml"
+    ) || ct.ends_with("+json")
+        || ct.ends_with("+xml")
+}
 
 fn truncate_chars(input: &str, max: usize) -> (String, bool) {
     if max == 0 {
@@ -72,7 +97,7 @@ pub async fn handle(exec: &ToolExecutor, tool: AgentTool) -> ToolExecutionResult
                 .trim();
             if url.is_empty() {
                 return ToolExecutionResult::failure(
-                    "ERROR_CLASS=ToolUnavailable net__fetch requires a non-empty url.".to_string(),
+                    "ERROR_CLASS=TargetNotFound net__fetch requires a non-empty url.".to_string(),
                 );
             }
 
@@ -97,6 +122,9 @@ pub async fn handle(exec: &ToolExecutor, tool: AgentTool) -> ToolExecutionResult
                 .and_then(|v| v.as_u64())
                 .unwrap_or(NET_FETCH_DEFAULT_MAX_CHARS as u64)
                 .clamp(1, NET_FETCH_MAX_CHARS_LIMIT as u64) as usize;
+            let max_bytes = max_chars
+                .saturating_mul(4)
+                .clamp(1, NET_FETCH_MAX_BYTES_LIMIT);
 
             let client = match Client::builder()
                 .redirect(redirect::Policy::limited(5))
@@ -113,7 +141,7 @@ pub async fn handle(exec: &ToolExecutor, tool: AgentTool) -> ToolExecutionResult
                 }
             };
 
-            let resp = match client.get(parsed).send().await {
+            let mut resp = match client.get(parsed).send().await {
                 Ok(r) => r,
                 Err(e) => {
                     return ToolExecutionResult::failure(format!(
@@ -131,19 +159,63 @@ pub async fn handle(exec: &ToolExecutor, tool: AgentTool) -> ToolExecutionResult
                 .and_then(|v| v.to_str().ok())
                 .map(|s| s.to_string());
 
-            let bytes = match resp.bytes().await {
-                Ok(b) => b,
-                Err(e) => {
-                    return ToolExecutionResult::failure(format!(
-                        "ERROR_CLASS=UnexpectedState net__fetch body read failed: {}",
-                        e
-                    ))
+            if let Some(ct) = content_type.as_deref() {
+                if !is_text_like_content_type(ct) {
+                    let out = json!({
+                        "requested_url": url,
+                        "final_url": final_url,
+                        "status": status,
+                        "content_type": content_type,
+                        "truncated": false,
+                        "body_text": "",
+                        "body_omitted": true,
+                        "body_omitted_reason": format!("unsupported content-type for text extraction: {}", ct),
+                    });
+                    return match serde_json::to_string_pretty(&out) {
+                        Ok(s) => ToolExecutionResult::success(s),
+                        Err(e) => ToolExecutionResult::failure(format!(
+                            "ERROR_CLASS=SerializationFailed net__fetch output serialization failed: {}",
+                            e
+                        )),
+                    };
                 }
-            };
+            }
 
-            let body_full = String::from_utf8_lossy(&bytes).to_string();
-            let (body_text, truncated) = truncate_chars(&body_full, max_chars);
+            let mut buf: Vec<u8> = Vec::new();
+            let mut truncated_by_bytes = false;
+            loop {
+                let next = match resp.chunk().await {
+                    Ok(chunk) => chunk,
+                    Err(e) => {
+                        return ToolExecutionResult::failure(format!(
+                            "ERROR_CLASS=UnexpectedState net__fetch body read failed: {}",
+                            e
+                        ))
+                    }
+                };
+                let Some(chunk) = next else {
+                    break;
+                };
 
+                if buf.len() >= max_bytes {
+                    truncated_by_bytes = true;
+                    break;
+                }
+
+                let remaining = max_bytes.saturating_sub(buf.len());
+                if chunk.len() > remaining {
+                    buf.extend_from_slice(&chunk[..remaining]);
+                    truncated_by_bytes = true;
+                    break;
+                }
+
+                buf.extend_from_slice(&chunk);
+            }
+
+            let body_full = String::from_utf8_lossy(&buf).to_string();
+            let (body_text, truncated_by_chars) = truncate_chars(&body_full, max_chars);
+
+            let truncated = truncated_by_bytes || truncated_by_chars;
             let out = json!({
                 "requested_url": url,
                 "final_url": final_url,
@@ -153,7 +225,13 @@ pub async fn handle(exec: &ToolExecutor, tool: AgentTool) -> ToolExecutionResult
                 "body_text": body_text,
             });
 
-            ToolExecutionResult::success(out.to_string())
+            match serde_json::to_string_pretty(&out) {
+                Ok(s) => ToolExecutionResult::success(s),
+                Err(e) => ToolExecutionResult::failure(format!(
+                    "ERROR_CLASS=SerializationFailed net__fetch output serialization failed: {}",
+                    e
+                )),
+            }
         }
         other => {
             ToolExecutionResult::failure(format!("Tool {:?} not handled by web executor", other))
