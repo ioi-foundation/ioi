@@ -444,6 +444,7 @@ fn queue_target_to_tool_name_and_args(
             infer_web_retrieve_tool_name(&raw_args)?.to_string(),
             raw_args,
         )),
+        ActionTarget::NetFetch => Ok(("net__fetch".to_string(), raw_args)),
         ActionTarget::BrowserInteract => Ok((
             infer_browser_interact_tool_name(&raw_args)?.to_string(),
             raw_args,

@@ -79,6 +79,36 @@ fn queue_maps_browser_click_element_custom_target_deterministically() {
 }
 
 #[test]
+fn queue_maps_net_fetch_target_to_dynamic_net_fetch_tool() {
+    let request = build_request(
+        ActionTarget::NetFetch,
+        25,
+        serde_json::json!({
+            "url": "https://example.com",
+            "max_chars": 123
+        }),
+    );
+
+    let tool = queue_action_request_to_tool(&request).expect("queue mapping should succeed");
+    match tool {
+        AgentTool::Dynamic(val) => {
+            assert_eq!(val.get("name").and_then(|v| v.as_str()), Some("net__fetch"));
+
+            let args = val
+                .get("arguments")
+                .cloned()
+                .unwrap_or_else(|| serde_json::json!({}));
+            assert_eq!(
+                args.get("url").and_then(|v| v.as_str()),
+                Some("https://example.com")
+            );
+            assert_eq!(args.get("max_chars").and_then(|v| v.as_u64()), Some(123));
+        }
+        other => panic!("expected Dynamic net__fetch, got {:?}", other),
+    }
+}
+
+#[test]
 fn queue_preserves_filesystem_search_from_fsread_target() {
     let request = build_fs_read_request(serde_json::json!({
         "path": "/tmp/workspace",
