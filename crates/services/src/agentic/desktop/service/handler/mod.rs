@@ -1,10 +1,11 @@
 use super::DesktopAgentService;
 use crate::agentic::desktop::execution::ToolExecutor;
+use crate::agentic::desktop::service::step::action::{is_search_results_url, search_query_from_url};
 use crate::agentic::desktop::types::{AgentState, RecordedMessage};
 use ioi_api::vm::drivers::os::OsDriver;
 use ioi_drivers::mcp::McpManager;
 use ioi_scs::FrameType;
-use ioi_types::app::agentic::AgentTool;
+use ioi_types::app::agentic::{AgentTool, IntentScopeProfile, ResolvedIntentState};
 use ioi_types::codec;
 use ioi_types::error::TransactionError;
 use serde_json::json;
@@ -17,6 +18,39 @@ mod pii;
 pub(crate) use pii::{
     build_pii_review_request_for_tool, emit_pii_review_requested, persist_pii_review_request,
 };
+
+fn normalize_web_research_tool_call(
+    tool: &mut AgentTool,
+    resolved_intent: Option<&ResolvedIntentState>,
+    fallback_query: &str,
+) {
+    let is_web_research = resolved_intent
+        .map(|resolved| resolved.scope == IntentScopeProfile::WebResearch)
+        .unwrap_or(false);
+    if !is_web_research {
+        return;
+    }
+
+    let AgentTool::BrowserNavigate { url } = tool else {
+        return;
+    };
+    if !is_search_results_url(url) {
+        return;
+    }
+
+    let query = search_query_from_url(url)
+        .filter(|value| !value.trim().is_empty())
+        .unwrap_or_else(|| fallback_query.trim().to_string());
+    if query.trim().is_empty() {
+        return;
+    }
+
+    *tool = AgentTool::WebSearch {
+        query: query.clone(),
+        limit: Some(5),
+        url: Some(crate::agentic::web::build_ddg_serp_url(&query)),
+    };
+}
 
 pub async fn handle_action_execution(
     service: &DesktopAgentService,
@@ -42,7 +76,16 @@ pub async fn handle_action_execution(
     let mut foreground_window = os_driver.get_active_window_info().await.unwrap_or(None);
     let target_app_hint = agent_state.target.as_ref().and_then(|t| t.app_hint.clone());
 
-    // Pre-policy normalization: `web__search` carries a computed SERP URL for deterministic
+    // Pre-policy normalization:
+    // - Convert search-result browser navigation into governed `web__search` for WebResearch.
+    // - Ensure `web__search` carries a computed SERP URL for deterministic policy hashing.
+    normalize_web_research_tool_call(
+        &mut tool,
+        agent_state.resolved_intent.as_ref(),
+        &agent_state.goal,
+    );
+
+    // `web__search` carries a computed SERP URL for deterministic
     // policy enforcement + hashing (the model should only provide the query).
     if let AgentTool::WebSearch { query, url, .. } = &mut tool {
         if url.as_ref().map(|u| u.trim().is_empty()).unwrap_or(true) {
@@ -581,9 +624,12 @@ pub fn select_runtime(
 mod tests {
     use super::approvals::is_runtime_secret_install_retry_approved;
     use super::focus::is_focus_sensitive_tool;
+    use super::normalize_web_research_tool_call;
     use crate::agentic::desktop::runtime_secret;
     use crate::agentic::desktop::types::{AgentMode, AgentState, AgentStatus, ExecutionTier};
-    use ioi_types::app::agentic::{AgentTool, ComputerAction};
+    use ioi_types::app::agentic::{
+        AgentTool, ComputerAction, IntentConfidenceBand, IntentScopeProfile, ResolvedIntentState,
+    };
     use std::collections::BTreeMap;
 
     fn test_agent_state() -> AgentState {
@@ -698,5 +744,59 @@ mod tests {
             session_id,
             &state
         ));
+    }
+
+    fn resolved(scope: IntentScopeProfile) -> ResolvedIntentState {
+        ResolvedIntentState {
+            intent_id: "test".to_string(),
+            scope,
+            band: IntentConfidenceBand::High,
+            score: 0.95,
+            top_k: vec![],
+            preferred_tier: "tool_first".to_string(),
+            matrix_version: "v1".to_string(),
+            matrix_source_hash: [0u8; 32],
+            receipt_hash: [0u8; 32],
+            constrained: false,
+        }
+    }
+
+    #[test]
+    fn rewrites_search_navigation_to_web_search_for_web_research_scope() {
+        let mut tool = AgentTool::BrowserNavigate {
+            url: "https://duckduckgo.com/?q=latest+news".to_string(),
+        };
+        let intent = resolved(IntentScopeProfile::WebResearch);
+
+        normalize_web_research_tool_call(&mut tool, Some(&intent), "fallback query");
+
+        match tool {
+            AgentTool::WebSearch { query, limit, url } => {
+                assert_eq!(query, "latest news");
+                assert_eq!(limit, Some(5));
+                assert_eq!(
+                    url.as_deref(),
+                    Some("https://duckduckgo.com/?q=latest+news")
+                );
+            }
+            other => panic!("expected WebSearch, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn does_not_rewrite_non_search_navigation_or_non_web_scope() {
+        let mut tool = AgentTool::BrowserNavigate {
+            url: "https://example.com/news".to_string(),
+        };
+        let intent = resolved(IntentScopeProfile::WebResearch);
+        normalize_web_research_tool_call(&mut tool, Some(&intent), "fallback query");
+        assert!(matches!(tool, AgentTool::BrowserNavigate { .. }));
+
+        let mut scoped_tool = AgentTool::BrowserNavigate {
+            url: "https://duckduckgo.com/?q=latest+news".to_string(),
+        };
+        let non_web_intent = resolved(IntentScopeProfile::Conversation);
+        normalize_web_research_tool_call(&mut scoped_tool, Some(&non_web_intent), "fallback");
+        assert!(matches!(scoped_tool, AgentTool::BrowserNavigate { .. }));
     }
 }

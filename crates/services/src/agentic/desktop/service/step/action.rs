@@ -16,4 +16,5 @@ mod support;
 pub use probe::{is_command_probe_intent, summarize_command_probe_output};
 pub use processing::{process_tool_output, resolve_action_routing_context};
 pub use resume::resume_pending_action;
+pub(crate) use search::{is_search_results_url, search_query_from_url};
 pub use support::{canonical_intent_hash, canonical_retry_intent_hash, canonical_tool_identity};
