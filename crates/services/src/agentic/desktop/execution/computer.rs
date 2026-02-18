@@ -1,6 +1,6 @@
 // Path: crates/services/src/agentic/desktop/execution/computer.rs
 
-use super::browser::browser_surface_regions;
+use super::browser::{browser_surface_regions, is_probable_browser_window};
 use super::resilience;
 use super::{ToolExecutionResult, ToolExecutor};
 use crate::agentic::desktop::types::ExecutionTier;
@@ -27,11 +27,104 @@ pub use input::{build_cursor_click_sequence, build_cursor_drag_sequence};
 pub use semantics::{find_semantic_ui_match, UiFindSemanticMatch};
 pub(super) use tree::fetch_lensed_tree;
 
+const PHASE0_BROWSER_GUI_CLICK_ERROR_CODE: &str = "BrowserGuiClickDisallowedPhase0";
+
 fn is_missing_focus_dependency_error(msg: &str) -> bool {
     let lower = msg.to_ascii_lowercase();
     lower.contains("missing focus dependency")
         || lower.contains("wmctrl")
         || lower.contains("not found")
+}
+
+fn active_browser_window_rect(exec: &ToolExecutor) -> Option<(i32, i32, i32, i32)> {
+    let window = exec.active_window.as_ref()?;
+    if !is_probable_browser_window(&window.title, &window.app_name) {
+        return None;
+    }
+    if window.width <= 0 || window.height <= 0 {
+        return None;
+    }
+    Some((window.x, window.y, window.width, window.height))
+}
+
+fn rect_contains_point(rect: (i32, i32, i32, i32), x: i32, y: i32) -> bool {
+    let (rx, ry, width, height) = rect;
+    if width <= 0 || height <= 0 {
+        return false;
+    }
+
+    let x2 = rx + width;
+    let y2 = ry + height;
+    x >= rx && x <= x2 && y >= ry && y <= y2
+}
+
+fn phase0_browser_gui_click_denied(action: &str, detail: &str) -> ToolExecutionResult {
+    ToolExecutionResult::failure(format!(
+        "ERROR_CLASS=TierViolation ERROR_CODE={} {}. {} Use `browser__snapshot` then `browser__click_element`.",
+        PHASE0_BROWSER_GUI_CLICK_ERROR_CODE, action, detail
+    ))
+}
+
+fn guard_phase0_browser_click_with_coordinate(
+    exec: &ToolExecutor,
+    action: &str,
+    x: i32,
+    y: i32,
+) -> Option<ToolExecutionResult> {
+    let rect = active_browser_window_rect(exec)?;
+    if rect_contains_point(rect, x, y) {
+        return Some(phase0_browser_gui_click_denied(
+            action,
+            &format!("GUI/computer click at ({}, {}) is inside active browser window", x, y),
+        ));
+    }
+    None
+}
+
+fn guard_phase0_browser_click_without_coordinate(
+    exec: &ToolExecutor,
+    action: &str,
+) -> Option<ToolExecutionResult> {
+    active_browser_window_rect(exec).map(|_| {
+        phase0_browser_gui_click_denied(
+            action,
+            "Coordinate-free GUI/computer click is blocked while browser window is active",
+        )
+    })
+}
+
+async fn guard_phase0_browser_click_by_id(
+    exec: &ToolExecutor,
+    action: &str,
+    id: &str,
+    som_map: Option<&BTreeMap<u32, (i32, i32, i32, i32)>>,
+    semantic_map: Option<&BTreeMap<u32, String>>,
+    active_lens: Option<&str>,
+) -> Option<ToolExecutionResult> {
+    let rect = active_browser_window_rect(exec)?;
+    let point = resolve_target_point(exec, id, som_map, semantic_map, active_lens).await;
+    match point {
+        Some([x, y]) => {
+            if rect_contains_point(rect, x as i32, y as i32) {
+                Some(phase0_browser_gui_click_denied(
+                    action,
+                    &format!(
+                        "Resolved target '{}' to ({}, {}) inside active browser window",
+                        id, x, y
+                    ),
+                ))
+            } else {
+                None
+            }
+        }
+        None => Some(phase0_browser_gui_click_denied(
+            action,
+            &format!(
+                "Could not resolve target '{}' while browser window is active (fail-closed)",
+                id
+            ),
+        )),
+    }
 }
 
 fn center_from_rect(x: i32, y: i32, w: i32, h: i32) -> [u32; 2] {
@@ -138,6 +231,12 @@ pub async fn handle(
         }
 
         AgentTool::GuiClick { x, y, button } => {
+            if let Some(blocked) =
+                guard_phase0_browser_click_with_coordinate(exec, "gui__click", x as i32, y as i32)
+            {
+                return blocked;
+            }
+
             let allow_raw_coords =
                 matches!(exec.current_tier, Some(ExecutionTier::VisualForeground));
             let allow_vision_fallback =
@@ -234,6 +333,19 @@ pub async fn handle(
         },
 
         AgentTool::GuiClickElement { id } => {
+            if let Some(blocked) = guard_phase0_browser_click_by_id(
+                exec,
+                "gui__click_element",
+                &id,
+                som_map,
+                semantic_map,
+                active_lens,
+            )
+            .await
+            {
+                return blocked;
+            }
+
             let allow_vision_fallback =
                 resilience::allow_vision_fallback_for_tier(exec.current_tier);
             if let Ok(som_id) = id.trim().parse::<u32>() {
@@ -326,6 +438,15 @@ async fn handle_computer_action(
         }
         ComputerAction::LeftClick { coordinate } => {
             if let Some(coord) = coordinate {
+                if let Some(blocked) = guard_phase0_browser_click_with_coordinate(
+                    exec,
+                    "computer.left_click",
+                    coord[0] as i32,
+                    coord[1] as i32,
+                ) {
+                    return blocked;
+                }
+
                 let allow_raw_coords =
                     matches!(exec.current_tier, Some(ExecutionTier::VisualForeground));
                 let allow_vision_fallback =
@@ -389,6 +510,12 @@ async fn handle_computer_action(
                 };
                 exec_click(exec, MouseButton::Left, target, resolved, transform, None).await
             } else {
+                if let Some(blocked) =
+                    guard_phase0_browser_click_without_coordinate(exec, "computer.left_click")
+                {
+                    return blocked;
+                }
+
                 // Coordinate-free click: click at the current cursor location.
                 exec_input(
                     exec,
@@ -399,6 +526,15 @@ async fn handle_computer_action(
         }
         ComputerAction::RightClick { coordinate } => {
             if let Some(coord) = coordinate {
+                if let Some(blocked) = guard_phase0_browser_click_with_coordinate(
+                    exec,
+                    "computer.right_click",
+                    coord[0] as i32,
+                    coord[1] as i32,
+                ) {
+                    return blocked;
+                }
+
                 let allow_raw_coords =
                     matches!(exec.current_tier, Some(ExecutionTier::VisualForeground));
 
@@ -453,6 +589,12 @@ async fn handle_computer_action(
                 };
                 exec_click(exec, MouseButton::Right, target, resolved, transform, None).await
             } else {
+                if let Some(blocked) =
+                    guard_phase0_browser_click_without_coordinate(exec, "computer.right_click")
+                {
+                    return blocked;
+                }
+
                 exec_input(
                     exec,
                     InputEvent::AtomicSequence(build_cursor_click_sequence(MouseButton::Right)),
@@ -462,6 +604,15 @@ async fn handle_computer_action(
         }
         ComputerAction::DoubleClick { coordinate } => {
             if let Some(coord) = coordinate {
+                if let Some(blocked) = guard_phase0_browser_click_with_coordinate(
+                    exec,
+                    "computer.double_click",
+                    coord[0] as i32,
+                    coord[1] as i32,
+                ) {
+                    return blocked;
+                }
+
                 let allow_raw_coords =
                     matches!(exec.current_tier, Some(ExecutionTier::VisualForeground));
                 let allow_vision_fallback =
@@ -586,6 +737,12 @@ async fn handle_computer_action(
                     coord[0], coord[1]
                 ))
             } else {
+                if let Some(blocked) =
+                    guard_phase0_browser_click_without_coordinate(exec, "computer.double_click")
+                {
+                    return blocked;
+                }
+
                 exec_input(
                     exec,
                     InputEvent::AtomicSequence(build_cursor_double_click_sequence()),
@@ -594,6 +751,19 @@ async fn handle_computer_action(
             }
         }
         ComputerAction::LeftClickId { id } => {
+            if let Some(blocked) = guard_phase0_browser_click_by_id(
+                exec,
+                "computer.left_click_id",
+                &id.to_string(),
+                som_map,
+                semantic_map,
+                active_lens,
+            )
+            .await
+            {
+                return blocked;
+            }
+
             if let Some(result) = click_by_som_id(exec, id, som_map, MouseButton::Left).await {
                 return result;
             }
@@ -617,6 +787,19 @@ async fn handle_computer_action(
             ToolExecutionResult::failure(format!("SoM ID {} not found in visual context", id))
         }
         ComputerAction::LeftClickElement { id } => {
+            if let Some(blocked) = guard_phase0_browser_click_by_id(
+                exec,
+                "computer.left_click_element",
+                &id,
+                som_map,
+                semantic_map,
+                active_lens,
+            )
+            .await
+            {
+                return blocked;
+            }
+
             let allow_vision_fallback =
                 resilience::allow_vision_fallback_for_tier(exec.current_tier);
             // Reverse lookup: check semantic map if we have the ID from visual processing
@@ -886,16 +1069,18 @@ mod tests {
         }
     }
 
-    struct NoopOsDriver;
+    struct TestOsDriver {
+        active_window: Option<WindowInfo>,
+    }
 
     #[async_trait]
-    impl OsDriver for NoopOsDriver {
+    impl OsDriver for TestOsDriver {
         async fn get_active_window_title(&self) -> Result<Option<String>, VmError> {
-            Ok(None)
+            Ok(self.active_window.as_ref().map(|w| w.title.clone()))
         }
 
         async fn get_active_window_info(&self) -> Result<Option<WindowInfo>, VmError> {
-            Ok(None)
+            Ok(self.active_window.clone())
         }
 
         async fn focus_window(&self, _title_query: &str) -> Result<bool, VmError> {
@@ -911,17 +1096,32 @@ mod tests {
         }
     }
 
-    #[tokio::test(flavor = "current_thread")]
-    async fn gui_scroll_is_allowed_outside_visual_foreground() {
-        let gui = Arc::new(RecordingGuiDriver::default());
-        let os: Arc<dyn OsDriver> = Arc::new(NoopOsDriver);
+    fn browser_window() -> WindowInfo {
+        WindowInfo {
+            title: "Google Chrome".to_string(),
+            app_name: "chrome".to_string(),
+            x: 10,
+            y: 20,
+            width: 300,
+            height: 200,
+        }
+    }
+
+    fn build_executor(
+        gui: Arc<RecordingGuiDriver>,
+        active_window: Option<WindowInfo>,
+        tier: ExecutionTier,
+    ) -> ToolExecutor {
+        let os: Arc<dyn OsDriver> = Arc::new(TestOsDriver {
+            active_window: active_window.clone(),
+        });
         let terminal = Arc::new(TerminalDriver::new());
         let browser = Arc::new(BrowserDriver::new());
         let mcp = Arc::new(McpManager::new());
         let inference: Arc<dyn InferenceRuntime> = Arc::new(MockInferenceRuntime::default());
 
-        let exec = ToolExecutor::new(
-            gui.clone(),
+        ToolExecutor::new(
+            gui,
             os,
             terminal,
             browser,
@@ -931,7 +1131,13 @@ mod tests {
             inference,
             None,
         )
-        .with_window_context(None, None, Some(ExecutionTier::VisualBackground));
+        .with_window_context(active_window, None, Some(tier))
+    }
+
+    #[tokio::test(flavor = "current_thread")]
+    async fn gui_scroll_is_allowed_outside_visual_foreground() {
+        let gui = Arc::new(RecordingGuiDriver::default());
+        let exec = build_executor(gui.clone(), None, ExecutionTier::VisualBackground);
 
         let result = handle(
             &exec,
@@ -950,5 +1156,112 @@ mod tests {
             gui.take_events(),
             vec![InputEvent::Scroll { dx: 12, dy: 340 }]
         );
+    }
+
+    #[tokio::test(flavor = "current_thread")]
+    async fn gui_click_inside_browser_window_is_blocked_phase0() {
+        let gui = Arc::new(RecordingGuiDriver::default());
+        let exec = build_executor(
+            gui.clone(),
+            Some(browser_window()),
+            ExecutionTier::VisualForeground,
+        );
+
+        let result = handle(
+            &exec,
+            AgentTool::GuiClick {
+                x: 50,
+                y: 50,
+                button: Some("left".to_string()),
+            },
+            None,
+            None,
+            None,
+        )
+        .await;
+
+        assert!(!result.success);
+        let err = result.error.unwrap_or_default();
+        assert!(err.contains("ERROR_CLASS=TierViolation"));
+        assert!(err.contains("ERROR_CODE=BrowserGuiClickDisallowedPhase0"));
+        assert!(gui.take_events().is_empty());
+    }
+
+    #[tokio::test(flavor = "current_thread")]
+    async fn gui_click_outside_browser_window_is_allowed() {
+        let gui = Arc::new(RecordingGuiDriver::default());
+        let exec = build_executor(
+            gui.clone(),
+            Some(browser_window()),
+            ExecutionTier::VisualForeground,
+        );
+
+        let result = handle(
+            &exec,
+            AgentTool::GuiClick {
+                x: 600,
+                y: 600,
+                button: Some("left".to_string()),
+            },
+            None,
+            None,
+            None,
+        )
+        .await;
+
+        assert!(result.success);
+        assert_eq!(gui.take_events().len(), 1);
+    }
+
+    #[tokio::test(flavor = "current_thread")]
+    async fn computer_left_click_without_coordinate_is_blocked_when_browser_active() {
+        let gui = Arc::new(RecordingGuiDriver::default());
+        let exec = build_executor(
+            gui.clone(),
+            Some(browser_window()),
+            ExecutionTier::VisualForeground,
+        );
+
+        let result = handle(
+            &exec,
+            AgentTool::Computer(ComputerAction::LeftClick { coordinate: None }),
+            None,
+            None,
+            None,
+        )
+        .await;
+
+        assert!(!result.success);
+        let err = result.error.unwrap_or_default();
+        assert!(err.contains("ERROR_CLASS=TierViolation"));
+        assert!(err.contains("ERROR_CODE=BrowserGuiClickDisallowedPhase0"));
+        assert!(gui.take_events().is_empty());
+    }
+
+    #[tokio::test(flavor = "current_thread")]
+    async fn gui_click_element_is_blocked_when_browser_active_and_target_unresolved() {
+        let gui = Arc::new(RecordingGuiDriver::default());
+        let exec = build_executor(
+            gui.clone(),
+            Some(browser_window()),
+            ExecutionTier::VisualForeground,
+        );
+
+        let result = handle(
+            &exec,
+            AgentTool::GuiClickElement {
+                id: "btn_submit".to_string(),
+            },
+            None,
+            None,
+            None,
+        )
+        .await;
+
+        assert!(!result.success);
+        let err = result.error.unwrap_or_default();
+        assert!(err.contains("ERROR_CLASS=TierViolation"));
+        assert!(err.contains("ERROR_CODE=BrowserGuiClickDisallowedPhase0"));
+        assert!(gui.take_events().is_empty());
     }
 }
