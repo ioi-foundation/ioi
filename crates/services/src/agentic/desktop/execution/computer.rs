@@ -293,6 +293,148 @@ async fn resolve_target_point(
     None
 }
 
+fn append_verify_metadata(
+    mut result: ToolExecutionResult,
+    verify: serde_json::Value,
+) -> ToolExecutionResult {
+    if !result.success {
+        return result;
+    }
+
+    let base = result
+        .history_entry
+        .take()
+        .unwrap_or_else(|| "GUI click executed".to_string());
+    result.history_entry = Some(format!("{base}. verify={verify}"));
+    result
+}
+
+fn verification_attempt_payload(
+    attempt: u32,
+    verification: &resilience::verifier::VerificationResult,
+) -> serde_json::Value {
+    json!({
+        "attempt": attempt,
+        "tree_changed": verification.tree_changed,
+        "visual_distance": verification.visual_distance,
+        "significant": verification.is_significant(),
+    })
+}
+
+async fn execute_verified_gui_click_element_som(
+    exec: &ToolExecutor,
+    som_id: u32,
+    som_map: Option<&BTreeMap<u32, (i32, i32, i32, i32)>>,
+    active_lens: Option<&str>,
+) -> Option<ToolExecutionResult> {
+    let before_snapshot =
+        resilience::verifier::ActionVerifier::capture_snapshot(exec, active_lens).await;
+    let mut attempts: Vec<serde_json::Value> = Vec::new();
+
+    let first = click_by_som_id(exec, som_id, som_map, MouseButton::Left).await?;
+    if !first.success {
+        return Some(first);
+    }
+
+    let before_snapshot = match before_snapshot {
+        Ok(snapshot) => snapshot,
+        Err(error) => {
+            let verify = json!({
+                "method": "som_id",
+                "som_id": som_id,
+                "snapshot": "unavailable",
+                "snapshot_error": error,
+                "postcondition": { "met": true },
+            });
+            return Some(append_verify_metadata(first, verify));
+        }
+    };
+
+    tokio::time::sleep(std::time::Duration::from_millis(220)).await;
+    match resilience::verifier::ActionVerifier::capture_snapshot(exec, active_lens).await {
+        Ok(after_first) => {
+            let verification =
+                resilience::verifier::ActionVerifier::verify_impact(&before_snapshot, &after_first);
+            attempts.push(verification_attempt_payload(1, &verification));
+            if verification.is_significant() {
+                let verify = json!({
+                    "method": "som_id",
+                    "som_id": som_id,
+                    "snapshot": "available",
+                    "postcondition": { "met": true },
+                    "attempts": attempts,
+                });
+                return Some(append_verify_metadata(first, verify));
+            }
+        }
+        Err(error) => {
+            let verify = json!({
+                "method": "som_id",
+                "som_id": som_id,
+                "snapshot": "unavailable",
+                "snapshot_error": error,
+                "postcondition": { "met": true },
+            });
+            return Some(append_verify_metadata(first, verify));
+        }
+    }
+
+    let retry = match click_by_som_id(exec, som_id, som_map, MouseButton::Left).await {
+        Some(result) => result,
+        None => {
+            return Some(ToolExecutionResult::failure(format!(
+                "ERROR_CLASS=TargetNotFound SoM ID {} could not be resolved for retry.",
+                som_id
+            )))
+        }
+    };
+    if !retry.success {
+        return Some(retry);
+    }
+
+    tokio::time::sleep(std::time::Duration::from_millis(220)).await;
+    match resilience::verifier::ActionVerifier::capture_snapshot(exec, active_lens).await {
+        Ok(after_retry) => {
+            let verification =
+                resilience::verifier::ActionVerifier::verify_impact(&before_snapshot, &after_retry);
+            attempts.push(verification_attempt_payload(2, &verification));
+            if verification.is_significant() {
+                let verify = json!({
+                    "method": "som_id",
+                    "som_id": som_id,
+                    "snapshot": "available",
+                    "postcondition": { "met": true },
+                    "attempts": attempts,
+                });
+                return Some(append_verify_metadata(retry, verify));
+            }
+
+            let verify = json!({
+                "method": "som_id",
+                "som_id": som_id,
+                "snapshot": "available",
+                "postcondition": { "met": false },
+                "attempts": attempts,
+            });
+            Some(ToolExecutionResult::failure(format!(
+                "ERROR_CLASS=NoEffectAfterAction UI state static after SoM click (som_id={}). verify={}",
+                som_id, verify
+            )))
+        }
+        Err(error) => {
+            let verify = json!({
+                "method": "som_id",
+                "som_id": som_id,
+                "snapshot": "unavailable",
+                "snapshot_error": error,
+                "postcondition": { "met": true },
+                "attempts": attempts,
+            });
+            Some(append_verify_metadata(retry, verify))
+        }
+    }
+}
+
 pub async fn handle(
     exec: &ToolExecutor,
     tool: AgentTool,
@@ -425,7 +567,7 @@ pub async fn handle(
                 resilience::allow_vision_fallback_for_tier(exec.current_tier);
             if let Ok(som_id) = id.trim().parse::<u32>() {
                 if let Some(result) =
-                    click_by_som_id(exec, som_id, som_map, MouseButton::Left).await
+                    execute_verified_gui_click_element_som(exec, som_id, som_map, active_lens).await
                 {
                     return result;
                 }
@@ -433,7 +575,8 @@ pub async fn handle(
             if let Some(smap) = semantic_map {
                 if let Some(som_id) = resolve_semantic_som_id(smap, &id) {
                     if let Some(result) =
-                        click_by_som_id(exec, som_id, som_map, MouseButton::Left).await
+                        execute_verified_gui_click_element_som(exec, som_id, som_map, active_lens)
+                            .await
                     {
                         return result;
                     }
@@ -1504,6 +1647,30 @@ mod tests {
         .await;
 
         assert!(result.success);
+        assert!(!gui.take_events().is_empty());
+    }
+
+    #[tokio::test(flavor = "current_thread")]
+    async fn gui_click_element_som_path_emits_verify_when_snapshot_unavailable() {
+        let gui = Arc::new(RecordingGuiDriver::default());
+        let exec = build_executor(gui.clone(), None, ExecutionTier::VisualBackground);
+        let som_map = BTreeMap::from([(42u32, (600, 600, 40, 40))]);
+
+        let result = handle(
+            &exec,
+            AgentTool::GuiClickElement {
+                id: "42".to_string(),
+            },
+            Some(&som_map),
+            None,
+            None,
+        )
+        .await;
+
+        assert!(result.success);
+        let history = result.history_entry.unwrap_or_default();
+        assert!(history.contains("verify="));
+        assert!(history.contains("\"snapshot\":\"unavailable\""));
         assert!(!gui.take_events().is_empty());
     }
 }
