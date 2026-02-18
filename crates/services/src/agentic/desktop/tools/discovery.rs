@@ -114,7 +114,8 @@ mod tests {
     fn headless_tier_hides_browser_followups_when_not_allowed() {
         assert!(!should_expose_headless_browser_followups(
             ExecutionTier::DomHeadless,
-            false
+            false,
+            true
         ));
     }
 
@@ -122,7 +123,8 @@ mod tests {
     fn headless_tier_exposes_browser_followups_when_allowed() {
         assert!(should_expose_headless_browser_followups(
             ExecutionTier::DomHeadless,
-            true
+            true,
+            false
         ));
     }
 
@@ -130,6 +132,16 @@ mod tests {
     fn non_headless_hides_followups() {
         assert!(!should_expose_headless_browser_followups(
             ExecutionTier::VisualForeground,
+            true,
+            false
+        ));
+    }
+
+    #[test]
+    fn non_headless_exposes_followups_when_browser_active() {
+        assert!(should_expose_headless_browser_followups(
+            ExecutionTier::VisualForeground,
+            true,
             true
         ));
     }
@@ -198,5 +210,47 @@ mod tests {
         assert!(tools.iter().any(|t| t.name == "web__search"));
         assert!(tools.iter().any(|t| t.name == "web__read"));
         assert!(tools.iter().any(|t| t.name == "chat__reply"));
+    }
+
+    #[tokio::test(flavor = "current_thread")]
+    async fn visual_foreground_browser_window_exposes_browser_followups() {
+        let intent = resolved(IntentScopeProfile::WebResearch);
+        let state = IAVLTree::new(HashCommitmentScheme::new());
+        let runtime: Arc<dyn InferenceRuntime> = Arc::new(MockInferenceRuntime);
+        let tools = discover_tools(
+            &state,
+            None,
+            None,
+            "open search and click a result",
+            runtime,
+            ExecutionTier::VisualForeground,
+            "Google Chrome (chrome)",
+            Some(&intent),
+        )
+        .await;
+
+        assert!(tools.iter().any(|t| t.name == "browser__snapshot"));
+        assert!(tools.iter().any(|t| t.name == "browser__click_element"));
+    }
+
+    #[tokio::test(flavor = "current_thread")]
+    async fn visual_foreground_non_browser_window_hides_browser_followups() {
+        let intent = resolved(IntentScopeProfile::WebResearch);
+        let state = IAVLTree::new(HashCommitmentScheme::new());
+        let runtime: Arc<dyn InferenceRuntime> = Arc::new(MockInferenceRuntime);
+        let tools = discover_tools(
+            &state,
+            None,
+            None,
+            "open search and click a result",
+            runtime,
+            ExecutionTier::VisualForeground,
+            "Calculator",
+            Some(&intent),
+        )
+        .await;
+
+        assert!(!tools.iter().any(|t| t.name == "browser__snapshot"));
+        assert!(!tools.iter().any(|t| t.name == "browser__click_element"));
     }
 }
