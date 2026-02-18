@@ -208,6 +208,100 @@ pub struct IntentResolutionReceiptEvent {
     pub constrained: bool,
 }
 
+/// Structured workload activity event for glass-box orchestration.
+///
+/// This is a higher-level, typed stream intended to back Autopilot rendering and replayable
+/// receipts. It complements (and may eventually subsume) `ProcessActivity`.
+#[derive(Clone, Debug, Serialize, Deserialize, Encode, Decode, PartialEq, Eq)]
+pub struct WorkloadActivityEvent {
+    /// Session this activity belongs to.
+    pub session_id: [u8; 32],
+    /// Step index this activity belongs to.
+    pub step_index: u32,
+    /// Stable identifier for the running workload within a step.
+    pub workload_id: String,
+    /// Milliseconds since UNIX epoch when emitted.
+    pub timestamp_ms: u64,
+    /// Typed activity kind.
+    pub kind: WorkloadActivityKind,
+}
+
+/// Typed activity kinds for workloads.
+#[derive(Clone, Debug, Serialize, Deserialize, Encode, Decode, PartialEq, Eq)]
+pub enum WorkloadActivityKind {
+    /// Lifecycle signal for the workload (start/detach/exit).
+    Lifecycle {
+        /// Phase label (e.g., "started", "detached", "completed", "failed").
+        phase: String,
+        /// Optional exit code.
+        #[serde(default)]
+        exit_code: Option<i32>,
+    },
+    /// Bounded stdio chunk stream.
+    Stdio {
+        /// Stream label ("stdout", "stderr", "status").
+        stream: String,
+        /// Chunk payload.
+        chunk: String,
+        /// Monotonic sequence number within the stream.
+        seq: u64,
+        /// Marks terminal chunk for this stream.
+        is_final: bool,
+        /// Optional exit code when available.
+        #[serde(default)]
+        exit_code: Option<i32>,
+    },
+}
+
+/// Deterministic receipt for a completed workload action.
+#[derive(Clone, Debug, Serialize, Deserialize, Encode, Decode, PartialEq, Eq)]
+pub struct WorkloadReceiptEvent {
+    /// Session this receipt belongs to.
+    pub session_id: [u8; 32],
+    /// Step index this receipt belongs to.
+    pub step_index: u32,
+    /// Stable identifier for the workload within a step.
+    pub workload_id: String,
+    /// Milliseconds since UNIX epoch when emitted.
+    pub timestamp_ms: u64,
+    /// Typed receipt payload.
+    pub receipt: WorkloadReceipt,
+}
+
+/// Typed workload receipt payloads.
+#[derive(Clone, Debug, Serialize, Deserialize, Encode, Decode, PartialEq, Eq)]
+pub enum WorkloadReceipt {
+    /// A command execution receipt.
+    Exec(WorkloadExecReceipt),
+}
+
+/// Audit receipt for an `Exec` workload.
+#[derive(Clone, Debug, Serialize, Deserialize, Encode, Decode, PartialEq, Eq)]
+pub struct WorkloadExecReceipt {
+    /// Tool that initiated the workload (e.g. "sys__exec").
+    pub tool_name: String,
+    /// Executed command.
+    pub command: String,
+    /// Executed argv args.
+    pub args: Vec<String>,
+    /// Working directory used for execution (resolved/canonical where possible).
+    pub cwd: String,
+    /// Whether the process was detached.
+    pub detach: bool,
+    /// Timeout applied (milliseconds).
+    pub timeout_ms: u64,
+    /// Success flag as surfaced by the executor.
+    pub success: bool,
+    /// Optional exit code when available.
+    #[serde(default)]
+    pub exit_code: Option<i32>,
+    /// Optional error class when failure output includes an `ERROR_CLASS=...` prefix.
+    #[serde(default)]
+    pub error_class: Option<String>,
+    /// Human-friendly preview string (for UI correlation).
+    pub command_preview: String,
+}
+
 /// A unified event type representing observable state changes within the Kernel.
 /// These events are streamed to the UI (Autopilot) to provide visual feedback
 /// and "Visual Sovereignty".
@@ -291,6 +385,12 @@ pub enum KernelEvent {
         /// User-friendly command preview.
         command_preview: String,
     },
+
+    /// Structured workload activity stream for orchestration and replay.
+    WorkloadActivity(WorkloadActivityEvent),
+
+    /// Deterministic workload receipt stream (exec/fs/net).
+    WorkloadReceipt(WorkloadReceiptEvent),
 
     /// A fully typed per-action routing receipt from the Parity Router.
     RoutingReceipt(RoutingReceiptEvent),
