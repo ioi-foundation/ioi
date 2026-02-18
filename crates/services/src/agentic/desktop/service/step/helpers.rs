@@ -48,6 +48,12 @@ pub fn default_safe_policy() -> ActionRules {
                 action: Verdict::Allow,
             },
             Rule {
+                rule_id: Some("allow-ui-inspect".into()),
+                target: "gui::inspect".into(),
+                conditions: Default::default(),
+                action: Verdict::Allow,
+            },
+            Rule {
                 rule_id: Some("allow-browser-inspect".into()),
                 target: "browser::inspect".into(),
                 conditions: Default::default(),
