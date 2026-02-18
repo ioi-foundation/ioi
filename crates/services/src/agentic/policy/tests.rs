@@ -75,16 +75,6 @@ fn custom_copy_target_keeps_exact_name_and_fs_write_alias() {
 }
 
 #[test]
-fn browser_click_element_target_keeps_compatibility_aliases() {
-    let aliases = policy_target_aliases(&ActionTarget::Custom("browser::click_element".into()));
-    assert_eq!(aliases[0], "browser::click_element");
-    assert!(aliases.iter().any(|alias| alias == "browser::click"));
-    assert!(aliases
-        .iter()
-        .any(|alias| alias == "browser__click_element"));
-}
-
-#[test]
 fn copy_and_move_require_source_and_destination_paths() {
     let keys =
         required_filesystem_path_keys(&ActionTarget::Custom("filesystem__move_path".to_string()))

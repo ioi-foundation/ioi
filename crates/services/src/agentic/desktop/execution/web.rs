@@ -307,169 +307,44 @@ pub async fn handle(
 
             result
         }
-        AgentTool::Dynamic(val) => {
-            if val.get("name").and_then(|n| n.as_str()) != Some("net__fetch") {
-                return ToolExecutionResult::failure(format!(
-                    "Tool {:?} not handled by web executor",
-                    AgentTool::Dynamic(val)
-                ));
-            }
+        AgentTool::NetFetch { url, max_chars } => {
+            handle_net_fetch(exec, session_id, step_index, url.as_str(), max_chars).await
+        }
+        other => {
+            ToolExecutionResult::failure(format!("Tool {:?} not handled by web executor", other))
+        }
+    }
+}
 
-            let args = val.get("arguments").cloned().unwrap_or_else(|| json!({}));
-            let url = args
-                .get("url")
-                .and_then(|v| v.as_str())
-                .unwrap_or("")
-                .trim();
-            if url.is_empty() {
-                return ToolExecutionResult::failure(
-                    "ERROR_CLASS=TargetNotFound net__fetch requires a non-empty url.".to_string(),
-                );
-            }
+async fn handle_net_fetch(
+    exec: &ToolExecutor,
+    session_id: [u8; 32],
+    step_index: u32,
+    url: &str,
+    max_chars_override: Option<u32>,
+) -> ToolExecutionResult {
+    let url = url.trim();
+    if url.is_empty() {
+        return ToolExecutionResult::failure(
+            "ERROR_CLASS=TargetNotFound net__fetch requires a non-empty url.".to_string(),
+        );
+    }
 
-            let max_chars = args
-                .get("max_chars")
-                .and_then(|v| v.as_u64())
-                .unwrap_or(NET_FETCH_DEFAULT_MAX_CHARS as u64)
-                .clamp(1, NET_FETCH_MAX_CHARS_LIMIT as u64) as u32;
-            let max_bytes: usize = (max_chars as usize)
-                .saturating_mul(4)
-                .clamp(1, NET_FETCH_MAX_BYTES_LIMIT);
-            let timeout = Duration::from_secs(30);
-            let timeout_ms = timeout.as_millis() as u64;
+    let max_chars = max_chars_override
+        .unwrap_or(NET_FETCH_DEFAULT_MAX_CHARS)
+        .clamp(1, NET_FETCH_MAX_CHARS_LIMIT);
+    let max_bytes: usize = (max_chars as usize)
+        .saturating_mul(4)
+        .clamp(1, NET_FETCH_MAX_BYTES_LIMIT);
+    let timeout = Duration::from_secs(30);
+    let timeout_ms = timeout.as_millis() as u64;
 
-            let parsed = match Url::parse(url) {
-                Ok(u) => u,
-                Err(e) => {
-                    let sanitized = strip_userinfo_from_urlish(strip_query_fragment(url));
-                    let requested_url_for_receipt =
-                        workload::scrub_workload_text_field_for_receipt(exec, sanitized.as_str())
-                            .await;
-                    let receipt_preview = format!("net__fetch {}", requested_url_for_receipt);
-                    let workload_id = workload::compute_workload_id(
-                        session_id,
-                        step_index,
-                        "net__fetch",
-                        receipt_preview.as_str(),
-                    );
-
-                    let result = ToolExecutionResult::failure(format!(
-                        "ERROR_CLASS=TargetNotFound net__fetch url parse failed: {}",
-                        e
-                    ));
-                    if let Some(tx) = exec.event_sender.as_ref() {
-                        workload::emit_workload_activity(
-                            tx,
-                            session_id,
-                            step_index,
-                            workload_id.clone(),
-                            WorkloadActivityKind::Lifecycle {
-                                phase: "started".to_string(),
-                                exit_code: None,
-                            },
-                        );
-                        workload::emit_workload_activity(
-                            tx,
-                            session_id,
-                            step_index,
-                            workload_id.clone(),
-                            WorkloadActivityKind::Lifecycle {
-                                phase: "failed".to_string(),
-                                exit_code: None,
-                            },
-                        );
-                        workload::emit_workload_receipt(
-                            tx,
-                            session_id,
-                            step_index,
-                            workload_id.clone(),
-                            WorkloadReceipt::NetFetch(WorkloadNetFetchReceipt {
-                                tool_name: "net__fetch".to_string(),
-                                method: "GET".to_string(),
-                                requested_url: requested_url_for_receipt,
-                                final_url: None,
-                                status_code: None,
-                                content_type: None,
-                                max_chars,
-                                max_bytes: max_bytes as u64,
-                                bytes_read: 0,
-                                truncated: false,
-                                timeout_ms,
-                                success: false,
-                                error_class: workload::extract_error_class(result.error.as_deref()),
-                            }),
-                        );
-                    }
-                    return result;
-                }
-            };
-
-            if parsed.scheme() != "http" && parsed.scheme() != "https" {
-                let sanitized = strip_userinfo_from_urlish(strip_query_fragment(url));
-                let requested_url_for_receipt =
-                    workload::scrub_workload_text_field_for_receipt(exec, sanitized.as_str()).await;
-                let receipt_preview = format!("net__fetch {}", requested_url_for_receipt);
-                let workload_id = workload::compute_workload_id(
-                    session_id,
-                    step_index,
-                    "net__fetch",
-                    receipt_preview.as_str(),
-                );
-                let result = ToolExecutionResult::failure(format!(
-                    "ERROR_CLASS=TargetNotFound net__fetch only supports http/https (got scheme='{}').",
-                    parsed.scheme()
-                ));
-                if let Some(tx) = exec.event_sender.as_ref() {
-                    workload::emit_workload_activity(
-                        tx,
-                        session_id,
-                        step_index,
-                        workload_id.clone(),
-                        WorkloadActivityKind::Lifecycle {
-                            phase: "started".to_string(),
-                            exit_code: None,
-                        },
-                    );
-                    workload::emit_workload_activity(
-                        tx,
-                        session_id,
-                        step_index,
-                        workload_id.clone(),
-                        WorkloadActivityKind::Lifecycle {
-                            phase: "failed".to_string(),
-                            exit_code: None,
-                        },
-                    );
-                    workload::emit_workload_receipt(
-                        tx,
-                        session_id,
-                        step_index,
-                        workload_id.clone(),
-                        WorkloadReceipt::NetFetch(WorkloadNetFetchReceipt {
-                            tool_name: "net__fetch".to_string(),
-                            method: "GET".to_string(),
-                            requested_url: requested_url_for_receipt,
-                            final_url: None,
-                            status_code: None,
-                            content_type: None,
-                            max_chars,
-                            max_bytes: max_bytes as u64,
-                            bytes_read: 0,
-                            truncated: false,
-                            timeout_ms,
-                            success: false,
-                            error_class: workload::extract_error_class(result.error.as_deref()),
-                        }),
-                    );
-                }
-                return result;
-            }
-
-            let requested_url_for_receipt = workload::scrub_workload_text_field_for_receipt(
-                exec,
-                redact_url_for_receipt(&parsed).as_str(),
-            )
-            .await;
+    let parsed = match Url::parse(url) {
+        Ok(u) => u,
+        Err(e) => {
+            let sanitized = strip_userinfo_from_urlish(strip_query_fragment(url));
+            let requested_url_for_receipt =
+                workload::scrub_workload_text_field_for_receipt(exec, sanitized.as_str()).await;
             let receipt_preview = format!("net__fetch {}", requested_url_for_receipt);
             let workload_id = workload::compute_workload_id(
                 session_id,
@@ -477,6 +352,11 @@ pub async fn handle(
                 "net__fetch",
                 receipt_preview.as_str(),
             );
+
+            let result = ToolExecutionResult::failure(format!(
+                "ERROR_CLASS=TargetNotFound net__fetch url parse failed: {}",
+                e
+            ));
             if let Some(tx) = exec.event_sender.as_ref() {
                 workload::emit_workload_activity(
                     tx,
@@ -488,253 +368,244 @@ pub async fn handle(
                         exit_code: None,
                     },
                 );
+                workload::emit_workload_activity(
+                    tx,
+                    session_id,
+                    step_index,
+                    workload_id.clone(),
+                    WorkloadActivityKind::Lifecycle {
+                        phase: "failed".to_string(),
+                        exit_code: None,
+                    },
+                );
+                workload::emit_workload_receipt(
+                    tx,
+                    session_id,
+                    step_index,
+                    workload_id.clone(),
+                    WorkloadReceipt::NetFetch(WorkloadNetFetchReceipt {
+                        tool_name: "net__fetch".to_string(),
+                        method: "GET".to_string(),
+                        requested_url: requested_url_for_receipt,
+                        final_url: None,
+                        status_code: None,
+                        content_type: None,
+                        max_chars,
+                        max_bytes: max_bytes as u64,
+                        bytes_read: 0,
+                        truncated: false,
+                        timeout_ms,
+                        success: false,
+                        error_class: workload::extract_error_class(result.error.as_deref()),
+                    }),
+                );
             }
+            return result;
+        }
+    };
 
-            let client = match Client::builder()
-                .redirect(redirect::Policy::limited(5))
-                .timeout(timeout)
-                .user_agent("ioi-net-fetch/1.0")
-                .build()
-            {
-                Ok(c) => c,
-                Err(e) => {
-                    let result = ToolExecutionResult::failure(format!(
-                        "ERROR_CLASS=UnexpectedState net__fetch client init failed: {}",
-                        e
-                    ));
-                    if let Some(tx) = exec.event_sender.as_ref() {
-                        workload::emit_workload_activity(
-                            tx,
-                            session_id,
-                            step_index,
-                            workload_id.clone(),
-                            WorkloadActivityKind::Lifecycle {
-                                phase: "failed".to_string(),
-                                exit_code: None,
-                            },
-                        );
-                        workload::emit_workload_receipt(
-                            tx,
-                            session_id,
-                            step_index,
-                            workload_id.clone(),
-                            WorkloadReceipt::NetFetch(WorkloadNetFetchReceipt {
-                                tool_name: "net__fetch".to_string(),
-                                method: "GET".to_string(),
-                                requested_url: requested_url_for_receipt,
-                                final_url: None,
-                                status_code: None,
-                                content_type: None,
-                                max_chars,
-                                max_bytes: max_bytes as u64,
-                                bytes_read: 0,
-                                truncated: false,
-                                timeout_ms,
-                                success: false,
-                                error_class: workload::extract_error_class(result.error.as_deref()),
-                            }),
-                        );
-                    }
-                    return result;
-                }
-            };
+    if parsed.scheme() != "http" && parsed.scheme() != "https" {
+        let sanitized = strip_userinfo_from_urlish(strip_query_fragment(url));
+        let requested_url_for_receipt =
+            workload::scrub_workload_text_field_for_receipt(exec, sanitized.as_str()).await;
+        let receipt_preview = format!("net__fetch {}", requested_url_for_receipt);
+        let workload_id = workload::compute_workload_id(
+            session_id,
+            step_index,
+            "net__fetch",
+            receipt_preview.as_str(),
+        );
+        let result = ToolExecutionResult::failure(format!(
+            "ERROR_CLASS=TargetNotFound net__fetch only supports http/https (got scheme='{}').",
+            parsed.scheme()
+        ));
+        if let Some(tx) = exec.event_sender.as_ref() {
+            workload::emit_workload_activity(
+                tx,
+                session_id,
+                step_index,
+                workload_id.clone(),
+                WorkloadActivityKind::Lifecycle {
+                    phase: "started".to_string(),
+                    exit_code: None,
+                },
+            );
+            workload::emit_workload_activity(
+                tx,
+                session_id,
+                step_index,
+                workload_id.clone(),
+                WorkloadActivityKind::Lifecycle {
+                    phase: "failed".to_string(),
+                    exit_code: None,
+                },
+            );
+            workload::emit_workload_receipt(
+                tx,
+                session_id,
+                step_index,
+                workload_id.clone(),
+                WorkloadReceipt::NetFetch(WorkloadNetFetchReceipt {
+                    tool_name: "net__fetch".to_string(),
+                    method: "GET".to_string(),
+                    requested_url: requested_url_for_receipt,
+                    final_url: None,
+                    status_code: None,
+                    content_type: None,
+                    max_chars,
+                    max_bytes: max_bytes as u64,
+                    bytes_read: 0,
+                    truncated: false,
+                    timeout_ms,
+                    success: false,
+                    error_class: workload::extract_error_class(result.error.as_deref()),
+                }),
+            );
+        }
+        return result;
+    }
 
-            let mut resp = match client.get(parsed).send().await {
-                Ok(r) => r,
-                Err(e) => {
-                    let result = ToolExecutionResult::failure(format!(
-                        "ERROR_CLASS=UnexpectedState net__fetch request failed: {}",
-                        e
-                    ));
-                    if let Some(tx) = exec.event_sender.as_ref() {
-                        workload::emit_workload_activity(
-                            tx,
-                            session_id,
-                            step_index,
-                            workload_id.clone(),
-                            WorkloadActivityKind::Lifecycle {
-                                phase: "failed".to_string(),
-                                exit_code: None,
-                            },
-                        );
-                        workload::emit_workload_receipt(
-                            tx,
-                            session_id,
-                            step_index,
-                            workload_id.clone(),
-                            WorkloadReceipt::NetFetch(WorkloadNetFetchReceipt {
-                                tool_name: "net__fetch".to_string(),
-                                method: "GET".to_string(),
-                                requested_url: requested_url_for_receipt,
-                                final_url: None,
-                                status_code: None,
-                                content_type: None,
-                                max_chars,
-                                max_bytes: max_bytes as u64,
-                                bytes_read: 0,
-                                truncated: false,
-                                timeout_ms,
-                                success: false,
-                                error_class: workload::extract_error_class(result.error.as_deref()),
-                            }),
-                        );
-                    }
-                    return result;
-                }
-            };
+    let requested_url_for_receipt = workload::scrub_workload_text_field_for_receipt(
+        exec,
+        redact_url_for_receipt(&parsed).as_str(),
+    )
+    .await;
+    let receipt_preview = format!("net__fetch {}", requested_url_for_receipt);
+    let workload_id = workload::compute_workload_id(
+        session_id,
+        step_index,
+        "net__fetch",
+        receipt_preview.as_str(),
+    );
+    if let Some(tx) = exec.event_sender.as_ref() {
+        workload::emit_workload_activity(
+            tx,
+            session_id,
+            step_index,
+            workload_id.clone(),
+            WorkloadActivityKind::Lifecycle {
+                phase: "started".to_string(),
+                exit_code: None,
+            },
+        );
+    }
 
-            let status = resp.status().as_u16() as u32;
-            let final_url_for_receipt = workload::scrub_workload_text_field_for_receipt(
-                exec,
-                redact_url_for_receipt(resp.url()).as_str(),
-            )
-            .await;
-            let content_type = resp
-                .headers()
-                .get(reqwest::header::CONTENT_TYPE)
-                .and_then(|v| v.to_str().ok())
-                .map(|s| s.to_string());
-
-            if let Some(ct) = content_type.as_deref() {
-                if !is_text_like_content_type(ct) {
-                    let out = json!({
-                        "requested_url": url,
-                        "final_url": resp.url().to_string(),
-                        "status": status,
-                        "content_type": content_type,
-                        "truncated": false,
-                        "body_text": "",
-                        "body_omitted": true,
-                        "body_omitted_reason": format!("unsupported content-type for text extraction: {}", ct),
-                    });
-
-                    let result = match serde_json::to_string_pretty(&out) {
-                        Ok(s) => ToolExecutionResult::success(s),
-                        Err(e) => ToolExecutionResult::failure(format!(
-                            "ERROR_CLASS=SerializationFailed net__fetch output serialization failed: {}",
-                            e
-                        )),
-                    };
-                    if let Some(tx) = exec.event_sender.as_ref() {
-                        workload::emit_workload_activity(
-                            tx,
-                            session_id,
-                            step_index,
-                            workload_id.clone(),
-                            WorkloadActivityKind::Lifecycle {
-                                phase: if result.success {
-                                    "completed".to_string()
-                                } else {
-                                    "failed".to_string()
-                                },
-                                exit_code: None,
-                            },
-                        );
-                        workload::emit_workload_receipt(
-                            tx,
-                            session_id,
-                            step_index,
-                            workload_id.clone(),
-                            WorkloadReceipt::NetFetch(WorkloadNetFetchReceipt {
-                                tool_name: "net__fetch".to_string(),
-                                method: "GET".to_string(),
-                                requested_url: requested_url_for_receipt,
-                                final_url: Some(final_url_for_receipt),
-                                status_code: Some(status),
-                                content_type: content_type.clone(),
-                                max_chars,
-                                max_bytes: max_bytes as u64,
-                                bytes_read: 0,
-                                truncated: false,
-                                timeout_ms,
-                                success: result.success,
-                                error_class: workload::extract_error_class(result.error.as_deref()),
-                            }),
-                        );
-                    }
-                    return result;
-                }
+    let client = match Client::builder()
+        .redirect(redirect::Policy::limited(5))
+        .timeout(timeout)
+        .user_agent("ioi-net-fetch/1.0")
+        .build()
+    {
+        Ok(c) => c,
+        Err(e) => {
+            let result = ToolExecutionResult::failure(format!(
+                "ERROR_CLASS=UnexpectedState net__fetch client init failed: {}",
+                e
+            ));
+            if let Some(tx) = exec.event_sender.as_ref() {
+                workload::emit_workload_activity(
+                    tx,
+                    session_id,
+                    step_index,
+                    workload_id.clone(),
+                    WorkloadActivityKind::Lifecycle {
+                        phase: "failed".to_string(),
+                        exit_code: None,
+                    },
+                );
+                workload::emit_workload_receipt(
+                    tx,
+                    session_id,
+                    step_index,
+                    workload_id.clone(),
+                    WorkloadReceipt::NetFetch(WorkloadNetFetchReceipt {
+                        tool_name: "net__fetch".to_string(),
+                        method: "GET".to_string(),
+                        requested_url: requested_url_for_receipt,
+                        final_url: None,
+                        status_code: None,
+                        content_type: None,
+                        max_chars,
+                        max_bytes: max_bytes as u64,
+                        bytes_read: 0,
+                        truncated: false,
+                        timeout_ms,
+                        success: false,
+                        error_class: workload::extract_error_class(result.error.as_deref()),
+                    }),
+                );
             }
+            return result;
+        }
+    };
 
-            let mut buf: Vec<u8> = Vec::new();
-            let mut truncated_by_bytes = false;
-            loop {
-                let next = match resp.chunk().await {
-                    Ok(chunk) => chunk,
-                    Err(e) => {
-                        let result = ToolExecutionResult::failure(format!(
-                            "ERROR_CLASS=UnexpectedState net__fetch body read failed: {}",
-                            e
-                        ));
-                        if let Some(tx) = exec.event_sender.as_ref() {
-                            workload::emit_workload_activity(
-                                tx,
-                                session_id,
-                                step_index,
-                                workload_id.clone(),
-                                WorkloadActivityKind::Lifecycle {
-                                    phase: "failed".to_string(),
-                                    exit_code: None,
-                                },
-                            );
-                            workload::emit_workload_receipt(
-                                tx,
-                                session_id,
-                                step_index,
-                                workload_id.clone(),
-                                WorkloadReceipt::NetFetch(WorkloadNetFetchReceipt {
-                                    tool_name: "net__fetch".to_string(),
-                                    method: "GET".to_string(),
-                                    requested_url: requested_url_for_receipt,
-                                    final_url: Some(final_url_for_receipt),
-                                    status_code: Some(status),
-                                    content_type: content_type.clone(),
-                                    max_chars,
-                                    max_bytes: max_bytes as u64,
-                                    bytes_read: buf.len() as u64,
-                                    truncated: truncated_by_bytes,
-                                    timeout_ms,
-                                    success: false,
-                                    error_class: workload::extract_error_class(
-                                        result.error.as_deref(),
-                                    ),
-                                }),
-                            );
-                        }
-                        return result;
-                    }
-                };
-                let Some(chunk) = next else {
-                    break;
-                };
-
-                if buf.len() >= max_bytes {
-                    truncated_by_bytes = true;
-                    break;
-                }
-
-                let remaining = max_bytes.saturating_sub(buf.len());
-                if chunk.len() > remaining {
-                    buf.extend_from_slice(&chunk[..remaining]);
-                    truncated_by_bytes = true;
-                    break;
-                }
-
-                buf.extend_from_slice(&chunk);
+    let mut resp = match client.get(parsed).send().await {
+        Ok(r) => r,
+        Err(e) => {
+            let result = ToolExecutionResult::failure(format!(
+                "ERROR_CLASS=UnexpectedState net__fetch request failed: {}",
+                e
+            ));
+            if let Some(tx) = exec.event_sender.as_ref() {
+                workload::emit_workload_activity(
+                    tx,
+                    session_id,
+                    step_index,
+                    workload_id.clone(),
+                    WorkloadActivityKind::Lifecycle {
+                        phase: "failed".to_string(),
+                        exit_code: None,
+                    },
+                );
+                workload::emit_workload_receipt(
+                    tx,
+                    session_id,
+                    step_index,
+                    workload_id.clone(),
+                    WorkloadReceipt::NetFetch(WorkloadNetFetchReceipt {
+                        tool_name: "net__fetch".to_string(),
+                        method: "GET".to_string(),
+                        requested_url: requested_url_for_receipt,
+                        final_url: None,
+                        status_code: None,
+                        content_type: None,
+                        max_chars,
+                        max_bytes: max_bytes as u64,
+                        bytes_read: 0,
+                        truncated: false,
+                        timeout_ms,
+                        success: false,
+                        error_class: workload::extract_error_class(result.error.as_deref()),
+                    }),
+                );
             }
+            return result;
+        }
+    };
 
-            let body_full = String::from_utf8_lossy(&buf).to_string();
-            let bytes_read = buf.len() as u64;
-            let (body_text, truncated_by_chars) = truncate_chars(&body_full, max_chars as usize);
+    let status = resp.status().as_u16() as u32;
+    let final_url_for_receipt = workload::scrub_workload_text_field_for_receipt(
+        exec,
+        redact_url_for_receipt(resp.url()).as_str(),
+    )
+    .await;
+    let content_type = resp
+        .headers()
+        .get(reqwest::header::CONTENT_TYPE)
+        .and_then(|v| v.to_str().ok())
+        .map(|s| s.to_string());
 
-            let truncated = truncated_by_bytes || truncated_by_chars;
+    if let Some(ct) = content_type.as_deref() {
+        if !is_text_like_content_type(ct) {
             let out = json!({
                 "requested_url": url,
                 "final_url": resp.url().to_string(),
                 "status": status,
                 "content_type": content_type,
-                "truncated": truncated,
-                "body_text": body_text,
+                "truncated": false,
+                "body_text": "",
+                "body_omitted": true,
+                "body_omitted_reason": format!("unsupported content-type for text extraction: {}", ct),
             });
 
             let result = match serde_json::to_string_pretty(&out) {
@@ -773,18 +644,140 @@ pub async fn handle(
                         content_type: content_type.clone(),
                         max_chars,
                         max_bytes: max_bytes as u64,
-                        bytes_read,
-                        truncated,
+                        bytes_read: 0,
+                        truncated: false,
                         timeout_ms,
                         success: result.success,
                         error_class: workload::extract_error_class(result.error.as_deref()),
                     }),
                 );
             }
-            result
-        }
-        other => {
-            ToolExecutionResult::failure(format!("Tool {:?} not handled by web executor", other))
+            return result;
         }
     }
+
+    let mut buf: Vec<u8> = Vec::new();
+    let mut truncated_by_bytes = false;
+    loop {
+        let next = match resp.chunk().await {
+            Ok(chunk) => chunk,
+            Err(e) => {
+                let result = ToolExecutionResult::failure(format!(
+                    "ERROR_CLASS=UnexpectedState net__fetch body read failed: {}",
+                    e
+                ));
+                if let Some(tx) = exec.event_sender.as_ref() {
+                    workload::emit_workload_activity(
+                        tx,
+                        session_id,
+                        step_index,
+                        workload_id.clone(),
+                        WorkloadActivityKind::Lifecycle {
+                            phase: "failed".to_string(),
+                            exit_code: None,
+                        },
+                    );
+                    workload::emit_workload_receipt(
+                        tx,
+                        session_id,
+                        step_index,
+                        workload_id.clone(),
+                        WorkloadReceipt::NetFetch(WorkloadNetFetchReceipt {
+                            tool_name: "net__fetch".to_string(),
+                            method: "GET".to_string(),
+                            requested_url: requested_url_for_receipt,
+                            final_url: Some(final_url_for_receipt),
+                            status_code: Some(status),
+                            content_type: content_type.clone(),
+                            max_chars,
+                            max_bytes: max_bytes as u64,
+                            bytes_read: buf.len() as u64,
+                            truncated: truncated_by_bytes,
+                            timeout_ms,
+                            success: false,
+                            error_class: workload::extract_error_class(result.error.as_deref()),
+                        }),
+                    );
+                }
+                return result;
+            }
+        };
+        let Some(chunk) = next else {
+            break;
+        };
+
+        if buf.len() >= max_bytes {
+            truncated_by_bytes = true;
+            break;
+        }
+
+        let remaining = max_bytes.saturating_sub(buf.len());
+        if chunk.len() > remaining {
+            buf.extend_from_slice(&chunk[..remaining]);
+            truncated_by_bytes = true;
+            break;
+        }
+
+        buf.extend_from_slice(&chunk);
+    }
+
+    let body_full = String::from_utf8_lossy(&buf).to_string();
+    let bytes_read = buf.len() as u64;
+    let (body_text, truncated_by_chars) = truncate_chars(&body_full, max_chars as usize);
+
+    let truncated = truncated_by_bytes || truncated_by_chars;
+    let out = json!({
+        "requested_url": url,
+        "final_url": resp.url().to_string(),
+        "status": status,
+        "content_type": content_type,
+        "truncated": truncated,
+        "body_text": body_text,
+    });
+
+    let result = match serde_json::to_string_pretty(&out) {
+        Ok(s) => ToolExecutionResult::success(s),
+        Err(e) => ToolExecutionResult::failure(format!(
+            "ERROR_CLASS=SerializationFailed net__fetch output serialization failed: {}",
+            e
+        )),
+    };
+    if let Some(tx) = exec.event_sender.as_ref() {
+        workload::emit_workload_activity(
+            tx,
+            session_id,
+            step_index,
+            workload_id.clone(),
+            WorkloadActivityKind::Lifecycle {
+                phase: if result.success {
+                    "completed".to_string()
+                } else {
+                    "failed".to_string()
+                },
+                exit_code: None,
+            },
+        );
+        workload::emit_workload_receipt(
+            tx,
+            session_id,
+            step_index,
+            workload_id.clone(),
+            WorkloadReceipt::NetFetch(WorkloadNetFetchReceipt {
+                tool_name: "net__fetch".to_string(),
+                method: "GET".to_string(),
+                requested_url: requested_url_for_receipt,
+                final_url: Some(final_url_for_receipt),
+                status_code: Some(status),
+                content_type: content_type.clone(),
+                max_chars,
+                max_bytes: max_bytes as u64,
+                bytes_read,
+                truncated,
+                timeout_ms,
+                success: result.success,
+                error_class: workload::extract_error_class(result.error.as_deref()),
+            }),
+        );
+    }
+    result
 }

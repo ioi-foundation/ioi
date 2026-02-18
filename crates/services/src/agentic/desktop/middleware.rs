@@ -39,6 +39,7 @@ fn is_deterministic_tool_name(name: &str) -> bool {
             | "browser__key"
             | "web__search"
             | "web__read"
+            | "net__fetch"
             | "memory__search"
             | "memory__inspect"
             | "gui__click"
@@ -388,12 +389,12 @@ fn normalize_net_fetch_arguments(arguments: &Value) -> Result<Value> {
             anyhow!("Schema Validation Error: net__fetch requires a non-empty 'url' field.")
         })?;
 
-    let max_chars_u64 = args_obj
+    let max_chars = args_obj
         .get("max_chars")
         .or_else(|| args_obj.get("maxChars"))
-        .and_then(|v| v.as_u64().or_else(|| v.as_f64().map(|f| f.max(0.0) as u64)));
+        .and_then(parse_u32_like);
 
-    Ok(if let Some(max_chars) = max_chars_u64 {
+    Ok(if let Some(max_chars) = max_chars {
         json!({ "url": url, "max_chars": max_chars })
     } else {
         json!({ "url": url })
@@ -695,10 +696,7 @@ impl ToolNormalizer {
         // it routes deterministic tools through the MCP executor path (tool-not-found loops)
         // instead of surfacing a schema error the model can correct.
         if let AgentTool::Dynamic(val) = &tool_call {
-            if val.get("name").and_then(|n| n.as_str()) == Some("net__fetch") {
-                let args = val.get("arguments").cloned().unwrap_or_else(|| json!({}));
-                let _ = normalize_net_fetch_arguments(&args)?;
-            } else if let Some(name) = val.get("name").and_then(|n| n.as_str()) {
+            if let Some(name) = val.get("name").and_then(|n| n.as_str()) {
                 if is_deterministic_tool_name(name) {
                     return Err(anyhow!(
                         "Schema Validation Error: '{}' is a built-in tool but arguments did not match its typed schema.",
@@ -1057,16 +1055,11 @@ mod tests {
         let input = r#"{"name":"net__fetch","arguments":{"url":"https://example.com","max_chars":123}}"#;
         let tool = ToolNormalizer::normalize(input).unwrap();
         match tool {
-            AgentTool::Dynamic(val) => {
-                assert_eq!(val.get("name").and_then(|v| v.as_str()), Some("net__fetch"));
-                assert_eq!(
-                    val.get("arguments")
-                        .and_then(|a| a.get("url"))
-                        .and_then(|v| v.as_str()),
-                    Some("https://example.com")
-                );
+            AgentTool::NetFetch { url, max_chars } => {
+                assert_eq!(url, "https://example.com");
+                assert_eq!(max_chars, Some(123));
             }
-            _ => panic!("Expected Dynamic net__fetch tool"),
+            other => panic!("Expected NetFetch tool, got {:?}", other),
         }
     }
 
@@ -1084,16 +1077,11 @@ mod tests {
         let input = r#"{"name":"net__fetch","arguments":"{\"url\":\"https://example.com\"}"}"#;
         let tool = ToolNormalizer::normalize(input).unwrap();
         match tool {
-            AgentTool::Dynamic(val) => {
-                assert_eq!(val.get("name").and_then(|v| v.as_str()), Some("net__fetch"));
-                assert_eq!(
-                    val.get("arguments")
-                        .and_then(|a| a.get("url"))
-                        .and_then(|v| v.as_str()),
-                    Some("https://example.com")
-                );
+            AgentTool::NetFetch { url, max_chars } => {
+                assert_eq!(url, "https://example.com");
+                assert_eq!(max_chars, None);
             }
-            _ => panic!("Expected Dynamic net__fetch tool"),
+            other => panic!("Expected NetFetch tool, got {:?}", other),
         }
     }
 

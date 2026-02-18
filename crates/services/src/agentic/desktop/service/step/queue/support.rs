@@ -220,17 +220,6 @@ fn is_ambiguous_fs_write_transfer_payload(args: &serde_json::Value) -> bool {
 
 fn infer_custom_tool_name(name: &str, args: &serde_json::Value) -> String {
     match name {
-        // Backward-compatible aliases emitted by ActionTarget::Custom values.
-        "browser::click" => {
-            if args.get("id").is_some() {
-                "browser__click_element".to_string()
-            } else {
-                "browser__click".to_string()
-            }
-        }
-        "browser::click_element" => "browser__click_element".to_string(),
-        "browser::synthetic_click" => "browser__synthetic_click".to_string(),
-        "browser::scroll" => "browser__scroll".to_string(),
         "ui::find" => "ui__find".to_string(),
         "os::focus" => "os__focus_window".to_string(),
         "clipboard::write" => "os__copy".to_string(),
