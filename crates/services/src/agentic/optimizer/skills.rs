@@ -14,10 +14,47 @@ fn action_target_for_macro_step(target: &str, _params: &serde_json::Value) -> Ac
         | "browser__key" => ActionTarget::BrowserInteract,
         "gui__type" => ActionTarget::GuiType,
         "gui__click" => ActionTarget::GuiClick,
+        // Element-targeted click variants should route as GUI clicks (policy/app isolation),
+        // but require explicit tool-name preservation for queue replay.
+        "gui__click_element" | "ui__click_element" | "ui__click_component" => ActionTarget::GuiClick,
         "sys__exec" | "sys__change_directory" => ActionTarget::SysExec,
         "sys__install_package" => ActionTarget::SysInstallPackage,
         _ => ActionTarget::Custom(target.to_string()),
     }
+}
+
+// Keep this key in sync with queue execution (`crates/services/src/agentic/desktop/service/step/queue/support.rs`).
+const QUEUE_TOOL_NAME_KEY: &str = "__ioi_tool_name";
+const GUI_CLICK_ELEMENT_TOOL_NAME: &str = "gui__click_element";
+
+fn macro_step_params_with_queue_metadata(
+    target_str: &str,
+    params: &serde_json::Value,
+) -> serde_json::Value {
+    let mut out = params.clone();
+    if matches!(
+        target_str,
+        "gui__click_element" | "ui__click_element" | "ui__click_component"
+    ) {
+        match &mut out {
+            serde_json::Value::Object(obj) => {
+                obj.insert(
+                    QUEUE_TOOL_NAME_KEY.to_string(),
+                    serde_json::Value::String(GUI_CLICK_ELEMENT_TOOL_NAME.to_string()),
+                );
+            }
+            serde_json::Value::Null => {
+                let mut obj = serde_json::Map::new();
+                obj.insert(
+                    QUEUE_TOOL_NAME_KEY.to_string(),
+                    serde_json::Value::String(GUI_CLICK_ELEMENT_TOOL_NAME.to_string()),
+                );
+                out = serde_json::Value::Object(obj);
+            }
+            _ => {}
+        }
+    }
+    out
 }
 
 impl OptimizerService {
@@ -150,7 +187,8 @@ impl OptimizerService {
             for s in steps_arr {
                 let target_str = s["target"].as_str().unwrap_or("");
                 let target = action_target_for_macro_step(target_str, &s["params"]);
-                let params = serde_json::to_vec(&s["params"]).unwrap_or_default();
+                let args = macro_step_params_with_queue_metadata(target_str, &s["params"]);
+                let params = serde_json::to_vec(&args).unwrap_or_default();
 
                 steps.push(ActionRequest {
                     target,
@@ -265,7 +303,8 @@ impl OptimizerService {
             for s in steps_arr {
                 let target_str = s["target"].as_str().unwrap_or("");
                 let target = action_target_for_macro_step(target_str, &s["params"]);
-                let params = serde_json::to_vec(&s["params"]).unwrap_or_default();
+                let args = macro_step_params_with_queue_metadata(target_str, &s["params"]);
+                let params = serde_json::to_vec(&args).unwrap_or_default();
 
                 steps.push(ActionRequest {
                     target,
@@ -469,5 +508,19 @@ mod tests {
             &json!({"url": "https://example.com"}),
         );
         assert_eq!(target, ActionTarget::BrowserInteract);
+    }
+
+    #[test]
+    fn macro_step_gui_click_element_injects_queue_tool_name() {
+        let params = json!({"id": "btn_submit"});
+        let target = action_target_for_macro_step("gui__click_element", &params);
+        assert_eq!(target, ActionTarget::GuiClick);
+
+        let args = macro_step_params_with_queue_metadata("gui__click_element", &params);
+        assert_eq!(
+            args.get(QUEUE_TOOL_NAME_KEY).and_then(|v| v.as_str()),
+            Some(GUI_CLICK_ELEMENT_TOOL_NAME)
+        );
+        assert_eq!(args.get("id").and_then(|v| v.as_str()), Some("btn_submit"));
     }
 }
