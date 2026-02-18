@@ -131,7 +131,7 @@ message ChainEvent {
         // [NEW] Structured workload activity stream for orchestration (lifecycle/stdio).
         WorkloadActivity workload_activity = 10;
 
-        // [NEW] Deterministic workload receipt stream for auditable actions (exec/fs/net).
+        // [NEW] Workload receipt stream for auditable actions (exec/fs/net).
         WorkloadReceipt workload_receipt = 11;
     }
 }

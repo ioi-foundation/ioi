@@ -253,7 +253,7 @@ pub enum WorkloadActivityKind {
     },
 }
 
-/// Deterministic receipt for a completed workload action.
+/// Observed receipt for a completed workload action (telemetry; not consensus-deterministic).
 #[derive(Clone, Debug, Serialize, Deserialize, Encode, Decode, PartialEq, Eq)]
 pub struct WorkloadReceiptEvent {
     /// Session this receipt belongs to.
