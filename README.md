@@ -131,6 +131,10 @@ To enable real AI inference (required for complex agent demos), export your key 
 export OPENAI_API_KEY=sk-proj-...
 ./target/debug/ioi-local
 ```
+Or use one-shot env injection without persisting shell state:
+```bash
+OPENAI_API_KEY=sk-proj-... ./target/debug/ioi-local
+```
 *Wait for log:* `ORCHESTRATION_RPC_LISTENING_ON_0.0.0.0:9000`
 
 #### 2. Start the Autopilot UI
@@ -158,6 +162,10 @@ RUST_LOG=info,consensus=info cargo test -p ioi-cli --test admft_e2e --features "
 
 # 3. Agentic Security: Verifies PII Scrubbing and Policy Gates
 cargo test -p ioi-cli --test agent_scrub_e2e --features "consensus-admft,vm-wasm,state-iavl"
+
+# 4. Live Breaking-News E2E (manual, quarantined)
+OPENAI_API_KEY='<ROTATED_KEY>' OPENAI_MODEL='gpt-4o' NEWS_E2E_ARBITER_MODEL='gpt-4o-mini' \
+cargo test -p ioi-cli --test agent_live_news_e2e --features "consensus-admft vm-wasm" -- --ignored --nocapture --test-threads=1
 ```
 
 ---

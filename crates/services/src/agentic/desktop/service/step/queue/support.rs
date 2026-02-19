@@ -1,12 +1,27 @@
 use crate::agentic::desktop::middleware;
-use ioi_types::app::agentic::AgentTool;
-use ioi_types::app::{ActionRequest, ActionTarget};
+use crate::agentic::desktop::types::{
+    AgentState, PendingSearchCompletion, PendingSearchReadSummary,
+};
+use ioi_types::app::agentic::{AgentTool, WebEvidenceBundle};
+use ioi_types::app::{ActionContext, ActionRequest, ActionTarget};
 use ioi_types::error::TransactionError;
 use serde_json::json;
+use std::collections::BTreeSet;
 use std::path::Path;
+use std::time::{SystemTime, UNIX_EPOCH};
 
 const MAX_SEARCH_EXTRACT_CHARS: usize = 8_000;
 const QUEUE_TOOL_NAME_KEY: &str = "__ioi_tool_name";
+const WEB_PIPELINE_EXCERPT_CHARS: usize = 220;
+pub(crate) const WEB_PIPELINE_BUDGET_MS: u64 = 60_000;
+pub(crate) const WEB_PIPELINE_DEFAULT_MIN_SOURCES: u32 = 2;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum WebPipelineCompletionReason {
+    MinSourcesReached,
+    ExhaustedCandidates,
+    DeadlineReached,
+}
 
 pub(super) fn fallback_search_summary(query: &str, url: &str) -> String {
     format!(
@@ -133,6 +148,493 @@ pub(super) fn summarize_search_results(query: &str, url: &str, extract_text: &st
     summary.push_str(&format!("- Source URL: {}\n", url));
     summary.push_str(&format!("Next refinement: {}", refinement_hint));
     summary
+}
+
+pub(crate) fn web_pipeline_now_ms() -> u64 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_millis() as u64
+}
+
+fn iso_date_from_unix_ms(unix_ms: u64) -> String {
+    // Howard Hinnant civil-from-days algorithm, converted to Rust.
+    let days_since_epoch = (unix_ms / 86_400_000) as i64;
+    let z = days_since_epoch + 719_468;
+    let era = if z >= 0 { z } else { z - 146_096 } / 146_097;
+    let doe = z - era * 146_097;
+    let yoe = (doe - doe / 1_460 + doe / 36_524 - doe / 146_096) / 365;
+    let y = yoe + era * 400;
+    let doy = doe - (365 * yoe + yoe / 4 - yoe / 100);
+    let mp = (5 * doy + 2) / 153;
+    let day = doy - (153 * mp + 2) / 5 + 1;
+    let month = mp + if mp < 10 { 3 } else { -9 };
+    let year = y + if month <= 2 { 1 } else { 0 };
+    format!("{:04}-{:02}-{:02}", year, month, day)
+}
+
+pub(crate) fn parse_web_evidence_bundle(raw: &str) -> Option<WebEvidenceBundle> {
+    let trimmed = raw.trim();
+    if trimmed.is_empty() {
+        return None;
+    }
+    serde_json::from_str::<WebEvidenceBundle>(trimmed).ok()
+}
+
+pub(crate) fn candidate_urls_from_bundle(bundle: &WebEvidenceBundle) -> Vec<String> {
+    let mut urls = Vec::new();
+    let mut seen = BTreeSet::new();
+
+    for hint in candidate_source_hints_from_bundle(bundle) {
+        let url = hint.url.trim();
+        if !url.is_empty() && seen.insert(url.to_string()) {
+            urls.push(url.to_string());
+        }
+    }
+
+    for doc in &bundle.documents {
+        let url = doc.url.trim();
+        if url.is_empty() {
+            continue;
+        }
+        if seen.insert(url.to_string()) {
+            urls.push(url.to_string());
+        }
+    }
+
+    urls
+}
+
+pub(crate) fn candidate_source_hints_from_bundle(
+    bundle: &WebEvidenceBundle,
+) -> Vec<PendingSearchReadSummary> {
+    let mut hints = Vec::new();
+    let mut seen = BTreeSet::new();
+    let mut sources = bundle.sources.clone();
+    sources.sort_by_key(|source| source.rank.unwrap_or(u32::MAX));
+    for source in sources {
+        let url = source.url.trim();
+        if url.is_empty() || !seen.insert(url.to_string()) {
+            continue;
+        }
+        hints.push(PendingSearchReadSummary {
+            url: url.to_string(),
+            title: source
+                .title
+                .as_deref()
+                .map(str::trim)
+                .filter(|value| !value.is_empty())
+                .map(|value| value.to_string()),
+            excerpt: compact_excerpt(source.snippet.as_deref().unwrap_or_default(), 180),
+        });
+    }
+    hints
+}
+
+pub(crate) fn next_pending_web_candidate(pending: &PendingSearchCompletion) -> Option<String> {
+    let mut attempted = BTreeSet::new();
+    for url in &pending.attempted_urls {
+        let trimmed = url.trim();
+        if !trimmed.is_empty() {
+            attempted.insert(trimmed.to_string());
+        }
+    }
+    for url in &pending.blocked_urls {
+        let trimmed = url.trim();
+        if !trimmed.is_empty() {
+            attempted.insert(trimmed.to_string());
+        }
+    }
+
+    for candidate in &pending.candidate_urls {
+        let trimmed = candidate.trim();
+        if trimmed.is_empty() {
+            continue;
+        }
+        if attempted.contains(trimmed) {
+            continue;
+        }
+        return Some(trimmed.to_string());
+    }
+
+    None
+}
+
+pub(crate) fn mark_pending_web_attempted(pending: &mut PendingSearchCompletion, url: &str) {
+    let trimmed = url.trim();
+    if trimmed.is_empty() {
+        return;
+    }
+    if pending
+        .attempted_urls
+        .iter()
+        .any(|existing| existing.trim() == trimmed)
+    {
+        return;
+    }
+    pending.attempted_urls.push(trimmed.to_string());
+}
+
+pub(crate) fn mark_pending_web_blocked(pending: &mut PendingSearchCompletion, url: &str) {
+    let trimmed = url.trim();
+    if trimmed.is_empty() {
+        return;
+    }
+    if pending
+        .blocked_urls
+        .iter()
+        .any(|existing| existing.trim() == trimmed)
+    {
+        return;
+    }
+    pending.blocked_urls.push(trimmed.to_string());
+}
+
+fn compact_excerpt(input: &str, max_chars: usize) -> String {
+    compact_whitespace(input)
+        .chars()
+        .take(max_chars)
+        .collect::<String>()
+}
+
+fn is_low_signal_title(title: &str) -> bool {
+    let trimmed = title.trim();
+    if trimmed.is_empty() {
+        return true;
+    }
+    let lower = trimmed.to_ascii_lowercase();
+    matches!(
+        lower.as_str(),
+        "google news" | "news" | "home" | "homepage" | "untitled"
+    ) || lower.starts_with("google news -")
+}
+
+fn is_low_signal_excerpt(excerpt: &str) -> bool {
+    let trimmed = excerpt.trim();
+    if trimmed.is_empty() {
+        return true;
+    }
+    if trimmed.chars().count() < 28 {
+        return true;
+    }
+    let lower = trimmed.to_ascii_lowercase();
+    lower.contains("enable javascript")
+        || lower.contains("cookie")
+        || lower.contains("recaptcha")
+        || lower.contains("human verification")
+}
+
+fn hint_for_url<'a>(
+    pending: &'a PendingSearchCompletion,
+    url: &str,
+) -> Option<&'a PendingSearchReadSummary> {
+    let trimmed = url.trim();
+    if trimmed.is_empty() {
+        return None;
+    }
+    pending
+        .candidate_source_hints
+        .iter()
+        .find(|hint| hint.url.trim() == trimmed)
+}
+
+fn push_pending_web_success(
+    pending: &mut PendingSearchCompletion,
+    url: &str,
+    title: Option<String>,
+    excerpt: String,
+) {
+    let trimmed = url.trim();
+    if trimmed.is_empty() {
+        return;
+    }
+    if pending
+        .successful_reads
+        .iter()
+        .any(|existing| existing.url.trim() == trimmed)
+    {
+        return;
+    }
+
+    let hint = hint_for_url(pending, trimmed);
+    let mut resolved_title = title
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(|value| value.to_string());
+    if resolved_title
+        .as_deref()
+        .map(is_low_signal_title)
+        .unwrap_or(true)
+    {
+        if let Some(hint_title) = hint
+            .and_then(|value| value.title.as_deref())
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+        {
+            resolved_title = Some(hint_title.to_string());
+        }
+    }
+
+    let mut resolved_excerpt = excerpt.trim().to_string();
+    if is_low_signal_excerpt(&resolved_excerpt) {
+        if let Some(hint_excerpt) = hint
+            .map(|value| value.excerpt.trim())
+            .filter(|value| !value.is_empty())
+        {
+            resolved_excerpt = hint_excerpt.to_string();
+        }
+    }
+
+    pending.successful_reads.push(PendingSearchReadSummary {
+        url: trimmed.to_string(),
+        title: resolved_title,
+        excerpt: resolved_excerpt,
+    });
+}
+
+pub(crate) fn append_pending_web_success_fallback(
+    pending: &mut PendingSearchCompletion,
+    url: &str,
+    raw_output: Option<&str>,
+) {
+    let excerpt = compact_excerpt(raw_output.unwrap_or_default(), WEB_PIPELINE_EXCERPT_CHARS);
+    push_pending_web_success(pending, url, None, excerpt);
+}
+
+pub(crate) fn append_pending_web_success_from_bundle(
+    pending: &mut PendingSearchCompletion,
+    bundle: &WebEvidenceBundle,
+    fallback_url: &str,
+) {
+    if let Some(doc) = bundle.documents.first() {
+        let title = doc
+            .title
+            .clone()
+            .or_else(|| {
+                bundle
+                    .sources
+                    .iter()
+                    .find(|source| source.source_id == doc.source_id)
+                    .and_then(|source| source.title.clone())
+            })
+            .filter(|value| !value.trim().is_empty());
+        let excerpt = compact_excerpt(&doc.content_text, WEB_PIPELINE_EXCERPT_CHARS);
+        push_pending_web_success(pending, &doc.url, title, excerpt);
+        return;
+    }
+
+    if let Some(source) = bundle.sources.first() {
+        let excerpt = compact_excerpt(source.snippet.as_deref().unwrap_or_default(), 180);
+        push_pending_web_success(pending, &source.url, source.title.clone(), excerpt);
+        return;
+    }
+
+    append_pending_web_success_fallback(pending, fallback_url, None);
+}
+
+pub(crate) fn remaining_pending_web_candidates(pending: &PendingSearchCompletion) -> usize {
+    let attempted: BTreeSet<String> = pending
+        .attempted_urls
+        .iter()
+        .chain(pending.blocked_urls.iter())
+        .map(|value| value.trim().to_string())
+        .filter(|value| !value.is_empty())
+        .collect();
+    pending
+        .candidate_urls
+        .iter()
+        .map(|value| value.trim())
+        .filter(|value| !value.is_empty() && !attempted.contains(*value))
+        .count()
+}
+
+pub(crate) fn web_pipeline_completion_reason(
+    pending: &PendingSearchCompletion,
+    now_ms: u64,
+) -> Option<WebPipelineCompletionReason> {
+    let min_sources = pending.min_sources.max(1) as usize;
+    if pending.successful_reads.len() >= min_sources {
+        return Some(WebPipelineCompletionReason::MinSourcesReached);
+    }
+    if pending.deadline_ms > 0 && now_ms >= pending.deadline_ms {
+        return Some(WebPipelineCompletionReason::DeadlineReached);
+    }
+    if remaining_pending_web_candidates(pending) == 0 {
+        return Some(WebPipelineCompletionReason::ExhaustedCandidates);
+    }
+    None
+}
+
+pub(crate) fn queue_web_read_from_pipeline(
+    agent_state: &mut AgentState,
+    session_id: [u8; 32],
+    url: &str,
+) -> Result<bool, TransactionError> {
+    let trimmed = url.trim();
+    if trimmed.is_empty() {
+        return Ok(false);
+    }
+    let params = serde_jcs::to_vec(&json!({ "url": trimmed }))
+        .or_else(|_| serde_json::to_vec(&json!({ "url": trimmed })))
+        .map_err(|e| TransactionError::Serialization(e.to_string()))?;
+    let request = ActionRequest {
+        target: ActionTarget::WebRetrieve,
+        params,
+        context: ActionContext {
+            agent_id: "desktop_agent".to_string(),
+            session_id: Some(session_id),
+            window_id: None,
+        },
+        nonce: agent_state.step_count as u64 + agent_state.execution_queue.len() as u64 + 1,
+    };
+
+    let duplicate = agent_state
+        .execution_queue
+        .iter()
+        .any(|queued| queued.target == request.target && queued.params == request.params);
+    if duplicate {
+        return Ok(false);
+    }
+
+    agent_state.execution_queue.insert(0, request);
+    Ok(true)
+}
+
+pub(crate) fn is_human_challenge_error(error: &str) -> bool {
+    let lower = error.to_ascii_lowercase();
+    lower.contains("error_class=humanchallengerequired")
+        || lower.contains("recaptcha")
+        || lower.contains("human verification")
+        || lower.contains("verify you are human")
+        || lower.contains("i'm not a robot")
+        || lower.contains("i am not a robot")
+}
+
+fn confidence_tier(
+    pending: &PendingSearchCompletion,
+    reason: WebPipelineCompletionReason,
+) -> &'static str {
+    let success = pending.successful_reads.len();
+    let min_sources = pending.min_sources.max(1) as usize;
+    if success >= min_sources && matches!(reason, WebPipelineCompletionReason::MinSourcesReached) {
+        return "high";
+    }
+    if success >= min_sources {
+        return "medium";
+    }
+    if success >= 1 {
+        return "low";
+    }
+    "low"
+}
+
+fn completion_reason_line(reason: WebPipelineCompletionReason) -> &'static str {
+    match reason {
+        WebPipelineCompletionReason::MinSourcesReached => {
+            "Completed after meeting the source floor."
+        }
+        WebPipelineCompletionReason::ExhaustedCandidates => {
+            "Completed because no additional candidate sources remained."
+        }
+        WebPipelineCompletionReason::DeadlineReached => "Completed at the 60-second budget limit.",
+    }
+}
+
+fn excerpt_headline(excerpt: &str) -> Option<String> {
+    let compact = compact_whitespace(excerpt);
+    let trimmed = compact.trim();
+    if trimmed.is_empty() {
+        return None;
+    }
+    let candidate = trimmed
+        .split(['.', ';', '\n'])
+        .next()
+        .map(str::trim)
+        .unwrap_or_default();
+    if candidate.chars().count() < 20 {
+        return None;
+    }
+    Some(candidate.chars().take(120).collect())
+}
+
+fn source_bullet(source: &PendingSearchReadSummary) -> String {
+    let title = source.title.as_deref().map(str::trim).unwrap_or_default();
+    let excerpt = source.excerpt.trim();
+    let headline = if !title.is_empty() && !is_low_signal_title(title) {
+        title.to_string()
+    } else if let Some(from_excerpt) = excerpt_headline(excerpt) {
+        from_excerpt
+    } else {
+        format!("Update from {}", source.url)
+    };
+
+    if excerpt.is_empty() || is_low_signal_excerpt(excerpt) {
+        return headline;
+    }
+
+    let detail = compact_excerpt(excerpt, 160);
+    if detail.eq_ignore_ascii_case(&headline) {
+        headline
+    } else {
+        format!("{}: {}", headline, detail)
+    }
+}
+
+pub(crate) fn synthesize_web_pipeline_reply(
+    pending: &PendingSearchCompletion,
+    reason: WebPipelineCompletionReason,
+) -> String {
+    let query = pending.query.trim();
+    let run_date = iso_date_from_unix_ms(if pending.started_at_ms > 0 {
+        pending.started_at_ms
+    } else {
+        web_pipeline_now_ms()
+    });
+    let mut lines = vec!["Breaking news synthesis:".to_string()];
+
+    if pending.successful_reads.is_empty() {
+        lines.push("- No readable sources were retrieved.".to_string());
+    } else {
+        for source in pending.successful_reads.iter().take(4) {
+            lines.push(format!("- {}", source_bullet(source)));
+        }
+    }
+
+    lines.push("Sources:".to_string());
+    if pending.successful_reads.is_empty() {
+        lines.push("- none".to_string());
+    } else {
+        for source in &pending.successful_reads {
+            let title = source.title.as_deref().unwrap_or("Untitled");
+            lines.push(format!("- {} ({})", title.trim(), source.url));
+        }
+    }
+
+    if !pending.blocked_urls.is_empty() {
+        lines.push("Blocked sources (human challenge):".to_string());
+        for url in &pending.blocked_urls {
+            lines.push(format!("- {}", url));
+        }
+    }
+
+    let min_sources = pending.min_sources.max(1) as usize;
+    if pending.successful_reads.len() < min_sources {
+        lines.push(format!(
+            "Partial result: {} source(s) were confirmed; target floor was {}.",
+            pending.successful_reads.len(),
+            min_sources
+        ));
+    }
+
+    lines.push(completion_reason_line(reason).to_string());
+    lines.push(format!("Run date (UTC): {}", run_date));
+    lines.push(format!("Confidence: {}", confidence_tier(pending, reason)));
+    if !query.is_empty() {
+        lines.push(format!("Query: {}", query));
+    }
+
+    lines.join("\n")
 }
 
 fn infer_sys_tool_name(args: &serde_json::Value) -> &'static str {

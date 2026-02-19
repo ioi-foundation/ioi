@@ -31,6 +31,14 @@ use crate::agentic::desktop::service::step::incident::{
     start_or_continue_incident_recovery, ApprovalDirective, IncidentDirective,
 };
 use crate::agentic::desktop::service::step::intent_resolver::is_tool_allowed_for_resolution;
+use crate::agentic::desktop::service::step::queue::{
+    append_pending_web_success_fallback, append_pending_web_success_from_bundle,
+    candidate_source_hints_from_bundle, candidate_urls_from_bundle, is_human_challenge_error,
+    mark_pending_web_attempted, mark_pending_web_blocked, next_pending_web_candidate,
+    parse_web_evidence_bundle, queue_web_read_from_pipeline, remaining_pending_web_candidates,
+    synthesize_web_pipeline_reply, web_pipeline_completion_reason, web_pipeline_now_ms,
+    WebPipelineCompletionReason, WEB_PIPELINE_BUDGET_MS, WEB_PIPELINE_DEFAULT_MIN_SOURCES,
+};
 use crate::agentic::desktop::service::DesktopAgentService;
 use crate::agentic::desktop::types::{
     AgentState, AgentStatus, PendingSearchCompletion, ToolCallStatus, MAX_COMMAND_HISTORY,
@@ -74,12 +82,126 @@ fn should_fail_fast_web_timeout(
     resolved_intent: Option<&ResolvedIntentState>,
     tool_name: &str,
     class: FailureClass,
+    has_active_web_pipeline: bool,
 ) -> bool {
-    matches!(class, FailureClass::TimeoutOrHang)
-        && resolved_intent
-            .map(|resolved| resolved.scope == IntentScopeProfile::WebResearch)
-            .unwrap_or(false)
-        && is_web_retrieval_timeout_tool(tool_name)
+    if !matches!(class, FailureClass::TimeoutOrHang) {
+        return false;
+    }
+    if !is_web_retrieval_timeout_tool(tool_name) {
+        return false;
+    }
+    if has_active_web_pipeline && tool_name == "web__read" {
+        return false;
+    }
+
+    let in_web_research_scope = resolved_intent
+        .map(|resolved| resolved.scope == IntentScopeProfile::WebResearch)
+        .unwrap_or(false);
+    in_web_research_scope || tool_name.starts_with("web__")
+}
+
+fn extract_web_read_url_from_payload(payload: &serde_json::Value) -> Option<String> {
+    payload
+        .get("arguments")
+        .and_then(|args| args.get("url"))
+        .and_then(|value| value.as_str())
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(|value| value.to_string())
+}
+
+fn looks_like_web_research_goal(goal: &str) -> bool {
+    let goal_lc = goal.to_ascii_lowercase();
+    [
+        "latest",
+        "breaking news",
+        "current news",
+        "news",
+        "headline",
+        "headlines",
+        "look up",
+        "search for",
+    ]
+    .iter()
+    .any(|needle| goal_lc.contains(needle))
+}
+
+fn is_empty_memory_search_output(output: &str) -> bool {
+    let trimmed = output.trim();
+    if trimmed.is_empty() {
+        return true;
+    }
+    trimmed
+        .to_ascii_lowercase()
+        .contains("no matching memories found")
+}
+
+fn normalize_web_search_query(query: &str) -> String {
+    let trimmed = query.trim();
+    if trimmed.is_empty() {
+        return String::new();
+    }
+
+    let lower = trimmed.to_ascii_lowercase();
+    let mut cut_at = trimmed.len();
+    for marker in [
+        " provide ",
+        " with citations",
+        " cite ",
+        " include ",
+        " summarize ",
+        " in a chat reply",
+    ] {
+        if let Some(idx) = lower.find(marker) {
+            cut_at = cut_at.min(idx);
+        }
+    }
+
+    let base = trimmed[..cut_at]
+        .trim()
+        .trim_matches(|ch: char| matches!(ch, '?' | '!' | '.' | ':' | ';'))
+        .trim();
+    if base.is_empty() {
+        trimmed.to_string()
+    } else {
+        base.to_string()
+    }
+}
+
+fn queue_web_search_bootstrap(
+    agent_state: &mut AgentState,
+    session_id: [u8; 32],
+    query: &str,
+) -> Result<bool, TransactionError> {
+    let normalized_query = normalize_web_search_query(query);
+    if normalized_query.trim().is_empty() {
+        return Ok(false);
+    }
+
+    let params = serde_jcs::to_vec(&json!({ "query": normalized_query }))
+        .or_else(|_| serde_json::to_vec(&json!({ "query": normalized_query })))
+        .map_err(|e| TransactionError::Serialization(e.to_string()))?;
+    let request = ActionRequest {
+        target: ActionTarget::WebRetrieve,
+        params,
+        context: ActionContext {
+            agent_id: "desktop_agent".to_string(),
+            session_id: Some(session_id),
+            window_id: None,
+        },
+        nonce: agent_state.step_count as u64 + agent_state.execution_queue.len() as u64 + 1,
+    };
+
+    let duplicate = agent_state
+        .execution_queue
+        .iter()
+        .any(|queued| queued.target == request.target && queued.params == request.params);
+    if duplicate {
+        return Ok(false);
+    }
+
+    agent_state.execution_queue.insert(0, request);
+    Ok(true)
 }
 
 pub async fn process_tool_output(
@@ -222,6 +344,9 @@ pub async fn process_tool_output(
     let mut awaiting_sudo_password = false;
     let mut awaiting_clarification = false;
     let mut command_probe_completed = false;
+    let mut invalid_tool_call_fail_fast = false;
+    let mut invalid_tool_call_bootstrap_web = false;
+    let mut terminal_chat_reply_output: Option<String> = None;
 
     match tool_call {
         Ok(tool) => {
@@ -459,10 +584,12 @@ pub async fn process_tool_output(
                                 }
                             }
                             AgentTool::ChatReply { message } => {
-                                agent_state.status =
-                                    AgentStatus::Paused("Waiting for user input".to_string());
+                                agent_state.status = AgentStatus::Completed(Some(message.clone()));
                                 is_lifecycle_action = true;
                                 action_output = Some(message.clone());
+                                terminal_chat_reply_output = Some(message.clone());
+                                evaluate_and_crystallize(service, agent_state, session_id, message)
+                                    .await;
                             }
                             AgentTool::OsLaunchApp { app_name } => {
                                 if success
@@ -509,6 +636,113 @@ pub async fn process_tool_output(
                                     }
                                 }
                             }
+                            AgentTool::MemorySearch { query } => {
+                                if success
+                                    && is_search_scope(agent_state.resolved_intent.as_ref())
+                                    && agent_state.pending_search_completion.is_none()
+                                    && history_entry
+                                        .as_deref()
+                                        .map(is_empty_memory_search_output)
+                                        .unwrap_or(true)
+                                {
+                                    let bootstrap_query = if query.trim().is_empty() {
+                                        agent_state.goal.clone()
+                                    } else {
+                                        query.clone()
+                                    };
+                                    let queued = queue_web_search_bootstrap(
+                                        agent_state,
+                                        session_id,
+                                        &bootstrap_query,
+                                    )?;
+                                    verification_checks
+                                        .push("web_search_bootstrap_from_memory=true".to_string());
+                                    let note = if queued {
+                                        "No memory hits for this news query; queued deterministic web__search.".to_string()
+                                    } else {
+                                        "No memory hits for this news query; deterministic web__search was already queued."
+                                            .to_string()
+                                    };
+                                    history_entry = Some(note.clone());
+                                    action_output = Some(note);
+                                    agent_state.status = AgentStatus::Running;
+                                }
+                            }
+                            AgentTool::WebSearch { query, .. } => {
+                                if success && is_search_scope(agent_state.resolved_intent.as_ref())
+                                {
+                                    if let Some(raw) = history_entry.as_deref() {
+                                        if let Some(bundle) = parse_web_evidence_bundle(raw) {
+                                            let query_value = bundle
+                                                .query
+                                                .clone()
+                                                .filter(|value| !value.trim().is_empty())
+                                                .or_else(|| {
+                                                    let trimmed = query.trim();
+                                                    (!trimmed.is_empty())
+                                                        .then(|| trimmed.to_string())
+                                                })
+                                                .unwrap_or_else(|| agent_state.goal.clone());
+                                            let started_at_ms = web_pipeline_now_ms();
+                                            let mut pending = PendingSearchCompletion {
+                                                query: query_value,
+                                                url: bundle.url.clone().unwrap_or_default(),
+                                                started_step: pre_state_summary.step_index,
+                                                started_at_ms,
+                                                deadline_ms: started_at_ms
+                                                    .saturating_add(WEB_PIPELINE_BUDGET_MS),
+                                                candidate_urls: candidate_urls_from_bundle(&bundle),
+                                                candidate_source_hints:
+                                                    candidate_source_hints_from_bundle(&bundle),
+                                                attempted_urls: Vec::new(),
+                                                blocked_urls: Vec::new(),
+                                                successful_reads: Vec::new(),
+                                                min_sources: WEB_PIPELINE_DEFAULT_MIN_SOURCES,
+                                            };
+
+                                            let mut queued_next = false;
+                                            if let Some(next_url) =
+                                                next_pending_web_candidate(&pending)
+                                            {
+                                                queued_next = queue_web_read_from_pipeline(
+                                                    agent_state,
+                                                    session_id,
+                                                    &next_url,
+                                                )?;
+                                            }
+
+                                            let remaining =
+                                                remaining_pending_web_candidates(&pending);
+                                            verification_checks.push(format!(
+                                                "web_pipeline_active={}",
+                                                queued_next || remaining > 0
+                                            ));
+                                            verification_checks
+                                                .push("web_sources_success=0".to_string());
+                                            verification_checks
+                                                .push("web_sources_blocked=0".to_string());
+                                            verification_checks.push("web_budget_ms=0".to_string());
+
+                                            if queued_next || remaining > 0 {
+                                                agent_state.pending_search_completion =
+                                                    Some(pending);
+                                            } else {
+                                                let summary = synthesize_web_pipeline_reply(
+                                                    &pending,
+                                                    WebPipelineCompletionReason::ExhaustedCandidates,
+                                                );
+                                                action_output = Some(summary.clone());
+                                                is_lifecycle_action = true;
+                                                agent_state.status =
+                                                    AgentStatus::Completed(Some(summary));
+                                                agent_state.pending_search_completion = None;
+                                                agent_state.execution_queue.clear();
+                                                agent_state.recent_actions.clear();
+                                            }
+                                        }
+                                    }
+                                }
+                            }
                             AgentTool::SystemFail { reason, .. } => {
                                 mark_system_fail_status(&mut agent_state.status, reason.clone());
                                 is_lifecycle_action = true;
@@ -545,6 +779,14 @@ pub async fn process_tool_output(
                                             query,
                                             url,
                                             started_step: pre_state_summary.step_index,
+                                            started_at_ms: web_pipeline_now_ms(),
+                                            deadline_ms: 0,
+                                            candidate_urls: Vec::new(),
+                                            candidate_source_hints: Vec::new(),
+                                            attempted_urls: Vec::new(),
+                                            blocked_urls: Vec::new(),
+                                            successful_reads: Vec::new(),
+                                            min_sources: WEB_PIPELINE_DEFAULT_MIN_SOURCES,
                                         });
                                     log::info!(
                                     "Search intent detected after browser__navigate. Queued browser__snapshot for deterministic completion."
@@ -762,6 +1004,12 @@ pub async fn process_tool_output(
             });
             // Prefix ERROR_CLASS so anti-loop classification is deterministic.
             error_msg = Some(format!("ERROR_CLASS=UnexpectedState {}", parse_error));
+            let empty_output = tool_call_result.trim().is_empty();
+            if empty_output && looks_like_web_research_goal(&agent_state.goal) {
+                invalid_tool_call_bootstrap_web = true;
+            } else if is_search_scope(agent_state.resolved_intent.as_ref()) {
+                invalid_tool_call_fail_fast = true;
+            }
         }
     }
 
@@ -893,6 +1141,138 @@ pub async fn process_tool_output(
         verification_checks.push("awaiting_clarification=true".to_string());
     }
 
+    if invalid_tool_call_fail_fast
+        && !is_gated
+        && !awaiting_sudo_password
+        && !awaiting_clarification
+    {
+        let summary = "Invalid tool call generated during web research. Stopping early to avoid recovery churn.".to_string();
+        success = true;
+        error_msg = None;
+        stop_condition_hit = true;
+        escalation_path = Some("invalid_tool_call_fail_fast".to_string());
+        is_lifecycle_action = true;
+        action_output = Some(summary.clone());
+        agent_state.status = AgentStatus::Completed(Some(summary));
+        agent_state.execution_queue.clear();
+        agent_state.pending_search_completion = None;
+        verification_checks.push("invalid_tool_call_fail_fast=true".to_string());
+    }
+
+    if invalid_tool_call_bootstrap_web
+        && !is_gated
+        && !awaiting_sudo_password
+        && !awaiting_clarification
+    {
+        let goal = agent_state.goal.clone();
+        let queued = queue_web_search_bootstrap(agent_state, session_id, &goal)?;
+        success = true;
+        error_msg = None;
+        stop_condition_hit = false;
+        escalation_path = None;
+        is_lifecycle_action = true;
+        let note = if queued {
+            "Model returned empty tool output; bootstrapped deterministic web__search.".to_string()
+        } else {
+            "Model returned empty tool output; web__search bootstrap already queued.".to_string()
+        };
+        history_entry = Some(note.clone());
+        action_output = Some(note);
+        agent_state.status = AgentStatus::Running;
+        verification_checks.push("invalid_tool_call_bootstrap_web=true".to_string());
+    }
+
+    if !is_gated
+        && !awaiting_sudo_password
+        && !awaiting_clarification
+        && current_tool_name == "web__read"
+    {
+        if let Some(mut pending) = agent_state.pending_search_completion.clone() {
+            let read_url = extract_web_read_url_from_payload(&action_payload).unwrap_or_default();
+            if !read_url.is_empty() {
+                mark_pending_web_attempted(&mut pending, &read_url);
+            }
+
+            if success {
+                if let Some(bundle) = history_entry.as_deref().and_then(parse_web_evidence_bundle) {
+                    append_pending_web_success_from_bundle(&mut pending, &bundle, &read_url);
+                } else {
+                    append_pending_web_success_fallback(
+                        &mut pending,
+                        &read_url,
+                        history_entry.as_deref(),
+                    );
+                }
+            } else if !read_url.is_empty()
+                && is_human_challenge_error(error_msg.as_deref().unwrap_or(""))
+            {
+                mark_pending_web_blocked(&mut pending, &read_url);
+            }
+
+            let now_ms = web_pipeline_now_ms();
+            let elapsed_ms = now_ms.saturating_sub(pending.started_at_ms);
+            let mut completion_reason = web_pipeline_completion_reason(&pending, now_ms);
+            let mut queued_next = false;
+            if completion_reason.is_none() {
+                if let Some(next_url) = next_pending_web_candidate(&pending) {
+                    queued_next = queue_web_read_from_pipeline(agent_state, session_id, &next_url)?;
+                }
+                if !queued_next && remaining_pending_web_candidates(&pending) == 0 {
+                    completion_reason = Some(WebPipelineCompletionReason::ExhaustedCandidates);
+                }
+            }
+
+            verification_checks.push(format!(
+                "web_sources_success={}",
+                pending.successful_reads.len()
+            ));
+            verification_checks.push(format!(
+                "web_sources_blocked={}",
+                pending.blocked_urls.len()
+            ));
+            verification_checks.push(format!("web_budget_ms={}", elapsed_ms));
+
+            if let Some(reason) = completion_reason {
+                let summary = synthesize_web_pipeline_reply(&pending, reason);
+                success = true;
+                error_msg = None;
+                action_output = Some(summary.clone());
+                history_entry = Some(summary.clone());
+                terminal_chat_reply_output = Some(summary.clone());
+                is_lifecycle_action = true;
+                agent_state.status = AgentStatus::Completed(Some(summary));
+                agent_state.pending_search_completion = None;
+                agent_state.execution_queue.clear();
+                agent_state.recent_actions.clear();
+                verification_checks.push("web_pipeline_active=false".to_string());
+            } else {
+                let challenge = is_human_challenge_error(error_msg.as_deref().unwrap_or(""));
+                agent_state.pending_search_completion = Some(pending);
+                verification_checks.push("web_pipeline_active=true".to_string());
+                if !success {
+                    let note = if challenge {
+                        format!(
+                            "Skipped challenged source and continuing with alternates: {}",
+                            read_url
+                        )
+                    } else {
+                        format!(
+                            "Source read failed; continuing with alternate sources: {}",
+                            read_url
+                        )
+                    };
+                    success = true;
+                    error_msg = None;
+                    history_entry = Some(note.clone());
+                    action_output = Some(note);
+                    stop_condition_hit = false;
+                    escalation_path = None;
+                    agent_state.status = AgentStatus::Running;
+                }
+            }
+        }
+    }
+
     if !is_gated && !awaiting_sudo_password && !awaiting_clarification {
         if let Some(tool_jcs) = executed_tool_jcs.as_deref() {
             let resolved_retry_hash = retry_intent_hash
@@ -970,6 +1350,7 @@ pub async fn process_tool_output(
                 agent_state.resolved_intent.as_ref(),
                 &current_tool_name,
                 class,
+                agent_state.pending_search_completion.is_some(),
             ) {
                 let summary = format!(
                     "Web retrieval timed out while executing '{}'. Retry later or narrow the query/sources.",
@@ -1067,6 +1448,24 @@ pub async fn process_tool_output(
                     agent_state.status = AgentStatus::Paused(
                         "Waiting for user intervention: complete the required human verification in your browser/app, then resume.".to_string(),
                     );
+                } else if is_search_scope(agent_state.resolved_intent.as_ref())
+                    && matches!(class, FailureClass::UnexpectedState)
+                {
+                    // Keep web research autonomous under transient tool/schema instability.
+                    stop_condition_hit = false;
+                    escalation_path = None;
+                    is_lifecycle_action = true;
+                    success = true;
+                    error_msg = None;
+                    let note = format!(
+                        "Transient unexpected state while executing '{}'; continuing web research.",
+                        current_tool_name
+                    );
+                    history_entry = Some(note.clone());
+                    action_output = Some(note);
+                    agent_state.status = AgentStatus::Running;
+                    agent_state.recent_actions.clear();
+                    verification_checks.push("web_unexpected_retry_bypass=true".to_string());
                 } else if blocked_without_change {
                     stop_condition_hit = true;
                     escalation_path = Some(escalation_path_for_failure(class).to_string());
@@ -1117,6 +1516,20 @@ pub async fn process_tool_output(
                     }
                 }
             }
+        }
+    }
+
+    if !success
+        && matches!(agent_state.status, AgentStatus::Paused(_))
+        && !stop_condition_hit
+        && !is_gated
+        && !awaiting_sudo_password
+        && !awaiting_clarification
+    {
+        stop_condition_hit = true;
+        is_lifecycle_action = true;
+        if escalation_path.is_none() {
+            escalation_path = Some("wait_for_user".to_string());
         }
     }
 
@@ -1193,6 +1606,18 @@ pub async fn process_tool_output(
                 output: output_str,
                 agent_status: get_status_str(&agent_state.status),
             });
+
+            if let Some(chat_output) = terminal_chat_reply_output {
+                if current_tool_name != "chat__reply" {
+                    let _ = tx.send(KernelEvent::AgentActionResult {
+                        session_id,
+                        step_index: pre_state_summary.step_index,
+                        tool_name: "chat__reply".to_string(),
+                        output: chat_output,
+                        agent_status: get_status_str(&agent_state.status),
+                    });
+                }
+            }
         }
     }
 
@@ -1284,17 +1709,26 @@ mod tests {
         assert!(should_fail_fast_web_timeout(
             Some(&intent),
             "web__search",
-            FailureClass::TimeoutOrHang
+            FailureClass::TimeoutOrHang,
+            false
         ));
         assert!(should_fail_fast_web_timeout(
             Some(&intent),
             "web__read",
-            FailureClass::TimeoutOrHang
+            FailureClass::TimeoutOrHang,
+            false
         ));
         assert!(should_fail_fast_web_timeout(
             Some(&intent),
             "browser__navigate",
-            FailureClass::TimeoutOrHang
+            FailureClass::TimeoutOrHang,
+            false
+        ));
+        assert!(!should_fail_fast_web_timeout(
+            Some(&intent),
+            "web__read",
+            FailureClass::TimeoutOrHang,
+            true
         ));
     }
 
@@ -1306,17 +1740,26 @@ mod tests {
         assert!(!should_fail_fast_web_timeout(
             Some(&web),
             "filesystem__list_directory",
-            FailureClass::TimeoutOrHang
+            FailureClass::TimeoutOrHang,
+            false
         ));
         assert!(!should_fail_fast_web_timeout(
             Some(&convo),
+            "browser__navigate",
+            FailureClass::TimeoutOrHang,
+            false
+        ));
+        assert!(should_fail_fast_web_timeout(
+            Some(&convo),
             "web__search",
-            FailureClass::TimeoutOrHang
+            FailureClass::TimeoutOrHang,
+            false
         ));
         assert!(!should_fail_fast_web_timeout(
             Some(&web),
             "web__search",
-            FailureClass::UnexpectedState
+            FailureClass::UnexpectedState,
+            false
         ));
     }
 }

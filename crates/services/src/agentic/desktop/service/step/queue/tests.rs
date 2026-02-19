@@ -1,7 +1,12 @@
 use super::support::{
-    fallback_search_summary, queue_action_request_to_tool, summarize_search_results,
+    append_pending_web_success_fallback, candidate_source_hints_from_bundle,
+    candidate_urls_from_bundle, fallback_search_summary, queue_action_request_to_tool,
+    summarize_search_results, synthesize_web_pipeline_reply, web_pipeline_completion_reason,
+    WebPipelineCompletionReason,
 };
+use crate::agentic::desktop::types::PendingSearchCompletion;
 use ioi_types::app::agentic::{AgentTool, ComputerAction};
+use ioi_types::app::agentic::{WebEvidenceBundle, WebSource};
 use ioi_types::app::{ActionContext, ActionRequest, ActionTarget};
 use std::fs;
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -57,6 +62,138 @@ fn fallback_summary_is_deterministic() {
         msg,
         "Searched 'internet of intelligence' at https://duckduckgo.com/?q=internet+of+intelligence, but structured extraction failed. Retry refinement if needed."
     );
+}
+
+#[test]
+fn web_pipeline_candidate_urls_preserve_rank_order() {
+    let bundle = WebEvidenceBundle {
+        schema_version: 1,
+        retrieved_at_ms: 0,
+        tool: "web__search".to_string(),
+        backend: "edge:ddg".to_string(),
+        query: Some("latest news".to_string()),
+        url: Some("https://duckduckgo.com/?q=latest+news".to_string()),
+        sources: vec![
+            WebSource {
+                source_id: "b".to_string(),
+                rank: Some(2),
+                url: "https://b.example.com".to_string(),
+                title: Some("B".to_string()),
+                snippet: None,
+                domain: Some("b.example.com".to_string()),
+            },
+            WebSource {
+                source_id: "a".to_string(),
+                rank: Some(1),
+                url: "https://a.example.com".to_string(),
+                title: Some("A".to_string()),
+                snippet: None,
+                domain: Some("a.example.com".to_string()),
+            },
+        ],
+        documents: vec![],
+    };
+
+    let urls = candidate_urls_from_bundle(&bundle);
+    assert_eq!(
+        urls,
+        vec![
+            "https://a.example.com".to_string(),
+            "https://b.example.com".to_string()
+        ]
+    );
+}
+
+#[test]
+fn web_pipeline_source_hints_preserve_rank_order() {
+    let bundle = WebEvidenceBundle {
+        schema_version: 1,
+        retrieved_at_ms: 0,
+        tool: "web__search".to_string(),
+        backend: "edge:ddg".to_string(),
+        query: Some("latest news".to_string()),
+        url: Some("https://duckduckgo.com/?q=latest+news".to_string()),
+        sources: vec![
+            WebSource {
+                source_id: "b".to_string(),
+                rank: Some(2),
+                url: "https://b.example.com".to_string(),
+                title: Some("Headline B".to_string()),
+                snippet: Some("Summary B".to_string()),
+                domain: Some("b.example.com".to_string()),
+            },
+            WebSource {
+                source_id: "a".to_string(),
+                rank: Some(1),
+                url: "https://a.example.com".to_string(),
+                title: Some("Headline A".to_string()),
+                snippet: Some("Summary A".to_string()),
+                domain: Some("a.example.com".to_string()),
+            },
+        ],
+        documents: vec![],
+    };
+
+    let hints = candidate_source_hints_from_bundle(&bundle);
+    assert_eq!(hints.len(), 2);
+    assert_eq!(hints[0].url, "https://a.example.com");
+    assert_eq!(hints[0].title.as_deref(), Some("Headline A"));
+    assert_eq!(hints[1].url, "https://b.example.com");
+    assert_eq!(hints[1].title.as_deref(), Some("Headline B"));
+}
+
+#[test]
+fn web_pipeline_uses_source_hints_when_read_output_is_low_signal() {
+    let mut pending = PendingSearchCompletion {
+        query: "latest breaking news".to_string(),
+        url: "https://news.google.com/rss/search?q=latest+breaking+news".to_string(),
+        started_step: 1,
+        started_at_ms: 100,
+        deadline_ms: 60_100,
+        candidate_urls: vec!["https://news.google.com/rss/articles/abc".to_string()],
+        candidate_source_hints: vec![crate::agentic::desktop::types::PendingSearchReadSummary {
+            url: "https://news.google.com/rss/articles/abc".to_string(),
+            title: Some("Major storm causes widespread flight delays".to_string()),
+            excerpt: "Airports across the U.S. reported cancellations and delays overnight."
+                .to_string(),
+        }],
+        attempted_urls: vec![],
+        blocked_urls: vec![],
+        successful_reads: vec![],
+        min_sources: 1,
+    };
+
+    append_pending_web_success_fallback(&mut pending, "https://news.google.com/rss/articles/abc", Some("Google News"));
+    let reply = synthesize_web_pipeline_reply(&pending, WebPipelineCompletionReason::MinSourcesReached);
+    assert!(reply.contains("Major storm causes widespread flight delays"));
+    assert!(reply.contains("Airports across the U.S."));
+}
+
+#[test]
+fn web_pipeline_completion_deadline_produces_partial_low_confidence() {
+    let pending = PendingSearchCompletion {
+        query: "latest news".to_string(),
+        url: "https://duckduckgo.com/?q=latest+news".to_string(),
+        started_step: 1,
+        started_at_ms: 100,
+        deadline_ms: 160,
+        candidate_urls: vec!["https://a.example.com".to_string()],
+        candidate_source_hints: vec![],
+        attempted_urls: vec!["https://a.example.com".to_string()],
+        blocked_urls: vec!["https://blocked.example.com".to_string()],
+        successful_reads: vec![],
+        min_sources: 2,
+    };
+
+    let reason = web_pipeline_completion_reason(&pending, 200)
+        .expect("deadline should produce completion reason");
+    assert_eq!(reason, WebPipelineCompletionReason::DeadlineReached);
+
+    let reply = synthesize_web_pipeline_reply(&pending, reason);
+    assert!(reply.contains("Partial result"));
+    assert!(reply.contains("Blocked sources"));
+    assert!(reply.contains("Run date (UTC): "));
+    assert!(reply.contains("Confidence: low"));
 }
 
 #[test]

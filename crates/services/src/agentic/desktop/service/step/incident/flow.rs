@@ -11,7 +11,7 @@ use super::store::{clear_incident_state, load_incident_state, persist_incident_s
 use crate::agentic::desktop::middleware;
 use crate::agentic::desktop::service::step::anti_loop::FailureClass;
 use crate::agentic::desktop::service::step::ontology::{
-    classify_intent_from_resolved, default_strategy_for, GateState, IncidentStage,
+    classify_intent_from_resolved, default_strategy_for, GateState, IncidentStage, IntentClass,
     ResolutionAction, StrategyNode,
 };
 use crate::agentic::desktop::service::DesktopAgentService;
@@ -558,16 +558,66 @@ pub async fn start_or_continue_incident_recovery(
         .into_iter()
         .filter(|tool| !forbidden_tools.contains(&tool.name))
         .collect();
-    if planner_tools.is_empty() {
-        return Err(TransactionError::Invalid(
-            "No eligible incident recovery tools available".to_string(),
-        ));
-    }
 
     let mut chosen_tool =
         deterministic_recovery_tool(&available_tool_names, &incident_state, agent_state, rules)?;
 
     if chosen_tool.is_none() {
+        if matches!(intent, IntentClass::BrowserTask) {
+            incident_state.active = true;
+            incident_state.stage = IncidentStage::PausedForUser.as_str().to_string();
+            incident_state.strategy_cursor = StrategyNode::PauseForUser.as_str().to_string();
+            incident_state.gate_state = GateState::Cleared.as_str().to_string();
+            incident_state.resolution_action = ResolutionAction::Pause.as_str().to_string();
+            incident_state.pending_remedy_fingerprint = None;
+            incident_state.pending_remedy_tool_jcs = None;
+            incident_state.retry_enqueued = false;
+            incident_state.root_error = Some(format!(
+                "Deterministic BrowserTask recovery unavailable for failure class {}.",
+                root_failure_class.as_str()
+            ));
+            agent_state.status = AgentStatus::Paused(
+                "Browser recovery requires deterministic remedy, but none was available."
+                    .to_string(),
+            );
+            persist_incident_state(state, &session_id, &incident_state)?;
+            emit_incident_chat_progress(
+                service,
+                session_id,
+                block_height,
+                format!(
+                    "System: BrowserTask incident '{}' has no deterministic remedy. Pausing for user guidance.",
+                    incident_state.incident_id
+                ),
+            )
+            .await?;
+            verification_checks.push("incident_active=true".to_string());
+            verification_checks.push(format!("incident_id_stable={}", incident_id_stable));
+            verification_checks.push(format!("incident_id={}", incident_state.incident_id));
+            verification_checks.push(format!("incident_stage_before={}", stage_before));
+            verification_checks.push(format!("incident_stage_after={}", incident_state.stage));
+            verification_checks.push(format!(
+                "incident_transitions_used={}",
+                incident_state.transitions_used
+            ));
+            verification_checks.push(format!(
+                "incident_budget_remaining={}",
+                incident_state
+                    .max_transitions
+                    .saturating_sub(incident_state.transitions_used)
+            ));
+            verification_checks.push(format!("incident_intent={}", incident_state.intent_class));
+            verification_checks.push("browser_recovery_deterministic_only=true".to_string());
+            verification_checks.push("queued_retry_after_remedy_success=false".to_string());
+            return Ok(IncidentDirective::Noop);
+        }
+
+        if planner_tools.is_empty() {
+            return Err(TransactionError::Invalid(
+                "No eligible incident recovery tools available".to_string(),
+            ));
+        }
+
         let prompt = build_planner_prompt(&incident_state, &forbidden_tools);
         let messages = json!([
             { "role": "system", "content": prompt },

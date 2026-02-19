@@ -2,6 +2,7 @@
 
 import { useMemo, useState, useCallback, useRef, useEffect } from "react";
 import { AgentEvent, ChatMessage } from "../../../types";
+import { MicroEventCard } from "./MicroEventCard";
 
 interface ThoughtChainProps {
   messages: ChatMessage[];
@@ -17,7 +18,7 @@ interface ThoughtChainProps {
 // Limits
 const MAX_STREAM_CHARS = 16 * 1024;
 const MAX_STREAM_LINES = 200;
-const MAX_EVENT_LINES = 12;
+const MAX_EVENT_CARDS = 16;
 
 const ChevronIcon = () => (
   <svg
@@ -578,39 +579,25 @@ export function ThoughtChain({
     .filter(Boolean)
     .join(" · ");
 
-  const receiptDigest = useMemo(() => {
-    if (!events) return null;
-    const receipt = [...events].reverse().find((e) => e.event_type === "RECEIPT");
-    if (!receipt) return null;
-    const digest = receipt.digest || {};
-    const ordered = [
-      "intent_class",
-      "incident_stage",
-      "strategy_node",
-      "gate_state",
-      "resolution_action",
-      "escalation_path",
-    ];
-    return ordered
-      .map((k) => {
-        const v = (digest as Record<string, unknown>)[k];
-        if (v === undefined || String(v).trim().length === 0) return null;
-        return `${k}: ${String(v)}`;
-      })
-      .filter(Boolean)
-      .join(" · ");
-  }, [events]);
+  const openArtifact = useCallback(
+    (artifactId: string) => {
+      if (onOpenArtifact) {
+        onOpenArtifact(artifactId);
+      }
+    },
+    [onOpenArtifact],
+  );
 
-  const eventLines = useMemo(() => {
+  const eventCards = useMemo(() => {
     if (!events) return [];
-    return events
-      .filter(
-        (event) =>
-          event.event_type !== "COMMAND_STREAM" && event.event_type !== "COMMAND_RUN",
-      )
-      .map((event) => event.title)
-      .filter((title) => title.trim().length > 0)
-      .slice(0, MAX_EVENT_LINES);
+    const nonStream = events.filter(
+      (event) =>
+        event.event_type !== "COMMAND_STREAM" && event.event_type !== "COMMAND_RUN",
+    );
+    if (nonStream.length <= MAX_EVENT_CARDS) {
+      return nonStream;
+    }
+    return nonStream.slice(nonStream.length - MAX_EVENT_CARDS);
   }, [events]);
 
   const hasStreamContent = streamCards.length > 0 || finalRuns.length > 0;
@@ -638,18 +625,13 @@ export function ThoughtChain({
 
         {hasEventMode ? (
           <div className="thought-steps">
-            {eventLines.map((line, idx) => (
-              <div className="thought-step" key={`evt-line-${idx}`}>
-                <span className="thought-step-indicator" />
-                <span className="thought-step-text">{line}</span>
-              </div>
+            {eventCards.map((event) => (
+              <MicroEventCard
+                key={event.event_id}
+                event={event}
+                onOpenArtifact={openArtifact}
+              />
             ))}
-            {receiptDigest && (
-              <div className="thought-step">
-                <span className="thought-step-indicator" />
-                <span className="thought-step-text">{receiptDigest}</span>
-              </div>
-            )}
 
             {streamCards.map((card) => (
               <StreamCardView
@@ -670,7 +652,7 @@ export function ThoughtChain({
               />
             ))}
 
-            {!hasStreamContent && eventLines.length === 0 && !receiptDigest && (
+            {!hasStreamContent && eventCards.length === 0 && (
               <div className="sc-empty-state">(no command output yet)</div>
             )}
           </div>

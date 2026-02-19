@@ -1,6 +1,8 @@
 // Path: crates/services/src/agentic/desktop/service/step/helpers.rs
 
-use crate::agentic::rules::{ActionRules, OntologyPolicy, Rule, RuleConditions, Verdict};
+use crate::agentic::rules::{
+    ActionRules, IntentFailureOverride, OntologyPolicy, Rule, RuleConditions, Verdict,
+};
 
 fn browser_allow_apps() -> Vec<String> {
     vec![
@@ -18,7 +20,23 @@ pub fn default_safe_policy() -> ActionRules {
     ActionRules {
         policy_id: "default-safe".to_string(),
         defaults: crate::agentic::rules::DefaultPolicy::RequireApproval,
-        ontology_policy: OntologyPolicy::default(),
+        ontology_policy: OntologyPolicy {
+            intent_failure_overrides: vec![
+                IntentFailureOverride {
+                    intent_class: "BrowserTask".to_string(),
+                    failure_class: "UnexpectedState".to_string(),
+                    strategy_name: None,
+                    max_transitions: Some(2),
+                },
+                IntentFailureOverride {
+                    intent_class: "BrowserTask".to_string(),
+                    failure_class: "TimeoutOrHang".to_string(),
+                    strategy_name: None,
+                    max_transitions: Some(2),
+                },
+            ],
+            ..OntologyPolicy::default()
+        },
         pii_controls: Default::default(),
         rules: vec![
             // Lifecycle / Meta-Tools
@@ -239,7 +257,7 @@ pub fn should_auto_complete_open_app_goal(
 
 #[cfg(test)]
 mod tests {
-    use super::should_auto_complete_open_app_goal;
+    use super::{default_safe_policy, should_auto_complete_open_app_goal};
 
     #[test]
     fn auto_complete_open_app_goal_for_simple_launch() {
@@ -266,5 +284,22 @@ mod tests {
             "calculator",
             Some("calculator")
         ));
+    }
+
+    #[test]
+    fn browser_recovery_defaults_have_low_transition_caps() {
+        let rules = default_safe_policy();
+        let mut saw_unexpected = false;
+        let mut saw_timeout = false;
+        for ov in &rules.ontology_policy.intent_failure_overrides {
+            if ov.intent_class == "BrowserTask" && ov.failure_class == "UnexpectedState" {
+                saw_unexpected = ov.max_transitions == Some(2);
+            }
+            if ov.intent_class == "BrowserTask" && ov.failure_class == "TimeoutOrHang" {
+                saw_timeout = ov.max_transitions == Some(2);
+            }
+        }
+        assert!(saw_unexpected);
+        assert!(saw_timeout);
     }
 }

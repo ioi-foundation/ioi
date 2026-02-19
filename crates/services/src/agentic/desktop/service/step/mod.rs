@@ -49,10 +49,23 @@ pub async fn handle_step(
 
     // 2. Validate Status
     if agent_state.status != AgentStatus::Running {
-        return Err(TransactionError::Invalid(format!(
-            "Agent not running: {:?}",
-            agent_state.status
-        )));
+        let auto_resume_retry_pause = matches!(
+            &agent_state.status,
+            AgentStatus::Paused(reason)
+                if reason.starts_with("Retry blocked: unchanged AttemptKey for")
+                    || reason.starts_with("Retry guard tripped after repeated")
+        );
+
+        if auto_resume_retry_pause {
+            // Keep web-research flows autonomous under transient model/tool instability.
+            agent_state.status = AgentStatus::Running;
+            agent_state.recent_actions.clear();
+        } else {
+            return Err(TransactionError::Invalid(format!(
+                "Agent not running: {:?}",
+                agent_state.status
+            )));
+        }
     }
 
     // Automated Failure Recovery Loop (Optimizer)
@@ -192,9 +205,26 @@ pub async fn handle_step(
     } else {
         "Unknown".to_string()
     };
-    let resolved_intent =
+    let previous_resolved_intent = agent_state.resolved_intent.clone();
+    let mut resolved_intent =
         intent_resolver::resolve_step_intent(service, &agent_state, &rules, &active_window_title)
             .await?;
+    if rules.ontology_policy.intent_routing.shadow_mode {
+        if let Some(previous) = previous_resolved_intent {
+            let previous_known = !matches!(
+                previous.scope,
+                ioi_types::app::agentic::IntentScopeProfile::Unknown
+            );
+            if previous_known
+                || matches!(
+                    resolved_intent.scope,
+                    ioi_types::app::agentic::IntentScopeProfile::Unknown
+                )
+            {
+                resolved_intent = previous;
+            }
+        }
+    }
     let was_waiting_intent = agent_state.awaiting_intent_clarification;
     let should_wait_for_clarification = !rules.ontology_policy.intent_routing.shadow_mode
         && intent_resolver::should_pause_for_clarification(

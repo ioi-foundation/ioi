@@ -234,13 +234,17 @@ pub(super) async fn handle_action_result(app: &tauri::AppHandle, res: AgentActio
                     cost: Some("$0.00".to_string()),
                 });
 
-                let msg = format!("Task Completed: {}", res.output);
-                if t.history.last().map(|m| m.text != msg).unwrap_or(true) {
-                    t.history.push(ChatMessage {
-                        role: "system".into(),
-                        text: msg,
-                        timestamp: crate::kernel::state::now(),
-                    });
+                let completion_via_chat =
+                    res.tool_name == "chat::reply" || res.tool_name == "chat__reply";
+                if !completion_via_chat {
+                    let msg = format!("Task Completed: {}", res.output);
+                    if t.history.last().map(|m| m.text != msg).unwrap_or(true) {
+                        t.history.push(ChatMessage {
+                            role: "system".into(),
+                            text: msg,
+                            timestamp: crate::kernel::state::now(),
+                        });
+                    }
                 }
             }
             "Failed" => {

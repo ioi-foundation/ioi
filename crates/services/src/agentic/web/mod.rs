@@ -2,6 +2,7 @@ use anyhow::{anyhow, Result};
 use ioi_crypto::algorithms::hash::sha256;
 use ioi_drivers::browser::BrowserDriver;
 use ioi_types::app::agentic::{WebDocument, WebEvidenceBundle, WebQuoteSpan, WebSource};
+use regex::Regex;
 use reqwest::{redirect, Client};
 use scraper::{Html, Selector};
 use std::collections::HashSet;
@@ -10,8 +11,8 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use tokio::time::timeout;
 use url::Url;
 
-const BROWSER_RETRIEVAL_TIMEOUT_SECS: u64 = 20;
-const HTTP_FALLBACK_TIMEOUT_SECS: u64 = 15;
+const BROWSER_RETRIEVAL_TIMEOUT_SECS: u64 = 8;
+const HTTP_FALLBACK_TIMEOUT_SECS: u64 = 4;
 
 fn env_flag_enabled(name: &str) -> bool {
     std::env::var(name)
@@ -58,11 +59,26 @@ fn domain_for_url(url: &str) -> Option<String> {
 pub fn build_ddg_serp_url(query: &str) -> String {
     let trimmed = query.trim();
     if trimmed.is_empty() {
-        return "https://duckduckgo.com/".to_string();
+        return "https://duckduckgo.com/html/".to_string();
     }
 
-    let mut url = Url::parse("https://duckduckgo.com/").expect("static base url parses");
+    let mut url = Url::parse("https://duckduckgo.com/html/").expect("static base url parses");
     url.query_pairs_mut().append_pair("q", trimmed);
+    url.to_string()
+}
+
+fn build_google_news_rss_url(query: &str) -> String {
+    let trimmed = query.trim();
+    if trimmed.is_empty() {
+        return "https://news.google.com/rss".to_string();
+    }
+
+    let mut url = Url::parse("https://news.google.com/rss/search").expect("static base url parses");
+    url.query_pairs_mut()
+        .append_pair("q", trimmed)
+        .append_pair("hl", "en-US")
+        .append_pair("gl", "US")
+        .append_pair("ceid", "US:en");
     url.to_string()
 }
 
@@ -109,8 +125,16 @@ fn is_timeout_or_hang_message(msg: &str) -> bool {
         || lower.contains("hang")
 }
 
+fn is_browser_unavailable_message(msg: &str) -> bool {
+    let lower = msg.to_ascii_lowercase();
+    lower.contains("browser is cold")
+        || lower.contains("no lease")
+        || lower.contains("set_lease(true)")
+}
+
 fn should_attempt_http_fallback(err: &anyhow::Error) -> bool {
-    is_timeout_or_hang_message(&err.to_string())
+    let msg = err.to_string();
+    is_timeout_or_hang_message(&msg) || is_browser_unavailable_message(&msg)
 }
 
 async fn navigate_browser_retrieval(browser: &BrowserDriver, url: &str) -> Result<String> {
@@ -387,6 +411,91 @@ fn parse_ddg_sources_from_html(html: &str, limit: usize) -> Vec<WebSource> {
     out
 }
 
+fn decode_rss_text(raw: &str) -> String {
+    let trimmed = raw
+        .trim()
+        .trim_start_matches("<![CDATA[")
+        .trim_end_matches("]]>")
+        .trim();
+    trimmed
+        .replace("&amp;", "&")
+        .replace("&lt;", "<")
+        .replace("&gt;", ">")
+        .replace("&quot;", "\"")
+        .replace("&#39;", "'")
+}
+
+fn parse_google_news_sources_from_rss(rss_xml: &str, limit: usize) -> Vec<WebSource> {
+    let item_re = Regex::new(r"(?is)<item\b[^>]*>(.*?)</item>").expect("static regex compiles");
+    let title_re = Regex::new(r"(?is)<title\b[^>]*>(.*?)</title>").expect("static regex compiles");
+    let link_re = Regex::new(r"(?is)<link\b[^>]*>(.*?)</link>").expect("static regex compiles");
+    let source_re =
+        Regex::new(r"(?is)<source\b[^>]*>(.*?)</source>").expect("static regex compiles");
+    let mut out: Vec<WebSource> = Vec::new();
+    let mut seen: HashSet<String> = HashSet::new();
+    for item_cap in item_re.captures_iter(rss_xml) {
+        if out.len() >= limit {
+            break;
+        }
+        let Some(item_match) = item_cap.get(1) else {
+            continue;
+        };
+        let item = item_match.as_str();
+
+        let raw_link = link_re
+            .captures(item)
+            .and_then(|cap| cap.get(1))
+            .map(|m| decode_rss_text(m.as_str()))
+            .unwrap_or_default();
+        let link_trimmed = raw_link.trim();
+        if !(link_trimmed.starts_with("http://") || link_trimmed.starts_with("https://")) {
+            continue;
+        }
+        let final_url = link_trimmed.to_string();
+        if seen.contains(&final_url) {
+            continue;
+        }
+        seen.insert(final_url.clone());
+
+        let title_opt = title_re
+            .captures(item)
+            .and_then(|cap| cap.get(1))
+            .map(|m| decode_rss_text(m.as_str()))
+            .map(|raw| compact_ws(&raw))
+            .and_then(|raw| {
+                let trimmed = raw.trim();
+                (!trimmed.is_empty()).then(|| trimmed.to_string())
+            });
+
+        let snippet_opt = source_re
+            .captures(item)
+            .and_then(|cap| cap.get(1))
+            .map(|m| decode_rss_text(m.as_str()))
+            .map(|raw| compact_ws(&raw))
+            .and_then(|raw| {
+                let trimmed = raw.trim();
+                (!trimmed.is_empty()).then(|| trimmed.to_string())
+            });
+
+        out.push(WebSource {
+            source_id: source_id_for_url(&final_url),
+            rank: Some(out.len() as u32 + 1),
+            url: final_url.clone(),
+            title: title_opt,
+            snippet: snippet_opt,
+            domain: domain_for_url(&final_url),
+        });
+    }
+
+    out
+}
+
+async fn fetch_google_news_rss_sources(query: &str, limit: usize) -> Result<Vec<WebSource>> {
+    let rss_url = build_google_news_rss_url(query);
+    let rss_xml = fetch_html_http_fallback(&rss_url).await?;
+    Ok(parse_google_news_sources_from_rss(&rss_xml, limit))
+}
+
 fn extract_read_blocks(html: &str) -> (Option<String>, Vec<String>) {
     let document = Html::parse_document(html);
 
@@ -483,22 +592,52 @@ pub async fn edge_web_search(
     })
     .await?;
 
-    if let Some(reason) = detect_human_challenge(&serp_url, &html) {
-        return Err(anyhow!(
-            "ERROR_CLASS=HumanChallengeRequired {}. Complete the challenge manually, then retry: {}",
-            reason,
-            serp_url
-        ));
+    let challenge_reason = detect_human_challenge(&serp_url, &html);
+    let mut sources = if challenge_reason.is_none() {
+        parse_ddg_sources_from_html(&html, limit as usize)
+    } else {
+        Vec::new()
+    };
+    let mut backend = "edge:ddg".to_string();
+    let mut source_url = serp_url.clone();
+    let mut google_fallback_note: Option<String> = None;
+
+    if sources.is_empty() {
+        match fetch_google_news_rss_sources(query, limit as usize).await {
+            Ok(google_sources) => {
+                if !google_sources.is_empty() {
+                    sources = google_sources;
+                    backend = "edge:google-news-rss".to_string();
+                    source_url = build_google_news_rss_url(query);
+                } else {
+                    google_fallback_note = Some("google_news_rss_empty".to_string());
+                }
+            }
+            Err(err) => google_fallback_note = Some(format!("google_news_rss_error={}", err)),
+        }
     }
 
-    let sources = parse_ddg_sources_from_html(&html, limit as usize);
+    if sources.is_empty() {
+        if let Some(reason) = challenge_reason {
+            let suffix = google_fallback_note
+                .map(|note| format!(" fallback={}", note))
+                .unwrap_or_default();
+            return Err(anyhow!(
+                "ERROR_CLASS=HumanChallengeRequired {}. Complete the challenge manually, then retry: {}{}",
+                reason,
+                serp_url,
+                suffix
+            ));
+        }
+    }
+
     Ok(WebEvidenceBundle {
         schema_version: 1,
         retrieved_at_ms: now_ms(),
         tool: "web__search".to_string(),
-        backend: "edge:ddg".to_string(),
+        backend,
         query: Some(query.trim().to_string()),
-        url: Some(serp_url),
+        url: Some(source_url),
         sources,
         documents: vec![],
     })
@@ -603,6 +742,37 @@ mod tests {
         assert_eq!(sources[0].rank, Some(1));
         assert_eq!(sources[1].url, "https://example.com/b");
         assert_eq!(sources[1].rank, Some(2));
+    }
+
+    #[test]
+    fn parses_google_news_rss_items() {
+        let rss = r#"
+        <?xml version="1.0" encoding="UTF-8"?>
+        <rss version="2.0">
+          <channel>
+            <item>
+              <title>Headline One</title>
+              <link>https://news.google.com/rss/articles/abc?oc=5&amp;x=1</link>
+              <source>Outlet A</source>
+            </item>
+            <item>
+              <title><![CDATA[Headline Two]]></title>
+              <link>https://example.com/story-two</link>
+            </item>
+          </channel>
+        </rss>
+        "#;
+
+        let sources = parse_google_news_sources_from_rss(rss, 10);
+        assert_eq!(sources.len(), 2);
+        assert_eq!(
+            sources[0].url,
+            "https://news.google.com/rss/articles/abc?oc=5&x=1"
+        );
+        assert_eq!(sources[0].title.as_deref(), Some("Headline One"));
+        assert_eq!(sources[0].snippet.as_deref(), Some("Outlet A"));
+        assert_eq!(sources[1].url, "https://example.com/story-two");
+        assert_eq!(sources[1].title.as_deref(), Some("Headline Two"));
     }
 
     #[test]
