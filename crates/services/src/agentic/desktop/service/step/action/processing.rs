@@ -36,8 +36,9 @@ use crate::agentic::desktop::service::step::queue::{
     candidate_source_hints_from_bundle, candidate_urls_from_bundle, is_human_challenge_error,
     mark_pending_web_attempted, mark_pending_web_blocked, next_pending_web_candidate,
     parse_web_evidence_bundle, queue_web_read_from_pipeline, remaining_pending_web_candidates,
-    synthesize_web_pipeline_reply, web_pipeline_completion_reason, web_pipeline_now_ms,
-    WebPipelineCompletionReason, WEB_PIPELINE_BUDGET_MS, WEB_PIPELINE_DEFAULT_MIN_SOURCES,
+    synthesize_web_pipeline_reply, synthesize_web_pipeline_reply_hybrid,
+    web_pipeline_completion_reason, web_pipeline_now_ms, WebPipelineCompletionReason,
+    WEB_PIPELINE_BUDGET_MS, WEB_PIPELINE_DEFAULT_MIN_SOURCES, WEB_PIPELINE_SEARCH_LIMIT,
 };
 use crate::agentic::desktop::service::DesktopAgentService;
 use crate::agentic::desktop::types::{
@@ -178,9 +179,17 @@ fn queue_web_search_bootstrap(
         return Ok(false);
     }
 
-    let params = serde_jcs::to_vec(&json!({ "query": normalized_query }))
-        .or_else(|_| serde_json::to_vec(&json!({ "query": normalized_query })))
-        .map_err(|e| TransactionError::Serialization(e.to_string()))?;
+    let params = serde_jcs::to_vec(&json!({
+        "query": normalized_query,
+        "limit": WEB_PIPELINE_SEARCH_LIMIT
+    }))
+    .or_else(|_| {
+        serde_json::to_vec(&json!({
+            "query": normalized_query,
+            "limit": WEB_PIPELINE_SEARCH_LIMIT
+        }))
+    })
+    .map_err(|e| TransactionError::Serialization(e.to_string()))?;
     let request = ActionRequest {
         target: ActionTarget::WebRetrieve,
         params,
@@ -727,17 +736,32 @@ pub async fn process_tool_output(
                                                 agent_state.pending_search_completion =
                                                     Some(pending);
                                             } else {
-                                                let summary = synthesize_web_pipeline_reply(
-                                                    &pending,
-                                                    WebPipelineCompletionReason::ExhaustedCandidates,
-                                                );
+                                                let reason =
+                                                    WebPipelineCompletionReason::ExhaustedCandidates;
+                                                let summary = if let Some(hybrid_summary) =
+                                                    synthesize_web_pipeline_reply_hybrid(
+                                                        service.reasoning_inference.clone(),
+                                                        &pending,
+                                                        reason,
+                                                    )
+                                                    .await
+                                                {
+                                                    hybrid_summary
+                                                } else {
+                                                    synthesize_web_pipeline_reply(&pending, reason)
+                                                };
                                                 action_output = Some(summary.clone());
+                                                history_entry = Some(summary.clone());
+                                                terminal_chat_reply_output = Some(summary.clone());
                                                 is_lifecycle_action = true;
                                                 agent_state.status =
                                                     AgentStatus::Completed(Some(summary));
                                                 agent_state.pending_search_completion = None;
                                                 agent_state.execution_queue.clear();
                                                 agent_state.recent_actions.clear();
+                                                verification_checks.push(
+                                                    "terminal_chat_reply_ready=true".to_string(),
+                                                );
                                             }
                                         }
                                     }
@@ -1233,7 +1257,17 @@ pub async fn process_tool_output(
             verification_checks.push(format!("web_budget_ms={}", elapsed_ms));
 
             if let Some(reason) = completion_reason {
-                let summary = synthesize_web_pipeline_reply(&pending, reason);
+                let summary = if let Some(hybrid_summary) = synthesize_web_pipeline_reply_hybrid(
+                    service.reasoning_inference.clone(),
+                    &pending,
+                    reason,
+                )
+                .await
+                {
+                    hybrid_summary
+                } else {
+                    synthesize_web_pipeline_reply(&pending, reason)
+                };
                 success = true;
                 error_msg = None;
                 action_output = Some(summary.clone());
@@ -1245,6 +1279,7 @@ pub async fn process_tool_output(
                 agent_state.execution_queue.clear();
                 agent_state.recent_actions.clear();
                 verification_checks.push("web_pipeline_active=false".to_string());
+                verification_checks.push("terminal_chat_reply_ready=true".to_string());
             } else {
                 let challenge = is_human_challenge_error(error_msg.as_deref().unwrap_or(""));
                 agent_state.pending_search_completion = Some(pending);
@@ -1609,6 +1644,7 @@ pub async fn process_tool_output(
 
             if let Some(chat_output) = terminal_chat_reply_output {
                 if current_tool_name != "chat__reply" {
+                    verification_checks.push("terminal_chat_reply_emitted=true".to_string());
                     let _ = tx.send(KernelEvent::AgentActionResult {
                         session_id,
                         step_index: pre_state_summary.step_index,
