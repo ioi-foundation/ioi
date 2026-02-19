@@ -23,7 +23,7 @@ use crate::agentic::desktop::service::step::anti_loop::{
     TierRoutingDecision,
 };
 use crate::agentic::desktop::service::step::helpers::{
-    default_safe_policy, should_auto_complete_open_app_goal,
+    default_safe_policy, is_live_external_research_goal, should_auto_complete_open_app_goal,
 };
 use crate::agentic::desktop::service::step::incident::{
     advance_incident_after_action_outcome, incident_receipt_fields, load_incident_state,
@@ -111,20 +111,9 @@ fn extract_web_read_url_from_payload(payload: &serde_json::Value) -> Option<Stri
         .map(|value| value.to_string())
 }
 
-fn looks_like_web_research_goal(goal: &str) -> bool {
-    let goal_lc = goal.to_ascii_lowercase();
-    [
-        "latest",
-        "breaking news",
-        "current news",
-        "news",
-        "headline",
-        "headlines",
-        "look up",
-        "search for",
-    ]
-    .iter()
-    .any(|needle| goal_lc.contains(needle))
+fn is_effective_web_research_scope(agent_state: &AgentState) -> bool {
+    is_search_scope(agent_state.resolved_intent.as_ref())
+        || is_live_external_research_goal(&agent_state.goal)
 }
 
 fn is_empty_memory_search_output(output: &str) -> bool {
@@ -647,7 +636,7 @@ pub async fn process_tool_output(
                             }
                             AgentTool::MemorySearch { query } => {
                                 if success
-                                    && is_search_scope(agent_state.resolved_intent.as_ref())
+                                    && is_effective_web_research_scope(agent_state)
                                     && agent_state.pending_search_completion.is_none()
                                     && history_entry
                                         .as_deref()
@@ -678,8 +667,7 @@ pub async fn process_tool_output(
                                 }
                             }
                             AgentTool::WebSearch { query, .. } => {
-                                if success && is_search_scope(agent_state.resolved_intent.as_ref())
-                                {
+                                if success && is_effective_web_research_scope(agent_state) {
                                     if let Some(raw) = history_entry.as_deref() {
                                         if let Some(bundle) = parse_web_evidence_bundle(raw) {
                                             let query_value = bundle
@@ -692,9 +680,18 @@ pub async fn process_tool_output(
                                                         .then(|| trimmed.to_string())
                                                 })
                                                 .unwrap_or_else(|| agent_state.goal.clone());
+                                            let query_contract = {
+                                                let trimmed_goal = agent_state.goal.trim();
+                                                if trimmed_goal.is_empty() {
+                                                    query_value.clone()
+                                                } else {
+                                                    trimmed_goal.to_string()
+                                                }
+                                            };
                                             let started_at_ms = web_pipeline_now_ms();
                                             let mut pending = PendingSearchCompletion {
                                                 query: query_value,
+                                                query_contract,
                                                 url: bundle.url.clone().unwrap_or_default(),
                                                 started_step: pre_state_summary.step_index,
                                                 started_at_ms,
@@ -778,7 +775,7 @@ pub async fn process_tool_output(
                         if success
                             && current_tool_name == "browser__navigate"
                             && agent_state.pending_search_completion.is_none()
-                            && is_search_scope(agent_state.resolved_intent.as_ref())
+                            && is_effective_web_research_scope(agent_state)
                         {
                             if let Some(url) = extract_navigation_url(&tool_args) {
                                 if is_search_results_url(&url) {
@@ -798,9 +795,18 @@ pub async fn process_tool_output(
                                         },
                                         nonce: agent_state.step_count as u64 + 1,
                                     });
+                                    let query_contract = {
+                                        let trimmed_goal = agent_state.goal.trim();
+                                        if trimmed_goal.is_empty() {
+                                            query.clone()
+                                        } else {
+                                            trimmed_goal.to_string()
+                                        }
+                                    };
                                     agent_state.pending_search_completion =
                                         Some(PendingSearchCompletion {
                                             query,
+                                            query_contract,
                                             url,
                                             started_step: pre_state_summary.step_index,
                                             started_at_ms: web_pipeline_now_ms(),
@@ -1029,9 +1035,9 @@ pub async fn process_tool_output(
             // Prefix ERROR_CLASS so anti-loop classification is deterministic.
             error_msg = Some(format!("ERROR_CLASS=UnexpectedState {}", parse_error));
             let empty_output = tool_call_result.trim().is_empty();
-            if empty_output && looks_like_web_research_goal(&agent_state.goal) {
+            if empty_output && is_effective_web_research_scope(agent_state) {
                 invalid_tool_call_bootstrap_web = true;
-            } else if is_search_scope(agent_state.resolved_intent.as_ref()) {
+            } else if is_effective_web_research_scope(agent_state) {
                 invalid_tool_call_fail_fast = true;
             }
         }
@@ -1483,7 +1489,7 @@ pub async fn process_tool_output(
                     agent_state.status = AgentStatus::Paused(
                         "Waiting for user intervention: complete the required human verification in your browser/app, then resume.".to_string(),
                     );
-                } else if is_search_scope(agent_state.resolved_intent.as_ref())
+                } else if is_effective_web_research_scope(agent_state)
                     && matches!(class, FailureClass::UnexpectedState)
                 {
                     // Keep web research autonomous under transient tool/schema instability.

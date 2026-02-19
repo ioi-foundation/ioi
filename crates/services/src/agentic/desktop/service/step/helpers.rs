@@ -1,5 +1,6 @@
 // Path: crates/services/src/agentic/desktop/service/step/helpers.rs
 
+use crate::agentic::desktop::service::step::signals;
 use crate::agentic::rules::{
     ActionRules, IntentFailureOverride, OntologyPolicy, Rule, RuleConditions, Verdict,
 };
@@ -200,6 +201,13 @@ pub fn should_log_raw_prompt_content() -> bool {
         .unwrap_or(false)
 }
 
+pub const LIVE_EXTERNAL_RESEARCH_SIGNAL_VERSION: &str =
+    signals::LIVE_EXTERNAL_RESEARCH_SIGNAL_VERSION;
+
+pub fn is_live_external_research_goal(goal: &str) -> bool {
+    signals::is_live_external_research_goal(goal)
+}
+
 pub fn should_auto_complete_open_app_goal(
     goal: &str,
     app_name: &str,
@@ -257,7 +265,10 @@ pub fn should_auto_complete_open_app_goal(
 
 #[cfg(test)]
 mod tests {
-    use super::{default_safe_policy, should_auto_complete_open_app_goal};
+    use super::{
+        default_safe_policy, is_live_external_research_goal, should_auto_complete_open_app_goal,
+        LIVE_EXTERNAL_RESEARCH_SIGNAL_VERSION,
+    };
 
     #[test]
     fn auto_complete_open_app_goal_for_simple_launch() {
@@ -301,5 +312,29 @@ mod tests {
         }
         assert!(saw_unexpected);
         assert!(saw_timeout);
+    }
+
+    #[test]
+    fn detects_live_external_research_goals() {
+        assert_eq!(LIVE_EXTERNAL_RESEARCH_SIGNAL_VERSION, "ontology_signals_v2");
+        assert!(is_live_external_research_goal(
+            "As of now (UTC), top active cloud incidents with status page citations and user impact"
+        ));
+        assert!(is_live_external_research_goal(
+            "Latest SaaS outage updates from major provider status pages with sources"
+        ));
+    }
+
+    #[test]
+    fn does_not_misclassify_workspace_edit_requests_as_live_research() {
+        assert!(!is_live_external_research_goal(
+            "Search this repo for intent resolver logic and patch the rust file"
+        ));
+        assert!(!is_live_external_research_goal(
+            "Update tests in the workspace and commit the diff"
+        ));
+        assert!(!is_live_external_research_goal(
+            "As of now, search this repository for incident handler changes and cite the files"
+        ));
     }
 }

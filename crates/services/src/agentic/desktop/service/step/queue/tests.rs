@@ -170,9 +170,103 @@ fn web_pipeline_source_hints_preserve_rank_order() {
 }
 
 #[test]
+fn web_pipeline_source_hints_prioritize_primary_status_surfaces_over_secondary_aggregation() {
+    let bundle = WebEvidenceBundle {
+        schema_version: 1,
+        retrieved_at_ms: 0,
+        tool: "web__search".to_string(),
+        backend: "edge:ddg".to_string(),
+        query: Some("active cloud incidents".to_string()),
+        url: Some("https://duckduckgo.com/?q=active+cloud+incidents".to_string()),
+        sources: vec![
+            WebSource {
+                source_id: "agg".to_string(),
+                rank: Some(1),
+                url: "https://example-monitor.com/cloud/incidents".to_string(),
+                title: Some("Cloud status page aggregator".to_string()),
+                snippet: Some(
+                    "Track incidents across providers with community outage reports.".to_string(),
+                ),
+                domain: Some("example-monitor.com".to_string()),
+            },
+            WebSource {
+                source_id: "primary".to_string(),
+                rank: Some(5),
+                url: "https://status.vendor-a.com/incidents/123".to_string(),
+                title: Some("API outage impacting U.S. region".to_string()),
+                snippet: Some(
+                    "Status page shows investigating with mitigation underway.".to_string(),
+                ),
+                domain: Some("status.vendor-a.com".to_string()),
+            },
+        ],
+        documents: vec![],
+    };
+
+    let hints = candidate_source_hints_from_bundle(&bundle);
+    assert_eq!(hints.len(), 2);
+    assert_eq!(hints[0].url, "https://status.vendor-a.com/incidents/123");
+    assert_eq!(hints[1].url, "https://example-monitor.com/cloud/incidents");
+}
+
+#[test]
+fn web_pipeline_source_hints_prioritize_operational_status_hosts_over_documentation_surfaces() {
+    let bundle = WebEvidenceBundle {
+        schema_version: 1,
+        retrieved_at_ms: 0,
+        tool: "web__search".to_string(),
+        backend: "edge:ddg".to_string(),
+        query: Some("service health incidents".to_string()),
+        url: Some("https://duckduckgo.com/?q=service+health+incidents".to_string()),
+        sources: vec![
+            WebSource {
+                source_id: "docs".to_string(),
+                rank: Some(1),
+                url: "https://learn.vendor-a.com/service-health/overview".to_string(),
+                title: Some("Service health overview".to_string()),
+                snippet: Some(
+                    "Documentation overview for service health capabilities and guidance."
+                        .to_string(),
+                ),
+                domain: Some("learn.vendor-a.com".to_string()),
+            },
+            WebSource {
+                source_id: "status-a".to_string(),
+                rank: Some(5),
+                url: "https://status.vendor-a.com/incidents/123".to_string(),
+                title: Some("API outage impacting U.S. region".to_string()),
+                snippet: Some(
+                    "Status page shows investigating with mitigation underway.".to_string(),
+                ),
+                domain: Some("status.vendor-a.com".to_string()),
+            },
+            WebSource {
+                source_id: "status-b".to_string(),
+                rank: Some(6),
+                url: "https://status.vendor-b.com/incidents/456".to_string(),
+                title: Some("Authentication degradation for North America".to_string()),
+                snippet: Some("Users may see login errors; next update expected soon.".to_string()),
+                domain: Some("status.vendor-b.com".to_string()),
+            },
+        ],
+        documents: vec![],
+    };
+
+    let hints = candidate_source_hints_from_bundle(&bundle);
+    assert_eq!(hints.len(), 3);
+    assert_eq!(hints[0].url, "https://status.vendor-a.com/incidents/123");
+    assert_eq!(hints[1].url, "https://status.vendor-b.com/incidents/456");
+    assert_eq!(
+        hints[2].url,
+        "https://learn.vendor-a.com/service-health/overview"
+    );
+}
+
+#[test]
 fn web_pipeline_uses_source_hints_when_read_output_is_low_signal() {
     let mut pending = PendingSearchCompletion {
         query: "latest breaking news".to_string(),
+        query_contract: "latest breaking news".to_string(),
         url: "https://news.google.com/rss/search?q=latest+breaking+news".to_string(),
         started_step: 1,
         started_at_ms: 100,
@@ -202,9 +296,75 @@ fn web_pipeline_uses_source_hints_when_read_output_is_low_signal() {
 }
 
 #[test]
+fn web_pipeline_suppresses_non_actionable_excerpt_noise_in_story_sections() {
+    let pending = PendingSearchCompletion {
+        query: "top active cloud incidents".to_string(),
+        query_contract: "top active cloud incidents".to_string(),
+        url: "https://duckduckgo.com/?q=top+active+cloud+incidents".to_string(),
+        started_step: 1,
+        started_at_ms: 1_771_465_364_000,
+        deadline_ms: 1_771_465_424_000,
+        candidate_urls: vec![
+            "https://status.cloud.google.com/incidents/U39RSGjaANJXtjHpRkdq".to_string(),
+            "https://azure.status.microsoft/en-us/status".to_string(),
+            "https://health.aws.amazon.com/health/status".to_string(),
+            "https://status.cloud.microsoft/en-us/status".to_string(),
+            "https://status.salesforce.com/".to_string(),
+            "https://status.datadoghq.com/".to_string(),
+        ],
+        candidate_source_hints: vec![
+            crate::agentic::desktop::types::PendingSearchReadSummary {
+                url: "https://status.cloud.google.com/incidents/U39RSGjaANJXtjHpRkdq".to_string(),
+                title: Some("Google Cloud Service Health".to_string()),
+                excerpt: "Multiple cloud products are experiencing networking issues in us-central1."
+                    .to_string(),
+            },
+            crate::agentic::desktop::types::PendingSearchReadSummary {
+                url: "https://azure.status.microsoft/en-us/status".to_string(),
+                title: Some("Azure Status Overview - Azure Service Health | Microsoft Learn".to_string()),
+                excerpt: "Note Access to this page requires authorization. You can try signing in or changing directories. Use Personalized Service Health for a more detailed overview."
+                    .to_string(),
+            },
+            crate::agentic::desktop::types::PendingSearchReadSummary {
+                url: "https://health.aws.amazon.com/health/status".to_string(),
+                title: Some("AWS Health Dashboard".to_string()),
+                excerpt: "Service health updates indicate elevated API error rates.".to_string(),
+            },
+            crate::agentic::desktop::types::PendingSearchReadSummary {
+                url: "https://status.cloud.microsoft/en-us/status".to_string(),
+                title: Some("Microsoft service health status".to_string()),
+                excerpt: "Investigating intermittent authentication failures.".to_string(),
+            },
+            crate::agentic::desktop::types::PendingSearchReadSummary {
+                url: "https://status.salesforce.com/".to_string(),
+                title: Some("Salesforce Trust".to_string()),
+                excerpt: "Monitoring mitigation rollout for affected tenants.".to_string(),
+            },
+            crate::agentic::desktop::types::PendingSearchReadSummary {
+                url: "https://status.datadoghq.com/".to_string(),
+                title: Some("Datadog Status".to_string()),
+                excerpt: "Partial outage under investigation.".to_string(),
+            },
+        ],
+        attempted_urls: vec![],
+        blocked_urls: vec![],
+        successful_reads: vec![],
+        min_sources: 2,
+    };
+
+    let reply =
+        synthesize_web_pipeline_reply(&pending, WebPipelineCompletionReason::MinSourcesReached);
+    let reply_lc = reply.to_ascii_lowercase();
+    assert!(!reply_lc.contains("requires authorization"));
+    assert!(!reply_lc.contains("you can try signing in"));
+    assert!(!reply_lc.contains("use personalized service health"));
+}
+
+#[test]
 fn web_pipeline_completion_deadline_produces_partial_low_confidence() {
     let pending = PendingSearchCompletion {
         query: "latest news".to_string(),
+        query_contract: "latest news".to_string(),
         url: "https://duckduckgo.com/?q=latest+news".to_string(),
         started_step: 1,
         started_at_ms: 100,
@@ -232,40 +392,44 @@ fn web_pipeline_completion_deadline_produces_partial_low_confidence() {
 #[test]
 fn web_pipeline_reply_enforces_three_story_structure_with_citations_and_timestamps() {
     let pending = PendingSearchCompletion {
-        query: "As of now (UTC), what are the top 3 U.S. breaking stories from the last 6 hours?"
+        query: "As of now (UTC), top 3 active U.S.-impacting cloud/SaaS incidents (major status pages), what changed in last hour, user impact, workaround, ETA confidence, 2 citations each."
             .to_string(),
-        url: "https://duckduckgo.com/?q=us+breaking+news".to_string(),
+        query_contract: "As of now (UTC), top 3 active U.S.-impacting cloud/SaaS incidents (major status pages), what changed in last hour, user impact, workaround, ETA confidence, 2 citations each."
+            .to_string(),
+        url: "https://duckduckgo.com/?q=cloud+saas+status+incidents".to_string(),
         started_step: 1,
         started_at_ms: 1_771_465_364_000,
         deadline_ms: 1_771_465_424_000,
         candidate_urls: vec![
-            "https://a.example.com/story-1".to_string(),
-            "https://b.example.com/story-2".to_string(),
-            "https://c.example.com/story-3".to_string(),
-            "https://d.example.com/story-4".to_string(),
-            "https://e.example.com/story-5".to_string(),
-            "https://f.example.com/story-6".to_string(),
+            "https://status.example.com/incidents/a".to_string(),
+            "https://status.example.com/incidents/b".to_string(),
+            "https://status.example.com/incidents/c".to_string(),
+            "https://status.example.com/incidents/d".to_string(),
+            "https://status.example.com/incidents/e".to_string(),
+            "https://status.example.com/incidents/f".to_string(),
         ],
         candidate_source_hints: vec![
             crate::agentic::desktop::types::PendingSearchReadSummary {
-                url: "https://a.example.com/story-1".to_string(),
-                title: Some("Federal agency issues emergency advisory".to_string()),
-                excerpt: "Officials confirmed a rapidly developing advisory affecting multiple U.S. states.".to_string(),
+                url: "https://status.example.com/incidents/a".to_string(),
+                title: Some("Major provider outage impacts API authentication".to_string()),
+                excerpt: "Investigating elevated auth errors for U.S. users; mitigation in progress."
+                    .to_string(),
             },
             crate::agentic::desktop::types::PendingSearchReadSummary {
-                url: "https://b.example.com/story-2".to_string(),
-                title: Some("Court hearing drives immediate policy response".to_string()),
-                excerpt: "A late-day hearing prompted new guidance and federal statements.".to_string(),
+                url: "https://status.example.com/incidents/b".to_string(),
+                title: Some("Dashboard degradation in North America region".to_string()),
+                excerpt: "Users may see slow dashboard loads; workaround includes retrying in alternate region.".to_string(),
             },
             crate::agentic::desktop::types::PendingSearchReadSummary {
-                url: "https://c.example.com/story-3".to_string(),
-                title: Some("Major weather disruption impacts transit corridors".to_string()),
-                excerpt: "Flight and rail schedules changed as severe weather moved east.".to_string(),
+                url: "https://status.example.com/incidents/c".to_string(),
+                title: Some("Storage control plane incident under active monitoring".to_string()),
+                excerpt: "Provider identified root cause and expects next update within 30 minutes."
+                    .to_string(),
             },
             crate::agentic::desktop::types::PendingSearchReadSummary {
-                url: "https://d.example.com/story-4".to_string(),
-                title: Some("Market reaction follows latest federal filing".to_string()),
-                excerpt: "Risk assets and yields moved after publication of new documents.".to_string(),
+                url: "https://status.example.com/incidents/d".to_string(),
+                title: Some("Service health: intermittent request timeout".to_string()),
+                excerpt: "Mitigation rolled out to reduce elevated latency for U.S. tenants.".to_string(),
             },
         ],
         attempted_urls: vec![],
@@ -281,7 +445,9 @@ fn web_pipeline_reply_enforces_three_story_structure_with_citations_and_timestam
     assert!(reply.contains("Story 3:"));
     assert_eq!(reply.matches("What happened:").count(), 3);
     assert_eq!(reply.matches("What changed in the last hour:").count(), 3);
-    assert_eq!(reply.matches("Why it matters:").count(), 3);
+    assert_eq!(reply.matches("User impact:").count(), 3);
+    assert_eq!(reply.matches("Workaround:").count(), 3);
+    assert_eq!(reply.matches("ETA confidence:").count(), 3);
     assert_eq!(reply.matches("Citations:").count(), 3);
     assert!(reply.contains("T") && reply.contains("Z"));
     let urls = extract_urls(&reply);
@@ -296,6 +462,7 @@ fn web_pipeline_reply_enforces_three_story_structure_with_citations_and_timestam
 fn web_pipeline_dedupes_near_duplicate_story_titles() {
     let pending = PendingSearchCompletion {
         query: "top breaking stories".to_string(),
+        query_contract: "top breaking stories".to_string(),
         url: "https://duckduckgo.com/?q=top+breaking+stories".to_string(),
         started_step: 1,
         started_at_ms: 1_771_465_364_000,
@@ -345,49 +512,47 @@ fn web_pipeline_dedupes_near_duplicate_story_titles() {
 }
 
 #[test]
-fn web_pipeline_deprioritizes_news_about_news_when_event_stories_exist() {
+fn web_pipeline_prioritizes_status_page_incidents_over_roundups() {
     let pending = PendingSearchCompletion {
-        query: "top US breaking news last 6 hours".to_string(),
-        url: "https://news.google.com/rss/search?q=top+US+breaking+news+last+6+hours".to_string(),
+        query: "top active cloud incidents".to_string(),
+        query_contract: "top active cloud incidents".to_string(),
+        url: "https://duckduckgo.com/?q=top+active+cloud+incidents".to_string(),
         started_step: 1,
         started_at_ms: 1_771_465_364_000,
         deadline_ms: 1_771_465_424_000,
         candidate_urls: vec![
-            "https://news.google.com/rss/articles/a".to_string(),
-            "https://news.google.com/rss/articles/b".to_string(),
-            "https://news.google.com/rss/articles/c".to_string(),
-            "https://news.google.com/rss/articles/d".to_string(),
-            "https://news.google.com/rss/articles/e".to_string(),
-            "https://news.google.com/rss/articles/f".to_string(),
+            "https://example.com/roundup/a".to_string(),
+            "https://example.com/analysis/b".to_string(),
+            "https://status.vendor-a.com/incidents/123".to_string(),
+            "https://status.vendor-b.com/incidents/456".to_string(),
+            "https://status.vendor-c.com/incidents/789".to_string(),
         ],
         candidate_source_hints: vec![
             crate::agentic::desktop::types::PendingSearchReadSummary {
-                url: "https://news.google.com/rss/articles/a".to_string(),
-                title: Some(
-                    "Top 50 US news websites: Minnesota Star Tribune traffic boosted by ICE coverage"
-                        .to_string(),
-                ),
-                excerpt: "Press Gazette".to_string(),
+                url: "https://example.com/roundup/a".to_string(),
+                title: Some("Weekly cloud outage roundup and analysis".to_string()),
+                excerpt: "Opinion and analysis of recent incidents.".to_string(),
             },
             crate::agentic::desktop::types::PendingSearchReadSummary {
-                url: "https://news.google.com/rss/articles/b".to_string(),
-                title: Some("Social Media and News Fact Sheet - Pew Research Center".to_string()),
-                excerpt: "Pew analysis of news habits.".to_string(),
+                url: "https://example.com/analysis/b".to_string(),
+                title: Some("Fact sheet: cloud reliability trends".to_string()),
+                excerpt: "Meta commentary rather than active status updates.".to_string(),
             },
             crate::agentic::desktop::types::PendingSearchReadSummary {
-                url: "https://news.google.com/rss/articles/c".to_string(),
-                title: Some("Federal court issues emergency injunction in border case".to_string()),
-                excerpt: "The order immediately changes enforcement guidance.".to_string(),
+                url: "https://status.vendor-a.com/incidents/123".to_string(),
+                title: Some("API outage impacting U.S. region".to_string()),
+                excerpt: "Status page shows investigating with mitigation underway.".to_string(),
             },
             crate::agentic::desktop::types::PendingSearchReadSummary {
-                url: "https://news.google.com/rss/articles/d".to_string(),
-                title: Some("Severe storm system triggers evacuations across Gulf Coast".to_string()),
-                excerpt: "State officials issued new evacuation zones in the last hour.".to_string(),
+                url: "https://status.vendor-b.com/incidents/456".to_string(),
+                title: Some("Authentication degradation for North America".to_string()),
+                excerpt: "Users may see login errors; next update expected within 30 minutes."
+                    .to_string(),
             },
             crate::agentic::desktop::types::PendingSearchReadSummary {
-                url: "https://news.google.com/rss/articles/e".to_string(),
-                title: Some("Senate advances emergency funding bill after late vote".to_string()),
-                excerpt: "Leaders confirmed immediate procedural next steps.".to_string(),
+                url: "https://status.vendor-c.com/incidents/789".to_string(),
+                title: Some("Dashboard latency incident on status page".to_string()),
+                excerpt: "Workaround suggests retrying read-only operations.".to_string(),
             },
         ],
         attempted_urls: vec![],
@@ -407,9 +572,215 @@ fn web_pipeline_deprioritizes_news_about_news_when_event_stories_exist() {
     assert!(
         story_titles_lc
             .iter()
-            .all(|title| !title.contains("news websites") && !title.contains("fact sheet")),
-        "expected event-driven stories to outrank meta-news titles, got {:?}",
+            .all(|title| !title.contains("roundup") && !title.contains("fact sheet")),
+        "expected status-page incidents to outrank low-priority roundup sources, got {:?}",
         story_titles
+    );
+}
+
+#[test]
+fn web_pipeline_demotes_secondary_status_aggregators_below_primary_status_surfaces() {
+    let pending = PendingSearchCompletion {
+        query: "top active cloud incidents".to_string(),
+        query_contract: "top active cloud incidents".to_string(),
+        url: "https://duckduckgo.com/?q=top+active+cloud+incidents".to_string(),
+        started_step: 1,
+        started_at_ms: 1_771_465_364_000,
+        deadline_ms: 1_771_465_424_000,
+        candidate_urls: vec![
+            "https://status.vendor-a.com/incidents/123".to_string(),
+            "https://status.vendor-b.com/incidents/456".to_string(),
+            "https://status.vendor-c.com/incidents/789".to_string(),
+            "https://example-monitor.com/cloud/incidents".to_string(),
+            "https://ops-tracker.example.net/status".to_string(),
+            "https://service-watch.example.org/dashboards/cloud".to_string(),
+        ],
+        candidate_source_hints: vec![
+            crate::agentic::desktop::types::PendingSearchReadSummary {
+                url: "https://status.vendor-a.com/incidents/123".to_string(),
+                title: Some("API outage impacting U.S. region".to_string()),
+                excerpt: "Investigating elevated API errors with mitigation underway.".to_string(),
+            },
+            crate::agentic::desktop::types::PendingSearchReadSummary {
+                url: "https://status.vendor-b.com/incidents/456".to_string(),
+                title: Some("Authentication degradation for North America".to_string()),
+                excerpt: "Users may see login errors; next update expected within 30 minutes."
+                    .to_string(),
+            },
+            crate::agentic::desktop::types::PendingSearchReadSummary {
+                url: "https://status.vendor-c.com/incidents/789".to_string(),
+                title: Some("Dashboard latency incident on status page".to_string()),
+                excerpt: "Workaround suggests retrying read-only operations.".to_string(),
+            },
+            crate::agentic::desktop::types::PendingSearchReadSummary {
+                url: "https://example-monitor.com/cloud/incidents".to_string(),
+                title: Some("Cloud status page aggregator".to_string()),
+                excerpt: "Track incidents across providers with community outage reports."
+                    .to_string(),
+            },
+            crate::agentic::desktop::types::PendingSearchReadSummary {
+                url: "https://ops-tracker.example.net/status".to_string(),
+                title: Some("Operations tracker across services".to_string()),
+                excerpt: "Aggregated signal feed for multiple services and providers.".to_string(),
+            },
+            crate::agentic::desktop::types::PendingSearchReadSummary {
+                url: "https://service-watch.example.org/dashboards/cloud".to_string(),
+                title: Some("Cloud outage monitor dashboard".to_string()),
+                excerpt: "Multi-service monitor for industry incidents.".to_string(),
+            },
+        ],
+        attempted_urls: vec![],
+        blocked_urls: vec![],
+        successful_reads: vec![],
+        min_sources: 2,
+    };
+
+    let reply =
+        synthesize_web_pipeline_reply(&pending, WebPipelineCompletionReason::MinSourcesReached);
+    let story_titles = extract_story_titles(&reply);
+    assert_eq!(story_titles.len(), 3);
+    let story_titles_lc = story_titles
+        .iter()
+        .map(|title| title.to_ascii_lowercase())
+        .collect::<Vec<_>>();
+    assert!(
+        story_titles_lc.iter().all(|title| {
+            !title.contains("aggregator")
+                && !title.contains("tracker")
+                && !title.contains("monitor")
+        }),
+        "expected primary status surfaces to outrank secondary aggregators, got {:?}",
+        story_titles
+    );
+}
+
+#[test]
+fn web_pipeline_prefers_primary_status_citations_when_sufficient_inventory_exists() {
+    let pending = PendingSearchCompletion {
+        query: "top active cloud incidents".to_string(),
+        query_contract: "top active cloud incidents".to_string(),
+        url: "https://duckduckgo.com/?q=top+active+cloud+incidents".to_string(),
+        started_step: 1,
+        started_at_ms: 1_771_465_364_000,
+        deadline_ms: 1_771_465_424_000,
+        candidate_urls: vec![
+            "https://status.vendor-a.com/incidents/1".to_string(),
+            "https://status.vendor-b.com/incidents/2".to_string(),
+            "https://status.vendor-c.com/incidents/3".to_string(),
+            "https://status.vendor-d.com/incidents/4".to_string(),
+            "https://status.vendor-e.com/incidents/5".to_string(),
+            "https://status.vendor-f.com/incidents/6".to_string(),
+            "https://example-monitor.com/cloud/incidents".to_string(),
+            "https://ops-tracker.example.net/status".to_string(),
+        ],
+        candidate_source_hints: vec![
+            crate::agentic::desktop::types::PendingSearchReadSummary {
+                url: "https://status.vendor-a.com/incidents/1".to_string(),
+                title: Some("API outage impacting U.S. region".to_string()),
+                excerpt: "Investigating elevated API errors with mitigation underway.".to_string(),
+            },
+            crate::agentic::desktop::types::PendingSearchReadSummary {
+                url: "https://status.vendor-b.com/incidents/2".to_string(),
+                title: Some("Authentication degradation for North America".to_string()),
+                excerpt: "Users may see login errors; next update expected within 30 minutes."
+                    .to_string(),
+            },
+            crate::agentic::desktop::types::PendingSearchReadSummary {
+                url: "https://status.vendor-c.com/incidents/3".to_string(),
+                title: Some("Dashboard latency incident on status page".to_string()),
+                excerpt: "Workaround suggests retrying read-only operations.".to_string(),
+            },
+            crate::agentic::desktop::types::PendingSearchReadSummary {
+                url: "https://status.vendor-d.com/incidents/4".to_string(),
+                title: Some("Storage control-plane incident".to_string()),
+                excerpt: "Mitigation in progress; next update in 20 minutes.".to_string(),
+            },
+            crate::agentic::desktop::types::PendingSearchReadSummary {
+                url: "https://status.vendor-e.com/incidents/5".to_string(),
+                title: Some("Network packet loss in us-east".to_string()),
+                excerpt: "Investigating traffic instability for affected tenants.".to_string(),
+            },
+            crate::agentic::desktop::types::PendingSearchReadSummary {
+                url: "https://status.vendor-f.com/incidents/6".to_string(),
+                title: Some("Control-plane API timeout".to_string()),
+                excerpt: "Monitoring mitigation rollout after identified regression.".to_string(),
+            },
+            crate::agentic::desktop::types::PendingSearchReadSummary {
+                url: "https://example-monitor.com/cloud/incidents".to_string(),
+                title: Some("Cloud status page aggregator".to_string()),
+                excerpt: "Track incidents across providers with community outage reports."
+                    .to_string(),
+            },
+            crate::agentic::desktop::types::PendingSearchReadSummary {
+                url: "https://ops-tracker.example.net/status".to_string(),
+                title: Some("Operations tracker across services".to_string()),
+                excerpt: "Aggregated signal feed for multiple services and providers.".to_string(),
+            },
+        ],
+        attempted_urls: vec![],
+        blocked_urls: vec![],
+        successful_reads: vec![],
+        min_sources: 2,
+    };
+
+    let reply =
+        synthesize_web_pipeline_reply(&pending, WebPipelineCompletionReason::MinSourcesReached);
+    assert!(
+        !reply.contains("https://example-monitor.com/cloud/incidents"),
+        "expected primary status citations to be preferred when sufficient inventory exists"
+    );
+    assert!(
+        !reply.contains("https://ops-tracker.example.net/status"),
+        "expected primary status citations to be preferred when sufficient inventory exists"
+    );
+}
+
+#[test]
+fn web_pipeline_reply_heading_is_query_agnostic() {
+    let pending = PendingSearchCompletion {
+        query: "latest regional cloud availability updates".to_string(),
+        query_contract: "latest regional cloud availability updates".to_string(),
+        url: "https://duckduckgo.com/?q=latest+regional+cloud+availability+updates".to_string(),
+        started_step: 1,
+        started_at_ms: 1_771_465_364_000,
+        deadline_ms: 1_771_465_424_000,
+        candidate_urls: vec![
+            "https://status.vendor-a.com/incidents/123".to_string(),
+            "https://status.vendor-b.com/incidents/456".to_string(),
+            "https://status.vendor-c.com/incidents/789".to_string(),
+            "https://status.vendor-d.com/incidents/999".to_string(),
+            "https://status.vendor-e.com/incidents/111".to_string(),
+            "https://status.vendor-f.com/incidents/222".to_string(),
+        ],
+        candidate_source_hints: vec![
+            crate::agentic::desktop::types::PendingSearchReadSummary {
+                url: "https://status.vendor-a.com/incidents/123".to_string(),
+                title: Some("Regional outage in us-east".to_string()),
+                excerpt: "Investigating elevated API errors and degraded latency.".to_string(),
+            },
+            crate::agentic::desktop::types::PendingSearchReadSummary {
+                url: "https://status.vendor-b.com/incidents/456".to_string(),
+                title: Some("Service health alert for dashboard".to_string()),
+                excerpt: "Monitoring mitigation rollout for North America users.".to_string(),
+            },
+            crate::agentic::desktop::types::PendingSearchReadSummary {
+                url: "https://status.vendor-c.com/incidents/789".to_string(),
+                title: Some("Authentication degradation update".to_string()),
+                excerpt: "Providers report partial recovery with ongoing monitoring.".to_string(),
+            },
+        ],
+        attempted_urls: vec![],
+        blocked_urls: vec![],
+        successful_reads: vec![],
+        min_sources: 2,
+    };
+
+    let reply =
+        synthesize_web_pipeline_reply(&pending, WebPipelineCompletionReason::MinSourcesReached);
+    assert!(
+        reply.contains("Web retrieval summary for 'latest regional cloud availability updates'"),
+        "expected query-agnostic heading, got:\n{}",
+        reply
     );
 }
 

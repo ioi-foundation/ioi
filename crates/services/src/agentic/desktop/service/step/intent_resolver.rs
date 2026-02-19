@@ -423,6 +423,8 @@ pub async fn resolve_step_intent(
     } else {
         latest_user_message
     };
+    let live_research_profile = super::signals::analyze_goal_signals(&query);
+    let force_live_external_research = live_research_profile.prefers_live_external_research();
     let session_prefix = hex::encode(&agent_state.session_id[..4]);
     let query_hash = sha256(query.as_bytes())
         .map(|digest| hex::encode(digest.as_ref()))
@@ -477,10 +479,66 @@ pub async fn resolve_step_intent(
             .partial_cmp(&a.score)
             .unwrap_or(std::cmp::Ordering::Equal)
     });
-    let winner = top_k.first().cloned().unwrap_or(IntentCandidateScore {
-        intent_id: "unknown".to_string(),
-        score: 0.0,
-    });
+    let mut routed_top_k = top_k.into_iter().take(5).collect::<Vec<_>>();
+    let mut winner = routed_top_k
+        .first()
+        .cloned()
+        .unwrap_or(IntentCandidateScore {
+            intent_id: "unknown".to_string(),
+            score: 0.0,
+        });
+    if force_live_external_research {
+        if let Some(web_entry) = matrix
+            .iter()
+            .find(|entry| entry.scope == IntentScopeProfile::WebResearch)
+        {
+            if winner.intent_id != web_entry.intent_id {
+                let previous_intent_id = winner.intent_id.clone();
+                let medium_floor =
+                    (policy.confidence.medium_threshold_bps as f32 / 10_000.0).clamp(0.0, 1.0);
+                let web_ranked_score = routed_top_k
+                    .iter()
+                    .find(|candidate| candidate.intent_id == web_entry.intent_id)
+                    .map(|candidate| candidate.score)
+                    .unwrap_or_default()
+                    .clamp(0.0, 1.0);
+                let has_rank_support = web_ranked_score >= medium_floor;
+                let has_strong_research_signals = live_research_profile.recency_hits > 0
+                    && live_research_profile.provenance_hits > 0;
+                if !has_rank_support && !has_strong_research_signals {
+                    log::info!(
+                        "IntentResolverOverrideSkipped session={} reason=insufficient_rank_support signal_version={} winner={} web_candidate_score={:.3}",
+                        session_prefix,
+                        super::helpers::LIVE_EXTERNAL_RESEARCH_SIGNAL_VERSION,
+                        winner.intent_id,
+                        web_ranked_score
+                    );
+                } else {
+                    let web_score = if web_ranked_score > 0.0 {
+                        web_ranked_score
+                    } else {
+                        winner.score.max(medium_floor).clamp(0.0, 1.0)
+                    };
+                    winner = IntentCandidateScore {
+                        intent_id: web_entry.intent_id.clone(),
+                        score: web_score,
+                    };
+                    routed_top_k.retain(|candidate| candidate.intent_id != web_entry.intent_id);
+                    routed_top_k.insert(0, winner.clone());
+                    routed_top_k.truncate(5);
+                    log::info!(
+                        "IntentResolverOverride session={} reason=live_external_research signal_version={} from_intent={} to_intent={} score={:.3}",
+                        session_prefix,
+                        super::helpers::LIVE_EXTERNAL_RESEARCH_SIGNAL_VERSION,
+                        previous_intent_id,
+                        winner.intent_id,
+                        winner.score
+                    );
+                }
+            }
+        }
+    }
+
     let scope = scope_for_intent(&matrix, &winner.intent_id);
     let preferred_tier = preferred_tier_for_intent(&matrix, &winner.intent_id);
     let band = resolve_band(winner.score, policy);
@@ -489,7 +547,7 @@ pub async fn resolve_step_intent(
         scope,
         band,
         score: winner.score.clamp(0.0, 1.0),
-        top_k: top_k.into_iter().take(5).collect(),
+        top_k: routed_top_k,
         preferred_tier,
         matrix_version: policy.matrix_version.clone(),
         matrix_source_hash: matrix_hash,
@@ -537,12 +595,13 @@ mod tests {
     use ioi_drivers::browser::BrowserDriver;
     use ioi_drivers::terminal::TerminalDriver;
     use ioi_types::app::agentic::{
-        IntentAmbiguityAction, IntentConfidenceBand, IntentConfidenceBandPolicy,
+        InferenceOptions, IntentAmbiguityAction, IntentConfidenceBand, IntentConfidenceBandPolicy,
         IntentRoutingPolicy, IntentScopeProfile, ResolvedIntentState,
     };
     use ioi_types::app::{ActionRequest, ContextSlice};
     use ioi_types::error::VmError;
     use std::collections::{BTreeMap, HashMap};
+    use std::path::Path;
     use std::sync::Arc;
 
     struct NoopGuiDriver;
@@ -580,6 +639,50 @@ mod tests {
             &self,
             _map: HashMap<u32, (i32, i32, i32, i32)>,
         ) -> Result<(), VmError> {
+            Ok(())
+        }
+    }
+
+    #[derive(Debug, Default, Clone)]
+    struct DriftedIntentRuntime;
+
+    #[async_trait]
+    impl InferenceRuntime for DriftedIntentRuntime {
+        async fn execute_inference(
+            &self,
+            _model_hash: [u8; 32],
+            _input_context: &[u8],
+            _options: InferenceOptions,
+        ) -> Result<Vec<u8>, VmError> {
+            Ok(br#"{"scores":[]}"#.to_vec())
+        }
+
+        async fn embed_text(&self, text: &str) -> Result<Vec<f32>, VmError> {
+            let text_lc = text.to_ascii_lowercase();
+            if text_lc.contains("workspace")
+                || text_lc.contains("repo")
+                || text_lc.contains("codebase")
+                || text_lc.contains("incident")
+                || text_lc.contains("status page")
+                || text_lc.contains("citations")
+            {
+                return Ok(vec![1.0, 0.0]);
+            }
+            if text_lc.contains("web")
+                || text_lc.contains("lookup")
+                || text_lc.contains("browse")
+                || text_lc.contains("search")
+            {
+                return Ok(vec![0.0, 1.0]);
+            }
+            Ok(vec![0.7, 0.3])
+        }
+
+        async fn load_model(&self, _model_hash: [u8; 32], _path: &Path) -> Result<(), VmError> {
+            Ok(())
+        }
+
+        async fn unload_model(&self, _model_hash: [u8; 32]) -> Result<(), VmError> {
             Ok(())
         }
     }
@@ -764,5 +867,31 @@ mod tests {
             .await
             .unwrap();
         assert!(!resolved.constrained);
+    }
+
+    #[tokio::test(flavor = "current_thread")]
+    async fn resolver_forces_web_research_for_live_external_incident_queries() {
+        let gui: Arc<dyn GuiDriver> = Arc::new(NoopGuiDriver);
+        let terminal = Arc::new(TerminalDriver::new());
+        let browser = Arc::new(BrowserDriver::new());
+        let inference: Arc<dyn InferenceRuntime> = Arc::new(DriftedIntentRuntime);
+        let service = DesktopAgentService::new(gui, terminal, browser, inference);
+
+        let mut agent_state = test_agent_state();
+        agent_state.goal = "As of now (UTC), top 3 active U.S.-impacting cloud/SaaS incidents (major status pages), what changed in last hour, user impact, workaround, ETA confidence, 2 citations each.".to_string();
+
+        let rules = ActionRules::default();
+        let resolved = resolve_step_intent(&service, &agent_state, &rules, "terminal")
+            .await
+            .unwrap();
+        assert_eq!(resolved.scope, IntentScopeProfile::WebResearch);
+        assert_eq!(resolved.intent_id, "web.research");
+        assert_eq!(
+            resolved
+                .top_k
+                .first()
+                .map(|candidate| candidate.intent_id.as_str()),
+            Some("web.research")
+        );
     }
 }

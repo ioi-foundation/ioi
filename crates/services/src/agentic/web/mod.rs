@@ -67,6 +67,39 @@ pub fn build_ddg_serp_url(query: &str) -> String {
     url.to_string()
 }
 
+fn build_google_serp_url(query: &str) -> String {
+    let trimmed = query.trim();
+    if trimmed.is_empty() {
+        return "https://www.google.com/search".to_string();
+    }
+    let mut url = Url::parse("https://www.google.com/search").expect("static base url parses");
+    url.query_pairs_mut().append_pair("q", trimmed);
+    url.to_string()
+}
+
+fn build_bing_serp_url(query: &str) -> String {
+    let trimmed = query.trim();
+    if trimmed.is_empty() {
+        return "https://www.bing.com/search".to_string();
+    }
+    let mut url = Url::parse("https://www.bing.com/search").expect("static base url parses");
+    url.query_pairs_mut().append_pair("q", trimmed);
+    url.to_string()
+}
+
+pub fn build_default_search_url(query: &str) -> String {
+    let provider = std::env::var("IOI_WEB_DEFAULT_SEARCH_PROVIDER")
+        .ok()
+        .map(|raw| raw.trim().to_ascii_lowercase())
+        .unwrap_or_else(|| "duckduckgo".to_string());
+
+    match provider.as_str() {
+        "google" => build_google_serp_url(query),
+        "bing" => build_bing_serp_url(query),
+        "duckduckgo" | "ddg" | _ => build_ddg_serp_url(query),
+    }
+}
+
 fn build_google_news_rss_url(query: &str) -> String {
     let trimmed = query.trim();
     if trimmed.is_empty() {
@@ -710,6 +743,17 @@ mod tests {
         let url = build_ddg_serp_url("internet of intelligence");
         assert!(url.starts_with("https://duckduckgo.com/"));
         assert!(url.contains("q=internet+of+intelligence"));
+    }
+
+    #[test]
+    fn provider_specific_search_urls_encode_query() {
+        let google = build_google_serp_url("internet of intelligence");
+        assert!(google.starts_with("https://www.google.com/search"));
+        assert!(google.contains("q=internet+of+intelligence"));
+
+        let bing = build_bing_serp_url("internet of intelligence");
+        assert!(bing.starts_with("https://www.bing.com/search"));
+        assert!(bing.contains("q=internet+of+intelligence"));
     }
 
     #[test]

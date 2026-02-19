@@ -78,6 +78,8 @@ fn default_pending_search_min_sources() -> u32 {
 #[serde(default)]
 pub struct PendingSearchCompletion {
     pub query: String,
+    #[serde(default)]
+    pub query_contract: String,
     pub url: String,
     pub started_step: u32,
     pub started_at_ms: u64,
@@ -106,6 +108,7 @@ impl Default for PendingSearchCompletion {
     fn default() -> Self {
         Self {
             query: String::new(),
+            query_contract: String::new(),
             url: String::new(),
             started_step: 0,
             started_at_ms: 0,

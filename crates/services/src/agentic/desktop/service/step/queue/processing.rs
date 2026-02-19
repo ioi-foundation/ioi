@@ -26,7 +26,7 @@ use crate::agentic::desktop::service::step::anti_loop::{
     TierRoutingDecision,
 };
 use crate::agentic::desktop::service::step::helpers::{
-    default_safe_policy, should_auto_complete_open_app_goal,
+    default_safe_policy, is_live_external_research_goal, should_auto_complete_open_app_goal,
 };
 use crate::agentic::desktop::service::step::incident::{
     advance_incident_after_action_outcome, incident_receipt_fields, load_incident_state,
@@ -63,6 +63,7 @@ fn is_web_research_scope(agent_state: &AgentState) -> bool {
         .as_ref()
         .map(|resolved| resolved.scope == IntentScopeProfile::WebResearch)
         .unwrap_or(false)
+        || is_live_external_research_goal(&agent_state.goal)
 }
 
 pub async fn process_queue_item(
@@ -449,9 +450,18 @@ pub async fn process_queue_item(
                     _ => None,
                 })
                 .unwrap_or_else(|| agent_state.goal.clone());
+            let query_contract = {
+                let trimmed_goal = agent_state.goal.trim();
+                if trimmed_goal.is_empty() {
+                    query_value.clone()
+                } else {
+                    trimmed_goal.to_string()
+                }
+            };
             let started_at_ms = web_pipeline_now_ms();
             let pending = crate::agentic::desktop::types::PendingSearchCompletion {
                 query: query_value,
+                query_contract,
                 url: bundle.url.clone().unwrap_or_default(),
                 started_step: pre_state_summary.step_index,
                 started_at_ms,
