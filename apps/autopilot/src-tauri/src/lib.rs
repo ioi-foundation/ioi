@@ -300,6 +300,7 @@ pub fn run() {
             kernel::artifacts::get_thread_artifacts,
             kernel::artifacts::get_artifact_content,
             kernel::artifacts::get_run_bundle,
+            kernel::artifacts::export_thread_bundle,
             // Session
             kernel::session::get_session_history,
             kernel::session::load_session,

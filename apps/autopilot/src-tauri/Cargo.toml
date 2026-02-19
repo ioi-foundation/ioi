@@ -57,6 +57,7 @@ tonic = { version = "0.11", features = ["transport"] }
 
 base64 = "0.21"
 hex = "0.4"
+zip = { version = "0.6", default-features = false, features = ["deflate"] }
 
 # Linux-specific: X11 for multi-threading support (XInitThreads)
 [target.'cfg(target_os = "linux")'.dependencies]

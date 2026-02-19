@@ -15,6 +15,7 @@ import {
   AgentTask,
   Artifact,
   ChatMessage,
+  RunPresentation,
   SessionSummary,
 } from "../../types";
 import { useSpotlightLayout } from "./hooks/useSpotlightLayout";
@@ -30,8 +31,12 @@ import { SpotlightApprovalCard } from "./components/SpotlightApprovalCard";
 import { SpotlightPasswordCard } from "./components/SpotlightPasswordCard";
 import { SpotlightClarificationCard } from "./components/SpotlightClarificationCard";
 import { ThoughtChain } from "./components/ThoughtChain";
+import { AnswerCard } from "./components/AnswerCard";
+import { ActivityRail } from "./components/ActivityRail";
 import { Dropdown, DropdownOption } from "./components/SpotlightDropdown";
 import { ArtifactSidebar } from "./components/ArtifactSidebar";
+import { buildRunPresentation } from "./viewmodels/contentPipeline";
+import { exportThreadContextBundle } from "./utils/exportContext";
 
 // Styles
 import "./styles/Layout.css";
@@ -61,6 +66,10 @@ const modelOptions: DropdownOption[] = [
 const BASE_PANEL_WIDTH = 450;
 const SIDEBAR_PANEL_WIDTH = 260;
 const ARTIFACT_PANEL_WIDTH = 400;
+const CONTENT_PIPELINE_V2_FLAG = "AUTOPILOT_CONTENT_PIPELINE_V2";
+const CONTENT_PIPELINE_V2_ENABLED =
+  String((import.meta as any).env?.[CONTENT_PIPELINE_V2_FLAG] ?? "true").toLowerCase() !==
+  "false";
 
 function isIdentityResolutionClarificationKind(kind?: string): boolean {
   if (!kind) return false;
@@ -201,6 +210,10 @@ export function SpotlightWindow({ variant = "overlay" }: SpotlightWindowProps) {
   // Auto-scroll on new messages
   const activeHistory: ChatMessage[] =
     (task as AgentTask | null)?.history || localHistory;
+  const fallbackConversation = useMemo(
+    () => activeHistory.filter((message) => message.role === "user" || message.role === "agent"),
+    [activeHistory],
+  );
 
   useEffect(() => {
     // [FIX] Scroll only if user was already at bottom (stick-to-bottom behavior)
@@ -672,10 +685,29 @@ export function SpotlightWindow({ variant = "overlay" }: SpotlightWindowProps) {
   );
 
   // ============================================
-  // RENDER CHAT STREAM
+  // CONTENT PRESENTATION
   // ============================================
 
-  const { chatElements, hasChainContent } = useMemo(() => {
+  const runPresentation: RunPresentation = useMemo(
+    () => buildRunPresentation(activeHistory, activeEvents, activeArtifacts),
+    [activeArtifacts, activeEvents, activeHistory],
+  );
+
+  const handleDownloadContext = useCallback(async () => {
+    if (!activeSessionId) {
+      return;
+    }
+    try {
+      await exportThreadContextBundle({
+        threadId: activeSessionId,
+        includeArtifactPayloads: true,
+      });
+    } catch (error) {
+      console.error("Failed to export run context bundle:", error);
+    }
+  }, [activeSessionId]);
+
+  const { legacyChatElements, hasLegacyChainContent } = useMemo(() => {
     const combined: ChatEvent[] = [
       ...activeHistory.map((m) => ({ ...m, isGate: false, gateData: null })),
       ...chatEvents,
@@ -781,8 +813,8 @@ export function SpotlightWindow({ variant = "overlay" }: SpotlightWindowProps) {
     }
 
     return {
-      chatElements: [...historyElements, ...timelineElements],
-      hasChainContent: foundChain || timelineElements.length > 0,
+      legacyChatElements: [...historyElements, ...timelineElements],
+      hasLegacyChainContent: foundChain || timelineElements.length > 0,
     };
   }, [
     activeEvents,
@@ -793,8 +825,10 @@ export function SpotlightWindow({ variant = "overlay" }: SpotlightWindowProps) {
     task,
   ]);
 
-  // Only show initial loader if running AND no chain content exists yet
-  const showInitialLoader = isRunning && !hasChainContent;
+  // Only show initial loader if running and no visible thinking content exists yet.
+  const showInitialLoader = CONTENT_PIPELINE_V2_ENABLED
+    ? isRunning && runPresentation.activityGroups.length === 0 && !runPresentation.finalAnswer
+    : isRunning && !hasLegacyChainContent;
 
   // ============================================
   // RENDER
@@ -845,7 +879,64 @@ export function SpotlightWindow({ variant = "overlay" }: SpotlightWindowProps) {
                 <IOIWatermark onSuggestionClick={(text) => setIntent(text)} />
               )}
 
-              {chatElements}
+              {CONTENT_PIPELINE_V2_ENABLED ? (
+                <>
+                  {runPresentation.prompt && (
+                    <div className="spot-message user spot-message--prompt">
+                      <div className="message-content-text">
+                        {runPresentation.prompt.text}
+                      </div>
+                    </div>
+                  )}
+
+                  {!runPresentation.prompt &&
+                    runPresentation.finalAnswer &&
+                    fallbackConversation
+                      .filter((entry) => entry.role === "user")
+                      .slice(-1)
+                      .map((entry, index) => (
+                        <div
+                          key={`v2-fallback-prompt-${entry.timestamp}-${index}`}
+                          className="spot-message user spot-message--prompt"
+                        >
+                          <div className="message-content-text">{entry.text}</div>
+                        </div>
+                      ))}
+
+                  {runPresentation.finalAnswer && (
+                    <AnswerCard
+                      answer={runPresentation.finalAnswer}
+                      artifactRefs={runPresentation.artifactRefs}
+                      onDownloadContext={handleDownloadContext}
+                      onOpenArtifact={openArtifactById}
+                    />
+                  )}
+
+                  {!runPresentation.finalAnswer &&
+                    fallbackConversation
+                      .filter((entry) => entry.role === "agent")
+                      .slice(-1)
+                      .map((entry, index) => (
+                        <div
+                          key={`v2-fallback-answer-${entry.timestamp}-${index}`}
+                          className="spot-message agent"
+                        >
+                          <MarkdownMessage text={entry.text} />
+                        </div>
+                      ))}
+
+                  {runPresentation.activityGroups.length > 0 && (
+                    <ActivityRail
+                      summary={runPresentation.activitySummary}
+                      groups={runPresentation.activityGroups}
+                      onOpenArtifact={openArtifactById}
+                      defaultCollapsed={true}
+                    />
+                  )}
+                </>
+              ) : (
+                <>{legacyChatElements}</>
+              )}
 
               {showInitialLoader && (
                 <ThoughtChain

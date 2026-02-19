@@ -1,44 +1,77 @@
 .micro-event-card {
-  border: 1px solid var(--border-subtle);
+  border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 10px;
-  padding: 10px;
-  margin: 8px 0;
-  background: rgba(255, 255, 255, 0.04);
+  padding: 9px 10px;
+  background: rgba(5, 6, 8, 0.38);
 }
 
-.micro-event-header {
-  width: 100%;
+.micro-event-card.status-failure {
+  border-color: rgba(248, 113, 113, 0.28);
+}
+
+.micro-event-card.status-partial {
+  border-color: rgba(251, 191, 36, 0.24);
+}
+
+.micro-event-topline {
   display: flex;
   align-items: center;
   gap: 8px;
-  border: 0;
-  background: transparent;
-  color: var(--text-primary);
-  text-align: left;
-  cursor: pointer;
-  padding: 0;
 }
 
 .micro-event-icon {
-  width: 18px;
+  width: 16px;
   text-align: center;
+  color: var(--spot-text-muted);
+  flex-shrink: 0;
 }
 
 .micro-event-title {
   flex: 1;
+  margin: 0;
   font-size: 12px;
+  line-height: 1.3;
   font-weight: 600;
+  color: var(--spot-text-secondary);
+  overflow-wrap: anywhere;
 }
 
-.micro-event-meta {
+.micro-event-step {
   font-size: 10px;
-  color: var(--text-secondary);
+  color: var(--spot-text-dim);
+  flex-shrink: 0;
+}
+
+.micro-event-badges {
+  margin-top: 7px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.micro-event-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 6px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 999px;
+  color: var(--spot-text-dim);
+  background: rgba(255, 255, 255, 0.04);
+  font-size: 10px;
 }
 
 .micro-event-digest {
-  margin-top: 6px;
+  margin: 7px 0 0;
   font-size: 11px;
-  color: var(--text-secondary);
+  color: var(--spot-text-secondary);
+  overflow-wrap: anywhere;
+}
+
+.micro-event-snippet {
+  margin: 5px 0 0;
+  font-size: 11px;
+  color: var(--spot-text-muted);
+  overflow-wrap: anywhere;
 }
 
 .micro-event-links {
@@ -49,30 +82,64 @@
 }
 
 .micro-event-link-btn {
-  border: 1px solid var(--border-subtle);
-  background: rgba(255, 255, 255, 0.05);
-  color: var(--text-secondary);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--spot-text-secondary);
   font-size: 10px;
-  border-radius: 6px;
-  padding: 2px 6px;
+  border-radius: 7px;
+  padding: 3px 7px;
   cursor: pointer;
+}
+
+.micro-event-link-btn:hover {
+  border-color: rgba(99, 144, 255, 0.45);
+  color: var(--spot-text-primary);
+  background: rgba(99, 144, 255, 0.08);
+}
+
+.micro-event-actions-row {
+  margin-top: 8px;
+  display: flex;
+  gap: 6px;
+}
+
+.micro-event-toggle {
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--spot-text-muted);
+  font-size: 10px;
+  padding: 4px 9px;
+  cursor: pointer;
+}
+
+.micro-event-toggle:hover {
+  color: var(--spot-text-secondary);
+  border-color: rgba(255, 255, 255, 0.2);
 }
 
 .micro-event-details {
   margin-top: 8px;
-  border-top: 1px solid var(--border-subtle);
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
   padding-top: 8px;
 }
 
-.micro-event-details pre {
-  white-space: pre-wrap;
-  margin: 0;
+.micro-event-footnote {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
   font-size: 10px;
-  color: var(--text-secondary);
+  color: var(--spot-text-dim);
 }
 
-.micro-event-footnote {
-  margin-top: 6px;
+.micro-event-details pre {
+  margin: 8px 0 0;
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.35);
+  padding: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  white-space: pre-wrap;
   font-size: 10px;
-  color: var(--text-secondary);
+  color: var(--spot-text-secondary);
+  overflow-x: auto;
 }
