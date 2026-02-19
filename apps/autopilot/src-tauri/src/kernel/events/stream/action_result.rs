@@ -284,9 +284,10 @@ pub(super) async fn handle_action_result(app: &tauri::AppHandle, res: AgentActio
 
             let duplicate = t
                 .history
-                .last()
-                .map(|m| m.text == res.output)
-                .unwrap_or(false);
+                .iter()
+                .rev()
+                .take(8)
+                .any(|m| m.role == "agent" && m.text == res.output);
             if !duplicate {
                 t.history.push(ChatMessage {
                     role: "agent".to_string(),

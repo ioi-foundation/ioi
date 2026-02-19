@@ -238,3 +238,61 @@ export interface MutationLogEntry {
     score_delta: number;
     timestamp: number;
 }
+
+export type ActivityKind =
+  | "primary_answer_event"
+  | "receipt_event"
+  | "reasoning_event"
+  | "workload_event"
+  | "system_event";
+
+export interface ActivityEventRef {
+  key: string;
+  event: AgentEvent;
+  kind: ActivityKind;
+  toolName?: string;
+  normalizedOutputHash?: string;
+}
+
+export interface ActivitySummary {
+  searchCount: number;
+  readCount: number;
+  receiptCount: number;
+  reasoningCount: number;
+  systemCount: number;
+  artifactCount: number;
+}
+
+export interface ActivityGroup {
+  stepIndex: number;
+  title: string;
+  events: ActivityEventRef[];
+}
+
+export interface AnswerPresentation {
+  message: ChatMessage;
+  runTimestampUtc?: string;
+  confidence?: string;
+  completionReason?: string;
+  citations: string[];
+  sourceUrls: string[];
+}
+
+export interface RunPresentation {
+  prompt: ChatMessage | null;
+  finalAnswer: AnswerPresentation | null;
+  activitySummary: ActivitySummary;
+  activityGroups: ActivityGroup[];
+  artifactRefs: ArtifactRef[];
+}
+
+export interface ExportBundleManifest {
+  schema_version: number;
+  exported_at_utc: string;
+  thread_id: string;
+  answer_present: boolean;
+  event_count: number;
+  artifact_count: number;
+  included_artifact_payloads: boolean;
+  files: string[];
+}
