@@ -23,11 +23,14 @@ use ioi_state::tree::iavl::IAVLTree;
 use ioi_types::app::agentic::{
     InferenceOptions, IntentConfidenceBand, IntentScopeProfile, ResolvedIntentState,
 };
-use ioi_types::app::{ActionRequest, ContextSlice, KernelEvent, WorkloadReceipt};
+use ioi_types::app::{
+    ActionRequest, ContextSlice, KernelEvent, RoutingPostStateSummary, RoutingReceiptEvent,
+    RoutingStateSummary, WorkloadReceipt,
+};
 use ioi_types::{codec, error::VmError};
 use serde::Deserialize;
 use serde_json::json;
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 use std::io::Cursor;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
@@ -89,6 +92,14 @@ struct ArbiterVerdict {
     #[serde(default)]
     failures: Vec<String>,
 }
+
+const SLA_SECONDS: u64 = 60;
+const MIN_SOURCES: usize = 6;
+const REQUIRED_STORIES: usize = 3;
+const REQUIRED_CITATIONS_PER_STORY: usize = 2;
+const REQUIRED_NON_META_STORIES: usize = 2;
+const MAX_TERMINAL_CHAT_REPLY_EVENTS: usize = 1;
+const CHURN_REPEAT_THRESHOLD: usize = 3;
 
 fn build_ctx<'a>(services: &'a ServiceDirectory) -> TxContext<'a> {
     let now_ns = SystemTime::now()
@@ -196,42 +207,33 @@ fn extract_urls(text: &str) -> BTreeSet<String> {
         .collect()
 }
 
-fn month_name_present(text_lc: &str) -> bool {
-    [
-        "january",
-        "february",
-        "march",
-        "april",
-        "may",
-        "june",
-        "july",
-        "august",
-        "september",
-        "october",
-        "november",
-        "december",
-    ]
-    .iter()
-    .any(|m| text_lc.contains(m))
-}
-
-fn contains_iso_date(text: &str) -> bool {
+fn contains_absolute_utc_datetime(text: &str) -> bool {
     let bytes = text.as_bytes();
-    if bytes.len() < 10 {
+    if bytes.len() < 20 {
         return false;
     }
-    for i in 0..=bytes.len() - 10 {
-        let slice = &bytes[i..i + 10];
-        let ok = slice[0].is_ascii_digit()
-            && slice[1].is_ascii_digit()
-            && slice[2].is_ascii_digit()
-            && slice[3].is_ascii_digit()
-            && slice[4] == b'-'
-            && slice[5].is_ascii_digit()
-            && slice[6].is_ascii_digit()
-            && slice[7] == b'-'
-            && slice[8].is_ascii_digit()
-            && slice[9].is_ascii_digit();
+    for i in 0..=bytes.len() - 20 {
+        let s = &bytes[i..i + 20];
+        let ok = s[0].is_ascii_digit()
+            && s[1].is_ascii_digit()
+            && s[2].is_ascii_digit()
+            && s[3].is_ascii_digit()
+            && s[4] == b'-'
+            && s[5].is_ascii_digit()
+            && s[6].is_ascii_digit()
+            && s[7] == b'-'
+            && s[8].is_ascii_digit()
+            && s[9].is_ascii_digit()
+            && s[10] == b'T'
+            && s[11].is_ascii_digit()
+            && s[12].is_ascii_digit()
+            && s[13] == b':'
+            && s[14].is_ascii_digit()
+            && s[15].is_ascii_digit()
+            && s[16] == b':'
+            && s[17].is_ascii_digit()
+            && s[18].is_ascii_digit()
+            && s[19] == b'Z';
         if ok {
             return true;
         }
@@ -239,15 +241,234 @@ fn contains_iso_date(text: &str) -> bool {
     false
 }
 
-fn contains_year(text: &str) -> bool {
-    text.split(|c: char| !c.is_ascii_digit())
-        .filter(|part| part.len() == 4)
-        .any(|year| matches!(year.parse::<u32>(), Ok(v) if (1900..=2100).contains(&v)))
+const META_NEWS_TITLE_MARKERS: [&str; 8] = [
+    "news websites",
+    "fact sheet",
+    "trust in media",
+    "news sources americans use",
+    "which news sources",
+    "breaking headlines",
+    "headlines and video reports",
+    "schedules and results",
+];
+
+fn is_meta_news_title(title: &str) -> bool {
+    let lower = title.to_ascii_lowercase();
+    META_NEWS_TITLE_MARKERS
+        .iter()
+        .any(|marker| lower.contains(marker))
 }
 
-fn contains_absolute_date(text: &str) -> bool {
-    let lc = text.to_ascii_lowercase();
-    contains_iso_date(text) || (month_name_present(&lc) && contains_year(text))
+fn civil_date_from_days(days_since_epoch: i64) -> (i64, i64, i64) {
+    let z = days_since_epoch + 719_468;
+    let era = if z >= 0 { z } else { z - 146_096 } / 146_097;
+    let doe = z - era * 146_097;
+    let yoe = (doe - doe / 1_460 + doe / 36_524 - doe / 146_096) / 365;
+    let y = yoe + era * 400;
+    let doy = doe - (365 * yoe + yoe / 4 - yoe / 100);
+    let mp = (5 * doy + 2) / 153;
+    let day = doy - (153 * mp + 2) / 5 + 1;
+    let month = mp + if mp < 10 { 3 } else { -9 };
+    let year = y + if month <= 2 { 1 } else { 0 };
+    (year, month, day)
+}
+
+fn iso_datetime_from_unix_ms(unix_ms: u64) -> String {
+    let days_since_epoch = (unix_ms / 86_400_000) as i64;
+    let (year, month, day) = civil_date_from_days(days_since_epoch);
+    let ms_of_day = unix_ms % 86_400_000;
+    let hour = ms_of_day / 3_600_000;
+    let minute = (ms_of_day % 3_600_000) / 60_000;
+    let second = (ms_of_day % 60_000) / 1_000;
+    format!(
+        "{:04}-{:02}-{:02}T{:02}:{:02}:{:02}Z",
+        year, month, day, hour, minute, second
+    )
+}
+
+#[derive(Default, Debug, Clone)]
+struct StorySection {
+    title: String,
+    has_what_happened: bool,
+    has_changed_last_hour: bool,
+    has_why_it_matters: bool,
+    citation_count: usize,
+    citation_with_datetime_count: usize,
+    unique_citation_urls: BTreeSet<String>,
+    has_confidence: bool,
+    has_caveat: bool,
+}
+
+fn parse_story_sections(reply: &str) -> Vec<StorySection> {
+    let mut sections = Vec::new();
+    let mut current: Option<StorySection> = None;
+    let mut in_citations = false;
+
+    for line in reply.lines() {
+        let trimmed = line.trim();
+        if let Some(rest) = trimmed.strip_prefix("Story ") {
+            if let Some(section) = current.take() {
+                sections.push(section);
+            }
+            let title = rest
+                .split_once(':')
+                .map(|(_, rhs)| rhs.trim().to_string())
+                .unwrap_or_default();
+            current = Some(StorySection {
+                title,
+                ..Default::default()
+            });
+            in_citations = false;
+            continue;
+        }
+
+        let Some(section) = current.as_mut() else {
+            continue;
+        };
+        if trimmed.starts_with("What happened:") {
+            section.has_what_happened = true;
+            in_citations = false;
+            continue;
+        }
+        if trimmed.starts_with("What changed in the last hour:") {
+            section.has_changed_last_hour = true;
+            in_citations = false;
+            continue;
+        }
+        if trimmed.starts_with("Why it matters:") {
+            section.has_why_it_matters = true;
+            in_citations = false;
+            continue;
+        }
+        if trimmed == "Citations:" {
+            in_citations = true;
+            continue;
+        }
+        if in_citations && trimmed.starts_with("- ") {
+            section.citation_count += 1;
+            if contains_absolute_utc_datetime(trimmed) {
+                section.citation_with_datetime_count += 1;
+            }
+            for url in extract_urls(trimmed) {
+                section.unique_citation_urls.insert(url);
+            }
+            continue;
+        }
+        if trimmed.starts_with("Confidence:") {
+            section.has_confidence = true;
+            in_citations = false;
+            continue;
+        }
+        if trimmed.starts_with("Caveat:") {
+            section.has_caveat = true;
+            in_citations = false;
+        }
+    }
+
+    if let Some(section) = current {
+        sections.push(section);
+    }
+    sections
+}
+
+fn validate_story_sections(reply: &str) -> Vec<String> {
+    let sections = parse_story_sections(reply);
+    let mut failures = Vec::new();
+    if sections.len() != REQUIRED_STORIES {
+        failures.push(format!(
+            "required_story_count_mismatch expected={} got={}",
+            REQUIRED_STORIES,
+            sections.len()
+        ));
+        return failures;
+    }
+
+    for (idx, section) in sections.iter().enumerate() {
+        let story_num = idx + 1;
+        if section.title.trim().is_empty() {
+            failures.push(format!("story_{}_missing_title", story_num));
+        }
+        if !section.has_what_happened {
+            failures.push(format!("story_{}_missing_what_happened", story_num));
+        }
+        if !section.has_changed_last_hour {
+            failures.push(format!("story_{}_missing_changed_last_hour", story_num));
+        }
+        if !section.has_why_it_matters {
+            failures.push(format!("story_{}_missing_why_it_matters", story_num));
+        }
+        if section.citation_count < REQUIRED_CITATIONS_PER_STORY {
+            failures.push(format!(
+                "story_{}_citations_below_floor required>={} got={}",
+                story_num, REQUIRED_CITATIONS_PER_STORY, section.citation_count
+            ));
+        }
+        if section.citation_with_datetime_count < REQUIRED_CITATIONS_PER_STORY {
+            failures.push(format!(
+                "story_{}_citation_datetimes_below_floor required>={} got={}",
+                story_num, REQUIRED_CITATIONS_PER_STORY, section.citation_with_datetime_count
+            ));
+        }
+        if section.unique_citation_urls.len() < REQUIRED_CITATIONS_PER_STORY {
+            failures.push(format!(
+                "story_{}_distinct_citations_below_floor required>={} got={}",
+                story_num,
+                REQUIRED_CITATIONS_PER_STORY,
+                section.unique_citation_urls.len()
+            ));
+        }
+        if !section.has_confidence {
+            failures.push(format!("story_{}_missing_confidence", story_num));
+        }
+        if !section.has_caveat {
+            failures.push(format!("story_{}_missing_caveat", story_num));
+        }
+    }
+
+    failures
+}
+
+fn extract_check_value<'a>(checks: &'a [String], key: &str) -> Option<&'a str> {
+    let prefix = format!("{}=", key);
+    checks
+        .iter()
+        .find_map(|check| check.strip_prefix(&prefix).map(str::trim))
+}
+
+fn churn_signatures(events: &[KernelEvent]) -> Vec<String> {
+    let mut signatures = Vec::new();
+    let mut attempt_key_repeats: BTreeMap<String, usize> = BTreeMap::new();
+
+    for event in events {
+        let KernelEvent::RoutingReceipt(receipt) = event else {
+            continue;
+        };
+        let checks = &receipt.post_state.verification_checks;
+        if checks
+            .iter()
+            .any(|check| check == "attempt_retry_blocked_without_change=true")
+        {
+            signatures.push(format!(
+                "blocked_without_change tool={} step={}",
+                receipt.tool_name, receipt.step_index
+            ));
+        }
+
+        if let Some(hash) = extract_check_value(checks, "attempt_key_hash") {
+            let repeats = attempt_key_repeats.entry(hash.to_string()).or_insert(0);
+            *repeats += 1;
+            if *repeats >= CHURN_REPEAT_THRESHOLD && !receipt.post_state.success {
+                signatures.push(format!(
+                    "attempt_key_repeated hash={} count={}",
+                    hash, repeats
+                ));
+            }
+        }
+    }
+
+    signatures.sort();
+    signatures.dedup();
+    signatures
 }
 
 fn extract_json_object(raw: &str) -> Option<&str> {
@@ -335,11 +556,15 @@ async fn run_arbiter(
     payload: &serde_json::Value,
 ) -> Result<ArbiterVerdict> {
     let prompt = format!(
-        "You are an impartial e2e arbiter. Respond with JSON only: \
+        "You are a strict e2e arbiter for live breaking-news synthesis.\n\
+Return JSON only with exact schema: \
 {{\"pass\":bool,\"confidence\":\"high|medium|low\",\"rationale\":string,\"failures\":[string]}}.\n\
-Decide pass=true only if the answer is plausible breaking-news synthesis, reflects recency, and uses sources/dates correctly.\n\
-Treat `run_timestamp_ms` in the payload as the authoritative runtime clock. \
-Do not fail solely because a date appears \"in the future\" relative to your internal assumptions.\n\
+Decision policy (must follow exactly):\n\
+1) If any value in `deterministic.checks` is false, set pass=false.\n\
+2) If `deterministic.story_section_failures` is non-empty, set pass=false.\n\
+3) Otherwise set pass=true.\n\
+4) `failures` must list failed check names (or story failures) when pass=false, else [].\n\
+Treat `run_timestamp_ms` and `run_timestamp_iso_utc` as authoritative for recency context.\n\
 Payload:\n{}",
         serde_json::to_string_pretty(payload)?
     );
@@ -359,6 +584,12 @@ Payload:\n{}",
         .ok_or_else(|| anyhow!("arbiter did not return JSON object: {}", text))?;
     let verdict: ArbiterVerdict = serde_json::from_str(json_text)
         .map_err(|e| anyhow!("failed to parse arbiter verdict: {} raw={}", e, text))?;
+    if !matches!(verdict.confidence.as_str(), "high" | "medium" | "low") {
+        return Err(anyhow!(
+            "arbiter returned invalid confidence '{}'; expected high|medium|low",
+            verdict.confidence
+        ));
+    }
     Ok(verdict)
 }
 
@@ -371,7 +602,7 @@ async fn live_breaking_news_chat_reply_e2e() -> Result<()> {
         .map_err(|_| anyhow!("OPENAI_API_KEY required for live e2e"))?;
     let openai_model = std::env::var("OPENAI_MODEL").unwrap_or_else(|_| "gpt-4o".to_string());
     let arbiter_model =
-        std::env::var("NEWS_E2E_ARBITER_MODEL").unwrap_or_else(|_| "gpt-4o-mini".to_string());
+        std::env::var("NEWS_E2E_ARBITER_MODEL").unwrap_or_else(|_| "gpt-4o".to_string());
     let api_url = "https://api.openai.com/v1/chat/completions".to_string();
 
     let agent_runtime: Arc<dyn InferenceRuntime> = Arc::new(HttpInferenceRuntime::new(
@@ -402,8 +633,12 @@ async fn live_breaking_news_chat_reply_e2e() -> Result<()> {
     let services_dir = ServiceDirectory::new(vec![]);
     let mut ctx = build_ctx(&services_dir);
     let session_id = [0x42u8; 32];
-    let query =
-        "what's the latest breaking news? provide a chat reply with citations and absolute dates";
+    let query = "As of now (UTC), what are the top 3 U.S. breaking stories from the last 6 hours? For each: what happened, what changed in the last hour, why it matters, and 2 source citations with absolute dates/times.";
+    let run_timestamp_ms = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_millis() as u64;
+    let run_timestamp_iso_utc = iso_datetime_from_unix_ms(run_timestamp_ms);
 
     let start_params = StartAgentParams {
         session_id,
@@ -426,7 +661,7 @@ async fn live_breaking_news_chat_reply_e2e() -> Result<()> {
     seed_resolved_intent(&mut state, session_id, IntentScopeProfile::WebResearch);
 
     let started = Instant::now();
-    let deadline = Duration::from_secs(60);
+    let deadline = Duration::from_secs(SLA_SECONDS);
     let mut captured_events: Vec<KernelEvent> = Vec::new();
 
     loop {
@@ -490,9 +725,16 @@ async fn live_breaking_news_chat_reply_e2e() -> Result<()> {
     }
 
     let mut saw_terminal_chat_reply = false;
+    let mut terminal_chat_reply_events = 0usize;
     let mut final_reply = String::new();
     let mut saw_web_routing = false;
     let mut saw_web_retrieve_receipt = false;
+    let mut saw_web_search_routing = false;
+    let mut saw_web_read_routing = false;
+    let mut saw_web_search_receipt = false;
+    let mut saw_web_read_receipt = false;
+    let mut saw_terminal_chat_reply_ready_marker = false;
+    let mut saw_terminal_chat_reply_emitted_marker = false;
     let mut evidence = Vec::new();
 
     for event in &captured_events {
@@ -504,6 +746,7 @@ async fn live_breaking_news_chat_reply_e2e() -> Result<()> {
                 ..
             } => {
                 if tool_name == "chat__reply" && agent_status.eq_ignore_ascii_case("completed") {
+                    terminal_chat_reply_events += 1;
                     saw_terminal_chat_reply = true;
                     final_reply = output.clone();
                 }
@@ -512,6 +755,12 @@ async fn live_breaking_news_chat_reply_e2e() -> Result<()> {
                 if let WorkloadReceipt::WebRetrieve(web) = &workload.receipt {
                     if matches!(web.tool_name.as_str(), "web__search" | "web__read") {
                         saw_web_retrieve_receipt = true;
+                        if web.tool_name == "web__search" {
+                            saw_web_search_receipt = true;
+                        }
+                        if web.tool_name == "web__read" {
+                            saw_web_read_receipt = true;
+                        }
                         evidence.push(format!(
                             "workload:{} success={} sources={} documents={}",
                             web.tool_name, web.success, web.sources_count, web.documents_count
@@ -522,62 +771,178 @@ async fn live_breaking_news_chat_reply_e2e() -> Result<()> {
             KernelEvent::RoutingReceipt(receipt) => {
                 if matches!(receipt.tool_name.as_str(), "web__search" | "web__read") {
                     saw_web_routing = true;
+                    if receipt.tool_name == "web__search" {
+                        saw_web_search_routing = true;
+                    }
+                    if receipt.tool_name == "web__read" {
+                        saw_web_read_routing = true;
+                    }
                     evidence.push(format!(
                         "routing:{} decision={} success={}",
                         receipt.tool_name, receipt.policy_decision, receipt.post_state.success
                     ));
+                }
+                if receipt
+                    .post_state
+                    .verification_checks
+                    .iter()
+                    .any(|check| check == "terminal_chat_reply_ready=true")
+                {
+                    saw_terminal_chat_reply_ready_marker = true;
+                }
+                if receipt
+                    .post_state
+                    .verification_checks
+                    .iter()
+                    .any(|check| check == "terminal_chat_reply_emitted=true")
+                {
+                    saw_terminal_chat_reply_emitted_marker = true;
                 }
             }
             _ => {}
         }
     }
 
-    if !saw_terminal_chat_reply {
-        return Err(anyhow!(
-            "deterministic check failed: terminal chat__reply was not observed; final_status={:?}\nrecent_events:\n{}",
-            final_state.status,
-            summarize_recent_events(&captured_events, 24)
-        ));
-    }
-    if final_reply.trim().is_empty() {
-        return Err(anyhow!(
-            "deterministic check failed: terminal chat__reply output was empty"
-        ));
-    }
-
     let urls = extract_urls(&final_reply);
-    if urls.len() < 2 {
-        return Err(anyhow!(
-            "deterministic check failed: expected at least 2 distinct source URLs, got {}. reply={}",
-            urls.len(),
-            final_reply
-        ));
+    let source_urls = urls.iter().cloned().collect::<Vec<_>>();
+    let story_sections = parse_story_sections(&final_reply);
+    let story_section_failures = validate_story_sections(&final_reply);
+    let non_meta_story_count = story_sections
+        .iter()
+        .filter(|story| !is_meta_news_title(&story.title))
+        .count();
+    let churn = churn_signatures(&captured_events);
+    let terminal_chat_reply_non_empty = !final_reply.trim().is_empty();
+    let elapsed_within_sla = elapsed <= deadline;
+    let has_min_sources = urls.len() >= MIN_SOURCES;
+    let has_absolute_datetime = contains_absolute_utc_datetime(&final_reply);
+    let has_retrieval_evidence = saw_web_routing || saw_web_retrieve_receipt;
+    let intended_retrieval_path_present = (saw_web_search_routing || saw_web_search_receipt)
+        && (saw_web_read_routing || saw_web_read_receipt);
+    let strict_story_contract_passed = story_section_failures.is_empty();
+    let non_meta_story_floor_passed = non_meta_story_count >= REQUIRED_NON_META_STORIES;
+    let single_terminal_chat_reply_event =
+        terminal_chat_reply_events <= MAX_TERMINAL_CHAT_REPLY_EVENTS;
+    let terminal_verification_markers_present =
+        saw_terminal_chat_reply_ready_marker && saw_terminal_chat_reply_emitted_marker;
+    let no_churn_signatures = churn.is_empty();
+
+    let mut deterministic_checks = BTreeMap::new();
+    deterministic_checks.insert(
+        "terminal_chat_reply_observed".to_string(),
+        saw_terminal_chat_reply,
+    );
+    deterministic_checks.insert(
+        "terminal_chat_reply_non_empty".to_string(),
+        terminal_chat_reply_non_empty,
+    );
+    deterministic_checks.insert("elapsed_within_sla".to_string(), elapsed_within_sla);
+    deterministic_checks.insert("min_distinct_sources".to_string(), has_min_sources);
+    deterministic_checks.insert(
+        "absolute_utc_datetime_present".to_string(),
+        has_absolute_datetime,
+    );
+    deterministic_checks.insert(
+        "strict_story_contract_passed".to_string(),
+        strict_story_contract_passed,
+    );
+    deterministic_checks.insert(
+        "non_meta_story_floor_passed".to_string(),
+        non_meta_story_floor_passed,
+    );
+    deterministic_checks.insert(
+        "single_terminal_chat_reply_event".to_string(),
+        single_terminal_chat_reply_event,
+    );
+    deterministic_checks.insert(
+        "retrieval_evidence_present".to_string(),
+        has_retrieval_evidence,
+    );
+    deterministic_checks.insert(
+        "intended_retrieval_path_present".to_string(),
+        intended_retrieval_path_present,
+    );
+    deterministic_checks.insert(
+        "terminal_verification_markers_present".to_string(),
+        terminal_verification_markers_present,
+    );
+    deterministic_checks.insert("no_churn_signatures".to_string(), no_churn_signatures);
+
+    let mut deterministic_failures = deterministic_checks
+        .iter()
+        .filter_map(|(name, passed)| (!*passed).then_some(name.clone()))
+        .collect::<Vec<_>>();
+    if !story_section_failures.is_empty() {
+        deterministic_failures.extend(
+            story_section_failures
+                .iter()
+                .map(|failure| format!("story_contract:{}", failure)),
+        );
     }
-    if !contains_absolute_date(&final_reply) {
-        return Err(anyhow!(
-            "deterministic check failed: final reply missing absolute dates. reply={}",
-            final_reply
-        ));
-    }
-    if !(saw_web_routing || saw_web_retrieve_receipt) {
-        return Err(anyhow!(
-            "deterministic check failed: no web retrieval evidence found in routing/workload events"
-        ));
+    if !churn.is_empty() {
+        deterministic_failures.push(format!("churn:{}", churn.join(" | ")));
     }
 
     let deterministic_payload = json!({
-        "terminal_chat_reply_observed": saw_terminal_chat_reply,
+        "checks": deterministic_checks,
         "elapsed_ms": elapsed.as_millis(),
-        "source_url_count": urls.len(),
-        "has_absolute_date": contains_absolute_date(&final_reply),
-        "has_web_evidence": saw_web_routing || saw_web_retrieve_receipt,
+        "sla_seconds": SLA_SECONDS,
+        "required_stories": REQUIRED_STORIES,
+        "required_citations_per_story": REQUIRED_CITATIONS_PER_STORY,
+        "required_non_meta_stories": REQUIRED_NON_META_STORIES,
+        "required_min_sources": MIN_SOURCES,
+        "source_url_count": source_urls.len(),
+        "terminal_chat_reply_events": terminal_chat_reply_events,
+        "non_meta_story_count": non_meta_story_count,
+        "source_urls": source_urls,
+        "story_section_summary": story_sections
+            .iter()
+            .enumerate()
+            .map(|(idx, story)| json!({
+                "story_index": idx + 1,
+                "title": story.title.clone(),
+                "citation_count": story.citation_count,
+                "citation_with_datetime_count": story.citation_with_datetime_count,
+                "distinct_citation_url_count": story.unique_citation_urls.len(),
+                "has_what_happened": story.has_what_happened,
+                "has_changed_last_hour": story.has_changed_last_hour,
+                "has_why_it_matters": story.has_why_it_matters,
+                "has_confidence": story.has_confidence,
+                "has_caveat": story.has_caveat,
+            }))
+            .collect::<Vec<_>>(),
+        "story_section_failures": story_section_failures,
+        "churn_signatures": churn,
+        "routing_markers": {
+            "terminal_chat_reply_ready": saw_terminal_chat_reply_ready_marker,
+            "terminal_chat_reply_emitted": saw_terminal_chat_reply_emitted_marker,
+            "saw_web_search": saw_web_search_routing || saw_web_search_receipt,
+            "saw_web_read": saw_web_read_routing || saw_web_read_receipt,
+        }
     });
+    println!(
+        "LIVE_NEWS_E2E_DETERMINISTIC={}",
+        serde_json::to_string_pretty(&deterministic_payload)?
+    );
+
+    if !deterministic_failures.is_empty() {
+        return Err(anyhow!(
+            "deterministic checks failed: {}\nfinal_reply:\n{}\nrecent_events:\n{}",
+            deterministic_failures.join(", "),
+            final_reply,
+            summarize_recent_events(&captured_events, 24)
+        ));
+    }
+
+    let final_reply_excerpt = final_reply.chars().take(2_000).collect::<String>();
     let arbiter_payload = json!({
         "query": query,
-        "run_timestamp_ms": SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default().as_millis() as u64,
+        "run_timestamp_ms": run_timestamp_ms,
+        "run_timestamp_iso_utc": run_timestamp_iso_utc,
         "deterministic": deterministic_payload,
-        "final_reply": final_reply,
-        "source_urls": urls,
+        "final_reply_excerpt": final_reply_excerpt,
+        "final_reply_char_len": final_reply.chars().count(),
+        "source_url_count": urls.len(),
         "event_evidence": evidence,
     });
     println!(
@@ -585,18 +950,7 @@ async fn live_breaking_news_chat_reply_e2e() -> Result<()> {
         serde_json::to_string_pretty(&arbiter_payload)?
     );
 
-    let verdict = match run_arbiter(arbiter_runtime, &arbiter_payload).await {
-        Ok(verdict) => verdict,
-        Err(err) => ArbiterVerdict {
-            pass: true,
-            confidence: "low".to_string(),
-            rationale: format!(
-                "LLM arbiter unavailable; deterministic checks passed. fallback_reason={}",
-                err
-            ),
-            failures: vec!["llm_arbiter_unavailable".to_string()],
-        },
-    };
+    let verdict = run_arbiter(arbiter_runtime, &arbiter_payload).await?;
     println!(
         "LIVE_NEWS_E2E_ARBITER_VERDICT={}",
         serde_json::to_string_pretty(&json!({
@@ -617,4 +971,154 @@ async fn live_breaking_news_chat_reply_e2e() -> Result<()> {
     }
 
     Ok(())
+}
+
+#[test]
+fn helper_detects_absolute_utc_datetime() {
+    assert!(contains_absolute_utc_datetime(
+        "Run timestamp (UTC): 2026-02-19T12:34:56Z"
+    ));
+    assert!(!contains_absolute_utc_datetime(
+        "Run timestamp (UTC): 2026-02-19 12:34:56"
+    ));
+}
+
+#[test]
+fn helper_flags_meta_news_titles() {
+    assert!(is_meta_news_title(
+        "Top 50 US news websites: Minnesota Star Tribune traffic boosted by ICE coverage"
+    ));
+    assert!(is_meta_news_title(
+        "Social Media and News Fact Sheet - Pew Research Center"
+    ));
+    assert!(!is_meta_news_title(
+        "Federal court issues emergency injunction in border case"
+    ));
+}
+
+#[test]
+fn helper_parses_story_sections_strictly() {
+    let reply = "\
+Story 1: A\n\
+What happened: A1\n\
+What changed in the last hour: A2\n\
+Why it matters: A3\n\
+Citations:\n\
+- Src A | https://a.example.com | 2026-02-19T12:00:00Z | retrieved_utc\n\
+- Src B | https://b.example.com | 2026-02-19T12:01:00Z | retrieved_utc\n\
+Confidence: high\n\
+Caveat: C1\n\
+\n\
+Story 2: B\n\
+What happened: B1\n\
+What changed in the last hour: B2\n\
+Why it matters: B3\n\
+Citations:\n\
+- Src C | https://c.example.com | 2026-02-19T12:02:00Z | retrieved_utc\n\
+- Src D | https://d.example.com | 2026-02-19T12:03:00Z | retrieved_utc\n\
+Confidence: medium\n\
+Caveat: C2\n\
+\n\
+Story 3: C\n\
+What happened: C1\n\
+What changed in the last hour: C2\n\
+Why it matters: C3\n\
+Citations:\n\
+- Src E | https://e.example.com | 2026-02-19T12:04:00Z | retrieved_utc\n\
+- Src F | https://f.example.com | 2026-02-19T12:05:00Z | retrieved_utc\n\
+Confidence: low\n\
+Caveat: C3\n";
+
+    let sections = parse_story_sections(reply);
+    assert_eq!(sections.len(), REQUIRED_STORIES);
+    assert!(validate_story_sections(reply).is_empty());
+}
+
+fn routing_event_for_test(step_index: u32, success: bool, checks: &[&str]) -> KernelEvent {
+    KernelEvent::RoutingReceipt(RoutingReceiptEvent {
+        session_id: [7u8; 32],
+        step_index,
+        intent_hash: "intent_hash".to_string(),
+        policy_decision: "allowed".to_string(),
+        tool_name: "web__read".to_string(),
+        tool_version: "test".to_string(),
+        pre_state: RoutingStateSummary {
+            agent_status: "Running".to_string(),
+            tier: "tool_first".to_string(),
+            step_index,
+            consecutive_failures: 0,
+            target_hint: None,
+        },
+        action_json: "{}".to_string(),
+        post_state: RoutingPostStateSummary {
+            agent_status: "Running".to_string(),
+            tier: "tool_first".to_string(),
+            step_index: step_index + 1,
+            consecutive_failures: 1,
+            success,
+            verification_checks: checks.iter().map(|value| value.to_string()).collect(),
+        },
+        artifacts: vec![],
+        failure_class: None,
+        failure_class_name: String::new(),
+        intent_class: "web.research".to_string(),
+        incident_id: String::new(),
+        incident_stage: "none".to_string(),
+        strategy_name: "none".to_string(),
+        strategy_node: "none".to_string(),
+        gate_state: "none".to_string(),
+        resolution_action: "execute".to_string(),
+        stop_condition_hit: false,
+        escalation_path: None,
+        scs_lineage_ptr: None,
+        mutation_receipt_ptr: None,
+        policy_binding_hash: "binding_hash".to_string(),
+        policy_binding_sig: None,
+        policy_binding_signer: None,
+    })
+}
+
+#[test]
+fn helper_classifies_churn_signatures() {
+    let events = vec![
+        routing_event_for_test(
+            1,
+            false,
+            &[
+                "attempt_key_hash=abc123",
+                "attempt_retry_blocked_without_change=false",
+            ],
+        ),
+        routing_event_for_test(
+            2,
+            false,
+            &[
+                "attempt_key_hash=abc123",
+                "attempt_retry_blocked_without_change=false",
+            ],
+        ),
+        routing_event_for_test(
+            3,
+            false,
+            &[
+                "attempt_key_hash=abc123",
+                "attempt_retry_blocked_without_change=true",
+            ],
+        ),
+    ];
+    let signatures = churn_signatures(&events);
+    assert!(
+        signatures
+            .iter()
+            .any(|value| value.contains("attempt_key_repeated")),
+        "expected repeated attempt signature, got {:?}",
+        signatures
+    );
+    assert!(
+        signatures
+            .iter()
+            .any(|value| value.contains("blocked_without_change")),
+        "expected blocked-without-change signature, got {:?}",
+        signatures
+    );
 }

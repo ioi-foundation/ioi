@@ -2,12 +2,15 @@ use crate::agentic::desktop::middleware;
 use crate::agentic::desktop::types::{
     AgentState, PendingSearchCompletion, PendingSearchReadSummary,
 };
-use ioi_types::app::agentic::{AgentTool, WebEvidenceBundle};
+use ioi_api::vm::inference::InferenceRuntime;
+use ioi_types::app::agentic::{AgentTool, InferenceOptions, WebEvidenceBundle};
 use ioi_types::app::{ActionContext, ActionRequest, ActionTarget};
 use ioi_types::error::TransactionError;
+use serde::{Deserialize, Serialize};
 use serde_json::json;
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 use std::path::Path;
+use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 const MAX_SEARCH_EXTRACT_CHARS: usize = 8_000;
@@ -15,6 +18,47 @@ const QUEUE_TOOL_NAME_KEY: &str = "__ioi_tool_name";
 const WEB_PIPELINE_EXCERPT_CHARS: usize = 220;
 pub(crate) const WEB_PIPELINE_BUDGET_MS: u64 = 60_000;
 pub(crate) const WEB_PIPELINE_DEFAULT_MIN_SOURCES: u32 = 2;
+pub(crate) const WEB_PIPELINE_SEARCH_LIMIT: u32 = 10;
+pub(crate) const WEB_PIPELINE_REQUIRED_STORIES: usize = 3;
+pub(crate) const WEB_PIPELINE_CITATIONS_PER_STORY: usize = 2;
+pub(crate) const WEB_PIPELINE_REQUIRED_DISTINCT_CITATIONS: usize =
+    WEB_PIPELINE_REQUIRED_STORIES * WEB_PIPELINE_CITATIONS_PER_STORY;
+
+const WEB_PIPELINE_STORY_TITLE_CHARS: usize = 140;
+const WEB_PIPELINE_HYBRID_MAX_TOKENS: u32 = 1_200;
+const WEB_PIPELINE_HYBRID_BUDGET_GUARD_MS: u64 = 8_000;
+const SOURCE_QUALITY_META_MARKERS: [&str; 10] = [
+    "news websites",
+    "fact sheet",
+    "trust in media",
+    "news sources americans use",
+    "which news sources",
+    "breaking headlines",
+    "headlines and video reports",
+    "news, schedules, results",
+    "schedules and results",
+    "schedules, results",
+];
+const SOURCE_QUALITY_EVENT_SIGNAL_MARKERS: [&str; 18] = [
+    "breaking",
+    "storm",
+    "wildfire",
+    "flood",
+    "earthquake",
+    "evacuation",
+    "court",
+    "doj",
+    "congress",
+    "senate",
+    "house",
+    "policy",
+    "attack",
+    "shooting",
+    "charges",
+    "investigation",
+    "market",
+    "inflation",
+];
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum WebPipelineCompletionReason {
@@ -157,9 +201,8 @@ pub(crate) fn web_pipeline_now_ms() -> u64 {
         .as_millis() as u64
 }
 
-fn iso_date_from_unix_ms(unix_ms: u64) -> String {
+fn civil_date_from_days(days_since_epoch: i64) -> (i64, i64, i64) {
     // Howard Hinnant civil-from-days algorithm, converted to Rust.
-    let days_since_epoch = (unix_ms / 86_400_000) as i64;
     let z = days_since_epoch + 719_468;
     let era = if z >= 0 { z } else { z - 146_096 } / 146_097;
     let doe = z - era * 146_097;
@@ -170,7 +213,34 @@ fn iso_date_from_unix_ms(unix_ms: u64) -> String {
     let day = doy - (153 * mp + 2) / 5 + 1;
     let month = mp + if mp < 10 { 3 } else { -9 };
     let year = y + if month <= 2 { 1 } else { 0 };
+    (year, month, day)
+}
+
+fn iso_date_from_unix_ms(unix_ms: u64) -> String {
+    let days_since_epoch = (unix_ms / 86_400_000) as i64;
+    let (year, month, day) = civil_date_from_days(days_since_epoch);
     format!("{:04}-{:02}-{:02}", year, month, day)
+}
+
+fn iso_datetime_from_unix_ms(unix_ms: u64) -> String {
+    let days_since_epoch = (unix_ms / 86_400_000) as i64;
+    let (year, month, day) = civil_date_from_days(days_since_epoch);
+    let ms_of_day = unix_ms % 86_400_000;
+    let hour = ms_of_day / 3_600_000;
+    let minute = (ms_of_day % 3_600_000) / 60_000;
+    let second = (ms_of_day % 60_000) / 1_000;
+    format!(
+        "{:04}-{:02}-{:02}T{:02}:{:02}:{:02}Z",
+        year, month, day, hour, minute, second
+    )
+}
+
+fn normalize_confidence_label(label: &str) -> String {
+    let normalized = label.trim().to_ascii_lowercase();
+    match normalized.as_str() {
+        "high" | "medium" | "low" => normalized,
+        _ => "low".to_string(),
+    }
 }
 
 pub(crate) fn parse_web_evidence_bundle(raw: &str) -> Option<WebEvidenceBundle> {
@@ -295,6 +365,29 @@ fn compact_excerpt(input: &str, max_chars: usize) -> String {
         .chars()
         .take(max_chars)
         .collect::<String>()
+}
+
+fn marker_hits(text: &str, markers: &[&str]) -> usize {
+    let lower = text.to_ascii_lowercase();
+    markers
+        .iter()
+        .filter(|marker| lower.contains(**marker))
+        .count()
+}
+
+fn is_meta_news_text(text: &str) -> bool {
+    let meta_hits = marker_hits(text, &SOURCE_QUALITY_META_MARKERS);
+    if meta_hits == 0 {
+        return false;
+    }
+    let event_hits = marker_hits(text, &SOURCE_QUALITY_EVENT_SIGNAL_MARKERS);
+    meta_hits > event_hits
+}
+
+fn is_meta_news_story(source: &PendingSearchReadSummary) -> bool {
+    let title = source.title.as_deref().unwrap_or_default();
+    let combined = format!("{} {}", title, source.excerpt);
+    is_meta_news_text(&combined)
 }
 
 fn is_low_signal_title(title: &str) -> bool {
@@ -581,60 +674,759 @@ fn source_bullet(source: &PendingSearchReadSummary) -> String {
     }
 }
 
+#[derive(Debug, Clone)]
+struct CitationCandidate {
+    id: String,
+    url: String,
+    source_label: String,
+    excerpt: String,
+    timestamp_utc: String,
+    note: String,
+    from_successful_read: bool,
+}
+
+#[derive(Debug, Clone)]
+struct StoryDraft {
+    title: String,
+    what_happened: String,
+    changed_last_hour: String,
+    why_it_matters: String,
+    citation_ids: Vec<String>,
+    confidence: String,
+    caveat: String,
+}
+
+#[derive(Debug, Clone)]
+struct SynthesisDraft {
+    query: String,
+    run_date: String,
+    run_timestamp_ms: u64,
+    run_timestamp_iso_utc: String,
+    completion_reason: String,
+    overall_confidence: String,
+    overall_caveat: String,
+    stories: Vec<StoryDraft>,
+    citations_by_id: BTreeMap<String, CitationCandidate>,
+    blocked_urls: Vec<String>,
+    partial_note: Option<String>,
+}
+
+#[derive(Debug, Serialize)]
+struct HybridSynthesisPayload {
+    query: String,
+    run_timestamp_ms: u64,
+    run_timestamp_iso_utc: String,
+    completion_reason: String,
+    citation_candidates: Vec<HybridCitationCandidate>,
+    deterministic_story_drafts: Vec<HybridStoryDraft>,
+}
+
+#[derive(Debug, Serialize)]
+struct HybridCitationCandidate {
+    id: String,
+    url: String,
+    source_label: String,
+    excerpt: String,
+    timestamp_utc: String,
+    note: String,
+}
+
+#[derive(Debug, Serialize)]
+struct HybridStoryDraft {
+    title: String,
+    what_happened: String,
+    changed_last_hour: String,
+    why_it_matters: String,
+    citation_ids: Vec<String>,
+    confidence: String,
+    caveat: String,
+}
+
+#[derive(Debug, Deserialize)]
+struct HybridSynthesisResponse {
+    stories: Vec<HybridStoryResponse>,
+    #[serde(default)]
+    overall_confidence: String,
+    #[serde(default)]
+    overall_caveat: String,
+}
+
+#[derive(Debug, Deserialize)]
+struct HybridStoryResponse {
+    title: String,
+    what_happened: String,
+    changed_last_hour: String,
+    why_it_matters: String,
+    citation_ids: Vec<String>,
+    confidence: String,
+    caveat: String,
+}
+
+fn title_tokens(input: &str) -> BTreeSet<String> {
+    input
+        .to_ascii_lowercase()
+        .chars()
+        .map(|ch| if ch.is_ascii_alphanumeric() { ch } else { ' ' })
+        .collect::<String>()
+        .split_whitespace()
+        .filter(|token| token.len() > 2)
+        .map(|token| token.to_string())
+        .collect()
+}
+
+fn titles_similar(a: &str, b: &str) -> bool {
+    let a_trim = a.trim();
+    let b_trim = b.trim();
+    if a_trim.is_empty() || b_trim.is_empty() {
+        return false;
+    }
+    if a_trim.eq_ignore_ascii_case(b_trim) {
+        return true;
+    }
+    let a_tokens = title_tokens(a_trim);
+    let b_tokens = title_tokens(b_trim);
+    if a_tokens.is_empty() || b_tokens.is_empty() {
+        return false;
+    }
+    let overlap = a_tokens.intersection(&b_tokens).count();
+    let largest = a_tokens.len().max(b_tokens.len());
+    overlap * 2 >= largest
+}
+
+fn canonical_source_title(source: &PendingSearchReadSummary) -> String {
+    let title = source.title.as_deref().map(str::trim).unwrap_or_default();
+    if !title.is_empty() && !is_low_signal_title(title) {
+        return title.chars().take(WEB_PIPELINE_STORY_TITLE_CHARS).collect();
+    }
+    if let Some(from_excerpt) = excerpt_headline(source.excerpt.trim()) {
+        return from_excerpt
+            .chars()
+            .take(WEB_PIPELINE_STORY_TITLE_CHARS)
+            .collect();
+    }
+    format!("Update from {}", source.url)
+}
+
+fn merged_story_sources(pending: &PendingSearchCompletion) -> Vec<PendingSearchReadSummary> {
+    let mut merged: Vec<PendingSearchReadSummary> = Vec::new();
+    let mut seen = BTreeSet::new();
+
+    for source in &pending.successful_reads {
+        let trimmed = source.url.trim();
+        if trimmed.is_empty() || !seen.insert(trimmed.to_string()) {
+            continue;
+        }
+        merged.push(source.clone());
+    }
+
+    for source in &pending.candidate_source_hints {
+        let trimmed = source.url.trim();
+        if trimmed.is_empty() || !seen.insert(trimmed.to_string()) {
+            continue;
+        }
+        merged.push(source.clone());
+    }
+
+    for url in &pending.candidate_urls {
+        let trimmed = url.trim();
+        if trimmed.is_empty() || !seen.insert(trimmed.to_string()) {
+            continue;
+        }
+        merged.push(PendingSearchReadSummary {
+            url: trimmed.to_string(),
+            title: None,
+            excerpt: String::new(),
+        });
+    }
+
+    // Keep deterministic source order, but prefer event-driven stories over
+    // "news-about-news" meta coverage when enough alternatives exist.
+    let mut prioritized = Vec::new();
+    let mut deprioritized = Vec::new();
+    for source in merged {
+        if is_meta_news_story(&source) {
+            deprioritized.push(source);
+        } else {
+            prioritized.push(source);
+        }
+    }
+    prioritized.extend(deprioritized);
+    prioritized
+}
+
+fn why_it_matters_from_story(source: &PendingSearchReadSummary) -> String {
+    let text = format!(
+        "{} {}",
+        source.title.as_deref().unwrap_or_default(),
+        source.excerpt
+    )
+    .to_ascii_lowercase();
+    if text.contains("court")
+        || text.contains("doj")
+        || text.contains("congress")
+        || text.contains("capitol")
+    {
+        return "This could alter U.S. legal, regulatory, or federal policy decisions in the near term."
+            .to_string();
+    }
+    if text.contains("storm")
+        || text.contains("weather")
+        || text.contains("flood")
+        || text.contains("wildfire")
+    {
+        return "This has immediate public-safety and infrastructure implications across affected U.S. regions."
+            .to_string();
+    }
+    if text.contains("market")
+        || text.contains("inflation")
+        || text.contains("jobs")
+        || text.contains("rate")
+    {
+        return "This may influence U.S. economic expectations, market pricing, and household decision-making."
+            .to_string();
+    }
+    "This matters because it may affect public safety, policy, or economic conditions in the U.S. as the story develops."
+        .to_string()
+}
+
+fn changed_last_hour_line(run_timestamp_iso_utc: &str) -> String {
+    format!(
+        "As of {}, the latest retrieved reporting indicates ongoing movement, but explicit hour-over-hour deltas were not consistently published by every source.",
+        run_timestamp_iso_utc
+    )
+}
+
+fn build_citation_candidates(
+    pending: &PendingSearchCompletion,
+    run_timestamp_iso_utc: &str,
+) -> Vec<CitationCandidate> {
+    let merged = merged_story_sources(pending);
+    let successful_urls: BTreeSet<String> = pending
+        .successful_reads
+        .iter()
+        .map(|source| source.url.trim().to_string())
+        .filter(|url| !url.is_empty())
+        .collect();
+
+    merged
+        .into_iter()
+        .enumerate()
+        .map(|(idx, source)| {
+            let url = source.url.trim().to_string();
+            let source_label = canonical_source_title(&source);
+            let excerpt = compact_excerpt(source.excerpt.as_str(), 180);
+            CitationCandidate {
+                id: format!("C{}", idx + 1),
+                url: url.clone(),
+                source_label,
+                excerpt,
+                timestamp_utc: run_timestamp_iso_utc.to_string(),
+                note: "retrieved_utc; source publish/update timestamp unavailable".to_string(),
+                from_successful_read: successful_urls.contains(&url),
+            }
+        })
+        .collect()
+}
+
+fn title_overlap_score(a: &str, b: &str) -> usize {
+    let a_tokens = title_tokens(a);
+    let b_tokens = title_tokens(b);
+    if a_tokens.is_empty() || b_tokens.is_empty() {
+        return 0;
+    }
+    a_tokens.intersection(&b_tokens).count()
+}
+
+fn citation_relevance_score(
+    source: &PendingSearchReadSummary,
+    candidate: &CitationCandidate,
+) -> usize {
+    let story_title = canonical_source_title(source);
+    let story_context = format!("{} {}", story_title, source.excerpt);
+    let candidate_context = format!("{} {}", candidate.source_label, candidate.excerpt);
+    let mut score = title_overlap_score(&story_context, &candidate_context);
+    if source.url.trim() == candidate.url.trim() {
+        score += 1_000;
+    }
+    score
+}
+
+fn is_meta_news_candidate(candidate: &CitationCandidate) -> bool {
+    let combined = format!("{} {}", candidate.source_label, candidate.excerpt);
+    is_meta_news_text(&combined)
+}
+
+fn citation_ids_for_story(
+    source: &PendingSearchReadSummary,
+    candidates: &[CitationCandidate],
+    used_urls: &mut BTreeSet<String>,
+) -> Vec<String> {
+    if candidates.is_empty() {
+        return Vec::new();
+    }
+
+    let mut ranked_indices = (0..candidates.len()).collect::<Vec<_>>();
+    ranked_indices.sort_by(|left_idx, right_idx| {
+        let left = &candidates[*left_idx];
+        let right = &candidates[*right_idx];
+        let left_key = (
+            citation_relevance_score(source, left),
+            !is_meta_news_candidate(left),
+            left.from_successful_read,
+            !used_urls.contains(&left.url),
+        );
+        let right_key = (
+            citation_relevance_score(source, right),
+            !is_meta_news_candidate(right),
+            right.from_successful_read,
+            !used_urls.contains(&right.url),
+        );
+        right_key.cmp(&left_key)
+    });
+
+    let mut selected_ids = Vec::new();
+    let mut selected_urls = BTreeSet::new();
+
+    for idx in &ranked_indices {
+        if selected_ids.len() >= WEB_PIPELINE_CITATIONS_PER_STORY {
+            break;
+        }
+        let candidate = &candidates[*idx];
+        if used_urls.contains(&candidate.url) || selected_urls.contains(&candidate.url) {
+            continue;
+        }
+        selected_ids.push(candidate.id.clone());
+        selected_urls.insert(candidate.url.clone());
+        used_urls.insert(candidate.url.clone());
+    }
+
+    if selected_ids.len() < WEB_PIPELINE_CITATIONS_PER_STORY {
+        for idx in &ranked_indices {
+            if selected_ids.len() >= WEB_PIPELINE_CITATIONS_PER_STORY {
+                break;
+            }
+            let candidate = &candidates[*idx];
+            if selected_urls.contains(&candidate.url)
+                || selected_ids.iter().any(|id| id == &candidate.id)
+            {
+                continue;
+            }
+            selected_ids.push(candidate.id.clone());
+            selected_urls.insert(candidate.url.clone());
+        }
+    }
+
+    selected_ids
+}
+
+fn build_deterministic_story_draft(
+    pending: &PendingSearchCompletion,
+    reason: WebPipelineCompletionReason,
+) -> SynthesisDraft {
+    let run_timestamp_ms = if pending.started_at_ms > 0 {
+        pending.started_at_ms
+    } else {
+        web_pipeline_now_ms()
+    };
+    let run_timestamp_iso_utc = iso_datetime_from_unix_ms(run_timestamp_ms);
+    let run_date = iso_date_from_unix_ms(run_timestamp_ms);
+    let query = pending.query.trim().to_string();
+    let completion_reason = completion_reason_line(reason).to_string();
+    let partial_note = {
+        let min_sources = pending.min_sources.max(1) as usize;
+        (pending.successful_reads.len() < min_sources).then(|| {
+            format!(
+                "Partial evidence: confirmed readable sources={} while floor={}.",
+                pending.successful_reads.len(),
+                min_sources
+            )
+        })
+    };
+
+    let candidates = build_citation_candidates(pending, &run_timestamp_iso_utc);
+    let mut citations_by_id = BTreeMap::new();
+    for candidate in &candidates {
+        citations_by_id.insert(candidate.id.clone(), candidate.clone());
+    }
+
+    let mut stories = Vec::new();
+    let merged_sources = merged_story_sources(pending);
+    let mut selected_sources = Vec::new();
+    for source in &merged_sources {
+        let title = canonical_source_title(source);
+        if selected_sources
+            .iter()
+            .any(|existing: &PendingSearchReadSummary| {
+                titles_similar(&title, &canonical_source_title(existing))
+            })
+        {
+            continue;
+        }
+        selected_sources.push(source.clone());
+        if selected_sources.len() >= WEB_PIPELINE_REQUIRED_STORIES {
+            break;
+        }
+    }
+    while selected_sources.len() < WEB_PIPELINE_REQUIRED_STORIES && !merged_sources.is_empty() {
+        selected_sources
+            .push(merged_sources[selected_sources.len() % merged_sources.len()].clone());
+    }
+
+    let mut used_urls = BTreeSet::new();
+    for source in selected_sources.iter().take(WEB_PIPELINE_REQUIRED_STORIES) {
+        let title = canonical_source_title(source);
+        let what_happened = source_bullet(source);
+        let why_it_matters = why_it_matters_from_story(source);
+        let changed_last_hour = changed_last_hour_line(&run_timestamp_iso_utc);
+        let citation_ids = citation_ids_for_story(source, &candidates, &mut used_urls);
+        let confident_reads = citation_ids
+            .iter()
+            .filter_map(|id| citations_by_id.get(id))
+            .filter(|candidate| candidate.from_successful_read)
+            .count();
+        let confidence = if confident_reads >= WEB_PIPELINE_CITATIONS_PER_STORY {
+            "high".to_string()
+        } else if citation_ids.len() >= WEB_PIPELINE_CITATIONS_PER_STORY {
+            "medium".to_string()
+        } else {
+            "low".to_string()
+        };
+        let caveat = "Timestamps are anchored to UTC retrieval time when source publish/update metadata was unavailable.".to_string();
+
+        stories.push(StoryDraft {
+            title,
+            what_happened,
+            changed_last_hour,
+            why_it_matters,
+            citation_ids,
+            confidence,
+            caveat,
+        });
+    }
+
+    while stories.len() < WEB_PIPELINE_REQUIRED_STORIES {
+        let fallback_source = if merged_sources.is_empty() {
+            PendingSearchReadSummary {
+                url: String::new(),
+                title: None,
+                excerpt: String::new(),
+            }
+        } else {
+            merged_sources[stories.len() % merged_sources.len()].clone()
+        };
+        let fallback_ids = citation_ids_for_story(&fallback_source, &candidates, &mut used_urls);
+        stories.push(StoryDraft {
+            title: format!("Story {}", stories.len() + 1),
+            what_happened: "Insufficient high-signal extraction for a richer deterministic summary."
+                .to_string(),
+            changed_last_hour: changed_last_hour_line(&run_timestamp_iso_utc),
+            why_it_matters:
+                "This still matters because it contributes to the current U.S. breaking-news picture."
+                    .to_string(),
+            citation_ids: fallback_ids,
+            confidence: "low".to_string(),
+            caveat: "Evidence quality was limited for this slot.".to_string(),
+        });
+    }
+
+    SynthesisDraft {
+        query,
+        run_date,
+        run_timestamp_ms,
+        run_timestamp_iso_utc,
+        completion_reason,
+        overall_confidence: confidence_tier(pending, reason).to_string(),
+        overall_caveat: "Ranking and recency are based on retrieved evidence and may lag when sources do not publish explicit update timestamps.".to_string(),
+        stories,
+        citations_by_id,
+        blocked_urls: pending.blocked_urls.clone(),
+        partial_note,
+    }
+}
+
+fn render_synthesis_draft(draft: &SynthesisDraft) -> String {
+    let mut lines = Vec::new();
+    lines.push(format!(
+        "Top 3 U.S. breaking stories (as of {} UTC)",
+        draft.run_timestamp_iso_utc
+    ));
+
+    for (idx, story) in draft
+        .stories
+        .iter()
+        .take(WEB_PIPELINE_REQUIRED_STORIES)
+        .enumerate()
+    {
+        lines.push(String::new());
+        lines.push(format!("Story {}: {}", idx + 1, story.title));
+        lines.push(format!("What happened: {}", story.what_happened));
+        lines.push(format!(
+            "What changed in the last hour: {}",
+            story.changed_last_hour
+        ));
+        lines.push(format!("Why it matters: {}", story.why_it_matters));
+        lines.push("Citations:".to_string());
+        for citation_id in story
+            .citation_ids
+            .iter()
+            .take(WEB_PIPELINE_CITATIONS_PER_STORY)
+        {
+            if let Some(citation) = draft.citations_by_id.get(citation_id) {
+                lines.push(format!(
+                    "- {} | {} | {} | {}",
+                    citation.source_label, citation.url, citation.timestamp_utc, citation.note
+                ));
+            }
+        }
+        lines.push(format!("Confidence: {}", story.confidence));
+        lines.push(format!("Caveat: {}", story.caveat));
+    }
+
+    lines.push(String::new());
+    if let Some(partial_note) = draft.partial_note.as_deref() {
+        lines.push(partial_note.to_string());
+    }
+    if !draft.blocked_urls.is_empty() {
+        lines.push(format!(
+            "Blocked sources requiring human challenge: {}",
+            draft.blocked_urls.join(", ")
+        ));
+    }
+    lines.push(format!("Completion reason: {}", draft.completion_reason));
+    lines.push(format!("Run date (UTC): {}", draft.run_date));
+    lines.push(format!(
+        "Run timestamp (UTC): {}",
+        draft.run_timestamp_iso_utc
+    ));
+    lines.push(format!("Overall confidence: {}", draft.overall_confidence));
+    lines.push(format!("Overall caveat: {}", draft.overall_caveat));
+    if !draft.query.is_empty() {
+        lines.push(format!("Query: {}", draft.query));
+    }
+
+    lines.join("\n")
+}
+
+fn extract_json_object(raw: &str) -> Option<&str> {
+    let start = raw.find('{')?;
+    let end = raw.rfind('}')?;
+    (end >= start).then_some(&raw[start..=end])
+}
+
+fn is_iso_utc_datetime(value: &str) -> bool {
+    let bytes = value.as_bytes();
+    if bytes.len() != 20 {
+        return false;
+    }
+    bytes[0].is_ascii_digit()
+        && bytes[1].is_ascii_digit()
+        && bytes[2].is_ascii_digit()
+        && bytes[3].is_ascii_digit()
+        && bytes[4] == b'-'
+        && bytes[5].is_ascii_digit()
+        && bytes[6].is_ascii_digit()
+        && bytes[7] == b'-'
+        && bytes[8].is_ascii_digit()
+        && bytes[9].is_ascii_digit()
+        && bytes[10] == b'T'
+        && bytes[11].is_ascii_digit()
+        && bytes[12].is_ascii_digit()
+        && bytes[13] == b':'
+        && bytes[14].is_ascii_digit()
+        && bytes[15].is_ascii_digit()
+        && bytes[16] == b':'
+        && bytes[17].is_ascii_digit()
+        && bytes[18].is_ascii_digit()
+        && bytes[19] == b'Z'
+}
+
+fn apply_hybrid_synthesis_response(
+    base: &SynthesisDraft,
+    response: HybridSynthesisResponse,
+) -> Option<SynthesisDraft> {
+    if response.stories.len() < WEB_PIPELINE_REQUIRED_STORIES {
+        return None;
+    }
+
+    let mut used_urls = BTreeSet::new();
+    let mut stories = Vec::new();
+    for story in response
+        .stories
+        .into_iter()
+        .take(WEB_PIPELINE_REQUIRED_STORIES)
+    {
+        let title = story.title.trim();
+        let happened = story.what_happened.trim();
+        let changed = story.changed_last_hour.trim();
+        let matters = story.why_it_matters.trim();
+        if title.is_empty() || happened.is_empty() || changed.is_empty() || matters.is_empty() {
+            return None;
+        }
+
+        let mut citation_ids = Vec::new();
+        for id in story.citation_ids {
+            let trimmed = id.trim();
+            if trimmed.is_empty() || citation_ids.iter().any(|existing| existing == trimmed) {
+                continue;
+            }
+            let Some(citation) = base.citations_by_id.get(trimmed) else {
+                continue;
+            };
+            citation_ids.push(trimmed.to_string());
+            used_urls.insert(citation.url.clone());
+            if citation_ids.len() >= WEB_PIPELINE_CITATIONS_PER_STORY {
+                break;
+            }
+        }
+        if citation_ids.len() < WEB_PIPELINE_CITATIONS_PER_STORY {
+            return None;
+        }
+
+        let mut normalized_confidence = normalize_confidence_label(&story.confidence);
+        if normalized_confidence == "low" && citation_ids.len() >= WEB_PIPELINE_CITATIONS_PER_STORY
+        {
+            normalized_confidence = "medium".to_string();
+        }
+
+        stories.push(StoryDraft {
+            title: title.to_string(),
+            what_happened: happened.to_string(),
+            changed_last_hour: changed.to_string(),
+            why_it_matters: matters.to_string(),
+            citation_ids,
+            confidence: normalized_confidence,
+            caveat: if story.caveat.trim().is_empty() {
+                "Model omitted caveat; fallback caveat applied.".to_string()
+            } else {
+                story.caveat.trim().to_string()
+            },
+        });
+    }
+
+    if used_urls.len() < WEB_PIPELINE_REQUIRED_DISTINCT_CITATIONS {
+        return None;
+    }
+
+    let mut overall_confidence = normalize_confidence_label(&response.overall_confidence);
+    if overall_confidence == "low" && used_urls.len() >= WEB_PIPELINE_REQUIRED_DISTINCT_CITATIONS {
+        overall_confidence = "medium".to_string();
+    }
+
+    Some(SynthesisDraft {
+        query: base.query.clone(),
+        run_date: base.run_date.clone(),
+        run_timestamp_ms: base.run_timestamp_ms,
+        run_timestamp_iso_utc: base.run_timestamp_iso_utc.clone(),
+        completion_reason: base.completion_reason.clone(),
+        overall_confidence,
+        overall_caveat: if response.overall_caveat.trim().is_empty() {
+            base.overall_caveat.clone()
+        } else {
+            response.overall_caveat.trim().to_string()
+        },
+        stories,
+        citations_by_id: base.citations_by_id.clone(),
+        blocked_urls: base.blocked_urls.clone(),
+        partial_note: base.partial_note.clone(),
+    })
+}
+
+pub(crate) async fn synthesize_web_pipeline_reply_hybrid(
+    runtime: Arc<dyn InferenceRuntime>,
+    pending: &PendingSearchCompletion,
+    reason: WebPipelineCompletionReason,
+) -> Option<String> {
+    let draft = build_deterministic_story_draft(pending, reason);
+    let now_ms = web_pipeline_now_ms();
+    if pending.deadline_ms > 0
+        && now_ms.saturating_add(WEB_PIPELINE_HYBRID_BUDGET_GUARD_MS) >= pending.deadline_ms
+    {
+        return None;
+    }
+
+    let candidates = draft
+        .citations_by_id
+        .values()
+        .map(|citation| HybridCitationCandidate {
+            id: citation.id.clone(),
+            url: citation.url.clone(),
+            source_label: citation.source_label.clone(),
+            excerpt: citation.excerpt.clone(),
+            timestamp_utc: citation.timestamp_utc.clone(),
+            note: citation.note.clone(),
+        })
+        .collect::<Vec<_>>();
+    if candidates.len() < WEB_PIPELINE_REQUIRED_DISTINCT_CITATIONS {
+        return None;
+    }
+
+    let deterministic_story_drafts = draft
+        .stories
+        .iter()
+        .take(WEB_PIPELINE_REQUIRED_STORIES)
+        .map(|story| HybridStoryDraft {
+            title: story.title.clone(),
+            what_happened: story.what_happened.clone(),
+            changed_last_hour: story.changed_last_hour.clone(),
+            why_it_matters: story.why_it_matters.clone(),
+            citation_ids: story.citation_ids.clone(),
+            confidence: story.confidence.clone(),
+            caveat: story.caveat.clone(),
+        })
+        .collect::<Vec<_>>();
+
+    let payload = HybridSynthesisPayload {
+        query: draft.query.clone(),
+        run_timestamp_ms: draft.run_timestamp_ms,
+        run_timestamp_iso_utc: draft.run_timestamp_iso_utc.clone(),
+        completion_reason: draft.completion_reason.clone(),
+        citation_candidates: candidates,
+        deterministic_story_drafts,
+    };
+    let prompt = format!(
+        "Return JSON only with schema: \
+{{\"stories\":[{{\"title\":string,\"what_happened\":string,\"changed_last_hour\":string,\"why_it_matters\":string,\"citation_ids\":[string,string],\"confidence\":\"high|medium|low\",\"caveat\":string}}],\"overall_confidence\":\"high|medium|low\",\"overall_caveat\":string}}.\n\
+Requirements:\n\
+- Exactly 3 stories.\n\
+- Use ONLY citation_ids from payload.\n\
+- Each story must include exactly 2 citation_ids.\n\
+- Keep text concise, factual, and U.S.-focused.\n\
+- Treat run_timestamp_ms and run_timestamp_iso_utc as authoritative UTC clock for recency.\n\
+Payload:\n{}",
+        serde_json::to_string_pretty(&payload).ok()?
+    );
+    let options = InferenceOptions {
+        tools: vec![],
+        temperature: 0.0,
+        json_mode: true,
+        max_tokens: WEB_PIPELINE_HYBRID_MAX_TOKENS,
+    };
+    let raw = runtime
+        .execute_inference([0u8; 32], prompt.as_bytes(), options)
+        .await
+        .ok()?;
+    let text = String::from_utf8(raw).ok()?;
+    let json_text = extract_json_object(&text).unwrap_or(text.as_str());
+    let response: HybridSynthesisResponse = serde_json::from_str(json_text).ok()?;
+    let updated = apply_hybrid_synthesis_response(&draft, response)?;
+
+    // Ensure rendered citations still carry absolute UTC datetimes.
+    let has_timestamps = updated
+        .citations_by_id
+        .values()
+        .all(|citation| is_iso_utc_datetime(&citation.timestamp_utc));
+    if !has_timestamps {
+        return None;
+    }
+    Some(render_synthesis_draft(&updated))
+}
+
 pub(crate) fn synthesize_web_pipeline_reply(
     pending: &PendingSearchCompletion,
     reason: WebPipelineCompletionReason,
 ) -> String {
-    let query = pending.query.trim();
-    let run_date = iso_date_from_unix_ms(if pending.started_at_ms > 0 {
-        pending.started_at_ms
-    } else {
-        web_pipeline_now_ms()
-    });
-    let mut lines = vec!["Breaking news synthesis:".to_string()];
-
-    if pending.successful_reads.is_empty() {
-        lines.push("- No readable sources were retrieved.".to_string());
-    } else {
-        for source in pending.successful_reads.iter().take(4) {
-            lines.push(format!("- {}", source_bullet(source)));
-        }
-    }
-
-    lines.push("Sources:".to_string());
-    if pending.successful_reads.is_empty() {
-        lines.push("- none".to_string());
-    } else {
-        for source in &pending.successful_reads {
-            let title = source.title.as_deref().unwrap_or("Untitled");
-            lines.push(format!("- {} ({})", title.trim(), source.url));
-        }
-    }
-
-    if !pending.blocked_urls.is_empty() {
-        lines.push("Blocked sources (human challenge):".to_string());
-        for url in &pending.blocked_urls {
-            lines.push(format!("- {}", url));
-        }
-    }
-
-    let min_sources = pending.min_sources.max(1) as usize;
-    if pending.successful_reads.len() < min_sources {
-        lines.push(format!(
-            "Partial result: {} source(s) were confirmed; target floor was {}.",
-            pending.successful_reads.len(),
-            min_sources
-        ));
-    }
-
-    lines.push(completion_reason_line(reason).to_string());
-    lines.push(format!("Run date (UTC): {}", run_date));
-    lines.push(format!("Confidence: {}", confidence_tier(pending, reason)));
-    if !query.is_empty() {
-        lines.push(format!("Query: {}", query));
-    }
-
-    lines.join("\n")
+    let draft = build_deterministic_story_draft(pending, reason);
+    render_synthesis_draft(&draft)
 }
 
 fn infer_sys_tool_name(args: &serde_json::Value) -> &'static str {

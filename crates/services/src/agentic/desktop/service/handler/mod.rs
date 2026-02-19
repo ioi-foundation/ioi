@@ -3,6 +3,7 @@ use crate::agentic::desktop::execution::ToolExecutor;
 use crate::agentic::desktop::service::step::action::{
     is_search_results_url, search_query_from_url,
 };
+use crate::agentic::desktop::service::step::queue::WEB_PIPELINE_SEARCH_LIMIT;
 use crate::agentic::desktop::types::{AgentState, RecordedMessage};
 use ioi_api::vm::drivers::os::OsDriver;
 use ioi_drivers::mcp::McpManager;
@@ -33,25 +34,46 @@ fn normalize_web_research_tool_call(
         return;
     }
 
-    let AgentTool::BrowserNavigate { url } = tool else {
-        return;
-    };
-    if !is_search_results_url(url) {
-        return;
-    }
+    match tool {
+        AgentTool::BrowserNavigate { url } => {
+            if !is_search_results_url(url) {
+                return;
+            }
 
-    let query = search_query_from_url(url)
-        .filter(|value| !value.trim().is_empty())
-        .unwrap_or_else(|| fallback_query.trim().to_string());
-    if query.trim().is_empty() {
-        return;
-    }
+            let query = search_query_from_url(url)
+                .filter(|value| !value.trim().is_empty())
+                .unwrap_or_else(|| fallback_query.trim().to_string());
+            if query.trim().is_empty() {
+                return;
+            }
 
-    *tool = AgentTool::WebSearch {
-        query: query.clone(),
-        limit: Some(5),
-        url: Some(crate::agentic::web::build_ddg_serp_url(&query)),
-    };
+            *tool = AgentTool::WebSearch {
+                query: query.clone(),
+                limit: Some(WEB_PIPELINE_SEARCH_LIMIT),
+                url: Some(crate::agentic::web::build_ddg_serp_url(&query)),
+            };
+        }
+        AgentTool::WebSearch { query, limit, url } => {
+            let normalized_query = if query.trim().is_empty() {
+                fallback_query.trim().to_string()
+            } else {
+                query.trim().to_string()
+            };
+            if normalized_query.is_empty() {
+                return;
+            }
+            *query = normalized_query.clone();
+            *limit = Some(WEB_PIPELINE_SEARCH_LIMIT);
+            if url
+                .as_ref()
+                .map(|value| value.trim().is_empty())
+                .unwrap_or(true)
+            {
+                *url = Some(crate::agentic::web::build_ddg_serp_url(&normalized_query));
+            }
+        }
+        _ => {}
+    }
 }
 
 pub async fn handle_action_execution(
@@ -775,7 +797,7 @@ mod tests {
         match tool {
             AgentTool::WebSearch { query, limit, url } => {
                 assert_eq!(query, "latest news");
-                assert_eq!(limit, Some(5));
+                assert_eq!(limit, Some(super::WEB_PIPELINE_SEARCH_LIMIT));
                 assert_eq!(
                     url.as_deref(),
                     Some("https://duckduckgo.com/?q=latest+news")
@@ -800,5 +822,28 @@ mod tests {
         let non_web_intent = resolved(IntentScopeProfile::Conversation);
         normalize_web_research_tool_call(&mut scoped_tool, Some(&non_web_intent), "fallback");
         assert!(matches!(scoped_tool, AgentTool::BrowserNavigate { .. }));
+    }
+
+    #[test]
+    fn normalizes_direct_web_search_limit_for_web_research_scope() {
+        let mut tool = AgentTool::WebSearch {
+            query: "top US breaking news last 6 hours".to_string(),
+            limit: Some(3),
+            url: None,
+        };
+        let intent = resolved(IntentScopeProfile::WebResearch);
+        normalize_web_research_tool_call(&mut tool, Some(&intent), "fallback");
+
+        match tool {
+            AgentTool::WebSearch { query, limit, url } => {
+                assert_eq!(query, "top US breaking news last 6 hours");
+                assert_eq!(limit, Some(super::WEB_PIPELINE_SEARCH_LIMIT));
+                assert_eq!(
+                    url.as_deref(),
+                    Some("https://duckduckgo.com/html/?q=top+US+breaking+news+last+6+hours")
+                );
+            }
+            other => panic!("expected WebSearch, got {:?}", other),
+        }
     }
 }

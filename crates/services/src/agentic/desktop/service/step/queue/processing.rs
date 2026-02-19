@@ -4,8 +4,9 @@ use super::support::{
     is_human_challenge_error, mark_pending_web_attempted, mark_pending_web_blocked,
     next_pending_web_candidate, parse_web_evidence_bundle, queue_action_request_to_tool,
     queue_web_read_from_pipeline, remaining_pending_web_candidates, summarize_search_results,
-    synthesize_web_pipeline_reply, web_pipeline_completion_reason, web_pipeline_now_ms,
-    WebPipelineCompletionReason, WEB_PIPELINE_BUDGET_MS, WEB_PIPELINE_DEFAULT_MIN_SOURCES,
+    synthesize_web_pipeline_reply, synthesize_web_pipeline_reply_hybrid,
+    web_pipeline_completion_reason, web_pipeline_now_ms, WebPipelineCompletionReason,
+    WEB_PIPELINE_BUDGET_MS, WEB_PIPELINE_DEFAULT_MIN_SOURCES,
 };
 use crate::agentic::desktop::execution::system::is_sudo_password_required_install_error;
 use crate::agentic::desktop::keys::{get_state_key, AGENT_POLICY_PREFIX};
@@ -481,10 +482,18 @@ pub async fn process_queue_item(
                 agent_state.pending_search_completion = Some(pending);
                 agent_state.status = AgentStatus::Running;
             } else {
-                let summary = synthesize_web_pipeline_reply(
+                let reason = WebPipelineCompletionReason::ExhaustedCandidates;
+                let summary = if let Some(hybrid_summary) = synthesize_web_pipeline_reply_hybrid(
+                    service.reasoning_inference.clone(),
                     &pending,
-                    WebPipelineCompletionReason::ExhaustedCandidates,
-                );
+                    reason,
+                )
+                .await
+                {
+                    hybrid_summary
+                } else {
+                    synthesize_web_pipeline_reply(&pending, reason)
+                };
                 completion_summary = Some(summary.clone());
                 success = true;
                 out = Some(summary.clone());
@@ -494,6 +503,7 @@ pub async fn process_queue_item(
                 agent_state.execution_queue.clear();
                 agent_state.recent_actions.clear();
                 verification_checks.push("web_pipeline_active=false".to_string());
+                verification_checks.push("terminal_chat_reply_ready=true".to_string());
             }
         }
     }
@@ -546,7 +556,17 @@ pub async fn process_queue_item(
             verification_checks.push(format!("web_budget_ms={}", elapsed_ms));
 
             if let Some(reason) = completion_reason {
-                let summary = synthesize_web_pipeline_reply(&pending, reason);
+                let summary = if let Some(hybrid_summary) = synthesize_web_pipeline_reply_hybrid(
+                    service.reasoning_inference.clone(),
+                    &pending,
+                    reason,
+                )
+                .await
+                {
+                    hybrid_summary
+                } else {
+                    synthesize_web_pipeline_reply(&pending, reason)
+                };
                 completion_summary = Some(summary.clone());
                 success = true;
                 out = Some(summary.clone());
@@ -556,6 +576,7 @@ pub async fn process_queue_item(
                 agent_state.execution_queue.clear();
                 agent_state.recent_actions.clear();
                 verification_checks.push("web_pipeline_active=false".to_string());
+                verification_checks.push("terminal_chat_reply_ready=true".to_string());
                 log::info!(
                     "Web pipeline completed for session {} (sources_success={} blocked={}).",
                     hex::encode(&p.session_id[..4]),
@@ -682,6 +703,7 @@ pub async fn process_queue_item(
 
     if let Some(summary) = completion_summary.as_ref() {
         if let Some(tx) = &service.event_sender {
+            verification_checks.push("terminal_chat_reply_emitted=true".to_string());
             let _ = tx.send(KernelEvent::AgentActionResult {
                 session_id: p.session_id,
                 step_index: agent_state.step_count,

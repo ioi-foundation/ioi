@@ -8,6 +8,7 @@ use crate::agentic::desktop::types::PendingSearchCompletion;
 use ioi_types::app::agentic::{AgentTool, ComputerAction};
 use ioi_types::app::agentic::{WebEvidenceBundle, WebSource};
 use ioi_types::app::{ActionContext, ActionRequest, ActionTarget};
+use std::collections::BTreeSet;
 use std::fs;
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -38,6 +39,32 @@ fn build_custom_request(name: &str, nonce: u64, args: serde_json::Value) -> Acti
 
 fn build_sys_exec_request(args: serde_json::Value) -> ActionRequest {
     build_request(ActionTarget::SysExec, 13, args)
+}
+
+fn extract_urls(text: &str) -> BTreeSet<String> {
+    text.split_whitespace()
+        .filter_map(|token| {
+            let trimmed = token
+                .trim_matches(|ch: char| ",.;:!?()[]{}\"'|".contains(ch))
+                .trim();
+            if trimmed.starts_with("http://") || trimmed.starts_with("https://") {
+                Some(trimmed.to_string())
+            } else {
+                None
+            }
+        })
+        .collect()
+}
+
+fn extract_story_titles(text: &str) -> Vec<String> {
+    text.lines()
+        .filter_map(|line| line.strip_prefix("Story "))
+        .map(|line| {
+            line.split_once(':')
+                .map(|(_, title)| title.trim().to_string())
+                .expect("story lines should contain ':' separators")
+        })
+        .collect()
 }
 
 #[test]
@@ -163,8 +190,13 @@ fn web_pipeline_uses_source_hints_when_read_output_is_low_signal() {
         min_sources: 1,
     };
 
-    append_pending_web_success_fallback(&mut pending, "https://news.google.com/rss/articles/abc", Some("Google News"));
-    let reply = synthesize_web_pipeline_reply(&pending, WebPipelineCompletionReason::MinSourcesReached);
+    append_pending_web_success_fallback(
+        &mut pending,
+        "https://news.google.com/rss/articles/abc",
+        Some("Google News"),
+    );
+    let reply =
+        synthesize_web_pipeline_reply(&pending, WebPipelineCompletionReason::MinSourcesReached);
     assert!(reply.contains("Major storm causes widespread flight delays"));
     assert!(reply.contains("Airports across the U.S."));
 }
@@ -190,10 +222,195 @@ fn web_pipeline_completion_deadline_produces_partial_low_confidence() {
     assert_eq!(reason, WebPipelineCompletionReason::DeadlineReached);
 
     let reply = synthesize_web_pipeline_reply(&pending, reason);
-    assert!(reply.contains("Partial result"));
-    assert!(reply.contains("Blocked sources"));
+    assert!(reply.contains("Partial evidence"));
+    assert!(reply.contains("Blocked sources requiring human challenge"));
     assert!(reply.contains("Run date (UTC): "));
-    assert!(reply.contains("Confidence: low"));
+    assert!(reply.contains("Run timestamp (UTC): "));
+    assert!(reply.contains("Overall confidence: low"));
+}
+
+#[test]
+fn web_pipeline_reply_enforces_three_story_structure_with_citations_and_timestamps() {
+    let pending = PendingSearchCompletion {
+        query: "As of now (UTC), what are the top 3 U.S. breaking stories from the last 6 hours?"
+            .to_string(),
+        url: "https://duckduckgo.com/?q=us+breaking+news".to_string(),
+        started_step: 1,
+        started_at_ms: 1_771_465_364_000,
+        deadline_ms: 1_771_465_424_000,
+        candidate_urls: vec![
+            "https://a.example.com/story-1".to_string(),
+            "https://b.example.com/story-2".to_string(),
+            "https://c.example.com/story-3".to_string(),
+            "https://d.example.com/story-4".to_string(),
+            "https://e.example.com/story-5".to_string(),
+            "https://f.example.com/story-6".to_string(),
+        ],
+        candidate_source_hints: vec![
+            crate::agentic::desktop::types::PendingSearchReadSummary {
+                url: "https://a.example.com/story-1".to_string(),
+                title: Some("Federal agency issues emergency advisory".to_string()),
+                excerpt: "Officials confirmed a rapidly developing advisory affecting multiple U.S. states.".to_string(),
+            },
+            crate::agentic::desktop::types::PendingSearchReadSummary {
+                url: "https://b.example.com/story-2".to_string(),
+                title: Some("Court hearing drives immediate policy response".to_string()),
+                excerpt: "A late-day hearing prompted new guidance and federal statements.".to_string(),
+            },
+            crate::agentic::desktop::types::PendingSearchReadSummary {
+                url: "https://c.example.com/story-3".to_string(),
+                title: Some("Major weather disruption impacts transit corridors".to_string()),
+                excerpt: "Flight and rail schedules changed as severe weather moved east.".to_string(),
+            },
+            crate::agentic::desktop::types::PendingSearchReadSummary {
+                url: "https://d.example.com/story-4".to_string(),
+                title: Some("Market reaction follows latest federal filing".to_string()),
+                excerpt: "Risk assets and yields moved after publication of new documents.".to_string(),
+            },
+        ],
+        attempted_urls: vec![],
+        blocked_urls: vec![],
+        successful_reads: vec![],
+        min_sources: 2,
+    };
+
+    let reply =
+        synthesize_web_pipeline_reply(&pending, WebPipelineCompletionReason::MinSourcesReached);
+    assert!(reply.contains("Story 1:"));
+    assert!(reply.contains("Story 2:"));
+    assert!(reply.contains("Story 3:"));
+    assert_eq!(reply.matches("What happened:").count(), 3);
+    assert_eq!(reply.matches("What changed in the last hour:").count(), 3);
+    assert_eq!(reply.matches("Why it matters:").count(), 3);
+    assert_eq!(reply.matches("Citations:").count(), 3);
+    assert!(reply.contains("T") && reply.contains("Z"));
+    let urls = extract_urls(&reply);
+    assert!(
+        urls.len() >= 6,
+        "expected >= 6 distinct urls, got {}",
+        urls.len()
+    );
+}
+
+#[test]
+fn web_pipeline_dedupes_near_duplicate_story_titles() {
+    let pending = PendingSearchCompletion {
+        query: "top breaking stories".to_string(),
+        url: "https://duckduckgo.com/?q=top+breaking+stories".to_string(),
+        started_step: 1,
+        started_at_ms: 1_771_465_364_000,
+        deadline_ms: 1_771_465_424_000,
+        candidate_urls: vec![
+            "https://news1.example.com/a".to_string(),
+            "https://news2.example.com/b".to_string(),
+            "https://news3.example.com/c".to_string(),
+            "https://news4.example.com/d".to_string(),
+            "https://news5.example.com/e".to_string(),
+            "https://news6.example.com/f".to_string(),
+        ],
+        candidate_source_hints: vec![
+            crate::agentic::desktop::types::PendingSearchReadSummary {
+                url: "https://news1.example.com/a".to_string(),
+                title: Some("Senate passes emergency funding package".to_string()),
+                excerpt: "An emergency package advanced after a late-session vote.".to_string(),
+            },
+            crate::agentic::desktop::types::PendingSearchReadSummary {
+                url: "https://news2.example.com/b".to_string(),
+                title: Some("Emergency funding package passes in Senate vote".to_string()),
+                excerpt: "Lawmakers approved stopgap funding in an overnight session.".to_string(),
+            },
+            crate::agentic::desktop::types::PendingSearchReadSummary {
+                url: "https://news3.example.com/c".to_string(),
+                title: Some("Wildfire response expands across western states".to_string()),
+                excerpt: "Federal and state teams expanded response coverage overnight."
+                    .to_string(),
+            },
+            crate::agentic::desktop::types::PendingSearchReadSummary {
+                url: "https://news4.example.com/d".to_string(),
+                title: Some("DOJ files updated brief in high-profile case".to_string()),
+                excerpt: "New filings add detail to the government legal position.".to_string(),
+            },
+        ],
+        attempted_urls: vec![],
+        blocked_urls: vec![],
+        successful_reads: vec![],
+        min_sources: 2,
+    };
+
+    let reply =
+        synthesize_web_pipeline_reply(&pending, WebPipelineCompletionReason::MinSourcesReached);
+    let story_titles = extract_story_titles(&reply);
+    let unique_titles = story_titles.iter().collect::<BTreeSet<_>>();
+    assert_eq!(unique_titles.len(), story_titles.len());
+}
+
+#[test]
+fn web_pipeline_deprioritizes_news_about_news_when_event_stories_exist() {
+    let pending = PendingSearchCompletion {
+        query: "top US breaking news last 6 hours".to_string(),
+        url: "https://news.google.com/rss/search?q=top+US+breaking+news+last+6+hours".to_string(),
+        started_step: 1,
+        started_at_ms: 1_771_465_364_000,
+        deadline_ms: 1_771_465_424_000,
+        candidate_urls: vec![
+            "https://news.google.com/rss/articles/a".to_string(),
+            "https://news.google.com/rss/articles/b".to_string(),
+            "https://news.google.com/rss/articles/c".to_string(),
+            "https://news.google.com/rss/articles/d".to_string(),
+            "https://news.google.com/rss/articles/e".to_string(),
+            "https://news.google.com/rss/articles/f".to_string(),
+        ],
+        candidate_source_hints: vec![
+            crate::agentic::desktop::types::PendingSearchReadSummary {
+                url: "https://news.google.com/rss/articles/a".to_string(),
+                title: Some(
+                    "Top 50 US news websites: Minnesota Star Tribune traffic boosted by ICE coverage"
+                        .to_string(),
+                ),
+                excerpt: "Press Gazette".to_string(),
+            },
+            crate::agentic::desktop::types::PendingSearchReadSummary {
+                url: "https://news.google.com/rss/articles/b".to_string(),
+                title: Some("Social Media and News Fact Sheet - Pew Research Center".to_string()),
+                excerpt: "Pew analysis of news habits.".to_string(),
+            },
+            crate::agentic::desktop::types::PendingSearchReadSummary {
+                url: "https://news.google.com/rss/articles/c".to_string(),
+                title: Some("Federal court issues emergency injunction in border case".to_string()),
+                excerpt: "The order immediately changes enforcement guidance.".to_string(),
+            },
+            crate::agentic::desktop::types::PendingSearchReadSummary {
+                url: "https://news.google.com/rss/articles/d".to_string(),
+                title: Some("Severe storm system triggers evacuations across Gulf Coast".to_string()),
+                excerpt: "State officials issued new evacuation zones in the last hour.".to_string(),
+            },
+            crate::agentic::desktop::types::PendingSearchReadSummary {
+                url: "https://news.google.com/rss/articles/e".to_string(),
+                title: Some("Senate advances emergency funding bill after late vote".to_string()),
+                excerpt: "Leaders confirmed immediate procedural next steps.".to_string(),
+            },
+        ],
+        attempted_urls: vec![],
+        blocked_urls: vec![],
+        successful_reads: vec![],
+        min_sources: 2,
+    };
+
+    let reply =
+        synthesize_web_pipeline_reply(&pending, WebPipelineCompletionReason::MinSourcesReached);
+    let story_titles = extract_story_titles(&reply);
+    assert_eq!(story_titles.len(), 3);
+    let story_titles_lc = story_titles
+        .iter()
+        .map(|title| title.to_ascii_lowercase())
+        .collect::<Vec<_>>();
+    assert!(
+        story_titles_lc
+            .iter()
+            .all(|title| !title.contains("news websites") && !title.contains("fact sheet")),
+        "expected event-driven stories to outrank meta-news titles, got {:?}",
+        story_titles
+    );
 }
 
 #[test]
