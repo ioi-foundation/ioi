@@ -1,4 +1,5 @@
 use crate::agentic::desktop::service::step::intent_resolver::is_tool_allowed_for_resolution;
+use crate::agentic::desktop::service::step::signals::is_browser_surface;
 use crate::agentic::desktop::types::ExecutionTier;
 use ioi_api::state::StateAccess;
 use ioi_api::vm::inference::InferenceRuntime;
@@ -9,6 +10,26 @@ use std::collections::HashSet;
 use std::sync::Arc;
 
 use super::{builtins, mcp, services, skills};
+
+fn split_active_window_label(active_window_title: &str) -> (String, String) {
+    let label = active_window_title.trim();
+    if label.is_empty() {
+        return (String::new(), String::new());
+    }
+
+    if label.ends_with(')') {
+        if let Some(open_paren) = label.rfind('(') {
+            let title = label[..open_paren].trim();
+            let app = label[open_paren + 1..label.len() - 1].trim();
+            if !app.is_empty() {
+                return (title.to_string(), app.to_string());
+            }
+        }
+    }
+
+    // Fallback when no explicit "(App)" suffix is present.
+    (label.to_string(), label.to_string())
+}
 
 /// Discovers tools available to the agent.
 pub async fn discover_tools(
@@ -24,13 +45,9 @@ pub async fn discover_tools(
     let mut tools = Vec::new();
     let mut mcp_tool_names: HashSet<String> = HashSet::new();
 
-    // Browser detection
-    let t = active_window_title.to_lowercase();
-    let is_browser_active = t.contains("chrome")
-        || t.contains("firefox")
-        || t.contains("brave")
-        || t.contains("edge")
-        || t.contains("safari");
+    // Browser detection (shared signal contract used across perception/cognition/execution).
+    let (window_title, window_app) = split_active_window_label(active_window_title);
+    let is_browser_active = is_browser_surface(&window_app, &window_title);
 
     let allow_browser_navigation =
         is_tool_allowed_for_resolution(resolved_intent, "browser__navigate");
@@ -252,5 +269,26 @@ mod tests {
 
         assert!(!tools.iter().any(|t| t.name == "browser__snapshot"));
         assert!(!tools.iter().any(|t| t.name == "browser__click_element"));
+    }
+
+    #[tokio::test(flavor = "current_thread")]
+    async fn visual_foreground_arc_window_exposes_browser_followups() {
+        let intent = resolved(IntentScopeProfile::WebResearch);
+        let state = IAVLTree::new(HashCommitmentScheme::new());
+        let runtime: Arc<dyn InferenceRuntime> = Arc::new(MockInferenceRuntime);
+        let tools = discover_tools(
+            &state,
+            None,
+            None,
+            "open search and click a result",
+            runtime,
+            ExecutionTier::VisualForeground,
+            "Incident Dashboard (Arc)",
+            Some(&intent),
+        )
+        .await;
+
+        assert!(tools.iter().any(|t| t.name == "browser__snapshot"));
+        assert!(tools.iter().any(|t| t.name == "browser__click_element"));
     }
 }
