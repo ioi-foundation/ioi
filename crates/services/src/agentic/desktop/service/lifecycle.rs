@@ -5,9 +5,10 @@ use crate::agentic::desktop::keys::{get_incident_key, get_remediation_key, get_s
 use crate::agentic::desktop::middleware;
 use crate::agentic::desktop::runtime_secret;
 use crate::agentic::desktop::service::step::incident::{mark_incident_retry_root, IncidentState};
+use crate::agentic::desktop::service::step::signals::infer_interaction_target;
 use crate::agentic::desktop::types::{
-    AgentMode, AgentState, AgentStatus, ExecutionTier, InteractionTarget, PostMessageParams,
-    RecordedMessage, ResumeAgentParams, SessionSummary, StartAgentParams, SwarmContext,
+    AgentMode, AgentState, AgentStatus, ExecutionTier, PostMessageParams, RecordedMessage,
+    ResumeAgentParams, SessionSummary, StartAgentParams, SwarmContext,
 };
 use hex;
 use ioi_api::state::StateAccess;
@@ -169,24 +170,7 @@ pub async fn spawn_delegated_child_session(
         )));
     }
 
-    let target = if goal.to_lowercase().contains("calculator") {
-        Some(InteractionTarget {
-            app_hint: Some("calculator".to_string()),
-            title_pattern: None,
-        })
-    } else if goal.to_lowercase().contains("code") || goal.to_lowercase().contains("vscode") {
-        Some(InteractionTarget {
-            app_hint: Some("code".to_string()),
-            title_pattern: None,
-        })
-    } else if goal.to_lowercase().contains("terminal") {
-        Some(InteractionTarget {
-            app_hint: Some("terminal".to_string()),
-            title_pattern: None,
-        })
-    } else {
-        None
-    };
+    let target = infer_interaction_target(goal);
 
     // Initialize transcript BEFORE mutating chain state so failures do not burn budget.
     let timestamp_ms = SystemTime::now()
@@ -365,27 +349,8 @@ pub async fn handle_start(
         }
     }
 
-    // [NEW] Heuristic Target Derivation
-    // Identify the "Surface of Action" based on the user's prompt.
-    // This sets the invariant for the entire session.
-    let target = if p.goal.to_lowercase().contains("calculator") {
-        Some(InteractionTarget {
-            app_hint: Some("calculator".to_string()),
-            title_pattern: None,
-        })
-    } else if p.goal.to_lowercase().contains("code") || p.goal.to_lowercase().contains("vscode") {
-        Some(InteractionTarget {
-            app_hint: Some("code".to_string()),
-            title_pattern: None,
-        })
-    } else if p.goal.to_lowercase().contains("terminal") {
-        Some(InteractionTarget {
-            app_hint: Some("terminal".to_string()),
-            title_pattern: None,
-        })
-    } else {
-        None // No specific OS target derived; allow general interaction
-    };
+    // Derive target surface from ontology-level launch signals.
+    let target = infer_interaction_target(&p.goal);
 
     // ... [Parent budget check unchanged] ...
     if let Some(parent_id) = p.parent_session_id {

@@ -1,6 +1,76 @@
 use super::model::FailureClass;
 use ioi_types::app::RoutingFailureClass;
 
+const PACKAGE_LOOKUP_FAILURE_PATTERNS: [&str; 4] = [
+    "unable to locate package",
+    "no match for argument",
+    "has no installation candidate",
+    "cannot find a package",
+];
+const LAUNCH_LOOKUP_FAILURE_PATTERNS: [&str; 5] = [
+    "no such file",
+    "not found",
+    "unable to locate",
+    "cannot find",
+    "gtk-launch",
+];
+const TIER_VIOLATION_PATTERNS: [&str; 3] = [
+    "raw coordinate click is disabled outside visuallast",
+    "vision localization is only allowed",
+    "tier violation",
+];
+const MISSING_DEPENDENCY_PATTERNS: [&str; 3] = [
+    "failed to execute wmctrl",
+    "missing focus dependency",
+    "missingdependency",
+];
+const NO_EFFECT_PATTERNS: [&str; 3] = [
+    "ui state static after click",
+    "ui state unchanged after click",
+    "no effect after action",
+];
+const TARGET_NOT_FOUND_CONTEXT_PATTERNS: [&str; 3] = ["target", "element", "ui tree"];
+const TARGET_NOT_FOUND_PATTERNS: [&str; 4] = [
+    "not found",
+    "no window matched",
+    "lookup failed",
+    "unable to find",
+];
+const FOCUS_MISMATCH_PATTERNS: [&str; 4] =
+    ["focus", "foreground", "context drift", "active window"];
+const POLICY_BLOCK_PATTERNS: [&str; 4] =
+    ["approval", "blocked by policy", "firewall", "authorization"];
+const TOOL_UNAVAILABLE_PATTERNS: [&str; 6] = [
+    "missing capability",
+    "tool is missing",
+    "tool unavailable",
+    "not handled by executor",
+    "unsupported",
+    "os driver missing",
+];
+const NON_DETERMINISTIC_PATTERNS: [&str; 4] = [
+    "visual context drift",
+    "screen has not changed",
+    "non-deterministic",
+    "stale screenshot",
+];
+const TIMEOUT_PATTERNS: [&str; 4] = ["timeout", "timed out", "deadline", "hang"];
+const USER_INTERVENTION_PATTERNS: [&str; 9] = [
+    "user input",
+    "manual",
+    "intervention",
+    "waiting for user",
+    "captcha",
+    "recaptcha",
+    "unusual traffic",
+    "verify you are human",
+    "/sorry/",
+];
+
+fn contains_any(msg: &str, patterns: &[&str]) -> bool {
+    patterns.iter().any(|pattern| msg.contains(pattern))
+}
+
 fn parse_error_class_marker(lower_error: &str) -> Option<FailureClass> {
     let marker = "error_class=";
     let marker_start = lower_error.find(marker)?;
@@ -35,10 +105,7 @@ fn parse_error_class_marker(lower_error: &str) -> Option<FailureClass> {
 }
 
 fn is_package_lookup_failure(msg: &str) -> bool {
-    msg.contains("unable to locate package")
-        || msg.contains("no match for argument")
-        || msg.contains("has no installation candidate")
-        || msg.contains("cannot find a package")
+    contains_any(msg, &PACKAGE_LOOKUP_FAILURE_PATTERNS)
 }
 
 fn is_install_missing_dependency_failure(msg: &str) -> bool {
@@ -46,12 +113,8 @@ fn is_install_missing_dependency_failure(msg: &str) -> bool {
 }
 
 fn is_launch_lookup_failure(msg: &str) -> bool {
-    let launch_miss = msg.contains("failed to launch")
-        && (msg.contains("no such file")
-            || msg.contains("not found")
-            || msg.contains("unable to locate")
-            || msg.contains("cannot find")
-            || msg.contains("gtk-launch"));
+    let launch_miss =
+        msg.contains("failed to launch") && contains_any(msg, &LAUNCH_LOOKUP_FAILURE_PATTERNS);
     launch_miss || (msg.contains("error_class=toolunavailable") && msg.contains("failed to launch"))
 }
 
@@ -120,17 +183,11 @@ pub fn classify_failure(error: Option<&str>, policy_decision: &str) -> Option<Fa
         return Some(FailureClass::NonDeterministicUI);
     }
 
-    if msg.contains("raw coordinate click is disabled outside visuallast")
-        || msg.contains("vision localization is only allowed")
-        || msg.contains("tier violation")
-    {
+    if contains_any(&msg, &TIER_VIOLATION_PATTERNS) {
         return Some(FailureClass::TierViolation);
     }
 
-    if msg.contains("failed to execute wmctrl")
-        || msg.contains("missing focus dependency")
-        || msg.contains("missingdependency")
-    {
+    if contains_any(&msg, &MISSING_DEPENDENCY_PATTERNS) {
         if is_package_lookup_failure(&msg) {
             return Some(FailureClass::UserInterventionNeeded);
         }
@@ -141,10 +198,7 @@ pub fn classify_failure(error: Option<&str>, policy_decision: &str) -> Option<Fa
         return Some(FailureClass::ContextDrift);
     }
 
-    if msg.contains("ui state static after click")
-        || msg.contains("ui state unchanged after click")
-        || msg.contains("no effect after action")
-    {
+    if contains_any(&msg, &NO_EFFECT_PATTERNS) {
         return Some(FailureClass::NoEffectAfterAction);
     }
 
@@ -158,72 +212,35 @@ pub fn classify_failure(error: Option<&str>, policy_decision: &str) -> Option<Fa
     }
 
     // Prefer explicit target lookup failures before broad focus heuristics.
-    if (msg.contains("target") || msg.contains("element") || msg.contains("ui tree"))
-        && msg.contains("not found")
-    {
+    if contains_any(&msg, &TARGET_NOT_FOUND_CONTEXT_PATTERNS) && msg.contains("not found") {
         return Some(FailureClass::TargetNotFound);
     }
 
-    if msg.contains("focus")
-        || msg.contains("foreground")
-        || msg.contains("context drift")
-        || msg.contains("active window")
-    {
+    if contains_any(&msg, &FOCUS_MISMATCH_PATTERNS) {
         return Some(FailureClass::FocusMismatch);
     }
 
-    if msg.contains("not found")
-        || msg.contains("no window matched")
-        || msg.contains("lookup failed")
-        || msg.contains("unable to find")
-    {
+    if contains_any(&msg, &TARGET_NOT_FOUND_PATTERNS) {
         return Some(FailureClass::TargetNotFound);
     }
 
-    if msg.contains("approval")
-        || msg.contains("blocked by policy")
-        || msg.contains("firewall")
-        || msg.contains("authorization")
-    {
+    if contains_any(&msg, &POLICY_BLOCK_PATTERNS) {
         return Some(FailureClass::PermissionOrApprovalRequired);
     }
 
-    if msg.contains("missing capability")
-        || msg.contains("tool is missing")
-        || msg.contains("tool unavailable")
-        || msg.contains("not handled by executor")
-        || msg.contains("unsupported")
-        || msg.contains("os driver missing")
-    {
+    if contains_any(&msg, &TOOL_UNAVAILABLE_PATTERNS) {
         return Some(FailureClass::ToolUnavailable);
     }
 
-    if msg.contains("visual context drift")
-        || msg.contains("screen has not changed")
-        || msg.contains("non-deterministic")
-        || msg.contains("stale screenshot")
-    {
+    if contains_any(&msg, &NON_DETERMINISTIC_PATTERNS) {
         return Some(FailureClass::NonDeterministicUI);
     }
 
-    if msg.contains("timeout")
-        || msg.contains("timed out")
-        || msg.contains("deadline")
-        || msg.contains("hang")
-    {
+    if contains_any(&msg, &TIMEOUT_PATTERNS) {
         return Some(FailureClass::TimeoutOrHang);
     }
 
-    if msg.contains("user input")
-        || msg.contains("manual")
-        || msg.contains("intervention")
-        || msg.contains("waiting for user")
-        || msg.contains("captcha")
-        || msg.contains("recaptcha")
-        || msg.contains("unusual traffic")
-        || msg.contains("verify you are human")
-        || msg.contains("/sorry/")
-    {
+    if contains_any(&msg, &USER_INTERVENTION_PATTERNS) {
         return Some(FailureClass::UserInterventionNeeded);
     }
 

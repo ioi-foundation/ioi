@@ -1,4 +1,9 @@
 use crate::agentic::desktop::middleware;
+use crate::agentic::desktop::service::step::signals::{
+    analyze_source_record_signals, infer_report_sections, report_section_aliases,
+    report_section_key, report_section_label, ReportSectionKind, SourceSignalProfile,
+    WEB_EVIDENCE_SIGNAL_VERSION,
+};
 use crate::agentic::desktop::types::{
     AgentState, PendingSearchCompletion, PendingSearchReadSummary,
 };
@@ -17,47 +22,29 @@ const MAX_SEARCH_EXTRACT_CHARS: usize = 8_000;
 const QUEUE_TOOL_NAME_KEY: &str = "__ioi_tool_name";
 const WEB_PIPELINE_EXCERPT_CHARS: usize = 220;
 pub(crate) const WEB_PIPELINE_BUDGET_MS: u64 = 60_000;
-pub(crate) const WEB_PIPELINE_DEFAULT_MIN_SOURCES: u32 = 2;
+pub(crate) const WEB_PIPELINE_DEFAULT_MIN_SOURCES: u32 = 1;
 pub(crate) const WEB_PIPELINE_SEARCH_LIMIT: u32 = 10;
 pub(crate) const WEB_PIPELINE_REQUIRED_STORIES: usize = 3;
 pub(crate) const WEB_PIPELINE_CITATIONS_PER_STORY: usize = 2;
-pub(crate) const WEB_PIPELINE_REQUIRED_DISTINCT_CITATIONS: usize =
-    WEB_PIPELINE_REQUIRED_STORIES * WEB_PIPELINE_CITATIONS_PER_STORY;
 
 const WEB_PIPELINE_STORY_TITLE_CHARS: usize = 140;
 const WEB_PIPELINE_HYBRID_MAX_TOKENS: u32 = 1_200;
-const WEB_PIPELINE_HYBRID_BUDGET_GUARD_MS: u64 = 8_000;
-const SOURCE_QUALITY_META_MARKERS: [&str; 10] = [
-    "news websites",
-    "fact sheet",
-    "trust in media",
-    "news sources americans use",
-    "which news sources",
-    "breaking headlines",
-    "headlines and video reports",
-    "news, schedules, results",
-    "schedules and results",
-    "schedules, results",
-];
-const SOURCE_QUALITY_EVENT_SIGNAL_MARKERS: [&str; 18] = [
-    "breaking",
-    "storm",
-    "wildfire",
-    "flood",
-    "earthquake",
-    "evacuation",
-    "court",
-    "doj",
-    "congress",
-    "senate",
-    "house",
-    "policy",
-    "attack",
-    "shooting",
-    "charges",
-    "investigation",
-    "market",
-    "inflation",
+const WEB_PIPELINE_HYBRID_BUDGET_GUARD_MS: u64 = 45_000;
+const WEB_PIPELINE_ACTIONABLE_EXCERPT_CHARS: usize = 140;
+const CITATION_SOURCE_URL_MATCH_BONUS: usize = 1_000;
+const CITATION_PRIMARY_STATUS_BONUS: usize = 16;
+const CITATION_OFFICIAL_STATUS_HOST_BONUS: usize = 24;
+const CITATION_SECONDARY_COVERAGE_PENALTY: usize = 8;
+const CITATION_DOCUMENTATION_SURFACE_PENALTY: usize = 10;
+const NON_ACTIONABLE_EXCERPT_MARKERS: [&str; 8] = [
+    "requires authorization",
+    "you can try signing in",
+    "use personalized service health",
+    "for incidents related",
+    "learn more",
+    "high-profile breaches",
+    "annual report",
+    "state of",
 ];
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -65,6 +52,112 @@ pub(crate) enum WebPipelineCompletionReason {
     MinSourcesReached,
     ExhaustedCandidates,
     DeadlineReached,
+}
+
+fn parse_small_count_token(token: &str) -> Option<usize> {
+    let normalized = token
+        .trim()
+        .trim_matches(|ch: char| !ch.is_ascii_alphanumeric())
+        .to_ascii_lowercase();
+    match normalized.as_str() {
+        "1" | "one" => Some(1),
+        "2" | "two" => Some(2),
+        "3" | "three" => Some(3),
+        "4" | "four" => Some(4),
+        "5" | "five" => Some(5),
+        "6" | "six" => Some(6),
+        _ => None,
+    }
+}
+
+fn required_story_count(query: &str) -> usize {
+    let tokens = query.split_whitespace().collect::<Vec<_>>();
+    for idx in 0..tokens.len() {
+        let token = tokens[idx].to_ascii_lowercase();
+        if token == "top" {
+            if let Some(value) = tokens
+                .get(idx + 1)
+                .and_then(|value| parse_small_count_token(value))
+            {
+                return value.clamp(1, 6);
+            }
+        }
+
+        let Some(value) = parse_small_count_token(tokens[idx]) else {
+            continue;
+        };
+        let next = tokens
+            .get(idx + 1)
+            .map(|value| {
+                value
+                    .trim()
+                    .trim_matches(|ch: char| !ch.is_ascii_alphanumeric())
+                    .to_ascii_lowercase()
+            })
+            .unwrap_or_default();
+        if matches!(
+            next.as_str(),
+            "stories"
+                | "story"
+                | "items"
+                | "results"
+                | "findings"
+                | "incidents"
+                | "events"
+                | "updates"
+        ) {
+            return value.clamp(1, 6);
+        }
+    }
+
+    WEB_PIPELINE_REQUIRED_STORIES
+}
+
+fn required_citations_per_story(query: &str) -> usize {
+    let tokens = query.split_whitespace().collect::<Vec<_>>();
+    for idx in 0..tokens.len() {
+        let Some(value) = parse_small_count_token(tokens[idx]) else {
+            continue;
+        };
+        let next = tokens
+            .get(idx + 1)
+            .map(|value| {
+                value
+                    .trim()
+                    .trim_matches(|ch: char| !ch.is_ascii_alphanumeric())
+                    .to_ascii_lowercase()
+            })
+            .unwrap_or_default();
+        if matches!(
+            next.as_str(),
+            "citation" | "citations" | "source" | "sources"
+        ) && tokens
+            .get(idx + 2)
+            .map(|value| {
+                value
+                    .trim()
+                    .trim_matches(|ch: char| !ch.is_ascii_alphanumeric())
+                    .eq_ignore_ascii_case("each")
+            })
+            .unwrap_or(false)
+        {
+            return value.clamp(1, 6);
+        }
+    }
+
+    WEB_PIPELINE_CITATIONS_PER_STORY
+}
+
+fn required_distinct_citations(query: &str) -> usize {
+    required_story_count(query).saturating_mul(required_citations_per_story(query))
+}
+
+fn synthesis_query_contract(pending: &PendingSearchCompletion) -> String {
+    let contract = pending.query_contract.trim();
+    if !contract.is_empty() {
+        return contract.to_string();
+    }
+    pending.query.trim().to_string()
 }
 
 pub(super) fn fallback_search_summary(query: &str, url: &str) -> String {
@@ -281,7 +374,46 @@ pub(crate) fn candidate_source_hints_from_bundle(
     let mut hints = Vec::new();
     let mut seen = BTreeSet::new();
     let mut sources = bundle.sources.clone();
-    sources.sort_by_key(|source| source.rank.unwrap_or(u32::MAX));
+    sources.sort_by(|left, right| {
+        let left_title = left.title.as_deref().unwrap_or_default();
+        let right_title = right.title.as_deref().unwrap_or_default();
+        let left_excerpt = left.snippet.as_deref().unwrap_or_default();
+        let right_excerpt = right.snippet.as_deref().unwrap_or_default();
+        let left_signals = analyze_source_record_signals(&left.url, left_title, left_excerpt);
+        let right_signals = analyze_source_record_signals(&right.url, right_title, right_excerpt);
+
+        let left_key = (
+            left_signals.official_status_host_hits > 0,
+            left_signals.official_status_host_hits,
+            left_signals.primary_status_surface_hits > 0,
+            left_signals.primary_status_surface_hits,
+            left_signals.secondary_coverage_hits == 0,
+            left_signals.documentation_surface_hits == 0,
+            left_signals.relevance_score(false),
+            left_signals.provenance_hits,
+            left_signals.primary_event_hits,
+        );
+        let right_key = (
+            right_signals.official_status_host_hits > 0,
+            right_signals.official_status_host_hits,
+            right_signals.primary_status_surface_hits > 0,
+            right_signals.primary_status_surface_hits,
+            right_signals.secondary_coverage_hits == 0,
+            right_signals.documentation_surface_hits == 0,
+            right_signals.relevance_score(false),
+            right_signals.provenance_hits,
+            right_signals.primary_event_hits,
+        );
+
+        right_key
+            .cmp(&left_key)
+            .then_with(|| {
+                left.rank
+                    .unwrap_or(u32::MAX)
+                    .cmp(&right.rank.unwrap_or(u32::MAX))
+            })
+            .then_with(|| left.url.cmp(&right.url))
+    });
     for source in sources {
         let url = source.url.trim();
         if url.is_empty() || !seen.insert(url.to_string()) {
@@ -367,27 +499,17 @@ fn compact_excerpt(input: &str, max_chars: usize) -> String {
         .collect::<String>()
 }
 
-fn marker_hits(text: &str, markers: &[&str]) -> usize {
-    let lower = text.to_ascii_lowercase();
-    markers
-        .iter()
-        .filter(|marker| lower.contains(**marker))
-        .count()
-}
-
-fn is_meta_news_text(text: &str) -> bool {
-    let meta_hits = marker_hits(text, &SOURCE_QUALITY_META_MARKERS);
-    if meta_hits == 0 {
-        return false;
-    }
-    let event_hits = marker_hits(text, &SOURCE_QUALITY_EVENT_SIGNAL_MARKERS);
-    meta_hits > event_hits
-}
-
-fn is_meta_news_story(source: &PendingSearchReadSummary) -> bool {
+fn source_evidence_signals(source: &PendingSearchReadSummary) -> SourceSignalProfile {
     let title = source.title.as_deref().unwrap_or_default();
-    let combined = format!("{} {}", title, source.excerpt);
-    is_meta_news_text(&combined)
+    analyze_source_record_signals(&source.url, title, &source.excerpt)
+}
+
+fn has_primary_status_authority(signals: SourceSignalProfile) -> bool {
+    signals.official_status_host_hits > 0 || signals.primary_status_surface_hits > 0
+}
+
+fn is_low_priority_coverage_story(source: &PendingSearchReadSummary) -> bool {
+    source_evidence_signals(source).low_priority_dominates()
 }
 
 fn is_low_signal_title(title: &str) -> bool {
@@ -415,6 +537,52 @@ fn is_low_signal_excerpt(excerpt: &str) -> bool {
         || lower.contains("cookie")
         || lower.contains("recaptcha")
         || lower.contains("human verification")
+        || NON_ACTIONABLE_EXCERPT_MARKERS
+            .iter()
+            .any(|marker| lower.contains(marker))
+}
+
+fn actionable_excerpt(excerpt: &str) -> Option<String> {
+    let trimmed = excerpt.trim();
+    if trimmed.is_empty() {
+        return None;
+    }
+    let compact = compact_whitespace(trimmed);
+    if compact.is_empty() {
+        return None;
+    }
+
+    let mut cutoff = compact.len();
+    let lower = compact.to_ascii_lowercase();
+    for marker in [
+        " use personalized service health",
+        " for incidents related",
+        " learn more",
+        " note access to this page requires authorization",
+    ] {
+        if let Some(idx) = lower.find(marker) {
+            cutoff = cutoff.min(idx);
+        }
+    }
+
+    let condensed = compact[..cutoff].trim().to_string();
+    if condensed.chars().count() < 28 {
+        return None;
+    }
+    let condensed_lc = condensed.to_ascii_lowercase();
+    if NON_ACTIONABLE_EXCERPT_MARKERS
+        .iter()
+        .any(|marker| condensed_lc.contains(marker))
+    {
+        return None;
+    }
+
+    Some(
+        condensed
+            .chars()
+            .take(WEB_PIPELINE_ACTIONABLE_EXCERPT_CHARS)
+            .collect(),
+    )
 }
 
 fn hint_for_url<'a>(
@@ -546,6 +714,16 @@ pub(crate) fn web_pipeline_completion_reason(
     pending: &PendingSearchCompletion,
     now_ms: u64,
 ) -> Option<WebPipelineCompletionReason> {
+    // Ontology-level fallback: if live reads are blocked but ranked source hints already
+    // satisfy citation diversity, synthesize from captured evidence instead of churning.
+    if pending.successful_reads.is_empty()
+        && !pending.blocked_urls.is_empty()
+        && pending.candidate_source_hints.len()
+            >= required_distinct_citations(&synthesis_query_contract(pending))
+    {
+        return Some(WebPipelineCompletionReason::ExhaustedCandidates);
+    }
+
     let min_sources = pending.min_sources.max(1) as usize;
     if pending.successful_reads.len() >= min_sources {
         return Some(WebPipelineCompletionReason::MinSourcesReached);
@@ -666,7 +844,7 @@ fn source_bullet(source: &PendingSearchReadSummary) -> String {
         return headline;
     }
 
-    let detail = compact_excerpt(excerpt, 160);
+    let detail = actionable_excerpt(excerpt).unwrap_or_else(|| compact_excerpt(excerpt, 160));
     if detail.eq_ignore_ascii_case(&headline) {
         headline
     } else {
@@ -691,6 +869,9 @@ struct StoryDraft {
     what_happened: String,
     changed_last_hour: String,
     why_it_matters: String,
+    user_impact: String,
+    workaround: String,
+    eta_confidence: String,
     citation_ids: Vec<String>,
     confidence: String,
     caveat: String,
@@ -717,8 +898,16 @@ struct HybridSynthesisPayload {
     run_timestamp_ms: u64,
     run_timestamp_iso_utc: String,
     completion_reason: String,
+    required_sections: Vec<HybridSectionSpec>,
     citation_candidates: Vec<HybridCitationCandidate>,
     deterministic_story_drafts: Vec<HybridStoryDraft>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+struct HybridSectionSpec {
+    key: String,
+    label: String,
+    required: bool,
 }
 
 #[derive(Debug, Serialize)]
@@ -734,17 +923,24 @@ struct HybridCitationCandidate {
 #[derive(Debug, Serialize)]
 struct HybridStoryDraft {
     title: String,
-    what_happened: String,
-    changed_last_hour: String,
-    why_it_matters: String,
+    sections: Vec<HybridSectionDraft>,
     citation_ids: Vec<String>,
     confidence: String,
     caveat: String,
 }
 
+#[derive(Debug, Serialize, Deserialize)]
+struct HybridSectionDraft {
+    key: String,
+    label: String,
+    content: String,
+}
+
 #[derive(Debug, Deserialize)]
 struct HybridSynthesisResponse {
-    stories: Vec<HybridStoryResponse>,
+    #[serde(default)]
+    heading: String,
+    items: Vec<HybridItemResponse>,
     #[serde(default)]
     overall_confidence: String,
     #[serde(default)]
@@ -752,14 +948,25 @@ struct HybridSynthesisResponse {
 }
 
 #[derive(Debug, Deserialize)]
-struct HybridStoryResponse {
+struct HybridItemResponse {
     title: String,
-    what_happened: String,
-    changed_last_hour: String,
-    why_it_matters: String,
+    #[serde(default)]
+    sections: Vec<HybridSectionResponse>,
+    #[serde(default)]
     citation_ids: Vec<String>,
+    #[serde(default)]
     confidence: String,
+    #[serde(default)]
     caveat: String,
+}
+
+#[derive(Debug, Deserialize)]
+struct HybridSectionResponse {
+    #[serde(default)]
+    key: String,
+    label: String,
+    #[serde(default)]
+    content: String,
 }
 
 fn title_tokens(input: &str) -> BTreeSet<String> {
@@ -839,19 +1046,55 @@ fn merged_story_sources(pending: &PendingSearchCompletion) -> Vec<PendingSearchR
         });
     }
 
-    // Keep deterministic source order, but prefer event-driven stories over
-    // "news-about-news" meta coverage when enough alternatives exist.
-    let mut prioritized = Vec::new();
-    let mut deprioritized = Vec::new();
-    for source in merged {
-        if is_meta_news_story(&source) {
-            deprioritized.push(source);
-        } else {
-            prioritized.push(source);
-        }
-    }
-    prioritized.extend(deprioritized);
-    prioritized
+    let successful_urls: BTreeSet<String> = pending
+        .successful_reads
+        .iter()
+        .map(|source| source.url.trim().to_string())
+        .filter(|url| !url.is_empty())
+        .collect();
+
+    merged.sort_by(|left, right| {
+        let left_signals = source_evidence_signals(left);
+        let right_signals = source_evidence_signals(right);
+        let left_success = successful_urls.contains(left.url.trim());
+        let right_success = successful_urls.contains(right.url.trim());
+        let left_key = (
+            !is_low_priority_coverage_story(left),
+            left_signals.official_status_host_hits > 0,
+            left_signals.official_status_host_hits,
+            left_signals.primary_status_surface_hits > 0,
+            left_signals.primary_status_surface_hits,
+            left_signals.secondary_coverage_hits == 0,
+            left_signals.documentation_surface_hits == 0,
+            left_signals.relevance_score(left_success),
+            left_signals.provenance_hits,
+            left_signals.primary_event_hits,
+            left_success,
+        );
+        let right_key = (
+            !is_low_priority_coverage_story(right),
+            right_signals.official_status_host_hits > 0,
+            right_signals.official_status_host_hits,
+            right_signals.primary_status_surface_hits > 0,
+            right_signals.primary_status_surface_hits,
+            right_signals.secondary_coverage_hits == 0,
+            right_signals.documentation_surface_hits == 0,
+            right_signals.relevance_score(right_success),
+            right_signals.provenance_hits,
+            right_signals.primary_event_hits,
+            right_success,
+        );
+        right_key
+            .cmp(&left_key)
+            .then_with(|| left.url.cmp(&right.url))
+    });
+
+    merged
+}
+
+fn is_primary_status_surface_source(source: &PendingSearchReadSummary) -> bool {
+    let signals = source_evidence_signals(source);
+    has_primary_status_authority(signals) && !signals.low_priority_dominates()
 }
 
 fn why_it_matters_from_story(source: &PendingSearchReadSummary) -> String {
@@ -861,37 +1104,83 @@ fn why_it_matters_from_story(source: &PendingSearchReadSummary) -> String {
         source.excerpt
     )
     .to_ascii_lowercase();
-    if text.contains("court")
-        || text.contains("doj")
-        || text.contains("congress")
-        || text.contains("capitol")
+    if text.contains("authentication")
+        || text.contains("login")
+        || text.contains("identity")
+        || text.contains("sso")
     {
-        return "This could alter U.S. legal, regulatory, or federal policy decisions in the near term."
+        return "User sign-in and account access may fail or degrade for affected tenants."
             .to_string();
     }
-    if text.contains("storm")
-        || text.contains("weather")
-        || text.contains("flood")
-        || text.contains("wildfire")
+    if text.contains("api")
+        || text.contains("endpoint")
+        || text.contains("request")
+        || text.contains("latency")
     {
-        return "This has immediate public-safety and infrastructure implications across affected U.S. regions."
+        return "API-driven workflows may see elevated errors, latency, or timeouts for affected traffic."
             .to_string();
     }
-    if text.contains("market")
-        || text.contains("inflation")
-        || text.contains("jobs")
-        || text.contains("rate")
+    if text.contains("dashboard")
+        || text.contains("console")
+        || text.contains("admin")
+        || text.contains("portal")
     {
-        return "This may influence U.S. economic expectations, market pricing, and household decision-making."
+        return "Operator visibility and control-plane actions may be delayed for affected users."
             .to_string();
     }
-    "This matters because it may affect public safety, policy, or economic conditions in the U.S. as the story develops."
+    "Customer-facing functionality may remain degraded until source updates confirm recovery."
         .to_string()
 }
 
-fn changed_last_hour_line(run_timestamp_iso_utc: &str) -> String {
+fn user_impact_from_story(source: &PendingSearchReadSummary) -> String {
+    why_it_matters_from_story(source)
+}
+
+fn workaround_from_story(source: &PendingSearchReadSummary) -> String {
+    let signals = source_evidence_signals(source);
+    if signals.mitigation_hits > 0 {
+        return "Follow mitigation guidance published by the source (retry/failover/alternate path where available).".to_string();
+    }
+    if signals.primary_event_hits > 0
+        || signals.provenance_hits > 0
+        || has_primary_status_authority(signals)
+    {
+        return "No explicit workaround confirmed; monitor official updates and defer non-critical writes until status changes.".to_string();
+    }
+    "Workaround not explicitly published in retrieved evidence; use standard resilience fallback patterns and continue monitoring updates.".to_string()
+}
+
+fn eta_confidence_from_story(
+    source: &PendingSearchReadSummary,
+    confident_reads: usize,
+    citation_count: usize,
+    required_citations_per_story: usize,
+) -> String {
+    let signals = source_evidence_signals(source);
+    let explicit_eta = signals.timeline_hits > 0;
+    let status_provenance = signals.provenance_hits > 0 || has_primary_status_authority(signals);
+
+    if explicit_eta && confident_reads >= required_citations_per_story {
+        return "high".to_string();
+    }
+    if status_provenance || confident_reads >= 1 || citation_count >= required_citations_per_story {
+        return "medium".to_string();
+    }
+    "low".to_string()
+}
+
+fn changed_last_hour_line(
+    source: &PendingSearchReadSummary,
+    run_timestamp_iso_utc: &str,
+) -> String {
+    if let Some(excerpt) = actionable_excerpt(source.excerpt.trim()) {
+        return format!(
+            "As of {}, latest provider update signal: {}",
+            run_timestamp_iso_utc, excerpt
+        );
+    }
     format!(
-        "As of {}, the latest retrieved reporting indicates ongoing movement, but explicit hour-over-hour deltas were not consistently published by every source.",
+        "As of {}, the event remains active in retrieved evidence; explicit hour-over-hour deltas were not consistently published.",
         run_timestamp_iso_utc
     )
 }
@@ -944,52 +1233,96 @@ fn citation_relevance_score(
     let story_title = canonical_source_title(source);
     let story_context = format!("{} {}", story_title, source.excerpt);
     let candidate_context = format!("{} {}", candidate.source_label, candidate.excerpt);
-    let mut score = title_overlap_score(&story_context, &candidate_context);
+    let candidate_signals =
+        analyze_source_record_signals(&candidate.url, &candidate.source_label, &candidate.excerpt);
+    let mut score = title_overlap_score(&story_context, &candidate_context)
+        + candidate_signals.primary_status_surface_hits * CITATION_PRIMARY_STATUS_BONUS
+        + candidate_signals.official_status_host_hits * CITATION_OFFICIAL_STATUS_HOST_BONUS;
+    score = score.saturating_sub(
+        candidate_signals.secondary_coverage_hits * CITATION_SECONDARY_COVERAGE_PENALTY,
+    );
+    score = score.saturating_sub(
+        candidate_signals.documentation_surface_hits * CITATION_DOCUMENTATION_SURFACE_PENALTY,
+    );
     if source.url.trim() == candidate.url.trim() {
-        score += 1_000;
+        score += CITATION_SOURCE_URL_MATCH_BONUS;
     }
     score
 }
 
-fn is_meta_news_candidate(candidate: &CitationCandidate) -> bool {
-    let combined = format!("{} {}", candidate.source_label, candidate.excerpt);
-    is_meta_news_text(&combined)
+fn citation_source_signals(candidate: &CitationCandidate) -> SourceSignalProfile {
+    analyze_source_record_signals(&candidate.url, &candidate.source_label, &candidate.excerpt)
+}
+
+fn is_low_priority_coverage_candidate(candidate: &CitationCandidate) -> bool {
+    citation_source_signals(candidate).low_priority_dominates()
 }
 
 fn citation_ids_for_story(
     source: &PendingSearchReadSummary,
     candidates: &[CitationCandidate],
     used_urls: &mut BTreeSet<String>,
+    citations_per_story: usize,
 ) -> Vec<String> {
     if candidates.is_empty() {
         return Vec::new();
     }
 
-    let mut ranked_indices = (0..candidates.len()).collect::<Vec<_>>();
-    ranked_indices.sort_by(|left_idx, right_idx| {
+    let mut ranked = candidates
+        .iter()
+        .enumerate()
+        .map(|(idx, candidate)| {
+            let signals = citation_source_signals(candidate);
+            (idx, signals)
+        })
+        .collect::<Vec<_>>();
+    ranked.sort_by(|(left_idx, left_signals), (right_idx, right_signals)| {
         let left = &candidates[*left_idx];
         let right = &candidates[*right_idx];
         let left_key = (
+            left_signals.official_status_host_hits > 0,
+            left_signals.official_status_host_hits,
+            left_signals.primary_status_surface_hits > 0,
+            left_signals.primary_status_surface_hits,
+            left_signals.secondary_coverage_hits == 0,
+            left_signals.documentation_surface_hits == 0,
             citation_relevance_score(source, left),
-            !is_meta_news_candidate(left),
+            !is_low_priority_coverage_candidate(left),
             left.from_successful_read,
             !used_urls.contains(&left.url),
         );
         let right_key = (
+            right_signals.official_status_host_hits > 0,
+            right_signals.official_status_host_hits,
+            right_signals.primary_status_surface_hits > 0,
+            right_signals.primary_status_surface_hits,
+            right_signals.secondary_coverage_hits == 0,
+            right_signals.documentation_surface_hits == 0,
             citation_relevance_score(source, right),
-            !is_meta_news_candidate(right),
+            !is_low_priority_coverage_candidate(right),
             right.from_successful_read,
             !used_urls.contains(&right.url),
         );
         right_key.cmp(&left_key)
     });
 
+    let primary_status_candidates = ranked
+        .iter()
+        .filter(|(idx, signals)| {
+            has_primary_status_authority(*signals) && !used_urls.contains(&candidates[*idx].url)
+        })
+        .count();
+    let require_primary_status = primary_status_candidates >= citations_per_story;
+
     let mut selected_ids = Vec::new();
     let mut selected_urls = BTreeSet::new();
 
-    for idx in &ranked_indices {
-        if selected_ids.len() >= WEB_PIPELINE_CITATIONS_PER_STORY {
+    for (idx, signals) in &ranked {
+        if selected_ids.len() >= citations_per_story {
             break;
+        }
+        if require_primary_status && !has_primary_status_authority(*signals) {
+            continue;
         }
         let candidate = &candidates[*idx];
         if used_urls.contains(&candidate.url) || selected_urls.contains(&candidate.url) {
@@ -1000,9 +1333,9 @@ fn citation_ids_for_story(
         used_urls.insert(candidate.url.clone());
     }
 
-    if selected_ids.len() < WEB_PIPELINE_CITATIONS_PER_STORY {
-        for idx in &ranked_indices {
-            if selected_ids.len() >= WEB_PIPELINE_CITATIONS_PER_STORY {
+    if selected_ids.len() < citations_per_story {
+        for (idx, _) in &ranked {
+            if selected_ids.len() >= citations_per_story {
                 break;
             }
             let candidate = &candidates[*idx];
@@ -1030,7 +1363,9 @@ fn build_deterministic_story_draft(
     };
     let run_timestamp_iso_utc = iso_datetime_from_unix_ms(run_timestamp_ms);
     let run_date = iso_date_from_unix_ms(run_timestamp_ms);
-    let query = pending.query.trim().to_string();
+    let query = synthesis_query_contract(pending);
+    let required_story_count = required_story_count(&query);
+    let citations_per_story = required_citations_per_story(&query);
     let completion_reason = completion_reason_line(reason).to_string();
     let partial_note = {
         let min_sources = pending.min_sources.max(1) as usize;
@@ -1051,8 +1386,18 @@ fn build_deterministic_story_draft(
 
     let mut stories = Vec::new();
     let merged_sources = merged_story_sources(pending);
+    let primary_status_sources = merged_sources
+        .iter()
+        .filter(|source| is_primary_status_surface_source(source))
+        .cloned()
+        .collect::<Vec<_>>();
+    let source_pool = if primary_status_sources.len() >= required_story_count {
+        &primary_status_sources
+    } else {
+        &merged_sources
+    };
     let mut selected_sources = Vec::new();
-    for source in &merged_sources {
+    for source in source_pool {
         let title = canonical_source_title(source);
         if selected_sources
             .iter()
@@ -1063,34 +1408,42 @@ fn build_deterministic_story_draft(
             continue;
         }
         selected_sources.push(source.clone());
-        if selected_sources.len() >= WEB_PIPELINE_REQUIRED_STORIES {
+        if selected_sources.len() >= required_story_count {
             break;
         }
     }
-    while selected_sources.len() < WEB_PIPELINE_REQUIRED_STORIES && !merged_sources.is_empty() {
-        selected_sources
-            .push(merged_sources[selected_sources.len() % merged_sources.len()].clone());
+    while selected_sources.len() < required_story_count && !source_pool.is_empty() {
+        selected_sources.push(source_pool[selected_sources.len() % source_pool.len()].clone());
     }
 
     let mut used_urls = BTreeSet::new();
-    for source in selected_sources.iter().take(WEB_PIPELINE_REQUIRED_STORIES) {
+    for source in selected_sources.iter().take(required_story_count) {
         let title = canonical_source_title(source);
         let what_happened = source_bullet(source);
         let why_it_matters = why_it_matters_from_story(source);
-        let changed_last_hour = changed_last_hour_line(&run_timestamp_iso_utc);
-        let citation_ids = citation_ids_for_story(source, &candidates, &mut used_urls);
+        let user_impact = user_impact_from_story(source);
+        let workaround = workaround_from_story(source);
+        let changed_last_hour = changed_last_hour_line(source, &run_timestamp_iso_utc);
+        let citation_ids =
+            citation_ids_for_story(source, &candidates, &mut used_urls, citations_per_story);
         let confident_reads = citation_ids
             .iter()
             .filter_map(|id| citations_by_id.get(id))
             .filter(|candidate| candidate.from_successful_read)
             .count();
-        let confidence = if confident_reads >= WEB_PIPELINE_CITATIONS_PER_STORY {
+        let confidence = if confident_reads >= citations_per_story {
             "high".to_string()
-        } else if citation_ids.len() >= WEB_PIPELINE_CITATIONS_PER_STORY {
+        } else if citation_ids.len() >= citations_per_story {
             "medium".to_string()
         } else {
             "low".to_string()
         };
+        let eta_confidence = eta_confidence_from_story(
+            source,
+            confident_reads,
+            citation_ids.len(),
+            citations_per_story,
+        );
         let caveat = "Timestamps are anchored to UTC retrieval time when source publish/update metadata was unavailable.".to_string();
 
         stories.push(StoryDraft {
@@ -1098,13 +1451,16 @@ fn build_deterministic_story_draft(
             what_happened,
             changed_last_hour,
             why_it_matters,
+            user_impact,
+            workaround,
+            eta_confidence,
             citation_ids,
             confidence,
             caveat,
         });
     }
 
-    while stories.len() < WEB_PIPELINE_REQUIRED_STORIES {
+    while stories.len() < required_story_count {
         let fallback_source = if merged_sources.is_empty() {
             PendingSearchReadSummary {
                 url: String::new(),
@@ -1114,15 +1470,27 @@ fn build_deterministic_story_draft(
         } else {
             merged_sources[stories.len() % merged_sources.len()].clone()
         };
-        let fallback_ids = citation_ids_for_story(&fallback_source, &candidates, &mut used_urls);
+        let fallback_ids = citation_ids_for_story(
+            &fallback_source,
+            &candidates,
+            &mut used_urls,
+            citations_per_story,
+        );
         stories.push(StoryDraft {
             title: format!("Story {}", stories.len() + 1),
-            what_happened: "Insufficient high-signal extraction for a richer deterministic summary."
-                .to_string(),
-            changed_last_hour: changed_last_hour_line(&run_timestamp_iso_utc),
-            why_it_matters:
-                "This still matters because it contributes to the current U.S. breaking-news picture."
+            what_happened:
+                "Insufficient high-signal extraction for a richer deterministic summary."
                     .to_string(),
+            changed_last_hour: changed_last_hour_line(&fallback_source, &run_timestamp_iso_utc),
+            why_it_matters:
+                "This still matters because it contributes to active service health awareness."
+                    .to_string(),
+            user_impact: "Potential user-facing degradation remains plausible for affected users."
+                .to_string(),
+            workaround:
+                "No explicit workaround confirmed in retrieved evidence; monitor source updates."
+                    .to_string(),
+            eta_confidence: "low".to_string(),
             citation_ids: fallback_ids,
             confidence: "low".to_string(),
             caveat: "Evidence quality was limited for this slot.".to_string(),
@@ -1136,7 +1504,10 @@ fn build_deterministic_story_draft(
         run_timestamp_iso_utc,
         completion_reason,
         overall_confidence: confidence_tier(pending, reason).to_string(),
-        overall_caveat: "Ranking and recency are based on retrieved evidence and may lag when sources do not publish explicit update timestamps.".to_string(),
+        overall_caveat: format!(
+            "Ontology={} ranking uses content, provenance, and recency evidence; provider/source timestamps may lag or omit explicit update metadata.",
+            WEB_EVIDENCE_SIGNAL_VERSION
+        ),
         stories,
         citations_by_id,
         blocked_urls: pending.blocked_urls.clone(),
@@ -1146,31 +1517,37 @@ fn build_deterministic_story_draft(
 
 fn render_synthesis_draft(draft: &SynthesisDraft) -> String {
     let mut lines = Vec::new();
-    lines.push(format!(
-        "Top 3 U.S. breaking stories (as of {} UTC)",
-        draft.run_timestamp_iso_utc
-    ));
+    let required_sections = build_hybrid_required_sections(&draft.query);
+    let story_count = required_story_count(&draft.query);
+    let citations_per_story = required_citations_per_story(&draft.query);
+    let heading = if draft.query.trim().is_empty() {
+        format!(
+            "Web retrieval summary (as of {} UTC)",
+            draft.run_timestamp_iso_utc
+        )
+    } else {
+        format!(
+            "Web retrieval summary for '{}' (as of {} UTC)",
+            draft.query.trim(),
+            draft.run_timestamp_iso_utc
+        )
+    };
+    lines.push(heading);
 
-    for (idx, story) in draft
-        .stories
-        .iter()
-        .take(WEB_PIPELINE_REQUIRED_STORIES)
-        .enumerate()
-    {
+    for (idx, story) in draft.stories.iter().take(story_count).enumerate() {
         lines.push(String::new());
         lines.push(format!("Story {}: {}", idx + 1, story.title));
-        lines.push(format!("What happened: {}", story.what_happened));
-        lines.push(format!(
-            "What changed in the last hour: {}",
-            story.changed_last_hour
-        ));
-        lines.push(format!("Why it matters: {}", story.why_it_matters));
+        if required_sections.is_empty() {
+            lines.push(format!("What happened: {}", story.what_happened));
+        } else {
+            for section in &required_sections {
+                if let Some(content) = section_content_for_story(story, section) {
+                    lines.push(format!("{}: {}", content.label, content.content));
+                }
+            }
+        }
         lines.push("Citations:".to_string());
-        for citation_id in story
-            .citation_ids
-            .iter()
-            .take(WEB_PIPELINE_CITATIONS_PER_STORY)
-        {
+        for citation_id in story.citation_ids.iter().take(citations_per_story) {
             if let Some(citation) = draft.citations_by_id.get(citation_id) {
                 lines.push(format!(
                     "- {} | {} | {} | {}",
@@ -1240,31 +1617,204 @@ fn is_iso_utc_datetime(value: &str) -> bool {
         && bytes[19] == b'Z'
 }
 
+fn normalize_section_key(label: &str) -> String {
+    let mut out = String::new();
+    let mut last_was_underscore = false;
+    for ch in label.chars() {
+        let normalized = ch.to_ascii_lowercase();
+        if normalized.is_ascii_alphanumeric() {
+            out.push(normalized);
+            last_was_underscore = false;
+            continue;
+        }
+        if !last_was_underscore {
+            out.push('_');
+            last_was_underscore = true;
+        }
+    }
+    out.trim_matches('_').to_string()
+}
+
+fn dedupe_labels(labels: Vec<String>) -> Vec<String> {
+    let mut out = Vec::new();
+    let mut seen = BTreeSet::new();
+    for label in labels {
+        let key = normalize_section_key(&label);
+        if key.is_empty() || !seen.insert(key) {
+            continue;
+        }
+        out.push(label);
+    }
+    out
+}
+
+fn required_section_labels_for_query(query: &str) -> Vec<String> {
+    dedupe_labels(
+        infer_report_sections(query)
+            .into_iter()
+            .map(|kind| report_section_label(kind, query))
+            .collect(),
+    )
+}
+
+fn build_hybrid_required_sections(query: &str) -> Vec<HybridSectionSpec> {
+    required_section_labels_for_query(query)
+        .into_iter()
+        .map(|label| HybridSectionSpec {
+            key: normalize_section_key(&label),
+            label,
+            required: true,
+        })
+        .collect()
+}
+
+fn section_kind_from_key(key: &str) -> Option<ReportSectionKind> {
+    let normalized = normalize_section_key(key);
+    [
+        ReportSectionKind::Summary,
+        ReportSectionKind::RecentChange,
+        ReportSectionKind::Significance,
+        ReportSectionKind::UserImpact,
+        ReportSectionKind::Mitigation,
+        ReportSectionKind::EtaConfidence,
+        ReportSectionKind::Caveat,
+        ReportSectionKind::Evidence,
+    ]
+    .into_iter()
+    .find(|kind| {
+        normalized == report_section_key(*kind)
+            || report_section_aliases(*kind)
+                .iter()
+                .any(|alias| normalize_section_key(alias) == normalized)
+    })
+}
+
+fn section_content_for_story(
+    story: &StoryDraft,
+    section: &HybridSectionSpec,
+) -> Option<HybridSectionDraft> {
+    let kind = section_kind_from_key(&section.key)
+        .or_else(|| section_kind_from_key(&section.label))
+        .unwrap_or(ReportSectionKind::Summary);
+    let content = match kind {
+        ReportSectionKind::Summary => story.what_happened.clone(),
+        ReportSectionKind::RecentChange => story.changed_last_hour.clone(),
+        ReportSectionKind::Significance => story.why_it_matters.clone(),
+        ReportSectionKind::UserImpact => story.user_impact.clone(),
+        ReportSectionKind::Mitigation => story.workaround.clone(),
+        ReportSectionKind::EtaConfidence => story.eta_confidence.clone(),
+        ReportSectionKind::Caveat => story.caveat.clone(),
+        ReportSectionKind::Evidence => story.what_happened.clone(),
+    };
+
+    let normalized = compact_whitespace(content.trim());
+    if normalized.is_empty() {
+        return None;
+    }
+    Some(HybridSectionDraft {
+        key: section.key.clone(),
+        label: section.label.clone(),
+        content: normalized,
+    })
+}
+
+fn section_content_from_map(sections: &BTreeMap<String, String>, keys: &[&str]) -> Option<String> {
+    for key in keys {
+        if let Some(value) = sections.get(*key) {
+            let trimmed = compact_whitespace(value.trim());
+            if !trimmed.is_empty() {
+                return Some(trimmed);
+            }
+        }
+    }
+    None
+}
+
+fn section_content_from_map_for_kind(
+    sections: &BTreeMap<String, String>,
+    kind: ReportSectionKind,
+) -> Option<String> {
+    section_content_from_map(sections, report_section_aliases(kind))
+}
+
 fn apply_hybrid_synthesis_response(
     base: &SynthesisDraft,
+    required_sections: &[HybridSectionSpec],
     response: HybridSynthesisResponse,
 ) -> Option<SynthesisDraft> {
-    if response.stories.len() < WEB_PIPELINE_REQUIRED_STORIES {
+    let required_story_count = required_story_count(&base.query);
+    let citations_per_story = required_citations_per_story(&base.query);
+    let required_distinct_citations = required_distinct_citations(&base.query);
+    if response.items.len() < required_story_count {
         return None;
     }
 
     let mut used_urls = BTreeSet::new();
     let mut stories = Vec::new();
-    for story in response
-        .stories
+    let required_keys = required_sections
+        .iter()
+        .map(|section| section.key.clone())
+        .collect::<BTreeSet<_>>();
+
+    for (idx, item) in response
+        .items
         .into_iter()
-        .take(WEB_PIPELINE_REQUIRED_STORIES)
+        .take(required_story_count)
+        .enumerate()
     {
-        let title = story.title.trim();
-        let happened = story.what_happened.trim();
-        let changed = story.changed_last_hour.trim();
-        let matters = story.why_it_matters.trim();
-        if title.is_empty() || happened.is_empty() || changed.is_empty() || matters.is_empty() {
+        let base_story = base.stories.get(idx)?;
+        let title = item.title.trim();
+        if title.is_empty() {
             return None;
         }
 
+        let mut sections_by_key = BTreeMap::<String, String>::new();
+        for section in item.sections {
+            let key = {
+                let from_key = normalize_section_key(&section.key);
+                if from_key.is_empty() {
+                    normalize_section_key(&section.label)
+                } else {
+                    from_key
+                }
+            };
+            if key.is_empty() {
+                continue;
+            }
+            let content = compact_whitespace(section.content.trim());
+            if content.is_empty() {
+                continue;
+            }
+            sections_by_key.entry(key).or_insert(content);
+        }
+        if required_keys
+            .iter()
+            .any(|required| !sections_by_key.contains_key(required))
+        {
+            return None;
+        }
+
+        let happened =
+            section_content_from_map_for_kind(&sections_by_key, ReportSectionKind::Summary)
+                .unwrap_or_else(|| base_story.what_happened.clone());
+        let changed =
+            section_content_from_map_for_kind(&sections_by_key, ReportSectionKind::RecentChange)
+                .unwrap_or_else(|| base_story.changed_last_hour.clone());
+        let matters =
+            section_content_from_map_for_kind(&sections_by_key, ReportSectionKind::Significance)
+                .unwrap_or_else(|| base_story.why_it_matters.clone());
+        let user_impact =
+            section_content_from_map_for_kind(&sections_by_key, ReportSectionKind::UserImpact)
+                .unwrap_or_else(|| base_story.user_impact.clone());
+        let workaround =
+            section_content_from_map_for_kind(&sections_by_key, ReportSectionKind::Mitigation)
+                .unwrap_or_else(|| base_story.workaround.clone());
+        let eta_label =
+            section_content_from_map_for_kind(&sections_by_key, ReportSectionKind::EtaConfidence)
+                .unwrap_or_else(|| base_story.eta_confidence.clone());
+
         let mut citation_ids = Vec::new();
-        for id in story.citation_ids {
+        for id in item.citation_ids {
             let trimmed = id.trim();
             if trimmed.is_empty() || citation_ids.iter().any(|existing| existing == trimmed) {
                 continue;
@@ -1274,17 +1824,16 @@ fn apply_hybrid_synthesis_response(
             };
             citation_ids.push(trimmed.to_string());
             used_urls.insert(citation.url.clone());
-            if citation_ids.len() >= WEB_PIPELINE_CITATIONS_PER_STORY {
+            if citation_ids.len() >= citations_per_story {
                 break;
             }
         }
-        if citation_ids.len() < WEB_PIPELINE_CITATIONS_PER_STORY {
+        if citation_ids.len() < citations_per_story {
             return None;
         }
 
-        let mut normalized_confidence = normalize_confidence_label(&story.confidence);
-        if normalized_confidence == "low" && citation_ids.len() >= WEB_PIPELINE_CITATIONS_PER_STORY
-        {
+        let mut normalized_confidence = normalize_confidence_label(&item.confidence);
+        if normalized_confidence == "low" && citation_ids.len() >= citations_per_story {
             normalized_confidence = "medium".to_string();
         }
 
@@ -1293,22 +1842,25 @@ fn apply_hybrid_synthesis_response(
             what_happened: happened.to_string(),
             changed_last_hour: changed.to_string(),
             why_it_matters: matters.to_string(),
+            user_impact,
+            workaround,
+            eta_confidence: normalize_confidence_label(&eta_label),
             citation_ids,
             confidence: normalized_confidence,
-            caveat: if story.caveat.trim().is_empty() {
+            caveat: if item.caveat.trim().is_empty() {
                 "Model omitted caveat; fallback caveat applied.".to_string()
             } else {
-                story.caveat.trim().to_string()
+                item.caveat.trim().to_string()
             },
         });
     }
 
-    if used_urls.len() < WEB_PIPELINE_REQUIRED_DISTINCT_CITATIONS {
+    if used_urls.len() < required_distinct_citations {
         return None;
     }
 
     let mut overall_confidence = normalize_confidence_label(&response.overall_confidence);
-    if overall_confidence == "low" && used_urls.len() >= WEB_PIPELINE_REQUIRED_DISTINCT_CITATIONS {
+    if overall_confidence == "low" && used_urls.len() >= required_distinct_citations {
         overall_confidence = "medium".to_string();
     }
 
@@ -1322,7 +1874,16 @@ fn apply_hybrid_synthesis_response(
         overall_caveat: if response.overall_caveat.trim().is_empty() {
             base.overall_caveat.clone()
         } else {
-            response.overall_caveat.trim().to_string()
+            let heading = response.heading.trim();
+            if heading.is_empty() {
+                response.overall_caveat.trim().to_string()
+            } else {
+                format!(
+                    "{} | heading: {}",
+                    response.overall_caveat.trim(),
+                    compact_whitespace(heading)
+                )
+            }
         },
         stories,
         citations_by_id: base.citations_by_id.clone(),
@@ -1337,6 +1898,9 @@ pub(crate) async fn synthesize_web_pipeline_reply_hybrid(
     reason: WebPipelineCompletionReason,
 ) -> Option<String> {
     let draft = build_deterministic_story_draft(pending, reason);
+    let required_story_count = required_story_count(&draft.query);
+    let citations_per_story = required_citations_per_story(&draft.query);
+    let required_distinct_citations = required_distinct_citations(&draft.query);
     let now_ms = web_pipeline_now_ms();
     if pending.deadline_ms > 0
         && now_ms.saturating_add(WEB_PIPELINE_HYBRID_BUDGET_GUARD_MS) >= pending.deadline_ms
@@ -1356,19 +1920,25 @@ pub(crate) async fn synthesize_web_pipeline_reply_hybrid(
             note: citation.note.clone(),
         })
         .collect::<Vec<_>>();
-    if candidates.len() < WEB_PIPELINE_REQUIRED_DISTINCT_CITATIONS {
+    if candidates.len() < required_distinct_citations {
+        return None;
+    }
+
+    let required_sections = build_hybrid_required_sections(&draft.query);
+    if required_sections.is_empty() {
         return None;
     }
 
     let deterministic_story_drafts = draft
         .stories
         .iter()
-        .take(WEB_PIPELINE_REQUIRED_STORIES)
+        .take(required_story_count)
         .map(|story| HybridStoryDraft {
             title: story.title.clone(),
-            what_happened: story.what_happened.clone(),
-            changed_last_hour: story.changed_last_hour.clone(),
-            why_it_matters: story.why_it_matters.clone(),
+            sections: required_sections
+                .iter()
+                .filter_map(|section| section_content_for_story(story, section))
+                .collect::<Vec<_>>(),
             citation_ids: story.citation_ids.clone(),
             confidence: story.confidence.clone(),
             caveat: story.caveat.clone(),
@@ -1380,19 +1950,23 @@ pub(crate) async fn synthesize_web_pipeline_reply_hybrid(
         run_timestamp_ms: draft.run_timestamp_ms,
         run_timestamp_iso_utc: draft.run_timestamp_iso_utc.clone(),
         completion_reason: draft.completion_reason.clone(),
+        required_sections: required_sections.clone(),
         citation_candidates: candidates,
         deterministic_story_drafts,
     };
     let prompt = format!(
         "Return JSON only with schema: \
-{{\"stories\":[{{\"title\":string,\"what_happened\":string,\"changed_last_hour\":string,\"why_it_matters\":string,\"citation_ids\":[string,string],\"confidence\":\"high|medium|low\",\"caveat\":string}}],\"overall_confidence\":\"high|medium|low\",\"overall_caveat\":string}}.\n\
+{{\"heading\":string,\"items\":[{{\"title\":string,\"sections\":[{{\"label\":string,\"content\":string}}],\"citation_ids\":[string],\"confidence\":\"high|medium|low\",\"caveat\":string}}],\"overall_confidence\":\"high|medium|low\",\"overall_caveat\":string}}.\n\
 Requirements:\n\
-- Exactly 3 stories.\n\
+- Exactly {} items.\n\
+- For each item, include all payload.required_sections labels exactly once in `sections`.\n\
 - Use ONLY citation_ids from payload.\n\
-- Each story must include exactly 2 citation_ids.\n\
-- Keep text concise, factual, and U.S.-focused.\n\
+- Each item must include exactly {} citation_ids.\n\
+- Keep text concise, factual, and query-aligned.\n\
 - Treat run_timestamp_ms and run_timestamp_iso_utc as authoritative UTC clock for recency.\n\
 Payload:\n{}",
+        required_story_count,
+        citations_per_story,
         serde_json::to_string_pretty(&payload).ok()?
     );
     let options = InferenceOptions {
@@ -1408,7 +1982,7 @@ Payload:\n{}",
     let text = String::from_utf8(raw).ok()?;
     let json_text = extract_json_object(&text).unwrap_or(text.as_str());
     let response: HybridSynthesisResponse = serde_json::from_str(json_text).ok()?;
-    let updated = apply_hybrid_synthesis_response(&draft, response)?;
+    let updated = apply_hybrid_synthesis_response(&draft, &required_sections, response)?;
 
     // Ensure rendered citations still carry absolute UTC datetimes.
     let has_timestamps = updated

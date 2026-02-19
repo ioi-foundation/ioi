@@ -9,6 +9,7 @@ pub mod intent_resolver;
 pub mod ontology;
 pub mod perception;
 pub mod queue;
+pub mod signals;
 pub mod visual;
 
 use super::DesktopAgentService;

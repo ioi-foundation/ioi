@@ -3,6 +3,7 @@ use crate::agentic::desktop::execution::ToolExecutor;
 use crate::agentic::desktop::service::step::action::{
     is_search_results_url, search_query_from_url,
 };
+use crate::agentic::desktop::service::step::helpers::is_live_external_research_goal;
 use crate::agentic::desktop::service::step::queue::WEB_PIPELINE_SEARCH_LIMIT;
 use crate::agentic::desktop::types::{AgentState, RecordedMessage};
 use ioi_api::vm::drivers::os::OsDriver;
@@ -27,10 +28,12 @@ fn normalize_web_research_tool_call(
     resolved_intent: Option<&ResolvedIntentState>,
     fallback_query: &str,
 ) {
-    let is_web_research = resolved_intent
+    let is_web_research_scope = resolved_intent
         .map(|resolved| resolved.scope == IntentScopeProfile::WebResearch)
         .unwrap_or(false);
-    if !is_web_research {
+    let is_live_external_research = is_live_external_research_goal(fallback_query);
+    let is_effective_web_research = is_web_research_scope || is_live_external_research;
+    if !is_effective_web_research {
         return;
     }
 
@@ -50,7 +53,7 @@ fn normalize_web_research_tool_call(
             *tool = AgentTool::WebSearch {
                 query: query.clone(),
                 limit: Some(WEB_PIPELINE_SEARCH_LIMIT),
-                url: Some(crate::agentic::web::build_ddg_serp_url(&query)),
+                url: Some(crate::agentic::web::build_default_search_url(&query)),
             };
         }
         AgentTool::WebSearch { query, limit, url } => {
@@ -69,8 +72,30 @@ fn normalize_web_research_tool_call(
                 .map(|value| value.trim().is_empty())
                 .unwrap_or(true)
             {
-                *url = Some(crate::agentic::web::build_ddg_serp_url(&normalized_query));
+                *url = Some(crate::agentic::web::build_default_search_url(
+                    &normalized_query,
+                ));
             }
+        }
+        AgentTool::MemorySearch { query } => {
+            let normalized_query = if query.trim().is_empty() {
+                fallback_query.trim().to_string()
+            } else {
+                query.trim().to_string()
+            };
+            if normalized_query.is_empty() {
+                return;
+            }
+
+            // WebResearch is expected to gather fresh external evidence; avoid
+            // memory-only retrieval loops by pivoting memory search to web search.
+            *tool = AgentTool::WebSearch {
+                query: normalized_query.clone(),
+                limit: Some(WEB_PIPELINE_SEARCH_LIMIT),
+                url: Some(crate::agentic::web::build_default_search_url(
+                    &normalized_query,
+                )),
+            };
         }
         _ => {}
     }
@@ -113,7 +138,7 @@ pub async fn handle_action_execution(
     // policy enforcement + hashing (the model should only provide the query).
     if let AgentTool::WebSearch { query, url, .. } = &mut tool {
         if url.as_ref().map(|u| u.trim().is_empty()).unwrap_or(true) {
-            *url = Some(crate::agentic::web::build_ddg_serp_url(query));
+            *url = Some(crate::agentic::web::build_default_search_url(query));
         }
     }
 
@@ -798,10 +823,8 @@ mod tests {
             AgentTool::WebSearch { query, limit, url } => {
                 assert_eq!(query, "latest news");
                 assert_eq!(limit, Some(super::WEB_PIPELINE_SEARCH_LIMIT));
-                assert_eq!(
-                    url.as_deref(),
-                    Some("https://duckduckgo.com/?q=latest+news")
-                );
+                let expected = crate::agentic::web::build_default_search_url("latest news");
+                assert_eq!(url.as_deref(), Some(expected.as_str()));
             }
             other => panic!("expected WebSearch, got {:?}", other),
         }
@@ -838,12 +861,98 @@ mod tests {
             AgentTool::WebSearch { query, limit, url } => {
                 assert_eq!(query, "top US breaking news last 6 hours");
                 assert_eq!(limit, Some(super::WEB_PIPELINE_SEARCH_LIMIT));
-                assert_eq!(
-                    url.as_deref(),
-                    Some("https://duckduckgo.com/html/?q=top+US+breaking+news+last+6+hours")
+                let expected = crate::agentic::web::build_default_search_url(
+                    "top US breaking news last 6 hours",
                 );
+                assert_eq!(url.as_deref(), Some(expected.as_str()));
             }
             other => panic!("expected WebSearch, got {:?}", other),
         }
+    }
+
+    #[test]
+    fn rewrites_memory_search_to_web_search_for_web_research_scope() {
+        let mut tool = AgentTool::MemorySearch {
+            query: "active cloud incidents us impact".to_string(),
+        };
+        let intent = resolved(IntentScopeProfile::WebResearch);
+        normalize_web_research_tool_call(&mut tool, Some(&intent), "fallback");
+
+        match tool {
+            AgentTool::WebSearch { query, limit, url } => {
+                assert_eq!(query, "active cloud incidents us impact");
+                assert_eq!(limit, Some(super::WEB_PIPELINE_SEARCH_LIMIT));
+                let expected = crate::agentic::web::build_default_search_url(
+                    "active cloud incidents us impact",
+                );
+                assert_eq!(url.as_deref(), Some(expected.as_str()));
+            }
+            other => panic!("expected WebSearch, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn rewrites_empty_memory_search_with_fallback_for_web_research_scope() {
+        let mut tool = AgentTool::MemorySearch {
+            query: "   ".to_string(),
+        };
+        let intent = resolved(IntentScopeProfile::WebResearch);
+        normalize_web_research_tool_call(
+            &mut tool,
+            Some(&intent),
+            "as of now top active us cloud incidents",
+        );
+
+        match tool {
+            AgentTool::WebSearch { query, limit, url } => {
+                assert_eq!(query, "as of now top active us cloud incidents");
+                assert_eq!(limit, Some(super::WEB_PIPELINE_SEARCH_LIMIT));
+                let expected = crate::agentic::web::build_default_search_url(
+                    "as of now top active us cloud incidents",
+                );
+                assert_eq!(url.as_deref(), Some(expected.as_str()));
+            }
+            other => panic!("expected WebSearch, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn rewrites_memory_search_when_live_external_research_goal_overrides_scope() {
+        let mut tool = AgentTool::MemorySearch {
+            query: "active cloud incidents us impact".to_string(),
+        };
+        let workspace_intent = resolved(IntentScopeProfile::WorkspaceOps);
+        normalize_web_research_tool_call(
+            &mut tool,
+            Some(&workspace_intent),
+            "As of now (UTC), top active cloud incidents with citations",
+        );
+
+        match tool {
+            AgentTool::WebSearch { query, limit, url } => {
+                assert_eq!(query, "active cloud incidents us impact");
+                assert_eq!(limit, Some(super::WEB_PIPELINE_SEARCH_LIMIT));
+                let expected = crate::agentic::web::build_default_search_url(
+                    "active cloud incidents us impact",
+                );
+                assert_eq!(url.as_deref(), Some(expected.as_str()));
+            }
+            other => panic!("expected WebSearch, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn does_not_rewrite_memory_search_for_workspace_local_goal() {
+        let mut tool = AgentTool::MemorySearch {
+            query: "intent resolver".to_string(),
+        };
+        let workspace_intent = resolved(IntentScopeProfile::WorkspaceOps);
+        normalize_web_research_tool_call(
+            &mut tool,
+            Some(&workspace_intent),
+            "Search the repository for intent resolver code and patch tests",
+        );
+
+        assert!(matches!(tool, AgentTool::MemorySearch { .. }));
     }
 }

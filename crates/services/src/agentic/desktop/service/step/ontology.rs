@@ -1,6 +1,7 @@
 // Path: crates/services/src/agentic/desktop/service/step/ontology.rs
 
 use super::anti_loop::FailureClass;
+use super::signals::{infer_intent_surface, IntentSurface};
 use ioi_types::app::agentic::{IntentScopeProfile, ResolvedIntentState};
 use parity_scale_codec::{Decode, Encode};
 use serde::{Deserialize, Serialize};
@@ -251,62 +252,17 @@ impl ResolutionAction {
 }
 
 pub fn classify_intent(goal: &str, root_tool_name: &str, target_hint: Option<&str>) -> IntentClass {
-    let goal_lc = goal.to_ascii_lowercase();
-    let tool_lc = root_tool_name.to_ascii_lowercase();
-    let hint_lc = target_hint.unwrap_or("").to_ascii_lowercase();
-
-    if tool_lc.contains("agent__delegate") || goal_lc.contains("delegate") {
-        return IntentClass::DelegationTask;
+    match infer_intent_surface(goal, root_tool_name, target_hint) {
+        IntentSurface::Delegation => IntentClass::DelegationTask,
+        IntentSurface::Conversation => IntentClass::ConversationTask,
+        IntentSurface::AppLaunch => IntentClass::OpenApp,
+        IntentSurface::DependencyInstall => IntentClass::InstallDependency,
+        IntentSurface::WebResearch => IntentClass::BrowserTask,
+        IntentSurface::WorkspaceOps => IntentClass::FileTask,
+        IntentSurface::UiInteraction => IntentClass::UIInteraction,
+        IntentSurface::CommandExecution => IntentClass::CommandTask,
+        IntentSurface::Unknown => IntentClass::Unknown,
     }
-    if tool_lc.contains("chat__reply")
-        || goal_lc.contains("ask")
-        || goal_lc.contains("explain")
-        || goal_lc.contains("summarize")
-    {
-        return IntentClass::ConversationTask;
-    }
-    if tool_lc.contains("os__launch_app")
-        || goal_lc.contains("open ")
-        || goal_lc.contains("launch ")
-        || goal_lc.contains("start ")
-        || !hint_lc.is_empty()
-    {
-        return IntentClass::OpenApp;
-    }
-    if tool_lc.contains("sys__install_package")
-        || goal_lc.contains("install ")
-        || goal_lc.contains("dependency")
-    {
-        return IntentClass::InstallDependency;
-    }
-    if tool_lc.contains("browser__")
-        || goal_lc.contains("browser")
-        || goal_lc.contains("search ")
-        || goal_lc.contains("web ")
-        || goal_lc.contains("http")
-    {
-        return IntentClass::BrowserTask;
-    }
-    if tool_lc.contains("filesystem__")
-        || goal_lc.contains("file")
-        || goal_lc.contains("directory")
-        || goal_lc.contains("repo")
-    {
-        return IntentClass::FileTask;
-    }
-    if tool_lc.contains("gui__")
-        || tool_lc.contains("computer")
-        || goal_lc.contains("click")
-        || goal_lc.contains("type")
-        || goal_lc.contains("press")
-        || goal_lc.contains("drag")
-    {
-        return IntentClass::UIInteraction;
-    }
-    if tool_lc.contains("sys__exec") || tool_lc.contains("sys__change_directory") {
-        return IntentClass::CommandTask;
-    }
-    IntentClass::Unknown
 }
 
 pub fn classify_intent_from_resolved(

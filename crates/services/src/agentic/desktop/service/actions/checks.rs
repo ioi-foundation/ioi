@@ -1,5 +1,6 @@
 // Path: crates/services/src/agentic/desktop/service/actions/checks.rs
 
+use crate::agentic::desktop::service::step::signals::{analyze_goal_signals, is_system_surface};
 use crate::agentic::desktop::types::AgentState;
 use ioi_api::vm::drivers::os::OsDriver;
 use ioi_types::app::agentic::{AgentTool, ComputerAction};
@@ -139,20 +140,11 @@ pub async fn enforce_focus_precondition(
         !hint.is_empty() && (fg_title.contains(&hint) || fg_app.contains(&hint));
 
     // [OPEN-INTERPRETER STRATEGY]
-    let goal_lower = agent_state.goal.to_lowercase();
-    let is_launch_intent = goal_lower.starts_with("open")
-        || goal_lower.starts_with("launch")
-        || goal_lower.starts_with("start");
+    let goal_profile = analyze_goal_signals(&agent_state.goal);
+    let is_launch_intent = goal_profile.launch_hits > 0;
+    let on_system_surface = is_system_surface(&fg_info.app_name, &fg_info.title);
 
-    let is_system_surface = fg_app.contains("finder")
-        || fg_app.contains("explorer")
-        || fg_app.contains("dock")
-        || fg_app.contains("shell")
-        || fg_app.contains("launcher")
-        || fg_app.contains("autopilot")
-        || fg_title.contains("desktop");
-
-    if is_target_focused || (is_launch_intent && is_system_surface) {
+    if is_target_focused || (is_launch_intent && on_system_surface) {
         Ok(())
     } else {
         Err(format!(

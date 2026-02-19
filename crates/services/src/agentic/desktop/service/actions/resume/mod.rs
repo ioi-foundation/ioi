@@ -24,7 +24,7 @@ use crate::agentic::desktop::service::step::anti_loop::{
     TierRoutingDecision,
 };
 use crate::agentic::desktop::service::step::helpers::{
-    default_safe_policy, should_auto_complete_open_app_goal,
+    default_safe_policy, is_live_external_research_goal, should_auto_complete_open_app_goal,
 };
 use crate::agentic::desktop::service::step::incident::{
     advance_incident_after_action_outcome, incident_receipt_fields, load_incident_state,
@@ -53,6 +53,7 @@ fn is_web_research_scope(agent_state: &AgentState) -> bool {
         .as_ref()
         .map(|resolved| resolved.scope == IntentScopeProfile::WebResearch)
         .unwrap_or(false)
+        || is_live_external_research_goal(&agent_state.goal)
 }
 
 pub async fn resume_pending_action(

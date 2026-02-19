@@ -1,6 +1,7 @@
 // Path: crates/services/src/agentic/desktop/service/step/perception.rs
 
 use crate::agentic::desktop::service::step::anti_loop::latest_failure_class;
+use crate::agentic::desktop::service::step::signals::is_browser_surface;
 use crate::agentic::desktop::service::step::visual::hamming_distance;
 use crate::agentic::desktop::service::DesktopAgentService;
 use crate::agentic::desktop::tools::discover_tools;
@@ -44,14 +45,7 @@ fn is_active_window_browser(
     info: &Option<ioi_api::vm::drivers::os::WindowInfo>,
 ) -> bool {
     if let Some(win) = info {
-        let app = win.app_name.to_lowercase();
-        let title = win.title.to_lowercase();
-        let browsers = [
-            "chrome", "chromium", "brave", "firefox", "edge", "safari", "arc",
-        ];
-        browsers
-            .iter()
-            .any(|b| app.contains(b) || title.contains(b))
+        is_browser_surface(&win.app_name, &win.title)
     } else {
         false
     }

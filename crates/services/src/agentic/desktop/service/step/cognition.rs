@@ -2,6 +2,7 @@
 
 use crate::agentic::desktop::service::actions::safe_truncate;
 use crate::agentic::desktop::service::step::perception::PerceptionContext;
+use crate::agentic::desktop::service::step::signals::is_browser_surface;
 use crate::agentic::desktop::service::DesktopAgentService;
 use crate::agentic::desktop::types::{
     AgentState, CommandExecution, ExecutionTier, MAX_PROMPT_HISTORY,
@@ -141,22 +142,7 @@ pub async fn think(
     };
 
     // 2. PREFLIGHT: Missing Capability Check (Code-Level Guardrail)
-    let is_browser = perception
-        .active_window_title
-        .to_lowercase()
-        .contains("chrome")
-        || perception
-            .active_window_title
-            .to_lowercase()
-            .contains("firefox")
-        || perception
-            .active_window_title
-            .to_lowercase()
-            .contains("brave")
-        || perception
-            .active_window_title
-            .to_lowercase()
-            .contains("edge");
+    let is_browser = is_browser_surface("", &perception.active_window_title);
 
     if let Some((missing_capability, reason)) =
         preflight_missing_capability(resolved_scope, is_browser, &perception.available_tools)
