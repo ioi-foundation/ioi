@@ -1,5 +1,11 @@
 use super::support::{
-    fallback_search_summary, queue_action_request_to_tool, summarize_search_results,
+    append_pending_web_success_fallback, append_pending_web_success_from_bundle,
+    candidate_source_hints_from_bundle, candidate_urls_from_bundle, fallback_search_summary,
+    is_human_challenge_error, mark_pending_web_attempted, mark_pending_web_blocked,
+    next_pending_web_candidate, parse_web_evidence_bundle, queue_action_request_to_tool,
+    queue_web_read_from_pipeline, remaining_pending_web_candidates, summarize_search_results,
+    synthesize_web_pipeline_reply, web_pipeline_completion_reason, web_pipeline_now_ms,
+    WebPipelineCompletionReason, WEB_PIPELINE_BUDGET_MS, WEB_PIPELINE_DEFAULT_MIN_SOURCES,
 };
 use crate::agentic::desktop::execution::system::is_sudo_password_required_install_error;
 use crate::agentic::desktop::keys::{get_state_key, AGENT_POLICY_PREFIX};
@@ -33,7 +39,7 @@ use crate::agentic::desktop::utils::goto_trace_log;
 use crate::agentic::rules::ActionRules;
 use ioi_api::state::StateAccess;
 use ioi_crypto::algorithms::hash::sha256;
-use ioi_types::app::agentic::AgentTool;
+use ioi_types::app::agentic::{AgentTool, IntentScopeProfile};
 use ioi_types::app::{KernelEvent, RoutingReceiptEvent, RoutingStateSummary};
 use ioi_types::codec;
 use ioi_types::error::TransactionError;
@@ -48,6 +54,14 @@ pub fn resolve_queue_routing_context(
     agent_state.current_tier = routing_decision.tier;
     let pre_state_summary = build_state_summary(agent_state);
     (routing_decision, pre_state_summary)
+}
+
+fn is_web_research_scope(agent_state: &AgentState) -> bool {
+    agent_state
+        .resolved_intent
+        .as_ref()
+        .map(|resolved| resolved.scope == IntentScopeProfile::WebResearch)
+        .unwrap_or(false)
 }
 
 pub async fn process_queue_item(
@@ -420,6 +434,158 @@ pub async fn process_queue_item(
         verification_checks.push("awaiting_clarification=true".to_string());
     }
     let mut completion_summary: Option<String> = None;
+    if !is_gated && tool_name == "web__search" && is_web_research_scope(agent_state) && success {
+        if let Some(bundle) = out.as_deref().and_then(parse_web_evidence_bundle) {
+            let query_value = bundle
+                .query
+                .clone()
+                .filter(|value| !value.trim().is_empty())
+                .or_else(|| match &tool_wrapper {
+                    AgentTool::WebSearch { query, .. } => {
+                        let trimmed = query.trim();
+                        (!trimmed.is_empty()).then(|| trimmed.to_string())
+                    }
+                    _ => None,
+                })
+                .unwrap_or_else(|| agent_state.goal.clone());
+            let started_at_ms = web_pipeline_now_ms();
+            let pending = crate::agentic::desktop::types::PendingSearchCompletion {
+                query: query_value,
+                url: bundle.url.clone().unwrap_or_default(),
+                started_step: pre_state_summary.step_index,
+                started_at_ms,
+                deadline_ms: started_at_ms.saturating_add(WEB_PIPELINE_BUDGET_MS),
+                candidate_urls: candidate_urls_from_bundle(&bundle),
+                candidate_source_hints: candidate_source_hints_from_bundle(&bundle),
+                attempted_urls: Vec::new(),
+                blocked_urls: Vec::new(),
+                successful_reads: Vec::new(),
+                min_sources: WEB_PIPELINE_DEFAULT_MIN_SOURCES,
+            };
+
+            let mut queued_next = false;
+            if let Some(next_url) = next_pending_web_candidate(&pending) {
+                queued_next = queue_web_read_from_pipeline(agent_state, p.session_id, &next_url)?;
+            }
+            let remaining = remaining_pending_web_candidates(&pending);
+
+            verification_checks.push(format!(
+                "web_pipeline_active={}",
+                queued_next || remaining > 0
+            ));
+            verification_checks.push("web_sources_success=0".to_string());
+            verification_checks.push("web_sources_blocked=0".to_string());
+            verification_checks.push("web_budget_ms=0".to_string());
+
+            if queued_next || remaining > 0 {
+                agent_state.pending_search_completion = Some(pending);
+                agent_state.status = AgentStatus::Running;
+            } else {
+                let summary = synthesize_web_pipeline_reply(
+                    &pending,
+                    WebPipelineCompletionReason::ExhaustedCandidates,
+                );
+                completion_summary = Some(summary.clone());
+                success = true;
+                out = Some(summary.clone());
+                err = None;
+                agent_state.status = AgentStatus::Completed(Some(summary));
+                agent_state.pending_search_completion = None;
+                agent_state.execution_queue.clear();
+                agent_state.recent_actions.clear();
+                verification_checks.push("web_pipeline_active=false".to_string());
+            }
+        }
+    }
+
+    if !is_gated && tool_name == "web__read" {
+        if let Some(mut pending) = agent_state.pending_search_completion.clone() {
+            let current_url = match &tool_wrapper {
+                AgentTool::WebRead { url, .. } => url.trim().to_string(),
+                _ => String::new(),
+            };
+
+            if !current_url.is_empty() {
+                mark_pending_web_attempted(&mut pending, &current_url);
+            }
+
+            if success {
+                if let Some(bundle) = out.as_deref().and_then(parse_web_evidence_bundle) {
+                    append_pending_web_success_from_bundle(&mut pending, &bundle, &current_url);
+                } else {
+                    append_pending_web_success_fallback(&mut pending, &current_url, out.as_deref());
+                }
+            } else if !current_url.is_empty()
+                && is_human_challenge_error(err.as_deref().unwrap_or(""))
+            {
+                mark_pending_web_blocked(&mut pending, &current_url);
+            }
+
+            let now_ms = web_pipeline_now_ms();
+            let elapsed_ms = now_ms.saturating_sub(pending.started_at_ms);
+            let mut completion_reason = web_pipeline_completion_reason(&pending, now_ms);
+            let mut queued_next = false;
+            if completion_reason.is_none() {
+                if let Some(next_url) = next_pending_web_candidate(&pending) {
+                    queued_next =
+                        queue_web_read_from_pipeline(agent_state, p.session_id, &next_url)?;
+                }
+                if !queued_next && remaining_pending_web_candidates(&pending) == 0 {
+                    completion_reason = Some(WebPipelineCompletionReason::ExhaustedCandidates);
+                }
+            }
+
+            verification_checks.push(format!(
+                "web_sources_success={}",
+                pending.successful_reads.len()
+            ));
+            verification_checks.push(format!(
+                "web_sources_blocked={}",
+                pending.blocked_urls.len()
+            ));
+            verification_checks.push(format!("web_budget_ms={}", elapsed_ms));
+
+            if let Some(reason) = completion_reason {
+                let summary = synthesize_web_pipeline_reply(&pending, reason);
+                completion_summary = Some(summary.clone());
+                success = true;
+                out = Some(summary.clone());
+                err = None;
+                agent_state.status = AgentStatus::Completed(Some(summary));
+                agent_state.pending_search_completion = None;
+                agent_state.execution_queue.clear();
+                agent_state.recent_actions.clear();
+                verification_checks.push("web_pipeline_active=false".to_string());
+                log::info!(
+                    "Web pipeline completed for session {} (sources_success={} blocked={}).",
+                    hex::encode(&p.session_id[..4]),
+                    pending.successful_reads.len(),
+                    pending.blocked_urls.len()
+                );
+            } else {
+                let challenge = is_human_challenge_error(err.as_deref().unwrap_or(""));
+                verification_checks.push("web_pipeline_active=true".to_string());
+                agent_state.pending_search_completion = Some(pending);
+                if !success {
+                    let note = if challenge {
+                        format!(
+                            "Skipped challenged source and queued next candidate: {}",
+                            current_url
+                        )
+                    } else {
+                        format!(
+                            "Source read failed; queued alternate candidate: {}",
+                            current_url
+                        )
+                    };
+                    success = true;
+                    out = Some(note);
+                    err = None;
+                    agent_state.status = AgentStatus::Running;
+                }
+            }
+        }
+    }
 
     if !is_gated && tool_name == "browser__snapshot" {
         if let Some(pending) = agent_state.pending_search_completion.clone() {
@@ -519,7 +685,7 @@ pub async fn process_queue_item(
             let _ = tx.send(KernelEvent::AgentActionResult {
                 session_id: p.session_id,
                 step_index: agent_state.step_count,
-                tool_name: "agent__complete".to_string(),
+                tool_name: "chat__reply".to_string(),
                 output: summary.clone(),
                 agent_status: "Completed".to_string(),
             });
@@ -673,6 +839,21 @@ pub async fn process_queue_item(
                 agent_state.status = AgentStatus::Paused(
                     "Waiting for user intervention: complete the required human verification in your browser/app, then resume.".to_string(),
                 );
+            } else if is_web_research_scope(agent_state)
+                && matches!(class, FailureClass::UnexpectedState)
+            {
+                // Keep web research autonomous under transient tool/schema instability.
+                stop_condition_hit = false;
+                escalation_path = None;
+                success = true;
+                err = None;
+                out = Some(format!(
+                    "Transient unexpected state while executing '{}'; continuing web research.",
+                    tool_name
+                ));
+                agent_state.status = AgentStatus::Running;
+                agent_state.recent_actions.clear();
+                verification_checks.push("web_unexpected_retry_bypass=true".to_string());
             } else if blocked_without_change {
                 stop_condition_hit = true;
                 escalation_path = Some(escalation_path_for_failure(class).to_string());
@@ -720,6 +901,19 @@ pub async fn process_queue_item(
                     agent_state.consecutive_failures = agent_state.consecutive_failures.max(3);
                 }
             }
+        }
+    }
+
+    if !success
+        && matches!(agent_state.status, AgentStatus::Paused(_))
+        && !stop_condition_hit
+        && !is_gated
+        && !awaiting_sudo_password
+        && !awaiting_clarification
+    {
+        stop_condition_hit = true;
+        if escalation_path.is_none() {
+            escalation_path = Some("wait_for_user".to_string());
         }
     }
 

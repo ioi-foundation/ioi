@@ -696,13 +696,38 @@ impl ToolNormalizer {
         // it routes deterministic tools through the MCP executor path (tool-not-found loops)
         // instead of surfacing a schema error the model can correct.
         if let AgentTool::Dynamic(val) = &tool_call {
-            if let Some(name) = val.get("name").and_then(|n| n.as_str()) {
-                if is_deterministic_tool_name(name) {
-                    return Err(anyhow!(
-                        "Schema Validation Error: '{}' is a built-in tool but arguments did not match its typed schema.",
-                        name
-                    ));
-                }
+            let name = val
+                .get("name")
+                .and_then(|n| n.as_str())
+                .map(str::trim)
+                .filter(|name| !name.is_empty())
+                .ok_or_else(|| {
+                    anyhow!(
+                        "Schema Validation Error: dynamic tool calls require a non-empty string 'name'."
+                    )
+                })?;
+
+            let normalized = name
+                .trim_matches(|ch: char| ch == '"' || ch == '\'')
+                .trim()
+                .to_ascii_lowercase();
+            if normalized.is_empty()
+                || normalized == "unknown"
+                || normalized == "custom(unknown)"
+                || normalized == "custom(\"unknown\")"
+                || normalized == "custom('unknown')"
+            {
+                return Err(anyhow!(
+                    "Schema Validation Error: dynamic tool name '{}' is invalid.",
+                    name
+                ));
+            }
+
+            if is_deterministic_tool_name(name) {
+                return Err(anyhow!(
+                    "Schema Validation Error: '{}' is a built-in tool but arguments did not match its typed schema.",
+                    name
+                ));
             }
         }
 
@@ -953,6 +978,33 @@ mod tests {
         let err = ToolNormalizer::normalize(input).expect_err("expected schema error");
         assert!(err.to_string().contains("Schema Validation Error"));
         assert!(err.to_string().contains("browser__navigate"));
+    }
+
+    #[test]
+    fn test_dynamic_tool_without_name_is_rejected() {
+        let input = r#"{"arguments":{"query":"latest news"}}"#;
+        let err = ToolNormalizer::normalize(input).expect_err("expected schema error");
+        assert!(err
+            .to_string()
+            .contains("dynamic tool calls require a non-empty string 'name'"));
+    }
+
+    #[test]
+    fn test_dynamic_tool_with_blank_name_is_rejected() {
+        let input = r#"{"name":"   ","arguments":{"query":"latest news"}}"#;
+        let err = ToolNormalizer::normalize(input).expect_err("expected schema error");
+        assert!(err.to_string().contains("Schema Validation Error"));
+        assert!(err
+            .to_string()
+            .contains("dynamic tool calls require a non-empty string 'name'"));
+    }
+
+    #[test]
+    fn test_dynamic_tool_unknown_name_is_rejected() {
+        let input = r#"{"name":"Custom(\"unknown\")","arguments":{"query":"latest news"}}"#;
+        let err = ToolNormalizer::normalize(input).expect_err("expected schema error");
+        assert!(err.to_string().contains("Schema Validation Error"));
+        assert!(err.to_string().contains("invalid"));
     }
 
     #[test]

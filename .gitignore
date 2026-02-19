@@ -21,3 +21,4 @@ dist/
 .tmp/
 CODEX.txt
 packages/agent-ide/tsconfig.tsbuildinfo
+.env

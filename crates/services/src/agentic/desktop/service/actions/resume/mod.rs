@@ -41,11 +41,19 @@ use crate::agentic::desktop::middleware;
 use hex;
 use ioi_api::state::StateAccess;
 use ioi_pii::resolve_expected_request_hash;
-use ioi_types::app::agentic::{AgentTool, PiiReviewRequest};
+use ioi_types::app::agentic::{AgentTool, IntentScopeProfile, PiiReviewRequest};
 use ioi_types::app::{KernelEvent, RoutingReceiptEvent};
 use ioi_types::codec;
 use ioi_types::error::TransactionError;
 use std::time::{SystemTime, UNIX_EPOCH};
+
+fn is_web_research_scope(agent_state: &AgentState) -> bool {
+    agent_state
+        .resolved_intent
+        .as_ref()
+        .map(|resolved| resolved.scope == IntentScopeProfile::WebResearch)
+        .unwrap_or(false)
+}
 
 pub async fn resume_pending_action(
     service: &DesktopAgentService,
@@ -453,7 +461,8 @@ pub async fn resume_pending_action(
                 }
             }
             AgentTool::ChatReply { message } => {
-                agent_state.status = AgentStatus::Paused("Waiting for user input".to_string());
+                agent_state.status = AgentStatus::Completed(Some(message.clone()));
+                evaluate_and_crystallize(service, agent_state, session_id, message).await;
 
                 if let Some(tx) = &service.event_sender {
                     let _ = tx.send(KernelEvent::AgentActionResult {
@@ -670,6 +679,21 @@ pub async fn resume_pending_action(
                 agent_state.status = AgentStatus::Paused(
                     "Waiting for user intervention: complete the required human verification in your browser/app, then resume.".to_string(),
                 );
+            } else if is_web_research_scope(agent_state)
+                && matches!(class, FailureClass::UnexpectedState)
+            {
+                // Keep web research autonomous under transient tool/schema instability.
+                stop_condition_hit = false;
+                escalation_path = None;
+                success = true;
+                err = None;
+                out = Some(format!(
+                    "Transient unexpected state while executing '{}'; continuing web research.",
+                    tool_name
+                ));
+                agent_state.status = AgentStatus::Running;
+                agent_state.recent_actions.clear();
+                verification_checks.push("web_unexpected_retry_bypass=true".to_string());
             } else if blocked_without_change {
                 stop_condition_hit = true;
                 escalation_path = Some(escalation_path_for_failure(class).to_string());

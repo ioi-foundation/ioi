@@ -63,10 +63,61 @@ pub struct SwarmContext {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Encode, Decode, PartialEq, Eq)]
+#[serde(default)]
+pub struct PendingSearchReadSummary {
+    pub url: String,
+    pub title: Option<String>,
+    pub excerpt: String,
+}
+
+fn default_pending_search_min_sources() -> u32 {
+    2
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Encode, Decode, PartialEq, Eq)]
+#[serde(default)]
 pub struct PendingSearchCompletion {
     pub query: String,
     pub url: String,
     pub started_step: u32,
+    pub started_at_ms: u64,
+    pub deadline_ms: u64,
+    pub candidate_urls: Vec<String>,
+    #[serde(default)]
+    pub candidate_source_hints: Vec<PendingSearchReadSummary>,
+    pub attempted_urls: Vec<String>,
+    pub blocked_urls: Vec<String>,
+    pub successful_reads: Vec<PendingSearchReadSummary>,
+    #[serde(default = "default_pending_search_min_sources")]
+    pub min_sources: u32,
+}
+
+impl Default for PendingSearchReadSummary {
+    fn default() -> Self {
+        Self {
+            url: String::new(),
+            title: None,
+            excerpt: String::new(),
+        }
+    }
+}
+
+impl Default for PendingSearchCompletion {
+    fn default() -> Self {
+        Self {
+            query: String::new(),
+            url: String::new(),
+            started_step: 0,
+            started_at_ms: 0,
+            deadline_ms: 0,
+            candidate_urls: Vec::new(),
+            candidate_source_hints: Vec::new(),
+            attempted_urls: Vec::new(),
+            blocked_urls: Vec::new(),
+            successful_reads: Vec::new(),
+            min_sources: default_pending_search_min_sources(),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Encode, Decode, PartialEq, Eq)]

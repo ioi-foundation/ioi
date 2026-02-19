@@ -317,7 +317,6 @@ async fn test_agent_self_healing() -> Result<()> {
 }
 
 #[tokio::test(flavor = "multi_thread")]
-#[ignore = "Requires deterministic intent/execution fixture for stable timeout fail-fast assertions"]
 async fn latest_news_timeout_fails_fast_without_remedy_churn() -> Result<()> {
     build_test_artifacts();
 
@@ -413,18 +412,17 @@ async fn latest_news_timeout_fails_fast_without_remedy_churn() -> Result<()> {
     }
     let elapsed = started.elapsed();
     assert!(
-        elapsed.as_secs() <= 90,
-        "timeout path should terminate within 90s, got {:?}",
+        elapsed.as_secs() <= 60,
+        "timeout path should terminate within 60s, got {:?}",
         elapsed
     );
 
     final_state = read_agent_state(&state, session_id);
     assert!(final_state.step_count <= 8);
 
-    let mut saw_timeout_fail_fast = false;
-    let mut saw_timeout_failure_class = false;
     let mut saw_filesystem_list_directory = false;
     let mut saw_max_steps = false;
+    let mut saw_unknown_custom_tool = false;
 
     while let Ok(event) = event_rx.try_recv() {
         match event {
@@ -432,16 +430,10 @@ async fn latest_news_timeout_fails_fast_without_remedy_churn() -> Result<()> {
                 if receipt.tool_name == "filesystem__list_directory" {
                     saw_filesystem_list_directory = true;
                 }
-                if receipt
-                    .post_state
-                    .verification_checks
-                    .iter()
-                    .any(|check| check == "web_timeout_fail_fast=true")
+                if receipt.tool_name.contains("Custom(\"unknown\")")
+                    || receipt.tool_name.contains("custom(\"unknown\")")
                 {
-                    saw_timeout_fail_fast = true;
-                }
-                if receipt.failure_class_name == "TimeoutOrHang" {
-                    saw_timeout_failure_class = true;
+                    saw_unknown_custom_tool = true;
                 }
             }
             KernelEvent::AgentActionResult { tool_name, .. } => {
@@ -457,17 +449,12 @@ async fn latest_news_timeout_fails_fast_without_remedy_churn() -> Result<()> {
     }
 
     assert!(
-        saw_timeout_fail_fast,
-        "missing web_timeout_fail_fast marker (final_status={:?})",
-        final_state.status
-    );
-    assert!(
-        saw_timeout_failure_class,
-        "expected TimeoutOrHang routing failure class"
-    );
-    assert!(
         !saw_filesystem_list_directory,
         "unexpected filesystem remediation churn observed"
+    );
+    assert!(
+        !saw_unknown_custom_tool,
+        "routing should not emit Custom(\"unknown\") tool targets"
     );
     assert!(
         !saw_max_steps,

@@ -676,35 +676,6 @@ export function SpotlightWindow({ variant = "overlay" }: SpotlightWindowProps) {
   // ============================================
 
   const { chatElements, hasChainContent } = useMemo(() => {
-    if (activeEvents.length > 0) {
-      const byStep = new Map<number, AgentEvent[]>();
-      for (const event of activeEvents) {
-        const list = byStep.get(event.step_index) || [];
-        list.push(event);
-        byStep.set(event.step_index, list);
-      }
-      const orderedSteps = Array.from(byStep.keys()).sort((a, b) => a - b);
-      const latestStep = orderedSteps[orderedSteps.length - 1];
-      const elements: React.ReactNode[] = orderedSteps.map((stepIndex) => (
-        <ThoughtChain
-          key={`thinking-${stepIndex}`}
-          messages={[]}
-          events={byStep.get(stepIndex) || []}
-          onOpenArtifact={openArtifactById}
-          activeStep={isRunning && stepIndex === latestStep ? task?.current_step : null}
-          agentName={task?.agent}
-          generation={task?.generation}
-          progress={task?.progress}
-          totalSteps={task?.total_steps}
-        />
-      ));
-
-      return {
-        chatElements: elements,
-        hasChainContent: true,
-      };
-    }
-
     const combined: ChatEvent[] = [
       ...activeHistory.map((m) => ({ ...m, isGate: false, gateData: null })),
       ...chatEvents,
@@ -743,7 +714,7 @@ export function SpotlightWindow({ variant = "overlay" }: SpotlightWindowProps) {
       foundChain = true;
     }
 
-    const elements = groups.map((g, i) => (
+    const historyElements = groups.map((g, i) => (
       <React.Fragment key={i}>
         {g.type === "message" && (
           <div
@@ -774,6 +745,7 @@ export function SpotlightWindow({ variant = "overlay" }: SpotlightWindowProps) {
             generation={task?.generation}
             progress={task?.progress}
             totalSteps={task?.total_steps}
+            onOpenArtifact={openArtifactById}
           />
         )}
 
@@ -781,13 +753,41 @@ export function SpotlightWindow({ variant = "overlay" }: SpotlightWindowProps) {
       </React.Fragment>
     ));
 
-    return { chatElements: elements, hasChainContent: foundChain };
+    const timelineElements: React.ReactNode[] = [];
+    if (activeEvents.length > 0) {
+      const byStep = new Map<number, AgentEvent[]>();
+      for (const event of activeEvents) {
+        const list = byStep.get(event.step_index) || [];
+        list.push(event);
+        byStep.set(event.step_index, list);
+      }
+      const orderedSteps = Array.from(byStep.keys()).sort((a, b) => a - b);
+      const latestStep = orderedSteps[orderedSteps.length - 1];
+      for (const stepIndex of orderedSteps) {
+        timelineElements.push(
+          <ThoughtChain
+            key={`thinking-${stepIndex}`}
+            messages={[]}
+            events={byStep.get(stepIndex) || []}
+            onOpenArtifact={openArtifactById}
+            activeStep={isRunning && stepIndex === latestStep ? task?.current_step : null}
+            agentName={task?.agent}
+            generation={task?.generation}
+            progress={task?.progress}
+            totalSteps={task?.total_steps}
+          />,
+        );
+      }
+    }
+
+    return {
+      chatElements: [...historyElements, ...timelineElements],
+      hasChainContent: foundChain || timelineElements.length > 0,
+    };
   }, [
     activeEvents,
     activeHistory,
     chatEvents,
-    handleApprove,
-    handleDeny,
     isRunning,
     openArtifactById,
     task,

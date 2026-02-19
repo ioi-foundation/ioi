@@ -425,9 +425,10 @@ pub async fn process_tool_output(
                             }
                         }
                         AgentTool::ChatReply { message } => {
-                            agent_state.status =
-                                AgentStatus::Paused("Waiting for user input".to_string());
+                            agent_state.status = AgentStatus::Completed(Some(message.clone()));
                             is_lifecycle_action = true;
+                            evaluate_and_crystallize(service, agent_state, session_id, message)
+                                .await;
 
                             if let Some(tx) = &service.event_sender {
                                 let _ = tx.send(KernelEvent::AgentActionResult {
