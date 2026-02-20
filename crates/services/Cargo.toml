@@ -59,6 +59,9 @@ walkdir = "2.4"
 ioi-state = { path = "../state" }
 ioi-client = { path = "../client" }
 ioi-drivers = { path = "../drivers" }
+imap = { version = "2.4.1" }
+native-tls = "0.2.18"
+lettre = { version = "0.11.19" }
 
 [features]
 default = [] 

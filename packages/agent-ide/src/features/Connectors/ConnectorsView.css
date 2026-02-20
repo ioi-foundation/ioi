@@ -187,6 +187,195 @@
   color: var(--text-secondary);
 }
 
+.connector-test-panel {
+  border: 1px solid var(--border-default);
+  background: var(--surface-3);
+  border-radius: 8px;
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.mail-account-setup {
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  background: var(--surface-2);
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.mail-setup-head h3 {
+  margin: 0;
+  font-size: 12px;
+  color: var(--text-primary);
+}
+
+.mail-setup-head p {
+  margin: 4px 0 0;
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+
+.mail-account-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.mail-account-grid.advanced {
+  border-top: 1px dashed var(--border-subtle);
+  padding-top: 8px;
+}
+
+.mail-account-grid label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+
+.mail-account-grid input,
+.mail-account-grid select {
+  background: var(--surface-1);
+  border: 1px solid var(--border-default);
+  color: var(--text-primary);
+  border-radius: 6px;
+  padding: 7px 8px;
+  font-size: 11px;
+}
+
+.mail-provider-hint {
+  margin: 0;
+  font-size: 11px;
+  color: var(--text-tertiary);
+}
+
+.mail-setup-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.connector-intent-panel {
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  background: var(--surface-2);
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.connector-intent-panel label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+
+.connector-intent-panel textarea {
+  background: var(--surface-1);
+  border: 1px solid var(--border-default);
+  color: var(--text-primary);
+  border-radius: 6px;
+  padding: 7px 8px;
+  font-size: 11px;
+  resize: vertical;
+  min-height: 64px;
+}
+
+.connector-intent-panel input {
+  background: var(--surface-1);
+  border: 1px solid var(--border-default);
+  color: var(--text-primary);
+  border-radius: 6px;
+  padding: 7px 8px;
+  font-size: 11px;
+}
+
+.connector-intent-panel select {
+  background: var(--surface-1);
+  border: 1px solid var(--border-default);
+  color: var(--text-primary);
+  border-radius: 6px;
+  padding: 7px 8px;
+  font-size: 11px;
+}
+
+.connector-intent-checkbox {
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center;
+  gap: 8px !important;
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+
+.connector-intent-checkbox input {
+  margin: 0;
+}
+
+.connector-test-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.connector-test-grid label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+
+.connector-test-grid input {
+  background: var(--surface-2);
+  border: 1px solid var(--border-default);
+  color: var(--text-primary);
+  border-radius: 6px;
+  padding: 6px 8px;
+  font-size: 11px;
+}
+
+.connector-test-grid select {
+  background: var(--surface-2);
+  border: 1px solid var(--border-default);
+  color: var(--text-primary);
+  border-radius: 6px;
+  padding: 6px 8px;
+  font-size: 11px;
+}
+
+.connector-test-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.connector-test-error {
+  margin: 0;
+  font-size: 11px;
+  color: var(--status-warning);
+}
+
+.connector-test-result {
+  margin: 0;
+  max-height: 200px;
+  overflow: auto;
+  border-radius: 6px;
+  border: 1px solid var(--border-subtle);
+  background: var(--surface-1);
+  color: var(--text-primary);
+  padding: 8px;
+  font-size: 10px;
+  font-family: var(--font-mono);
+}
+
 .connector-actions {
   margin-top: auto;
   padding-top: 8px;
@@ -223,4 +412,11 @@
 .btn-primary:disabled {
   opacity: 0.45;
   cursor: not-allowed;
+}
+
+@media (max-width: 860px) {
+  .mail-account-grid,
+  .connector-test-grid {
+    grid-template-columns: 1fr;
+  }
 }

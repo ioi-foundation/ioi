@@ -23,6 +23,7 @@ pub mod utility {
 // Removed `pub mod middleware;`
 
 use async_trait::async_trait;
+use ioi_api::services::access::ServiceDirectory;
 use ioi_api::services::{BlockchainService, UpgradableService};
 use ioi_api::state::StateAccess;
 use ioi_api::transaction::context::TxContext;
@@ -33,6 +34,7 @@ use ioi_drivers::mcp::McpManager;
 use ioi_drivers::terminal::TerminalDriver;
 use ioi_scs::SovereignContextStore;
 use ioi_types::app::KernelEvent;
+use ioi_types::app::{AccountId, ChainId};
 use ioi_types::codec;
 use ioi_types::error::{TransactionError, UpgradeError};
 use ioi_types::service_configs::Capabilities;
@@ -100,6 +102,32 @@ pub struct DesktopAgentService {
 
     /// Lens Registry for Application Lenses ("LiDAR")
     pub(crate) lens_registry: Arc<LensRegistry>,
+}
+
+/// Snapshot of the active transaction context used by action execution helpers.
+#[derive(Clone, Copy)]
+pub struct ServiceCallContext<'a> {
+    pub block_height: u64,
+    pub block_timestamp: u64,
+    pub chain_id: ChainId,
+    pub signer_account_id: AccountId,
+    pub services: &'a ServiceDirectory,
+    pub simulation: bool,
+    pub is_internal: bool,
+}
+
+impl<'a> ServiceCallContext<'a> {
+    pub fn from_tx(ctx: &'a TxContext<'a>) -> Self {
+        Self {
+            block_height: ctx.block_height,
+            block_timestamp: ctx.block_timestamp,
+            chain_id: ctx.chain_id,
+            signer_account_id: ctx.signer_account_id,
+            services: ctx.services,
+            simulation: ctx.simulation,
+            is_internal: ctx.is_internal,
+        }
+    }
 }
 
 #[async_trait]
@@ -197,6 +225,37 @@ impl DesktopAgentService {
             agent_state,
             os_driver,
             scoped_exception_hash,
+            None,
+            None,
+        )
+        .await
+    }
+
+    pub(crate) async fn handle_action_execution_with_state<'a>(
+        &self,
+        state: &mut dyn StateAccess,
+        call_context: ServiceCallContext<'a>,
+        tool: ioi_types::app::agentic::AgentTool,
+        session_id: [u8; 32],
+        step_index: u32,
+        visual_phash: [u8; 32],
+        rules: &crate::agentic::rules::ActionRules,
+        agent_state: &crate::agentic::desktop::types::AgentState,
+        os_driver: &Arc<dyn OsDriver>,
+        scoped_exception_hash: Option<[u8; 32]>,
+    ) -> Result<(bool, Option<String>, Option<String>), TransactionError> {
+        self::handler::handle_action_execution(
+            self,
+            tool,
+            session_id,
+            step_index,
+            visual_phash,
+            rules,
+            agent_state,
+            os_driver,
+            scoped_exception_hash,
+            Some(state),
+            Some(call_context),
         )
         .await
     }

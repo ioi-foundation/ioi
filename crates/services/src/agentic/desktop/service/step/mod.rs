@@ -12,7 +12,7 @@ pub mod queue;
 pub mod signals;
 pub mod visual;
 
-use super::DesktopAgentService;
+use super::{DesktopAgentService, ServiceCallContext};
 // [FIX] Import actions module from parent service directory
 use crate::agentic::desktop::keys::{
     get_mutation_receipt_ptr_key, get_state_key, AGENT_POLICY_PREFIX,
@@ -41,6 +41,8 @@ pub async fn handle_step(
     p: StepAgentParams,
     ctx: &mut TxContext<'_>,
 ) -> Result<(), TransactionError> {
+    let call_context = ServiceCallContext::from_tx(ctx);
+
     // 1. Hydrate State
     let key = get_state_key(&p.session_id);
     let bytes = state
@@ -304,6 +306,7 @@ pub async fn handle_step(
                 p.session_id,
                 ctx.block_height,
                 ctx.block_timestamp,
+                call_context,
             )
             .await;
         }
@@ -325,6 +328,7 @@ pub async fn handle_step(
             p.session_id,
             ctx.block_height,
             ctx.block_timestamp,
+            call_context,
         )
         .await;
     }
@@ -338,6 +342,7 @@ pub async fn handle_step(
             &p,
             ctx.block_height,
             ctx.block_timestamp,
+            call_context,
         )
         .await;
     }
@@ -376,6 +381,7 @@ pub async fn handle_step(
         p.session_id,
         ctx.block_height,
         ctx.block_timestamp,
+        call_context,
     )
     .await
     {

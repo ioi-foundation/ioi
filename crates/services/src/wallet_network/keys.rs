@@ -17,8 +17,16 @@ pub(super) const APPROVAL_CONSUMPTION_PREFIX: &[u8] = b"approval_consumption::";
 pub(super) const CHANNEL_PREFIX: &[u8] = b"channel::";
 pub(super) const CHANNEL_KEY_STATE_PREFIX: &[u8] = b"channel_key_state::";
 pub(super) const LEASE_PREFIX: &[u8] = b"lease::";
+pub(super) const LEASE_CONSUMPTION_PREFIX: &[u8] = b"lease_consumption::";
+pub(super) const LEASE_ACTION_WINDOW_PREFIX: &[u8] = b"lease_action_window::";
 pub(super) const LEASE_REPLAY_PREFIX: &[u8] = b"lease_replay::";
 pub(super) const LEASE_COUNTER_WINDOW_PREFIX: &[u8] = b"lease_counter_window::";
+pub(super) const MAIL_CONNECTOR_PREFIX: &[u8] = b"mail_connector::";
+pub(super) const MAIL_CONNECTOR_GET_RECEIPT_PREFIX: &[u8] = b"mail_connector_get_receipt::";
+pub(super) const MAIL_READ_RECEIPT_PREFIX: &[u8] = b"mail_read_receipt::";
+pub(super) const MAIL_LIST_RECEIPT_PREFIX: &[u8] = b"mail_list_receipt::";
+pub(super) const MAIL_DELETE_RECEIPT_PREFIX: &[u8] = b"mail_delete_receipt::";
+pub(super) const MAIL_REPLY_RECEIPT_PREFIX: &[u8] = b"mail_reply_receipt::";
 pub(super) const RECEIPT_COMMIT_PREFIX: &[u8] = b"receipt_commit::";
 pub(super) const RECEIPT_WINDOW_PREFIX: &[u8] = b"receipt_window::";
 pub(super) const AUDIT_PREFIX: &[u8] = b"audit::";
@@ -90,6 +98,26 @@ pub(super) fn lease_key(channel_id: &[u8; 32], lease_id: &[u8; 32]) -> Vec<u8> {
     .concat()
 }
 
+pub(super) fn lease_consumption_key(channel_id: &[u8; 32], lease_id: &[u8; 32]) -> Vec<u8> {
+    [
+        LEASE_CONSUMPTION_PREFIX,
+        channel_id.as_slice(),
+        b"::",
+        lease_id.as_slice(),
+    ]
+    .concat()
+}
+
+pub(super) fn lease_action_window_key(channel_id: &[u8; 32], lease_id: &[u8; 32]) -> Vec<u8> {
+    [
+        LEASE_ACTION_WINDOW_PREFIX,
+        channel_id.as_slice(),
+        b"::",
+        lease_id.as_slice(),
+    ]
+    .concat()
+}
+
 pub(super) fn lease_replay_key(channel_id: &[u8; 32], issuer_id: &[u8; 32]) -> Vec<u8> {
     [
         LEASE_REPLAY_PREFIX,
@@ -98,6 +126,31 @@ pub(super) fn lease_replay_key(channel_id: &[u8; 32], issuer_id: &[u8; 32]) -> V
         issuer_id.as_slice(),
     ]
     .concat()
+}
+
+pub(super) fn mail_connector_key(mailbox: &str) -> Vec<u8> {
+    let normalized = mailbox.trim().to_ascii_lowercase();
+    [MAIL_CONNECTOR_PREFIX, normalized.as_bytes()].concat()
+}
+
+pub(super) fn mail_connector_get_receipt_key(request_id: &[u8; 32]) -> Vec<u8> {
+    [MAIL_CONNECTOR_GET_RECEIPT_PREFIX, request_id.as_slice()].concat()
+}
+
+pub(super) fn mail_read_receipt_key(operation_id: &[u8; 32]) -> Vec<u8> {
+    [MAIL_READ_RECEIPT_PREFIX, operation_id.as_slice()].concat()
+}
+
+pub(super) fn mail_list_receipt_key(operation_id: &[u8; 32]) -> Vec<u8> {
+    [MAIL_LIST_RECEIPT_PREFIX, operation_id.as_slice()].concat()
+}
+
+pub(super) fn mail_delete_receipt_key(operation_id: &[u8; 32]) -> Vec<u8> {
+    [MAIL_DELETE_RECEIPT_PREFIX, operation_id.as_slice()].concat()
+}
+
+pub(super) fn mail_reply_receipt_key(operation_id: &[u8; 32]) -> Vec<u8> {
+    [MAIL_REPLY_RECEIPT_PREFIX, operation_id.as_slice()].concat()
 }
 
 pub(super) fn lease_counter_window_key(channel_id: &[u8; 32], issuer_id: &[u8; 32]) -> Vec<u8> {

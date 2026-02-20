@@ -68,6 +68,169 @@ export interface ConnectorSummary {
   notes?: string;
 }
 
+export interface WalletMailMessage {
+  messageId: string;
+  from: string;
+  subject: string;
+  receivedAtMs: number;
+  preview: string;
+}
+
+export interface WalletMailReadLatestInput {
+  channelId: string;
+  leaseId: string;
+  opSeq: number;
+  mailbox?: string;
+}
+
+export interface WalletMailListRecentInput {
+  channelId: string;
+  leaseId: string;
+  opSeq: number;
+  mailbox?: string;
+  limit?: number;
+}
+
+export interface WalletMailReadLatestResult {
+  operationIdHex: string;
+  channelIdHex: string;
+  leaseIdHex: string;
+  mailbox: string;
+  audienceHex: string;
+  executedAtMs: number;
+  message: WalletMailMessage;
+}
+
+export interface WalletMailListRecentResult {
+  operationIdHex: string;
+  channelIdHex: string;
+  leaseIdHex: string;
+  mailbox: string;
+  audienceHex: string;
+  executedAtMs: number;
+  messages: WalletMailMessage[];
+}
+
+export interface WalletMailDeleteSpamInput {
+  channelId: string;
+  leaseId: string;
+  opSeq: number;
+  mailbox?: string;
+  maxDelete?: number;
+}
+
+export interface WalletMailDeleteSpamResult {
+  operationIdHex: string;
+  channelIdHex: string;
+  leaseIdHex: string;
+  mailbox: string;
+  audienceHex: string;
+  executedAtMs: number;
+  deletedCount: number;
+}
+
+export interface WalletMailReplyInput {
+  channelId: string;
+  leaseId: string;
+  opSeq: number;
+  mailbox?: string;
+  to: string;
+  subject: string;
+  body: string;
+  replyToMessageId?: string;
+}
+
+export interface WalletMailReplyResult {
+  operationIdHex: string;
+  channelIdHex: string;
+  leaseIdHex: string;
+  mailbox: string;
+  audienceHex: string;
+  executedAtMs: number;
+  to: string;
+  subject: string;
+  sentMessageId: string;
+}
+
+export interface WalletMailIntentInput {
+  channelId: string;
+  leaseId: string;
+  opSeq: number;
+  query: string;
+  mailbox?: string;
+  listLimit?: number;
+  approvalArtifactJson?: string;
+}
+
+export interface WalletMailApprovalArtifactInput {
+  channelId: string;
+  leaseId: string;
+  opSeq: number;
+  query: string;
+  mailbox?: string;
+  ttlSeconds?: number;
+}
+
+export interface WalletMailApprovalArtifactResult {
+  normalizedIntent: string;
+  requestHashHex: string;
+  audienceHex: string;
+  revocationEpoch: number;
+  expiresAtMs: number;
+  approvalArtifactJson: string;
+}
+
+export interface WalletMailIntentResult {
+  query: string;
+  normalizedIntent: string;
+  policyDecision: string;
+  reason: string;
+  approved: boolean;
+  executed: boolean;
+  operation?: string;
+  nextOpSeq: number;
+  readLatest?: WalletMailReadLatestResult;
+  listRecent?: WalletMailListRecentResult;
+  deleteSpam?: WalletMailDeleteSpamResult;
+  reply?: WalletMailReplyResult;
+}
+
+export type WalletMailConnectorAuthMode = "password" | "oauth2";
+export type WalletMailConnectorTlsMode = "plaintext" | "starttls" | "tls";
+
+export interface WalletMailConfigureAccountInput {
+  mailbox?: string;
+  accountEmail: string;
+  authMode?: WalletMailConnectorAuthMode;
+  imapHost: string;
+  imapPort: number;
+  imapTlsMode?: WalletMailConnectorTlsMode;
+  smtpHost: string;
+  smtpPort: number;
+  smtpTlsMode?: WalletMailConnectorTlsMode;
+  imapUsername?: string;
+  imapSecret: string;
+  smtpUsername?: string;
+  smtpSecret: string;
+}
+
+export interface WalletMailConfigureAccountResult {
+  mailbox: string;
+  accountEmail: string;
+  authMode: WalletMailConnectorAuthMode;
+  imapHost: string;
+  imapPort: number;
+  imapTlsMode: WalletMailConnectorTlsMode;
+  smtpHost: string;
+  smtpPort: number;
+  smtpTlsMode: WalletMailConnectorTlsMode;
+  imapUsernameAlias: string;
+  imapSecretAlias: string;
+  smtpUsernameAlias: string;
+  smtpSecretAlias: string;
+  updatedAtMs: number;
+}
+
 // Fleet Types
 export interface Zone {
   id: string;
@@ -125,6 +288,27 @@ export interface AgentRuntime {
 
   // Integrations / Connectors
   getConnectors?(): Promise<ConnectorSummary[]>;
+  walletMailReadLatest?(
+    input: WalletMailReadLatestInput
+  ): Promise<WalletMailReadLatestResult>;
+  walletMailListRecent?(
+    input: WalletMailListRecentInput
+  ): Promise<WalletMailListRecentResult>;
+  walletMailDeleteSpam?(
+    input: WalletMailDeleteSpamInput
+  ): Promise<WalletMailDeleteSpamResult>;
+  walletMailReply?(
+    input: WalletMailReplyInput
+  ): Promise<WalletMailReplyResult>;
+  walletMailHandleIntent?(
+    input: WalletMailIntentInput
+  ): Promise<WalletMailIntentResult>;
+  walletMailConfigureAccount?(
+    input: WalletMailConfigureAccountInput
+  ): Promise<WalletMailConfigureAccountResult>;
+  walletMailGenerateApprovalArtifact?(
+    input: WalletMailApprovalArtifactInput
+  ): Promise<WalletMailApprovalArtifactResult>;
 
   // Event Subscription
   onEvent(callback: (event: GraphEvent) => void): () => void;

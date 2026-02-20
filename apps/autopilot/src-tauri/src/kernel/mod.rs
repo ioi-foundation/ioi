@@ -1,6 +1,7 @@
 // apps/autopilot/src-tauri/src/kernel/mod.rs
 
 pub mod artifacts;
+pub mod connectors;
 pub mod cosmic;
 pub mod data;
 pub mod events;

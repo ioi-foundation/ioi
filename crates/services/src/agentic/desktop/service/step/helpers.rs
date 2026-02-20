@@ -208,6 +208,10 @@ pub fn is_live_external_research_goal(goal: &str) -> bool {
     signals::is_live_external_research_goal(goal)
 }
 
+pub fn is_mailbox_connector_goal(goal: &str) -> bool {
+    signals::is_mailbox_connector_intent(goal)
+}
+
 pub fn should_auto_complete_open_app_goal(
     goal: &str,
     app_name: &str,
@@ -266,8 +270,8 @@ pub fn should_auto_complete_open_app_goal(
 #[cfg(test)]
 mod tests {
     use super::{
-        default_safe_policy, is_live_external_research_goal, should_auto_complete_open_app_goal,
-        LIVE_EXTERNAL_RESEARCH_SIGNAL_VERSION,
+        default_safe_policy, is_live_external_research_goal, is_mailbox_connector_goal,
+        should_auto_complete_open_app_goal, LIVE_EXTERNAL_RESEARCH_SIGNAL_VERSION,
     };
 
     #[test]
@@ -316,7 +320,7 @@ mod tests {
 
     #[test]
     fn detects_live_external_research_goals() {
-        assert_eq!(LIVE_EXTERNAL_RESEARCH_SIGNAL_VERSION, "ontology_signals_v2");
+        assert_eq!(LIVE_EXTERNAL_RESEARCH_SIGNAL_VERSION, "ontology_signals_v3");
         assert!(is_live_external_research_goal(
             "As of now (UTC), top active cloud incidents with status page citations and user impact"
         ));
@@ -335,6 +339,16 @@ mod tests {
         ));
         assert!(!is_live_external_research_goal(
             "As of now, search this repository for incident handler changes and cite the files"
+        ));
+    }
+
+    #[test]
+    fn detects_mailbox_connector_goals() {
+        assert!(is_mailbox_connector_goal(
+            "Read me the latest email in my inbox"
+        ));
+        assert!(!is_mailbox_connector_goal(
+            "Find the latest cloud outage updates with citations"
         ));
     }
 }
