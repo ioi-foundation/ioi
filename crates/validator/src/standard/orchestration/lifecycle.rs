@@ -626,6 +626,12 @@ where
             context_arc.clone(),
             shutdown_rx.clone(),
         )));
+        handles.push(tokio::spawn(
+            crate::standard::orchestration::operator_tasks::run_wallet_network_audit_bridge_task(
+                context_arc.clone(),
+                shutdown_rx.clone(),
+            ),
+        ));
         handles.push(tokio::spawn(Self::run_main_loop(
             receiver,
             shutdown_rx,

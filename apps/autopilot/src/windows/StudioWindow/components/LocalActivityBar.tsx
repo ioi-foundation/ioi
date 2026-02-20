@@ -93,6 +93,24 @@ const MarketplaceIcon = () => (
   </svg>
 );
 
+const IntegrationsIcon = () => (
+  <svg
+    width="22"
+    height="22"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="1.8"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
+    <path d="M12 3v6" />
+    <path d="M16 3v6" />
+    <path d="M9 9h10a1 1 0 0 1 1 1v1a6 6 0 0 1-6 6h-1v4" />
+    <path d="M6 12h3" />
+  </svg>
+);
+
 const GhostIcon = () => (
   <svg
     width="22"
@@ -270,6 +288,7 @@ const NAV_ITEMS: NavItem[] = [
   { id: "agents", label: "Agents", icon: <AgentsIcon />, shortcut: "⌘3" },
   { id: "fleet", label: "Fleet", icon: <FleetIcon />, shortcut: "⌘4" },
   { id: "marketplace", label: "Marketplace", icon: <MarketplaceIcon />, shortcut: "⌘5" },
+  { id: "integrations", label: "Integrations", icon: <IntegrationsIcon />, shortcut: "⌘6" },
 ];
 
 const GHOST_ITEM: NavItem = { id: "ghost", label: "Ghost Mode", icon: <GhostIcon />, shortcut: "⌘G" };

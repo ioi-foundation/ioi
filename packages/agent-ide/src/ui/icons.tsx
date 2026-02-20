@@ -99,6 +99,22 @@ export const Icons = {
     </IconBase>
   ),
 
+  Plug: (props: IconProps) => (
+    <IconBase {...props}>
+      <path d="M12 3v6" />
+      <path d="M16 3v6" />
+      <path d="M9 9h10a1 1 0 0 1 1 1v1a6 6 0 0 1-6 6h-1v4" />
+      <path d="M6 12h3" />
+    </IconBase>
+  ),
+
+  Mail: (props: IconProps) => (
+    <IconBase {...props}>
+      <rect x="3" y="5" width="18" height="14" rx="2" />
+      <path d="m3 7 9 6 9-6" />
+    </IconBase>
+  ),
+
   Cards: (props: IconProps) => (
     <IconBase {...props}>
       <rect x="3" y="11" width="18" height="10" rx="2" />

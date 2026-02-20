@@ -223,8 +223,24 @@ pub enum PiiApprovalAction {
 /// Acts as a "2FA Token" for high-risk actions blocked by default policy.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Encode, Decode)]
 pub struct ApprovalToken {
+    /// Approval token schema version.
+    /// v2 introduces explicit audience/revocation/replay bindings.
+    #[serde(default = "default_approval_token_schema_version")]
+    pub schema_version: u16,
     /// Hash of the specific ActionRequest being approved.
     pub request_hash: [u8; 32],
+    /// Audience identity this token is valid for (executor/guardian account id).
+    #[serde(default)]
+    pub audience: [u8; 32],
+    /// Minimum active revocation epoch required for this token to remain valid.
+    #[serde(default)]
+    pub revocation_epoch: u64,
+    /// Token replay nonce.
+    #[serde(default)]
+    pub nonce: [u8; 32],
+    /// Monotonic token replay counter.
+    #[serde(default)]
+    pub counter: u64,
     /// Constraints on the approval (e.g., max times usage, expiration).
     pub scope: ApprovalScope,
 
@@ -244,6 +260,10 @@ pub struct ApprovalToken {
     pub approver_sig: Vec<u8>,
     /// The cryptographic suite used for the signature.
     pub approver_suite: SignatureSuite,
+}
+
+fn default_approval_token_schema_version() -> u16 {
+    2
 }
 
 /// The verdict rendered by the firewall policy engine.

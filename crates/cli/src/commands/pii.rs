@@ -141,7 +141,12 @@ async fn run_approve(args: PiiApproveArgs) -> Result<()> {
     let keypair = ioi_crypto::sign::eddsa::Ed25519KeyPair::generate()
         .map_err(|e| anyhow!("Failed to generate signer key: {}", e))?;
     let token = ApprovalToken {
+        schema_version: 2,
         request_hash: decision_hash,
+        audience: [1u8; 32],
+        revocation_epoch: 0,
+        nonce: [2u8; 32],
+        counter: 1,
         scope: ApprovalScope {
             expires_at: std::time::SystemTime::now()
                 .duration_since(std::time::UNIX_EPOCH)

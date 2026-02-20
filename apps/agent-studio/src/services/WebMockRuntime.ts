@@ -9,9 +9,8 @@ import type {
   AgentSummary, 
   CacheResult,
   FleetState,
-  Zone,
-  Container,
-  MarketplaceAgent
+  MarketplaceAgent,
+  ConnectorSummary
 } from "@ioi/agent-ide";
 
 const MOCK_AGENTS: AgentSummary[] = [
@@ -33,6 +32,21 @@ const MARKET_AGENTS: MarketplaceAgent[] = [
   { id: "a2", name: "Legal Reviewer", developer: "LawAI", price: "$29/mo", description: "Contract analysis", requirements: "8GB VRAM" },
   { id: "a3", name: "Research Swarm", developer: "OpenSci", price: "Free", description: "Deep research", requirements: "48GB VRAM" },
   { id: "a4", name: "Video Gen", developer: "CreativeX", price: "$0.10/min", description: "AI Video", requirements: "H100 GPU" },
+];
+
+const MOCK_CONNECTORS: ConnectorSummary[] = [
+  {
+    id: "mail.primary",
+    name: "Mail",
+    provider: "wallet.network",
+    category: "communication",
+    description:
+      "Mail connector scaffold for delegated agent inbox workflows with bounded wallet session authority.",
+    status: "needs_auth",
+    authMode: "wallet_network_session",
+    scopes: ["mail.read.latest", "mail.read.thread"],
+    notes: "Web demo data: auth flow not active in this runtime.",
+  },
 ];
 
 export class WebMockRuntime implements AgentRuntime {
@@ -69,7 +83,7 @@ export class WebMockRuntime implements AgentRuntime {
         console.log("[WebRuntime] Stop execution");
     }
 
-    async checkNodeCache(nodeId: string, config: any, input: string): Promise<CacheResult | null> {
+    async checkNodeCache(_nodeId: string, _config: any, _input: string): Promise<CacheResult | null> {
         return null; // No cache in web demo
     }
 
@@ -90,12 +104,12 @@ export class WebMockRuntime implements AgentRuntime {
         };
     }
 
-    async loadProject(path?: string): Promise<ProjectFile | null> {
+    async loadProject(_path?: string): Promise<ProjectFile | null> {
         const saved = localStorage.getItem("last_project");
         return saved ? JSON.parse(saved) : null;
     }
 
-    async saveProject(path: string, project: ProjectFile): Promise<void> {
+    async saveProject(_path: string, project: ProjectFile): Promise<void> {
         console.log("[WebRuntime] Saving project", project);
         localStorage.setItem("last_project", JSON.stringify(project));
     }
@@ -116,6 +130,10 @@ export class WebMockRuntime implements AgentRuntime {
         console.log("[WebRuntime] Installing agent", agentId);
         // Simulate install delay
         await new Promise(r => setTimeout(r, 1000));
+    }
+
+    async getConnectors(): Promise<ConnectorSummary[]> {
+        return MOCK_CONNECTORS;
     }
 
     onEvent(callback: (event: GraphEvent) => void): () => void {

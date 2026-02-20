@@ -1,11 +1,12 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { 
     AgentEditor, 
     ActivityBar, 
     AgentsDashboard, 
     BuilderView, 
     FleetView, 
-    MarketplaceView // [NEW] Import
+    MarketplaceView,
+    ConnectorsView
 } from '@ioi/agent-ide';
 import type { AgentSummary, MarketplaceAgent } from '@ioi/agent-ide';
 
@@ -58,6 +59,11 @@ function App() {
             />
         )}
 
+        {/* Integrations View */}
+        {activeView === "integrations" && (
+            <ConnectorsView runtime={runtime} />
+        )}
+
         {/* Agents Dashboard */}
         {activeView === "agents" && (
             <div style={{ width: '100%', height: '100%' }}>
@@ -81,7 +87,11 @@ function App() {
         )}
 
         {/* Fallback */}
-        {(activeView !== "compose" && activeView !== "agents" && activeView !== "fleet" && activeView !== "marketplace") && (
+        {(activeView !== "compose" &&
+          activeView !== "agents" &&
+          activeView !== "fleet" &&
+          activeView !== "marketplace" &&
+          activeView !== "integrations") && (
              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: 'var(--text-tertiary)' }}>
                 View "{activeView}" not available in Web Demo
              </div>

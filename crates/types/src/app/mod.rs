@@ -17,6 +17,8 @@ pub mod penalties;
 pub mod settlement;
 /// Data structures for deterministic block timing.
 pub mod timing; // [NEW]
+/// Data structures for wallet.network control-plane and session artifacts.
+pub mod wallet_network;
 
 pub use action::*;
 pub use consensus::*;
@@ -33,6 +35,7 @@ pub use identity::{
 pub use penalties::*;
 pub use settlement::*;
 pub use timing::*; // [NEW]
+pub use wallet_network::*;
 
 // [NEW] Moved ContextSlice here from drivers
 use parity_scale_codec::{Decode, Encode};
