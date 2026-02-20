@@ -5,11 +5,13 @@ use ioi_api::services::{BlockchainService, UpgradableService};
 use ioi_api::state::StateAccess;
 use ioi_api::transaction::context::TxContext;
 use ioi_types::app::wallet_network::{
-    OwnerAnchor, SecretInjectionGrant, SecretInjectionRequestRecord, SessionChannelClose,
-    SessionChannelDelegationRules, SessionChannelOpenAck, SessionChannelOpenConfirm,
-    SessionChannelOpenInit, SessionChannelOpenTry, SessionChannelOrdering, SessionGrant,
-    SessionLease, SessionReceiptCommit, SessionReceiptCommitDirection, VaultIdentity,
-    VaultPolicyRule, VaultSecretRecord, WalletApprovalDecision, WalletInterceptionContext,
+    MailConnectorGetParams, MailConnectorUpsertParams, MailDeleteSpamParams, MailListRecentParams,
+    MailReadLatestParams, MailReplyParams, OwnerAnchor, SecretInjectionGrant,
+    SecretInjectionRequestRecord, SessionChannelClose, SessionChannelDelegationRules,
+    SessionChannelOpenAck, SessionChannelOpenConfirm, SessionChannelOpenInit,
+    SessionChannelOpenTry, SessionChannelOrdering, SessionGrant, SessionLease, SessionLeaseMode,
+    SessionReceiptCommit, SessionReceiptCommitDirection, VaultIdentity, VaultPolicyRule,
+    VaultSecretRecord, WalletApprovalDecision, WalletInterceptionContext,
 };
 use ioi_types::app::ActionTarget;
 use ioi_types::codec;
@@ -21,6 +23,8 @@ use std::collections::BTreeSet;
 
 mod handlers;
 mod keys;
+pub(crate) mod mail_ontology;
+mod mail_transport;
 mod support;
 mod validation;
 
@@ -76,6 +80,22 @@ pub struct ApprovalConsumptionState {
     pub last_consumed_at_ms: Option<u64>,
 }
 
+/// Mutable lease usage/replay state for connector capability operations.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Encode, Decode)]
+pub struct LeaseConsumptionState {
+    pub channel_id: [u8; 32],
+    pub lease_id: [u8; 32],
+    pub mode: SessionLeaseMode,
+    pub audience: [u8; 32],
+    pub revocation_epoch: u64,
+    pub expires_at_ms: u64,
+    pub consumed_count: u32,
+    #[serde(default)]
+    pub consumed_operation_ids: Vec<[u8; 32]>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub last_consumed_at_ms: Option<u64>,
+}
+
 /// Mutable delegation-control state for recursive sub-grant issuance.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Encode, Decode)]
 pub struct SessionDelegationState {
@@ -115,6 +135,19 @@ pub struct LeaseCounterReplayWindowState {
     pub highest_counter: u64,
     #[serde(default)]
     pub seen_counters: BTreeSet<u64>,
+}
+
+/// Replay window tracker for connector action sequences under a lease.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Encode, Decode)]
+pub struct LeaseActionReplayWindowState {
+    pub channel_id: [u8; 32],
+    pub lease_id: [u8; 32],
+    pub ordering: SessionChannelOrdering,
+    pub highest_seq: u64,
+    #[serde(default)]
+    pub seen_seqs: BTreeSet<u64>,
+    #[serde(default)]
+    pub seen_nonces: Vec<[u8; 32]>,
 }
 
 /// Replay window tracker for receipt sequence commits.
@@ -216,6 +249,30 @@ impl BlockchainService for WalletNetworkService {
             "issue_session_lease@v1" => {
                 let lease: SessionLease = codec::from_bytes_canonical(params)?;
                 handlers::session::issue_session_lease(state, ctx, lease)
+            }
+            "mail_connector_upsert@v1" => {
+                let request: MailConnectorUpsertParams = codec::from_bytes_canonical(params)?;
+                handlers::connectors::mail_connector_upsert(state, ctx, request)
+            }
+            "mail_connector_get@v1" => {
+                let request: MailConnectorGetParams = codec::from_bytes_canonical(params)?;
+                handlers::connectors::mail_connector_get(state, ctx, request)
+            }
+            "mail_read_latest@v1" => {
+                let request: MailReadLatestParams = codec::from_bytes_canonical(params)?;
+                handlers::connectors::mail_read_latest(state, ctx, request)
+            }
+            "mail_list_recent@v1" => {
+                let request: MailListRecentParams = codec::from_bytes_canonical(params)?;
+                handlers::connectors::mail_list_recent(state, ctx, request)
+            }
+            "mail_delete_spam@v1" => {
+                let request: MailDeleteSpamParams = codec::from_bytes_canonical(params)?;
+                handlers::connectors::mail_delete_spam(state, ctx, request)
+            }
+            "mail_reply@v1" => {
+                let request: MailReplyParams = codec::from_bytes_canonical(params)?;
+                handlers::connectors::mail_reply(state, ctx, request)
             }
             "commit_receipt_root@v1" => {
                 let receipt_commit: SessionReceiptCommit = codec::from_bytes_canonical(params)?;

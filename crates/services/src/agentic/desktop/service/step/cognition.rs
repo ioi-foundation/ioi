@@ -2,7 +2,9 @@
 
 use crate::agentic::desktop::service::actions::safe_truncate;
 use crate::agentic::desktop::service::step::perception::PerceptionContext;
-use crate::agentic::desktop::service::step::signals::is_browser_surface;
+use crate::agentic::desktop::service::step::signals::{
+    is_browser_surface, is_mail_connector_tool_name, is_mailbox_connector_intent,
+};
 use crate::agentic::desktop::service::DesktopAgentService;
 use crate::agentic::desktop::types::{
     AgentState, CommandExecution, ExecutionTier, MAX_PROMPT_HISTORY,
@@ -99,6 +101,35 @@ fn preflight_missing_capability(
     }
 
     None
+}
+
+fn mailbox_connector_tool_names(tools: &[LlmToolDefinition]) -> Vec<String> {
+    let mut names = tools
+        .iter()
+        .filter(|tool| is_mail_connector_tool_name(&tool.name))
+        .map(|tool| tool.name.clone())
+        .collect::<Vec<_>>();
+    names.sort();
+    names.dedup();
+    names
+}
+
+fn mailbox_connector_instruction(goal: &str, tools: &[LlmToolDefinition]) -> Option<String> {
+    if !is_mailbox_connector_intent(goal) {
+        return None;
+    }
+
+    let names = mailbox_connector_tool_names(tools);
+    if names.is_empty() {
+        return Some(
+            "18. MAILBOX CONNECTOR RULE: This request is mailbox-local. Do NOT use `web__search`, `web__read`, `browser__*`, or `memory__search` as a substitute. Use `chat__reply` to state mailbox-access limitation and provide actionable connector next steps with an absolute UTC timestamp and at least one citation line.".to_string(),
+        );
+    }
+
+    Some(format!(
+        "18. MAILBOX CONNECTOR RULE: This request is mailbox-local. Use mailbox connector tooling first: {}. Do NOT use `web__search`, `web__read`, or `browser__*` unless the user explicitly asks for public-web context.",
+        names.join(", ")
+    ))
 }
 
 pub async fn think(
@@ -418,6 +449,13 @@ OPERATING RULES:
         perception.agents_md_content,
         perception.memory_pointers
     );
+    let system_instructions = if let Some(mailbox_instruction) =
+        mailbox_connector_instruction(&agent_state.goal, &perception.available_tools)
+    {
+        format!("{}\n{}", system_instructions, mailbox_instruction)
+    } else {
+        system_instructions
+    };
 
     let messages = if let Some(b64) = &perception.screenshot_base64 {
         json!([

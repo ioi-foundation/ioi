@@ -335,6 +335,12 @@ fn tool_allowed_for_scope(scope: IntentScopeProfile, tool_name: &str) -> bool {
     if tool_name.starts_with("memory__") {
         return true;
     }
+    let is_mail_connector = tool_name.starts_with("wallet_network__mail_")
+        || tool_name.starts_with("wallet_mail_")
+        || tool_name.starts_with("mail__");
+    if is_mail_connector {
+        return true;
+    }
     let is_browser = tool_name.starts_with("browser__");
     let is_web_retrieval = tool_name.starts_with("web__");
     let is_net = tool_name.starts_with("net__");
@@ -747,6 +753,10 @@ mod tests {
         assert!(!is_tool_allowed_for_resolution(Some(&state), "os__copy"));
         assert!(!is_tool_allowed_for_resolution(Some(&state), "os__paste"));
         assert!(is_tool_allowed_for_resolution(Some(&state), "chat__reply"));
+        assert!(is_tool_allowed_for_resolution(
+            Some(&state),
+            "wallet_network__mail_reply"
+        ));
     }
 
     #[test]

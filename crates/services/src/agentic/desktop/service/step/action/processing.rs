@@ -23,7 +23,8 @@ use crate::agentic::desktop::service::step::anti_loop::{
     TierRoutingDecision,
 };
 use crate::agentic::desktop::service::step::helpers::{
-    default_safe_policy, is_live_external_research_goal, should_auto_complete_open_app_goal,
+    default_safe_policy, is_live_external_research_goal, is_mailbox_connector_goal,
+    should_auto_complete_open_app_goal,
 };
 use crate::agentic::desktop::service::step::incident::{
     advance_incident_after_action_outcome, incident_receipt_fields, load_incident_state,
@@ -36,11 +37,13 @@ use crate::agentic::desktop::service::step::queue::{
     candidate_source_hints_from_bundle, candidate_urls_from_bundle, is_human_challenge_error,
     mark_pending_web_attempted, mark_pending_web_blocked, next_pending_web_candidate,
     parse_web_evidence_bundle, queue_web_read_from_pipeline, remaining_pending_web_candidates,
-    synthesize_web_pipeline_reply, synthesize_web_pipeline_reply_hybrid,
-    web_pipeline_completion_reason, web_pipeline_now_ms, WebPipelineCompletionReason,
-    WEB_PIPELINE_BUDGET_MS, WEB_PIPELINE_DEFAULT_MIN_SOURCES, WEB_PIPELINE_SEARCH_LIMIT,
+    render_mailbox_access_limited_reply, synthesize_web_pipeline_reply,
+    synthesize_web_pipeline_reply_hybrid, web_pipeline_completion_reason, web_pipeline_now_ms,
+    WebPipelineCompletionReason, WEB_PIPELINE_BUDGET_MS, WEB_PIPELINE_DEFAULT_MIN_SOURCES,
+    WEB_PIPELINE_SEARCH_LIMIT,
 };
-use crate::agentic::desktop::service::DesktopAgentService;
+use crate::agentic::desktop::service::step::signals::is_mail_connector_tool_name;
+use crate::agentic::desktop::service::{DesktopAgentService, ServiceCallContext};
 use crate::agentic::desktop::types::{
     AgentState, AgentStatus, PendingSearchCompletion, ToolCallStatus, MAX_COMMAND_HISTORY,
 };
@@ -116,6 +119,10 @@ fn is_effective_web_research_scope(agent_state: &AgentState) -> bool {
         || is_live_external_research_goal(&agent_state.goal)
 }
 
+fn should_use_web_research_path(agent_state: &AgentState) -> bool {
+    is_effective_web_research_scope(agent_state) && !is_mailbox_connector_goal(&agent_state.goal)
+}
+
 fn is_empty_memory_search_output(output: &str) -> bool {
     let trimmed = output.trim();
     if trimmed.is_empty() {
@@ -124,6 +131,13 @@ fn is_empty_memory_search_output(output: &str) -> bool {
     trimmed
         .to_ascii_lowercase()
         .contains("no matching memories found")
+}
+
+fn is_transient_browser_snapshot_unexpected_state(output: &str) -> bool {
+    let lower = output.to_ascii_lowercase();
+    lower.contains("browser__snapshot")
+        && lower.contains("transient unexpected state")
+        && lower.contains("continuing web research")
 }
 
 fn normalize_web_search_query(query: &str) -> String {
@@ -212,6 +226,7 @@ pub async fn process_tool_output(
     session_id: [u8; 32],
     block_height: u64,
     block_timestamp_ns: u64,
+    call_context: ServiceCallContext<'_>,
 ) -> Result<(), TransactionError> {
     let key = get_state_key(&session_id);
     let policy_key = [AGENT_POLICY_PREFIX, session_id.as_slice()].concat();
@@ -344,6 +359,7 @@ pub async fn process_tool_output(
     let mut command_probe_completed = false;
     let mut invalid_tool_call_fail_fast = false;
     let mut invalid_tool_call_bootstrap_web = false;
+    let mut invalid_tool_call_fail_fast_mailbox = false;
     let mut terminal_chat_reply_output: Option<String> = None;
 
     match tool_call {
@@ -372,574 +388,802 @@ pub async fn process_tool_output(
                 tool_version,
             ));
 
-            let mut tool_allowed = is_tool_allowed_for_resolution(
-                agent_state.resolved_intent.as_ref(),
-                &current_tool_name,
-            );
-            if !tool_allowed {
-                let allow_mcp_tools = agent_state
-                    .resolved_intent
-                    .as_ref()
-                    .map(|resolved| {
-                        !matches!(
-                            resolved.scope,
-                            ioi_types::app::agentic::IntentScopeProfile::Conversation
-                                | ioi_types::app::agentic::IntentScopeProfile::Unknown
-                        )
-                    })
-                    .unwrap_or(false);
-                if allow_mcp_tools {
-                    if let Some(mcp) = service.mcp.as_ref() {
-                        tool_allowed = mcp
-                            .get_all_tools()
-                            .await
-                            .iter()
-                            .any(|tool| tool.name == current_tool_name);
+            let mailbox_intent = is_mailbox_connector_goal(&agent_state.goal);
+            let attempted_web_path_tool = current_tool_name.starts_with("browser__")
+                || current_tool_name.starts_with("web__")
+                || current_tool_name == "memory__search";
+            let mailbox_connector_tool = is_mail_connector_tool_name(&current_tool_name);
+            if mailbox_intent && attempted_web_path_tool && !mailbox_connector_tool {
+                let run_timestamp_ms = block_timestamp_ns / 1_000_000;
+                let summary =
+                    render_mailbox_access_limited_reply(&agent_state.goal, run_timestamp_ms);
+                success = true;
+                error_msg = None;
+                history_entry = Some(summary.clone());
+                action_output = Some(summary.clone());
+                terminal_chat_reply_output = Some(summary.clone());
+                is_lifecycle_action = true;
+                agent_state.status = AgentStatus::Completed(Some(summary));
+                agent_state.pending_search_completion = None;
+                agent_state.execution_queue.clear();
+                agent_state.recent_actions.clear();
+                verification_checks.push("mailbox_connector_path_required=true".to_string());
+                verification_checks.push("mailbox_non_connector_tool_blocked=true".to_string());
+                verification_checks.push("terminal_chat_reply_ready=true".to_string());
+            } else {
+                let mut tool_allowed = is_tool_allowed_for_resolution(
+                    agent_state.resolved_intent.as_ref(),
+                    &current_tool_name,
+                );
+                if !tool_allowed {
+                    let allow_mcp_tools = agent_state
+                        .resolved_intent
+                        .as_ref()
+                        .map(|resolved| {
+                            !matches!(
+                                resolved.scope,
+                                ioi_types::app::agentic::IntentScopeProfile::Conversation
+                                    | ioi_types::app::agentic::IntentScopeProfile::Unknown
+                            )
+                        })
+                        .unwrap_or(false);
+                    if allow_mcp_tools {
+                        if let Some(mcp) = service.mcp.as_ref() {
+                            tool_allowed = mcp
+                                .get_all_tools()
+                                .await
+                                .iter()
+                                .any(|tool| tool.name == current_tool_name);
+                        }
                     }
                 }
-            }
 
-            if !tool_allowed {
-                policy_decision = "denied".to_string();
-                success = false;
-                error_msg = Some(format!(
+                if !tool_allowed {
+                    policy_decision = "denied".to_string();
+                    success = false;
+                    error_msg = Some(format!(
                     "ERROR_CLASS=PermissionOrApprovalRequired Tool '{}' blocked by global intent scope.",
                     current_tool_name
                 ));
-                if !req_hash_hex.is_empty() {
-                    agent_state.tool_execution_log.insert(
-                        req_hash_hex.clone(),
-                        ToolCallStatus::Failed("intent_scope_block".to_string()),
-                    );
-                }
-            } else {
-                let target_hash_opt = agent_state
-                    .pending_approval
-                    .as_ref()
-                    .and_then(|t| t.visual_hash)
-                    .or(agent_state.last_screen_phash);
-                if let Some(target_hash) = target_hash_opt {
-                    let _ = service.restore_visual_context(target_hash).await;
-                }
+                    if !req_hash_hex.is_empty() {
+                        agent_state.tool_execution_log.insert(
+                            req_hash_hex.clone(),
+                            ToolCallStatus::Failed("intent_scope_block".to_string()),
+                        );
+                    }
+                } else {
+                    let target_hash_opt = agent_state
+                        .pending_approval
+                        .as_ref()
+                        .and_then(|t| t.visual_hash)
+                        .or(agent_state.last_screen_phash);
+                    if let Some(target_hash) = target_hash_opt {
+                        let _ = service.restore_visual_context(target_hash).await;
+                    }
 
-                // [FIX] Pass the required InferenceRuntime (reasoning) to ToolExecutor constructor inside handle_action_execution
-                match service
-                    .handle_action_execution(
-                        tool.clone(),
-                        session_id,
-                        agent_state.step_count,
-                        final_visual_phash,
-                        &rules,
-                        &agent_state,
-                        &os_driver,
-                        None,
-                    )
-                    .await
-                {
-                    Ok((s, entry, e)) => {
-                        success = s;
-                        error_msg = e;
-                        history_entry = entry.clone();
+                    // [FIX] Pass the required InferenceRuntime (reasoning) to ToolExecutor constructor inside handle_action_execution
+                    match service
+                        .handle_action_execution_with_state(
+                            state,
+                            call_context,
+                            tool.clone(),
+                            session_id,
+                            agent_state.step_count,
+                            final_visual_phash,
+                            &rules,
+                            &agent_state,
+                            &os_driver,
+                            None,
+                        )
+                        .await
+                    {
+                        Ok((s, entry, e)) => {
+                            success = s;
+                            error_msg = e;
+                            history_entry = entry.clone();
 
-                        // Orchestration meta-tools require access to chain state; execute them
-                        // on the primary path here instead of the stateless ToolExecutor.
-                        if success {
-                            match &tool {
-                                AgentTool::AgentDelegate { goal, budget } => {
-                                    let tool_jcs = match serde_jcs::to_vec(&tool) {
-                                        Ok(bytes) => bytes,
-                                        Err(err) => {
-                                            success = false;
-                                            error_msg = Some(format!(
-                                                "ERROR_CLASS=UnexpectedState Failed to encode delegation tool: {}",
-                                                err
-                                            ));
-                                            history_entry = None;
-                                            Vec::new()
-                                        }
-                                    };
-
-                                    if success {
-                                        match sha256(&tool_jcs) {
-                                            Ok(tool_hash) => match spawn_delegated_child_session(
-                                                service,
-                                                state,
-                                                agent_state,
-                                                tool_hash,
-                                                goal,
-                                                *budget,
-                                                pre_state_summary.step_index,
-                                                block_height,
-                                            )
-                                            .await
-                                            {
-                                                Ok(child_session_id) => {
-                                                    history_entry = Some(format!(
-                                                        "{{\"child_session_id_hex\":\"{}\"}}",
-                                                        hex::encode(child_session_id)
-                                                    ));
-                                                    error_msg = None;
-                                                }
-                                                Err(err) => {
-                                                    success = false;
-                                                    error_msg = Some(err.to_string());
-                                                    history_entry = None;
-                                                }
-                                            },
+                            // Orchestration meta-tools require access to chain state; execute them
+                            // on the primary path here instead of the stateless ToolExecutor.
+                            if success {
+                                match &tool {
+                                    AgentTool::AgentDelegate { goal, budget } => {
+                                        let tool_jcs = match serde_jcs::to_vec(&tool) {
+                                            Ok(bytes) => bytes,
                                             Err(err) => {
                                                 success = false;
                                                 error_msg = Some(format!(
+                                                "ERROR_CLASS=UnexpectedState Failed to encode delegation tool: {}",
+                                                err
+                                            ));
+                                                history_entry = None;
+                                                Vec::new()
+                                            }
+                                        };
+
+                                        if success {
+                                            match sha256(&tool_jcs) {
+                                                Ok(tool_hash) => {
+                                                    match spawn_delegated_child_session(
+                                                        service,
+                                                        state,
+                                                        agent_state,
+                                                        tool_hash,
+                                                        goal,
+                                                        *budget,
+                                                        pre_state_summary.step_index,
+                                                        block_height,
+                                                    )
+                                                    .await
+                                                    {
+                                                        Ok(child_session_id) => {
+                                                            history_entry = Some(format!(
+                                                        "{{\"child_session_id_hex\":\"{}\"}}",
+                                                        hex::encode(child_session_id)
+                                                    ));
+                                                            error_msg = None;
+                                                        }
+                                                        Err(err) => {
+                                                            success = false;
+                                                            error_msg = Some(err.to_string());
+                                                            history_entry = None;
+                                                        }
+                                                    }
+                                                }
+                                                Err(err) => {
+                                                    success = false;
+                                                    error_msg = Some(format!(
                                                     "ERROR_CLASS=UnexpectedState Delegation hash failed: {}",
                                                     err
                                                 ));
+                                                    history_entry = None;
+                                                }
+                                            }
+                                        }
+                                    }
+                                    AgentTool::AgentAwait {
+                                        child_session_id_hex,
+                                    } => {
+                                        match child_session::await_child_session_status(
+                                            state,
+                                            child_session_id_hex,
+                                        ) {
+                                            Ok(out) => {
+                                                history_entry = Some(out);
+                                                error_msg = None;
+                                            }
+                                            Err(err) => {
+                                                success = false;
+                                                error_msg = Some(err);
                                                 history_entry = None;
                                             }
                                         }
                                     }
+                                    _ => {}
                                 }
-                                AgentTool::AgentAwait {
-                                    child_session_id_hex,
-                                } => {
-                                    match child_session::await_child_session_status(
-                                        state,
-                                        child_session_id_hex,
-                                    ) {
-                                        Ok(out) => {
-                                            history_entry = Some(out);
-                                            error_msg = None;
+                            }
+
+                            if matches!(
+                                &tool,
+                                AgentTool::SysExec { .. } | AgentTool::SysExecSession { .. }
+                            ) {
+                                if let Some(raw_entry) =
+                                    command_history::extract_command_history(&history_entry)
+                                {
+                                    let history_entry =
+                                        command_history::scrub_command_history_fields(
+                                            &service.scrubber,
+                                            raw_entry,
+                                        )
+                                        .await;
+                                    command_history::append_to_bounded_history(
+                                        &mut agent_state.command_history,
+                                        history_entry,
+                                        MAX_COMMAND_HISTORY,
+                                    );
+                                }
+                            }
+
+                            if (success || command_probe_completed) && !req_hash_hex.is_empty() {
+                                agent_state.tool_execution_log.insert(
+                                    req_hash_hex.clone(),
+                                    ToolCallStatus::Executed("success".into()),
+                                );
+                                agent_state.pending_approval = None;
+                                agent_state.pending_tool_jcs = None;
+                            }
+
+                            if success {
+                                if let Some(entry) = history_entry.clone() {
+                                    let tool_msg = ioi_types::app::agentic::ChatMessage {
+                                        role: "tool".to_string(),
+                                        content: entry,
+                                        timestamp: SystemTime::now()
+                                            .duration_since(UNIX_EPOCH)
+                                            .unwrap()
+                                            .as_millis()
+                                            as u64,
+                                        trace_hash: None,
+                                    };
+                                    let _ = service
+                                        .append_chat_to_scs(session_id, &tool_msg, block_height)
+                                        .await?;
+                                }
+                            }
+
+                            match &tool {
+                                AgentTool::AgentComplete { result } => {
+                                    agent_state.status =
+                                        AgentStatus::Completed(Some(result.clone()));
+                                    is_lifecycle_action = true;
+                                    action_output = Some(result.clone());
+                                    evaluate_and_crystallize(
+                                        service,
+                                        agent_state,
+                                        session_id,
+                                        result,
+                                    )
+                                    .await;
+                                }
+                                AgentTool::SysChangeDir { .. } => {
+                                    if success {
+                                        if let Some(new_cwd) = history_entry.as_ref() {
+                                            agent_state.working_directory = new_cwd.clone();
                                         }
-                                        Err(err) => {
-                                            success = false;
-                                            error_msg = Some(err);
-                                            history_entry = None;
+                                    }
+                                }
+                                AgentTool::ChatReply { message } => {
+                                    agent_state.status =
+                                        AgentStatus::Completed(Some(message.clone()));
+                                    is_lifecycle_action = true;
+                                    action_output = Some(message.clone());
+                                    terminal_chat_reply_output = Some(message.clone());
+                                    evaluate_and_crystallize(
+                                        service,
+                                        agent_state,
+                                        session_id,
+                                        message,
+                                    )
+                                    .await;
+                                }
+                                AgentTool::OsLaunchApp { app_name } => {
+                                    if success
+                                        && should_auto_complete_open_app_goal(
+                                            &agent_state.goal,
+                                            app_name,
+                                            agent_state
+                                                .target
+                                                .as_ref()
+                                                .and_then(|target| target.app_hint.as_deref()),
+                                        )
+                                    {
+                                        let summary = format!("Opened {}.", app_name);
+                                        agent_state.status =
+                                            AgentStatus::Completed(Some(summary.clone()));
+                                        is_lifecycle_action = true;
+                                        action_output = Some(summary);
+                                        agent_state.execution_queue.clear();
+                                        agent_state.pending_search_completion = None;
+                                        log::info!(
+                                    "Auto-completed app-launch session {} after successful os__launch_app.",
+                                    hex::encode(&session_id[..4])
+                                );
+                                    }
+                                }
+                                AgentTool::SysExec { .. } | AgentTool::SysExecSession { .. } => {
+                                    if is_command_probe_intent(agent_state.resolved_intent.as_ref())
+                                    {
+                                        if let Some(raw) = history_entry.as_deref() {
+                                            if let Some(summary) =
+                                                summarize_command_probe_output(&tool, raw)
+                                            {
+                                                // Probe markers are deterministic completion signals even
+                                                // when the underlying command exits non-zero.
+                                                command_probe_completed = true;
+                                                success = true;
+                                                error_msg = None;
+                                                agent_state.status =
+                                                    AgentStatus::Completed(Some(summary.clone()));
+                                                is_lifecycle_action = true;
+                                                action_output = Some(summary);
+                                                agent_state.execution_queue.clear();
+                                                agent_state.pending_search_completion = None;
+                                            }
                                         }
+                                    }
+                                }
+                                AgentTool::MemorySearch { query } => {
+                                    let mut promoted_memory_search = false;
+                                    if success && should_use_web_research_path(agent_state) {
+                                        if let Some(raw) = history_entry.as_deref() {
+                                            if let Some(bundle) = parse_web_evidence_bundle(raw) {
+                                                if bundle.tool == "web__search" {
+                                                    promoted_memory_search = true;
+                                                    current_tool_name = "web__search".to_string();
+                                                    verification_checks.push(
+                                                        "memory_search_promoted_to_web_search=true"
+                                                            .to_string(),
+                                                    );
+                                                    let query_value = bundle
+                                                        .query
+                                                        .clone()
+                                                        .filter(|value| !value.trim().is_empty())
+                                                        .or_else(|| {
+                                                            let trimmed = query.trim();
+                                                            (!trimmed.is_empty())
+                                                                .then(|| trimmed.to_string())
+                                                        })
+                                                        .unwrap_or_else(|| {
+                                                            agent_state.goal.clone()
+                                                        });
+                                                    let query_contract = {
+                                                        let trimmed_goal = agent_state.goal.trim();
+                                                        if trimmed_goal.is_empty() {
+                                                            query_value.clone()
+                                                        } else {
+                                                            trimmed_goal.to_string()
+                                                        }
+                                                    };
+                                                    let started_at_ms = web_pipeline_now_ms();
+                                                    let pending = PendingSearchCompletion {
+                                                        query: query_value,
+                                                        query_contract,
+                                                        url: bundle.url.clone().unwrap_or_default(),
+                                                        started_step: pre_state_summary.step_index,
+                                                        started_at_ms,
+                                                        deadline_ms: started_at_ms
+                                                            .saturating_add(WEB_PIPELINE_BUDGET_MS),
+                                                        candidate_urls: candidate_urls_from_bundle(
+                                                            &bundle,
+                                                        ),
+                                                        candidate_source_hints:
+                                                            candidate_source_hints_from_bundle(
+                                                                &bundle,
+                                                            ),
+                                                        attempted_urls: Vec::new(),
+                                                        blocked_urls: Vec::new(),
+                                                        successful_reads: Vec::new(),
+                                                        min_sources:
+                                                            WEB_PIPELINE_DEFAULT_MIN_SOURCES,
+                                                    };
+
+                                                    let mut queued_next = false;
+                                                    if let Some(next_url) =
+                                                        next_pending_web_candidate(&pending)
+                                                    {
+                                                        queued_next = queue_web_read_from_pipeline(
+                                                            agent_state,
+                                                            session_id,
+                                                            &next_url,
+                                                        )?;
+                                                    }
+                                                    let remaining =
+                                                        remaining_pending_web_candidates(&pending);
+                                                    verification_checks.push(format!(
+                                                        "web_pipeline_active={}",
+                                                        queued_next || remaining > 0
+                                                    ));
+                                                    verification_checks
+                                                        .push("web_sources_success=0".to_string());
+                                                    verification_checks
+                                                        .push("web_sources_blocked=0".to_string());
+                                                    verification_checks
+                                                        .push("web_budget_ms=0".to_string());
+
+                                                    if queued_next || remaining > 0 {
+                                                        agent_state.pending_search_completion =
+                                                            Some(pending);
+                                                    } else {
+                                                        let reason = WebPipelineCompletionReason::
+                                                        ExhaustedCandidates;
+                                                        let summary = if let Some(hybrid_summary) =
+                                                            synthesize_web_pipeline_reply_hybrid(
+                                                                service.reasoning_inference.clone(),
+                                                                &pending,
+                                                                reason,
+                                                            )
+                                                            .await
+                                                        {
+                                                            hybrid_summary
+                                                        } else {
+                                                            synthesize_web_pipeline_reply(
+                                                                &pending, reason,
+                                                            )
+                                                        };
+                                                        action_output = Some(summary.clone());
+                                                        history_entry = Some(summary.clone());
+                                                        terminal_chat_reply_output =
+                                                            Some(summary.clone());
+                                                        is_lifecycle_action = true;
+                                                        agent_state.status =
+                                                            AgentStatus::Completed(Some(summary));
+                                                        agent_state.pending_search_completion =
+                                                            None;
+                                                        agent_state.execution_queue.clear();
+                                                        agent_state.recent_actions.clear();
+                                                        verification_checks.push(
+                                                            "terminal_chat_reply_ready=true"
+                                                                .to_string(),
+                                                        );
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+
+                                    if !promoted_memory_search
+                                        && success
+                                        && should_use_web_research_path(agent_state)
+                                        && agent_state.pending_search_completion.is_none()
+                                        && history_entry
+                                            .as_deref()
+                                            .map(is_empty_memory_search_output)
+                                            .unwrap_or(true)
+                                    {
+                                        let bootstrap_query = if query.trim().is_empty() {
+                                            agent_state.goal.clone()
+                                        } else {
+                                            query.clone()
+                                        };
+                                        let queued = queue_web_search_bootstrap(
+                                            agent_state,
+                                            session_id,
+                                            &bootstrap_query,
+                                        )?;
+                                        verification_checks.push(
+                                            "web_search_bootstrap_from_memory=true".to_string(),
+                                        );
+                                        let note = if queued {
+                                            "No memory hits for this news query; queued deterministic web__search.".to_string()
+                                        } else {
+                                            "No memory hits for this news query; deterministic web__search was already queued."
+                                            .to_string()
+                                        };
+                                        history_entry = Some(note.clone());
+                                        action_output = Some(note);
+                                        agent_state.status = AgentStatus::Running;
+                                    }
+                                }
+                                AgentTool::WebSearch { query, .. } => {
+                                    if success && should_use_web_research_path(agent_state) {
+                                        if let Some(raw) = history_entry.as_deref() {
+                                            if let Some(bundle) = parse_web_evidence_bundle(raw) {
+                                                let query_value = bundle
+                                                    .query
+                                                    .clone()
+                                                    .filter(|value| !value.trim().is_empty())
+                                                    .or_else(|| {
+                                                        let trimmed = query.trim();
+                                                        (!trimmed.is_empty())
+                                                            .then(|| trimmed.to_string())
+                                                    })
+                                                    .unwrap_or_else(|| agent_state.goal.clone());
+                                                let query_contract = {
+                                                    let trimmed_goal = agent_state.goal.trim();
+                                                    if trimmed_goal.is_empty() {
+                                                        query_value.clone()
+                                                    } else {
+                                                        trimmed_goal.to_string()
+                                                    }
+                                                };
+                                                let started_at_ms = web_pipeline_now_ms();
+                                                let mut pending = PendingSearchCompletion {
+                                                    query: query_value,
+                                                    query_contract,
+                                                    url: bundle.url.clone().unwrap_or_default(),
+                                                    started_step: pre_state_summary.step_index,
+                                                    started_at_ms,
+                                                    deadline_ms: started_at_ms
+                                                        .saturating_add(WEB_PIPELINE_BUDGET_MS),
+                                                    candidate_urls: candidate_urls_from_bundle(
+                                                        &bundle,
+                                                    ),
+                                                    candidate_source_hints:
+                                                        candidate_source_hints_from_bundle(&bundle),
+                                                    attempted_urls: Vec::new(),
+                                                    blocked_urls: Vec::new(),
+                                                    successful_reads: Vec::new(),
+                                                    min_sources: WEB_PIPELINE_DEFAULT_MIN_SOURCES,
+                                                };
+
+                                                let mut queued_next = false;
+                                                if let Some(next_url) =
+                                                    next_pending_web_candidate(&pending)
+                                                {
+                                                    queued_next = queue_web_read_from_pipeline(
+                                                        agent_state,
+                                                        session_id,
+                                                        &next_url,
+                                                    )?;
+                                                }
+
+                                                let remaining =
+                                                    remaining_pending_web_candidates(&pending);
+                                                verification_checks.push(format!(
+                                                    "web_pipeline_active={}",
+                                                    queued_next || remaining > 0
+                                                ));
+                                                verification_checks
+                                                    .push("web_sources_success=0".to_string());
+                                                verification_checks
+                                                    .push("web_sources_blocked=0".to_string());
+                                                verification_checks
+                                                    .push("web_budget_ms=0".to_string());
+
+                                                if queued_next || remaining > 0 {
+                                                    agent_state.pending_search_completion =
+                                                        Some(pending);
+                                                } else {
+                                                    let reason =
+                                                    WebPipelineCompletionReason::ExhaustedCandidates;
+                                                    let summary = if let Some(hybrid_summary) =
+                                                        synthesize_web_pipeline_reply_hybrid(
+                                                            service.reasoning_inference.clone(),
+                                                            &pending,
+                                                            reason,
+                                                        )
+                                                        .await
+                                                    {
+                                                        hybrid_summary
+                                                    } else {
+                                                        synthesize_web_pipeline_reply(
+                                                            &pending, reason,
+                                                        )
+                                                    };
+                                                    action_output = Some(summary.clone());
+                                                    history_entry = Some(summary.clone());
+                                                    terminal_chat_reply_output =
+                                                        Some(summary.clone());
+                                                    is_lifecycle_action = true;
+                                                    agent_state.status =
+                                                        AgentStatus::Completed(Some(summary));
+                                                    agent_state.pending_search_completion = None;
+                                                    agent_state.execution_queue.clear();
+                                                    agent_state.recent_actions.clear();
+                                                    verification_checks.push(
+                                                        "terminal_chat_reply_ready=true"
+                                                            .to_string(),
+                                                    );
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                                AgentTool::SystemFail { reason, .. } => {
+                                    let mailbox_intent =
+                                        is_mailbox_connector_goal(&agent_state.goal);
+                                    let mailbox_reason = reason.to_ascii_lowercase();
+                                    if mailbox_intent
+                                        && (mailbox_reason.contains("mailbox")
+                                            || mailbox_reason.contains("email")
+                                            || mailbox_reason.contains("mail "))
+                                    {
+                                        let run_timestamp_ms = block_timestamp_ns / 1_000_000;
+                                        let summary = render_mailbox_access_limited_reply(
+                                            &agent_state.goal,
+                                            run_timestamp_ms,
+                                        );
+                                        success = true;
+                                        error_msg = None;
+                                        history_entry = Some(summary.clone());
+                                        action_output = Some(summary.clone());
+                                        terminal_chat_reply_output = Some(summary.clone());
+                                        current_tool_name = "chat__reply".to_string();
+                                        is_lifecycle_action = true;
+                                        agent_state.status = AgentStatus::Completed(Some(summary));
+                                        agent_state.pending_search_completion = None;
+                                        agent_state.execution_queue.clear();
+                                        agent_state.recent_actions.clear();
+                                        verification_checks.push(
+                                            "mailbox_system_fail_degraded_to_reply=true"
+                                                .to_string(),
+                                        );
+                                        verification_checks
+                                            .push("terminal_chat_reply_ready=true".to_string());
+                                    } else {
+                                        mark_system_fail_status(
+                                            &mut agent_state.status,
+                                            reason.clone(),
+                                        );
+                                        is_lifecycle_action = true;
+                                        action_output = Some(format!("Agent Failed: {}", reason));
                                     }
                                 }
                                 _ => {}
                             }
-                        }
 
-                        if matches!(
-                            &tool,
-                            AgentTool::SysExec { .. } | AgentTool::SysExecSession { .. }
-                        ) {
-                            if let Some(raw_entry) =
-                                command_history::extract_command_history(&history_entry)
+                            if success
+                                && current_tool_name == "browser__navigate"
+                                && agent_state.pending_search_completion.is_none()
+                                && should_use_web_research_path(agent_state)
                             {
-                                let history_entry = command_history::scrub_command_history_fields(
-                                    &service.scrubber,
-                                    raw_entry,
-                                )
-                                .await;
-                                command_history::append_to_bounded_history(
-                                    &mut agent_state.command_history,
-                                    history_entry,
-                                    MAX_COMMAND_HISTORY,
-                                );
-                            }
-                        }
-
-                        if (success || command_probe_completed) && !req_hash_hex.is_empty() {
-                            agent_state.tool_execution_log.insert(
-                                req_hash_hex.clone(),
-                                ToolCallStatus::Executed("success".into()),
-                            );
-                            agent_state.pending_approval = None;
-                            agent_state.pending_tool_jcs = None;
-                        }
-
-                        if success {
-                            if let Some(entry) = history_entry.clone() {
-                                let tool_msg = ioi_types::app::agentic::ChatMessage {
-                                    role: "tool".to_string(),
-                                    content: entry,
-                                    timestamp: SystemTime::now()
-                                        .duration_since(UNIX_EPOCH)
-                                        .unwrap()
-                                        .as_millis()
-                                        as u64,
-                                    trace_hash: None,
-                                };
-                                let _ = service
-                                    .append_chat_to_scs(session_id, &tool_msg, block_height)
-                                    .await?;
-                            }
-                        }
-
-                        match &tool {
-                            AgentTool::AgentComplete { result } => {
-                                agent_state.status = AgentStatus::Completed(Some(result.clone()));
-                                is_lifecycle_action = true;
-                                action_output = Some(result.clone());
-                                evaluate_and_crystallize(service, agent_state, session_id, result)
-                                    .await;
-                            }
-                            AgentTool::SysChangeDir { .. } => {
-                                if success {
-                                    if let Some(new_cwd) = history_entry.as_ref() {
-                                        agent_state.working_directory = new_cwd.clone();
-                                    }
-                                }
-                            }
-                            AgentTool::ChatReply { message } => {
-                                agent_state.status = AgentStatus::Completed(Some(message.clone()));
-                                is_lifecycle_action = true;
-                                action_output = Some(message.clone());
-                                terminal_chat_reply_output = Some(message.clone());
-                                evaluate_and_crystallize(service, agent_state, session_id, message)
-                                    .await;
-                            }
-                            AgentTool::OsLaunchApp { app_name } => {
-                                if success
-                                    && should_auto_complete_open_app_goal(
-                                        &agent_state.goal,
-                                        app_name,
-                                        agent_state
-                                            .target
-                                            .as_ref()
-                                            .and_then(|target| target.app_hint.as_deref()),
-                                    )
-                                {
-                                    let summary = format!("Opened {}.", app_name);
-                                    agent_state.status =
-                                        AgentStatus::Completed(Some(summary.clone()));
-                                    is_lifecycle_action = true;
-                                    action_output = Some(summary);
-                                    agent_state.execution_queue.clear();
-                                    agent_state.pending_search_completion = None;
-                                    log::info!(
-                                    "Auto-completed app-launch session {} after successful os__launch_app.",
-                                    hex::encode(&session_id[..4])
-                                );
-                                }
-                            }
-                            AgentTool::SysExec { .. } | AgentTool::SysExecSession { .. } => {
-                                if is_command_probe_intent(agent_state.resolved_intent.as_ref()) {
-                                    if let Some(raw) = history_entry.as_deref() {
-                                        if let Some(summary) =
-                                            summarize_command_probe_output(&tool, raw)
-                                        {
-                                            // Probe markers are deterministic completion signals even
-                                            // when the underlying command exits non-zero.
-                                            command_probe_completed = true;
-                                            success = true;
-                                            error_msg = None;
-                                            agent_state.status =
-                                                AgentStatus::Completed(Some(summary.clone()));
-                                            is_lifecycle_action = true;
-                                            action_output = Some(summary);
-                                            agent_state.execution_queue.clear();
-                                            agent_state.pending_search_completion = None;
-                                        }
-                                    }
-                                }
-                            }
-                            AgentTool::MemorySearch { query } => {
-                                if success
-                                    && is_effective_web_research_scope(agent_state)
-                                    && agent_state.pending_search_completion.is_none()
-                                    && history_entry
-                                        .as_deref()
-                                        .map(is_empty_memory_search_output)
-                                        .unwrap_or(true)
-                                {
-                                    let bootstrap_query = if query.trim().is_empty() {
-                                        agent_state.goal.clone()
-                                    } else {
-                                        query.clone()
-                                    };
-                                    let queued = queue_web_search_bootstrap(
-                                        agent_state,
-                                        session_id,
-                                        &bootstrap_query,
-                                    )?;
-                                    verification_checks
-                                        .push("web_search_bootstrap_from_memory=true".to_string());
-                                    let note = if queued {
-                                        "No memory hits for this news query; queued deterministic web__search.".to_string()
-                                    } else {
-                                        "No memory hits for this news query; deterministic web__search was already queued."
-                                            .to_string()
-                                    };
-                                    history_entry = Some(note.clone());
-                                    action_output = Some(note);
-                                    agent_state.status = AgentStatus::Running;
-                                }
-                            }
-                            AgentTool::WebSearch { query, .. } => {
-                                if success && is_effective_web_research_scope(agent_state) {
-                                    if let Some(raw) = history_entry.as_deref() {
-                                        if let Some(bundle) = parse_web_evidence_bundle(raw) {
-                                            let query_value = bundle
-                                                .query
-                                                .clone()
-                                                .filter(|value| !value.trim().is_empty())
-                                                .or_else(|| {
-                                                    let trimmed = query.trim();
-                                                    (!trimmed.is_empty())
-                                                        .then(|| trimmed.to_string())
-                                                })
-                                                .unwrap_or_else(|| agent_state.goal.clone());
-                                            let query_contract = {
-                                                let trimmed_goal = agent_state.goal.trim();
-                                                if trimmed_goal.is_empty() {
-                                                    query_value.clone()
-                                                } else {
-                                                    trimmed_goal.to_string()
-                                                }
-                                            };
-                                            let started_at_ms = web_pipeline_now_ms();
-                                            let mut pending = PendingSearchCompletion {
-                                                query: query_value,
+                                if let Some(url) = extract_navigation_url(&tool_args) {
+                                    if is_search_results_url(&url) {
+                                        let query = search_query_from_url(&url)
+                                            .filter(|value| !value.trim().is_empty())
+                                            .unwrap_or_else(|| agent_state.goal.clone());
+                                        let extract_params = serde_jcs::to_vec(&json!({}))
+                                            .or_else(|_| serde_json::to_vec(&json!({})))
+                                            .unwrap_or_else(|_| b"{}".to_vec());
+                                        agent_state.execution_queue.push(ActionRequest {
+                                            target: ActionTarget::BrowserInspect,
+                                            params: extract_params,
+                                            context: ActionContext {
+                                                agent_id: "desktop_agent".to_string(),
+                                                session_id: Some(session_id),
+                                                window_id: None,
+                                            },
+                                            nonce: agent_state.step_count as u64 + 1,
+                                        });
+                                        let query_contract = {
+                                            let trimmed_goal = agent_state.goal.trim();
+                                            if trimmed_goal.is_empty() {
+                                                query.clone()
+                                            } else {
+                                                trimmed_goal.to_string()
+                                            }
+                                        };
+                                        agent_state.pending_search_completion =
+                                            Some(PendingSearchCompletion {
+                                                query,
                                                 query_contract,
-                                                url: bundle.url.clone().unwrap_or_default(),
+                                                url,
                                                 started_step: pre_state_summary.step_index,
-                                                started_at_ms,
-                                                deadline_ms: started_at_ms
-                                                    .saturating_add(WEB_PIPELINE_BUDGET_MS),
-                                                candidate_urls: candidate_urls_from_bundle(&bundle),
-                                                candidate_source_hints:
-                                                    candidate_source_hints_from_bundle(&bundle),
+                                                started_at_ms: web_pipeline_now_ms(),
+                                                deadline_ms: 0,
+                                                candidate_urls: Vec::new(),
+                                                candidate_source_hints: Vec::new(),
                                                 attempted_urls: Vec::new(),
                                                 blocked_urls: Vec::new(),
                                                 successful_reads: Vec::new(),
                                                 min_sources: WEB_PIPELINE_DEFAULT_MIN_SOURCES,
-                                            };
-
-                                            let mut queued_next = false;
-                                            if let Some(next_url) =
-                                                next_pending_web_candidate(&pending)
-                                            {
-                                                queued_next = queue_web_read_from_pipeline(
-                                                    agent_state,
-                                                    session_id,
-                                                    &next_url,
-                                                )?;
-                                            }
-
-                                            let remaining =
-                                                remaining_pending_web_candidates(&pending);
-                                            verification_checks.push(format!(
-                                                "web_pipeline_active={}",
-                                                queued_next || remaining > 0
-                                            ));
-                                            verification_checks
-                                                .push("web_sources_success=0".to_string());
-                                            verification_checks
-                                                .push("web_sources_blocked=0".to_string());
-                                            verification_checks.push("web_budget_ms=0".to_string());
-
-                                            if queued_next || remaining > 0 {
-                                                agent_state.pending_search_completion =
-                                                    Some(pending);
-                                            } else {
-                                                let reason =
-                                                    WebPipelineCompletionReason::ExhaustedCandidates;
-                                                let summary = if let Some(hybrid_summary) =
-                                                    synthesize_web_pipeline_reply_hybrid(
-                                                        service.reasoning_inference.clone(),
-                                                        &pending,
-                                                        reason,
-                                                    )
-                                                    .await
-                                                {
-                                                    hybrid_summary
-                                                } else {
-                                                    synthesize_web_pipeline_reply(&pending, reason)
-                                                };
-                                                action_output = Some(summary.clone());
-                                                history_entry = Some(summary.clone());
-                                                terminal_chat_reply_output = Some(summary.clone());
-                                                is_lifecycle_action = true;
-                                                agent_state.status =
-                                                    AgentStatus::Completed(Some(summary));
-                                                agent_state.pending_search_completion = None;
-                                                agent_state.execution_queue.clear();
-                                                agent_state.recent_actions.clear();
-                                                verification_checks.push(
-                                                    "terminal_chat_reply_ready=true".to_string(),
-                                                );
-                                            }
-                                        }
+                                            });
+                                        log::info!(
+                                    "Search intent detected after browser__navigate. Queued browser__snapshot for deterministic completion."
+                                );
                                     }
                                 }
                             }
-                            AgentTool::SystemFail { reason, .. } => {
-                                mark_system_fail_status(&mut agent_state.status, reason.clone());
-                                is_lifecycle_action = true;
-                                action_output = Some(format!("Agent Failed: {}", reason));
-                            }
-                            _ => {}
-                        }
 
-                        if success
-                            && current_tool_name == "browser__navigate"
-                            && agent_state.pending_search_completion.is_none()
-                            && is_effective_web_research_scope(agent_state)
-                        {
-                            if let Some(url) = extract_navigation_url(&tool_args) {
-                                if is_search_results_url(&url) {
-                                    let query = search_query_from_url(&url)
-                                        .filter(|value| !value.trim().is_empty())
-                                        .unwrap_or_else(|| agent_state.goal.clone());
-                                    let extract_params = serde_jcs::to_vec(&json!({}))
-                                        .or_else(|_| serde_json::to_vec(&json!({})))
-                                        .unwrap_or_else(|_| b"{}".to_vec());
-                                    agent_state.execution_queue.push(ActionRequest {
-                                        target: ActionTarget::BrowserInspect,
-                                        params: extract_params,
-                                        context: ActionContext {
-                                            agent_id: "desktop_agent".to_string(),
-                                            session_id: Some(session_id),
-                                            window_id: None,
-                                        },
-                                        nonce: agent_state.step_count as u64 + 1,
-                                    });
-                                    let query_contract = {
-                                        let trimmed_goal = agent_state.goal.trim();
-                                        if trimmed_goal.is_empty() {
-                                            query.clone()
-                                        } else {
-                                            trimmed_goal.to_string()
-                                        }
-                                    };
-                                    agent_state.pending_search_completion =
-                                        Some(PendingSearchCompletion {
-                                            query,
-                                            query_contract,
-                                            url,
-                                            started_step: pre_state_summary.step_index,
-                                            started_at_ms: web_pipeline_now_ms(),
-                                            deadline_ms: 0,
-                                            candidate_urls: Vec::new(),
-                                            candidate_source_hints: Vec::new(),
-                                            attempted_urls: Vec::new(),
-                                            blocked_urls: Vec::new(),
-                                            successful_reads: Vec::new(),
-                                            min_sources: WEB_PIPELINE_DEFAULT_MIN_SOURCES,
-                                        });
-                                    log::info!(
-                                    "Search intent detected after browser__navigate. Queued browser__snapshot for deterministic completion."
-                                );
-                                }
-                            }
-                        }
-                    }
-                    Err(TransactionError::PendingApproval(h)) => {
-                        policy_decision = "require_approval".to_string();
-                        let tool_jcs = serde_jcs::to_vec(&tool).unwrap();
-                        let tool_hash_bytes =
-                            ioi_crypto::algorithms::hash::sha256(&tool_jcs).unwrap();
-                        let mut hash_arr = [0u8; 32];
-                        hash_arr.copy_from_slice(tool_hash_bytes.as_ref());
-
-                        let action_fingerprint = sha256(&tool_jcs)
-                            .map(hex::encode)
-                            .unwrap_or_else(|_| String::new());
-                        let root_retry_hash =
-                            retry_intent_hash.as_deref().unwrap_or(intent_hash.as_str());
-                        if let Ok(bytes) = hex::decode(&h) {
-                            if bytes.len() == 32 {
-                                let mut decision_hash = [0u8; 32];
-                                decision_hash.copy_from_slice(&bytes);
-                                if let Some(request) = build_pii_review_request_for_tool(
-                                    service,
-                                    &rules,
+                            if success
+                                && current_tool_name == "browser__snapshot"
+                                && agent_state.pending_search_completion.is_none()
+                                && history_entry
+                                    .as_deref()
+                                    .map(is_transient_browser_snapshot_unexpected_state)
+                                    .unwrap_or(false)
+                            {
+                                let bootstrap_query = agent_state.goal.clone();
+                                let queued = queue_web_search_bootstrap(
+                                    agent_state,
                                     session_id,
-                                    &tool,
-                                    decision_hash,
-                                    block_timestamp_ns / 1_000_000,
-                                )
-                                .await?
-                                {
-                                    persist_pii_review_request(state, &request)?;
-                                    emit_pii_review_requested(service, &request);
+                                    &bootstrap_query,
+                                )?;
+                                verification_checks.push(format!(
+                                    "web_search_bootstrap_from_browser_snapshot={}",
+                                    queued
+                                ));
+                                if queued {
+                                    let note = "Browser snapshot recovery was transient; queued deterministic web__search to continue.".to_string();
+                                    history_entry = Some(note.clone());
+                                    action_output = Some(note);
                                 }
                             }
                         }
-                        let incident_before = load_incident_state(state, &session_id)?;
-                        let incident_stage_before = incident_before
-                            .as_ref()
-                            .map(|incident| incident.stage.clone())
-                            .unwrap_or_else(|| "None".to_string());
+                        Err(TransactionError::PendingApproval(h)) => {
+                            policy_decision = "require_approval".to_string();
+                            let tool_jcs = serde_jcs::to_vec(&tool).unwrap();
+                            let tool_hash_bytes =
+                                ioi_crypto::algorithms::hash::sha256(&tool_jcs).unwrap();
+                            let mut hash_arr = [0u8; 32];
+                            hash_arr.copy_from_slice(tool_hash_bytes.as_ref());
 
-                        let approval_directive = register_pending_approval(
-                            state,
-                            &rules,
-                            agent_state,
-                            session_id,
-                            root_retry_hash,
-                            &current_tool_name,
-                            &tool_jcs,
-                            &action_fingerprint,
-                            &h,
-                        )?;
-                        let incident_after = load_incident_state(state, &session_id)?;
-                        let incident_stage_after = incident_after
-                            .as_ref()
-                            .map(|incident| incident.stage.clone())
-                            .unwrap_or_else(|| "None".to_string());
-                        verification_checks.push(format!(
-                            "approval_suppressed_single_pending={}",
-                            matches!(
-                                approval_directive,
-                                ApprovalDirective::SuppressDuplicatePrompt
-                            )
-                        ));
-                        verification_checks.push(format!(
-                            "incident_id_stable={}",
-                            match (incident_before.as_ref(), incident_after.as_ref()) {
-                                (Some(before), Some(after)) =>
-                                    before.incident_id == after.incident_id,
-                                _ => true,
+                            let action_fingerprint = sha256(&tool_jcs)
+                                .map(hex::encode)
+                                .unwrap_or_else(|_| String::new());
+                            let root_retry_hash =
+                                retry_intent_hash.as_deref().unwrap_or(intent_hash.as_str());
+                            if let Ok(bytes) = hex::decode(&h) {
+                                if bytes.len() == 32 {
+                                    let mut decision_hash = [0u8; 32];
+                                    decision_hash.copy_from_slice(&bytes);
+                                    if let Some(request) = build_pii_review_request_for_tool(
+                                        service,
+                                        &rules,
+                                        session_id,
+                                        &tool,
+                                        decision_hash,
+                                        block_timestamp_ns / 1_000_000,
+                                    )
+                                    .await?
+                                    {
+                                        persist_pii_review_request(state, &request)?;
+                                        emit_pii_review_requested(service, &request);
+                                    }
+                                }
                             }
-                        ));
-                        verification_checks
-                            .push(format!("incident_stage_before={}", incident_stage_before));
-                        verification_checks
-                            .push(format!("incident_stage_after={}", incident_stage_after));
+                            let incident_before = load_incident_state(state, &session_id)?;
+                            let incident_stage_before = incident_before
+                                .as_ref()
+                                .map(|incident| incident.stage.clone())
+                                .unwrap_or_else(|| "None".to_string());
 
-                        agent_state.pending_tool_jcs = Some(tool_jcs);
-                        agent_state.pending_tool_hash = Some(hash_arr);
-                        agent_state.pending_visual_hash = Some(final_visual_phash);
-                        agent_state.pending_tool_call = Some(tool_call_result.clone());
-                        agent_state.last_screen_phash = Some(final_visual_phash);
-                        is_gated = true;
-                        is_lifecycle_action = true;
-                        agent_state.status = AgentStatus::Paused("Waiting for approval".into());
+                            let approval_directive = register_pending_approval(
+                                state,
+                                &rules,
+                                agent_state,
+                                session_id,
+                                root_retry_hash,
+                                &current_tool_name,
+                                &tool_jcs,
+                                &action_fingerprint,
+                                &h,
+                            )?;
+                            let incident_after = load_incident_state(state, &session_id)?;
+                            let incident_stage_after = incident_after
+                                .as_ref()
+                                .map(|incident| incident.stage.clone())
+                                .unwrap_or_else(|| "None".to_string());
+                            verification_checks.push(format!(
+                                "approval_suppressed_single_pending={}",
+                                matches!(
+                                    approval_directive,
+                                    ApprovalDirective::SuppressDuplicatePrompt
+                                )
+                            ));
+                            verification_checks.push(format!(
+                                "incident_id_stable={}",
+                                match (incident_before.as_ref(), incident_after.as_ref()) {
+                                    (Some(before), Some(after)) =>
+                                        before.incident_id == after.incident_id,
+                                    _ => true,
+                                }
+                            ));
+                            verification_checks
+                                .push(format!("incident_stage_before={}", incident_stage_before));
+                            verification_checks
+                                .push(format!("incident_stage_after={}", incident_stage_after));
 
-                        if let Some(incident_state) = load_incident_state(state, &session_id)? {
-                            if incident_state.active {
-                                log::info!(
+                            agent_state.pending_tool_jcs = Some(tool_jcs);
+                            agent_state.pending_tool_hash = Some(hash_arr);
+                            agent_state.pending_visual_hash = Some(final_visual_phash);
+                            agent_state.pending_tool_call = Some(tool_call_result.clone());
+                            agent_state.last_screen_phash = Some(final_visual_phash);
+                            is_gated = true;
+                            is_lifecycle_action = true;
+                            agent_state.status = AgentStatus::Paused("Waiting for approval".into());
+
+                            if let Some(incident_state) = load_incident_state(state, &session_id)? {
+                                if incident_state.active {
+                                    log::info!(
                                 "incident.approval_intercepted session={} incident_id={} root_tool={} gated_tool={}",
                                 hex::encode(&session_id[..4]),
                                 incident_state.incident_id,
                                 incident_state.root_tool_name,
                                 current_tool_name
                             );
+                                }
                             }
-                        }
 
-                        match approval_directive {
-                            ApprovalDirective::PromptUser => {
-                                let msg = format!("System: Action halted by Agency Firewall (Hash: {}). Requesting authorization.", h);
-                                let sys_msg = ioi_types::app::agentic::ChatMessage {
-                                    role: "system".to_string(),
-                                    content: msg,
-                                    timestamp: SystemTime::now()
-                                        .duration_since(UNIX_EPOCH)
-                                        .unwrap()
-                                        .as_millis()
-                                        as u64,
-                                    trace_hash: None,
-                                };
-                                let _ = service
-                                    .append_chat_to_scs(session_id, &sys_msg, block_height)
-                                    .await?;
-                                success = true;
-                            }
-                            ApprovalDirective::SuppressDuplicatePrompt => {
-                                let sys_msg = ioi_types::app::agentic::ChatMessage {
+                            match approval_directive {
+                                ApprovalDirective::PromptUser => {
+                                    let msg = format!("System: Action halted by Agency Firewall (Hash: {}). Requesting authorization.", h);
+                                    let sys_msg = ioi_types::app::agentic::ChatMessage {
+                                        role: "system".to_string(),
+                                        content: msg,
+                                        timestamp: SystemTime::now()
+                                            .duration_since(UNIX_EPOCH)
+                                            .unwrap()
+                                            .as_millis()
+                                            as u64,
+                                        trace_hash: None,
+                                    };
+                                    let _ = service
+                                        .append_chat_to_scs(session_id, &sys_msg, block_height)
+                                        .await?;
+                                    success = true;
+                                }
+                                ApprovalDirective::SuppressDuplicatePrompt => {
+                                    let sys_msg = ioi_types::app::agentic::ChatMessage {
                                 role: "system".to_string(),
                                 content:
                                     "System: Approval already pending for this incident/action. Waiting for your decision."
@@ -950,53 +1194,54 @@ pub async fn process_tool_output(
                                     .as_millis() as u64,
                                 trace_hash: None,
                             };
-                                let _ = service
-                                    .append_chat_to_scs(session_id, &sys_msg, block_height)
-                                    .await?;
-                                success = true;
-                            }
-                            ApprovalDirective::PauseLoop => {
-                                policy_decision = "denied".to_string();
-                                success = false;
-                                let loop_msg = format!(
+                                    let _ = service
+                                        .append_chat_to_scs(session_id, &sys_msg, block_height)
+                                        .await?;
+                                    success = true;
+                                }
+                                ApprovalDirective::PauseLoop => {
+                                    policy_decision = "denied".to_string();
+                                    success = false;
+                                    let loop_msg = format!(
                                 "ERROR_CLASS=PermissionOrApprovalRequired Approval loop policy paused this incident for request hash {}.",
                                 h
                             );
-                                error_msg = Some(loop_msg.clone());
-                                agent_state.status = AgentStatus::Paused(
+                                    error_msg = Some(loop_msg.clone());
+                                    agent_state.status = AgentStatus::Paused(
                                 "Approval loop detected for the same incident/action. Automatic retries paused."
                                     .to_string(),
                             );
-                                let sys_msg = ioi_types::app::agentic::ChatMessage {
-                                    role: "system".to_string(),
-                                    content: format!(
+                                    let sys_msg = ioi_types::app::agentic::ChatMessage {
+                                        role: "system".to_string(),
+                                        content: format!(
                                     "System: {} Please approve, deny, or change policy settings.",
                                     loop_msg
                                 ),
-                                    timestamp: SystemTime::now()
-                                        .duration_since(UNIX_EPOCH)
-                                        .unwrap()
-                                        .as_millis()
-                                        as u64,
-                                    trace_hash: None,
-                                };
-                                let _ = service
-                                    .append_chat_to_scs(session_id, &sys_msg, block_height)
-                                    .await?;
+                                        timestamp: SystemTime::now()
+                                            .duration_since(UNIX_EPOCH)
+                                            .unwrap()
+                                            .as_millis()
+                                            as u64,
+                                        trace_hash: None,
+                                    };
+                                    let _ = service
+                                        .append_chat_to_scs(session_id, &sys_msg, block_height)
+                                        .await?;
+                                }
                             }
                         }
-                    }
-                    Err(e) => {
-                        success = false;
-                        let msg = e.to_string();
-                        if msg.to_lowercase().contains("blocked by policy") {
-                            policy_decision = "denied".to_string();
-                        }
-                        error_msg = Some(msg.clone());
-                        if !req_hash_hex.is_empty() {
-                            agent_state
-                                .tool_execution_log
-                                .insert(req_hash_hex.clone(), ToolCallStatus::Failed(msg));
+                        Err(e) => {
+                            success = false;
+                            let msg = e.to_string();
+                            if msg.to_lowercase().contains("blocked by policy") {
+                                policy_decision = "denied".to_string();
+                            }
+                            error_msg = Some(msg.clone());
+                            if !req_hash_hex.is_empty() {
+                                agent_state
+                                    .tool_execution_log
+                                    .insert(req_hash_hex.clone(), ToolCallStatus::Failed(msg));
+                            }
                         }
                     }
                 }
@@ -1035,10 +1280,13 @@ pub async fn process_tool_output(
             // Prefix ERROR_CLASS so anti-loop classification is deterministic.
             error_msg = Some(format!("ERROR_CLASS=UnexpectedState {}", parse_error));
             let empty_output = tool_call_result.trim().is_empty();
-            if empty_output && is_effective_web_research_scope(agent_state) {
+            if empty_output && should_use_web_research_path(agent_state) {
                 invalid_tool_call_bootstrap_web = true;
-            } else if is_effective_web_research_scope(agent_state) {
+            } else if should_use_web_research_path(agent_state) {
                 invalid_tool_call_fail_fast = true;
+            } else if is_mailbox_connector_goal(&agent_state.goal) {
+                invalid_tool_call_fail_fast = true;
+                invalid_tool_call_fail_fast_mailbox = true;
             }
         }
     }
@@ -1176,13 +1424,26 @@ pub async fn process_tool_output(
         && !awaiting_sudo_password
         && !awaiting_clarification
     {
-        let summary = "Invalid tool call generated during web research. Stopping early to avoid recovery churn.".to_string();
+        let summary = if invalid_tool_call_fail_fast_mailbox {
+            format!(
+                "Mailbox connector action executed, but response synthesis failed due schema validation. Please retry the request. Run timestamp (UTC ms): {}.",
+                block_timestamp_ns / 1_000_000
+            )
+        } else {
+            "Invalid tool call generated during web research. Stopping early to avoid recovery churn."
+                .to_string()
+        };
         success = true;
         error_msg = None;
         stop_condition_hit = true;
         escalation_path = Some("invalid_tool_call_fail_fast".to_string());
         is_lifecycle_action = true;
         action_output = Some(summary.clone());
+        if invalid_tool_call_fail_fast_mailbox {
+            terminal_chat_reply_output = Some(summary.clone());
+            verification_checks.push("mailbox_invalid_tool_call_fail_fast=true".to_string());
+            verification_checks.push("terminal_chat_reply_ready=true".to_string());
+        }
         agent_state.status = AgentStatus::Completed(Some(summary));
         agent_state.execution_queue.clear();
         agent_state.pending_search_completion = None;
@@ -1489,7 +1750,7 @@ pub async fn process_tool_output(
                     agent_state.status = AgentStatus::Paused(
                         "Waiting for user intervention: complete the required human verification in your browser/app, then resume.".to_string(),
                     );
-                } else if is_effective_web_research_scope(agent_state)
+                } else if should_use_web_research_path(agent_state)
                     && matches!(class, FailureClass::UnexpectedState)
                 {
                     // Keep web research autonomous under transient tool/schema instability.
@@ -1649,8 +1910,8 @@ pub async fn process_tool_output(
             });
 
             if let Some(chat_output) = terminal_chat_reply_output {
+                verification_checks.push("terminal_chat_reply_emitted=true".to_string());
                 if current_tool_name != "chat__reply" {
-                    verification_checks.push("terminal_chat_reply_emitted=true".to_string());
                     let _ = tx.send(KernelEvent::AgentActionResult {
                         session_id,
                         step_index: pre_state_summary.step_index,

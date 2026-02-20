@@ -31,7 +31,7 @@ use crate::agentic::desktop::service::step::incident::{
     mark_gate_denied, mark_incident_wait_for_user, should_enter_incident_recovery,
     start_or_continue_incident_recovery, IncidentDirective,
 };
-use crate::agentic::desktop::service::DesktopAgentService;
+use crate::agentic::desktop::service::{DesktopAgentService, ServiceCallContext};
 use crate::agentic::desktop::types::{AgentState, AgentStatus};
 use crate::agentic::desktop::utils::goto_trace_log;
 use crate::agentic::rules::ActionRules;
@@ -63,6 +63,7 @@ pub async fn resume_pending_action(
     session_id: [u8; 32],
     block_height: u64,
     block_timestamp_ns: u64,
+    call_context: ServiceCallContext<'_>,
 ) -> Result<(), TransactionError> {
     let pre_state_summary = build_state_summary(agent_state);
     let routing_decision = TierRoutingDecision {
@@ -247,6 +248,7 @@ pub async fn resume_pending_action(
         precheck_error,
         pre_state_summary.step_index,
         block_height,
+        call_context,
     )
     .await;
     let (mut success, mut out, mut err) = (exec.success, exec.out, exec.err);

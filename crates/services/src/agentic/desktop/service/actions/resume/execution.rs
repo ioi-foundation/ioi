@@ -1,7 +1,7 @@
 use super::hashing::parse_hash_hex;
 use crate::agentic::desktop::keys::get_state_key;
 use crate::agentic::desktop::service::lifecycle::spawn_delegated_child_session;
-use crate::agentic::desktop::service::DesktopAgentService;
+use crate::agentic::desktop::service::{DesktopAgentService, ServiceCallContext};
 use crate::agentic::desktop::types::{AgentState, AgentStatus};
 use ioi_api::state::StateAccess;
 use ioi_api::vm::drivers::os::OsDriver;
@@ -30,11 +30,14 @@ pub(super) async fn execute(
     precheck_error: Option<String>,
     pre_state_step_index: u32,
     block_height: u64,
+    call_context: ServiceCallContext<'_>,
 ) -> ExecutionOutcome {
     let (mut success, mut out, mut err) = match precheck_error {
         Some(err) => (false, None, Some(err)),
         None => match service
-            .handle_action_execution(
+            .handle_action_execution_with_state(
+                state,
+                call_context,
                 tool.clone(),
                 session_id,
                 agent_state.step_count,

@@ -19,7 +19,24 @@ export type {
     Container,
     MarketplaceAgent,
     ConnectorSummary,
-    ConnectorStatus
+    ConnectorStatus,
+    WalletMailMessage,
+    WalletMailReadLatestInput,
+    WalletMailListRecentInput,
+    WalletMailDeleteSpamInput,
+    WalletMailReplyInput,
+    WalletMailApprovalArtifactInput,
+    WalletMailReadLatestResult,
+    WalletMailListRecentResult,
+    WalletMailDeleteSpamResult,
+    WalletMailReplyResult,
+    WalletMailIntentInput,
+    WalletMailIntentResult,
+    WalletMailApprovalArtifactResult,
+    WalletMailConnectorAuthMode,
+    WalletMailConnectorTlsMode,
+    WalletMailConfigureAccountInput,
+    WalletMailConfigureAccountResult
 } from "./runtime/agent-runtime";
 
 export * from "./types/graph";

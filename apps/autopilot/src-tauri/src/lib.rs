@@ -293,6 +293,14 @@ pub fn run() {
             kernel::governance::get_gate_response,
             kernel::governance::clear_gate_response,
             kernel::governance::submit_runtime_password,
+            // Connectors
+            kernel::connectors::wallet_mail_configure_account,
+            kernel::connectors::wallet_mail_generate_approval_artifact,
+            kernel::connectors::wallet_mail_read_latest,
+            kernel::connectors::wallet_mail_list_recent,
+            kernel::connectors::wallet_mail_delete_spam,
+            kernel::connectors::wallet_mail_reply,
+            kernel::connectors::wallet_mail_handle_intent,
             // Data / Context
             kernel::data::get_context_blob,
             kernel::data::get_available_tools,

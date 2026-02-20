@@ -26,7 +26,8 @@ use crate::agentic::desktop::service::step::anti_loop::{
     TierRoutingDecision,
 };
 use crate::agentic::desktop::service::step::helpers::{
-    default_safe_policy, is_live_external_research_goal, should_auto_complete_open_app_goal,
+    default_safe_policy, is_live_external_research_goal, is_mailbox_connector_goal,
+    should_auto_complete_open_app_goal,
 };
 use crate::agentic::desktop::service::step::incident::{
     advance_incident_after_action_outcome, incident_receipt_fields, load_incident_state,
@@ -34,7 +35,7 @@ use crate::agentic::desktop::service::step::incident::{
     start_or_continue_incident_recovery, ApprovalDirective, IncidentDirective,
 };
 use crate::agentic::desktop::service::step::intent_resolver::is_tool_allowed_for_resolution;
-use crate::agentic::desktop::service::DesktopAgentService;
+use crate::agentic::desktop::service::{DesktopAgentService, ServiceCallContext};
 use crate::agentic::desktop::types::{AgentState, AgentStatus, StepAgentParams};
 use crate::agentic::desktop::utils::goto_trace_log;
 use crate::agentic::rules::ActionRules;
@@ -58,6 +59,9 @@ pub fn resolve_queue_routing_context(
 }
 
 fn is_web_research_scope(agent_state: &AgentState) -> bool {
+    if is_mailbox_connector_goal(&agent_state.goal) {
+        return false;
+    }
     agent_state
         .resolved_intent
         .as_ref()
@@ -73,6 +77,7 @@ pub async fn process_queue_item(
     p: &StepAgentParams,
     block_height: u64,
     block_timestamp_ns: u64,
+    call_context: ServiceCallContext<'_>,
 ) -> Result<(), TransactionError> {
     log::info!(
         "Draining execution queue for session {} (Pending: {})",
@@ -135,8 +140,9 @@ pub async fn process_queue_item(
         )))
         } else {
             service
-                .handle_action_execution(
-                    // &executor,  <-- REMOVED
+                .handle_action_execution_with_state(
+                    state,
+                    call_context,
                     tool_wrapper.clone(),
                     p.session_id,
                     agent_state.step_count,
@@ -436,14 +442,28 @@ pub async fn process_queue_item(
         verification_checks.push("awaiting_clarification=true".to_string());
     }
     let mut completion_summary: Option<String> = None;
-    if !is_gated && tool_name == "web__search" && is_web_research_scope(agent_state) && success {
-        if let Some(bundle) = out.as_deref().and_then(parse_web_evidence_bundle) {
+    let parsed_bundle = out.as_deref().and_then(parse_web_evidence_bundle);
+    let promoted_memory_search = tool_name == "memory__search"
+        && parsed_bundle
+            .as_ref()
+            .map(|bundle| bundle.tool == "web__search")
+            .unwrap_or(false);
+    let effective_web_search = tool_name == "web__search" || promoted_memory_search;
+    if promoted_memory_search {
+        verification_checks.push("memory_search_promoted_to_web_search=true".to_string());
+    }
+    if !is_gated && effective_web_search && is_web_research_scope(agent_state) && success {
+        if let Some(bundle) = parsed_bundle.as_ref() {
             let query_value = bundle
                 .query
                 .clone()
                 .filter(|value| !value.trim().is_empty())
                 .or_else(|| match &tool_wrapper {
                     AgentTool::WebSearch { query, .. } => {
+                        let trimmed = query.trim();
+                        (!trimmed.is_empty()).then(|| trimmed.to_string())
+                    }
+                    AgentTool::MemorySearch { query } => {
                         let trimmed = query.trim();
                         (!trimmed.is_empty()).then(|| trimmed.to_string())
                     }

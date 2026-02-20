@@ -1,7 +1,7 @@
 use crate::agentic::desktop::types::InteractionTarget;
 use url::Url;
 
-pub const ONTOLOGY_SIGNAL_VERSION: &str = "ontology_signals_v2";
+pub const ONTOLOGY_SIGNAL_VERSION: &str = "ontology_signals_v3";
 pub const LIVE_EXTERNAL_RESEARCH_SIGNAL_VERSION: &str = ONTOLOGY_SIGNAL_VERSION;
 pub const WEB_EVIDENCE_SIGNAL_VERSION: &str = "web_evidence_signals_v3";
 
@@ -178,6 +178,48 @@ const COMMAND_MARKERS: [&str; 9] = [
     "powershell",
     "run command",
     "execute",
+];
+
+const MAILBOX_DOMAIN_MARKERS: [&str; 11] = [
+    " email ",
+    " e-mail ",
+    " inbox ",
+    " mailbox ",
+    " message ",
+    " messages ",
+    " spam ",
+    " junk ",
+    " unread ",
+    " sender ",
+    " subject ",
+];
+
+const MAILBOX_PERSONAL_SCOPE_MARKERS: [&str; 9] = [
+    " my ",
+    " me ",
+    " i ",
+    " i've ",
+    " i have ",
+    " received ",
+    " arrived ",
+    " sent ",
+    " my inbox ",
+];
+
+const MAILBOX_ACTION_MARKERS: [&str; 13] = [
+    " read ",
+    " list ",
+    " check ",
+    " latest ",
+    " recent ",
+    " newest ",
+    " most recent ",
+    " delete ",
+    " remove ",
+    " reply ",
+    " respond ",
+    " summarize ",
+    " summarise ",
 ];
 
 const REPORT_CHANGE_MARKERS: [&str; 8] = [
@@ -498,6 +540,9 @@ pub struct GoalSignalProfile {
     pub browser_hits: usize,
     pub command_hits: usize,
     pub explicit_url_hits: usize,
+    pub mailbox_domain_hits: usize,
+    pub mailbox_personal_scope_hits: usize,
+    pub mailbox_action_hits: usize,
 }
 
 impl GoalSignalProfile {
@@ -506,6 +551,9 @@ impl GoalSignalProfile {
     }
 
     pub fn prefers_live_external_research(&self) -> bool {
+        if self.prefers_mailbox_connector_flow() {
+            return false;
+        }
         if self.workspace_dominant() {
             return false;
         }
@@ -517,6 +565,13 @@ impl GoalSignalProfile {
 
         (has_live_grounding_request && has_external_surface)
             || (has_external_surface && has_provenance_pressure)
+    }
+
+    pub fn prefers_mailbox_connector_flow(&self) -> bool {
+        let has_mailbox_domain = self.mailbox_domain_hits > 0;
+        let has_personal_anchor = self.mailbox_personal_scope_hits > 0;
+        let has_mailbox_action = self.mailbox_action_hits > 0;
+        has_mailbox_domain && (has_personal_anchor || has_mailbox_action)
     }
 }
 
@@ -629,27 +684,45 @@ pub fn analyze_goal_signals(goal: &str) -> GoalSignalProfile {
     if goal_lc.trim().is_empty() {
         return GoalSignalProfile::default();
     }
+    let padded_goal = format!(" {} ", goal_lc);
 
     GoalSignalProfile {
-        recency_hits: marker_hits(&goal_lc, &RECENCY_MARKERS),
-        provenance_hits: marker_hits(&goal_lc, &PROVENANCE_MARKERS),
-        external_hits: marker_hits(&goal_lc, &EXTERNAL_KNOWLEDGE_MARKERS),
-        workspace_hits: marker_hits(&goal_lc, &WORKSPACE_MARKERS),
-        launch_hits: marker_hits(&goal_lc, &LAUNCH_MARKERS),
-        follow_up_hits: marker_hits(&goal_lc, &FOLLOW_UP_ACTION_MARKERS),
-        conversation_hits: marker_hits(&goal_lc, &CONVERSATION_MARKERS),
-        delegation_hits: marker_hits(&goal_lc, &DELEGATION_MARKERS),
-        ui_hits: marker_hits(&goal_lc, &UI_MARKERS),
-        filesystem_hits: marker_hits(&goal_lc, &FILESYSTEM_MARKERS),
-        install_hits: marker_hits(&goal_lc, &INSTALL_MARKERS),
-        browser_hits: marker_hits(&goal_lc, &BROWSER_MARKERS),
-        command_hits: marker_hits(&goal_lc, &COMMAND_MARKERS),
-        explicit_url_hits: marker_hits(&goal_lc, &["http://", "https://"]),
+        recency_hits: marker_hits(&padded_goal, &RECENCY_MARKERS),
+        provenance_hits: marker_hits(&padded_goal, &PROVENANCE_MARKERS),
+        external_hits: marker_hits(&padded_goal, &EXTERNAL_KNOWLEDGE_MARKERS),
+        workspace_hits: marker_hits(&padded_goal, &WORKSPACE_MARKERS),
+        launch_hits: marker_hits(&padded_goal, &LAUNCH_MARKERS),
+        follow_up_hits: marker_hits(&padded_goal, &FOLLOW_UP_ACTION_MARKERS),
+        conversation_hits: marker_hits(&padded_goal, &CONVERSATION_MARKERS),
+        delegation_hits: marker_hits(&padded_goal, &DELEGATION_MARKERS),
+        ui_hits: marker_hits(&padded_goal, &UI_MARKERS),
+        filesystem_hits: marker_hits(&padded_goal, &FILESYSTEM_MARKERS),
+        install_hits: marker_hits(&padded_goal, &INSTALL_MARKERS),
+        browser_hits: marker_hits(&padded_goal, &BROWSER_MARKERS),
+        command_hits: marker_hits(&padded_goal, &COMMAND_MARKERS),
+        explicit_url_hits: marker_hits(&padded_goal, &["http://", "https://"]),
+        mailbox_domain_hits: marker_hits(&padded_goal, &MAILBOX_DOMAIN_MARKERS),
+        mailbox_personal_scope_hits: marker_hits(&padded_goal, &MAILBOX_PERSONAL_SCOPE_MARKERS),
+        mailbox_action_hits: marker_hits(&padded_goal, &MAILBOX_ACTION_MARKERS),
     }
 }
 
 pub fn is_live_external_research_goal(goal: &str) -> bool {
     analyze_goal_signals(goal).prefers_live_external_research()
+}
+
+pub fn is_mailbox_connector_intent(goal: &str) -> bool {
+    analyze_goal_signals(goal).prefers_mailbox_connector_flow()
+}
+
+pub fn is_mail_connector_tool_name(tool_name: &str) -> bool {
+    let normalized = tool_name.trim().to_ascii_lowercase();
+    if normalized.is_empty() {
+        return false;
+    }
+    normalized.starts_with("wallet_network__mail_")
+        || normalized.starts_with("wallet_mail_")
+        || normalized.starts_with("mail__")
 }
 
 pub fn infer_interaction_target(goal: &str) -> Option<InteractionTarget> {
@@ -972,7 +1045,8 @@ mod tests {
     use super::{
         analyze_goal_signals, analyze_source_record_signals, analyze_source_text_signals,
         infer_interaction_target, infer_report_sections, is_live_external_research_goal,
-        report_section_label, GoalSignalProfile, ReportSectionKind,
+        is_mail_connector_tool_name, is_mailbox_connector_intent, report_section_label,
+        GoalSignalProfile, ReportSectionKind,
     };
 
     #[test]
@@ -1062,5 +1136,34 @@ mod tests {
     #[test]
     fn goal_profile_handles_empty_input() {
         assert_eq!(analyze_goal_signals(""), GoalSignalProfile::default());
+    }
+
+    #[test]
+    fn mailbox_connector_signal_detects_personal_mailbox_intent() {
+        assert!(is_mailbox_connector_intent(
+            "Read me the latest email in my inbox"
+        ));
+        assert!(!is_live_external_research_goal(
+            "Read me the latest email in my inbox"
+        ));
+    }
+
+    #[test]
+    fn mailbox_connector_signal_ignores_general_web_queries() {
+        assert!(!is_mailbox_connector_intent(
+            "Find the latest cloud outage updates with citations"
+        ));
+        assert!(is_live_external_research_goal(
+            "Find the latest cloud outage updates with citations"
+        ));
+    }
+
+    #[test]
+    fn mailbox_tool_name_signal_matches_connector_prefixes() {
+        assert!(is_mail_connector_tool_name(
+            "wallet_network__mail_read_latest"
+        ));
+        assert!(is_mail_connector_tool_name("wallet_mail_handle_intent"));
+        assert!(!is_mail_connector_tool_name("web__search"));
     }
 }

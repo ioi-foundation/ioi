@@ -3,7 +3,14 @@ import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { 
   AgentRuntime, GraphPayload, GraphEvent, ProjectFile, AgentSummary, 
-  FleetState, Zone, Container, MarketplaceAgent, ConnectorSummary
+  FleetState, Zone, Container, MarketplaceAgent, ConnectorSummary,
+  WalletMailDeleteSpamInput, WalletMailDeleteSpamResult,
+  WalletMailReplyInput, WalletMailReplyResult,
+  WalletMailListRecentInput, WalletMailListRecentResult,
+  WalletMailReadLatestInput, WalletMailReadLatestResult,
+  WalletMailIntentInput, WalletMailIntentResult,
+  WalletMailApprovalArtifactInput, WalletMailApprovalArtifactResult,
+  WalletMailConfigureAccountInput, WalletMailConfigureAccountResult
 } from "@ioi/agent-ide";
 
 // Mock Data
@@ -39,7 +46,7 @@ const CONNECTORS: ConnectorSummary[] = [
       "Planned first wallet_network integration. Enables inbox listing and latest-email read under delegated wallet session policy.",
     status: "needs_auth",
     authMode: "wallet_network_session",
-    scopes: ["mail.read.latest", "mail.read.thread"],
+    scopes: ["mail.read.latest", "mail.list.recent", "mail.delete.spam", "mail.reply"],
     notes:
       "E2E target: request session channel, approve bounded read lease, perform check-inbox and read-latest-email ops.",
   },
@@ -121,6 +128,103 @@ export class TauriRuntime implements AgentRuntime {
 
     async getConnectors(): Promise<ConnectorSummary[]> {
         return CONNECTORS;
+    }
+
+    async walletMailReadLatest(
+      input: WalletMailReadLatestInput
+    ): Promise<WalletMailReadLatestResult> {
+      return invoke("wallet_mail_read_latest", {
+        channelId: input.channelId,
+        leaseId: input.leaseId,
+        opSeq: input.opSeq,
+        mailbox: input.mailbox ?? null,
+      });
+    }
+
+    async walletMailListRecent(
+      input: WalletMailListRecentInput
+    ): Promise<WalletMailListRecentResult> {
+      return invoke("wallet_mail_list_recent", {
+        channelId: input.channelId,
+        leaseId: input.leaseId,
+        opSeq: input.opSeq,
+        mailbox: input.mailbox ?? null,
+        limit: input.limit ?? null,
+      });
+    }
+
+    async walletMailDeleteSpam(
+      input: WalletMailDeleteSpamInput
+    ): Promise<WalletMailDeleteSpamResult> {
+      return invoke("wallet_mail_delete_spam", {
+        channelId: input.channelId,
+        leaseId: input.leaseId,
+        opSeq: input.opSeq,
+        mailbox: input.mailbox ?? null,
+        maxDelete: input.maxDelete ?? null,
+      });
+    }
+
+    async walletMailReply(
+      input: WalletMailReplyInput
+    ): Promise<WalletMailReplyResult> {
+      return invoke("wallet_mail_reply", {
+        channelId: input.channelId,
+        leaseId: input.leaseId,
+        opSeq: input.opSeq,
+        mailbox: input.mailbox ?? null,
+        to: input.to,
+        subject: input.subject,
+        body: input.body,
+        replyToMessageId: input.replyToMessageId ?? null,
+      });
+    }
+
+    async walletMailHandleIntent(
+      input: WalletMailIntentInput
+    ): Promise<WalletMailIntentResult> {
+      return invoke("wallet_mail_handle_intent", {
+        channelId: input.channelId,
+        leaseId: input.leaseId,
+        opSeq: input.opSeq,
+        query: input.query,
+        mailbox: input.mailbox ?? null,
+        listLimit: input.listLimit ?? null,
+        approvalArtifactJson: input.approvalArtifactJson ?? null,
+      });
+    }
+
+    async walletMailConfigureAccount(
+      input: WalletMailConfigureAccountInput
+    ): Promise<WalletMailConfigureAccountResult> {
+      return invoke("wallet_mail_configure_account", {
+        mailbox: input.mailbox ?? null,
+        accountEmail: input.accountEmail,
+        authMode: input.authMode ?? "password",
+        imapHost: input.imapHost,
+        imapPort: input.imapPort,
+        imapTlsMode: input.imapTlsMode ?? "tls",
+        smtpHost: input.smtpHost,
+        smtpPort: input.smtpPort,
+        smtpTlsMode: input.smtpTlsMode ?? "starttls",
+        imapUsername: input.imapUsername ?? null,
+        imapSecret: input.imapSecret,
+        smtpUsername: input.smtpUsername ?? null,
+        smtpSecret: input.smtpSecret,
+      });
+    }
+
+    async walletMailGenerateApprovalArtifact(
+      input: WalletMailApprovalArtifactInput
+    ): Promise<WalletMailApprovalArtifactResult> {
+      return invoke("wallet_mail_generate_approval_artifact", {
+        channelId: input.channelId,
+        leaseId: input.leaseId,
+        opSeq: input.opSeq,
+        query: input.query,
+        mailbox: input.mailbox ?? null,
+        ttlSeconds: input.ttlSeconds ?? null,
+      });
     }
 
     onEvent(callback: (event: GraphEvent) => void): () => void {
