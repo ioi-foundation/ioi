@@ -21,6 +21,7 @@ use ioi_services::{
     governance::GovernanceModule,
     identity::IdentityHub,
     provider_registry::ProviderRegistryService,
+    wallet_network::WalletNetworkService,
 };
 use ioi_storage::RedbEpochStore;
 use ioi_tx::unified::UnifiedTransactionModel;
@@ -340,6 +341,9 @@ where
         Arc::new(_consensus_engine.clone());
     let _penalties_service = Arc::new(ioi_consensus::PenaltiesService::new(_penalty_engine));
     initial_services.push(_penalties_service as Arc<dyn UpgradableService>);
+
+    tracing::info!(target: "workload", event = "service_init", name = "WalletNetwork", impl="native", capabilities="policy_sessions_audit");
+    initial_services.push(Arc::new(WalletNetworkService) as Arc<dyn UpgradableService>);
 
     for _service_config in &config.initial_services {
         match _service_config {

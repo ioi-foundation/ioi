@@ -20,6 +20,7 @@ const mainNavItems = [
 const workspaceItems = [
   { id: "marketplace", icon: <Icons.Folder />, label: "Marketplace" },
   { id: "fleet", icon: <Icons.Trigger />, label: "Fleet Management" },
+  { id: "integrations", icon: <Icons.Plug />, label: "Integrations" },
   { id: "agents", icon: <Icons.Cards />, label: "Agents", badge: "3" },
 ];
 

@@ -303,9 +303,24 @@ pub async fn gate_respond(
 
     let approver_kp = Ed25519KeyPair::generate().map_err(|e| e.to_string())?;
     let approver_pub = approver_kp.public_key();
+    let approver_account_id =
+        account_id_from_key_material(SignatureSuite::ED25519, &approver_pub.to_bytes())
+            .map_err(|e| format!("Failed to derive approver account id: {}", e))?;
+
+    let now_ms = now();
+    let mut token_nonce = request_hash_arr;
+    token_nonce[0] ^= (now_ms & 0xFF) as u8;
+    if token_nonce == [0u8; 32] {
+        token_nonce[0] = 1;
+    }
 
     let token = ApprovalToken {
+        schema_version: 2,
         request_hash: request_hash_arr,
+        audience: approver_account_id,
+        revocation_epoch: 0,
+        nonce: token_nonce,
+        counter: now_ms.max(1),
         scope: ApprovalScope {
             expires_at: std::time::SystemTime::now()
                 .duration_since(std::time::UNIX_EPOCH)
@@ -341,10 +356,7 @@ pub async fn gate_respond(
     };
 
     let header = SignHeader {
-        account_id: AccountId(
-            account_id_from_key_material(SignatureSuite::ED25519, &approver_pub.to_bytes())
-                .unwrap(),
-        ),
+        account_id: AccountId(approver_account_id),
         nonce: 0,
         chain_id: ChainId(0),
         tx_version: 1,

@@ -55,6 +55,7 @@ use ioi_types::codec;
 use ioi_services::market::MarketService;
 // [FIX] Import OptimizerService
 use ioi_services::agentic::optimizer::OptimizerService;
+use ioi_services::wallet_network::WalletNetworkService;
 
 // [NEW] Import for SwarmCommand
 use ioi_networking::libp2p::SwarmCommand;
@@ -729,6 +730,16 @@ async fn main() -> Result<()> {
             eprintln!("Failed to register OptimizerService: {}", e);
         } else {
             println!("✅ OptimizerService active (Skill Injection Enabled).");
+        }
+
+        let wallet_service = Arc::new(WalletNetworkService);
+        if let Err(e) = machine_guard
+            .service_manager
+            .register_service(wallet_service)
+        {
+            eprintln!("Failed to register WalletNetworkService: {}", e);
+        } else {
+            println!("✅ WalletNetworkService active (Control Plane).");
         }
     }
 

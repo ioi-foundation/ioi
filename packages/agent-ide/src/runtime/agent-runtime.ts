@@ -52,6 +52,22 @@ export interface MarketplaceAgent {
   requirements?: string; 
 }
 
+// Connector Types
+export type ConnectorStatus = "connected" | "needs_auth" | "degraded" | "disabled";
+
+export interface ConnectorSummary {
+  id: string;
+  name: string;
+  provider: string;
+  category: "communication" | "productivity" | "storage" | "developer";
+  description: string;
+  status: ConnectorStatus;
+  authMode: "wallet_network_session" | "oauth" | "api_key";
+  scopes: string[];
+  lastSyncAtUtc?: string;
+  notes?: string;
+}
+
 // Fleet Types
 export interface Zone {
   id: string;
@@ -106,6 +122,9 @@ export interface AgentRuntime {
   // [NEW] Marketplace Management
   getMarketplaceAgents(): Promise<MarketplaceAgent[]>;
   installAgent(agentId: string): Promise<void>;
+
+  // Integrations / Connectors
+  getConnectors?(): Promise<ConnectorSummary[]>;
 
   // Event Subscription
   onEvent(callback: (event: GraphEvent) => void): () => void;

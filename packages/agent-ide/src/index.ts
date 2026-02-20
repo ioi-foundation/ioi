@@ -6,6 +6,7 @@ export { FleetView } from "./features/Fleet/FleetView";
 export { AgentsDashboard } from "./features/Dashboard/AgentsDashboard";
 export { BuilderView } from "./features/Builder/BuilderView";
 export { MarketplaceView } from "./features/Marketplace/MarketplaceView";
+export { ConnectorsView } from "./features/Connectors/ConnectorsView";
 
 export type { 
     AgentRuntime, 
@@ -16,7 +17,9 @@ export type {
     FleetState,
     Zone,
     Container,
-    MarketplaceAgent
+    MarketplaceAgent,
+    ConnectorSummary,
+    ConnectorStatus
 } from "./runtime/agent-runtime";
 
 export * from "./types/graph";

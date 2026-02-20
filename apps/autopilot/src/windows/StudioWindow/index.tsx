@@ -6,7 +6,8 @@ import {
     AgentsDashboard, 
     BuilderView, 
     FleetView, 
-    MarketplaceView
+    MarketplaceView,
+    ConnectorsView
 } from "@ioi/agent-ide";
 import type { AgentSummary } from "@ioi/agent-ide";
 import { TauriRuntime } from "../../services/TauriRuntime";
@@ -109,6 +110,11 @@ export function StudioWindow() {
                     setInstallModalOpen(true); 
                 }} 
             />
+          )}
+
+          {/* VIEW: INTEGRATIONS */}
+          {activeView === "integrations" && (
+            <ConnectorsView runtime={runtime} />
           )}
 
           {/* VIEW: AGENTS (Dashboard + Builder) */}

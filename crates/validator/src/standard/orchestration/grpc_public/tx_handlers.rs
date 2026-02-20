@@ -2,6 +2,21 @@ use super::*;
 use ioi_ipc::public::{SubmissionStatus, TxStatus};
 use std::time::Instant;
 
+fn tx_account_nonce(tx: &ChainTransaction) -> Option<(AccountId, u64)> {
+    match tx {
+        ChainTransaction::System(s) => Some((s.header.account_id, s.header.nonce)),
+        ChainTransaction::Settlement(s) => Some((s.header.account_id, s.header.nonce)),
+        ChainTransaction::Application(a) => match a {
+            ioi_types::app::ApplicationTransaction::DeployContract { header, .. }
+            | ioi_types::app::ApplicationTransaction::CallContract { header, .. } => {
+                Some((header.account_id, header.nonce))
+            }
+            _ => None,
+        },
+        _ => None,
+    }
+}
+
 impl<CS, ST, CE, V> PublicApiImpl<CS, ST, CE, V>
 where
     CS: CommitmentScheme + Clone + Send + Sync + 'static,
@@ -40,6 +55,22 @@ where
         let tx_hash_bytes = ioi_crypto::algorithms::hash::sha256(&tx_bytes)
             .map_err(|e| Status::invalid_argument(format!("Hashing failed: {}", e)))?;
         let tx_hash_hex = hex::encode(tx_hash_bytes);
+
+        if let Ok(tx) = codec::from_bytes_canonical::<ChainTransaction>(&tx_bytes) {
+            if let Some((account_id, nonce)) = tx_account_nonce(&tx) {
+                let next_nonce = nonce.saturating_add(1);
+                let ctx_arc = self.get_context().await?;
+                let nonce_manager = {
+                    let ctx = ctx_arc.lock().await;
+                    ctx.nonce_manager.clone()
+                };
+                let mut guard = nonce_manager.lock().await;
+                let entry = guard.entry(account_id).or_insert(0);
+                if *entry < next_nonce {
+                    *entry = next_nonce;
+                }
+            }
+        }
 
         {
             let ctx_arc = self.get_context().await?;

@@ -4,6 +4,7 @@ use super::context::MainLoopContext;
 use anyhow::{anyhow, Result};
 use async_trait::async_trait;
 use ioi_api::{
+    chain::WorkloadClientApi,
     commitment::CommitmentScheme,
     consensus::ConsensusEngine,
     crypto::{SerializableKey, VerifyingKey},
@@ -15,15 +16,19 @@ use ioi_crypto::sign::eddsa::{Ed25519PublicKey, Ed25519Signature};
 use ioi_services::market::{JobTicket, ProvisioningReceipt};
 use ioi_types::{
     app::{
-        account_id_from_key_material, AccountId, ChainTransaction, SignHeader, SignatureProof,
-        SignatureSuite, StateEntry, SystemPayload, SystemTransaction,
+        account_id_from_key_material, AccountId, ActionTarget, ChainTransaction, KernelEvent,
+        SignHeader, SignatureProof, SignatureSuite, StateEntry, SystemPayload, SystemTransaction,
+        WalletInterceptionContext,
     },
     codec,
-    keys::active_service_key,
+    keys::{active_service_key, ACCOUNT_NONCE_PREFIX},
 };
+use lru::LruCache;
 use once_cell::sync::Lazy;
 use parity_scale_codec::{Decode, Encode};
+use std::collections::BTreeMap;
 use std::fmt::Debug;
+use std::num::NonZeroUsize;
 use std::sync::Mutex;
 use std::time::Duration;
 use std::time::Instant;
@@ -33,6 +38,7 @@ use reqwest::Client;
 
 // [NEW] Imports for Agent Driver
 use ioi_services::agentic::desktop::{AgentState, AgentStatus, StepAgentParams};
+use tokio::sync::{watch, Mutex as TokioMutex};
 
 // --- Compute Market Canonical Definitions ---
 
@@ -90,6 +96,230 @@ where
         .map_err(|e| anyhow!("StateEntry decode failed: {}", e))?;
     codec::from_bytes_canonical(&entry.value)
         .map_err(|e| anyhow!("StateEntry inner decode failed: {}", e))
+}
+
+fn decode_account_nonce(bytes: &[u8]) -> u64 {
+    if let Ok(value) = decode_state_value::<u64>(bytes) {
+        return value;
+    }
+    if bytes.len() == 8 {
+        let mut raw = [0u8; 8];
+        raw.copy_from_slice(bytes);
+        return u64::from_le_bytes(raw);
+    }
+    0
+}
+
+fn now_unix_ms() -> u64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_millis() as u64
+}
+
+async fn reserve_nonce_for_account(
+    workload_client: &std::sync::Arc<dyn WorkloadClientApi>,
+    nonce_manager: &std::sync::Arc<TokioMutex<BTreeMap<AccountId, u64>>>,
+    account_id: AccountId,
+) -> u64 {
+    let nonce_key = [ACCOUNT_NONCE_PREFIX, account_id.as_ref()].concat();
+    let state_nonce = match workload_client.query_raw_state(&nonce_key).await {
+        Ok(Some(bytes)) => decode_account_nonce(&bytes),
+        _ => 0,
+    };
+
+    let mut guard = nonce_manager.lock().await;
+    let entry = guard.entry(account_id).or_insert(state_nonce);
+    if *entry < state_nonce {
+        *entry = state_nonce;
+    }
+    let nonce = *entry;
+    *entry = entry.saturating_add(1);
+    nonce
+}
+
+async fn submit_wallet_interception_record(
+    workload_client: &std::sync::Arc<dyn WorkloadClientApi>,
+    tx_pool: &std::sync::Arc<crate::standard::orchestration::mempool::Mempool>,
+    consensus_kick_tx: &tokio::sync::mpsc::UnboundedSender<()>,
+    nonce_manager: &std::sync::Arc<TokioMutex<BTreeMap<AccountId, u64>>>,
+    keypair: &libp2p::identity::Keypair,
+    chain_id: ioi_types::app::ChainId,
+    interception: WalletInterceptionContext,
+) -> Result<()> {
+    let public_key = keypair.public().encode_protobuf();
+    let account_id = AccountId(account_id_from_key_material(
+        SignatureSuite::ED25519,
+        &public_key,
+    )?);
+
+    let nonce = reserve_nonce_for_account(workload_client, nonce_manager, account_id).await;
+    let nonce_key = [ACCOUNT_NONCE_PREFIX, account_id.as_ref()].concat();
+    let committed_nonce = match workload_client.query_raw_state(&nonce_key).await {
+        Ok(Some(bytes)) => decode_account_nonce(&bytes),
+        _ => 0,
+    };
+
+    let payload = SystemPayload::CallService {
+        service_id: "wallet_network".to_string(),
+        method: "record_interception@v1".to_string(),
+        params: codec::to_bytes_canonical(&interception).map_err(|e| anyhow!(e))?,
+    };
+    let mut sys_tx = SystemTransaction {
+        header: SignHeader {
+            account_id,
+            nonce,
+            chain_id,
+            tx_version: 1,
+            session_auth: None,
+        },
+        payload,
+        signature_proof: SignatureProof::default(),
+    };
+
+    let sign_bytes = sys_tx.to_sign_bytes().map_err(|e| anyhow!(e))?;
+    let signature = keypair.sign(&sign_bytes)?;
+    sys_tx.signature_proof = SignatureProof {
+        suite: SignatureSuite::ED25519,
+        public_key,
+        signature,
+    };
+
+    let tx = ChainTransaction::System(Box::new(sys_tx));
+    let tx_hash = tx.hash()?;
+    match tx_pool.add(tx, tx_hash, Some((account_id, nonce)), committed_nonce) {
+        crate::standard::orchestration::mempool::AddResult::Rejected(reason) => Err(anyhow!(
+            "wallet_network interception tx rejected: {}",
+            reason
+        )),
+        _ => {
+            let _ = consensus_kick_tx.send(());
+            Ok(())
+        }
+    }
+}
+
+/// Streams firewall interception kernel events and persists them into
+/// `wallet_network` as durable audit records via signed `CallService` transactions.
+pub async fn run_wallet_network_audit_bridge_task<CS, ST, CE, V>(
+    context_arc: std::sync::Arc<TokioMutex<MainLoopContext<CS, ST, CE, V>>>,
+    mut shutdown_rx: watch::Receiver<bool>,
+) where
+    CS: CommitmentScheme + Clone + Send + Sync + 'static,
+    ST: StateManager<Commitment = CS::Commitment, Proof = CS::Proof>
+        + Send
+        + Sync
+        + 'static
+        + Debug
+        + Clone,
+    CE: ConsensusEngine<ChainTransaction> + Send + Sync + 'static,
+    V: Verifier<Commitment = CS::Commitment, Proof = CS::Proof>
+        + Clone
+        + Send
+        + Sync
+        + 'static
+        + Debug,
+    <CS as CommitmentScheme>::Proof:
+        serde::Serialize + for<'de> serde::Deserialize<'de> + Clone + Send + Sync + 'static + Debug,
+    <CS as CommitmentScheme>::Commitment: Send + Sync + Debug,
+{
+    let (
+        mut event_rx,
+        workload_client,
+        tx_pool,
+        consensus_kick_tx,
+        nonce_manager,
+        keypair,
+        chain_id,
+    ) = {
+        let ctx = context_arc.lock().await;
+        (
+            ctx.event_broadcaster.subscribe(),
+            ctx.view_resolver.workload_client().clone(),
+            ctx.tx_pool_ref.clone(),
+            ctx.consensus_kick_tx.clone(),
+            ctx.nonce_manager.clone(),
+            ctx.local_keypair.clone(),
+            ctx.chain_id,
+        )
+    };
+
+    let mut seen_request_hashes: LruCache<[u8; 32], ()> =
+        LruCache::new(NonZeroUsize::new(4096).expect("non-zero"));
+
+    loop {
+        tokio::select! {
+            event = event_rx.recv() => {
+                let event = match event {
+                    Ok(value) => value,
+                    Err(tokio::sync::broadcast::error::RecvError::Lagged(skipped)) => {
+                        tracing::warn!(target: "wallet_network", "wallet audit bridge lagged by {} events", skipped);
+                        continue;
+                    }
+                    Err(tokio::sync::broadcast::error::RecvError::Closed) => break,
+                };
+
+                let KernelEvent::FirewallInterception {
+                    verdict,
+                    target,
+                    request_hash,
+                    session_id,
+                } = event else {
+                    continue;
+                };
+
+                if verdict != "REQUIRE_APPROVAL" && verdict != "BLOCK" {
+                    continue;
+                }
+                if seen_request_hashes.get(&request_hash).is_some() {
+                    continue;
+                }
+
+                let reason = match verdict.as_str() {
+                    "REQUIRE_APPROVAL" => "manual approval required",
+                    "BLOCK" => "blocked by active policy rules",
+                    _ => "policy interception",
+                };
+                let interception = WalletInterceptionContext {
+                    session_id,
+                    request_hash,
+                    target: ActionTarget::Custom(target),
+                    value_usd_micros: None,
+                    reason: reason.to_string(),
+                    intercepted_at_ms: now_unix_ms(),
+                };
+
+                match submit_wallet_interception_record(
+                    &workload_client,
+                    &tx_pool,
+                    &consensus_kick_tx,
+                    &nonce_manager,
+                    &keypair,
+                    chain_id,
+                    interception,
+                )
+                .await
+                {
+                    Ok(()) => {
+                        seen_request_hashes.put(request_hash, ());
+                    }
+                    Err(err) => {
+                        tracing::warn!(
+                            target: "wallet_network",
+                            "failed to persist interception {}: {}",
+                            hex::encode(request_hash),
+                            err
+                        );
+                    }
+                }
+            }
+            _ = shutdown_rx.changed() => {
+                if *shutdown_rx.borrow() {
+                    break;
+                }
+            }
+        }
+    }
 }
 
 // --- Provider Client Abstraction ---

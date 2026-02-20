@@ -371,7 +371,12 @@ async fn run_golden_pii_review_determinism_desktop_validator_desktop() -> Result
     );
 
     let approval_token = ApprovalToken {
+        schema_version: 2,
         request_hash: decision_hash,
+        audience: [1u8; 32],
+        revocation_epoch: 0,
+        nonce: [2u8; 32],
+        counter: 1,
         scope: ApprovalScope {
             expires_at: now_secs + 3_600,
             max_usages: Some(1),

@@ -3,7 +3,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { 
   AgentRuntime, GraphPayload, GraphEvent, ProjectFile, AgentSummary, 
-  FleetState, Zone, Container, MarketplaceAgent
+  FleetState, Zone, Container, MarketplaceAgent, ConnectorSummary
 } from "@ioi/agent-ide";
 
 // Mock Data
@@ -27,6 +27,32 @@ const MARKET_AGENTS: MarketplaceAgent[] = [
   { id: "a2", name: "Legal Reviewer", developer: "LawAI", price: "$29/mo", description: "Contract analysis", requirements: "8GB VRAM" },
   { id: "a3", name: "Research Swarm", developer: "OpenSci", price: "Free", description: "Deep research", requirements: "48GB VRAM" },
   { id: "a4", name: "Video Gen", developer: "CreativeX", price: "$0.10/min", description: "AI Video", requirements: "H100 GPU" },
+];
+
+const CONNECTORS: ConnectorSummary[] = [
+  {
+    id: "mail.primary",
+    name: "Mail",
+    provider: "wallet.network",
+    category: "communication",
+    description:
+      "Planned first wallet_network integration. Enables inbox listing and latest-email read under delegated wallet session policy.",
+    status: "needs_auth",
+    authMode: "wallet_network_session",
+    scopes: ["mail.read.latest", "mail.read.thread"],
+    notes:
+      "E2E target: request session channel, approve bounded read lease, perform check-inbox and read-latest-email ops.",
+  },
+  {
+    id: "calendar.primary",
+    name: "Calendar",
+    provider: "wallet.network",
+    category: "productivity",
+    description: "Scaffold for calendar operations with the same approval and lease model.",
+    status: "disabled",
+    authMode: "wallet_network_session",
+    scopes: ["calendar.read.events"],
+  },
 ];
 
 export class TauriRuntime implements AgentRuntime {
@@ -91,6 +117,10 @@ export class TauriRuntime implements AgentRuntime {
     async installAgent(agentId: string): Promise<void> {
         console.log("Installing agent:", agentId);
         // TODO: Implement backend install logic
+    }
+
+    async getConnectors(): Promise<ConnectorSummary[]> {
+        return CONNECTORS;
     }
 
     onEvent(callback: (event: GraphEvent) => void): () => void {

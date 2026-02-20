@@ -478,7 +478,12 @@ fn sample_approval_token(
     pii_action: Option<PiiApprovalAction>,
 ) -> ApprovalToken {
     ApprovalToken {
+        schema_version: 2,
         request_hash,
+        audience: [1u8; 32],
+        revocation_epoch: 0,
+        nonce: [2u8; 32],
+        counter: 1,
         scope: ApprovalScope {
             expires_at: 9_999,
             max_usages: Some(1),
