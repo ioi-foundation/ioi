@@ -7,13 +7,17 @@
    WATERMARK - Elegant Empty State
    ============================================ */
 .spot-watermark-container {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
+  display: grid;
+  grid-template-columns: minmax(12px, 1fr) minmax(0, 5fr) minmax(12px, 1fr);
+  align-content: center;
+  justify-items: center;
   height: 100%;
-  padding: 32px 24px;
+  padding: 32px 0;
   text-align: center;
+}
+
+.spot-watermark-container > * {
+  grid-column: 2;
 }
 
 .spot-watermark {
@@ -49,7 +53,6 @@
   flex-wrap: wrap;
   justify-content: center;
   gap: 8px;
-  max-width: 360px;
 }
 
 .spot-suggestion {
