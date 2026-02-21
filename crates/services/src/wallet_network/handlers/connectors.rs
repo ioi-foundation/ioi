@@ -2,13 +2,11 @@
 
 use crate::wallet_network::keys::{
     channel_key, lease_action_window_key, lease_consumption_key, lease_key,
-    mail_connector_get_receipt_key, mail_connector_key, mail_delete_receipt_key,
-    mail_list_receipt_key, mail_read_receipt_key, mail_reply_receipt_key, secret_alias_key,
-    secret_key,
+    mail_connector_get_receipt_key, mail_connector_key, mail_count_receipt_key,
+    mail_delete_receipt_key, mail_list_receipt_key, mail_read_receipt_key, mail_reply_receipt_key,
+    secret_alias_key, secret_key,
 };
-use crate::wallet_network::mail_ontology::{
-    classify_mail_spam, MAIL_ONTOLOGY_SIGNAL_VERSION,
-};
+use crate::wallet_network::mail_ontology::{classify_mail_spam, MAIL_ONTOLOGY_SIGNAL_VERSION};
 use crate::wallet_network::mail_transport::{
     mail_provider_for_config, MailProviderCredentials, MailProviderMessage,
 };
@@ -24,8 +22,9 @@ use ioi_types::app::wallet_network::{
     MailConnectorGetReceipt, MailConnectorRecord, MailConnectorSecretAliases,
     MailConnectorUpsertParams, MailDeleteSpamParams, MailDeleteSpamReceipt, MailListRecentParams,
     MailListRecentReceipt, MailMessageSummary, MailReadLatestParams, MailReadLatestReceipt,
-    MailReplyParams, MailReplyReceipt, SessionChannelRecord, SessionChannelState, SessionLease,
-    SessionLeaseMode, VaultAuditEventKind, VaultSecretRecord,
+    MailReplyParams, MailReplyReceipt, MailboxTotalCountParams, MailboxTotalCountReceipt,
+    SessionChannelRecord, SessionChannelState, SessionLease, SessionLeaseMode, VaultAuditEventKind,
+    VaultSecretRecord,
 };
 use ioi_types::error::TransactionError;
 use std::collections::BTreeMap;
@@ -67,7 +66,15 @@ const MAIL_DELETE_CAPABILITY_ALIASES: [&str; 7] = [
     "mail.modify",
     "email:modify",
 ];
-const MAIL_DELETE_MAILBOX_ALIASES: [&str; 5] = ["spam", "junk", "junkemail", "bulk", "trash"];
+const MAIL_DELETE_MAILBOX_ALIASES: [&str; 7] = [
+    "primary",
+    "inbox",
+    "spam",
+    "junk",
+    "junkemail",
+    "bulk",
+    "trash",
+];
 const MAIL_REPLY_CAPABILITY_ALIASES: [&str; 9] = [
     "mail.reply",
     "mail.send",
@@ -561,12 +568,14 @@ pub(crate) fn mail_list_recent(
     let connector = load_mail_connector_record(state, &mailbox)?;
     let credentials = resolve_mail_provider_credentials(state, &connector)?;
     let provider = mail_provider_for_config(&connector.config)?;
-    let list_outcome = provider.list_recent(&connector.config, &credentials, &mailbox, limit, now_ms)?;
+    let list_outcome =
+        provider.list_recent(&connector.config, &credentials, &mailbox, limit, now_ms)?;
     let requested_limit = u32::try_from(list_outcome.requested_limit).unwrap_or(u32::MAX);
     let evaluated_count = u32::try_from(list_outcome.evaluated_count).unwrap_or(u32::MAX);
     let parse_error_count = u32::try_from(list_outcome.parse_error_count).unwrap_or(u32::MAX);
     let parse_confidence_bps = list_outcome.parse_confidence_bps;
     let parse_volume_band = list_outcome.parse_volume_band.clone();
+    let mailbox_total_count = list_outcome.mailbox_total_count;
     let messages = list_outcome
         .messages
         .into_iter()
@@ -585,6 +594,7 @@ pub(crate) fn mail_list_recent(
         parse_error_count,
         parse_confidence_bps,
         parse_volume_band: parse_volume_band.clone(),
+        mailbox_total_count,
         ontology_version: MAIL_ONTOLOGY_SIGNAL_VERSION.to_string(),
     };
     store_typed(state, &receipt_key, &receipt)?;
@@ -609,7 +619,14 @@ pub(crate) fn mail_list_recent(
     meta.insert("limit".to_string(), limit.to_string());
     meta.insert("requested_limit".to_string(), requested_limit.to_string());
     meta.insert("evaluated_count".to_string(), evaluated_count.to_string());
-    meta.insert("parse_error_count".to_string(), parse_error_count.to_string());
+    meta.insert(
+        "mailbox_total_count".to_string(),
+        mailbox_total_count.to_string(),
+    );
+    meta.insert(
+        "parse_error_count".to_string(),
+        parse_error_count.to_string(),
+    );
     meta.insert(
         "parse_confidence_bps".to_string(),
         parse_confidence_bps.to_string(),
@@ -618,6 +635,257 @@ pub(crate) fn mail_list_recent(
     meta.insert(
         "ontology_version".to_string(),
         MAIL_ONTOLOGY_SIGNAL_VERSION.to_string(),
+    );
+    meta.insert(
+        "consumed_count".to_string(),
+        consumption.consumed_count.to_string(),
+    );
+    append_audit_event(
+        state,
+        ctx,
+        VaultAuditEventKind::ConnectorOperationExecuted,
+        meta,
+    )?;
+    Ok(())
+}
+
+pub(crate) fn mailbox_total_count(
+    state: &mut dyn StateAccess,
+    ctx: &TxContext<'_>,
+    params: MailboxTotalCountParams,
+) -> Result<(), TransactionError> {
+    if params.operation_id == [0u8; 32] {
+        return Err(TransactionError::Invalid(
+            "operation_id must not be all zeroes".to_string(),
+        ));
+    }
+    if params.channel_id == [0u8; 32] || params.lease_id == [0u8; 32] {
+        return Err(TransactionError::Invalid(
+            "channel_id and lease_id must not be all zeroes".to_string(),
+        ));
+    }
+    if params.op_seq == 0 {
+        return Err(TransactionError::Invalid("op_seq must be >= 1".to_string()));
+    }
+    if params.op_nonce.is_some_and(|nonce| nonce == [0u8; 32]) {
+        return Err(TransactionError::Invalid(
+            "op_nonce must not be all zeroes when provided".to_string(),
+        ));
+    }
+
+    let now_ms = block_timestamp_ms(ctx);
+    let mailbox = normalize_mailbox(&params.mailbox);
+
+    let channel: SessionChannelRecord = load_typed(state, &channel_key(&params.channel_id))?
+        .ok_or_else(|| TransactionError::Invalid("channel does not exist".to_string()))?;
+    if channel.state != SessionChannelState::Open {
+        return Err(TransactionError::Invalid(
+            "channel must be open for connector mail operations".to_string(),
+        ));
+    }
+    if now_ms > channel.envelope.expires_at_ms {
+        return Err(TransactionError::Invalid("channel has expired".to_string()));
+    }
+
+    let lease: SessionLease = load_typed(state, &lease_key(&params.channel_id, &params.lease_id))?
+        .ok_or_else(|| TransactionError::Invalid("lease does not exist".to_string()))?;
+    if lease.channel_id != params.channel_id {
+        return Err(TransactionError::Invalid(
+            "lease channel binding mismatch".to_string(),
+        ));
+    }
+    if now_ms > lease.expires_at_ms {
+        return Err(TransactionError::Invalid("lease has expired".to_string()));
+    }
+
+    let active_revocation_epoch = load_revocation_epoch(state)?;
+    if lease.revocation_epoch < active_revocation_epoch
+        || channel.envelope.revocation_epoch < active_revocation_epoch
+    {
+        return Err(TransactionError::Invalid(
+            "lease/channel invalidated by revocation epoch bump".to_string(),
+        ));
+    }
+
+    if lease.audience != ctx.signer_account_id.0 {
+        return Err(TransactionError::Invalid(
+            "lease audience does not match transaction signer".to_string(),
+        ));
+    }
+    if !contains_mail_list_capability(&lease.capability_subset) {
+        return Err(TransactionError::Invalid(
+            "lease does not authorize mail list capability".to_string(),
+        ));
+    }
+    if !contains_mail_list_capability(&channel.envelope.capability_set) {
+        return Err(TransactionError::Invalid(
+            "channel does not authorize mail list capability".to_string(),
+        ));
+    }
+    enforce_mailbox_constraint(lease.constraints_subset.get("mailbox"), &mailbox)?;
+    enforce_mailbox_constraint(channel.envelope.constraints.get("mailbox"), &mailbox)?;
+
+    let receipt_key = mail_count_receipt_key(&params.operation_id);
+    if state.get(&receipt_key)?.is_some() {
+        return Err(TransactionError::Invalid(
+            "mail operation_id replay detected".to_string(),
+        ));
+    }
+
+    let action_window_key = lease_action_window_key(&params.channel_id, &params.lease_id);
+    let mut action_window = load_typed::<LeaseActionReplayWindowState>(state, &action_window_key)?
+        .unwrap_or(LeaseActionReplayWindowState {
+            channel_id: params.channel_id,
+            lease_id: params.lease_id,
+            ordering: channel.envelope.ordering,
+            highest_seq: 0,
+            seen_seqs: Default::default(),
+            seen_nonces: Vec::new(),
+        });
+    if action_window.channel_id != params.channel_id || action_window.lease_id != params.lease_id {
+        return Err(TransactionError::Invalid(
+            "lease action replay window binding mismatch".to_string(),
+        ));
+    }
+    if action_window.ordering != channel.envelope.ordering {
+        return Err(TransactionError::Invalid(
+            "lease action replay ordering mismatch with channel envelope".to_string(),
+        ));
+    }
+    enforce_connector_action_replay_window(&mut action_window, params.op_seq, params.op_nonce)?;
+
+    let consumption_key = lease_consumption_key(&params.channel_id, &params.lease_id);
+    let mut consumption = load_typed::<LeaseConsumptionState>(state, &consumption_key)?.unwrap_or(
+        LeaseConsumptionState {
+            channel_id: params.channel_id,
+            lease_id: params.lease_id,
+            mode: lease.mode,
+            audience: lease.audience,
+            revocation_epoch: lease.revocation_epoch,
+            expires_at_ms: lease.expires_at_ms,
+            consumed_count: 0,
+            consumed_operation_ids: Vec::new(),
+            last_consumed_at_ms: None,
+        },
+    );
+
+    if consumption.channel_id != params.channel_id || consumption.lease_id != params.lease_id {
+        return Err(TransactionError::Invalid(
+            "lease consumption state binding mismatch".to_string(),
+        ));
+    }
+    if consumption.mode != lease.mode {
+        return Err(TransactionError::Invalid(
+            "lease consumption mode mismatch".to_string(),
+        ));
+    }
+    if consumption.audience != lease.audience {
+        return Err(TransactionError::Invalid(
+            "lease consumption audience mismatch".to_string(),
+        ));
+    }
+    if consumption.revocation_epoch != lease.revocation_epoch {
+        return Err(TransactionError::Invalid(
+            "lease consumption revocation_epoch mismatch".to_string(),
+        ));
+    }
+    if consumption.expires_at_ms != lease.expires_at_ms {
+        return Err(TransactionError::Invalid(
+            "lease consumption expiry mismatch".to_string(),
+        ));
+    }
+    if consumption
+        .consumed_operation_ids
+        .iter()
+        .any(|op_id| *op_id == params.operation_id)
+    {
+        return Err(TransactionError::Invalid(
+            "mail operation_id already consumed for this lease".to_string(),
+        ));
+    }
+    if matches!(lease.mode, SessionLeaseMode::OneShot) && consumption.consumed_count > 0 {
+        return Err(TransactionError::Invalid(
+            "one-shot lease already consumed".to_string(),
+        ));
+    }
+
+    let connector = load_mail_connector_record(state, &mailbox)?;
+    let credentials = resolve_mail_provider_credentials(state, &connector)?;
+    let provider = mail_provider_for_config(&connector.config)?;
+    let mailbox_count_outcome =
+        provider.mailbox_total_count(&connector.config, &credentials, &mailbox)?;
+    let mailbox_total_count = mailbox_count_outcome.mailbox_total_count;
+    let receipt = MailboxTotalCountReceipt {
+        operation_id: params.operation_id,
+        channel_id: params.channel_id,
+        lease_id: params.lease_id,
+        mailbox: mailbox.clone(),
+        audience: lease.audience,
+        executed_at_ms: now_ms,
+        mailbox_total_count,
+        provenance: mailbox_count_outcome.provenance.clone(),
+    };
+    store_typed(state, &receipt_key, &receipt)?;
+
+    consumption.consumed_count = consumption.consumed_count.saturating_add(1);
+    consumption.consumed_operation_ids.push(params.operation_id);
+    if consumption.consumed_operation_ids.len() > LEASE_OPERATION_TRACK_LIMIT {
+        let excess = consumption.consumed_operation_ids.len() - LEASE_OPERATION_TRACK_LIMIT;
+        consumption.consumed_operation_ids.drain(0..excess);
+    }
+    consumption.last_consumed_at_ms = Some(now_ms);
+    store_typed(state, &consumption_key, &consumption)?;
+    store_typed(state, &action_window_key, &action_window)?;
+
+    let mut meta = base_audit_metadata(ctx);
+    meta.insert(
+        "operation".to_string(),
+        "mailbox_total_count@v1".to_string(),
+    );
+    meta.insert("operation_id".to_string(), hex::encode(params.operation_id));
+    meta.insert("op_seq".to_string(), params.op_seq.to_string());
+    meta.insert("channel_id".to_string(), hex::encode(params.channel_id));
+    meta.insert("lease_id".to_string(), hex::encode(params.lease_id));
+    meta.insert("mailbox".to_string(), mailbox);
+    meta.insert(
+        "mailbox_total_count".to_string(),
+        mailbox_total_count.to_string(),
+    );
+    meta.insert(
+        "mailbox_count_status_exists".to_string(),
+        mailbox_count_outcome
+            .provenance
+            .status_exists
+            .map(|value| value.to_string())
+            .unwrap_or_else(|| "none".to_string()),
+    );
+    meta.insert(
+        "mailbox_count_select_exists".to_string(),
+        mailbox_count_outcome
+            .provenance
+            .select_exists
+            .map(|value| value.to_string())
+            .unwrap_or_else(|| "none".to_string()),
+    );
+    meta.insert(
+        "mailbox_count_uid_search_count".to_string(),
+        mailbox_count_outcome
+            .provenance
+            .uid_search_count
+            .map(|value| value.to_string())
+            .unwrap_or_else(|| "none".to_string()),
+    );
+    meta.insert(
+        "mailbox_count_search_count".to_string(),
+        mailbox_count_outcome
+            .provenance
+            .search_count
+            .map(|value| value.to_string())
+            .unwrap_or_else(|| "none".to_string()),
+    );
+    meta.insert(
+        "mailbox_count_freshness_marker".to_string(),
+        mailbox_count_outcome.provenance.freshness_marker.clone(),
     );
     meta.insert(
         "consumed_count".to_string(),
@@ -659,7 +927,7 @@ pub(crate) fn mail_delete_spam(
     let now_ms = block_timestamp_ms(ctx);
     let mailbox = normalize_mailbox(&params.mailbox);
     let delete_limit = normalize_delete_limit(params.max_delete);
-    enforce_delete_spam_mailbox_target(&mailbox)?;
+    enforce_delete_cleanup_mailbox_target(&mailbox)?;
 
     let channel: SessionChannelRecord = load_typed(state, &channel_key(&params.channel_id))?
         .ok_or_else(|| TransactionError::Invalid("channel does not exist".to_string()))?;
@@ -805,6 +1073,24 @@ pub(crate) fn mail_delete_spam(
             delete_outcome.deleted_count, delete_limit
         )));
     }
+    let preserved_reason_counts = BTreeMap::from([
+        (
+            "transactional_or_personal".to_string(),
+            delete_outcome.preserved_transactional_or_personal_count,
+        ),
+        (
+            "trusted_system_sender".to_string(),
+            delete_outcome.preserved_trusted_system_count,
+        ),
+        (
+            "low_confidence_other".to_string(),
+            delete_outcome.preserved_low_confidence_other_count,
+        ),
+        (
+            "delete_cap_guardrail".to_string(),
+            delete_outcome.preserved_due_to_delete_cap_count,
+        ),
+    ]);
 
     let receipt = MailDeleteSpamReceipt {
         operation_id: params.operation_id,
@@ -817,8 +1103,18 @@ pub(crate) fn mail_delete_spam(
         evaluated_count: delete_outcome.evaluated_count,
         high_confidence_deleted_count: delete_outcome.high_confidence_deleted_count,
         skipped_low_confidence_count: delete_outcome.skipped_low_confidence_count,
+        mailbox_total_count_before: delete_outcome.mailbox_total_count_before,
+        mailbox_total_count_after: delete_outcome.mailbox_total_count_after,
+        mailbox_total_count_delta: delete_outcome.mailbox_total_count_delta,
         spam_confidence_threshold_bps: delete_outcome.spam_confidence_threshold_bps,
         ontology_version: delete_outcome.ontology_version.clone(),
+        cleanup_scope: delete_outcome.cleanup_scope.clone(),
+        preserved_transactional_or_personal_count: delete_outcome
+            .preserved_transactional_or_personal_count,
+        preserved_trusted_system_count: delete_outcome.preserved_trusted_system_count,
+        preserved_low_confidence_other_count: delete_outcome.preserved_low_confidence_other_count,
+        preserved_due_to_delete_cap_count: delete_outcome.preserved_due_to_delete_cap_count,
+        preserved_reason_counts: preserved_reason_counts.clone(),
     };
     store_typed(state, &receipt_key, &receipt)?;
 
@@ -856,12 +1152,73 @@ pub(crate) fn mail_delete_spam(
         delete_outcome.skipped_low_confidence_count.to_string(),
     );
     meta.insert(
+        "mailbox_total_count_before".to_string(),
+        delete_outcome.mailbox_total_count_before.to_string(),
+    );
+    meta.insert(
+        "mailbox_total_count_after".to_string(),
+        delete_outcome.mailbox_total_count_after.to_string(),
+    );
+    meta.insert(
+        "mailbox_total_count_delta".to_string(),
+        delete_outcome.mailbox_total_count_delta.to_string(),
+    );
+    meta.insert(
         "spam_confidence_threshold_bps".to_string(),
         delete_outcome.spam_confidence_threshold_bps.to_string(),
     );
     meta.insert(
         "ontology_version".to_string(),
         delete_outcome.ontology_version,
+    );
+    meta.insert("cleanup_scope".to_string(), delete_outcome.cleanup_scope);
+    meta.insert(
+        "preserved_transactional_or_personal_count".to_string(),
+        delete_outcome
+            .preserved_transactional_or_personal_count
+            .to_string(),
+    );
+    meta.insert(
+        "preserved_trusted_system_count".to_string(),
+        delete_outcome.preserved_trusted_system_count.to_string(),
+    );
+    meta.insert(
+        "preserved_low_confidence_other_count".to_string(),
+        delete_outcome
+            .preserved_low_confidence_other_count
+            .to_string(),
+    );
+    meta.insert(
+        "preserved_due_to_delete_cap_count".to_string(),
+        delete_outcome.preserved_due_to_delete_cap_count.to_string(),
+    );
+    meta.insert(
+        "preserved_reason.transactional_or_personal".to_string(),
+        delete_outcome
+            .preserved_transactional_or_personal_count
+            .to_string(),
+    );
+    meta.insert(
+        "preserved_reason.trusted_system_sender".to_string(),
+        delete_outcome.preserved_trusted_system_count.to_string(),
+    );
+    meta.insert(
+        "preserved_reason.low_confidence_other".to_string(),
+        delete_outcome
+            .preserved_low_confidence_other_count
+            .to_string(),
+    );
+    meta.insert(
+        "preserved_reason.delete_cap_guardrail".to_string(),
+        delete_outcome.preserved_due_to_delete_cap_count.to_string(),
+    );
+    let preserved_reason_counts_json =
+        serde_json::to_string(&preserved_reason_counts).map_err(|e| {
+            TransactionError::Invalid(format!("preserved_reason_counts encode failed: {}", e))
+        })?;
+    meta.insert(
+        "preserved_reason_counts_json".to_string(),
+        preserved_reason_counts_json,
     );
     meta.insert(
         "consumed_count".to_string(),
@@ -1488,7 +1845,7 @@ fn contains_mail_delete_capability(capabilities: &[String]) -> bool {
     })
 }
 
-fn enforce_delete_spam_mailbox_target(mailbox: &str) -> Result<(), TransactionError> {
+fn enforce_delete_cleanup_mailbox_target(mailbox: &str) -> Result<(), TransactionError> {
     if MAIL_DELETE_MAILBOX_ALIASES
         .iter()
         .any(|allowed| mailbox.eq_ignore_ascii_case(allowed))
@@ -1496,7 +1853,7 @@ fn enforce_delete_spam_mailbox_target(mailbox: &str) -> Result<(), TransactionEr
         return Ok(());
     }
     Err(TransactionError::Invalid(format!(
-        "mail_delete_spam requires spam/junk mailbox target; got '{}'",
+        "mail_delete_spam requires primary/inbox or spam/junk mailbox target; got '{}'",
         mailbox
     )))
 }

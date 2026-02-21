@@ -27,6 +27,7 @@ use ioi_types::app::wallet_network::{
 use ioi_types::codec;
 use ioi_types::error::TransactionError;
 use serde_json::{json, Map as JsonMap, Value as JsonValue};
+use std::collections::BTreeMap;
 use std::sync::Arc;
 
 mod approvals;
@@ -267,7 +268,9 @@ fn mailbox_constraint_matches(constraint: Option<&String>, mailbox: &str) -> boo
         .unwrap_or(true)
 }
 
-fn extract_dynamic_args_object(arguments: &JsonValue) -> Result<JsonMap<String, JsonValue>, TransactionError> {
+fn extract_dynamic_args_object(
+    arguments: &JsonValue,
+) -> Result<JsonMap<String, JsonValue>, TransactionError> {
     let to_object = |value: JsonValue| -> Result<JsonMap<String, JsonValue>, TransactionError> {
         value.as_object().cloned().ok_or_else(|| {
             TransactionError::Invalid(
@@ -327,9 +330,8 @@ fn pick_u32(args: &JsonMap<String, JsonValue>, keys: &[&str]) -> Option<u32> {
 
 fn decode_hex_32(label: &str, raw: &str) -> Result<[u8; 32], TransactionError> {
     let trimmed = raw.trim().trim_start_matches("0x");
-    let decoded = hex::decode(trimmed).map_err(|e| {
-        TransactionError::Invalid(format!("{} must be 32-byte hex: {}", label, e))
-    })?;
+    let decoded = hex::decode(trimmed)
+        .map_err(|e| TransactionError::Invalid(format!("{} must be 32-byte hex: {}", label, e)))?;
     if decoded.len() != 32 {
         return Err(TransactionError::Invalid(format!(
             "{} must be exactly 32 bytes (hex len 64)",
@@ -414,7 +416,8 @@ fn infer_mail_binding(
         let Some(channel_bytes) = state.get(&channel_key).map_err(TransactionError::State)? else {
             continue;
         };
-        let Ok(channel) = codec::from_bytes_canonical::<SessionChannelRecord>(&channel_bytes) else {
+        let Ok(channel) = codec::from_bytes_canonical::<SessionChannelRecord>(&channel_bytes)
+        else {
             continue;
         };
         if channel.state != SessionChannelState::Open || now_ms > channel.envelope.expires_at_ms {
@@ -528,13 +531,7 @@ async fn try_execute_wallet_mail_dynamic_tool(
     let now_ms = call_context.block_timestamp / 1_000_000;
     let mailbox_hint = pick_string(&args, &["mailbox", "mailbox_name", "mailboxName"])
         .map(normalize_mailbox)
-        .unwrap_or_else(|| {
-            if matches!(method, WalletMailToolMethod::DeleteSpam) {
-                "spam".to_string()
-            } else {
-                "primary".to_string()
-            }
-        });
+        .unwrap_or_else(|| "primary".to_string());
 
     let channel_id = pick_hex_32(&args, &["channel_id", "channelId"])?;
     let lease_id = pick_hex_32(&args, &["lease_id", "leaseId"])?;
@@ -573,8 +570,8 @@ async fn try_execute_wallet_mail_dynamic_tool(
             now_ms
         ))
     });
-    let op_nonce =
-        pick_hex_32(&args, &["op_nonce", "opNonce"])?.unwrap_or_else(|| op_nonce_from_operation(operation_id, step_index));
+    let op_nonce = pick_hex_32(&args, &["op_nonce", "opNonce"])?
+        .unwrap_or_else(|| op_nonce_from_operation(operation_id, step_index));
     let requested_at_ms = pick_u64(&args, &["requested_at_ms", "requestedAtMs"]).unwrap_or(now_ms);
 
     let (params_bytes, receipt_operation_id) = match method {
@@ -644,13 +641,11 @@ async fn try_execute_wallet_mail_dynamic_tool(
                     )
                 })?
                 .to_string();
-            let reply_to_message_id = pick_string(
-                &args,
-                &["reply_to_message_id", "replyToMessageId"],
-            )
-            .map(str::trim)
-            .filter(|value| !value.is_empty())
-            .map(ToString::to_string);
+            let reply_to_message_id =
+                pick_string(&args, &["reply_to_message_id", "replyToMessageId"])
+                    .map(str::trim)
+                    .filter(|value| !value.is_empty())
+                    .map(ToString::to_string);
 
             let params = MailReplyParams {
                 operation_id,
@@ -680,12 +675,7 @@ async fn try_execute_wallet_mail_dynamic_tool(
     };
 
     if let Err(error) = wallet_service
-        .handle_service_call(
-            state,
-            method.method_name(),
-            &params_bytes,
-            &mut wallet_ctx,
-        )
+        .handle_service_call(state, method.method_name(), &params_bytes, &mut wallet_ctx)
         .await
     {
         return Ok(Some((
@@ -702,9 +692,14 @@ async fn try_execute_wallet_mail_dynamic_tool(
     let output = match method {
         WalletMailToolMethod::ReadLatest => {
             let receipt_key = mail_read_receipt_storage_key(&receipt_operation_id);
-            let receipt_bytes = state.get(&receipt_key).map_err(TransactionError::State)?.ok_or_else(|| {
-                TransactionError::Invalid("wallet_network read receipt missing after execution".to_string())
-            })?;
+            let receipt_bytes = state
+                .get(&receipt_key)
+                .map_err(TransactionError::State)?
+                .ok_or_else(|| {
+                    TransactionError::Invalid(
+                        "wallet_network read receipt missing after execution".to_string(),
+                    )
+                })?;
             let receipt: MailReadLatestReceipt = codec::from_bytes_canonical(&receipt_bytes)?;
             let message_spam_band = if receipt.message.spam_confidence_band.trim().is_empty() {
                 spam_confidence_band(receipt.message.spam_confidence_bps).to_string()
@@ -736,9 +731,14 @@ async fn try_execute_wallet_mail_dynamic_tool(
         }
         WalletMailToolMethod::ListRecent => {
             let receipt_key = mail_list_receipt_storage_key(&receipt_operation_id);
-            let receipt_bytes = state.get(&receipt_key).map_err(TransactionError::State)?.ok_or_else(|| {
-                TransactionError::Invalid("wallet_network list receipt missing after execution".to_string())
-            })?;
+            let receipt_bytes = state
+                .get(&receipt_key)
+                .map_err(TransactionError::State)?
+                .ok_or_else(|| {
+                    TransactionError::Invalid(
+                        "wallet_network list receipt missing after execution".to_string(),
+                    )
+                })?;
             let receipt: MailListRecentReceipt = codec::from_bytes_canonical(&receipt_bytes)?;
             let mailbox = receipt.mailbox.clone();
             let requested_limit = if receipt.requested_limit == 0 {
@@ -755,8 +755,8 @@ async fn try_execute_wallet_mail_dynamic_tool(
                 if evaluated_count == 0 {
                     10_000
                 } else {
-                    ((receipt.messages.len() as u32).saturating_mul(10_000) / evaluated_count.max(1))
-                        as u16
+                    ((receipt.messages.len() as u32).saturating_mul(10_000)
+                        / evaluated_count.max(1)) as u16
                 }
             } else {
                 receipt.parse_confidence_bps
@@ -765,6 +765,11 @@ async fn try_execute_wallet_mail_dynamic_tool(
                 parse_volume_band(receipt.messages.len()).to_string()
             } else {
                 receipt.parse_volume_band.clone()
+            };
+            let mailbox_total_count = if receipt.mailbox_total_count == 0 {
+                evaluated_count.max(receipt.messages.len() as u32)
+            } else {
+                receipt.mailbox_total_count
             };
             let ontology_version = if receipt.ontology_version.trim().is_empty() {
                 MAIL_ONTOLOGY_SIGNAL_VERSION.to_string()
@@ -820,6 +825,7 @@ async fn try_execute_wallet_mail_dynamic_tool(
                     "parse_confidence_bps": parse_confidence_bps,
                     "parse_confidence_band": parse_confidence_band(parse_confidence_bps),
                     "parse_volume_band": parse_volume_band_value,
+                    "mailbox_total_count": mailbox_total_count,
                     "high_confidence_spam_candidates": high_confidence_spam_candidates,
                     "high_confidence_non_spam_candidates": high_confidence_non_spam_candidates,
                     "spam_high_confidence_threshold_bps": SPAM_HIGH_CONFIDENCE_THRESHOLD_BPS,
@@ -830,9 +836,14 @@ async fn try_execute_wallet_mail_dynamic_tool(
         }
         WalletMailToolMethod::DeleteSpam => {
             let receipt_key = mail_delete_receipt_storage_key(&receipt_operation_id);
-            let receipt_bytes = state.get(&receipt_key).map_err(TransactionError::State)?.ok_or_else(|| {
-                TransactionError::Invalid("wallet_network delete receipt missing after execution".to_string())
-            })?;
+            let receipt_bytes = state
+                .get(&receipt_key)
+                .map_err(TransactionError::State)?
+                .ok_or_else(|| {
+                    TransactionError::Invalid(
+                        "wallet_network delete receipt missing after execution".to_string(),
+                    )
+                })?;
             let receipt: MailDeleteSpamReceipt = codec::from_bytes_canonical(&receipt_bytes)?;
             let ontology_version = if receipt.ontology_version.trim().is_empty() {
                 MAIL_ONTOLOGY_SIGNAL_VERSION.to_string()
@@ -849,13 +860,12 @@ async fn try_execute_wallet_mail_dynamic_tool(
             } else {
                 receipt.evaluated_count
             };
-            let high_confidence_deleted_count = if receipt.high_confidence_deleted_count == 0
-                && receipt.deleted_count > 0
-            {
-                receipt.deleted_count
-            } else {
-                receipt.high_confidence_deleted_count
-            };
+            let high_confidence_deleted_count =
+                if receipt.high_confidence_deleted_count == 0 && receipt.deleted_count > 0 {
+                    receipt.deleted_count
+                } else {
+                    receipt.high_confidence_deleted_count
+                };
             let skipped_low_confidence_count = if receipt.skipped_low_confidence_count == 0
                 && evaluated_count >= high_confidence_deleted_count
             {
@@ -863,15 +873,103 @@ async fn try_execute_wallet_mail_dynamic_tool(
             } else {
                 receipt.skipped_low_confidence_count
             };
+            let mailbox_total_count_before = if receipt.mailbox_total_count_before == 0 {
+                evaluated_count
+            } else {
+                receipt.mailbox_total_count_before
+            };
+            let mailbox_total_count_after = if receipt.mailbox_total_count_after == 0 {
+                mailbox_total_count_before.saturating_sub(high_confidence_deleted_count)
+            } else {
+                receipt.mailbox_total_count_after
+            };
+            let mailbox_total_count_delta = if receipt.mailbox_total_count_delta == 0
+                && mailbox_total_count_before >= mailbox_total_count_after
+            {
+                mailbox_total_count_before.saturating_sub(mailbox_total_count_after)
+            } else {
+                receipt.mailbox_total_count_delta
+            };
+            let cleanup_scope = if receipt.cleanup_scope.trim().is_empty() {
+                if normalize_mailbox(&receipt.mailbox) == "primary"
+                    || normalize_mailbox(&receipt.mailbox) == "inbox"
+                {
+                    "primary_inbox".to_string()
+                } else {
+                    "spam_mailbox".to_string()
+                }
+            } else {
+                receipt.cleanup_scope.clone()
+            };
+            let preserved_transactional_or_personal_count =
+                receipt.preserved_transactional_or_personal_count;
+            let preserved_trusted_system_count = receipt.preserved_trusted_system_count;
+            let preserved_low_confidence_other_count = receipt.preserved_low_confidence_other_count;
+            let preserved_due_to_delete_cap_count = receipt.preserved_due_to_delete_cap_count;
+            let preserved_reason_counts = if receipt.preserved_reason_counts.is_empty() {
+                BTreeMap::from([
+                    (
+                        "transactional_or_personal".to_string(),
+                        preserved_transactional_or_personal_count,
+                    ),
+                    (
+                        "trusted_system_sender".to_string(),
+                        preserved_trusted_system_count,
+                    ),
+                    (
+                        "low_confidence_other".to_string(),
+                        preserved_low_confidence_other_count,
+                    ),
+                    (
+                        "delete_cap_guardrail".to_string(),
+                        preserved_due_to_delete_cap_count,
+                    ),
+                ])
+            } else {
+                receipt.preserved_reason_counts.clone()
+            };
+            let total_preserved_count = preserved_transactional_or_personal_count
+                .saturating_add(preserved_trusted_system_count)
+                .saturating_add(preserved_low_confidence_other_count)
+                .saturating_add(preserved_due_to_delete_cap_count);
+            let classification_mode = if cleanup_scope.eq_ignore_ascii_case("primary_inbox") {
+                "high_confidence_unwanted_preserve_transactional_personal"
+            } else {
+                "high_confidence_spam_only"
+            };
             json!({
                 "operation": method.method_name(),
                 "mailbox": receipt.mailbox,
+                "cleanup_scope": cleanup_scope,
                 "deleted_count": receipt.deleted_count,
                 "evaluated_count": evaluated_count,
                 "high_confidence_deleted_count": high_confidence_deleted_count,
                 "skipped_low_confidence_count": skipped_low_confidence_count,
+                "mailbox_total_count_before": mailbox_total_count_before,
+                "mailbox_total_count_after": mailbox_total_count_after,
+                "mailbox_total_count_delta": mailbox_total_count_delta,
+                "preserved_transactional_or_personal_count": preserved_transactional_or_personal_count,
+                "preserved_trusted_system_count": preserved_trusted_system_count,
+                "preserved_low_confidence_other_count": preserved_low_confidence_other_count,
+                "preserved_due_to_delete_cap_count": preserved_due_to_delete_cap_count,
+                "preserved_reason_counts": preserved_reason_counts,
+                "total_preserved_count": total_preserved_count,
+                "preservation_evidence": {
+                    "transactional_or_personal_count": preserved_transactional_or_personal_count,
+                    "trusted_system_sender_count": preserved_trusted_system_count,
+                    "low_confidence_other_count": preserved_low_confidence_other_count,
+                    "due_to_delete_cap_count": preserved_due_to_delete_cap_count,
+                    "reason_counts": preserved_reason_counts,
+                    "total_preserved_count": total_preserved_count,
+                    "preserve_modes": [
+                        "transactional_or_personal",
+                        "trusted_system_sender",
+                        "low_confidence_other",
+                        "delete_cap_guardrail"
+                    ]
+                },
                 "classification_policy": {
-                    "mode": "high_confidence_spam_only",
+                    "mode": classification_mode,
                     "ontology_version": ontology_version,
                     "spam_confidence_threshold_bps": confidence_threshold_bps,
                 },
@@ -886,9 +984,14 @@ async fn try_execute_wallet_mail_dynamic_tool(
         }
         WalletMailToolMethod::Reply => {
             let receipt_key = mail_reply_receipt_storage_key(&receipt_operation_id);
-            let receipt_bytes = state.get(&receipt_key).map_err(TransactionError::State)?.ok_or_else(|| {
-                TransactionError::Invalid("wallet_network reply receipt missing after execution".to_string())
-            })?;
+            let receipt_bytes = state
+                .get(&receipt_key)
+                .map_err(TransactionError::State)?
+                .ok_or_else(|| {
+                    TransactionError::Invalid(
+                        "wallet_network reply receipt missing after execution".to_string(),
+                    )
+                })?;
             let receipt: MailReplyReceipt = codec::from_bytes_canonical(&receipt_bytes)?;
             json!({
                 "operation": method.method_name(),
