@@ -20,7 +20,7 @@ use ioi_services::agentic::desktop::{
     AgentMode, AgentState, AgentStatus, DesktopAgentService, ResumeAgentParams, StartAgentParams,
     StepAgentParams,
 };
-use ioi_services::wallet_network::WalletNetworkService;
+use ioi_services::wallet_network::{LeaseActionReplayWindowState, WalletNetworkService};
 use ioi_state::primitives::hash::HashCommitmentScheme;
 use ioi_state::tree::iavl::IAVLTree;
 use ioi_types::app::agentic::{
@@ -28,10 +28,10 @@ use ioi_types::app::agentic::{
 };
 use ioi_types::app::wallet_network::{
     MailConnectorAuthMode, MailConnectorConfig, MailConnectorEndpoint, MailConnectorProvider,
-    MailConnectorSecretAliases, MailConnectorTlsMode, MailConnectorUpsertParams, SecretKind,
-    SessionChannelDelegationRules, SessionChannelEnvelope, SessionChannelMode,
-    SessionChannelOrdering, SessionChannelRecord, SessionChannelState, SessionLease,
-    SessionLeaseMode, VaultSecretRecord,
+    MailConnectorSecretAliases, MailConnectorTlsMode, MailConnectorUpsertParams,
+    MailListRecentParams, MailListRecentReceipt, SecretKind, SessionChannelDelegationRules,
+    SessionChannelEnvelope, SessionChannelMode, SessionChannelOrdering, SessionChannelRecord,
+    SessionChannelState, SessionLease, SessionLeaseMode, VaultSecretRecord,
 };
 use ioi_types::app::{
     ActionRequest, ApprovalScope, ApprovalToken, ContextSlice, KernelEvent, PiiApprovalAction,
@@ -128,6 +128,8 @@ const PRIMARY_LARGE_VOLUME_QUERY: &str =
     "Analyze the 120 most recent emails, classify high-confidence spam candidates, and summarize priority communications.";
 const PRIMARY_DELETE_SPAM_QUERY: &str =
     "Delete high-confidence spam messages from my spam mailbox and summarize what was removed.";
+const PRIMARY_CLEANUP_INBOX_QUERY: &str =
+    "Clean up my inbox by deleting high-confidence spam and summarize what changed.";
 const MAX_TERMINAL_CHAT_REPLY_EVENTS: usize = 1;
 // Mailbox read paraphrases can require multiple gated tool invocations before terminal synthesis.
 const MAX_APPROVAL_RESUME_ATTEMPTS: usize = 6;
@@ -135,6 +137,7 @@ const APPROVAL_TOKEN_TTL_MS: u64 = 300_000;
 const CHURN_REPEAT_THRESHOLD: usize = 3;
 const LARGE_VOLUME_PARSE_CONFIDENCE_FLOOR_BPS: u16 = 8_200;
 const LARGE_VOLUME_MIN_EVALUATED_DEFAULT: u32 = 10;
+const CLEANUP_COUNT_SAMPLE_LIMIT_DEFAULT: u32 = 100;
 const QUERY_LITERAL_GATING_PATTERNS: [&str; 2] = [
     "read me the last email i received",
     "please read the newest email in my inbox",
@@ -207,6 +210,20 @@ fn lease_storage_key(channel_id: &[u8; 32], lease_id: &[u8; 32]) -> Vec<u8> {
     .concat()
 }
 
+fn lease_action_window_storage_key(channel_id: &[u8; 32], lease_id: &[u8; 32]) -> Vec<u8> {
+    [
+        b"lease_action_window::".as_slice(),
+        channel_id.as_slice(),
+        b"::".as_slice(),
+        lease_id.as_slice(),
+    ]
+    .concat()
+}
+
+fn mail_list_receipt_storage_key(operation_id: &[u8; 32]) -> Vec<u8> {
+    [b"mail_list_receipt::".as_slice(), operation_id.as_slice()].concat()
+}
+
 fn read_required_env(key: &str) -> Result<String> {
     std::env::var(key).map_err(|_| anyhow!("{} is required for live mail e2e", key))
 }
@@ -227,6 +244,17 @@ fn read_optional_u32_env(key: &str, default_value: u32) -> u32 {
         .ok()
         .and_then(|value| value.trim().parse::<u32>().ok())
         .unwrap_or(default_value)
+}
+
+fn now_unix_ns() -> u64 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_nanos() as u64
+}
+
+fn refresh_block_timestamp(ctx: &mut TxContext<'_>) {
+    ctx.block_timestamp = now_unix_ns();
 }
 
 fn parse_mail_auth_mode(value: &str, key: &str) -> Result<MailConnectorAuthMode> {
@@ -491,6 +519,97 @@ async fn seed_wallet_mail_runtime_state(
     Ok(())
 }
 
+fn next_mail_op_seq_for_lease(
+    state: &IAVLTree<HashCommitmentScheme>,
+    channel_id: [u8; 32],
+    lease_id: [u8; 32],
+) -> u64 {
+    state
+        .get(&lease_action_window_storage_key(&channel_id, &lease_id))
+        .ok()
+        .flatten()
+        .and_then(|bytes| codec::from_bytes_canonical::<LeaseActionReplayWindowState>(&bytes).ok())
+        .map(|window| window.highest_seq.saturating_add(1).max(1))
+        .unwrap_or(1)
+}
+
+async fn mailbox_message_count_via_wallet_list(
+    wallet_service: &WalletNetworkService,
+    state: &mut IAVLTree<HashCommitmentScheme>,
+    ctx: &mut TxContext<'_>,
+    channel_id: [u8; 32],
+    lease_id: [u8; 32],
+    mailbox: &str,
+    limit: u32,
+    operation_id: [u8; 32],
+) -> Result<u32> {
+    refresh_block_timestamp(ctx);
+    let params = MailListRecentParams {
+        operation_id,
+        channel_id,
+        lease_id,
+        op_seq: next_mail_op_seq_for_lease(state, channel_id, lease_id),
+        op_nonce: Some(operation_id),
+        mailbox: normalize_mailbox(mailbox),
+        limit,
+        requested_at_ms: ctx.block_timestamp / 1_000_000,
+    };
+    wallet_service
+        .handle_service_call(
+            state,
+            "mail_list_recent@v1",
+            &codec::to_bytes_canonical(&params)
+                .map_err(|e| anyhow!("failed to encode MailListRecentParams: {}", e))?,
+            ctx,
+        )
+        .await?;
+
+    let receipt_bytes = state
+        .get(&mail_list_receipt_storage_key(&operation_id))
+        .map_err(|e| anyhow!("failed to read mail_list_recent receipt state: {}", e))?
+        .ok_or_else(|| anyhow!("mail_list_recent receipt missing after invocation"))?;
+    let receipt: MailListRecentReceipt = codec::from_bytes_canonical(&receipt_bytes)
+        .map_err(|e| anyhow!("failed to decode MailListRecentReceipt: {}", e))?;
+    Ok(receipt.messages.len().min(u32::MAX as usize) as u32)
+}
+
+async fn optional_mailbox_message_count_via_wallet_list(
+    wallet_service: &WalletNetworkService,
+    state: &mut IAVLTree<HashCommitmentScheme>,
+    ctx: &mut TxContext<'_>,
+    channel_id: [u8; 32],
+    lease_id: [u8; 32],
+    mailbox: &str,
+    limit: u32,
+    operation_id: [u8; 32],
+) -> Result<Option<u32>> {
+    match mailbox_message_count_via_wallet_list(
+        wallet_service,
+        state,
+        ctx,
+        channel_id,
+        lease_id,
+        mailbox,
+        limit,
+        operation_id,
+    )
+    .await
+    {
+        Ok(count) => Ok(Some(count)),
+        Err(error) => {
+            let lower = error.to_string().to_ascii_lowercase();
+            if lower.contains("imap select")
+                || lower.contains("folder does not exist")
+                || lower.contains("not an allowed spam/junk target")
+            {
+                Ok(None)
+            } else {
+                Err(error)
+            }
+        }
+    }
+}
+
 fn read_agent_state(state: &IAVLTree<HashCommitmentScheme>, session_id: [u8; 32]) -> AgentState {
     let key = [b"agent::state::".as_slice(), session_id.as_slice()].concat();
     let bytes = state
@@ -685,6 +804,8 @@ struct MailToolStructuredEvidence {
     saw_medium_or_large_volume_band: bool,
     saw_delete_high_confidence_policy: bool,
     max_deleted_count: u32,
+    max_high_confidence_deleted_count: u32,
+    saw_delete_spam_tool_output: bool,
 }
 
 fn parse_mail_tool_output_evidence(output: &str, evidence: &mut MailToolStructuredEvidence) {
@@ -821,9 +942,19 @@ fn parse_mail_tool_output_evidence(output: &str, evidence: &mut MailToolStructur
     };
 
     if let Some(deleted_count) = value.get("deleted_count").and_then(|v| v.as_u64()) {
+        evidence.saw_delete_spam_tool_output = true;
         evidence.max_deleted_count = evidence
             .max_deleted_count
             .max(deleted_count.min(u32::MAX as u64) as u32);
+    }
+    if let Some(high_confidence_deleted_count) = value
+        .get("high_confidence_deleted_count")
+        .and_then(|v| v.as_u64())
+    {
+        evidence.saw_delete_spam_tool_output = true;
+        evidence.max_high_confidence_deleted_count = evidence
+            .max_high_confidence_deleted_count
+            .max(high_confidence_deleted_count.min(u32::MAX as u64) as u32);
     }
 }
 
@@ -1276,6 +1407,66 @@ Payload:\n{}",
     if !verdict.pass && verdict.failures.is_empty() {
         return Err(anyhow!(
             "arbiter returned pass=false but empty failures; rationale={}",
+            verdict.rationale
+        ));
+    }
+
+    Ok(verdict)
+}
+
+async fn run_cleanup_arbiter(
+    runtime: Arc<dyn InferenceRuntime>,
+    payload: &serde_json::Value,
+) -> Result<ArbiterVerdict> {
+    let prompt = format!(
+        "You are a strict e2e arbiter for mailbox cleanup quality.\n\
+Return JSON only with exact schema: \
+{{\"pass\":bool,\"confidence\":\"high|medium|low\",\"rationale\":string,\"failures\":[string]}}.\n\
+Decision policy (fail-closed):\n\
+1) If any value in `deterministic.checks` is false, set pass=false.\n\
+2) Evaluate cleanup efficacy using `cleanup_metrics` and `mail_tool_structured_evidence`.\n\
+3) Pass requires all of:\n\
+   - `max_deleted_count` > 0 OR `max_high_confidence_deleted_count` > 0\n\
+   - no evidence that mailbox got worse: `post_primary_inbox_count` <= `pre_primary_inbox_count`\n\
+   - terminal reply explains cleanup outcome and caveat semantics.\n\
+4) If uncertain, set pass=false and include failure `arbiter_uncertain`.\n\
+5) If pass=true, failures must be [].\n\
+Treat `run_timestamp_ms` and `run_timestamp_iso_utc` as authoritative for recency checks.\n\
+Payload:\n{}",
+        serde_json::to_string_pretty(payload)?
+    );
+
+    let options = InferenceOptions {
+        tools: vec![],
+        temperature: 0.0,
+        json_mode: true,
+        max_tokens: 600,
+    };
+    let raw = runtime
+        .execute_inference([0u8; 32], prompt.as_bytes(), options)
+        .await
+        .map_err(|e| anyhow!("cleanup arbiter inference failed: {}", e))?;
+    let text = String::from_utf8(raw).map_err(|_| anyhow!("cleanup arbiter response was not UTF-8"))?;
+    let json_text = extract_json_object(&text)
+        .ok_or_else(|| anyhow!("cleanup arbiter did not return JSON object: {}", text))?;
+    let verdict: ArbiterVerdict = serde_json::from_str(json_text)
+        .map_err(|e| anyhow!("failed to parse cleanup arbiter verdict: {} raw={}", e, text))?;
+
+    if !matches!(verdict.confidence.as_str(), "high" | "medium" | "low") {
+        return Err(anyhow!(
+            "cleanup arbiter returned invalid confidence '{}'; expected high|medium|low",
+            verdict.confidence
+        ));
+    }
+    if verdict.pass && !verdict.failures.is_empty() {
+        return Err(anyhow!(
+            "cleanup arbiter returned pass=true but non-empty failures: {:?}",
+            verdict.failures
+        ));
+    }
+    if !verdict.pass && verdict.failures.is_empty() {
+        return Err(anyhow!(
+            "cleanup arbiter returned pass=false but empty failures; rationale={}",
             verdict.rationale
         ));
     }
@@ -2887,6 +3078,535 @@ async fn run_live_delete_spam_case(
     Ok(())
 }
 
+async fn run_live_cleanup_inbox_case(
+    label: &str,
+    query: &str,
+    run_index: usize,
+    agent_runtime: Arc<dyn InferenceRuntime>,
+    arbiter_runtime: Arc<dyn InferenceRuntime>,
+) -> Result<()> {
+    let (event_tx, mut event_rx) = broadcast::channel(1024);
+    let gui = Arc::new(MockGuiDriver);
+    let (scs, _scs_tmp_dir) = build_scs(&format!("live_mail_cleanup_{}.scs", run_index))?;
+    let service = DesktopAgentService::new_hybrid(
+        gui,
+        Arc::new(TerminalDriver::new()),
+        Arc::new(BrowserDriver::new()),
+        agent_runtime.clone(),
+        agent_runtime,
+    )
+    .with_scs(Arc::new(Mutex::new(scs)))
+    .with_event_sender(event_tx);
+
+    let mut state = IAVLTree::new(HashCommitmentScheme::new());
+    seed_wallet_network_mail_service_meta(&mut state);
+    let wallet_service = Arc::new(WalletNetworkService::default());
+    let services_dir =
+        ServiceDirectory::new(vec![wallet_service.clone() as Arc<dyn BlockchainService>]);
+    let mut ctx = build_ctx(&services_dir);
+    let session_id = session_id_for_index(run_index);
+    let channel_id = deterministic_id(run_index, 0x85);
+    let lease_id = deterministic_id(run_index, 0xA5);
+    seed_wallet_mail_runtime_state(
+        wallet_service.as_ref(),
+        &mut state,
+        &mut ctx,
+        channel_id,
+        lease_id,
+    )
+    .await?;
+
+    let sample_limit = read_optional_u32_env(
+        "LIVE_MAIL_CLEANUP_E2E_COUNT_SAMPLE_LIMIT",
+        CLEANUP_COUNT_SAMPLE_LIMIT_DEFAULT,
+    )
+    .clamp(25, 500);
+
+    let pre_primary_count = mailbox_message_count_via_wallet_list(
+        wallet_service.as_ref(),
+        &mut state,
+        &mut ctx,
+        channel_id,
+        lease_id,
+        "primary",
+        sample_limit,
+        deterministic_id(run_index, 0xD1),
+    )
+    .await?;
+    let pre_spam_count = optional_mailbox_message_count_via_wallet_list(
+        wallet_service.as_ref(),
+        &mut state,
+        &mut ctx,
+        channel_id,
+        lease_id,
+        "spam",
+        sample_limit,
+        deterministic_id(run_index, 0xD2),
+    )
+    .await?;
+
+    let start_params = StartAgentParams {
+        session_id,
+        goal: query.to_string(),
+        max_steps: 22,
+        parent_session_id: None,
+        initial_budget: 5_000,
+        mode: AgentMode::Agent,
+    };
+    service
+        .handle_service_call(
+            &mut state,
+            "start@v1",
+            &codec::to_bytes_canonical(&start_params)
+                .map_err(|e| anyhow!("failed to encode start params: {}", e))?,
+            &mut ctx,
+        )
+        .await?;
+
+    enable_intent_shadow_mode(&mut state, session_id);
+    seed_resolved_intent(&mut state, session_id, IntentScopeProfile::Conversation);
+
+    let run_timestamp_ms = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_millis() as u64;
+    let run_timestamp_iso_utc = iso_datetime_from_unix_ms(run_timestamp_ms);
+    let started = Instant::now();
+    let deadline = Duration::from_secs(SLA_SECONDS);
+    let mut captured_events: Vec<KernelEvent> = Vec::new();
+    let mut approval_resume_attempts = 0usize;
+
+    loop {
+        drain_events(&mut event_rx, &mut captured_events);
+        if let Some(fatal_error) = fatal_mail_connector_error(&captured_events) {
+            return Err(anyhow!(
+                "live cleanup e2e encountered fatal mailbox connector error: {}\nrecent_events:\n{}",
+                fatal_error,
+                summarize_recent_events(&captured_events, 24)
+            ));
+        }
+        let current = read_agent_state(&state, session_id);
+        if matches!(current.status, AgentStatus::Completed(_))
+            || matches!(current.status, AgentStatus::Failed(_))
+        {
+            break;
+        }
+        if started.elapsed() > deadline {
+            break;
+        }
+        match &current.status {
+            AgentStatus::Running => {}
+            AgentStatus::Paused(reason) => {
+                if is_waiting_for_approval(reason) {
+                    if approval_resume_attempts >= MAX_APPROVAL_RESUME_ATTEMPTS {
+                        return Err(anyhow!(
+                            "cleanup e2e remained approval-gated after {} resume attempts\nrecent_events:\n{}",
+                            MAX_APPROVAL_RESUME_ATTEMPTS,
+                            summarize_recent_events(&captured_events, 24)
+                        ));
+                    }
+                    let request_hash =
+                        latest_require_approval_request_hash(&captured_events, session_id)
+                            .or(current.pending_tool_hash)
+                            .ok_or_else(|| {
+                                anyhow!(
+                                    "missing approval request hash in cleanup e2e\nrecent_events:\n{}",
+                                    summarize_recent_events(&captured_events, 24)
+                                )
+                            })?;
+                    let requires_pii_action = state
+                        .get(&pii::review::request(&request_hash))
+                        .map_err(|e| anyhow!("failed to read review request state: {}", e))?
+                        .is_some();
+                    let now_ms = SystemTime::now()
+                        .duration_since(UNIX_EPOCH)
+                        .unwrap_or_default()
+                        .as_millis() as u64;
+                    let approval_token = build_approval_token_for_resume(
+                        request_hash,
+                        now_ms,
+                        current.pending_visual_hash,
+                        requires_pii_action,
+                    );
+                    let resume_params = ResumeAgentParams {
+                        session_id,
+                        approval_token: Some(approval_token),
+                    };
+                    service
+                        .handle_service_call(
+                            &mut state,
+                            "resume@v1",
+                            &codec::to_bytes_canonical(&resume_params)
+                                .map_err(|e| anyhow!("failed to encode resume params: {}", e))?,
+                            &mut ctx,
+                        )
+                        .await?;
+                    approval_resume_attempts += 1;
+                    continue;
+                }
+                if requires_human_intervention(reason) {
+                    return Err(anyhow!(
+                        "cleanup e2e paused for intervention: {}\nrecent_events:\n{}",
+                        reason,
+                        summarize_recent_events(&captured_events, 24)
+                    ));
+                }
+                return Err(anyhow!(
+                    "cleanup e2e paused unexpectedly: {}\nrecent_events:\n{}",
+                    reason,
+                    summarize_recent_events(&captured_events, 24)
+                ));
+            }
+            AgentStatus::Idle | AgentStatus::Terminated => {
+                return Err(anyhow!(
+                    "agent entered unexpected non-terminal status: {:?}",
+                    current.status
+                ));
+            }
+            AgentStatus::Completed(_) | AgentStatus::Failed(_) => {}
+        }
+
+        service
+            .handle_service_call(
+                &mut state,
+                "step@v1",
+                &codec::to_bytes_canonical(&StepAgentParams { session_id })
+                    .map_err(|e| anyhow!("failed to encode step params: {}", e))?,
+                &mut ctx,
+            )
+            .await?;
+    }
+    drain_events(&mut event_rx, &mut captured_events);
+
+    let elapsed = started.elapsed();
+    let final_state = read_agent_state(&state, session_id);
+    if elapsed > deadline {
+        return Err(anyhow!(
+            "live cleanup e2e exceeded SLA: elapsed={}ms final_status={:?}\nrecent_events:\n{}",
+            elapsed.as_millis(),
+            final_state.status,
+            summarize_recent_events(&captured_events, 24)
+        ));
+    }
+    if !matches!(final_state.status, AgentStatus::Completed(_)) {
+        return Err(anyhow!(
+            "cleanup e2e did not complete; final status={:?}\nrecent_events:\n{}",
+            final_state.status,
+            summarize_recent_events(&captured_events, 24)
+        ));
+    }
+
+    let post_primary_count = mailbox_message_count_via_wallet_list(
+        wallet_service.as_ref(),
+        &mut state,
+        &mut ctx,
+        channel_id,
+        lease_id,
+        "primary",
+        sample_limit,
+        deterministic_id(run_index, 0xD3),
+    )
+    .await?;
+    let post_spam_count = optional_mailbox_message_count_via_wallet_list(
+        wallet_service.as_ref(),
+        &mut state,
+        &mut ctx,
+        channel_id,
+        lease_id,
+        "spam",
+        sample_limit,
+        deterministic_id(run_index, 0xD4),
+    )
+    .await?;
+
+    let mut saw_mail_connector_routing = false;
+    let mut saw_mail_connector_action = false;
+    let mut saw_mail_delete_routing = false;
+    let mut saw_mail_delete_action = false;
+    let mut saw_mail_list_routing = false;
+    let mut saw_mail_list_action = false;
+    let mut saw_web_routing = false;
+    let mut saw_web_retrieve_receipt = false;
+    let mut saw_firewall_require_approval = false;
+    let mut saw_policy_require_approval = false;
+    let mut terminal_chat_reply_events = 0usize;
+    let mut saw_terminal_chat_reply = false;
+    let mut final_reply = String::new();
+    let mut mail_tool_structured_evidence = MailToolStructuredEvidence::default();
+    let mut evidence = vec![
+        format!(
+            "mailbox_count pre primary={} spam={} sample_limit={}",
+            pre_primary_count,
+            pre_spam_count
+                .map(|value| value.to_string())
+                .unwrap_or_else(|| "unavailable".to_string()),
+            sample_limit
+        ),
+        format!(
+            "mailbox_count post primary={} spam={} sample_limit={}",
+            post_primary_count,
+            post_spam_count
+                .map(|value| value.to_string())
+                .unwrap_or_else(|| "unavailable".to_string()),
+            sample_limit
+        ),
+    ];
+
+    for event in &captured_events {
+        match event {
+            KernelEvent::FirewallInterception { verdict, target, .. } => {
+                if verdict.eq_ignore_ascii_case("require_approval") {
+                    saw_firewall_require_approval = true;
+                    evidence.push(format!("firewall verdict={} target={}", verdict, target));
+                }
+            }
+            KernelEvent::AgentActionResult {
+                tool_name,
+                output,
+                agent_status,
+                ..
+            } => {
+                if is_mail_connector_tool_name(tool_name) {
+                    saw_mail_connector_action = true;
+                    let lower = tool_name.to_ascii_lowercase();
+                    if lower.contains("mail_delete_spam") {
+                        saw_mail_delete_action = true;
+                    }
+                    if lower.contains("mail_list_recent") {
+                        saw_mail_list_action = true;
+                    }
+                    parse_mail_tool_output_evidence(output, &mut mail_tool_structured_evidence);
+                    evidence.push(format!("action:{} status={}", tool_name, agent_status));
+                }
+                let is_terminal_response_tool =
+                    matches!(tool_name.as_str(), "chat__reply" | "agent__complete");
+                if is_terminal_response_tool && agent_status.eq_ignore_ascii_case("completed") {
+                    terminal_chat_reply_events += 1;
+                    saw_terminal_chat_reply = true;
+                    final_reply = output.clone();
+                }
+            }
+            KernelEvent::RoutingReceipt(receipt) => {
+                if is_mail_connector_tool_name(&receipt.tool_name) {
+                    saw_mail_connector_routing = true;
+                    let lower = receipt.tool_name.to_ascii_lowercase();
+                    if lower.contains("mail_delete_spam") {
+                        saw_mail_delete_routing = true;
+                    }
+                    if lower.contains("mail_list_recent") {
+                        saw_mail_list_routing = true;
+                    }
+                    evidence.push(format!(
+                        "routing:{} decision={} success={}",
+                        receipt.tool_name, receipt.policy_decision, receipt.post_state.success
+                    ));
+                }
+                if receipt
+                    .policy_decision
+                    .eq_ignore_ascii_case("require_approval")
+                {
+                    saw_policy_require_approval = true;
+                }
+                if matches!(receipt.tool_name.as_str(), "web__search" | "web__read") {
+                    saw_web_routing = true;
+                }
+            }
+            KernelEvent::WorkloadReceipt(workload) => {
+                if let WorkloadReceipt::WebRetrieve(web) = &workload.receipt {
+                    if matches!(web.tool_name.as_str(), "web__search" | "web__read") {
+                        saw_web_retrieve_receipt = true;
+                    }
+                }
+            }
+            KernelEvent::AgentStep(trace) => {
+                parse_mail_tool_output_evidence(
+                    trace.raw_output.as_str(),
+                    &mut mail_tool_structured_evidence,
+                );
+            }
+            _ => {}
+        }
+    }
+
+    let mail_tooling_path_observed = saw_mail_connector_routing || saw_mail_connector_action;
+    let delete_tool_observed = saw_mail_delete_routing || saw_mail_delete_action;
+    let list_tool_observed = saw_mail_list_routing || saw_mail_list_action;
+    let mailbox_query_avoids_web_fallback = !saw_web_routing && !saw_web_retrieve_receipt;
+    let approval_gate_evidence_present = saw_firewall_require_approval && saw_policy_require_approval;
+    let delete_high_confidence_policy_present =
+        mail_tool_structured_evidence.saw_delete_high_confidence_policy;
+    let deleted_count_metric_observed = mail_tool_structured_evidence.saw_delete_spam_tool_output;
+    let terminal_chat_reply_non_empty = !final_reply.trim().is_empty();
+    let terminal_lifecycle_single_chat_reply =
+        terminal_chat_reply_events <= MAX_TERMINAL_CHAT_REPLY_EVENTS;
+    let no_churn_signatures = churn_signatures(&captured_events).is_empty();
+
+    let primary_delta = pre_primary_count as i64 - post_primary_count as i64;
+    let spam_delta = match (pre_spam_count, post_spam_count) {
+        (Some(pre), Some(post)) => Some(pre as i64 - post as i64),
+        _ => None,
+    };
+    let combined_delta = match (pre_spam_count, post_spam_count) {
+        (Some(pre), Some(post)) => Some(
+            (pre_primary_count + pre) as i64 - (post_primary_count + post) as i64,
+        ),
+        _ => None,
+    };
+    let primary_not_worse = post_primary_count <= pre_primary_count;
+    let combined_not_worse = combined_delta.map(|delta| delta >= 0);
+
+    let mut deterministic_checks = BTreeMap::new();
+    deterministic_checks.insert("terminal_chat_reply_observed".to_string(), saw_terminal_chat_reply);
+    deterministic_checks.insert(
+        "terminal_chat_reply_non_empty".to_string(),
+        terminal_chat_reply_non_empty,
+    );
+    deterministic_checks.insert("elapsed_within_sla".to_string(), elapsed <= deadline);
+    deterministic_checks.insert(
+        "mail_tooling_path_observed".to_string(),
+        mail_tooling_path_observed,
+    );
+    deterministic_checks.insert("delete_tool_observed".to_string(), delete_tool_observed);
+    deterministic_checks.insert(
+        "mailbox_query_avoids_web_fallback".to_string(),
+        mailbox_query_avoids_web_fallback,
+    );
+    deterministic_checks.insert(
+        "approval_gate_evidence_present".to_string(),
+        approval_gate_evidence_present,
+    );
+    deterministic_checks.insert(
+        "delete_high_confidence_policy_present".to_string(),
+        delete_high_confidence_policy_present,
+    );
+    deterministic_checks.insert(
+        "deleted_count_metric_observed".to_string(),
+        deleted_count_metric_observed,
+    );
+    deterministic_checks.insert(
+        "terminal_lifecycle_single_chat_reply".to_string(),
+        terminal_lifecycle_single_chat_reply,
+    );
+    deterministic_checks.insert("no_churn_signatures".to_string(), no_churn_signatures);
+
+    let deterministic_failures = deterministic_checks
+        .iter()
+        .filter_map(|(name, passed)| (!*passed).then_some(name.clone()))
+        .collect::<Vec<_>>();
+
+    let deterministic_payload = json!({
+        "checks": deterministic_checks,
+        "elapsed_ms": elapsed.as_millis(),
+        "sla_seconds": SLA_SECONDS,
+        "terminal_chat_reply_events": terminal_chat_reply_events,
+        "list_tool_observed": list_tool_observed,
+        "cleanup_metrics": {
+            "sample_limit": sample_limit,
+            "pre_primary_inbox_count": pre_primary_count,
+            "post_primary_inbox_count": post_primary_count,
+            "primary_inbox_delta": primary_delta,
+            "pre_spam_count": pre_spam_count,
+            "post_spam_count": post_spam_count,
+            "spam_delta": spam_delta,
+            "combined_delta": combined_delta,
+            "primary_not_worse": primary_not_worse,
+            "combined_not_worse": combined_not_worse,
+        },
+        "mail_tool_structured_evidence": {
+            "saw_delete_high_confidence_policy": mail_tool_structured_evidence.saw_delete_high_confidence_policy,
+            "max_evaluated_count": mail_tool_structured_evidence.max_evaluated_count,
+            "max_deleted_count": mail_tool_structured_evidence.max_deleted_count,
+            "max_high_confidence_deleted_count": mail_tool_structured_evidence.max_high_confidence_deleted_count,
+            "saw_delete_spam_tool_output": mail_tool_structured_evidence.saw_delete_spam_tool_output,
+        },
+        "routing_markers": {
+            "saw_mail_connector_routing": saw_mail_connector_routing,
+            "saw_mail_connector_action": saw_mail_connector_action,
+            "saw_mail_delete_routing": saw_mail_delete_routing,
+            "saw_mail_delete_action": saw_mail_delete_action,
+            "saw_mail_list_routing": saw_mail_list_routing,
+            "saw_mail_list_action": saw_mail_list_action,
+            "saw_web_routing": saw_web_routing,
+            "saw_web_retrieve_receipt": saw_web_retrieve_receipt,
+            "saw_firewall_require_approval": saw_firewall_require_approval,
+            "saw_policy_require_approval": saw_policy_require_approval,
+        },
+        "event_evidence": evidence,
+    });
+    println!(
+        "LIVE_MAIL_CLEANUP_E2E_DETERMINISTIC_{}={}",
+        label,
+        serde_json::to_string_pretty(&deterministic_payload)?
+    );
+
+    if !deterministic_failures.is_empty() {
+        return Err(anyhow!(
+            "cleanup deterministic checks failed ({}): {}\nfinal_reply:\n{}\nrecent_events:\n{}",
+            label,
+            deterministic_failures.join(", "),
+            final_reply,
+            summarize_recent_events(&captured_events, 24)
+        ));
+    }
+
+    let final_reply_excerpt = final_reply.chars().take(2_000).collect::<String>();
+    let final_reply_excerpt = redact_iso_utc_timestamps(&final_reply_excerpt);
+    let arbiter_payload = json!({
+        "label": label,
+        "query": query,
+        "run_timestamp_ms": run_timestamp_ms,
+        "run_timestamp_iso_utc": run_timestamp_iso_utc,
+        "deterministic": deterministic_payload,
+        "cleanup_metrics": {
+            "sample_limit": sample_limit,
+            "pre_primary_inbox_count": pre_primary_count,
+            "post_primary_inbox_count": post_primary_count,
+            "primary_inbox_delta": primary_delta,
+            "pre_spam_count": pre_spam_count,
+            "post_spam_count": post_spam_count,
+            "spam_delta": spam_delta,
+            "combined_delta": combined_delta,
+            "primary_not_worse": primary_not_worse,
+            "combined_not_worse": combined_not_worse,
+            "max_deleted_count": mail_tool_structured_evidence.max_deleted_count,
+            "max_high_confidence_deleted_count": mail_tool_structured_evidence.max_high_confidence_deleted_count,
+        },
+        "final_reply_excerpt": final_reply_excerpt,
+        "final_reply_char_len": final_reply.chars().count(),
+        "event_evidence": evidence,
+    });
+    println!(
+        "LIVE_MAIL_CLEANUP_E2E_ARBITER_INPUT_{}={}",
+        label,
+        serde_json::to_string_pretty(&arbiter_payload)?
+    );
+
+    let verdict = run_cleanup_arbiter(arbiter_runtime, &arbiter_payload).await?;
+    let verdict_json = json!({
+        "pass": verdict.pass,
+        "confidence": verdict.confidence,
+        "rationale": verdict.rationale,
+        "failures": verdict.failures,
+    });
+    println!(
+        "LIVE_MAIL_CLEANUP_E2E_ARBITER_VERDICT_{}={}",
+        label,
+        serde_json::to_string_pretty(&verdict_json)?
+    );
+
+    if !verdict.pass {
+        return Err(anyhow!(
+            "cleanup arbiter failed ({}): confidence={} rationale={} failures={}",
+            label,
+            verdict.confidence,
+            verdict.rationale,
+            verdict.failures.join("; ")
+        ));
+    }
+
+    Ok(())
+}
+
 #[tokio::test(flavor = "multi_thread")]
 #[ignore = "live internet + external inference required"]
 async fn live_latest_mail_chat_reply_e2e() -> Result<()> {
@@ -3053,6 +3773,58 @@ async fn live_mail_delete_spam_with_high_confidence_policy_e2e() -> Result<()> {
     );
 
     run_live_delete_spam_case(&label, &query, run_index, agent_runtime).await
+}
+
+#[tokio::test(flavor = "multi_thread")]
+#[ignore = "live external inference required for mailbox cleanup validation"]
+async fn live_mail_cleanup_inbox_reduces_count_and_deletes_spam_e2e() -> Result<()> {
+    build_test_artifacts();
+
+    let openai_api_key = std::env::var("OPENAI_API_KEY")
+        .map_err(|_| anyhow!("OPENAI_API_KEY required for live e2e"))?;
+    let openai_model = std::env::var("OPENAI_MODEL").unwrap_or_else(|_| "gpt-4o".to_string());
+    let arbiter_model =
+        std::env::var("MAIL_E2E_ARBITER_MODEL").unwrap_or_else(|_| "gpt-4o".to_string());
+    let api_url = "https://api.openai.com/v1/chat/completions".to_string();
+
+    let agent_runtime: Arc<dyn InferenceRuntime> = Arc::new(HttpInferenceRuntime::new(
+        api_url.clone(),
+        openai_api_key.clone(),
+        openai_model,
+    ));
+    let arbiter_runtime: Arc<dyn InferenceRuntime> = Arc::new(HttpInferenceRuntime::new(
+        api_url,
+        openai_api_key,
+        arbiter_model,
+    ));
+
+    let query = std::env::var("LIVE_MAIL_CLEANUP_E2E_QUERY")
+        .unwrap_or_else(|_| PRIMARY_CLEANUP_INBOX_QUERY.to_string());
+    let label = std::env::var("LIVE_MAIL_CLEANUP_E2E_LABEL")
+        .unwrap_or_else(|_| "cleanup_inbox_single_run".to_string());
+    let run_index = std::env::var("LIVE_MAIL_CLEANUP_E2E_RUN_INDEX")
+        .ok()
+        .and_then(|v| v.parse::<usize>().ok())
+        .unwrap_or(4001);
+    let sample_limit = read_optional_u32_env(
+        "LIVE_MAIL_CLEANUP_E2E_COUNT_SAMPLE_LIMIT",
+        CLEANUP_COUNT_SAMPLE_LIMIT_DEFAULT,
+    )
+    .clamp(25, 500);
+
+    println!(
+        "LIVE_MAIL_CLEANUP_E2E_LOCKED_CONSTANTS={}",
+        serde_json::to_string_pretty(&json!({
+            "SLA_SECONDS": SLA_SECONDS,
+            "PRIMARY_QUERY": PRIMARY_CLEANUP_INBOX_QUERY,
+            "ACTIVE_QUERY": query,
+            "RUN_LABEL": label,
+            "RUN_INDEX": run_index,
+            "COUNT_SAMPLE_LIMIT": sample_limit,
+        }))?
+    );
+
+    run_live_cleanup_inbox_case(&label, &query, run_index, agent_runtime, arbiter_runtime).await
 }
 
 #[test]
