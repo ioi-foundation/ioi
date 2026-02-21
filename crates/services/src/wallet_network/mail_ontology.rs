@@ -6,7 +6,9 @@ pub(crate) const SPAM_MEDIUM_CONFIDENCE_THRESHOLD_BPS: u16 = 6_500;
 pub(crate) const LARGE_VOLUME_MESSAGE_THRESHOLD: usize = 64;
 pub(crate) const MEDIUM_VOLUME_MESSAGE_THRESHOLD: usize = 24;
 
-const MAILBOX_SPAM_PRIOR_BPS: i32 = 6_200;
+// Spam/junk folders are pre-filtered by provider-side classifiers; raise prior so
+// one additional reusable risk signal can cross high-confidence delete threshold.
+const MAILBOX_SPAM_PRIOR_BPS: i32 = 7_600;
 const MAILBOX_PRIMARY_PRIOR_BPS: i32 = 1_100;
 const SCORE_FLOOR_BPS: i32 = 0;
 const SCORE_CEIL_BPS: i32 = 10_000;
@@ -239,6 +241,11 @@ pub(crate) fn classify_mail_spam(
     if from_lc.contains("@calendar.") || from_lc.contains("@notifications.") {
         score -= 900;
         push_tag(&mut tags, "signal_trusted_system_sender");
+    }
+
+    if mailbox_spam_prior(mailbox) && score < SPAM_HIGH_CONFIDENCE_THRESHOLD_BPS as i32 {
+        score = SPAM_HIGH_CONFIDENCE_THRESHOLD_BPS as i32;
+        push_tag(&mut tags, "signal_spam_mailbox_confidence_floor");
     }
 
     let confidence_bps = clamp_score_bps(score);
