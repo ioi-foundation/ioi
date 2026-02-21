@@ -6,12 +6,13 @@ use ioi_api::state::StateAccess;
 use ioi_api::transaction::context::TxContext;
 use ioi_types::app::wallet_network::{
     MailConnectorGetParams, MailConnectorUpsertParams, MailDeleteSpamParams, MailListRecentParams,
-    MailReadLatestParams, MailReplyParams, OwnerAnchor, SecretInjectionGrant,
-    SecretInjectionRequestRecord, SessionChannelClose, SessionChannelDelegationRules,
-    SessionChannelOpenAck, SessionChannelOpenConfirm, SessionChannelOpenInit,
-    SessionChannelOpenTry, SessionChannelOrdering, SessionGrant, SessionLease, SessionLeaseMode,
-    SessionReceiptCommit, SessionReceiptCommitDirection, VaultIdentity, VaultPolicyRule,
-    VaultSecretRecord, WalletApprovalDecision, WalletInterceptionContext,
+    MailReadLatestParams, MailReplyParams, MailboxTotalCountParams, OwnerAnchor,
+    SecretInjectionGrant, SecretInjectionRequestRecord, SessionChannelClose,
+    SessionChannelDelegationRules, SessionChannelOpenAck, SessionChannelOpenConfirm,
+    SessionChannelOpenInit, SessionChannelOpenTry, SessionChannelOrdering, SessionGrant,
+    SessionLease, SessionLeaseMode, SessionReceiptCommit, SessionReceiptCommitDirection,
+    VaultIdentity, VaultPolicyRule, VaultSecretRecord, WalletApprovalDecision,
+    WalletInterceptionContext,
 };
 use ioi_types::app::ActionTarget;
 use ioi_types::codec;
@@ -265,6 +266,10 @@ impl BlockchainService for WalletNetworkService {
             "mail_list_recent@v1" => {
                 let request: MailListRecentParams = codec::from_bytes_canonical(params)?;
                 handlers::connectors::mail_list_recent(state, ctx, request)
+            }
+            "mailbox_total_count@v1" => {
+                let request: MailboxTotalCountParams = codec::from_bytes_canonical(params)?;
+                handlers::connectors::mailbox_total_count(state, ctx, request)
             }
             "mail_delete_spam@v1" => {
                 let request: MailDeleteSpamParams = codec::from_bytes_canonical(params)?;

@@ -1145,7 +1145,10 @@ pub async fn wallet_mail_configure_account(
             },
             metadata: {
                 let mut metadata = BTreeMap::new();
-                metadata.insert("configured_by".to_string(), "autopilot.integrations".to_string());
+                metadata.insert(
+                    "configured_by".to_string(),
+                    "autopilot.integrations".to_string(),
+                );
                 metadata
             },
         },

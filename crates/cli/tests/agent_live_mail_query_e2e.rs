@@ -1,5 +1,6 @@
 // Path: crates/cli/tests/agent_live_mail_query_e2e.rs
 #![cfg(all(feature = "consensus-admft", feature = "vm-wasm"))]
+#![recursion_limit = "512"]
 
 use anyhow::{anyhow, Result};
 use async_trait::async_trait;
@@ -29,9 +30,11 @@ use ioi_types::app::agentic::{
 use ioi_types::app::wallet_network::{
     MailConnectorAuthMode, MailConnectorConfig, MailConnectorEndpoint, MailConnectorProvider,
     MailConnectorSecretAliases, MailConnectorTlsMode, MailConnectorUpsertParams,
-    MailListRecentParams, MailListRecentReceipt, SecretKind, SessionChannelDelegationRules,
-    SessionChannelEnvelope, SessionChannelMode, SessionChannelOrdering, SessionChannelRecord,
-    SessionChannelState, SessionLease, SessionLeaseMode, VaultSecretRecord,
+    MailListRecentParams, MailListRecentReceipt, MailboxTotalCountParams,
+    MailboxTotalCountProvenance, MailboxTotalCountReceipt, SecretKind,
+    SessionChannelDelegationRules, SessionChannelEnvelope, SessionChannelMode,
+    SessionChannelOrdering, SessionChannelRecord, SessionChannelState, SessionLease,
+    SessionLeaseMode, VaultSecretRecord,
 };
 use ioi_types::app::{
     ActionRequest, ApprovalScope, ApprovalToken, ContextSlice, KernelEvent, PiiApprovalAction,
@@ -129,7 +132,7 @@ const PRIMARY_LARGE_VOLUME_QUERY: &str =
 const PRIMARY_DELETE_SPAM_QUERY: &str =
     "Delete high-confidence spam messages from my spam mailbox and summarize what was removed.";
 const PRIMARY_CLEANUP_INBOX_QUERY: &str =
-    "Clean up my inbox by deleting high-confidence spam and summarize what changed.";
+    "Clean my inbox of marketing mail, keep transactional/personal.";
 const MAX_TERMINAL_CHAT_REPLY_EVENTS: usize = 1;
 // Mailbox read paraphrases can require multiple gated tool invocations before terminal synthesis.
 const MAX_APPROVAL_RESUME_ATTEMPTS: usize = 6;
@@ -138,6 +141,7 @@ const CHURN_REPEAT_THRESHOLD: usize = 3;
 const LARGE_VOLUME_PARSE_CONFIDENCE_FLOOR_BPS: u16 = 8_200;
 const LARGE_VOLUME_MIN_EVALUATED_DEFAULT: u32 = 10;
 const CLEANUP_COUNT_SAMPLE_LIMIT_DEFAULT: u32 = 100;
+const CLEANUP_SLA_SECONDS: u64 = 210;
 const QUERY_LITERAL_GATING_PATTERNS: [&str; 2] = [
     "read me the last email i received",
     "please read the newest email in my inbox",
@@ -169,6 +173,7 @@ fn seed_wallet_network_mail_service_meta(state: &mut IAVLTree<HashCommitmentSche
     let mut methods = BTreeMap::new();
     methods.insert("mail_read_latest@v1".to_string(), MethodPermission::User);
     methods.insert("mail_list_recent@v1".to_string(), MethodPermission::User);
+    methods.insert("mailbox_total_count@v1".to_string(), MethodPermission::User);
     methods.insert("mail_delete_spam@v1".to_string(), MethodPermission::User);
     methods.insert("mail_reply@v1".to_string(), MethodPermission::User);
 
@@ -222,6 +227,10 @@ fn lease_action_window_storage_key(channel_id: &[u8; 32], lease_id: &[u8; 32]) -
 
 fn mail_list_receipt_storage_key(operation_id: &[u8; 32]) -> Vec<u8> {
     [b"mail_list_receipt::".as_slice(), operation_id.as_slice()].concat()
+}
+
+fn mail_count_receipt_storage_key(operation_id: &[u8; 32]) -> Vec<u8> {
+    [b"mail_count_receipt::".as_slice(), operation_id.as_slice()].concat()
 }
 
 fn read_required_env(key: &str) -> Result<String> {
@@ -451,9 +460,8 @@ async fn seed_wallet_mail_runtime_state(
             .handle_service_call(
                 state,
                 "mail_connector_upsert@v1",
-                &codec::to_bytes_canonical(&connector).map_err(|e| {
-                    anyhow!("failed to encode mail connector upsert params: {}", e)
-                })?,
+                &codec::to_bytes_canonical(&connector)
+                    .map_err(|e| anyhow!("failed to encode mail connector upsert params: {}", e))?,
                 ctx,
             )
             .await?;
@@ -533,6 +541,37 @@ fn next_mail_op_seq_for_lease(
         .unwrap_or(1)
 }
 
+#[derive(Debug, Clone, Copy)]
+struct MailboxCountSnapshot {
+    sampled_count: u32,
+    list_reported_total_count: u32,
+}
+
+#[derive(Debug, Clone)]
+struct MailboxTotalCountSnapshot {
+    mailbox_total_count: u32,
+    provenance: MailboxTotalCountProvenance,
+}
+
+fn is_count_provenance_fresh(marker: &str) -> bool {
+    marker.trim().eq_ignore_ascii_case("status_exists_fresh")
+}
+
+fn is_count_provenance_stale(marker: &str) -> bool {
+    let normalized = marker.trim().to_ascii_lowercase();
+    matches!(
+        normalized.as_str(),
+        "status_exists_reconciled" | "fallback_no_status" | "fallback_status_zero"
+    )
+}
+
+fn count_provenance_raw_observation_present(provenance: &MailboxTotalCountProvenance) -> bool {
+    provenance.status_exists.is_some()
+        || provenance.select_exists.is_some()
+        || provenance.uid_search_count.is_some()
+        || provenance.search_count.is_some()
+}
+
 async fn mailbox_message_count_via_wallet_list(
     wallet_service: &WalletNetworkService,
     state: &mut IAVLTree<HashCommitmentScheme>,
@@ -542,7 +581,7 @@ async fn mailbox_message_count_via_wallet_list(
     mailbox: &str,
     limit: u32,
     operation_id: [u8; 32],
-) -> Result<u32> {
+) -> Result<MailboxCountSnapshot> {
     refresh_block_timestamp(ctx);
     let params = MailListRecentParams {
         operation_id,
@@ -570,7 +609,16 @@ async fn mailbox_message_count_via_wallet_list(
         .ok_or_else(|| anyhow!("mail_list_recent receipt missing after invocation"))?;
     let receipt: MailListRecentReceipt = codec::from_bytes_canonical(&receipt_bytes)
         .map_err(|e| anyhow!("failed to decode MailListRecentReceipt: {}", e))?;
-    Ok(receipt.messages.len().min(u32::MAX as usize) as u32)
+    let sampled_count = receipt.messages.len().min(u32::MAX as usize) as u32;
+    let list_reported_total_count = if receipt.mailbox_total_count == 0 {
+        sampled_count
+    } else {
+        receipt.mailbox_total_count
+    };
+    Ok(MailboxCountSnapshot {
+        sampled_count,
+        list_reported_total_count,
+    })
 }
 
 async fn optional_mailbox_message_count_via_wallet_list(
@@ -582,7 +630,7 @@ async fn optional_mailbox_message_count_via_wallet_list(
     mailbox: &str,
     limit: u32,
     operation_id: [u8; 32],
-) -> Result<Option<u32>> {
+) -> Result<Option<MailboxCountSnapshot>> {
     match mailbox_message_count_via_wallet_list(
         wallet_service,
         state,
@@ -596,6 +644,91 @@ async fn optional_mailbox_message_count_via_wallet_list(
     .await
     {
         Ok(count) => Ok(Some(count)),
+        Err(error) => {
+            let lower = error.to_string().to_ascii_lowercase();
+            if lower.contains("imap select")
+                || lower.contains("folder does not exist")
+                || lower.contains("not an allowed spam/junk target")
+            {
+                Ok(None)
+            } else {
+                Err(error)
+            }
+        }
+    }
+}
+
+async fn mailbox_total_count_via_wallet_count(
+    wallet_service: &WalletNetworkService,
+    state: &mut IAVLTree<HashCommitmentScheme>,
+    ctx: &mut TxContext<'_>,
+    channel_id: [u8; 32],
+    lease_id: [u8; 32],
+    mailbox: &str,
+    operation_id: [u8; 32],
+) -> Result<MailboxTotalCountSnapshot> {
+    refresh_block_timestamp(ctx);
+    let params = MailboxTotalCountParams {
+        operation_id,
+        channel_id,
+        lease_id,
+        op_seq: next_mail_op_seq_for_lease(state, channel_id, lease_id),
+        op_nonce: Some(operation_id),
+        mailbox: normalize_mailbox(mailbox),
+        requested_at_ms: ctx.block_timestamp / 1_000_000,
+    };
+    wallet_service
+        .handle_service_call(
+            state,
+            "mailbox_total_count@v1",
+            &codec::to_bytes_canonical(&params)
+                .map_err(|e| anyhow!("failed to encode MailboxTotalCountParams: {}", e))?,
+            ctx,
+        )
+        .await?;
+
+    let receipt_bytes = state
+        .get(&mail_count_receipt_storage_key(&operation_id))
+        .map_err(|e| anyhow!("failed to read mailbox_total_count receipt state: {}", e))?
+        .ok_or_else(|| anyhow!("mailbox_total_count receipt missing after invocation"))?;
+    let receipt: MailboxTotalCountReceipt = codec::from_bytes_canonical(&receipt_bytes)
+        .map_err(|e| anyhow!("failed to decode MailboxTotalCountReceipt: {}", e))?;
+    let mailbox_total_count = receipt.mailbox_total_count.max(
+        receipt
+            .provenance
+            .status_exists
+            .or(receipt.provenance.select_exists)
+            .or(receipt.provenance.uid_search_count)
+            .or(receipt.provenance.search_count)
+            .unwrap_or(0),
+    );
+    Ok(MailboxTotalCountSnapshot {
+        mailbox_total_count,
+        provenance: receipt.provenance,
+    })
+}
+
+async fn optional_mailbox_total_count_via_wallet_count(
+    wallet_service: &WalletNetworkService,
+    state: &mut IAVLTree<HashCommitmentScheme>,
+    ctx: &mut TxContext<'_>,
+    channel_id: [u8; 32],
+    lease_id: [u8; 32],
+    mailbox: &str,
+    operation_id: [u8; 32],
+) -> Result<Option<MailboxTotalCountSnapshot>> {
+    match mailbox_total_count_via_wallet_count(
+        wallet_service,
+        state,
+        ctx,
+        channel_id,
+        lease_id,
+        mailbox,
+        operation_id,
+    )
+    .await
+    {
+        Ok(snapshot) => Ok(Some(snapshot)),
         Err(error) => {
             let lower = error.to_string().to_ascii_lowercase();
             if lower.contains("imap select")
@@ -805,7 +938,20 @@ struct MailToolStructuredEvidence {
     saw_delete_high_confidence_policy: bool,
     max_deleted_count: u32,
     max_high_confidence_deleted_count: u32,
+    max_mailbox_total_count_before: u32,
+    max_mailbox_total_count_after: u32,
+    max_mailbox_total_count_delta: u32,
     saw_delete_spam_tool_output: bool,
+    saw_primary_cleanup_scope: bool,
+    saw_preservation_evidence: bool,
+    saw_kept_vs_deleted_rationale: bool,
+    saw_preservation_accounting_consistent: bool,
+    saw_explicit_preserved_reason_classes: bool,
+    max_preserved_transactional_or_personal_count: u32,
+    max_preserved_trusted_system_count: u32,
+    max_preserved_low_confidence_other_count: u32,
+    max_preserved_due_to_delete_cap_count: u32,
+    max_total_preserved_count: u32,
 }
 
 fn parse_mail_tool_output_evidence(output: &str, evidence: &mut MailToolStructuredEvidence) {
@@ -895,7 +1041,10 @@ fn parse_mail_tool_output_evidence(output: &str, evidence: &mut MailToolStructur
     }
 
     if let Some(analysis) = value.get("analysis").and_then(|v| v.as_object()) {
-        if let Some(parse_confidence_bps) = analysis.get("parse_confidence_bps").and_then(|v| v.as_u64()) {
+        if let Some(parse_confidence_bps) = analysis
+            .get("parse_confidence_bps")
+            .and_then(|v| v.as_u64())
+        {
             evidence.max_parse_confidence_bps = evidence
                 .max_parse_confidence_bps
                 .max(parse_confidence_bps.min(u16::MAX as u64) as u16);
@@ -927,11 +1076,17 @@ fn parse_mail_tool_output_evidence(output: &str, evidence: &mut MailToolStructur
         }
     }
 
-    if let Some(classification_policy) = value.get("classification_policy").and_then(|v| v.as_object()) {
+    if let Some(classification_policy) = value
+        .get("classification_policy")
+        .and_then(|v| v.as_object())
+    {
         let mode_is_high_confidence = classification_policy
             .get("mode")
             .and_then(|v| v.as_str())
-            .map(|mode| mode.eq_ignore_ascii_case("high_confidence_spam_only"))
+            .map(|mode| {
+                let normalized = mode.trim().to_ascii_lowercase();
+                normalized.starts_with("high_confidence_")
+            })
             .unwrap_or(false);
         let threshold_present = classification_policy
             .get("spam_confidence_threshold_bps")
@@ -940,6 +1095,10 @@ fn parse_mail_tool_output_evidence(output: &str, evidence: &mut MailToolStructur
             .unwrap_or(false);
         evidence.saw_delete_high_confidence_policy |= mode_is_high_confidence && threshold_present;
     };
+
+    if let Some(cleanup_scope) = value.get("cleanup_scope").and_then(|v| v.as_str()) {
+        evidence.saw_primary_cleanup_scope |= cleanup_scope.eq_ignore_ascii_case("primary_inbox");
+    }
 
     if let Some(deleted_count) = value.get("deleted_count").and_then(|v| v.as_u64()) {
         evidence.saw_delete_spam_tool_output = true;
@@ -956,6 +1115,189 @@ fn parse_mail_tool_output_evidence(output: &str, evidence: &mut MailToolStructur
             .max_high_confidence_deleted_count
             .max(high_confidence_deleted_count.min(u32::MAX as u64) as u32);
     }
+    if let Some(mailbox_total_count_before) = value
+        .get("mailbox_total_count_before")
+        .and_then(|v| v.as_u64())
+    {
+        evidence.max_mailbox_total_count_before = evidence
+            .max_mailbox_total_count_before
+            .max(mailbox_total_count_before.min(u32::MAX as u64) as u32);
+    }
+    if let Some(mailbox_total_count_after) = value
+        .get("mailbox_total_count_after")
+        .and_then(|v| v.as_u64())
+    {
+        evidence.max_mailbox_total_count_after = evidence
+            .max_mailbox_total_count_after
+            .max(mailbox_total_count_after.min(u32::MAX as u64) as u32);
+    }
+    if let Some(mailbox_total_count_delta) = value
+        .get("mailbox_total_count_delta")
+        .and_then(|v| v.as_u64())
+    {
+        evidence.max_mailbox_total_count_delta = evidence
+            .max_mailbox_total_count_delta
+            .max(mailbox_total_count_delta.min(u32::MAX as u64) as u32);
+    }
+
+    let mut preserved_transactional_or_personal_count = value
+        .get("preserved_transactional_or_personal_count")
+        .and_then(|v| v.as_u64())
+        .map(|value| value.min(u32::MAX as u64) as u32)
+        .unwrap_or(0);
+    let mut preserved_trusted_system_count = value
+        .get("preserved_trusted_system_count")
+        .and_then(|v| v.as_u64())
+        .map(|value| value.min(u32::MAX as u64) as u32)
+        .unwrap_or(0);
+    let mut preserved_low_confidence_other_count = value
+        .get("preserved_low_confidence_other_count")
+        .and_then(|v| v.as_u64())
+        .map(|value| value.min(u32::MAX as u64) as u32)
+        .unwrap_or(0);
+    let mut preserved_due_to_delete_cap_count = value
+        .get("preserved_due_to_delete_cap_count")
+        .and_then(|v| v.as_u64())
+        .map(|value| value.min(u32::MAX as u64) as u32)
+        .unwrap_or(0);
+    let mut total_preserved_count = value
+        .get("total_preserved_count")
+        .and_then(|v| v.as_u64())
+        .map(|value| value.min(u32::MAX as u64) as u32)
+        .unwrap_or(0);
+    let mut preserved_reason_has_transactional_or_personal = false;
+    let mut preserved_reason_has_trusted_system_sender = false;
+    if let Some(reason_counts) = value
+        .get("preserved_reason_counts")
+        .and_then(|v| v.as_object())
+    {
+        if reason_counts
+            .get("transactional_or_personal")
+            .and_then(|v| v.as_u64())
+            .is_some()
+        {
+            preserved_reason_has_transactional_or_personal = true;
+        }
+        if reason_counts
+            .get("trusted_system_sender")
+            .and_then(|v| v.as_u64())
+            .is_some()
+        {
+            preserved_reason_has_trusted_system_sender = true;
+        }
+    }
+    let mut preserve_modes_contains_transactional_or_personal = false;
+    if let Some(preservation_evidence) = value
+        .get("preservation_evidence")
+        .and_then(|v| v.as_object())
+    {
+        evidence.saw_preservation_evidence = true;
+        if let Some(value) = preservation_evidence
+            .get("transactional_or_personal_count")
+            .and_then(|v| v.as_u64())
+        {
+            preserved_transactional_or_personal_count = value.min(u32::MAX as u64) as u32;
+        }
+        if let Some(value) = preservation_evidence
+            .get("trusted_system_sender_count")
+            .and_then(|v| v.as_u64())
+        {
+            preserved_trusted_system_count = value.min(u32::MAX as u64) as u32;
+        }
+        if let Some(value) = preservation_evidence
+            .get("low_confidence_other_count")
+            .and_then(|v| v.as_u64())
+        {
+            preserved_low_confidence_other_count = value.min(u32::MAX as u64) as u32;
+        }
+        if let Some(value) = preservation_evidence
+            .get("due_to_delete_cap_count")
+            .and_then(|v| v.as_u64())
+        {
+            preserved_due_to_delete_cap_count = value.min(u32::MAX as u64) as u32;
+        }
+        if let Some(value) = preservation_evidence
+            .get("total_preserved_count")
+            .and_then(|v| v.as_u64())
+        {
+            total_preserved_count = value.min(u32::MAX as u64) as u32;
+        }
+        if let Some(reason_counts) = preservation_evidence
+            .get("reason_counts")
+            .and_then(|v| v.as_object())
+        {
+            if reason_counts
+                .get("transactional_or_personal")
+                .and_then(|v| v.as_u64())
+                .is_some()
+            {
+                preserved_reason_has_transactional_or_personal = true;
+            }
+            if reason_counts
+                .get("trusted_system_sender")
+                .and_then(|v| v.as_u64())
+                .is_some()
+            {
+                preserved_reason_has_trusted_system_sender = true;
+            }
+        }
+        preserve_modes_contains_transactional_or_personal = preservation_evidence
+            .get("preserve_modes")
+            .and_then(|v| v.as_array())
+            .map(|modes| {
+                modes.iter().any(|mode| {
+                    mode.as_str()
+                        .map(|text| text.eq_ignore_ascii_case("transactional_or_personal"))
+                        .unwrap_or(false)
+                })
+            })
+            .unwrap_or(false);
+    }
+
+    let saw_any_preserved_field = value
+        .get("preserved_transactional_or_personal_count")
+        .is_some()
+        || value.get("preserved_trusted_system_count").is_some()
+        || value.get("preserved_low_confidence_other_count").is_some()
+        || value.get("preserved_due_to_delete_cap_count").is_some()
+        || value.get("total_preserved_count").is_some();
+    evidence.saw_preservation_evidence |= saw_any_preserved_field;
+    evidence.max_preserved_transactional_or_personal_count = evidence
+        .max_preserved_transactional_or_personal_count
+        .max(preserved_transactional_or_personal_count);
+    evidence.max_preserved_trusted_system_count = evidence
+        .max_preserved_trusted_system_count
+        .max(preserved_trusted_system_count);
+    evidence.max_preserved_low_confidence_other_count = evidence
+        .max_preserved_low_confidence_other_count
+        .max(preserved_low_confidence_other_count);
+    evidence.max_preserved_due_to_delete_cap_count = evidence
+        .max_preserved_due_to_delete_cap_count
+        .max(preserved_due_to_delete_cap_count);
+    evidence.max_total_preserved_count = evidence
+        .max_total_preserved_count
+        .max(total_preserved_count);
+
+    let preserved_sum = preserved_transactional_or_personal_count
+        .saturating_add(preserved_trusted_system_count)
+        .saturating_add(preserved_low_confidence_other_count)
+        .saturating_add(preserved_due_to_delete_cap_count);
+    if saw_any_preserved_field && total_preserved_count >= preserved_sum {
+        evidence.saw_preservation_accounting_consistent = true;
+    }
+    evidence.saw_explicit_preserved_reason_classes |= preserved_reason_has_transactional_or_personal
+        && preserved_reason_has_trusted_system_sender;
+    evidence.saw_kept_vs_deleted_rationale |= preserve_modes_contains_transactional_or_personal
+        || value
+            .get("classification_policy")
+            .and_then(|v| v.get("mode"))
+            .and_then(|v| v.as_str())
+            .map(|mode| {
+                mode.eq_ignore_ascii_case(
+                    "high_confidence_unwanted_preserve_transactional_personal",
+                )
+            })
+            .unwrap_or(false);
 }
 
 fn parse_story_sections(reply: &str) -> Vec<StorySection> {
@@ -1424,13 +1766,22 @@ Return JSON only with exact schema: \
 {{\"pass\":bool,\"confidence\":\"high|medium|low\",\"rationale\":string,\"failures\":[string]}}.\n\
 Decision policy (fail-closed):\n\
 1) If any value in `deterministic.checks` is false, set pass=false.\n\
-2) Evaluate cleanup efficacy using `cleanup_metrics` and `mail_tool_structured_evidence`.\n\
-3) Pass requires all of:\n\
-   - `max_deleted_count` > 0 OR `max_high_confidence_deleted_count` > 0\n\
-   - no evidence that mailbox got worse: `post_primary_inbox_count` <= `pre_primary_inbox_count`\n\
-   - terminal reply explains cleanup outcome and caveat semantics.\n\
-4) If uncertain, set pass=false and include failure `arbiter_uncertain`.\n\
-5) If pass=true, failures must be [].\n\
+2) Treat `deterministic.checks` as authoritative for objective pass criteria.\n\
+3) If all deterministic checks are true, default to pass=true.\n\
+4) Evaluate cleanup efficacy using `cleanup_metrics` and `mail_tool_structured_evidence`.\n\
+   - required evidence: `max_deleted_count` > 0 OR `max_high_confidence_deleted_count` > 0.\n\
+   - required evidence: absolute delta path present (`absolute_count_delta_path_observed=true`).\n\
+   - required evidence: preserve evidence exists for unwanted-in-primary cleanup (transactional/personal keep rationale).\n\
+   - no-worse rule: `post_primary_inbox_count_total` <= `pre_primary_inbox_count_total`.\n\
+5) Provenance-aware count policy (mandatory): require provenance fields and marker to be present (`count_provenance_raw_observed=true`, `count_provenance_marker_observed=true`, `count_provenance_staleness_diagnosable=true`).\n\
+   - if provenance is fresh, use pre/post total no-worse rule.\n\
+   - if provenance is stale/reconciled, treat delete-receipt absolute delta as authoritative (`primary_count_delta_policy_pass=true`).\n\
+6) Coarse provider rule (mandatory): if `max_mailbox_total_count_delta` > 0, cleanup is effective even when pre/post totals are equal.\n\
+   - In that case, NEVER fail for `post_primary_inbox_count_total_not_reduced`.\n\
+7) Terminal reply quality: pass when reply is non-empty, aligned with evidence, and states cleanup outcome + preservation intent.\n\
+8) Set pass=false only for clear contradictions (empty/unrelated reply, claims conflicting with deterministic evidence, or missing preserve semantics).\n\
+9) If uncertain, set pass=false and include failure `arbiter_uncertain`.\n\
+10) If pass=true, failures must be [].\n\
 Treat `run_timestamp_ms` and `run_timestamp_iso_utc` as authoritative for recency checks.\n\
 Payload:\n{}",
         serde_json::to_string_pretty(payload)?
@@ -1446,11 +1797,17 @@ Payload:\n{}",
         .execute_inference([0u8; 32], prompt.as_bytes(), options)
         .await
         .map_err(|e| anyhow!("cleanup arbiter inference failed: {}", e))?;
-    let text = String::from_utf8(raw).map_err(|_| anyhow!("cleanup arbiter response was not UTF-8"))?;
+    let text =
+        String::from_utf8(raw).map_err(|_| anyhow!("cleanup arbiter response was not UTF-8"))?;
     let json_text = extract_json_object(&text)
         .ok_or_else(|| anyhow!("cleanup arbiter did not return JSON object: {}", text))?;
-    let verdict: ArbiterVerdict = serde_json::from_str(json_text)
-        .map_err(|e| anyhow!("failed to parse cleanup arbiter verdict: {} raw={}", e, text))?;
+    let verdict: ArbiterVerdict = serde_json::from_str(json_text).map_err(|e| {
+        anyhow!(
+            "failed to parse cleanup arbiter verdict: {} raw={}",
+            e,
+            text
+        )
+    })?;
 
     if !matches!(verdict.confidence.as_str(), "high" | "medium" | "low") {
         return Err(anyhow!(
@@ -2404,8 +2761,10 @@ async fn run_live_large_volume_case(
     enable_intent_shadow_mode(&mut state, session_id);
     seed_resolved_intent(&mut state, session_id, IntentScopeProfile::Conversation);
 
-    let min_evaluated =
-        read_optional_u32_env("LIVE_MAIL_VOLUME_E2E_MIN_EVALUATED", LARGE_VOLUME_MIN_EVALUATED_DEFAULT);
+    let min_evaluated = read_optional_u32_env(
+        "LIVE_MAIL_VOLUME_E2E_MIN_EVALUATED",
+        LARGE_VOLUME_MIN_EVALUATED_DEFAULT,
+    );
     let parse_confidence_floor = read_optional_u32_env(
         "LIVE_MAIL_VOLUME_E2E_PARSE_CONFIDENCE_FLOOR_BPS",
         LARGE_VOLUME_PARSE_CONFIDENCE_FLOOR_BPS as u32,
@@ -2557,10 +2916,7 @@ async fn run_live_large_volume_case(
             } => {
                 if is_mail_connector_tool_name(tool_name) {
                     saw_mail_connector_action = true;
-                    if tool_name
-                        .to_ascii_lowercase()
-                        .contains("mail_list_recent")
-                    {
+                    if tool_name.to_ascii_lowercase().contains("mail_list_recent") {
                         saw_mail_list_recent_action = true;
                     }
                     parse_mail_tool_output_evidence(output, &mut mail_tool_structured_evidence);
@@ -2628,7 +2984,10 @@ async fn run_live_large_volume_case(
     let no_churn_signatures = churn_signatures(&captured_events).is_empty();
 
     let mut deterministic_checks = BTreeMap::new();
-    deterministic_checks.insert("terminal_chat_reply_observed".to_string(), saw_terminal_chat_reply);
+    deterministic_checks.insert(
+        "terminal_chat_reply_observed".to_string(),
+        saw_terminal_chat_reply,
+    );
     deterministic_checks.insert(
         "terminal_chat_reply_non_empty".to_string(),
         terminal_chat_reply_non_empty,
@@ -2813,14 +3172,15 @@ async fn run_live_delete_spam_case(
                             summarize_recent_events(&captured_events, 24)
                         ));
                     }
-                    let request_hash = latest_require_approval_request_hash(&captured_events, session_id)
-                        .or(current.pending_tool_hash)
-                        .ok_or_else(|| {
-                            anyhow!(
-                                "missing approval request hash in delete-spam e2e\nrecent_events:\n{}",
-                                summarize_recent_events(&captured_events, 24)
-                            )
-                        })?;
+                    let request_hash =
+                        latest_require_approval_request_hash(&captured_events, session_id)
+                            .or(current.pending_tool_hash)
+                            .ok_or_else(|| {
+                                anyhow!(
+                            "missing approval request hash in delete-spam e2e\nrecent_events:\n{}",
+                            summarize_recent_events(&captured_events, 24)
+                        )
+                            })?;
                     let requires_pii_action = state
                         .get(&pii::review::request(&request_hash))
                         .map_err(|e| anyhow!("failed to read review request state: {}", e))?
@@ -2918,7 +3278,9 @@ async fn run_live_delete_spam_case(
 
     for event in &captured_events {
         match event {
-            KernelEvent::FirewallInterception { verdict, target, .. } => {
+            KernelEvent::FirewallInterception {
+                verdict, target, ..
+            } => {
                 if verdict.eq_ignore_ascii_case("require_approval") {
                     saw_firewall_require_approval = true;
                     evidence.push(format!("firewall verdict={} target={}", verdict, target));
@@ -2932,10 +3294,7 @@ async fn run_live_delete_spam_case(
             } => {
                 if is_mail_connector_tool_name(tool_name) {
                     saw_mail_connector_action = true;
-                    if tool_name
-                        .to_ascii_lowercase()
-                        .contains("mail_delete_spam")
-                    {
+                    if tool_name.to_ascii_lowercase().contains("mail_delete_spam") {
                         saw_mail_delete_action = true;
                     }
                     parse_mail_tool_output_evidence(output, &mut mail_tool_structured_evidence);
@@ -2996,14 +3355,18 @@ async fn run_live_delete_spam_case(
     let mailbox_query_avoids_web_fallback = !saw_web_routing && !saw_web_retrieve_receipt;
     let delete_high_confidence_policy_present =
         mail_tool_structured_evidence.saw_delete_high_confidence_policy;
-    let approval_gate_evidence_present = saw_firewall_require_approval && saw_policy_require_approval;
+    let approval_gate_evidence_present =
+        saw_firewall_require_approval && saw_policy_require_approval;
     let terminal_chat_reply_non_empty = !final_reply.trim().is_empty();
     let terminal_lifecycle_single_chat_reply =
         terminal_chat_reply_events <= MAX_TERMINAL_CHAT_REPLY_EVENTS;
     let no_churn_signatures = churn_signatures(&captured_events).is_empty();
 
     let mut deterministic_checks = BTreeMap::new();
-    deterministic_checks.insert("terminal_chat_reply_observed".to_string(), saw_terminal_chat_reply);
+    deterministic_checks.insert(
+        "terminal_chat_reply_observed".to_string(),
+        saw_terminal_chat_reply,
+    );
     deterministic_checks.insert(
         "terminal_chat_reply_non_empty".to_string(),
         terminal_chat_reply_non_empty,
@@ -3122,7 +3485,7 @@ async fn run_live_cleanup_inbox_case(
     )
     .clamp(25, 500);
 
-    let pre_primary_count = mailbox_message_count_via_wallet_list(
+    let pre_primary_counts = mailbox_message_count_via_wallet_list(
         wallet_service.as_ref(),
         &mut state,
         &mut ctx,
@@ -3133,7 +3496,7 @@ async fn run_live_cleanup_inbox_case(
         deterministic_id(run_index, 0xD1),
     )
     .await?;
-    let pre_spam_count = optional_mailbox_message_count_via_wallet_list(
+    let pre_spam_counts = optional_mailbox_message_count_via_wallet_list(
         wallet_service.as_ref(),
         &mut state,
         &mut ctx,
@@ -3142,6 +3505,26 @@ async fn run_live_cleanup_inbox_case(
         "spam",
         sample_limit,
         deterministic_id(run_index, 0xD2),
+    )
+    .await?;
+    let pre_primary_total_snapshot = mailbox_total_count_via_wallet_count(
+        wallet_service.as_ref(),
+        &mut state,
+        &mut ctx,
+        channel_id,
+        lease_id,
+        "primary",
+        deterministic_id(run_index, 0xE1),
+    )
+    .await?;
+    let pre_spam_total_snapshot = optional_mailbox_total_count_via_wallet_count(
+        wallet_service.as_ref(),
+        &mut state,
+        &mut ctx,
+        channel_id,
+        lease_id,
+        "spam",
+        deterministic_id(run_index, 0xE2),
     )
     .await?;
 
@@ -3172,7 +3555,7 @@ async fn run_live_cleanup_inbox_case(
         .as_millis() as u64;
     let run_timestamp_iso_utc = iso_datetime_from_unix_ms(run_timestamp_ms);
     let started = Instant::now();
-    let deadline = Duration::from_secs(SLA_SECONDS);
+    let deadline = Duration::from_secs(CLEANUP_SLA_SECONDS);
     let mut captured_events: Vec<KernelEvent> = Vec::new();
     let mut approval_resume_attempts = 0usize;
 
@@ -3210,9 +3593,9 @@ async fn run_live_cleanup_inbox_case(
                             .or(current.pending_tool_hash)
                             .ok_or_else(|| {
                                 anyhow!(
-                                    "missing approval request hash in cleanup e2e\nrecent_events:\n{}",
-                                    summarize_recent_events(&captured_events, 24)
-                                )
+                            "missing approval request hash in cleanup e2e\nrecent_events:\n{}",
+                            summarize_recent_events(&captured_events, 24)
+                        )
                             })?;
                     let requires_pii_action = state
                         .get(&pii::review::request(&request_hash))
@@ -3296,7 +3679,7 @@ async fn run_live_cleanup_inbox_case(
         ));
     }
 
-    let post_primary_count = mailbox_message_count_via_wallet_list(
+    let post_primary_counts = mailbox_message_count_via_wallet_list(
         wallet_service.as_ref(),
         &mut state,
         &mut ctx,
@@ -3307,7 +3690,7 @@ async fn run_live_cleanup_inbox_case(
         deterministic_id(run_index, 0xD3),
     )
     .await?;
-    let post_spam_count = optional_mailbox_message_count_via_wallet_list(
+    let post_spam_counts = optional_mailbox_message_count_via_wallet_list(
         wallet_service.as_ref(),
         &mut state,
         &mut ctx,
@@ -3316,6 +3699,26 @@ async fn run_live_cleanup_inbox_case(
         "spam",
         sample_limit,
         deterministic_id(run_index, 0xD4),
+    )
+    .await?;
+    let post_primary_total_snapshot = mailbox_total_count_via_wallet_count(
+        wallet_service.as_ref(),
+        &mut state,
+        &mut ctx,
+        channel_id,
+        lease_id,
+        "primary",
+        deterministic_id(run_index, 0xE3),
+    )
+    .await?;
+    let post_spam_total_snapshot = optional_mailbox_total_count_via_wallet_count(
+        wallet_service.as_ref(),
+        &mut state,
+        &mut ctx,
+        channel_id,
+        lease_id,
+        "spam",
+        deterministic_id(run_index, 0xE4),
     )
     .await?;
 
@@ -3335,18 +3738,36 @@ async fn run_live_cleanup_inbox_case(
     let mut mail_tool_structured_evidence = MailToolStructuredEvidence::default();
     let mut evidence = vec![
         format!(
-            "mailbox_count pre primary={} spam={} sample_limit={}",
-            pre_primary_count,
-            pre_spam_count
-                .map(|value| value.to_string())
+            "mailbox_count pre primary_sample={} primary_list_total={} primary_absolute_total={} spam_sample={} spam_list_total={} spam_absolute_total={} sample_limit={}",
+            pre_primary_counts.sampled_count,
+            pre_primary_counts.list_reported_total_count,
+            pre_primary_total_snapshot.mailbox_total_count,
+            pre_spam_counts
+                .map(|value| value.sampled_count.to_string())
+                .unwrap_or_else(|| "unavailable".to_string()),
+            pre_spam_counts
+                .map(|value| value.list_reported_total_count.to_string())
+                .unwrap_or_else(|| "unavailable".to_string()),
+            pre_spam_total_snapshot
+                .as_ref()
+                .map(|value| value.mailbox_total_count.to_string())
                 .unwrap_or_else(|| "unavailable".to_string()),
             sample_limit
         ),
         format!(
-            "mailbox_count post primary={} spam={} sample_limit={}",
-            post_primary_count,
-            post_spam_count
-                .map(|value| value.to_string())
+            "mailbox_count post primary_sample={} primary_list_total={} primary_absolute_total={} spam_sample={} spam_list_total={} spam_absolute_total={} sample_limit={}",
+            post_primary_counts.sampled_count,
+            post_primary_counts.list_reported_total_count,
+            post_primary_total_snapshot.mailbox_total_count,
+            post_spam_counts
+                .map(|value| value.sampled_count.to_string())
+                .unwrap_or_else(|| "unavailable".to_string()),
+            post_spam_counts
+                .map(|value| value.list_reported_total_count.to_string())
+                .unwrap_or_else(|| "unavailable".to_string()),
+            post_spam_total_snapshot
+                .as_ref()
+                .map(|value| value.mailbox_total_count.to_string())
                 .unwrap_or_else(|| "unavailable".to_string()),
             sample_limit
         ),
@@ -3354,7 +3775,9 @@ async fn run_live_cleanup_inbox_case(
 
     for event in &captured_events {
         match event {
-            KernelEvent::FirewallInterception { verdict, target, .. } => {
+            KernelEvent::FirewallInterception {
+                verdict, target, ..
+            } => {
                 if verdict.eq_ignore_ascii_case("require_approval") {
                     saw_firewall_require_approval = true;
                     evidence.push(format!("firewall verdict={} target={}", verdict, target));
@@ -3432,31 +3855,125 @@ async fn run_live_cleanup_inbox_case(
     let delete_tool_observed = saw_mail_delete_routing || saw_mail_delete_action;
     let list_tool_observed = saw_mail_list_routing || saw_mail_list_action;
     let mailbox_query_avoids_web_fallback = !saw_web_routing && !saw_web_retrieve_receipt;
-    let approval_gate_evidence_present = saw_firewall_require_approval && saw_policy_require_approval;
+    let approval_gate_evidence_present =
+        saw_firewall_require_approval && saw_policy_require_approval;
     let delete_high_confidence_policy_present =
         mail_tool_structured_evidence.saw_delete_high_confidence_policy;
     let deleted_count_metric_observed = mail_tool_structured_evidence.saw_delete_spam_tool_output;
+    let cleanup_scope_primary_observed = mail_tool_structured_evidence.saw_primary_cleanup_scope;
+    let preservation_evidence_observed = mail_tool_structured_evidence.saw_preservation_evidence;
+    let kept_vs_deleted_rationale_observed =
+        mail_tool_structured_evidence.saw_kept_vs_deleted_rationale;
+    let preservation_accounting_consistent =
+        mail_tool_structured_evidence.saw_preservation_accounting_consistent;
+    let explicit_preserved_reason_classes_observed =
+        mail_tool_structured_evidence.saw_explicit_preserved_reason_classes;
     let terminal_chat_reply_non_empty = !final_reply.trim().is_empty();
     let terminal_lifecycle_single_chat_reply =
         terminal_chat_reply_events <= MAX_TERMINAL_CHAT_REPLY_EVENTS;
     let no_churn_signatures = churn_signatures(&captured_events).is_empty();
 
-    let primary_delta = pre_primary_count as i64 - post_primary_count as i64;
-    let spam_delta = match (pre_spam_count, post_spam_count) {
+    let primary_sample_delta =
+        pre_primary_counts.sampled_count as i64 - post_primary_counts.sampled_count as i64;
+    let primary_list_reported_total_delta = pre_primary_counts.list_reported_total_count as i64
+        - post_primary_counts.list_reported_total_count as i64;
+    let pre_primary_total_count = pre_primary_total_snapshot.mailbox_total_count;
+    let post_primary_total_count = post_primary_total_snapshot.mailbox_total_count;
+    let pre_spam_total_count = pre_spam_total_snapshot
+        .as_ref()
+        .map(|snapshot| snapshot.mailbox_total_count);
+    let post_spam_total_count = post_spam_total_snapshot
+        .as_ref()
+        .map(|snapshot| snapshot.mailbox_total_count);
+    let primary_total_delta = pre_primary_total_count as i64 - post_primary_total_count as i64;
+    let spam_sample_delta = match (pre_spam_counts, post_spam_counts) {
+        (Some(pre), Some(post)) => Some(pre.sampled_count as i64 - post.sampled_count as i64),
+        _ => None,
+    };
+    let spam_list_reported_total_delta = match (pre_spam_counts, post_spam_counts) {
+        (Some(pre), Some(post)) => {
+            Some(pre.list_reported_total_count as i64 - post.list_reported_total_count as i64)
+        }
+        _ => None,
+    };
+    let spam_total_delta = match (pre_spam_total_count, post_spam_total_count) {
         (Some(pre), Some(post)) => Some(pre as i64 - post as i64),
         _ => None,
     };
-    let combined_delta = match (pre_spam_count, post_spam_count) {
-        (Some(pre), Some(post)) => Some(
-            (pre_primary_count + pre) as i64 - (post_primary_count + post) as i64,
-        ),
+    let combined_total_delta = match (pre_spam_total_count, post_spam_total_count) {
+        (Some(pre), Some(post)) => {
+            Some((pre_primary_total_count + pre) as i64 - (post_primary_total_count + post) as i64)
+        }
         _ => None,
     };
-    let primary_not_worse = post_primary_count <= pre_primary_count;
-    let combined_not_worse = combined_delta.map(|delta| delta >= 0);
+    let primary_total_not_worse = post_primary_total_count <= pre_primary_total_count;
+    let combined_total_not_worse = combined_total_delta.map(|delta| delta >= 0);
+    let primary_count_provenance_raw_observed =
+        count_provenance_raw_observation_present(&pre_primary_total_snapshot.provenance)
+            && count_provenance_raw_observation_present(&post_primary_total_snapshot.provenance);
+    let primary_count_provenance_marker_observed = !pre_primary_total_snapshot
+        .provenance
+        .freshness_marker
+        .trim()
+        .is_empty()
+        && !post_primary_total_snapshot
+            .provenance
+            .freshness_marker
+            .trim()
+            .is_empty();
+    let primary_count_provenance_fresh =
+        is_count_provenance_fresh(&pre_primary_total_snapshot.provenance.freshness_marker)
+            && is_count_provenance_fresh(&post_primary_total_snapshot.provenance.freshness_marker);
+    let primary_count_provenance_stale =
+        is_count_provenance_stale(&pre_primary_total_snapshot.provenance.freshness_marker)
+            || is_count_provenance_stale(&post_primary_total_snapshot.provenance.freshness_marker);
+    let delete_receipt_absolute_delta_observed =
+        mail_tool_structured_evidence.max_mailbox_total_count_delta > 0;
+    let primary_count_delta_policy_pass = if primary_count_provenance_fresh {
+        primary_total_not_worse
+    } else if primary_count_provenance_stale {
+        primary_total_not_worse || delete_receipt_absolute_delta_observed
+    } else {
+        // Unknown freshness markers must still be diagnosable via non-empty marker
+        // and corroborated by delete-receipt absolute delta or non-worse totals.
+        primary_count_provenance_marker_observed
+            && (primary_total_not_worse || delete_receipt_absolute_delta_observed)
+    };
+    let count_provenance_staleness_diagnosable =
+        primary_count_provenance_fresh || primary_count_provenance_stale;
+    evidence.push(format!(
+        "count_provenance pre(status_exists={:?},select_exists={:?},uid_search_count={:?},search_count={:?},freshness_marker={}) post(status_exists={:?},select_exists={:?},uid_search_count={:?},search_count={:?},freshness_marker={})",
+        pre_primary_total_snapshot.provenance.status_exists,
+        pre_primary_total_snapshot.provenance.select_exists,
+        pre_primary_total_snapshot.provenance.uid_search_count,
+        pre_primary_total_snapshot.provenance.search_count,
+        pre_primary_total_snapshot.provenance.freshness_marker,
+        post_primary_total_snapshot.provenance.status_exists,
+        post_primary_total_snapshot.provenance.select_exists,
+        post_primary_total_snapshot.provenance.uid_search_count,
+        post_primary_total_snapshot.provenance.search_count,
+        post_primary_total_snapshot.provenance.freshness_marker
+    ));
+    evidence.push(format!(
+        "count_delta_policy fresh={} stale={} delete_receipt_delta={} pass={}",
+        primary_count_provenance_fresh,
+        primary_count_provenance_stale,
+        delete_receipt_absolute_delta_observed,
+        primary_count_delta_policy_pass
+    ));
+    let absolute_count_delta_path_observed = pre_primary_total_count > 0
+        && post_primary_total_count > 0
+        && primary_count_provenance_raw_observed
+        && primary_count_provenance_marker_observed
+        && (pre_spam_total_count.is_none() || post_spam_total_count.is_some());
+    let absolute_delete_delta_observed = mail_tool_structured_evidence.max_deleted_count == 0
+        || mail_tool_structured_evidence.max_mailbox_total_count_delta > 0;
 
     let mut deterministic_checks = BTreeMap::new();
-    deterministic_checks.insert("terminal_chat_reply_observed".to_string(), saw_terminal_chat_reply);
+    deterministic_checks.insert(
+        "terminal_chat_reply_observed".to_string(),
+        saw_terminal_chat_reply,
+    );
     deterministic_checks.insert(
         "terminal_chat_reply_non_empty".to_string(),
         terminal_chat_reply_non_empty,
@@ -3484,6 +4001,58 @@ async fn run_live_cleanup_inbox_case(
         deleted_count_metric_observed,
     );
     deterministic_checks.insert(
+        "cleanup_scope_primary_observed".to_string(),
+        cleanup_scope_primary_observed,
+    );
+    deterministic_checks.insert(
+        "preservation_evidence_observed".to_string(),
+        preservation_evidence_observed,
+    );
+    deterministic_checks.insert(
+        "kept_vs_deleted_rationale_observed".to_string(),
+        kept_vs_deleted_rationale_observed,
+    );
+    deterministic_checks.insert(
+        "preservation_accounting_consistent".to_string(),
+        preservation_accounting_consistent,
+    );
+    deterministic_checks.insert(
+        "explicit_preserved_reason_classes_observed".to_string(),
+        explicit_preserved_reason_classes_observed,
+    );
+    deterministic_checks.insert(
+        "absolute_count_delta_path_observed".to_string(),
+        absolute_count_delta_path_observed,
+    );
+    deterministic_checks.insert(
+        "count_provenance_raw_observed".to_string(),
+        primary_count_provenance_raw_observed,
+    );
+    deterministic_checks.insert(
+        "count_provenance_marker_observed".to_string(),
+        primary_count_provenance_marker_observed,
+    );
+    deterministic_checks.insert(
+        "count_provenance_staleness_diagnosable".to_string(),
+        count_provenance_staleness_diagnosable,
+    );
+    deterministic_checks.insert(
+        "primary_count_delta_policy_pass".to_string(),
+        primary_count_delta_policy_pass,
+    );
+    deterministic_checks.insert(
+        "absolute_delete_delta_observed".to_string(),
+        absolute_delete_delta_observed,
+    );
+    deterministic_checks.insert(
+        "absolute_primary_not_worse".to_string(),
+        primary_total_not_worse,
+    );
+    deterministic_checks.insert(
+        "absolute_combined_not_worse".to_string(),
+        combined_total_not_worse.unwrap_or(primary_total_not_worse),
+    );
+    deterministic_checks.insert(
         "terminal_lifecycle_single_chat_reply".to_string(),
         terminal_lifecycle_single_chat_reply,
     );
@@ -3497,20 +4066,46 @@ async fn run_live_cleanup_inbox_case(
     let deterministic_payload = json!({
         "checks": deterministic_checks,
         "elapsed_ms": elapsed.as_millis(),
-        "sla_seconds": SLA_SECONDS,
+        "sla_seconds": CLEANUP_SLA_SECONDS,
         "terminal_chat_reply_events": terminal_chat_reply_events,
         "list_tool_observed": list_tool_observed,
         "cleanup_metrics": {
             "sample_limit": sample_limit,
-            "pre_primary_inbox_count": pre_primary_count,
-            "post_primary_inbox_count": post_primary_count,
-            "primary_inbox_delta": primary_delta,
-            "pre_spam_count": pre_spam_count,
-            "post_spam_count": post_spam_count,
-            "spam_delta": spam_delta,
-            "combined_delta": combined_delta,
-            "primary_not_worse": primary_not_worse,
-            "combined_not_worse": combined_not_worse,
+            "pre_primary_inbox_count_sampled": pre_primary_counts.sampled_count,
+            "post_primary_inbox_count_sampled": post_primary_counts.sampled_count,
+            "primary_inbox_delta_sampled": primary_sample_delta,
+            "pre_primary_inbox_count_total_from_list": pre_primary_counts.list_reported_total_count,
+            "post_primary_inbox_count_total_from_list": post_primary_counts.list_reported_total_count,
+            "primary_inbox_delta_total_from_list": primary_list_reported_total_delta,
+            "pre_primary_inbox_count_total": pre_primary_total_count,
+            "post_primary_inbox_count_total": post_primary_total_count,
+            "primary_inbox_delta_total": primary_total_delta,
+            "pre_primary_count_provenance": pre_primary_total_snapshot.provenance.clone(),
+            "post_primary_count_provenance": post_primary_total_snapshot.provenance.clone(),
+            "pre_spam_count_sampled": pre_spam_counts.map(|value| value.sampled_count),
+            "post_spam_count_sampled": post_spam_counts.map(|value| value.sampled_count),
+            "spam_delta_sampled": spam_sample_delta,
+            "pre_spam_count_total_from_list": pre_spam_counts.map(|value| value.list_reported_total_count),
+            "post_spam_count_total_from_list": post_spam_counts.map(|value| value.list_reported_total_count),
+            "spam_delta_total_from_list": spam_list_reported_total_delta,
+            "pre_spam_count_total": pre_spam_total_count,
+            "post_spam_count_total": post_spam_total_count,
+            "spam_delta_total": spam_total_delta,
+            "pre_spam_count_provenance": pre_spam_total_snapshot
+                .as_ref()
+                .map(|snapshot| snapshot.provenance.clone()),
+            "post_spam_count_provenance": post_spam_total_snapshot
+                .as_ref()
+                .map(|snapshot| snapshot.provenance.clone()),
+            "combined_delta_total": combined_total_delta,
+            "primary_total_not_worse": primary_total_not_worse,
+            "combined_total_not_worse": combined_total_not_worse,
+            "count_provenance_raw_observed": primary_count_provenance_raw_observed,
+            "count_provenance_marker_observed": primary_count_provenance_marker_observed,
+            "count_provenance_staleness_diagnosable": count_provenance_staleness_diagnosable,
+            "primary_count_provenance_fresh": primary_count_provenance_fresh,
+            "primary_count_provenance_stale": primary_count_provenance_stale,
+            "primary_count_delta_policy_pass": primary_count_delta_policy_pass,
         },
         "mail_tool_structured_evidence": {
             "saw_delete_high_confidence_policy": mail_tool_structured_evidence.saw_delete_high_confidence_policy,
@@ -3518,6 +4113,19 @@ async fn run_live_cleanup_inbox_case(
             "max_deleted_count": mail_tool_structured_evidence.max_deleted_count,
             "max_high_confidence_deleted_count": mail_tool_structured_evidence.max_high_confidence_deleted_count,
             "saw_delete_spam_tool_output": mail_tool_structured_evidence.saw_delete_spam_tool_output,
+            "saw_primary_cleanup_scope": mail_tool_structured_evidence.saw_primary_cleanup_scope,
+            "saw_preservation_evidence": mail_tool_structured_evidence.saw_preservation_evidence,
+            "saw_kept_vs_deleted_rationale": mail_tool_structured_evidence.saw_kept_vs_deleted_rationale,
+            "saw_preservation_accounting_consistent": mail_tool_structured_evidence.saw_preservation_accounting_consistent,
+            "max_preserved_transactional_or_personal_count": mail_tool_structured_evidence.max_preserved_transactional_or_personal_count,
+            "max_preserved_trusted_system_count": mail_tool_structured_evidence.max_preserved_trusted_system_count,
+            "max_preserved_low_confidence_other_count": mail_tool_structured_evidence.max_preserved_low_confidence_other_count,
+            "max_preserved_due_to_delete_cap_count": mail_tool_structured_evidence.max_preserved_due_to_delete_cap_count,
+            "max_total_preserved_count": mail_tool_structured_evidence.max_total_preserved_count,
+            "max_mailbox_total_count_before": mail_tool_structured_evidence.max_mailbox_total_count_before,
+            "max_mailbox_total_count_after": mail_tool_structured_evidence.max_mailbox_total_count_after,
+            "max_mailbox_total_count_delta": mail_tool_structured_evidence.max_mailbox_total_count_delta,
+            "saw_explicit_preserved_reason_classes": mail_tool_structured_evidence.saw_explicit_preserved_reason_classes,
         },
         "routing_markers": {
             "saw_mail_connector_routing": saw_mail_connector_routing,
@@ -3551,26 +4159,62 @@ async fn run_live_cleanup_inbox_case(
 
     let final_reply_excerpt = final_reply.chars().take(2_000).collect::<String>();
     let final_reply_excerpt = redact_iso_utc_timestamps(&final_reply_excerpt);
+    let arbiter_cleanup_metrics_payload = json!({
+        "sample_limit": sample_limit,
+        "pre_primary_inbox_count_sampled": pre_primary_counts.sampled_count,
+        "post_primary_inbox_count_sampled": post_primary_counts.sampled_count,
+        "primary_inbox_delta_sampled": primary_sample_delta,
+        "pre_primary_inbox_count_total_from_list": pre_primary_counts.list_reported_total_count,
+        "post_primary_inbox_count_total_from_list": post_primary_counts.list_reported_total_count,
+        "primary_inbox_delta_total_from_list": primary_list_reported_total_delta,
+        "pre_primary_inbox_count_total": pre_primary_total_count,
+        "post_primary_inbox_count_total": post_primary_total_count,
+        "primary_inbox_delta_total": primary_total_delta,
+        "pre_primary_count_provenance": pre_primary_total_snapshot.provenance.clone(),
+        "post_primary_count_provenance": post_primary_total_snapshot.provenance.clone(),
+        "pre_spam_count_sampled": pre_spam_counts.map(|value| value.sampled_count),
+        "post_spam_count_sampled": post_spam_counts.map(|value| value.sampled_count),
+        "spam_delta_sampled": spam_sample_delta,
+        "pre_spam_count_total_from_list": pre_spam_counts.map(|value| value.list_reported_total_count),
+        "post_spam_count_total_from_list": post_spam_counts.map(|value| value.list_reported_total_count),
+        "spam_delta_total_from_list": spam_list_reported_total_delta,
+        "pre_spam_count_total": pre_spam_total_count,
+        "post_spam_count_total": post_spam_total_count,
+        "spam_delta_total": spam_total_delta,
+        "pre_spam_count_provenance": pre_spam_total_snapshot
+            .as_ref()
+            .map(|snapshot| snapshot.provenance.clone()),
+        "post_spam_count_provenance": post_spam_total_snapshot
+            .as_ref()
+            .map(|snapshot| snapshot.provenance.clone()),
+        "combined_delta_total": combined_total_delta,
+        "primary_total_not_worse": primary_total_not_worse,
+        "combined_total_not_worse": combined_total_not_worse,
+        "count_provenance_raw_observed": primary_count_provenance_raw_observed,
+        "count_provenance_marker_observed": primary_count_provenance_marker_observed,
+        "count_provenance_staleness_diagnosable": count_provenance_staleness_diagnosable,
+        "primary_count_provenance_fresh": primary_count_provenance_fresh,
+        "primary_count_provenance_stale": primary_count_provenance_stale,
+        "primary_count_delta_policy_pass": primary_count_delta_policy_pass,
+        "max_deleted_count": mail_tool_structured_evidence.max_deleted_count,
+        "max_high_confidence_deleted_count": mail_tool_structured_evidence.max_high_confidence_deleted_count,
+        "max_mailbox_total_count_before": mail_tool_structured_evidence.max_mailbox_total_count_before,
+        "max_mailbox_total_count_after": mail_tool_structured_evidence.max_mailbox_total_count_after,
+        "max_mailbox_total_count_delta": mail_tool_structured_evidence.max_mailbox_total_count_delta,
+        "explicit_preserved_reason_classes_observed": explicit_preserved_reason_classes_observed,
+        "max_preserved_transactional_or_personal_count": mail_tool_structured_evidence.max_preserved_transactional_or_personal_count,
+        "max_preserved_trusted_system_count": mail_tool_structured_evidence.max_preserved_trusted_system_count,
+        "max_preserved_low_confidence_other_count": mail_tool_structured_evidence.max_preserved_low_confidence_other_count,
+        "max_preserved_due_to_delete_cap_count": mail_tool_structured_evidence.max_preserved_due_to_delete_cap_count,
+        "max_total_preserved_count": mail_tool_structured_evidence.max_total_preserved_count,
+    });
     let arbiter_payload = json!({
         "label": label,
         "query": query,
         "run_timestamp_ms": run_timestamp_ms,
         "run_timestamp_iso_utc": run_timestamp_iso_utc,
         "deterministic": deterministic_payload,
-        "cleanup_metrics": {
-            "sample_limit": sample_limit,
-            "pre_primary_inbox_count": pre_primary_count,
-            "post_primary_inbox_count": post_primary_count,
-            "primary_inbox_delta": primary_delta,
-            "pre_spam_count": pre_spam_count,
-            "post_spam_count": post_spam_count,
-            "spam_delta": spam_delta,
-            "combined_delta": combined_delta,
-            "primary_not_worse": primary_not_worse,
-            "combined_not_worse": combined_not_worse,
-            "max_deleted_count": mail_tool_structured_evidence.max_deleted_count,
-            "max_high_confidence_deleted_count": mail_tool_structured_evidence.max_high_confidence_deleted_count,
-        },
+        "cleanup_metrics": arbiter_cleanup_metrics_payload,
         "final_reply_excerpt": final_reply_excerpt,
         "final_reply_char_len": final_reply.chars().count(),
         "event_evidence": evidence,
@@ -3815,7 +4459,7 @@ async fn live_mail_cleanup_inbox_reduces_count_and_deletes_spam_e2e() -> Result<
     println!(
         "LIVE_MAIL_CLEANUP_E2E_LOCKED_CONSTANTS={}",
         serde_json::to_string_pretty(&json!({
-            "SLA_SECONDS": SLA_SECONDS,
+            "SLA_SECONDS": CLEANUP_SLA_SECONDS,
             "PRIMARY_QUERY": PRIMARY_CLEANUP_INBOX_QUERY,
             "ACTIVE_QUERY": query,
             "RUN_LABEL": label,

@@ -705,14 +705,17 @@ pub struct MailListRecentReceipt {
     /// Parse volume band (`small|medium|large`).
     #[serde(default)]
     pub parse_volume_band: String,
+    /// Absolute mailbox message count at execution time.
+    #[serde(default)]
+    pub mailbox_total_count: u32,
     /// Ontology signal version used for parse metadata.
     #[serde(default)]
     pub ontology_version: String,
 }
 
-/// Connector-first operation request for deleting spam/junk mail.
+/// Connector-first operation request for retrieving absolute mailbox total count.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Encode, Decode)]
-pub struct MailDeleteSpamParams {
+pub struct MailboxTotalCountParams {
     /// Stable operation identifier for replay detection.
     pub operation_id: [u8; 32],
     /// Channel identifier carrying this operation.
@@ -727,7 +730,71 @@ pub struct MailDeleteSpamParams {
     /// Mailbox logical name (defaults to `primary` when empty).
     #[serde(default)]
     pub mailbox: String,
-    /// Maximum number of spam messages to delete.
+    /// Optional caller-supplied request timestamp.
+    #[serde(default)]
+    pub requested_at_ms: u64,
+}
+
+/// Raw provenance for a mailbox-total-count observation.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Encode, Decode, Default)]
+pub struct MailboxTotalCountProvenance {
+    /// IMAP STATUS(MESSAGES) observation when available.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub status_exists: Option<u32>,
+    /// IMAP SELECT-reported message count when mailbox selection succeeds.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub select_exists: Option<u32>,
+    /// Count derived from UID SEARCH ALL when available.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub uid_search_count: Option<u32>,
+    /// Count derived from SEARCH ALL when available.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub search_count: Option<u32>,
+    /// Freshness marker describing how authoritative the reported count is.
+    #[serde(default)]
+    pub freshness_marker: String,
+}
+
+/// Persisted receipt for a connector mailbox-total-count operation.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Encode, Decode)]
+pub struct MailboxTotalCountReceipt {
+    /// Stable operation identifier.
+    pub operation_id: [u8; 32],
+    /// Channel identifier.
+    pub channel_id: [u8; 32],
+    /// Lease identifier used for authorization.
+    pub lease_id: [u8; 32],
+    /// Mailbox requested.
+    pub mailbox: String,
+    /// Audience/signer bound to the lease.
+    pub audience: [u8; 32],
+    /// Execution timestamp.
+    pub executed_at_ms: u64,
+    /// Absolute mailbox message count at execution time.
+    pub mailbox_total_count: u32,
+    /// Provenance details for the reported mailbox count.
+    #[serde(default)]
+    pub provenance: MailboxTotalCountProvenance,
+}
+
+/// Connector-first operation request for deleting high-confidence unwanted mail.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Encode, Decode)]
+pub struct MailDeleteSpamParams {
+    /// Stable operation identifier for replay detection.
+    pub operation_id: [u8; 32],
+    /// Channel identifier carrying this operation.
+    pub channel_id: [u8; 32],
+    /// Lease authorizing this operation.
+    pub lease_id: [u8; 32],
+    /// Monotonic operation sequence within this lease context.
+    pub op_seq: u64,
+    /// Optional operation nonce for additional replay binding.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub op_nonce: Option<[u8; 32]>,
+    /// Mailbox logical name (`primary`/`inbox` or spam-like mailbox; defaults to `primary` when empty).
+    #[serde(default)]
+    pub mailbox: String,
+    /// Maximum number of high-confidence unwanted messages to delete.
     #[serde(default)]
     pub max_delete: u32,
     /// Optional caller-supplied request timestamp.
@@ -750,7 +817,7 @@ pub struct MailDeleteSpamReceipt {
     pub audience: [u8; 32],
     /// Execution timestamp.
     pub executed_at_ms: u64,
-    /// Number of spam/junk messages deleted.
+    /// Number of high-confidence unwanted messages deleted.
     pub deleted_count: u32,
     /// Number of candidate messages evaluated for spam confidence.
     #[serde(default)]
@@ -761,12 +828,39 @@ pub struct MailDeleteSpamReceipt {
     /// Count skipped because confidence did not reach threshold.
     #[serde(default)]
     pub skipped_low_confidence_count: u32,
+    /// Absolute mailbox message count immediately before delete execution.
+    #[serde(default)]
+    pub mailbox_total_count_before: u32,
+    /// Absolute mailbox message count immediately after delete execution.
+    #[serde(default)]
+    pub mailbox_total_count_after: u32,
+    /// Absolute mailbox reduction derived from before/after counts.
+    #[serde(default)]
+    pub mailbox_total_count_delta: u32,
     /// Applied spam confidence threshold in basis points.
     #[serde(default)]
     pub spam_confidence_threshold_bps: u16,
     /// Ontology signal version used for spam classification.
     #[serde(default)]
     pub ontology_version: String,
+    /// Cleanup scope used by the provider (`spam_mailbox` or `primary_inbox`).
+    #[serde(default)]
+    pub cleanup_scope: String,
+    /// Messages preserved due to transactional or personal-safe evidence.
+    #[serde(default)]
+    pub preserved_transactional_or_personal_count: u32,
+    /// Messages preserved due to trusted system-sender evidence.
+    #[serde(default)]
+    pub preserved_trusted_system_count: u32,
+    /// Messages preserved due to low confidence without stronger preserve signals.
+    #[serde(default)]
+    pub preserved_low_confidence_other_count: u32,
+    /// High-confidence candidates not deleted due to max-delete cap.
+    #[serde(default)]
+    pub preserved_due_to_delete_cap_count: u32,
+    /// Explicit preserved-reason breakdown used for auditing.
+    #[serde(default)]
+    pub preserved_reason_counts: BTreeMap<String, u32>,
 }
 
 /// Connector-first operation request for sending a reply.

@@ -2,9 +2,9 @@ use super::handlers::channel::hash_channel_envelope;
 use super::keys::{
     approval_consumption_key, approval_key, channel_key, channel_key_state_key,
     injection_grant_key, lease_consumption_key, lease_counter_window_key, lease_key,
-    lease_replay_key, mail_connector_get_receipt_key, mail_connector_key, mail_delete_receipt_key,
-    mail_list_receipt_key, mail_read_receipt_key, mail_reply_receipt_key, receipt_window_key,
-    session_delegation_key, session_key, PANIC_FLAG_KEY, REVOCATION_EPOCH_KEY,
+    lease_replay_key, mail_connector_get_receipt_key, mail_connector_key, mail_count_receipt_key,
+    mail_delete_receipt_key, mail_list_receipt_key, mail_read_receipt_key, mail_reply_receipt_key,
+    receipt_window_key, session_delegation_key, session_key, PANIC_FLAG_KEY, REVOCATION_EPOCH_KEY,
 };
 use super::support::load_typed;
 use super::*;
@@ -22,11 +22,11 @@ use ioi_types::app::wallet_network::{
     MailConnectorSecretAliases, MailConnectorTlsMode, MailConnectorUpsertParams,
     MailDeleteSpamParams, MailDeleteSpamReceipt, MailListRecentParams, MailListRecentReceipt,
     MailReadLatestParams, MailReadLatestReceipt, MailReplyParams, MailReplyReceipt,
-    SecretInjectionGrant, SecretInjectionRequest, SecretInjectionRequestRecord,
-    SessionChannelKeyState, SessionChannelOpenAck, SessionChannelOpenConfirm,
-    SessionChannelOpenInit, SessionChannelOpenTry, SessionChannelRecord, SessionChannelState,
-    SessionGrant, SessionLease, SessionLeaseMode, VaultSecretRecord, WalletApprovalDecision,
-    WalletInterceptionContext,
+    MailboxTotalCountParams, MailboxTotalCountReceipt, SecretInjectionGrant,
+    SecretInjectionRequest, SecretInjectionRequestRecord, SessionChannelKeyState,
+    SessionChannelOpenAck, SessionChannelOpenConfirm, SessionChannelOpenInit,
+    SessionChannelOpenTry, SessionChannelRecord, SessionChannelState, SessionGrant, SessionLease,
+    SessionLeaseMode, VaultSecretRecord, WalletApprovalDecision, WalletInterceptionContext,
 };
 use ioi_types::app::{
     account_id_from_key_material, AccountId, ActionTarget, ChainId, SignatureProof, SignatureSuite,
@@ -1158,6 +1158,140 @@ fn mail_list_recent_uses_shared_replay_window_and_nonce_binding() {
 }
 
 #[test]
+fn mailbox_total_count_uses_connector_path_and_shared_replay_window() {
+    let service = WalletNetworkService;
+    let mut state = MockState::default();
+    let lc_signer = new_hybrid_signer();
+    let rc_signer = new_hybrid_signer();
+    let channel_id = [0xd1u8; 32];
+    let lease_id = [0xd2u8; 32];
+    let signer_audience = [0xd3u8; 32];
+    open_channel(&service, &mut state, channel_id, &lc_signer, &rc_signer);
+
+    with_ctx_signer(signer_audience, |ctx| {
+        let mut lease = SessionLease {
+            lease_id,
+            channel_id,
+            issuer_id: lc_signer.signer_id,
+            subject_id: [0xd4u8; 32],
+            policy_hash: [23u8; 32],
+            grant_id: [0xd5u8; 32],
+            capability_subset: vec!["email:read".to_string()],
+            constraints_subset: BTreeMap::new(),
+            mode: SessionLeaseMode::Lease,
+            expires_at_ms: 1_800_000_000_000,
+            revocation_epoch: 0,
+            audience: signer_audience,
+            nonce: [0xd6u8; 32],
+            counter: 1,
+            issued_at_ms: 1_750_000_000_000,
+            sig_hybrid_lc: Vec::new(),
+        };
+        let mut lease_unsigned = lease.clone();
+        lease_unsigned.sig_hybrid_lc.clear();
+        lease.sig_hybrid_lc = sign_hybrid_payload(
+            &lc_signer,
+            &codec::to_bytes_canonical(&lease_unsigned).expect("encode"),
+        );
+        let lease_params = codec::to_bytes_canonical(&lease).expect("encode");
+        run_async(service.handle_service_call(
+            &mut state,
+            "issue_session_lease@v1",
+            &lease_params,
+            ctx,
+        ))
+        .expect("issue lease");
+
+        let count_req = MailboxTotalCountParams {
+            operation_id: [0xd7u8; 32],
+            channel_id,
+            lease_id,
+            op_seq: 1,
+            op_nonce: Some([0xd8u8; 32]),
+            mailbox: "primary".to_string(),
+            requested_at_ms: 1_750_000_000_010,
+        };
+        let count_params = codec::to_bytes_canonical(&count_req).expect("encode");
+        run_async(service.handle_service_call(
+            &mut state,
+            "mailbox_total_count@v1",
+            &count_params,
+            ctx,
+        ))
+        .expect("mailbox_total_count should succeed");
+
+        let list_req = MailListRecentParams {
+            operation_id: [0xd9u8; 32],
+            channel_id,
+            lease_id,
+            op_seq: 2,
+            op_nonce: Some([0xdau8; 32]),
+            mailbox: "primary".to_string(),
+            limit: 2,
+            requested_at_ms: 1_750_000_000_020,
+        };
+        let list_params = codec::to_bytes_canonical(&list_req).expect("encode");
+        run_async(service.handle_service_call(
+            &mut state,
+            "mail_list_recent@v1",
+            &list_params,
+            ctx,
+        ))
+        .expect("mail_list_recent should succeed after count");
+
+        let stale_seq_req = MailboxTotalCountParams {
+            operation_id: [0xdbu8; 32],
+            channel_id,
+            lease_id,
+            op_seq: 2,
+            op_nonce: Some([0xdcu8; 32]),
+            mailbox: "primary".to_string(),
+            requested_at_ms: 1_750_000_000_030,
+        };
+        let stale_seq_params = codec::to_bytes_canonical(&stale_seq_req).expect("encode");
+        let err = run_async(service.handle_service_call(
+            &mut state,
+            "mailbox_total_count@v1",
+            &stale_seq_params,
+            ctx,
+        ))
+        .expect_err("ordered replay seq must fail across read operations");
+        assert!(err
+            .to_string()
+            .to_ascii_lowercase()
+            .contains("ordered action op_seq"));
+    });
+
+    let count_receipt: MailboxTotalCountReceipt = codec::from_bytes_canonical(
+        &state
+            .get(&mail_count_receipt_key(&[0xd7u8; 32]))
+            .expect("state")
+            .expect("count receipt"),
+    )
+    .expect("decode");
+    assert_eq!(count_receipt.channel_id, channel_id);
+    assert_eq!(count_receipt.lease_id, lease_id);
+    assert_eq!(count_receipt.mailbox, "primary");
+    assert!(count_receipt.mailbox_total_count > 0);
+    assert!(!count_receipt.provenance.freshness_marker.trim().is_empty());
+    assert!(
+        count_receipt.provenance.status_exists.is_some()
+            || count_receipt.provenance.select_exists.is_some()
+            || count_receipt.provenance.uid_search_count.is_some()
+            || count_receipt.provenance.search_count.is_some()
+    );
+
+    let consumption: LeaseConsumptionState = codec::from_bytes_canonical(
+        &state
+            .get(&lease_consumption_key(&channel_id, &lease_id))
+            .expect("state")
+            .expect("lease consumption"),
+    )
+    .expect("decode");
+    assert_eq!(consumption.consumed_count, 2);
+}
+
+#[test]
 fn mail_write_operations_route_through_shared_lease_replay_window() {
     let service = WalletNetworkService;
     let mut state = MockState::default();
@@ -1274,6 +1408,11 @@ fn mail_write_operations_route_through_shared_lease_replay_window() {
     assert!(delete_receipt.evaluated_count >= delete_receipt.deleted_count);
     assert!(delete_receipt.spam_confidence_threshold_bps > 0);
     assert!(!delete_receipt.ontology_version.trim().is_empty());
+    assert_eq!(delete_receipt.cleanup_scope, "spam_mailbox");
+    assert_eq!(delete_receipt.preserved_transactional_or_personal_count, 0);
+    assert_eq!(delete_receipt.preserved_trusted_system_count, 0);
+    assert_eq!(delete_receipt.preserved_low_confidence_other_count, 0);
+    assert_eq!(delete_receipt.preserved_due_to_delete_cap_count, 0);
 
     let reply_receipt: MailReplyReceipt = codec::from_bytes_canonical(
         &state
@@ -1295,7 +1434,7 @@ fn mail_write_operations_route_through_shared_lease_replay_window() {
 }
 
 #[test]
-fn mail_delete_spam_rejects_non_spam_mailbox_target() {
+fn mail_delete_spam_rejects_non_cleanup_mailbox_target() {
     let service = WalletNetworkService;
     let mut state = MockState::default();
     let lc_signer = new_hybrid_signer();
@@ -1339,13 +1478,42 @@ fn mail_delete_spam_rejects_non_spam_mailbox_target() {
         ))
         .expect("issue lease");
 
+        let primary_delete_req = MailDeleteSpamParams {
+            operation_id: [0x96u8; 32],
+            channel_id,
+            lease_id,
+            op_seq: 1,
+            op_nonce: Some([0x97u8; 32]),
+            mailbox: "primary".to_string(),
+            max_delete: 5,
+            requested_at_ms: 1_750_000_000_010,
+        };
+        let primary_delete_params = codec::to_bytes_canonical(&primary_delete_req).expect("encode");
+        run_async(service.handle_service_call(
+            &mut state,
+            "mail_delete_spam@v1",
+            &primary_delete_params,
+            ctx,
+        ))
+        .expect("mail_delete_spam should allow primary target");
+        let primary_receipt: MailDeleteSpamReceipt = codec::from_bytes_canonical(
+            &state
+                .get(&mail_delete_receipt_key(&[0x96u8; 32]))
+                .expect("state")
+                .expect("primary delete receipt"),
+        )
+        .expect("decode receipt");
+        assert_eq!(primary_receipt.cleanup_scope, "primary_inbox");
+        assert!(primary_receipt.preserved_transactional_or_personal_count > 0);
+        assert!(primary_receipt.evaluated_count >= primary_receipt.deleted_count);
+
         let delete_req = MailDeleteSpamParams {
             operation_id: [0x97u8; 32],
             channel_id,
             lease_id,
-            op_seq: 1,
+            op_seq: 2,
             op_nonce: Some([0x98u8; 32]),
-            mailbox: "primary".to_string(),
+            mailbox: "archive".to_string(),
             max_delete: 5,
             requested_at_ms: 1_750_000_000_010,
         };
@@ -1356,11 +1524,11 @@ fn mail_delete_spam_rejects_non_spam_mailbox_target() {
             &delete_params,
             ctx,
         ))
-        .expect_err("mail_delete_spam should reject non-spam mailbox");
+        .expect_err("mail_delete_spam should reject non-cleanup mailbox");
         assert!(err
             .to_string()
             .to_ascii_lowercase()
-            .contains("spam/junk mailbox target"));
+            .contains("primary/inbox or spam/junk mailbox target"));
     });
 
     assert!(state
