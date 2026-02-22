@@ -3,17 +3,15 @@
 use super::shared::{
     ensure_connector_secret_aliases_registered, normalize_mail_connector_config, normalize_mailbox,
 };
-use crate::wallet_network::keys::{
-    mail_connector_get_receipt_key, mail_connector_key,
-};
+use crate::wallet_network::keys::{mail_connector_get_receipt_key, mail_connector_key};
 use crate::wallet_network::support::{
     append_audit_event, base_audit_metadata, block_timestamp_ms, load_typed, store_typed,
 };
 use ioi_api::state::StateAccess;
 use ioi_api::transaction::context::TxContext;
 use ioi_types::app::wallet_network::{
-    MailConnectorGetParams, MailConnectorGetReceipt, MailConnectorRecord, MailConnectorUpsertParams,
-    VaultAuditEventKind,
+    MailConnectorGetParams, MailConnectorGetReceipt, MailConnectorRecord,
+    MailConnectorUpsertParams, VaultAuditEventKind,
 };
 use ioi_types::error::TransactionError;
 
