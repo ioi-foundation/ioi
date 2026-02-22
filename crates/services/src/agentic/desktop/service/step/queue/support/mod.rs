@@ -28,11 +28,12 @@ use url::Url;
 const MAX_SEARCH_EXTRACT_CHARS: usize = 8_000;
 const QUEUE_TOOL_NAME_KEY: &str = "__ioi_tool_name";
 const WEB_PIPELINE_EXCERPT_CHARS: usize = 220;
-pub(crate) const WEB_PIPELINE_BUDGET_MS: u64 = 50_000;
+pub(crate) const WEB_PIPELINE_BUDGET_MS: u64 = 45_000;
 pub(crate) const WEB_PIPELINE_DEFAULT_MIN_SOURCES: u32 = 1;
 pub(crate) const WEB_PIPELINE_SEARCH_LIMIT: u32 = 10;
 pub(crate) const WEB_PIPELINE_REQUIRED_STORIES: usize = 3;
 pub(crate) const WEB_PIPELINE_CITATIONS_PER_STORY: usize = 2;
+pub(crate) const WEIGHTED_INSIGHT_SIGNAL_VERSION: &str = "weighted_insight_v1";
 const WEB_PIPELINE_CONSTRAINT_SEARCH_LIMIT_MIN: u32 = 4;
 const WEB_PIPELINE_CONSTRAINT_SEARCH_LIMIT_MAX: u32 = 8;
 const WEB_PIPELINE_CONSTRAINT_SEARCH_LIMIT_MULTIPLIER: u32 = 3;
@@ -87,10 +88,12 @@ const LOCALITY_SCOPE_MAX_CHARS: usize = 96;
 const LOCALITY_SCOPE_TOKEN_MAX_CHARS: usize = 24;
 const LOCALITY_INFERENCE_MIN_SUPPORT: usize = 2;
 const LOCALITY_INFERENCE_MAX_TOKENS: usize = 4;
-const QUERY_COMPATIBILITY_STOPWORDS: [&str; 28] = [
+const QUERY_COMPATIBILITY_STOPWORDS: [&str; 49] = [
     "a", "an", "the", "and", "or", "to", "of", "for", "with", "in", "on", "at", "by", "from",
-    "into", "over", "under", "what", "whats", "is", "are", "was", "were", "right", "now",
-    "current", "latest", "today",
+    "into", "over", "under", "what", "whats", "is", "are", "was", "were", "right", "now", "top",
+    "active", "current", "currently", "latest", "today", "change", "changed", "give", "include",
+    "including", "each", "confidence", "eta", "user", "users", "last", "hour", "major", "page",
+    "pages", "impact", "impacting", "relevant",
 ];
 const LOCALITY_SCOPE_NOISE_TOKENS: [&str; 21] = [
     "http", "https", "www", "com", "org", "net", "news", "google", "search", "query", "update",

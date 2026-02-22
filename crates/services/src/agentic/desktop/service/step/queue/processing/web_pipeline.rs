@@ -163,8 +163,17 @@ pub(super) async fn maybe_handle_web_search(
     let mut queued_next = false;
     let mut queued_probe = false;
     let remaining_candidates = remaining_pending_web_candidates(&pending);
-    let prefer_probe_before_read =
-        plan_requires_probe && plan_resolvable_candidates == 0 && remaining_candidates == 0;
+    let source_floor_gap = pending
+        .successful_reads
+        .len()
+        .saturating_add(remaining_candidates)
+        < min_sources_required;
+    let first_search_pass =
+        pending.successful_reads.is_empty() && pending.attempted_urls.len() <= 1;
+    let prefer_probe_before_read = plan_requires_probe
+        && !first_search_pass
+        && (remaining_candidates == 0 || (source_floor_gap && remaining_candidates <= 1))
+        && plan_resolvable_candidates == 0;
     if completion_reason.is_none() {
         if prefer_probe_before_read && plan_requires_probe && probe_budget_allows {
             if let Some(probe_query) = constraint_grounded_probe_query_with_hints(
@@ -179,6 +188,9 @@ pub(super) async fn maybe_handle_web_search(
                     &probe_query,
                     constraint_grounded_search_limit(&query_contract, min_sources),
                 )?;
+                if queued_probe {
+                    pending.query = probe_query;
+                }
             }
         }
         if !queued_probe && read_budget_allows {
@@ -199,6 +211,9 @@ pub(super) async fn maybe_handle_web_search(
                     &probe_query,
                     constraint_grounded_search_limit(&query_contract, min_sources),
                 )?;
+                if queued_probe {
+                    pending.query = probe_query;
+                }
             }
         }
         if !queued_next && !queued_probe {

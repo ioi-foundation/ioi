@@ -1,16 +1,19 @@
+use super::envelope::ResolutionPolicy;
 use super::support::{
     append_pending_web_success_fallback, append_pending_web_success_from_bundle,
-    candidate_source_hints_from_bundle, candidate_urls_from_bundle,
+    candidate_source_hints_from_bundle, candidate_urls_from_bundle, citation_ids_for_story,
     constraint_grounded_probe_query_with_hints_and_locality_hint, constraint_grounded_search_limit,
     constraint_grounded_search_query, constraint_grounded_search_query_with_hints,
     constraint_grounded_search_query_with_hints_and_locality_hint, fallback_search_summary,
     merge_pending_search_completion, next_pending_web_candidate,
     pre_read_candidate_plan_from_bundle, pre_read_candidate_plan_from_bundle_with_locality_hint,
-    queue_action_request_to_tool, select_web_pipeline_query_contract, summarize_search_results,
+    queue_action_request_to_tool, select_web_pipeline_query_contract,
+    single_snapshot_constraint_set_with_hints, summarize_search_results,
     synthesize_web_pipeline_reply, web_pipeline_can_queue_initial_read_latency_aware,
     web_pipeline_can_queue_probe_search_latency_aware, web_pipeline_completion_reason,
-    web_pipeline_latency_pressure_label, web_pipeline_required_probe_budget_ms,
-    web_pipeline_required_read_budget_ms, WebPipelineCompletionReason,
+    web_pipeline_latency_pressure_label, web_pipeline_min_sources,
+    web_pipeline_required_probe_budget_ms, web_pipeline_required_read_budget_ms, CitationCandidate,
+    WebPipelineCompletionReason, WEIGHTED_INSIGHT_SIGNAL_VERSION,
 };
 use crate::agentic::desktop::types::{PendingSearchCompletion, PendingSearchReadSummary};
 use ioi_types::app::agentic::{AgentTool, ComputerAction};
@@ -73,6 +76,18 @@ fn extract_story_titles(text: &str) -> Vec<String> {
                 .expect("story lines should contain ':' separators")
         })
         .collect()
+}
+
+#[test]
+fn web_pipeline_min_sources_scales_with_explicit_citation_contract() {
+    let query = "As of now (UTC), top 3 active U.S.-impacting cloud/SaaS incidents from major status pages with 2 citations each.";
+    assert_eq!(web_pipeline_min_sources(query), 6);
+}
+
+#[test]
+fn web_pipeline_min_sources_defaults_without_explicit_citation_contract() {
+    let query = "Summarize active cloud incidents from major status pages.";
+    assert_eq!(web_pipeline_min_sources(query), 1);
 }
 
 #[test]
@@ -1130,6 +1145,55 @@ fn web_pipeline_constraint_grounded_probe_query_excludes_low_signal_hosts_when_m
 }
 
 #[test]
+fn web_pipeline_constraint_grounded_search_query_adds_status_surface_terms_for_incident_queries() {
+    let query = "As of now (UTC), top 3 active U.S.-impacting cloud/SaaS incidents from major status pages with citations.";
+    let grounded = constraint_grounded_search_query(query, 3);
+    let normalized = grounded.to_ascii_lowercase();
+    assert!(
+        normalized.contains("official status page"),
+        "expected status-surface grounding term: {}",
+        grounded
+    );
+    assert!(
+        normalized.contains("service health dashboard"),
+        "expected service-health grounding term: {}",
+        grounded
+    );
+}
+
+#[test]
+fn web_pipeline_constraint_grounded_probe_query_excludes_repeated_hosts_for_incident_queries() {
+    let query = "As of now (UTC), top 3 active U.S.-impacting cloud/SaaS incidents from major status pages with citations.";
+    let hints = vec![
+        PendingSearchReadSummary {
+            url: "https://www.reddit.com/r/MicrosoftTeams/comments/1crvhbg/accidentally_found_the_best_way_to_keep_active/".to_string(),
+            title: Some("Accidentally found the best way to keep active status".to_string()),
+            excerpt: "Discussion thread repeating active-status phrasing.".to_string(),
+        },
+        PendingSearchReadSummary {
+            url: "https://www.reddit.com/r/WindowsHelp/comments/17qndbf/search_active_directory_in_windows_11/".to_string(),
+            title: Some("Search Active Directory in Windows 11".to_string()),
+            excerpt: "Another thread unrelated to provider status dashboards.".to_string(),
+        },
+    ];
+    let grounded = constraint_grounded_search_query_with_hints(query, 3, &hints);
+    let probe = constraint_grounded_probe_query_with_hints_and_locality_hint(
+        query, 3, &hints, &grounded, None,
+    )
+    .expect("probe query should be generated when incident retrieval stalls on repeated hosts");
+    let normalized = probe.to_ascii_lowercase();
+    assert!(
+        normalized.contains("-site:www.reddit.com") || normalized.contains("-site:reddit.com"),
+        "expected host exclusion for repeated low-signal domain: {}",
+        probe
+    );
+    assert!(
+        !probe.eq_ignore_ascii_case(&grounded),
+        "probe query should differ from grounded query"
+    );
+}
+
+#[test]
 fn web_pipeline_constraint_grounded_search_query_preserves_non_locality_queries() {
     let query = constraint_grounded_search_query("summarize this local file", 2);
     assert_eq!(query, "summarize this local file");
@@ -2167,6 +2231,45 @@ fn web_pipeline_single_snapshot_degrades_when_probe_budget_is_exhausted() {
     let reason = web_pipeline_completion_reason(&pending, 1_771_465_420_000)
         .expect("remaining budget is too low for another probe");
     assert_eq!(reason, WebPipelineCompletionReason::ExhaustedCandidates);
+}
+
+#[test]
+fn web_pipeline_grounded_external_defers_completion_when_blocked_and_probe_budget_allows() {
+    let pending = PendingSearchCompletion {
+        query: "As of now (UTC), top 3 active U.S.-impacting cloud/SaaS incidents from major status pages with 2 citations each.".to_string(),
+        query_contract:
+            "As of now (UTC), top 3 active U.S.-impacting cloud/SaaS incidents from major status pages with 2 citations each."
+                .to_string(),
+        url: "https://duckduckgo.com/?q=cloud+saas+incidents+status+pages".to_string(),
+        started_step: 1,
+        started_at_ms: 1_771_465_364_000,
+        deadline_ms: 1_771_465_424_000,
+        candidate_urls: vec![],
+        candidate_source_hints: vec![PendingSearchReadSummary {
+            url: "https://www.reddit.com/r/MicrosoftTeams/comments/1crvhbg/accidentally_found_the_best_way_to_keep_active/"
+                .to_string(),
+            title: Some("Accidentally found the best way to keep active status".to_string()),
+            excerpt: "Thread with no official status-page update.".to_string(),
+        }],
+        attempted_urls: vec![
+            "https://duckduckgo.com/?q=cloud+saas+incidents+status+pages".to_string(),
+            "https://www.reddit.com/r/MicrosoftTeams/comments/1crvhbg/accidentally_found_the_best_way_to_keep_active/"
+                .to_string(),
+        ],
+        blocked_urls: vec![
+            "https://www.reddit.com/r/MicrosoftTeams/comments/1crvhbg/accidentally_found_the_best_way_to_keep_active/"
+                .to_string(),
+        ],
+        successful_reads: vec![],
+        min_sources: 1,
+    };
+
+    let reason = web_pipeline_completion_reason(&pending, 1_771_465_380_000);
+    assert!(
+        reason.is_none(),
+        "grounded external probe recovery should defer completion after blocked-only reads; got {:?}",
+        reason
+    );
 }
 
 #[test]
@@ -3422,11 +3525,76 @@ fn web_pipeline_prefers_primary_status_citations_when_sufficient_inventory_exist
         synthesize_web_pipeline_reply(&pending, WebPipelineCompletionReason::MinSourcesReached);
     assert!(
         !reply.contains("https://example-monitor.com/cloud/incidents"),
-        "expected primary status citations to be preferred when sufficient inventory exists"
+        "expected primary status citations to be preferred when sufficient inventory exists; reply:\n{}",
+        reply
     );
     assert!(
         !reply.contains("https://ops-tracker.example.net/status"),
-        "expected primary status citations to be preferred when sufficient inventory exists"
+        "expected primary status citations to be preferred when sufficient inventory exists; reply:\n{}",
+        reply
+    );
+}
+
+#[test]
+fn web_pipeline_citation_selector_limits_duplicate_claim_clusters_when_alternatives_exist() {
+    let source = PendingSearchReadSummary {
+        url: "https://status.vendor-a.com/incidents/alpha".to_string(),
+        title: Some("API outage impacting us-east".to_string()),
+        excerpt: "Investigating elevated API errors and mitigation underway.".to_string(),
+    };
+    let candidates = vec![
+        CitationCandidate {
+            id: "C1".to_string(),
+            url: "https://status.vendor-a.com/incidents/alpha".to_string(),
+            source_label: "Incident update".to_string(),
+            excerpt: "Investigating elevated API errors and mitigation underway.".to_string(),
+            timestamp_utc: "2026-02-22T00:00:00Z".to_string(),
+            note: "retrieved_utc".to_string(),
+            from_successful_read: true,
+        },
+        CitationCandidate {
+            id: "C2".to_string(),
+            url: "https://status.vendor-b.com/incidents/beta".to_string(),
+            source_label: "Incident update".to_string(),
+            excerpt: "Investigating elevated API errors and mitigation underway.".to_string(),
+            timestamp_utc: "2026-02-22T00:00:00Z".to_string(),
+            note: "retrieved_utc".to_string(),
+            from_successful_read: true,
+        },
+        CitationCandidate {
+            id: "C3".to_string(),
+            url: "https://status.vendor-c.com/incidents/gamma".to_string(),
+            source_label: "Auth incident update".to_string(),
+            excerpt: "Users may see login failures while mitigation rolls out.".to_string(),
+            timestamp_utc: "2026-02-22T00:00:00Z".to_string(),
+            note: "retrieved_utc".to_string(),
+            from_successful_read: true,
+        },
+    ];
+    let mut used_urls = BTreeSet::new();
+    let constraints = single_snapshot_constraint_set_with_hints("top active incidents", 2, &[]);
+    let selected_ids = citation_ids_for_story(
+        &source,
+        &candidates,
+        &mut used_urls,
+        2,
+        false,
+        &constraints,
+        ResolutionPolicy::default(),
+    );
+
+    assert_eq!(selected_ids.len(), 2);
+    assert!(
+        selected_ids.iter().any(|id| id == "C1"),
+        "expected primary claim citation to remain selected"
+    );
+    assert!(
+        selected_ids.iter().any(|id| id == "C3"),
+        "expected selector to diversify claims when a distinct insight exists"
+    );
+    assert!(
+        !selected_ids.iter().any(|id| id == "C2"),
+        "expected duplicate claim citation to be deferred behind distinct claim coverage"
     );
 }
 
@@ -3477,6 +3645,49 @@ fn web_pipeline_reply_heading_is_query_agnostic() {
         "expected query-agnostic heading, got:\n{}",
         reply
     );
+}
+
+#[test]
+fn web_pipeline_reply_emits_insight_selector_and_receipts() {
+    let pending = PendingSearchCompletion {
+        query: "latest regional cloud availability updates".to_string(),
+        query_contract: "latest regional cloud availability updates".to_string(),
+        url: "https://duckduckgo.com/?q=latest+regional+cloud+availability+updates".to_string(),
+        started_step: 1,
+        started_at_ms: 1_771_465_364_000,
+        deadline_ms: 1_771_465_424_000,
+        candidate_urls: vec![
+            "https://status.vendor-a.com/incidents/123".to_string(),
+            "https://status.vendor-b.com/incidents/456".to_string(),
+            "https://status.vendor-c.com/incidents/789".to_string(),
+            "https://status.vendor-d.com/incidents/999".to_string(),
+        ],
+        candidate_source_hints: vec![
+            PendingSearchReadSummary {
+                url: "https://status.vendor-a.com/incidents/123".to_string(),
+                title: Some("Regional outage in us-east".to_string()),
+                excerpt: "Investigating elevated API errors and degraded latency.".to_string(),
+            },
+            PendingSearchReadSummary {
+                url: "https://status.vendor-b.com/incidents/456".to_string(),
+                title: Some("Service health alert for dashboard".to_string()),
+                excerpt: "Monitoring mitigation rollout for North America users.".to_string(),
+            },
+        ],
+        attempted_urls: vec![],
+        blocked_urls: vec!["https://status.vendor-c.com/incidents/789".to_string()],
+        successful_reads: vec![],
+        min_sources: 2,
+    };
+
+    let reply =
+        synthesize_web_pipeline_reply(&pending, WebPipelineCompletionReason::MinSourcesReached);
+    assert!(reply.contains(&format!(
+        "Insight selector: {}",
+        WEIGHTED_INSIGHT_SIGNAL_VERSION
+    )));
+    assert!(reply.contains("Insights used:"));
+    assert!(reply.contains("Evidence gaps:"));
 }
 
 #[test]

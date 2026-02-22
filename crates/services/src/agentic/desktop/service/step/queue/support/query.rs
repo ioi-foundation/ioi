@@ -1061,6 +1061,13 @@ pub(crate) fn projection_constraint_search_terms(
     {
         terms.push("UTC timestamp".to_string());
     }
+    if projection.query_facets.grounded_external_required
+        && projection_prefers_service_status_surfaces(projection)
+    {
+        terms.push("official status page".to_string());
+        terms.push("service health dashboard".to_string());
+        terms.push("incident update".to_string());
+    }
     if projection
         .constraints
         .provenance_policy
@@ -1077,6 +1084,31 @@ pub(crate) fn projection_constraint_search_terms(
         ));
     }
     terms
+}
+
+pub(crate) fn projection_prefers_service_status_surfaces(
+    projection: &QueryConstraintProjection,
+) -> bool {
+    let incident_tokens = [
+        "incident",
+        "incidents",
+        "outage",
+        "outages",
+        "downtime",
+        "availability",
+        "degraded",
+        "degradation",
+    ];
+    let status_tokens = ["status", "service", "health", "dashboard", "provider"];
+    projection
+        .query_tokens
+        .iter()
+        .any(|token| incident_tokens.contains(&token.as_str()))
+        || (projection
+            .query_tokens
+            .iter()
+            .any(|token| status_tokens.contains(&token.as_str()))
+            && projection.query_facets.goal.external_hits > 0)
 }
 
 pub(crate) fn constraint_grounded_search_limit(query: &str, min_sources: u32) -> u32 {
@@ -1179,12 +1211,18 @@ pub(crate) fn is_search_hub_url(url: &str) -> bool {
             || path.starts_with("/search")
             || path == "/url"
             || path.starts_with("/rss/search"));
+    let is_google_news_rss_wrapper = host == "news.google.com"
+        && (path.starts_with("/rss/articles")
+            || path.starts_with("/rss/read")
+            || path.starts_with("/rss/topics"));
     let is_generic_query_search_hub = path.contains("/search")
         || path.ends_with("/search")
         || path.starts_with("/find")
         || path.contains("/results");
 
-    (is_ddg_hub || is_bing_hub || is_google_hub || is_generic_query_search_hub) && has_query
+    is_google_news_rss_wrapper
+        || ((is_ddg_hub || is_bing_hub || is_google_hub || is_generic_query_search_hub)
+            && has_query)
 }
 
 pub(crate) fn candidate_time_sensitive_resolvable_payload(title: &str, excerpt: &str) -> bool {
@@ -1393,6 +1431,11 @@ pub(crate) fn projection_probe_hint_anchor_phrase(
     if candidate_hints.is_empty() {
         return None;
     }
+    if projection.query_facets.grounded_external_required
+        && projection_prefers_service_status_surfaces(projection)
+    {
+        return None;
+    }
 
     let policy = ResolutionPolicy::default();
     let mut ranked = candidate_hints
@@ -1591,11 +1634,14 @@ pub(crate) fn projection_probe_host_exclusion_terms(
     if candidate_hints.is_empty() {
         return Vec::new();
     }
-    if !projection
+    let time_sensitive_scope = projection
         .constraints
         .scopes
-        .contains(&ConstraintScope::TimeSensitive)
-    {
+        .contains(&ConstraintScope::TimeSensitive);
+    let host_exclusion_allowed = time_sensitive_scope
+        || (projection.query_facets.grounded_external_required
+            && projection_prefers_service_status_surfaces(projection));
+    if !host_exclusion_allowed {
         return Vec::new();
     }
 
@@ -1603,7 +1649,7 @@ pub(crate) fn projection_probe_host_exclusion_terms(
     for hint in candidate_hints {
         let title = hint.title.as_deref().unwrap_or_default();
         let observed = format!("{} {}", title, hint.excerpt);
-        if contains_current_condition_metric_signal(&observed) {
+        if time_sensitive_scope && contains_current_condition_metric_signal(&observed) {
             continue;
         }
         let Some(host) = source_host(&hint.url) else {
@@ -1648,7 +1694,50 @@ pub(crate) fn projection_probe_structural_terms(
     {
         terms.push("\"observed now\"".to_string());
     }
+    if projection.query_facets.grounded_external_required
+        && projection_prefers_service_status_surfaces(projection)
+    {
+        terms.push("\"official status page\"".to_string());
+        terms.push("\"service health\"".to_string());
+        terms.push("\"incident update\"".to_string());
+    }
     terms
+}
+
+pub(crate) fn projection_probe_progressive_fallback_terms(
+    projection: &QueryConstraintProjection,
+) -> Vec<String> {
+    let mut terms = Vec::new();
+    if projection
+        .constraints
+        .scopes
+        .contains(&ConstraintScope::TimeSensitive)
+    {
+        terms.push("\"latest update\"".to_string());
+        terms.push("\"service advisory\"".to_string());
+        terms.push("\"status dashboard\"".to_string());
+        terms.push("\"incident report\"".to_string());
+        terms.push("\"customer impact\"".to_string());
+        terms.push("\"workaround\"".to_string());
+    }
+    if projection.query_facets.grounded_external_required {
+        terms.push("\"official status page\"".to_string());
+        terms.push("\"service health\"".to_string());
+        terms.push("\"incident update\"".to_string());
+        terms.push("\"statuspage\"".to_string());
+    }
+    terms.extend(projection_probe_structural_terms(projection));
+
+    let mut deduped = Vec::new();
+    let mut seen = BTreeSet::new();
+    for term in terms {
+        let key = term.trim().to_ascii_lowercase();
+        if key.is_empty() || !seen.insert(key) {
+            continue;
+        }
+        deduped.push(term);
+    }
+    deduped
 }
 
 pub(crate) fn append_unique_query_terms(base_query: &str, terms: &[String]) -> String {
@@ -1817,6 +1906,15 @@ pub(crate) fn constraint_grounded_probe_query_with_hints_and_locality_hint(
             Some(fallback_query)
         }
     } else {
+        for fallback_term in projection_probe_progressive_fallback_terms(&projection) {
+            let fallback_query = append_unique_query_terms(&grounded_query, &[fallback_term]);
+            if fallback_query.trim().is_empty()
+                || fallback_query.eq_ignore_ascii_case(prior_trimmed)
+            {
+                continue;
+            }
+            return Some(fallback_query);
+        }
         None
     }
 }
@@ -2004,8 +2102,9 @@ pub(crate) fn pre_read_candidate_plan(
             if strict_grounded_compatibility {
                 compatibility_gap || resolvability_gap
             } else {
-                constraints.scopes.contains(&ConstraintScope::TimeSensitive)
-                    && (compatibility_gap || resolvability_gap)
+                (constraints.scopes.contains(&ConstraintScope::TimeSensitive)
+                    && (compatibility_gap || resolvability_gap))
+                    || (projection.query_facets.grounded_external_required && compatibility_gap)
             }
         };
 
@@ -2046,6 +2145,25 @@ pub(crate) fn pre_read_candidate_plan(
             .map(|(_, url, _, _, _, _)| url.to_string())
             .collect::<Vec<_>>();
         candidate_urls = positive_fallback;
+    }
+    // Controlled bootstrap: when grounded constraints reject all candidates as hubs,
+    // allow a tiny hub-read seed so subsequent reads can discover concrete targets.
+    if candidate_urls.is_empty() && reject_search_hub && has_constraint_objective {
+        let mut seen_hub_bootstrap = BTreeSet::new();
+        for (_, url, _, _, _, _) in &ranked {
+            if !is_search_hub_url(url) {
+                continue;
+            }
+            if seen_hub_bootstrap.insert(url.to_string()) {
+                candidate_urls.push(url.to_string());
+            }
+            if candidate_urls.len() >= 2 {
+                break;
+            }
+        }
+        if !candidate_urls.is_empty() {
+            requires_constraint_search_probe = true;
+        }
     }
     if candidate_urls.len() < min_required && has_constraint_objective && scoreable_candidates > 0 {
         let candidate_count_before_top_up = candidate_urls.len();
@@ -2249,6 +2367,16 @@ pub(crate) fn required_distinct_citations(query: &str) -> usize {
 pub(crate) fn web_pipeline_min_sources(query: &str) -> u32 {
     if prefers_single_fact_snapshot(query) {
         return 2;
+    }
+    let lower = query.to_ascii_lowercase();
+    let explicit_citation_floor =
+        lower.contains("citation") || lower.contains("citations") || lower.contains("sources");
+    if explicit_citation_floor {
+        let target = required_distinct_citations(query) as u32;
+        return target.clamp(
+            WEB_PIPELINE_CONSTRAINT_SEARCH_LIMIT_MIN,
+            WEB_PIPELINE_CONSTRAINT_SEARCH_LIMIT_MAX,
+        );
     }
     WEB_PIPELINE_DEFAULT_MIN_SOURCES
 }

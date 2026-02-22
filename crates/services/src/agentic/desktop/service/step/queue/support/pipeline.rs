@@ -1969,18 +1969,20 @@ pub(crate) fn web_pipeline_completion_reason(
     pending: &PendingSearchCompletion,
     now_ms: u64,
 ) -> Option<WebPipelineCompletionReason> {
+    let query_contract = synthesis_query_contract(pending);
+    let required_distinct_source_floor = required_distinct_citations(&query_contract);
+
     // Ontology-level fallback: if live reads are blocked but ranked source hints already
     // satisfy citation diversity, synthesize from captured evidence instead of churning.
     if pending.successful_reads.is_empty()
         && !pending.blocked_urls.is_empty()
-        && pending.candidate_source_hints.len()
-            >= required_distinct_citations(&synthesis_query_contract(pending))
+        && pending.candidate_source_hints.len() >= required_distinct_source_floor
     {
         return Some(WebPipelineCompletionReason::ExhaustedCandidates);
     }
 
-    let query_contract = synthesis_query_contract(pending);
     let single_snapshot_mode = prefers_single_fact_snapshot(&query_contract);
+    let query_facets = analyze_query_facets(&query_contract);
     let remaining_candidates = remaining_pending_web_candidates(pending);
     let has_viable_followup_candidate =
         single_snapshot_has_viable_followup_candidate(pending, &query_contract);
@@ -2018,6 +2020,26 @@ pub(crate) fn web_pipeline_completion_reason(
         return Some(WebPipelineCompletionReason::DeadlineReached);
     }
     if remaining_candidates == 0 {
+        let grounded_probe_limit = required_distinct_source_floor
+            .max(min_sources)
+            .max(1)
+            .saturating_sub(1)
+            .clamp(1, WEB_PIPELINE_CONSTRAINT_SEARCH_LIMIT_MAX as usize);
+        let grounded_probe_budget_allows = if pending.deadline_ms == 0 {
+            true
+        } else {
+            pending.deadline_ms.saturating_sub(now_ms)
+                >= WEB_PIPELINE_MIN_REMAINING_BUDGET_MS_FOR_SEARCH_PROBE
+        };
+        let grounded_probe_recovery = !single_snapshot_mode
+            && query_facets.grounded_external_required
+            && pending.successful_reads.len() < min_sources
+            && single_snapshot_additional_probe_attempt_count(pending)
+                < grounded_probe_limit
+            && grounded_probe_budget_allows;
+        if grounded_probe_recovery {
+            return None;
+        }
         // Keep the loop alive for one bounded probe when the citation/source floor
         // is still unmet in single-snapshot mode and budget allows recovery.
         if single_snapshot_mode
