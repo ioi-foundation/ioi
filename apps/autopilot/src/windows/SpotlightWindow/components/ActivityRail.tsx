@@ -7,6 +7,7 @@ interface ActivityRailProps {
   groups: ActivityGroupModel[];
   defaultCollapsed?: boolean;
   onOpenArtifact?: (artifactId: string) => void;
+  onOpenArtifacts?: () => void;
 }
 
 const INITIAL_GROUP_COUNT = 6;
@@ -17,6 +18,7 @@ export function ActivityRail({
   groups,
   defaultCollapsed = true,
   onOpenArtifact,
+  onOpenArtifacts,
 }: ActivityRailProps) {
   const [collapsed, setCollapsed] = useState(defaultCollapsed);
   const [visibleGroups, setVisibleGroups] = useState(INITIAL_GROUP_COUNT);
@@ -38,17 +40,28 @@ export function ActivityRail({
 
   return (
     <section className="activity-rail" aria-label="Execution activity">
-      <button
-        className="activity-rail-header"
-        onClick={() => setCollapsed((value) => !value)}
-        type="button"
-      >
-        <div className="activity-rail-title-wrap">
-          <h3 className="activity-rail-title">Activity</h3>
-          <span className="activity-rail-subtitle">{groups.length} steps</span>
-        </div>
-        <span className={`activity-rail-chevron ${collapsed ? "" : "expanded"}`}>⌄</span>
-      </button>
+      <div className="activity-rail-topbar">
+        <button
+          className="activity-rail-header"
+          onClick={() => setCollapsed((value) => !value)}
+          type="button"
+        >
+          <div className="activity-rail-title-wrap">
+            <h3 className="activity-rail-title">Activity</h3>
+            <span className="activity-rail-subtitle">{groups.length} steps</span>
+          </div>
+          <span className={`activity-rail-chevron ${collapsed ? "" : "expanded"}`}>⌄</span>
+        </button>
+        {onOpenArtifacts && (
+          <button
+            className="activity-open-thoughts"
+            onClick={onOpenArtifacts}
+            type="button"
+          >
+            Artifacts
+          </button>
+        )}
+      </div>
 
       <div className="activity-chip-row">
         {chips.map((chip) => (

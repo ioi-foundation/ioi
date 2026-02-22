@@ -1,23 +1,27 @@
 import { useCallback, useMemo, useState } from "react";
 import { openUrl } from "@tauri-apps/plugin-opener";
-import type { AnswerPresentation, ArtifactRef } from "../../../types";
+import type { AnswerPresentation, ArtifactRef, SourceSummary } from "../../../types";
 import { icons } from "./Icons";
 import { MarkdownMessage } from "./MarkdownMessage";
 
 interface AnswerCardProps {
   answer: AnswerPresentation;
+  sourceSummary: SourceSummary | null;
   artifactRefs: ArtifactRef[];
   onDownloadContext: () => Promise<void> | void;
   onOpenArtifact?: (artifactId: string) => void;
+  onOpenSources?: (summary: SourceSummary) => void;
 }
 
 const MAX_CITATION_PILLS = 8;
 
 export function AnswerCard({
   answer,
+  sourceSummary,
   artifactRefs,
   onDownloadContext,
   onOpenArtifact,
+  onOpenSources,
 }: AnswerCardProps) {
   const [copied, setCopied] = useState(false);
   const [downloading, setDownloading] = useState(false);
@@ -56,6 +60,11 @@ export function AnswerCard({
     if (!first) return;
     onOpenArtifact(first.artifact_id);
   }, [artifactRefs, onOpenArtifact]);
+
+  const sourcePreviewDomains = useMemo(
+    () => sourceSummary?.domains.slice(0, 3) || [],
+    [sourceSummary],
+  );
 
   return (
     <section className="answer-card" aria-label="Final answer">
@@ -128,6 +137,39 @@ export function AnswerCard({
         <span>
           Completion: <strong>{answer.completionReason || "n/a"}</strong>
         </span>
+        {sourceSummary && sourceSummary.totalSources > 0 && (
+          <button
+            className="answer-source-chip answer-source-chip--inline"
+            type="button"
+            onClick={() => onOpenSources?.(sourceSummary)}
+            aria-label={`${sourceSummary.totalSources} sources`}
+            title="Open source activity"
+          >
+            <span className="answer-source-favicon-stack">
+              {sourcePreviewDomains.map((entry, index) => (
+                <span
+                  key={`${entry.domain}-${index}`}
+                  className="answer-source-favicon-wrap"
+                  style={{
+                    zIndex: sourcePreviewDomains.length - index,
+                    marginLeft: index === 0 ? 0 : -12,
+                  }}
+                >
+                  <img
+                    className="answer-source-favicon"
+                    src={entry.faviconUrl}
+                    alt={`${entry.domain} favicon`}
+                    loading="lazy"
+                  />
+                </span>
+              ))}
+            </span>
+            <span className="answer-source-chip-label">
+              {sourceSummary.totalSources}{" "}
+              {sourceSummary.totalSources === 1 ? "source" : "sources"}
+            </span>
+          </button>
+        )}
       </div>
     </section>
   );

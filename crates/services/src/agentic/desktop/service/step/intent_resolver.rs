@@ -509,8 +509,10 @@ pub async fn resolve_step_intent(
                     .unwrap_or_default()
                     .clamp(0.0, 1.0);
                 let has_rank_support = web_ranked_score >= medium_floor;
-                let has_strong_research_signals = live_research_profile.recency_hits > 0
-                    && live_research_profile.provenance_hits > 0;
+                let has_strong_research_signals = (live_research_profile.recency_hits > 0
+                    && live_research_profile.provenance_hits > 0)
+                    || (live_research_profile.recency_hits > 0
+                        && live_research_profile.public_fact_hits > 0);
                 if !has_rank_support && !has_strong_research_signals {
                     log::info!(
                         "IntentResolverOverrideSkipped session={} reason=insufficient_rank_support signal_version={} winner={} web_candidate_score={:.3}",
@@ -903,5 +905,24 @@ mod tests {
                 .map(|candidate| candidate.intent_id.as_str()),
             Some("web.research")
         );
+    }
+
+    #[tokio::test(flavor = "current_thread")]
+    async fn resolver_forces_web_research_for_time_sensitive_public_fact_queries() {
+        let gui: Arc<dyn GuiDriver> = Arc::new(NoopGuiDriver);
+        let terminal = Arc::new(TerminalDriver::new());
+        let browser = Arc::new(BrowserDriver::new());
+        let inference: Arc<dyn InferenceRuntime> = Arc::new(DriftedIntentRuntime);
+        let service = DesktopAgentService::new(gui, terminal, browser, inference);
+
+        let mut agent_state = test_agent_state();
+        agent_state.goal = "What's the weather right now in Anderson, SC?".to_string();
+
+        let rules = ActionRules::default();
+        let resolved = resolve_step_intent(&service, &agent_state, &rules, "terminal")
+            .await
+            .unwrap();
+        assert_eq!(resolved.scope, IntentScopeProfile::WebResearch);
+        assert_eq!(resolved.intent_id, "web.research");
     }
 }
