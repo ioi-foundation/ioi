@@ -4,7 +4,7 @@
 mod envelope;
 #[path = "queue/processing.rs"]
 mod processing;
-#[path = "queue/support.rs"]
+#[path = "queue/support/mod.rs"]
 mod support;
 
 pub use processing::{process_queue_item, resolve_queue_routing_context};
