@@ -2,7 +2,7 @@
 
 #[path = "action/probe.rs"]
 mod probe;
-#[path = "action/processing.rs"]
+#[path = "action/processing/mod.rs"]
 mod processing;
 #[path = "action/refusal_eval.rs"]
 mod refusal_eval;

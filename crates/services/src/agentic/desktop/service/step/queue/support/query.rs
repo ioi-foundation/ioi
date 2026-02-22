@@ -27,25 +27,25 @@ pub(crate) enum WebPipelineLatencyPressure {
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
-pub(super) struct CandidateConstraintCompatibility {
-    compatibility_score: usize,
-    is_compatible: bool,
-    locality_compatible: bool,
+pub(crate) struct CandidateConstraintCompatibility {
+    pub(crate) compatibility_score: usize,
+    pub(crate) is_compatible: bool,
+    pub(crate) locality_compatible: bool,
 }
 
 #[derive(Debug, Clone)]
-pub(super) struct QueryConstraintProjection {
-    constraints: ConstraintSet,
-    query_facets: QueryFacetProfile,
-    query_native_tokens: BTreeSet<String>,
-    query_tokens: BTreeSet<String>,
-    locality_scope: Option<String>,
-    locality_scope_inferred: bool,
-    locality_tokens: BTreeSet<String>,
+pub(crate) struct QueryConstraintProjection {
+    pub(crate) constraints: ConstraintSet,
+    pub(crate) query_facets: QueryFacetProfile,
+    pub(crate) query_native_tokens: BTreeSet<String>,
+    pub(crate) query_tokens: BTreeSet<String>,
+    pub(crate) locality_scope: Option<String>,
+    pub(crate) locality_scope_inferred: bool,
+    pub(crate) locality_tokens: BTreeSet<String>,
 }
 
 impl QueryConstraintProjection {
-    fn enforce_grounded_compatibility(&self) -> bool {
+    pub(crate) fn enforce_grounded_compatibility(&self) -> bool {
         self.constraints
             .scopes
             .contains(&ConstraintScope::TimeSensitive)
@@ -53,7 +53,7 @@ impl QueryConstraintProjection {
                 && !self.query_native_tokens.is_empty())
     }
 
-    fn strict_grounded_compatibility(&self) -> bool {
+    pub(crate) fn strict_grounded_compatibility(&self) -> bool {
         self.constraints
             .scopes
             .contains(&ConstraintScope::TimeSensitive)
@@ -63,7 +63,7 @@ impl QueryConstraintProjection {
                 >= QUERY_COMPATIBILITY_MIN_GROUNDED_MULTI_ANCHOR_OVERLAP
     }
 
-    fn has_constraint_objective(&self) -> bool {
+    pub(crate) fn has_constraint_objective(&self) -> bool {
         self.constraints
             .scopes
             .contains(&ConstraintScope::TimeSensitive)
@@ -72,7 +72,7 @@ impl QueryConstraintProjection {
             || !self.query_tokens.is_empty()
     }
 
-    fn reject_search_hub_candidates(&self) -> bool {
+    pub(crate) fn reject_search_hub_candidates(&self) -> bool {
         self.constraints
             .scopes
             .contains(&ConstraintScope::TimeSensitive)
@@ -81,17 +81,17 @@ impl QueryConstraintProjection {
 }
 
 #[derive(Debug, Clone)]
-pub(super) struct RankedAcquisitionCandidate {
-    idx: usize,
-    hint: PendingSearchReadSummary,
-    envelope_score: CandidateEvidenceScore,
-    resolves_constraint: bool,
-    time_sensitive_resolvable_payload: bool,
-    compatibility: CandidateConstraintCompatibility,
-    source_relevance_score: usize,
+pub(crate) struct RankedAcquisitionCandidate {
+    pub(crate) idx: usize,
+    pub(crate) hint: PendingSearchReadSummary,
+    pub(crate) envelope_score: CandidateEvidenceScore,
+    pub(crate) resolves_constraint: bool,
+    pub(crate) time_sensitive_resolvable_payload: bool,
+    pub(crate) compatibility: CandidateConstraintCompatibility,
+    pub(crate) source_relevance_score: usize,
 }
 
-pub(super) fn parse_small_count_token(token: &str) -> Option<usize> {
+pub(crate) fn parse_small_count_token(token: &str) -> Option<usize> {
     let normalized = token
         .trim()
         .trim_matches(|ch: char| !ch.is_ascii_alphanumeric())
@@ -107,7 +107,7 @@ pub(super) fn parse_small_count_token(token: &str) -> Option<usize> {
     }
 }
 
-pub(super) fn explicit_story_count_hint(query: &str) -> Option<usize> {
+pub(crate) fn explicit_story_count_hint(query: &str) -> Option<usize> {
     let tokens = query.split_whitespace().collect::<Vec<_>>();
     for idx in 0..tokens.len() {
         let token = tokens[idx].to_ascii_lowercase();
@@ -149,7 +149,7 @@ pub(super) fn explicit_story_count_hint(query: &str) -> Option<usize> {
     None
 }
 
-pub(super) fn required_story_count(query: &str) -> usize {
+pub(crate) fn required_story_count(query: &str) -> usize {
     if let Some(explicit) = explicit_story_count_hint(query) {
         return explicit;
     }
@@ -160,7 +160,7 @@ pub(super) fn required_story_count(query: &str) -> usize {
     WEB_PIPELINE_REQUIRED_STORIES
 }
 
-pub(super) fn prefers_single_fact_snapshot(query: &str) -> bool {
+pub(crate) fn prefers_single_fact_snapshot(query: &str) -> bool {
     if query.trim().is_empty() {
         return false;
     }
@@ -178,7 +178,7 @@ pub(super) fn prefers_single_fact_snapshot(query: &str) -> bool {
     true
 }
 
-pub(super) fn query_metric_axes_with_hints(
+pub(crate) fn query_metric_axes_with_hints(
     query: &str,
     candidate_hints: &[PendingSearchReadSummary],
 ) -> BTreeSet<MetricAxis> {
@@ -217,11 +217,11 @@ pub(super) fn query_metric_axes_with_hints(
     .required_facets
 }
 
-pub(super) fn query_metric_axes(query: &str) -> BTreeSet<MetricAxis> {
+pub(crate) fn query_metric_axes(query: &str) -> BTreeSet<MetricAxis> {
     query_metric_axes_with_hints(query, &[])
 }
 
-pub(super) fn single_snapshot_constraint_set_with_hints(
+pub(crate) fn single_snapshot_constraint_set_with_hints(
     query: &str,
     min_independent_sources: usize,
     candidate_hints: &[PendingSearchReadSummary],
@@ -230,7 +230,7 @@ pub(super) fn single_snapshot_constraint_set_with_hints(
     compile_constraint_set(query, required_facets, min_independent_sources)
 }
 
-pub(super) fn single_snapshot_candidate_envelope_score(
+pub(crate) fn single_snapshot_candidate_envelope_score(
     constraints: &ConstraintSet,
     policy: ResolutionPolicy,
     url: &str,
@@ -248,13 +248,13 @@ pub(super) fn single_snapshot_candidate_envelope_score(
     score_evidence_candidate(constraints, &source, "", policy)
 }
 
-pub(super) fn envelope_score_has_resolvable_signal(score: &CandidateEvidenceScore) -> bool {
+pub(crate) fn envelope_score_has_resolvable_signal(score: &CandidateEvidenceScore) -> bool {
     score.has_numeric_observation()
         || score.present_without_numeric_facets > 0
         || (score.required_facets == 0 && score.total_score > 0)
 }
 
-pub(super) fn envelope_score_resolves_constraint(
+pub(crate) fn envelope_score_resolves_constraint(
     constraints: &ConstraintSet,
     score: &CandidateEvidenceScore,
 ) -> bool {
@@ -285,7 +285,7 @@ pub(super) fn envelope_score_resolves_constraint(
     score.numeric_observed_facets > 0
 }
 
-pub(super) fn compare_candidate_evidence_scores_desc(
+pub(crate) fn compare_candidate_evidence_scores_desc(
     left: &CandidateEvidenceScore,
     right: &CandidateEvidenceScore,
 ) -> std::cmp::Ordering {
@@ -312,7 +312,7 @@ pub(super) fn compare_candidate_evidence_scores_desc(
         .then_with(|| right.total_score.cmp(&left.total_score))
 }
 
-pub(super) fn metric_axis_search_phrase(axis: MetricAxis) -> &'static str {
+pub(crate) fn metric_axis_search_phrase(axis: MetricAxis) -> &'static str {
     match axis {
         MetricAxis::Temperature => "temperature",
         MetricAxis::Humidity => "humidity",
@@ -328,15 +328,15 @@ pub(super) fn metric_axis_search_phrase(axis: MetricAxis) -> &'static str {
     }
 }
 
-pub(super) fn is_query_stopword(token: &str) -> bool {
+pub(crate) fn is_query_stopword(token: &str) -> bool {
     QUERY_COMPATIBILITY_STOPWORDS.contains(&token)
 }
 
-pub(super) fn is_locality_scope_noise_token(token: &str) -> bool {
+pub(crate) fn is_locality_scope_noise_token(token: &str) -> bool {
     LOCALITY_SCOPE_NOISE_TOKENS.contains(&token)
 }
 
-pub(super) fn normalized_anchor_tokens(text: &str) -> BTreeSet<String> {
+pub(crate) fn normalized_anchor_tokens(text: &str) -> BTreeSet<String> {
     text.split(|ch: char| !ch.is_ascii_alphanumeric())
         .filter_map(|token| {
             let normalized = token.trim().to_ascii_lowercase();
@@ -354,7 +354,7 @@ pub(super) fn normalized_anchor_tokens(text: &str) -> BTreeSet<String> {
         .collect()
 }
 
-pub(super) fn normalized_locality_tokens(text: &str) -> BTreeSet<String> {
+pub(crate) fn normalized_locality_tokens(text: &str) -> BTreeSet<String> {
     text.split(|ch: char| !ch.is_ascii_alphanumeric())
         .filter_map(|token| {
             let normalized = token.trim().to_ascii_lowercase();
@@ -372,7 +372,7 @@ pub(super) fn normalized_locality_tokens(text: &str) -> BTreeSet<String> {
         .collect()
 }
 
-pub(super) fn source_locality_tokens(url: &str, title: &str, excerpt: &str) -> BTreeSet<String> {
+pub(crate) fn source_locality_tokens(url: &str, title: &str, excerpt: &str) -> BTreeSet<String> {
     let mut tokens = normalized_locality_tokens(title);
     tokens.extend(normalized_locality_tokens(excerpt));
 
@@ -391,7 +391,7 @@ pub(super) fn source_locality_tokens(url: &str, title: &str, excerpt: &str) -> B
     tokens
 }
 
-pub(super) fn ordered_normalized_locality_tokens(text: &str) -> Vec<String> {
+pub(crate) fn ordered_normalized_locality_tokens(text: &str) -> Vec<String> {
     let mut ordered = Vec::new();
     let mut seen = BTreeSet::new();
     for token in text.split(|ch: char| !ch.is_ascii_alphanumeric()) {
@@ -413,7 +413,7 @@ pub(super) fn ordered_normalized_locality_tokens(text: &str) -> Vec<String> {
     ordered
 }
 
-pub(super) fn source_structural_locality_tokens(url: &str, title: &str) -> Vec<String> {
+pub(crate) fn source_structural_locality_tokens(url: &str, title: &str) -> Vec<String> {
     let mut tokens = ordered_normalized_locality_tokens(title);
     let mut seen = tokens.iter().cloned().collect::<BTreeSet<_>>();
     if let Ok(parsed) = Url::parse(url.trim()) {
@@ -441,7 +441,7 @@ pub(super) fn source_structural_locality_tokens(url: &str, title: &str) -> Vec<S
     tokens
 }
 
-pub(super) fn is_locality_scope_inference_hub_url(url: &str) -> bool {
+pub(crate) fn is_locality_scope_inference_hub_url(url: &str) -> bool {
     if is_search_hub_url(url) {
         return true;
     }
@@ -459,7 +459,7 @@ pub(super) fn is_locality_scope_inference_hub_url(url: &str) -> bool {
             || path.starts_with("/rss/topics"))
 }
 
-pub(super) fn sanitize_locality_scope(raw: &str) -> Option<String> {
+pub(crate) fn sanitize_locality_scope(raw: &str) -> Option<String> {
     let mut out = String::new();
     let mut last_was_space = true;
     for ch in raw.trim().chars() {
@@ -487,7 +487,7 @@ pub(super) fn sanitize_locality_scope(raw: &str) -> Option<String> {
     (!compact.is_empty()).then_some(compact)
 }
 
-pub(super) fn inferred_locality_scope_from_candidate_hints(
+pub(crate) fn inferred_locality_scope_from_candidate_hints(
     query: &str,
     candidate_hints: &[PendingSearchReadSummary],
 ) -> Option<String> {
@@ -698,7 +698,7 @@ pub(super) fn inferred_locality_scope_from_candidate_hints(
     sanitize_locality_scope(&scope_tokens.join(" "))
 }
 
-pub(super) fn scope_anchor_start(query_lower: &str) -> Option<usize> {
+pub(crate) fn scope_anchor_start(query_lower: &str) -> Option<usize> {
     for marker in [" in ", " near ", " around ", " at "] {
         if let Some(idx) = query_lower.find(marker) {
             return Some(idx + marker.len());
@@ -707,7 +707,7 @@ pub(super) fn scope_anchor_start(query_lower: &str) -> Option<usize> {
     None
 }
 
-pub(super) fn explicit_query_scope_hint(query: &str) -> Option<String> {
+pub(crate) fn explicit_query_scope_hint(query: &str) -> Option<String> {
     let compact = compact_whitespace(query);
     if compact.is_empty() {
         return None;
@@ -747,7 +747,7 @@ pub(super) fn explicit_query_scope_hint(query: &str) -> Option<String> {
     sanitize_locality_scope(&scope_tokens.join(" "))
 }
 
-pub(super) fn query_requires_locality_scope(query: &str, facets: &QueryFacetProfile) -> bool {
+pub(crate) fn query_requires_locality_scope(query: &str, facets: &QueryFacetProfile) -> bool {
     facets.time_sensitive_public_fact
         && facets.locality_sensitive_public_fact
         && !facets.workspace_constrained
@@ -763,7 +763,7 @@ pub(crate) fn query_requires_runtime_locality_scope(query: &str) -> bool {
     query_requires_locality_scope(&compact, &facets)
 }
 
-pub(super) fn trusted_runtime_locality_scope_from_env() -> Option<String> {
+pub(crate) fn trusted_runtime_locality_scope_from_env() -> Option<String> {
     TRUSTED_LOCALITY_ENV_KEYS.iter().find_map(|key| {
         std::env::var(key)
             .ok()
@@ -771,13 +771,13 @@ pub(super) fn trusted_runtime_locality_scope_from_env() -> Option<String> {
     })
 }
 
-pub(super) fn effective_locality_scope_hint(locality_hint: Option<&str>) -> Option<String> {
+pub(crate) fn effective_locality_scope_hint(locality_hint: Option<&str>) -> Option<String> {
     locality_hint
         .and_then(sanitize_locality_scope)
         .or_else(trusted_runtime_locality_scope_from_env)
 }
 
-pub(super) fn append_scope_to_query(query: &str, scope: &str) -> String {
+pub(crate) fn append_scope_to_query(query: &str, scope: &str) -> String {
     let trimmed = compact_whitespace(query);
     if trimmed.is_empty() {
         return trimmed;
@@ -800,7 +800,10 @@ pub(super) fn append_scope_to_query(query: &str, scope: &str) -> String {
     format!("{base} in {scope}{suffix}")
 }
 
-pub(super) fn resolved_query_contract_with_locality_hint(query: &str, locality_hint: Option<&str>) -> String {
+pub(crate) fn resolved_query_contract_with_locality_hint(
+    query: &str,
+    locality_hint: Option<&str>,
+) -> String {
     let base = compact_whitespace(query);
     if base.trim().is_empty() {
         return String::new();
@@ -818,11 +821,11 @@ pub(super) fn resolved_query_contract_with_locality_hint(query: &str, locality_h
     compact_whitespace(&append_scope_to_query(&base, &scope))
 }
 
-pub(super) fn resolved_query_contract(query: &str) -> String {
+pub(crate) fn resolved_query_contract(query: &str) -> String {
     resolved_query_contract_with_locality_hint(query, None)
 }
 
-pub(super) fn semantic_retrieval_query_contract_with_locality_hint(
+pub(crate) fn semantic_retrieval_query_contract_with_locality_hint(
     query: &str,
     locality_hint: Option<&str>,
 ) -> String {
@@ -927,7 +930,10 @@ pub(crate) fn select_web_pipeline_query_contract(goal: &str, retrieval_query: &s
     contract
 }
 
-pub(super) fn query_anchor_tokens(query_contract: &str, constraints: &ConstraintSet) -> BTreeSet<String> {
+pub(crate) fn query_anchor_tokens(
+    query_contract: &str,
+    constraints: &ConstraintSet,
+) -> BTreeSet<String> {
     let mut tokens = query_native_anchor_tokens(query_contract);
     for axis in &constraints.required_facets {
         for token in metric_axis_search_phrase(*axis).split_whitespace() {
@@ -944,7 +950,7 @@ pub(super) fn query_anchor_tokens(query_contract: &str, constraints: &Constraint
     tokens
 }
 
-pub(super) fn query_native_anchor_tokens(query_contract: &str) -> BTreeSet<String> {
+pub(crate) fn query_native_anchor_tokens(query_contract: &str) -> BTreeSet<String> {
     let semantic_tokens = query_semantic_anchor_tokens(query_contract)
         .into_iter()
         .filter(|token| token.len() >= QUERY_COMPATIBILITY_MIN_TOKEN_CHARS)
@@ -957,7 +963,7 @@ pub(super) fn query_native_anchor_tokens(query_contract: &str) -> BTreeSet<Strin
     }
 }
 
-pub(super) fn build_query_constraint_projection_with_locality_hint(
+pub(crate) fn build_query_constraint_projection_with_locality_hint(
     query_contract: &str,
     min_sources: u32,
     candidate_hints: &[PendingSearchReadSummary],
@@ -1009,7 +1015,7 @@ pub(super) fn build_query_constraint_projection_with_locality_hint(
     }
 }
 
-pub(super) fn build_query_constraint_projection(
+pub(crate) fn build_query_constraint_projection(
     query_contract: &str,
     min_sources: u32,
     candidate_hints: &[PendingSearchReadSummary],
@@ -1022,7 +1028,9 @@ pub(super) fn build_query_constraint_projection(
     )
 }
 
-pub(super) fn projection_constraint_search_terms(projection: &QueryConstraintProjection) -> Vec<String> {
+pub(crate) fn projection_constraint_search_terms(
+    projection: &QueryConstraintProjection,
+) -> Vec<String> {
     let mut terms = Vec::new();
     let has_explicit_metric_objective = !projection.constraints.required_facets.is_empty()
         || !projection.query_facets.metric_schema.axis_hits.is_empty();
@@ -1093,7 +1101,7 @@ pub(crate) fn constraint_grounded_search_limit(query: &str, min_sources: u32) ->
     )
 }
 
-pub(super) fn source_anchor_tokens(url: &str, title: &str, excerpt: &str) -> BTreeSet<String> {
+pub(crate) fn source_anchor_tokens(url: &str, title: &str, excerpt: &str) -> BTreeSet<String> {
     let mut tokens = normalized_anchor_tokens(title);
     tokens.extend(normalized_anchor_tokens(excerpt));
 
@@ -1150,7 +1158,7 @@ pub(super) fn source_anchor_tokens(url: &str, title: &str, excerpt: &str) -> BTr
     tokens
 }
 
-pub(super) fn is_search_hub_url(url: &str) -> bool {
+pub(crate) fn is_search_hub_url(url: &str) -> bool {
     let Ok(parsed) = Url::parse(url.trim()) else {
         return false;
     };
@@ -1179,7 +1187,7 @@ pub(super) fn is_search_hub_url(url: &str) -> bool {
     (is_ddg_hub || is_bing_hub || is_google_hub || is_generic_query_search_hub) && has_query
 }
 
-pub(super) fn candidate_time_sensitive_resolvable_payload(title: &str, excerpt: &str) -> bool {
+pub(crate) fn candidate_time_sensitive_resolvable_payload(title: &str, excerpt: &str) -> bool {
     fn observation_surface_signal(schema: &MetricSchemaProfile) -> bool {
         let observation_strength = schema
             .observation_hits
@@ -1209,7 +1217,7 @@ pub(super) fn candidate_time_sensitive_resolvable_payload(title: &str, excerpt: 
     excerpt.trim().is_empty() && observation_surface_signal(&analyze_metric_schema(title))
 }
 
-pub(super) fn compatibility_passes_projection(
+pub(crate) fn compatibility_passes_projection(
     projection: &QueryConstraintProjection,
     compatibility: &CandidateConstraintCompatibility,
 ) -> bool {
@@ -1228,7 +1236,7 @@ pub(super) fn compatibility_passes_projection(
     true
 }
 
-pub(super) fn candidate_constraint_compatibility(
+pub(crate) fn candidate_constraint_compatibility(
     constraints: &ConstraintSet,
     query_facets: &QueryFacetProfile,
     query_native_tokens: &BTreeSet<String>,
@@ -1372,13 +1380,13 @@ pub(super) fn candidate_constraint_compatibility(
     }
 }
 
-pub(super) fn probe_hint_anchor_tokens(title: &str, excerpt: &str) -> BTreeSet<String> {
+pub(crate) fn probe_hint_anchor_tokens(title: &str, excerpt: &str) -> BTreeSet<String> {
     let mut out = normalized_anchor_tokens(title);
     out.extend(normalized_anchor_tokens(excerpt));
     out
 }
 
-pub(super) fn projection_probe_hint_anchor_phrase(
+pub(crate) fn projection_probe_hint_anchor_phrase(
     projection: &QueryConstraintProjection,
     candidate_hints: &[PendingSearchReadSummary],
 ) -> Option<String> {
@@ -1476,7 +1484,9 @@ pub(super) fn projection_probe_hint_anchor_phrase(
     (anchor_tokens.len() >= 2).then(|| format!("\"{}\"", anchor_tokens.join(" ")))
 }
 
-pub(super) fn projection_native_anchor_phrase(projection: &QueryConstraintProjection) -> Option<String> {
+pub(crate) fn projection_native_anchor_phrase(
+    projection: &QueryConstraintProjection,
+) -> Option<String> {
     if projection.locality_scope.is_some()
         && projection
             .constraints
@@ -1496,7 +1506,7 @@ pub(super) fn projection_native_anchor_phrase(projection: &QueryConstraintProjec
     (anchor_phrase_tokens.len() >= 2).then(|| format!("\"{}\"", anchor_phrase_tokens.join(" ")))
 }
 
-pub(super) fn projection_locality_semantic_anchor_phrase(
+pub(crate) fn projection_locality_semantic_anchor_phrase(
     projection: &QueryConstraintProjection,
 ) -> Option<String> {
     if projection.locality_tokens.is_empty() {
@@ -1520,7 +1530,7 @@ pub(super) fn projection_locality_semantic_anchor_phrase(
     (tokens.len() >= 2).then(|| format!("\"{}\"", tokens.join(" ")))
 }
 
-pub(super) fn projection_probe_conflict_exclusion_terms(
+pub(crate) fn projection_probe_conflict_exclusion_terms(
     projection: &QueryConstraintProjection,
     candidate_hints: &[PendingSearchReadSummary],
 ) -> Vec<String> {
@@ -1574,7 +1584,7 @@ pub(super) fn projection_probe_conflict_exclusion_terms(
         .collect()
 }
 
-pub(super) fn projection_probe_host_exclusion_terms(
+pub(crate) fn projection_probe_host_exclusion_terms(
     projection: &QueryConstraintProjection,
     candidate_hints: &[PendingSearchReadSummary],
 ) -> Vec<String> {
@@ -1614,7 +1624,9 @@ pub(super) fn projection_probe_host_exclusion_terms(
         .collect()
 }
 
-pub(super) fn projection_probe_structural_terms(projection: &QueryConstraintProjection) -> Vec<String> {
+pub(crate) fn projection_probe_structural_terms(
+    projection: &QueryConstraintProjection,
+) -> Vec<String> {
     let mut terms = Vec::new();
     if let Some(scope) = projection.locality_scope.as_ref() {
         terms.push(format!("\"{}\"", scope));
@@ -1639,7 +1651,7 @@ pub(super) fn projection_probe_structural_terms(projection: &QueryConstraintProj
     terms
 }
 
-pub(super) fn append_unique_query_terms(base_query: &str, terms: &[String]) -> String {
+pub(crate) fn append_unique_query_terms(base_query: &str, terms: &[String]) -> String {
     let mut appended = base_query.trim().to_string();
     let lower = base_query.to_ascii_lowercase();
     for term in terms {
@@ -1841,7 +1853,7 @@ pub(crate) fn constraint_grounded_search_query(query: &str, min_sources: u32) ->
     constraint_grounded_search_query_with_hints(query, min_sources, &[])
 }
 
-pub(super) fn pre_read_candidate_plan(
+pub(crate) fn pre_read_candidate_plan(
     query_contract: &str,
     min_sources: u32,
     candidate_urls: Vec<String>,
@@ -2195,7 +2207,7 @@ pub(crate) fn pre_read_candidate_plan_from_bundle_with_recovery_mode(
     )
 }
 
-pub(super) fn required_citations_per_story(query: &str) -> usize {
+pub(crate) fn required_citations_per_story(query: &str) -> usize {
     let tokens = query.split_whitespace().collect::<Vec<_>>();
     for idx in 0..tokens.len() {
         let Some(value) = parse_small_count_token(tokens[idx]) else {
@@ -2230,7 +2242,7 @@ pub(super) fn required_citations_per_story(query: &str) -> usize {
     WEB_PIPELINE_CITATIONS_PER_STORY
 }
 
-pub(super) fn required_distinct_citations(query: &str) -> usize {
+pub(crate) fn required_distinct_citations(query: &str) -> usize {
     required_story_count(query).saturating_mul(required_citations_per_story(query))
 }
 
@@ -2241,11 +2253,11 @@ pub(crate) fn web_pipeline_min_sources(query: &str) -> u32 {
     WEB_PIPELINE_DEFAULT_MIN_SOURCES
 }
 
-pub(super) fn requires_mailbox_access_notice(query: &str) -> bool {
+pub(crate) fn requires_mailbox_access_notice(query: &str) -> bool {
     is_mailbox_connector_intent(query)
 }
 
-pub(super) fn render_mailbox_access_limited_draft(draft: &SynthesisDraft) -> String {
+pub(crate) fn render_mailbox_access_limited_draft(draft: &SynthesisDraft) -> String {
     let citations_per_story = required_citations_per_story(&draft.query).max(1);
     let mut lines = Vec::new();
     lines.push(format!(

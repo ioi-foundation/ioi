@@ -1,6 +1,6 @@
 use super::*;
 
-pub(super) fn confidence_tier(
+pub(crate) fn confidence_tier(
     pending: &PendingSearchCompletion,
     reason: WebPipelineCompletionReason,
 ) -> &'static str {
@@ -18,7 +18,7 @@ pub(super) fn confidence_tier(
     "low"
 }
 
-pub(super) fn completion_reason_line(reason: WebPipelineCompletionReason) -> &'static str {
+pub(crate) fn completion_reason_line(reason: WebPipelineCompletionReason) -> &'static str {
     match reason {
         WebPipelineCompletionReason::MinSourcesReached => {
             "Completed after meeting the source floor."
@@ -30,7 +30,7 @@ pub(super) fn completion_reason_line(reason: WebPipelineCompletionReason) -> &'s
     }
 }
 
-pub(super) fn excerpt_headline(excerpt: &str) -> Option<String> {
+pub(crate) fn excerpt_headline(excerpt: &str) -> Option<String> {
     let compact = compact_whitespace(excerpt);
     let trimmed = compact.trim();
     if trimmed.is_empty() {
@@ -47,7 +47,7 @@ pub(super) fn excerpt_headline(excerpt: &str) -> Option<String> {
     Some(candidate.chars().take(120).collect())
 }
 
-pub(super) fn source_bullet(source: &PendingSearchReadSummary) -> String {
+pub(crate) fn source_bullet(source: &PendingSearchReadSummary) -> String {
     let title = source.title.as_deref().map(str::trim).unwrap_or_default();
     let excerpt = source.excerpt.trim();
     let headline = if !title.is_empty() && !is_low_signal_title(title) {
@@ -70,7 +70,7 @@ pub(super) fn source_bullet(source: &PendingSearchReadSummary) -> String {
     }
 }
 
-pub(super) fn single_snapshot_source_score(
+pub(crate) fn single_snapshot_source_score(
     source: &PendingSearchReadSummary,
     envelope_constraints: &ConstraintSet,
     envelope_policy: ResolutionPolicy,
@@ -86,7 +86,10 @@ pub(super) fn single_snapshot_source_score(
     )
 }
 
-pub(super) fn has_quantitative_metric_payload(text: &str, require_current_observation: bool) -> bool {
+pub(crate) fn has_quantitative_metric_payload(
+    text: &str,
+    require_current_observation: bool,
+) -> bool {
     let schema = analyze_metric_schema(text);
     if schema.numeric_token_hits == 0 {
         return false;
@@ -129,7 +132,7 @@ pub(super) fn has_quantitative_metric_payload(text: &str, require_current_observ
     has_multi_axis_observed_numeric || has_ranged_observation
 }
 
-pub(super) fn contains_current_condition_metric_signal(text: &str) -> bool {
+pub(crate) fn contains_current_condition_metric_signal(text: &str) -> bool {
     if !has_quantitative_metric_payload(text, true) {
         return false;
     }
@@ -150,7 +153,7 @@ pub(super) fn contains_current_condition_metric_signal(text: &str) -> bool {
     has_observable_axis
 }
 
-pub(super) fn metric_axis_unavailable_label(axis: MetricAxis) -> &'static str {
+pub(crate) fn metric_axis_unavailable_label(axis: MetricAxis) -> &'static str {
     match axis {
         MetricAxis::Temperature => "temperature (\u{00b0}F) unavailable",
         MetricAxis::Humidity => "humidity unavailable",
@@ -166,7 +169,7 @@ pub(super) fn metric_axis_unavailable_label(axis: MetricAxis) -> &'static str {
     }
 }
 
-pub(super) fn single_snapshot_metric_status_line(required_axes: &BTreeSet<MetricAxis>) -> String {
+pub(crate) fn single_snapshot_metric_status_line(required_axes: &BTreeSet<MetricAxis>) -> String {
     if required_axes.is_empty() {
         return "- Current metric status: live current-observation values were unavailable in retrieved source text at this UTC timestamp.".to_string();
     }
@@ -182,7 +185,7 @@ pub(super) fn single_snapshot_metric_status_line(required_axes: &BTreeSet<Metric
     )
 }
 
-pub(super) fn compact_metric_focus(text: &str) -> String {
+pub(crate) fn compact_metric_focus(text: &str) -> String {
     let compact = compact_whitespace(text);
     if compact.is_empty() {
         return compact;
@@ -198,11 +201,11 @@ pub(super) fn compact_metric_focus(text: &str) -> String {
         .collect()
 }
 
-pub(super) fn contains_metric_signal(text: &str) -> bool {
+pub(crate) fn contains_metric_signal(text: &str) -> bool {
     analyze_metric_schema(text).has_metric_payload()
 }
 
-pub(super) fn metric_segment_signal_score(text: &str) -> usize {
+pub(crate) fn metric_segment_signal_score(text: &str) -> usize {
     let schema = analyze_metric_schema(text);
     let axis_score = schema.axis_hits.len().saturating_mul(3);
     let numeric_score = schema.numeric_token_hits.min(6).saturating_mul(2);
@@ -222,7 +225,7 @@ pub(super) fn metric_segment_signal_score(text: &str) -> usize {
         .saturating_sub(range_penalty)
 }
 
-pub(super) fn best_metric_segment(text: &str) -> Option<String> {
+pub(crate) fn best_metric_segment(text: &str) -> Option<String> {
     let compact = compact_whitespace(text);
     if compact.is_empty() {
         return None;
@@ -253,7 +256,7 @@ pub(super) fn best_metric_segment(text: &str) -> Option<String> {
     best.map(|(_, _, segment)| segment)
 }
 
-pub(super) fn first_metric_sentence(text: &str) -> Option<String> {
+pub(crate) fn first_metric_sentence(text: &str) -> Option<String> {
     let compact = compact_whitespace(text);
     let mut fallback = None;
     for sentence in compact
@@ -275,7 +278,7 @@ pub(super) fn first_metric_sentence(text: &str) -> Option<String> {
     fallback
 }
 
-pub(super) fn looks_like_clock_time(token: &str) -> bool {
+pub(crate) fn looks_like_clock_time(token: &str) -> bool {
     let normalized = token.trim_matches(|ch: char| !ch.is_ascii_digit() && ch != ':');
     if normalized.is_empty() {
         return false;
@@ -296,7 +299,7 @@ pub(super) fn looks_like_clock_time(token: &str) -> bool {
     hours.chars().all(|ch| ch.is_ascii_digit()) && minutes.chars().all(|ch| ch.is_ascii_digit())
 }
 
-pub(super) fn token_is_numeric_literal(token: &str) -> bool {
+pub(crate) fn token_is_numeric_literal(token: &str) -> bool {
     let normalized = token.trim_matches(|ch: char| {
         !ch.is_ascii_alphanumeric() && ch != '.' && ch != '-' && ch != '+'
     });
@@ -306,7 +309,7 @@ pub(super) fn token_is_numeric_literal(token: &str) -> bool {
     normalized.replace(',', "").parse::<f64>().is_ok()
 }
 
-pub(super) fn token_is_measurement_unit(token: &str) -> bool {
+pub(crate) fn token_is_measurement_unit(token: &str) -> bool {
     let normalized = token.trim_matches(|ch: char| !ch.is_ascii_alphanumeric() && ch != '/');
     if normalized.is_empty() {
         return false;
@@ -318,7 +321,7 @@ pub(super) fn token_is_measurement_unit(token: &str) -> bool {
     schema.unit_hits > 0 || schema.currency_hits > 0
 }
 
-pub(super) fn token_has_inline_numeric_measurement(token: &str) -> bool {
+pub(crate) fn token_has_inline_numeric_measurement(token: &str) -> bool {
     let normalized = token.trim_matches(|ch: char| ",.;:!?()[]{}'\"".contains(ch));
     if normalized.is_empty() || looks_like_clock_time(normalized) {
         return false;
@@ -339,7 +342,7 @@ pub(super) fn token_has_inline_numeric_measurement(token: &str) -> bool {
     has_alpha
 }
 
-pub(super) fn has_numeric_measurement_signal(text: &str) -> bool {
+pub(crate) fn has_numeric_measurement_signal(text: &str) -> bool {
     let tokens = compact_whitespace(text)
         .split_whitespace()
         .map(str::to_string)
@@ -359,7 +362,7 @@ pub(super) fn has_numeric_measurement_signal(text: &str) -> bool {
     false
 }
 
-pub(super) fn concise_metric_snapshot_line(metric_excerpt: &str) -> String {
+pub(crate) fn concise_metric_snapshot_line(metric_excerpt: &str) -> String {
     let focused = compact_metric_focus(metric_excerpt);
     if focused.is_empty() {
         return focused;
@@ -391,14 +394,14 @@ pub(super) fn concise_metric_snapshot_line(metric_excerpt: &str) -> String {
         .to_string()
 }
 
-pub(super) fn single_snapshot_metric_limitation_line(source: &PendingSearchReadSummary) -> String {
+pub(crate) fn single_snapshot_metric_limitation_line(source: &PendingSearchReadSummary) -> String {
     format!(
         "Current-condition metrics were not exposed in readable source text from {} at retrieval time.",
         canonical_source_title(source)
     )
 }
 
-pub(super) fn single_snapshot_best_available_with_limitation(
+pub(crate) fn single_snapshot_best_available_with_limitation(
     source: &PendingSearchReadSummary,
     metric_excerpt: &str,
 ) -> String {
@@ -413,7 +416,7 @@ pub(super) fn single_snapshot_best_available_with_limitation(
     )
 }
 
-pub(super) fn single_snapshot_summary_line(source: &PendingSearchReadSummary) -> String {
+pub(crate) fn single_snapshot_summary_line(source: &PendingSearchReadSummary) -> String {
     if let Some(metric) = first_metric_sentence(source.excerpt.as_str()) {
         if contains_current_condition_metric_signal(&metric) {
             return format!(
@@ -440,7 +443,7 @@ pub(super) fn single_snapshot_summary_line(source: &PendingSearchReadSummary) ->
     single_snapshot_metric_limitation_line(source)
 }
 
-pub(super) fn metric_axis_display_label(axis: MetricAxis) -> &'static str {
+pub(crate) fn metric_axis_display_label(axis: MetricAxis) -> &'static str {
     match axis {
         MetricAxis::Temperature => "Temperature",
         MetricAxis::Humidity => "Humidity",
@@ -456,7 +459,7 @@ pub(super) fn metric_axis_display_label(axis: MetricAxis) -> &'static str {
     }
 }
 
-pub(super) fn metric_axis_display_priority(axis: MetricAxis) -> usize {
+pub(crate) fn metric_axis_display_priority(axis: MetricAxis) -> usize {
     match axis {
         MetricAxis::Temperature => 0,
         MetricAxis::Humidity => 1,
@@ -472,7 +475,7 @@ pub(super) fn metric_axis_display_priority(axis: MetricAxis) -> usize {
     }
 }
 
-pub(super) fn axis_specific_metric_line(axis: MetricAxis, text: &str) -> Option<String> {
+pub(crate) fn axis_specific_metric_line(axis: MetricAxis, text: &str) -> Option<String> {
     let schema = analyze_metric_schema(text);
     if !schema.axis_hits.contains(&axis) || !has_quantitative_metric_payload(text, true) {
         return None;
@@ -488,7 +491,7 @@ pub(super) fn axis_specific_metric_line(axis: MetricAxis, text: &str) -> Option<
     Some(concise)
 }
 
-pub(super) fn single_snapshot_structured_metric_lines(
+pub(crate) fn single_snapshot_structured_metric_lines(
     story: &StoryDraft,
     draft: &SynthesisDraft,
     required_axes: &BTreeSet<MetricAxis>,
@@ -547,7 +550,10 @@ pub(super) fn single_snapshot_structured_metric_lines(
     lines
 }
 
-pub(super) fn query_scope_hint(query: &str, candidate_hints: &[PendingSearchReadSummary]) -> Option<String> {
+pub(crate) fn query_scope_hint(
+    query: &str,
+    candidate_hints: &[PendingSearchReadSummary],
+) -> Option<String> {
     if let Some(explicit_scope) = explicit_query_scope_hint(query) {
         return Some(explicit_scope);
     }
@@ -561,7 +567,7 @@ pub(super) fn query_scope_hint(query: &str, candidate_hints: &[PendingSearchRead
     inferred_locality_scope_from_candidate_hints(query, candidate_hints)
 }
 
-pub(super) fn extract_temperature_phrase(text: &str) -> Option<String> {
+pub(crate) fn extract_temperature_phrase(text: &str) -> Option<String> {
     let compact = compact_whitespace(text);
     if compact.is_empty() || !has_quantitative_metric_payload(&compact, true) {
         return None;
@@ -589,7 +595,7 @@ pub(super) fn extract_temperature_phrase(text: &str) -> Option<String> {
     None
 }
 
-pub(super) fn compact_source_label(source_label: &str) -> String {
+pub(crate) fn compact_source_label(source_label: &str) -> String {
     let trimmed = source_label.trim();
     for separator in [" | ", " - "] {
         if let Some((head, _)) = trimmed.split_once(separator) {
@@ -602,7 +608,10 @@ pub(super) fn compact_source_label(source_label: &str) -> String {
     trimmed.to_string()
 }
 
-pub(super) fn source_consistency_note(story: &StoryDraft, draft: &SynthesisDraft) -> Option<String> {
+pub(crate) fn source_consistency_note(
+    story: &StoryDraft,
+    draft: &SynthesisDraft,
+) -> Option<String> {
     let labels = story
         .citation_ids
         .iter()
@@ -627,47 +636,47 @@ pub(super) fn source_consistency_note(story: &StoryDraft, draft: &SynthesisDraft
 }
 
 #[derive(Debug, Clone)]
-pub(super) struct CitationCandidate {
-    id: String,
-    url: String,
-    source_label: String,
-    excerpt: String,
-    timestamp_utc: String,
-    note: String,
-    from_successful_read: bool,
+pub(crate) struct CitationCandidate {
+    pub(crate) id: String,
+    pub(crate) url: String,
+    pub(crate) source_label: String,
+    pub(crate) excerpt: String,
+    pub(crate) timestamp_utc: String,
+    pub(crate) note: String,
+    pub(crate) from_successful_read: bool,
 }
 
 #[derive(Debug, Clone)]
-pub(super) struct StoryDraft {
-    title: String,
-    what_happened: String,
-    changed_last_hour: String,
-    why_it_matters: String,
-    user_impact: String,
-    workaround: String,
-    eta_confidence: String,
-    citation_ids: Vec<String>,
-    confidence: String,
-    caveat: String,
+pub(crate) struct StoryDraft {
+    pub(crate) title: String,
+    pub(crate) what_happened: String,
+    pub(crate) changed_last_hour: String,
+    pub(crate) why_it_matters: String,
+    pub(crate) user_impact: String,
+    pub(crate) workaround: String,
+    pub(crate) eta_confidence: String,
+    pub(crate) citation_ids: Vec<String>,
+    pub(crate) confidence: String,
+    pub(crate) caveat: String,
 }
 
 #[derive(Debug, Clone)]
-pub(super) struct SynthesisDraft {
-    query: String,
-    run_date: String,
-    run_timestamp_ms: u64,
-    run_timestamp_iso_utc: String,
-    completion_reason: String,
-    overall_confidence: String,
-    overall_caveat: String,
-    stories: Vec<StoryDraft>,
-    citations_by_id: BTreeMap<String, CitationCandidate>,
-    blocked_urls: Vec<String>,
-    partial_note: Option<String>,
+pub(crate) struct SynthesisDraft {
+    pub(crate) query: String,
+    pub(crate) run_date: String,
+    pub(crate) run_timestamp_ms: u64,
+    pub(crate) run_timestamp_iso_utc: String,
+    pub(crate) completion_reason: String,
+    pub(crate) overall_confidence: String,
+    pub(crate) overall_caveat: String,
+    pub(crate) stories: Vec<StoryDraft>,
+    pub(crate) citations_by_id: BTreeMap<String, CitationCandidate>,
+    pub(crate) blocked_urls: Vec<String>,
+    pub(crate) partial_note: Option<String>,
 }
 
 #[derive(Debug, Serialize)]
-pub(super) struct HybridSynthesisPayload {
+pub(crate) struct HybridSynthesisPayload {
     query: String,
     run_timestamp_ms: u64,
     run_timestamp_iso_utc: String,
@@ -678,14 +687,14 @@ pub(super) struct HybridSynthesisPayload {
 }
 
 #[derive(Debug, Clone, Serialize)]
-pub(super) struct HybridSectionSpec {
+pub(crate) struct HybridSectionSpec {
     key: String,
     label: String,
     required: bool,
 }
 
 #[derive(Debug, Serialize)]
-pub(super) struct HybridCitationCandidate {
+pub(crate) struct HybridCitationCandidate {
     id: String,
     url: String,
     source_label: String,
@@ -695,7 +704,7 @@ pub(super) struct HybridCitationCandidate {
 }
 
 #[derive(Debug, Serialize)]
-pub(super) struct HybridStoryDraft {
+pub(crate) struct HybridStoryDraft {
     title: String,
     sections: Vec<HybridSectionDraft>,
     citation_ids: Vec<String>,
@@ -704,14 +713,14 @@ pub(super) struct HybridStoryDraft {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-pub(super) struct HybridSectionDraft {
+pub(crate) struct HybridSectionDraft {
     key: String,
     label: String,
     content: String,
 }
 
 #[derive(Debug, Deserialize)]
-pub(super) struct HybridSynthesisResponse {
+pub(crate) struct HybridSynthesisResponse {
     #[serde(default)]
     heading: String,
     items: Vec<HybridItemResponse>,
@@ -722,7 +731,7 @@ pub(super) struct HybridSynthesisResponse {
 }
 
 #[derive(Debug, Deserialize)]
-pub(super) struct HybridItemResponse {
+pub(crate) struct HybridItemResponse {
     title: String,
     #[serde(default)]
     sections: Vec<HybridSectionResponse>,
@@ -735,7 +744,7 @@ pub(super) struct HybridItemResponse {
 }
 
 #[derive(Debug, Deserialize)]
-pub(super) struct HybridSectionResponse {
+pub(crate) struct HybridSectionResponse {
     #[serde(default)]
     key: String,
     label: String,
@@ -743,7 +752,7 @@ pub(super) struct HybridSectionResponse {
     content: String,
 }
 
-pub(super) fn title_tokens(input: &str) -> BTreeSet<String> {
+pub(crate) fn title_tokens(input: &str) -> BTreeSet<String> {
     input
         .to_ascii_lowercase()
         .chars()
@@ -755,7 +764,7 @@ pub(super) fn title_tokens(input: &str) -> BTreeSet<String> {
         .collect()
 }
 
-pub(super) fn titles_similar(a: &str, b: &str) -> bool {
+pub(crate) fn titles_similar(a: &str, b: &str) -> bool {
     let a_trim = a.trim();
     let b_trim = b.trim();
     if a_trim.is_empty() || b_trim.is_empty() {
@@ -774,7 +783,7 @@ pub(super) fn titles_similar(a: &str, b: &str) -> bool {
     overlap * 2 >= largest
 }
 
-pub(super) fn canonical_source_title(source: &PendingSearchReadSummary) -> String {
+pub(crate) fn canonical_source_title(source: &PendingSearchReadSummary) -> String {
     let title = source.title.as_deref().map(str::trim).unwrap_or_default();
     if !title.is_empty() && !is_low_signal_title(title) {
         return title.chars().take(WEB_PIPELINE_STORY_TITLE_CHARS).collect();
@@ -788,7 +797,9 @@ pub(super) fn canonical_source_title(source: &PendingSearchReadSummary) -> Strin
     format!("Update from {}", source.url)
 }
 
-pub(super) fn merged_story_sources(pending: &PendingSearchCompletion) -> Vec<PendingSearchReadSummary> {
+pub(crate) fn merged_story_sources(
+    pending: &PendingSearchCompletion,
+) -> Vec<PendingSearchReadSummary> {
     let query_contract = synthesis_query_contract(pending);
     let projection = build_query_constraint_projection(
         &query_contract,
@@ -941,7 +952,7 @@ pub(super) fn merged_story_sources(pending: &PendingSearchCompletion) -> Vec<Pen
     merged
 }
 
-pub(super) fn grounded_source_evidence_count(pending: &PendingSearchCompletion) -> usize {
+pub(crate) fn grounded_source_evidence_count(pending: &PendingSearchCompletion) -> usize {
     let query_contract = synthesis_query_contract(pending);
     let projection = build_query_constraint_projection(
         &query_contract,
@@ -1049,12 +1060,12 @@ pub(super) fn grounded_source_evidence_count(pending: &PendingSearchCompletion) 
     grounded_urls.len()
 }
 
-pub(super) fn is_primary_status_surface_source(source: &PendingSearchReadSummary) -> bool {
+pub(crate) fn is_primary_status_surface_source(source: &PendingSearchReadSummary) -> bool {
     let signals = source_evidence_signals(source);
     has_primary_status_authority(signals) && !signals.low_priority_dominates()
 }
 
-pub(super) fn why_it_matters_from_story(source: &PendingSearchReadSummary) -> String {
+pub(crate) fn why_it_matters_from_story(source: &PendingSearchReadSummary) -> String {
     let text = format!(
         "{} {}",
         source.title.as_deref().unwrap_or_default(),
@@ -1089,11 +1100,11 @@ pub(super) fn why_it_matters_from_story(source: &PendingSearchReadSummary) -> St
         .to_string()
 }
 
-pub(super) fn user_impact_from_story(source: &PendingSearchReadSummary) -> String {
+pub(crate) fn user_impact_from_story(source: &PendingSearchReadSummary) -> String {
     why_it_matters_from_story(source)
 }
 
-pub(super) fn workaround_from_story(source: &PendingSearchReadSummary) -> String {
+pub(crate) fn workaround_from_story(source: &PendingSearchReadSummary) -> String {
     let signals = source_evidence_signals(source);
     if signals.mitigation_hits > 0 {
         return "Follow mitigation guidance published by the source (retry/failover/alternate path where available).".to_string();
@@ -1107,7 +1118,7 @@ pub(super) fn workaround_from_story(source: &PendingSearchReadSummary) -> String
     "Workaround not explicitly published in retrieved evidence; use standard resilience fallback patterns and continue monitoring updates.".to_string()
 }
 
-pub(super) fn eta_confidence_from_story(
+pub(crate) fn eta_confidence_from_story(
     source: &PendingSearchReadSummary,
     confident_reads: usize,
     citation_count: usize,
@@ -1126,7 +1137,7 @@ pub(super) fn eta_confidence_from_story(
     "low".to_string()
 }
 
-pub(super) fn changed_last_hour_line(
+pub(crate) fn changed_last_hour_line(
     source: &PendingSearchReadSummary,
     run_timestamp_iso_utc: &str,
 ) -> String {
@@ -1142,7 +1153,7 @@ pub(super) fn changed_last_hour_line(
     )
 }
 
-pub(super) fn build_citation_candidates(
+pub(crate) fn build_citation_candidates(
     pending: &PendingSearchCompletion,
     run_timestamp_iso_utc: &str,
 ) -> Vec<CitationCandidate> {
@@ -1236,7 +1247,8 @@ pub(super) fn build_citation_candidates(
             );
         }
 
-        if reject_search_hub && merged.len().saturating_add(fallback_pool.len()) < minimum_candidate_floor
+        if reject_search_hub
+            && merged.len().saturating_add(fallback_pool.len()) < minimum_candidate_floor
         {
             let query_provenance_url = std::iter::once(pending.url.as_str())
                 .chain(pending.attempted_urls.iter().map(|url| url.as_str()))
@@ -1418,7 +1430,7 @@ pub(super) fn build_citation_candidates(
         .collect()
 }
 
-pub(super) fn title_overlap_score(a: &str, b: &str) -> usize {
+pub(crate) fn title_overlap_score(a: &str, b: &str) -> usize {
     let a_tokens = title_tokens(a);
     let b_tokens = title_tokens(b);
     if a_tokens.is_empty() || b_tokens.is_empty() {
@@ -1427,7 +1439,7 @@ pub(super) fn title_overlap_score(a: &str, b: &str) -> usize {
     a_tokens.intersection(&b_tokens).count()
 }
 
-pub(super) fn citation_relevance_score(
+pub(crate) fn citation_relevance_score(
     source: &PendingSearchReadSummary,
     candidate: &CitationCandidate,
 ) -> usize {
@@ -1451,7 +1463,7 @@ pub(super) fn citation_relevance_score(
     score
 }
 
-pub(super) fn citation_metric_signal(candidate: &CitationCandidate) -> bool {
+pub(crate) fn citation_metric_signal(candidate: &CitationCandidate) -> bool {
     contains_metric_signal(&candidate.excerpt)
         || contains_metric_signal(&format!(
             "{} {} {}",
@@ -1459,7 +1471,7 @@ pub(super) fn citation_metric_signal(candidate: &CitationCandidate) -> bool {
         ))
 }
 
-pub(super) fn citation_current_condition_metric_signal(candidate: &CitationCandidate) -> bool {
+pub(crate) fn citation_current_condition_metric_signal(candidate: &CitationCandidate) -> bool {
     contains_current_condition_metric_signal(&candidate.excerpt)
         || contains_current_condition_metric_signal(&format!(
             "{} {} {}",
@@ -1467,7 +1479,7 @@ pub(super) fn citation_current_condition_metric_signal(candidate: &CitationCandi
         ))
 }
 
-pub(super) fn citation_single_snapshot_evidence_score(
+pub(crate) fn citation_single_snapshot_evidence_score(
     candidate: &CitationCandidate,
     envelope_constraints: &ConstraintSet,
     envelope_policy: ResolutionPolicy,
@@ -1481,15 +1493,15 @@ pub(super) fn citation_single_snapshot_evidence_score(
     )
 }
 
-pub(super) fn citation_source_signals(candidate: &CitationCandidate) -> SourceSignalProfile {
+pub(crate) fn citation_source_signals(candidate: &CitationCandidate) -> SourceSignalProfile {
     analyze_source_record_signals(&candidate.url, &candidate.source_label, &candidate.excerpt)
 }
 
-pub(super) fn is_low_priority_coverage_candidate(candidate: &CitationCandidate) -> bool {
+pub(crate) fn is_low_priority_coverage_candidate(candidate: &CitationCandidate) -> bool {
     citation_source_signals(candidate).low_priority_dominates()
 }
 
-pub(super) fn citation_ids_for_story(
+pub(crate) fn citation_ids_for_story(
     source: &PendingSearchReadSummary,
     candidates: &[CitationCandidate],
     used_urls: &mut BTreeSet<String>,
@@ -1644,7 +1656,7 @@ pub(super) fn citation_ids_for_story(
     selected_ids
 }
 
-pub(super) fn build_deterministic_story_draft(
+pub(crate) fn build_deterministic_story_draft(
     pending: &PendingSearchCompletion,
     reason: WebPipelineCompletionReason,
 ) -> SynthesisDraft {
@@ -1852,7 +1864,7 @@ pub(super) fn build_deterministic_story_draft(
     }
 }
 
-pub(super) fn render_synthesis_draft(draft: &SynthesisDraft) -> String {
+pub(crate) fn render_synthesis_draft(draft: &SynthesisDraft) -> String {
     if requires_mailbox_access_notice(&draft.query) {
         return render_mailbox_access_limited_draft(draft);
     }
@@ -1895,9 +1907,8 @@ pub(super) fn render_synthesis_draft(draft: &SynthesisDraft) -> String {
                 .find_map(|citation| {
                     let citation_text =
                         format!("{} {}", citation.source_label, citation.excerpt.trim());
-                    first_metric_sentence(&citation_text).filter(|metric| {
-                        contains_current_condition_metric_signal(metric)
-                    })
+                    first_metric_sentence(&citation_text)
+                        .filter(|metric| contains_current_condition_metric_signal(metric))
                 });
             let citation_partial_metric = story
                 .citation_ids
@@ -2181,13 +2192,13 @@ pub(super) fn render_synthesis_draft(draft: &SynthesisDraft) -> String {
     lines.join("\n")
 }
 
-pub(super) fn extract_json_object(raw: &str) -> Option<&str> {
+pub(crate) fn extract_json_object(raw: &str) -> Option<&str> {
     let start = raw.find('{')?;
     let end = raw.rfind('}')?;
     (end >= start).then_some(&raw[start..=end])
 }
 
-pub(super) fn is_iso_utc_datetime(value: &str) -> bool {
+pub(crate) fn is_iso_utc_datetime(value: &str) -> bool {
     let bytes = value.as_bytes();
     if bytes.len() != 20 {
         return false;
@@ -2214,7 +2225,7 @@ pub(super) fn is_iso_utc_datetime(value: &str) -> bool {
         && bytes[19] == b'Z'
 }
 
-pub(super) fn normalize_section_key(label: &str) -> String {
+pub(crate) fn normalize_section_key(label: &str) -> String {
     let mut out = String::new();
     let mut last_was_underscore = false;
     for ch in label.chars() {
@@ -2232,7 +2243,7 @@ pub(super) fn normalize_section_key(label: &str) -> String {
     out.trim_matches('_').to_string()
 }
 
-pub(super) fn dedupe_labels(labels: Vec<String>) -> Vec<String> {
+pub(crate) fn dedupe_labels(labels: Vec<String>) -> Vec<String> {
     let mut out = Vec::new();
     let mut seen = BTreeSet::new();
     for label in labels {
@@ -2245,7 +2256,7 @@ pub(super) fn dedupe_labels(labels: Vec<String>) -> Vec<String> {
     out
 }
 
-pub(super) fn required_section_labels_for_query(query: &str) -> Vec<String> {
+pub(crate) fn required_section_labels_for_query(query: &str) -> Vec<String> {
     dedupe_labels(
         infer_report_sections(query)
             .into_iter()
@@ -2254,7 +2265,7 @@ pub(super) fn required_section_labels_for_query(query: &str) -> Vec<String> {
     )
 }
 
-pub(super) fn build_hybrid_required_sections(query: &str) -> Vec<HybridSectionSpec> {
+pub(crate) fn build_hybrid_required_sections(query: &str) -> Vec<HybridSectionSpec> {
     required_section_labels_for_query(query)
         .into_iter()
         .map(|label| HybridSectionSpec {
@@ -2265,7 +2276,7 @@ pub(super) fn build_hybrid_required_sections(query: &str) -> Vec<HybridSectionSp
         .collect()
 }
 
-pub(super) fn section_kind_from_key(key: &str) -> Option<ReportSectionKind> {
+pub(crate) fn section_kind_from_key(key: &str) -> Option<ReportSectionKind> {
     let normalized = normalize_section_key(key);
     [
         ReportSectionKind::Summary,
@@ -2286,7 +2297,7 @@ pub(super) fn section_kind_from_key(key: &str) -> Option<ReportSectionKind> {
     })
 }
 
-pub(super) fn section_content_for_story(
+pub(crate) fn section_content_for_story(
     story: &StoryDraft,
     section: &HybridSectionSpec,
 ) -> Option<HybridSectionDraft> {
@@ -2315,7 +2326,10 @@ pub(super) fn section_content_for_story(
     })
 }
 
-pub(super) fn section_content_from_map(sections: &BTreeMap<String, String>, keys: &[&str]) -> Option<String> {
+pub(crate) fn section_content_from_map(
+    sections: &BTreeMap<String, String>,
+    keys: &[&str],
+) -> Option<String> {
     for key in keys {
         if let Some(value) = sections.get(*key) {
             let trimmed = compact_whitespace(value.trim());
@@ -2327,14 +2341,14 @@ pub(super) fn section_content_from_map(sections: &BTreeMap<String, String>, keys
     None
 }
 
-pub(super) fn section_content_from_map_for_kind(
+pub(crate) fn section_content_from_map_for_kind(
     sections: &BTreeMap<String, String>,
     kind: ReportSectionKind,
 ) -> Option<String> {
     section_content_from_map(sections, report_section_aliases(kind))
 }
 
-pub(super) fn apply_hybrid_synthesis_response(
+pub(crate) fn apply_hybrid_synthesis_response(
     base: &SynthesisDraft,
     required_sections: &[HybridSectionSpec],
     response: HybridSynthesisResponse,

@@ -1,6 +1,6 @@
 use super::*;
 
-pub(super) fn synthesis_query_contract(pending: &PendingSearchCompletion) -> String {
+pub(crate) fn synthesis_query_contract(pending: &PendingSearchCompletion) -> String {
     let contract = pending.query_contract.trim();
     if !contract.is_empty() {
         return contract.to_string();
@@ -8,14 +8,14 @@ pub(super) fn synthesis_query_contract(pending: &PendingSearchCompletion) -> Str
     pending.query.trim().to_string()
 }
 
-pub(super) fn fallback_search_summary(query: &str, url: &str) -> String {
+pub(crate) fn fallback_search_summary(query: &str, url: &str) -> String {
     format!(
         "Searched '{}' at {}, but structured extraction failed. Retry refinement if needed.",
         query, url
     )
 }
 
-pub(super) fn strip_markup(input: &str) -> String {
+pub(crate) fn strip_markup(input: &str) -> String {
     let mut out = String::with_capacity(input.len());
     let mut in_tag = false;
     for ch in input.chars() {
@@ -32,11 +32,11 @@ pub(super) fn strip_markup(input: &str) -> String {
     out
 }
 
-pub(super) fn compact_whitespace(input: &str) -> String {
+pub(crate) fn compact_whitespace(input: &str) -> String {
     input.split_whitespace().collect::<Vec<_>>().join(" ")
 }
 
-pub(super) fn extract_urls(input: &str, limit: usize) -> Vec<String> {
+pub(crate) fn extract_urls(input: &str, limit: usize) -> Vec<String> {
     let mut urls = Vec::new();
     for raw in input.split_whitespace() {
         let trimmed = raw
@@ -56,7 +56,7 @@ pub(super) fn extract_urls(input: &str, limit: usize) -> Vec<String> {
     urls
 }
 
-pub(super) fn extract_finding_lines(input: &str, limit: usize) -> Vec<String> {
+pub(crate) fn extract_finding_lines(input: &str, limit: usize) -> Vec<String> {
     let mut findings = Vec::new();
     for line in input.lines() {
         let normalized = compact_whitespace(line).trim().to_string();
@@ -82,7 +82,7 @@ pub(super) fn extract_finding_lines(input: &str, limit: usize) -> Vec<String> {
     findings
 }
 
-pub(super) fn summarize_search_results(query: &str, url: &str, extract_text: &str) -> String {
+pub(crate) fn summarize_search_results(query: &str, url: &str, extract_text: &str) -> String {
     let capped = extract_text
         .chars()
         .take(MAX_SEARCH_EXTRACT_CHARS)
@@ -165,7 +165,7 @@ pub(crate) fn web_pipeline_can_queue_probe_search(deadline_ms: u64, now_ms: u64)
         >= WEB_PIPELINE_MIN_REMAINING_BUDGET_MS_FOR_SEARCH_PROBE
 }
 
-pub(super) fn web_pipeline_observed_attempt_count(pending: &PendingSearchCompletion) -> u64 {
+pub(crate) fn web_pipeline_observed_attempt_count(pending: &PendingSearchCompletion) -> u64 {
     pending
         .attempted_urls
         .len()
@@ -173,7 +173,10 @@ pub(super) fn web_pipeline_observed_attempt_count(pending: &PendingSearchComplet
         .max(1) as u64
 }
 
-pub(super) fn web_pipeline_observed_attempt_latency_ms(pending: &PendingSearchCompletion, now_ms: u64) -> u64 {
+pub(crate) fn web_pipeline_observed_attempt_latency_ms(
+    pending: &PendingSearchCompletion,
+    now_ms: u64,
+) -> u64 {
     if pending.started_at_ms == 0 || now_ms <= pending.started_at_ms {
         return 0;
     }
@@ -181,7 +184,7 @@ pub(super) fn web_pipeline_observed_attempt_latency_ms(pending: &PendingSearchCo
     elapsed_ms / web_pipeline_observed_attempt_count(pending)
 }
 
-pub(super) fn web_pipeline_constraint_guard_ms(
+pub(crate) fn web_pipeline_constraint_guard_ms(
     pending: &PendingSearchCompletion,
     read_guard_ms: u64,
     non_constraint_guard_ms: u64,
@@ -298,7 +301,7 @@ pub(crate) fn web_pipeline_latency_pressure_label(
     }
 }
 
-pub(super) fn civil_date_from_days(days_since_epoch: i64) -> (i64, i64, i64) {
+pub(crate) fn civil_date_from_days(days_since_epoch: i64) -> (i64, i64, i64) {
     // Howard Hinnant civil-from-days algorithm, converted to Rust.
     let z = days_since_epoch + 719_468;
     let era = if z >= 0 { z } else { z - 146_096 } / 146_097;
@@ -313,13 +316,13 @@ pub(super) fn civil_date_from_days(days_since_epoch: i64) -> (i64, i64, i64) {
     (year, month, day)
 }
 
-pub(super) fn iso_date_from_unix_ms(unix_ms: u64) -> String {
+pub(crate) fn iso_date_from_unix_ms(unix_ms: u64) -> String {
     let days_since_epoch = (unix_ms / 86_400_000) as i64;
     let (year, month, day) = civil_date_from_days(days_since_epoch);
     format!("{:04}-{:02}-{:02}", year, month, day)
 }
 
-pub(super) fn iso_datetime_from_unix_ms(unix_ms: u64) -> String {
+pub(crate) fn iso_datetime_from_unix_ms(unix_ms: u64) -> String {
     let days_since_epoch = (unix_ms / 86_400_000) as i64;
     let (year, month, day) = civil_date_from_days(days_since_epoch);
     let ms_of_day = unix_ms % 86_400_000;
@@ -332,7 +335,7 @@ pub(super) fn iso_datetime_from_unix_ms(unix_ms: u64) -> String {
     )
 }
 
-pub(super) fn normalize_confidence_label(label: &str) -> String {
+pub(crate) fn normalize_confidence_label(label: &str) -> String {
     let normalized = label.trim().to_ascii_lowercase();
     match normalized.as_str() {
         "high" | "medium" | "low" => normalized,
@@ -348,7 +351,7 @@ pub(crate) fn parse_web_evidence_bundle(raw: &str) -> Option<WebEvidenceBundle> 
     serde_json::from_str::<WebEvidenceBundle>(trimmed).ok()
 }
 
-pub(super) fn candidate_source_hints_from_bundle_ranked(
+pub(crate) fn candidate_source_hints_from_bundle_ranked(
     bundle: &WebEvidenceBundle,
 ) -> Vec<PendingSearchReadSummary> {
     let mut hints = Vec::new();
@@ -413,7 +416,9 @@ pub(super) fn candidate_source_hints_from_bundle_ranked(
     hints
 }
 
-pub(super) fn document_source_hints_from_bundle(bundle: &WebEvidenceBundle) -> Vec<PendingSearchReadSummary> {
+pub(crate) fn document_source_hints_from_bundle(
+    bundle: &WebEvidenceBundle,
+) -> Vec<PendingSearchReadSummary> {
     let mut hints = Vec::new();
     let mut seen = BTreeSet::new();
     for doc in &bundle.documents {
@@ -462,7 +467,7 @@ pub(crate) fn candidate_urls_from_bundle(bundle: &WebEvidenceBundle) -> Vec<Stri
     urls
 }
 
-pub(super) fn constrained_candidate_inventory_from_bundle_with_locality_hint(
+pub(crate) fn constrained_candidate_inventory_from_bundle_with_locality_hint(
     query_contract: &str,
     min_sources: u32,
     bundle: &WebEvidenceBundle,
@@ -830,14 +835,14 @@ pub(crate) fn mark_pending_web_blocked(pending: &mut PendingSearchCompletion, ur
     pending.blocked_urls.push(trimmed.to_string());
 }
 
-pub(super) fn normalize_optional_title(value: Option<String>) -> Option<String> {
+pub(crate) fn normalize_optional_title(value: Option<String>) -> Option<String> {
     value.and_then(|title| {
         let trimmed = title.trim();
         (!trimmed.is_empty()).then(|| trimmed.to_string())
     })
 }
 
-pub(super) fn prefer_title(existing: Option<String>, incoming: Option<String>) -> Option<String> {
+pub(crate) fn prefer_title(existing: Option<String>, incoming: Option<String>) -> Option<String> {
     let existing = normalize_optional_title(existing);
     let incoming = normalize_optional_title(incoming);
     match (existing, incoming) {
@@ -858,7 +863,7 @@ pub(super) fn prefer_title(existing: Option<String>, incoming: Option<String>) -
     }
 }
 
-pub(super) fn prefer_excerpt(existing: String, incoming: String) -> String {
+pub(crate) fn prefer_excerpt(existing: String, incoming: String) -> String {
     let left = existing.trim().to_string();
     let right = incoming.trim().to_string();
     if left.is_empty() {
@@ -893,7 +898,7 @@ pub(super) fn prefer_excerpt(existing: String, incoming: String) -> String {
     }
 }
 
-pub(super) fn merge_pending_source_record(
+pub(crate) fn merge_pending_source_record(
     existing: PendingSearchReadSummary,
     incoming: PendingSearchReadSummary,
 ) -> PendingSearchReadSummary {
@@ -909,7 +914,7 @@ pub(super) fn merge_pending_source_record(
     }
 }
 
-pub(super) fn merge_url_sequence(existing: Vec<String>, incoming: Vec<String>) -> Vec<String> {
+pub(crate) fn merge_url_sequence(existing: Vec<String>, incoming: Vec<String>) -> Vec<String> {
     let mut merged = Vec::new();
     let mut seen = BTreeSet::new();
     for url in existing.into_iter().chain(incoming.into_iter()) {
@@ -1077,14 +1082,14 @@ pub(crate) fn merge_pending_search_completion(
     }
 }
 
-pub(super) fn compact_excerpt(input: &str, max_chars: usize) -> String {
+pub(crate) fn compact_excerpt(input: &str, max_chars: usize) -> String {
     compact_whitespace(input)
         .chars()
         .take(max_chars)
         .collect::<String>()
 }
 
-pub(super) fn prioritized_signal_excerpt(input: &str, max_chars: usize) -> String {
+pub(crate) fn prioritized_signal_excerpt(input: &str, max_chars: usize) -> String {
     let compact = compact_whitespace(input);
     if compact.is_empty() {
         return String::new();
@@ -1105,7 +1110,7 @@ pub(super) fn prioritized_signal_excerpt(input: &str, max_chars: usize) -> Strin
     compact.chars().take(max_chars).collect()
 }
 
-pub(super) fn source_host(url: &str) -> Option<String> {
+pub(crate) fn source_host(url: &str) -> Option<String> {
     let parsed = Url::parse(url.trim()).ok()?;
     let host = parsed
         .host_str()
@@ -1114,20 +1119,20 @@ pub(super) fn source_host(url: &str) -> Option<String> {
     Some(host.to_ascii_lowercase())
 }
 
-pub(super) fn source_evidence_signals(source: &PendingSearchReadSummary) -> SourceSignalProfile {
+pub(crate) fn source_evidence_signals(source: &PendingSearchReadSummary) -> SourceSignalProfile {
     let title = source.title.as_deref().unwrap_or_default();
     analyze_source_record_signals(&source.url, title, &source.excerpt)
 }
 
-pub(super) fn has_primary_status_authority(signals: SourceSignalProfile) -> bool {
+pub(crate) fn has_primary_status_authority(signals: SourceSignalProfile) -> bool {
     signals.official_status_host_hits > 0 || signals.primary_status_surface_hits > 0
 }
 
-pub(super) fn is_low_priority_coverage_story(source: &PendingSearchReadSummary) -> bool {
+pub(crate) fn is_low_priority_coverage_story(source: &PendingSearchReadSummary) -> bool {
     source_evidence_signals(source).low_priority_dominates()
 }
 
-pub(super) fn is_low_signal_title(title: &str) -> bool {
+pub(crate) fn is_low_signal_title(title: &str) -> bool {
     let trimmed = title.trim();
     if trimmed.is_empty() {
         return true;
@@ -1139,15 +1144,15 @@ pub(super) fn is_low_signal_title(title: &str) -> bool {
     ) || lower.starts_with("google news -")
 }
 
-pub(super) fn actionable_source_signal_strength(signals: SourceSignalProfile) -> usize {
+pub(crate) fn actionable_source_signal_strength(signals: SourceSignalProfile) -> usize {
     effective_primary_event_hits(signals) + signals.impact_hits + signals.mitigation_hits
 }
 
-pub(super) fn low_priority_source_signal_strength(signals: SourceSignalProfile) -> usize {
+pub(crate) fn low_priority_source_signal_strength(signals: SourceSignalProfile) -> usize {
     signals.low_priority_hits + signals.secondary_coverage_hits + signals.documentation_surface_hits
 }
 
-pub(super) fn effective_primary_event_hits(signals: SourceSignalProfile) -> usize {
+pub(crate) fn effective_primary_event_hits(signals: SourceSignalProfile) -> usize {
     let surface_bias = signals
         .provenance_hits
         .max(signals.primary_status_surface_hits);
@@ -1156,7 +1161,7 @@ pub(super) fn effective_primary_event_hits(signals: SourceSignalProfile) -> usiz
         .saturating_sub(surface_bias.min(signals.primary_event_hits))
 }
 
-pub(super) fn excerpt_has_claim_signal(excerpt: &str) -> bool {
+pub(crate) fn excerpt_has_claim_signal(excerpt: &str) -> bool {
     let trimmed = excerpt.trim();
     if trimmed.is_empty() {
         return false;
@@ -1176,7 +1181,7 @@ pub(super) fn excerpt_has_claim_signal(excerpt: &str) -> bool {
         || has_timeline_claim
 }
 
-pub(super) fn excerpt_actionability_score(excerpt: &str) -> usize {
+pub(crate) fn excerpt_actionability_score(excerpt: &str) -> usize {
     let trimmed = excerpt.trim();
     if trimmed.is_empty() {
         return 0;
@@ -1221,7 +1226,7 @@ pub(super) fn excerpt_actionability_score(excerpt: &str) -> usize {
     score.saturating_sub(low_priority_signal)
 }
 
-pub(super) fn is_low_signal_excerpt(excerpt: &str) -> bool {
+pub(crate) fn is_low_signal_excerpt(excerpt: &str) -> bool {
     let trimmed = excerpt.trim();
     if trimmed.is_empty() {
         return true;
@@ -1246,7 +1251,7 @@ pub(super) fn is_low_signal_excerpt(excerpt: &str) -> bool {
     anchor_token_count < 3
 }
 
-pub(super) fn actionable_excerpt(excerpt: &str) -> Option<String> {
+pub(crate) fn actionable_excerpt(excerpt: &str) -> Option<String> {
     let trimmed = excerpt.trim();
     if trimmed.is_empty() {
         return None;
@@ -1307,13 +1312,13 @@ pub(super) fn actionable_excerpt(excerpt: &str) -> Option<String> {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub(super) struct UrlStructuralKey {
+pub(crate) struct UrlStructuralKey {
     host: String,
     path: String,
     query_tokens: BTreeSet<String>,
 }
 
-pub(super) fn normalized_url_path(path: &str) -> String {
+pub(crate) fn normalized_url_path(path: &str) -> String {
     let trimmed = path.trim();
     if trimmed.is_empty() || trimmed == "/" {
         return "/".to_string();
@@ -1327,7 +1332,7 @@ pub(super) fn normalized_url_path(path: &str) -> String {
     }
 }
 
-pub(super) fn url_structural_key(url: &str) -> Option<UrlStructuralKey> {
+pub(crate) fn url_structural_key(url: &str) -> Option<UrlStructuralKey> {
     let parsed = Url::parse(url.trim()).ok()?;
     let host = parsed.host_str()?.trim().to_ascii_lowercase();
     if host.is_empty() {
@@ -1347,7 +1352,7 @@ pub(super) fn url_structural_key(url: &str) -> Option<UrlStructuralKey> {
     })
 }
 
-pub(super) fn normalized_url_literal(raw: &str) -> String {
+pub(crate) fn normalized_url_literal(raw: &str) -> String {
     let trimmed = raw.trim();
     if trimmed.is_empty() {
         return String::new();
@@ -1373,11 +1378,14 @@ pub(super) fn normalized_url_literal(raw: &str) -> String {
         .to_ascii_lowercase()
 }
 
-pub(super) fn url_structural_query_overlap(left: &UrlStructuralKey, right: &UrlStructuralKey) -> usize {
+pub(crate) fn url_structural_query_overlap(
+    left: &UrlStructuralKey,
+    right: &UrlStructuralKey,
+) -> usize {
     left.query_tokens.intersection(&right.query_tokens).count()
 }
 
-pub(super) fn url_structurally_equivalent(left: &str, right: &str) -> bool {
+pub(crate) fn url_structurally_equivalent(left: &str, right: &str) -> bool {
     let left_trimmed = left.trim();
     let right_trimmed = right.trim();
     if left_trimmed.is_empty() || right_trimmed.is_empty() {
@@ -1404,7 +1412,7 @@ pub(super) fn url_structurally_equivalent(left: &str, right: &str) -> bool {
     }
 }
 
-pub(super) fn hint_for_url<'a>(
+pub(crate) fn hint_for_url<'a>(
     pending: &'a PendingSearchCompletion,
     url: &str,
 ) -> Option<&'a PendingSearchReadSummary> {
@@ -1451,7 +1459,7 @@ pub(super) fn hint_for_url<'a>(
     best_hint
 }
 
-pub(super) fn push_pending_web_success(
+pub(crate) fn push_pending_web_success(
     pending: &mut PendingSearchCompletion,
     url: &str,
     title: Option<String>,
@@ -1776,7 +1784,7 @@ pub(crate) fn remaining_pending_web_candidates(pending: &PendingSearchCompletion
         .count()
 }
 
-pub(super) fn single_snapshot_has_metric_grounding(pending: &PendingSearchCompletion) -> bool {
+pub(crate) fn single_snapshot_has_metric_grounding(pending: &PendingSearchCompletion) -> bool {
     pending.successful_reads.iter().any(|source| {
         let observed_text = format!(
             "{} {}",
@@ -1787,7 +1795,7 @@ pub(super) fn single_snapshot_has_metric_grounding(pending: &PendingSearchComple
     })
 }
 
-pub(super) fn single_snapshot_has_viable_followup_candidate(
+pub(crate) fn single_snapshot_has_viable_followup_candidate(
     pending: &PendingSearchCompletion,
     query_contract: &str,
 ) -> bool {
@@ -1850,7 +1858,7 @@ pub(super) fn single_snapshot_has_viable_followup_candidate(
     })
 }
 
-pub(super) fn single_snapshot_probe_budget_allows_followup(
+pub(crate) fn single_snapshot_probe_budget_allows_followup(
     pending: &PendingSearchCompletion,
     now_ms: u64,
 ) -> bool {
@@ -1860,7 +1868,9 @@ pub(super) fn single_snapshot_probe_budget_allows_followup(
     pending.deadline_ms.saturating_sub(now_ms) >= SINGLE_SNAPSHOT_MIN_REMAINING_BUDGET_MS_FOR_PROBE
 }
 
-pub(super) fn single_snapshot_additional_probe_attempt_count(pending: &PendingSearchCompletion) -> usize {
+pub(crate) fn single_snapshot_additional_probe_attempt_count(
+    pending: &PendingSearchCompletion,
+) -> usize {
     let observed_search_attempts = pending
         .attempted_urls
         .iter()
@@ -1894,7 +1904,7 @@ pub(super) fn single_snapshot_additional_probe_attempt_count(pending: &PendingSe
         .saturating_add(probe_query_delta)
 }
 
-pub(super) fn single_snapshot_requires_current_metric_observation_contract(
+pub(crate) fn single_snapshot_requires_current_metric_observation_contract(
     pending: &PendingSearchCompletion,
 ) -> bool {
     let query_contract = synthesis_query_contract(pending);
