@@ -559,9 +559,8 @@ pub async fn process_queue_item(
             let mut queued_next = false;
             let mut queued_probe = false;
             let remaining_candidates = remaining_pending_web_candidates(&pending);
-            let prefer_probe_before_read = plan_requires_probe
-                && plan_resolvable_candidates == 0
-                && remaining_candidates == 0;
+            let prefer_probe_before_read =
+                plan_requires_probe && plan_resolvable_candidates == 0 && remaining_candidates == 0;
             if completion_reason.is_none() {
                 if prefer_probe_before_read && plan_requires_probe && probe_budget_allows {
                     if let Some(probe_query) = constraint_grounded_probe_query_with_hints(

@@ -1098,8 +1098,7 @@ fn web_pipeline_constraint_grounded_probe_query_excludes_low_signal_hosts_when_m
     let query = "what's the weather right now in anderson, sc";
     let hints = vec![
         PendingSearchReadSummary {
-            url: "https://www.weather-forecast.com/locations/Anderson/forecasts/latest"
-                .to_string(),
+            url: "https://www.weather-forecast.com/locations/Anderson/forecasts/latest".to_string(),
             title: Some("Anderson, South Carolina Weather Forecast".to_string()),
             excerpt: "Providing a local hourly Anderson (South Carolina) weather forecast."
                 .to_string(),
@@ -1108,18 +1107,13 @@ fn web_pipeline_constraint_grounded_probe_query_excludes_low_signal_hosts_when_m
             url: "https://www.accuweather.com/en/us/anderson/29624/weather-forecast/330677"
                 .to_string(),
             title: Some("Anderson, SC Weather Forecast".to_string()),
-            excerpt:
-                "Anderson, SC Weather Forecast, with current conditions and next 3 days."
-                    .to_string(),
+            excerpt: "Anderson, SC Weather Forecast, with current conditions and next 3 days."
+                .to_string(),
         },
     ];
     let grounded = constraint_grounded_search_query_with_hints(query, 2, &hints);
     let probe = constraint_grounded_probe_query_with_hints_and_locality_hint(
-        query,
-        2,
-        &hints,
-        &grounded,
-        None,
+        query, 2, &hints, &grounded, None,
     )
     .expect("probe query should be generated when metric grounding remains weak");
     let normalized = probe.to_ascii_lowercase();
@@ -2024,8 +2018,7 @@ fn web_pipeline_next_candidate_allows_one_extra_exploratory_read_after_probe_sea
         blocked_urls: vec![],
         successful_reads: vec![
             PendingSearchReadSummary {
-                url: "https://weather-forecast.com/locations/Anderson/forecasts/latest"
-                    .to_string(),
+                url: "https://weather-forecast.com/locations/Anderson/forecasts/latest".to_string(),
                 title: Some("Anderson, South Carolina Weather Forecast".to_string()),
                 excerpt: "Local hourly weather forecast.".to_string(),
             },
@@ -2045,9 +2038,8 @@ fn web_pipeline_next_candidate_allows_one_extra_exploratory_read_after_probe_sea
         "without a probe search attempt, exploratory cap should be consumed after two weak reads"
     );
 
-    base.attempted_urls.push(
-        "https://www.bing.com/search?q=anderson+sc+weather+current+conditions".to_string(),
-    );
+    base.attempted_urls
+        .push("https://www.bing.com/search?q=anderson+sc+weather+current+conditions".to_string());
     let with_probe = next_pending_web_candidate(&base);
     assert_eq!(
         with_probe.as_deref(),
@@ -2724,8 +2716,7 @@ fn web_pipeline_single_snapshot_partial_metric_caveat_mentions_partial_availabil
         ],
         candidate_source_hints: vec![
             PendingSearchReadSummary {
-                url: "https://forecast.weather.gov/zipcity.php?inputstring=Anderson,SC"
-                    .to_string(),
+                url: "https://forecast.weather.gov/zipcity.php?inputstring=Anderson,SC".to_string(),
                 title: Some("National Weather Service".to_string()),
                 excerpt: "Overcast 63°F 17°C".to_string(),
             },
@@ -3027,8 +3018,8 @@ fn web_pipeline_single_snapshot_envelope_caveat_overrides_irrelevant_current_con
 }
 
 #[test]
-fn web_pipeline_single_snapshot_citation_fallback_prefers_evidence_urls_over_query_hubs_when_available()
-{
+fn web_pipeline_single_snapshot_citation_fallback_prefers_evidence_urls_over_query_hubs_when_available(
+) {
     let search_url =
         "https://news.google.com/rss/search?q=What%27s+the+weather+right+now+in+Anderson%2C+SC&hl=en-US&gl=US&ceid=US%3Aen";
     let pending = PendingSearchCompletion {

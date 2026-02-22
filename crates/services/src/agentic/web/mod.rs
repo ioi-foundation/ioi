@@ -1225,7 +1225,10 @@ fn extract_read_blocks(html: &str) -> (Option<String>, Vec<String>) {
         blocks.push(text.to_string());
     }
 
-    let primary_char_count = blocks.iter().map(|block| block.chars().count()).sum::<usize>();
+    let primary_char_count = blocks
+        .iter()
+        .map(|block| block.chars().count())
+        .sum::<usize>();
     let primary_has_numeric_signal = blocks
         .iter()
         .any(|block| block.chars().any(|ch| ch.is_ascii_digit()));
@@ -1265,12 +1268,17 @@ fn extract_read_blocks(html: &str) -> (Option<String>, Vec<String>) {
     }
 
     let low_signal_after_supplemental = {
-        let char_count = blocks.iter().map(|block| block.chars().count()).sum::<usize>();
+        let char_count = blocks
+            .iter()
+            .map(|block| block.chars().count())
+            .sum::<usize>();
         let has_metric_payload = blocks.iter().any(|block| {
             let schema = analyze_metric_schema(block);
             schema.has_metric_payload() && schema.numeric_token_hits > 0
         });
-        blocks.is_empty() || char_count < READ_BLOCK_LOW_SIGNAL_CHAR_THRESHOLD || !has_metric_payload
+        blocks.is_empty()
+            || char_count < READ_BLOCK_LOW_SIGNAL_CHAR_THRESHOLD
+            || !has_metric_payload
     };
     if low_signal_after_supplemental {
         let mut seen = blocks
