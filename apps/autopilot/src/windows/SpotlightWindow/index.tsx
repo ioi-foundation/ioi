@@ -14,9 +14,11 @@ import {
   AgentEvent,
   AgentTask,
   Artifact,
+  ArtifactHubViewKey,
   ChatMessage,
   RunPresentation,
   SessionSummary,
+  SourceSummary,
 } from "../../types";
 import { useSpotlightLayout } from "./hooks/useSpotlightLayout";
 
@@ -35,6 +37,7 @@ import { AnswerCard } from "./components/AnswerCard";
 import { ActivityRail } from "./components/ActivityRail";
 import { Dropdown, DropdownOption } from "./components/SpotlightDropdown";
 import { ArtifactSidebar } from "./components/ArtifactSidebar";
+import { ArtifactHubSidebar } from "./components/ArtifactHubSidebar";
 import { buildRunPresentation } from "./viewmodels/contentPipeline";
 import { exportThreadContextBundle } from "./utils/exportContext";
 
@@ -109,6 +112,7 @@ export function SpotlightWindow({ variant = "overlay" }: SpotlightWindowProps) {
   const [workspaceMode, setWorkspaceMode] = useState("local");
   const [selectedModel, setSelectedModel] = useState("GPT-4o");
   const [chatEvents, setChatEvents] = useState<ChatEvent[]>([]);
+  const [artifactHubView, setArtifactHubView] = useState<ArtifactHubViewKey | null>(null);
 
   // UI state
   const [inputFocused, setInputFocused] = useState(false);
@@ -348,11 +352,14 @@ export function SpotlightWindow({ variant = "overlay" }: SpotlightWindowProps) {
 
   const handleLoadSession = useCallback(async (id: string) => {
     try {
+      setArtifactHubView(null);
+      setSelectedArtifactId(null);
+      toggleArtifactPanel(false);
       await invoke("load_session", { sessionId: id });
     } catch (e) {
       console.error("Failed to load session:", e);
     }
-  }, []);
+  }, [setSelectedArtifactId, toggleArtifactPanel]);
 
   const handleSubmit = useCallback(async () => {
     const text = intent.trim();
@@ -521,6 +528,7 @@ export function SpotlightWindow({ variant = "overlay" }: SpotlightWindowProps) {
     resetSession();
     setLocalHistory([]);
     setChatEvents([]);
+    setArtifactHubView(null);
     setSelectedArtifactId(null);
     toggleArtifactPanel(false);
     setTimeout(() => inputRef.current?.focus(), 50);
@@ -678,11 +686,33 @@ export function SpotlightWindow({ variant = "overlay" }: SpotlightWindowProps) {
 
   const openArtifactById = useCallback(
     (artifactId: string) => {
+      setArtifactHubView(null);
       setSelectedArtifactId(artifactId);
       toggleArtifactPanel(true);
     },
     [setSelectedArtifactId, toggleArtifactPanel],
   );
+
+  const openArtifactHub = useCallback(
+    (preferredView: ArtifactHubViewKey = "kernel_logs") => {
+      setArtifactHubView(preferredView);
+      setSelectedArtifactId(null);
+      toggleArtifactPanel(true);
+    },
+    [setSelectedArtifactId, toggleArtifactPanel],
+  );
+
+  const openSourceSummaryPanel = useCallback(
+    (_summary: SourceSummary) => {
+      openArtifactHub("sources");
+    },
+    [openArtifactHub],
+  );
+
+  const closeRightPanel = useCallback(() => {
+    setArtifactHubView(null);
+    toggleArtifactPanel(false);
+  }, [toggleArtifactPanel]);
 
   // ============================================
   // CONTENT PRESENTATION
@@ -906,9 +936,11 @@ export function SpotlightWindow({ variant = "overlay" }: SpotlightWindowProps) {
                   {runPresentation.finalAnswer && (
                     <AnswerCard
                       answer={runPresentation.finalAnswer}
+                      sourceSummary={runPresentation.sourceSummary}
                       artifactRefs={runPresentation.artifactRefs}
                       onDownloadContext={handleDownloadContext}
                       onOpenArtifact={openArtifactById}
+                      onOpenSources={openSourceSummaryPanel}
                     />
                   )}
 
@@ -930,6 +962,11 @@ export function SpotlightWindow({ variant = "overlay" }: SpotlightWindowProps) {
                       summary={runPresentation.activitySummary}
                       groups={runPresentation.activityGroups}
                       onOpenArtifact={openArtifactById}
+                      onOpenArtifacts={
+                        runPresentation.thoughtSummary || runPresentation.sourceSummary
+                          ? () => openArtifactHub("thoughts")
+                          : undefined
+                      }
                       defaultCollapsed={true}
                     />
                   )}
@@ -1108,11 +1145,20 @@ export function SpotlightWindow({ variant = "overlay" }: SpotlightWindowProps) {
           </div>
 
           {/* Artifact Panel */}
-          {layout.artifactPanelVisible && selectedArtifact && (
-            <ArtifactSidebar
-              artifact={selectedArtifact}
-              onClose={() => toggleArtifactPanel(false)}
+          {layout.artifactPanelVisible && artifactHubView && (
+            <ArtifactHubSidebar
+              initialView={artifactHubView}
+              events={activeEvents}
+              artifacts={activeArtifacts}
+              sourceSummary={runPresentation.sourceSummary}
+              thoughtSummary={runPresentation.thoughtSummary}
+              onOpenArtifact={openArtifactById}
+              onClose={closeRightPanel}
             />
+          )}
+
+          {layout.artifactPanelVisible && selectedArtifact && !artifactHubView && (
+            <ArtifactSidebar artifact={selectedArtifact} onClose={closeRightPanel} />
           )}
         </div>
       </div>

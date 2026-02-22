@@ -278,9 +278,57 @@ export interface AnswerPresentation {
   sourceUrls: string[];
 }
 
+export interface SourceDomainPreview {
+  domain: string;
+  faviconUrl: string;
+  count: number;
+}
+
+export interface SourceSearchRow {
+  query: string;
+  resultCount: number;
+  stepIndex: number;
+}
+
+export interface SourceBrowseRow {
+  url: string;
+  domain: string;
+  title?: string;
+  stepIndex: number;
+}
+
+export interface SourceSummary {
+  totalSources: number;
+  sourceUrls: string[];
+  domains: SourceDomainPreview[];
+  searches: SourceSearchRow[];
+  browses: SourceBrowseRow[];
+}
+
+export interface ThoughtAgentSummary {
+  agentLabel: string;
+  stepIndex: number;
+  notes: string[];
+}
+
+export interface ThoughtSummary {
+  agents: ThoughtAgentSummary[];
+}
+
+export type ArtifactHubViewKey =
+  | "thoughts"
+  | "sources"
+  | "kernel_logs"
+  | "security_policy"
+  | "files"
+  | "revisions"
+  | "screenshots";
+
 export interface RunPresentation {
   prompt: ChatMessage | null;
   finalAnswer: AnswerPresentation | null;
+  sourceSummary: SourceSummary | null;
+  thoughtSummary: ThoughtSummary | null;
   activitySummary: ActivitySummary;
   activityGroups: ActivityGroup[];
   artifactRefs: ArtifactRef[];

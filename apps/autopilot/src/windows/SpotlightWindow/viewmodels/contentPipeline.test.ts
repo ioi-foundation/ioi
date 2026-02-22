@@ -144,7 +144,192 @@ function activitySummaryTest(): void {
   assert.equal(presentation.artifactRefs.length, 1);
 }
 
+function sourceSummaryTest(): void {
+  const searchBundle = {
+    schema_version: 1,
+    retrieved_at_ms: 1771600000000,
+    tool: "web__search",
+    backend: "edge:ddg",
+    query: "current weather Anderson South Carolina",
+    sources: [
+      {
+        source_id: "s1",
+        rank: 1,
+        url: "https://weather.com/weather/today/l/Anderson+SC",
+        title: "weather.com",
+        domain: "weather.com",
+      },
+      {
+        source_id: "s2",
+        rank: 2,
+        url: "https://www.accuweather.com/en/us/anderson/29624/current-weather/330677",
+        title: "accuweather",
+        domain: "accuweather.com",
+      },
+    ],
+    documents: [],
+  };
+
+  const readBundle = {
+    schema_version: 1,
+    retrieved_at_ms: 1771600001000,
+    tool: "web__read",
+    backend: "edge:read",
+    url: "https://forecast.weather.gov/zipcity.php?inputstring=Anderson,SC",
+    sources: [
+      {
+        source_id: "s3",
+        rank: 1,
+        url: "https://forecast.weather.gov/zipcity.php?inputstring=Anderson,SC",
+        title: "NWS Anderson",
+        domain: "forecast.weather.gov",
+      },
+    ],
+    documents: [
+      {
+        source_id: "s3",
+        url: "https://forecast.weather.gov/zipcity.php?inputstring=Anderson,SC",
+        title: "NWS Anderson, SC",
+        content_text: "ok",
+        content_hash: "abc",
+        quote_spans: [],
+      },
+    ],
+  };
+
+  const searchEvent: AgentEvent = {
+    ...baseEvent,
+    event_id: "evt-web-search",
+    step_index: 10,
+    digest: { tool_name: "web__search" },
+    details: {
+      output: JSON.stringify(searchBundle, null, 2),
+    },
+  };
+
+  const readEvent: AgentEvent = {
+    ...baseEvent,
+    event_id: "evt-web-read",
+    step_index: 11,
+    digest: { tool_name: "web__read" },
+    details: {
+      output: JSON.stringify(readBundle, null, 2),
+    },
+  };
+
+  const presentation = buildRunPresentation([], [searchEvent, readEvent], []);
+  assert.ok(presentation.sourceSummary);
+  assert.equal(presentation.sourceSummary?.totalSources, 3);
+  assert.equal(presentation.sourceSummary?.searches.length, 1);
+  assert.equal(presentation.sourceSummary?.browses.length, 1);
+  assert.equal(
+    presentation.sourceSummary?.searches[0]?.query,
+    "current weather Anderson South Carolina",
+  );
+}
+
+function sourceSummaryReceiptOnlyTest(): void {
+  const searchBundle = {
+    schema_version: 1,
+    retrieved_at_ms: 1771600000000,
+    tool: "web__search",
+    backend: "edge:ddg",
+    query: "weather right now near me",
+    sources: [
+      {
+        source_id: "s1",
+        rank: 1,
+        url: "https://weather.com/weather/today/l/Anderson+SC",
+        title: "weather.com",
+        domain: "weather.com",
+      },
+    ],
+    documents: [],
+  };
+
+  const readBundle = {
+    schema_version: 1,
+    retrieved_at_ms: 1771600001000,
+    tool: "web__read",
+    backend: "edge:read",
+    url: "https://forecast.weather.gov/zipcity.php?inputstring=Anderson,SC",
+    sources: [
+      {
+        source_id: "s2",
+        rank: 1,
+        url: "https://forecast.weather.gov/zipcity.php?inputstring=Anderson,SC",
+        title: "NWS Anderson",
+        domain: "forecast.weather.gov",
+      },
+    ],
+    documents: [],
+  };
+
+  const searchReceipt: AgentEvent = {
+    ...baseEvent,
+    event_id: "evt-receipt-search",
+    step_index: 12,
+    event_type: "RECEIPT",
+    title: "Receipt: web__search",
+    digest: { tool_name: "web__search" },
+    details: {
+      output: JSON.stringify(searchBundle, null, 2),
+    },
+  };
+
+  const readReceipt: AgentEvent = {
+    ...baseEvent,
+    event_id: "evt-receipt-read",
+    step_index: 13,
+    event_type: "RECEIPT",
+    title: "Receipt: web__read",
+    digest: { tool_name: "web__read" },
+    details: {
+      output: JSON.stringify(readBundle, null, 2),
+    },
+  };
+
+  const presentation = buildRunPresentation([], [searchReceipt, readReceipt], []);
+  assert.ok(presentation.sourceSummary);
+  assert.equal(presentation.sourceSummary?.totalSources, 2);
+  assert.equal(presentation.sourceSummary?.searches.length, 1);
+  assert.equal(presentation.sourceSummary?.browses.length, 1);
+}
+
+function thoughtSummaryTest(): void {
+  const reasoningEvent: AgentEvent = {
+    ...baseEvent,
+    event_id: "evt-think-1",
+    step_index: 20,
+    event_type: "INFO_NOTE",
+    title: "Captured reasoning step",
+    digest: {},
+    details: { output: "Compare source agreement and provide concise answer." },
+  };
+
+  const systemEvent: AgentEvent = {
+    ...baseEvent,
+    event_id: "evt-think-2",
+    step_index: 21,
+    event_type: "INFO_NOTE",
+    title: "System update: IntentResolver",
+    digest: {},
+    details: { output: "Need direct answer with UTC timestamp and citations." },
+  };
+
+  const presentation = buildRunPresentation([], [reasoningEvent, systemEvent], []);
+  assert.ok(presentation.thoughtSummary);
+  assert.equal(presentation.thoughtSummary?.agents.length, 2);
+  assert.equal(
+    presentation.thoughtSummary?.agents[0]?.notes[0],
+    "Compare source agreement and provide concise answer.",
+  );
+}
+
 classifyEventTest();
 normalizeOutputTest();
 dedupAndAnswerTest();
 activitySummaryTest();
+sourceSummaryTest();
+sourceSummaryReceiptOnlyTest();
+thoughtSummaryTest();

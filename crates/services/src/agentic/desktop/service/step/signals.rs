@@ -1,4 +1,5 @@
 use crate::agentic::desktop::types::InteractionTarget;
+use std::collections::BTreeSet;
 use url::Url;
 
 pub const ONTOLOGY_SIGNAL_VERSION: &str = "ontology_signals_v3";
@@ -23,11 +24,13 @@ const RECENCY_MARKERS: [&str; 15] = [
     "most recent",
 ];
 
-const PROVENANCE_MARKERS: [&str; 16] = [
+const PROVENANCE_MARKERS: [&str; 18] = [
     "citation",
     "citations",
     "source",
     "sources",
+    "timestamp",
+    "timestamps",
     "link",
     "links",
     "url",
@@ -63,6 +66,33 @@ const EXTERNAL_KNOWLEDGE_MARKERS: [&str; 20] = [
     "public update",
     "market update",
     "release note",
+];
+
+const PUBLIC_FACT_MARKERS: [&str; 24] = [
+    "weather",
+    "forecast",
+    "temperature",
+    "feels like",
+    "humidity",
+    "dew point",
+    "wind",
+    "precipitation",
+    "rain",
+    "snow",
+    "air quality",
+    "aqi",
+    "uv index",
+    "pollen",
+    "visibility",
+    "stock price",
+    "market price",
+    "exchange rate",
+    "price of",
+    "score",
+    "traffic",
+    "wait time",
+    "travel time",
+    "arrival time",
 ];
 
 const WORKSPACE_MARKERS: [&str; 24] = [
@@ -509,6 +539,100 @@ const SOURCE_TIMELINE_MARKERS: [&str; 12] = [
     "restoration timeline",
 ];
 
+const METRIC_AXIS_TEMPERATURE_MARKERS: [&str; 5] = [
+    "temperature",
+    "temp",
+    "feels like",
+    "dew point",
+    "heat index",
+];
+const METRIC_AXIS_HUMIDITY_MARKERS: [&str; 3] = ["humidity", "relative humidity", "humid"];
+const METRIC_AXIS_WIND_MARKERS: [&str; 4] = ["wind", "gust", "breeze", "mph"];
+const METRIC_AXIS_PRESSURE_MARKERS: [&str; 4] = ["pressure", "barometric", "hpa", "inhg"];
+const METRIC_AXIS_VISIBILITY_MARKERS: [&str; 2] = ["visibility", "vis "];
+const METRIC_AXIS_AIR_QUALITY_MARKERS: [&str; 4] = ["aqi", "air quality", "pm2.5", "uv index"];
+const METRIC_AXIS_PRECIPITATION_MARKERS: [&str; 5] = [
+    "precipitation",
+    "rain",
+    "snow",
+    "chance of rain",
+    "chance of snow",
+];
+const METRIC_AXIS_PRICE_MARKERS: [&str; 8] = [
+    "price",
+    "cost",
+    "quote",
+    "market cap",
+    "valuation",
+    "usd",
+    "eur",
+    "gbp",
+];
+const METRIC_AXIS_RATE_STRONG_MARKERS: [&str; 4] =
+    ["exchange rate", "interest rate", "rate", "yield"];
+const METRIC_AXIS_RATE_WEAK_MARKERS: [&str; 2] = ["apr", "apy"];
+const METRIC_AXIS_SCORE_MARKERS: [&str; 5] = ["score", "points", "standing", "ranking", "rank"];
+const METRIC_AXIS_DURATION_MARKERS: [&str; 7] = [
+    "minutes",
+    "minute",
+    "hours",
+    "hour",
+    "duration",
+    "delay",
+    "wait time",
+];
+const METRIC_OBSERVATION_MARKERS: [&str; 6] = [
+    " current ",
+    " currently ",
+    " right now ",
+    " as of ",
+    " observed ",
+    " live ",
+];
+const METRIC_HORIZON_MARKERS: [&str; 10] = [
+    " forecast ",
+    " outlook ",
+    " tomorrow ",
+    " next ",
+    " weekly ",
+    " monthly ",
+    " annual ",
+    " yearly ",
+    " seasonal ",
+    " future ",
+];
+const METRIC_RANGE_MARKERS: [&str; 8] = [
+    " high ",
+    " low ",
+    " min ",
+    " max ",
+    " range ",
+    " avg ",
+    " average ",
+    " median ",
+];
+const METRIC_UNIT_MARKERS: [&str; 17] = [
+    "f",
+    "c",
+    "fahrenheit",
+    "celsius",
+    "mph",
+    "km/h",
+    "kph",
+    "m/s",
+    "hpa",
+    "mb",
+    "inhg",
+    "aqi",
+    "uv",
+    "mm",
+    "cm",
+    "percent",
+    "pct",
+];
+const METRIC_CURRENCY_MARKERS: [&str; 8] =
+    ["$", " usd", " eur", " gbp", " jpy", " cad", " aud", " chf"];
+
 const BROWSER_SURFACE_MARKERS: [&str; 8] = [
     "chrome", "chromium", "brave", "firefox", "edge", "safari", "arc", "browser",
 ];
@@ -529,6 +653,7 @@ pub struct GoalSignalProfile {
     pub recency_hits: usize,
     pub provenance_hits: usize,
     pub external_hits: usize,
+    pub public_fact_hits: usize,
     pub workspace_hits: usize,
     pub launch_hits: usize,
     pub follow_up_hits: usize,
@@ -562,9 +687,16 @@ impl GoalSignalProfile {
         let has_external_surface =
             self.external_hits >= 2 || (self.external_hits >= 1 && has_live_grounding_request);
         let has_provenance_pressure = self.provenance_hits >= 2 || self.explicit_url_hits > 0;
+        let has_time_sensitive_public_fact_lookup = self.recency_hits >= 1
+            && self.public_fact_hits >= 1
+            && self.workspace_hits == 0
+            && self.filesystem_hits == 0
+            && self.command_hits == 0
+            && self.install_hits == 0;
 
         (has_live_grounding_request && has_external_surface)
             || (has_external_surface && has_provenance_pressure)
+            || has_time_sensitive_public_fact_lookup
     }
 
     pub fn prefers_mailbox_connector_flow(&self) -> bool {
@@ -573,6 +705,78 @@ impl GoalSignalProfile {
         let has_mailbox_action = self.mailbox_action_hits > 0;
         has_mailbox_domain && (has_personal_anchor || has_mailbox_action)
     }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+pub enum MetricAxis {
+    Temperature,
+    Humidity,
+    Wind,
+    Pressure,
+    Visibility,
+    AirQuality,
+    Precipitation,
+    Price,
+    Rate,
+    Score,
+    Duration,
+}
+
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct MetricSchemaProfile {
+    pub axis_hits: BTreeSet<MetricAxis>,
+    pub numeric_token_hits: usize,
+    pub unit_hits: usize,
+    pub currency_hits: usize,
+    pub timestamp_hits: usize,
+    pub observation_hits: usize,
+    pub horizon_hits: usize,
+    pub range_hits: usize,
+}
+
+impl MetricSchemaProfile {
+    pub fn has_metric_payload(&self) -> bool {
+        if self.numeric_token_hits == 0 {
+            return false;
+        }
+        self.unit_hits > 0
+            || self.currency_hits > 0
+            || !self.axis_hits.is_empty()
+            || self.range_hits > 0
+            || self.timestamp_hits > 0
+    }
+
+    pub fn has_current_observation_payload(&self) -> bool {
+        if !self.has_metric_payload() {
+            return false;
+        }
+        let observation_strength = self.observation_hits + self.timestamp_hits;
+        let horizon_pressure = self.horizon_hits + self.range_hits;
+        if observation_strength == 0 && !self.axis_hits.is_empty() {
+            return horizon_pressure == 0;
+        }
+        if self.range_hits > 0 && observation_strength <= 1 && self.timestamp_hits == 0 {
+            return false;
+        }
+        observation_strength > horizon_pressure
+    }
+
+    pub fn axis_overlap_score(&self, required: &BTreeSet<MetricAxis>) -> usize {
+        if required.is_empty() {
+            return usize::from(!self.axis_hits.is_empty());
+        }
+        self.axis_hits.intersection(required).count()
+    }
+}
+
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct QueryFacetProfile {
+    pub goal: GoalSignalProfile,
+    pub metric_schema: MetricSchemaProfile,
+    pub time_sensitive_public_fact: bool,
+    pub locality_sensitive_public_fact: bool,
+    pub grounded_external_required: bool,
+    pub workspace_constrained: bool,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -672,6 +876,235 @@ fn marker_hits(lower_text: &str, markers: &[&str]) -> usize {
         .count()
 }
 
+fn metric_marker_hits(lower_text: &str, markers: &[&str]) -> usize {
+    let tokens = lower_text.split_whitespace().collect::<Vec<_>>();
+    markers
+        .iter()
+        .filter(|marker| {
+            let normalized = marker.trim().to_ascii_lowercase();
+            if normalized.is_empty() {
+                return false;
+            }
+            if normalized.contains(' ') {
+                let phrase = format!(" {} ", normalized);
+                lower_text.contains(&phrase)
+            } else {
+                tokens.iter().any(|token| **token == normalized)
+            }
+        })
+        .count()
+}
+
+fn normalize_marker_text(text: &str) -> String {
+    let mut out = String::with_capacity(text.len() + 2);
+    out.push(' ');
+    let mut last_was_space = true;
+    for ch in text.chars() {
+        let lower = ch.to_ascii_lowercase();
+        if lower.is_ascii_alphanumeric() {
+            out.push(lower);
+            last_was_space = false;
+            continue;
+        }
+        if !last_was_space {
+            out.push(' ');
+            last_was_space = true;
+        }
+    }
+    if !out.ends_with(' ') {
+        out.push(' ');
+    }
+    out
+}
+
+fn metric_tokens(text: &str) -> Vec<String> {
+    text.split(|ch: char| {
+        !(ch.is_ascii_alphanumeric() || matches!(ch, '.' | '%' | '/' | '-' | '+' | ',' | '$' | ':'))
+    })
+    .filter(|token| !token.is_empty())
+    .map(|token| token.to_ascii_lowercase())
+    .collect()
+}
+
+fn token_has_numeric_payload(token: &str) -> bool {
+    let mut digits = 0usize;
+    for ch in token.chars() {
+        if ch.is_ascii_digit() {
+            digits += 1;
+            continue;
+        }
+        if ch.is_ascii_alphabetic() {
+            return false;
+        }
+        if matches!(ch, '.' | '%' | '/' | '-' | '+' | ',' | '$' | ':') {
+            continue;
+        }
+        return false;
+    }
+    digits > 0
+}
+
+fn has_iso_date_token(token: &str) -> bool {
+    let bytes = token.as_bytes();
+    if bytes.len() != 10 {
+        return false;
+    }
+    bytes[0].is_ascii_digit()
+        && bytes[1].is_ascii_digit()
+        && bytes[2].is_ascii_digit()
+        && bytes[3].is_ascii_digit()
+        && bytes[4] == b'-'
+        && bytes[5].is_ascii_digit()
+        && bytes[6].is_ascii_digit()
+        && bytes[7] == b'-'
+        && bytes[8].is_ascii_digit()
+        && bytes[9].is_ascii_digit()
+}
+
+fn has_clock_token(token: &str) -> bool {
+    let cleaned = token.trim_matches(|ch: char| !ch.is_ascii_digit() && ch != ':');
+    let mut parts = cleaned.split(':');
+    let Some(hours) = parts.next() else {
+        return false;
+    };
+    let Some(minutes) = parts.next() else {
+        return false;
+    };
+    if parts.next().is_some() {
+        return false;
+    }
+    !hours.is_empty()
+        && minutes.len() == 2
+        && hours.chars().all(|ch| ch.is_ascii_digit())
+        && minutes.chars().all(|ch| ch.is_ascii_digit())
+}
+
+fn axis_hits(lower: &str) -> BTreeSet<MetricAxis> {
+    let mut out = BTreeSet::new();
+    if metric_marker_hits(lower, &METRIC_AXIS_TEMPERATURE_MARKERS) > 0 {
+        out.insert(MetricAxis::Temperature);
+    }
+    if metric_marker_hits(lower, &METRIC_AXIS_HUMIDITY_MARKERS) > 0 {
+        out.insert(MetricAxis::Humidity);
+    }
+    if metric_marker_hits(lower, &METRIC_AXIS_WIND_MARKERS) > 0 {
+        out.insert(MetricAxis::Wind);
+    }
+    if metric_marker_hits(lower, &METRIC_AXIS_PRESSURE_MARKERS) > 0 {
+        out.insert(MetricAxis::Pressure);
+    }
+    if metric_marker_hits(lower, &METRIC_AXIS_VISIBILITY_MARKERS) > 0 {
+        out.insert(MetricAxis::Visibility);
+    }
+    if metric_marker_hits(lower, &METRIC_AXIS_AIR_QUALITY_MARKERS) > 0 {
+        out.insert(MetricAxis::AirQuality);
+    }
+    if metric_marker_hits(lower, &METRIC_AXIS_PRECIPITATION_MARKERS) > 0 {
+        out.insert(MetricAxis::Precipitation);
+    }
+    if metric_marker_hits(lower, &METRIC_AXIS_PRICE_MARKERS) > 0 {
+        out.insert(MetricAxis::Price);
+    }
+    let has_rate_strong_marker = metric_marker_hits(lower, &METRIC_AXIS_RATE_STRONG_MARKERS) > 0;
+    let has_rate_weak_marker = metric_marker_hits(lower, &METRIC_AXIS_RATE_WEAK_MARKERS) > 0;
+    let has_rate_disambiguation_context =
+        lower.contains('%') || lower.contains(" percent ") || lower.contains(" pct ");
+    if has_rate_strong_marker || (has_rate_weak_marker && has_rate_disambiguation_context) {
+        out.insert(MetricAxis::Rate);
+    }
+    if metric_marker_hits(lower, &METRIC_AXIS_SCORE_MARKERS) > 0 {
+        out.insert(MetricAxis::Score);
+    }
+    if metric_marker_hits(lower, &METRIC_AXIS_DURATION_MARKERS) > 0 {
+        out.insert(MetricAxis::Duration);
+    }
+    out
+}
+
+pub fn analyze_metric_schema(text: &str) -> MetricSchemaProfile {
+    let raw_lower = format!(" {} ", text.to_ascii_lowercase());
+    if raw_lower.trim().is_empty() {
+        return MetricSchemaProfile::default();
+    }
+    let normalized_lower = normalize_marker_text(text);
+
+    let tokens = metric_tokens(&raw_lower);
+    let numeric_token_hits = tokens
+        .iter()
+        .filter(|token| token_has_numeric_payload(token.as_str()))
+        .count();
+    let unit_hits = tokens
+        .iter()
+        .enumerate()
+        .filter(|(idx, token)| {
+            METRIC_UNIT_MARKERS.iter().any(|unit| unit == token)
+                && (*idx > 0 || *token == "uv" || *token == "aqi")
+        })
+        .count()
+        + usize::from(raw_lower.contains('°'))
+        + usize::from(raw_lower.contains('%'));
+    let currency_hits = METRIC_CURRENCY_MARKERS
+        .iter()
+        .filter(|marker| raw_lower.contains(**marker))
+        .count();
+    let timestamp_hits = tokens
+        .iter()
+        .filter(|token| has_clock_token(token) || has_iso_date_token(token))
+        .count();
+    let observation_hits = marker_hits(&normalized_lower, &METRIC_OBSERVATION_MARKERS);
+    let horizon_hits = marker_hits(&normalized_lower, &METRIC_HORIZON_MARKERS);
+    let range_hits = marker_hits(&normalized_lower, &METRIC_RANGE_MARKERS);
+
+    MetricSchemaProfile {
+        axis_hits: axis_hits(&normalized_lower),
+        numeric_token_hits,
+        unit_hits,
+        currency_hits,
+        timestamp_hits,
+        observation_hits,
+        horizon_hits,
+        range_hits,
+    }
+}
+
+pub fn analyze_query_facets(query: &str) -> QueryFacetProfile {
+    let goal = analyze_goal_signals(query);
+    let metric_schema = analyze_metric_schema(query);
+    let workspace_constrained = goal.workspace_dominant()
+        || goal.filesystem_hits > 0
+        || goal.command_hits > 0
+        || goal.install_hits > 0;
+    let time_sensitive_public_fact = goal.recency_hits > 0 && goal.public_fact_hits > 0;
+    let metric_locality_sensitive = metric_schema.axis_hits.iter().any(|axis| {
+        matches!(
+            axis,
+            MetricAxis::Temperature
+                | MetricAxis::Humidity
+                | MetricAxis::Wind
+                | MetricAxis::Pressure
+                | MetricAxis::Visibility
+                | MetricAxis::AirQuality
+                | MetricAxis::Precipitation
+                | MetricAxis::Duration
+        )
+    });
+    let implicit_locality_shape =
+        goal.public_fact_hits > 0 && goal.external_hits == 0 && metric_schema.axis_hits.is_empty();
+    let locality_sensitive_public_fact =
+        time_sensitive_public_fact && (metric_locality_sensitive || implicit_locality_shape);
+    let grounded_external_required = goal.prefers_live_external_research()
+        || (time_sensitive_public_fact && !workspace_constrained);
+
+    QueryFacetProfile {
+        goal,
+        metric_schema,
+        time_sensitive_public_fact,
+        locality_sensitive_public_fact,
+        grounded_external_required,
+        workspace_constrained,
+    }
+}
+
 fn canonical_tool_name(root_tool_name: &str) -> String {
     root_tool_name
         .trim()
@@ -690,6 +1123,7 @@ pub fn analyze_goal_signals(goal: &str) -> GoalSignalProfile {
         recency_hits: marker_hits(&padded_goal, &RECENCY_MARKERS),
         provenance_hits: marker_hits(&padded_goal, &PROVENANCE_MARKERS),
         external_hits: marker_hits(&padded_goal, &EXTERNAL_KNOWLEDGE_MARKERS),
+        public_fact_hits: marker_hits(&padded_goal, &PUBLIC_FACT_MARKERS),
         workspace_hits: marker_hits(&padded_goal, &WORKSPACE_MARKERS),
         launch_hits: marker_hits(&padded_goal, &LAUNCH_MARKERS),
         follow_up_hits: marker_hits(&padded_goal, &FOLLOW_UP_ACTION_MARKERS),
@@ -704,6 +1138,89 @@ pub fn analyze_goal_signals(goal: &str) -> GoalSignalProfile {
         mailbox_domain_hits: marker_hits(&padded_goal, &MAILBOX_DOMAIN_MARKERS),
         mailbox_personal_scope_hits: marker_hits(&padded_goal, &MAILBOX_PERSONAL_SCOPE_MARKERS),
         mailbox_action_hits: marker_hits(&padded_goal, &MAILBOX_ACTION_MARKERS),
+    }
+}
+
+fn marker_lexeme_tokens(markers: &[&str]) -> BTreeSet<String> {
+    markers
+        .iter()
+        .flat_map(|marker| marker.split(|ch: char| !ch.is_ascii_alphanumeric()))
+        .filter_map(|token| {
+            let normalized = token.trim().to_ascii_lowercase();
+            if normalized.len() < 3 {
+                return None;
+            }
+            if normalized.chars().all(|ch| ch.is_ascii_digit()) {
+                return None;
+            }
+            Some(normalized)
+        })
+        .collect()
+}
+
+fn goal_structural_directive_tokens(goal: &GoalSignalProfile) -> BTreeSet<String> {
+    let mut tokens = BTreeSet::new();
+    if goal.recency_hits > 0 {
+        tokens.extend(marker_lexeme_tokens(&RECENCY_MARKERS));
+    }
+    if goal.provenance_hits > 0 {
+        tokens.extend(marker_lexeme_tokens(&PROVENANCE_MARKERS));
+    }
+    if goal.follow_up_hits > 0 {
+        tokens.extend(marker_lexeme_tokens(&FOLLOW_UP_ACTION_MARKERS));
+    }
+    if goal.conversation_hits > 0 {
+        tokens.extend(marker_lexeme_tokens(&CONVERSATION_MARKERS));
+    }
+    if goal.delegation_hits > 0 {
+        tokens.extend(marker_lexeme_tokens(&DELEGATION_MARKERS));
+    }
+    if goal.launch_hits > 0 {
+        tokens.extend(marker_lexeme_tokens(&LAUNCH_MARKERS));
+    }
+    tokens
+}
+
+pub fn query_structural_directive_tokens(query: &str) -> BTreeSet<String> {
+    let goal = analyze_goal_signals(query);
+    goal_structural_directive_tokens(&goal)
+}
+
+pub fn query_semantic_anchor_tokens(query: &str) -> BTreeSet<String> {
+    let normalized = normalize_marker_text(query);
+    if normalized.trim().is_empty() {
+        return BTreeSet::new();
+    }
+
+    let base_tokens = normalized
+        .split_whitespace()
+        .filter_map(|token| {
+            let normalized = token.trim().to_ascii_lowercase();
+            if normalized.len() < 3 {
+                return None;
+            }
+            if normalized.chars().all(|ch| ch.is_ascii_digit()) {
+                return None;
+            }
+            Some(normalized)
+        })
+        .collect::<BTreeSet<_>>();
+
+    if base_tokens.is_empty() {
+        return base_tokens;
+    }
+
+    let structural_tokens = query_structural_directive_tokens(query);
+    let semantic_tokens = base_tokens
+        .iter()
+        .filter(|token| !structural_tokens.contains(*token))
+        .cloned()
+        .collect::<BTreeSet<_>>();
+
+    if semantic_tokens.is_empty() {
+        base_tokens
+    } else {
+        semantic_tokens
     }
 }
 
@@ -1043,10 +1560,12 @@ pub fn is_system_surface(app_name: &str, title: &str) -> bool {
 #[cfg(test)]
 mod tests {
     use super::{
-        analyze_goal_signals, analyze_source_record_signals, analyze_source_text_signals,
-        infer_interaction_target, infer_report_sections, is_live_external_research_goal,
-        is_mail_connector_tool_name, is_mailbox_connector_intent, report_section_label,
-        GoalSignalProfile, ReportSectionKind,
+        analyze_goal_signals, analyze_metric_schema, analyze_query_facets,
+        analyze_source_record_signals, analyze_source_text_signals, infer_interaction_target,
+        infer_report_sections, is_live_external_research_goal, is_mail_connector_tool_name,
+        is_mailbox_connector_intent, query_semantic_anchor_tokens,
+        query_structural_directive_tokens, report_section_label, GoalSignalProfile, MetricAxis,
+        ReportSectionKind,
     };
 
     #[test]
@@ -1159,11 +1678,70 @@ mod tests {
     }
 
     #[test]
+    fn live_external_research_detects_time_sensitive_public_fact_lookups() {
+        assert!(is_live_external_research_goal(
+            "What's the weather right now in Anderson, SC?"
+        ));
+        assert!(is_live_external_research_goal(
+            "Current USD to EUR exchange rate right now."
+        ));
+        assert!(!is_live_external_research_goal(
+            "In this repository, what's the current weather parser logic?"
+        ));
+    }
+
+    #[test]
     fn mailbox_tool_name_signal_matches_connector_prefixes() {
         assert!(is_mail_connector_tool_name(
             "wallet_network__mail_read_latest"
         ));
         assert!(is_mail_connector_tool_name("wallet_mail_handle_intent"));
         assert!(!is_mail_connector_tool_name("web__search"));
+    }
+
+    #[test]
+    fn metric_schema_distinguishes_current_observation_from_forecast_horizon() {
+        let current = analyze_metric_schema(
+            "Current conditions as of 10:35 AM: temperature 62F, humidity 42%, wind 4 mph.",
+        );
+        let forecast =
+            analyze_metric_schema("Tomorrow forecast: high 65, low 49, rain chance 60%.");
+        assert!(current.has_metric_payload());
+        assert!(current.has_current_observation_payload());
+        assert!(forecast.has_metric_payload());
+        assert!(!forecast.has_current_observation_payload());
+        assert!(current.axis_hits.contains(&MetricAxis::Temperature));
+        assert!(current.axis_hits.contains(&MetricAxis::Humidity));
+        assert!(forecast.axis_hits.contains(&MetricAxis::Precipitation));
+    }
+
+    #[test]
+    fn query_facets_capture_time_sensitive_public_fact_contract() {
+        let facets = analyze_query_facets("What's the weather right now with UTC timestamp?");
+        assert!(facets.time_sensitive_public_fact);
+        assert!(facets.locality_sensitive_public_fact);
+        assert!(facets.grounded_external_required);
+        assert!(!facets.workspace_constrained);
+
+        let rate_facets =
+            analyze_query_facets("Current USD to EUR exchange rate right now with sources.");
+        assert!(rate_facets.time_sensitive_public_fact);
+        assert!(!rate_facets.locality_sensitive_public_fact);
+    }
+
+    #[test]
+    fn semantic_anchor_tokens_exclude_structural_directives() {
+        let query = "Current weather in Anderson, SC right now with sources and UTC timestamp.";
+        let structural = query_structural_directive_tokens(query);
+        assert!(structural.contains("sources"));
+        assert!(structural.contains("utc"));
+        assert!(structural.contains("timestamp"));
+
+        let semantic = query_semantic_anchor_tokens(query);
+        assert!(semantic.contains("weather"));
+        assert!(semantic.contains("anderson"));
+        assert!(!semantic.contains("sources"));
+        assert!(!semantic.contains("utc"));
+        assert!(!semantic.contains("timestamp"));
     }
 }

@@ -156,19 +156,23 @@ pub async fn handle(
 
             let mut sources_count: u32 = 0;
             let mut documents_count: u32 = 0;
+            let mut backend_for_receipt = "edge:search".to_string();
             let result =
                 match crate::agentic::web::edge_web_search(&exec.browser, &query, limit).await {
-                    Ok(bundle) => match serde_json::to_string_pretty(&bundle) {
-                        Ok(out) => {
-                            sources_count = bundle.sources.len() as u32;
-                            documents_count = bundle.documents.len() as u32;
-                            ToolExecutionResult::success(out)
-                        }
-                        Err(e) => ToolExecutionResult::failure(format!(
+                    Ok(bundle) => {
+                        backend_for_receipt = bundle.backend.clone();
+                        match serde_json::to_string_pretty(&bundle) {
+                            Ok(out) => {
+                                sources_count = bundle.sources.len() as u32;
+                                documents_count = bundle.documents.len() as u32;
+                                ToolExecutionResult::success(out)
+                            }
+                            Err(e) => ToolExecutionResult::failure(format!(
                             "ERROR_CLASS=SerializationFailed Failed to serialize web evidence: {}",
                             e
                         )),
-                    },
+                        }
+                    }
                     Err(e) => ToolExecutionResult::failure(e.to_string()),
                 };
 
@@ -194,7 +198,7 @@ pub async fn handle(
                     workload_id.clone(),
                     WorkloadReceipt::WebRetrieve(WorkloadWebRetrieveReceipt {
                         tool_name: "web__search".to_string(),
-                        backend: "edge:ddg".to_string(),
+                        backend: backend_for_receipt,
                         query: (!query_for_receipt.trim().is_empty()).then_some(query_for_receipt),
                         url: None,
                         limit: Some(limit),

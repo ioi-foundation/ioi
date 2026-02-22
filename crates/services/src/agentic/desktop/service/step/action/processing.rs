@@ -34,13 +34,18 @@ use crate::agentic::desktop::service::step::incident::{
 use crate::agentic::desktop::service::step::intent_resolver::is_tool_allowed_for_resolution;
 use crate::agentic::desktop::service::step::queue::{
     append_pending_web_success_fallback, append_pending_web_success_from_bundle,
-    candidate_source_hints_from_bundle, candidate_urls_from_bundle, is_human_challenge_error,
-    mark_pending_web_attempted, mark_pending_web_blocked, next_pending_web_candidate,
-    parse_web_evidence_bundle, queue_web_read_from_pipeline, remaining_pending_web_candidates,
+    constraint_grounded_probe_query_with_hints, constraint_grounded_search_limit,
+    constraint_grounded_search_query, is_human_challenge_error, mark_pending_web_attempted,
+    mark_pending_web_blocked, merge_pending_search_completion, next_pending_web_candidate,
+    parse_web_evidence_bundle, pre_read_candidate_plan_from_bundle, queue_web_read_from_pipeline,
+    queue_web_search_from_pipeline, remaining_pending_web_candidates,
     render_mailbox_access_limited_reply, synthesize_web_pipeline_reply,
-    synthesize_web_pipeline_reply_hybrid, web_pipeline_completion_reason, web_pipeline_now_ms,
-    WebPipelineCompletionReason, WEB_PIPELINE_BUDGET_MS, WEB_PIPELINE_DEFAULT_MIN_SOURCES,
-    WEB_PIPELINE_SEARCH_LIMIT,
+    synthesize_web_pipeline_reply_hybrid, web_pipeline_can_queue_initial_read_latency_aware,
+    web_pipeline_can_queue_probe_search_latency_aware, web_pipeline_completion_reason,
+    web_pipeline_latency_pressure_label, web_pipeline_min_sources, web_pipeline_now_ms,
+    web_pipeline_remaining_budget_ms, web_pipeline_required_probe_budget_ms,
+    web_pipeline_required_read_budget_ms, web_pipeline_requires_metric_probe_followup,
+    WebPipelineCompletionReason, WEB_PIPELINE_BUDGET_MS,
 };
 use crate::agentic::desktop::service::step::signals::is_mail_connector_tool_name;
 use crate::agentic::desktop::service::{DesktopAgentService, ServiceCallContext};
@@ -181,15 +186,23 @@ fn queue_web_search_bootstrap(
     if normalized_query.trim().is_empty() {
         return Ok(false);
     }
+    let min_sources = web_pipeline_min_sources(&normalized_query);
+    let grounded_query = constraint_grounded_search_query(&normalized_query, min_sources);
+    let search_limit = constraint_grounded_search_limit(&normalized_query, min_sources);
+    let search_query = if grounded_query.trim().is_empty() {
+        normalized_query
+    } else {
+        grounded_query
+    };
 
     let params = serde_jcs::to_vec(&json!({
-        "query": normalized_query,
-        "limit": WEB_PIPELINE_SEARCH_LIMIT
+        "query": search_query,
+        "limit": search_limit
     }))
     .or_else(|_| {
         serde_json::to_vec(&json!({
-            "query": normalized_query,
-            "limit": WEB_PIPELINE_SEARCH_LIMIT
+            "query": search_query,
+            "limit": search_limit
         }))
     })
     .map_err(|e| TransactionError::Serialization(e.to_string()))?;
@@ -723,44 +736,244 @@ pub async fn process_tool_output(
                                                             trimmed_goal.to_string()
                                                         }
                                                     };
+                                                    let min_sources =
+                                                        web_pipeline_min_sources(&query_contract);
                                                     let started_at_ms = web_pipeline_now_ms();
-                                                    let pending = PendingSearchCompletion {
+                                                    let candidate_plan =
+                                                        pre_read_candidate_plan_from_bundle(
+                                                            &query_contract,
+                                                            min_sources,
+                                                            &bundle,
+                                                        );
+                                                    let plan_total_candidates =
+                                                        candidate_plan.total_candidates;
+                                                    let plan_pruned_candidates =
+                                                        candidate_plan.pruned_candidates;
+                                                    let plan_resolvable_candidates =
+                                                        candidate_plan.resolvable_candidates;
+                                                    let probe_source_hints =
+                                                        candidate_plan.probe_source_hints.clone();
+                                                    let mut plan_requires_probe = candidate_plan
+                                                        .requires_constraint_search_probe;
+                                                    let prior_pending = agent_state
+                                                        .pending_search_completion
+                                                        .clone();
+                                                    let prior_no_progress_probe_cycle =
+                                                        prior_pending
+                                                            .as_ref()
+                                                            .map(|existing| {
+                                                                existing.successful_reads.is_empty()
+                                                                    && existing
+                                                                        .blocked_urls
+                                                                        .is_empty()
+                                                                    && existing
+                                                                        .candidate_urls
+                                                                        .is_empty()
+                                                                    && existing
+                                                                        .candidate_source_hints
+                                                                        .is_empty()
+                                                            })
+                                                            .unwrap_or(false);
+                                                    let search_url_attempt = bundle
+                                                        .url
+                                                        .as_deref()
+                                                        .map(str::trim)
+                                                        .filter(|value| !value.is_empty())
+                                                        .map(|value| value.to_string())
+                                                        .into_iter()
+                                                        .collect::<Vec<_>>();
+                                                    let mut pending = PendingSearchCompletion {
                                                         query: query_value,
-                                                        query_contract,
+                                                        query_contract: query_contract.clone(),
                                                         url: bundle.url.clone().unwrap_or_default(),
                                                         started_step: pre_state_summary.step_index,
                                                         started_at_ms,
                                                         deadline_ms: started_at_ms
                                                             .saturating_add(WEB_PIPELINE_BUDGET_MS),
-                                                        candidate_urls: candidate_urls_from_bundle(
-                                                            &bundle,
-                                                        ),
-                                                        candidate_source_hints:
-                                                            candidate_source_hints_from_bundle(
-                                                                &bundle,
-                                                            ),
-                                                        attempted_urls: Vec::new(),
+                                                        candidate_urls: candidate_plan
+                                                            .candidate_urls,
+                                                        candidate_source_hints: candidate_plan
+                                                            .candidate_source_hints,
+                                                        attempted_urls: search_url_attempt,
                                                         blocked_urls: Vec::new(),
                                                         successful_reads: Vec::new(),
-                                                        min_sources:
-                                                            WEB_PIPELINE_DEFAULT_MIN_SOURCES,
+                                                        min_sources,
                                                     };
-
-                                                    let mut queued_next = false;
-                                                    if let Some(next_url) =
-                                                        next_pending_web_candidate(&pending)
+                                                    if let Some(existing_pending) = prior_pending {
+                                                        pending = merge_pending_search_completion(
+                                                            existing_pending,
+                                                            pending,
+                                                        );
+                                                    }
+                                                    if pending.candidate_urls.is_empty() {
+                                                        plan_requires_probe = true;
+                                                    }
+                                                    if plan_total_candidates == 0
+                                                        && prior_no_progress_probe_cycle
                                                     {
-                                                        queued_next = queue_web_read_from_pipeline(
-                                                            agent_state,
-                                                            session_id,
-                                                            &next_url,
-                                                        )?;
+                                                        plan_requires_probe = false;
+                                                    }
+
+                                                    let queue_now_ms = web_pipeline_now_ms();
+                                                    let remaining_budget_ms =
+                                                        web_pipeline_remaining_budget_ms(
+                                                            pending.deadline_ms,
+                                                            queue_now_ms,
+                                                        );
+                                                    let probe_budget_required_ms =
+                                                        web_pipeline_required_probe_budget_ms(
+                                                            &pending,
+                                                            queue_now_ms,
+                                                        );
+                                                    let read_budget_required_ms =
+                                                        web_pipeline_required_read_budget_ms(
+                                                            &pending,
+                                                            queue_now_ms,
+                                                        );
+                                                    let probe_budget_allows =
+                                                        web_pipeline_can_queue_probe_search_latency_aware(
+                                                            &pending,
+                                                            queue_now_ms,
+                                                        );
+                                                    let read_budget_allows =
+                                                        web_pipeline_can_queue_initial_read_latency_aware(
+                                                            &pending,
+                                                            queue_now_ms,
+                                                        );
+                                                    let latency_pressure =
+                                                        web_pipeline_latency_pressure_label(
+                                                            &pending,
+                                                            queue_now_ms,
+                                                        );
+                                                    let mut completion_reason =
+                                                        web_pipeline_completion_reason(
+                                                            &pending,
+                                                            queue_now_ms,
+                                                        );
+                                                    let mut queued_next = false;
+                                                    let mut queued_probe = false;
+                                                    if completion_reason.is_none() {
+                                                        if read_budget_allows {
+                                                            if let Some(next_url) =
+                                                                next_pending_web_candidate(&pending)
+                                                            {
+                                                                queued_next =
+                                                                    queue_web_read_from_pipeline(
+                                                                        agent_state,
+                                                                        session_id,
+                                                                        &next_url,
+                                                                    )?;
+                                                            }
+                                                        }
+                                                        if !queued_next
+                                                            && plan_requires_probe
+                                                            && probe_budget_allows
+                                                        {
+                                                            if let Some(probe_query) =
+                                                                constraint_grounded_probe_query_with_hints(
+                                                                    &query_contract,
+                                                                    min_sources,
+                                                                    &probe_source_hints,
+                                                                    &pending.query,
+                                                                )
+                                                            {
+                                                                let search_limit =
+                                                                    constraint_grounded_search_limit(
+                                                                        &query_contract,
+                                                                        min_sources,
+                                                                    );
+                                                                queued_probe =
+                                                                    queue_web_search_from_pipeline(
+                                                                        agent_state,
+                                                                        session_id,
+                                                                        &probe_query,
+                                                                        search_limit,
+                                                                    )?;
+                                                            }
+                                                        }
+                                                        if !queued_next && !queued_probe {
+                                                            let remaining_candidates =
+                                                                remaining_pending_web_candidates(
+                                                                    &pending,
+                                                                );
+                                                            if remaining_candidates == 0 {
+                                                                completion_reason = Some(
+                                                                    WebPipelineCompletionReason::ExhaustedCandidates,
+                                                                );
+                                                            } else if !read_budget_allows
+                                                                && (!plan_requires_probe
+                                                                    || !probe_budget_allows)
+                                                            {
+                                                                completion_reason = Some(
+                                                                    WebPipelineCompletionReason::DeadlineReached,
+                                                                );
+                                                            }
+                                                        }
                                                     }
                                                     let remaining =
                                                         remaining_pending_web_candidates(&pending);
+                                                    let budget_prevents_followup = completion_reason
+                                                        .is_none()
+                                                        && !queued_probe
+                                                        && !queued_next
+                                                        && remaining > 0
+                                                        && (!read_budget_allows
+                                                            || (plan_requires_probe
+                                                                && !probe_budget_allows));
+                                                    verification_checks.push(format!(
+                                                        "web_pre_read_candidates_total={}",
+                                                        plan_total_candidates
+                                                    ));
+                                                    verification_checks.push(format!(
+                                                        "web_pre_read_candidates_pruned={}",
+                                                        plan_pruned_candidates
+                                                    ));
+                                                    verification_checks.push(format!(
+                                                        "web_pre_read_candidates_resolvable={}",
+                                                        plan_resolvable_candidates
+                                                    ));
+                                                    verification_checks.push(format!(
+                                                        "web_min_sources={}",
+                                                        min_sources
+                                                    ));
+                                                    verification_checks.push(format!(
+                                                        "web_constraint_search_probe_required={}",
+                                                        plan_requires_probe
+                                                    ));
+                                                    verification_checks.push(format!(
+                                                        "web_constraint_search_probe_queued={}",
+                                                        queued_probe
+                                                    ));
+                                                    verification_checks.push(format!(
+                                                        "web_remaining_budget_ms={}",
+                                                        remaining_budget_ms
+                                                    ));
+                                                    verification_checks.push(format!(
+                                                        "web_probe_budget_required_ms={}",
+                                                        probe_budget_required_ms
+                                                    ));
+                                                    verification_checks.push(format!(
+                                                        "web_read_budget_required_ms={}",
+                                                        read_budget_required_ms
+                                                    ));
+                                                    verification_checks.push(format!(
+                                                        "web_probe_budget_allows={}",
+                                                        probe_budget_allows
+                                                    ));
+                                                    verification_checks.push(format!(
+                                                        "web_read_budget_allows={}",
+                                                        read_budget_allows
+                                                    ));
+                                                    verification_checks.push(format!(
+                                                        "web_latency_pressure={}",
+                                                        latency_pressure
+                                                    ));
                                                     verification_checks.push(format!(
                                                         "web_pipeline_active={}",
-                                                        queued_next || remaining > 0
+                                                        queued_probe
+                                                            || queued_next
+                                                            || (remaining > 0
+                                                                && !budget_prevents_followup)
                                                     ));
                                                     verification_checks
                                                         .push("web_sources_success=0".to_string());
@@ -769,7 +982,72 @@ pub async fn process_tool_output(
                                                     verification_checks
                                                         .push("web_budget_ms=0".to_string());
 
-                                                    if queued_next || remaining > 0 {
+                                                    if let Some(reason) = completion_reason {
+                                                        let summary = if let Some(hybrid_summary) =
+                                                            synthesize_web_pipeline_reply_hybrid(
+                                                                service.reasoning_inference.clone(),
+                                                                &pending,
+                                                                reason,
+                                                            )
+                                                            .await
+                                                        {
+                                                            hybrid_summary
+                                                        } else {
+                                                            synthesize_web_pipeline_reply(
+                                                                &pending, reason,
+                                                            )
+                                                        };
+                                                        action_output = Some(summary.clone());
+                                                        history_entry = Some(summary.clone());
+                                                        terminal_chat_reply_output =
+                                                            Some(summary.clone());
+                                                        is_lifecycle_action = true;
+                                                        agent_state.status =
+                                                            AgentStatus::Completed(Some(summary));
+                                                        agent_state.pending_search_completion =
+                                                            None;
+                                                        agent_state.execution_queue.clear();
+                                                        agent_state.recent_actions.clear();
+                                                        verification_checks.push(
+                                                            "terminal_chat_reply_ready=true"
+                                                                .to_string(),
+                                                        );
+                                                    } else if budget_prevents_followup {
+                                                        let reason =
+                                                            WebPipelineCompletionReason::DeadlineReached;
+                                                        let summary = if let Some(hybrid_summary) =
+                                                            synthesize_web_pipeline_reply_hybrid(
+                                                                service.reasoning_inference.clone(),
+                                                                &pending,
+                                                                reason,
+                                                            )
+                                                            .await
+                                                        {
+                                                            hybrid_summary
+                                                        } else {
+                                                            synthesize_web_pipeline_reply(
+                                                                &pending, reason,
+                                                            )
+                                                        };
+                                                        action_output = Some(summary.clone());
+                                                        history_entry = Some(summary.clone());
+                                                        terminal_chat_reply_output =
+                                                            Some(summary.clone());
+                                                        is_lifecycle_action = true;
+                                                        agent_state.status =
+                                                            AgentStatus::Completed(Some(summary));
+                                                        agent_state.pending_search_completion =
+                                                            None;
+                                                        agent_state.execution_queue.clear();
+                                                        agent_state.recent_actions.clear();
+                                                        verification_checks.push(
+                                                            "terminal_chat_reply_ready=true"
+                                                                .to_string(),
+                                                        );
+                                                    } else if queued_probe
+                                                        || queued_next
+                                                        || remaining > 0
+                                                    {
                                                         agent_state.pending_search_completion =
                                                             Some(pending);
                                                     } else {
@@ -865,42 +1143,238 @@ pub async fn process_tool_output(
                                                         trimmed_goal.to_string()
                                                     }
                                                 };
+                                                let min_sources =
+                                                    web_pipeline_min_sources(&query_contract);
                                                 let started_at_ms = web_pipeline_now_ms();
+                                                let candidate_plan =
+                                                    pre_read_candidate_plan_from_bundle(
+                                                        &query_contract,
+                                                        min_sources,
+                                                        &bundle,
+                                                    );
+                                                let plan_total_candidates =
+                                                    candidate_plan.total_candidates;
+                                                let plan_pruned_candidates =
+                                                    candidate_plan.pruned_candidates;
+                                                let plan_resolvable_candidates =
+                                                    candidate_plan.resolvable_candidates;
+                                                let probe_source_hints =
+                                                    candidate_plan.probe_source_hints.clone();
+                                                let mut plan_requires_probe =
+                                                    candidate_plan.requires_constraint_search_probe;
+                                                let prior_pending =
+                                                    agent_state.pending_search_completion.clone();
+                                                let prior_no_progress_probe_cycle = prior_pending
+                                                    .as_ref()
+                                                    .map(|existing| {
+                                                        existing.successful_reads.is_empty()
+                                                            && existing.blocked_urls.is_empty()
+                                                            && existing.candidate_urls.is_empty()
+                                                            && existing
+                                                                .candidate_source_hints
+                                                                .is_empty()
+                                                    })
+                                                    .unwrap_or(false);
+                                                let search_url_attempt = bundle
+                                                    .url
+                                                    .as_deref()
+                                                    .map(str::trim)
+                                                    .filter(|value| !value.is_empty())
+                                                    .map(|value| value.to_string())
+                                                    .into_iter()
+                                                    .collect::<Vec<_>>();
                                                 let mut pending = PendingSearchCompletion {
                                                     query: query_value,
-                                                    query_contract,
+                                                    query_contract: query_contract.clone(),
                                                     url: bundle.url.clone().unwrap_or_default(),
                                                     started_step: pre_state_summary.step_index,
                                                     started_at_ms,
                                                     deadline_ms: started_at_ms
                                                         .saturating_add(WEB_PIPELINE_BUDGET_MS),
-                                                    candidate_urls: candidate_urls_from_bundle(
-                                                        &bundle,
-                                                    ),
-                                                    candidate_source_hints:
-                                                        candidate_source_hints_from_bundle(&bundle),
-                                                    attempted_urls: Vec::new(),
+                                                    candidate_urls: candidate_plan.candidate_urls,
+                                                    candidate_source_hints: candidate_plan
+                                                        .candidate_source_hints,
+                                                    attempted_urls: search_url_attempt,
                                                     blocked_urls: Vec::new(),
                                                     successful_reads: Vec::new(),
-                                                    min_sources: WEB_PIPELINE_DEFAULT_MIN_SOURCES,
+                                                    min_sources,
                                                 };
-
-                                                let mut queued_next = false;
-                                                if let Some(next_url) =
-                                                    next_pending_web_candidate(&pending)
+                                                if let Some(existing_pending) = prior_pending {
+                                                    pending = merge_pending_search_completion(
+                                                        existing_pending,
+                                                        pending,
+                                                    );
+                                                }
+                                                if pending.candidate_urls.is_empty() {
+                                                    plan_requires_probe = true;
+                                                }
+                                                if plan_total_candidates == 0
+                                                    && prior_no_progress_probe_cycle
                                                 {
-                                                    queued_next = queue_web_read_from_pipeline(
-                                                        agent_state,
-                                                        session_id,
-                                                        &next_url,
-                                                    )?;
+                                                    plan_requires_probe = false;
+                                                }
+
+                                                let queue_now_ms = web_pipeline_now_ms();
+                                                let remaining_budget_ms =
+                                                    web_pipeline_remaining_budget_ms(
+                                                        pending.deadline_ms,
+                                                        queue_now_ms,
+                                                    );
+                                                let probe_budget_required_ms =
+                                                    web_pipeline_required_probe_budget_ms(
+                                                        &pending,
+                                                        queue_now_ms,
+                                                    );
+                                                let read_budget_required_ms =
+                                                    web_pipeline_required_read_budget_ms(
+                                                        &pending,
+                                                        queue_now_ms,
+                                                    );
+                                                let probe_budget_allows =
+                                                    web_pipeline_can_queue_probe_search_latency_aware(
+                                                        &pending,
+                                                        queue_now_ms,
+                                                    );
+                                                let read_budget_allows =
+                                                    web_pipeline_can_queue_initial_read_latency_aware(
+                                                        &pending,
+                                                        queue_now_ms,
+                                                    );
+                                                let latency_pressure =
+                                                    web_pipeline_latency_pressure_label(
+                                                        &pending,
+                                                        queue_now_ms,
+                                                    );
+                                                let mut completion_reason =
+                                                    web_pipeline_completion_reason(
+                                                        &pending,
+                                                        queue_now_ms,
+                                                    );
+                                                let mut queued_next = false;
+                                                let mut queued_probe = false;
+                                                if completion_reason.is_none() {
+                                                    if read_budget_allows {
+                                                        if let Some(next_url) =
+                                                            next_pending_web_candidate(&pending)
+                                                        {
+                                                            queued_next =
+                                                                queue_web_read_from_pipeline(
+                                                                    agent_state,
+                                                                    session_id,
+                                                                    &next_url,
+                                                                )?;
+                                                        }
+                                                    }
+                                                    if !queued_next
+                                                        && plan_requires_probe
+                                                        && probe_budget_allows
+                                                    {
+                                                        if let Some(probe_query) =
+                                                            constraint_grounded_probe_query_with_hints(
+                                                                &query_contract,
+                                                                min_sources,
+                                                                &probe_source_hints,
+                                                                &pending.query,
+                                                            )
+                                                        {
+                                                            let search_limit =
+                                                                constraint_grounded_search_limit(
+                                                                    &query_contract,
+                                                                    min_sources,
+                                                                );
+                                                            queued_probe =
+                                                                queue_web_search_from_pipeline(
+                                                                    agent_state,
+                                                                    session_id,
+                                                                    &probe_query,
+                                                                    search_limit,
+                                                                )?;
+                                                        }
+                                                    }
+                                                    if !queued_next && !queued_probe {
+                                                        let remaining_candidates =
+                                                            remaining_pending_web_candidates(
+                                                                &pending,
+                                                            );
+                                                        if remaining_candidates == 0 {
+                                                            completion_reason = Some(
+                                                                WebPipelineCompletionReason::ExhaustedCandidates,
+                                                            );
+                                                        } else if !read_budget_allows
+                                                            && (!plan_requires_probe
+                                                                || !probe_budget_allows)
+                                                        {
+                                                            completion_reason = Some(
+                                                                WebPipelineCompletionReason::DeadlineReached,
+                                                            );
+                                                        }
+                                                    }
                                                 }
 
                                                 let remaining =
                                                     remaining_pending_web_candidates(&pending);
+                                                let budget_prevents_followup = completion_reason
+                                                    .is_none()
+                                                    && !queued_probe
+                                                    && !queued_next
+                                                    && remaining > 0
+                                                    && (!read_budget_allows
+                                                        || (plan_requires_probe
+                                                            && !probe_budget_allows));
+                                                verification_checks.push(format!(
+                                                    "web_pre_read_candidates_total={}",
+                                                    plan_total_candidates
+                                                ));
+                                                verification_checks.push(format!(
+                                                    "web_pre_read_candidates_pruned={}",
+                                                    plan_pruned_candidates
+                                                ));
+                                                verification_checks.push(format!(
+                                                    "web_pre_read_candidates_resolvable={}",
+                                                    plan_resolvable_candidates
+                                                ));
+                                                verification_checks.push(format!(
+                                                    "web_min_sources={}",
+                                                    min_sources
+                                                ));
+                                                verification_checks.push(format!(
+                                                    "web_constraint_search_probe_required={}",
+                                                    plan_requires_probe
+                                                ));
+                                                verification_checks.push(format!(
+                                                    "web_constraint_search_probe_queued={}",
+                                                    queued_probe
+                                                ));
+                                                verification_checks.push(format!(
+                                                    "web_remaining_budget_ms={}",
+                                                    remaining_budget_ms
+                                                ));
+                                                verification_checks.push(format!(
+                                                    "web_probe_budget_required_ms={}",
+                                                    probe_budget_required_ms
+                                                ));
+                                                verification_checks.push(format!(
+                                                    "web_read_budget_required_ms={}",
+                                                    read_budget_required_ms
+                                                ));
+                                                verification_checks.push(format!(
+                                                    "web_probe_budget_allows={}",
+                                                    probe_budget_allows
+                                                ));
+                                                verification_checks.push(format!(
+                                                    "web_read_budget_allows={}",
+                                                    read_budget_allows
+                                                ));
+                                                verification_checks.push(format!(
+                                                    "web_latency_pressure={}",
+                                                    latency_pressure
+                                                ));
                                                 verification_checks.push(format!(
                                                     "web_pipeline_active={}",
-                                                    queued_next || remaining > 0
+                                                    queued_probe
+                                                        || queued_next
+                                                        || (remaining > 0
+                                                            && !budget_prevents_followup)
                                                 ));
                                                 verification_checks
                                                     .push("web_sources_success=0".to_string());
@@ -909,7 +1383,70 @@ pub async fn process_tool_output(
                                                 verification_checks
                                                     .push("web_budget_ms=0".to_string());
 
-                                                if queued_next || remaining > 0 {
+                                                if let Some(reason) = completion_reason {
+                                                    let summary = if let Some(hybrid_summary) =
+                                                        synthesize_web_pipeline_reply_hybrid(
+                                                            service.reasoning_inference.clone(),
+                                                            &pending,
+                                                            reason,
+                                                        )
+                                                        .await
+                                                    {
+                                                        hybrid_summary
+                                                    } else {
+                                                        synthesize_web_pipeline_reply(
+                                                            &pending, reason,
+                                                        )
+                                                    };
+                                                    action_output = Some(summary.clone());
+                                                    history_entry = Some(summary.clone());
+                                                    terminal_chat_reply_output =
+                                                        Some(summary.clone());
+                                                    is_lifecycle_action = true;
+                                                    agent_state.status =
+                                                        AgentStatus::Completed(Some(summary));
+                                                    agent_state.pending_search_completion = None;
+                                                    agent_state.execution_queue.clear();
+                                                    agent_state.recent_actions.clear();
+                                                    verification_checks.push(
+                                                        "terminal_chat_reply_ready=true"
+                                                            .to_string(),
+                                                    );
+                                                } else if budget_prevents_followup {
+                                                    let reason =
+                                                        WebPipelineCompletionReason::DeadlineReached;
+                                                    let summary = if let Some(hybrid_summary) =
+                                                        synthesize_web_pipeline_reply_hybrid(
+                                                            service.reasoning_inference.clone(),
+                                                            &pending,
+                                                            reason,
+                                                        )
+                                                        .await
+                                                    {
+                                                        hybrid_summary
+                                                    } else {
+                                                        synthesize_web_pipeline_reply(
+                                                            &pending, reason,
+                                                        )
+                                                    };
+                                                    action_output = Some(summary.clone());
+                                                    history_entry = Some(summary.clone());
+                                                    terminal_chat_reply_output =
+                                                        Some(summary.clone());
+                                                    is_lifecycle_action = true;
+                                                    agent_state.status =
+                                                        AgentStatus::Completed(Some(summary));
+                                                    agent_state.pending_search_completion = None;
+                                                    agent_state.execution_queue.clear();
+                                                    agent_state.recent_actions.clear();
+                                                    verification_checks.push(
+                                                        "terminal_chat_reply_ready=true"
+                                                            .to_string(),
+                                                    );
+                                                } else if queued_probe
+                                                    || queued_next
+                                                    || remaining > 0
+                                                {
                                                     agent_state.pending_search_completion =
                                                         Some(pending);
                                                 } else {
@@ -1022,20 +1559,21 @@ pub async fn process_tool_output(
                                                 trimmed_goal.to_string()
                                             }
                                         };
+                                        let min_sources = web_pipeline_min_sources(&query_contract);
                                         agent_state.pending_search_completion =
                                             Some(PendingSearchCompletion {
                                                 query,
                                                 query_contract,
-                                                url,
+                                                url: url.clone(),
                                                 started_step: pre_state_summary.step_index,
                                                 started_at_ms: web_pipeline_now_ms(),
                                                 deadline_ms: 0,
                                                 candidate_urls: Vec::new(),
                                                 candidate_source_hints: Vec::new(),
-                                                attempted_urls: Vec::new(),
+                                                attempted_urls: vec![url],
                                                 blocked_urls: Vec::new(),
                                                 successful_reads: Vec::new(),
-                                                min_sources: WEB_PIPELINE_DEFAULT_MIN_SOURCES,
+                                                min_sources,
                                             });
                                         log::info!(
                                     "Search intent detected after browser__navigate. Queued browser__snapshot for deterministic completion."
@@ -1502,13 +2040,88 @@ pub async fn process_tool_output(
 
             let now_ms = web_pipeline_now_ms();
             let elapsed_ms = now_ms.saturating_sub(pending.started_at_ms);
+            let remaining_budget_ms = web_pipeline_remaining_budget_ms(pending.deadline_ms, now_ms);
+            let read_budget_required_ms = web_pipeline_required_read_budget_ms(&pending, now_ms);
+            let probe_budget_required_ms = web_pipeline_required_probe_budget_ms(&pending, now_ms);
+            let read_budget_allows =
+                web_pipeline_can_queue_initial_read_latency_aware(&pending, now_ms);
+            let probe_budget_allows =
+                web_pipeline_can_queue_probe_search_latency_aware(&pending, now_ms);
+            let latency_pressure = web_pipeline_latency_pressure_label(&pending, now_ms);
             let mut completion_reason = web_pipeline_completion_reason(&pending, now_ms);
             let mut queued_next = false;
+            let mut queued_probe = false;
             if completion_reason.is_none() {
-                if let Some(next_url) = next_pending_web_candidate(&pending) {
-                    queued_next = queue_web_read_from_pipeline(agent_state, session_id, &next_url)?;
+                let remaining_candidates = remaining_pending_web_candidates(&pending);
+                let min_sources_required = pending.min_sources.max(1) as usize;
+                let source_floor_unmet = pending.successful_reads.len() < min_sources_required;
+                let metric_probe_followup =
+                    web_pipeline_requires_metric_probe_followup(&pending, now_ms);
+                let queue_probe = |pending: &mut PendingSearchCompletion,
+                                   agent_state: &mut AgentState|
+                 -> Result<bool, TransactionError> {
+                    let mut probe_hints = pending.successful_reads.clone();
+                    for hint in &pending.candidate_source_hints {
+                        let hint_url = hint.url.trim();
+                        if hint_url.is_empty() {
+                            continue;
+                        }
+                        if probe_hints
+                            .iter()
+                            .any(|existing| existing.url.trim().eq_ignore_ascii_case(hint_url))
+                        {
+                            continue;
+                        }
+                        probe_hints.push(hint.clone());
+                    }
+                    if let Some(probe_query) = constraint_grounded_probe_query_with_hints(
+                        &pending.query_contract,
+                        pending.min_sources,
+                        &probe_hints,
+                        &pending.query,
+                    ) {
+                        let queued = queue_web_search_from_pipeline(
+                            agent_state,
+                            session_id,
+                            &probe_query,
+                            constraint_grounded_search_limit(
+                                &pending.query_contract,
+                                pending.min_sources,
+                            ),
+                        )?;
+                        if queued {
+                            pending.query = probe_query;
+                        }
+                        return Ok(queued);
+                    }
+                    Ok(false)
+                };
+                if metric_probe_followup && probe_budget_allows {
+                    queued_probe = queue_probe(&mut pending, agent_state)?;
                 }
-                if !queued_next && remaining_pending_web_candidates(&pending) == 0 {
+                if !queued_probe && read_budget_allows {
+                    if let Some(next_url) = next_pending_web_candidate(&pending) {
+                        queued_next =
+                            queue_web_read_from_pipeline(agent_state, session_id, &next_url)?;
+                    }
+                }
+                if !queued_next
+                    && !queued_probe
+                    && source_floor_unmet
+                    && remaining_candidates == 0
+                    && probe_budget_allows
+                {
+                    queued_probe = queue_probe(&mut pending, agent_state)?;
+                }
+                verification_checks.push(format!(
+                    "web_metric_probe_followup={}",
+                    metric_probe_followup
+                ));
+                if !queued_next && !queued_probe && !read_budget_allows && remaining_candidates > 0
+                {
+                    completion_reason = Some(WebPipelineCompletionReason::DeadlineReached);
+                }
+                if !queued_next && !queued_probe && remaining_candidates == 0 {
                     completion_reason = Some(WebPipelineCompletionReason::ExhaustedCandidates);
                 }
             }
@@ -1522,6 +2135,22 @@ pub async fn process_tool_output(
                 pending.blocked_urls.len()
             ));
             verification_checks.push(format!("web_budget_ms={}", elapsed_ms));
+            verification_checks.push(format!("web_remaining_budget_ms={}", remaining_budget_ms));
+            verification_checks.push(format!(
+                "web_read_budget_required_ms={}",
+                read_budget_required_ms
+            ));
+            verification_checks.push(format!(
+                "web_probe_budget_required_ms={}",
+                probe_budget_required_ms
+            ));
+            verification_checks.push(format!("web_read_budget_allows={}", read_budget_allows));
+            verification_checks.push(format!("web_probe_budget_allows={}", probe_budget_allows));
+            verification_checks.push(format!(
+                "web_constraint_search_probe_queued={}",
+                queued_probe
+            ));
+            verification_checks.push(format!("web_latency_pressure={}", latency_pressure));
 
             if let Some(reason) = completion_reason {
                 let summary = if let Some(hybrid_summary) = synthesize_web_pipeline_reply_hybrid(

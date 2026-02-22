@@ -1178,7 +1178,8 @@
   margin-top: 12px;
   display: flex;
   flex-wrap: wrap;
-  gap: 8px 16px;
+  align-items: center;
+  gap: 8px 14px;
   padding-top: 10px;
   border-top: 1px solid rgba(255, 255, 255, 0.08);
   color: var(--spot-text-muted);
@@ -1188,6 +1189,65 @@
 .answer-metadata-strip strong {
   color: var(--spot-text-secondary);
   font-weight: 600;
+}
+
+.answer-source-strip {
+  margin-top: 12px;
+  display: flex;
+  align-items: center;
+}
+
+.answer-source-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 10px 6px 8px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--spot-text-secondary);
+  cursor: pointer;
+  transition: all var(--spot-transition-fast);
+}
+
+.answer-source-chip:hover {
+  color: var(--spot-text-primary);
+  border-color: rgba(99, 144, 255, 0.5);
+  background: rgba(99, 144, 255, 0.12);
+}
+
+.answer-source-favicon-stack {
+  display: inline-flex;
+  align-items: center;
+  min-height: 20px;
+}
+
+.answer-source-favicon-wrap {
+  width: 20px;
+  height: 20px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(8, 10, 14, 0.9);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.answer-source-favicon {
+  width: 16px;
+  height: 16px;
+  border-radius: 999px;
+}
+
+.answer-source-chip-label {
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+}
+
+.answer-source-chip--inline {
+  margin-left: auto;
 }
 
 .activity-rail {
@@ -1200,8 +1260,15 @@
   -webkit-backdrop-filter: blur(8px);
 }
 
+.activity-rail-topbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-right: 10px;
+}
+
 .activity-rail-header {
-  width: 100%;
+  flex: 1;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -1211,6 +1278,25 @@
   color: inherit;
   padding: 12px 14px 8px;
   cursor: pointer;
+}
+
+.activity-open-thoughts {
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--spot-text-secondary);
+  border-radius: 999px;
+  padding: 5px 10px;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--spot-transition-fast);
+  flex-shrink: 0;
+}
+
+.activity-open-thoughts:hover {
+  color: var(--spot-text-primary);
+  border-color: rgba(99, 144, 255, 0.45);
+  background: rgba(99, 144, 255, 0.12);
 }
 
 .activity-rail-title-wrap {
