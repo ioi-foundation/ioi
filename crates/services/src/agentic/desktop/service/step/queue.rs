@@ -2,7 +2,7 @@
 
 #[path = "queue/envelope.rs"]
 mod envelope;
-#[path = "queue/processing.rs"]
+#[path = "queue/processing/mod.rs"]
 mod processing;
 #[path = "queue/support/mod.rs"]
 mod support;
