@@ -149,8 +149,8 @@ const QUERY_LITERAL_GATING_PATTERNS: [&str; 2] = [
 const STATIC_AUDIT_FILES: [&str; 4] = [
     "crates/services/src/agentic/desktop/service/step/cognition.rs",
     "crates/services/src/agentic/desktop/service/step/intent_resolver.rs",
-    "crates/services/src/agentic/desktop/service/step/queue/support.rs",
-    "crates/services/src/agentic/desktop/service/step/queue/processing.rs",
+    "crates/services/src/agentic/desktop/service/step/queue/support/mod.rs",
+    "crates/services/src/agentic/desktop/service/step/queue/processing/mod.rs",
 ];
 
 fn build_ctx<'a>(services: &'a ServiceDirectory) -> TxContext<'a> {

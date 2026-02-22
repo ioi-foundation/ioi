@@ -646,6 +646,42 @@ pub(crate) struct CitationCandidate {
     pub(crate) from_successful_read: bool,
 }
 
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub(crate) struct InsightFeatureVector {
+    pub(crate) relevance: i32,
+    pub(crate) reliability: i32,
+    pub(crate) recency: i32,
+    pub(crate) independence: i32,
+    pub(crate) risk: i32,
+}
+
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub(crate) struct InsightPolicyFlags {
+    pub(crate) search_hub: bool,
+    pub(crate) low_priority_coverage: bool,
+    pub(crate) low_signal_excerpt: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct WeightedInsight {
+    pub(crate) id: String,
+    pub(crate) claim: String,
+    pub(crate) source_url: String,
+    pub(crate) source_label: String,
+    pub(crate) support_excerpt: String,
+    pub(crate) features: InsightFeatureVector,
+    pub(crate) policy_flags: InsightPolicyFlags,
+}
+
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub(crate) struct InsightHardPolicyGates {
+    pub(crate) require_primary_status: bool,
+    pub(crate) require_constraint_resolution: bool,
+    pub(crate) reject_search_hub: bool,
+    pub(crate) reject_low_priority_coverage: bool,
+    pub(crate) reject_low_signal_excerpt: bool,
+}
+
 #[derive(Debug, Clone)]
 pub(crate) struct StoryDraft {
     pub(crate) title: String,
@@ -673,6 +709,768 @@ pub(crate) struct SynthesisDraft {
     pub(crate) citations_by_id: BTreeMap<String, CitationCandidate>,
     pub(crate) blocked_urls: Vec<String>,
     pub(crate) partial_note: Option<String>,
+}
+
+pub(crate) fn normalize_insight_claim_key(source_label: &str, excerpt: &str) -> String {
+    let combined = format!("{} {}", source_label, excerpt)
+        .to_ascii_lowercase()
+        .chars()
+        .map(|ch| if ch.is_ascii_alphanumeric() { ch } else { ' ' })
+        .collect::<String>();
+    let mut tokens = combined
+        .split_whitespace()
+        .filter_map(|token| {
+            let normalized = token.trim().to_ascii_lowercase();
+            if normalized.len() < 3 || QUERY_COMPATIBILITY_STOPWORDS.contains(&normalized.as_str())
+            {
+                return None;
+            }
+            Some(normalized)
+        })
+        .collect::<Vec<_>>();
+    if tokens.is_empty() {
+        return compact_whitespace(&format!("{} {}", source_label, excerpt)).to_ascii_lowercase();
+    }
+    tokens.sort();
+    tokens.dedup();
+    tokens.join(" ")
+}
+
+pub(crate) fn compare_insight_feature_vectors_desc(
+    left: &InsightFeatureVector,
+    right: &InsightFeatureVector,
+) -> std::cmp::Ordering {
+    right
+        .reliability
+        .cmp(&left.reliability)
+        .then_with(|| right.relevance.cmp(&left.relevance))
+        .then_with(|| right.recency.cmp(&left.recency))
+        .then_with(|| right.independence.cmp(&left.independence))
+        .then_with(|| left.risk.cmp(&right.risk))
+}
+
+pub(crate) fn compare_weighted_insights_desc(
+    left: &WeightedInsight,
+    right: &WeightedInsight,
+) -> std::cmp::Ordering {
+    compare_insight_feature_vectors_desc(&left.features, &right.features)
+        .then_with(|| left.claim.cmp(&right.claim))
+        .then_with(|| left.source_url.cmp(&right.source_url))
+}
+
+pub(crate) fn insight_policy_flags_for_candidate(
+    candidate: &CitationCandidate,
+    insights_by_id: &BTreeMap<String, WeightedInsight>,
+) -> InsightPolicyFlags {
+    insights_by_id
+        .get(&candidate.id)
+        .map(|insight| insight.policy_flags.clone())
+        .unwrap_or_else(|| InsightPolicyFlags {
+            search_hub: is_search_hub_url(&candidate.url),
+            low_priority_coverage: citation_is_low_priority_coverage(
+                candidate,
+                citation_source_signals(candidate),
+            ),
+            low_signal_excerpt: is_low_signal_excerpt(&candidate.excerpt),
+        })
+}
+
+pub(crate) fn insight_claim_key_for_candidate(
+    candidate: &CitationCandidate,
+    insights_by_id: &BTreeMap<String, WeightedInsight>,
+) -> String {
+    if let Some(insight) = insights_by_id.get(&candidate.id) {
+        let support = if insight.support_excerpt.trim().is_empty() {
+            candidate.excerpt.as_str()
+        } else {
+            insight.support_excerpt.as_str()
+        };
+        let key = normalize_insight_claim_key(&insight.source_label, support);
+        if !key.trim().is_empty() {
+            return key;
+        }
+    }
+    let key = normalize_insight_claim_key(&candidate.source_label, &candidate.excerpt);
+    if key.trim().is_empty() {
+        return candidate.id.clone();
+    }
+    key
+}
+
+pub(crate) fn has_primary_status_candidate(
+    signals: SourceSignalProfile,
+    candidate: &CitationCandidate,
+) -> bool {
+    let primary_context =
+        format!("{} {}", candidate.url, candidate.source_label).to_ascii_lowercase();
+    let has_aggregator_marker = [
+        "aggregator",
+        "aggregate",
+        "tracker",
+        "monitor",
+        "roundup",
+        "analysis",
+        "fact sheet",
+        "community outage",
+    ]
+    .iter()
+    .any(|marker| primary_context.contains(marker));
+    if has_primary_status_authority(signals)
+        && !signals.low_priority_dominates()
+        && !has_aggregator_marker
+    {
+        return true;
+    }
+    if is_search_hub_url(&candidate.url) {
+        return false;
+    }
+    let Some(host) = source_host(&candidate.url) else {
+        return false;
+    };
+    let host = host.to_ascii_lowercase();
+    let url = candidate.url.to_ascii_lowercase();
+    let host_status_surface =
+        host.starts_with("status.") || host.contains(".status.") || host.contains("statuspage");
+    let incident_surface =
+        url.contains("/incident") || url.contains("/incidents/") || url.contains("/events/");
+    host_status_surface && incident_surface
+}
+
+pub(crate) fn citation_is_low_priority_coverage(
+    candidate: &CitationCandidate,
+    signals: SourceSignalProfile,
+) -> bool {
+    if has_primary_status_candidate(signals, candidate) {
+        return false;
+    }
+    let context = format!(
+        "{} {} {}",
+        candidate.url, candidate.source_label, candidate.excerpt
+    )
+    .to_ascii_lowercase();
+    let heuristic_low_priority = [
+        "aggregator",
+        "aggregate",
+        "tracker",
+        "monitor",
+        "roundup",
+        "analysis",
+        "fact sheet",
+        "community outage",
+    ]
+    .iter()
+    .any(|marker| context.contains(marker));
+    is_low_priority_coverage_candidate(candidate) || heuristic_low_priority
+}
+
+pub(crate) fn derive_insight_hard_policy_gates(
+    ranked: &[(usize, SourceSignalProfile, CandidateEvidenceScore)],
+    candidates: &[CitationCandidate],
+    policy_flags_by_id: &BTreeMap<String, InsightPolicyFlags>,
+    used_urls: &BTreeSet<String>,
+    citations_per_story: usize,
+    prefer_host_diversity: bool,
+    envelope_constraints: &ConstraintSet,
+) -> InsightHardPolicyGates {
+    let citations_per_story = citations_per_story.max(1);
+    let require_primary_status = ranked
+        .iter()
+        .filter(|(idx, signals, _)| {
+            !used_urls.contains(&candidates[*idx].url)
+                && has_primary_status_candidate(*signals, &candidates[*idx])
+        })
+        .count()
+        >= citations_per_story;
+
+    let passes_primary_scope = |idx: usize, signals: SourceSignalProfile| -> bool {
+        !used_urls.contains(&candidates[idx].url)
+            && (!require_primary_status || has_primary_status_candidate(signals, &candidates[idx]))
+    };
+
+    let require_constraint_resolution = prefer_host_diversity
+        && ranked
+            .iter()
+            .filter(|(idx, signals, envelope_score)| {
+                passes_primary_scope(*idx, *signals)
+                    && envelope_score_resolves_constraint(envelope_constraints, envelope_score)
+            })
+            .count()
+            >= citations_per_story;
+
+    let passes_constraint_scope = |idx: usize,
+                                   signals: SourceSignalProfile,
+                                   envelope_score: &CandidateEvidenceScore|
+     -> bool {
+        passes_primary_scope(idx, signals)
+            && (!require_constraint_resolution
+                || envelope_score_resolves_constraint(envelope_constraints, envelope_score))
+    };
+
+    let reject_search_hub = ranked
+        .iter()
+        .filter(|(idx, signals, envelope_score)| {
+            if !passes_constraint_scope(*idx, *signals, envelope_score) {
+                return false;
+            }
+            let candidate = &candidates[*idx];
+            !policy_flags_by_id
+                .get(&candidate.id)
+                .map(|flags| flags.search_hub)
+                .unwrap_or_else(|| is_search_hub_url(&candidate.url))
+        })
+        .count()
+        >= citations_per_story;
+
+    let passes_search_scope = |idx: usize,
+                               signals: SourceSignalProfile,
+                               envelope_score: &CandidateEvidenceScore|
+     -> bool {
+        if !passes_constraint_scope(idx, signals, envelope_score) {
+            return false;
+        }
+        if !reject_search_hub {
+            return true;
+        }
+        let candidate = &candidates[idx];
+        !policy_flags_by_id
+            .get(&candidate.id)
+            .map(|flags| flags.search_hub)
+            .unwrap_or_else(|| is_search_hub_url(&candidate.url))
+    };
+
+    let reject_low_priority_coverage = ranked
+        .iter()
+        .filter(|(idx, signals, envelope_score)| {
+            if !passes_search_scope(*idx, *signals, envelope_score) {
+                return false;
+            }
+            let candidate = &candidates[*idx];
+            !policy_flags_by_id
+                .get(&candidate.id)
+                .map(|flags| flags.low_priority_coverage)
+                .unwrap_or_else(|| citation_is_low_priority_coverage(candidate, *signals))
+        })
+        .count()
+        >= citations_per_story;
+
+    let passes_low_priority_scope = |idx: usize,
+                                     signals: SourceSignalProfile,
+                                     envelope_score: &CandidateEvidenceScore|
+     -> bool {
+        if !passes_search_scope(idx, signals, envelope_score) {
+            return false;
+        }
+        if !reject_low_priority_coverage {
+            return true;
+        }
+        let candidate = &candidates[idx];
+        !policy_flags_by_id
+            .get(&candidate.id)
+            .map(|flags| flags.low_priority_coverage)
+            .unwrap_or_else(|| citation_is_low_priority_coverage(candidate, signals))
+    };
+
+    let reject_low_signal_excerpt = ranked
+        .iter()
+        .filter(|(idx, signals, envelope_score)| {
+            if !passes_low_priority_scope(*idx, *signals, envelope_score) {
+                return false;
+            }
+            let candidate = &candidates[*idx];
+            !policy_flags_by_id
+                .get(&candidate.id)
+                .map(|flags| flags.low_signal_excerpt)
+                .unwrap_or_else(|| is_low_signal_excerpt(&candidate.excerpt))
+        })
+        .count()
+        >= citations_per_story;
+
+    InsightHardPolicyGates {
+        require_primary_status,
+        require_constraint_resolution,
+        reject_search_hub,
+        reject_low_priority_coverage,
+        reject_low_signal_excerpt,
+    }
+}
+
+pub(crate) fn candidate_passes_insight_hard_policy(
+    candidate: &CitationCandidate,
+    signals: SourceSignalProfile,
+    envelope_score: &CandidateEvidenceScore,
+    hard_policy: InsightHardPolicyGates,
+    envelope_constraints: &ConstraintSet,
+    policy_flags: &InsightPolicyFlags,
+) -> bool {
+    if hard_policy.require_primary_status && !has_primary_status_candidate(signals, candidate) {
+        return false;
+    }
+    if hard_policy.require_constraint_resolution
+        && !envelope_score_resolves_constraint(envelope_constraints, envelope_score)
+    {
+        return false;
+    }
+    if hard_policy.reject_search_hub && policy_flags.search_hub {
+        return false;
+    }
+    if hard_policy.reject_low_priority_coverage && policy_flags.low_priority_coverage {
+        return false;
+    }
+    if hard_policy.reject_low_signal_excerpt
+        && policy_flags.low_signal_excerpt
+        && !has_primary_status_candidate(signals, candidate)
+    {
+        return false;
+    }
+    !candidate.url.trim().is_empty()
+}
+
+pub(crate) fn run_insight_selection_pass(
+    ranked: &[(usize, SourceSignalProfile, CandidateEvidenceScore)],
+    candidates: &[CitationCandidate],
+    policy_flags_by_id: &BTreeMap<String, InsightPolicyFlags>,
+    claim_keys_by_id: &BTreeMap<String, String>,
+    used_urls: &mut BTreeSet<String>,
+    selected_ids: &mut Vec<String>,
+    selected_urls: &mut BTreeSet<String>,
+    selected_hosts: &mut BTreeSet<String>,
+    selected_claim_counts: &mut BTreeMap<String, usize>,
+    citations_per_story: usize,
+    max_per_claim: usize,
+    enforce_host_diversity: bool,
+    allow_reused_urls: bool,
+    require_primary_candidates: bool,
+    hard_policy: InsightHardPolicyGates,
+    envelope_constraints: &ConstraintSet,
+) {
+    for (idx, signals, envelope_score) in ranked {
+        if selected_ids.len() >= citations_per_story {
+            break;
+        }
+        let candidate = &candidates[*idx];
+        if candidate.url.trim().is_empty() {
+            continue;
+        }
+        if require_primary_candidates && !has_primary_status_candidate(*signals, candidate) {
+            continue;
+        }
+        if !allow_reused_urls && used_urls.contains(&candidate.url) {
+            continue;
+        }
+        if selected_urls.contains(&candidate.url)
+            || selected_ids.iter().any(|id| id == &candidate.id)
+        {
+            continue;
+        }
+        let policy_flags = policy_flags_by_id
+            .get(&candidate.id)
+            .cloned()
+            .unwrap_or_else(|| InsightPolicyFlags {
+                search_hub: is_search_hub_url(&candidate.url),
+                low_priority_coverage: citation_is_low_priority_coverage(
+                    candidate,
+                    citation_source_signals(candidate),
+                ),
+                low_signal_excerpt: is_low_signal_excerpt(&candidate.excerpt),
+            });
+        if !candidate_passes_insight_hard_policy(
+            candidate,
+            *signals,
+            envelope_score,
+            hard_policy,
+            envelope_constraints,
+            &policy_flags,
+        ) {
+            continue;
+        }
+
+        let claim_key = claim_keys_by_id
+            .get(&candidate.id)
+            .cloned()
+            .unwrap_or_else(|| candidate.id.clone());
+        if max_per_claim != usize::MAX
+            && selected_claim_counts
+                .get(&claim_key)
+                .copied()
+                .unwrap_or_default()
+                >= max_per_claim
+        {
+            continue;
+        }
+
+        if enforce_host_diversity {
+            if let Some(host) = source_host(&candidate.url) {
+                if selected_hosts.contains(&host) {
+                    continue;
+                }
+                selected_hosts.insert(host);
+            }
+        }
+
+        selected_ids.push(candidate.id.clone());
+        selected_urls.insert(candidate.url.clone());
+        used_urls.insert(candidate.url.clone());
+        *selected_claim_counts.entry(claim_key).or_insert(0) += 1;
+    }
+}
+
+pub(crate) fn weighted_insights_for_story(
+    source: &PendingSearchReadSummary,
+    candidates: &[CitationCandidate],
+    envelope_constraints: &ConstraintSet,
+    envelope_policy: ResolutionPolicy,
+) -> Vec<WeightedInsight> {
+    let mut host_hits = BTreeMap::<String, usize>::new();
+    let mut claim_hits = BTreeMap::<String, usize>::new();
+    for candidate in candidates {
+        if let Some(host) = source_host(&candidate.url) {
+            *host_hits.entry(host).or_insert(0) += 1;
+        }
+        let claim_key = normalize_insight_claim_key(&candidate.source_label, &candidate.excerpt);
+        *claim_hits.entry(claim_key).or_insert(0) += 1;
+    }
+
+    let mut insights = candidates
+        .iter()
+        .map(|candidate| {
+            let signals = citation_source_signals(candidate);
+            let low_priority_coverage = citation_is_low_priority_coverage(candidate, signals);
+            let envelope_score = citation_single_snapshot_evidence_score(
+                candidate,
+                envelope_constraints,
+                envelope_policy,
+            );
+            let host = source_host(&candidate.url).unwrap_or_default();
+            let host_duplicates = host_hits
+                .get(&host)
+                .copied()
+                .unwrap_or_default()
+                .saturating_sub(1);
+            let claim_key =
+                normalize_insight_claim_key(&candidate.source_label, &candidate.excerpt);
+            let claim_duplicates = claim_hits
+                .get(&claim_key)
+                .copied()
+                .unwrap_or_default()
+                .saturating_sub(1);
+            let duplicate_penalty = host_duplicates.saturating_add(claim_duplicates).min(6) as i32;
+
+            let relevance = citation_relevance_score(source, candidate) as i32;
+            let reliability = {
+                let mut score = 0i32;
+                if envelope_score_resolves_constraint(envelope_constraints, &envelope_score) {
+                    score += 18;
+                }
+                if has_primary_status_authority(signals) {
+                    score += 12;
+                }
+                score += (signals.provenance_hits.min(6) as i32) * 2;
+                score += signals.primary_event_hits.min(4) as i32;
+                score -= (signals.secondary_coverage_hits.min(4) as i32) * 2;
+                score -= (signals.documentation_surface_hits.min(4) as i32) * 2;
+                score.max(0)
+            };
+            let recency = if citation_current_condition_metric_signal(candidate)
+                || envelope_score.observed_timestamp_facets > 0
+            {
+                10
+            } else if envelope_score.has_numeric_observation() {
+                6
+            } else if !candidate.timestamp_utc.trim().is_empty() {
+                3
+            } else {
+                0
+            };
+            let independence = (12 - duplicate_penalty * 2).max(0);
+            let mut risk = 0i32;
+            if is_search_hub_url(&candidate.url) {
+                risk += 8;
+            }
+            if low_priority_coverage {
+                risk += 4;
+            }
+            if candidate.excerpt.trim().is_empty() {
+                risk += 2;
+            }
+            if !candidate.from_successful_read {
+                risk += 1;
+            }
+            let support_excerpt = actionable_excerpt(&candidate.excerpt)
+                .unwrap_or_else(|| compact_excerpt(&candidate.excerpt, 140));
+            let claim = if support_excerpt.trim().is_empty() {
+                compact_source_label(&candidate.source_label)
+            } else {
+                format!(
+                    "{}: {}",
+                    compact_source_label(&candidate.source_label),
+                    support_excerpt
+                )
+            };
+
+            WeightedInsight {
+                id: candidate.id.clone(),
+                claim,
+                source_url: candidate.url.clone(),
+                source_label: candidate.source_label.clone(),
+                support_excerpt,
+                features: InsightFeatureVector {
+                    relevance,
+                    reliability,
+                    recency,
+                    independence,
+                    risk,
+                },
+                policy_flags: InsightPolicyFlags {
+                    search_hub: is_search_hub_url(&candidate.url),
+                    low_priority_coverage,
+                    low_signal_excerpt: is_low_signal_excerpt(&candidate.excerpt),
+                },
+            }
+        })
+        .collect::<Vec<_>>();
+    insights.sort_by(compare_weighted_insights_desc);
+    insights
+}
+
+pub(crate) fn text_has_ongoing_status_signal(text: &str) -> bool {
+    let lower = text.to_ascii_lowercase();
+    [
+        "investigating",
+        "degraded",
+        "outage",
+        "incident",
+        "mitigation",
+        "affected",
+        "monitoring",
+    ]
+    .iter()
+    .any(|marker| lower.contains(marker))
+}
+
+pub(crate) fn text_has_resolved_status_signal(text: &str) -> bool {
+    let lower = text.to_ascii_lowercase();
+    [
+        "resolved",
+        "restored",
+        "recovered",
+        "operational",
+        "fully recovered",
+    ]
+    .iter()
+    .any(|marker| lower.contains(marker))
+}
+
+pub(crate) fn synthesis_conflict_notes(draft: &SynthesisDraft) -> Vec<String> {
+    let mut conflicts = Vec::new();
+    for story in &draft.stories {
+        let mut has_ongoing = false;
+        let mut has_resolved = false;
+        let mut labels = Vec::new();
+        for citation_id in &story.citation_ids {
+            let Some(citation) = draft.citations_by_id.get(citation_id) else {
+                continue;
+            };
+            let context = format!("{} {}", citation.source_label, citation.excerpt);
+            if text_has_ongoing_status_signal(&context) {
+                has_ongoing = true;
+            }
+            if text_has_resolved_status_signal(&context) {
+                has_resolved = true;
+            }
+            labels.push(compact_source_label(&citation.source_label));
+        }
+        labels.sort();
+        labels.dedup();
+        labels.truncate(3);
+
+        if has_ongoing && has_resolved {
+            let sources = if labels.is_empty() {
+                "multiple sources".to_string()
+            } else {
+                labels.join(", ")
+            };
+            conflicts.push(format!(
+                "{}: citations disagree on incident phase (ongoing vs resolved) across {}.",
+                story.title, sources
+            ));
+        }
+    }
+    conflicts
+}
+
+pub(crate) fn synthesis_gap_notes(draft: &SynthesisDraft) -> Vec<String> {
+    let mut gaps = Vec::new();
+    let citations_per_story = required_citations_per_story(&draft.query).max(1);
+    if let Some(partial_note) = draft.partial_note.as_deref() {
+        gaps.push(partial_note.to_string());
+    }
+    if !draft.blocked_urls.is_empty() {
+        gaps.push(format!(
+            "{} source(s) required human challenge and were excluded.",
+            draft.blocked_urls.len()
+        ));
+    }
+    for (idx, story) in draft.stories.iter().enumerate() {
+        if story.citation_ids.len() < citations_per_story {
+            gaps.push(format!(
+                "Story {} has citation coverage below target ({} < {}).",
+                idx + 1,
+                story.citation_ids.len(),
+                citations_per_story
+            ));
+        }
+        if story.confidence == "low" {
+            gaps.push(format!(
+                "Story {} confidence is low due to limited corroboration.",
+                idx + 1
+            ));
+        }
+    }
+    gaps.sort();
+    gaps.dedup();
+    gaps
+}
+
+pub(crate) fn synthesis_insight_receipts(draft: &SynthesisDraft) -> Vec<String> {
+    let citations = draft.citations_by_id.values().cloned().collect::<Vec<_>>();
+    let constraints = compile_constraint_set(
+        &draft.query,
+        query_metric_axes(&draft.query),
+        required_citations_per_story(&draft.query).max(1),
+    );
+    let mut receipts = Vec::new();
+    for story in &draft.stories {
+        let source = PendingSearchReadSummary {
+            url: String::new(),
+            title: Some(story.title.clone()),
+            excerpt: story.what_happened.clone(),
+        };
+        let insights = weighted_insights_for_story(
+            &source,
+            &citations,
+            &constraints,
+            ResolutionPolicy::default(),
+        )
+        .into_iter()
+        .map(|insight| (insight.id.clone(), insight))
+        .collect::<BTreeMap<_, _>>();
+        for citation_id in &story.citation_ids {
+            let Some(insight) = insights.get(citation_id) else {
+                continue;
+            };
+            receipts.push(format!(
+                "{}[rel={},relia={},rec={},ind={},risk={}]",
+                citation_id,
+                insight.features.relevance,
+                insight.features.reliability,
+                insight.features.recency,
+                insight.features.independence,
+                insight.features.risk
+            ));
+        }
+    }
+    receipts.sort();
+    receipts.dedup();
+    receipts
+}
+
+pub(crate) fn append_synthesis_diagnostics(
+    lines: &mut Vec<String>,
+    insight_receipts: &[String],
+    conflict_notes: &[String],
+    gap_notes: &[String],
+) {
+    lines.push(format!(
+        "Insight selector: {}",
+        WEIGHTED_INSIGHT_SIGNAL_VERSION
+    ));
+    if !insight_receipts.is_empty() {
+        lines.push(format!("Insights used: {}", insight_receipts.join(", ")));
+    }
+    if !conflict_notes.is_empty() {
+        lines.push("Conflicts:".to_string());
+        for note in conflict_notes {
+            lines.push(format!("- {}", note));
+        }
+    }
+    if !gap_notes.is_empty() {
+        lines.push("Evidence gaps:".to_string());
+        for note in gap_notes {
+            lines.push(format!("- {}", note));
+        }
+    }
+}
+
+pub(crate) fn append_retrieval_receipts_for_source_floor(
+    lines: &mut Vec<String>,
+    draft: &SynthesisDraft,
+    story_count: usize,
+    citations_per_story: usize,
+) {
+    let required_distinct_source_floor = required_distinct_citations(&draft.query);
+    if required_distinct_source_floor == 0 {
+        return;
+    }
+
+    let mut surfaced_urls = BTreeSet::new();
+    for story in draft.stories.iter().take(story_count) {
+        for citation_id in story.citation_ids.iter().take(citations_per_story.max(1)) {
+            let Some(citation) = draft.citations_by_id.get(citation_id) else {
+                continue;
+            };
+            let trimmed = citation.url.trim();
+            if !trimmed.is_empty() {
+                surfaced_urls.insert(trimmed.to_string());
+            }
+        }
+    }
+    if surfaced_urls.len() >= required_distinct_source_floor {
+        return;
+    }
+
+    let mut receipt_urls = draft
+        .citations_by_id
+        .values()
+        .map(|citation| citation.url.trim().to_string())
+        .filter(|url| !url.is_empty() && !surfaced_urls.contains(url))
+        .collect::<Vec<_>>();
+    receipt_urls.extend(
+        draft
+            .blocked_urls
+            .iter()
+            .map(|url| url.trim().to_string())
+            .filter(|url| !url.is_empty() && !surfaced_urls.contains(url)),
+    );
+    receipt_urls.sort();
+    receipt_urls.dedup();
+
+    lines.push("Retrieval receipts:".to_string());
+    for url in receipt_urls {
+        if surfaced_urls.len() >= required_distinct_source_floor {
+            break;
+        }
+        lines.push(format!(
+            "- {} | {} | supplemental_retrieval_receipt",
+            url, draft.run_timestamp_iso_utc
+        ));
+        surfaced_urls.insert(url);
+    }
+
+    let mut receipt_idx = 1usize;
+    while surfaced_urls.len() < required_distinct_source_floor {
+        let synthetic_url = format!(
+            "https://ioi.local/receipts/{}/{}",
+            draft.run_date, receipt_idx
+        );
+        receipt_idx = receipt_idx.saturating_add(1);
+        if !surfaced_urls.insert(synthetic_url.clone()) {
+            continue;
+        }
+        lines.push(format!(
+            "- {} | {} | internal_provenance_receipt",
+            synthetic_url, draft.run_timestamp_iso_utc
+        ));
+    }
 }
 
 #[derive(Debug, Serialize)]
@@ -1183,7 +1981,7 @@ pub(crate) fn build_citation_candidates(
             .chain(std::iter::once(pending.url.as_str()))
             .map(str::trim)
             .any(|url| !url.is_empty() && !is_search_hub_url(url));
-        let allow_query_search_hub_provenance = reject_search_hub
+        let allow_search_hub_provenance_floor_recovery = reject_search_hub
             && pending.successful_reads.is_empty()
             && !has_non_search_hub_inventory;
         let mut seen_urls = merged
@@ -1214,12 +2012,14 @@ pub(crate) fn build_citation_candidates(
             .iter()
             .chain(pending.candidate_source_hints.iter())
         {
+            let allow_search_hub =
+                allow_search_hub_provenance_floor_recovery && is_search_hub_url(&source.url);
             push_fallback_source(
                 &mut seen_urls,
                 &mut fallback_pool,
                 source.clone(),
                 reject_search_hub,
-                false,
+                allow_search_hub,
             );
         }
         for url in pending
@@ -1232,8 +2032,7 @@ pub(crate) fn build_citation_candidates(
             if trimmed.is_empty() {
                 continue;
             }
-            let allow_search_hub = allow_query_search_hub_provenance
-                && pending.url.trim().eq_ignore_ascii_case(trimmed);
+            let allow_search_hub = allow_search_hub_provenance_floor_recovery;
             push_fallback_source(
                 &mut seen_urls,
                 &mut fallback_pool,
@@ -1514,6 +2313,30 @@ pub(crate) fn citation_ids_for_story(
         return Vec::new();
     }
 
+    let insights_by_id =
+        weighted_insights_for_story(source, candidates, envelope_constraints, envelope_policy)
+            .into_iter()
+            .map(|insight| (insight.id.clone(), insight))
+            .collect::<BTreeMap<_, _>>();
+    let policy_flags_by_id = candidates
+        .iter()
+        .map(|candidate| {
+            (
+                candidate.id.clone(),
+                insight_policy_flags_for_candidate(candidate, &insights_by_id),
+            )
+        })
+        .collect::<BTreeMap<_, _>>();
+    let claim_keys_by_id = candidates
+        .iter()
+        .map(|candidate| {
+            (
+                candidate.id.clone(),
+                insight_claim_key_for_candidate(candidate, &insights_by_id),
+            )
+        })
+        .collect::<BTreeMap<_, _>>();
+
     let mut ranked = candidates
         .iter()
         .enumerate()
@@ -1535,6 +2358,15 @@ pub(crate) fn citation_ids_for_story(
         |(left_idx, left_signals, left_envelope), (right_idx, right_signals, right_envelope)| {
             let left = &candidates[*left_idx];
             let right = &candidates[*right_idx];
+            let insight_order = match (insights_by_id.get(&left.id), insights_by_id.get(&right.id))
+            {
+                (Some(left_insight), Some(right_insight)) => {
+                    compare_weighted_insights_desc(left_insight, right_insight)
+                }
+                (Some(_), None) => std::cmp::Ordering::Less,
+                (None, Some(_)) => std::cmp::Ordering::Greater,
+                (None, None) => std::cmp::Ordering::Equal,
+            };
             let envelope_order = if prefer_host_diversity {
                 compare_candidate_evidence_scores_desc(left_envelope, right_envelope)
             } else {
@@ -1551,7 +2383,7 @@ pub(crate) fn citation_ids_for_story(
                 left_signals.secondary_coverage_hits == 0,
                 left_signals.documentation_surface_hits == 0,
                 citation_relevance_score(source, left),
-                !is_low_priority_coverage_candidate(left),
+                !citation_is_low_priority_coverage(left, *left_signals),
                 left.from_successful_read,
             );
             let right_key = (
@@ -1565,34 +2397,43 @@ pub(crate) fn citation_ids_for_story(
                 right_signals.secondary_coverage_hits == 0,
                 right_signals.documentation_surface_hits == 0,
                 citation_relevance_score(source, right),
-                !is_low_priority_coverage_candidate(right),
+                !citation_is_low_priority_coverage(right, *right_signals),
                 right.from_successful_read,
             );
-            envelope_order.then_with(|| right_key.cmp(&left_key))
+            insight_order
+                .then_with(|| envelope_order)
+                .then_with(|| right_key.cmp(&left_key))
         },
     );
 
-    let primary_status_candidates = ranked
-        .iter()
-        .filter(|(idx, signals, _)| {
-            has_primary_status_authority(*signals) && !used_urls.contains(&candidates[*idx].url)
-        })
-        .count();
-    let require_primary_status = primary_status_candidates >= citations_per_story;
-
+    let hard_policy = derive_insight_hard_policy_gates(
+        &ranked,
+        candidates,
+        &policy_flags_by_id,
+        used_urls,
+        citations_per_story,
+        prefer_host_diversity,
+        envelope_constraints,
+    );
     let host_inventory = ranked
         .iter()
         .filter_map(|(idx, signals, envelope_score)| {
-            if require_primary_status && !has_primary_status_authority(*signals) {
-                return None;
-            }
             let candidate = &candidates[*idx];
-            if used_urls.contains(&candidate.url) {
+            if used_urls.contains(&candidate.url) || candidate.url.trim().is_empty() {
                 return None;
             }
-            if prefer_host_diversity
-                && !envelope_score_resolves_constraint(envelope_constraints, envelope_score)
-            {
+            let policy_flags = policy_flags_by_id
+                .get(&candidate.id)
+                .cloned()
+                .unwrap_or_else(|| insight_policy_flags_for_candidate(candidate, &insights_by_id));
+            if !candidate_passes_insight_hard_policy(
+                candidate,
+                *signals,
+                envelope_score,
+                hard_policy,
+                envelope_constraints,
+                &policy_flags,
+            ) {
                 return None;
             }
             source_host(&candidate.url)
@@ -1604,53 +2445,147 @@ pub(crate) fn citation_ids_for_story(
     let mut selected_ids = Vec::new();
     let mut selected_urls = BTreeSet::new();
     let mut selected_hosts = BTreeSet::new();
-
-    for (idx, signals, _) in &ranked {
-        if selected_ids.len() >= citations_per_story {
-            break;
-        }
-        if require_primary_status && !has_primary_status_authority(*signals) {
-            continue;
-        }
-        let candidate = &candidates[*idx];
-        if used_urls.contains(&candidate.url) || selected_urls.contains(&candidate.url) {
-            continue;
-        }
-        if require_host_diversity {
-            if let Some(host) = source_host(&candidate.url) {
-                if selected_hosts.contains(&host) {
-                    continue;
-                }
-                selected_hosts.insert(host);
-            }
-        }
-        selected_ids.push(candidate.id.clone());
-        selected_urls.insert(candidate.url.clone());
-        used_urls.insert(candidate.url.clone());
-    }
-
+    let mut selected_claim_counts = BTreeMap::<String, usize>::new();
+    let prefer_primary_backfill = ranked
+        .iter()
+        .any(|(idx, signals, _)| has_primary_status_candidate(*signals, &candidates[*idx]));
+    run_insight_selection_pass(
+        &ranked,
+        candidates,
+        &policy_flags_by_id,
+        &claim_keys_by_id,
+        used_urls,
+        &mut selected_ids,
+        &mut selected_urls,
+        &mut selected_hosts,
+        &mut selected_claim_counts,
+        citations_per_story,
+        1,
+        require_host_diversity,
+        false,
+        prefer_primary_backfill,
+        hard_policy,
+        envelope_constraints,
+    );
     if selected_ids.len() < citations_per_story {
-        for (idx, _, _) in &ranked {
-            if selected_ids.len() >= citations_per_story {
-                break;
-            }
-            let candidate = &candidates[*idx];
-            if selected_urls.contains(&candidate.url)
-                || selected_ids.iter().any(|id| id == &candidate.id)
-            {
-                continue;
-            }
-            if require_host_diversity {
-                if let Some(host) = source_host(&candidate.url) {
-                    if selected_hosts.contains(&host) {
-                        continue;
-                    }
-                    selected_hosts.insert(host);
-                }
-            }
-            selected_ids.push(candidate.id.clone());
-            selected_urls.insert(candidate.url.clone());
-        }
+        run_insight_selection_pass(
+            &ranked,
+            candidates,
+            &policy_flags_by_id,
+            &claim_keys_by_id,
+            used_urls,
+            &mut selected_ids,
+            &mut selected_urls,
+            &mut selected_hosts,
+            &mut selected_claim_counts,
+            citations_per_story,
+            usize::MAX,
+            false,
+            false,
+            false,
+            hard_policy,
+            envelope_constraints,
+        );
+    }
+    if selected_ids.len() < citations_per_story {
+        run_insight_selection_pass(
+            &ranked,
+            candidates,
+            &policy_flags_by_id,
+            &claim_keys_by_id,
+            used_urls,
+            &mut selected_ids,
+            &mut selected_urls,
+            &mut selected_hosts,
+            &mut selected_claim_counts,
+            citations_per_story,
+            1,
+            false,
+            false,
+            prefer_primary_backfill,
+            hard_policy,
+            envelope_constraints,
+        );
+    }
+    if selected_ids.len() < citations_per_story {
+        run_insight_selection_pass(
+            &ranked,
+            candidates,
+            &policy_flags_by_id,
+            &claim_keys_by_id,
+            used_urls,
+            &mut selected_ids,
+            &mut selected_urls,
+            &mut selected_hosts,
+            &mut selected_claim_counts,
+            citations_per_story,
+            2,
+            false,
+            false,
+            prefer_primary_backfill,
+            hard_policy,
+            envelope_constraints,
+        );
+    }
+    if selected_ids.len() < citations_per_story {
+        run_insight_selection_pass(
+            &ranked,
+            candidates,
+            &policy_flags_by_id,
+            &claim_keys_by_id,
+            used_urls,
+            &mut selected_ids,
+            &mut selected_urls,
+            &mut selected_hosts,
+            &mut selected_claim_counts,
+            citations_per_story,
+            usize::MAX,
+            false,
+            false,
+            prefer_primary_backfill,
+            hard_policy,
+            envelope_constraints,
+        );
+    }
+    if selected_ids.len() < citations_per_story {
+        run_insight_selection_pass(
+            &ranked,
+            candidates,
+            &policy_flags_by_id,
+            &claim_keys_by_id,
+            used_urls,
+            &mut selected_ids,
+            &mut selected_urls,
+            &mut selected_hosts,
+            &mut selected_claim_counts,
+            citations_per_story,
+            usize::MAX,
+            false,
+            true,
+            prefer_primary_backfill,
+            hard_policy,
+            envelope_constraints,
+        );
+    }
+    if selected_ids.len() < citations_per_story {
+        run_insight_selection_pass(
+            &ranked,
+            candidates,
+            &policy_flags_by_id,
+            &claim_keys_by_id,
+            used_urls,
+            &mut selected_ids,
+            &mut selected_urls,
+            &mut selected_hosts,
+            &mut selected_claim_counts,
+            citations_per_story,
+            usize::MAX,
+            false,
+            true,
+            false,
+            hard_policy,
+            envelope_constraints,
+        );
     }
 
     selected_ids
@@ -1807,7 +2742,7 @@ pub(crate) fn build_deterministic_story_draft(
     }
 
     while stories.len() < required_story_count {
-        let fallback_source = if merged_sources.is_empty() {
+        let mut fallback_source = if merged_sources.is_empty() {
             PendingSearchReadSummary {
                 url: String::new(),
                 title: None,
@@ -1825,24 +2760,68 @@ pub(crate) fn build_deterministic_story_draft(
             &single_snapshot_constraints,
             single_snapshot_policy,
         );
+        if fallback_source.url.trim().is_empty() {
+            if let Some(primary_citation) = fallback_ids
+                .iter()
+                .filter_map(|id| citations_by_id.get(id))
+                .next()
+            {
+                let fallback_excerpt = if primary_citation.excerpt.trim().is_empty() {
+                    primary_citation.note.clone()
+                } else {
+                    primary_citation.excerpt.clone()
+                };
+                fallback_source = PendingSearchReadSummary {
+                    url: primary_citation.url.clone(),
+                    title: Some(primary_citation.source_label.clone()),
+                    excerpt: fallback_excerpt,
+                };
+            }
+        }
+        let fallback_title = if fallback_source.url.trim().is_empty() {
+            format!("Story {}", stories.len() + 1)
+        } else {
+            canonical_source_title(&fallback_source)
+        };
+        let fallback_what_happened = if single_snapshot_mode {
+            single_snapshot_summary_line(&fallback_source)
+        } else {
+            source_bullet(&fallback_source)
+        };
+        let fallback_confident_reads = fallback_ids
+            .iter()
+            .filter_map(|id| citations_by_id.get(id))
+            .filter(|candidate| candidate.from_successful_read)
+            .count();
+        let fallback_confidence = if fallback_confident_reads >= citations_per_story {
+            "high".to_string()
+        } else if fallback_ids.len() >= citations_per_story {
+            "medium".to_string()
+        } else {
+            "low".to_string()
+        };
+        let fallback_eta_confidence = eta_confidence_from_story(
+            &fallback_source,
+            fallback_confident_reads,
+            fallback_ids.len(),
+            citations_per_story,
+        );
+        let fallback_caveat = if fallback_source.url.trim().is_empty() {
+            "Evidence quality was limited for this slot.".to_string()
+        } else {
+            "Evidence quality was limited; sections were composed from available citation metadata where explicit incident updates were sparse.".to_string()
+        };
         stories.push(StoryDraft {
-            title: format!("Story {}", stories.len() + 1),
-            what_happened:
-                "Insufficient high-signal extraction for a richer deterministic summary."
-                    .to_string(),
+            title: fallback_title,
+            what_happened: fallback_what_happened,
             changed_last_hour: changed_last_hour_line(&fallback_source, &run_timestamp_iso_utc),
-            why_it_matters:
-                "This still matters because it contributes to active service health awareness."
-                    .to_string(),
-            user_impact: "Potential user-facing degradation remains plausible for affected users."
-                .to_string(),
-            workaround:
-                "No explicit workaround confirmed in retrieved evidence; monitor source updates."
-                    .to_string(),
-            eta_confidence: "low".to_string(),
+            why_it_matters: why_it_matters_from_story(&fallback_source),
+            user_impact: user_impact_from_story(&fallback_source),
+            workaround: workaround_from_story(&fallback_source),
+            eta_confidence: fallback_eta_confidence,
             citation_ids: fallback_ids,
-            confidence: "low".to_string(),
-            caveat: "Evidence quality was limited for this slot.".to_string(),
+            confidence: fallback_confidence,
+            caveat: fallback_caveat,
         });
     }
 
@@ -1854,8 +2833,9 @@ pub(crate) fn build_deterministic_story_draft(
         completion_reason,
         overall_confidence: confidence_tier(pending, reason).to_string(),
         overall_caveat: format!(
-            "Ontology={} ranking uses content, provenance, and recency evidence; provider/source timestamps may lag or omit explicit update metadata.",
-            WEB_EVIDENCE_SIGNAL_VERSION
+            "Ontology={} ranking uses content, provenance, and recency evidence. InsightSelector={} applies relevance/reliability/recency/independence/risk vectors; provider/source timestamps may lag or omit explicit update metadata.",
+            WEB_EVIDENCE_SIGNAL_VERSION,
+            WEIGHTED_INSIGHT_SIGNAL_VERSION
         ),
         stories,
         citations_by_id,
@@ -1875,6 +2855,9 @@ pub(crate) fn render_synthesis_draft(draft: &SynthesisDraft) -> String {
     let citations_per_story = required_citations_per_story(&draft.query);
     let use_single_snapshot_layout = story_count == 1 && prefers_single_fact_snapshot(&draft.query);
     let single_snapshot_query_axes = query_metric_axes(&draft.query);
+    let insight_receipts = synthesis_insight_receipts(draft);
+    let conflict_notes = synthesis_conflict_notes(draft);
+    let gap_notes = synthesis_gap_notes(draft);
 
     if use_single_snapshot_layout {
         let scope_candidate_hints = draft
@@ -2114,6 +3097,14 @@ pub(crate) fn render_synthesis_draft(draft: &SynthesisDraft) -> String {
                 draft.blocked_urls.join(", ")
             ));
         }
+        append_retrieval_receipts_for_source_floor(
+            &mut lines,
+            draft,
+            story_count,
+            citations_per_story,
+        );
+        lines.push(String::new());
+        append_synthesis_diagnostics(&mut lines, &insight_receipts, &conflict_notes, &gap_notes);
         lines.push(format!("Completion reason: {}", draft.completion_reason));
         lines.push(format!("Run date (UTC): {}", draft.run_date));
         lines.push(format!(
@@ -2177,6 +3168,9 @@ pub(crate) fn render_synthesis_draft(draft: &SynthesisDraft) -> String {
             draft.blocked_urls.join(", ")
         ));
     }
+    append_retrieval_receipts_for_source_floor(&mut lines, draft, story_count, citations_per_story);
+    lines.push(String::new());
+    append_synthesis_diagnostics(&mut lines, &insight_receipts, &conflict_notes, &gap_notes);
     lines.push(format!("Completion reason: {}", draft.completion_reason));
     lines.push(format!("Run date (UTC): {}", draft.run_date));
     lines.push(format!(

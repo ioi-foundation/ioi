@@ -114,8 +114,8 @@ const QUERY_LITERAL_GATING_PATTERNS: [&str; 2] = [
     "what changed in last hour, user impact, workaround, eta confidence, 2 citations each",
 ];
 const STATIC_AUDIT_FILES: [&str; 2] = [
-    "crates/services/src/agentic/desktop/service/step/queue/support.rs",
-    "crates/services/src/agentic/desktop/service/step/queue/processing.rs",
+    "crates/services/src/agentic/desktop/service/step/queue/support/mod.rs",
+    "crates/services/src/agentic/desktop/service/step/queue/processing/mod.rs",
 ];
 const ARBITER_ALLOWED_FAILURE_CODES: [&str; 5] = [
     "not_direct_or_actionable",
