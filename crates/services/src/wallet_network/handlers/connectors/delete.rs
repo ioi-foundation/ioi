@@ -7,8 +7,7 @@ use super::shared::{
     LEASE_OPERATION_TRACK_LIMIT,
 };
 use crate::wallet_network::keys::{
-    channel_key, lease_action_window_key, lease_consumption_key, lease_key,
-    mail_delete_receipt_key,
+    channel_key, lease_action_window_key, lease_consumption_key, lease_key, mail_delete_receipt_key,
 };
 use crate::wallet_network::mail_transport::mail_provider_for_config;
 use crate::wallet_network::support::{
