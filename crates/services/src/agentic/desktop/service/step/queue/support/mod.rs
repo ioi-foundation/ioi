@@ -112,8 +112,8 @@ mod query;
 mod synthesis;
 mod tool_name;
 
-pub(super) use pipeline::*;
-pub(super) use query::*;
-pub(super) use synthesis::*;
+pub(crate) use pipeline::*;
+pub(crate) use query::*;
+pub(crate) use synthesis::*;
 
 pub use tool_name::queue_action_request_to_tool;

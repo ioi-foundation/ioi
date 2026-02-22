@@ -68,7 +68,10 @@ pub(super) fn infer_fs_write_tool_name(args: &serde_json::Value) -> &'static str
     "filesystem__write_file"
 }
 
-pub(super) fn has_non_empty_string_field(obj: &serde_json::Map<String, serde_json::Value>, key: &str) -> bool {
+pub(super) fn has_non_empty_string_field(
+    obj: &serde_json::Map<String, serde_json::Value>,
+    key: &str,
+) -> bool {
     obj.get(key)
         .and_then(|value| value.as_str())
         .map(str::trim)
@@ -166,7 +169,10 @@ pub(super) fn looks_like_computer_action_payload(args: &serde_json::Value) -> bo
         .is_some_and(|value| !value.is_empty())
 }
 
-pub(super) fn ensure_computer_action(raw_args: serde_json::Value, action: &str) -> serde_json::Value {
+pub(super) fn ensure_computer_action(
+    raw_args: serde_json::Value,
+    action: &str,
+) -> serde_json::Value {
     match raw_args {
         serde_json::Value::Object(mut obj) => {
             obj.entry("action".to_string())
@@ -197,7 +203,10 @@ pub(super) fn explicit_queue_tool_name_scope(target: &ActionTarget) -> Option<Qu
     }
 }
 
-pub(super) fn is_explicit_tool_name_allowed_for_scope(scope: QueueToolNameScope, tool_name: &str) -> bool {
+pub(super) fn is_explicit_tool_name_allowed_for_scope(
+    scope: QueueToolNameScope,
+    tool_name: &str,
+) -> bool {
     match scope {
         QueueToolNameScope::Read => matches!(
             tool_name,
