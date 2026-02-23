@@ -286,12 +286,21 @@ pub fn direct_app_launch_target(agent_state: &AgentState) -> Option<String> {
     Some(hint.to_string())
 }
 
+pub fn direct_clock_read_intent(agent_state: &AgentState) -> bool {
+    let Some(resolved) = agent_state.resolved_intent.as_ref() else {
+        return false;
+    };
+    resolved.intent_id == "system.clock.read"
+        && resolved.scope == IntentScopeProfile::CommandExecution
+        && resolved.band != IntentConfidenceBand::Low
+}
+
 #[cfg(test)]
 mod tests {
     use super::{
-        default_safe_policy, direct_app_launch_target, is_live_external_research_goal,
-        is_mailbox_connector_goal, should_auto_complete_open_app_goal,
-        LIVE_EXTERNAL_RESEARCH_SIGNAL_VERSION,
+        default_safe_policy, direct_app_launch_target, direct_clock_read_intent,
+        is_live_external_research_goal, is_mailbox_connector_goal,
+        should_auto_complete_open_app_goal, LIVE_EXTERNAL_RESEARCH_SIGNAL_VERSION,
     };
     use crate::agentic::desktop::types::{
         AgentMode, AgentState, AgentStatus, ExecutionTier, InteractionTarget,
@@ -392,6 +401,72 @@ mod tests {
             constrained: false,
         });
         assert!(direct_app_launch_target(&state).is_none());
+    }
+
+    #[test]
+    fn direct_clock_read_intent_requires_command_scope_and_non_low_band() {
+        let mut state = AgentState {
+            session_id: [0u8; 32],
+            goal: "what time is it".to_string(),
+            transcript_root: [0u8; 32],
+            status: AgentStatus::Running,
+            step_count: 0,
+            max_steps: 1,
+            last_action_type: None,
+            parent_session_id: None,
+            child_session_ids: vec![],
+            budget: 1,
+            tokens_used: 0,
+            consecutive_failures: 0,
+            pending_approval: None,
+            pending_tool_call: None,
+            pending_tool_jcs: None,
+            pending_tool_hash: None,
+            pending_visual_hash: None,
+            recent_actions: vec![],
+            mode: AgentMode::Agent,
+            current_tier: ExecutionTier::DomHeadless,
+            last_screen_phash: None,
+            execution_queue: vec![],
+            pending_search_completion: None,
+            active_skill_hash: None,
+            tool_execution_log: BTreeMap::new(),
+            visual_som_map: None,
+            visual_semantic_map: None,
+            swarm_context: None,
+            target: None,
+            resolved_intent: Some(ResolvedIntentState {
+                intent_id: "system.clock.read".to_string(),
+                scope: IntentScopeProfile::CommandExecution,
+                band: IntentConfidenceBand::High,
+                score: 1.0,
+                top_k: vec![],
+                preferred_tier: "tool_first".to_string(),
+                matrix_version: "intent-matrix-v2".to_string(),
+                matrix_source_hash: [0u8; 32],
+                receipt_hash: [0u8; 32],
+                constrained: false,
+            }),
+            awaiting_intent_clarification: false,
+            working_directory: ".".to_string(),
+            command_history: VecDeque::new(),
+            active_lens: None,
+        };
+        assert!(direct_clock_read_intent(&state));
+
+        state.resolved_intent = Some(ResolvedIntentState {
+            intent_id: "system.clock.read".to_string(),
+            scope: IntentScopeProfile::CommandExecution,
+            band: IntentConfidenceBand::Low,
+            score: 0.0,
+            top_k: vec![],
+            preferred_tier: "tool_first".to_string(),
+            matrix_version: "intent-matrix-v2".to_string(),
+            matrix_source_hash: [0u8; 32],
+            receipt_hash: [0u8; 32],
+            constrained: false,
+        });
+        assert!(!direct_clock_read_intent(&state));
     }
 
     #[test]

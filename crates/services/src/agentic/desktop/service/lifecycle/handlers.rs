@@ -260,6 +260,10 @@ pub async fn handle_post_message(
                 maybe_restore_pending_install_from_incident(state, p.session_id, &mut agent_state)?;
             } else {
                 reset_for_new_user_goal(&mut agent_state, &content);
+                // Re-seed runtime locality when a new user goal arrives so
+                // locality-sensitive public-fact requests can proceed without
+                // immediate clarification pauses.
+                maybe_seed_runtime_locality_context(&content).await;
                 let remediation_key = get_remediation_key(&p.session_id);
                 let incident_key = get_incident_key(&p.session_id);
                 state.delete(&remediation_key)?;
@@ -517,7 +521,10 @@ mod tests {
 
         assert_eq!(state.goal, "open calculator");
         assert_eq!(
-            state.target.as_ref().and_then(|target| target.app_hint.as_deref()),
+            state
+                .target
+                .as_ref()
+                .and_then(|target| target.app_hint.as_deref()),
             Some("calculator")
         );
         assert!(state.resolved_intent.is_none());
