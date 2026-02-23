@@ -14,6 +14,10 @@ use serde::Deserialize;
 use serde_json::json;
 use std::collections::BTreeMap;
 use std::sync::Arc;
+use tokio::time::{timeout, Duration};
+
+const INTENT_EMBED_RANK_TIMEOUT: Duration = Duration::from_secs(5);
+const INTENT_AIRLOCK_RANK_TIMEOUT: Duration = Duration::from_secs(8);
 
 fn fallback_tier_for_scope(scope: IntentScopeProfile) -> &'static str {
     match scope {
@@ -110,6 +114,30 @@ fn receipt_hash(
         out.copy_from_slice(digest.as_ref());
     }
     out
+}
+
+fn emit_intent_resolution_receipt(
+    service: &DesktopAgentService,
+    session_id: [u8; 32],
+    resolved: &ResolvedIntentState,
+) {
+    if let Some(tx) = service.event_sender.as_ref() {
+        let _ = tx.send(KernelEvent::IntentResolutionReceipt(
+            IntentResolutionReceiptEvent {
+                session_id: Some(session_id),
+                intent_id: resolved.intent_id.clone(),
+                scope: resolved.scope,
+                band: resolved.band,
+                score: resolved.score,
+                top_k: resolved.top_k.clone(),
+                preferred_tier: resolved.preferred_tier.clone(),
+                matrix_version: resolved.matrix_version.clone(),
+                matrix_source_hash: resolved.matrix_source_hash,
+                receipt_hash: resolved.receipt_hash,
+                constrained: resolved.constrained,
+            },
+        ));
+    }
 }
 
 #[async_trait]
@@ -460,19 +488,103 @@ pub async fn resolve_step_intent(
     }
     let matrix = effective_matrix(policy);
     let matrix_hash = matrix_source_hash(policy, &matrix);
+
+    // Deterministic fast path: if the lifecycle has already derived a concrete
+    // app target and current query still signals a launch request, resolve
+    // directly to the AppLaunch scope without waiting on model inference.
+    let target_app_hint = agent_state
+        .target
+        .as_ref()
+        .and_then(|target| target.app_hint.as_deref())
+        .map(str::trim)
+        .filter(|hint| !hint.is_empty());
+    if target_app_hint.is_some() && super::signals::analyze_goal_signals(&query).launch_hits > 0 {
+        if let Some(app_entry) = matrix
+            .iter()
+            .find(|entry| entry.scope == IntentScopeProfile::AppLaunch)
+        {
+            let mut resolved = ResolvedIntentState {
+                intent_id: app_entry.intent_id.clone(),
+                scope: IntentScopeProfile::AppLaunch,
+                band: IntentConfidenceBand::High,
+                score: 1.0,
+                top_k: vec![IntentCandidateScore {
+                    intent_id: app_entry.intent_id.clone(),
+                    score: 1.0,
+                }],
+                preferred_tier: preferred_tier_for_intent(&matrix, &app_entry.intent_id),
+                matrix_version: policy.matrix_version.clone(),
+                matrix_source_hash: matrix_hash,
+                receipt_hash: [0u8; 32],
+                constrained: false,
+            };
+            resolved.receipt_hash = receipt_hash(
+                &query,
+                &resolved,
+                Some(agent_state.session_id),
+                active_window_title,
+            );
+            log::info!(
+                "IntentResolverFastPath session={} reason=target_anchored_app_launch target_hint={} intent_id={}",
+                session_prefix,
+                target_app_hint.unwrap_or_default(),
+                resolved.intent_id
+            );
+            emit_intent_resolution_receipt(service, agent_state.session_id, &resolved);
+            return Ok(resolved);
+        }
+    }
+
     let runtime = service.reasoning_inference.clone();
-    let mut top_k = runtime.embed_or_rank(&query, &matrix).await?;
+    let mut top_k = match timeout(
+        INTENT_EMBED_RANK_TIMEOUT,
+        runtime.embed_or_rank(&query, &matrix),
+    )
+    .await
+    {
+        Ok(Ok(scores)) => scores,
+        Ok(Err(e)) => {
+            log::warn!(
+                "IntentResolver embedding rank failed session={} error={}",
+                session_prefix,
+                e
+            );
+            vec![]
+        }
+        Err(_) => {
+            log::warn!(
+                "IntentResolver embedding rank timed out session={} timeout_ms={}",
+                session_prefix,
+                INTENT_EMBED_RANK_TIMEOUT.as_millis()
+            );
+            vec![]
+        }
+    };
     if top_k.is_empty() {
         // If embeddings are unavailable (or produced no signal), fall back to an
         // inference-based ranker, but run it through the Desktop Agent's cloud airlock.
-        top_k = rank_with_airlocked_inference(
-            service,
-            Some(agent_state.session_id),
-            &runtime,
-            &query,
-            &matrix,
+        top_k = match timeout(
+            INTENT_AIRLOCK_RANK_TIMEOUT,
+            rank_with_airlocked_inference(
+                service,
+                Some(agent_state.session_id),
+                &runtime,
+                &query,
+                &matrix,
+            ),
         )
-        .await;
+        .await
+        {
+            Ok(scores) => scores,
+            Err(_) => {
+                log::warn!(
+                    "IntentResolver airlocked rank timed out session={} timeout_ms={}",
+                    session_prefix,
+                    INTENT_AIRLOCK_RANK_TIMEOUT.as_millis()
+                );
+                vec![]
+            }
+        };
     }
     if top_k.is_empty() {
         top_k.push(IntentCandidateScore {
@@ -570,23 +682,7 @@ pub async fn resolve_step_intent(
         active_window_title,
     );
 
-    if let Some(tx) = service.event_sender.as_ref() {
-        let _ = tx.send(KernelEvent::IntentResolutionReceipt(
-            IntentResolutionReceiptEvent {
-                session_id: Some(agent_state.session_id),
-                intent_id: resolved.intent_id.clone(),
-                scope: resolved.scope,
-                band: resolved.band,
-                score: resolved.score,
-                top_k: resolved.top_k.clone(),
-                preferred_tier: resolved.preferred_tier.clone(),
-                matrix_version: resolved.matrix_version.clone(),
-                matrix_source_hash: resolved.matrix_source_hash,
-                receipt_hash: resolved.receipt_hash,
-                constrained: resolved.constrained,
-            },
-        ));
-    }
+    emit_intent_resolution_receipt(service, agent_state.session_id, &resolved);
 
     Ok(resolved)
 }

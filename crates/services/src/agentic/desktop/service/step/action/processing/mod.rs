@@ -530,7 +530,10 @@ pub async fn process_tool_output(
                                         agent_state.status =
                                             AgentStatus::Completed(Some(summary.clone()));
                                         is_lifecycle_action = true;
-                                        action_output = Some(summary);
+                                        action_output = Some(summary.clone());
+                                        terminal_chat_reply_output = Some(summary);
+                                        verification_checks
+                                            .push("terminal_chat_reply_ready=true".to_string());
                                         agent_state.execution_queue.clear();
                                         agent_state.pending_search_completion = None;
                                         log::info!(

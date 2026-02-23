@@ -6,20 +6,23 @@ use crate::agentic::desktop::types::{
     DEFAULT_MESSAGE_PRIVACY_POLICY_VERSION, DEFAULT_MESSAGE_REDACTION_VERSION,
     MESSAGE_SANITIZED_PLACEHOLDER,
 };
-use crate::agentic::normaliser::OutputNormaliser;
 use base64::{engine::general_purpose::STANDARD as BASE64, Engine as _};
 use hex;
-use ioi_api::vm::inference::InferenceRuntime;
 use ioi_crypto::algorithms::hash::sha256;
 use ioi_scs::{FrameType, RetentionClass};
-use ioi_types::app::agentic::{
-    ChatMessage, InferenceOptions, SemanticFact, StepTrace, SwarmManifest,
-};
+use ioi_types::app::agentic::{ChatMessage, InferenceOptions, StepTrace, SwarmManifest};
 use ioi_types::app::{RedactionMap, RedactionType};
 use ioi_types::codec;
 use ioi_types::error::TransactionError;
 use serde_json::json;
 use std::collections::HashSet;
+use tokio::time::{timeout, Duration, Instant};
+
+const SCS_SEMANTIC_INDEXING_BUDGET: Duration = Duration::from_secs(2);
+
+fn should_embed_for_semantic_indexing(role: &str) -> bool {
+    role.eq_ignore_ascii_case("user") || role.eq_ignore_ascii_case("assistant")
+}
 
 /// Retrieve a Swarm Manifest from the Market or SCS.
 pub async fn fetch_swarm_manifest(
@@ -149,58 +152,6 @@ pub async fn retrieve_context_hybrid(
     output
 }
 
-async fn extract_facts(service: &DesktopAgentService, text: &str) -> Vec<SemanticFact> {
-    if text.len() < 20 {
-        return vec![];
-    }
-
-    let prompt = format!(
-        "SYSTEM: Extract important facts from the text below as a JSON list of tuples.\n\
-            Schema: [{{\"subject\": \"string\", \"predicate\": \"string\", \"object\": \"string\"}}]\n\
-            Text: \"{}\"\n\
-            Output JSON only:",
-        text.replace('"', "\\\"")
-    );
-
-    let options = InferenceOptions {
-        temperature: 0.0,
-        ..Default::default()
-    };
-
-    let model_hash = [0u8; 32];
-
-    let airlocked_prompt = match service
-        .prepare_cloud_inference_input(
-            None,
-            "desktop_agent",
-            "model_hash:0000000000000000000000000000000000000000000000000000000000000000",
-            prompt.as_bytes(),
-        )
-        .await
-    {
-        Ok(v) => v,
-        Err(_) => return vec![],
-    };
-
-    match service
-        .reasoning_inference
-        .execute_inference(model_hash, &airlocked_prompt, options)
-        .await
-    {
-        Ok(bytes) => {
-            let s = String::from_utf8_lossy(&bytes);
-            let start = s.find('[').unwrap_or(0);
-            let end = s.rfind(']').map(|i| i + 1).unwrap_or(s.len());
-            if start < end {
-                serde_json::from_str(&s[start..end]).unwrap_or_default()
-            } else {
-                vec![]
-            }
-        }
-        Err(_) => vec![],
-    }
-}
-
 pub async fn append_chat_to_scs(
     service: &DesktopAgentService,
     session_id: [u8; 32],
@@ -245,23 +196,34 @@ pub async fn append_chat_to_scs(
     };
 
     // 2. Semantic Indexing
-    let facts = extract_facts(service, &recorded_message.scrubbed_for_scs).await;
+    // Keep indexing best-effort and bounded so action completion never waits on
+    // long-running inference calls.
+    let semantic_index_started_at = Instant::now();
+    let semantic_budget_remaining =
+        || SCS_SEMANTIC_INDEXING_BUDGET.saturating_sub(semantic_index_started_at.elapsed());
+
     let mut vectors = Vec::new();
 
-    if let Ok(vec) = service
-        .reasoning_inference
-        .embed_text(&recorded_message.scrubbed_for_scs)
+    let remaining = semantic_budget_remaining();
+    if should_embed_for_semantic_indexing(&recorded_message.role) && !remaining.is_zero() {
+        match timeout(
+            remaining,
+            service
+                .reasoning_inference
+                .embed_text(&recorded_message.scrubbed_for_scs),
+        )
         .await
-    {
-        vectors.push(vec);
-    }
-
-    for fact in facts {
-        if let Ok(json_str) = serde_json::to_string(&fact) {
-            if let Ok(_canonical_bytes) = OutputNormaliser::normalise_and_hash(&json_str) {
-                if let Ok(vec) = service.reasoning_inference.embed_text(&json_str).await {
-                    vectors.push(vec);
-                }
+        {
+            Ok(Ok(vec)) => vectors.push(vec),
+            Ok(Err(e)) => {
+                log::warn!("SCS root message embedding failed: {}", e);
+            }
+            Err(_) => {
+                log::warn!(
+                    "SCS root message embedding timed out for session {} after {:?}.",
+                    hex::encode(&session_id[..4]),
+                    SCS_SEMANTIC_INDEXING_BUDGET
+                );
             }
         }
     }
@@ -533,6 +495,7 @@ mod tests {
     use async_trait::async_trait;
     use ioi_api::vm::drivers::gui::{GuiDriver, InputEvent};
     use ioi_api::vm::inference::mock::MockInferenceRuntime;
+    use ioi_api::vm::inference::InferenceRuntime;
     use ioi_drivers::browser::BrowserDriver;
     use ioi_drivers::terminal::TerminalDriver;
     use ioi_scs::{FrameType, RetentionClass, SovereignContextStore, StoreConfig};
@@ -540,6 +503,7 @@ mod tests {
     use ioi_types::error::VmError;
     use std::sync::{Arc, Mutex};
     use std::time::{SystemTime, UNIX_EPOCH};
+    use tokio::time::Instant;
 
     fn sample_recorded_message() -> RecordedMessage {
         RecordedMessage {
@@ -633,7 +597,9 @@ mod tests {
         }
     }
 
-    fn build_test_service_with_temp_scs() -> (DesktopAgentService, std::path::PathBuf) {
+    fn build_test_service_with_temp_scs_with_inference(
+        inference: Arc<dyn InferenceRuntime>,
+    ) -> (DesktopAgentService, std::path::PathBuf) {
         let ts = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .map_or(0, |time| time.as_nanos());
@@ -650,11 +616,107 @@ mod tests {
             Arc::new(NoopGuiDriver),
             Arc::new(TerminalDriver::new()),
             Arc::new(BrowserDriver::new()),
-            Arc::new(MockInferenceRuntime),
+            inference,
         )
         .with_scs(Arc::new(Mutex::new(store)));
 
         (service, path)
+    }
+
+    fn build_test_service_with_temp_scs() -> (DesktopAgentService, std::path::PathBuf) {
+        build_test_service_with_temp_scs_with_inference(Arc::new(MockInferenceRuntime))
+    }
+
+    struct SlowInferenceRuntime;
+
+    #[async_trait]
+    impl InferenceRuntime for SlowInferenceRuntime {
+        async fn execute_inference(
+            &self,
+            _model_hash: [u8; 32],
+            _input_context: &[u8],
+            _options: InferenceOptions,
+        ) -> Result<Vec<u8>, VmError> {
+            tokio::time::sleep(Duration::from_secs(30)).await;
+            Ok(b"[]".to_vec())
+        }
+
+        async fn embed_text(&self, _text: &str) -> Result<Vec<f32>, VmError> {
+            tokio::time::sleep(Duration::from_secs(30)).await;
+            Ok(vec![0.0, 1.0, 2.0])
+        }
+
+        async fn load_model(
+            &self,
+            _model_hash: [u8; 32],
+            _path: &std::path::Path,
+        ) -> Result<(), VmError> {
+            Ok(())
+        }
+
+        async fn unload_model(&self, _model_hash: [u8; 32]) -> Result<(), VmError> {
+            Ok(())
+        }
+    }
+
+    struct NoExecuteInferenceRuntime;
+
+    #[async_trait]
+    impl InferenceRuntime for NoExecuteInferenceRuntime {
+        async fn execute_inference(
+            &self,
+            _model_hash: [u8; 32],
+            _input_context: &[u8],
+            _options: InferenceOptions,
+        ) -> Result<Vec<u8>, VmError> {
+            panic!("append_chat_to_scs must not call execute_inference");
+        }
+
+        async fn embed_text(&self, _text: &str) -> Result<Vec<f32>, VmError> {
+            Ok(vec![0.0, 1.0, 2.0])
+        }
+
+        async fn load_model(
+            &self,
+            _model_hash: [u8; 32],
+            _path: &std::path::Path,
+        ) -> Result<(), VmError> {
+            Ok(())
+        }
+
+        async fn unload_model(&self, _model_hash: [u8; 32]) -> Result<(), VmError> {
+            Ok(())
+        }
+    }
+
+    struct NoInferenceRuntime;
+
+    #[async_trait]
+    impl InferenceRuntime for NoInferenceRuntime {
+        async fn execute_inference(
+            &self,
+            _model_hash: [u8; 32],
+            _input_context: &[u8],
+            _options: InferenceOptions,
+        ) -> Result<Vec<u8>, VmError> {
+            panic!("append_chat_to_scs must not call execute_inference");
+        }
+
+        async fn embed_text(&self, _text: &str) -> Result<Vec<f32>, VmError> {
+            panic!("append_chat_to_scs must not call embed_text for tool/system roles");
+        }
+
+        async fn load_model(
+            &self,
+            _model_hash: [u8; 32],
+            _path: &std::path::Path,
+        ) -> Result<(), VmError> {
+            Ok(())
+        }
+
+        async fn unload_model(&self, _model_hash: [u8; 32]) -> Result<(), VmError> {
+            Ok(())
+        }
     }
 
     #[tokio::test]
@@ -682,6 +744,71 @@ mod tests {
         let raw_msgs = raw_surface.expect("raw hydration");
         assert_eq!(raw_msgs.len(), 1);
         assert!(raw_msgs[0].content.contains("sk_live_123456789"));
+
+        let _ = std::fs::remove_file(path);
+    }
+
+    #[tokio::test]
+    async fn append_chat_to_scs_enforces_semantic_indexing_budget() {
+        let (service, path) =
+            build_test_service_with_temp_scs_with_inference(Arc::new(SlowInferenceRuntime));
+        let session_id = [33u8; 32];
+        let msg = ChatMessage {
+            role: "assistant".to_string(),
+            content: "This is long enough to trigger semantic fact extraction and embedding work."
+                .to_string(),
+            timestamp: 1_700_000_000_123u64,
+            trace_hash: None,
+        };
+
+        let started = Instant::now();
+        let append_res = service.append_chat_to_scs(session_id, &msg, 0).await;
+        let elapsed = started.elapsed();
+
+        assert!(append_res.is_ok());
+        assert!(
+            elapsed < SCS_SEMANTIC_INDEXING_BUDGET + Duration::from_secs(3),
+            "append_chat_to_scs exceeded semantic indexing budget: {:?}",
+            elapsed
+        );
+
+        let _ = std::fs::remove_file(path);
+    }
+
+    #[tokio::test]
+    async fn append_chat_to_scs_avoids_execute_inference_for_fact_extraction() {
+        let (service, path) =
+            build_test_service_with_temp_scs_with_inference(Arc::new(NoExecuteInferenceRuntime));
+        let session_id = [44u8; 32];
+        let msg = ChatMessage {
+            role: "tool".to_string(),
+            content: "Tool Output (os__launch_app): Launched background process 'gnome-calculator' (PID: 555837)"
+                .to_string(),
+            timestamp: 1_700_000_000_456u64,
+            trace_hash: None,
+        };
+
+        let append_res = service.append_chat_to_scs(session_id, &msg, 0).await;
+        assert!(append_res.is_ok());
+
+        let _ = std::fs::remove_file(path);
+    }
+
+    #[tokio::test]
+    async fn append_chat_to_scs_skips_inference_for_tool_messages() {
+        let (service, path) =
+            build_test_service_with_temp_scs_with_inference(Arc::new(NoInferenceRuntime));
+        let session_id = [55u8; 32];
+        let msg = ChatMessage {
+            role: "tool".to_string(),
+            content: "Tool Output (os__launch_app): Launched background process 'calculator'"
+                .to_string(),
+            timestamp: 1_700_000_000_789u64,
+            trace_hash: None,
+        };
+
+        let append_res = service.append_chat_to_scs(session_id, &msg, 0).await;
+        assert!(append_res.is_ok());
 
         let _ = std::fs::remove_file(path);
     }

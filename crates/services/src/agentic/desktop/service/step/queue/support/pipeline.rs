@@ -2034,8 +2034,7 @@ pub(crate) fn web_pipeline_completion_reason(
         let grounded_probe_recovery = !single_snapshot_mode
             && query_facets.grounded_external_required
             && pending.successful_reads.len() < min_sources
-            && single_snapshot_additional_probe_attempt_count(pending)
-                < grounded_probe_limit
+            && single_snapshot_additional_probe_attempt_count(pending) < grounded_probe_limit
             && grounded_probe_budget_allows;
         if grounded_probe_recovery {
             return None;

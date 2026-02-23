@@ -138,7 +138,14 @@ pub(super) fn is_launch_app_lookup_failure(tool_name: &str, output: &str) -> boo
             || text.contains("unable to locate")
             || text.contains("cannot find")
             || text.contains("gtk-launch"));
-    marker_launch_miss || detailed_launch_miss
+    let no_installed_target = text.contains("resolution_outcome=noinstalledtarget");
+    marker_launch_miss || detailed_launch_miss || no_installed_target
+}
+
+pub(super) fn launch_lookup_requires_install_prompt(output: &str) -> bool {
+    let text = output.to_ascii_lowercase();
+    text.contains("resolution_outcome=noinstalledtarget")
+        || text.contains("install_action=promptinstallorprovideidentifier")
 }
 
 #[derive(Clone, Copy)]
