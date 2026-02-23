@@ -1,15 +1,15 @@
 import { useCallback, useMemo, useState } from "react";
 import { openUrl } from "@tauri-apps/plugin-opener";
-import type { AnswerPresentation, ArtifactRef, SourceSummary } from "../../../types";
+import type { AnswerPresentation, SourceSummary } from "../../../types";
 import { icons } from "./Icons";
 import { MarkdownMessage } from "./MarkdownMessage";
 
 interface AnswerCardProps {
   answer: AnswerPresentation;
   sourceSummary: SourceSummary | null;
-  artifactRefs: ArtifactRef[];
+  sourceDurationLabel?: string;
   onDownloadContext: () => Promise<void> | void;
-  onOpenArtifact?: (artifactId: string) => void;
+  onOpenArtifacts?: () => void;
   onOpenSources?: (summary: SourceSummary) => void;
 }
 
@@ -18,9 +18,9 @@ const MAX_CITATION_PILLS = 8;
 export function AnswerCard({
   answer,
   sourceSummary,
-  artifactRefs,
+  sourceDurationLabel,
   onDownloadContext,
-  onOpenArtifact,
+  onOpenArtifacts,
   onOpenSources,
 }: AnswerCardProps) {
   const [copied, setCopied] = useState(false);
@@ -54,17 +54,15 @@ export function AnswerCard({
     }
   }, [onDownloadContext]);
 
-  const handleOpenArtifact = useCallback(() => {
-    if (!onOpenArtifact) return;
-    const first = artifactRefs[0];
-    if (!first) return;
-    onOpenArtifact(first.artifact_id);
-  }, [artifactRefs, onOpenArtifact]);
+  const handleOpenArtifacts = useCallback(() => {
+    onOpenArtifacts?.();
+  }, [onOpenArtifacts]);
 
   const sourcePreviewDomains = useMemo(
-    () => sourceSummary?.domains.slice(0, 3) || [],
+    () => sourceSummary?.domains.slice(0, 4) || [],
     [sourceSummary],
   );
+  const canOpenSources = !!sourceSummary && sourceSummary.totalSources > 0 && !!onOpenSources;
 
   return (
     <section className="answer-card" aria-label="Final answer">
@@ -95,13 +93,13 @@ export function AnswerCard({
           </button>
           <button
             className="answer-action-btn"
-            onClick={handleOpenArtifact}
+            onClick={handleOpenArtifacts}
             type="button"
-            disabled={artifactRefs.length === 0}
-            title="Open artifact inspector"
+            disabled={!onOpenArtifacts}
+            title="Open artifacts hub"
           >
             {icons.externalLink}
-            <span>Open Artifacts</span>
+            <span>Artifacts</span>
           </button>
         </div>
       </div>
@@ -137,14 +135,21 @@ export function AnswerCard({
         <span>
           Completion: <strong>{answer.completionReason || "n/a"}</strong>
         </span>
-        {sourceSummary && sourceSummary.totalSources > 0 && (
+      </div>
+
+      {sourceSummary && sourceSummary.totalSources > 0 && (
+        <div className="answer-source-strip">
           <button
-            className="answer-source-chip answer-source-chip--inline"
+            className="answer-source-chip"
             type="button"
-            onClick={() => onOpenSources?.(sourceSummary)}
+            onClick={() => sourceSummary && onOpenSources?.(sourceSummary)}
             aria-label={`${sourceSummary.totalSources} sources`}
             title="Open source activity"
+            disabled={!canOpenSources}
           >
+            {sourceDurationLabel && (
+              <span className="answer-source-latency">{sourceDurationLabel}</span>
+            )}
             <span className="answer-source-favicon-stack">
               {sourcePreviewDomains.map((entry, index) => (
                 <span
@@ -152,7 +157,7 @@ export function AnswerCard({
                   className="answer-source-favicon-wrap"
                   style={{
                     zIndex: sourcePreviewDomains.length - index,
-                    marginLeft: index === 0 ? 0 : -12,
+                    marginLeft: index === 0 ? 0 : -10,
                   }}
                 >
                   <img
@@ -169,8 +174,8 @@ export function AnswerCard({
               {sourceSummary.totalSources === 1 ? "source" : "sources"}
             </span>
           </button>
-        )}
-      </div>
+        </div>
+      )}
     </section>
   );
 }
