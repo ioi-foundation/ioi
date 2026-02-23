@@ -244,9 +244,10 @@ pub async fn process_tool_output(
             action_payload = serde_json::to_value(&tool).unwrap_or_else(|_| json!({}));
             let (tool_name, tool_args) = canonical_tool_identity(&tool);
             current_tool_name = tool_name;
-            executed_tool_jcs = serde_jcs::to_vec(&tool)
-                .or_else(|_| serde_json::to_vec(&tool))
-                .ok();
+            executed_tool_jcs = Some(
+                serde_jcs::to_vec(&tool)
+                    .map_err(|e| TransactionError::Serialization(e.to_string()))?,
+            );
             intent_hash = canonical_intent_hash(
                 &current_tool_name,
                 &tool_args,
@@ -284,32 +285,10 @@ pub async fn process_tool_output(
                 verification_checks.push("mailbox_non_connector_tool_blocked=true".to_string());
                 verification_checks.push("terminal_chat_reply_ready=true".to_string());
             } else {
-                let mut tool_allowed = is_tool_allowed_for_resolution(
+                let tool_allowed = is_tool_allowed_for_resolution(
                     agent_state.resolved_intent.as_ref(),
                     &current_tool_name,
                 );
-                if !tool_allowed {
-                    let allow_mcp_tools = agent_state
-                        .resolved_intent
-                        .as_ref()
-                        .map(|resolved| {
-                            !matches!(
-                                resolved.scope,
-                                ioi_types::app::agentic::IntentScopeProfile::Conversation
-                                    | ioi_types::app::agentic::IntentScopeProfile::Unknown
-                            )
-                        })
-                        .unwrap_or(false);
-                    if allow_mcp_tools {
-                        if let Some(mcp) = service.mcp.as_ref() {
-                            tool_allowed = mcp
-                                .get_all_tools()
-                                .await
-                                .iter()
-                                .any(|tool| tool.name == current_tool_name);
-                        }
-                    }
-                }
 
                 if !tool_allowed {
                     policy_decision = "denied".to_string();
@@ -1880,7 +1859,7 @@ mod tests {
             FailureClass::TimeoutOrHang,
             false
         ));
-        assert!(should_fail_fast_web_timeout(
+        assert!(!should_fail_fast_web_timeout(
             Some(&convo),
             "web__search",
             FailureClass::TimeoutOrHang,

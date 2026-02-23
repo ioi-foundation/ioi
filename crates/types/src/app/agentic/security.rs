@@ -153,9 +153,30 @@ pub struct IntentRoutingPolicy {
     pub confidence: IntentConfidenceBandPolicy,
     /// Ambiguity handling policy.
     pub ambiguity: IntentAmbiguityPolicy,
+    /// Score quantization precision in basis points (1 bps = 0.0001).
+    #[serde(default = "default_score_quantization_bps")]
+    pub score_quantization_bps: u16,
+    /// Deterministic tie region epsilon in basis points.
+    #[serde(default = "default_tie_region_eps_bps")]
+    pub tie_region_eps_bps: u16,
+    /// Ambiguity abstention margin in basis points.
+    #[serde(default = "default_ambiguity_margin_bps")]
+    pub ambiguity_margin_bps: u16,
     /// Baseline + override matrix entries.
     #[serde(default)]
     pub matrix: Vec<IntentMatrixEntry>,
+}
+
+fn default_score_quantization_bps() -> u16 {
+    1
+}
+
+fn default_tie_region_eps_bps() -> u16 {
+    25
+}
+
+fn default_ambiguity_margin_bps() -> u16 {
+    50
 }
 
 impl Default for IntentRoutingPolicy {
@@ -166,6 +187,9 @@ impl Default for IntentRoutingPolicy {
             matrix_version: "intent-matrix-v2".to_string(),
             confidence: IntentConfidenceBandPolicy::default(),
             ambiguity: IntentAmbiguityPolicy::default(),
+            score_quantization_bps: default_score_quantization_bps(),
+            tie_region_eps_bps: default_tie_region_eps_bps(),
+            ambiguity_margin_bps: default_ambiguity_margin_bps(),
             matrix: vec![
                 IntentMatrixEntry {
                     intent_id: "conversation.reply".to_string(),

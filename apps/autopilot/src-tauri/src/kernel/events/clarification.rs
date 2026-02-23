@@ -62,9 +62,20 @@ fn build_clarification_request(
             };
             (question, launch_hint)
         }
+        ClarificationPreset::IntentClarification => (
+            "I need a quick clarification before continuing. What exact outcome do you want?"
+                .to_string(),
+            None,
+        ),
+    };
+    let kind = match preset {
+        ClarificationPreset::IdentityLookup
+        | ClarificationPreset::InstallLookup
+        | ClarificationPreset::LaunchLookup => "identity_resolution",
+        ClarificationPreset::IntentClarification => "intent_resolution",
     };
     ClarificationRequest {
-        kind: "identity_resolution".to_string(),
+        kind: kind.to_string(),
         question,
         tool_name: tool_name.to_string(),
         failure_class: Some("UserInterventionNeeded".to_string()),
@@ -86,6 +97,9 @@ fn clarification_option_ids_for_preset(preset: ClarificationPreset) -> [&'static
         ClarificationPreset::LaunchLookup => {
             ["discover_candidates", "provide_desktop_id", "provide_exact"]
         }
+        ClarificationPreset::IntentClarification => {
+            ["clarify_outcome", "add_constraints", "cancel_request"]
+        }
     }
 }
 
@@ -105,6 +119,11 @@ fn clarification_option_semantics_for_preset(preset: ClarificationPreset) -> [&'
             "Discover executable/desktop-entry candidates and retry once.",
             "If no install is present, request installation or provide a desktop entry identifier.",
             "Use an exact executable name or absolute path for one retry.",
+        ],
+        ClarificationPreset::IntentClarification => [
+            "Provide the exact desired outcome in one sentence and continue.",
+            "Add constraints or success criteria before retrying the plan.",
+            "Stop and return without retrying this request.",
         ],
     }
 }

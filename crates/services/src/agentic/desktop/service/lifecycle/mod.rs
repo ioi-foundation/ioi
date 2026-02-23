@@ -9,3 +9,4 @@ mod sudo;
 pub use compaction::perform_cognitive_compaction;
 pub use delegation::spawn_delegated_child_session;
 pub use handlers::{handle_delete_session, handle_post_message, handle_resume, handle_start};
+pub(crate) use runtime_locality::maybe_seed_runtime_locality_context;

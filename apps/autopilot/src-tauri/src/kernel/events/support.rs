@@ -7,8 +7,11 @@ pub(super) const CLARIFICATION_WAIT_STEP: &str = "Waiting for clarification on t
 pub(super) const LEGACY_CLARIFICATION_WAIT_STEP: &str =
     "Waiting for user clarification on app/package name.";
 pub(super) const LEGACY_INSTALL_CLARIFICATION_STEP: &str = "Waiting for install clarification";
+pub(super) const INTENT_CLARIFICATION_WAIT_STEP: &str = "Waiting for intent clarification.";
 pub(super) const WAIT_FOR_CLARIFICATION_PROMPT: &str =
     "System: WAIT_FOR_CLARIFICATION. Target identity could not be resolved. Provide clarification input to continue.";
+pub(super) const WAIT_FOR_INTENT_CLARIFICATION_PROMPT: &str =
+    "System: WAIT_FOR_INTENT_CLARIFICATION. Intent confidence is too low to proceed safely. Please clarify the requested outcome.";
 
 pub(super) fn now_iso() -> String {
     chrono::Utc::now().to_rfc3339()
@@ -153,6 +156,7 @@ pub(super) enum ClarificationPreset {
     IdentityLookup,
     InstallLookup,
     LaunchLookup,
+    IntentClarification,
 }
 
 pub(super) fn clarification_preset_for_tool(tool_name: &str) -> Option<ClarificationPreset> {
@@ -176,6 +180,12 @@ pub(super) fn detect_clarification_preset(
     if is_launch_app_lookup_failure(tool_name, output) {
         return Some(ClarificationPreset::LaunchLookup);
     }
+    if is_locality_scope_clarification(output) {
+        return Some(ClarificationPreset::IntentClarification);
+    }
+    if is_intent_clarification_pause(output) {
+        return Some(ClarificationPreset::IntentClarification);
+    }
     None
 }
 
@@ -183,12 +193,48 @@ pub(super) fn is_identity_resolution_kind(kind: &str) -> bool {
     kind.eq_ignore_ascii_case("identity_resolution")
         || kind.eq_ignore_ascii_case("tool_lookup")
         || kind.eq_ignore_ascii_case("install_package_lookup")
+        || kind.eq_ignore_ascii_case("intent_resolution")
+        || kind.eq_ignore_ascii_case("locality_resolution")
 }
 
 pub(super) fn is_waiting_for_identity_clarification_step(step: &str) -> bool {
     step.eq_ignore_ascii_case(CLARIFICATION_WAIT_STEP)
         || step.eq_ignore_ascii_case(LEGACY_CLARIFICATION_WAIT_STEP)
         || step.eq_ignore_ascii_case(LEGACY_INSTALL_CLARIFICATION_STEP)
+        || step.eq_ignore_ascii_case(INTENT_CLARIFICATION_WAIT_STEP)
+        || step.eq_ignore_ascii_case("Waiting for intent clarification")
+}
+
+pub(super) fn clarification_wait_step_for_preset(preset: ClarificationPreset) -> &'static str {
+    match preset {
+        ClarificationPreset::IdentityLookup
+        | ClarificationPreset::InstallLookup
+        | ClarificationPreset::LaunchLookup => CLARIFICATION_WAIT_STEP,
+        ClarificationPreset::IntentClarification => INTENT_CLARIFICATION_WAIT_STEP,
+    }
+}
+
+pub(super) fn clarification_prompt_for_preset(preset: ClarificationPreset) -> &'static str {
+    match preset {
+        ClarificationPreset::IdentityLookup
+        | ClarificationPreset::InstallLookup
+        | ClarificationPreset::LaunchLookup => WAIT_FOR_CLARIFICATION_PROMPT,
+        ClarificationPreset::IntentClarification => WAIT_FOR_INTENT_CLARIFICATION_PROMPT,
+    }
+}
+
+fn is_intent_clarification_pause(output: &str) -> bool {
+    let text = output.to_ascii_lowercase();
+    text.contains("wait_for_intent_clarification")
+        || text.contains("waiting for intent clarification")
+        || (text.contains("wait_for_clarification") && text.contains("intent"))
+}
+
+fn is_locality_scope_clarification(output: &str) -> bool {
+    let text = output.to_ascii_lowercase();
+    text.contains("wait_for_locality_scope")
+        || text.contains("waiting for locality clarification")
+        || (text.contains("locality") && text.contains("city/region"))
 }
 
 pub(super) fn is_waiting_prompt_active(task: &AgentTask) -> bool {
@@ -256,5 +302,28 @@ pub(super) fn extract_launch_target_hint(output: &str) -> Option<String> {
         None
     } else {
         Some(cleaned.to_string())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{detect_clarification_preset, ClarificationPreset};
+
+    #[test]
+    fn detects_intent_clarification_marker() {
+        let output = "System: WAIT_FOR_INTENT_CLARIFICATION. Intent confidence is too low.";
+        assert!(matches!(
+            detect_clarification_preset("system::intent_clarification", output),
+            Some(ClarificationPreset::IntentClarification)
+        ));
+    }
+
+    #[test]
+    fn detects_locality_clarification_marker() {
+        let output = "System: WAIT_FOR_LOCALITY_SCOPE. Provide city/region or ZIP.";
+        assert!(matches!(
+            detect_clarification_preset("system::locality_clarification", output),
+            Some(ClarificationPreset::IntentClarification)
+        ));
     }
 }

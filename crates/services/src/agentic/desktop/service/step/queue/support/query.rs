@@ -200,6 +200,13 @@ pub(crate) fn query_metric_axes_with_hints(
             }
             let combined = format!("{} {}", title, hint.excerpt);
             let schema = analyze_metric_schema(&combined);
+            let likely_current_observation_surface = schema.has_current_observation_payload()
+                || (schema.observation_hits > schema.horizon_hits
+                    && schema.range_hits == 0
+                    && !schema.axis_hits.is_empty());
+            if !likely_current_observation_surface {
+                continue;
+            }
             for axis in schema.axis_hits {
                 *inferred_counts.entry(axis).or_insert(0) += 1;
             }

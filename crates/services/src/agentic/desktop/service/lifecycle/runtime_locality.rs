@@ -192,7 +192,7 @@ fn cached_device_locality_scope() -> Option<String> {
         .clone()
 }
 
-pub(super) async fn maybe_seed_runtime_locality_context(goal: &str) {
+pub(crate) async fn maybe_seed_runtime_locality_context(goal: &str) {
     if cfg!(test) {
         return;
     }

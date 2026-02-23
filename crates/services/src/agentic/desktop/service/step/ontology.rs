@@ -280,10 +280,11 @@ pub fn classify_intent_from_resolved(
             IntentScopeProfile::UiInteraction => IntentClass::UIInteraction,
             IntentScopeProfile::CommandExecution => IntentClass::CommandTask,
             IntentScopeProfile::Delegation => IntentClass::DelegationTask,
-            IntentScopeProfile::Unknown => classify_intent(goal, root_tool_name, target_hint),
+            IntentScopeProfile::Unknown => IntentClass::Unknown,
         };
     }
-    classify_intent(goal, root_tool_name, target_hint)
+    let _ = (goal, root_tool_name, target_hint);
+    IntentClass::Unknown
 }
 
 pub fn default_strategy_for(

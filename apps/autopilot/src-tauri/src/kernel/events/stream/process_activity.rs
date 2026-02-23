@@ -1,8 +1,9 @@
 use crate::kernel::events::clarification::build_clarification_request_with_inference;
 use crate::kernel::events::emission::{emit_command_stream, register_event};
 use crate::kernel::events::support::{
+    clarification_prompt_for_preset, clarification_wait_step_for_preset,
     detect_clarification_preset, is_sudo_password_required_install, thread_id_from_session,
-    ClarificationPreset, CLARIFICATION_WAIT_STEP, WAIT_FOR_CLARIFICATION_PROMPT,
+    ClarificationPreset,
 };
 use crate::kernel::state::update_task_state;
 use crate::models::CredentialRequest;
@@ -51,13 +52,17 @@ pub(super) async fn handle_workload_activity(app: &tauri::AppHandle, activity: W
                 None
             };
             let stream_clarification_required = stream_clarification_preset.is_some();
+            let effective_stream_clarification_preset =
+                stream_clarification_preset.unwrap_or(ClarificationPreset::IdentityLookup);
+            let stream_clarification_wait_step =
+                clarification_wait_step_for_preset(effective_stream_clarification_preset);
+            let stream_clarification_prompt =
+                clarification_prompt_for_preset(effective_stream_clarification_preset);
             let stream_clarification_request = if stream_clarification_required {
-                let preset =
-                    stream_clarification_preset.unwrap_or(ClarificationPreset::IdentityLookup);
                 Some(
                     build_clarification_request_with_inference(
                         &app,
-                        preset,
+                        effective_stream_clarification_preset,
                         &tool_name,
                         &stdio.chunk,
                     )
@@ -123,7 +128,7 @@ pub(super) async fn handle_workload_activity(app: &tauri::AppHandle, activity: W
             } else if stream_clarification_required {
                 update_task_state(app, |t| {
                     t.phase = crate::models::AgentPhase::Complete;
-                    t.current_step = CLARIFICATION_WAIT_STEP.to_string();
+                    t.current_step = stream_clarification_wait_step.to_string();
                     t.gate_info = None;
                     t.pending_request_hash = None;
                     t.credential_request = None;
@@ -140,7 +145,7 @@ pub(super) async fn handle_workload_activity(app: &tauri::AppHandle, activity: W
                         }
                     }
 
-                    let prompt_msg = WAIT_FOR_CLARIFICATION_PROMPT.to_string();
+                    let prompt_msg = stream_clarification_prompt.to_string();
                     if t.history
                         .last()
                         .map(|m| m.text != prompt_msg)

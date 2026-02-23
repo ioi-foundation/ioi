@@ -314,8 +314,21 @@ pub fn analyze_metric_schema(text: &str) -> MetricSchemaProfile {
     let horizon_hits = marker_hits(&normalized_lower, &METRIC_HORIZON_MARKERS);
     let range_hits = marker_hits(&normalized_lower, &METRIC_RANGE_MARKERS);
 
+    let mut detected_axes = axis_hits(&normalized_lower);
+    let has_temperature_unit_signal = raw_lower.contains('°')
+        || tokens
+            .iter()
+            .any(|token| matches!(token.as_str(), "f" | "c" | "fahrenheit" | "celsius"));
+    if !detected_axes.contains(&MetricAxis::Temperature)
+        && numeric_token_hits > 0
+        && unit_hits > 0
+        && has_temperature_unit_signal
+    {
+        detected_axes.insert(MetricAxis::Temperature);
+    }
+
     MetricSchemaProfile {
-        axis_hits: axis_hits(&normalized_lower),
+        axis_hits: detected_axes,
         numeric_token_hits,
         unit_hits,
         currency_hits,

@@ -94,16 +94,17 @@ pub(crate) fn has_quantitative_metric_payload(
     if schema.numeric_token_hits == 0 {
         return false;
     }
-    if require_current_observation && schema.axis_hits.is_empty() {
-        return false;
-    }
     let has_explicit_measurement = has_numeric_measurement_signal(text);
     if has_explicit_measurement {
         if require_current_observation {
             return schema.has_current_observation_payload()
-                || (schema.observation_hits > 0 && schema.unit_hits > 0);
+                || (schema.observation_hits > 0 && schema.unit_hits > 0)
+                || (schema.axis_hits.is_empty() && has_temperature_observation_signal(text));
         }
         return true;
+    }
+    if require_current_observation && schema.axis_hits.is_empty() {
+        return has_temperature_observation_signal(text);
     }
     if schema.axis_hits.is_empty() {
         return false;
@@ -132,8 +133,49 @@ pub(crate) fn has_quantitative_metric_payload(
     has_multi_axis_observed_numeric || has_ranged_observation
 }
 
+fn has_temperature_observation_signal(text: &str) -> bool {
+    let schema = analyze_metric_schema(text);
+    if schema.numeric_token_hits == 0 || schema.unit_hits == 0 {
+        return false;
+    }
+
+    let compact = compact_whitespace(text);
+    if compact.is_empty() {
+        return false;
+    }
+    let has_temperature_unit_signal = compact.contains('\u{00b0}')
+        || compact.split_whitespace().any(|raw_token| {
+            let token = raw_token
+                .trim_matches(|ch: char| ",.;:!?()[]{}'\"".contains(ch))
+                .to_ascii_lowercase();
+            if token.is_empty() {
+                return false;
+            }
+            if matches!(token.as_str(), "fahrenheit" | "celsius" | "f" | "c") {
+                return true;
+            }
+            let has_digit = token.chars().any(|ch| ch.is_ascii_digit());
+            has_digit && (token.ends_with('f') || token.ends_with('c') || token.contains('\u{00b0}'))
+        });
+    if !has_temperature_unit_signal {
+        return false;
+    }
+
+    let horizon_dominates = schema.horizon_hits > schema.observation_hits + schema.timestamp_hits;
+    if horizon_dominates {
+        return false;
+    }
+    if schema.range_hits > 0 && schema.observation_hits == 0 && schema.timestamp_hits == 0 {
+        return false;
+    }
+
+    true
+}
+
 pub(crate) fn contains_current_condition_metric_signal(text: &str) -> bool {
-    if !has_quantitative_metric_payload(text, true) {
+    let current_metric_payload = has_quantitative_metric_payload(text, true);
+    let temperature_observation = has_temperature_observation_signal(text);
+    if !current_metric_payload && !temperature_observation {
         return false;
     }
     let schema = analyze_metric_schema(text);
@@ -150,7 +192,7 @@ pub(crate) fn contains_current_condition_metric_signal(text: &str) -> bool {
                 | MetricAxis::Rate
         )
     });
-    has_observable_axis
+    has_observable_axis || temperature_observation
 }
 
 pub(crate) fn metric_axis_unavailable_label(axis: MetricAxis) -> &'static str {
@@ -258,7 +300,8 @@ pub(crate) fn best_metric_segment(text: &str) -> Option<String> {
 
 pub(crate) fn first_metric_sentence(text: &str) -> Option<String> {
     let compact = compact_whitespace(text);
-    let mut fallback = None;
+    let mut best_metric: Option<(i32, usize, String)> = None;
+    let mut fallback: Option<(usize, String)> = None;
     for sentence in compact
         .split(['.', '!', '?', ';', '\n'])
         .map(str::trim)
@@ -269,13 +312,44 @@ pub(crate) fn first_metric_sentence(text: &str) -> Option<String> {
             continue;
         }
         if has_quantitative_metric_payload(&focused, false) {
-            return Some(focused);
+            let schema = analyze_metric_schema(&focused);
+            let mut score = metric_segment_signal_score(&focused) as i32;
+            if contains_current_condition_metric_signal(&focused) {
+                score += 12;
+            } else if has_temperature_observation_signal(&focused) {
+                score += 8;
+            }
+            if schema.has_current_observation_payload() {
+                score += 6;
+            }
+            if schema.range_hits > 0 && schema.observation_hits == 0 && schema.timestamp_hits == 0 {
+                score -= 6;
+            }
+            let candidate_len = focused.len();
+            match &best_metric {
+                Some((best_score, best_len, _))
+                    if score < *best_score
+                        || (score == *best_score && candidate_len >= *best_len) => {}
+                _ => {
+                    best_metric = Some((score, candidate_len, focused));
+                }
+            }
+            continue;
         }
-        if fallback.is_none() && contains_metric_signal(sentence) {
-            fallback = Some(focused);
+        if contains_metric_signal(sentence) {
+            let candidate_len = focused.len();
+            let replace = fallback
+                .as_ref()
+                .map(|(best_len, _)| candidate_len < *best_len)
+                .unwrap_or(true);
+            if replace {
+                fallback = Some((candidate_len, focused));
+            }
         }
     }
-    fallback
+    best_metric
+        .map(|(_, _, segment)| segment)
+        .or_else(|| fallback.map(|(_, segment)| segment))
 }
 
 pub(crate) fn looks_like_clock_time(token: &str) -> bool {
@@ -572,16 +646,6 @@ pub(crate) fn extract_temperature_phrase(text: &str) -> Option<String> {
     if compact.is_empty() || !has_quantitative_metric_payload(&compact, true) {
         return None;
     }
-    for segment in compact.split([',', ';']).map(str::trim) {
-        if segment.is_empty() {
-            continue;
-        }
-        let schema = analyze_metric_schema(segment);
-        let has_numeric = segment.chars().any(|ch| ch.is_ascii_digit());
-        if has_numeric && schema.axis_hits.contains(&MetricAxis::Temperature) {
-            return Some(compact_whitespace(segment));
-        }
-    }
     for token in compact.split_whitespace() {
         let normalized = token.trim_matches(|ch: char| ",.;:!?()[]{}'\"".contains(ch));
         if normalized.is_empty() || !normalized.chars().any(|ch| ch.is_ascii_digit()) {
@@ -590,6 +654,16 @@ pub(crate) fn extract_temperature_phrase(text: &str) -> Option<String> {
         let lower = normalized.to_ascii_lowercase();
         if normalized.contains('\u{00b0}') || lower.ends_with('f') || lower.ends_with('c') {
             return Some(normalized.to_string());
+        }
+    }
+    for segment in compact.split([',', ';']).map(str::trim) {
+        if segment.is_empty() {
+            continue;
+        }
+        let schema = analyze_metric_schema(segment);
+        let has_numeric = segment.chars().any(|ch| ch.is_ascii_digit());
+        if has_numeric && schema.axis_hits.contains(&MetricAxis::Temperature) {
+            return Some(compact_whitespace(segment));
         }
     }
     None
