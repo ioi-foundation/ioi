@@ -1,4 +1,7 @@
-use super::probe::{is_command_probe_intent, summarize_command_probe_output};
+use super::probe::{
+    is_command_probe_intent, is_system_clock_read_intent, summarize_command_probe_output,
+    summarize_system_clock_output,
+};
 use super::refusal_eval::evaluate_and_crystallize;
 use super::search::{extract_navigation_url, is_search_results_url, search_query_from_url};
 use super::support::{
@@ -482,15 +485,28 @@ pub async fn process_tool_output(
 
                             match &tool {
                                 AgentTool::AgentComplete { result } => {
+                                    let completed_result = if is_system_clock_read_intent(
+                                        agent_state.resolved_intent.as_ref(),
+                                    ) {
+                                        summarize_system_clock_output(result)
+                                            .unwrap_or_else(|| result.clone())
+                                    } else {
+                                        result.clone()
+                                    };
                                     agent_state.status =
-                                        AgentStatus::Completed(Some(result.clone()));
+                                        AgentStatus::Completed(Some(completed_result.clone()));
                                     is_lifecycle_action = true;
-                                    action_output = Some(result.clone());
+                                    action_output = Some(completed_result.clone());
+                                    if !completed_result.trim().is_empty() {
+                                        terminal_chat_reply_output = Some(completed_result.clone());
+                                        verification_checks
+                                            .push("terminal_chat_reply_ready=true".to_string());
+                                    }
                                     evaluate_and_crystallize(
                                         service,
                                         agent_state,
                                         session_id,
-                                        result,
+                                        &completed_result,
                                     )
                                     .await;
                                 }
@@ -562,6 +578,24 @@ pub async fn process_tool_output(
                                                 agent_state.pending_search_completion = None;
                                             }
                                         }
+                                    } else if is_system_clock_read_intent(
+                                        agent_state.resolved_intent.as_ref(),
+                                    ) {
+                                        let summary = history_entry
+                                            .as_deref()
+                                            .and_then(summarize_system_clock_output)
+                                            .unwrap_or_else(|| {
+                                                "Current UTC time: <unavailable>".to_string()
+                                            });
+                                        success = true;
+                                        error_msg = None;
+                                        agent_state.status =
+                                            AgentStatus::Completed(Some(summary.clone()));
+                                        is_lifecycle_action = true;
+                                        action_output = Some(summary.clone());
+                                        terminal_chat_reply_output = Some(summary);
+                                        agent_state.execution_queue.clear();
+                                        agent_state.pending_search_completion = None;
                                     }
                                 }
                                 AgentTool::MemorySearch { query } => {

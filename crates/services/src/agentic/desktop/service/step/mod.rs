@@ -21,7 +21,7 @@ use crate::agentic::desktop::runtime_secret;
 use crate::agentic::desktop::service::actions;
 use crate::agentic::desktop::service::step::anti_loop::choose_routing_tier;
 use crate::agentic::desktop::service::step::helpers::{
-    default_safe_policy, direct_app_launch_target,
+    default_safe_policy, direct_app_launch_target, direct_clock_read_intent,
 };
 use crate::agentic::desktop::types::{AgentState, AgentStatus, StepAgentParams};
 use crate::agentic::rules::ActionRules;
@@ -266,10 +266,9 @@ pub async fn handle_step(
         agent_state.status = AgentStatus::Paused("Waiting for intent clarification".to_string());
         if !was_waiting_intent {
             let msg = ioi_types::app::agentic::ChatMessage {
-                role: "system".to_string(),
-                content:
-                    "System: Intent confidence is low. Please clarify your request before I continue."
-                        .to_string(),
+                role: "assistant".to_string(),
+                content: "I need a quick clarification before continuing. Please tell me exactly what outcome you want."
+                    .to_string(),
                 timestamp: std::time::SystemTime::now()
                     .duration_since(std::time::UNIX_EPOCH)
                     .unwrap()
@@ -407,6 +406,37 @@ pub async fn handle_step(
             fast_path_tool,
             visual_phash,
             "IntentFastPath(AppLaunch)".to_string(),
+            p.session_id,
+            ctx.block_height,
+            ctx.block_timestamp,
+            call_context,
+        )
+        .await;
+    }
+
+    // 4b. Intent Fast Path: deterministic system clock read.
+    if direct_clock_read_intent(&agent_state) {
+        log::info!(
+            "Intent fast path triggered for system clock read (session={}).",
+            hex::encode(&p.session_id[..4]),
+        );
+        let fast_path_tool = serde_json::to_string(&json!({
+            "name": "sys__exec",
+            "arguments": {
+                "command": "date",
+                "args": ["-u", "+%Y-%m-%dT%H:%M:%SZ"],
+                "detach": false
+            }
+        }))
+        .map_err(|e| TransactionError::Serialization(e.to_string()))?;
+        let visual_phash = agent_state.last_screen_phash.unwrap_or([0u8; 32]);
+        return action::process_tool_output(
+            service,
+            state,
+            &mut agent_state,
+            fast_path_tool,
+            visual_phash,
+            "IntentFastPath(SystemClockRead)".to_string(),
             p.session_id,
             ctx.block_height,
             ctx.block_timestamp,

@@ -13,7 +13,8 @@ use crate::agentic::desktop::execution::system::is_sudo_password_required_instal
 use crate::agentic::desktop::keys::{get_state_key, pii, AGENT_POLICY_PREFIX};
 use crate::agentic::desktop::service::step::action::{
     canonical_intent_hash, canonical_retry_intent_hash, canonical_tool_identity,
-    is_command_probe_intent, summarize_command_probe_output,
+    is_command_probe_intent, is_system_clock_read_intent, summarize_command_probe_output,
+    summarize_system_clock_output,
 };
 use crate::agentic::desktop::service::step::anti_loop::{
     build_attempt_key, build_post_state_summary, build_state_summary, classify_failure,
@@ -54,6 +55,31 @@ fn is_web_research_scope(agent_state: &AgentState) -> bool {
         .map(|resolved| resolved.scope == IntentScopeProfile::WebResearch)
         .unwrap_or(false)
         || is_live_external_research_goal(&agent_state.goal)
+}
+
+fn emit_terminal_completion_events(
+    tx: &tokio::sync::broadcast::Sender<KernelEvent>,
+    session_id: [u8; 32],
+    step_index: u32,
+    output: &str,
+    agent_status: String,
+) {
+    let output_text = output.to_string();
+    let status_text = agent_status;
+    let _ = tx.send(KernelEvent::AgentActionResult {
+        session_id,
+        step_index,
+        tool_name: "agent__complete".to_string(),
+        output: output_text.clone(),
+        agent_status: status_text.clone(),
+    });
+    let _ = tx.send(KernelEvent::AgentActionResult {
+        session_id,
+        step_index,
+        tool_name: "chat__reply".to_string(),
+        output: output_text,
+        agent_status: status_text,
+    });
 }
 
 pub async fn resume_pending_action(
@@ -422,22 +448,35 @@ pub async fn resume_pending_action(
                             if let AgentTool::AgentComplete { result } = detected_tool {
                                 log::info!("Reflexive Agent (Resume): Detected completion signal in tool output.");
 
-                                agent_state.status = AgentStatus::Completed(Some(result.clone()));
+                                let completed_result = if is_system_clock_read_intent(
+                                    agent_state.resolved_intent.as_ref(),
+                                ) {
+                                    summarize_system_clock_output(&result)
+                                        .unwrap_or_else(|| result.clone())
+                                } else {
+                                    result.clone()
+                                };
+                                agent_state.status =
+                                    AgentStatus::Completed(Some(completed_result.clone()));
                                 reflexive_completion = true;
 
                                 if let Some(tx) = &service.event_sender {
-                                    let _ = tx.send(KernelEvent::AgentActionResult {
-                                        session_id: session_id,
-                                        step_index: agent_state.step_count,
-                                        tool_name: "agent__complete".to_string(),
-                                        output: result.clone(),
-                                        // [NEW] Authoritative Status
-                                        agent_status: status::status_str(&agent_state.status),
-                                    });
+                                    emit_terminal_completion_events(
+                                        tx,
+                                        session_id,
+                                        agent_state.step_count,
+                                        &completed_result,
+                                        status::status_str(&agent_state.status),
+                                    );
                                 }
 
-                                evaluate_and_crystallize(service, agent_state, session_id, &result)
-                                    .await;
+                                evaluate_and_crystallize(
+                                    service,
+                                    agent_state,
+                                    session_id,
+                                    &completed_result,
+                                )
+                                .await;
                             }
                         }
                     }
@@ -449,18 +488,23 @@ pub async fn resume_pending_action(
     if !reflexive_completion && !awaiting_sudo_password && !awaiting_clarification {
         match &tool {
             AgentTool::AgentComplete { result } => {
-                agent_state.status = AgentStatus::Completed(Some(result.clone()));
-                evaluate_and_crystallize(service, agent_state, session_id, result).await;
+                let completed_result =
+                    if is_system_clock_read_intent(agent_state.resolved_intent.as_ref()) {
+                        summarize_system_clock_output(result).unwrap_or_else(|| result.clone())
+                    } else {
+                        result.clone()
+                    };
+                agent_state.status = AgentStatus::Completed(Some(completed_result.clone()));
+                evaluate_and_crystallize(service, agent_state, session_id, &completed_result).await;
 
                 if let Some(tx) = &service.event_sender {
-                    let _ = tx.send(KernelEvent::AgentActionResult {
-                        session_id: session_id,
-                        step_index: agent_state.step_count,
-                        tool_name: "agent__complete".to_string(),
-                        output: format!("Result: {}\nFitness: {:.2}", result, 0.0),
-                        // [NEW] Authoritative Status
-                        agent_status: status::status_str(&agent_state.status),
-                    });
+                    emit_terminal_completion_events(
+                        tx,
+                        session_id,
+                        agent_state.step_count,
+                        &completed_result,
+                        status::status_str(&agent_state.status),
+                    );
                 }
             }
             AgentTool::ChatReply { message } => {
@@ -499,13 +543,13 @@ pub async fn resume_pending_action(
                     agent_state.status = AgentStatus::Completed(Some(summary.clone()));
                     evaluate_and_crystallize(service, agent_state, session_id, &summary).await;
                     if let Some(tx) = &service.event_sender {
-                        let _ = tx.send(KernelEvent::AgentActionResult {
+                        emit_terminal_completion_events(
+                            tx,
                             session_id,
-                            step_index: agent_state.step_count,
-                            tool_name: "agent__complete".to_string(),
-                            output: summary,
-                            agent_status: status::status_str(&agent_state.status),
-                        });
+                            agent_state.step_count,
+                            &summary,
+                            status::status_str(&agent_state.status),
+                        );
                     }
                 } else {
                     agent_state.status = AgentStatus::Running;
@@ -521,16 +565,35 @@ pub async fn resume_pending_action(
                         agent_state.execution_queue.clear();
                         evaluate_and_crystallize(service, agent_state, session_id, &summary).await;
                         if let Some(tx) = &service.event_sender {
-                            let _ = tx.send(KernelEvent::AgentActionResult {
+                            emit_terminal_completion_events(
+                                tx,
                                 session_id,
-                                step_index: agent_state.step_count,
-                                tool_name: "agent__complete".to_string(),
-                                output: summary,
-                                agent_status: status::status_str(&agent_state.status),
-                            });
+                                agent_state.step_count,
+                                &summary,
+                                status::status_str(&agent_state.status),
+                            );
                         }
                     } else {
                         agent_state.status = AgentStatus::Running;
+                    }
+                } else if success
+                    && is_system_clock_read_intent(agent_state.resolved_intent.as_ref())
+                {
+                    let summary = out
+                        .as_deref()
+                        .and_then(summarize_system_clock_output)
+                        .unwrap_or_else(|| "Current UTC time: <unavailable>".to_string());
+                    agent_state.status = AgentStatus::Completed(Some(summary.clone()));
+                    agent_state.execution_queue.clear();
+                    evaluate_and_crystallize(service, agent_state, session_id, &summary).await;
+                    if let Some(tx) = &service.event_sender {
+                        emit_terminal_completion_events(
+                            tx,
+                            session_id,
+                            agent_state.step_count,
+                            &summary,
+                            status::status_str(&agent_state.status),
+                        );
                     }
                 } else {
                     agent_state.status = AgentStatus::Running;

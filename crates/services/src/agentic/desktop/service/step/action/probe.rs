@@ -1,10 +1,101 @@
 use ioi_types::app::agentic::{AgentTool, ResolvedIntentState};
 use std::path::Path;
 
+const COMMAND_HISTORY_PREFIX: &str = "COMMAND_HISTORY:";
+
 pub fn is_command_probe_intent(resolved_intent: Option<&ResolvedIntentState>) -> bool {
     resolved_intent
         .map(|resolved| resolved.intent_id == "command.probe")
         .unwrap_or(false)
+}
+
+pub fn is_system_clock_read_intent(resolved_intent: Option<&ResolvedIntentState>) -> bool {
+    resolved_intent
+        .map(|resolved| resolved.intent_id == "system.clock.read")
+        .unwrap_or(false)
+}
+
+fn is_utc_iso_timestamp(token: &str) -> bool {
+    let bytes = token.as_bytes();
+    if bytes.len() != 20 {
+        return false;
+    }
+    matches!(
+        (bytes[4], bytes[7], bytes[10], bytes[13], bytes[16], bytes[19]),
+        (b'-', b'-', b'T', b':', b':', b'Z')
+    ) && bytes[0..4].iter().all(|b| b.is_ascii_digit())
+        && bytes[5..7].iter().all(|b| b.is_ascii_digit())
+        && bytes[8..10].iter().all(|b| b.is_ascii_digit())
+        && bytes[11..13].iter().all(|b| b.is_ascii_digit())
+        && bytes[14..16].iter().all(|b| b.is_ascii_digit())
+        && bytes[17..19].iter().all(|b| b.is_ascii_digit())
+}
+
+fn extract_utc_iso_timestamp(text: &str) -> Option<String> {
+    text.split_whitespace().find_map(|token| {
+        let candidate = token.trim_matches(|ch: char| {
+            !(ch.is_ascii_alphanumeric() || matches!(ch, '-' | ':' | 'T' | 'Z'))
+        });
+        if is_utc_iso_timestamp(candidate) {
+            Some(candidate.to_string())
+        } else {
+            None
+        }
+    })
+}
+
+fn extract_command_history_clock_line(output: &str) -> Option<String> {
+    let marker_idx = output.find(COMMAND_HISTORY_PREFIX)?;
+    let suffix = &output[marker_idx + COMMAND_HISTORY_PREFIX.len()..];
+    let (payload, tail) = match suffix.find('\n') {
+        Some(idx) => (&suffix[..idx], &suffix[idx + 1..]),
+        None => (suffix, ""),
+    };
+    let payload = payload.trim();
+
+    if !payload.is_empty() {
+        if let Ok(value) = serde_json::from_str::<serde_json::Value>(payload) {
+            if let Some(stdout) = value.get("stdout").and_then(|v| v.as_str()) {
+                if let Some(line) = stdout.lines().map(str::trim).find(|line| !line.is_empty()) {
+                    return Some(line.to_string());
+                }
+            }
+        }
+    }
+
+    tail.lines()
+        .map(str::trim)
+        .find(|line| {
+            !line.is_empty()
+                && !line.starts_with(COMMAND_HISTORY_PREFIX)
+                && !line.to_ascii_lowercase().starts_with("exit status:")
+        })
+        .map(|line| line.to_string())
+}
+
+pub fn summarize_system_clock_output(output: &str) -> Option<String> {
+    let trimmed = output.trim();
+    if trimmed.is_empty() {
+        return None;
+    }
+
+    if let Some(line) = extract_command_history_clock_line(trimmed) {
+        if let Some(ts) = extract_utc_iso_timestamp(&line) {
+            return Some(format!("Current UTC time: {}", ts));
+        }
+        return Some(format!("Current UTC time: {}", line));
+    }
+
+    if let Some(ts) = extract_utc_iso_timestamp(trimmed) {
+        return Some(format!("Current UTC time: {}", ts));
+    }
+
+    let line = trimmed.lines().map(str::trim).find(|line| {
+        !line.is_empty()
+            && !line.starts_with(COMMAND_HISTORY_PREFIX)
+            && !line.to_ascii_lowercase().starts_with("exit status:")
+    })?;
+    Some(format!("Current UTC time: {}", line))
 }
 
 fn cleaned_probe_token(token: &str) -> String {
@@ -203,7 +294,10 @@ pub fn summarize_command_probe_output(tool: &AgentTool, output: &str) -> Option<
 
 #[cfg(test)]
 mod tests {
-    use super::{is_command_probe_intent, summarize_command_probe_output};
+    use super::{
+        is_command_probe_intent, is_system_clock_read_intent, summarize_command_probe_output,
+        summarize_system_clock_output,
+    };
     use ioi_types::app::agentic::{IntentConfidenceBand, IntentScopeProfile, ResolvedIntentState};
 
     #[test]
@@ -225,6 +319,48 @@ mod tests {
         other.intent_id = "command.exec".to_string();
         assert!(!is_command_probe_intent(Some(&other)));
         assert!(!is_command_probe_intent(None));
+    }
+
+    #[test]
+    fn detects_system_clock_read_intent() {
+        let resolved = ResolvedIntentState {
+            intent_id: "system.clock.read".to_string(),
+            scope: IntentScopeProfile::CommandExecution,
+            band: IntentConfidenceBand::High,
+            score: 0.9,
+            top_k: vec![],
+            preferred_tier: "tool_first".to_string(),
+            matrix_version: "v2".to_string(),
+            matrix_source_hash: [0u8; 32],
+            receipt_hash: [0u8; 32],
+            constrained: false,
+        };
+        assert!(is_system_clock_read_intent(Some(&resolved)));
+    }
+
+    #[test]
+    fn summarizes_system_clock_output() {
+        let summary = summarize_system_clock_output("2026-02-23T01:23:45Z\n")
+            .expect("should produce summary");
+        assert!(summary.contains("Current UTC time: 2026-02-23T01:23:45Z"));
+    }
+
+    #[test]
+    fn summarizes_system_clock_output_from_command_history_prefix() {
+        let summary = summarize_system_clock_output(
+            "COMMAND_HISTORY:{\"command\":\"date -u +%Y-%m-%dT%H:%M:%SZ\",\"exit_code\":0,\"stdout\":\"2026-02-23T13:36:27Z\",\"stderr\":\"\",\"timestamp_ms\":1771853787127,\"step_index\":0}\n2026-02-23T13:36:27Z\n",
+        )
+        .expect("should produce summary");
+        assert_eq!(summary, "Current UTC time: 2026-02-23T13:36:27Z");
+    }
+
+    #[test]
+    fn summarizes_system_clock_output_from_embedded_command_history_timestamp() {
+        let summary = summarize_system_clock_output(
+            "Current UTC time: COMMAND_HISTORY:{\"stdout\":\"2026-02-23T13:36:27Z\"}",
+        )
+        .expect("should produce summary");
+        assert_eq!(summary, "Current UTC time: 2026-02-23T13:36:27Z");
     }
 
     #[test]

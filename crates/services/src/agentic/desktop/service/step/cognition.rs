@@ -434,7 +434,8 @@ OPERATING RULES:
      - Treat `NOT_FOUND_IN_PATH` as a valid final answer (not an error or failure mode).
      - After the probe, summarize `FOUND:`/`NOT_FOUND_IN_PATH` and finish with `agent__complete` (do not attempt remediation).
      - Do NOT install packages unless the user explicitly asked to install.
-     - Example (replace <BIN>): `if command -v <BIN> >/dev/null 2>&1; then echo \"FOUND: $(command -v <BIN>)\"; <BIN> --version 2>/dev/null || true; else echo \"NOT_FOUND_IN_PATH\"; fi`.",
+     - Example (replace <BIN>): `if command -v <BIN> >/dev/null 2>&1; then echo \"FOUND: $(command -v <BIN>)\"; <BIN> --version 2>/dev/null || true; else echo \"NOT_FOUND_IN_PATH\"; fi`.
+  18. CLOCK READ RULE: If resolved intent_id is `system.clock.read`, run exactly one command to read UTC clock time (`date -u +%Y-%m-%dT%H:%M:%SZ`) via `sys__exec`, then finish with `agent__complete`. Do not use `chat__reply` as the first action.",
         perception.active_window_title,
         agent_state.goal,
         resolved_intent_summary,

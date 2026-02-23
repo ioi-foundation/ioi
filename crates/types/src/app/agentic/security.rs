@@ -130,10 +130,12 @@ pub struct IntentMatrixEntry {
     pub scope: IntentScopeProfile,
     /// Preferred execution tier label (`tool_first`, `ax_first`, `visual_last`).
     pub preferred_tier: String,
-    /// Slang/non-normal aliases used for lexical projection and observability.
+    /// Optional alias metadata for observability and analytics only.
+    /// Routing must not depend on this field.
     #[serde(default)]
     pub aliases: Vec<String>,
-    /// Canonical exemplars used for semantic embedding/ranking.
+    /// Optional exemplar metadata for observability and analytics only.
+    /// Routing must not depend on this field.
     #[serde(default)]
     pub exemplars: Vec<String>,
 }
@@ -250,6 +252,18 @@ impl Default for IntentRoutingPolicy {
                         "verify tool availability".to_string(),
                         "check a tool version".to_string(),
                         "is this command available".to_string(),
+                    ],
+                },
+                IntentMatrixEntry {
+                    intent_id: "system.clock.read".to_string(),
+                    scope: IntentScopeProfile::CommandExecution,
+                    preferred_tier: "tool_first".to_string(),
+                    aliases: vec![],
+                    exemplars: vec![
+                        "read the current system time".to_string(),
+                        "read current utc time from this machine".to_string(),
+                        "what time is it on this computer".to_string(),
+                        "get local clock time from terminal".to_string(),
                     ],
                 },
                 IntentMatrixEntry {

@@ -5,19 +5,19 @@ use async_trait::async_trait;
 use ioi_api::vm::inference::InferenceRuntime;
 use ioi_crypto::algorithms::hash::sha256;
 use ioi_types::app::agentic::{
-    InferenceOptions, IntentAmbiguityAction, IntentCandidateScore, IntentConfidenceBand,
-    IntentMatrixEntry, IntentRoutingPolicy, IntentScopeProfile, ResolvedIntentState,
+    IntentAmbiguityAction, IntentCandidateScore, IntentConfidenceBand, IntentMatrixEntry,
+    IntentRoutingPolicy, IntentScopeProfile, ResolvedIntentState,
 };
 use ioi_types::app::{IntentResolutionReceiptEvent, KernelEvent};
 use ioi_types::error::{TransactionError, VmError};
-use serde::Deserialize;
 use serde_json::json;
+use std::cmp::Ordering;
 use std::collections::BTreeMap;
-use std::sync::Arc;
+use std::sync::{Arc, OnceLock, RwLock};
 use tokio::time::{timeout, Duration};
 
 const INTENT_EMBED_RANK_TIMEOUT: Duration = Duration::from_secs(5);
-const INTENT_AIRLOCK_RANK_TIMEOUT: Duration = Duration::from_secs(8);
+const INTENT_PROTOTYPE_BUILD_TIMEOUT: Duration = Duration::from_secs(30);
 
 fn fallback_tier_for_scope(scope: IntentScopeProfile) -> &'static str {
     match scope {
@@ -140,11 +140,170 @@ fn emit_intent_resolution_receipt(
     }
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+struct IntentPrototypeCacheKey {
+    matrix_version: String,
+    matrix_source_hash: [u8; 32],
+}
+
+#[derive(Debug, Clone)]
+struct IntentPrototype {
+    intent_id: String,
+    vector: Vec<f32>,
+}
+
+static INTENT_PROTOTYPE_CACHE: OnceLock<
+    RwLock<BTreeMap<IntentPrototypeCacheKey, Vec<IntentPrototype>>>,
+> = OnceLock::new();
+
+fn intent_prototype_cache(
+) -> &'static RwLock<BTreeMap<IntentPrototypeCacheKey, Vec<IntentPrototype>>> {
+    INTENT_PROTOTYPE_CACHE.get_or_init(|| RwLock::new(BTreeMap::new()))
+}
+
+fn sort_scores_desc(scores: &mut [IntentCandidateScore]) {
+    scores.sort_by(|a, b| {
+        b.score
+            .partial_cmp(&a.score)
+            .unwrap_or(Ordering::Equal)
+            .then_with(|| a.intent_id.cmp(&b.intent_id))
+    });
+}
+
+fn all_candidate_scores_zero(scores: &[IntentCandidateScore]) -> bool {
+    !scores.is_empty()
+        && scores
+            .iter()
+            .all(|candidate| candidate.score <= f32::EPSILON)
+}
+
+fn zero_ranked_candidates(matrix: &[IntentMatrixEntry]) -> Vec<IntentCandidateScore> {
+    matrix
+        .iter()
+        .map(|entry| IntentCandidateScore {
+            intent_id: entry.intent_id.clone(),
+            score: 0.0,
+        })
+        .collect()
+}
+
+fn normalize_identifier_tokens(raw: &str) -> String {
+    raw.chars()
+        .map(|ch| {
+            if ch.is_ascii_alphanumeric() {
+                ch.to_ascii_lowercase()
+            } else {
+                ' '
+            }
+        })
+        .collect::<String>()
+        .split_whitespace()
+        .collect::<Vec<_>>()
+        .join(" ")
+}
+
+fn scope_semantic_descriptor(scope: IntentScopeProfile) -> &'static str {
+    match scope {
+        IntentScopeProfile::Conversation => "conversation response without external side effects",
+        IntentScopeProfile::WebResearch => "external web research and online information retrieval",
+        IntentScopeProfile::WorkspaceOps => "local workspace and repository file operations",
+        IntentScopeProfile::AppLaunch => "application launch and startup",
+        IntentScopeProfile::UiInteraction => "interactive user interface actions and navigation",
+        IntentScopeProfile::CommandExecution => "local terminal and command execution",
+        IntentScopeProfile::Delegation => "multi agent delegation and orchestration",
+        IntentScopeProfile::Unknown => "unknown intent scope",
+    }
+}
+
+fn canonical_descriptor_for_entry(entry: &IntentMatrixEntry) -> String {
+    let intent = normalize_identifier_tokens(&entry.intent_id);
+    let tier = normalize_identifier_tokens(&entry.preferred_tier);
+    let scope = scope_semantic_descriptor(entry.scope);
+    format!("intent {} scope {} preferred tier {}", intent, scope, tier)
+}
+
+async fn build_intent_prototypes(
+    runtime: &Arc<dyn InferenceRuntime>,
+    matrix: &[IntentMatrixEntry],
+) -> Result<Vec<IntentPrototype>, TransactionError> {
+    let mut prototypes = Vec::with_capacity(matrix.len());
+    for entry in matrix {
+        let descriptor = canonical_descriptor_for_entry(entry);
+        match runtime.embed_text(&descriptor).await {
+            Ok(vector) if !vector.is_empty() => {
+                prototypes.push(IntentPrototype {
+                    intent_id: entry.intent_id.clone(),
+                    vector,
+                });
+            }
+            Ok(_) => {}
+            Err(e) => {
+                log::warn!(
+                    "IntentResolver prototype embedding failed intent={} descriptor={} error={}",
+                    entry.intent_id,
+                    descriptor,
+                    e
+                );
+            }
+        }
+    }
+
+    if prototypes.len() != matrix.len() {
+        let mapped = prototypes
+            .iter()
+            .map(|prototype| prototype.intent_id.as_str())
+            .collect::<std::collections::BTreeSet<_>>();
+        let missing = matrix
+            .iter()
+            .filter_map(|entry| {
+                (!mapped.contains(entry.intent_id.as_str())).then_some(entry.intent_id.clone())
+            })
+            .collect::<Vec<_>>();
+        return Err(TransactionError::Invalid(format!(
+            "Intent prototype cache incomplete: missing [{}]",
+            missing.join(", ")
+        )));
+    }
+
+    Ok(prototypes)
+}
+
+async fn ensure_intent_prototypes(
+    runtime: &Arc<dyn InferenceRuntime>,
+    matrix_version: &str,
+    matrix_source_hash: [u8; 32],
+    matrix: &[IntentMatrixEntry],
+) -> Result<(), TransactionError> {
+    if matrix.is_empty() {
+        return Ok(());
+    }
+
+    let key = IntentPrototypeCacheKey {
+        matrix_version: matrix_version.to_string(),
+        matrix_source_hash,
+    };
+
+    if let Ok(cache) = intent_prototype_cache().read() {
+        if cache.contains_key(&key) {
+            return Ok(());
+        }
+    }
+
+    let prototypes = build_intent_prototypes(runtime, matrix).await?;
+    let mut cache = intent_prototype_cache()
+        .write()
+        .map_err(|_| TransactionError::Invalid("Intent prototype cache poisoned".to_string()))?;
+    cache.insert(key, prototypes);
+    Ok(())
+}
+
 #[async_trait]
 pub trait IntentRankBackend: Send + Sync {
     async fn embed_or_rank(
         &self,
         query: &str,
+        matrix_version: &str,
+        matrix_source_hash: [u8; 32],
         matrix: &[IntentMatrixEntry],
     ) -> Result<Vec<IntentCandidateScore>, TransactionError>;
 }
@@ -167,31 +326,28 @@ fn cosine_similarity(a: &[f32], b: &[f32]) -> Option<f32> {
     Some((dot / (na.sqrt() * nb.sqrt())).clamp(-1.0, 1.0))
 }
 
-fn matrix_prompt(query: &str, matrix: &[IntentMatrixEntry]) -> String {
-    let candidates = matrix
+fn score_query_against_prototypes(
+    query_embedding: &[f32],
+    matrix: &[IntentMatrixEntry],
+    prototypes: &[IntentPrototype],
+) -> Vec<IntentCandidateScore> {
+    let mut by_intent = BTreeMap::<&str, f32>::new();
+    for prototype in prototypes {
+        if let Some(cos) = cosine_similarity(query_embedding, &prototype.vector) {
+            let normalized = ((cos + 1.0) * 0.5).clamp(0.0, 1.0);
+            by_intent.insert(prototype.intent_id.as_str(), normalized);
+        }
+    }
+
+    let mut scored = matrix
         .iter()
-        .map(|entry| {
-            json!({
-                "intent_id": entry.intent_id,
-                "scope": entry.scope,
-                "aliases": entry.aliases,
-                "exemplars": entry.exemplars,
-            })
+        .map(|entry| IntentCandidateScore {
+            intent_id: entry.intent_id.clone(),
+            score: *by_intent.get(entry.intent_id.as_str()).unwrap_or(&0.0),
         })
         .collect::<Vec<_>>();
-    format!(
-        "Classify user intent ontologically.\n\
-         Input: {}\n\
-         Return strict JSON: {{\"scores\":[{{\"intent_id\":\"...\",\"score\":0.0}}]}} where score is 0..1 and includes every candidate.\n\
-         Candidates: {}",
-        query,
-        serde_json::to_string(&candidates).unwrap_or_else(|_| "[]".to_string())
-    )
-}
-
-#[derive(Debug, Deserialize)]
-struct RankedScoresResponse {
-    scores: Vec<IntentCandidateScore>,
+    sort_scores_desc(&mut scored);
+    scored
 }
 
 fn vm_error_to_tx(err: VmError) -> TransactionError {
@@ -203,123 +359,38 @@ impl IntentRankBackend for Arc<dyn InferenceRuntime> {
     async fn embed_or_rank(
         &self,
         query: &str,
+        matrix_version: &str,
+        matrix_source_hash: [u8; 32],
         matrix: &[IntentMatrixEntry],
     ) -> Result<Vec<IntentCandidateScore>, TransactionError> {
         if matrix.is_empty() {
             return Ok(vec![]);
         }
 
-        let query_embedding = match self.embed_text(query).await {
-            Ok(v) => v,
-            // Callers can fall back to an airlocked inference-based ranker.
-            Err(_) => return Ok(vec![]),
+        let key = IntentPrototypeCacheKey {
+            matrix_version: matrix_version.to_string(),
+            matrix_source_hash,
+        };
+        let prototypes = {
+            let cache = intent_prototype_cache().read().map_err(|_| {
+                TransactionError::Invalid("Intent prototype cache poisoned".to_string())
+            })?;
+            cache.get(&key).cloned().ok_or_else(|| {
+                TransactionError::Invalid(format!(
+                    "Intent prototype cache miss matrix_version={} matrix_source_hash={}",
+                    matrix_version,
+                    hex::encode(matrix_source_hash)
+                ))
+            })?
         };
 
-        let mut scored = Vec::with_capacity(matrix.len());
-        for entry in matrix {
-            let mut best = -1.0f32;
-            let mut exemplars = entry.exemplars.clone();
-            exemplars.push(entry.intent_id.clone());
-            exemplars.extend(entry.aliases.clone());
-            for sample in exemplars {
-                let emb = self
-                    .embed_text(&sample)
-                    .await
-                    .map_err(vm_error_to_tx)
-                    .unwrap_or_default();
-                if let Some(cos) = cosine_similarity(&query_embedding, &emb) {
-                    let normalized = ((cos + 1.0) * 0.5).clamp(0.0, 1.0);
-                    if normalized > best {
-                        best = normalized;
-                    }
-                }
-            }
-            scored.push(IntentCandidateScore {
-                intent_id: entry.intent_id.clone(),
-                score: best.max(0.0),
-            });
-        }
-        scored.sort_by(|a, b| {
-            b.score
-                .partial_cmp(&a.score)
-                .unwrap_or(std::cmp::Ordering::Equal)
-        });
-        Ok(scored)
+        let query_embedding = self.embed_text(query).await.map_err(vm_error_to_tx)?;
+        Ok(score_query_against_prototypes(
+            &query_embedding,
+            matrix,
+            &prototypes,
+        ))
     }
-}
-
-async fn rank_with_airlocked_inference(
-    service: &DesktopAgentService,
-    session_id: Option<[u8; 32]>,
-    runtime: &Arc<dyn InferenceRuntime>,
-    query: &str,
-    matrix: &[IntentMatrixEntry],
-) -> Vec<IntentCandidateScore> {
-    if matrix.is_empty() {
-        return vec![];
-    }
-
-    let prompt = matrix_prompt(query, matrix);
-    let options = InferenceOptions {
-        temperature: 0.0,
-        json_mode: true,
-        ..Default::default()
-    };
-    let model_hash = [0u8; 32];
-
-    let airlocked = match service
-        .prepare_cloud_inference_input(
-            session_id,
-            "desktop_agent",
-            &format!("model_hash:{}", hex::encode(model_hash)),
-            prompt.as_bytes(),
-        )
-        .await
-    {
-        Ok(v) => v,
-        Err(e) => {
-            log::warn!("Intent rank fallback airlock rejected payload: {}", e);
-            return vec![];
-        }
-    };
-
-    let ranked = runtime
-        .execute_inference(model_hash, &airlocked, options)
-        .await
-        .map_err(vm_error_to_tx)
-        .and_then(|bytes| {
-            let raw = String::from_utf8_lossy(&bytes).to_string();
-            let parsed: RankedScoresResponse = serde_json::from_str(&raw).map_err(|e| {
-                TransactionError::Invalid(format!(
-                    "Intent rank fallback parse failed: {} | raw={}",
-                    e, raw
-                ))
-            })?;
-            Ok(parsed.scores)
-        })
-        .unwrap_or_default();
-
-    if ranked.is_empty() {
-        return vec![];
-    }
-
-    let mut by_id = BTreeMap::<String, f32>::new();
-    for score in ranked {
-        by_id.insert(score.intent_id, score.score.clamp(0.0, 1.0));
-    }
-    let mut out = matrix
-        .iter()
-        .map(|entry| IntentCandidateScore {
-            intent_id: entry.intent_id.clone(),
-            score: *by_id.get(&entry.intent_id).unwrap_or(&0.0),
-        })
-        .collect::<Vec<_>>();
-    out.sort_by(|a, b| {
-        b.score
-            .partial_cmp(&a.score)
-            .unwrap_or(std::cmp::Ordering::Equal)
-    });
-    out
 }
 
 fn scope_for_intent(matrix: &[IntentMatrixEntry], intent_id: &str) -> IntentScopeProfile {
@@ -353,57 +424,228 @@ pub fn preferred_tier(resolved: &ResolvedIntentState) -> ExecutionTier {
     preferred_tier_from_label(&resolved.preferred_tier, resolved.scope)
 }
 
-fn tool_allowed_for_scope(scope: IntentScopeProfile, tool_name: &str) -> bool {
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum ToolCapability {
+    AgentLifecycle,
+    AppLaunch,
+    BrowserInteract,
+    ClipboardRead,
+    ClipboardWrite,
+    CommandExec,
+    ConversationReply,
+    Delegation,
+    FilesystemRead,
+    FilesystemWrite,
+    MailConnector,
+    Memory,
+    NetworkFetch,
+    SystemFailure,
+    UiInteract,
+    WebRetrieve,
+}
+
+const CONVERSATION_ALLOWED_CAPABILITIES: &[ToolCapability] = &[
+    ToolCapability::AgentLifecycle,
+    ToolCapability::ConversationReply,
+    ToolCapability::MailConnector,
+    ToolCapability::Memory,
+    ToolCapability::SystemFailure,
+];
+
+const WEB_RESEARCH_ALLOWED_CAPABILITIES: &[ToolCapability] = &[
+    ToolCapability::AgentLifecycle,
+    ToolCapability::BrowserInteract,
+    ToolCapability::ConversationReply,
+    ToolCapability::MailConnector,
+    ToolCapability::Memory,
+    ToolCapability::NetworkFetch,
+    ToolCapability::SystemFailure,
+    ToolCapability::WebRetrieve,
+];
+
+const WORKSPACE_ALLOWED_CAPABILITIES: &[ToolCapability] = &[
+    ToolCapability::AgentLifecycle,
+    ToolCapability::ClipboardRead,
+    ToolCapability::ClipboardWrite,
+    ToolCapability::ConversationReply,
+    ToolCapability::FilesystemRead,
+    ToolCapability::FilesystemWrite,
+    ToolCapability::MailConnector,
+    ToolCapability::Memory,
+    ToolCapability::SystemFailure,
+];
+
+const APP_LAUNCH_ALLOWED_CAPABILITIES: &[ToolCapability] = &[
+    ToolCapability::AgentLifecycle,
+    ToolCapability::AppLaunch,
+    ToolCapability::ClipboardRead,
+    ToolCapability::ClipboardWrite,
+    ToolCapability::ConversationReply,
+    ToolCapability::MailConnector,
+    ToolCapability::Memory,
+    ToolCapability::SystemFailure,
+    ToolCapability::UiInteract,
+];
+
+const UI_INTERACTION_ALLOWED_CAPABILITIES: &[ToolCapability] = &[
+    ToolCapability::AgentLifecycle,
+    ToolCapability::AppLaunch,
+    ToolCapability::BrowserInteract,
+    ToolCapability::ClipboardRead,
+    ToolCapability::ClipboardWrite,
+    ToolCapability::ConversationReply,
+    ToolCapability::MailConnector,
+    ToolCapability::Memory,
+    ToolCapability::SystemFailure,
+    ToolCapability::UiInteract,
+];
+
+const COMMAND_EXECUTION_ALLOWED_CAPABILITIES: &[ToolCapability] = &[
+    ToolCapability::AgentLifecycle,
+    ToolCapability::ClipboardRead,
+    ToolCapability::ClipboardWrite,
+    ToolCapability::CommandExec,
+    ToolCapability::ConversationReply,
+    ToolCapability::FilesystemRead,
+    ToolCapability::FilesystemWrite,
+    ToolCapability::MailConnector,
+    ToolCapability::Memory,
+    ToolCapability::NetworkFetch,
+    ToolCapability::SystemFailure,
+];
+
+const DELEGATION_ALLOWED_CAPABILITIES: &[ToolCapability] = &[
+    ToolCapability::AgentLifecycle,
+    ToolCapability::ConversationReply,
+    ToolCapability::Delegation,
+    ToolCapability::MailConnector,
+    ToolCapability::Memory,
+    ToolCapability::SystemFailure,
+];
+
+const UNKNOWN_ALLOWED_CAPABILITIES: &[ToolCapability] = &[
+    ToolCapability::AgentLifecycle,
+    ToolCapability::ConversationReply,
+    ToolCapability::MailConnector,
+    ToolCapability::Memory,
+    ToolCapability::SystemFailure,
+];
+
+fn allowed_capabilities_for_scope(scope: IntentScopeProfile) -> &'static [ToolCapability] {
+    match scope {
+        IntentScopeProfile::Conversation => CONVERSATION_ALLOWED_CAPABILITIES,
+        IntentScopeProfile::WebResearch => WEB_RESEARCH_ALLOWED_CAPABILITIES,
+        IntentScopeProfile::WorkspaceOps => WORKSPACE_ALLOWED_CAPABILITIES,
+        IntentScopeProfile::AppLaunch => APP_LAUNCH_ALLOWED_CAPABILITIES,
+        IntentScopeProfile::UiInteraction => UI_INTERACTION_ALLOWED_CAPABILITIES,
+        IntentScopeProfile::CommandExecution => COMMAND_EXECUTION_ALLOWED_CAPABILITIES,
+        IntentScopeProfile::Delegation => DELEGATION_ALLOWED_CAPABILITIES,
+        IntentScopeProfile::Unknown => UNKNOWN_ALLOWED_CAPABILITIES,
+    }
+}
+
+fn is_mail_connector_tool(tool_name: &str) -> bool {
+    tool_name.starts_with("wallet_network__mail_")
+        || tool_name.starts_with("wallet_mail_")
+        || tool_name.starts_with("mail__")
+}
+
+fn tool_capabilities(tool_name: &str) -> Vec<ToolCapability> {
+    let normalized = tool_name.trim().to_ascii_lowercase();
+    if normalized.is_empty() {
+        return vec![];
+    }
+
     if matches!(
-        tool_name,
+        normalized.as_str(),
         "agent__complete" | "agent__pause" | "agent__await_result" | "agent__await"
     ) {
-        return true;
+        return vec![ToolCapability::AgentLifecycle];
     }
-    if tool_name.starts_with("memory__") {
-        return true;
+    if normalized == "chat__reply" {
+        return vec![ToolCapability::ConversationReply];
     }
-    let is_mail_connector = tool_name.starts_with("wallet_network__mail_")
-        || tool_name.starts_with("wallet_mail_")
-        || tool_name.starts_with("mail__");
-    if is_mail_connector {
-        return true;
+    if normalized == "system__fail" {
+        return vec![ToolCapability::SystemFailure];
     }
-    let is_browser = tool_name.starts_with("browser__");
-    let is_web_retrieval = tool_name.starts_with("web__");
-    let is_net = tool_name.starts_with("net__");
-    let is_filesystem = tool_name.starts_with("filesystem__");
-    let is_clipboard = tool_name == "os__copy" || tool_name == "os__paste";
-    let is_shell = tool_name == "sys__exec"
-        || tool_name == "sys__exec_session"
-        || tool_name == "sys__exec_session_reset"
-        || tool_name == "sys__install_package"
-        || tool_name == "sys__change_directory";
-    let is_ui = tool_name.starts_with("gui__")
-        || tool_name == "computer"
-        || tool_name == "ui__find"
-        || tool_name == "os__focus_window";
-    let is_launch = tool_name == "os__launch_app";
-    let is_chat = tool_name == "chat__reply";
-    let is_delegate = tool_name.starts_with("agent__delegate");
-    let is_system = tool_name == "system__fail";
+    if normalized.starts_with("memory__") {
+        return vec![ToolCapability::Memory];
+    }
+    if normalized.starts_with("agent__delegate") {
+        return vec![ToolCapability::Delegation];
+    }
+    if is_mail_connector_tool(&normalized) {
+        return vec![ToolCapability::MailConnector];
+    }
 
-    match scope {
-        IntentScopeProfile::Conversation => is_chat || is_system,
-        IntentScopeProfile::WebResearch => {
-            is_browser || is_web_retrieval || is_net || is_chat || is_system
-        }
-        IntentScopeProfile::WorkspaceOps => is_filesystem || is_clipboard || is_chat || is_system,
-        IntentScopeProfile::AppLaunch => is_launch || is_ui || is_clipboard || is_chat || is_system,
-        IntentScopeProfile::UiInteraction => {
-            is_ui || is_clipboard || is_browser || is_chat || is_system || is_launch
-        }
-        IntentScopeProfile::CommandExecution => {
-            is_shell || is_filesystem || is_clipboard || is_net || is_chat || is_system
-        }
-        IntentScopeProfile::Delegation => is_delegate || is_chat || is_system,
-        IntentScopeProfile::Unknown => is_chat || is_system,
+    if normalized == "computer" {
+        return vec![ToolCapability::UiInteract];
     }
+
+    if normalized == "os__launch_app" {
+        return vec![ToolCapability::AppLaunch];
+    }
+    if normalized == "os__focus_window" {
+        return vec![ToolCapability::UiInteract];
+    }
+    if normalized == "os__copy" {
+        return vec![ToolCapability::ClipboardWrite];
+    }
+    if normalized == "os__paste" {
+        return vec![ToolCapability::ClipboardRead];
+    }
+
+    if normalized == "sys__install_package" {
+        return vec![ToolCapability::CommandExec];
+    }
+    if matches!(
+        normalized.as_str(),
+        "sys__exec" | "sys__exec_session" | "sys__exec_session_reset" | "sys__change_directory"
+    ) {
+        return vec![ToolCapability::CommandExec];
+    }
+
+    if let Some((namespace, operation)) = normalized.split_once("__") {
+        return match namespace {
+            "browser" => vec![ToolCapability::BrowserInteract],
+            "web" => vec![ToolCapability::WebRetrieve],
+            "net" => vec![ToolCapability::NetworkFetch],
+            "filesystem" | "fs" => {
+                vec![
+                    ToolCapability::FilesystemRead,
+                    ToolCapability::FilesystemWrite,
+                ]
+            }
+            "gui" | "ui" => vec![ToolCapability::UiInteract],
+            "os" => {
+                if operation.contains("copy") {
+                    vec![ToolCapability::ClipboardWrite]
+                } else if operation.contains("paste") {
+                    vec![ToolCapability::ClipboardRead]
+                } else if operation.contains("launch") {
+                    vec![ToolCapability::AppLaunch]
+                } else {
+                    vec![ToolCapability::UiInteract]
+                }
+            }
+            "sys" => vec![ToolCapability::CommandExec],
+            _ => vec![],
+        };
+    }
+
+    vec![]
+}
+
+fn tool_allowed_for_scope(scope: IntentScopeProfile, tool_name: &str) -> bool {
+    let capabilities = tool_capabilities(tool_name);
+    if capabilities.is_empty() {
+        return false;
+    }
+
+    let allowed = allowed_capabilities_for_scope(scope);
+    capabilities
+        .iter()
+        .any(|capability| allowed.contains(capability))
 }
 
 pub fn is_tool_allowed_for_resolution(
@@ -457,8 +699,7 @@ pub async fn resolve_step_intent(
     } else {
         latest_user_message
     };
-    let live_research_profile = super::signals::analyze_goal_signals(&query);
-    let force_live_external_research = live_research_profile.prefers_live_external_research();
+    let goal_signals = super::signals::analyze_goal_signals(&query);
     let session_prefix = hex::encode(&agent_state.session_id[..4]);
     let query_hash = sha256(query.as_bytes())
         .map(|digest| hex::encode(digest.as_ref()))
@@ -498,7 +739,7 @@ pub async fn resolve_step_intent(
         .and_then(|target| target.app_hint.as_deref())
         .map(str::trim)
         .filter(|hint| !hint.is_empty());
-    if target_app_hint.is_some() && super::signals::analyze_goal_signals(&query).launch_hits > 0 {
+    if target_app_hint.is_some() && goal_signals.launch_hits > 0 {
         if let Some(app_entry) = matrix
             .iter()
             .find(|entry| entry.scope == IntentScopeProfile::AppLaunch)
@@ -536,125 +777,114 @@ pub async fn resolve_step_intent(
     }
 
     let runtime = service.reasoning_inference.clone();
-    let mut top_k = match timeout(
-        INTENT_EMBED_RANK_TIMEOUT,
-        runtime.embed_or_rank(&query, &matrix),
+    let prototypes_ready = match timeout(
+        INTENT_PROTOTYPE_BUILD_TIMEOUT,
+        ensure_intent_prototypes(&runtime, &policy.matrix_version, matrix_hash, &matrix),
     )
     .await
     {
-        Ok(Ok(scores)) => scores,
+        Ok(Ok(())) => true,
         Ok(Err(e)) => {
             log::warn!(
-                "IntentResolver embedding rank failed session={} error={}",
+                "IntentResolver prototype build failed session={} error={}",
                 session_prefix,
                 e
             );
-            vec![]
+            false
         }
         Err(_) => {
             log::warn!(
-                "IntentResolver embedding rank timed out session={} timeout_ms={}",
+                "IntentResolver prototype build timed out session={} timeout_ms={}",
                 session_prefix,
-                INTENT_EMBED_RANK_TIMEOUT.as_millis()
+                INTENT_PROTOTYPE_BUILD_TIMEOUT.as_millis()
             );
-            vec![]
+            false
         }
     };
-    if top_k.is_empty() {
-        // If embeddings are unavailable (or produced no signal), fall back to an
-        // inference-based ranker, but run it through the Desktop Agent's cloud airlock.
-        top_k = match timeout(
-            INTENT_AIRLOCK_RANK_TIMEOUT,
-            rank_with_airlocked_inference(
-                service,
-                Some(agent_state.session_id),
-                &runtime,
-                &query,
-                &matrix,
-            ),
+
+    let mut top_k = if prototypes_ready {
+        match timeout(
+            INTENT_EMBED_RANK_TIMEOUT,
+            runtime.embed_or_rank(&query, &policy.matrix_version, matrix_hash, &matrix),
         )
         .await
         {
-            Ok(scores) => scores,
-            Err(_) => {
+            Ok(Ok(scores)) => scores,
+            Ok(Err(e)) => {
                 log::warn!(
-                    "IntentResolver airlocked rank timed out session={} timeout_ms={}",
+                    "IntentResolver embedding rank failed session={} error={}",
                     session_prefix,
-                    INTENT_AIRLOCK_RANK_TIMEOUT.as_millis()
+                    e
                 );
                 vec![]
             }
-        };
-    }
+            Err(_) => {
+                log::warn!(
+                    "IntentResolver embedding rank timed out session={} timeout_ms={}",
+                    session_prefix,
+                    INTENT_EMBED_RANK_TIMEOUT.as_millis()
+                );
+                vec![]
+            }
+        }
+    } else {
+        vec![]
+    };
     if top_k.is_empty() {
-        top_k.push(IntentCandidateScore {
-            intent_id: "unknown".to_string(),
-            score: 0.0,
-        });
+        top_k = zero_ranked_candidates(&matrix);
     }
-    top_k.sort_by(|a, b| {
-        b.score
-            .partial_cmp(&a.score)
-            .unwrap_or(std::cmp::Ordering::Equal)
-    });
+    sort_scores_desc(&mut top_k);
     let mut routed_top_k = top_k.into_iter().take(5).collect::<Vec<_>>();
-    let mut winner = routed_top_k
-        .first()
-        .cloned()
-        .unwrap_or(IntentCandidateScore {
-            intent_id: "unknown".to_string(),
+    let unclassified = all_candidate_scores_zero(&routed_top_k);
+    let mut winner = if unclassified {
+        IntentCandidateScore {
+            intent_id: "resolver.unclassified".to_string(),
             score: 0.0,
-        });
-    if force_live_external_research {
+        }
+    } else {
+        routed_top_k
+            .first()
+            .cloned()
+            .unwrap_or(IntentCandidateScore {
+                intent_id: "resolver.unclassified".to_string(),
+                score: 0.0,
+            })
+    };
+    let requires_runtime_locality_scope =
+        super::queue::query_requires_runtime_locality_scope(&query);
+    if requires_runtime_locality_scope {
         if let Some(web_entry) = matrix
             .iter()
             .find(|entry| entry.scope == IntentScopeProfile::WebResearch)
         {
-            if winner.intent_id != web_entry.intent_id {
+            let medium_floor =
+                (policy.confidence.medium_threshold_bps as f32 / 10_000.0).clamp(0.0, 1.0);
+            let web_candidate_score = routed_top_k
+                .iter()
+                .find(|candidate| candidate.intent_id == web_entry.intent_id)
+                .map(|candidate| candidate.score)
+                .unwrap_or_default()
+                .clamp(0.0, 1.0);
+            let should_override_to_web =
+                winner.intent_id != web_entry.intent_id || winner.score < medium_floor;
+            if should_override_to_web {
                 let previous_intent_id = winner.intent_id.clone();
-                let medium_floor =
-                    (policy.confidence.medium_threshold_bps as f32 / 10_000.0).clamp(0.0, 1.0);
-                let web_ranked_score = routed_top_k
-                    .iter()
-                    .find(|candidate| candidate.intent_id == web_entry.intent_id)
-                    .map(|candidate| candidate.score)
-                    .unwrap_or_default()
-                    .clamp(0.0, 1.0);
-                let has_rank_support = web_ranked_score >= medium_floor;
-                let has_strong_research_signals = (live_research_profile.recency_hits > 0
-                    && live_research_profile.provenance_hits > 0)
-                    || (live_research_profile.recency_hits > 0
-                        && live_research_profile.public_fact_hits > 0);
-                if !has_rank_support && !has_strong_research_signals {
-                    log::info!(
-                        "IntentResolverOverrideSkipped session={} reason=insufficient_rank_support signal_version={} winner={} web_candidate_score={:.3}",
-                        session_prefix,
-                        super::helpers::LIVE_EXTERNAL_RESEARCH_SIGNAL_VERSION,
-                        winner.intent_id,
-                        web_ranked_score
-                    );
-                } else {
-                    let web_score = if web_ranked_score > 0.0 {
-                        web_ranked_score
-                    } else {
-                        winner.score.max(medium_floor).clamp(0.0, 1.0)
-                    };
-                    winner = IntentCandidateScore {
-                        intent_id: web_entry.intent_id.clone(),
-                        score: web_score,
-                    };
-                    routed_top_k.retain(|candidate| candidate.intent_id != web_entry.intent_id);
-                    routed_top_k.insert(0, winner.clone());
-                    routed_top_k.truncate(5);
-                    log::info!(
-                        "IntentResolverOverride session={} reason=live_external_research signal_version={} from_intent={} to_intent={} score={:.3}",
-                        session_prefix,
-                        super::helpers::LIVE_EXTERNAL_RESEARCH_SIGNAL_VERSION,
-                        previous_intent_id,
-                        winner.intent_id,
-                        winner.score
-                    );
-                }
+                let previous_score = winner.score;
+                winner = IntentCandidateScore {
+                    intent_id: web_entry.intent_id.clone(),
+                    score: web_candidate_score.max(medium_floor),
+                };
+                routed_top_k.retain(|candidate| candidate.intent_id != web_entry.intent_id);
+                routed_top_k.insert(0, winner.clone());
+                routed_top_k.truncate(5);
+                log::info!(
+                    "IntentResolverOverride session={} reason=runtime_locality_public_fact from_intent={} to_intent={} previous_score={:.3} new_score={:.3}",
+                    session_prefix,
+                    previous_intent_id,
+                    winner.intent_id,
+                    previous_score,
+                    winner.score
+                );
             }
         }
     }
@@ -689,7 +919,10 @@ pub async fn resolve_step_intent(
 
 #[cfg(test)]
 mod tests {
-    use super::{is_tool_allowed_for_resolution, resolve_band, resolve_step_intent};
+    use super::{
+        is_tool_allowed_for_resolution, resolve_band, resolve_step_intent,
+        should_pause_for_clarification,
+    };
     use crate::agentic::desktop::service::DesktopAgentService;
     use crate::agentic::desktop::types::{AgentMode, AgentState, AgentStatus, ExecutionTier};
     use crate::agentic::rules::ActionRules;
@@ -700,7 +933,7 @@ mod tests {
     use ioi_drivers::terminal::TerminalDriver;
     use ioi_types::app::agentic::{
         InferenceOptions, IntentAmbiguityAction, IntentConfidenceBand, IntentConfidenceBandPolicy,
-        IntentRoutingPolicy, IntentScopeProfile, ResolvedIntentState,
+        IntentMatrixEntry, IntentRoutingPolicy, IntentScopeProfile, ResolvedIntentState,
     };
     use ioi_types::app::{ActionRequest, ContextSlice};
     use ioi_types::error::VmError;
@@ -748,38 +981,159 @@ mod tests {
     }
 
     #[derive(Debug, Default, Clone)]
-    struct DriftedIntentRuntime;
+    struct ClockIntentRuntime;
 
     #[async_trait]
-    impl InferenceRuntime for DriftedIntentRuntime {
+    impl InferenceRuntime for ClockIntentRuntime {
         async fn execute_inference(
             &self,
             _model_hash: [u8; 32],
             _input_context: &[u8],
             _options: InferenceOptions,
         ) -> Result<Vec<u8>, VmError> {
-            Ok(br#"{"scores":[]}"#.to_vec())
+            Ok(Vec::new())
         }
 
         async fn embed_text(&self, text: &str) -> Result<Vec<f32>, VmError> {
             let text_lc = text.to_ascii_lowercase();
-            if text_lc.contains("workspace")
-                || text_lc.contains("repo")
-                || text_lc.contains("codebase")
-                || text_lc.contains("incident")
-                || text_lc.contains("status page")
-                || text_lc.contains("citations")
-            {
+            if text_lc.contains("time") || text_lc.contains("clock") {
+                return Ok(vec![1.0, 0.0, 0.0]);
+            }
+            if text_lc.contains("command") || text_lc.contains("terminal") {
+                return Ok(vec![0.0, 1.0, 0.0]);
+            }
+            Ok(vec![0.0, 0.0, 1.0])
+        }
+
+        async fn load_model(&self, _model_hash: [u8; 32], _path: &Path) -> Result<(), VmError> {
+            Ok(())
+        }
+
+        async fn unload_model(&self, _model_hash: [u8; 32]) -> Result<(), VmError> {
+            Ok(())
+        }
+    }
+
+    #[derive(Debug, Default, Clone)]
+    struct NoEmbeddingRuntime;
+
+    #[async_trait]
+    impl InferenceRuntime for NoEmbeddingRuntime {
+        async fn execute_inference(
+            &self,
+            _model_hash: [u8; 32],
+            _input_context: &[u8],
+            _options: InferenceOptions,
+        ) -> Result<Vec<u8>, VmError> {
+            Ok(Vec::new())
+        }
+
+        async fn embed_text(&self, _text: &str) -> Result<Vec<f32>, VmError> {
+            Err(VmError::HostError("embeddings unavailable".to_string()))
+        }
+
+        async fn load_model(&self, _model_hash: [u8; 32], _path: &Path) -> Result<(), VmError> {
+            Ok(())
+        }
+
+        async fn unload_model(&self, _model_hash: [u8; 32]) -> Result<(), VmError> {
+            Ok(())
+        }
+    }
+
+    #[derive(Debug, Default, Clone)]
+    struct WeatherVsClockRuntime;
+
+    #[async_trait]
+    impl InferenceRuntime for WeatherVsClockRuntime {
+        async fn execute_inference(
+            &self,
+            _model_hash: [u8; 32],
+            _input_context: &[u8],
+            _options: InferenceOptions,
+        ) -> Result<Vec<u8>, VmError> {
+            Ok(Vec::new())
+        }
+
+        async fn embed_text(&self, text: &str) -> Result<Vec<f32>, VmError> {
+            let text_lc = text.to_ascii_lowercase();
+            let web_terms = [
+                "web",
+                "research",
+                "online",
+                "internet",
+                "weather",
+                "forecast",
+                "temperature",
+                "humidity",
+                "wind",
+                "status",
+                "stock",
+                "score",
+            ];
+            let clock_terms = ["time", "clock", "utc", "timestamp"];
+
+            let mut web_score = 0.0f32;
+            for term in web_terms {
+                if text_lc.contains(term) {
+                    web_score += 1.0;
+                }
+            }
+
+            let mut clock_score = 0.0f32;
+            for term in clock_terms {
+                if text_lc.contains(term) {
+                    clock_score += 1.0;
+                }
+            }
+
+            if web_score == 0.0 && clock_score == 0.0 {
+                return Ok(vec![0.1, 0.1, 1.0]);
+            }
+
+            Ok(vec![web_score, clock_score, 0.0])
+        }
+
+        async fn load_model(&self, _model_hash: [u8; 32], _path: &Path) -> Result<(), VmError> {
+            Ok(())
+        }
+
+        async fn unload_model(&self, _model_hash: [u8; 32]) -> Result<(), VmError> {
+            Ok(())
+        }
+    }
+
+    #[derive(Debug, Default, Clone)]
+    struct LocalitySkewedRuntime;
+
+    #[async_trait]
+    impl InferenceRuntime for LocalitySkewedRuntime {
+        async fn execute_inference(
+            &self,
+            _model_hash: [u8; 32],
+            _input_context: &[u8],
+            _options: InferenceOptions,
+        ) -> Result<Vec<u8>, VmError> {
+            Ok(Vec::new())
+        }
+
+        async fn embed_text(&self, text: &str) -> Result<Vec<f32>, VmError> {
+            let text_lc = text.to_ascii_lowercase();
+            if text_lc.contains("intent system clock read") {
                 return Ok(vec![1.0, 0.0]);
             }
-            if text_lc.contains("web")
-                || text_lc.contains("lookup")
-                || text_lc.contains("browse")
-                || text_lc.contains("search")
-            {
+            if text_lc.contains("intent web research") {
                 return Ok(vec![0.0, 1.0]);
             }
-            Ok(vec![0.7, 0.3])
+            if text_lc.contains("weather") {
+                // Deliberately skew weather queries toward the clock vector so
+                // runtime-locality fallback behavior is exercised.
+                return Ok(vec![0.95, 0.05]);
+            }
+            if text_lc.contains("time") || text_lc.contains("clock") {
+                return Ok(vec![1.0, 0.0]);
+            }
+            Ok(vec![0.1, 0.1])
         }
 
         async fn load_model(&self, _model_hash: [u8; 32], _path: &Path) -> Result<(), VmError> {
@@ -978,47 +1332,160 @@ mod tests {
     }
 
     #[tokio::test(flavor = "current_thread")]
-    async fn resolver_forces_web_research_for_live_external_incident_queries() {
+    async fn resolver_routes_clock_queries_to_system_clock_read() {
         let gui: Arc<dyn GuiDriver> = Arc::new(NoopGuiDriver);
         let terminal = Arc::new(TerminalDriver::new());
         let browser = Arc::new(BrowserDriver::new());
-        let inference: Arc<dyn InferenceRuntime> = Arc::new(DriftedIntentRuntime);
+        let inference: Arc<dyn InferenceRuntime> = Arc::new(ClockIntentRuntime);
         let service = DesktopAgentService::new(gui, terminal, browser, inference);
 
         let mut agent_state = test_agent_state();
-        agent_state.goal = "As of now (UTC), top 3 active U.S.-impacting cloud/SaaS incidents (major status pages), what changed in last hour, user impact, workaround, ETA confidence, 2 citations each.".to_string();
+        agent_state.goal = "What time is it right now on this machine?".to_string();
 
-        let rules = ActionRules::default();
+        let mut rules = ActionRules::default();
+        rules.ontology_policy.intent_routing.matrix_version = "intent-matrix-v2-clock-test".into();
         let resolved = resolve_step_intent(&service, &agent_state, &rules, "terminal")
             .await
             .unwrap();
-        assert_eq!(resolved.scope, IntentScopeProfile::WebResearch);
-        assert_eq!(resolved.intent_id, "web.research");
+        assert_eq!(resolved.scope, IntentScopeProfile::CommandExecution);
+        assert_eq!(resolved.intent_id, "system.clock.read");
         assert_eq!(
             resolved
                 .top_k
                 .first()
                 .map(|candidate| candidate.intent_id.as_str()),
-            Some("web.research")
+            Some("system.clock.read")
         );
     }
 
     #[tokio::test(flavor = "current_thread")]
-    async fn resolver_forces_web_research_for_time_sensitive_public_fact_queries() {
+    async fn resolver_routes_weather_queries_to_web_research_not_clock_read() {
         let gui: Arc<dyn GuiDriver> = Arc::new(NoopGuiDriver);
         let terminal = Arc::new(TerminalDriver::new());
         let browser = Arc::new(BrowserDriver::new());
-        let inference: Arc<dyn InferenceRuntime> = Arc::new(DriftedIntentRuntime);
+        let inference: Arc<dyn InferenceRuntime> = Arc::new(WeatherVsClockRuntime);
         let service = DesktopAgentService::new(gui, terminal, browser, inference);
 
         let mut agent_state = test_agent_state();
-        agent_state.goal = "What's the weather right now in Anderson, SC?".to_string();
+        agent_state.goal = "What's the weather like right now?".to_string();
 
-        let rules = ActionRules::default();
+        let mut rules = ActionRules::default();
+        rules.ontology_policy.intent_routing.matrix_version =
+            "intent-matrix-v2-weather-test".into();
         let resolved = resolve_step_intent(&service, &agent_state, &rules, "terminal")
             .await
             .unwrap();
-        assert_eq!(resolved.scope, IntentScopeProfile::WebResearch);
+
         assert_eq!(resolved.intent_id, "web.research");
+        assert_eq!(resolved.scope, IntentScopeProfile::WebResearch);
+    }
+
+    #[tokio::test(flavor = "current_thread")]
+    async fn resolver_routing_is_not_driven_by_aliases_or_exemplars() {
+        let gui: Arc<dyn GuiDriver> = Arc::new(NoopGuiDriver);
+        let terminal = Arc::new(TerminalDriver::new());
+        let browser = Arc::new(BrowserDriver::new());
+        let inference: Arc<dyn InferenceRuntime> = Arc::new(ClockIntentRuntime);
+        let service = DesktopAgentService::new(gui, terminal, browser, inference);
+
+        let mut agent_state = test_agent_state();
+        agent_state.goal = "What time is it right now on this machine?".to_string();
+
+        let mut rules = ActionRules::default();
+        rules.ontology_policy.intent_routing.matrix_version =
+            "intent-matrix-v2-metadata-independence-test".into();
+        rules.ontology_policy.intent_routing.matrix = vec![
+            IntentMatrixEntry {
+                intent_id: "web.research".to_string(),
+                scope: IntentScopeProfile::WebResearch,
+                preferred_tier: "tool_first".to_string(),
+                aliases: vec!["clock".to_string(), "time".to_string()],
+                exemplars: vec![
+                    "what time is it on this machine".to_string(),
+                    "read current utc clock timestamp".to_string(),
+                ],
+            },
+            IntentMatrixEntry {
+                intent_id: "system.clock.read".to_string(),
+                scope: IntentScopeProfile::CommandExecution,
+                preferred_tier: "tool_first".to_string(),
+                aliases: vec!["weather".to_string()],
+                exemplars: vec![
+                    "what's the weather like right now".to_string(),
+                    "current temperature humidity and wind".to_string(),
+                ],
+            },
+        ];
+
+        let resolved = resolve_step_intent(&service, &agent_state, &rules, "terminal")
+            .await
+            .unwrap();
+        assert_eq!(resolved.intent_id, "system.clock.read");
+        assert_eq!(resolved.scope, IntentScopeProfile::CommandExecution);
+    }
+
+    #[tokio::test(flavor = "current_thread")]
+    async fn resolver_prefers_web_research_for_runtime_locality_queries() {
+        let gui: Arc<dyn GuiDriver> = Arc::new(NoopGuiDriver);
+        let terminal = Arc::new(TerminalDriver::new());
+        let browser = Arc::new(BrowserDriver::new());
+        let inference: Arc<dyn InferenceRuntime> = Arc::new(LocalitySkewedRuntime);
+        let service = DesktopAgentService::new(gui, terminal, browser, inference);
+
+        let mut agent_state = test_agent_state();
+        agent_state.goal = "What's the weather like right now?".to_string();
+
+        let mut rules = ActionRules::default();
+        rules.ontology_policy.intent_routing.matrix_version =
+            "intent-matrix-v2-runtime-locality-fallback-test".into();
+        let resolved = resolve_step_intent(&service, &agent_state, &rules, "terminal")
+            .await
+            .unwrap();
+        let medium_floor = (rules
+            .ontology_policy
+            .intent_routing
+            .confidence
+            .medium_threshold_bps as f32
+            / 10_000.0)
+            .clamp(0.0, 1.0);
+        assert_eq!(resolved.intent_id, "web.research");
+        assert_eq!(resolved.scope, IntentScopeProfile::WebResearch);
+        assert!(resolved.score >= medium_floor);
+        assert!(!should_pause_for_clarification(
+            &resolved,
+            &rules.ontology_policy.intent_routing
+        ));
+    }
+
+    #[tokio::test(flavor = "current_thread")]
+    async fn resolver_abstains_when_embeddings_fail() {
+        let gui: Arc<dyn GuiDriver> = Arc::new(NoopGuiDriver);
+        let terminal = Arc::new(TerminalDriver::new());
+        let browser = Arc::new(BrowserDriver::new());
+        let inference: Arc<dyn InferenceRuntime> = Arc::new(NoEmbeddingRuntime);
+        let service = DesktopAgentService::new(gui, terminal, browser, inference);
+
+        let mut agent_state = test_agent_state();
+        agent_state.goal = "What time is it right now?".to_string();
+
+        let mut rules = ActionRules::default();
+        rules.ontology_policy.intent_routing.matrix_version =
+            "intent-matrix-v2-no-embed-test".into();
+        let resolved = resolve_step_intent(&service, &agent_state, &rules, "terminal")
+            .await
+            .unwrap();
+        assert_eq!(resolved.intent_id, "resolver.unclassified");
+        assert_eq!(resolved.scope, IntentScopeProfile::Unknown);
+        assert_eq!(resolved.score, 0.0);
+        assert_eq!(resolved.band, IntentConfidenceBand::Low);
+        assert!(!resolved.top_k.is_empty());
+        assert!(resolved
+            .top_k
+            .iter()
+            .all(|candidate| candidate.score <= f32::EPSILON));
+        assert!(should_pause_for_clarification(
+            &resolved,
+            &rules.ontology_policy.intent_routing
+        ));
     }
 }

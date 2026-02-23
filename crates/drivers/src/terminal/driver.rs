@@ -22,7 +22,9 @@ async fn join_stream_task_with_drain_timeout(
     command: &str,
 ) -> Result<Vec<u8>> {
     match time::timeout(POST_EXIT_STREAM_DRAIN_TIMEOUT, &mut task).await {
-        Ok(join_result) => join_result.map_err(|e| anyhow!("{} reader join failed: {}", channel, e))?,
+        Ok(join_result) => {
+            join_result.map_err(|e| anyhow!("{} reader join failed: {}", channel, e))?
+        }
         Err(_) => {
             task.abort();
             log::warn!(
