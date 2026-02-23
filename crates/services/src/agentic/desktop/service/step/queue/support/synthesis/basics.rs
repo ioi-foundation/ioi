@@ -155,7 +155,8 @@ fn has_temperature_observation_signal(text: &str) -> bool {
                 return true;
             }
             let has_digit = token.chars().any(|ch| ch.is_ascii_digit());
-            has_digit && (token.ends_with('f') || token.ends_with('c') || token.contains('\u{00b0}'))
+            has_digit
+                && (token.ends_with('f') || token.ends_with('c') || token.contains('\u{00b0}'))
         });
     if !has_temperature_unit_signal {
         return false;

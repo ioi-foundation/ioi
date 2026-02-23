@@ -1,24 +1,28 @@
 use crate::agentic::desktop::service::DesktopAgentService;
 use crate::agentic::desktop::types::{AgentState, ExecutionTier};
-use crate::agentic::rules::ActionRules;
+use crate::agentic::rules::{ActionRules, Verdict};
 use async_trait::async_trait;
 use ioi_api::vm::inference::InferenceRuntime;
 use ioi_crypto::algorithms::hash::sha256;
 use ioi_types::app::agentic::{
-    IntentAmbiguityAction, IntentCandidateScore, IntentConfidenceBand, IntentMatrixEntry,
-    IntentRoutingPolicy, IntentScopeProfile, ResolvedIntentState,
+    CapabilityId, IntentAmbiguityAction, IntentCandidateScore, IntentConfidenceBand,
+    IntentMatrixEntry, IntentRoutingPolicy, IntentScopeProfile, ResolvedIntentState,
+    ToolCapabilityBinding,
 };
-use ioi_types::app::{IntentResolutionReceiptEvent, KernelEvent};
+use ioi_types::app::{ActionTarget, IntentResolutionReceiptEvent, KernelEvent};
 use ioi_types::error::{TransactionError, VmError};
 use serde_json::json;
 use std::cmp::Ordering;
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::sync::{Arc, OnceLock, RwLock};
 use tokio::time::{timeout, Duration};
 
 const INTENT_EMBED_RANK_TIMEOUT: Duration = Duration::from_secs(5);
 const INTENT_PROTOTYPE_BUILD_TIMEOUT: Duration = Duration::from_secs(30);
 const INTENT_QUERY_NORMALIZATION_VERSION: &str = "intent_query_norm_v1";
+const INTENT_EMBEDDING_MODEL_ID: &str = "inference.embed_text";
+const INTENT_EMBEDDING_MODEL_VERSION: &str = "v1";
+const INTENT_SIMILARITY_FUNCTION_ID: &str = "cosine_similarity_v1";
 
 fn preferred_tier_from_label(label: &str, scope: IntentScopeProfile) -> ExecutionTier {
     match label {
@@ -105,9 +109,35 @@ fn effective_matrix(
                 intent_id, entry.preferred_tier
             )));
         }
+        let semantic_descriptor = entry.semantic_descriptor.trim();
+        if semantic_descriptor.is_empty() {
+            return Err(TransactionError::Invalid(format!(
+                "Intent '{}' has empty semantic_descriptor",
+                intent_id
+            )));
+        }
+        let risk_class = entry.risk_class.trim();
+        if risk_class.is_empty() {
+            return Err(TransactionError::Invalid(format!(
+                "Intent '{}' has empty risk_class",
+                intent_id
+            )));
+        }
         let mut normalized = entry.clone();
         normalized.intent_id = intent_id.to_string();
+        normalized.semantic_descriptor = semantic_descriptor.to_string();
+        normalized.risk_class = risk_class.to_string();
         normalized.preferred_tier = preferred_tier.to_string();
+        normalized.required_capabilities = normalized
+            .required_capabilities
+            .iter()
+            .filter_map(|capability| {
+                let value = capability.0.trim();
+                (!value.is_empty()).then_some(CapabilityId::from(value))
+            })
+            .collect::<BTreeSet<_>>()
+            .into_iter()
+            .collect::<Vec<_>>();
         if merged
             .insert(normalized.intent_id.clone(), normalized)
             .is_some()
@@ -140,6 +170,53 @@ fn matrix_source_hash(
     Ok(out)
 }
 
+fn hash_payload(payload: &serde_json::Value) -> Result<[u8; 32], TransactionError> {
+    let canonical =
+        serde_jcs::to_vec(payload).map_err(|e| TransactionError::Serialization(e.to_string()))?;
+    let digest = sha256(&canonical).map_err(|e| TransactionError::Invalid(e.to_string()))?;
+    let mut out = [0u8; 32];
+    out.copy_from_slice(digest.as_ref());
+    Ok(out)
+}
+
+fn intent_set_hash(matrix: &[IntentMatrixEntry]) -> Result<[u8; 32], TransactionError> {
+    let payload = json!({
+        "intents": matrix.iter().map(|entry| json!({
+            "intent_id": entry.intent_id,
+            "semantic_descriptor": entry.semantic_descriptor,
+            "required_capabilities": entry.required_capabilities,
+            "risk_class": entry.risk_class,
+        })).collect::<Vec<_>>(),
+    });
+    hash_payload(&payload)
+}
+
+fn tool_registry_hash(bindings: &[ToolCapabilityBinding]) -> Result<[u8; 32], TransactionError> {
+    let payload = json!({
+        "bindings": bindings.iter().map(|binding| json!({
+            "tool_name": binding.tool_name,
+            "action_target": binding.action_target.canonical_label(),
+            "capabilities": binding.capabilities,
+        })).collect::<Vec<_>>(),
+    });
+    hash_payload(&payload)
+}
+
+fn capability_ontology_hash(
+    bindings: &[ToolCapabilityBinding],
+) -> Result<[u8; 32], TransactionError> {
+    let mut capability_ids = BTreeSet::<String>::new();
+    for binding in bindings {
+        for capability in &binding.capabilities {
+            capability_ids.insert(capability.0.clone());
+        }
+    }
+    let payload = json!({
+        "capabilities": capability_ids.into_iter().collect::<Vec<_>>(),
+    });
+    hash_payload(&payload)
+}
+
 fn receipt_hash(
     query: &str,
     normalized_query: &str,
@@ -157,7 +234,7 @@ fn receipt_hash(
         "query_hash": hex::encode(query_hash.as_ref()),
         "normalized_query": normalized_query,
         "normalized_query_hash": hex::encode(normalized_query_hash.as_ref()),
-        "query_normalization_version": INTENT_QUERY_NORMALIZATION_VERSION,
+        "query_normalization_version": resolved.query_normalization_version,
         "session_id": session_id.map(hex::encode),
         "active_window_title": active_window_title,
         "intent_id": resolved.intent_id,
@@ -165,8 +242,16 @@ fn receipt_hash(
         "band": resolved.band,
         "score": resolved.score,
         "top_k": resolved.top_k,
+        "required_capabilities": resolved.required_capabilities,
+        "risk_class": resolved.risk_class,
         "preferred_tier": resolved.preferred_tier,
         "matrix_version": resolved.matrix_version,
+        "embedding_model_id": resolved.embedding_model_id,
+        "embedding_model_version": resolved.embedding_model_version,
+        "similarity_function_id": resolved.similarity_function_id,
+        "intent_set_hash": hex::encode(resolved.intent_set_hash),
+        "tool_registry_hash": hex::encode(resolved.tool_registry_hash),
+        "capability_ontology_hash": hex::encode(resolved.capability_ontology_hash),
         "matrix_source_hash": hex::encode(resolved.matrix_source_hash),
         "score_quantization_bps": quantization_step_bps(policy),
         "tie_region_eps_bps": tie_region_eps_bps(policy),
@@ -197,6 +282,13 @@ fn emit_intent_resolution_receipt(
                 top_k: resolved.top_k.clone(),
                 preferred_tier: resolved.preferred_tier.clone(),
                 matrix_version: resolved.matrix_version.clone(),
+                embedding_model_id: resolved.embedding_model_id.clone(),
+                embedding_model_version: resolved.embedding_model_version.clone(),
+                similarity_function_id: resolved.similarity_function_id.clone(),
+                intent_set_hash: resolved.intent_set_hash,
+                tool_registry_hash: resolved.tool_registry_hash,
+                capability_ontology_hash: resolved.capability_ontology_hash,
+                query_normalization_version: resolved.query_normalization_version.clone(),
                 matrix_source_hash: resolved.matrix_source_hash,
                 receipt_hash: resolved.receipt_hash,
                 constrained: resolved.constrained,
@@ -296,7 +388,7 @@ fn scope_feasible_for_query(scope: IntentScopeProfile, locality_scope_required: 
 fn all_candidate_scores_zero(scores: &[IntentCandidateScore]) -> bool {
     !scores.is_empty()
         && scores
-        .iter()
+            .iter()
             .all(|candidate| candidate.score <= f32::EPSILON)
 }
 
@@ -310,39 +402,12 @@ fn zero_ranked_candidates(matrix: &[IntentMatrixEntry]) -> Vec<IntentCandidateSc
         .collect()
 }
 
-fn normalize_identifier_tokens(raw: &str) -> String {
-    raw.chars()
-        .map(|ch| {
-            if ch.is_ascii_alphanumeric() {
-                ch.to_ascii_lowercase()
-            } else {
-                ' '
-            }
-        })
-        .collect::<String>()
+fn canonical_descriptor_for_entry(entry: &IntentMatrixEntry) -> String {
+    entry
+        .semantic_descriptor
         .split_whitespace()
         .collect::<Vec<_>>()
         .join(" ")
-}
-
-fn scope_semantic_descriptor(scope: IntentScopeProfile) -> &'static str {
-    match scope {
-        IntentScopeProfile::Conversation => "conversation response without external side effects",
-        IntentScopeProfile::WebResearch => "external web research and online information retrieval",
-        IntentScopeProfile::WorkspaceOps => "local workspace and repository file operations",
-        IntentScopeProfile::AppLaunch => "application launch and startup",
-        IntentScopeProfile::UiInteraction => "interactive user interface actions and navigation",
-        IntentScopeProfile::CommandExecution => "local terminal and command execution",
-        IntentScopeProfile::Delegation => "multi agent delegation and orchestration",
-        IntentScopeProfile::Unknown => "unknown intent scope",
-    }
-}
-
-fn canonical_descriptor_for_entry(entry: &IntentMatrixEntry) -> String {
-    let intent = normalize_identifier_tokens(&entry.intent_id);
-    let tier = normalize_identifier_tokens(&entry.preferred_tier);
-    let scope = scope_semantic_descriptor(entry.scope);
-    format!("intent {} scope {} preferred tier {}", intent, scope, tier)
 }
 
 async fn build_intent_prototypes(
@@ -558,124 +623,256 @@ pub fn preferred_tier(resolved: &ResolvedIntentState) -> ExecutionTier {
     preferred_tier_from_label(&resolved.preferred_tier, resolved.scope)
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum ToolCapability {
-    AgentLifecycle,
-    AppLaunch,
-    BrowserInteract,
-    ClipboardRead,
-    ClipboardWrite,
-    CommandExec,
-    ConversationReply,
-    Delegation,
-    FilesystemRead,
-    FilesystemWrite,
-    MailConnector,
-    Memory,
-    NetworkFetch,
-    SystemFailure,
-    UiInteract,
-    WebRetrieve,
+fn capability(id: &str) -> CapabilityId {
+    CapabilityId::from(id)
 }
 
-const CONVERSATION_ALLOWED_CAPABILITIES: &[ToolCapability] = &[
-    ToolCapability::AgentLifecycle,
-    ToolCapability::ConversationReply,
-    ToolCapability::MailConnector,
-    ToolCapability::Memory,
-    ToolCapability::SystemFailure,
-];
-
-const WEB_RESEARCH_ALLOWED_CAPABILITIES: &[ToolCapability] = &[
-    ToolCapability::AgentLifecycle,
-    ToolCapability::BrowserInteract,
-    ToolCapability::ConversationReply,
-    ToolCapability::MailConnector,
-    ToolCapability::Memory,
-    ToolCapability::NetworkFetch,
-    ToolCapability::SystemFailure,
-    ToolCapability::WebRetrieve,
-];
-
-const WORKSPACE_ALLOWED_CAPABILITIES: &[ToolCapability] = &[
-    ToolCapability::AgentLifecycle,
-    ToolCapability::ClipboardRead,
-    ToolCapability::ClipboardWrite,
-    ToolCapability::ConversationReply,
-    ToolCapability::FilesystemRead,
-    ToolCapability::FilesystemWrite,
-    ToolCapability::MailConnector,
-    ToolCapability::Memory,
-    ToolCapability::SystemFailure,
-];
-
-const APP_LAUNCH_ALLOWED_CAPABILITIES: &[ToolCapability] = &[
-    ToolCapability::AgentLifecycle,
-    ToolCapability::AppLaunch,
-    ToolCapability::ClipboardRead,
-    ToolCapability::ClipboardWrite,
-    ToolCapability::ConversationReply,
-    ToolCapability::MailConnector,
-    ToolCapability::Memory,
-    ToolCapability::SystemFailure,
-    ToolCapability::UiInteract,
-];
-
-const UI_INTERACTION_ALLOWED_CAPABILITIES: &[ToolCapability] = &[
-    ToolCapability::AgentLifecycle,
-    ToolCapability::AppLaunch,
-    ToolCapability::BrowserInteract,
-    ToolCapability::ClipboardRead,
-    ToolCapability::ClipboardWrite,
-    ToolCapability::ConversationReply,
-    ToolCapability::MailConnector,
-    ToolCapability::Memory,
-    ToolCapability::SystemFailure,
-    ToolCapability::UiInteract,
-];
-
-const COMMAND_EXECUTION_ALLOWED_CAPABILITIES: &[ToolCapability] = &[
-    ToolCapability::AgentLifecycle,
-    ToolCapability::ClipboardRead,
-    ToolCapability::ClipboardWrite,
-    ToolCapability::CommandExec,
-    ToolCapability::ConversationReply,
-    ToolCapability::FilesystemRead,
-    ToolCapability::FilesystemWrite,
-    ToolCapability::MailConnector,
-    ToolCapability::Memory,
-    ToolCapability::NetworkFetch,
-    ToolCapability::SystemFailure,
-];
-
-const DELEGATION_ALLOWED_CAPABILITIES: &[ToolCapability] = &[
-    ToolCapability::AgentLifecycle,
-    ToolCapability::ConversationReply,
-    ToolCapability::Delegation,
-    ToolCapability::MailConnector,
-    ToolCapability::Memory,
-    ToolCapability::SystemFailure,
-];
-
-const UNKNOWN_ALLOWED_CAPABILITIES: &[ToolCapability] = &[
-    ToolCapability::AgentLifecycle,
-    ToolCapability::ConversationReply,
-    ToolCapability::MailConnector,
-    ToolCapability::Memory,
-    ToolCapability::SystemFailure,
-];
-
-fn allowed_capabilities_for_scope(scope: IntentScopeProfile) -> &'static [ToolCapability] {
-    match scope {
-        IntentScopeProfile::Conversation => CONVERSATION_ALLOWED_CAPABILITIES,
-        IntentScopeProfile::WebResearch => WEB_RESEARCH_ALLOWED_CAPABILITIES,
-        IntentScopeProfile::WorkspaceOps => WORKSPACE_ALLOWED_CAPABILITIES,
-        IntentScopeProfile::AppLaunch => APP_LAUNCH_ALLOWED_CAPABILITIES,
-        IntentScopeProfile::UiInteraction => UI_INTERACTION_ALLOWED_CAPABILITIES,
-        IntentScopeProfile::CommandExecution => COMMAND_EXECUTION_ALLOWED_CAPABILITIES,
-        IntentScopeProfile::Delegation => DELEGATION_ALLOWED_CAPABILITIES,
-        IntentScopeProfile::Unknown => UNKNOWN_ALLOWED_CAPABILITIES,
-    }
+fn tool_capability_bindings() -> Vec<ToolCapabilityBinding> {
+    vec![
+        ToolCapabilityBinding {
+            tool_name: "agent__complete".to_string(),
+            action_target: ActionTarget::Custom("agent__complete".to_string()),
+            capabilities: vec![capability("agent.lifecycle")],
+        },
+        ToolCapabilityBinding {
+            tool_name: "agent__pause".to_string(),
+            action_target: ActionTarget::Custom("agent__pause".to_string()),
+            capabilities: vec![capability("agent.lifecycle")],
+        },
+        ToolCapabilityBinding {
+            tool_name: "agent__await_result".to_string(),
+            action_target: ActionTarget::Custom("agent__await_result".to_string()),
+            capabilities: vec![
+                capability("agent.lifecycle"),
+                capability("delegation.manage"),
+            ],
+        },
+        ToolCapabilityBinding {
+            tool_name: "chat__reply".to_string(),
+            action_target: ActionTarget::Custom("chat__reply".to_string()),
+            capabilities: vec![capability("conversation.reply")],
+        },
+        ToolCapabilityBinding {
+            tool_name: "system__fail".to_string(),
+            action_target: ActionTarget::Custom("system__fail".to_string()),
+            capabilities: vec![capability("system.failure")],
+        },
+        ToolCapabilityBinding {
+            tool_name: "memory__search".to_string(),
+            action_target: ActionTarget::Custom("memory::search".to_string()),
+            capabilities: vec![capability("memory.access")],
+        },
+        ToolCapabilityBinding {
+            tool_name: "memory__inspect".to_string(),
+            action_target: ActionTarget::Custom("memory::inspect".to_string()),
+            capabilities: vec![capability("memory.access")],
+        },
+        ToolCapabilityBinding {
+            tool_name: "agent__delegate".to_string(),
+            action_target: ActionTarget::Custom("agent__delegate".to_string()),
+            capabilities: vec![capability("delegation.manage")],
+        },
+        ToolCapabilityBinding {
+            tool_name: "computer".to_string(),
+            action_target: ActionTarget::GuiClick,
+            capabilities: vec![capability("ui.interact")],
+        },
+        ToolCapabilityBinding {
+            tool_name: "gui__click".to_string(),
+            action_target: ActionTarget::GuiClick,
+            capabilities: vec![capability("ui.interact")],
+        },
+        ToolCapabilityBinding {
+            tool_name: "gui__type".to_string(),
+            action_target: ActionTarget::GuiType,
+            capabilities: vec![capability("ui.interact")],
+        },
+        ToolCapabilityBinding {
+            tool_name: "gui__scroll".to_string(),
+            action_target: ActionTarget::GuiScroll,
+            capabilities: vec![capability("ui.interact")],
+        },
+        ToolCapabilityBinding {
+            tool_name: "gui__snapshot".to_string(),
+            action_target: ActionTarget::GuiInspect,
+            capabilities: vec![capability("ui.inspect")],
+        },
+        ToolCapabilityBinding {
+            tool_name: "gui__click_element".to_string(),
+            action_target: ActionTarget::GuiClick,
+            capabilities: vec![capability("ui.interact")],
+        },
+        ToolCapabilityBinding {
+            tool_name: "ui__find".to_string(),
+            action_target: ActionTarget::Custom("ui::find".to_string()),
+            capabilities: vec![capability("ui.inspect")],
+        },
+        ToolCapabilityBinding {
+            tool_name: "os__focus_window".to_string(),
+            action_target: ActionTarget::WindowFocus,
+            capabilities: vec![capability("ui.interact")],
+        },
+        ToolCapabilityBinding {
+            tool_name: "os__copy".to_string(),
+            action_target: ActionTarget::ClipboardWrite,
+            capabilities: vec![capability("clipboard.write")],
+        },
+        ToolCapabilityBinding {
+            tool_name: "os__paste".to_string(),
+            action_target: ActionTarget::ClipboardRead,
+            capabilities: vec![capability("clipboard.read")],
+        },
+        ToolCapabilityBinding {
+            tool_name: "os__launch_app".to_string(),
+            action_target: ActionTarget::SysExec,
+            capabilities: vec![capability("app.launch")],
+        },
+        ToolCapabilityBinding {
+            tool_name: "filesystem__read_file".to_string(),
+            action_target: ActionTarget::FsRead,
+            capabilities: vec![capability("filesystem.read")],
+        },
+        ToolCapabilityBinding {
+            tool_name: "filesystem__list_directory".to_string(),
+            action_target: ActionTarget::FsRead,
+            capabilities: vec![capability("filesystem.read")],
+        },
+        ToolCapabilityBinding {
+            tool_name: "filesystem__search".to_string(),
+            action_target: ActionTarget::FsRead,
+            capabilities: vec![capability("filesystem.read")],
+        },
+        ToolCapabilityBinding {
+            tool_name: "filesystem__write_file".to_string(),
+            action_target: ActionTarget::FsWrite,
+            capabilities: vec![capability("filesystem.write")],
+        },
+        ToolCapabilityBinding {
+            tool_name: "filesystem__patch".to_string(),
+            action_target: ActionTarget::FsWrite,
+            capabilities: vec![capability("filesystem.write")],
+        },
+        ToolCapabilityBinding {
+            tool_name: "filesystem__delete_path".to_string(),
+            action_target: ActionTarget::FsWrite,
+            capabilities: vec![capability("filesystem.write")],
+        },
+        ToolCapabilityBinding {
+            tool_name: "filesystem__create_directory".to_string(),
+            action_target: ActionTarget::Custom("filesystem__create_directory".to_string()),
+            capabilities: vec![capability("filesystem.write")],
+        },
+        ToolCapabilityBinding {
+            tool_name: "filesystem__move_path".to_string(),
+            action_target: ActionTarget::Custom("filesystem__move_path".to_string()),
+            capabilities: vec![capability("filesystem.write")],
+        },
+        ToolCapabilityBinding {
+            tool_name: "filesystem__copy_path".to_string(),
+            action_target: ActionTarget::Custom("filesystem__copy_path".to_string()),
+            capabilities: vec![capability("filesystem.write")],
+        },
+        ToolCapabilityBinding {
+            tool_name: "sys__exec".to_string(),
+            action_target: ActionTarget::SysExec,
+            capabilities: vec![capability("command.exec"), capability("command.probe")],
+        },
+        ToolCapabilityBinding {
+            tool_name: "sys__exec_session".to_string(),
+            action_target: ActionTarget::SysExec,
+            capabilities: vec![capability("command.exec"), capability("command.probe")],
+        },
+        ToolCapabilityBinding {
+            tool_name: "sys__exec_session_reset".to_string(),
+            action_target: ActionTarget::SysExec,
+            capabilities: vec![capability("command.exec")],
+        },
+        ToolCapabilityBinding {
+            tool_name: "sys__change_directory".to_string(),
+            action_target: ActionTarget::SysExec,
+            capabilities: vec![capability("command.exec")],
+        },
+        ToolCapabilityBinding {
+            tool_name: "sys__install_package".to_string(),
+            action_target: ActionTarget::SysInstallPackage,
+            capabilities: vec![capability("command.exec")],
+        },
+        ToolCapabilityBinding {
+            tool_name: "web__search".to_string(),
+            action_target: ActionTarget::WebRetrieve,
+            capabilities: vec![capability("web.retrieve")],
+        },
+        ToolCapabilityBinding {
+            tool_name: "web__read".to_string(),
+            action_target: ActionTarget::WebRetrieve,
+            capabilities: vec![capability("web.retrieve")],
+        },
+        ToolCapabilityBinding {
+            tool_name: "net__fetch".to_string(),
+            action_target: ActionTarget::NetFetch,
+            capabilities: vec![capability("net.fetch")],
+        },
+        ToolCapabilityBinding {
+            tool_name: "browser__navigate".to_string(),
+            action_target: ActionTarget::BrowserInteract,
+            capabilities: vec![capability("browser.interact")],
+        },
+        ToolCapabilityBinding {
+            tool_name: "browser__snapshot".to_string(),
+            action_target: ActionTarget::BrowserInspect,
+            capabilities: vec![capability("browser.inspect")],
+        },
+        ToolCapabilityBinding {
+            tool_name: "browser__click".to_string(),
+            action_target: ActionTarget::BrowserInteract,
+            capabilities: vec![capability("browser.interact")],
+        },
+        ToolCapabilityBinding {
+            tool_name: "browser__click_element".to_string(),
+            action_target: ActionTarget::BrowserInteract,
+            capabilities: vec![capability("browser.interact")],
+        },
+        ToolCapabilityBinding {
+            tool_name: "browser__synthetic_click".to_string(),
+            action_target: ActionTarget::BrowserInteract,
+            capabilities: vec![capability("browser.interact")],
+        },
+        ToolCapabilityBinding {
+            tool_name: "browser__scroll".to_string(),
+            action_target: ActionTarget::BrowserInteract,
+            capabilities: vec![capability("browser.interact")],
+        },
+        ToolCapabilityBinding {
+            tool_name: "browser__type".to_string(),
+            action_target: ActionTarget::BrowserInteract,
+            capabilities: vec![capability("browser.interact")],
+        },
+        ToolCapabilityBinding {
+            tool_name: "browser__key".to_string(),
+            action_target: ActionTarget::BrowserInteract,
+            capabilities: vec![capability("browser.interact")],
+        },
+        ToolCapabilityBinding {
+            tool_name: "system__inspect_host".to_string(),
+            action_target: ActionTarget::SystemInspectHost,
+            capabilities: vec![capability("system.inspect_host")],
+        },
+        ToolCapabilityBinding {
+            tool_name: "timer__set".to_string(),
+            action_target: ActionTarget::TimerManage,
+            capabilities: vec![capability("timer.manage")],
+        },
+        ToolCapabilityBinding {
+            tool_name: "timer__cancel".to_string(),
+            action_target: ActionTarget::TimerManage,
+            capabilities: vec![capability("timer.manage")],
+        },
+        ToolCapabilityBinding {
+            tool_name: "timer__list".to_string(),
+            action_target: ActionTarget::TimerManage,
+            capabilities: vec![capability("timer.manage")],
+        },
+    ]
 }
 
 fn is_mail_connector_tool(tool_name: &str) -> bool {
@@ -684,102 +881,110 @@ fn is_mail_connector_tool(tool_name: &str) -> bool {
         || tool_name.starts_with("mail__")
 }
 
-fn tool_capabilities(tool_name: &str) -> Vec<ToolCapability> {
+fn fallback_tool_capabilities(normalized: &str) -> Vec<CapabilityId> {
+    if let Some((namespace, operation)) = normalized.split_once("__") {
+        return match namespace {
+            "browser" => vec![capability("browser.interact")],
+            "web" => vec![capability("web.retrieve")],
+            "net" => vec![capability("net.fetch")],
+            "filesystem" | "fs" => {
+                vec![
+                    capability("filesystem.read"),
+                    capability("filesystem.write"),
+                ]
+            }
+            "gui" | "ui" => vec![capability("ui.interact")],
+            "os" => {
+                if operation.contains("copy") {
+                    vec![capability("clipboard.write")]
+                } else if operation.contains("paste") {
+                    vec![capability("clipboard.read")]
+                } else if operation.contains("launch") {
+                    vec![capability("app.launch")]
+                } else {
+                    vec![capability("ui.interact")]
+                }
+            }
+            "sys" => vec![capability("command.exec")],
+            _ => vec![],
+        };
+    }
+    vec![]
+}
+
+fn tool_capabilities(tool_name: &str) -> Vec<CapabilityId> {
     let normalized = tool_name.trim().to_ascii_lowercase();
     if normalized.is_empty() {
         return vec![];
+    }
+
+    for binding in tool_capability_bindings() {
+        if binding.tool_name == normalized {
+            return binding.capabilities;
+        }
     }
 
     if matches!(
         normalized.as_str(),
         "agent__complete" | "agent__pause" | "agent__await_result" | "agent__await"
     ) {
-        return vec![ToolCapability::AgentLifecycle];
+        return vec![capability("agent.lifecycle")];
     }
     if normalized == "chat__reply" {
-        return vec![ToolCapability::ConversationReply];
+        return vec![capability("conversation.reply")];
     }
     if normalized == "system__fail" {
-        return vec![ToolCapability::SystemFailure];
+        return vec![capability("system.failure")];
     }
     if normalized.starts_with("memory__") {
-        return vec![ToolCapability::Memory];
+        return vec![capability("memory.access")];
     }
     if normalized.starts_with("agent__delegate") {
-        return vec![ToolCapability::Delegation];
+        return vec![capability("delegation.manage")];
     }
     if is_mail_connector_tool(&normalized) {
-        return vec![ToolCapability::MailConnector];
+        return vec![capability("conversation.reply")];
     }
-
-    if normalized == "computer" {
-        return vec![ToolCapability::UiInteract];
-    }
-
-    if normalized == "os__launch_app" {
-        return vec![ToolCapability::AppLaunch];
-    }
-    if normalized == "os__focus_window" {
-        return vec![ToolCapability::UiInteract];
-    }
-    if normalized == "os__copy" {
-        return vec![ToolCapability::ClipboardWrite];
-    }
-    if normalized == "os__paste" {
-        return vec![ToolCapability::ClipboardRead];
-    }
-
-    if normalized == "sys__install_package" {
-        return vec![ToolCapability::CommandExec];
-    }
-    if matches!(
-        normalized.as_str(),
-        "sys__exec" | "sys__exec_session" | "sys__exec_session_reset" | "sys__change_directory"
-    ) {
-        return vec![ToolCapability::CommandExec];
-    }
-
-    if let Some((namespace, operation)) = normalized.split_once("__") {
-        return match namespace {
-            "browser" => vec![ToolCapability::BrowserInteract],
-            "web" => vec![ToolCapability::WebRetrieve],
-            "net" => vec![ToolCapability::NetworkFetch],
-            "filesystem" | "fs" => {
-                vec![
-                    ToolCapability::FilesystemRead,
-                    ToolCapability::FilesystemWrite,
-                ]
-            }
-            "gui" | "ui" => vec![ToolCapability::UiInteract],
-            "os" => {
-                if operation.contains("copy") {
-                    vec![ToolCapability::ClipboardWrite]
-                } else if operation.contains("paste") {
-                    vec![ToolCapability::ClipboardRead]
-                } else if operation.contains("launch") {
-                    vec![ToolCapability::AppLaunch]
-                } else {
-                    vec![ToolCapability::UiInteract]
-                }
-            }
-            "sys" => vec![ToolCapability::CommandExec],
-            _ => vec![],
-        };
-    }
-
-    vec![]
+    fallback_tool_capabilities(&normalized)
 }
 
-fn tool_allowed_for_scope(scope: IntentScopeProfile, tool_name: &str) -> bool {
-    let capabilities = tool_capabilities(tool_name);
-    if capabilities.is_empty() {
+fn policy_explicitly_blocks_target(rules: &ActionRules, target: &ActionTarget) -> bool {
+    let canonical = target.canonical_label();
+    rules.rules.iter().any(|rule| {
+        rule.action == Verdict::Block && (rule.target == "*" || rule.target == canonical)
+    })
+}
+
+fn policy_blocks_tool(rules: &ActionRules, binding: &ToolCapabilityBinding) -> bool {
+    policy_explicitly_blocks_target(rules, &binding.action_target)
+}
+
+fn capability_satisfiable(
+    capability: &CapabilityId,
+    bindings: &[ToolCapabilityBinding],
+    rules: &ActionRules,
+) -> bool {
+    bindings.iter().any(|binding| {
+        !policy_blocks_tool(rules, binding) && binding.capabilities.iter().any(|c| c == capability)
+    })
+}
+
+fn intent_feasible_for_execution(
+    entry: &IntentMatrixEntry,
+    bindings: &[ToolCapabilityBinding],
+    rules: &ActionRules,
+    locality_scope_required: bool,
+) -> bool {
+    if !scope_feasible_for_query(entry.scope, locality_scope_required) {
         return false;
     }
-
-    let allowed = allowed_capabilities_for_scope(scope);
-    capabilities
+    if entry.required_capabilities.is_empty() {
+        return true;
+    }
+    entry
+        .required_capabilities
         .iter()
-        .any(|capability| allowed.contains(capability))
+        .all(|required| capability_satisfiable(required, bindings, rules))
 }
 
 pub fn is_tool_allowed_for_resolution(
@@ -789,7 +994,23 @@ pub fn is_tool_allowed_for_resolution(
     let Some(resolved) = resolved else {
         return false;
     };
-    tool_allowed_for_scope(resolved.scope, tool_name)
+    let normalized = tool_name.trim().to_ascii_lowercase();
+    if normalized == "system__fail" {
+        return true;
+    }
+    let tool_caps = tool_capabilities(tool_name);
+    if tool_caps.is_empty() {
+        return false;
+    }
+    if resolved.required_capabilities.is_empty() {
+        return false;
+    }
+    tool_caps.iter().any(|tool_cap| {
+        resolved
+            .required_capabilities
+            .iter()
+            .any(|required| required == tool_cap)
+    })
 }
 
 pub async fn resolve_step_intent(
@@ -809,8 +1030,17 @@ pub async fn resolve_step_intent(
                 intent_id: "resolver.disabled".to_string(),
                 score: 1.0,
             }],
+            required_capabilities: vec![],
+            risk_class: "unknown".to_string(),
             preferred_tier: "tool_first".to_string(),
             matrix_version: policy.matrix_version.clone(),
+            embedding_model_id: String::new(),
+            embedding_model_version: String::new(),
+            similarity_function_id: String::new(),
+            intent_set_hash: [0u8; 32],
+            tool_registry_hash: [0u8; 32],
+            capability_ontology_hash: [0u8; 32],
+            query_normalization_version: INTENT_QUERY_NORMALIZATION_VERSION.to_string(),
             matrix_source_hash: [0u8; 32],
             receipt_hash: [0u8; 32],
             constrained: false,
@@ -839,7 +1069,8 @@ pub async fn resolve_step_intent(
     } else {
         normalized_query.clone()
     };
-    let locality_scope_required = super::queue::query_requires_runtime_locality_scope(&ranking_query);
+    let locality_scope_required =
+        super::queue::query_requires_runtime_locality_scope(&ranking_query);
     let session_prefix = hex::encode(&agent_state.session_id[..4]);
     let query_hash = hex::encode(
         sha256(query.as_bytes()).map_err(|e| TransactionError::Invalid(e.to_string()))?,
@@ -876,6 +1107,10 @@ pub async fn resolve_step_intent(
     }
     let matrix = effective_matrix(policy)?;
     let matrix_hash = matrix_source_hash(policy, &matrix)?;
+    let bindings = tool_capability_bindings();
+    let intent_hash = intent_set_hash(&matrix)?;
+    let registry_hash = tool_registry_hash(&bindings)?;
+    let ontology_hash = capability_ontology_hash(&bindings)?;
     if matrix.is_empty() {
         log::warn!(
             "IntentResolver matrix is empty for version={}, abstaining.",
@@ -946,21 +1181,19 @@ pub async fn resolve_step_intent(
         .take(5)
         .cloned()
         .collect::<Vec<_>>();
-    let selection_top_k = if locality_scope_required {
-        ranked_candidates
-            .iter()
-            .filter_map(|candidate| {
-                let scope = scope_for_intent(&matrix, &candidate.intent_id)?;
-                scope_feasible_for_query(scope, locality_scope_required)
-                    .then_some(candidate.clone())
-            })
-            .collect::<Vec<_>>()
-    } else {
-        ranked_candidates.clone()
-    };
-    if locality_scope_required && selection_top_k.is_empty() {
+    let selection_top_k = ranked_candidates
+        .iter()
+        .filter_map(|candidate| {
+            let entry = matrix
+                .iter()
+                .find(|entry| entry.intent_id == candidate.intent_id)?;
+            intent_feasible_for_execution(entry, &bindings, rules, locality_scope_required)
+                .then_some(candidate.clone())
+        })
+        .collect::<Vec<_>>();
+    if selection_top_k.is_empty() {
         log::warn!(
-            "IntentResolverFeasibility no feasible candidates for locality-sensitive query session={}",
+            "IntentResolverFeasibility no feasible candidates after capability/policy checks session={}",
             session_prefix
         );
     }
@@ -994,38 +1227,66 @@ pub async fn resolve_step_intent(
         };
     }
 
-    let (scope, preferred_tier, score, band) = if winner.intent_id == "resolver.unclassified" {
-        (
-            IntentScopeProfile::Unknown,
-            "tool_first".to_string(),
-            0.0,
-            IntentConfidenceBand::Low,
-        )
-    } else {
-        let scope = scope_for_intent(&matrix, &winner.intent_id).ok_or_else(|| {
-            TransactionError::Invalid(format!(
-                "Intent '{}' missing matrix scope binding",
-                winner.intent_id
-            ))
-        })?;
-        let preferred_tier =
-            preferred_tier_for_intent(&matrix, &winner.intent_id).ok_or_else(|| {
+    let (scope, preferred_tier, score, band, required_capabilities, risk_class) =
+        if winner.intent_id == "resolver.unclassified" {
+            (
+                IntentScopeProfile::Unknown,
+                "tool_first".to_string(),
+                0.0,
+                IntentConfidenceBand::Low,
+                vec![],
+                "unknown".to_string(),
+            )
+        } else {
+            let entry = matrix
+                .iter()
+                .find(|entry| entry.intent_id == winner.intent_id)
+                .ok_or_else(|| {
+                    TransactionError::Invalid(format!(
+                        "Intent '{}' missing matrix binding",
+                        winner.intent_id
+                    ))
+                })?;
+            let scope = scope_for_intent(&matrix, &winner.intent_id).ok_or_else(|| {
                 TransactionError::Invalid(format!(
-                    "Intent '{}' missing preferred tier binding",
+                    "Intent '{}' missing matrix scope binding",
                     winner.intent_id
                 ))
             })?;
-        let score = winner.score.clamp(0.0, 1.0);
-        (scope, preferred_tier, score, resolve_band(score, policy))
-    };
+            let preferred_tier =
+                preferred_tier_for_intent(&matrix, &winner.intent_id).ok_or_else(|| {
+                    TransactionError::Invalid(format!(
+                        "Intent '{}' missing preferred tier binding",
+                        winner.intent_id
+                    ))
+                })?;
+            let score = winner.score.clamp(0.0, 1.0);
+            (
+                scope,
+                preferred_tier,
+                score,
+                resolve_band(score, policy),
+                entry.required_capabilities.clone(),
+                entry.risk_class.clone(),
+            )
+        };
     let mut resolved = ResolvedIntentState {
         intent_id: winner.intent_id,
         scope,
         band,
         score,
         top_k: routed_top_k,
+        required_capabilities,
+        risk_class,
         preferred_tier,
         matrix_version: policy.matrix_version.clone(),
+        embedding_model_id: INTENT_EMBEDDING_MODEL_ID.to_string(),
+        embedding_model_version: INTENT_EMBEDDING_MODEL_VERSION.to_string(),
+        similarity_function_id: INTENT_SIMILARITY_FUNCTION_ID.to_string(),
+        intent_set_hash: intent_hash,
+        tool_registry_hash: registry_hash,
+        capability_ontology_hash: ontology_hash,
+        query_normalization_version: INTENT_QUERY_NORMALIZATION_VERSION.to_string(),
         matrix_source_hash: matrix_hash,
         receipt_hash: [0u8; 32],
         // Constrained routing is deprecated (compat field only). We rely on policy gates + ontology.
@@ -1060,8 +1321,9 @@ mod tests {
     use ioi_drivers::browser::BrowserDriver;
     use ioi_drivers::terminal::TerminalDriver;
     use ioi_types::app::agentic::{
-        InferenceOptions, IntentAmbiguityAction, IntentConfidenceBand, IntentConfidenceBandPolicy,
-        IntentMatrixEntry, IntentRoutingPolicy, IntentScopeProfile, ResolvedIntentState,
+        CapabilityId, InferenceOptions, IntentAmbiguityAction, IntentConfidenceBand,
+        IntentConfidenceBandPolicy, IntentMatrixEntry, IntentRoutingPolicy, IntentScopeProfile,
+        ResolvedIntentState,
     };
     use ioi_types::app::{ActionRequest, ContextSlice};
     use ioi_types::error::VmError;
@@ -1124,11 +1386,25 @@ mod tests {
 
         async fn embed_text(&self, text: &str) -> Result<Vec<f32>, VmError> {
             let text_lc = text.to_ascii_lowercase();
-            if text_lc.contains("time") || text_lc.contains("clock") {
+            if text_lc.contains("clock")
+                || text_lc.contains("timestamp")
+                || text_lc.contains("time is it")
+            {
                 return Ok(vec![1.0, 0.0, 0.0]);
             }
-            if text_lc.contains("command") || text_lc.contains("terminal") {
+            if text_lc.contains("web")
+                || text_lc.contains("research")
+                || text_lc.contains("weather")
+                || text_lc.contains("timer")
+                || text_lc.contains("countdown")
+            {
                 return Ok(vec![0.0, 1.0, 0.0]);
+            }
+            if text_lc.contains("command")
+                || text_lc.contains("terminal")
+                || text_lc.contains("shell")
+            {
+                return Ok(vec![0.0, 0.0, 1.0]);
             }
             Ok(vec![0.0, 0.0, 1.0])
         }
@@ -1232,6 +1508,40 @@ mod tests {
     }
 
     #[derive(Debug, Default, Clone)]
+    struct TimerIntentRuntime;
+
+    #[async_trait]
+    impl InferenceRuntime for TimerIntentRuntime {
+        async fn execute_inference(
+            &self,
+            _model_hash: [u8; 32],
+            _input_context: &[u8],
+            _options: InferenceOptions,
+        ) -> Result<Vec<u8>, VmError> {
+            Ok(Vec::new())
+        }
+
+        async fn embed_text(&self, text: &str) -> Result<Vec<f32>, VmError> {
+            let text_lc = text.to_ascii_lowercase();
+            if text_lc.contains("timer") || text_lc.contains("countdown") {
+                return Ok(vec![1.0, 0.0, 0.0]);
+            }
+            if text_lc.contains("clock") || text_lc.contains("timestamp") {
+                return Ok(vec![0.0, 1.0, 0.0]);
+            }
+            Ok(vec![0.0, 0.0, 1.0])
+        }
+
+        async fn load_model(&self, _model_hash: [u8; 32], _path: &Path) -> Result<(), VmError> {
+            Ok(())
+        }
+
+        async fn unload_model(&self, _model_hash: [u8; 32]) -> Result<(), VmError> {
+            Ok(())
+        }
+    }
+
+    #[derive(Debug, Default, Clone)]
     struct LocalitySkewedRuntime;
 
     #[async_trait]
@@ -1247,10 +1557,10 @@ mod tests {
 
         async fn embed_text(&self, text: &str) -> Result<Vec<f32>, VmError> {
             let text_lc = text.to_ascii_lowercase();
-            if text_lc.contains("intent system clock read") {
+            if text_lc.contains("system clock") || text_lc.contains("clock timestamp") {
                 return Ok(vec![1.0, 0.0]);
             }
-            if text_lc.contains("intent web research") {
+            if text_lc.contains("web") && text_lc.contains("research") {
                 return Ok(vec![0.0, 1.0]);
             }
             if text_lc.contains("weather") {
@@ -1289,10 +1599,12 @@ mod tests {
 
         async fn embed_text(&self, text: &str) -> Result<Vec<f32>, VmError> {
             let text_lc = text.to_ascii_lowercase();
-            if text_lc.contains("intent system clock read") {
+            if text_lc.contains("system clock") || text_lc.contains("clock timestamp") {
                 return Ok(vec![1.0, 0.0]);
             }
-            if text_lc.contains("intent command exec") {
+            if text_lc.contains("shell or terminal")
+                || (text_lc.contains("command") && text_lc.contains("execute"))
+            {
                 return Ok(vec![0.0, 1.0]);
             }
             if text_lc.contains("ambiguous clock command intent") {
@@ -1357,8 +1669,17 @@ mod tests {
             band: IntentConfidenceBand::High,
             score: 0.95,
             top_k: vec![],
+            required_capabilities: vec![CapabilityId::from("conversation.reply")],
+            risk_class: "low".to_string(),
             preferred_tier: "tool_first".to_string(),
             matrix_version: "v1".to_string(),
+            embedding_model_id: "test".to_string(),
+            embedding_model_version: "test".to_string(),
+            similarity_function_id: "cosine".to_string(),
+            intent_set_hash: [0u8; 32],
+            tool_registry_hash: [0u8; 32],
+            capability_ontology_hash: [0u8; 32],
+            query_normalization_version: "v1".to_string(),
             matrix_source_hash: [1u8; 32],
             receipt_hash: [2u8; 32],
             constrained: false,
@@ -1385,8 +1706,20 @@ mod tests {
             band: IntentConfidenceBand::High,
             score: 0.95,
             top_k: vec![],
+            required_capabilities: vec![
+                CapabilityId::from("clipboard.read"),
+                CapabilityId::from("clipboard.write"),
+            ],
+            risk_class: "low".to_string(),
             preferred_tier: "visual_last".to_string(),
             matrix_version: "v1".to_string(),
+            embedding_model_id: "test".to_string(),
+            embedding_model_version: "test".to_string(),
+            similarity_function_id: "cosine".to_string(),
+            intent_set_hash: [0u8; 32],
+            tool_registry_hash: [0u8; 32],
+            capability_ontology_hash: [0u8; 32],
+            query_normalization_version: "v1".to_string(),
             matrix_source_hash: [1u8; 32],
             receipt_hash: [2u8; 32],
             constrained: false,
@@ -1403,8 +1736,20 @@ mod tests {
             band: IntentConfidenceBand::High,
             score: 0.95,
             top_k: vec![],
+            required_capabilities: vec![
+                CapabilityId::from("clipboard.read"),
+                CapabilityId::from("clipboard.write"),
+            ],
+            risk_class: "low".to_string(),
             preferred_tier: "tool_first".to_string(),
             matrix_version: "v1".to_string(),
+            embedding_model_id: "test".to_string(),
+            embedding_model_version: "test".to_string(),
+            similarity_function_id: "cosine".to_string(),
+            intent_set_hash: [0u8; 32],
+            tool_registry_hash: [0u8; 32],
+            capability_ontology_hash: [0u8; 32],
+            query_normalization_version: "v1".to_string(),
             matrix_source_hash: [1u8; 32],
             receipt_hash: [2u8; 32],
             constrained: false,
@@ -1421,8 +1766,20 @@ mod tests {
             band: IntentConfidenceBand::High,
             score: 0.95,
             top_k: vec![],
+            required_capabilities: vec![
+                CapabilityId::from("clipboard.read"),
+                CapabilityId::from("clipboard.write"),
+            ],
+            risk_class: "low".to_string(),
             preferred_tier: "tool_first".to_string(),
             matrix_version: "v1".to_string(),
+            embedding_model_id: "test".to_string(),
+            embedding_model_version: "test".to_string(),
+            similarity_function_id: "cosine".to_string(),
+            intent_set_hash: [0u8; 32],
+            tool_registry_hash: [0u8; 32],
+            capability_ontology_hash: [0u8; 32],
+            query_normalization_version: "v1".to_string(),
             matrix_source_hash: [1u8; 32],
             receipt_hash: [2u8; 32],
             constrained: false,
@@ -1440,8 +1797,17 @@ mod tests {
             band: IntentConfidenceBand::Medium,
             score: 0.6,
             top_k: vec![],
+            required_capabilities: vec![CapabilityId::from("command.exec")],
+            risk_class: "low".to_string(),
             preferred_tier: "tool_first".to_string(),
             matrix_version: "v1".to_string(),
+            embedding_model_id: "test".to_string(),
+            embedding_model_version: "test".to_string(),
+            similarity_function_id: "cosine".to_string(),
+            intent_set_hash: [0u8; 32],
+            tool_registry_hash: [0u8; 32],
+            capability_ontology_hash: [0u8; 32],
+            query_normalization_version: "v1".to_string(),
             matrix_source_hash: [1u8; 32],
             receipt_hash: [2u8; 32],
             constrained: true,
@@ -1481,8 +1847,17 @@ mod tests {
             band: IntentConfidenceBand::Medium,
             score: 0.61,
             top_k: vec![],
+            required_capabilities: vec![CapabilityId::from("command.exec")],
+            risk_class: "low".to_string(),
             preferred_tier: "tool_first".to_string(),
             matrix_version: "v1".to_string(),
+            embedding_model_id: "test".to_string(),
+            embedding_model_version: "test".to_string(),
+            similarity_function_id: "cosine".to_string(),
+            intent_set_hash: [0u8; 32],
+            tool_registry_hash: [0u8; 32],
+            capability_ontology_hash: [0u8; 32],
+            query_normalization_version: "v1".to_string(),
             matrix_source_hash: [0u8; 32],
             receipt_hash: [0u8; 32],
             constrained: false,
@@ -1569,6 +1944,27 @@ mod tests {
     }
 
     #[tokio::test(flavor = "current_thread")]
+    async fn resolver_routes_timer_queries_to_timer_manage() {
+        let gui: Arc<dyn GuiDriver> = Arc::new(NoopGuiDriver);
+        let terminal = Arc::new(TerminalDriver::new());
+        let browser = Arc::new(BrowserDriver::new());
+        let inference: Arc<dyn InferenceRuntime> = Arc::new(TimerIntentRuntime);
+        let service = DesktopAgentService::new(gui, terminal, browser, inference);
+
+        let mut agent_state = test_agent_state();
+        agent_state.goal = "Set a timer for 15 minutes".to_string();
+
+        let mut rules = ActionRules::default();
+        rules.ontology_policy.intent_routing.matrix_version = "intent-matrix-v3-timer-test".into();
+        let resolved = resolve_step_intent(&service, &agent_state, &rules, "terminal")
+            .await
+            .unwrap();
+
+        assert_eq!(resolved.intent_id, "timer.manage");
+        assert_ne!(resolved.intent_id, "system.clock.read");
+    }
+
+    #[tokio::test(flavor = "current_thread")]
     async fn resolver_routing_is_not_driven_by_aliases_or_exemplars() {
         let gui: Arc<dyn GuiDriver> = Arc::new(NoopGuiDriver);
         let terminal = Arc::new(TerminalDriver::new());
@@ -1585,6 +1981,9 @@ mod tests {
         rules.ontology_policy.intent_routing.matrix = vec![
             IntentMatrixEntry {
                 intent_id: "web.research".to_string(),
+                semantic_descriptor: "retrieve web research results".to_string(),
+                required_capabilities: vec![],
+                risk_class: "medium".to_string(),
                 scope: IntentScopeProfile::WebResearch,
                 preferred_tier: "tool_first".to_string(),
                 aliases: vec!["clock".to_string(), "time".to_string()],
@@ -1595,6 +1994,9 @@ mod tests {
             },
             IntentMatrixEntry {
                 intent_id: "system.clock.read".to_string(),
+                semantic_descriptor: "read system clock timestamp".to_string(),
+                required_capabilities: vec![],
+                risk_class: "low".to_string(),
                 scope: IntentScopeProfile::CommandExecution,
                 preferred_tier: "tool_first".to_string(),
                 aliases: vec!["weather".to_string()],

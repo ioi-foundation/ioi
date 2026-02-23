@@ -8,9 +8,11 @@ pub mod incident;
 pub mod intent_resolver;
 pub mod ontology;
 pub mod perception;
+pub mod planner;
 pub mod queue;
 pub mod signals;
 pub mod visual;
+pub mod worker;
 
 use super::{DesktopAgentService, ServiceCallContext};
 // [FIX] Import actions module from parent service directory
@@ -22,7 +24,7 @@ use crate::agentic::desktop::service::actions;
 use crate::agentic::desktop::service::lifecycle::maybe_seed_runtime_locality_context;
 use crate::agentic::desktop::service::step::anti_loop::choose_routing_tier;
 use crate::agentic::desktop::service::step::helpers::{
-    default_safe_policy, direct_app_launch_target, direct_clock_read_intent,
+    default_safe_policy, direct_app_launch_target,
 };
 use crate::agentic::desktop::types::{AgentState, AgentStatus, StepAgentParams};
 use crate::agentic::rules::ActionRules;
@@ -424,35 +426,18 @@ pub async fn handle_step(
         .await;
     }
 
-    // 4b. Intent Fast Path: deterministic system clock read.
-    if direct_clock_read_intent(&agent_state) {
-        log::info!(
-            "Intent fast path triggered for system clock read (session={}).",
-            hex::encode(&p.session_id[..4]),
-        );
-        let fast_path_tool = serde_json::to_string(&json!({
-            "name": "sys__exec",
-            "arguments": {
-                "command": "date",
-                "args": ["-u", "+%Y-%m-%dT%H:%M:%SZ"],
-                "detach": false
-            }
-        }))
-        .map_err(|e| TransactionError::Serialization(e.to_string()))?;
-        let visual_phash = agent_state.last_screen_phash.unwrap_or([0u8; 32]);
-        return action::process_tool_output(
-            service,
-            state,
-            &mut agent_state,
-            fast_path_tool,
-            visual_phash,
-            "IntentFastPath(SystemClockRead)".to_string(),
-            p.session_id,
-            ctx.block_height,
-            ctx.block_timestamp,
-            call_context,
-        )
-        .await;
+    if planner::try_execute_planned_workflow(
+        service,
+        state,
+        &mut agent_state,
+        &rules,
+        call_context,
+        ctx.block_height,
+    )
+    .await?
+    {
+        state.insert(&key, &codec::to_bytes_canonical(&agent_state)?)?;
+        return Ok(());
     }
 
     // --- COGNITIVE LOOP (System 2) ---

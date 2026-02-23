@@ -126,6 +126,13 @@ impl Default for IntentAmbiguityPolicy {
 pub struct IntentMatrixEntry {
     /// Stable intent identifier (for example: "web.research").
     pub intent_id: String,
+    /// Canonical semantic descriptor used for embedding-based ranking.
+    pub semantic_descriptor: String,
+    /// Canonical capability requirements that must be satisfiable for execution.
+    #[serde(default)]
+    pub required_capabilities: Vec<CapabilityId>,
+    /// Coarse risk class label used for governance/policy overlays.
+    pub risk_class: String,
     /// Ontological scope for this intent.
     pub scope: IntentScopeProfile,
     /// Preferred execution tier label (`tool_first`, `ax_first`, `visual_last`).
@@ -138,6 +145,44 @@ pub struct IntentMatrixEntry {
     /// Routing must not depend on this field.
     #[serde(default)]
     pub exemplars: Vec<String>,
+}
+
+/// Canonical capability identifier.
+#[derive(
+    Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize, Encode, Decode,
+)]
+#[serde(transparent)]
+pub struct CapabilityId(pub String);
+
+impl CapabilityId {
+    /// Returns this capability as a canonical string slice.
+    pub fn as_str(&self) -> &str {
+        self.0.as_str()
+    }
+}
+
+impl From<&str> for CapabilityId {
+    fn from(value: &str) -> Self {
+        Self(value.to_string())
+    }
+}
+
+impl From<String> for CapabilityId {
+    fn from(value: String) -> Self {
+        Self(value)
+    }
+}
+
+/// Deterministic mapping between a tool identity and its advertised capabilities.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Encode, Decode)]
+pub struct ToolCapabilityBinding {
+    /// Canonical tool name (for example: "web__search").
+    pub tool_name: String,
+    /// Policy target associated with this tool.
+    pub action_target: ActionTarget,
+    /// Capabilities provided by this tool.
+    #[serde(default)]
+    pub capabilities: Vec<CapabilityId>,
 }
 
 /// Global policy for the step/action intent resolver.
@@ -184,7 +229,7 @@ impl Default for IntentRoutingPolicy {
         Self {
             enabled: true,
             shadow_mode: false,
-            matrix_version: "intent-matrix-v2".to_string(),
+            matrix_version: "intent-matrix-v3".to_string(),
             confidence: IntentConfidenceBandPolicy::default(),
             ambiguity: IntentAmbiguityPolicy::default(),
             score_quantization_bps: default_score_quantization_bps(),
@@ -193,6 +238,14 @@ impl Default for IntentRoutingPolicy {
             matrix: vec![
                 IntentMatrixEntry {
                     intent_id: "conversation.reply".to_string(),
+                    semantic_descriptor:
+                        "respond conversationally without executing external side effects"
+                            .to_string(),
+                    required_capabilities: vec![
+                        CapabilityId::from("agent.lifecycle"),
+                        CapabilityId::from("conversation.reply"),
+                    ],
+                    risk_class: "low".to_string(),
                     scope: IntentScopeProfile::Conversation,
                     preferred_tier: "tool_first".to_string(),
                     aliases: vec![
@@ -208,6 +261,15 @@ impl Default for IntentRoutingPolicy {
                 },
                 IntentMatrixEntry {
                     intent_id: "web.research".to_string(),
+                    semantic_descriptor:
+                        "research live information on the web and synthesize sourced findings"
+                            .to_string(),
+                    required_capabilities: vec![
+                        CapabilityId::from("agent.lifecycle"),
+                        CapabilityId::from("conversation.reply"),
+                        CapabilityId::from("web.retrieve"),
+                    ],
+                    risk_class: "medium".to_string(),
                     scope: IntentScopeProfile::WebResearch,
                     preferred_tier: "tool_first".to_string(),
                     aliases: vec![
@@ -223,6 +285,15 @@ impl Default for IntentRoutingPolicy {
                 },
                 IntentMatrixEntry {
                     intent_id: "workspace.ops".to_string(),
+                    semantic_descriptor:
+                        "inspect and modify files in the local workspace and repository".to_string(),
+                    required_capabilities: vec![
+                        CapabilityId::from("agent.lifecycle"),
+                        CapabilityId::from("conversation.reply"),
+                        CapabilityId::from("filesystem.read"),
+                        CapabilityId::from("filesystem.write"),
+                    ],
+                    risk_class: "medium".to_string(),
                     scope: IntentScopeProfile::WorkspaceOps,
                     preferred_tier: "tool_first".to_string(),
                     aliases: vec![
@@ -237,6 +308,13 @@ impl Default for IntentRoutingPolicy {
                 },
                 IntentMatrixEntry {
                     intent_id: "app.launch".to_string(),
+                    semantic_descriptor: "launch and focus local desktop applications".to_string(),
+                    required_capabilities: vec![
+                        CapabilityId::from("agent.lifecycle"),
+                        CapabilityId::from("app.launch"),
+                        CapabilityId::from("ui.interact"),
+                    ],
+                    risk_class: "medium".to_string(),
                     scope: IntentScopeProfile::AppLaunch,
                     preferred_tier: "tool_first".to_string(),
                     aliases: vec!["open app".to_string(), "launch".to_string()],
@@ -244,6 +322,14 @@ impl Default for IntentRoutingPolicy {
                 },
                 IntentMatrixEntry {
                     intent_id: "ui.interaction".to_string(),
+                    semantic_descriptor:
+                        "interact with graphical user interfaces using click type and scroll"
+                            .to_string(),
+                    required_capabilities: vec![
+                        CapabilityId::from("agent.lifecycle"),
+                        CapabilityId::from("ui.interact"),
+                    ],
+                    risk_class: "medium".to_string(),
                     scope: IntentScopeProfile::UiInteraction,
                     preferred_tier: "visual_last".to_string(),
                     aliases: vec![
@@ -259,6 +345,15 @@ impl Default for IntentRoutingPolicy {
                 },
                 IntentMatrixEntry {
                     intent_id: "command.probe".to_string(),
+                    semantic_descriptor:
+                        "check whether a command-line tool exists without mutating host state"
+                            .to_string(),
+                    required_capabilities: vec![
+                        CapabilityId::from("agent.lifecycle"),
+                        CapabilityId::from("command.probe"),
+                        CapabilityId::from("conversation.reply"),
+                    ],
+                    risk_class: "low".to_string(),
                     scope: IntentScopeProfile::CommandExecution,
                     preferred_tier: "tool_first".to_string(),
                     aliases: vec![
@@ -279,7 +374,43 @@ impl Default for IntentRoutingPolicy {
                     ],
                 },
                 IntentMatrixEntry {
+                    intent_id: "timer.manage".to_string(),
+                    semantic_descriptor:
+                        "set cancel and list local countdown timers with actionable status updates"
+                            .to_string(),
+                    required_capabilities: vec![
+                        CapabilityId::from("agent.lifecycle"),
+                        CapabilityId::from("conversation.reply"),
+                        CapabilityId::from("system.inspect_host"),
+                        CapabilityId::from("timer.manage"),
+                        CapabilityId::from("delegation.manage"),
+                    ],
+                    risk_class: "medium".to_string(),
+                    scope: IntentScopeProfile::CommandExecution,
+                    preferred_tier: "tool_first".to_string(),
+                    aliases: vec![
+                        "timer".to_string(),
+                        "countdown".to_string(),
+                        "alarm".to_string(),
+                        "pomodoro".to_string(),
+                    ],
+                    exemplars: vec![
+                        "set a timer for fifteen minutes".to_string(),
+                        "cancel my running timer".to_string(),
+                        "list active timers".to_string(),
+                    ],
+                },
+                IntentMatrixEntry {
                     intent_id: "system.clock.read".to_string(),
+                    semantic_descriptor:
+                        "read current local or utc system clock timestamp from this host"
+                            .to_string(),
+                    required_capabilities: vec![
+                        CapabilityId::from("agent.lifecycle"),
+                        CapabilityId::from("conversation.reply"),
+                        CapabilityId::from("command.exec"),
+                    ],
+                    risk_class: "low".to_string(),
                     scope: IntentScopeProfile::CommandExecution,
                     preferred_tier: "tool_first".to_string(),
                     aliases: vec![],
@@ -292,6 +423,15 @@ impl Default for IntentRoutingPolicy {
                 },
                 IntentMatrixEntry {
                     intent_id: "command.exec".to_string(),
+                    semantic_descriptor:
+                        "execute local shell or terminal commands on the current machine"
+                            .to_string(),
+                    required_capabilities: vec![
+                        CapabilityId::from("agent.lifecycle"),
+                        CapabilityId::from("conversation.reply"),
+                        CapabilityId::from("command.exec"),
+                    ],
+                    risk_class: "high".to_string(),
                     scope: IntentScopeProfile::CommandExecution,
                     preferred_tier: "tool_first".to_string(),
                     aliases: vec![
@@ -311,6 +451,15 @@ impl Default for IntentRoutingPolicy {
                 },
                 IntentMatrixEntry {
                     intent_id: "delegation.task".to_string(),
+                    semantic_descriptor:
+                        "delegate work to child agent sessions and aggregate worker outputs"
+                            .to_string(),
+                    required_capabilities: vec![
+                        CapabilityId::from("agent.lifecycle"),
+                        CapabilityId::from("conversation.reply"),
+                        CapabilityId::from("delegation.manage"),
+                    ],
+                    risk_class: "medium".to_string(),
                     scope: IntentScopeProfile::Delegation,
                     preferred_tier: "tool_first".to_string(),
                     aliases: vec!["delegate".to_string(), "sub-agent".to_string()],
@@ -338,10 +487,37 @@ pub struct ResolvedIntentState {
     /// Ranked candidate intents for observability/debug.
     #[serde(default)]
     pub top_k: Vec<IntentCandidateScore>,
+    /// Required capabilities copied from the winning intent profile.
+    #[serde(default)]
+    pub required_capabilities: Vec<CapabilityId>,
+    /// Risk class copied from winning intent profile.
+    #[serde(default)]
+    pub risk_class: String,
     /// Preferred tier label resolved from matrix profile.
     pub preferred_tier: String,
     /// Matrix version used for this resolution.
     pub matrix_version: String,
+    /// Embedding model identifier used for ranking.
+    #[serde(default)]
+    pub embedding_model_id: String,
+    /// Embedding model version used for ranking.
+    #[serde(default)]
+    pub embedding_model_version: String,
+    /// Similarity function identifier used during retrieval.
+    #[serde(default)]
+    pub similarity_function_id: String,
+    /// Hash commitment over the active intent set.
+    #[serde(default)]
+    pub intent_set_hash: [u8; 32],
+    /// Hash commitment over the active tool capability registry.
+    #[serde(default)]
+    pub tool_registry_hash: [u8; 32],
+    /// Hash commitment over the capability ontology.
+    #[serde(default)]
+    pub capability_ontology_hash: [u8; 32],
+    /// Query normalization version used before embedding.
+    #[serde(default)]
+    pub query_normalization_version: String,
     /// Hash commitment to the active matrix source.
     pub matrix_source_hash: [u8; 32],
     /// Deterministic receipt hash over resolution material.

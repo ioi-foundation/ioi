@@ -28,6 +28,7 @@ use ioi_types::app::{
     ActionRequest, ContextSlice, KernelEvent, WorkloadActivityKind, WorkloadReceipt,
 };
 use ioi_types::error::VmError;
+use serde_json::Value;
 use std::sync::Arc;
 
 #[test]
@@ -570,28 +571,155 @@ impl OsDriver for NoopOsDriver {
     }
 }
 
-#[tokio::test(flavor = "current_thread")]
-async fn sys_exec_session_reset_emits_workload_receipt_and_activity() {
-    let (tx, mut rx) = tokio::sync::broadcast::channel(16);
-
+fn build_tool_executor(
+    event_sender: Option<tokio::sync::broadcast::Sender<KernelEvent>>,
+) -> crate::agentic::desktop::execution::ToolExecutor {
     let gui: Arc<dyn GuiDriver> = Arc::new(NoopGuiDriver);
     let os: Arc<dyn OsDriver> = Arc::new(NoopOsDriver);
     let terminal = Arc::new(TerminalDriver::new());
     let browser = Arc::new(BrowserDriver::new());
     let mcp = Arc::new(McpManager::new());
     let inference: Arc<dyn InferenceRuntime> = Arc::new(MockInferenceRuntime::default());
-
-    let exec = crate::agentic::desktop::execution::ToolExecutor::new(
+    crate::agentic::desktop::execution::ToolExecutor::new(
         gui,
         os,
         terminal,
         browser,
         mcp,
-        Some(tx),
+        event_sender,
         None,
         inference,
         None,
+    )
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn host_inspect_reports_runtime_timer_surfaces() {
+    let exec = build_tool_executor(None);
+    let result = super::handle(&exec, AgentTool::SystemInspectHost {}, ".", [1u8; 32], 0).await;
+    assert!(result.success);
+    let payload = result.history_entry.expect("host inspect payload");
+    let json: Value = serde_json::from_str(&payload).expect("host inspect json");
+    assert!(json.get("os").and_then(Value::as_str).is_some());
+    let surfaces = json
+        .get("timer_surfaces")
+        .and_then(Value::as_array)
+        .expect("timer surfaces array");
+    assert!(surfaces.iter().any(|v| v.as_str() == Some("timer__set")));
+    assert!(surfaces.iter().any(|v| v.as_str() == Some("timer__cancel")));
+    assert!(surfaces.iter().any(|v| v.as_str() == Some("timer__list")));
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn timer_set_list_cancel_round_trip() {
+    let exec = build_tool_executor(None);
+    let session_id = [2u8; 32];
+
+    let set_result = super::handle(
+        &exec,
+        AgentTool::TimerSet {
+            duration_seconds: 3600,
+            label: Some("unit-test".to_string()),
+        },
+        ".",
+        session_id,
+        1,
+    )
+    .await;
+    assert!(set_result.success);
+    let set_payload = set_result.history_entry.expect("timer set payload");
+    let set_json: Value = serde_json::from_str(&set_payload).expect("timer set json");
+    let timer_id = set_json
+        .get("timer_id")
+        .and_then(Value::as_str)
+        .expect("timer id")
+        .to_string();
+    assert_eq!(
+        set_json.get("status").and_then(Value::as_str),
+        Some("scheduled")
     );
+
+    let list_after_set = super::handle(&exec, AgentTool::TimerList {}, ".", session_id, 2).await;
+    assert!(list_after_set.success);
+    let list_json: Value = serde_json::from_str(
+        &list_after_set
+            .history_entry
+            .expect("timer list payload after set"),
+    )
+    .expect("timer list json");
+    let timers = list_json
+        .get("timers")
+        .and_then(Value::as_array)
+        .expect("timers array");
+    assert!(timers.iter().any(|entry| {
+        entry.get("timer_id").and_then(Value::as_str) == Some(timer_id.as_str())
+            && entry.get("status").and_then(Value::as_str) == Some("active")
+    }));
+
+    let cancel_result = super::handle(
+        &exec,
+        AgentTool::TimerCancel {
+            timer_id: timer_id.clone(),
+        },
+        ".",
+        session_id,
+        3,
+    )
+    .await;
+    assert!(cancel_result.success);
+    let cancel_json: Value =
+        serde_json::from_str(&cancel_result.history_entry.expect("timer cancel payload"))
+            .expect("timer cancel json");
+    assert_eq!(
+        cancel_json.get("timer_id").and_then(Value::as_str),
+        Some(timer_id.as_str())
+    );
+    assert_eq!(
+        cancel_json.get("cancelled").and_then(Value::as_bool),
+        Some(true)
+    );
+
+    let list_after_cancel = super::handle(&exec, AgentTool::TimerList {}, ".", session_id, 4).await;
+    assert!(list_after_cancel.success);
+    let list_cancel_json: Value = serde_json::from_str(
+        &list_after_cancel
+            .history_entry
+            .expect("timer list payload after cancel"),
+    )
+    .expect("timer list json");
+    let timers_after_cancel = list_cancel_json
+        .get("timers")
+        .and_then(Value::as_array)
+        .expect("timers array");
+    assert!(timers_after_cancel.iter().any(|entry| {
+        entry.get("timer_id").and_then(Value::as_str) == Some(timer_id.as_str())
+            && entry.get("status").and_then(Value::as_str) == Some("cancelled")
+    }));
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn timer_set_rejects_zero_duration() {
+    let exec = build_tool_executor(None);
+    let result = super::handle(
+        &exec,
+        AgentTool::TimerSet {
+            duration_seconds: 0,
+            label: None,
+        },
+        ".",
+        [3u8; 32],
+        0,
+    )
+    .await;
+    assert!(!result.success);
+    let error = result.error.unwrap_or_default();
+    assert!(error.contains("duration_seconds > 0"));
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn sys_exec_session_reset_emits_workload_receipt_and_activity() {
+    let (tx, mut rx) = tokio::sync::broadcast::channel(16);
+    let exec = build_tool_executor(Some(tx));
 
     let session_id = [9u8; 32];
     let step_index = 7u32;

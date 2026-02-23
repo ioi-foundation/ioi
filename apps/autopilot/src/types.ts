@@ -315,6 +315,13 @@ export interface ThoughtSummary {
   agents: ThoughtAgentSummary[];
 }
 
+export interface PlanSummary {
+  selectedRoute: string;
+  status: string;
+  workerCount: number;
+  policyBindings: string[];
+}
+
 export type ArtifactHubViewKey =
   | "thoughts"
   | "sources"
@@ -329,6 +336,7 @@ export interface RunPresentation {
   finalAnswer: AnswerPresentation | null;
   sourceSummary: SourceSummary | null;
   thoughtSummary: ThoughtSummary | null;
+  planSummary: PlanSummary | null;
   activitySummary: ActivitySummary;
   activityGroups: ActivityGroup[];
   artifactRefs: ArtifactRef[];

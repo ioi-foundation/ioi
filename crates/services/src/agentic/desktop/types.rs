@@ -62,6 +62,32 @@ pub struct SwarmContext {
     pub allowed_delegates: Vec<String>,
 }
 
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, Encode, Decode, PartialEq, Eq)]
+pub enum SessionRole {
+    Planner,
+    Worker,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Encode, Decode, PartialEq, Eq)]
+pub struct WorkerAssignment {
+    pub step_key: String,
+    pub goal: String,
+    pub success_criteria: String,
+    pub max_retries: u8,
+    pub retries_used: u8,
+    pub assigned_session_id: Option<[u8; 32]>,
+    pub status: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Encode, Decode, PartialEq, Eq)]
+pub struct ExecutionPlanState {
+    pub plan_id: String,
+    pub plan_hash: [u8; 32],
+    pub selected_route: String,
+    pub status: String,
+    pub worker_assignments: Vec<WorkerAssignment>,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, Encode, Decode, PartialEq, Eq)]
 #[serde(default)]
 pub struct PendingSearchReadSummary {
