@@ -243,6 +243,18 @@ fn summarize_kernel_event(kernel_event: &ioi_types::app::KernelEvent) -> String 
             receipt.constrained,
             hex::encode(receipt.receipt_hash)
         ),
+        Ev::PlanReceipt(receipt) => format!(
+            "PlanReceipt session={} selected_route={} plan_hash={} worker_count={} policy_bindings={}",
+            receipt
+                .session_id
+                .as_ref()
+                .map(prefix_hex_4)
+                .unwrap_or_else(|| "none".to_string()),
+            receipt.selected_route,
+            hex::encode(receipt.plan_hash),
+            receipt.worker_graph.len(),
+            receipt.policy_bindings.len()
+        ),
     }
 }
 
@@ -490,6 +502,18 @@ fn map_kernel_event(
                     receipt.score,
                     receipt.constrained,
                     hex::encode(receipt.receipt_hash)
+                ),
+            }))
+        }
+        ioi_types::app::KernelEvent::PlanReceipt(receipt) => {
+            Some(ChainEventEnum::System(ioi_ipc::public::SystemUpdate {
+                component: "Planner".to_string(),
+                status: format!(
+                    "selected_route={} plan_hash={} worker_count={} policy_bindings={}",
+                    receipt.selected_route,
+                    hex::encode(receipt.plan_hash),
+                    receipt.worker_graph.len(),
+                    receipt.policy_bindings.len()
                 ),
             }))
         }

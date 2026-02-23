@@ -1,12 +1,13 @@
 import { useCallback, useMemo, useState } from "react";
 import { openUrl } from "@tauri-apps/plugin-opener";
-import type { AnswerPresentation, SourceSummary } from "../../../types";
+import type { AnswerPresentation, PlanSummary, SourceSummary } from "../../../types";
 import { icons } from "./Icons";
 import { MarkdownMessage } from "./MarkdownMessage";
 
 interface AnswerCardProps {
   answer: AnswerPresentation;
   sourceSummary: SourceSummary | null;
+  planSummary?: PlanSummary | null;
   sourceDurationLabel?: string;
   onDownloadContext: () => Promise<void> | void;
   onOpenArtifacts?: () => void;
@@ -18,6 +19,7 @@ const MAX_CITATION_PILLS = 8;
 export function AnswerCard({
   answer,
   sourceSummary,
+  planSummary,
   sourceDurationLabel,
   onDownloadContext,
   onOpenArtifacts,
@@ -136,6 +138,20 @@ export function AnswerCard({
           Completion: <strong>{answer.completionReason || "n/a"}</strong>
         </span>
       </div>
+
+      {planSummary && (
+        <div className="answer-metadata-strip">
+          <span>
+            Route: <strong>{planSummary.selectedRoute}</strong>
+          </span>
+          <span>
+            Plan: <strong>{planSummary.status}</strong>
+          </span>
+          <span>
+            Workers: <strong>{planSummary.workerCount}</strong>
+          </span>
+        </div>
+      )}
 
       {sourceSummary && sourceSummary.totalSources > 0 && (
         <div className="answer-source-strip">

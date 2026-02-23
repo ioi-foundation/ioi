@@ -3029,7 +3029,11 @@ fn web_pipeline_single_snapshot_prefers_current_observation_over_forecast_range(
         "expected current-conditions summary, got:\n{}",
         reply
     );
-    assert!(reply.contains("35°F"), "expected observed temperature, got:\n{}", reply);
+    assert!(
+        reply.contains("35°F"),
+        "expected observed temperature, got:\n{}",
+        reply
+    );
     assert!(
         !reply.contains("Available observed details from cited source text: Mostly Cloudy today"),
         "forecast-only sentence should not be preferred when current observation is present:\n{}",

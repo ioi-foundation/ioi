@@ -1,9 +1,7 @@
 use crate::agentic::desktop::service::step::action::{
     is_search_results_url, search_query_from_url,
 };
-use crate::agentic::desktop::service::step::helpers::{
-    is_mailbox_connector_goal,
-};
+use crate::agentic::desktop::service::step::helpers::is_mailbox_connector_goal;
 use crate::agentic::desktop::service::step::queue::WEB_PIPELINE_SEARCH_LIMIT;
 use ioi_types::app::agentic::{AgentTool, IntentScopeProfile, ResolvedIntentState};
 

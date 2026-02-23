@@ -8,6 +8,7 @@ import type {
   Artifact,
   ArtifactRef,
   ChatMessage,
+  PlanSummary,
   RunPresentation,
   SourceBrowseRow,
   SourceSearchRow,
@@ -460,6 +461,54 @@ function buildThoughtSummary(groups: ActivityGroup[]): ThoughtSummary | null {
   return { agents };
 }
 
+function buildPlanSummary(events: ActivityEventRef[]): PlanSummary | null {
+  const candidates = events
+    .map((entry) => entry.event)
+    .filter((event) => {
+      const title = (event.title || "").toLowerCase();
+      const digest = event.digest || {};
+      const details = event.details || {};
+      return (
+        title.includes("plan") ||
+        typeof digest.selected_route === "string" ||
+        typeof details.selected_route === "string"
+      );
+    });
+  if (candidates.length === 0) {
+    return null;
+  }
+
+  const latest = candidates[candidates.length - 1];
+  const details = latest.details || {};
+  const digest = latest.digest || {};
+  const selectedRoute =
+    firstStringValue(
+      details.selected_route,
+      digest.selected_route,
+      details.route,
+      digest.route,
+    ) || "unknown";
+  const status = firstStringValue(details.status, digest.status) || "captured";
+  const workerGraph =
+    (Array.isArray(details.worker_graph) ? details.worker_graph : undefined) ||
+    (Array.isArray(digest.worker_graph) ? digest.worker_graph : undefined) ||
+    [];
+  const policyBindingsRaw =
+    (Array.isArray(details.policy_bindings) ? details.policy_bindings : undefined) ||
+    (Array.isArray(digest.policy_bindings) ? digest.policy_bindings : undefined) ||
+    [];
+  const policyBindings = policyBindingsRaw
+    .map((value) => getValueString(value).trim())
+    .filter((value) => value.length > 0);
+
+  return {
+    selectedRoute,
+    status,
+    workerCount: workerGraph.length,
+    policyBindings,
+  };
+}
+
 function buildAnswerPresentation(message: ChatMessage): AnswerPresentation {
   const text = message.text || "";
   const sourceUrls = extractUrls(text);
@@ -664,12 +713,14 @@ export function buildRunPresentation(
   const finalAnswer = answerMessage ? buildAnswerPresentation(answerMessage) : null;
   const sourceSummary = buildSourceSummary(deduped);
   const thoughtSummary = buildThoughtSummary(activityGroups);
+  const planSummary = buildPlanSummary(deduped);
 
   return {
     prompt,
     finalAnswer,
     sourceSummary,
     thoughtSummary,
+    planSummary,
     activitySummary: buildActivitySummary(deduped, artifacts),
     activityGroups,
     artifactRefs: collectArtifactRefs(deduped, artifacts),

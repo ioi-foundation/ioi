@@ -603,11 +603,12 @@ pub(crate) fn build_citation_candidates(
         });
         let enforce_grounded_compatibility = projection.enforce_grounded_compatibility();
         let strict_grounded_compatibility = projection.strict_grounded_compatibility();
-        let has_compatible_fallback = ranked_fallback
-            .iter()
-            .any(|(_, _, compatibility, _, _, _)| {
-                compatibility_passes_projection(&projection, compatibility)
-            });
+        let has_compatible_fallback =
+            ranked_fallback
+                .iter()
+                .any(|(_, _, compatibility, _, _, _)| {
+                    compatibility_passes_projection(&projection, compatibility)
+                });
         let require_native_overlap = !projection.query_native_tokens.is_empty()
             && ranked_fallback
                 .iter()

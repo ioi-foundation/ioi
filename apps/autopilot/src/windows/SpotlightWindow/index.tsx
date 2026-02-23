@@ -1026,6 +1026,7 @@ export function SpotlightWindow({ variant = "overlay" }: SpotlightWindowProps) {
                             <AnswerCard
                               answer={runPresentation.finalAnswer}
                               sourceSummary={runPresentation.sourceSummary}
+                              planSummary={runPresentation.planSummary}
                               sourceDurationLabel={task?.receipt?.duration}
                               onDownloadContext={handleDownloadContext}
                               onOpenArtifacts={() =>
@@ -1052,6 +1053,7 @@ export function SpotlightWindow({ variant = "overlay" }: SpotlightWindowProps) {
                     <AnswerCard
                       answer={runPresentation.finalAnswer}
                       sourceSummary={runPresentation.sourceSummary}
+                      planSummary={runPresentation.planSummary}
                       sourceDurationLabel={task?.receipt?.duration}
                       onDownloadContext={handleDownloadContext}
                       onOpenArtifacts={() =>

@@ -21,7 +21,8 @@ use ioi_services::agentic::desktop::{
 use ioi_state::primitives::hash::HashCommitmentScheme;
 use ioi_state::tree::iavl::IAVLTree;
 use ioi_types::app::agentic::{
-    InferenceOptions, IntentConfidenceBand, IntentScopeProfile, ResolvedIntentState,
+    InferenceOptions, IntentAmbiguityAction, IntentConfidenceBand, IntentScopeProfile,
+    ResolvedIntentState,
 };
 use ioi_types::app::{
     ActionRequest, ContextSlice, KernelEvent, RoutingPostStateSummary, RoutingReceiptEvent,
@@ -144,8 +145,17 @@ fn seed_resolved_intent(
         band: IntentConfidenceBand::High,
         score: 0.99,
         top_k: vec![],
+        required_capabilities: vec![],
+        risk_class: "low".to_string(),
         preferred_tier: "tool_first".to_string(),
         matrix_version: "test".to_string(),
+        embedding_model_id: "test-embed".to_string(),
+        embedding_model_version: "v1".to_string(),
+        similarity_function_id: "cosine".to_string(),
+        intent_set_hash: [0u8; 32],
+        tool_registry_hash: [0u8; 32],
+        capability_ontology_hash: [0u8; 32],
+        query_normalization_version: "v1".to_string(),
         matrix_source_hash: [0u8; 32],
         receipt_hash: [0u8; 32],
         constrained: false,
@@ -163,6 +173,11 @@ fn seed_resolved_intent(
 fn enable_intent_shadow_mode(state: &mut IAVLTree<HashCommitmentScheme>, session_id: [u8; 32]) {
     let mut rules = default_safe_policy();
     rules.ontology_policy.intent_routing.shadow_mode = true;
+    rules
+        .ontology_policy
+        .intent_routing
+        .ambiguity
+        .low_confidence_action = IntentAmbiguityAction::Proceed;
     let policy_key = [AGENT_POLICY_PREFIX, session_id.as_slice()].concat();
     state
         .insert(

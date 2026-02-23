@@ -199,6 +199,27 @@ pub struct IntentResolutionReceiptEvent {
     pub preferred_tier: String,
     /// Matrix version used for this decision.
     pub matrix_version: String,
+    /// Embedding model identifier used for ranking.
+    #[serde(default)]
+    pub embedding_model_id: String,
+    /// Embedding model version used for ranking.
+    #[serde(default)]
+    pub embedding_model_version: String,
+    /// Similarity function identifier used during ranking.
+    #[serde(default)]
+    pub similarity_function_id: String,
+    /// Hash commitment over the active intent set.
+    #[serde(default)]
+    pub intent_set_hash: [u8; 32],
+    /// Hash commitment over the active tool capability registry.
+    #[serde(default)]
+    pub tool_registry_hash: [u8; 32],
+    /// Hash commitment over the capability ontology.
+    #[serde(default)]
+    pub capability_ontology_hash: [u8; 32],
+    /// Query normalization version used before embedding.
+    #[serde(default)]
+    pub query_normalization_version: String,
     /// Hash commitment to the active matrix source.
     pub matrix_source_hash: [u8; 32],
     /// Deterministic receipt hash over resolution material.
@@ -206,6 +227,36 @@ pub struct IntentResolutionReceiptEvent {
     /// Deprecated/compat: always false (constrained mode removed).
     #[serde(default)]
     pub constrained: bool,
+}
+
+/// Worker vertex captured in a planner receipt.
+#[derive(Clone, Debug, Serialize, Deserialize, Encode, Decode, PartialEq, Eq)]
+pub struct PlanWorkerNode {
+    /// Worker session id in hex format.
+    pub worker_session_id_hex: String,
+    /// Stable step key inside the execution plan.
+    pub step_key: String,
+    /// Goal/assignment dispatched to the worker.
+    pub goal: String,
+    /// Terminal worker status string.
+    pub status: String,
+}
+
+/// Receipt emitted when a synthesized execution plan is persisted.
+#[derive(Clone, Debug, Serialize, Deserialize, Encode, Decode, PartialEq, Eq)]
+pub struct PlanReceiptEvent {
+    /// Session this plan belongs to.
+    pub session_id: Option<[u8; 32]>,
+    /// Deterministic plan hash commitment.
+    pub plan_hash: [u8; 32],
+    /// Selected route identifier chosen by planner.
+    pub selected_route: String,
+    /// Worker graph emitted for this plan execution.
+    #[serde(default)]
+    pub worker_graph: Vec<PlanWorkerNode>,
+    /// Effective policy bindings considered by planner execution.
+    #[serde(default)]
+    pub policy_bindings: Vec<String>,
 }
 
 /// Structured workload activity event for glass-box orchestration.
@@ -483,6 +534,8 @@ pub enum KernelEvent {
 
     /// Receipt emitted when the global intent resolver classifies a step/action.
     IntentResolutionReceipt(IntentResolutionReceiptEvent),
+    /// Receipt emitted when planner synthesis commits to an execution plan.
+    PlanReceipt(PlanReceiptEvent),
 }
 
 #[cfg(test)]
