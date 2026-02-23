@@ -19,6 +19,7 @@ use crate::agentic::desktop::keys::{
 };
 use crate::agentic::desktop::runtime_secret;
 use crate::agentic::desktop::service::actions;
+use crate::agentic::desktop::service::lifecycle::maybe_seed_runtime_locality_context;
 use crate::agentic::desktop::service::step::anti_loop::choose_routing_tier;
 use crate::agentic::desktop::service::step::helpers::{
     default_safe_policy, direct_app_launch_target, direct_clock_read_intent,
@@ -30,7 +31,8 @@ use ioi_api::state::StateAccess;
 use ioi_api::transaction::context::TxContext;
 use ioi_crypto::algorithms::hash::sha256;
 use ioi_scs::{FrameType, RetentionClass};
-use ioi_types::app::agentic::{AgentTool, StepTrace};
+use ioi_types::app::agentic::{AgentTool, IntentScopeProfile, StepTrace};
+use ioi_types::app::KernelEvent;
 use ioi_types::codec;
 use ioi_types::error::TransactionError;
 use serde_json::json;
@@ -38,6 +40,8 @@ use std::time::Duration;
 
 const RUNTIME_SECRET_KIND_SUDO_PASSWORD: &str = "sudo_password";
 const STEP_ACTIVE_WINDOW_QUERY_TIMEOUT: Duration = Duration::from_millis(300);
+const WAIT_FOR_INTENT_CLARIFICATION_PROMPT: &str =
+    "System: WAIT_FOR_INTENT_CLARIFICATION. Intent confidence is too low to proceed safely. Please clarify the requested outcome.";
 
 fn should_clear_stale_canonical_pending(
     agent_state: &AgentState,
@@ -46,6 +50,24 @@ fn should_clear_stale_canonical_pending(
     agent_state.pending_tool_jcs.is_some()
         && agent_state.pending_approval.is_none()
         && !allow_runtime_secret_retry
+}
+
+fn pending_tool_is_browser_action(agent_state: &AgentState) -> bool {
+    let Some(raw) = agent_state.pending_tool_jcs.as_ref() else {
+        return false;
+    };
+    let Ok(value) = serde_json::from_slice::<serde_json::Value>(raw) else {
+        return false;
+    };
+    value
+        .get("name")
+        .and_then(|name| name.as_str())
+        .map(|name| name.starts_with("browser__"))
+        .unwrap_or(false)
+}
+
+fn is_web_research_intent(resolved_scope: IntentScopeProfile) -> bool {
+    matches!(resolved_scope, IntentScopeProfile::WebResearch)
 }
 
 pub async fn handle_step(
@@ -234,35 +256,35 @@ pub async fn handle_step(
     } else {
         "Unknown".to_string()
     };
-    let previous_resolved_intent = agent_state.resolved_intent.clone();
-    let mut resolved_intent =
+    let resolved_intent =
         intent_resolver::resolve_step_intent(service, &agent_state, &rules, &active_window_title)
             .await?;
-    if rules.ontology_policy.intent_routing.shadow_mode {
-        if let Some(previous) = previous_resolved_intent {
-            let previous_known = !matches!(
-                previous.scope,
-                ioi_types::app::agentic::IntentScopeProfile::Unknown
-            );
-            if previous_known
-                || matches!(
-                    resolved_intent.scope,
-                    ioi_types::app::agentic::IntentScopeProfile::Unknown
-                )
-            {
-                resolved_intent = previous;
-            }
-        }
+    let locality_scope_required = queue::query_requires_runtime_locality_scope(&agent_state.goal);
+    if locality_scope_required && is_web_research_intent(resolved_intent.scope) {
+        maybe_seed_runtime_locality_context(&agent_state.goal).await;
     }
+    let runtime_locality_scope = queue::effective_locality_scope_hint(None);
+    let locality_scope_missing = locality_scope_required
+        && is_web_research_intent(resolved_intent.scope)
+        && runtime_locality_scope.is_none();
+    let defer_intent_pause_for_runtime_locality = locality_scope_required
+        && is_web_research_intent(resolved_intent.scope)
+        && runtime_locality_scope.is_some();
     let was_waiting_intent = agent_state.awaiting_intent_clarification;
-    let should_wait_for_clarification = !rules.ontology_policy.intent_routing.shadow_mode
-        && intent_resolver::should_pause_for_clarification(
-            &resolved_intent,
-            &rules.ontology_policy.intent_routing,
-        );
+    let should_pause_for_intent = intent_resolver::should_pause_for_clarification(
+        &resolved_intent,
+        &rules.ontology_policy.intent_routing,
+    );
+    let should_wait_for_clarification = locality_scope_missing
+        || (should_pause_for_intent && !defer_intent_pause_for_runtime_locality);
     agent_state.resolved_intent = Some(resolved_intent);
     agent_state.awaiting_intent_clarification = should_wait_for_clarification;
     if should_wait_for_clarification {
+        let clarification_output = if locality_scope_missing {
+            "System: WAIT_FOR_INTENT_CLARIFICATION. More context is needed to resolve locality for this request. Please clarify the requested outcome."
+        } else {
+            WAIT_FOR_INTENT_CLARIFICATION_PROMPT
+        };
         agent_state.status = AgentStatus::Paused("Waiting for intent clarification".to_string());
         if !was_waiting_intent {
             let msg = ioi_types::app::agentic::ChatMessage {
@@ -278,16 +300,23 @@ pub async fn handle_step(
             let _ = service
                 .append_chat_to_scs(p.session_id, &msg, ctx.block_height)
                 .await?;
+            if let Some(tx) = service.event_sender.as_ref() {
+                let _ = tx.send(KernelEvent::AgentActionResult {
+                    session_id: p.session_id,
+                    step_index: agent_state.step_count,
+                    tool_name: "system::intent_clarification".to_string(),
+                    output: clarification_output.to_string(),
+                    agent_status: "Paused".to_string(),
+                });
+            }
         }
         state.insert(&key, &codec::to_bytes_canonical(&agent_state)?)?;
         return Ok(());
     }
 
     // [NEW] Browser Lease Management
-    if let Some(pending) = &agent_state.pending_tool_call {
-        if pending.contains("browser__") {
-            service.browser.set_lease(true);
-        }
+    if pending_tool_is_browser_action(&agent_state) {
+        service.browser.set_lease(true);
     }
 
     // 3. Resume Pending
@@ -337,8 +366,7 @@ pub async fn handle_step(
         }
         if should_clear_stale_canonical_pending(&agent_state, allow_runtime_secret_retry) {
             // Canonical pending metadata without approval/runtime-secret context is stale.
-            // Clear the canonical fields and continue so the step can make forward progress
-            // (including legacy pending-tool replay when available).
+            // Clear stale pending fields and continue with normal planning.
             log::warn!(
                 "Clearing stale canonical pending tool metadata for session {} (missing approval/runtime-secret resume context).",
                 hex::encode(&p.session_id[..4])
@@ -347,26 +375,8 @@ pub async fn handle_step(
             agent_state.pending_tool_hash = None;
             agent_state.pending_visual_hash = None;
             agent_state.pending_approval = None;
+            agent_state.pending_tool_call = None;
         }
-    }
-
-    // Legacy Resume (String-based) - Keep for backward compat
-    if let Some(pending_json) = agent_state.pending_tool_call.clone() {
-        log::info!("Resuming legacy pending tool call string.");
-        let phash = agent_state.last_screen_phash.unwrap_or([0u8; 32]);
-        return action::process_tool_output(
-            service,
-            state,
-            &mut agent_state,
-            pending_json,
-            phash,
-            "Resumed".to_string(),
-            p.session_id,
-            ctx.block_height,
-            ctx.block_timestamp,
-            call_context,
-        )
-        .await;
     }
 
     // 4. Execution Queue

@@ -557,6 +557,8 @@ pub(crate) fn build_citation_candidates(
             .enumerate()
             .map(|(idx, source)| {
                 let title = source.title.as_deref().unwrap_or_default();
+                let has_content_signal =
+                    !title.trim().is_empty() || !source.excerpt.trim().is_empty();
                 let source_tokens = source_anchor_tokens(&source.url, title, &source.excerpt);
                 let native_overlap_count = projection
                     .query_native_tokens
@@ -581,6 +583,7 @@ pub(crate) fn build_citation_candidates(
                     compatibility,
                     native_overlap_count,
                     resolvable_payload,
+                    has_content_signal,
                 )
             })
             .collect::<Vec<_>>();
@@ -588,6 +591,7 @@ pub(crate) fn build_citation_candidates(
             right
                 .4
                 .cmp(&left.4)
+                .then_with(|| right.5.cmp(&left.5))
                 .then_with(|| right.3.cmp(&left.3))
                 .then_with(|| {
                     let right_passes = compatibility_passes_projection(&projection, &right.2);
@@ -599,15 +603,17 @@ pub(crate) fn build_citation_candidates(
         });
         let enforce_grounded_compatibility = projection.enforce_grounded_compatibility();
         let strict_grounded_compatibility = projection.strict_grounded_compatibility();
-        let has_compatible_fallback = ranked_fallback.iter().any(|(_, _, compatibility, _, _)| {
-            compatibility_passes_projection(&projection, compatibility)
-        });
+        let has_compatible_fallback = ranked_fallback
+            .iter()
+            .any(|(_, _, compatibility, _, _, _)| {
+                compatibility_passes_projection(&projection, compatibility)
+            });
         let require_native_overlap = !projection.query_native_tokens.is_empty()
             && ranked_fallback
                 .iter()
-                .any(|(_, _, _, native_overlap, _)| *native_overlap > 0);
+                .any(|(_, _, _, native_overlap, _, _)| *native_overlap > 0);
         for pass in 0..2 {
-            for (_, source, compatibility, native_overlap_count, _) in ranked_fallback.iter() {
+            for (_, source, compatibility, native_overlap_count, _, _) in ranked_fallback.iter() {
                 if merged.len() >= minimum_candidate_floor {
                     break;
                 }
@@ -825,6 +831,7 @@ pub(crate) fn citation_ids_for_story(
             let left_key = (
                 prefer_host_diversity
                     && envelope_score_resolves_constraint(envelope_constraints, left_envelope),
+                citation_current_condition_metric_signal(left),
                 citation_metric_signal(left),
                 left_signals.official_status_host_hits > 0,
                 left_signals.official_status_host_hits,
@@ -839,6 +846,7 @@ pub(crate) fn citation_ids_for_story(
             let right_key = (
                 prefer_host_diversity
                     && envelope_score_resolves_constraint(envelope_constraints, right_envelope),
+                citation_current_condition_metric_signal(right),
                 citation_metric_signal(right),
                 right_signals.official_status_host_hits > 0,
                 right_signals.official_status_host_hits,

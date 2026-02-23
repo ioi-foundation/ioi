@@ -961,7 +961,7 @@ mod tests {
     }
 
     #[test]
-    fn rewrites_memory_search_when_live_external_research_goal_overrides_scope() {
+    fn does_not_rewrite_memory_search_when_goal_is_live_external_but_scope_is_not_web() {
         let mut tool = AgentTool::MemorySearch {
             query: "active cloud incidents us impact".to_string(),
         };
@@ -972,20 +972,7 @@ mod tests {
             "As of now (UTC), top active cloud incidents with citations",
         );
 
-        match tool {
-            AgentTool::WebSearch { query, limit, url } => {
-                assert_eq!(query, "active cloud incidents us impact");
-                assert_eq!(
-                    limit,
-                    Some(crate::agentic::desktop::service::step::queue::WEB_PIPELINE_SEARCH_LIMIT)
-                );
-                let expected = crate::agentic::web::build_default_search_url(
-                    "active cloud incidents us impact",
-                );
-                assert_eq!(url.as_deref(), Some(expected.as_str()));
-            }
-            other => panic!("expected WebSearch, got {:?}", other),
-        }
+        assert!(matches!(tool, AgentTool::MemorySearch { .. }));
     }
 
     #[test]

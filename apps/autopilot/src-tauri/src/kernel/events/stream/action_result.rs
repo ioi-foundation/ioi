@@ -4,11 +4,11 @@ use crate::kernel::events::emission::{
     emit_code_search, emit_command_run, emit_file_edit, emit_test_run, register_event,
 };
 use crate::kernel::events::support::{
+    clarification_prompt_for_preset, clarification_wait_step_for_preset,
     detect_clarification_preset, event_status_from_agent_status, event_type_for_tool,
     is_hard_terminal_task, is_identity_resolution_kind, is_install_package_tool,
     is_sudo_password_required_install, is_waiting_for_identity_clarification_step,
-    thread_id_from_session, ClarificationPreset, CLARIFICATION_WAIT_STEP,
-    WAIT_FOR_CLARIFICATION_PROMPT,
+    thread_id_from_session, ClarificationPreset,
 };
 use crate::kernel::state::update_task_state;
 use crate::models::AppState;
@@ -25,11 +25,20 @@ pub(super) async fn handle_action_result(app: &tauri::AppHandle, res: AgentActio
         None
     };
     let clarification_required = clarification_preset.is_some();
+    let effective_clarification_preset =
+        clarification_preset.unwrap_or(ClarificationPreset::IdentityLookup);
+    let clarification_wait_step =
+        clarification_wait_step_for_preset(effective_clarification_preset);
+    let clarification_prompt = clarification_prompt_for_preset(effective_clarification_preset);
     let clarification_request = if clarification_required {
-        let preset = clarification_preset.unwrap_or(ClarificationPreset::IdentityLookup);
         Some(
-            build_clarification_request_with_inference(&app, preset, &res.tool_name, &res.output)
-                .await,
+            build_clarification_request_with_inference(
+                &app,
+                effective_clarification_preset,
+                &res.tool_name,
+                &res.output,
+            )
+            .await,
         )
     } else {
         None
@@ -145,7 +154,7 @@ pub(super) async fn handle_action_result(app: &tauri::AppHandle, res: AgentActio
 
         if clarification_required {
             t.phase = AgentPhase::Complete;
-            t.current_step = CLARIFICATION_WAIT_STEP.to_string();
+            t.current_step = clarification_wait_step.to_string();
             t.gate_info = None;
             t.pending_request_hash = None;
             t.credential_request = None;
@@ -161,7 +170,7 @@ pub(super) async fn handle_action_result(app: &tauri::AppHandle, res: AgentActio
                     });
                 }
             }
-            let prompt_msg = WAIT_FOR_CLARIFICATION_PROMPT.to_string();
+            let prompt_msg = clarification_prompt.to_string();
             if t.history
                 .last()
                 .map(|m| m.text != prompt_msg)

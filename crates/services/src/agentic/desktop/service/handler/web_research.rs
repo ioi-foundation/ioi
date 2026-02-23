@@ -2,7 +2,7 @@ use crate::agentic::desktop::service::step::action::{
     is_search_results_url, search_query_from_url,
 };
 use crate::agentic::desktop::service::step::helpers::{
-    is_live_external_research_goal, is_mailbox_connector_goal,
+    is_mailbox_connector_goal,
 };
 use crate::agentic::desktop::service::step::queue::WEB_PIPELINE_SEARCH_LIMIT;
 use ioi_types::app::agentic::{AgentTool, IntentScopeProfile, ResolvedIntentState};
@@ -19,9 +19,7 @@ pub(super) fn normalize_web_research_tool_call(
     let is_web_research_scope = resolved_intent
         .map(|resolved| resolved.scope == IntentScopeProfile::WebResearch)
         .unwrap_or(false);
-    let is_live_external_research = is_live_external_research_goal(fallback_query);
-    let is_effective_web_research = is_web_research_scope || is_live_external_research;
-    if !is_effective_web_research {
+    if !is_web_research_scope {
         return;
     }
 

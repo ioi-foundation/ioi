@@ -292,14 +292,19 @@ pub(crate) fn render_synthesis_draft(draft: &SynthesisDraft) -> String {
             lines.push(String::new());
             let metric_lines =
                 single_snapshot_structured_metric_lines(story, draft, &single_snapshot_query_axes);
+            let citation_metric_sentence = |citation: &CitationCandidate| {
+                first_metric_sentence(citation.excerpt.trim()).or_else(|| {
+                    let citation_text =
+                        format!("{} {}", citation.source_label, citation.excerpt.trim());
+                    first_metric_sentence(&citation_text)
+                })
+            };
             let citation_current_metric = story
                 .citation_ids
                 .iter()
                 .filter_map(|id| draft.citations_by_id.get(id))
                 .find_map(|citation| {
-                    let citation_text =
-                        format!("{} {}", citation.source_label, citation.excerpt.trim());
-                    first_metric_sentence(&citation_text)
+                    citation_metric_sentence(citation)
                         .filter(|metric| contains_current_condition_metric_signal(metric))
                 });
             let citation_partial_metric = story
@@ -307,9 +312,7 @@ pub(crate) fn render_synthesis_draft(draft: &SynthesisDraft) -> String {
                 .iter()
                 .filter_map(|id| draft.citations_by_id.get(id))
                 .find_map(|citation| {
-                    let citation_text =
-                        format!("{} {}", citation.source_label, citation.excerpt.trim());
-                    first_metric_sentence(&citation_text)
+                    citation_metric_sentence(citation)
                         .filter(|metric| has_quantitative_metric_payload(metric, false))
                 });
             let temperature_phrase = metric_lines.iter().find_map(|(axis, value)| {
@@ -436,7 +439,14 @@ pub(crate) fn render_synthesis_draft(draft: &SynthesisDraft) -> String {
                     .citation_ids
                     .iter()
                     .filter_map(|id| draft.citations_by_id.get(id))
-                    .next()
+                    .find(|citation| citation_current_condition_metric_signal(citation))
+                    .or_else(|| {
+                        story
+                            .citation_ids
+                            .iter()
+                            .filter_map(|id| draft.citations_by_id.get(id))
+                            .next()
+                    })
                 {
                     lines.push(format!(
                         "- Next step: Open {} for live current-condition metrics (temperature, feels-like, humidity, wind).",

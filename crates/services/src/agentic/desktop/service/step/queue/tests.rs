@@ -7,19 +7,19 @@ use super::support::{
     constraint_grounded_search_query_with_hints_and_locality_hint, fallback_search_summary,
     merge_pending_search_completion, next_pending_web_candidate,
     pre_read_candidate_plan_from_bundle, pre_read_candidate_plan_from_bundle_with_locality_hint,
-    queue_action_request_to_tool, select_web_pipeline_query_contract,
+    queue_action_request_to_tool, render_synthesis_draft, select_web_pipeline_query_contract,
     single_snapshot_constraint_set_with_hints, summarize_search_results,
     synthesize_web_pipeline_reply, web_pipeline_can_queue_initial_read_latency_aware,
     web_pipeline_can_queue_probe_search_latency_aware, web_pipeline_completion_reason,
     web_pipeline_latency_pressure_label, web_pipeline_min_sources,
     web_pipeline_required_probe_budget_ms, web_pipeline_required_read_budget_ms, CitationCandidate,
-    WebPipelineCompletionReason, WEIGHTED_INSIGHT_SIGNAL_VERSION,
+    StoryDraft, SynthesisDraft, WebPipelineCompletionReason, WEIGHTED_INSIGHT_SIGNAL_VERSION,
 };
 use crate::agentic::desktop::types::{PendingSearchCompletion, PendingSearchReadSummary};
 use ioi_types::app::agentic::{AgentTool, ComputerAction};
 use ioi_types::app::agentic::{WebDocument, WebEvidenceBundle, WebSource};
 use ioi_types::app::{ActionContext, ActionRequest, ActionTarget};
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -1040,6 +1040,34 @@ fn web_pipeline_constraint_grounded_search_query_avoids_native_anchor_phrase_for
 }
 
 #[test]
+fn web_pipeline_constraint_grounded_search_query_ignores_forecast_only_axis_hints() {
+    let hints = vec![
+        PendingSearchReadSummary {
+            url: "https://weather.example.com/a".to_string(),
+            title: Some("Anderson forecast".to_string()),
+            excerpt: "Tomorrow forecast: high 65, low 49, chance of rain 60%.".to_string(),
+        },
+        PendingSearchReadSummary {
+            url: "https://weather2.example.com/b".to_string(),
+            title: Some("Anderson 10-day outlook".to_string()),
+            excerpt: "Weekly outlook with precipitation chance and daily high/low values."
+                .to_string(),
+        },
+    ];
+
+    let query = constraint_grounded_search_query_with_hints(
+        "What's the weather right now in Anderson, SC?",
+        2,
+        &hints,
+    );
+    assert!(
+        !query.to_ascii_lowercase().contains("precipitation values"),
+        "forecast-only hints should not infer precipitation axis constraints: {}",
+        query
+    );
+}
+
+#[test]
 fn web_pipeline_constraint_grounded_probe_query_escalates_when_prior_equals_grounded() {
     let query = "what's the weather right now";
     let hints = vec![PendingSearchReadSummary {
@@ -1540,6 +1568,64 @@ fn web_pipeline_merge_pending_search_completion_preserves_existing_inventory() {
         .candidate_source_hints
         .iter()
         .any(|hint| hint.url.contains("forecast.weather.gov")));
+}
+
+#[test]
+fn web_pipeline_append_success_from_bundle_preserves_non_low_signal_read_excerpt() {
+    let requested_url = "https://weather.yahoo.com/us/sc/anderson";
+    let mut pending = PendingSearchCompletion {
+        query: "What's the weather right now in Anderson, SC?".to_string(),
+        query_contract: "What's the weather right now in Anderson, SC?".to_string(),
+        url: "https://duckduckgo.com/?q=current+weather+anderson+sc".to_string(),
+        started_step: 0,
+        started_at_ms: 0,
+        deadline_ms: 45_000,
+        candidate_urls: vec![requested_url.to_string()],
+        candidate_source_hints: vec![PendingSearchReadSummary {
+            url: requested_url.to_string(),
+            title: Some("Anderson, SC Current Weather".to_string()),
+            excerpt:
+                "Current conditions at Anderson airport: Fair 35°F 2°C Humidity 38% Wind 8 mph."
+                    .to_string(),
+        }],
+        attempted_urls: vec![],
+        blocked_urls: vec![],
+        successful_reads: vec![],
+        min_sources: 2,
+    };
+    let bundle = WebEvidenceBundle {
+        schema_version: 1,
+        retrieved_at_ms: 0,
+        tool: "web__read".to_string(),
+        backend: "edge:read:http".to_string(),
+        query: None,
+        url: Some(requested_url.to_string()),
+        sources: vec![WebSource {
+            source_id: "source:weather".to_string(),
+            rank: None,
+            url: requested_url.to_string(),
+            title: Some("Anderson Forecast".to_string()),
+            snippet: None,
+            domain: Some("weather.yahoo.com".to_string()),
+        }],
+        documents: vec![WebDocument {
+            source_id: "source:weather".to_string(),
+            url: requested_url.to_string(),
+            title: Some("Anderson Forecast".to_string()),
+            content_text: "Mostly Cloudy today with a high of 61°F and a low of 45°F.".to_string(),
+            content_hash: "hash".to_string(),
+            quote_spans: vec![],
+        }],
+    };
+
+    append_pending_web_success_from_bundle(&mut pending, &bundle, requested_url);
+    assert_eq!(pending.successful_reads.len(), 1);
+    assert!(
+        pending.successful_reads[0]
+            .excerpt
+            .contains("Mostly Cloudy today with a high of 61°F"),
+        "expected read excerpt to be preserved when it has a quantitative claim"
+    );
 }
 
 #[test]
@@ -2843,8 +2929,10 @@ fn web_pipeline_single_snapshot_partial_metric_caveat_mentions_partial_availabil
     let reply =
         synthesize_web_pipeline_reply(&pending, WebPipelineCompletionReason::MinSourcesReached);
     assert!(
-        reply.contains("Available observed details from cited source text:"),
-        "expected partial-metric summary line, got:\n{}",
+        reply.contains("Available observed details from cited source text:")
+            || reply.contains("Current conditions from retrieved source text:")
+            || reply.contains("Current conditions from cited source text:"),
+        "expected metric-oriented summary line, got:\n{}",
         reply
     );
     assert!(reply.contains("Current metric status:"), "got:\n{}", reply);
@@ -2856,6 +2944,95 @@ fn web_pipeline_single_snapshot_partial_metric_caveat_mentions_partial_availabil
     assert!(
         !reply.contains("did not expose numeric current-condition metrics"),
         "partial metrics should not be described as fully absent:\n{}",
+        reply
+    );
+}
+
+#[test]
+fn web_pipeline_single_snapshot_partial_metric_summary_keeps_trailing_numeric_value() {
+    let mut citations_by_id = BTreeMap::new();
+    citations_by_id.insert(
+        "C1".to_string(),
+        CitationCandidate {
+            id: "C1".to_string(),
+            url: "https://weather.yahoo.com/us/sc/anderson".to_string(),
+            source_label: "Anderson SC Weather Forecast Conditions and Maps - Yahoo Weather"
+                .to_string(),
+            excerpt: "Mostly Cloudy today with a high of 61°F and a low of 45°F".to_string(),
+            timestamp_utc: "2026-02-23T15:19:10Z".to_string(),
+            note: "retrieved_utc; source publish/update timestamp unavailable".to_string(),
+            from_successful_read: true,
+        },
+    );
+
+    let draft = SynthesisDraft {
+        query: "What's the weather right now in Anderson, SC?".to_string(),
+        run_date: "2026-02-23".to_string(),
+        run_timestamp_ms: 1_771_859_150_000,
+        run_timestamp_iso_utc: "2026-02-23T15:19:10Z".to_string(),
+        completion_reason: "Completed because no additional candidate sources remained.".to_string(),
+        overall_confidence: "medium".to_string(),
+        overall_caveat: "test".to_string(),
+        stories: vec![StoryDraft {
+            title: "Anderson, SC Weather Forecast".to_string(),
+            what_happened: "Current-condition metrics were not exposed in readable source text from Anderson, SC Weather Forecast at retrieval time.".to_string(),
+            changed_last_hour: String::new(),
+            why_it_matters: String::new(),
+            user_impact: String::new(),
+            workaround: String::new(),
+            eta_confidence: String::new(),
+            citation_ids: vec!["C1".to_string()],
+            confidence: "high".to_string(),
+            caveat: "test caveat".to_string(),
+        }],
+        citations_by_id,
+        blocked_urls: Vec::new(),
+        partial_note: None,
+    };
+
+    let reply = render_synthesis_draft(&draft);
+    assert!(
+        reply.contains("Available observed details from cited source text: Mostly Cloudy today with a high of 61°F and a low of 45°F"),
+        "expected summary to keep trailing metric value, got:\n{}",
+        reply
+    );
+}
+
+#[test]
+fn web_pipeline_single_snapshot_prefers_current_observation_over_forecast_range() {
+    let pending = PendingSearchCompletion {
+        query: "What's the weather right now in Anderson, SC?".to_string(),
+        query_contract: "What's the weather right now in Anderson, SC?".to_string(),
+        url: "https://duckduckgo.com/?q=current+weather+anderson+sc".to_string(),
+        started_step: 1,
+        started_at_ms: 1_771_465_364_000,
+        deadline_ms: 1_771_465_424_000,
+        candidate_urls: vec![
+            "https://forecast.weather.gov/zipcity.php?inputstring=Anderson,SC".to_string(),
+        ],
+        candidate_source_hints: vec![],
+        attempted_urls: vec![],
+        blocked_urls: vec![],
+        successful_reads: vec![PendingSearchReadSummary {
+            url: "https://forecast.weather.gov/zipcity.php?inputstring=Anderson,SC".to_string(),
+            title: Some("National Weather Service".to_string()),
+            excerpt: "Mostly Cloudy today with a high of 61°F and a low of 45°F. Current conditions at Anderson, Anderson County Airport (KAND): Fair 35°F 2°C Humidity 38% Wind Speed W 8G21 mph."
+                .to_string(),
+        }],
+        min_sources: 1,
+    };
+
+    let reply =
+        synthesize_web_pipeline_reply(&pending, WebPipelineCompletionReason::MinSourcesReached);
+    assert!(
+        reply.contains("Current conditions from retrieved source text:"),
+        "expected current-conditions summary, got:\n{}",
+        reply
+    );
+    assert!(reply.contains("35°F"), "expected observed temperature, got:\n{}", reply);
+    assert!(
+        !reply.contains("Available observed details from cited source text: Mostly Cloudy today"),
+        "forecast-only sentence should not be preferred when current observation is present:\n{}",
         reply
     );
 }

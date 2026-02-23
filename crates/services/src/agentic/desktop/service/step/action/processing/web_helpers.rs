@@ -3,9 +3,7 @@ use super::{
     constraint_grounded_search_limit, constraint_grounded_search_query, web_pipeline_min_sources,
     ActionContext, ActionRequest, ActionTarget, AgentState, FailureClass, TransactionError,
 };
-use crate::agentic::desktop::service::step::helpers::{
-    is_live_external_research_goal, is_mailbox_connector_goal,
-};
+use crate::agentic::desktop::service::step::helpers::is_mailbox_connector_goal;
 use ioi_types::app::agentic::{IntentScopeProfile, ResolvedIntentState};
 use serde_json::json;
 
@@ -32,7 +30,7 @@ pub(super) fn should_fail_fast_web_timeout(
     let in_web_research_scope = resolved_intent
         .map(|resolved| resolved.scope == IntentScopeProfile::WebResearch)
         .unwrap_or(false);
-    in_web_research_scope || tool_name.starts_with("web__")
+    in_web_research_scope
 }
 
 pub(super) fn extract_web_read_url_from_payload(payload: &serde_json::Value) -> Option<String> {
@@ -47,7 +45,6 @@ pub(super) fn extract_web_read_url_from_payload(payload: &serde_json::Value) -> 
 
 fn is_effective_web_research_scope(agent_state: &AgentState) -> bool {
     is_search_scope(agent_state.resolved_intent.as_ref())
-        || is_live_external_research_goal(&agent_state.goal)
 }
 
 pub(super) fn should_use_web_research_path(agent_state: &AgentState) -> bool {
@@ -125,12 +122,6 @@ pub(super) fn queue_web_search_bootstrap(
         "query": search_query,
         "limit": search_limit
     }))
-    .or_else(|_| {
-        serde_json::to_vec(&json!({
-            "query": search_query,
-            "limit": search_limit
-        }))
-    })
     .map_err(|e| TransactionError::Serialization(e.to_string()))?;
     let request = ActionRequest {
         target: ActionTarget::WebRetrieve,

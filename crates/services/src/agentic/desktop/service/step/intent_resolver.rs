@@ -18,13 +18,7 @@ use tokio::time::{timeout, Duration};
 
 const INTENT_EMBED_RANK_TIMEOUT: Duration = Duration::from_secs(5);
 const INTENT_PROTOTYPE_BUILD_TIMEOUT: Duration = Duration::from_secs(30);
-
-fn fallback_tier_for_scope(scope: IntentScopeProfile) -> &'static str {
-    match scope {
-        IntentScopeProfile::UiInteraction => "visual_last",
-        _ => "tool_first",
-    }
-}
+const INTENT_QUERY_NORMALIZATION_VERSION: &str = "intent_query_norm_v1";
 
 fn preferred_tier_from_label(label: &str, scope: IntentScopeProfile) -> ExecutionTier {
     match label {
@@ -41,6 +35,35 @@ fn preferred_tier_from_label(label: &str, scope: IntentScopeProfile) -> Executio
 fn score_to_bps(score: f32) -> u16 {
     let clamped = score.clamp(0.0, 1.0);
     (clamped * 10_000.0).round() as u16
+}
+
+fn quantization_step_bps(policy: &IntentRoutingPolicy) -> u16 {
+    policy.score_quantization_bps.clamp(1, 10_000)
+}
+
+fn tie_region_eps_bps(policy: &IntentRoutingPolicy) -> u16 {
+    policy.tie_region_eps_bps.min(10_000)
+}
+
+fn ambiguity_margin_bps(policy: &IntentRoutingPolicy) -> u16 {
+    policy.ambiguity_margin_bps.min(10_000)
+}
+
+fn quantize_score(score: f32, policy: &IntentRoutingPolicy) -> f32 {
+    let step = quantization_step_bps(policy);
+    let bps = score_to_bps(score);
+    let remainder = bps % step;
+    let rounded_bps = if remainder.saturating_mul(2) >= step {
+        bps.saturating_add(step.saturating_sub(remainder))
+    } else {
+        bps.saturating_sub(remainder)
+    }
+    .min(10_000);
+    (rounded_bps as f32 / 10_000.0).clamp(0.0, 1.0)
+}
+
+fn normalize_query_for_ranking(raw: &str) -> String {
+    raw.split_whitespace().collect::<Vec<_>>().join(" ")
 }
 
 fn resolve_band(score: f32, policy: &IntentRoutingPolicy) -> IntentConfidenceBand {
@@ -60,40 +83,81 @@ fn resolve_band(score: f32, policy: &IntentRoutingPolicy) -> IntentConfidenceBan
     }
 }
 
-fn effective_matrix(policy: &IntentRoutingPolicy) -> Vec<IntentMatrixEntry> {
-    let mut merged = BTreeMap::<String, IntentMatrixEntry>::new();
-    for entry in IntentRoutingPolicy::default().matrix {
-        merged.insert(entry.intent_id.clone(), entry);
-    }
-    for entry in &policy.matrix {
-        merged.insert(entry.intent_id.clone(), entry.clone());
-    }
-    merged.into_values().collect()
+fn valid_preferred_tier_label(label: &str) -> bool {
+    matches!(label, "tool_first" | "ax_first" | "visual_last")
 }
 
-fn matrix_source_hash(policy: &IntentRoutingPolicy, matrix: &[IntentMatrixEntry]) -> [u8; 32] {
+fn effective_matrix(
+    policy: &IntentRoutingPolicy,
+) -> Result<Vec<IntentMatrixEntry>, TransactionError> {
+    let mut merged = BTreeMap::<String, IntentMatrixEntry>::new();
+    for entry in &policy.matrix {
+        let intent_id = entry.intent_id.trim();
+        if intent_id.is_empty() {
+            return Err(TransactionError::Invalid(
+                "Intent matrix contains empty intent_id".to_string(),
+            ));
+        }
+        let preferred_tier = entry.preferred_tier.trim();
+        if !valid_preferred_tier_label(preferred_tier) {
+            return Err(TransactionError::Invalid(format!(
+                "Intent '{}' has unsupported preferred_tier '{}'",
+                intent_id, entry.preferred_tier
+            )));
+        }
+        let mut normalized = entry.clone();
+        normalized.intent_id = intent_id.to_string();
+        normalized.preferred_tier = preferred_tier.to_string();
+        if merged
+            .insert(normalized.intent_id.clone(), normalized)
+            .is_some()
+        {
+            return Err(TransactionError::Invalid(format!(
+                "Intent matrix contains duplicate intent_id '{}'",
+                intent_id
+            )));
+        }
+    }
+    Ok(merged.into_values().collect())
+}
+
+fn matrix_source_hash(
+    policy: &IntentRoutingPolicy,
+    matrix: &[IntentMatrixEntry],
+) -> Result<[u8; 32], TransactionError> {
     let payload = json!({
         "matrix_version": policy.matrix_version,
         "matrix": matrix,
+        "score_quantization_bps": quantization_step_bps(policy),
+        "tie_region_eps_bps": tie_region_eps_bps(policy),
+        "ambiguity_margin_bps": ambiguity_margin_bps(policy),
     });
-    let canonical = serde_jcs::to_vec(&payload)
-        .or_else(|_| serde_json::to_vec(&payload))
-        .unwrap_or_default();
+    let canonical =
+        serde_jcs::to_vec(&payload).map_err(|e| TransactionError::Serialization(e.to_string()))?;
+    let digest = sha256(&canonical).map_err(|e| TransactionError::Invalid(e.to_string()))?;
     let mut out = [0u8; 32];
-    if let Ok(digest) = sha256(&canonical) {
-        out.copy_from_slice(digest.as_ref());
-    }
-    out
+    out.copy_from_slice(digest.as_ref());
+    Ok(out)
 }
 
 fn receipt_hash(
     query: &str,
+    normalized_query: &str,
     resolved: &ResolvedIntentState,
+    policy: &IntentRoutingPolicy,
     session_id: Option<[u8; 32]>,
     active_window_title: &str,
-) -> [u8; 32] {
+) -> Result<[u8; 32], TransactionError> {
+    let query_hash =
+        sha256(query.as_bytes()).map_err(|e| TransactionError::Invalid(e.to_string()))?;
+    let normalized_query_hash = sha256(normalized_query.as_bytes())
+        .map_err(|e| TransactionError::Invalid(e.to_string()))?;
     let payload = json!({
         "query": query,
+        "query_hash": hex::encode(query_hash.as_ref()),
+        "normalized_query": normalized_query,
+        "normalized_query_hash": hex::encode(normalized_query_hash.as_ref()),
+        "query_normalization_version": INTENT_QUERY_NORMALIZATION_VERSION,
         "session_id": session_id.map(hex::encode),
         "active_window_title": active_window_title,
         "intent_id": resolved.intent_id,
@@ -104,16 +168,17 @@ fn receipt_hash(
         "preferred_tier": resolved.preferred_tier,
         "matrix_version": resolved.matrix_version,
         "matrix_source_hash": hex::encode(resolved.matrix_source_hash),
+        "score_quantization_bps": quantization_step_bps(policy),
+        "tie_region_eps_bps": tie_region_eps_bps(policy),
+        "ambiguity_margin_bps": ambiguity_margin_bps(policy),
         "constrained": resolved.constrained,
     });
-    let canonical = serde_jcs::to_vec(&payload)
-        .or_else(|_| serde_json::to_vec(&payload))
-        .unwrap_or_default();
+    let canonical =
+        serde_jcs::to_vec(&payload).map_err(|e| TransactionError::Serialization(e.to_string()))?;
+    let digest = sha256(&canonical).map_err(|e| TransactionError::Invalid(e.to_string()))?;
     let mut out = [0u8; 32];
-    if let Ok(digest) = sha256(&canonical) {
-        out.copy_from_slice(digest.as_ref());
-    }
-    out
+    out.copy_from_slice(digest.as_ref());
+    Ok(out)
 }
 
 fn emit_intent_resolution_receipt(
@@ -170,10 +235,68 @@ fn sort_scores_desc(scores: &mut [IntentCandidateScore]) {
     });
 }
 
+fn quantize_and_sort_scores(scores: &mut [IntentCandidateScore], policy: &IntentRoutingPolicy) {
+    for score in scores.iter_mut() {
+        score.score = quantize_score(score.score, policy);
+    }
+    sort_scores_desc(scores);
+}
+
+fn select_deterministic_winner(
+    ranked: &[IntentCandidateScore],
+    matrix: &[IntentMatrixEntry],
+    policy: &IntentRoutingPolicy,
+) -> Option<IntentCandidateScore> {
+    let top = ranked.first()?;
+    let top_bps = score_to_bps(top.score);
+    let tie_eps = tie_region_eps_bps(policy);
+    let mut tie_candidates = ranked
+        .iter()
+        .filter(|candidate| top_bps.saturating_sub(score_to_bps(candidate.score)) <= tie_eps)
+        .cloned()
+        .collect::<Vec<_>>();
+    tie_candidates.sort_by(|left, right| {
+        let left_scope = scope_for_intent(matrix, &left.intent_id)
+            .map(|scope| format!("{:?}", scope))
+            .unwrap_or_else(|| "Unknown".to_string());
+        let right_scope = scope_for_intent(matrix, &right.intent_id)
+            .map(|scope| format!("{:?}", scope))
+            .unwrap_or_else(|| "Unknown".to_string());
+        left.intent_id
+            .cmp(&right.intent_id)
+            .then_with(|| left_scope.cmp(&right_scope))
+    });
+    tie_candidates.into_iter().next()
+}
+
+fn should_abstain_for_ambiguity(
+    ranked: &[IntentCandidateScore],
+    winner: &IntentCandidateScore,
+    policy: &IntentRoutingPolicy,
+) -> bool {
+    let Some(second) = ranked
+        .iter()
+        .find(|candidate| candidate.intent_id != winner.intent_id)
+    else {
+        return false;
+    };
+    let winner_bps = score_to_bps(winner.score);
+    let second_bps = score_to_bps(second.score);
+    let gap = winner_bps.saturating_sub(second_bps);
+    gap < ambiguity_margin_bps(policy)
+}
+
+fn scope_feasible_for_query(scope: IntentScopeProfile, locality_scope_required: bool) -> bool {
+    if locality_scope_required {
+        return matches!(scope, IntentScopeProfile::WebResearch);
+    }
+    true
+}
+
 fn all_candidate_scores_zero(scores: &[IntentCandidateScore]) -> bool {
     !scores.is_empty()
         && scores
-            .iter()
+        .iter()
             .all(|candidate| candidate.score <= f32::EPSILON)
 }
 
@@ -393,31 +516,42 @@ impl IntentRankBackend for Arc<dyn InferenceRuntime> {
     }
 }
 
-fn scope_for_intent(matrix: &[IntentMatrixEntry], intent_id: &str) -> IntentScopeProfile {
+fn scope_for_intent(matrix: &[IntentMatrixEntry], intent_id: &str) -> Option<IntentScopeProfile> {
     matrix
         .iter()
         .find(|entry| entry.intent_id == intent_id)
         .map(|entry| entry.scope)
-        .unwrap_or(IntentScopeProfile::Unknown)
 }
 
-fn preferred_tier_for_intent(matrix: &[IntentMatrixEntry], intent_id: &str) -> String {
+fn preferred_tier_for_intent(matrix: &[IntentMatrixEntry], intent_id: &str) -> Option<String> {
     matrix
         .iter()
         .find(|entry| entry.intent_id == intent_id)
         .map(|entry| entry.preferred_tier.clone())
-        .unwrap_or_else(|| fallback_tier_for_scope(IntentScopeProfile::Unknown).to_string())
 }
 
 pub fn should_pause_for_clarification(
     resolved: &ResolvedIntentState,
     policy: &IntentRoutingPolicy,
 ) -> bool {
-    matches!(resolved.band, IntentConfidenceBand::Low)
-        && matches!(
+    if resolved.intent_id == "resolver.unclassified" {
+        return matches!(
             policy.ambiguity.low_confidence_action,
             IntentAmbiguityAction::PauseForClarification
-        )
+        );
+    }
+
+    match resolved.band {
+        IntentConfidenceBand::Low => matches!(
+            policy.ambiguity.low_confidence_action,
+            IntentAmbiguityAction::PauseForClarification
+        ),
+        IntentConfidenceBand::Medium => matches!(
+            policy.ambiguity.medium_confidence_action,
+            IntentAmbiguityAction::PauseForClarification
+        ),
+        IntentConfidenceBand::High => false,
+    }
 }
 
 pub fn preferred_tier(resolved: &ResolvedIntentState) -> ExecutionTier {
@@ -653,7 +787,7 @@ pub fn is_tool_allowed_for_resolution(
     tool_name: &str,
 ) -> bool {
     let Some(resolved) = resolved else {
-        return true;
+        return false;
     };
     tool_allowed_for_scope(resolved.scope, tool_name)
 }
@@ -699,81 +833,54 @@ pub async fn resolve_step_intent(
     } else {
         latest_user_message
     };
-    let goal_signals = super::signals::analyze_goal_signals(&query);
+    let normalized_query = normalize_query_for_ranking(&query);
+    let ranking_query = if normalized_query.trim().is_empty() {
+        query.clone()
+    } else {
+        normalized_query.clone()
+    };
+    let locality_scope_required = super::queue::query_requires_runtime_locality_scope(&ranking_query);
     let session_prefix = hex::encode(&agent_state.session_id[..4]);
-    let query_hash = sha256(query.as_bytes())
-        .map(|digest| hex::encode(digest.as_ref()))
-        .unwrap_or_else(|_| "sha256_error".to_string());
+    let query_hash = hex::encode(
+        sha256(query.as_bytes()).map_err(|e| TransactionError::Invalid(e.to_string()))?,
+    );
+    let normalized_query_hash = hex::encode(
+        sha256(ranking_query.as_bytes()).map_err(|e| TransactionError::Invalid(e.to_string()))?,
+    );
     let raw_enabled = super::helpers::should_log_raw_prompt_content();
     if raw_enabled {
         let query_json = serde_json::to_string(&query)
             .unwrap_or_else(|_| "\"<query-serialization-error>\"".to_string());
         log::info!(
-            "IntentResolverInput session={} chars={} bytes={} lines={} query_hash={} query_json={}",
+            "IntentResolverInput session={} chars={} bytes={} lines={} query_hash={} normalized_query_hash={} normalization_version={} query_json={}",
             session_prefix,
             query.chars().count(),
             query.len(),
             query.lines().count(),
             query_hash,
+            normalized_query_hash,
+            INTENT_QUERY_NORMALIZATION_VERSION,
             query_json
         );
     } else {
         log::info!(
-            "IntentResolverInput session={} chars={} bytes={} lines={} query_hash={} query_json=<omitted:raw_prompt_disabled>",
+            "IntentResolverInput session={} chars={} bytes={} lines={} query_hash={} normalized_query_hash={} normalization_version={} query_json=<omitted:raw_prompt_disabled>",
             session_prefix,
             query.chars().count(),
             query.len(),
             query.lines().count(),
-            query_hash
+            query_hash,
+            normalized_query_hash,
+            INTENT_QUERY_NORMALIZATION_VERSION
         );
     }
-    let matrix = effective_matrix(policy);
-    let matrix_hash = matrix_source_hash(policy, &matrix);
-
-    // Deterministic fast path: if the lifecycle has already derived a concrete
-    // app target and current query still signals a launch request, resolve
-    // directly to the AppLaunch scope without waiting on model inference.
-    let target_app_hint = agent_state
-        .target
-        .as_ref()
-        .and_then(|target| target.app_hint.as_deref())
-        .map(str::trim)
-        .filter(|hint| !hint.is_empty());
-    if target_app_hint.is_some() && goal_signals.launch_hits > 0 {
-        if let Some(app_entry) = matrix
-            .iter()
-            .find(|entry| entry.scope == IntentScopeProfile::AppLaunch)
-        {
-            let mut resolved = ResolvedIntentState {
-                intent_id: app_entry.intent_id.clone(),
-                scope: IntentScopeProfile::AppLaunch,
-                band: IntentConfidenceBand::High,
-                score: 1.0,
-                top_k: vec![IntentCandidateScore {
-                    intent_id: app_entry.intent_id.clone(),
-                    score: 1.0,
-                }],
-                preferred_tier: preferred_tier_for_intent(&matrix, &app_entry.intent_id),
-                matrix_version: policy.matrix_version.clone(),
-                matrix_source_hash: matrix_hash,
-                receipt_hash: [0u8; 32],
-                constrained: false,
-            };
-            resolved.receipt_hash = receipt_hash(
-                &query,
-                &resolved,
-                Some(agent_state.session_id),
-                active_window_title,
-            );
-            log::info!(
-                "IntentResolverFastPath session={} reason=target_anchored_app_launch target_hint={} intent_id={}",
-                session_prefix,
-                target_app_hint.unwrap_or_default(),
-                resolved.intent_id
-            );
-            emit_intent_resolution_receipt(service, agent_state.session_id, &resolved);
-            return Ok(resolved);
-        }
+    let matrix = effective_matrix(policy)?;
+    let matrix_hash = matrix_source_hash(policy, &matrix)?;
+    if matrix.is_empty() {
+        log::warn!(
+            "IntentResolver matrix is empty for version={}, abstaining.",
+            policy.matrix_version
+        );
     }
 
     let runtime = service.reasoning_inference.clone();
@@ -802,10 +909,10 @@ pub async fn resolve_step_intent(
         }
     };
 
-    let mut top_k = if prototypes_ready {
+    let mut ranked_candidates = if prototypes_ready {
         match timeout(
             INTENT_EMBED_RANK_TIMEOUT,
-            runtime.embed_or_rank(&query, &policy.matrix_version, matrix_hash, &matrix),
+            runtime.embed_or_rank(&ranking_query, &policy.matrix_version, matrix_hash, &matrix),
         )
         .await
         {
@@ -830,73 +937,92 @@ pub async fn resolve_step_intent(
     } else {
         vec![]
     };
-    if top_k.is_empty() {
-        top_k = zero_ranked_candidates(&matrix);
+    if ranked_candidates.is_empty() && !matrix.is_empty() {
+        ranked_candidates = zero_ranked_candidates(&matrix);
     }
-    sort_scores_desc(&mut top_k);
-    let mut routed_top_k = top_k.into_iter().take(5).collect::<Vec<_>>();
-    let unclassified = all_candidate_scores_zero(&routed_top_k);
+    quantize_and_sort_scores(&mut ranked_candidates, policy);
+    let routed_top_k = ranked_candidates
+        .iter()
+        .take(5)
+        .cloned()
+        .collect::<Vec<_>>();
+    let selection_top_k = if locality_scope_required {
+        ranked_candidates
+            .iter()
+            .filter_map(|candidate| {
+                let scope = scope_for_intent(&matrix, &candidate.intent_id)?;
+                scope_feasible_for_query(scope, locality_scope_required)
+                    .then_some(candidate.clone())
+            })
+            .collect::<Vec<_>>()
+    } else {
+        ranked_candidates.clone()
+    };
+    if locality_scope_required && selection_top_k.is_empty() {
+        log::warn!(
+            "IntentResolverFeasibility no feasible candidates for locality-sensitive query session={}",
+            session_prefix
+        );
+    }
+    let unclassified = selection_top_k.is_empty() || all_candidate_scores_zero(&selection_top_k);
     let mut winner = if unclassified {
         IntentCandidateScore {
             intent_id: "resolver.unclassified".to_string(),
             score: 0.0,
         }
     } else {
-        routed_top_k
-            .first()
-            .cloned()
-            .unwrap_or(IntentCandidateScore {
+        select_deterministic_winner(&selection_top_k, &matrix, policy).unwrap_or(
+            IntentCandidateScore {
                 intent_id: "resolver.unclassified".to_string(),
                 score: 0.0,
-            })
+            },
+        )
     };
-    let requires_runtime_locality_scope =
-        super::queue::query_requires_runtime_locality_scope(&query);
-    if requires_runtime_locality_scope {
-        if let Some(web_entry) = matrix
-            .iter()
-            .find(|entry| entry.scope == IntentScopeProfile::WebResearch)
-        {
-            let medium_floor =
-                (policy.confidence.medium_threshold_bps as f32 / 10_000.0).clamp(0.0, 1.0);
-            let web_candidate_score = routed_top_k
-                .iter()
-                .find(|candidate| candidate.intent_id == web_entry.intent_id)
-                .map(|candidate| candidate.score)
-                .unwrap_or_default()
-                .clamp(0.0, 1.0);
-            let should_override_to_web =
-                winner.intent_id != web_entry.intent_id || winner.score < medium_floor;
-            if should_override_to_web {
-                let previous_intent_id = winner.intent_id.clone();
-                let previous_score = winner.score;
-                winner = IntentCandidateScore {
-                    intent_id: web_entry.intent_id.clone(),
-                    score: web_candidate_score.max(medium_floor),
-                };
-                routed_top_k.retain(|candidate| candidate.intent_id != web_entry.intent_id);
-                routed_top_k.insert(0, winner.clone());
-                routed_top_k.truncate(5);
-                log::info!(
-                    "IntentResolverOverride session={} reason=runtime_locality_public_fact from_intent={} to_intent={} previous_score={:.3} new_score={:.3}",
-                    session_prefix,
-                    previous_intent_id,
-                    winner.intent_id,
-                    previous_score,
-                    winner.score
-                );
-            }
-        }
+    if winner.intent_id != "resolver.unclassified"
+        && should_abstain_for_ambiguity(&selection_top_k, &winner, policy)
+    {
+        log::info!(
+            "IntentResolverAmbiguityAbstain session={} winner={} score={:.3} ambiguity_margin_bps={}",
+            session_prefix,
+            winner.intent_id,
+            winner.score,
+            ambiguity_margin_bps(policy)
+        );
+        winner = IntentCandidateScore {
+            intent_id: "resolver.unclassified".to_string(),
+            score: 0.0,
+        };
     }
 
-    let scope = scope_for_intent(&matrix, &winner.intent_id);
-    let preferred_tier = preferred_tier_for_intent(&matrix, &winner.intent_id);
-    let band = resolve_band(winner.score, policy);
+    let (scope, preferred_tier, score, band) = if winner.intent_id == "resolver.unclassified" {
+        (
+            IntentScopeProfile::Unknown,
+            "tool_first".to_string(),
+            0.0,
+            IntentConfidenceBand::Low,
+        )
+    } else {
+        let scope = scope_for_intent(&matrix, &winner.intent_id).ok_or_else(|| {
+            TransactionError::Invalid(format!(
+                "Intent '{}' missing matrix scope binding",
+                winner.intent_id
+            ))
+        })?;
+        let preferred_tier =
+            preferred_tier_for_intent(&matrix, &winner.intent_id).ok_or_else(|| {
+                TransactionError::Invalid(format!(
+                    "Intent '{}' missing preferred tier binding",
+                    winner.intent_id
+                ))
+            })?;
+        let score = winner.score.clamp(0.0, 1.0);
+        (scope, preferred_tier, score, resolve_band(score, policy))
+    };
     let mut resolved = ResolvedIntentState {
         intent_id: winner.intent_id,
         scope,
         band,
-        score: winner.score.clamp(0.0, 1.0),
+        score,
         top_k: routed_top_k,
         preferred_tier,
         matrix_version: policy.matrix_version.clone(),
@@ -907,10 +1033,12 @@ pub async fn resolve_step_intent(
     };
     resolved.receipt_hash = receipt_hash(
         &query,
+        &ranking_query,
         &resolved,
+        policy,
         Some(agent_state.session_id),
         active_window_title,
-    );
+    )?;
 
     emit_intent_resolution_receipt(service, agent_state.session_id, &resolved);
 
@@ -1127,13 +1255,50 @@ mod tests {
             }
             if text_lc.contains("weather") {
                 // Deliberately skew weather queries toward the clock vector so
-                // runtime-locality fallback behavior is exercised.
+                // we can assert no forced winner overrides are applied.
                 return Ok(vec![0.95, 0.05]);
             }
             if text_lc.contains("time") || text_lc.contains("clock") {
                 return Ok(vec![1.0, 0.0]);
             }
             Ok(vec![0.1, 0.1])
+        }
+
+        async fn load_model(&self, _model_hash: [u8; 32], _path: &Path) -> Result<(), VmError> {
+            Ok(())
+        }
+
+        async fn unload_model(&self, _model_hash: [u8; 32]) -> Result<(), VmError> {
+            Ok(())
+        }
+    }
+
+    #[derive(Debug, Default, Clone)]
+    struct AmbiguousRuntime;
+
+    #[async_trait]
+    impl InferenceRuntime for AmbiguousRuntime {
+        async fn execute_inference(
+            &self,
+            _model_hash: [u8; 32],
+            _input_context: &[u8],
+            _options: InferenceOptions,
+        ) -> Result<Vec<u8>, VmError> {
+            Ok(Vec::new())
+        }
+
+        async fn embed_text(&self, text: &str) -> Result<Vec<f32>, VmError> {
+            let text_lc = text.to_ascii_lowercase();
+            if text_lc.contains("intent system clock read") {
+                return Ok(vec![1.0, 0.0]);
+            }
+            if text_lc.contains("intent command exec") {
+                return Ok(vec![0.0, 1.0]);
+            }
+            if text_lc.contains("ambiguous clock command intent") {
+                return Ok(vec![1.0, 1.0]);
+            }
+            Ok(vec![0.0, 0.0])
         }
 
         async fn load_model(&self, _model_hash: [u8; 32], _path: &Path) -> Result<(), VmError> {
@@ -1209,6 +1374,7 @@ mod tests {
             Some(&state),
             "wallet_network__mail_reply"
         ));
+        assert!(!is_tool_allowed_for_resolution(None, "browser__navigate"));
     }
 
     #[test]
@@ -1301,6 +1467,28 @@ mod tests {
         assert_eq!(resolve_band(0.91, &policy), IntentConfidenceBand::High);
         assert_eq!(resolve_band(0.52, &policy), IntentConfidenceBand::Medium);
         assert_eq!(resolve_band(0.2, &policy), IntentConfidenceBand::Low);
+    }
+
+    #[test]
+    fn pause_policy_applies_to_medium_confidence_band() {
+        let mut policy = IntentRoutingPolicy::default();
+        policy.ambiguity.low_confidence_action = IntentAmbiguityAction::Proceed;
+        policy.ambiguity.medium_confidence_action = IntentAmbiguityAction::PauseForClarification;
+
+        let resolved = ResolvedIntentState {
+            intent_id: "command.exec".to_string(),
+            scope: IntentScopeProfile::CommandExecution,
+            band: IntentConfidenceBand::Medium,
+            score: 0.61,
+            top_k: vec![],
+            preferred_tier: "tool_first".to_string(),
+            matrix_version: "v1".to_string(),
+            matrix_source_hash: [0u8; 32],
+            receipt_hash: [0u8; 32],
+            constrained: false,
+        };
+
+        assert!(should_pause_for_clarification(&resolved, &policy));
     }
 
     #[tokio::test(flavor = "current_thread")]
@@ -1425,7 +1613,7 @@ mod tests {
     }
 
     #[tokio::test(flavor = "current_thread")]
-    async fn resolver_prefers_web_research_for_runtime_locality_queries() {
+    async fn resolver_routes_runtime_locality_queries_to_web_research_scope() {
         let gui: Arc<dyn GuiDriver> = Arc::new(NoopGuiDriver);
         let terminal = Arc::new(TerminalDriver::new());
         let browser = Arc::new(BrowserDriver::new());
@@ -1437,24 +1625,12 @@ mod tests {
 
         let mut rules = ActionRules::default();
         rules.ontology_policy.intent_routing.matrix_version =
-            "intent-matrix-v2-runtime-locality-fallback-test".into();
+            "intent-matrix-v2-runtime-locality-no-forced-override-test".into();
         let resolved = resolve_step_intent(&service, &agent_state, &rules, "terminal")
             .await
             .unwrap();
-        let medium_floor = (rules
-            .ontology_policy
-            .intent_routing
-            .confidence
-            .medium_threshold_bps as f32
-            / 10_000.0)
-            .clamp(0.0, 1.0);
         assert_eq!(resolved.intent_id, "web.research");
         assert_eq!(resolved.scope, IntentScopeProfile::WebResearch);
-        assert!(resolved.score >= medium_floor);
-        assert!(!should_pause_for_clarification(
-            &resolved,
-            &rules.ontology_policy.intent_routing
-        ));
     }
 
     #[tokio::test(flavor = "current_thread")]
@@ -1483,6 +1659,42 @@ mod tests {
             .top_k
             .iter()
             .all(|candidate| candidate.score <= f32::EPSILON));
+        assert!(should_pause_for_clarification(
+            &resolved,
+            &rules.ontology_policy.intent_routing
+        ));
+    }
+
+    #[tokio::test(flavor = "current_thread")]
+    async fn resolver_abstains_when_top_candidates_are_ambiguous() {
+        let gui: Arc<dyn GuiDriver> = Arc::new(NoopGuiDriver);
+        let terminal = Arc::new(TerminalDriver::new());
+        let browser = Arc::new(BrowserDriver::new());
+        let inference: Arc<dyn InferenceRuntime> = Arc::new(AmbiguousRuntime);
+        let service = DesktopAgentService::new(gui, terminal, browser, inference);
+
+        let mut agent_state = test_agent_state();
+        agent_state.goal = "ambiguous clock command intent".to_string();
+
+        let mut rules = ActionRules::default();
+        rules.ontology_policy.intent_routing.matrix_version =
+            "intent-matrix-v2-ambiguity-abstain-test".into();
+        rules.ontology_policy.intent_routing.ambiguity_margin_bps = 200;
+        let resolved = resolve_step_intent(&service, &agent_state, &rules, "terminal")
+            .await
+            .unwrap();
+
+        assert_eq!(resolved.intent_id, "resolver.unclassified");
+        assert_eq!(resolved.scope, IntentScopeProfile::Unknown);
+        assert_eq!(resolved.band, IntentConfidenceBand::Low);
+        assert!(resolved
+            .top_k
+            .iter()
+            .any(|candidate| candidate.intent_id == "system.clock.read"));
+        assert!(resolved
+            .top_k
+            .iter()
+            .any(|candidate| candidate.intent_id == "command.exec"));
         assert!(should_pause_for_clarification(
             &resolved,
             &rules.ontology_policy.intent_routing

@@ -153,6 +153,13 @@ fn metric_schema_distinguishes_current_observation_from_forecast_horizon() {
 }
 
 #[test]
+fn metric_schema_marks_temperature_axis_for_degree_only_observations() {
+    let observation = analyze_metric_schema("Fair 35°F 2°C");
+    assert!(observation.has_metric_payload());
+    assert!(observation.axis_hits.contains(&MetricAxis::Temperature));
+}
+
+#[test]
 fn query_facets_capture_time_sensitive_public_fact_contract() {
     let facets = analyze_query_facets("What's the weather right now with UTC timestamp?");
     assert!(facets.time_sensitive_public_fact);

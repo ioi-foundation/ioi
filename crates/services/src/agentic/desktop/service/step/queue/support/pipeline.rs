@@ -1502,13 +1502,12 @@ pub(crate) fn push_pending_web_success(
         .map(|value| value.excerpt.trim())
         .filter(|value| !value.is_empty())
     {
-        let resolved_has_current = contains_current_condition_metric_signal(&resolved_excerpt);
-        let hint_has_current = contains_current_condition_metric_signal(hint_excerpt);
+        let resolved_has_quantitative = has_quantitative_metric_payload(&resolved_excerpt, false);
         let resolved_has_metric = contains_metric_signal(&resolved_excerpt);
         let hint_has_metric = contains_metric_signal(hint_excerpt);
         let should_use_hint = is_low_signal_excerpt(&resolved_excerpt)
-            || (hint_has_current && !resolved_has_current)
-            || (!resolved_has_metric && hint_has_metric);
+            || (!resolved_has_quantitative && !resolved_has_metric && hint_has_metric)
+            || (!excerpt_has_claim_signal(&resolved_excerpt) && hint_has_metric);
         if should_use_hint {
             resolved_excerpt = hint_excerpt.to_string();
         }
