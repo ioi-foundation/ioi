@@ -612,6 +612,17 @@ Payload:\n{}",
 #[ignore = "live internet + external inference required"]
 async fn live_breaking_news_chat_reply_e2e() -> Result<()> {
     build_test_artifacts();
+    if std::env::var("IOI_ENABLE_LEGACY_LIVE_NEWS_E2E")
+        .ok()
+        .as_deref()
+        != Some("1")
+    {
+        println!(
+            "LIVE_NEWS_E2E_SKIPPED: legacy scenario is opt-in under CIRC v3. \
+Set IOI_ENABLE_LEGACY_LIVE_NEWS_E2E=1 to run this test."
+        );
+        return Ok(());
+    }
 
     let openai_api_key = std::env::var("OPENAI_API_KEY")
         .map_err(|_| anyhow!("OPENAI_API_KEY required for live e2e"))?;
