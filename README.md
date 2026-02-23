@@ -163,9 +163,9 @@ RUST_LOG=info,consensus=info cargo test -p ioi-cli --test admft_e2e --features "
 # 3. Agentic Security: Verifies PII Scrubbing and Policy Gates
 cargo test -p ioi-cli --test agent_scrub_e2e --features "consensus-admft,vm-wasm,state-iavl"
 
-# 4. Live Breaking-News E2E (manual, quarantined)
+# 4. Live Weather E2E (manual, quarantined)
 OPENAI_API_KEY='<ROTATED_KEY>' OPENAI_MODEL='gpt-4o' NEWS_E2E_ARBITER_MODEL='gpt-4o-mini' \
-cargo test -p ioi-cli --test agent_live_news_e2e --features "consensus-admft vm-wasm" -- --ignored --nocapture --test-threads=1
+cargo test -p ioi-cli --test agent_live_weather_e2e --features "consensus-admft vm-wasm" -- --ignored --nocapture --test-threads=1
 ```
 
 ---
