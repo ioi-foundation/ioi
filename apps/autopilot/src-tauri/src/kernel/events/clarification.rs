@@ -1,5 +1,6 @@
 use super::support::{
-    extract_launch_target_hint, extract_missing_package_hint, snippet, ClarificationPreset,
+    extract_launch_target_hint, extract_missing_package_hint,
+    launch_lookup_requires_install_prompt, snippet, ClarificationPreset,
 };
 use crate::models::{AppState, ClarificationOption, ClarificationRequest};
 use ioi_types::app::agentic::InferenceOptions;
@@ -39,7 +40,18 @@ fn build_clarification_request(
         }
         ClarificationPreset::LaunchLookup => {
             let launch_hint = extract_launch_target_hint(output);
-            let question = if let Some(target) = launch_hint.as_deref() {
+            let requires_install_prompt = launch_lookup_requires_install_prompt(output);
+            let question = if requires_install_prompt {
+                if let Some(target) = launch_hint.as_deref() {
+                    format!(
+                        "I could not find an installed app matching '{}'. Would you like me to install one, or provide an exact launch identifier?",
+                        target
+                    )
+                } else {
+                    "I could not find an installed app matching this launch request. Would you like me to install one, or provide an exact launch identifier?"
+                        .to_string()
+                }
+            } else if let Some(target) = launch_hint.as_deref() {
                 format!(
                     "I could not resolve launch identity for target '{}'. How should I proceed?",
                     target
@@ -91,7 +103,7 @@ fn clarification_option_semantics_for_preset(preset: ClarificationPreset) -> [&'
         ],
         ClarificationPreset::LaunchLookup => [
             "Discover executable/desktop-entry candidates and retry once.",
-            "Use an explicit desktop entry identifier for the next launch retry.",
+            "If no install is present, request installation or provide a desktop entry identifier.",
             "Use an exact executable name or absolute path for one retry.",
         ],
     }

@@ -13,6 +13,29 @@ use super::session::ShellSession;
 use super::stream::{combine_success_output, read_stream};
 use super::types::{CommandExecutionOptions, ProcessStreamChannel, ProcessStreamChunk};
 
+const POST_KILL_WAIT_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(2);
+const POST_EXIT_STREAM_DRAIN_TIMEOUT: std::time::Duration = std::time::Duration::from_millis(750);
+
+async fn join_stream_task_with_drain_timeout(
+    mut task: tokio::task::JoinHandle<Result<Vec<u8>>>,
+    channel: &str,
+    command: &str,
+) -> Result<Vec<u8>> {
+    match time::timeout(POST_EXIT_STREAM_DRAIN_TIMEOUT, &mut task).await {
+        Ok(join_result) => join_result.map_err(|e| anyhow!("{} reader join failed: {}", channel, e))?,
+        Err(_) => {
+            task.abort();
+            log::warn!(
+                "Timed out draining {} stream for '{}' after {:?}; continuing with partial output.",
+                channel,
+                command,
+                POST_EXIT_STREAM_DRAIN_TIMEOUT
+            );
+            Ok(Vec::new())
+        }
+    }
+}
+
 #[derive(Clone)]
 pub struct TerminalDriver {
     sessions: Arc<Mutex<HashMap<String, Arc<ShellSession>>>>,
@@ -142,18 +165,56 @@ impl TerminalDriver {
             Err(_) => {
                 timed_out = true;
                 let _ = child.kill().await;
-                child.wait().await?
+                match time::timeout(POST_KILL_WAIT_TIMEOUT, child.wait()).await {
+                    Ok(wait_result) => wait_result?,
+                    Err(_) => {
+                        stdout_task.abort();
+                        stderr_task.abort();
+                        if let Some(cb) = observer.as_ref() {
+                            let final_seq = seq.fetch_add(1, Ordering::Relaxed);
+                            (cb)(ProcessStreamChunk {
+                                channel: ProcessStreamChannel::Status,
+                                chunk: String::new(),
+                                seq: final_seq,
+                                is_final: true,
+                                exit_code: None,
+                            });
+                        }
+                        return Err(anyhow!(
+                            "Command timed out after {} seconds and could not be terminated within {} seconds.",
+                            options.timeout.as_secs(),
+                            POST_KILL_WAIT_TIMEOUT.as_secs()
+                        ));
+                    }
+                }
             }
         };
 
-        let stdout_bytes = stdout_task
-            .await
-            .map_err(|e| anyhow!("stdout reader join failed: {}", e))??;
-        let stderr_bytes = stderr_task
-            .await
-            .map_err(|e| anyhow!("stderr reader join failed: {}", e))??;
+        if timed_out {
+            stdout_task.abort();
+            stderr_task.abort();
+            if let Some(cb) = observer.as_ref() {
+                let final_seq = seq.fetch_add(1, Ordering::Relaxed);
+                (cb)(ProcessStreamChunk {
+                    channel: ProcessStreamChannel::Status,
+                    chunk: String::new(),
+                    seq: final_seq,
+                    is_final: true,
+                    exit_code: None,
+                });
+            }
+            return Err(anyhow!(
+                "Command timed out after {} seconds.",
+                options.timeout.as_secs()
+            ));
+        }
 
-        if let Some(cb) = observer {
+        let stdout_bytes =
+            join_stream_task_with_drain_timeout(stdout_task, "stdout", command).await?;
+        let stderr_bytes =
+            join_stream_task_with_drain_timeout(stderr_task, "stderr", command).await?;
+
+        if let Some(cb) = observer.as_ref() {
             let final_seq = seq.fetch_add(1, Ordering::Relaxed);
             (cb)(ProcessStreamChunk {
                 channel: ProcessStreamChannel::Status,
@@ -162,13 +223,6 @@ impl TerminalDriver {
                 is_final: true,
                 exit_code: status.code(),
             });
-        }
-
-        if timed_out {
-            return Err(anyhow!(
-                "Command timed out after {} seconds.",
-                options.timeout.as_secs()
-            ));
         }
 
         let stdout_text = String::from_utf8_lossy(&stdout_bytes).to_string();

@@ -20,7 +20,9 @@ use crate::agentic::desktop::keys::{
 use crate::agentic::desktop::runtime_secret;
 use crate::agentic::desktop::service::actions;
 use crate::agentic::desktop::service::step::anti_loop::choose_routing_tier;
-use crate::agentic::desktop::service::step::helpers::default_safe_policy;
+use crate::agentic::desktop::service::step::helpers::{
+    default_safe_policy, direct_app_launch_target,
+};
 use crate::agentic::desktop::types::{AgentState, AgentStatus, StepAgentParams};
 use crate::agentic::rules::ActionRules;
 use hex;
@@ -32,8 +34,19 @@ use ioi_types::app::agentic::{AgentTool, StepTrace};
 use ioi_types::codec;
 use ioi_types::error::TransactionError;
 use serde_json::json;
+use std::time::Duration;
 
 const RUNTIME_SECRET_KIND_SUDO_PASSWORD: &str = "sudo_password";
+const STEP_ACTIVE_WINDOW_QUERY_TIMEOUT: Duration = Duration::from_millis(300);
+
+fn should_clear_stale_canonical_pending(
+    agent_state: &AgentState,
+    allow_runtime_secret_retry: bool,
+) -> bool {
+    agent_state.pending_tool_jcs.is_some()
+        && agent_state.pending_approval.is_none()
+        && !allow_runtime_secret_retry
+}
 
 pub async fn handle_step(
     service: &DesktopAgentService,
@@ -200,10 +213,23 @@ pub async fn handle_step(
         .and_then(|b| codec::from_bytes_canonical(&b).ok())
         .unwrap_or_else(default_safe_policy);
     let active_window_title = if let Some(os_driver) = service.os_driver.as_ref() {
-        match os_driver.get_active_window_info().await {
-            Ok(Some(win)) => format!("{} ({})", win.title, win.app_name),
-            Ok(None) => "Unknown".to_string(),
-            Err(_) => "Unknown".to_string(),
+        match tokio::time::timeout(
+            STEP_ACTIVE_WINDOW_QUERY_TIMEOUT,
+            os_driver.get_active_window_info(),
+        )
+        .await
+        {
+            Ok(Ok(Some(win))) => format!("{} ({})", win.title, win.app_name),
+            Ok(Ok(None)) => "Unknown".to_string(),
+            Ok(Err(_)) => "Unknown".to_string(),
+            Err(_) => {
+                log::warn!(
+                    "Step active-window query timed out after {:?} for session {}.",
+                    STEP_ACTIVE_WINDOW_QUERY_TIMEOUT,
+                    hex::encode(&p.session_id[..4])
+                );
+                "Unknown".to_string()
+            }
         }
     } else {
         "Unknown".to_string()
@@ -310,8 +336,19 @@ pub async fn handle_step(
             )
             .await;
         }
-        // If JCS exists but no approval, we are still waiting. Stop.
-        return Ok(());
+        if should_clear_stale_canonical_pending(&agent_state, allow_runtime_secret_retry) {
+            // Canonical pending metadata without approval/runtime-secret context is stale.
+            // Clear the canonical fields and continue so the step can make forward progress
+            // (including legacy pending-tool replay when available).
+            log::warn!(
+                "Clearing stale canonical pending tool metadata for session {} (missing approval/runtime-secret resume context).",
+                hex::encode(&p.session_id[..4])
+            );
+            agent_state.pending_tool_jcs = None;
+            agent_state.pending_tool_hash = None;
+            agent_state.pending_visual_hash = None;
+            agent_state.pending_approval = None;
+        }
     }
 
     // Legacy Resume (String-based) - Keep for backward compat
@@ -340,6 +377,37 @@ pub async fn handle_step(
             state,
             &mut agent_state,
             &p,
+            ctx.block_height,
+            ctx.block_timestamp,
+            call_context,
+        )
+        .await;
+    }
+
+    // 4a. Intent Fast Path: high-confidence app launch with resolved target
+    // can execute directly without a second cognition inference pass.
+    if let Some(app_name) = direct_app_launch_target(&agent_state) {
+        log::info!(
+            "Intent fast path triggered for app launch (session={} app_name={}).",
+            hex::encode(&p.session_id[..4]),
+            app_name
+        );
+        let fast_path_tool = serde_json::to_string(&json!({
+            "name": "os__launch_app",
+            "arguments": {
+                "app_name": app_name
+            }
+        }))
+        .map_err(|e| TransactionError::Serialization(e.to_string()))?;
+        let visual_phash = agent_state.last_screen_phash.unwrap_or([0u8; 32]);
+        return action::process_tool_output(
+            service,
+            state,
+            &mut agent_state,
+            fast_path_tool,
+            visual_phash,
+            "IntentFastPath(AppLaunch)".to_string(),
+            p.session_id,
             ctx.block_height,
             ctx.block_timestamp,
             call_context,
@@ -396,4 +464,64 @@ pub async fn handle_step(
     state.insert(&key, &codec::to_bytes_canonical(&agent_state)?)?;
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::should_clear_stale_canonical_pending;
+    use crate::agentic::desktop::types::{AgentMode, AgentState, AgentStatus, ExecutionTier};
+    use std::collections::BTreeMap;
+
+    fn test_agent_state() -> AgentState {
+        AgentState {
+            session_id: [0u8; 32],
+            goal: "test".to_string(),
+            transcript_root: [0u8; 32],
+            status: AgentStatus::Running,
+            step_count: 0,
+            max_steps: 8,
+            last_action_type: None,
+            parent_session_id: None,
+            child_session_ids: vec![],
+            budget: 1,
+            tokens_used: 0,
+            consecutive_failures: 0,
+            pending_approval: None,
+            pending_tool_call: None,
+            pending_tool_jcs: None,
+            pending_tool_hash: None,
+            pending_visual_hash: None,
+            recent_actions: vec![],
+            mode: AgentMode::Agent,
+            current_tier: ExecutionTier::DomHeadless,
+            last_screen_phash: None,
+            execution_queue: vec![],
+            pending_search_completion: None,
+            active_skill_hash: None,
+            tool_execution_log: BTreeMap::new(),
+            visual_som_map: None,
+            visual_semantic_map: None,
+            swarm_context: None,
+            target: None,
+            resolved_intent: None,
+            awaiting_intent_clarification: false,
+            working_directory: ".".to_string(),
+            command_history: Default::default(),
+            active_lens: None,
+        }
+    }
+
+    #[test]
+    fn stale_canonical_pending_requires_cleanup_without_approval_or_runtime_retry() {
+        let mut state = test_agent_state();
+        state.pending_tool_jcs = Some(vec![1, 2, 3]);
+        assert!(should_clear_stale_canonical_pending(&state, false));
+    }
+
+    #[test]
+    fn canonical_pending_is_not_stale_when_runtime_retry_is_expected() {
+        let mut state = test_agent_state();
+        state.pending_tool_jcs = Some(vec![1, 2, 3]);
+        assert!(!should_clear_stale_canonical_pending(&state, true));
+    }
 }

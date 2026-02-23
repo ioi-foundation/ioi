@@ -15,6 +15,42 @@ use ioi_types::codec;
 use ioi_types::error::TransactionError;
 use serde_json::json;
 use std::sync::Arc;
+use std::time::Duration;
+
+const ACTIVE_WINDOW_QUERY_TIMEOUT: Duration = Duration::from_millis(300);
+
+async fn query_active_window_with_timeout(
+    os_driver: &Arc<dyn OsDriver>,
+    session_id: [u8; 32],
+    phase: &str,
+) -> Option<ioi_api::vm::drivers::os::WindowInfo> {
+    match tokio::time::timeout(
+        ACTIVE_WINDOW_QUERY_TIMEOUT,
+        os_driver.get_active_window_info(),
+    )
+    .await
+    {
+        Ok(Ok(window)) => window,
+        Ok(Err(err)) => {
+            log::warn!(
+                "Active-window query failed (session={} phase={}): {}",
+                hex::encode(&session_id[..4]),
+                phase,
+                err
+            );
+            None
+        }
+        Err(_) => {
+            log::warn!(
+                "Active-window query timed out after {:?} (session={} phase={}).",
+                ACTIVE_WINDOW_QUERY_TIMEOUT,
+                hex::encode(&session_id[..4]),
+                phase
+            );
+            None
+        }
+    }
+}
 
 pub async fn handle_action_execution(
     service: &DesktopAgentService,
@@ -39,7 +75,8 @@ pub async fn handle_action_execution(
     // [VERIFIED] This line ensures the registry propagates to execution
     let lens_registry_arc = service.lens_registry.clone();
 
-    let mut foreground_window = os_driver.get_active_window_info().await.unwrap_or(None);
+    let mut foreground_window =
+        query_active_window_with_timeout(os_driver, session_id, "pre").await;
     let target_app_hint = agent_state.target.as_ref().and_then(|t| t.app_hint.clone());
 
     // Pre-policy normalization:
@@ -208,7 +245,8 @@ pub async fn handle_action_execution(
                     Ok(true) => {
                         tokio::time::sleep(std::time::Duration::from_millis(250)).await;
                         foreground_window =
-                            os_driver.get_active_window_info().await.unwrap_or(None);
+                            query_active_window_with_timeout(os_driver, session_id, "post_focus")
+                                .await;
                         if !focus::window_matches_hint(foreground_window.as_ref(), hint) {
                             return Ok((
                                 false,
@@ -621,12 +659,18 @@ mod tests {
     use super::approvals::is_runtime_secret_install_retry_approved;
     use super::focus::is_focus_sensitive_tool;
     use super::normalize_web_research_tool_call;
+    use super::query_active_window_with_timeout;
     use crate::agentic::desktop::runtime_secret;
     use crate::agentic::desktop::types::{AgentMode, AgentState, AgentStatus, ExecutionTier};
+    use async_trait::async_trait;
+    use ioi_api::vm::drivers::os::{OsDriver, WindowInfo};
     use ioi_types::app::agentic::{
         AgentTool, ComputerAction, IntentConfidenceBand, IntentScopeProfile, ResolvedIntentState,
     };
+    use ioi_types::error::VmError;
     use std::collections::BTreeMap;
+    use std::sync::Arc;
+    use tokio::time::{sleep, Duration, Instant};
 
     fn test_agent_state() -> AgentState {
         AgentState {
@@ -697,6 +741,47 @@ mod tests {
         assert!(!is_focus_sensitive_tool(
             &AgentTool::BrowserSyntheticClick { x: 20, y: 30 }
         ));
+    }
+
+    struct SlowWindowOsDriver;
+
+    #[async_trait]
+    impl OsDriver for SlowWindowOsDriver {
+        async fn get_active_window_title(&self) -> Result<Option<String>, VmError> {
+            Ok(None)
+        }
+
+        async fn get_active_window_info(&self) -> Result<Option<WindowInfo>, VmError> {
+            sleep(Duration::from_secs(5)).await;
+            Ok(None)
+        }
+
+        async fn focus_window(&self, _title_query: &str) -> Result<bool, VmError> {
+            Ok(false)
+        }
+
+        async fn set_clipboard(&self, _content: &str) -> Result<(), VmError> {
+            Ok(())
+        }
+
+        async fn get_clipboard(&self) -> Result<String, VmError> {
+            Ok(String::new())
+        }
+    }
+
+    #[tokio::test]
+    async fn active_window_query_timeout_returns_none_without_blocking() {
+        let os_driver: Arc<dyn OsDriver> = Arc::new(SlowWindowOsDriver);
+        let started = Instant::now();
+        let result = query_active_window_with_timeout(&os_driver, [0u8; 32], "test").await;
+        let elapsed = started.elapsed();
+
+        assert!(result.is_none());
+        assert!(
+            elapsed < Duration::from_secs(2),
+            "active window timeout guard took too long: {:?}",
+            elapsed
+        );
     }
 
     #[test]

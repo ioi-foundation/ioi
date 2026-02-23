@@ -38,10 +38,11 @@ use tokio::time::Duration;
 
 use ioi_types::service_configs::{ActiveServiceMeta, Capabilities, MethodPermission};
 
+use ioi_api::chain::WorkloadClientApi;
 use ioi_consensus::Consensus;
 use ioi_validator::standard::orchestration::context::MainLoopContext;
 use ioi_validator::standard::orchestration::operator_tasks::{
-    run_agent_driver_task, run_oracle_operator_task,
+    run_agent_driver_task_with_handles, run_oracle_operator_task_with_client,
 };
 
 use ioi_api::vm::inference::{HttpInferenceRuntime, InferenceRuntime, LocalSafetyModel};
@@ -769,23 +770,42 @@ async fn main() -> Result<()> {
                 >>>> = &*ctx_opt_guard;
 
                 if let Some(ctx) = ctx_opt {
-                    let ctx_guard = ctx.lock().await;
+                    // Clone required handles first, then release context lock before any async work.
+                    let (
+                        workload_client,
+                        tx_pool_ref,
+                        local_keypair,
+                        chain_id,
+                        nonce_manager,
+                        consensus_kick_tx,
+                    ) = {
+                        let ctx_guard = ctx.lock().await;
+                        let workload_client: Arc<dyn WorkloadClientApi> =
+                            ctx_guard.view_resolver.workload_client().clone();
+                        (
+                            workload_client,
+                            ctx_guard.tx_pool_ref.clone(),
+                            ctx_guard.local_keypair.clone(),
+                            ctx_guard.chain_id,
+                            ctx_guard.nonce_manager.clone(),
+                            ctx_guard.consensus_kick_tx.clone(),
+                        )
+                    };
 
-                    if let Err(e) = run_oracle_operator_task::<
-                        HashCommitmentScheme,
-                        RedbFlatStore<HashCommitmentScheme>,
-                        Consensus<ChainTransaction>,
-                        FlatVerifier
-                    >(&*ctx_guard).await {
-                         tracing::error!(target: "operator_task", "Oracle operator failed: {}", e);
+                    if let Err(e) = run_oracle_operator_task_with_client(workload_client.clone()).await
+                    {
+                        tracing::error!(target: "operator_task", "Oracle operator failed: {}", e);
                     }
 
-                    match run_agent_driver_task::<
-                        HashCommitmentScheme,
-                        RedbFlatStore<HashCommitmentScheme>,
-                        Consensus<ChainTransaction>,
-                        FlatVerifier
-                    >(&*ctx_guard).await {
+                    match run_agent_driver_task_with_handles(
+                        workload_client,
+                        tx_pool_ref,
+                        local_keypair,
+                        chain_id,
+                        nonce_manager,
+                        consensus_kick_tx,
+                    )
+                    .await {
                         Ok(true) => {
                              // [FIX] Removed aggressive reset to prevent runaway execution loops (e.g. opening 100 windows).
                              // operator_ticker.reset();

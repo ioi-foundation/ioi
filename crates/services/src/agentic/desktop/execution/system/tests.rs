@@ -1,7 +1,9 @@
 use super::install::classify_install_failure;
 use super::launch::{
-    build_linux_launch_plan, launch_attempt_failed, launch_errors_indicate_missing_app,
-    quote_powershell_single_quoted_string,
+    build_linux_launch_plan, extract_exec_binary, launch_attempt_failed,
+    launch_attempt_timeout_indicates_dispatched, launch_errors_indicate_missing_app,
+    parse_linux_desktop_entry_content, quote_powershell_single_quoted_string,
+    rank_launch_identity_entries, LaunchIdentityEntry,
 };
 use super::paths::{resolve_home_directory, resolve_target_directory, resolve_working_directory};
 use super::receipt::redact_args_for_receipt;
@@ -184,6 +186,70 @@ fn linux_plan_includes_generic_binary_fallbacks() {
 }
 
 #[test]
+fn extract_exec_binary_handles_env_wrappers_and_placeholders() {
+    let exec = "env BAMF_DESKTOP_FILE_HINT=/var/lib/flatpak/app /snap/bin/firefox %u";
+    assert_eq!(
+        extract_exec_binary(exec).as_deref(),
+        Some("/snap/bin/firefox")
+    );
+
+    let quoted = "\"/usr/bin/gnome-calculator\" %U";
+    assert_eq!(
+        extract_exec_binary(quoted).as_deref(),
+        Some("/usr/bin/gnome-calculator")
+    );
+}
+
+#[test]
+fn parse_desktop_entry_content_extracts_name_and_exec() {
+    let desktop = r#"
+[Desktop Entry]
+Type=Application
+Name=Calculator
+Exec=gnome-calculator %U
+"#;
+    let parsed = parse_linux_desktop_entry_content("org.gnome.Calculator.desktop", desktop)
+        .expect("desktop entry should parse");
+    assert_eq!(parsed.identity_id, "org.gnome.Calculator");
+    assert_eq!(parsed.display_name, "Calculator");
+    assert_eq!(
+        parsed.desktop_entry_id.as_deref(),
+        Some("org.gnome.Calculator")
+    );
+    assert_eq!(parsed.exec_command.as_deref(), Some("gnome-calculator"));
+}
+
+#[test]
+fn rank_desktop_entries_prefers_closest_discovered_match() {
+    let entries = vec![
+        LaunchIdentityEntry {
+            identity_id: "org.gnome.Calendar".to_string(),
+            display_name: "Calendar".to_string(),
+            desktop_entry_id: Some("org.gnome.Calendar".to_string()),
+            exec_command: Some("gnome-calendar".to_string()),
+        },
+        LaunchIdentityEntry {
+            identity_id: "org.gnome.Calculator".to_string(),
+            display_name: "Calculator".to_string(),
+            desktop_entry_id: Some("org.gnome.Calculator".to_string()),
+            exec_command: Some("gnome-calculator".to_string()),
+        },
+        LaunchIdentityEntry {
+            identity_id: "org.mozilla.firefox".to_string(),
+            display_name: "Firefox".to_string(),
+            desktop_entry_id: Some("org.mozilla.firefox".to_string()),
+            exec_command: Some("firefox".to_string()),
+        },
+    ];
+
+    let ranked = rank_launch_identity_entries("calculator", &entries, 3);
+    assert_eq!(
+        ranked.first().map(|entry| entry.identity_id.as_str()),
+        Some("org.gnome.Calculator")
+    );
+}
+
+#[test]
 fn detects_terminal_non_zero_output_banner() {
     assert!(command_output_indicates_failure(
         "Command failed: exit status: 1\nStderr: launch failed"
@@ -216,6 +282,32 @@ fn detached_launch_attempt_does_not_parse_banner_as_failure() {
     assert!(!launch_attempt_failed(
         &detached,
         "Command failed: exit status: 1\nStderr: not found"
+    ));
+}
+
+#[test]
+fn gtk_launch_timeout_is_treated_as_dispatch_success_signal() {
+    let blocking = LaunchAttempt {
+        command: "gtk-launch".to_string(),
+        args: vec!["calculator".to_string()],
+        detach: false,
+    };
+    assert!(launch_attempt_timeout_indicates_dispatched(
+        &blocking,
+        "Command timed out after 1 seconds."
+    ));
+}
+
+#[test]
+fn non_gtk_launch_timeout_is_not_treated_as_dispatch_success() {
+    let blocking = LaunchAttempt {
+        command: "calculator".to_string(),
+        args: vec![],
+        detach: false,
+    };
+    assert!(!launch_attempt_timeout_indicates_dispatched(
+        &blocking,
+        "Command timed out after 1 seconds."
     ));
 }
 

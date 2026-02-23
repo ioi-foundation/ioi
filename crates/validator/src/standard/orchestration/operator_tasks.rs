@@ -420,6 +420,24 @@ impl ProviderClient for HttpProviderClient {
     }
 }
 
+/// Runs oracle-service activation checks using a detached workload client handle.
+/// This variant avoids borrowing the shared `MainLoopContext` across async awaits.
+pub async fn run_oracle_operator_task_with_client(
+    workload_client: std::sync::Arc<dyn WorkloadClientApi>,
+) -> Result<()> {
+    // --- STATE GATE ---
+    let oracle_active_key = active_service_key("oracle");
+    if workload_client
+        .query_raw_state(&oracle_active_key)
+        .await?
+        .is_none()
+    {
+        return Ok(());
+    }
+
+    Ok(())
+}
+
 /// Runs the background task for the Oracle operator.
 /// Checks if the oracle service is active and performs necessary duties.
 pub async fn run_oracle_operator_task<CS, ST, CE, V>(
@@ -444,49 +462,19 @@ where
         serde::Serialize + for<'de> serde::Deserialize<'de> + Clone + Send + Sync + 'static + Debug,
     <CS as CommitmentScheme>::Commitment: Send + Sync + Debug,
 {
-    let workload_client = context.view_resolver.workload_client();
-
-    // --- STATE GATE ---
-    let oracle_active_key = active_service_key("oracle");
-    if workload_client
-        .query_raw_state(&oracle_active_key)
-        .await?
-        .is_none()
-    {
-        return Ok(());
-    }
-
-    Ok(())
+    run_oracle_operator_task_with_client(context.view_resolver.workload_client().clone()).await
 }
 
-// [NEW] Agent Driver Task
-// This acts as the "System 2" loop for the User Node, driving agents forward.
-/// Runs the background task for the Agent driver.
-/// Scans for active agents and triggers steps if needed.
-/// Returns `true` if any agent action was taken, allowing the main loop to speed up.
-pub async fn run_agent_driver_task<CS, ST, CE, V>(
-    context: &MainLoopContext<CS, ST, CE, V>,
-) -> Result<bool>
-where
-    CS: CommitmentScheme + Clone + Send + Sync + 'static,
-    ST: StateManager<Commitment = CS::Commitment, Proof = CS::Proof>
-        + Send
-        + Sync
-        + 'static
-        + Debug
-        + Clone,
-    CE: ConsensusEngine<ChainTransaction> + Send + Sync + 'static,
-    V: Verifier<Commitment = CS::Commitment, Proof = CS::Proof>
-        + Clone
-        + Send
-        + Sync
-        + 'static
-        + Debug,
-    <CS as CommitmentScheme>::Proof:
-        serde::Serialize + for<'de> serde::Deserialize<'de> + Clone + Send + Sync + 'static + Debug,
-    <CS as CommitmentScheme>::Commitment: Send + Sync + Debug,
-{
-    let workload_client = context.view_resolver.workload_client();
+/// Runs one agent-driver scan/submit pass using detached handles cloned from `MainLoopContext`.
+/// This variant is safe to run without holding the main context mutex across async awaits.
+pub async fn run_agent_driver_task_with_handles(
+    workload_client: std::sync::Arc<dyn WorkloadClientApi>,
+    tx_pool_ref: std::sync::Arc<crate::standard::orchestration::mempool::Mempool>,
+    local_keypair: libp2p::identity::Keypair,
+    chain_id: ioi_types::app::ChainId,
+    nonce_manager: std::sync::Arc<TokioMutex<BTreeMap<AccountId, u64>>>,
+    consensus_kick_tx: tokio::sync::mpsc::UnboundedSender<()>,
+) -> Result<bool> {
     let mut work_performed = false;
 
     // 1. Scan for agent states
@@ -514,6 +502,12 @@ where
         "Found {} agent state entries",
         kvs.len()
     );
+
+    let our_pk = local_keypair.public().encode_protobuf();
+    let our_account_id = AccountId(account_id_from_key_material(
+        SignatureSuite::ED25519,
+        &our_pk,
+    )?);
 
     // 2. Identify Running Agents
     for (_key, val_bytes) in kvs {
@@ -547,15 +541,7 @@ where
             // 3. Check Mempool for Pending Step (Debounce)
             // If the mempool already has a transaction for this signer, we wait.
             // This prevents spam loops when the agent is blocked by policy or waiting for a block commit.
-            let our_pk = context.local_keypair.public().encode_protobuf();
-            let our_account_id = AccountId(account_id_from_key_material(
-                SignatureSuite::ED25519,
-                &our_pk,
-            )?);
-
-            if context.tx_pool_ref.contains_account(&our_account_id) {
-                // If we already have a pending transaction (e.g. from the previous tick),
-                // don't spam another one. Wait for it to clear.
+            if tx_pool_ref.contains_account(&our_account_id) {
                 continue;
             }
 
@@ -574,7 +560,7 @@ where
             // Get next nonce
             // [FIX] Use NonceManager + State Hybrid Approach
             // This ensures AgentDriver respects nonces reserved by DraftTransaction
-            let nonce = {
+            let (nonce, committed_nonce_state) = {
                 // 1. Get state nonce
                 let nonce_key = [
                     ioi_types::keys::ACCOUNT_NONCE_PREFIX,
@@ -583,15 +569,12 @@ where
                 .concat();
 
                 let state_nonce = match workload_client.query_raw_state(&nonce_key).await {
-                    Ok(Some(b)) => match decode_state_value::<u64>(&b) {
-                        Ok(n) => n,
-                        Err(_) => 0,
-                    },
+                    Ok(Some(b)) => decode_account_nonce(&b),
                     _ => 0,
                 };
 
                 // 2. Sync with Manager
-                let mut nm = context.nonce_manager.lock().await;
+                let mut nm = nonce_manager.lock().await;
                 let entry = nm.entry(our_account_id).or_insert(0);
 
                 // Fast-forward if state is ahead
@@ -603,7 +586,7 @@ where
                 // Increment to reserve
                 *entry += 1;
 
-                use_nonce
+                (use_nonce, state_nonce)
             };
 
             tracing::info!(
@@ -617,7 +600,7 @@ where
                 header: SignHeader {
                     account_id: our_account_id,
                     nonce,
-                    chain_id: context.chain_id,
+                    chain_id,
                     tx_version: 1,
                     session_auth: None,
                 },
@@ -630,11 +613,11 @@ where
                 .to_sign_bytes()
                 .map_err(|e| anyhow!("Failed to serialize tx: {}", e))?;
 
-            let signature = context.local_keypair.sign(&sign_bytes)?;
+            let signature = local_keypair.sign(&sign_bytes)?;
 
             sys_tx.signature_proof = SignatureProof {
                 suite: SignatureSuite::ED25519,
-                public_key: our_pk,
+                public_key: our_pk.clone(),
                 signature,
             };
 
@@ -643,17 +626,20 @@ where
 
             // 5. Submit to Mempool
             // We use the pool directly to skip gRPC overhead, as we are the node itself.
-            let res = context
-                .tx_pool_ref
-                .add(tx, tx_hash, Some((our_account_id, nonce)), 0);
+            let res = tx_pool_ref.add(
+                tx,
+                tx_hash,
+                Some((our_account_id, nonce)),
+                committed_nonce_state,
+            );
 
             match res {
                 crate::standard::orchestration::mempool::AddResult::Rejected(reason) => {
                     tracing::warn!(target: "agent_driver", "Step tx rejected by mempool (Nonce: {}): {}", nonce, reason);
                 }
-                _ => {
+                crate::standard::orchestration::mempool::AddResult::Ready => {
                     // Wake consensus
-                    let _ = context.consensus_kick_tx.send(());
+                    let _ = consensus_kick_tx.send(());
 
                     tracing::info!(
                         target: "agent_driver",
@@ -661,6 +647,15 @@ where
                         hex::encode(&state.session_id[0..4]),
                         state.step_count,
                         nonce
+                    );
+                    work_performed = true;
+                }
+                crate::standard::orchestration::mempool::AddResult::Future => {
+                    tracing::warn!(
+                        target: "agent_driver",
+                        "Step tx queued as future (nonce={} committed_nonce_state={}); waiting for nonce gap to close.",
+                        nonce,
+                        committed_nonce_state
                     );
                     work_performed = true;
                 }
@@ -676,6 +671,44 @@ where
     }
 
     Ok(work_performed)
+}
+
+// [NEW] Agent Driver Task
+// This acts as the "System 2" loop for the User Node, driving agents forward.
+/// Runs the background task for the Agent driver.
+/// Scans for active agents and triggers steps if needed.
+/// Returns `true` if any agent action was taken, allowing the main loop to speed up.
+pub async fn run_agent_driver_task<CS, ST, CE, V>(
+    context: &MainLoopContext<CS, ST, CE, V>,
+) -> Result<bool>
+where
+    CS: CommitmentScheme + Clone + Send + Sync + 'static,
+    ST: StateManager<Commitment = CS::Commitment, Proof = CS::Proof>
+        + Send
+        + Sync
+        + 'static
+        + Debug
+        + Clone,
+    CE: ConsensusEngine<ChainTransaction> + Send + Sync + 'static,
+    V: Verifier<Commitment = CS::Commitment, Proof = CS::Proof>
+        + Clone
+        + Send
+        + Sync
+        + 'static
+        + Debug,
+    <CS as CommitmentScheme>::Proof:
+        serde::Serialize + for<'de> serde::Deserialize<'de> + Clone + Send + Sync + 'static + Debug,
+    <CS as CommitmentScheme>::Commitment: Send + Sync + Debug,
+{
+    run_agent_driver_task_with_handles(
+        context.view_resolver.workload_client().clone(),
+        context.tx_pool_ref.clone(),
+        context.local_keypair.clone(),
+        context.chain_id,
+        context.nonce_manager.clone(),
+        context.consensus_kick_tx.clone(),
+    )
+    .await
 }
 
 // Helper for selecting a provider from the registry

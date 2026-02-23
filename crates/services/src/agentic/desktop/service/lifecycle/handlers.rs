@@ -21,6 +21,16 @@ use ioi_types::error::TransactionError;
 use std::collections::BTreeMap;
 use std::time::{SystemTime, UNIX_EPOCH};
 
+fn reset_for_new_user_goal(agent_state: &mut AgentState, goal: &str) {
+    agent_state.goal = goal.to_string();
+    agent_state.target = infer_interaction_target(goal);
+    agent_state.resolved_intent = None;
+    agent_state.awaiting_intent_clarification = false;
+    agent_state.step_count = 0;
+    agent_state.last_action_type = None;
+    agent_state.pending_search_completion = None;
+}
+
 pub async fn handle_start(
     service: &DesktopAgentService,
     state: &mut dyn StateAccess,
@@ -249,10 +259,7 @@ pub async fn handle_post_message(
                 mark_incident_retry_root(state, p.session_id)?;
                 maybe_restore_pending_install_from_incident(state, p.session_id, &mut agent_state)?;
             } else {
-                agent_state.goal = content.clone();
-                agent_state.step_count = 0;
-                agent_state.last_action_type = None;
-                agent_state.pending_search_completion = None;
+                reset_for_new_user_goal(&mut agent_state, &content);
                 let remediation_key = get_remediation_key(&p.session_id);
                 let incident_key = get_incident_key(&p.session_id);
                 state.delete(&remediation_key)?;
@@ -437,4 +444,86 @@ pub async fn handle_delete_session(
 
     log::info!("Deleted/Terminated session {}", hex::encode(session_id));
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::reset_for_new_user_goal;
+    use crate::agentic::desktop::types::{
+        AgentMode, AgentState, AgentStatus, ExecutionTier, PendingSearchCompletion,
+    };
+    use ioi_types::app::agentic::{
+        IntentCandidateScore, IntentConfidenceBand, IntentScopeProfile, ResolvedIntentState,
+    };
+    use std::collections::{BTreeMap, VecDeque};
+
+    fn test_state() -> AgentState {
+        AgentState {
+            session_id: [0u8; 32],
+            goal: "old".to_string(),
+            transcript_root: [0u8; 32],
+            status: AgentStatus::Running,
+            step_count: 7,
+            max_steps: 16,
+            last_action_type: Some("tool".to_string()),
+            parent_session_id: None,
+            child_session_ids: vec![],
+            budget: 10,
+            tokens_used: 0,
+            consecutive_failures: 0,
+            pending_approval: None,
+            pending_tool_call: None,
+            pending_tool_jcs: None,
+            pending_tool_hash: None,
+            pending_visual_hash: None,
+            recent_actions: vec![],
+            mode: AgentMode::Agent,
+            current_tier: ExecutionTier::DomHeadless,
+            last_screen_phash: None,
+            execution_queue: vec![],
+            pending_search_completion: Some(PendingSearchCompletion::default()),
+            active_skill_hash: None,
+            tool_execution_log: BTreeMap::new(),
+            visual_som_map: None,
+            visual_semantic_map: None,
+            swarm_context: None,
+            target: None,
+            resolved_intent: Some(ResolvedIntentState {
+                intent_id: "conversation.reply".to_string(),
+                scope: IntentScopeProfile::Conversation,
+                band: IntentConfidenceBand::High,
+                score: 1.0,
+                top_k: vec![IntentCandidateScore {
+                    intent_id: "conversation.reply".to_string(),
+                    score: 1.0,
+                }],
+                preferred_tier: "tool_first".to_string(),
+                matrix_version: "intent-matrix-v2".to_string(),
+                matrix_source_hash: [0u8; 32],
+                receipt_hash: [0u8; 32],
+                constrained: false,
+            }),
+            awaiting_intent_clarification: true,
+            working_directory: ".".to_string(),
+            command_history: VecDeque::new(),
+            active_lens: None,
+        }
+    }
+
+    #[test]
+    fn reset_for_new_user_goal_refreshes_target_and_intent_state() {
+        let mut state = test_state();
+        reset_for_new_user_goal(&mut state, "open calculator");
+
+        assert_eq!(state.goal, "open calculator");
+        assert_eq!(
+            state.target.as_ref().and_then(|target| target.app_hint.as_deref()),
+            Some("calculator")
+        );
+        assert!(state.resolved_intent.is_none());
+        assert!(!state.awaiting_intent_clarification);
+        assert_eq!(state.step_count, 0);
+        assert!(state.last_action_type.is_none());
+        assert!(state.pending_search_completion.is_none());
+    }
 }
