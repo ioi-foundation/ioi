@@ -34,7 +34,6 @@ import { SpotlightPasswordCard } from "./components/SpotlightPasswordCard";
 import { SpotlightClarificationCard } from "./components/SpotlightClarificationCard";
 import { ThoughtChain } from "./components/ThoughtChain";
 import { AnswerCard } from "./components/AnswerCard";
-import { ActivityRail } from "./components/ActivityRail";
 import { Dropdown, DropdownOption } from "./components/SpotlightDropdown";
 import { ArtifactSidebar } from "./components/ArtifactSidebar";
 import { ArtifactHubSidebar } from "./components/ArtifactHubSidebar";
@@ -87,6 +86,12 @@ function isIdentityResolutionClarificationKind(kind?: string): boolean {
 type ChatEvent = ChatMessage & {
   isGate?: boolean;
   gateData?: any;
+};
+
+type ConversationTurn = {
+  key: string;
+  prompt: ChatMessage | null;
+  answer: ChatMessage | null;
 };
 
 type SpotlightWindowProps = {
@@ -218,6 +223,65 @@ export function SpotlightWindow({ variant = "overlay" }: SpotlightWindowProps) {
     () => activeHistory.filter((message) => message.role === "user" || message.role === "agent"),
     [activeHistory],
   );
+  const conversationTurns = useMemo<ConversationTurn[]>(() => {
+    const turns: ConversationTurn[] = [];
+    let pendingPrompt: ChatMessage | null = null;
+    let idx = 0;
+
+    for (const message of fallbackConversation) {
+      if (message.role === "user") {
+        if (pendingPrompt) {
+          turns.push({
+            key: `turn-${idx}-${pendingPrompt.timestamp}`,
+            prompt: pendingPrompt,
+            answer: null,
+          });
+          idx += 1;
+        }
+        pendingPrompt = message;
+        continue;
+      }
+
+      if (message.role !== "agent") {
+        continue;
+      }
+
+      if (pendingPrompt) {
+        turns.push({
+          key: `turn-${idx}-${pendingPrompt.timestamp}-${message.timestamp}`,
+          prompt: pendingPrompt,
+          answer: message,
+        });
+        idx += 1;
+        pendingPrompt = null;
+      } else {
+        turns.push({
+          key: `turn-${idx}-agent-${message.timestamp}`,
+          prompt: null,
+          answer: message,
+        });
+        idx += 1;
+      }
+    }
+
+    if (pendingPrompt) {
+      turns.push({
+        key: `turn-${idx}-${pendingPrompt.timestamp}`,
+        prompt: pendingPrompt,
+        answer: null,
+      });
+    }
+
+    return turns;
+  }, [fallbackConversation]);
+  const latestAnsweredTurnIndex = useMemo(() => {
+    for (let i = conversationTurns.length - 1; i >= 0; i -= 1) {
+      if (conversationTurns[i]?.answer) {
+        return i;
+      }
+    }
+    return -1;
+  }, [conversationTurns]);
 
   useEffect(() => {
     // [FIX] Scroll only if user was already at bottom (stick-to-bottom behavior)
@@ -857,7 +921,7 @@ export function SpotlightWindow({ variant = "overlay" }: SpotlightWindowProps) {
 
   // Only show initial loader if running and no visible thinking content exists yet.
   const showInitialLoader = CONTENT_PIPELINE_V2_ENABLED
-    ? isRunning && runPresentation.activityGroups.length === 0 && !runPresentation.finalAnswer
+    ? isRunning && conversationTurns.length === 0
     : isRunning && !hasLegacyChainContent;
 
   // ============================================
@@ -911,63 +975,95 @@ export function SpotlightWindow({ variant = "overlay" }: SpotlightWindowProps) {
 
               {CONTENT_PIPELINE_V2_ENABLED ? (
                 <>
-                  {runPresentation.prompt && (
-                    <div className="spot-message user spot-message--prompt">
-                      <div className="message-content-text">
-                        {runPresentation.prompt.text}
-                      </div>
-                    </div>
-                  )}
+                  {conversationTurns.map((turn, index) => {
+                    const isLatestTurn = index === conversationTurns.length - 1;
+                    const isLatestAnsweredTurn = index === latestAnsweredTurnIndex;
+                    const latestAnswerMatches =
+                      isLatestAnsweredTurn &&
+                      !!turn.answer &&
+                      !!runPresentation.finalAnswer &&
+                      runPresentation.finalAnswer.message.text.trim() ===
+                        turn.answer.text.trim();
+                    const hasThoughtSummary = !!runPresentation.thoughtSummary;
+                    const showLiveThinking =
+                      isLatestTurn && !!turn.prompt && !turn.answer && isRunning;
+                    const showThoughtTrigger =
+                      showLiveThinking ||
+                      (isLatestAnsweredTurn && !!turn.answer && hasThoughtSummary);
+                    const thoughtCount = runPresentation.thoughtSummary?.agents.length || 0;
 
-                  {!runPresentation.prompt &&
-                    runPresentation.finalAnswer &&
-                    fallbackConversation
-                      .filter((entry) => entry.role === "user")
-                      .slice(-1)
-                      .map((entry, index) => (
-                        <div
-                          key={`v2-fallback-prompt-${entry.timestamp}-${index}`}
-                          className="spot-message user spot-message--prompt"
-                        >
-                          <div className="message-content-text">{entry.text}</div>
-                        </div>
-                      ))}
+                    return (
+                      <React.Fragment key={turn.key}>
+                        {turn.prompt && (
+                          <div className="spot-message user spot-message--prompt">
+                            <div className="message-content-text">{turn.prompt.text}</div>
+                          </div>
+                        )}
 
-                  {runPresentation.finalAnswer && (
+                        {showThoughtTrigger && (
+                          <button
+                            className={`spot-thinking-pill ${showLiveThinking ? "spot-thinking-pill--active" : ""}`}
+                            type="button"
+                            onClick={() =>
+                              openArtifactHub(hasThoughtSummary ? "thoughts" : "kernel_logs")
+                            }
+                            title="Open thinking artifacts"
+                          >
+                            <span className="spot-thinking-pill-icon">{icons.sparkles}</span>
+                            <span className="spot-thinking-pill-text">Thinking...</span>
+                            <span className="spot-thinking-pill-detail">
+                              {showLiveThinking
+                                ? task?.current_step || "Reasoning across tools"
+                                : thoughtCount > 0
+                                  ? `${thoughtCount} ${thoughtCount === 1 ? "step" : "steps"} captured`
+                                  : "Open reasoning artifact"}
+                            </span>
+                          </button>
+                        )}
+
+                        {turn.answer &&
+                          (latestAnswerMatches && runPresentation.finalAnswer ? (
+                            <AnswerCard
+                              answer={runPresentation.finalAnswer}
+                              sourceSummary={runPresentation.sourceSummary}
+                              sourceDurationLabel={task?.receipt?.duration}
+                              onDownloadContext={handleDownloadContext}
+                              onOpenArtifacts={() =>
+                                openArtifactHub(
+                                  runPresentation.thoughtSummary
+                                    ? "thoughts"
+                                    : runPresentation.sourceSummary
+                                      ? "sources"
+                                      : "kernel_logs",
+                                )
+                              }
+                              onOpenSources={openSourceSummaryPanel}
+                            />
+                          ) : (
+                            <div className="spot-message agent">
+                              <MarkdownMessage text={turn.answer.text} />
+                            </div>
+                          ))}
+                      </React.Fragment>
+                    );
+                  })}
+
+                  {conversationTurns.length === 0 && runPresentation.finalAnswer && (
                     <AnswerCard
                       answer={runPresentation.finalAnswer}
                       sourceSummary={runPresentation.sourceSummary}
-                      artifactRefs={runPresentation.artifactRefs}
+                      sourceDurationLabel={task?.receipt?.duration}
                       onDownloadContext={handleDownloadContext}
-                      onOpenArtifact={openArtifactById}
-                      onOpenSources={openSourceSummaryPanel}
-                    />
-                  )}
-
-                  {!runPresentation.finalAnswer &&
-                    fallbackConversation
-                      .filter((entry) => entry.role === "agent")
-                      .slice(-1)
-                      .map((entry, index) => (
-                        <div
-                          key={`v2-fallback-answer-${entry.timestamp}-${index}`}
-                          className="spot-message agent"
-                        >
-                          <MarkdownMessage text={entry.text} />
-                        </div>
-                      ))}
-
-                  {runPresentation.activityGroups.length > 0 && (
-                    <ActivityRail
-                      summary={runPresentation.activitySummary}
-                      groups={runPresentation.activityGroups}
-                      onOpenArtifact={openArtifactById}
-                      onOpenArtifacts={
-                        runPresentation.thoughtSummary || runPresentation.sourceSummary
-                          ? () => openArtifactHub("thoughts")
-                          : undefined
+                      onOpenArtifacts={() =>
+                        openArtifactHub(
+                          runPresentation.thoughtSummary
+                            ? "thoughts"
+                            : runPresentation.sourceSummary
+                              ? "sources"
+                              : "kernel_logs",
+                        )
                       }
-                      defaultCollapsed={true}
+                      onOpenSources={openSourceSummaryPanel}
                     />
                   )}
                 </>
@@ -976,14 +1072,33 @@ export function SpotlightWindow({ variant = "overlay" }: SpotlightWindowProps) {
               )}
 
               {showInitialLoader && (
-                <ThoughtChain
-                  messages={[]}
-                  activeStep={task?.current_step || "Initializing..."}
-                  agentName={task?.agent || "Autopilot"}
-                  generation={task?.generation || 0}
-                  progress={0}
-                  totalSteps={task?.total_steps || 10}
-                />
+                CONTENT_PIPELINE_V2_ENABLED ? (
+                  <button
+                    className="spot-thinking-pill spot-thinking-pill--active"
+                    type="button"
+                    onClick={() =>
+                      openArtifactHub(
+                        runPresentation.thoughtSummary ? "thoughts" : "kernel_logs",
+                      )
+                    }
+                    title="Open thinking artifacts"
+                  >
+                    <span className="spot-thinking-pill-icon">{icons.sparkles}</span>
+                    <span className="spot-thinking-pill-text">Thinking...</span>
+                    <span className="spot-thinking-pill-detail">
+                      {task?.current_step || "Initializing..."}
+                    </span>
+                  </button>
+                ) : (
+                  <ThoughtChain
+                    messages={[]}
+                    activeStep={task?.current_step || "Initializing..."}
+                    agentName={task?.agent || "Autopilot"}
+                    generation={task?.generation || 0}
+                    progress={0}
+                    totalSteps={task?.total_steps || 10}
+                  />
+                )
               )}
             </div>
 
