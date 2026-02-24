@@ -643,6 +643,66 @@
   color: var(--spot-text-dim);
 }
 
+.artifact-hub-turn-scope {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 10px;
+  padding: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.015);
+}
+
+.artifact-hub-turn-meta {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.artifact-hub-turn-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--spot-text-secondary);
+}
+
+.artifact-hub-turn-prompt {
+  font-size: 10px;
+  color: var(--spot-text-dim);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.artifact-hub-turn-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.artifact-hub-turn-select-wrap {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.artifact-hub-turn-select-label {
+  font-size: 10px;
+  color: var(--spot-text-dim);
+}
+
+.artifact-hub-turn-select {
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--spot-text-secondary);
+  font-size: 10px;
+  padding: 4px 8px;
+  min-width: 98px;
+}
+
 .artifact-hub-thoughts {
   display: flex;
   flex-direction: column;
