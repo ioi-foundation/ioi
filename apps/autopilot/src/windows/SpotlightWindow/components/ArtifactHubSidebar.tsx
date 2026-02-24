@@ -11,6 +11,7 @@ import { icons } from "./Icons";
 
 interface ArtifactHubSidebarProps {
   initialView?: ArtifactHubViewKey;
+  initialTurnId?: string | null;
   events: AgentEvent[];
   artifacts: Artifact[];
   sourceSummary: SourceSummary | null;
@@ -46,8 +47,26 @@ interface SecurityPolicyRow {
   reportArtifactId: string | null;
 }
 
+interface TurnWindow {
+  id: string;
+  index: number;
+  startStep: number;
+  endStep: number;
+  prompt: string;
+  startAtMs: number | null;
+  endAtMs: number | null;
+}
+
+type TurnSelection = "all" | string;
+
 const MAX_KERNEL_LOG_ROWS = 240;
 const MAX_SUMMARY_CHARS = 220;
+const TURN_FILTER_VIEWS = new Set<ArtifactHubViewKey>([
+  "thoughts",
+  "sources",
+  "kernel_logs",
+  "security_policy",
+]);
 
 function safeString(value: unknown): string {
   if (typeof value === "string") return value;
@@ -101,6 +120,61 @@ function eventHasPolicyDigest(event: AgentEvent): boolean {
   return policyKeys.some((key) => safeString(digest[key as keyof typeof digest]).trim().length > 0);
 }
 
+function parseTimestampMs(value: string): number | null {
+  const ms = Date.parse(value);
+  return Number.isNaN(ms) ? null : ms;
+}
+
+function isUserRequestEvent(event: AgentEvent): boolean {
+  const details = event.details || {};
+  const title = event.title.toLowerCase();
+  return safeString(details.kind).trim().toLowerCase() === "user_input" || title === "user request";
+}
+
+function eventPromptText(event: AgentEvent): string {
+  const details = event.details || {};
+  const digest = event.digest || {};
+  return safeString(details.text).trim() || safeString(digest.query).trim();
+}
+
+function buildTurnWindows(events: AgentEvent[]): TurnWindow[] {
+  const ordered = events
+    .slice()
+    .sort(
+      (a, b) =>
+        a.timestamp.localeCompare(b.timestamp) ||
+        a.step_index - b.step_index ||
+        a.event_id.localeCompare(b.event_id),
+    );
+  const userEvents = ordered.filter((event) => isUserRequestEvent(event));
+  return userEvents.map((event, idx) => {
+    const next = userEvents[idx + 1];
+    return {
+      id: event.event_id,
+      index: idx + 1,
+      startStep: event.step_index,
+      endStep: next ? Math.max(event.step_index, next.step_index - 1) : Number.MAX_SAFE_INTEGER,
+      prompt: eventPromptText(event),
+      startAtMs: parseTimestampMs(event.timestamp),
+      endAtMs: next ? parseTimestampMs(next.timestamp) : null,
+    };
+  });
+}
+
+function eventBelongsToTurn(event: AgentEvent, turn: TurnWindow): boolean {
+  if (event.step_index < turn.startStep || event.step_index > turn.endStep) {
+    return false;
+  }
+  const eventAtMs = parseTimestampMs(event.timestamp);
+  if (turn.startAtMs !== null && eventAtMs !== null && eventAtMs < turn.startAtMs) {
+    return false;
+  }
+  if (turn.endAtMs !== null && eventAtMs !== null && eventAtMs >= turn.endAtMs) {
+    return false;
+  }
+  return true;
+}
+
 function extractArtifactUrl(artifact: Artifact): string | null {
   const metadata = artifact.metadata || {};
   const candidates = [metadata.url, metadata.source_url, metadata.screenshot_url];
@@ -140,6 +214,7 @@ function defaultViewForSections(sections: HubSection[]): ArtifactHubViewKey {
 
 export function ArtifactHubSidebar({
   initialView,
+  initialTurnId,
   events,
   artifacts,
   sourceSummary,
@@ -147,18 +222,79 @@ export function ArtifactHubSidebar({
   onOpenArtifact,
   onClose,
 }: ArtifactHubSidebarProps) {
+  const turnWindows = useMemo(() => buildTurnWindows(events), [events]);
+  const latestTurn = turnWindows.length > 0 ? turnWindows[turnWindows.length - 1] : null;
+  const [turnSelection, setTurnSelection] = useState<TurnSelection>("all");
+
+  useEffect(() => {
+    if (turnWindows.length === 0) {
+      setTurnSelection("all");
+      return;
+    }
+
+    const requested = (initialTurnId || "").trim();
+    if (requested && turnWindows.some((turn) => turn.id === requested)) {
+      setTurnSelection(requested);
+      return;
+    }
+
+    setTurnSelection((previous) => {
+      if (previous === "all") {
+        return latestTurn?.id || "all";
+      }
+      if (turnWindows.some((turn) => turn.id === previous)) {
+        return previous;
+      }
+      return latestTurn?.id || "all";
+    });
+  }, [initialTurnId, latestTurn?.id, turnWindows]);
+
+  const selectedTurn = useMemo(() => {
+    if (turnSelection === "all") return null;
+    return turnWindows.find((turn) => turn.id === turnSelection) || null;
+  }, [turnSelection, turnWindows]);
+
+  const scopedEvents = useMemo(() => {
+    if (!selectedTurn) return events;
+    return events.filter((event) => eventBelongsToTurn(event, selectedTurn));
+  }, [events, selectedTurn]);
+
+  const isStepVisible = useCallback(
+    (stepIndex: number) => {
+      if (!selectedTurn) return true;
+      return stepIndex >= selectedTurn.startStep && stepIndex <= selectedTurn.endStep;
+    },
+    [selectedTurn],
+  );
+
   const searches = useMemo(
-    () => [...(sourceSummary?.searches || [])].sort((a, b) => a.stepIndex - b.stepIndex),
-    [sourceSummary?.searches],
+    () =>
+      [...(sourceSummary?.searches || [])]
+        .filter((entry) => isStepVisible(entry.stepIndex))
+        .sort((a, b) => a.stepIndex - b.stepIndex),
+    [isStepVisible, sourceSummary?.searches],
   );
   const browses = useMemo(
-    () => [...(sourceSummary?.browses || [])].sort((a, b) => a.stepIndex - b.stepIndex),
-    [sourceSummary?.browses],
+    () =>
+      [...(sourceSummary?.browses || [])]
+        .filter((entry) => isStepVisible(entry.stepIndex))
+        .sort((a, b) => a.stepIndex - b.stepIndex),
+    [isStepVisible, sourceSummary?.browses],
   );
-  const thoughtAgents = thoughtSummary?.agents || [];
+  const thoughtAgents = useMemo(
+    () => (thoughtSummary?.agents || []).filter((agent) => isStepVisible(agent.stepIndex)),
+    [isStepVisible, thoughtSummary?.agents],
+  );
+  const visibleSourceCount = useMemo(() => {
+    if (!selectedTurn) {
+      return sourceSummary?.totalSources || 0;
+    }
+    const searchTotal = searches.reduce((sum, row) => sum + Math.max(0, row.resultCount), 0);
+    return Math.max(searchTotal, browses.length);
+  }, [browses.length, searches, selectedTurn, sourceSummary?.totalSources]);
 
   const kernelLogs = useMemo<KernelLogRow[]>(() => {
-    const rows = events
+    const rows = scopedEvents
       .slice()
       .reverse()
       .slice(0, MAX_KERNEL_LOG_ROWS)
@@ -172,11 +308,11 @@ export function ArtifactHubSidebar({
         summary: eventSummary(event),
       }));
     return rows;
-  }, [events]);
+  }, [scopedEvents]);
 
   const securityRows = useMemo<SecurityPolicyRow[]>(() => {
     const rows: SecurityPolicyRow[] = [];
-    for (const event of events) {
+    for (const event of scopedEvents) {
       const title = event.title.toLowerCase();
       if (
         event.event_type !== "RECEIPT" &&
@@ -208,7 +344,7 @@ export function ArtifactHubSidebar({
       });
     }
     return rows.reverse();
-  }, [events]);
+  }, [scopedEvents]);
 
   const fileArtifacts = useMemo(
     () => artifacts.filter((artifact) => artifact.artifact_type === "FILE" || artifact.artifact_type === "DIFF"),
@@ -230,7 +366,7 @@ export function ArtifactHubSidebar({
   const sections = useMemo<HubSection[]>(
     () => [
       { key: "thoughts", label: sectionLabel("thoughts"), count: thoughtAgents.length },
-      { key: "sources", label: sectionLabel("sources"), count: sourceSummary?.totalSources || 0 },
+      { key: "sources", label: sectionLabel("sources"), count: visibleSourceCount },
       { key: "kernel_logs", label: sectionLabel("kernel_logs"), count: kernelLogs.length },
       { key: "security_policy", label: sectionLabel("security_policy"), count: securityRows.length },
       { key: "files", label: sectionLabel("files"), count: fileArtifacts.length },
@@ -243,7 +379,7 @@ export function ArtifactHubSidebar({
       revisionArtifacts.length,
       screenshotArtifacts.length,
       securityRows.length,
-      sourceSummary?.totalSources,
+      visibleSourceCount,
       thoughtAgents.length,
     ],
   );
@@ -343,7 +479,7 @@ export function ArtifactHubSidebar({
   };
 
   const renderSourcesView = () => {
-    if (!sourceSummary || sourceSummary.totalSources === 0) {
+    if (searches.length === 0 && browses.length === 0) {
       return <p className="artifact-hub-empty">No web sources captured for this run.</p>;
     }
 
@@ -351,7 +487,7 @@ export function ArtifactHubSidebar({
       <div className="source-artifact-content">
         <div className="source-agent-header">
           <span className="source-agent-title">Sources</span>
-          <span className="source-agent-count">{sourceSummary.totalSources}</span>
+          <span className="source-agent-count">{visibleSourceCount}</span>
         </div>
 
         {searches.map((entry, index) => (
@@ -508,6 +644,10 @@ export function ArtifactHubSidebar({
     }
   })();
 
+  const showTurnScopeControls =
+    turnWindows.length > 0 && TURN_FILTER_VIEWS.has(activeView);
+  const selectedTurnPrompt = selectedTurn?.prompt ? clipText(selectedTurn.prompt, 88) : "";
+
   return (
     <div className="artifact-panel artifact-hub-panel">
       <div className="artifact-header">
@@ -538,6 +678,39 @@ export function ArtifactHubSidebar({
           ))}
         </aside>
         <section className="artifact-hub-detail" aria-label={sectionLabel(activeView)}>
+          {showTurnScopeControls && (
+            <div className="artifact-hub-turn-scope">
+              <div className="artifact-hub-turn-meta">
+                <span className="artifact-hub-turn-label">
+                  {selectedTurn ? `Turn ${selectedTurn.index}` : "All turns"}
+                </span>
+                {selectedTurnPrompt && (
+                  <span className="artifact-hub-turn-prompt">{selectedTurnPrompt}</span>
+                )}
+              </div>
+              <div className="artifact-hub-turn-actions">
+                <label className="artifact-hub-turn-select-wrap">
+                  <span className="artifact-hub-turn-select-label">View</span>
+                  <select
+                    className="artifact-hub-turn-select"
+                    value={turnSelection}
+                    onChange={(event) => setTurnSelection(event.target.value)}
+                  >
+                    {latestTurn && <option value={latestTurn.id}>Latest turn</option>}
+                    {turnWindows
+                      .slice()
+                      .reverse()
+                      .map((turn) => (
+                        <option key={turn.id} value={turn.id}>
+                          {`Turn ${turn.index}`}
+                        </option>
+                      ))}
+                    <option value="all">All turns</option>
+                  </select>
+                </label>
+              </div>
+            </div>
+          )}
           {detailView}
         </section>
       </div>

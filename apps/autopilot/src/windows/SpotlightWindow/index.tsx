@@ -94,6 +94,71 @@ type ConversationTurn = {
   answer: ChatMessage | null;
 };
 
+type TurnEventWindow = {
+  id: string;
+  index: number;
+  startStep: number;
+  endStep: number;
+  startAtMs: number | null;
+  endAtMs: number | null;
+};
+
+type TurnContext = {
+  turnId: string | null;
+  thoughtCount: number;
+  sourceCount: number;
+  kernelEventCount: number;
+  defaultView: ArtifactHubViewKey;
+};
+
+function parseTimestampMs(value: string): number | null {
+  const ms = Date.parse(value);
+  return Number.isNaN(ms) ? null : ms;
+}
+
+function isUserRequestEvent(event: AgentEvent): boolean {
+  const details = (event.details || {}) as Record<string, unknown>;
+  const kind = String(details.kind || "").trim().toLowerCase();
+  return kind === "user_input" || event.title.trim().toLowerCase() === "user request";
+}
+
+function buildTurnWindows(events: AgentEvent[]): TurnEventWindow[] {
+  const ordered = events
+    .slice()
+    .sort(
+      (a, b) =>
+        a.timestamp.localeCompare(b.timestamp) ||
+        a.step_index - b.step_index ||
+        a.event_id.localeCompare(b.event_id),
+    );
+  const prompts = ordered.filter(isUserRequestEvent);
+  return prompts.map((event, idx) => {
+    const next = prompts[idx + 1];
+    return {
+      id: event.event_id,
+      index: idx + 1,
+      startStep: event.step_index,
+      endStep: next ? Math.max(event.step_index, next.step_index - 1) : Number.MAX_SAFE_INTEGER,
+      startAtMs: parseTimestampMs(event.timestamp),
+      endAtMs: next ? parseTimestampMs(next.timestamp) : null,
+    };
+  });
+}
+
+function eventInTurnWindow(event: AgentEvent, window: TurnEventWindow): boolean {
+  if (event.step_index < window.startStep || event.step_index > window.endStep) {
+    return false;
+  }
+  const eventAtMs = parseTimestampMs(event.timestamp);
+  if (window.startAtMs !== null && eventAtMs !== null && eventAtMs < window.startAtMs) {
+    return false;
+  }
+  if (window.endAtMs !== null && eventAtMs !== null && eventAtMs >= window.endAtMs) {
+    return false;
+  }
+  return true;
+}
+
 type SpotlightWindowProps = {
   variant?: "overlay" | "studio";
 };
@@ -118,6 +183,7 @@ export function SpotlightWindow({ variant = "overlay" }: SpotlightWindowProps) {
   const [selectedModel, setSelectedModel] = useState("GPT-4o");
   const [chatEvents, setChatEvents] = useState<ChatEvent[]>([]);
   const [artifactHubView, setArtifactHubView] = useState<ArtifactHubViewKey | null>(null);
+  const [artifactHubTurnId, setArtifactHubTurnId] = useState<string | null>(null);
 
   // UI state
   const [inputFocused, setInputFocused] = useState(false);
@@ -751,6 +817,7 @@ export function SpotlightWindow({ variant = "overlay" }: SpotlightWindowProps) {
   const openArtifactById = useCallback(
     (artifactId: string) => {
       setArtifactHubView(null);
+      setArtifactHubTurnId(null);
       setSelectedArtifactId(artifactId);
       toggleArtifactPanel(true);
     },
@@ -758,8 +825,9 @@ export function SpotlightWindow({ variant = "overlay" }: SpotlightWindowProps) {
   );
 
   const openArtifactHub = useCallback(
-    (preferredView: ArtifactHubViewKey = "kernel_logs") => {
+    (preferredView: ArtifactHubViewKey = "kernel_logs", preferredTurnId?: string | null) => {
       setArtifactHubView(preferredView);
+      setArtifactHubTurnId(preferredTurnId || null);
       setSelectedArtifactId(null);
       toggleArtifactPanel(true);
     },
@@ -775,6 +843,7 @@ export function SpotlightWindow({ variant = "overlay" }: SpotlightWindowProps) {
 
   const closeRightPanel = useCallback(() => {
     setArtifactHubView(null);
+    setArtifactHubTurnId(null);
     toggleArtifactPanel(false);
   }, [toggleArtifactPanel]);
 
@@ -786,6 +855,50 @@ export function SpotlightWindow({ variant = "overlay" }: SpotlightWindowProps) {
     () => buildRunPresentation(activeHistory, activeEvents, activeArtifacts),
     [activeArtifacts, activeEvents, activeHistory],
   );
+  const eventTurnWindows = useMemo(() => buildTurnWindows(activeEvents), [activeEvents]);
+  const turnContexts = useMemo<TurnContext[]>(() => {
+    let promptOrdinal = 0;
+    const thoughtAgents = runPresentation.thoughtSummary?.agents || [];
+    const searches = runPresentation.sourceSummary?.searches || [];
+    const browses = runPresentation.sourceSummary?.browses || [];
+
+    return conversationTurns.map((turn) => {
+      const window = turn.prompt ? eventTurnWindows[promptOrdinal++] || null : null;
+      if (!window) {
+        return {
+          turnId: null,
+          thoughtCount: 0,
+          sourceCount: 0,
+          kernelEventCount: 0,
+          defaultView: "kernel_logs",
+        };
+      }
+
+      const thoughtCount = thoughtAgents.filter(
+        (agent) => agent.stepIndex >= window.startStep && agent.stepIndex <= window.endStep,
+      ).length;
+      const sourceCount = Math.max(
+        searches
+          .filter((row) => row.stepIndex >= window.startStep && row.stepIndex <= window.endStep)
+          .reduce((sum, row) => sum + Math.max(0, row.resultCount), 0),
+        browses.filter((row) => row.stepIndex >= window.startStep && row.stepIndex <= window.endStep)
+          .length,
+      );
+      const kernelEventCount = activeEvents.filter(
+        (event) => event.event_type !== "INFO_NOTE" && eventInTurnWindow(event, window),
+      ).length;
+      const defaultView: ArtifactHubViewKey =
+        thoughtCount > 0 ? "thoughts" : sourceCount > 0 ? "sources" : "kernel_logs";
+
+      return {
+        turnId: window.id,
+        thoughtCount,
+        sourceCount,
+        kernelEventCount,
+        defaultView,
+      };
+    });
+  }, [activeEvents, conversationTurns, eventTurnWindows, runPresentation]);
 
   const handleDownloadContext = useCallback(async () => {
     if (!activeSessionId) {
@@ -978,6 +1091,7 @@ export function SpotlightWindow({ variant = "overlay" }: SpotlightWindowProps) {
                   {conversationTurns.map((turn, index) => {
                     const isLatestTurn = index === conversationTurns.length - 1;
                     const isLatestAnsweredTurn = index === latestAnsweredTurnIndex;
+                    const turnContext = turnContexts[index] || null;
                     const latestAnswerMatches =
                       isLatestAnsweredTurn &&
                       !!turn.answer &&
@@ -987,10 +1101,9 @@ export function SpotlightWindow({ variant = "overlay" }: SpotlightWindowProps) {
                     const hasThoughtSummary = !!runPresentation.thoughtSummary;
                     const showLiveThinking =
                       isLatestTurn && !!turn.prompt && !turn.answer && isRunning;
-                    const showThoughtTrigger =
-                      showLiveThinking ||
-                      (isLatestAnsweredTurn && !!turn.answer && hasThoughtSummary);
-                    const thoughtCount = runPresentation.thoughtSummary?.agents.length || 0;
+                    const showThoughtTrigger = !!turn.prompt && (showLiveThinking || !!turn.answer);
+                    const thoughtCount = turnContext?.thoughtCount || 0;
+                    const hasTurnTrace = (turnContext?.kernelEventCount || 0) > 0 || thoughtCount > 0;
 
                     return (
                       <React.Fragment key={turn.key}>
@@ -1005,7 +1118,11 @@ export function SpotlightWindow({ variant = "overlay" }: SpotlightWindowProps) {
                             className={`spot-thinking-pill ${showLiveThinking ? "spot-thinking-pill--active" : ""}`}
                             type="button"
                             onClick={() =>
-                              openArtifactHub(hasThoughtSummary ? "thoughts" : "kernel_logs")
+                              openArtifactHub(
+                                turnContext?.defaultView ||
+                                  (hasThoughtSummary ? "thoughts" : "kernel_logs"),
+                                turnContext?.turnId || null,
+                              )
                             }
                             title="Open thinking artifacts"
                           >
@@ -1014,9 +1131,11 @@ export function SpotlightWindow({ variant = "overlay" }: SpotlightWindowProps) {
                             <span className="spot-thinking-pill-detail">
                               {showLiveThinking
                                 ? task?.current_step || "Reasoning across tools"
-                                : thoughtCount > 0
+                                : !hasTurnTrace
+                                  ? "No trace captured"
+                                  : thoughtCount > 0
                                   ? `${thoughtCount} ${thoughtCount === 1 ? "step" : "steps"} captured`
-                                  : "Open reasoning artifact"}
+                                  : `${turnContext?.kernelEventCount || 0} events captured`}
                             </span>
                           </button>
                         )}
@@ -1031,11 +1150,13 @@ export function SpotlightWindow({ variant = "overlay" }: SpotlightWindowProps) {
                               onDownloadContext={handleDownloadContext}
                               onOpenArtifacts={() =>
                                 openArtifactHub(
-                                  runPresentation.thoughtSummary
-                                    ? "thoughts"
-                                    : runPresentation.sourceSummary
-                                      ? "sources"
-                                      : "kernel_logs",
+                                  turnContext?.defaultView ||
+                                    (runPresentation.thoughtSummary
+                                      ? "thoughts"
+                                      : runPresentation.sourceSummary
+                                        ? "sources"
+                                        : "kernel_logs"),
+                                  turnContext?.turnId || null,
                                 )
                               }
                               onOpenSources={openSourceSummaryPanel}
@@ -1265,6 +1386,7 @@ export function SpotlightWindow({ variant = "overlay" }: SpotlightWindowProps) {
           {layout.artifactPanelVisible && artifactHubView && (
             <ArtifactHubSidebar
               initialView={artifactHubView}
+              initialTurnId={artifactHubTurnId}
               events={activeEvents}
               artifacts={activeArtifacts}
               sourceSummary={runPresentation.sourceSummary}
