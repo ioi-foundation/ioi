@@ -1019,7 +1019,7 @@ pub async fn resolve_step_intent(
         normalized_query.clone()
     };
     let locality_scope_required =
-        super::queue::query_requires_runtime_locality_scope(&ranking_query);
+        super::queue::web_pipeline::query_requires_runtime_locality_scope(&ranking_query);
     let session_prefix = hex::encode(&agent_state.session_id[..4]);
     let query_hash = hex::encode(
         sha256(query.as_bytes()).map_err(|e| TransactionError::Invalid(e.to_string()))?,

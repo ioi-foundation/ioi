@@ -865,7 +865,7 @@ mod tests {
                 assert_eq!(query, "latest news");
                 assert_eq!(
                     limit,
-                    Some(crate::agentic::desktop::service::step::queue::WEB_PIPELINE_SEARCH_LIMIT)
+                    Some(crate::agentic::desktop::service::step::queue::web_pipeline::WEB_PIPELINE_SEARCH_LIMIT)
                 );
                 let expected = crate::agentic::web::build_default_search_url("latest news");
                 assert_eq!(url.as_deref(), Some(expected.as_str()));
@@ -906,7 +906,7 @@ mod tests {
                 assert_eq!(query, "top US breaking news last 6 hours");
                 assert_eq!(
                     limit,
-                    Some(crate::agentic::desktop::service::step::queue::WEB_PIPELINE_SEARCH_LIMIT)
+                    Some(crate::agentic::desktop::service::step::queue::web_pipeline::WEB_PIPELINE_SEARCH_LIMIT)
                 );
                 let expected = crate::agentic::web::build_default_search_url(
                     "top US breaking news last 6 hours",
@@ -930,7 +930,7 @@ mod tests {
                 assert_eq!(query, "active cloud incidents us impact");
                 assert_eq!(
                     limit,
-                    Some(crate::agentic::desktop::service::step::queue::WEB_PIPELINE_SEARCH_LIMIT)
+                    Some(crate::agentic::desktop::service::step::queue::web_pipeline::WEB_PIPELINE_SEARCH_LIMIT)
                 );
                 let expected = crate::agentic::web::build_default_search_url(
                     "active cloud incidents us impact",
@@ -958,7 +958,7 @@ mod tests {
                 assert_eq!(query, "as of now top active us cloud incidents");
                 assert_eq!(
                     limit,
-                    Some(crate::agentic::desktop::service::step::queue::WEB_PIPELINE_SEARCH_LIMIT)
+                    Some(crate::agentic::desktop::service::step::queue::web_pipeline::WEB_PIPELINE_SEARCH_LIMIT)
                 );
                 let expected = crate::agentic::web::build_default_search_url(
                     "as of now top active us cloud incidents",

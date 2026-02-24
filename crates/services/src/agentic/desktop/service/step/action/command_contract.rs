@@ -1,11 +1,14 @@
 use super::support::{
     execution_receipt_value, has_execution_postcondition, has_execution_receipt,
-    mark_execution_receipt, mark_execution_receipt_with_value, postcondition_marker, receipt_marker,
+    mark_execution_receipt, mark_execution_receipt_with_value, postcondition_marker,
+    receipt_marker,
 };
-use crate::agentic::desktop::types::{AgentState, CommandExecution, ToolCallStatus, MAX_COMMAND_HISTORY};
+use crate::agentic::desktop::types::{
+    AgentState, CommandExecution, ToolCallStatus, MAX_COMMAND_HISTORY,
+};
 use ioi_crypto::algorithms::hash::sha256;
-use ioi_types::app::ActionTarget;
 use ioi_types::app::agentic::{AgentTool, IntentScopeProfile};
+use ioi_types::app::ActionTarget;
 use std::collections::{BTreeMap, VecDeque};
 use time::format_description::well_known::Rfc3339;
 use time::OffsetDateTime;
@@ -488,10 +491,10 @@ mod tests {
 
     #[test]
     fn provider_selection_commit_is_stable_sha256_value() {
-        let left = provider_selection_commit("sys__exec", "script_backend")
-            .expect("provider commit");
-        let right = provider_selection_commit("sys__exec", "script_backend")
-            .expect("provider commit");
+        let left =
+            provider_selection_commit("sys__exec", "script_backend").expect("provider commit");
+        let right =
+            provider_selection_commit("sys__exec", "script_backend").expect("provider commit");
         assert_eq!(left, right);
         assert!(left.starts_with("sha256:"));
     }

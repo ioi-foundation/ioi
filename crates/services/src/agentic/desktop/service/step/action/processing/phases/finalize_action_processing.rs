@@ -1,4 +1,51 @@
-    {
+use super::*;
+
+pub(crate) async fn finalize_action_processing(
+    ctx: FinalizeActionProcessingContext<'_, '_>,
+    state_in: ActionProcessingState,
+) -> Result<(), TransactionError> {
+    let FinalizeActionProcessingContext {
+        service,
+        state,
+        agent_state,
+        rules,
+        session_id,
+        block_height,
+        strategy_used,
+        tool_call_result,
+        final_visual_phash,
+        key,
+        routing_decision,
+        pre_state_summary,
+        tool_version,
+    } = ctx;
+
+    let ActionProcessingState {
+        policy_decision,
+        action_payload,
+        intent_hash,
+        retry_intent_hash,
+        mut success,
+        mut error_msg,
+        is_gated,
+        mut is_lifecycle_action,
+        current_tool_name,
+        mut history_entry,
+        mut action_output,
+        executed_tool_jcs,
+        mut failure_class,
+        mut stop_condition_hit,
+        mut escalation_path,
+        mut remediation_queued,
+        mut verification_checks,
+        awaiting_sudo_password,
+        mut awaiting_clarification,
+        command_probe_completed: _command_probe_completed,
+        invalid_tool_call_fail_fast: _invalid_tool_call_fail_fast,
+        invalid_tool_call_bootstrap_web: _invalid_tool_call_bootstrap_web,
+        invalid_tool_call_fail_fast_mailbox: _invalid_tool_call_fail_fast_mailbox,
+        terminal_chat_reply_output,
+    } = state_in;
     if !is_gated && !awaiting_sudo_password && !awaiting_clarification {
         if let Some(tool_jcs) = executed_tool_jcs.as_deref() {
             let resolved_retry_hash = retry_intent_hash
@@ -431,4 +478,4 @@
     emit_routing_receipt(service.event_sender.as_ref(), receipt);
 
     Ok(())
-    }
+}

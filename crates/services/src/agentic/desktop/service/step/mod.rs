@@ -260,11 +260,12 @@ pub async fn handle_step(
     let resolved_intent =
         intent_resolver::resolve_step_intent(service, &agent_state, &rules, &active_window_title)
             .await?;
-    let locality_scope_required = queue::query_requires_runtime_locality_scope(&agent_state.goal);
+    let locality_scope_required =
+        queue::web_pipeline::query_requires_runtime_locality_scope(&agent_state.goal);
     if locality_scope_required && is_web_research_intent(resolved_intent.scope) {
         maybe_seed_runtime_locality_context(&agent_state.goal).await;
     }
-    let runtime_locality_scope = queue::effective_locality_scope_hint(None);
+    let runtime_locality_scope = queue::web_pipeline::effective_locality_scope_hint(None);
     let locality_scope_missing = locality_scope_required
         && is_web_research_intent(resolved_intent.scope)
         && runtime_locality_scope.is_none();
