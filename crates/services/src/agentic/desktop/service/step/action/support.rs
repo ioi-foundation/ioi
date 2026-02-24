@@ -182,10 +182,7 @@ pub fn mark_execution_receipt_with_value(
     name: &str,
     value: String,
 ) {
-    tool_execution_log.insert(
-        receipt_marker(name),
-        ToolCallStatus::Executed(value),
-    );
+    tool_execution_log.insert(receipt_marker(name), ToolCallStatus::Executed(value));
 }
 
 pub fn mark_execution_postcondition(

@@ -1,4 +1,27 @@
-    {
+use super::*;
+
+pub(super) struct ResumePendingActionFlowContext<'a, 's> {
+    pub service: &'a DesktopAgentService,
+    pub state: &'s mut dyn StateAccess,
+    pub agent_state: &'a mut AgentState,
+    pub session_id: [u8; 32],
+    pub block_height: u64,
+    pub block_timestamp_ns: u64,
+    pub call_context: ServiceCallContext<'a>,
+}
+
+pub(super) async fn resume_pending_action_flow(
+    ctx: ResumePendingActionFlowContext<'_, '_>,
+) -> Result<(), TransactionError> {
+    let ResumePendingActionFlowContext {
+        service,
+        state,
+        agent_state,
+        session_id,
+        block_height,
+        block_timestamp_ns,
+        call_context,
+    } = ctx;
     let pre_state_summary = build_state_summary(agent_state);
     let routing_decision = TierRoutingDecision {
         tier: agent_state.current_tier,
@@ -1000,4 +1023,4 @@
     state.insert(&key, &codec::to_bytes_canonical(&agent_state)?)?;
 
     Ok(())
-    }
+}

@@ -96,7 +96,9 @@ fn classify_error_class_markers() {
     assert_eq!(no_effect, Some(FailureClass::NoEffectAfterAction));
 
     let execution_contract_violation = classify_failure(
-        Some("ERROR_CLASS=ExecutionContractViolation missing_keys=receipt::verification_commit=true"),
+        Some(
+            "ERROR_CLASS=ExecutionContractViolation missing_keys=receipt::verification_commit=true",
+        ),
         "allowed",
     );
     assert_eq!(

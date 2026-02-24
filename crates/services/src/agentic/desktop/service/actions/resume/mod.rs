@@ -2,6 +2,7 @@
 
 mod approvals;
 mod execution;
+mod flow;
 mod focus;
 mod hashing;
 mod status;
@@ -17,8 +18,8 @@ use crate::agentic::desktop::service::step::action::command_contract::{
     execution_contract_violation_error, missing_execution_contract_markers,
     record_provider_selection_receipts, record_timer_notification_contract_requirement,
     record_verification_receipts, requires_timer_notification_contract,
-    sys_exec_arms_timer_delay_backend, sys_exec_command_preview, TIMER_NOTIFICATION_PATH_POSTCONDITION,
-    TIMER_SLEEP_BACKEND_POSTCONDITION,
+    sys_exec_arms_timer_delay_backend, sys_exec_command_preview,
+    TIMER_NOTIFICATION_PATH_POSTCONDITION, TIMER_SLEEP_BACKEND_POSTCONDITION,
 };
 use crate::agentic::desktop::service::step::action::{
     canonical_intent_hash, canonical_retry_intent_hash, canonical_tool_identity,
@@ -100,5 +101,14 @@ pub async fn resume_pending_action(
     block_timestamp_ns: u64,
     call_context: ServiceCallContext<'_>,
 ) -> Result<(), TransactionError> {
-    include!("phases/resume_pending_action_flow.rs")
+    flow::resume_pending_action_flow(flow::ResumePendingActionFlowContext {
+        service,
+        state,
+        agent_state,
+        session_id,
+        block_height,
+        block_timestamp_ns,
+        call_context,
+    })
+    .await
 }

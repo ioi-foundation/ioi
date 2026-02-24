@@ -1,4 +1,46 @@
-    {
+use super::*;
+
+pub(crate) async fn apply_post_execution_guards(
+    ctx: ApplyPostExecutionGuardsContext<'_, '_>,
+    state_in: ActionProcessingState,
+) -> Result<ActionProcessingState, TransactionError> {
+    let ApplyPostExecutionGuardsContext {
+        service,
+        state,
+        agent_state,
+        session_id,
+        block_height,
+        block_timestamp_ns,
+        tool_call_result,
+        final_visual_phash,
+    } = ctx;
+
+    let ActionProcessingState {
+        policy_decision,
+        action_payload,
+        intent_hash,
+        retry_intent_hash,
+        mut success,
+        mut error_msg,
+        is_gated,
+        mut is_lifecycle_action,
+        current_tool_name,
+        mut history_entry,
+        mut action_output,
+        executed_tool_jcs,
+        mut failure_class,
+        mut stop_condition_hit,
+        mut escalation_path,
+        remediation_queued,
+        mut verification_checks,
+        mut awaiting_sudo_password,
+        mut awaiting_clarification,
+        command_probe_completed,
+        invalid_tool_call_fail_fast,
+        invalid_tool_call_bootstrap_web,
+        invalid_tool_call_fail_fast_mailbox,
+        mut terminal_chat_reply_output,
+    } = state_in;
     let is_install_package_tool = current_tool_name == "sys__install_package"
         || current_tool_name == "sys::install_package"
         || current_tool_name.ends_with("install_package");
@@ -373,4 +415,31 @@
             }
         }
     }
-    }
+
+    Ok(ActionProcessingState {
+        policy_decision,
+        action_payload,
+        intent_hash,
+        retry_intent_hash,
+        success,
+        error_msg,
+        is_gated,
+        is_lifecycle_action,
+        current_tool_name,
+        history_entry,
+        action_output,
+        executed_tool_jcs,
+        failure_class,
+        stop_condition_hit,
+        escalation_path,
+        remediation_queued,
+        verification_checks,
+        awaiting_sudo_password,
+        awaiting_clarification,
+        command_probe_completed,
+        invalid_tool_call_fail_fast,
+        invalid_tool_call_bootstrap_web,
+        invalid_tool_call_fail_fast_mailbox,
+        terminal_chat_reply_output,
+    })
+}

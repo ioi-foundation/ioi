@@ -3,8 +3,8 @@ use super::command_contract::{
     execution_contract_violation_error, missing_execution_contract_markers,
     record_provider_selection_receipts, record_timer_notification_contract_requirement,
     record_verification_receipts, requires_timer_notification_contract,
-    sys_exec_arms_timer_delay_backend, sys_exec_command_preview, TIMER_NOTIFICATION_PATH_POSTCONDITION,
-    TIMER_SLEEP_BACKEND_POSTCONDITION,
+    sys_exec_arms_timer_delay_backend, sys_exec_command_preview,
+    TIMER_NOTIFICATION_PATH_POSTCONDITION, TIMER_SLEEP_BACKEND_POSTCONDITION,
 };
 use super::probe::{
     is_command_probe_intent, is_system_clock_read_intent, summarize_command_probe_output,
@@ -42,7 +42,7 @@ use crate::agentic::desktop::service::step::incident::{
     start_or_continue_incident_recovery, ApprovalDirective, IncidentDirective,
 };
 use crate::agentic::desktop::service::step::intent_resolver::is_tool_allowed_for_resolution;
-use crate::agentic::desktop::service::step::queue::{
+use crate::agentic::desktop::service::step::queue::web_pipeline::{
     append_pending_web_success_fallback, append_pending_web_success_from_bundle,
     constraint_grounded_probe_query_with_hints, constraint_grounded_search_limit,
     constraint_grounded_search_query, is_human_challenge_error, mark_pending_web_attempted,
@@ -80,12 +80,18 @@ use std::time::{SystemTime, UNIX_EPOCH};
 mod child_session;
 mod command_history;
 mod duplicate_guard;
+mod phases;
 mod refusal;
 mod web_helpers;
 mod web_pre_read;
 
 use self::duplicate_guard::{
     duplicate_command_completion_summary, duplicate_command_execution_summary,
+};
+use self::phases::{
+    apply_post_execution_guards, execute_non_mailbox_tool, finalize_action_processing,
+    ActionProcessingState, ApplyPostExecutionGuardsContext, ExecuteNonMailboxToolContext,
+    FinalizeActionProcessingContext,
 };
 use self::web_helpers::{
     extract_web_read_url_from_payload, is_empty_memory_search_output,
@@ -123,12 +129,7 @@ pub async fn process_tool_output(
         .unwrap_or_else(default_safe_policy);
     let (routing_decision, pre_state_summary) = resolve_action_routing_context(agent_state);
     let tool_version = env!("CARGO_PKG_VERSION");
-    let mut policy_decision = "allowed".to_string();
-    let mut action_payload = json!({
-        "raw_tool_output": tool_call_result
-    });
-    let mut intent_hash = "unknown".to_string();
-    let mut retry_intent_hash: Option<String> = None;
+    let mut processing_state = ActionProcessingState::new(&tool_call_result);
 
     // 1. Raw Refusal Interceptor
     if refusal::intercept_raw_refusal(
@@ -227,126 +228,164 @@ pub async fn process_tool_output(
         }
     }
 
-    // 3. Execution
-    let mut success = false;
-    let mut error_msg = None;
-    let mut is_gated = false;
-    let mut is_lifecycle_action = false;
-    let mut current_tool_name = "unknown".to_string();
-    let mut history_entry: Option<String> = None;
-    let mut action_output: Option<String> = None;
-    let mut executed_tool_jcs: Option<Vec<u8>> = None;
-    let mut failure_class: Option<FailureClass> = None;
-    let mut stop_condition_hit = false;
-    let mut escalation_path: Option<String> = None;
-    let mut remediation_queued = false;
-    let mut verification_checks = Vec::new();
-    let mut awaiting_sudo_password = false;
-    let mut awaiting_clarification = false;
-    let mut command_probe_completed = false;
-    let mut invalid_tool_call_fail_fast = false;
-    let mut invalid_tool_call_bootstrap_web = false;
-    let mut invalid_tool_call_fail_fast_mailbox = false;
-    let mut terminal_chat_reply_output: Option<String> = None;
-
     match tool_call {
         Ok(tool) => {
-            let os_driver = service
-                .os_driver
-                .clone()
-                .ok_or(TransactionError::Invalid("OS driver missing".into()))?;
-            action_payload = serde_json::to_value(&tool).unwrap_or_else(|_| json!({}));
+            processing_state.action_payload =
+                serde_json::to_value(&tool).unwrap_or_else(|_| json!({}));
             let (tool_name, tool_args) = canonical_tool_identity(&tool);
-            current_tool_name = tool_name;
-            executed_tool_jcs = Some(
+            processing_state.current_tool_name = tool_name;
+            processing_state.executed_tool_jcs = Some(
                 serde_jcs::to_vec(&tool)
                     .map_err(|e| TransactionError::Serialization(e.to_string()))?,
             );
-            intent_hash = canonical_intent_hash(
-                &current_tool_name,
+            processing_state.intent_hash = canonical_intent_hash(
+                &processing_state.current_tool_name,
                 &tool_args,
                 routing_decision.tier,
                 pre_state_summary.step_index,
                 tool_version,
             );
-            retry_intent_hash = Some(canonical_retry_intent_hash(
-                &current_tool_name,
+            processing_state.retry_intent_hash = Some(canonical_retry_intent_hash(
+                &processing_state.current_tool_name,
                 &tool_args,
                 routing_decision.tier,
                 tool_version,
             ));
 
             let mailbox_intent = is_mailbox_connector_goal(&agent_state.goal);
-            let attempted_web_path_tool = current_tool_name.starts_with("browser__")
-                || current_tool_name.starts_with("web__")
-                || current_tool_name == "memory__search";
-            let mailbox_connector_tool = is_mail_connector_tool_name(&current_tool_name);
+            let attempted_web_path_tool =
+                processing_state.current_tool_name.starts_with("browser__")
+                    || processing_state.current_tool_name.starts_with("web__")
+                    || processing_state.current_tool_name == "memory__search";
+            let mailbox_connector_tool =
+                is_mail_connector_tool_name(&processing_state.current_tool_name);
             if mailbox_intent && attempted_web_path_tool && !mailbox_connector_tool {
                 let run_timestamp_ms = block_timestamp_ns / 1_000_000;
                 let summary =
                     render_mailbox_access_limited_reply(&agent_state.goal, run_timestamp_ms);
-                success = true;
-                error_msg = None;
-                history_entry = Some(summary.clone());
-                action_output = Some(summary.clone());
-                terminal_chat_reply_output = Some(summary.clone());
-                is_lifecycle_action = true;
+                processing_state.success = true;
+                processing_state.error_msg = None;
+                processing_state.history_entry = Some(summary.clone());
+                processing_state.action_output = Some(summary.clone());
+                processing_state.terminal_chat_reply_output = Some(summary.clone());
+                processing_state.is_lifecycle_action = true;
                 agent_state.status = AgentStatus::Completed(Some(summary));
                 agent_state.pending_search_completion = None;
                 agent_state.execution_queue.clear();
                 agent_state.recent_actions.clear();
-                verification_checks.push("mailbox_connector_path_required=true".to_string());
-                verification_checks.push("mailbox_non_connector_tool_blocked=true".to_string());
-                verification_checks.push("terminal_chat_reply_ready=true".to_string());
+                processing_state
+                    .verification_checks
+                    .push("mailbox_connector_path_required=true".to_string());
+                processing_state
+                    .verification_checks
+                    .push("mailbox_non_connector_tool_blocked=true".to_string());
+                processing_state
+                    .verification_checks
+                    .push("terminal_chat_reply_ready=true".to_string());
             } else {
-                include!("phases/execute_non_mailbox_tool.rs");
+                processing_state = execute_non_mailbox_tool(
+                    ExecuteNonMailboxToolContext {
+                        service,
+                        state,
+                        agent_state,
+                        call_context,
+                        tool,
+                        tool_args,
+                        rules: &rules,
+                        session_id,
+                        block_height,
+                        block_timestamp_ns,
+                        final_visual_phash,
+                        req_hash_hex: req_hash_hex.clone(),
+                        tool_call_result: tool_call_result.clone(),
+                        pre_state_summary: pre_state_summary.clone(),
+                    },
+                    processing_state,
+                )
+                .await?;
             }
         }
         Err(e) => {
             // Tool-call schema/parse errors are not policy denials. Mark them as deterministic
             // UnexpectedState so anti-loop + receipts don't imply approval/policy gating.
-            policy_decision = "allowed".to_string();
-            current_tool_name = "system::invalid_tool_call".to_string();
+            processing_state.policy_decision = "allowed".to_string();
+            processing_state.current_tool_name = "system::invalid_tool_call".to_string();
             let parse_error = format!("Failed to parse tool call: {}", e);
             let parse_args = json!({
                 "raw_tool_output": tool_call_result,
                 "parse_error": parse_error,
             });
 
-            verification_checks.push("schema_validation_error=true".to_string());
+            processing_state
+                .verification_checks
+                .push("schema_validation_error=true".to_string());
 
-            intent_hash = canonical_intent_hash(
-                &current_tool_name,
+            processing_state.intent_hash = canonical_intent_hash(
+                &processing_state.current_tool_name,
                 &parse_args,
                 routing_decision.tier,
                 pre_state_summary.step_index,
                 tool_version,
             );
-            retry_intent_hash = Some(canonical_retry_intent_hash(
-                &current_tool_name,
+            processing_state.retry_intent_hash = Some(canonical_retry_intent_hash(
+                &processing_state.current_tool_name,
                 &parse_args,
                 routing_decision.tier,
                 tool_version,
             ));
-            action_payload = json!({
-                "name": current_tool_name.clone(),
+            processing_state.action_payload = json!({
+                "name": processing_state.current_tool_name.clone(),
                 "arguments": parse_args,
             });
             // Prefix ERROR_CLASS so anti-loop classification is deterministic.
-            error_msg = Some(format!("ERROR_CLASS=UnexpectedState {}", parse_error));
+            processing_state.error_msg =
+                Some(format!("ERROR_CLASS=UnexpectedState {}", parse_error));
             let empty_output = tool_call_result.trim().is_empty();
             if empty_output && should_use_web_research_path(agent_state) {
-                invalid_tool_call_bootstrap_web = true;
+                processing_state.invalid_tool_call_bootstrap_web = true;
             } else if should_use_web_research_path(agent_state) {
-                invalid_tool_call_fail_fast = true;
+                processing_state.invalid_tool_call_fail_fast = true;
             } else if is_mailbox_connector_goal(&agent_state.goal) {
-                invalid_tool_call_fail_fast = true;
-                invalid_tool_call_fail_fast_mailbox = true;
+                processing_state.invalid_tool_call_fail_fast = true;
+                processing_state.invalid_tool_call_fail_fast_mailbox = true;
             }
         }
     }
-    include!("phases/apply_post_execution_guards.rs");
-    include!("phases/finalize_action_processing.rs")
+
+    processing_state = apply_post_execution_guards(
+        ApplyPostExecutionGuardsContext {
+            service,
+            state,
+            agent_state,
+            session_id,
+            block_height,
+            block_timestamp_ns,
+            tool_call_result: tool_call_result.clone(),
+            final_visual_phash,
+        },
+        processing_state,
+    )
+    .await?;
+
+    finalize_action_processing(
+        FinalizeActionProcessingContext {
+            service,
+            state,
+            agent_state,
+            rules: &rules,
+            session_id,
+            block_height,
+            strategy_used,
+            tool_call_result,
+            final_visual_phash,
+            key,
+            routing_decision,
+            pre_state_summary,
+            tool_version,
+        },
+        processing_state,
+    )
+    .await
 }
 #[cfg(test)]
 mod tests {

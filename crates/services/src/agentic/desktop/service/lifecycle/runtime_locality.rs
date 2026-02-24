@@ -1,4 +1,4 @@
-use crate::agentic::desktop::service::step::queue::query_requires_runtime_locality_scope;
+use crate::agentic::desktop::service::step::queue::web_pipeline::query_requires_runtime_locality_scope;
 use std::sync::OnceLock;
 use std::time::Duration;
 use tokio::sync::OnceCell;
