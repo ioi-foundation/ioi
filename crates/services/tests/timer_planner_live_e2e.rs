@@ -86,8 +86,10 @@ struct DeterministicCheckSet {
     capability_verification_phase_present: bool,
     cec_receipt_host_discovery_present: bool,
     cec_receipt_provider_selection_present: bool,
+    cec_receipt_provider_selection_commit_present: bool,
     cec_receipt_execution_present: bool,
     cec_receipt_verification_present: bool,
+    cec_receipt_verification_commit_present: bool,
     cec_receipt_notification_strategy_present: bool,
     cec_postcondition_execution_artifact_present: bool,
     cec_postcondition_timer_sleep_backend_present: bool,
@@ -645,12 +647,18 @@ fn build_deterministic_checks(
     let cec_receipt_provider_selection_present = routing_checks
         .iter()
         .any(|check| check == "receipt::provider_selection=true");
+    let cec_receipt_provider_selection_commit_present = routing_checks
+        .iter()
+        .any(|check| check == "receipt::provider_selection_commit=true");
     let cec_receipt_execution_present = routing_checks
         .iter()
         .any(|check| check == "receipt::execution=true");
     let cec_receipt_verification_present = routing_checks
         .iter()
         .any(|check| check == "receipt::verification=true");
+    let cec_receipt_verification_commit_present = routing_checks
+        .iter()
+        .any(|check| check == "receipt::verification_commit=true");
     let cec_receipt_notification_strategy_present = routing_checks
         .iter()
         .any(|check| check == "receipt::notification_strategy=true");
@@ -738,11 +746,17 @@ fn build_deterministic_checks(
     if !cec_receipt_provider_selection_present {
         failures.push("missing CEC receipt::provider_selection=true".to_string());
     }
+    if !cec_receipt_provider_selection_commit_present {
+        failures.push("missing CEC receipt::provider_selection_commit=true".to_string());
+    }
     if !cec_receipt_execution_present {
         failures.push("missing CEC receipt::execution=true".to_string());
     }
     if !cec_receipt_verification_present {
         failures.push("missing CEC receipt::verification=true".to_string());
+    }
+    if !cec_receipt_verification_commit_present {
+        failures.push("missing CEC receipt::verification_commit=true".to_string());
     }
     if !cec_receipt_notification_strategy_present {
         failures.push("missing CEC receipt::notification_strategy=true".to_string());
@@ -803,8 +817,10 @@ fn build_deterministic_checks(
         capability_verification_phase_present,
         cec_receipt_host_discovery_present,
         cec_receipt_provider_selection_present,
+        cec_receipt_provider_selection_commit_present,
         cec_receipt_execution_present,
         cec_receipt_verification_present,
+        cec_receipt_verification_commit_present,
         cec_receipt_notification_strategy_present,
         cec_postcondition_execution_artifact_present,
         cec_postcondition_timer_sleep_backend_present,

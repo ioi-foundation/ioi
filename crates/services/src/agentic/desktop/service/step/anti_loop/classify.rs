@@ -89,6 +89,7 @@ fn parse_error_class_marker(lower_error: &str) -> Option<FailureClass> {
         "targetnotfound" => Some(FailureClass::TargetNotFound),
         "visiontargetnotfound" => Some(FailureClass::VisionTargetNotFound),
         "noeffectafteraction" => Some(FailureClass::NoEffectAfterAction),
+        "executioncontractviolation" => Some(FailureClass::NoEffectAfterAction),
         "tierviolation" => Some(FailureClass::TierViolation),
         "missingdependency" => Some(FailureClass::MissingDependency),
         "contextdrift" => Some(FailureClass::ContextDrift),

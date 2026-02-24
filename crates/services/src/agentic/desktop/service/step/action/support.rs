@@ -174,9 +174,17 @@ pub fn mark_execution_receipt(
     tool_execution_log: &mut BTreeMap<String, ToolCallStatus>,
     name: &str,
 ) {
+    mark_execution_receipt_with_value(tool_execution_log, name, "true".to_string());
+}
+
+pub fn mark_execution_receipt_with_value(
+    tool_execution_log: &mut BTreeMap<String, ToolCallStatus>,
+    name: &str,
+    value: String,
+) {
     tool_execution_log.insert(
         receipt_marker(name),
-        ToolCallStatus::Executed("true".to_string()),
+        ToolCallStatus::Executed(value),
     );
 }
 
@@ -198,6 +206,16 @@ pub fn has_execution_receipt(
         tool_execution_log.get(&receipt_marker(name)),
         Some(ToolCallStatus::Executed(_))
     )
+}
+
+pub fn execution_receipt_value<'a>(
+    tool_execution_log: &'a BTreeMap<String, ToolCallStatus>,
+    name: &str,
+) -> Option<&'a str> {
+    match tool_execution_log.get(&receipt_marker(name)) {
+        Some(ToolCallStatus::Executed(value)) => Some(value.as_str()),
+        _ => None,
+    }
 }
 
 pub fn has_execution_postcondition(

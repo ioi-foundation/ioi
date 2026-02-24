@@ -1,8 +1,9 @@
 use super::command_contract::{
     capability_route_label, command_arms_deferred_notification_path, enrich_command_scope_summary,
     execution_contract_violation_error, missing_execution_contract_markers,
-    requires_timer_notification_contract, sys_exec_arms_timer_delay_backend,
-    sys_exec_command_preview, TIMER_NOTIFICATION_PATH_POSTCONDITION,
+    record_provider_selection_receipts, record_timer_notification_contract_requirement,
+    record_verification_receipts, requires_timer_notification_contract,
+    sys_exec_arms_timer_delay_backend, sys_exec_command_preview, TIMER_NOTIFICATION_PATH_POSTCONDITION,
     TIMER_SLEEP_BACKEND_POSTCONDITION,
 };
 use super::probe::{
@@ -351,7 +352,7 @@ pub async fn process_tool_output(
 mod tests {
     use super::{duplicate_command_completion_summary, should_fail_fast_web_timeout};
     use crate::agentic::desktop::service::step::action::command_contract::{
-        upsert_structured_field, TARGET_UTC_MARKER,
+        execution_contract_violation_error, upsert_structured_field, TARGET_UTC_MARKER,
     };
     use crate::agentic::desktop::service::step::anti_loop::FailureClass;
     use crate::agentic::desktop::types::CommandExecution;
@@ -525,5 +526,11 @@ mod tests {
         assert!(!updated.contains("2023-10-05T14:15:00Z"));
         assert!(updated.contains("Target UTC: 2026-02-24T13:23:28.938Z"));
         assert!(updated.contains("Timer set."));
+    }
+
+    #[test]
+    fn execution_contract_violation_uses_spec_error_class() {
+        let message = execution_contract_violation_error("receipt::verification=true");
+        assert!(message.starts_with("ERROR_CLASS=ExecutionContractViolation "));
     }
 }

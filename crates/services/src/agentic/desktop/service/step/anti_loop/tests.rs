@@ -95,6 +95,15 @@ fn classify_error_class_markers() {
     );
     assert_eq!(no_effect, Some(FailureClass::NoEffectAfterAction));
 
+    let execution_contract_violation = classify_failure(
+        Some("ERROR_CLASS=ExecutionContractViolation missing_keys=receipt::verification_commit=true"),
+        "allowed",
+    );
+    assert_eq!(
+        execution_contract_violation,
+        Some(FailureClass::NoEffectAfterAction)
+    );
+
     let tier = classify_failure(
         Some("ERROR_CLASS=TierViolation Vision localization is only allowed in VisualForeground tier."),
         "allowed",

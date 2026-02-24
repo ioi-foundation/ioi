@@ -78,6 +78,77 @@ fn extract_story_titles(text: &str) -> Vec<String> {
         .collect()
 }
 
+const ANDERSON_WEATHER_QUERY: &str = "current weather in anderson sc";
+const ANDERSON_BING_SEARCH_URL: &str =
+    "https://www.bing.com/search?q=current+weather+anderson+sc";
+const ATT_FORUM_ACCOUNT_USAGE_URL: &str =
+    "https://forums.att.com/conversations/account-usage/compesation/5df024adbad5f2f60686b40b";
+const ATT_FORUM_APPLE_URL: &str =
+    "https://forums.att.com/conversations/apple/why-do-you-send-electronic-notifications-when-specifically-asked-not-to/5df00f54bad5f2f606253c6e";
+const ACCUWEATHER_ANDERSON_CURRENT_URL: &str =
+    "https://www.accuweather.com/en/us/anderson/29621/current-weather/331327";
+const WEATHER_GOV_ANDERSON_CURRENT_URL: &str =
+    "https://forecast.weather.gov/MapClick.php?lat=34.5&lon=-82.65";
+
+fn anderson_weather_search_bundle(query: &str, sources: Vec<WebSource>) -> WebEvidenceBundle {
+    WebEvidenceBundle {
+        schema_version: 1,
+        retrieved_at_ms: 0,
+        tool: "web__search".to_string(),
+        backend: "edge:bing:http".to_string(),
+        query: Some(query.to_string()),
+        url: Some(ANDERSON_BING_SEARCH_URL.to_string()),
+        sources,
+        documents: vec![],
+    }
+}
+
+fn source_att_forum_account_usage(rank: u32) -> WebSource {
+    WebSource {
+        source_id: "irrelevant-1".to_string(),
+        rank: Some(rank),
+        url: ATT_FORUM_ACCOUNT_USAGE_URL.to_string(),
+        title: Some("AT&T Digital Resources & Answers - Community Forums".to_string()),
+        snippet: Some("Apr 6, 2019 · I called customer service last night and paid my bill.".to_string()),
+        domain: Some("forums.att.com".to_string()),
+    }
+}
+
+fn source_att_forum_apple(rank: u32) -> WebSource {
+    WebSource {
+        source_id: "irrelevant-2".to_string(),
+        rank: Some(rank),
+        url: ATT_FORUM_APPLE_URL.to_string(),
+        title: Some("AT&T Community Forums".to_string()),
+        snippet: Some(
+            "Dec 16, 2018 · Bought iPhone watch for spouse as Christmas present.".to_string(),
+        ),
+        domain: Some("forums.att.com".to_string()),
+    }
+}
+
+fn source_accuweather_anderson(rank: u32) -> WebSource {
+    WebSource {
+        source_id: "weather-a".to_string(),
+        rank: Some(rank),
+        url: ACCUWEATHER_ANDERSON_CURRENT_URL.to_string(),
+        title: Some("Anderson, SC Current Weather".to_string()),
+        snippet: Some("Current conditions: temperature near 61 F, wind 4 mph, humidity 48%.".to_string()),
+        domain: Some("accuweather.com".to_string()),
+    }
+}
+
+fn source_weather_gov_anderson(rank: u32) -> WebSource {
+    WebSource {
+        source_id: "weather-b".to_string(),
+        rank: Some(rank),
+        url: WEATHER_GOV_ANDERSON_CURRENT_URL.to_string(),
+        title: Some("Anderson SC Current Conditions".to_string()),
+        snippet: Some("Observed at 2:00 AM: temperature 60 F, humidity 50%, calm wind.".to_string()),
+        domain: Some("weather.gov".to_string()),
+    }
+}
+
 #[test]
 fn web_pipeline_min_sources_scales_with_explicit_citation_contract() {
     let query = "As of now (UTC), top 3 active U.S.-impacting cloud/SaaS incidents from major status pages with 2 citations each.";
@@ -355,48 +426,14 @@ fn web_pipeline_pre_read_prunes_unresolvable_candidates_when_resolvable_inventor
 
 #[test]
 fn web_pipeline_pre_read_prunes_irrelevant_candidates_when_compatible_inventory_exists() {
-    let bundle = WebEvidenceBundle {
-        schema_version: 1,
-        retrieved_at_ms: 0,
-        tool: "web__search".to_string(),
-        backend: "edge:bing:http".to_string(),
-        query: Some("current weather in anderson sc".to_string()),
-        url: Some("https://www.bing.com/search?q=current+weather+anderson+sc".to_string()),
-        sources: vec![
-            WebSource {
-                source_id: "irrelevant-1".to_string(),
-                rank: Some(1),
-                url: "https://forums.att.com/conversations/account-usage/compesation/5df024adbad5f2f60686b40b".to_string(),
-                title: Some("AT&T Digital Resources & Answers - Community Forums".to_string()),
-                snippet: Some("Apr 6, 2019 · I called customer service last night and paid my bill."
-                    .to_string()),
-                domain: Some("forums.att.com".to_string()),
-            },
-            WebSource {
-                source_id: "weather-a".to_string(),
-                rank: Some(2),
-                url: "https://www.accuweather.com/en/us/anderson/29621/current-weather/331327"
-                    .to_string(),
-                title: Some("Anderson, SC Current Weather".to_string()),
-                snippet: Some(
-                    "Current conditions: temperature near 61 F, wind 4 mph, humidity 48%."
-                        .to_string(),
-                ),
-                domain: Some("accuweather.com".to_string()),
-            },
-            WebSource {
-                source_id: "weather-b".to_string(),
-                rank: Some(3),
-                url: "https://forecast.weather.gov/MapClick.php?lat=34.5&lon=-82.65".to_string(),
-                title: Some("Anderson SC Current Conditions".to_string()),
-                snippet: Some(
-                    "Observed at 2:00 AM: temperature 60 F, humidity 50%, calm wind.".to_string(),
-                ),
-                domain: Some("weather.gov".to_string()),
-            },
+    let bundle = anderson_weather_search_bundle(
+        ANDERSON_WEATHER_QUERY,
+        vec![
+            source_att_forum_account_usage(1),
+            source_accuweather_anderson(2),
+            source_weather_gov_anderson(3),
         ],
-        documents: vec![],
-    };
+    );
 
     let plan = pre_read_candidate_plan_from_bundle(
         "what's the weather right now in anderson sc",
@@ -420,48 +457,14 @@ fn web_pipeline_pre_read_prunes_irrelevant_candidates_when_compatible_inventory_
 
 #[test]
 fn web_pipeline_pre_read_acquisition_filters_incompatible_candidates_for_single_anchor_queries() {
-    let bundle = WebEvidenceBundle {
-        schema_version: 1,
-        retrieved_at_ms: 0,
-        tool: "web__search".to_string(),
-        backend: "edge:bing:http".to_string(),
-        query: Some("weather right now".to_string()),
-        url: Some("https://www.bing.com/search?q=weather+right+now".to_string()),
-        sources: vec![
-            WebSource {
-                source_id: "irrelevant".to_string(),
-                rank: Some(1),
-                url: "https://forums.att.com/conversations/account-usage/compesation/5df024adbad5f2f60686b40b".to_string(),
-                title: Some("AT&T Digital Resources & Answers - Community Forums".to_string()),
-                snippet: Some("Apr 6, 2019 · I called customer service last night and paid my bill."
-                    .to_string()),
-                domain: Some("forums.att.com".to_string()),
-            },
-            WebSource {
-                source_id: "weather-a".to_string(),
-                rank: Some(2),
-                url: "https://www.accuweather.com/en/us/anderson/29621/current-weather/331327"
-                    .to_string(),
-                title: Some("Anderson, SC Current Weather".to_string()),
-                snippet: Some(
-                    "Current conditions: temperature near 61 F, wind 4 mph, humidity 48%."
-                        .to_string(),
-                ),
-                domain: Some("accuweather.com".to_string()),
-            },
-            WebSource {
-                source_id: "weather-b".to_string(),
-                rank: Some(3),
-                url: "https://forecast.weather.gov/MapClick.php?lat=34.5&lon=-82.65".to_string(),
-                title: Some("Anderson SC Current Conditions".to_string()),
-                snippet: Some(
-                    "Observed at 2:00 AM: temperature 60 F, humidity 50%, calm wind.".to_string(),
-                ),
-                domain: Some("weather.gov".to_string()),
-            },
+    let bundle = anderson_weather_search_bundle(
+        "weather right now",
+        vec![
+            source_att_forum_account_usage(1),
+            source_accuweather_anderson(2),
+            source_weather_gov_anderson(3),
         ],
-        documents: vec![],
-    };
+    );
 
     let plan = pre_read_candidate_plan_from_bundle("what's the weather right now", 2, &bundle);
     assert_eq!(plan.total_candidates, 2, "plan={:?}", plan);
@@ -535,35 +538,13 @@ fn web_pipeline_pre_read_prunes_search_hub_urls_for_grounded_time_sensitive_quer
 
 #[test]
 fn web_pipeline_pre_read_requires_probe_when_time_sensitive_candidates_are_incompatible() {
-    let bundle = WebEvidenceBundle {
-        schema_version: 1,
-        retrieved_at_ms: 0,
-        tool: "web__search".to_string(),
-        backend: "edge:bing:http".to_string(),
-        query: Some("current weather in anderson sc".to_string()),
-        url: Some("https://www.bing.com/search?q=current+weather+anderson+sc".to_string()),
-        sources: vec![
-            WebSource {
-                source_id: "irrelevant-1".to_string(),
-                rank: Some(1),
-                url: "https://forums.att.com/conversations/account-usage/compesation/5df024adbad5f2f60686b40b".to_string(),
-                title: Some("AT&T Digital Resources & Answers - Community Forums".to_string()),
-                snippet: Some("Apr 6, 2019 · I called customer service last night and paid my bill."
-                    .to_string()),
-                domain: Some("forums.att.com".to_string()),
-            },
-            WebSource {
-                source_id: "irrelevant-2".to_string(),
-                rank: Some(2),
-                url: "https://forums.att.com/conversations/apple/why-do-you-send-electronic-notifications-when-specifically-asked-not-to/5df00f54bad5f2f606253c6e".to_string(),
-                title: Some("AT&T Community Forums".to_string()),
-                snippet: Some("Dec 16, 2018 · Bought iPhone watch for spouse as Christmas present."
-                    .to_string()),
-                domain: Some("forums.att.com".to_string()),
-            },
+    let bundle = anderson_weather_search_bundle(
+        ANDERSON_WEATHER_QUERY,
+        vec![
+            source_att_forum_account_usage(1),
+            source_att_forum_apple(2),
         ],
-        documents: vec![],
-    };
+    );
 
     let plan = pre_read_candidate_plan_from_bundle(
         "what's the weather right now in anderson sc",
@@ -643,14 +624,9 @@ fn web_pipeline_pre_read_requires_probe_when_resolvable_inventory_below_source_f
 
 #[test]
 fn web_pipeline_pre_read_does_not_learn_facets_from_incompatible_candidates() {
-    let bundle = WebEvidenceBundle {
-        schema_version: 1,
-        retrieved_at_ms: 0,
-        tool: "web__search".to_string(),
-        backend: "edge:bing:http".to_string(),
-        query: Some("current weather in anderson sc".to_string()),
-        url: Some("https://www.bing.com/search?q=current+weather+anderson+sc".to_string()),
-        sources: vec![
+    let bundle = anderson_weather_search_bundle(
+        ANDERSON_WEATHER_QUERY,
+        vec![
             WebSource {
                 source_id: "shopping".to_string(),
                 rank: Some(1),
@@ -662,31 +638,10 @@ fn web_pipeline_pre_read_does_not_learn_facets_from_incompatible_candidates() {
                 ),
                 domain: Some("bestbuy.com".to_string()),
             },
-            WebSource {
-                source_id: "weather-a".to_string(),
-                rank: Some(2),
-                url: "https://www.accuweather.com/en/us/anderson/29621/current-weather/331327"
-                    .to_string(),
-                title: Some("Anderson, SC Current Weather".to_string()),
-                snippet: Some(
-                    "Current conditions: temperature near 61 F, wind 4 mph, humidity 48%."
-                        .to_string(),
-                ),
-                domain: Some("accuweather.com".to_string()),
-            },
-            WebSource {
-                source_id: "weather-b".to_string(),
-                rank: Some(3),
-                url: "https://forecast.weather.gov/MapClick.php?lat=34.5&lon=-82.65".to_string(),
-                title: Some("Anderson SC Current Conditions".to_string()),
-                snippet: Some(
-                    "Observed at 2:00 AM: temperature 60 F, humidity 50%, calm wind.".to_string(),
-                ),
-                domain: Some("weather.gov".to_string()),
-            },
+            source_accuweather_anderson(2),
+            source_weather_gov_anderson(3),
         ],
-        documents: vec![],
-    };
+    );
 
     let plan = pre_read_candidate_plan_from_bundle(
         "what's the weather right now in anderson sc",
