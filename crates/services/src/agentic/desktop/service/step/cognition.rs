@@ -371,7 +371,7 @@ pub async fn think(
          - Final user response must be structured from evidence and include `Mechanism: ...`; include timestamps/handles/status controls whenever available.\n\
          - For time-sensitive tasks, include an absolute UTC timestamp in the final reply as `Target UTC: YYYY-MM-DDTHH:MM:SSZ`.\n\
          - For timer/alarm/countdown goals, the notification path must be deferred to fire at due time (for example `sleep ... && notify-send ...` or scheduler equivalent); immediate standalone `notify-send` does not satisfy the contract.\n\
-         - If tool output reports `ERROR_CLASS=NoEffectAfterAction ... missing_keys=...`, revise the next action to satisfy the missing markers; do not repeat the same command unchanged.\n\
+         - If tool output reports `ERROR_CLASS=ExecutionContractViolation ... missing_keys=...`, revise the next action to satisfy the missing markers; do not repeat the same command unchanged.\n\
          - Use `system__fail` only when command tooling is unavailable."
     } else {
         ""

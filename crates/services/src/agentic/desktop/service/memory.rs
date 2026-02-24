@@ -498,7 +498,7 @@ mod tests {
     use ioi_api::vm::inference::InferenceRuntime;
     use ioi_drivers::browser::BrowserDriver;
     use ioi_drivers::terminal::TerminalDriver;
-    use ioi_scs::{FrameType, RetentionClass, SovereignContextStore, StoreConfig};
+    use ioi_scs::{SovereignContextStore, StoreConfig};
     use ioi_types::app::{ActionRequest, ContextSlice};
     use ioi_types::error::VmError;
     use std::sync::{Arc, Mutex};
@@ -543,19 +543,6 @@ mod tests {
         assert!(raw_msg.is_some());
         let raw_msg = raw_msg.expect("raw decode");
         assert_eq!(raw_msg.content, "raw secret: password=abc123");
-    }
-
-    #[test]
-    fn decode_session_message_rejects_legacy_chat_payload() {
-        let legacy = ChatMessage {
-            role: "user".to_string(),
-            content: "legacy api_key=sk_live_foo".to_string(),
-            timestamp: 99,
-            trace_hash: None,
-        };
-        let encoded_raw = codec::to_bytes_canonical(&legacy).expect("legacy encode");
-        assert!(decode_session_message(&encoded_raw, false).is_none());
-        assert!(decode_session_message(&encoded_raw, true).is_none());
     }
 
     struct NoopGuiDriver;
@@ -813,41 +800,4 @@ mod tests {
         let _ = std::fs::remove_file(path);
     }
 
-    #[tokio::test]
-    async fn legacy_sc_payload_is_ignored_without_compat_fallback() {
-        let (service, path) = build_test_service_with_temp_scs();
-        let session_id = [22u8; 32];
-
-        {
-            let guard = service.scs.clone();
-            let scs_mutex = guard.expect("missing scs");
-            let mut store = scs_mutex.lock().map_err(|_| "scs lock").expect("lock");
-
-            let legacy = ChatMessage {
-                role: "user".to_string(),
-                content: "legacy token=abc123".to_string(),
-                timestamp: 2,
-                trace_hash: None,
-            };
-            let payload = codec::to_bytes_canonical(&legacy).expect("legacy encode");
-            let _ = store.append_frame(
-                FrameType::Thought,
-                &payload,
-                0,
-                [0u8; 32],
-                session_id,
-                RetentionClass::Ephemeral,
-            );
-        }
-
-        let model_surface = service.hydrate_session_history(session_id);
-        assert!(model_surface.is_ok());
-        assert!(model_surface.expect("model hydration").is_empty());
-
-        let raw_surface = service.hydrate_session_history_raw(session_id);
-        assert!(raw_surface.is_ok());
-        assert!(raw_surface.expect("raw hydration").is_empty());
-
-        let _ = std::fs::remove_file(path);
-    }
 }

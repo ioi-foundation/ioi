@@ -5,14 +5,15 @@
                     .as_ref()
                     .map(|resolved| resolved.scope == IntentScopeProfile::CommandExecution)
                     .unwrap_or(false);
-                if let Some(route_label) = capability_route_label(&current_tool_name) {
+                if let Some(route_label) = capability_route_label(&tool) {
                     verification_checks.push(format!("capability_route_selected={}", route_label));
                     if command_scope {
-                        mark_execution_receipt(
+                        record_provider_selection_receipts(
                             &mut agent_state.tool_execution_log,
-                            "provider_selection",
+                            &mut verification_checks,
+                            &current_tool_name,
+                            route_label,
                         );
-                        verification_checks.push(receipt_marker("provider_selection"));
                     }
                 }
                 if command_scope
@@ -117,6 +118,12 @@
                             );
                         }
                     } else {
+                        if command_scope && sys_exec_arms_timer_delay_backend(&tool) {
+                            record_timer_notification_contract_requirement(
+                                &mut agent_state.tool_execution_log,
+                                &mut verification_checks,
+                            );
+                        }
                         let timer_notification_required = command_scope
                             && requires_timer_notification_contract(agent_state)
                             && matches!(
@@ -376,12 +383,12 @@
                                             "capability_execution_phase=verification".to_string(),
                                         );
                                         if command_scope {
-                                            mark_execution_receipt(
+                                            record_verification_receipts(
                                                 &mut agent_state.tool_execution_log,
-                                                "verification",
+                                                &mut verification_checks,
+                                                &tool,
+                                                agent_state.command_history.back(),
                                             );
-                                            verification_checks
-                                                .push(receipt_marker("verification"));
                                         }
                                     }
                                     if let Some(entry) = history_entry.clone() {

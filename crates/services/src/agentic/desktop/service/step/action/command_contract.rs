@@ -1,9 +1,12 @@
 use super::support::{
-    has_execution_postcondition, has_execution_receipt, postcondition_marker, receipt_marker,
+    execution_receipt_value, has_execution_postcondition, has_execution_receipt,
+    mark_execution_receipt, mark_execution_receipt_with_value, postcondition_marker, receipt_marker,
 };
-use crate::agentic::desktop::types::{AgentState, CommandExecution, MAX_COMMAND_HISTORY};
+use crate::agentic::desktop::types::{AgentState, CommandExecution, ToolCallStatus, MAX_COMMAND_HISTORY};
+use ioi_crypto::algorithms::hash::sha256;
+use ioi_types::app::ActionTarget;
 use ioi_types::app::agentic::{AgentTool, IntentScopeProfile};
-use std::collections::VecDeque;
+use std::collections::{BTreeMap, VecDeque};
 use time::format_description::well_known::Rfc3339;
 use time::OffsetDateTime;
 
@@ -12,26 +15,36 @@ pub const TARGET_UTC_MARKER: &str = "Target UTC:";
 pub const RUN_TIMESTAMP_UTC_MARKER: &str = "Run timestamp (UTC):";
 pub const TIMER_SLEEP_BACKEND_POSTCONDITION: &str = "timer_sleep_backend";
 pub const TIMER_NOTIFICATION_PATH_POSTCONDITION: &str = "notification_path_armed";
+pub const TIMER_NOTIFICATION_CONTRACT_REQUIRED_RECEIPT: &str =
+    "timer_notification_contract_required";
+pub const PROVIDER_SELECTION_COMMIT_RECEIPT: &str = "provider_selection_commit";
+pub const VERIFICATION_COMMIT_RECEIPT: &str = "verification_commit";
 const COMMAND_SCOPE_REQUIRED_RECEIPTS: [&str; 3] =
     ["provider_selection", "execution", "verification"];
 const COMMAND_SCOPE_REQUIRED_POSTCONDITIONS: [&str; 1] = ["execution_artifact"];
 
-pub fn capability_route_label(tool_name: &str) -> Option<&'static str> {
-    if tool_name.starts_with("os__") || tool_name.starts_with("browser__") {
-        return Some("native_integration");
+pub fn capability_route_label(tool: &AgentTool) -> Option<&'static str> {
+    match tool {
+        AgentTool::SysInstallPackage { .. } => Some("enablement_request"),
+        AgentTool::SysExec { .. } | AgentTool::SysExecSession { .. } => Some("script_backend"),
+        _ => match tool.target() {
+            ActionTarget::WindowFocus
+            | ActionTarget::ClipboardWrite
+            | ActionTarget::ClipboardRead
+            | ActionTarget::BrowserInteract
+            | ActionTarget::BrowserInspect
+            | ActionTarget::GuiClick
+            | ActionTarget::GuiType
+            | ActionTarget::GuiScroll
+            | ActionTarget::GuiInspect => Some("native_integration"),
+            _ => None,
+        },
     }
-    if tool_name == "sys__install_package" {
-        return Some("enablement_request");
-    }
-    if tool_name == "sys__exec" || tool_name == "sys__exec_session" {
-        return Some("script_backend");
-    }
-    None
 }
 
 pub fn execution_contract_violation_error(missing_keys: &str) -> String {
     format!(
-        "ERROR_CLASS=NoEffectAfterAction Execution contract unmet. Select a different action or verify required markers. missing_keys={}",
+        "ERROR_CLASS=ExecutionContractViolation Execution contract unmet. Select a different action or verify required markers. missing_keys={}",
         missing_keys
     )
 }
@@ -158,12 +171,10 @@ fn parse_positive_shell_integer(token: &str) -> Option<i64> {
 }
 
 pub fn requires_timer_notification_contract(agent_state: &AgentState) -> bool {
-    let goal_lc = agent_state.goal.to_ascii_lowercase();
-    goal_lc.contains("timer")
-        || goal_lc.contains("countdown")
-        || goal_lc.contains("alarm")
-        || goal_lc.contains("remind me in")
-        || goal_lc.contains("wake me in")
+    has_execution_receipt(
+        &agent_state.tool_execution_log,
+        TIMER_NOTIFICATION_CONTRACT_REQUIRED_RECEIPT,
+    ) || latest_timer_backend_history_entry(agent_state).is_some()
 }
 
 pub fn render_command_preview(command: &str, args: &[String]) -> String {
@@ -224,6 +235,110 @@ pub fn sys_exec_arms_timer_delay_backend(tool: &AgentTool) -> bool {
         .unwrap_or(false)
 }
 
+pub fn record_provider_selection_receipts(
+    tool_execution_log: &mut BTreeMap<String, ToolCallStatus>,
+    verification_checks: &mut Vec<String>,
+    tool_name: &str,
+    route_label: &str,
+) {
+    mark_execution_receipt_with_value(
+        tool_execution_log,
+        "provider_selection",
+        route_label.to_string(),
+    );
+    verification_checks.push(receipt_marker("provider_selection"));
+    let commit = provider_selection_commit(tool_name, route_label)
+        .unwrap_or_else(|| "sha256:unavailable".to_string());
+    mark_execution_receipt_with_value(
+        tool_execution_log,
+        PROVIDER_SELECTION_COMMIT_RECEIPT,
+        commit.clone(),
+    );
+    verification_checks.push(receipt_marker(PROVIDER_SELECTION_COMMIT_RECEIPT));
+    verification_checks.push(format!("provider_selection_route={}", route_label));
+    verification_checks.push(format!("provider_selection_commit={}", commit));
+}
+
+pub fn record_timer_notification_contract_requirement(
+    tool_execution_log: &mut BTreeMap<String, ToolCallStatus>,
+    verification_checks: &mut Vec<String>,
+) {
+    mark_execution_receipt(
+        tool_execution_log,
+        TIMER_NOTIFICATION_CONTRACT_REQUIRED_RECEIPT,
+    );
+    verification_checks.push(receipt_marker(TIMER_NOTIFICATION_CONTRACT_REQUIRED_RECEIPT));
+}
+
+pub fn record_verification_receipts(
+    tool_execution_log: &mut BTreeMap<String, ToolCallStatus>,
+    verification_checks: &mut Vec<String>,
+    tool: &AgentTool,
+    history_entry: Option<&CommandExecution>,
+) {
+    mark_execution_receipt(tool_execution_log, "verification");
+    verification_checks.push(receipt_marker("verification"));
+    if let Some(commit) = verification_probe_commit(tool, history_entry) {
+        mark_execution_receipt_with_value(
+            tool_execution_log,
+            VERIFICATION_COMMIT_RECEIPT,
+            commit.clone(),
+        );
+        verification_checks.push(receipt_marker(VERIFICATION_COMMIT_RECEIPT));
+        verification_checks.push(format!("verification_probe_commit={}", commit));
+    } else {
+        verification_checks.push("verification_probe_commit=missing".to_string());
+    }
+}
+
+fn verification_probe_commit(
+    tool: &AgentTool,
+    history_entry: Option<&CommandExecution>,
+) -> Option<String> {
+    let probe_command = verification_probe_command(tool, history_entry)?;
+    let digest = sha256(probe_command.as_bytes()).ok()?;
+    Some(format!("sha256:{}", hex::encode(digest.as_ref())))
+}
+
+fn verification_probe_command(
+    tool: &AgentTool,
+    history_entry: Option<&CommandExecution>,
+) -> Option<String> {
+    let source_command = history_entry
+        .map(|entry| entry.command.clone())
+        .or_else(|| sys_exec_command_preview(tool))?;
+    let source_command = source_command.trim();
+    if source_command.is_empty() {
+        return None;
+    }
+    if parse_sleep_seconds(source_command).is_some() {
+        return Some(format!(
+            "ps -eo pid,command | grep -F -- {}",
+            shell_quote_single(source_command)
+        ));
+    }
+    let binary = source_command
+        .split_whitespace()
+        .next()
+        .unwrap_or_default()
+        .trim();
+    if binary.is_empty() {
+        return None;
+    }
+    Some(format!("command -v -- {}", shell_quote_single(binary)))
+}
+
+fn shell_quote_single(value: &str) -> String {
+    let escaped = value.replace('\'', "'\"'\"'");
+    format!("'{}'", escaped)
+}
+
+fn provider_selection_commit(tool_name: &str, route_label: &str) -> Option<String> {
+    let payload = format!("tool_name={};route_label={}", tool_name, route_label);
+    let digest = sha256(payload.as_bytes()).ok()?;
+    Some(format!("sha256:{}", hex::encode(digest.as_ref())))
+}
+
 pub fn target_utc_from_run_and_sleep(timestamp_ms: u64, sleep_seconds: i64) -> Option<String> {
     let run_seconds = i64::try_from(timestamp_ms / 1_000).ok()?;
     let run_millis = i64::try_from(timestamp_ms % 1_000).ok()?;
@@ -270,6 +385,32 @@ pub fn missing_execution_contract_markers(agent_state: &AgentState) -> Vec<Strin
         if !has_execution_receipt(&agent_state.tool_execution_log, receipt) {
             missing.push(receipt_marker(receipt));
         }
+    }
+    let provider_selection_value =
+        execution_receipt_value(&agent_state.tool_execution_log, "provider_selection");
+    if provider_selection_value
+        .map(|value| value.trim().is_empty())
+        .unwrap_or(false)
+    {
+        missing.push(receipt_marker("provider_selection"));
+    }
+    let provider_selection_commit = execution_receipt_value(
+        &agent_state.tool_execution_log,
+        PROVIDER_SELECTION_COMMIT_RECEIPT,
+    );
+    if provider_selection_commit
+        .map(|value| !value.starts_with("sha256:"))
+        .unwrap_or(true)
+    {
+        missing.push(receipt_marker(PROVIDER_SELECTION_COMMIT_RECEIPT));
+    }
+    let verification_commit =
+        execution_receipt_value(&agent_state.tool_execution_log, VERIFICATION_COMMIT_RECEIPT);
+    if verification_commit
+        .map(|value| !value.starts_with("sha256:"))
+        .unwrap_or(true)
+    {
+        missing.push(receipt_marker(VERIFICATION_COMMIT_RECEIPT));
     }
     for postcondition in COMMAND_SCOPE_REQUIRED_POSTCONDITIONS {
         if !has_execution_postcondition(&agent_state.tool_execution_log, postcondition) {
@@ -330,4 +471,40 @@ pub fn enrich_command_scope_summary(summary: &str, agent_state: &AgentState) -> 
         enriched = upsert_structured_field(&enriched, RUN_TIMESTAMP_UTC_MARKER, &run_timestamp_utc);
     }
     enriched
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{
+        execution_contract_violation_error, provider_selection_commit, verification_probe_commit,
+    };
+    use ioi_types::app::agentic::AgentTool;
+
+    #[test]
+    fn execution_contract_violation_error_uses_spec_class() {
+        let error = execution_contract_violation_error("receipt::verification=true");
+        assert!(error.starts_with("ERROR_CLASS=ExecutionContractViolation "));
+    }
+
+    #[test]
+    fn provider_selection_commit_is_stable_sha256_value() {
+        let left = provider_selection_commit("sys__exec", "script_backend")
+            .expect("provider commit");
+        let right = provider_selection_commit("sys__exec", "script_backend")
+            .expect("provider commit");
+        assert_eq!(left, right);
+        assert!(left.starts_with("sha256:"));
+    }
+
+    #[test]
+    fn verification_probe_commit_is_emitted_for_sys_exec() {
+        let tool = AgentTool::SysExec {
+            command: "sleep".to_string(),
+            args: vec!["10".to_string()],
+            stdin: None,
+            detach: true,
+        };
+        let commit = verification_probe_commit(&tool, None).expect("verification commit");
+        assert!(commit.starts_with("sha256:"));
+    }
 }

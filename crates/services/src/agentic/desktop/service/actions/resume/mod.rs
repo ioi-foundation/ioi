@@ -15,8 +15,9 @@ use crate::agentic::desktop::service::step::action::command_contract::{
     append_command_history_entry, capability_route_label, command_arms_deferred_notification_path,
     command_history_entry, command_history_exit_code, enrich_command_scope_summary,
     execution_contract_violation_error, missing_execution_contract_markers,
-    requires_timer_notification_contract, sys_exec_arms_timer_delay_backend,
-    sys_exec_command_preview, TIMER_NOTIFICATION_PATH_POSTCONDITION,
+    record_provider_selection_receipts, record_timer_notification_contract_requirement,
+    record_verification_receipts, requires_timer_notification_contract,
+    sys_exec_arms_timer_delay_backend, sys_exec_command_preview, TIMER_NOTIFICATION_PATH_POSTCONDITION,
     TIMER_SLEEP_BACKEND_POSTCONDITION,
 };
 use crate::agentic::desktop::service::step::action::{

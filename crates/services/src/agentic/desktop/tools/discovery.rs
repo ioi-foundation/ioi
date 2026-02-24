@@ -109,17 +109,34 @@ mod tests {
     use ioi_api::vm::inference::{mock::MockInferenceRuntime, InferenceRuntime};
     use ioi_state::primitives::hash::HashCommitmentScheme;
     use ioi_state::tree::iavl::IAVLTree;
-    use ioi_types::app::agentic::{IntentConfidenceBand, IntentScopeProfile, ResolvedIntentState};
+    use ioi_types::app::agentic::{
+        CapabilityId, IntentConfidenceBand, IntentScopeProfile, ResolvedIntentState,
+    };
     use std::sync::Arc;
 
     fn resolved(scope: IntentScopeProfile) -> ResolvedIntentState {
+        let required_capabilities = match scope {
+            IntentScopeProfile::Conversation => vec![CapabilityId::from("conversation.reply")],
+            IntentScopeProfile::WorkspaceOps => vec![
+                CapabilityId::from("clipboard.read"),
+                CapabilityId::from("clipboard.write"),
+                CapabilityId::from("conversation.reply"),
+            ],
+            IntentScopeProfile::WebResearch => vec![
+                CapabilityId::from("web.retrieve"),
+                CapabilityId::from("browser.interact"),
+                CapabilityId::from("browser.inspect"),
+                CapabilityId::from("conversation.reply"),
+            ],
+            _ => vec![CapabilityId::from("conversation.reply")],
+        };
         ResolvedIntentState {
             intent_id: format!("{scope:?}"),
             scope,
             band: IntentConfidenceBand::High,
             score: 0.95,
             top_k: vec![],
-            required_capabilities: vec![],
+            required_capabilities,
             risk_class: "low".to_string(),
             preferred_tier: "tool_first".to_string(),
             matrix_version: "intent-matrix-v2".to_string(),

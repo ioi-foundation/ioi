@@ -861,37 +861,6 @@ fn is_mail_connector_tool(tool_name: &str) -> bool {
         || tool_name.starts_with("mail__")
 }
 
-fn fallback_tool_capabilities(normalized: &str) -> Vec<CapabilityId> {
-    if let Some((namespace, operation)) = normalized.split_once("__") {
-        return match namespace {
-            "browser" => vec![capability("browser.interact")],
-            "web" => vec![capability("web.retrieve")],
-            "net" => vec![capability("net.fetch")],
-            "filesystem" | "fs" => {
-                vec![
-                    capability("filesystem.read"),
-                    capability("filesystem.write"),
-                ]
-            }
-            "gui" | "ui" => vec![capability("ui.interact")],
-            "os" => {
-                if operation.contains("copy") {
-                    vec![capability("clipboard.write")]
-                } else if operation.contains("paste") {
-                    vec![capability("clipboard.read")]
-                } else if operation.contains("launch") {
-                    vec![capability("app.launch")]
-                } else {
-                    vec![capability("ui.interact")]
-                }
-            }
-            "sys" => vec![capability("command.exec")],
-            _ => vec![],
-        };
-    }
-    vec![]
-}
-
 fn tool_capabilities(tool_name: &str) -> Vec<CapabilityId> {
     let normalized = tool_name.trim().to_ascii_lowercase();
     if normalized.is_empty() {
@@ -925,7 +894,7 @@ fn tool_capabilities(tool_name: &str) -> Vec<CapabilityId> {
     if is_mail_connector_tool(&normalized) {
         return vec![capability("conversation.reply")];
     }
-    fallback_tool_capabilities(&normalized)
+    vec![]
 }
 
 fn policy_explicitly_blocks_target(rules: &ActionRules, target: &ActionTarget) -> bool {
@@ -1679,6 +1648,39 @@ mod tests {
     }
 
     #[test]
+    fn unregistered_prefixed_tools_do_not_gain_capabilities_by_name_shape() {
+        let state = ResolvedIntentState {
+            intent_id: "command.exec".to_string(),
+            scope: IntentScopeProfile::CommandExecution,
+            band: IntentConfidenceBand::High,
+            score: 0.95,
+            top_k: vec![],
+            required_capabilities: vec![CapabilityId::from("command.exec")],
+            risk_class: "low".to_string(),
+            preferred_tier: "tool_first".to_string(),
+            matrix_version: "v1".to_string(),
+            embedding_model_id: "test".to_string(),
+            embedding_model_version: "test".to_string(),
+            similarity_function_id: "cosine".to_string(),
+            intent_set_hash: [0u8; 32],
+            tool_registry_hash: [0u8; 32],
+            capability_ontology_hash: [0u8; 32],
+            query_normalization_version: "v1".to_string(),
+            matrix_source_hash: [1u8; 32],
+            receipt_hash: [2u8; 32],
+            constrained: false,
+        };
+        assert!(!is_tool_allowed_for_resolution(
+            Some(&state),
+            "sys__nonexistent_custom_tool"
+        ));
+        assert!(!is_tool_allowed_for_resolution(
+            Some(&state),
+            "browser__unregistered_op"
+        ));
+    }
+
+    #[test]
     fn ui_interaction_scope_allows_clipboard() {
         let state = ResolvedIntentState {
             intent_id: "ui.interact".to_string(),
@@ -1766,41 +1768,6 @@ mod tests {
         };
         assert!(is_tool_allowed_for_resolution(Some(&state), "os__copy"));
         assert!(is_tool_allowed_for_resolution(Some(&state), "os__paste"));
-    }
-
-    #[test]
-    fn constrained_flag_no_longer_filters_tools() {
-        // Simulate older persisted state where constrained=true.
-        let state = ResolvedIntentState {
-            intent_id: "command.exec".to_string(),
-            scope: IntentScopeProfile::CommandExecution,
-            band: IntentConfidenceBand::Medium,
-            score: 0.6,
-            top_k: vec![],
-            required_capabilities: vec![CapabilityId::from("command.exec")],
-            risk_class: "low".to_string(),
-            preferred_tier: "tool_first".to_string(),
-            matrix_version: "v1".to_string(),
-            embedding_model_id: "test".to_string(),
-            embedding_model_version: "test".to_string(),
-            similarity_function_id: "cosine".to_string(),
-            intent_set_hash: [0u8; 32],
-            tool_registry_hash: [0u8; 32],
-            capability_ontology_hash: [0u8; 32],
-            query_normalization_version: "v1".to_string(),
-            matrix_source_hash: [1u8; 32],
-            receipt_hash: [2u8; 32],
-            constrained: true,
-        };
-        assert!(is_tool_allowed_for_resolution(Some(&state), "sys__exec"));
-        assert!(is_tool_allowed_for_resolution(
-            Some(&state),
-            "sys__exec_session"
-        ));
-        assert!(is_tool_allowed_for_resolution(
-            Some(&state),
-            "sys__exec_session_reset"
-        ));
     }
 
     #[test]
