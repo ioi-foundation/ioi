@@ -20,4 +20,9 @@ pub use probe::{
 pub use processing::{process_tool_output, resolve_action_routing_context};
 pub use resume::resume_pending_action;
 pub(crate) use search::{is_search_results_url, search_query_from_url};
-pub use support::{canonical_intent_hash, canonical_retry_intent_hash, canonical_tool_identity};
+pub use support::{
+    canonical_intent_hash, canonical_retry_intent_hash, canonical_tool_identity,
+    has_execution_postcondition, has_execution_receipt, is_action_fingerprint_executed,
+    mark_action_fingerprint_executed, mark_execution_postcondition, mark_execution_receipt,
+    postcondition_marker, receipt_marker,
+};

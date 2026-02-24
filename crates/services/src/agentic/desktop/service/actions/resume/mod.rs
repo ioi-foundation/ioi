@@ -13,7 +13,9 @@ use crate::agentic::desktop::execution::system::is_sudo_password_required_instal
 use crate::agentic::desktop::keys::{get_state_key, pii, AGENT_POLICY_PREFIX};
 use crate::agentic::desktop::service::step::action::{
     canonical_intent_hash, canonical_retry_intent_hash, canonical_tool_identity,
-    is_command_probe_intent, is_system_clock_read_intent, summarize_command_probe_output,
+    has_execution_postcondition, has_execution_receipt, is_command_probe_intent,
+    is_system_clock_read_intent, mark_action_fingerprint_executed, mark_execution_postcondition,
+    mark_execution_receipt, postcondition_marker, receipt_marker, summarize_command_probe_output,
     summarize_system_clock_output,
 };
 use crate::agentic::desktop::service::step::anti_loop::{
@@ -33,7 +35,9 @@ use crate::agentic::desktop::service::step::incident::{
     start_or_continue_incident_recovery, IncidentDirective,
 };
 use crate::agentic::desktop::service::{DesktopAgentService, ServiceCallContext};
-use crate::agentic::desktop::types::{AgentState, AgentStatus};
+use crate::agentic::desktop::types::{
+    AgentState, AgentStatus, CommandExecution, MAX_COMMAND_HISTORY,
+};
 use crate::agentic::desktop::utils::goto_trace_log;
 use crate::agentic::rules::ActionRules;
 
@@ -47,6 +51,12 @@ use ioi_types::app::{KernelEvent, RoutingReceiptEvent};
 use ioi_types::codec;
 use ioi_types::error::TransactionError;
 use std::time::{SystemTime, UNIX_EPOCH};
+use time::format_description::well_known::Rfc3339;
+use time::OffsetDateTime;
+
+const COMMAND_HISTORY_PREFIX: &str = "COMMAND_HISTORY:";
+const TIMER_SLEEP_BACKEND_POSTCONDITION: &str = "timer_sleep_backend";
+const TIMER_NOTIFICATION_PATH_POSTCONDITION: &str = "notification_path_armed";
 
 fn is_web_research_scope(agent_state: &AgentState) -> bool {
     agent_state
@@ -79,6 +89,317 @@ fn emit_terminal_completion_events(
         output: output_text,
         agent_status: status_text,
     });
+}
+
+fn capability_route_label(tool_name: &str) -> Option<&'static str> {
+    if tool_name.starts_with("os__") || tool_name.starts_with("browser__") {
+        return Some("native_integration");
+    }
+    if tool_name == "sys__install_package" {
+        return Some("enablement_request");
+    }
+    if tool_name == "sys__exec" || tool_name == "sys__exec_session" {
+        return Some("script_backend");
+    }
+    None
+}
+
+const TARGET_UTC_MARKER: &str = "Target UTC:";
+const RUN_TIMESTAMP_UTC_MARKER: &str = "Run timestamp (UTC):";
+const COMMAND_SCOPE_REQUIRED_RECEIPTS: [&str; 3] =
+    ["provider_selection", "execution", "verification"];
+const COMMAND_SCOPE_REQUIRED_POSTCONDITIONS: [&str; 1] = ["execution_artifact"];
+
+fn execution_contract_violation_error(missing_keys: &str) -> String {
+    format!(
+        "ERROR_CLASS=NoEffectAfterAction Execution contract unmet. Select a different action or verify required markers. missing_keys={}",
+        missing_keys
+    )
+}
+
+fn command_history_exit_code(output: &str) -> Option<i64> {
+    command_history_payload(output)?
+        .get("exit_code")
+        .and_then(|value| value.as_i64())
+}
+
+fn command_history_payload(output: &str) -> Option<serde_json::Value> {
+    let marker_idx = output.find(COMMAND_HISTORY_PREFIX)?;
+    let suffix = &output[marker_idx + COMMAND_HISTORY_PREFIX.len()..];
+    let payload = suffix.lines().next().unwrap_or_default().trim();
+    if payload.is_empty() {
+        return None;
+    }
+    serde_json::from_str::<serde_json::Value>(payload).ok()
+}
+
+fn command_history_entry(output: &str) -> Option<CommandExecution> {
+    let marker_idx = output.find(COMMAND_HISTORY_PREFIX)?;
+    let suffix = &output[marker_idx + COMMAND_HISTORY_PREFIX.len()..];
+    let payload = suffix.lines().next().unwrap_or_default().trim();
+    if payload.is_empty() {
+        return None;
+    }
+    serde_json::from_str::<CommandExecution>(payload).ok()
+}
+
+fn append_command_history_entry(
+    history: &mut std::collections::VecDeque<CommandExecution>,
+    entry: CommandExecution,
+) {
+    history.push_back(entry);
+    while history.len() > MAX_COMMAND_HISTORY {
+        let _ = history.pop_front();
+    }
+}
+
+fn format_utc_rfc3339(timestamp_ms: u64) -> Option<String> {
+    let seconds = i64::try_from(timestamp_ms / 1_000).ok()?;
+    let milliseconds = i64::try_from(timestamp_ms % 1_000).ok()?;
+    let timestamp = OffsetDateTime::from_unix_timestamp(seconds).ok()?
+        + time::Duration::milliseconds(milliseconds);
+    timestamp.format(&Rfc3339).ok()
+}
+
+fn parse_utc_rfc3339(value: &str) -> Option<OffsetDateTime> {
+    OffsetDateTime::parse(value.trim(), &Rfc3339).ok()
+}
+
+fn extract_structured_field(summary: &str, marker: &str) -> Option<String> {
+    for line in summary.lines() {
+        let trimmed = line.trim();
+        if let Some(rest) = trimmed.strip_prefix(marker) {
+            let token = rest.trim().trim_end_matches('.');
+            if !token.is_empty() {
+                return Some(token.to_string());
+            }
+        }
+    }
+    None
+}
+
+fn upsert_structured_field(summary: &str, marker: &str, value: &str) -> String {
+    let replacement_line = format!("{} {}", marker, value);
+    let mut replaced = false;
+    let mut lines = Vec::<String>::new();
+    for line in summary.lines() {
+        if line.trim().starts_with(marker) {
+            lines.push(replacement_line.clone());
+            replaced = true;
+        } else if let Some(marker_idx) = line.find(marker) {
+            let prefix = line[..marker_idx].trim_end();
+            if !prefix.is_empty() {
+                lines.push(prefix.to_string());
+            }
+            lines.push(replacement_line.clone());
+            replaced = true;
+        } else {
+            lines.push(line.to_string());
+        }
+    }
+    if !replaced {
+        lines.push(replacement_line);
+    }
+    lines.join("\n")
+}
+
+fn parse_sleep_seconds(command: &str) -> Option<i64> {
+    let tokens: Vec<&str> = command.split_whitespace().collect();
+    for (index, token) in tokens.iter().enumerate() {
+        if normalize_shell_token(token) != "sleep" {
+            continue;
+        }
+        if let Some(seconds) = tokens
+            .get(index + 1)
+            .and_then(|value| parse_positive_shell_integer(value))
+        {
+            return Some(seconds);
+        }
+    }
+    None
+}
+
+fn normalize_shell_token(token: &str) -> String {
+    token
+        .trim_matches(|ch: char| {
+            matches!(
+                ch,
+                '\'' | '"' | '`' | '(' | ')' | '[' | ']' | '{' | '}' | ';' | ',' | '&' | '|'
+            )
+        })
+        .to_ascii_lowercase()
+}
+
+fn parse_positive_shell_integer(token: &str) -> Option<i64> {
+    let digits = token.trim_matches(|ch: char| !ch.is_ascii_digit());
+    if digits.is_empty() || !digits.chars().all(|ch| ch.is_ascii_digit()) {
+        return None;
+    }
+    digits.parse::<i64>().ok().filter(|seconds| *seconds > 0)
+}
+
+fn requires_timer_notification_contract(agent_state: &AgentState) -> bool {
+    let goal_lc = agent_state.goal.to_ascii_lowercase();
+    goal_lc.contains("timer")
+        || goal_lc.contains("countdown")
+        || goal_lc.contains("alarm")
+        || goal_lc.contains("remind me in")
+        || goal_lc.contains("wake me in")
+}
+
+fn render_command_preview(command: &str, args: &[String]) -> String {
+    let command = command.trim();
+    if args.is_empty() {
+        command.to_string()
+    } else {
+        format!("{} {}", command, args.join(" "))
+    }
+}
+
+fn sys_exec_command_preview(tool: &AgentTool) -> Option<String> {
+    match tool {
+        AgentTool::SysExec { command, args, .. } => Some(render_command_preview(command, args)),
+        AgentTool::SysExecSession { command, args, .. } => {
+            Some(render_command_preview(command, args))
+        }
+        _ => None,
+    }
+}
+
+fn command_arms_notification_path(command_preview: &str) -> bool {
+    let command_lc = command_preview.to_ascii_lowercase();
+    const NOTIFICATION_MARKERS: [&str; 10] = [
+        "notify-send",
+        "paplay",
+        "pw-play",
+        "aplay",
+        "canberra-gtk-play",
+        "zenity --notification",
+        "kdialog --passivepopup",
+        "spd-say",
+        "terminal-notifier",
+        "osascript",
+    ];
+    NOTIFICATION_MARKERS
+        .iter()
+        .any(|marker| command_lc.contains(marker))
+}
+
+fn command_arms_deferred_notification_path(command_preview: &str) -> bool {
+    command_arms_notification_path(command_preview)
+        && command_arms_timer_delay_backend(command_preview)
+}
+
+fn command_arms_timer_delay_backend(command_preview: &str) -> bool {
+    let command_lc = command_preview.to_ascii_lowercase();
+    parse_sleep_seconds(command_preview).is_some()
+        || (command_lc.contains("systemd-run") && command_lc.contains("--on-active"))
+        || command_lc.starts_with("at ")
+        || command_lc.contains(" at now")
+}
+
+fn sys_exec_arms_timer_delay_backend(tool: &AgentTool) -> bool {
+    sys_exec_command_preview(tool)
+        .as_deref()
+        .map(command_arms_timer_delay_backend)
+        .unwrap_or(false)
+}
+
+fn latest_timer_backend_history_entry(agent_state: &AgentState) -> Option<&CommandExecution> {
+    agent_state
+        .command_history
+        .iter()
+        .rev()
+        .find(|entry| parse_sleep_seconds(&entry.command).is_some())
+}
+
+fn derived_target_utc_from_history(agent_state: &AgentState) -> Option<String> {
+    let entry = latest_timer_backend_history_entry(agent_state)?;
+    let sleep_seconds = parse_sleep_seconds(&entry.command)?;
+    let run_timestamp = parse_utc_rfc3339(&format_utc_rfc3339(entry.timestamp_ms)?)?;
+    (run_timestamp + time::Duration::seconds(sleep_seconds))
+        .format(&Rfc3339)
+        .ok()
+}
+
+fn missing_execution_contract_markers(agent_state: &AgentState) -> Vec<String> {
+    let command_scope = agent_state
+        .resolved_intent
+        .as_ref()
+        .map(|resolved| resolved.scope == IntentScopeProfile::CommandExecution)
+        .unwrap_or(false);
+    if !command_scope {
+        return Vec::new();
+    }
+
+    let mut missing = Vec::<String>::new();
+    if !has_execution_receipt(&agent_state.tool_execution_log, "host_discovery") {
+        missing.push(receipt_marker("host_discovery"));
+    }
+    for receipt in COMMAND_SCOPE_REQUIRED_RECEIPTS {
+        if !has_execution_receipt(&agent_state.tool_execution_log, receipt) {
+            missing.push(receipt_marker(receipt));
+        }
+    }
+    for postcondition in COMMAND_SCOPE_REQUIRED_POSTCONDITIONS {
+        if !has_execution_postcondition(&agent_state.tool_execution_log, postcondition) {
+            missing.push(postcondition_marker(postcondition));
+        }
+    }
+    if requires_timer_notification_contract(agent_state) {
+        if !has_execution_postcondition(
+            &agent_state.tool_execution_log,
+            TIMER_SLEEP_BACKEND_POSTCONDITION,
+        ) {
+            missing.push(postcondition_marker(TIMER_SLEEP_BACKEND_POSTCONDITION));
+        }
+        if has_execution_postcondition(
+            &agent_state.tool_execution_log,
+            TIMER_SLEEP_BACKEND_POSTCONDITION,
+        ) && !has_execution_postcondition(
+            &agent_state.tool_execution_log,
+            TIMER_NOTIFICATION_PATH_POSTCONDITION,
+        ) {
+            missing.push(postcondition_marker(TIMER_NOTIFICATION_PATH_POSTCONDITION));
+        }
+    }
+    missing
+}
+
+fn enrich_command_scope_summary(summary: &str, agent_state: &AgentState) -> String {
+    let command_scope = agent_state
+        .resolved_intent
+        .as_ref()
+        .map(|resolved| resolved.scope == IntentScopeProfile::CommandExecution)
+        .unwrap_or(false);
+    if !command_scope {
+        return summary.to_string();
+    }
+
+    let run_timestamp_utc = latest_timer_backend_history_entry(agent_state)
+        .or_else(|| agent_state.command_history.back())
+        .and_then(|entry| format_utc_rfc3339(entry.timestamp_ms));
+    let Some(run_timestamp_utc) = run_timestamp_utc else {
+        return summary.to_string();
+    };
+    let mut enriched = summary.to_string();
+    let run_timestamp = parse_utc_rfc3339(&run_timestamp_utc);
+    let target_timestamp = extract_structured_field(&enriched, TARGET_UTC_MARKER)
+        .as_deref()
+        .and_then(parse_utc_rfc3339);
+    if target_timestamp
+        .zip(run_timestamp)
+        .map(|(target, run)| target < run)
+        .unwrap_or(true)
+    {
+        if let Some(derived_target_utc) = derived_target_utc_from_history(agent_state) {
+            enriched = upsert_structured_field(&enriched, TARGET_UTC_MARKER, &derived_target_utc);
+        }
+    }
+    if extract_structured_field(&enriched, RUN_TIMESTAMP_UTC_MARKER).is_none() {
+        enriched = upsert_structured_field(&enriched, RUN_TIMESTAMP_UTC_MARKER, &run_timestamp_utc);
+    }
+    enriched
 }
 
 pub async fn resume_pending_action(
@@ -136,6 +457,31 @@ pub async fn resume_pending_action(
         routing_decision.tier,
         env!("CARGO_PKG_VERSION"),
     );
+    let command_scope = agent_state
+        .resolved_intent
+        .as_ref()
+        .map(|resolved| resolved.scope == IntentScopeProfile::CommandExecution)
+        .unwrap_or(false);
+    if let Some(route_label) = capability_route_label(&tool_name) {
+        verification_checks.push(format!("capability_route_selected={}", route_label));
+        if command_scope {
+            mark_execution_receipt(&mut agent_state.tool_execution_log, "provider_selection");
+            verification_checks.push(receipt_marker("provider_selection"));
+        }
+    }
+    if matches!(
+        &tool,
+        AgentTool::SysExec { .. } | AgentTool::SysExecSession { .. }
+    ) {
+        if agent_state.command_history.is_empty() {
+            verification_checks.push("capability_execution_phase=discovery".to_string());
+            if command_scope {
+                mark_execution_receipt(&mut agent_state.tool_execution_log, "host_discovery");
+                verification_checks.push(receipt_marker("host_discovery"));
+            }
+        }
+        verification_checks.push("capability_execution_phase=execution".to_string());
+    }
 
     let policy_key = [AGENT_POLICY_PREFIX, session_id.as_slice()].concat();
     let mut rules: ActionRules = state
@@ -258,6 +604,41 @@ pub async fn resume_pending_action(
 
     // Execute with SNAPSHOT MAP unless prechecks failed.
     let has_precheck_error = precheck_error.is_some();
+    let timer_notification_required = command_scope
+        && requires_timer_notification_contract(agent_state)
+        && matches!(
+            tool,
+            AgentTool::SysExec { .. } | AgentTool::SysExecSession { .. }
+        );
+    let timer_delay_backend_armed = sys_exec_arms_timer_delay_backend(&tool);
+    let notification_path_armed = sys_exec_command_preview(&tool)
+        .as_deref()
+        .map(command_arms_deferred_notification_path)
+        .unwrap_or(false);
+    if timer_notification_required {
+        verification_checks.push("timer_delay_backend_required=true".to_string());
+        verification_checks.push(format!(
+            "timer_delay_backend_detected={}",
+            timer_delay_backend_armed
+        ));
+        verification_checks.push("timer_notification_path_required=true".to_string());
+        verification_checks.push(format!(
+            "timer_notification_path_detected={}",
+            notification_path_armed
+        ));
+    }
+    if timer_notification_required && !timer_delay_backend_armed {
+        verification_checks.push(format!(
+            "execution_contract_missing_keys={}",
+            postcondition_marker(TIMER_SLEEP_BACKEND_POSTCONDITION)
+        ));
+    }
+    if timer_notification_required && !notification_path_armed {
+        verification_checks.push(format!(
+            "execution_contract_missing_keys={}",
+            postcondition_marker(TIMER_NOTIFICATION_PATH_POSTCONDITION)
+        ));
+    }
     let exec = execution::execute(
         service,
         state,
@@ -277,6 +658,66 @@ pub async fn resume_pending_action(
     )
     .await;
     let (mut success, mut out, mut err) = (exec.success, exec.out, exec.err);
+    if matches!(
+        &tool,
+        AgentTool::SysExec { .. } | AgentTool::SysExecSession { .. }
+    ) {
+        if let Some(raw) = out.as_deref() {
+            if let Some(entry) = command_history_entry(raw) {
+                append_command_history_entry(&mut agent_state.command_history, entry);
+                if command_scope {
+                    mark_execution_postcondition(
+                        &mut agent_state.tool_execution_log,
+                        "execution_artifact",
+                    );
+                    verification_checks.push(postcondition_marker("execution_artifact"));
+                }
+            }
+            if let Some(exit_code) = command_history_exit_code(raw) {
+                verification_checks
+                    .push("capability_execution_evidence=command_history".to_string());
+                verification_checks
+                    .push(format!("capability_execution_last_exit_code={}", exit_code));
+            }
+        }
+        if success {
+            if command_scope && requires_timer_notification_contract(agent_state) {
+                if sys_exec_arms_timer_delay_backend(&tool) {
+                    mark_execution_postcondition(
+                        &mut agent_state.tool_execution_log,
+                        TIMER_SLEEP_BACKEND_POSTCONDITION,
+                    );
+                    verification_checks
+                        .push(postcondition_marker(TIMER_SLEEP_BACKEND_POSTCONDITION));
+                }
+                if let Some(command_preview) = sys_exec_command_preview(&tool) {
+                    if command_arms_deferred_notification_path(&command_preview) {
+                        mark_execution_postcondition(
+                            &mut agent_state.tool_execution_log,
+                            TIMER_NOTIFICATION_PATH_POSTCONDITION,
+                        );
+                        verification_checks
+                            .push(postcondition_marker(TIMER_NOTIFICATION_PATH_POSTCONDITION));
+                        mark_execution_receipt(
+                            &mut agent_state.tool_execution_log,
+                            "notification_strategy",
+                        );
+                        verification_checks.push(receipt_marker("notification_strategy"));
+                        verification_checks.push("timer_notification_path_armed=true".to_string());
+                    }
+                }
+            }
+            if command_scope {
+                mark_execution_receipt(&mut agent_state.tool_execution_log, "execution");
+                verification_checks.push(receipt_marker("execution"));
+            }
+            verification_checks.push("capability_execution_phase=verification".to_string());
+            if command_scope {
+                mark_execution_receipt(&mut agent_state.tool_execution_log, "verification");
+                verification_checks.push(receipt_marker("verification"));
+            }
+        }
+    }
 
     if let Some(err_msg) = err.as_deref() {
         if err_msg.to_lowercase().contains("blocked by policy") {
@@ -373,6 +814,14 @@ pub async fn resume_pending_action(
         .append_chat_to_scs(session_id, &msg, block_height)
         .await?;
 
+    if success {
+        mark_action_fingerprint_executed(
+            &mut agent_state.tool_execution_log,
+            &retry_intent_hash,
+            "success",
+        );
+    }
+
     if awaiting_sudo_password {
         agent_state.pending_tool_jcs = Some(tool_jcs.clone());
         agent_state.pending_tool_hash = Some(tool_hash);
@@ -446,36 +895,57 @@ pub async fn resume_pending_action(
                         if let Ok(detected_tool) = middleware::normalize_tool_call(potential_json) {
                             if let AgentTool::AgentComplete { result } = detected_tool {
                                 log::info!("Reflexive Agent (Resume): Detected completion signal in tool output.");
-
-                                let completed_result = if is_system_clock_read_intent(
-                                    agent_state.resolved_intent.as_ref(),
-                                ) {
-                                    summarize_system_clock_output(&result)
-                                        .unwrap_or_else(|| result.clone())
+                                let missing_contract_markers =
+                                    missing_execution_contract_markers(agent_state);
+                                if !missing_contract_markers.is_empty() {
+                                    let missing = missing_contract_markers.join(",");
+                                    let contract_error =
+                                        execution_contract_violation_error(&missing);
+                                    success = false;
+                                    err = Some(contract_error.clone());
+                                    out = Some(contract_error);
+                                    verification_checks
+                                        .push("execution_contract_gate_blocked=true".to_string());
+                                    verification_checks.push(format!(
+                                        "execution_contract_missing_keys={}",
+                                        missing
+                                    ));
+                                    agent_state.status = AgentStatus::Running;
                                 } else {
-                                    result.clone()
-                                };
-                                agent_state.status =
-                                    AgentStatus::Completed(Some(completed_result.clone()));
-                                reflexive_completion = true;
-
-                                if let Some(tx) = &service.event_sender {
-                                    emit_terminal_completion_events(
-                                        tx,
-                                        session_id,
-                                        agent_state.step_count,
+                                    let completed_result = if is_system_clock_read_intent(
+                                        agent_state.resolved_intent.as_ref(),
+                                    ) {
+                                        summarize_system_clock_output(&result)
+                                            .unwrap_or_else(|| result.clone())
+                                    } else {
+                                        result.clone()
+                                    };
+                                    let completed_result = enrich_command_scope_summary(
                                         &completed_result,
-                                        status::status_str(&agent_state.status),
+                                        agent_state,
                                     );
-                                }
+                                    agent_state.status =
+                                        AgentStatus::Completed(Some(completed_result.clone()));
+                                    reflexive_completion = true;
 
-                                evaluate_and_crystallize(
-                                    service,
-                                    agent_state,
-                                    session_id,
-                                    &completed_result,
-                                )
-                                .await;
+                                    if let Some(tx) = &service.event_sender {
+                                        emit_terminal_completion_events(
+                                            tx,
+                                            session_id,
+                                            agent_state.step_count,
+                                            &completed_result,
+                                            status::status_str(&agent_state.status),
+                                        );
+                                    }
+
+                                    evaluate_and_crystallize(
+                                        service,
+                                        agent_state,
+                                        session_id,
+                                        &completed_result,
+                                    )
+                                    .await;
+                                }
                             }
                         }
                     }
@@ -487,38 +957,68 @@ pub async fn resume_pending_action(
     if !reflexive_completion && !awaiting_sudo_password && !awaiting_clarification {
         match &tool {
             AgentTool::AgentComplete { result } => {
-                let completed_result =
-                    if is_system_clock_read_intent(agent_state.resolved_intent.as_ref()) {
-                        summarize_system_clock_output(result).unwrap_or_else(|| result.clone())
-                    } else {
-                        result.clone()
-                    };
-                agent_state.status = AgentStatus::Completed(Some(completed_result.clone()));
-                evaluate_and_crystallize(service, agent_state, session_id, &completed_result).await;
+                let missing_contract_markers = missing_execution_contract_markers(agent_state);
+                if !missing_contract_markers.is_empty() {
+                    let missing = missing_contract_markers.join(",");
+                    let contract_error = execution_contract_violation_error(&missing);
+                    success = false;
+                    err = Some(contract_error.clone());
+                    out = Some(contract_error);
+                    verification_checks.push("execution_contract_gate_blocked=true".to_string());
+                    verification_checks
+                        .push(format!("execution_contract_missing_keys={}", missing));
+                    agent_state.status = AgentStatus::Running;
+                } else {
+                    let completed_result =
+                        if is_system_clock_read_intent(agent_state.resolved_intent.as_ref()) {
+                            summarize_system_clock_output(result).unwrap_or_else(|| result.clone())
+                        } else {
+                            result.clone()
+                        };
+                    let completed_result =
+                        enrich_command_scope_summary(&completed_result, agent_state);
+                    agent_state.status = AgentStatus::Completed(Some(completed_result.clone()));
+                    evaluate_and_crystallize(service, agent_state, session_id, &completed_result)
+                        .await;
 
-                if let Some(tx) = &service.event_sender {
-                    emit_terminal_completion_events(
-                        tx,
-                        session_id,
-                        agent_state.step_count,
-                        &completed_result,
-                        status::status_str(&agent_state.status),
-                    );
+                    if let Some(tx) = &service.event_sender {
+                        emit_terminal_completion_events(
+                            tx,
+                            session_id,
+                            agent_state.step_count,
+                            &completed_result,
+                            status::status_str(&agent_state.status),
+                        );
+                    }
                 }
             }
             AgentTool::ChatReply { message } => {
-                agent_state.status = AgentStatus::Completed(Some(message.clone()));
-                evaluate_and_crystallize(service, agent_state, session_id, message).await;
+                let missing_contract_markers = missing_execution_contract_markers(agent_state);
+                if !missing_contract_markers.is_empty() {
+                    let missing = missing_contract_markers.join(",");
+                    let contract_error = execution_contract_violation_error(&missing);
+                    success = false;
+                    err = Some(contract_error.clone());
+                    out = Some(contract_error);
+                    verification_checks.push("execution_contract_gate_blocked=true".to_string());
+                    verification_checks
+                        .push(format!("execution_contract_missing_keys={}", missing));
+                    agent_state.status = AgentStatus::Running;
+                } else {
+                    let message = enrich_command_scope_summary(message, agent_state);
+                    agent_state.status = AgentStatus::Completed(Some(message.clone()));
+                    evaluate_and_crystallize(service, agent_state, session_id, &message).await;
 
-                if let Some(tx) = &service.event_sender {
-                    let _ = tx.send(KernelEvent::AgentActionResult {
-                        session_id: session_id,
-                        step_index: agent_state.step_count,
-                        tool_name: "chat__reply".to_string(),
-                        output: message.clone(),
-                        // [NEW] Authoritative Status
-                        agent_status: status::status_str(&agent_state.status),
-                    });
+                    if let Some(tx) = &service.event_sender {
+                        let _ = tx.send(KernelEvent::AgentActionResult {
+                            session_id: session_id,
+                            step_index: agent_state.step_count,
+                            tool_name: "chat__reply".to_string(),
+                            output: message.clone(),
+                            // [NEW] Authoritative Status
+                            agent_status: status::status_str(&agent_state.status),
+                        });
+                    }
                 }
             }
             AgentTool::SysChangeDir { .. } => {

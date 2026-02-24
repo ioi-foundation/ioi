@@ -1,8 +1,13 @@
 use crate::agentic::desktop::service::step::anti_loop::tier_as_str;
-use crate::agentic::desktop::types::{AgentStatus, ExecutionTier};
+use crate::agentic::desktop::types::{AgentStatus, ExecutionTier, ToolCallStatus};
 use ioi_crypto::algorithms::hash::sha256;
 use ioi_types::app::agentic::AgentTool;
 use serde_json::json;
+use std::collections::BTreeMap;
+
+const ACTION_FINGERPRINT_LOG_PREFIX: &str = "action_fingerprint::";
+const EXECUTION_RECEIPT_PREFIX: &str = "receipt::";
+const EXECUTION_POSTCONDITION_PREFIX: &str = "postcondition::";
 
 pub(super) fn get_status_str(status: &AgentStatus) -> String {
     format!("{:?}", status)
@@ -129,4 +134,78 @@ pub fn canonical_retry_intent_hash(
     sha256(&canonical_bytes)
         .map(hex::encode)
         .unwrap_or_else(|_| "unknown".to_string())
+}
+
+pub fn action_fingerprint_key(fingerprint_hash: &str) -> String {
+    format!("{}{}", ACTION_FINGERPRINT_LOG_PREFIX, fingerprint_hash)
+}
+
+pub fn is_action_fingerprint_executed(
+    tool_execution_log: &BTreeMap<String, ToolCallStatus>,
+    fingerprint_hash: &str,
+) -> bool {
+    let key = action_fingerprint_key(fingerprint_hash);
+    matches!(
+        tool_execution_log.get(&key),
+        Some(ToolCallStatus::Executed(_))
+    )
+}
+
+pub fn mark_action_fingerprint_executed(
+    tool_execution_log: &mut BTreeMap<String, ToolCallStatus>,
+    fingerprint_hash: &str,
+    label: impl Into<String>,
+) {
+    tool_execution_log.insert(
+        action_fingerprint_key(fingerprint_hash),
+        ToolCallStatus::Executed(label.into()),
+    );
+}
+
+pub fn receipt_marker(name: &str) -> String {
+    format!("{}{}=true", EXECUTION_RECEIPT_PREFIX, name)
+}
+
+pub fn postcondition_marker(name: &str) -> String {
+    format!("{}{}=true", EXECUTION_POSTCONDITION_PREFIX, name)
+}
+
+pub fn mark_execution_receipt(
+    tool_execution_log: &mut BTreeMap<String, ToolCallStatus>,
+    name: &str,
+) {
+    tool_execution_log.insert(
+        receipt_marker(name),
+        ToolCallStatus::Executed("true".to_string()),
+    );
+}
+
+pub fn mark_execution_postcondition(
+    tool_execution_log: &mut BTreeMap<String, ToolCallStatus>,
+    name: &str,
+) {
+    tool_execution_log.insert(
+        postcondition_marker(name),
+        ToolCallStatus::Executed("true".to_string()),
+    );
+}
+
+pub fn has_execution_receipt(
+    tool_execution_log: &BTreeMap<String, ToolCallStatus>,
+    name: &str,
+) -> bool {
+    matches!(
+        tool_execution_log.get(&receipt_marker(name)),
+        Some(ToolCallStatus::Executed(_))
+    )
+}
+
+pub fn has_execution_postcondition(
+    tool_execution_log: &BTreeMap<String, ToolCallStatus>,
+    name: &str,
+) -> bool {
+    matches!(
+        tool_execution_log.get(&postcondition_marker(name)),
+        Some(ToolCallStatus::Executed(_))
+    )
 }

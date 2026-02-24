@@ -340,11 +340,7 @@ impl ToolExecutor {
             | AgentTool::SysExecSessionReset {}
             | AgentTool::SysChangeDir { .. }
             | AgentTool::SysInstallPackage { .. }
-            | AgentTool::OsLaunchApp { .. }
-            | AgentTool::SystemInspectHost {}
-            | AgentTool::TimerSet { .. }
-            | AgentTool::TimerCancel { .. }
-            | AgentTool::TimerList {} => {
+            | AgentTool::OsLaunchApp { .. } => {
                 let cwd = self.working_directory.as_deref().unwrap_or(".");
                 system::handle(self, tool, cwd, session_id, step_index).await
             }

@@ -15,6 +15,7 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 pub(super) const COMMAND_HISTORY_PREFIX: &str = "COMMAND_HISTORY:";
 pub(super) const SYS_EXEC_DEFAULT_TIMEOUT: Duration = Duration::from_secs(120);
 pub(super) const SYS_EXEC_EXTENDED_TIMEOUT: Duration = Duration::from_secs(600);
+const FOREGROUND_SLEEP_BLOCK_THRESHOLD_SECS: u64 = 30;
 
 pub(super) async fn handle_sys_exec(
     exec: &ToolExecutor,
@@ -66,42 +67,54 @@ pub(super) async fn handle_sys_exec(
         .with_stdin_data(normalize_stdin_data(stdin))
         .with_stream_observer(observer);
 
-    let result = match exec
-        .terminal
-        .execute_in_dir_with_options(
-            &invocation.command,
-            &invocation.args,
-            detach,
-            Some(&resolved_cwd),
-            options,
-        )
-        .await
+    let result = if let Some(sleep_secs) =
+        foreground_sleep_duration_seconds(&invocation.command, &invocation.args, detach)
     {
-        Ok(out) => {
-            let command_failed = command_output_indicates_failure(&out);
-            let mut result = if command_failed {
-                let mut failure = sys_exec_failure_result(command, &out);
+        let mut result = ToolExecutionResult::failure(format!(
+            "ERROR_CLASS=TimeoutOrHang Foreground sleep command would block for {} second(s). Re-run with detach=true or use a scheduler command.",
+            sleep_secs
+        ));
+        result.history_entry = Some(result.error.clone().unwrap_or_default());
+        append_sys_exec_command_history(&mut result, &raw_command_preview, step_index, 1);
+        result
+    } else {
+        match exec
+            .terminal
+            .execute_in_dir_with_options(
+                &invocation.command,
+                &invocation.args,
+                detach,
+                Some(&resolved_cwd),
+                options,
+            )
+            .await
+        {
+            Ok(out) => {
+                let command_failed = command_output_indicates_failure(&out);
+                let mut result = if command_failed {
+                    let mut failure = sys_exec_failure_result(command, &out);
+                    // Preserve raw output so command-history metadata can be derived without SCS reads.
+                    failure.history_entry = Some(out);
+                    failure
+                } else {
+                    ToolExecutionResult::success(out)
+                };
+                append_sys_exec_command_history(
+                    &mut result,
+                    &raw_command_preview,
+                    step_index,
+                    if command_failed { 1 } else { 0 },
+                );
+                result
+            }
+            Err(e) => {
+                let error = e.to_string();
+                let mut result = sys_exec_failure_result(command, &error);
                 // Preserve raw output so command-history metadata can be derived without SCS reads.
-                failure.history_entry = Some(out);
-                failure
-            } else {
-                ToolExecutionResult::success(out)
-            };
-            append_sys_exec_command_history(
-                &mut result,
-                &raw_command_preview,
-                step_index,
-                if command_failed { 1 } else { 0 },
-            );
-            result
-        }
-        Err(e) => {
-            let error = e.to_string();
-            let mut result = sys_exec_failure_result(command, &error);
-            // Preserve raw output so command-history metadata can be derived without SCS reads.
-            result.history_entry = Some(error);
-            append_sys_exec_command_history(&mut result, &raw_command_preview, step_index, 1);
-            result
+                result.history_entry = Some(error);
+                append_sys_exec_command_history(&mut result, &raw_command_preview, step_index, 1);
+                result
+            }
         }
     };
 
@@ -396,10 +409,6 @@ pub(super) fn append_sys_exec_command_history(
     let Some(mut output) = result.history_entry.take() else {
         return;
     };
-    if output.trim().is_empty() {
-        result.history_entry = Some(output);
-        return;
-    }
 
     let exit_code = extract_exit_code(&output).unwrap_or(fallback_exit_code);
     let (stdout, stderr) = parse_terminal_output(&output);
@@ -419,8 +428,12 @@ pub(super) fn append_sys_exec_command_history(
 
     if let Ok(metadata) = serde_json::to_string(&payload) {
         let prefixed = format!("{}{}", COMMAND_HISTORY_PREFIX, metadata);
-        output.insert_str(0, "\n");
-        output.insert_str(0, &prefixed);
+        if output.trim().is_empty() {
+            output = prefixed;
+        } else {
+            output.insert_str(0, "\n");
+            output.insert_str(0, &prefixed);
+        }
     }
     result.history_entry = Some(output);
 }
@@ -469,6 +482,11 @@ pub(super) fn resolve_sys_exec_invocation(
     }
 
     if !args.is_empty() {
+        if args_contain_shell_control_tokens(args) {
+            let shell_command = build_shell_wrapped_command_line_preserving_args(trimmed, args);
+            return Ok(wrap_sys_exec_with_shell(&shell_command));
+        }
+
         let inline_tokens: Vec<&str> = trimmed.split_whitespace().collect();
         if inline_tokens.len() > 1 && should_merge_inline_sys_exec_tokens(inline_tokens[0]) {
             let mut merged_args: Vec<String> = inline_tokens[1..]
@@ -515,6 +533,41 @@ fn should_merge_inline_sys_exec_tokens(first_token: &str) -> bool {
 
     // Path-like tokens (unix path, windows path, or drive-prefixed) should be preserved verbatim.
     !(token.contains('/') || token.contains('\\') || token.contains(':'))
+}
+
+fn args_contain_shell_control_tokens(args: &[String]) -> bool {
+    args.iter().any(|arg| {
+        matches!(
+            arg.trim(),
+            "&&" | "||"
+                | "|"
+                | ";"
+                | "&"
+                | ">"
+                | ">>"
+                | "<"
+                | "<<"
+                | "1>"
+                | "1>>"
+                | "2>"
+                | "2>>"
+                | "2>&1"
+                | "|&"
+        )
+    })
+}
+
+fn build_shell_wrapped_command_line_preserving_args(command: &str, args: &[String]) -> String {
+    if args.is_empty() {
+        return command.to_string();
+    }
+
+    let mut out = String::from(command);
+    for arg in args {
+        out.push(' ');
+        out.push_str(arg);
+    }
+    out
 }
 
 fn should_shell_wrap_sys_exec(command: &str) -> bool {
@@ -758,6 +811,25 @@ fn is_extended_timeout_arg(arg: &str) -> bool {
             | "fetch"
             | "pull"
     )
+}
+
+pub(super) fn foreground_sleep_duration_seconds(
+    command: &str,
+    args: &[String],
+    detach: bool,
+) -> Option<u64> {
+    if detach {
+        return None;
+    }
+    if !command.eq_ignore_ascii_case("sleep") {
+        return None;
+    }
+    let first = args.first()?.trim();
+    if first.is_empty() {
+        return None;
+    }
+    let value = first.parse::<u64>().ok()?;
+    (value >= FOREGROUND_SLEEP_BLOCK_THRESHOLD_SECS).then_some(value)
 }
 
 pub(super) fn process_stream_observer(

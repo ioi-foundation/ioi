@@ -235,7 +235,7 @@ pub async fn think(
         );
     }
 
-    let _mode = determine_attention_mode(
+    let mode = determine_attention_mode(
         service,
         latest_user_message,
         &agent_state.goal,
@@ -311,7 +311,11 @@ pub async fn think(
         } else if failure_reason.contains("ToolUnavailable")
             || failure_reason.contains("MissingDependency")
         {
-            "Recovery hint: choose an equivalent available tool; if none exists, call `system__fail` with missing capability."
+            if matches!(resolved_scope, IntentScopeProfile::CommandExecution) {
+                "Recovery hint: for command failures, use command history to revise commands and probe the environment before escalating."
+            } else {
+                "Recovery hint: choose an equivalent available tool; if none exists, call `system__fail` with missing capability."
+            }
         } else if failure_reason.contains("PermissionOrApprovalRequired")
             || failure_reason.contains("UserInterventionNeeded")
         {
@@ -348,6 +352,30 @@ pub async fn think(
         .join("\n");
     let command_history_context =
         build_recent_command_history_context(&agent_state.command_history);
+    let command_scope_instruction = if matches!(
+        resolved_scope,
+        IntentScopeProfile::CommandExecution
+    ) {
+        "COMMAND EXECUTION CONTRACT:\n\
+         - Treat terminal output and command history as primary evidence.\n\
+         - Follow capability-execution lifecycle: discovery -> policy route -> execution -> verification -> final response.\n\
+         - Discovery must probe host capabilities in typed categories (apps/integrations, shell tools, permissions/approvals, and signal/notification channels when relevant).\n\
+         - Route selection must be explicit and evidence-backed: `native_integration` | `enablement_request` | `script_backend`.\n\
+         - Screenshot/visual artifacts are non-blocking for command workflows.\n\
+         - Perform environment discovery with `sys__exec`/`sys__exec_session` when command availability is uncertain.\n\
+         - Execute only after route selection and keep execution steps minimal.\n\
+         - Never run long blocking commands (for example `sleep`) in foreground mode; use `detach: true` or scheduler-style commands.\n\
+         - Do not run more than 3 consecutive shell commands without either finalizing or escalating.\n\
+         - If command history already shows the same command succeeded, do not rerun it; finalize instead.\n\
+         - After goal success, emit `chat__reply` exactly once, then call `agent__complete`.\n\
+         - Final user response must be structured from evidence and include `Mechanism: ...`; include timestamps/handles/status controls whenever available.\n\
+         - For time-sensitive tasks, include an absolute UTC timestamp in the final reply as `Target UTC: YYYY-MM-DDTHH:MM:SSZ`.\n\
+         - For timer/alarm/countdown goals, the notification path must be deferred to fire at due time (for example `sleep ... && notify-send ...` or scheduler equivalent); immediate standalone `notify-send` does not satisfy the contract.\n\
+         - If tool output reports `ERROR_CLASS=NoEffectAfterAction ... missing_keys=...`, revise the next action to satisfy the missing markers; do not repeat the same command unchanged.\n\
+         - Use `system__fail` only when command tooling is unavailable."
+    } else {
+        ""
+    };
 
     let system_instructions = format!(
  "SYSTEM: You are a local desktop assistant operating inside the IOI runtime.
@@ -371,6 +399,7 @@ Do NOT refuse a task by claiming you cannot see or act. Instead:
 
 {}
 {}{}
+{}
 
 {}
 
@@ -409,7 +438,7 @@ OPERATING RULES:
 8aa. DIRECT FETCH RULE: Use `net__fetch` only when the user explicitly provides an exact URL/endpoint and asks for raw response text/headers or API diagnostics. For live factual lookups (weather/prices/scores/traffic/status) or any query requiring sources/citations, prefer `web__search` + `web__read`.
 8ab. FETCH HYGIENE RULE: Never invent API keys, placeholder credentials (for example `YOUR_API_KEY`), or auto-IP endpoints. If credentials or endpoint details are missing, switch to source-grounded web retrieval and cite the sources.
 8b. BROWSER CLICK RULE: In a browser window, never use `gui__click` on web content. Prefer `browser__click_element` with IDs from `browser__snapshot`; use `browser__click` with concrete CSS selectors only as fallback. Use GUI clicks only for OS chrome (address bar/system dialogs) when browser tools cannot target it.
-8c. PACKAGE INSTALL RULE: For dependency installation, prefer `sys__install_package` over raw `sys__exec` so command construction stays deterministic and policy-auditable.
+8c. PACKAGE INSTALL RULE: Only use `sys__install_package` when the user explicitly asked to install something.
 8d. BROWSER RESILIENCE RULE: If `browser__navigate` fails with CDP/connection errors, retry `browser__navigate` once. If it still fails, switch to visual tools.
 8e. SHELL CONTINUITY RULE: For command workflows with more than one command step (build/test/install sequences, iterative probing), prefer `sys__exec_session` for continuity. Use `sys__exec_session_reset` only when output indicates the session is wedged.
 9. APP LAUNCH RULE: To open applications, ALWAYS prefer `os__launch_app`.
@@ -443,6 +472,7 @@ OPERATING RULES:
         strategy_instruction,
         som_instruction,
         verify_instruction,
+        command_scope_instruction,
         perception.tool_desc,
         hist_str,
         command_history_context,
@@ -458,7 +488,14 @@ OPERATING RULES:
         system_instructions
     };
 
-    let messages = if let Some(b64) = &perception.screenshot_base64 {
+    let include_screenshot =
+        perception.screenshot_base64.is_some() && matches!(mode, AttentionMode::VisualAction);
+
+    let messages = if include_screenshot {
+        let b64 = perception
+            .screenshot_base64
+            .as_ref()
+            .expect("include_screenshot implies screenshot data");
         json!([
             { "role": "system", "content": system_instructions },
             { "role": "user", "content": [
@@ -467,9 +504,14 @@ OPERATING RULES:
             ]}
         ])
     } else {
+        let user_instruction = if matches!(resolved_scope, IntentScopeProfile::CommandExecution) {
+            "Execute the next step using command tools. Rely on terminal output and command history; visual artifacts are non-blocking."
+        } else {
+            "Execute the next step based on the goal and history."
+        };
         json!([
             { "role": "system", "content": system_instructions },
-            { "role": "user", "content": "Execute the next step based on the goal and history." }
+            { "role": "user", "content": user_instruction }
         ])
     };
 
@@ -486,7 +528,7 @@ OPERATING RULES:
     let payload_hash = sha256(messages_payload.as_bytes())
         .map(|digest| hex::encode(digest.as_ref()))
         .unwrap_or_else(|_| "sha256_error".to_string());
-    if perception.screenshot_base64.is_some() {
+    if include_screenshot {
         log::info!(
             "CognitionInferencePayload session={} payload_bytes={} payload_hash={} payload_json=<omitted:screenshot_base64_present>",
             session_prefix,

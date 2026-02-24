@@ -1,12 +1,10 @@
 // Path: crates/services/src/agentic/desktop/execution/system/mod.rs
 
-mod host_inspect;
 mod install;
 mod launch;
 mod paths;
 mod receipt;
 mod sys_exec;
-mod timer;
 
 use super::workload;
 use super::{ToolExecutionResult, ToolExecutor};
@@ -115,17 +113,6 @@ pub async fn handle(
         }
 
         AgentTool::OsLaunchApp { app_name } => launch::handle_os_launch_app(exec, &app_name).await,
-
-        AgentTool::SystemInspectHost {} => host_inspect::handle_system_inspect_host(exec).await,
-
-        AgentTool::TimerSet {
-            duration_seconds,
-            label,
-        } => timer::handle_timer_set(exec, duration_seconds, label.as_deref(), session_id).await,
-
-        AgentTool::TimerCancel { timer_id } => timer::handle_timer_cancel(exec, &timer_id).await,
-
-        AgentTool::TimerList {} => timer::handle_timer_list().await,
 
         _ => ToolExecutionResult::failure("Unsupported System action"),
     }
