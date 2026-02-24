@@ -1,11 +1,9 @@
 // Path: crates/services/src/agentic/desktop/service/step/helpers.rs
 
 use crate::agentic::desktop::service::step::signals;
-use crate::agentic::desktop::types::AgentState;
 use crate::agentic::rules::{
     ActionRules, IntentFailureOverride, OntologyPolicy, Rule, RuleConditions, Verdict,
 };
-use ioi_types::app::agentic::{IntentConfidenceBand, IntentScopeProfile};
 
 fn browser_allow_apps() -> Vec<String> {
     vec![
@@ -269,37 +267,12 @@ pub fn should_auto_complete_open_app_goal(
         .any(|marker| goal_lc.contains(marker))
 }
 
-pub fn direct_app_launch_target(agent_state: &AgentState) -> Option<String> {
-    let resolved = agent_state.resolved_intent.as_ref()?;
-    if resolved.scope != IntentScopeProfile::AppLaunch {
-        return None;
-    }
-    if resolved.band == IntentConfidenceBand::Low {
-        return None;
-    }
-    let hint = agent_state
-        .target
-        .as_ref()
-        .and_then(|target| target.app_hint.as_deref())
-        .map(str::trim)
-        .filter(|value| !value.is_empty())?;
-    Some(hint.to_string())
-}
-
 #[cfg(test)]
 mod tests {
     use super::{
-        default_safe_policy, direct_app_launch_target, is_live_external_research_goal,
-        is_mailbox_connector_goal, should_auto_complete_open_app_goal,
-        LIVE_EXTERNAL_RESEARCH_SIGNAL_VERSION,
+        default_safe_policy, is_live_external_research_goal, is_mailbox_connector_goal,
+        should_auto_complete_open_app_goal, LIVE_EXTERNAL_RESEARCH_SIGNAL_VERSION,
     };
-    use crate::agentic::desktop::types::{
-        AgentMode, AgentState, AgentStatus, ExecutionTier, InteractionTarget,
-    };
-    use ioi_types::app::agentic::{
-        IntentCandidateScore, IntentConfidenceBand, IntentScopeProfile, ResolvedIntentState,
-    };
-    use std::collections::{BTreeMap, VecDeque};
 
     #[test]
     fn auto_complete_open_app_goal_for_simple_launch() {
@@ -317,99 +290,6 @@ mod tests {
             "calculator",
             Some("calculator")
         ));
-    }
-
-    #[test]
-    fn direct_app_launch_target_only_for_launch_scope_with_hint() {
-        let mut state = AgentState {
-            session_id: [0u8; 32],
-            goal: "open calculator".to_string(),
-            transcript_root: [0u8; 32],
-            status: AgentStatus::Running,
-            step_count: 0,
-            max_steps: 1,
-            last_action_type: None,
-            parent_session_id: None,
-            child_session_ids: vec![],
-            budget: 1,
-            tokens_used: 0,
-            consecutive_failures: 0,
-            pending_approval: None,
-            pending_tool_call: None,
-            pending_tool_jcs: None,
-            pending_tool_hash: None,
-            pending_visual_hash: None,
-            recent_actions: vec![],
-            mode: AgentMode::Agent,
-            current_tier: ExecutionTier::DomHeadless,
-            last_screen_phash: None,
-            execution_queue: vec![],
-            pending_search_completion: None,
-            active_skill_hash: None,
-            tool_execution_log: BTreeMap::new(),
-            visual_som_map: None,
-            visual_semantic_map: None,
-            swarm_context: None,
-            target: Some(InteractionTarget {
-                app_hint: Some("calculator".to_string()),
-                title_pattern: None,
-            }),
-            resolved_intent: Some(ResolvedIntentState {
-                intent_id: "app.launch".to_string(),
-                scope: IntentScopeProfile::AppLaunch,
-                band: IntentConfidenceBand::High,
-                score: 1.0,
-                top_k: vec![IntentCandidateScore {
-                    intent_id: "app.launch".to_string(),
-                    score: 1.0,
-                }],
-                required_capabilities: vec![],
-                risk_class: "low".to_string(),
-                preferred_tier: "tool_first".to_string(),
-                matrix_version: "intent-matrix-v2".to_string(),
-                embedding_model_id: "test".to_string(),
-                embedding_model_version: "test".to_string(),
-                similarity_function_id: "cosine".to_string(),
-                intent_set_hash: [0u8; 32],
-                tool_registry_hash: [0u8; 32],
-                capability_ontology_hash: [0u8; 32],
-                query_normalization_version: "v1".to_string(),
-                matrix_source_hash: [0u8; 32],
-                receipt_hash: [0u8; 32],
-                constrained: false,
-            }),
-            awaiting_intent_clarification: false,
-            working_directory: ".".to_string(),
-            command_history: VecDeque::new(),
-            active_lens: None,
-        };
-        assert_eq!(
-            direct_app_launch_target(&state).as_deref(),
-            Some("calculator")
-        );
-
-        state.resolved_intent = Some(ResolvedIntentState {
-            intent_id: "conversation.reply".to_string(),
-            scope: IntentScopeProfile::Conversation,
-            band: IntentConfidenceBand::High,
-            score: 1.0,
-            top_k: vec![],
-            required_capabilities: vec![],
-            risk_class: "low".to_string(),
-            preferred_tier: "tool_first".to_string(),
-            matrix_version: "intent-matrix-v2".to_string(),
-            embedding_model_id: "test".to_string(),
-            embedding_model_version: "test".to_string(),
-            similarity_function_id: "cosine".to_string(),
-            intent_set_hash: [0u8; 32],
-            tool_registry_hash: [0u8; 32],
-            capability_ontology_hash: [0u8; 32],
-            query_normalization_version: "v1".to_string(),
-            matrix_source_hash: [0u8; 32],
-            receipt_hash: [0u8; 32],
-            constrained: false,
-        });
-        assert!(direct_app_launch_target(&state).is_none());
     }
 
     #[test]

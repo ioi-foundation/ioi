@@ -22,9 +22,7 @@ use crate::agentic::desktop::runtime_secret;
 use crate::agentic::desktop::service::actions;
 use crate::agentic::desktop::service::lifecycle::maybe_seed_runtime_locality_context;
 use crate::agentic::desktop::service::step::anti_loop::choose_routing_tier;
-use crate::agentic::desktop::service::step::helpers::{
-    default_safe_policy, direct_app_launch_target,
-};
+use crate::agentic::desktop::service::step::helpers::default_safe_policy;
 use crate::agentic::desktop::types::{AgentState, AgentStatus, StepAgentParams};
 use crate::agentic::rules::ActionRules;
 use hex;
@@ -388,37 +386,6 @@ pub async fn handle_step(
             state,
             &mut agent_state,
             &p,
-            ctx.block_height,
-            ctx.block_timestamp,
-            call_context,
-        )
-        .await;
-    }
-
-    // 4a. Intent Fast Path: high-confidence app launch with resolved target
-    // can execute directly without a second cognition inference pass.
-    if let Some(app_name) = direct_app_launch_target(&agent_state) {
-        log::info!(
-            "Intent fast path triggered for app launch (session={} app_name={}).",
-            hex::encode(&p.session_id[..4]),
-            app_name
-        );
-        let fast_path_tool = serde_json::to_string(&json!({
-            "name": "os__launch_app",
-            "arguments": {
-                "app_name": app_name
-            }
-        }))
-        .map_err(|e| TransactionError::Serialization(e.to_string()))?;
-        let visual_phash = agent_state.last_screen_phash.unwrap_or([0u8; 32]);
-        return action::process_tool_output(
-            service,
-            state,
-            &mut agent_state,
-            fast_path_tool,
-            visual_phash,
-            "IntentFastPath(AppLaunch)".to_string(),
-            p.session_id,
             ctx.block_height,
             ctx.block_timestamp,
             call_context,
