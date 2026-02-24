@@ -133,11 +133,17 @@ impl PolicyEngine {
                         "whoami",
                         "ls",
                         "echo",
+                        "notify-send",
+                        "systemd-run",
+                        "at",
                         // [FIX] Whitelisted Calculator Apps and Editors
                         "gnome-calculator",
                         "kcalc",
                         "calculator",
                         "calc",
+                        "gnome-timer",
+                        "gnome-clocks",
+                        "kclock",
                         "code",
                         "gedit",
                         "nano",
@@ -225,40 +231,6 @@ impl PolicyEngine {
                 }
             } else {
                 return false;
-            }
-        }
-
-        if let ActionTarget::SystemInspectHost = target {
-            // Host inspection is read-only and low risk by default.
-            return true;
-        }
-
-        if let ActionTarget::TimerManage = target {
-            let Ok(json) = serde_json::from_slice::<serde_json::Value>(params) else {
-                return false;
-            };
-
-            // timer__set contract: duration_seconds must be present and bounded.
-            if let Some(duration_seconds) = json.get("duration_seconds").and_then(|v| v.as_u64()) {
-                if duration_seconds == 0 || duration_seconds > 86_400 * 30 {
-                    tracing::warn!(
-                        "Policy Violation: timer__set duration {} is out of supported range.",
-                        duration_seconds
-                    );
-                    return false;
-                }
-            }
-
-            // timer__cancel contract: timer id should be canonical-ish (hex-ish identifier).
-            if let Some(timer_id) = json.get("timer_id").and_then(|v| v.as_str()) {
-                let trimmed = timer_id.trim();
-                let valid = !trimmed.is_empty()
-                    && trimmed.len() <= 128
-                    && trimmed.chars().all(|ch| ch.is_ascii_alphanumeric());
-                if !valid {
-                    tracing::warn!("Policy Violation: timer_id '{}' is malformed.", timer_id);
-                    return false;
-                }
             }
         }
 

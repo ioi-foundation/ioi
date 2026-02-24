@@ -9,9 +9,10 @@ use super::paths::{resolve_home_directory, resolve_target_directory, resolve_wor
 use super::receipt::redact_args_for_receipt;
 use super::sys_exec::{
     append_sys_exec_command_history, classify_sys_exec_failure, command_output_indicates_failure,
-    extract_exit_code, normalize_stdin_data, parse_terminal_output, resolve_sys_exec_invocation,
-    resolve_sys_exec_timeout, summarize_sys_exec_failure_output, sys_exec_failure_result,
-    COMMAND_HISTORY_PREFIX, SYS_EXEC_DEFAULT_TIMEOUT, SYS_EXEC_EXTENDED_TIMEOUT,
+    extract_exit_code, foreground_sleep_duration_seconds, normalize_stdin_data,
+    parse_terminal_output, resolve_sys_exec_invocation, resolve_sys_exec_timeout,
+    summarize_sys_exec_failure_output, sys_exec_failure_result, COMMAND_HISTORY_PREFIX,
+    SYS_EXEC_DEFAULT_TIMEOUT, SYS_EXEC_EXTENDED_TIMEOUT,
 };
 use super::{LaunchAttempt, ToolExecutionResult};
 use crate::agentic::desktop::execution::workload::WORKLOAD_RECEIPT_REDACTED_PLACEHOLDER;
@@ -28,7 +29,6 @@ use ioi_types::app::{
     ActionRequest, ContextSlice, KernelEvent, WorkloadActivityKind, WorkloadReceipt,
 };
 use ioi_types::error::VmError;
-use serde_json::Value;
 use std::sync::Arc;
 
 #[test]
@@ -64,6 +64,24 @@ fn sys_exec_timeout_extends_for_shell_wrappers() {
 fn sys_exec_timeout_extends_for_build_subcommands() {
     let timeout = resolve_sys_exec_timeout("git", &["clone".to_string()], false);
     assert_eq!(timeout, SYS_EXEC_EXTENDED_TIMEOUT);
+}
+
+#[test]
+fn foreground_sleep_detection_trips_for_long_non_detached_sleep() {
+    let duration = foreground_sleep_duration_seconds("sleep", &["900".to_string()], false);
+    assert_eq!(duration, Some(900));
+}
+
+#[test]
+fn foreground_sleep_detection_ignores_short_or_detached_sleep() {
+    assert_eq!(
+        foreground_sleep_duration_seconds("sleep", &["5".to_string()], false),
+        None
+    );
+    assert_eq!(
+        foreground_sleep_duration_seconds("sleep", &["900".to_string()], true),
+        None
+    );
 }
 
 #[test]
@@ -147,6 +165,31 @@ fn sys_exec_invocation_shell_wraps_builtins_with_explicit_args() {
             .expect("shell command should be passed as second arg");
         assert!(command_line.contains("cd"));
         assert!(command_line.contains("'/tmp/my project'"));
+    }
+}
+
+#[test]
+fn sys_exec_invocation_shell_wraps_when_args_include_control_operators() {
+    let args = vec![
+        "900".to_string(),
+        "&&".to_string(),
+        "notify-send".to_string(),
+        "'Timer'".to_string(),
+        "'15 minutes have passed!'".to_string(),
+    ];
+    let invocation =
+        resolve_sys_exec_invocation("sleep", &args).expect("operator args should shell-wrap");
+
+    assert!(invocation.shell_wrapped);
+    if cfg!(target_os = "windows") {
+        assert!(invocation.command.to_ascii_lowercase().ends_with("cmd.exe"));
+        assert!(invocation.args.iter().any(|arg| arg == "/C"));
+    } else {
+        assert_eq!(invocation.args.first(), Some(&"-lc".to_string()));
+        assert_eq!(
+            invocation.args.get(1),
+            Some(&"sleep 900 && notify-send 'Timer' '15 minutes have passed!'".to_string())
+        );
     }
 }
 
@@ -423,6 +466,24 @@ fn append_sys_exec_command_history_falls_back_to_provided_exit_code_when_missing
 }
 
 #[test]
+fn append_sys_exec_command_history_emits_metadata_when_output_is_empty() {
+    let mut result = ToolExecutionResult::success("");
+    result.history_entry = Some(String::new());
+    append_sys_exec_command_history(&mut result, "notify-send Timer done", 11, 0);
+    let entry = result.history_entry.as_deref().unwrap_or("");
+    assert!(entry.starts_with(COMMAND_HISTORY_PREFIX));
+    let payload = &entry[COMMAND_HISTORY_PREFIX.len()..];
+    let json_payload = payload.lines().next().unwrap_or("").trim();
+    let parsed = match serde_json::from_str::<CommandExecution>(json_payload) {
+        Ok(value) => value,
+        Err(error) => panic!("history json should parse: {}", error),
+    };
+    assert_eq!(parsed.exit_code, 0);
+    assert_eq!(parsed.command, "notify-send Timer done");
+    assert!(parsed.stdout.is_empty());
+}
+
+#[test]
 fn extract_exit_code_parses_terminal_exit_status() {
     let output = "Command failed: exit status: 127\nStderr: boom";
     assert_eq!(extract_exit_code(output), Some(127));
@@ -591,129 +652,6 @@ fn build_tool_executor(
         inference,
         None,
     )
-}
-
-#[tokio::test(flavor = "current_thread")]
-async fn host_inspect_reports_runtime_timer_surfaces() {
-    let exec = build_tool_executor(None);
-    let result = super::handle(&exec, AgentTool::SystemInspectHost {}, ".", [1u8; 32], 0).await;
-    assert!(result.success);
-    let payload = result.history_entry.expect("host inspect payload");
-    let json: Value = serde_json::from_str(&payload).expect("host inspect json");
-    assert!(json.get("os").and_then(Value::as_str).is_some());
-    let surfaces = json
-        .get("timer_surfaces")
-        .and_then(Value::as_array)
-        .expect("timer surfaces array");
-    assert!(surfaces.iter().any(|v| v.as_str() == Some("timer__set")));
-    assert!(surfaces.iter().any(|v| v.as_str() == Some("timer__cancel")));
-    assert!(surfaces.iter().any(|v| v.as_str() == Some("timer__list")));
-}
-
-#[tokio::test(flavor = "current_thread")]
-async fn timer_set_list_cancel_round_trip() {
-    let exec = build_tool_executor(None);
-    let session_id = [2u8; 32];
-
-    let set_result = super::handle(
-        &exec,
-        AgentTool::TimerSet {
-            duration_seconds: 3600,
-            label: Some("unit-test".to_string()),
-        },
-        ".",
-        session_id,
-        1,
-    )
-    .await;
-    assert!(set_result.success);
-    let set_payload = set_result.history_entry.expect("timer set payload");
-    let set_json: Value = serde_json::from_str(&set_payload).expect("timer set json");
-    let timer_id = set_json
-        .get("timer_id")
-        .and_then(Value::as_str)
-        .expect("timer id")
-        .to_string();
-    assert_eq!(
-        set_json.get("status").and_then(Value::as_str),
-        Some("scheduled")
-    );
-
-    let list_after_set = super::handle(&exec, AgentTool::TimerList {}, ".", session_id, 2).await;
-    assert!(list_after_set.success);
-    let list_json: Value = serde_json::from_str(
-        &list_after_set
-            .history_entry
-            .expect("timer list payload after set"),
-    )
-    .expect("timer list json");
-    let timers = list_json
-        .get("timers")
-        .and_then(Value::as_array)
-        .expect("timers array");
-    assert!(timers.iter().any(|entry| {
-        entry.get("timer_id").and_then(Value::as_str) == Some(timer_id.as_str())
-            && entry.get("status").and_then(Value::as_str) == Some("active")
-    }));
-
-    let cancel_result = super::handle(
-        &exec,
-        AgentTool::TimerCancel {
-            timer_id: timer_id.clone(),
-        },
-        ".",
-        session_id,
-        3,
-    )
-    .await;
-    assert!(cancel_result.success);
-    let cancel_json: Value =
-        serde_json::from_str(&cancel_result.history_entry.expect("timer cancel payload"))
-            .expect("timer cancel json");
-    assert_eq!(
-        cancel_json.get("timer_id").and_then(Value::as_str),
-        Some(timer_id.as_str())
-    );
-    assert_eq!(
-        cancel_json.get("cancelled").and_then(Value::as_bool),
-        Some(true)
-    );
-
-    let list_after_cancel = super::handle(&exec, AgentTool::TimerList {}, ".", session_id, 4).await;
-    assert!(list_after_cancel.success);
-    let list_cancel_json: Value = serde_json::from_str(
-        &list_after_cancel
-            .history_entry
-            .expect("timer list payload after cancel"),
-    )
-    .expect("timer list json");
-    let timers_after_cancel = list_cancel_json
-        .get("timers")
-        .and_then(Value::as_array)
-        .expect("timers array");
-    assert!(timers_after_cancel.iter().any(|entry| {
-        entry.get("timer_id").and_then(Value::as_str) == Some(timer_id.as_str())
-            && entry.get("status").and_then(Value::as_str) == Some("cancelled")
-    }));
-}
-
-#[tokio::test(flavor = "current_thread")]
-async fn timer_set_rejects_zero_duration() {
-    let exec = build_tool_executor(None);
-    let result = super::handle(
-        &exec,
-        AgentTool::TimerSet {
-            duration_seconds: 0,
-            label: None,
-        },
-        ".",
-        [3u8; 32],
-        0,
-    )
-    .await;
-    assert!(!result.success);
-    let error = result.error.unwrap_or_default();
-    assert!(error.contains("duration_seconds > 0"));
 }
 
 #[tokio::test(flavor = "current_thread")]

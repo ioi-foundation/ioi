@@ -234,14 +234,18 @@ pub(super) fn build_planner_prompt(
     incident_state: &IncidentState,
     forbidden_tools: &BTreeSet<String>,
 ) -> String {
+    let visited = if incident_state.visited_node_fingerprints.is_empty() {
+        "none".to_string()
+    } else {
+        incident_state.visited_node_fingerprints.join(", ")
+    };
     format!(
         "You are an ontology incident resolver. Choose EXACTLY ONE JSON tool call.\n\
          Rules:\n\
          1. Output exactly one JSON tool call.\n\
          2. Forbidden tools: {}.\n\
          3. Do not repeat previous remedy fingerprints.\n\
-         4. For install semantics, prefer sys__install_package over raw sys__exec.\n\
-         5. Keep action tightly scoped to recover the root action.\n\
+         4. Keep action tightly scoped to recover the root action.\n\
          Context:\n\
          - Incident: {}\n\
          - Intent class: {}\n\
@@ -250,6 +254,7 @@ pub(super) fn build_planner_prompt(
          - Stage: {}\n\
          - Strategy: {} / {}\n\
          - Transitions: {}/{}\n\
+         - Visited remedy fingerprints: {}\n\
          - Last error: {}\n",
         forbidden_tools
             .iter()
@@ -265,6 +270,7 @@ pub(super) fn build_planner_prompt(
         incident_state.strategy_cursor,
         incident_state.transitions_used,
         incident_state.max_transitions,
+        visited,
         incident_state.root_error.as_deref().unwrap_or("unknown"),
     )
 }

@@ -465,6 +465,15 @@ pub async fn start_or_continue_incident_recovery(
             .as_ref()
             .and_then(|target| target.app_hint.as_deref()),
     );
+    if matches!(intent, IntentClass::CommandTask) {
+        // Command execution recovery should remain in the main cognition loop so the model
+        // can synthesize a revised command from fresh failure output instead of replaying
+        // incident remedy subgraphs.
+        clear_incident_state(state, &session_id)?;
+        verification_checks.push("incident_recovery_skipped_for_command_task=true".to_string());
+        verification_checks.push("incident_active=false".to_string());
+        return Ok(IncidentDirective::Noop);
+    }
     let (mut strategy_name, mut strategy_node) = default_strategy_for(intent, root_failure_class);
     if let Some(ov) = policy_strategy_override(rules, intent, root_failure_class) {
         strategy_name = ov;

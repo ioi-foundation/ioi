@@ -31,7 +31,7 @@ libp2p = { workspace = true }
 parity-scale-codec = { workspace = true, features = ["std"] }
 bincode = { workspace = true }
 dcrypt = { workspace = true }
-time = { workspace = true, features = ["formatting"] }
+time = { workspace = true, features = ["formatting", "parsing"] }
 # [FIX] Add base64 dependency
 base64 = { workspace = true }
 

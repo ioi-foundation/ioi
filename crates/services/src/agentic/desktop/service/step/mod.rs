@@ -8,7 +8,6 @@ pub mod incident;
 pub mod intent_resolver;
 pub mod ontology;
 pub mod perception;
-pub mod planner;
 pub mod queue;
 pub mod signals;
 pub mod visual;
@@ -424,20 +423,6 @@ pub async fn handle_step(
             call_context,
         )
         .await;
-    }
-
-    if planner::try_execute_planned_workflow(
-        service,
-        state,
-        &mut agent_state,
-        &rules,
-        call_context,
-        ctx.block_height,
-    )
-    .await?
-    {
-        state.insert(&key, &codec::to_bytes_canonical(&agent_state)?)?;
-        return Ok(());
     }
 
     // --- COGNITIVE LOOP (System 2) ---

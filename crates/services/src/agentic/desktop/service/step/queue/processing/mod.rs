@@ -6,6 +6,7 @@ use crate::agentic::desktop::service::handler::{
 };
 use crate::agentic::desktop::service::step::action::{
     canonical_intent_hash, canonical_retry_intent_hash, canonical_tool_identity,
+    mark_action_fingerprint_executed,
 };
 use crate::agentic::desktop::service::step::anti_loop::{
     build_attempt_key, build_post_state_summary, classify_failure, emit_routing_receipt,
@@ -483,6 +484,14 @@ pub async fn process_queue_item(
 
     let output_str = out.clone().unwrap_or_default();
     let error_str = err.clone();
+
+    if success && !is_gated {
+        mark_action_fingerprint_executed(
+            &mut agent_state.tool_execution_log,
+            &retry_intent_hash,
+            "success",
+        );
+    }
 
     // Log Trace with Provenance
     goto_trace_log(

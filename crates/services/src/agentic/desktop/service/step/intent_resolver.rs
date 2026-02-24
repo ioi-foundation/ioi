@@ -795,7 +795,7 @@ fn tool_capability_bindings() -> Vec<ToolCapabilityBinding> {
         ToolCapabilityBinding {
             tool_name: "sys__install_package".to_string(),
             action_target: ActionTarget::SysInstallPackage,
-            capabilities: vec![capability("command.exec")],
+            capabilities: vec![capability("system.install_package")],
         },
         ToolCapabilityBinding {
             tool_name: "web__search".to_string(),
@@ -851,26 +851,6 @@ fn tool_capability_bindings() -> Vec<ToolCapabilityBinding> {
             tool_name: "browser__key".to_string(),
             action_target: ActionTarget::BrowserInteract,
             capabilities: vec![capability("browser.interact")],
-        },
-        ToolCapabilityBinding {
-            tool_name: "system__inspect_host".to_string(),
-            action_target: ActionTarget::SystemInspectHost,
-            capabilities: vec![capability("system.inspect_host")],
-        },
-        ToolCapabilityBinding {
-            tool_name: "timer__set".to_string(),
-            action_target: ActionTarget::TimerManage,
-            capabilities: vec![capability("timer.manage")],
-        },
-        ToolCapabilityBinding {
-            tool_name: "timer__cancel".to_string(),
-            action_target: ActionTarget::TimerManage,
-            capabilities: vec![capability("timer.manage")],
-        },
-        ToolCapabilityBinding {
-            tool_name: "timer__list".to_string(),
-            action_target: ActionTarget::TimerManage,
-            capabilities: vec![capability("timer.manage")],
         },
     ]
 }
@@ -1944,7 +1924,7 @@ mod tests {
     }
 
     #[tokio::test(flavor = "current_thread")]
-    async fn resolver_routes_timer_queries_to_timer_manage() {
+    async fn resolver_routes_timer_queries_to_command_exec() {
         let gui: Arc<dyn GuiDriver> = Arc::new(NoopGuiDriver);
         let terminal = Arc::new(TerminalDriver::new());
         let browser = Arc::new(BrowserDriver::new());
@@ -1955,12 +1935,12 @@ mod tests {
         agent_state.goal = "Set a timer for 15 minutes".to_string();
 
         let mut rules = ActionRules::default();
-        rules.ontology_policy.intent_routing.matrix_version = "intent-matrix-v3-timer-test".into();
+        rules.ontology_policy.intent_routing.matrix_version = "intent-matrix-v4-timer-test".into();
         let resolved = resolve_step_intent(&service, &agent_state, &rules, "terminal")
             .await
             .unwrap();
 
-        assert_eq!(resolved.intent_id, "timer.manage");
+        assert_eq!(resolved.intent_id, "command.exec");
         assert_ne!(resolved.intent_id, "system.clock.read");
     }
 

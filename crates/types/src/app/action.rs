@@ -98,23 +98,8 @@ pub enum ActionTarget {
     Custom(String),
 
     /// Inspect the current UI state without pixel capture (e.g., accessibility tree snapshot).
-    ///
-    /// NOTE: This variant is appended (after `Custom`) to preserve SCALE codec variant indices for
-    /// previously persisted `ActionTarget` values.
     #[serde(rename = "gui::inspect")]
     GuiInspect,
-
-    /// Inspect host OS/runtime capabilities without mutation.
-    ///
-    /// NOTE: Appended to preserve SCALE codec compatibility for persisted variants.
-    #[serde(rename = "system::inspect_host")]
-    SystemInspectHost,
-
-    /// Manage local timers (set/list/cancel).
-    ///
-    /// NOTE: Appended to preserve SCALE codec compatibility for persisted variants.
-    #[serde(rename = "timer::manage")]
-    TimerManage,
 }
 
 impl ActionTarget {
@@ -145,8 +130,6 @@ impl ActionTarget {
             ActionTarget::ClipboardRead => "clipboard::read".to_string(),
             ActionTarget::ClipboardWrite => "clipboard::write".to_string(),
             ActionTarget::GuiInspect => "gui::inspect".to_string(),
-            ActionTarget::SystemInspectHost => "system::inspect_host".to_string(),
-            ActionTarget::TimerManage => "timer::manage".to_string(),
             ActionTarget::Custom(name) => name.clone(),
         }
     }

@@ -229,7 +229,7 @@ impl Default for IntentRoutingPolicy {
         Self {
             enabled: true,
             shadow_mode: false,
-            matrix_version: "intent-matrix-v3".to_string(),
+            matrix_version: "intent-matrix-v4".to_string(),
             confidence: IntentConfidenceBandPolicy::default(),
             ambiguity: IntentAmbiguityPolicy::default(),
             score_quantization_bps: default_score_quantization_bps(),
@@ -374,33 +374,6 @@ impl Default for IntentRoutingPolicy {
                     ],
                 },
                 IntentMatrixEntry {
-                    intent_id: "timer.manage".to_string(),
-                    semantic_descriptor:
-                        "set cancel and list local countdown timers with actionable status updates"
-                            .to_string(),
-                    required_capabilities: vec![
-                        CapabilityId::from("agent.lifecycle"),
-                        CapabilityId::from("conversation.reply"),
-                        CapabilityId::from("system.inspect_host"),
-                        CapabilityId::from("timer.manage"),
-                        CapabilityId::from("delegation.manage"),
-                    ],
-                    risk_class: "medium".to_string(),
-                    scope: IntentScopeProfile::CommandExecution,
-                    preferred_tier: "tool_first".to_string(),
-                    aliases: vec![
-                        "timer".to_string(),
-                        "countdown".to_string(),
-                        "alarm".to_string(),
-                        "pomodoro".to_string(),
-                    ],
-                    exemplars: vec![
-                        "set a timer for fifteen minutes".to_string(),
-                        "cancel my running timer".to_string(),
-                        "list active timers".to_string(),
-                    ],
-                },
-                IntentMatrixEntry {
                     intent_id: "system.clock.read".to_string(),
                     semantic_descriptor:
                         "read current local or utc system clock timestamp from this host"
@@ -424,7 +397,7 @@ impl Default for IntentRoutingPolicy {
                 IntentMatrixEntry {
                     intent_id: "command.exec".to_string(),
                     semantic_descriptor:
-                        "execute local shell or terminal commands on the current machine"
+                        "execute local shell or terminal commands on the current machine, including local automation tasks like timers"
                             .to_string(),
                     required_capabilities: vec![
                         CapabilityId::from("agent.lifecycle"),
