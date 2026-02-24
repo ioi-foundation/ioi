@@ -1,5 +1,7 @@
 // Path: crates/services/src/agentic/desktop/service/step/action.rs
 
+#[path = "action/command_contract.rs"]
+pub(crate) mod command_contract;
 #[path = "action/probe.rs"]
 mod probe;
 #[path = "action/processing/mod.rs"]
