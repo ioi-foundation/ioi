@@ -1571,6 +1571,58 @@ mod tests {
         }
     }
 
+    #[derive(Debug, Default, Clone)]
+    struct LaunchVsUiRuntime;
+
+    #[async_trait]
+    impl InferenceRuntime for LaunchVsUiRuntime {
+        async fn execute_inference(
+            &self,
+            _model_hash: [u8; 32],
+            _input_context: &[u8],
+            _options: InferenceOptions,
+        ) -> Result<Vec<u8>, VmError> {
+            Ok(Vec::new())
+        }
+
+        async fn embed_text(&self, text: &str) -> Result<Vec<f32>, VmError> {
+            let text_lc = text.to_ascii_lowercase();
+            let tokens = text_lc
+                .split(|ch: char| !ch.is_ascii_alphanumeric())
+                .filter(|token| !token.trim().is_empty())
+                .collect::<Vec<_>>();
+            let has_token = |needle: &str| tokens.iter().any(|token| *token == needle);
+
+            let launch_terms = [
+                "launch",
+                "start",
+                "run",
+                "named",
+                "application",
+                "app",
+                "foreground",
+                "calculator",
+            ];
+            let ui_terms = [
+                "click", "type", "scroll", "press", "controls", "inside", "window", "already",
+                "button", "field",
+            ];
+
+            let launch_score = launch_terms.iter().filter(|term| has_token(term)).count() as f32;
+            let ui_score = ui_terms.iter().filter(|term| has_token(term)).count() as f32;
+
+            Ok(vec![launch_score, ui_score])
+        }
+
+        async fn load_model(&self, _model_hash: [u8; 32], _path: &Path) -> Result<(), VmError> {
+            Ok(())
+        }
+
+        async fn unload_model(&self, _model_hash: [u8; 32]) -> Result<(), VmError> {
+            Ok(())
+        }
+    }
+
     fn test_agent_state() -> AgentState {
         AgentState {
             session_id: [0u8; 32],
@@ -1888,6 +1940,50 @@ mod tests {
 
         assert_eq!(resolved.intent_id, "web.research");
         assert_eq!(resolved.scope, IntentScopeProfile::WebResearch);
+    }
+
+    #[tokio::test(flavor = "current_thread")]
+    async fn resolver_routes_open_calculator_to_app_launch_scope() {
+        let gui: Arc<dyn GuiDriver> = Arc::new(NoopGuiDriver);
+        let terminal = Arc::new(TerminalDriver::new());
+        let browser = Arc::new(BrowserDriver::new());
+        let inference: Arc<dyn InferenceRuntime> = Arc::new(LaunchVsUiRuntime);
+        let service = DesktopAgentService::new(gui, terminal, browser, inference);
+
+        let mut agent_state = test_agent_state();
+        agent_state.goal = "open calculator".to_string();
+
+        let mut rules = ActionRules::default();
+        rules.ontology_policy.intent_routing.matrix_version =
+            "intent-matrix-v6-app-launch-disambiguation-test".into();
+        let resolved = resolve_step_intent(&service, &agent_state, &rules, "terminal")
+            .await
+            .unwrap();
+
+        assert_eq!(resolved.intent_id, "app.launch");
+        assert_eq!(resolved.scope, IntentScopeProfile::AppLaunch);
+    }
+
+    #[tokio::test(flavor = "current_thread")]
+    async fn resolver_routes_click_queries_to_ui_interaction_scope() {
+        let gui: Arc<dyn GuiDriver> = Arc::new(NoopGuiDriver);
+        let terminal = Arc::new(TerminalDriver::new());
+        let browser = Arc::new(BrowserDriver::new());
+        let inference: Arc<dyn InferenceRuntime> = Arc::new(LaunchVsUiRuntime);
+        let service = DesktopAgentService::new(gui, terminal, browser, inference);
+
+        let mut agent_state = test_agent_state();
+        agent_state.goal = "click the login button".to_string();
+
+        let mut rules = ActionRules::default();
+        rules.ontology_policy.intent_routing.matrix_version =
+            "intent-matrix-v6-ui-interaction-disambiguation-test".into();
+        let resolved = resolve_step_intent(&service, &agent_state, &rules, "terminal")
+            .await
+            .unwrap();
+
+        assert_eq!(resolved.intent_id, "ui.interaction");
+        assert_eq!(resolved.scope, IntentScopeProfile::UiInteraction);
     }
 
     #[tokio::test(flavor = "current_thread")]

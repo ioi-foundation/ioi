@@ -229,7 +229,7 @@ impl Default for IntentRoutingPolicy {
         Self {
             enabled: true,
             shadow_mode: false,
-            matrix_version: "intent-matrix-v4".to_string(),
+            matrix_version: "intent-matrix-v6".to_string(),
             confidence: IntentConfidenceBandPolicy::default(),
             ambiguity: IntentAmbiguityPolicy::default(),
             score_quantization_bps: default_score_quantization_bps(),
@@ -308,7 +308,9 @@ impl Default for IntentRoutingPolicy {
                 },
                 IntentMatrixEntry {
                     intent_id: "app.launch".to_string(),
-                    semantic_descriptor: "launch and focus local desktop applications".to_string(),
+                    semantic_descriptor:
+                        "open launch start or run a named local desktop application and bring that app to the foreground"
+                            .to_string(),
                     required_capabilities: vec![
                         CapabilityId::from("agent.lifecycle"),
                         CapabilityId::from("app.launch"),
@@ -323,7 +325,7 @@ impl Default for IntentRoutingPolicy {
                 IntentMatrixEntry {
                     intent_id: "ui.interaction".to_string(),
                     semantic_descriptor:
-                        "interact with graphical user interfaces using click type and scroll"
+                        "click type scroll or press controls in an existing focused window that is already running; excludes starting a new app"
                             .to_string(),
                     required_capabilities: vec![
                         CapabilityId::from("agent.lifecycle"),
