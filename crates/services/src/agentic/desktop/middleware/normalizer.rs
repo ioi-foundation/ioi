@@ -39,6 +39,8 @@ impl ToolNormalizer {
         let mut needs_wrap_sys = false;
         let mut needs_wrap_chat = false;
         let mut needs_wrap_nav = false;
+        let mut needs_wrap_complete = false;
+        let mut completion_result: Option<String> = None;
 
         if let Some(map) = raw_val.as_object_mut() {
             // [FIX] Handle "recipient_name" hallucination (common in some fine-tunes)
@@ -66,6 +68,12 @@ impl ToolNormalizer {
                     needs_wrap_chat = true;
                 } else if map.contains_key("url") && map.len() == 1 {
                     needs_wrap_nav = true;
+                } else if let Some(result) = map.get("result").and_then(|v| v.as_str()) {
+                    let trimmed = result.trim();
+                    if !trimmed.is_empty() {
+                        needs_wrap_complete = true;
+                        completion_result = Some(trimmed.to_string());
+                    }
                 }
             }
         }
@@ -89,6 +97,12 @@ impl ToolNormalizer {
             let mut new_map = serde_json::Map::new();
             new_map.insert("name".to_string(), json!("browser__navigate"));
             new_map.insert("arguments".to_string(), args);
+            raw_val = Value::Object(new_map);
+        } else if needs_wrap_complete {
+            let result = completion_result.unwrap_or_else(|| "Completed.".to_string());
+            let mut new_map = serde_json::Map::new();
+            new_map.insert("name".to_string(), json!("agent__complete"));
+            new_map.insert("arguments".to_string(), json!({ "result": result }));
             raw_val = Value::Object(new_map);
         } else {
             // Alias check (safe to do in-place if we get mut ref now)

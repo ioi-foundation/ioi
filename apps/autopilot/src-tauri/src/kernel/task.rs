@@ -288,6 +288,8 @@ pub async fn continue_task(
     let user_input_for_event = user_input.clone();
 
     update_task_state(&app, move |t| {
+        // Step indexes are reused across turns, so dedup caches must reset per new user turn.
+        t.processed_steps.clear();
         t.history.push(user_msg_ui.clone());
         t.credential_request = None;
         t.clarification_request = None;

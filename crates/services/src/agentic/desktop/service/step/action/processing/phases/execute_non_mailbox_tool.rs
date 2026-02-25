@@ -82,16 +82,24 @@ pub(crate) async fn execute_non_mailbox_tool(
         }
         verification_checks.push("capability_execution_phase=execution".to_string());
     }
-    let duplicate_command_execution = command_scope
+    let duplicate_marker_seen = command_scope
         && matches!(
             tool,
             AgentTool::SysExec { .. } | AgentTool::SysExecSession { .. }
         )
         && !action_fingerprint.is_empty()
         && is_action_fingerprint_executed(&agent_state.tool_execution_log, &action_fingerprint);
+    let matching_command_history_entry = if duplicate_marker_seen {
+        find_matching_command_history_entry(&tool, &agent_state.command_history)
+    } else {
+        None
+    };
+    if duplicate_marker_seen && matching_command_history_entry.is_none() {
+        verification_checks.push("duplicate_action_fingerprint_stale_or_cross_turn=true".to_string());
+    }
+    let duplicate_command_execution = duplicate_marker_seen && matching_command_history_entry.is_some();
     if duplicate_command_execution {
-        if let Some(summary) =
-            duplicate_command_completion_summary(&tool, agent_state.command_history.back())
+        if let Some(summary) = duplicate_command_completion_summary(&tool, matching_command_history_entry)
         {
             let missing_contract_markers = missing_execution_contract_markers(agent_state);
             if missing_contract_markers.is_empty() {
@@ -107,6 +115,47 @@ pub(crate) async fn execute_non_mailbox_tool(
                 verification_checks
                     .push("duplicate_action_fingerprint_terminalized=true".to_string());
                 verification_checks.push("terminal_chat_reply_ready=true".to_string());
+            } else {
+                let missing = missing_contract_markers.join(",");
+                let contract_error = execution_contract_violation_error(&missing);
+                success = false;
+                error_msg = Some(contract_error.clone());
+                history_entry = Some(contract_error.clone());
+                action_output = Some(contract_error);
+                agent_state.status = AgentStatus::Running;
+                verification_checks.push("execution_contract_gate_blocked=true".to_string());
+                verification_checks.push(format!("execution_contract_missing_keys={}", missing));
+                verification_checks.push("duplicate_action_fingerprint_blocked=true".to_string());
+            }
+        } else if let Some(summary) =
+            duplicate_command_cached_success_summary(&tool, matching_command_history_entry)
+        {
+            let missing_contract_markers = missing_execution_contract_markers(agent_state);
+            if missing_contract_markers.is_empty() {
+                success = true;
+                error_msg = None;
+                history_entry = Some(summary.clone());
+                if command_scope {
+                    let completion = duplicate_command_cached_completion_summary(
+                        &tool,
+                        matching_command_history_entry,
+                    )
+                    .unwrap_or_else(|| summary.clone());
+                    let completion = enrich_command_scope_summary(&completion, agent_state);
+                    action_output = Some(completion.clone());
+                    terminal_chat_reply_output = Some(completion.clone());
+                    agent_state.status = AgentStatus::Completed(Some(completion));
+                    is_lifecycle_action = true;
+                    agent_state.execution_queue.clear();
+                    agent_state.pending_search_completion = None;
+                    verification_checks
+                        .push("duplicate_action_fingerprint_terminalized=true".to_string());
+                    verification_checks.push("terminal_chat_reply_ready=true".to_string());
+                } else {
+                    action_output = Some(summary);
+                    agent_state.status = AgentStatus::Running;
+                }
+                verification_checks.push("duplicate_action_fingerprint_cached=true".to_string());
             } else {
                 let missing = missing_contract_markers.join(",");
                 let contract_error = execution_contract_violation_error(&missing);
@@ -561,10 +610,8 @@ pub(crate) async fn execute_non_mailbox_tool(
                             ) {
                                 let summary = history_entry
                                     .as_deref()
-                                    .and_then(summarize_system_clock_output)
-                                    .unwrap_or_else(|| {
-                                        "Current UTC time: <unavailable>".to_string()
-                                    });
+                                    .and_then(summarize_system_clock_or_plain_output)
+                                    .unwrap_or_else(|| "<unavailable>".to_string());
                                 success = true;
                                 error_msg = None;
                                 agent_state.status = AgentStatus::Completed(Some(summary.clone()));
@@ -573,6 +620,29 @@ pub(crate) async fn execute_non_mailbox_tool(
                                 terminal_chat_reply_output = Some(summary);
                                 agent_state.execution_queue.clear();
                                 agent_state.pending_search_completion = None;
+                            } else if command_scope {
+                                if let Some(summary) = duplicate_command_completion_summary(
+                                    &tool,
+                                    agent_state.command_history.back(),
+                                ) {
+                                    let missing_contract_markers =
+                                        missing_execution_contract_markers(agent_state);
+                                    if missing_contract_markers.is_empty() {
+                                        success = true;
+                                        error_msg = None;
+                                        agent_state.status =
+                                            AgentStatus::Completed(Some(summary.clone()));
+                                        is_lifecycle_action = true;
+                                        action_output = Some(summary.clone());
+                                        terminal_chat_reply_output = Some(summary);
+                                        agent_state.execution_queue.clear();
+                                        agent_state.pending_search_completion = None;
+                                        verification_checks
+                                            .push("timer_schedule_terminalized=true".to_string());
+                                        verification_checks
+                                            .push("terminal_chat_reply_ready=true".to_string());
+                                    }
+                                }
                             }
                         }
                         AgentTool::MemorySearch { query } => {

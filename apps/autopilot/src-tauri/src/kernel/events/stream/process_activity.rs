@@ -1,14 +1,17 @@
 use crate::kernel::events::clarification::build_clarification_request_with_inference;
 use crate::kernel::events::emission::{emit_command_stream, register_event};
 use crate::kernel::events::support::{
-    clarification_prompt_for_preset, clarification_wait_step_for_preset,
-    detect_clarification_preset, is_sudo_password_required_install, thread_id_from_session,
-    ClarificationPreset,
+    bind_task_session, clarification_prompt_for_preset, clarification_wait_step_for_preset,
+    detect_clarification_preset, is_hard_terminal_task, is_sudo_password_required_install,
+    thread_id_from_session, ClarificationPreset,
 };
 use crate::kernel::state::update_task_state;
+use crate::models::AppState;
 use crate::models::CredentialRequest;
 use ioi_ipc::public::workload_activity::Kind as WorkloadActivityKind;
 use ioi_ipc::public::WorkloadActivity;
+use std::sync::Mutex;
+use tauri::Manager;
 
 pub(super) async fn handle_workload_activity(app: &tauri::AppHandle, activity: WorkloadActivity) {
     let WorkloadActivity {
@@ -19,6 +22,22 @@ pub(super) async fn handle_workload_activity(app: &tauri::AppHandle, activity: W
         ..
     } = activity;
     let thread_id = thread_id_from_session(&app, &session_id);
+
+    let suppress_terminal_activity = {
+        let state_handle = app.state::<Mutex<AppState>>();
+        let out = match state_handle.lock() {
+            Ok(guard) => guard
+                .current_task
+                .as_ref()
+                .map(is_hard_terminal_task)
+                .unwrap_or(false),
+            Err(_) => false,
+        };
+        out
+    };
+    if suppress_terminal_activity {
+        return;
+    }
 
     match kind {
         Some(WorkloadActivityKind::Stdio(stdio)) => {
@@ -73,9 +92,7 @@ pub(super) async fn handle_workload_activity(app: &tauri::AppHandle, activity: W
             };
 
             update_task_state(app, |t| {
-                if !session_id.is_empty() {
-                    t.session_id = Some(session_id.clone());
-                }
+                bind_task_session(t, &session_id);
                 if matches!(
                     t.phase,
                     crate::models::AgentPhase::Idle | crate::models::AgentPhase::Running
@@ -181,9 +198,7 @@ pub(super) async fn handle_workload_activity(app: &tauri::AppHandle, activity: W
                 workload_id
             };
             update_task_state(app, |t| {
-                if !session_id.is_empty() {
-                    t.session_id = Some(session_id.clone());
-                }
+                bind_task_session(t, &session_id);
                 if matches!(
                     t.phase,
                     crate::models::AgentPhase::Idle | crate::models::AgentPhase::Running

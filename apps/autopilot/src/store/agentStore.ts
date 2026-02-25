@@ -300,7 +300,14 @@ export const useAgentStore = create<AgentStore>((set, get) => ({
   },
 }));
 
+let listenersInitPromise: Promise<void> | null = null;
+
 export async function initEventListeners() {
+  if (listenersInitPromise) {
+    return listenersInitPromise;
+  }
+
+  listenersInitPromise = (async () => {
   await listen<AgentTask>("task-started", (e) =>
     useAgentStore.getState().updateTask(e.payload),
   );
@@ -321,11 +328,14 @@ export async function initEventListeners() {
 
   await listen<AgentEvent>("agent-event", (e) => {
     useAgentStore.setState((state) => {
-      const events = [...state.events, e.payload];
+      const seenInStore = state.events.some((event) => event.event_id === e.payload.event_id);
+      const taskEvents = state.task?.events || [];
+      const seenInTask = taskEvents.some((event) => event.event_id === e.payload.event_id);
+      const events = seenInStore ? state.events : [...state.events, e.payload];
       const task = state.task
         ? {
             ...state.task,
-            events: [...(state.task.events || []), e.payload],
+            events: seenInTask ? taskEvents : [...taskEvents, e.payload],
           }
         : state.task;
       return { events, task };
@@ -382,4 +392,10 @@ export async function initEventListeners() {
   } catch (e) {
     console.error("Failed to load task:", e);
   }
+  })().catch((err) => {
+    listenersInitPromise = null;
+    throw err;
+  });
+
+  return listenersInitPromise;
 }

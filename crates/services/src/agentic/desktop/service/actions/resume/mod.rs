@@ -15,17 +15,19 @@ use crate::agentic::desktop::keys::{get_state_key, pii, AGENT_POLICY_PREFIX};
 use crate::agentic::desktop::service::step::action::command_contract::{
     append_command_history_entry, capability_route_label, command_arms_deferred_notification_path,
     command_history_entry, command_history_exit_code, enrich_command_scope_summary,
-    execution_contract_violation_error, missing_execution_contract_markers,
+    execution_contract_violation_error, format_utc_rfc3339, missing_execution_contract_markers,
+    parse_sleep_seconds, render_command_preview,
     record_provider_selection_receipts, record_timer_notification_contract_requirement,
     record_verification_receipts, requires_timer_notification_contract,
-    sys_exec_arms_timer_delay_backend, sys_exec_command_preview,
+    sys_exec_arms_timer_delay_backend, sys_exec_command_preview, target_utc_from_run_and_sleep,
     TIMER_NOTIFICATION_PATH_POSTCONDITION, TIMER_SLEEP_BACKEND_POSTCONDITION,
 };
 use crate::agentic::desktop::service::step::action::{
     canonical_intent_hash, canonical_retry_intent_hash, canonical_tool_identity,
     is_command_probe_intent, is_system_clock_read_intent, mark_action_fingerprint_executed,
     mark_execution_postcondition, mark_execution_receipt, postcondition_marker, receipt_marker,
-    summarize_command_probe_output, summarize_system_clock_output,
+    summarize_command_probe_output, summarize_system_clock_or_plain_output,
+    summarize_system_clock_output,
 };
 use crate::agentic::desktop::service::step::anti_loop::{
     build_attempt_key, build_post_state_summary, build_state_summary, classify_failure,
@@ -44,7 +46,7 @@ use crate::agentic::desktop::service::step::incident::{
     start_or_continue_incident_recovery, IncidentDirective,
 };
 use crate::agentic::desktop::service::{DesktopAgentService, ServiceCallContext};
-use crate::agentic::desktop::types::{AgentState, AgentStatus};
+use crate::agentic::desktop::types::{AgentState, AgentStatus, CommandExecution};
 use crate::agentic::desktop::utils::goto_trace_log;
 use crate::agentic::rules::ActionRules;
 
@@ -90,6 +92,64 @@ fn emit_terminal_completion_events(
         output: output_text,
         agent_status: status_text,
     });
+}
+
+fn extract_background_pid(stdout: &str) -> Option<String> {
+    let marker_idx = stdout.find("PID:")?;
+    let suffix = &stdout[marker_idx + "PID:".len()..];
+    let pid: String = suffix
+        .chars()
+        .skip_while(|c| c.is_ascii_whitespace())
+        .take_while(|c| c.is_ascii_digit())
+        .collect();
+    if pid.is_empty() {
+        None
+    } else {
+        Some(pid)
+    }
+}
+
+fn timer_completion_summary(
+    tool: &AgentTool,
+    history_entry: Option<&CommandExecution>,
+) -> Option<String> {
+    let (sleep_seconds, executed_command) = match tool {
+        AgentTool::SysExec {
+            command,
+            args,
+            detach,
+            ..
+        } => {
+            if !*detach {
+                return None;
+            }
+            let command_preview = render_command_preview(command, args);
+            let sleep_seconds = parse_sleep_seconds(&command_preview)?;
+            (sleep_seconds, command_preview)
+        }
+        _ => return None,
+    };
+    let entry = history_entry?;
+    if entry.exit_code != 0 {
+        return None;
+    }
+    let run_timestamp_utc = format_utc_rfc3339(entry.timestamp_ms)?;
+    let target_utc = target_utc_from_run_and_sleep(entry.timestamp_ms, sleep_seconds)?;
+    let mechanism = if let Some(pid) = extract_background_pid(&entry.stdout) {
+        format!(
+            "Detached sys__exec command '{}' launched as background process (PID: {}).",
+            executed_command, pid
+        )
+    } else {
+        format!(
+            "Detached sys__exec command '{}' launched as background process.",
+            executed_command
+        )
+    };
+    Some(format!(
+        "Timer scheduled.\nMechanism: {}\nRun timestamp (UTC): {}\nTarget UTC: {}",
+        mechanism, run_timestamp_utc, target_utc
+    ))
 }
 
 pub async fn resume_pending_action(

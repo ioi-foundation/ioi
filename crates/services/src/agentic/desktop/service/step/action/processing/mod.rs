@@ -8,7 +8,7 @@ use super::command_contract::{
 };
 use super::probe::{
     is_command_probe_intent, is_system_clock_read_intent, summarize_command_probe_output,
-    summarize_system_clock_output,
+    summarize_system_clock_or_plain_output, summarize_system_clock_output,
 };
 use super::refusal_eval::evaluate_and_crystallize;
 use super::search::{extract_navigation_url, is_search_results_url, search_query_from_url};
@@ -86,7 +86,9 @@ mod web_helpers;
 mod web_pre_read;
 
 use self::duplicate_guard::{
-    duplicate_command_completion_summary, duplicate_command_execution_summary,
+    duplicate_command_cached_completion_summary, duplicate_command_cached_success_summary,
+    duplicate_command_completion_summary,
+    duplicate_command_execution_summary, find_matching_command_history_entry,
 };
 use self::phases::{
     apply_post_execution_guards, execute_non_mailbox_tool, finalize_action_processing,

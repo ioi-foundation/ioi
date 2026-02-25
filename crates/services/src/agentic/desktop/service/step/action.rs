@@ -16,7 +16,7 @@ mod support;
 pub use crate::agentic::desktop::service::actions::resume_pending_action;
 pub use probe::{
     is_command_probe_intent, is_system_clock_read_intent, summarize_command_probe_output,
-    summarize_system_clock_output,
+    summarize_system_clock_or_plain_output, summarize_system_clock_output,
 };
 pub use processing::{process_tool_output, resolve_action_routing_context};
 pub(crate) use search::{is_search_results_url, search_query_from_url};

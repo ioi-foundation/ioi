@@ -225,6 +225,53 @@ where
                             .insert(meta.id.clone(), Arc::new(meta));
                     }
                 }
+
+                // Backfill newly introduced ABI methods/prefixes for active services
+                // when loading an existing state snapshot.
+                for service in self.service_manager.all_services() {
+                    let service_id = service.id();
+                    let Some(policy) = self.service_policies.get(service_id) else {
+                        continue;
+                    };
+                    let Some(existing_meta) = self.service_meta_cache.get(service_id) else {
+                        continue;
+                    };
+
+                    let mut patched_meta = (**existing_meta).clone();
+                    let mut changed = false;
+
+                    for (method, permission) in &policy.methods {
+                        if !patched_meta.methods.contains_key(method) {
+                            patched_meta
+                                .methods
+                                .insert(method.clone(), permission.clone());
+                            changed = true;
+                        }
+                    }
+
+                    for prefix in &policy.allowed_system_prefixes {
+                        if !patched_meta.allowed_system_prefixes.contains(prefix) {
+                            patched_meta.allowed_system_prefixes.push(prefix.clone());
+                            changed = true;
+                        }
+                    }
+
+                    if changed {
+                        let key = ioi_types::keys::active_service_key(service_id);
+                        let meta_bytes = codec::to_bytes_canonical(&patched_meta)
+                            .map_err(ChainError::Transaction)?;
+                        state
+                            .insert(&key, &meta_bytes)
+                            .map_err(|e| ChainError::Transaction(e.to_string()))?;
+                        self.service_meta_cache
+                            .insert(service_id.to_string(), Arc::new(patched_meta));
+                        tracing::warn!(
+                            target: "execution",
+                            service_id = service_id,
+                            "Backfilled active service ABI metadata from configured policy"
+                        );
+                    }
+                }
             }
             Ok(None) => {
                 tracing::info!(target: "execution", event = "status_init", "No existing chain status found. Initializing and saving genesis status.");

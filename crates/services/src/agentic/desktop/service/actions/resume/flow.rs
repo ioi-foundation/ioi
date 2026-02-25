@@ -705,8 +705,8 @@ pub(super) async fn resume_pending_action_flow(
                 {
                     let summary = out
                         .as_deref()
-                        .and_then(summarize_system_clock_output)
-                        .unwrap_or_else(|| "Current UTC time: <unavailable>".to_string());
+                        .and_then(summarize_system_clock_or_plain_output)
+                        .unwrap_or_else(|| "<unavailable>".to_string());
                     agent_state.status = AgentStatus::Completed(Some(summary.clone()));
                     agent_state.execution_queue.clear();
                     evaluate_and_crystallize(service, agent_state, session_id, &summary).await;
@@ -718,6 +718,43 @@ pub(super) async fn resume_pending_action_flow(
                             &summary,
                             status::status_str(&agent_state.status),
                         );
+                    }
+                } else if success && command_scope {
+                    if let Some(summary) =
+                        timer_completion_summary(&tool, agent_state.command_history.back())
+                    {
+                        let missing_contract_markers =
+                            missing_execution_contract_markers(agent_state);
+                        if !missing_contract_markers.is_empty() {
+                            let missing = missing_contract_markers.join(",");
+                            let contract_error = execution_contract_violation_error(&missing);
+                            success = false;
+                            err = Some(contract_error.clone());
+                            out = Some(contract_error);
+                            verification_checks
+                                .push("execution_contract_gate_blocked=true".to_string());
+                            verification_checks
+                                .push(format!("execution_contract_missing_keys={}", missing));
+                            agent_state.status = AgentStatus::Running;
+                        } else {
+                            agent_state.status = AgentStatus::Completed(Some(summary.clone()));
+                            agent_state.execution_queue.clear();
+                            verification_checks.push("timer_schedule_terminalized=true".to_string());
+                            verification_checks.push("terminal_chat_reply_ready=true".to_string());
+                            evaluate_and_crystallize(service, agent_state, session_id, &summary)
+                                .await;
+                            if let Some(tx) = &service.event_sender {
+                                emit_terminal_completion_events(
+                                    tx,
+                                    session_id,
+                                    agent_state.step_count,
+                                    &summary,
+                                    status::status_str(&agent_state.status),
+                                );
+                            }
+                        }
+                    } else {
+                        agent_state.status = AgentStatus::Running;
                     }
                 } else {
                     agent_state.status = AgentStatus::Running;

@@ -50,8 +50,6 @@ interface SecurityPolicyRow {
 interface TurnWindow {
   id: string;
   index: number;
-  startStep: number;
-  endStep: number;
   prompt: string;
   startAtMs: number | null;
   endAtMs: number | null;
@@ -66,6 +64,9 @@ const TURN_FILTER_VIEWS = new Set<ArtifactHubViewKey>([
   "sources",
   "kernel_logs",
   "security_policy",
+  "files",
+  "revisions",
+  "screenshots",
 ]);
 
 function safeString(value: unknown): string {
@@ -152,8 +153,6 @@ function buildTurnWindows(events: AgentEvent[]): TurnWindow[] {
     return {
       id: event.event_id,
       index: idx + 1,
-      startStep: event.step_index,
-      endStep: next ? Math.max(event.step_index, next.step_index - 1) : Number.MAX_SAFE_INTEGER,
       prompt: eventPromptText(event),
       startAtMs: parseTimestampMs(event.timestamp),
       endAtMs: next ? parseTimestampMs(next.timestamp) : null,
@@ -162,9 +161,6 @@ function buildTurnWindows(events: AgentEvent[]): TurnWindow[] {
 }
 
 function eventBelongsToTurn(event: AgentEvent, turn: TurnWindow): boolean {
-  if (event.step_index < turn.startStep || event.step_index > turn.endStep) {
-    return false;
-  }
   const eventAtMs = parseTimestampMs(event.timestamp);
   if (turn.startAtMs !== null && eventAtMs !== null && eventAtMs < turn.startAtMs) {
     return false;
@@ -258,13 +254,30 @@ export function ArtifactHubSidebar({
     if (!selectedTurn) return events;
     return events.filter((event) => eventBelongsToTurn(event, selectedTurn));
   }, [events, selectedTurn]);
+  const scopedArtifacts = useMemo(() => {
+    if (!selectedTurn) return artifacts;
+    return artifacts.filter((artifact) => {
+      const createdAtMs = parseTimestampMs(artifact.created_at);
+      if (selectedTurn.startAtMs !== null && createdAtMs !== null && createdAtMs < selectedTurn.startAtMs) {
+        return false;
+      }
+      if (selectedTurn.endAtMs !== null && createdAtMs !== null && createdAtMs >= selectedTurn.endAtMs) {
+        return false;
+      }
+      return true;
+    });
+  }, [artifacts, selectedTurn]);
+  const visibleStepIndexes = useMemo(() => {
+    if (!selectedTurn) return null;
+    return new Set(scopedEvents.map((event) => event.step_index));
+  }, [scopedEvents, selectedTurn]);
 
   const isStepVisible = useCallback(
     (stepIndex: number) => {
-      if (!selectedTurn) return true;
-      return stepIndex >= selectedTurn.startStep && stepIndex <= selectedTurn.endStep;
+      if (!visibleStepIndexes) return true;
+      return visibleStepIndexes.has(stepIndex);
     },
-    [selectedTurn],
+    [visibleStepIndexes],
   );
 
   const searches = useMemo(
@@ -347,20 +360,23 @@ export function ArtifactHubSidebar({
   }, [scopedEvents]);
 
   const fileArtifacts = useMemo(
-    () => artifacts.filter((artifact) => artifact.artifact_type === "FILE" || artifact.artifact_type === "DIFF"),
-    [artifacts],
+    () =>
+      scopedArtifacts.filter(
+        (artifact) => artifact.artifact_type === "FILE" || artifact.artifact_type === "DIFF",
+      ),
+    [scopedArtifacts],
   );
   const revisionArtifacts = useMemo(
     () =>
-      artifacts.filter(
+      scopedArtifacts.filter(
         (artifact) =>
           artifact.artifact_type === "RUN_BUNDLE" || artifact.artifact_type === "REPORT",
       ),
-    [artifacts],
+    [scopedArtifacts],
   );
   const screenshotArtifacts = useMemo(
-    () => artifacts.filter((artifact) => artifact.artifact_type === "WEB"),
-    [artifacts],
+    () => scopedArtifacts.filter((artifact) => artifact.artifact_type === "WEB"),
+    [scopedArtifacts],
   );
 
   const sections = useMemo<HubSection[]>(
