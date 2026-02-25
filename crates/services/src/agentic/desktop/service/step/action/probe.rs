@@ -81,21 +81,43 @@ pub fn summarize_system_clock_output(output: &str) -> Option<String> {
 
     if let Some(line) = extract_command_history_clock_line(trimmed) {
         if let Some(ts) = extract_utc_iso_timestamp(&line) {
-            return Some(format!("Current UTC time: {}", ts));
+            return Some(ts);
         }
-        return Some(format!("Current UTC time: {}", line));
+        return None;
     }
 
     if let Some(ts) = extract_utc_iso_timestamp(trimmed) {
-        return Some(format!("Current UTC time: {}", ts));
+        return Some(ts);
+    }
+    None
+}
+
+pub fn summarize_system_clock_or_plain_output(output: &str) -> Option<String> {
+    if let Some(summary) = summarize_system_clock_output(output) {
+        return Some(summary);
     }
 
-    let line = trimmed.lines().map(str::trim).find(|line| {
-        !line.is_empty()
-            && !line.starts_with(COMMAND_HISTORY_PREFIX)
-            && !line.to_ascii_lowercase().starts_with("exit status:")
-    })?;
-    Some(format!("Current UTC time: {}", line))
+    let trimmed = output.trim();
+    if trimmed.is_empty() {
+        return None;
+    }
+
+    if let Some(line) = extract_command_history_clock_line(trimmed) {
+        let plain = line.trim();
+        if !plain.is_empty() {
+            return Some(plain.to_string());
+        }
+    }
+
+    trimmed
+        .lines()
+        .map(str::trim)
+        .find(|line| {
+            !line.is_empty()
+                && !line.starts_with(COMMAND_HISTORY_PREFIX)
+                && !line.to_ascii_lowercase().starts_with("exit status:")
+        })
+        .map(|line| line.to_string())
 }
 
 fn cleaned_probe_token(token: &str) -> String {
@@ -296,7 +318,7 @@ pub fn summarize_command_probe_output(tool: &AgentTool, output: &str) -> Option<
 mod tests {
     use super::{
         is_command_probe_intent, is_system_clock_read_intent, summarize_command_probe_output,
-        summarize_system_clock_output,
+        summarize_system_clock_or_plain_output, summarize_system_clock_output,
     };
     use ioi_types::app::agentic::{IntentConfidenceBand, IntentScopeProfile, ResolvedIntentState};
 
@@ -360,7 +382,7 @@ mod tests {
     fn summarizes_system_clock_output() {
         let summary = summarize_system_clock_output("2026-02-23T01:23:45Z\n")
             .expect("should produce summary");
-        assert!(summary.contains("Current UTC time: 2026-02-23T01:23:45Z"));
+        assert_eq!(summary, "2026-02-23T01:23:45Z");
     }
 
     #[test]
@@ -369,7 +391,7 @@ mod tests {
             "COMMAND_HISTORY:{\"command\":\"date -u +%Y-%m-%dT%H:%M:%SZ\",\"exit_code\":0,\"stdout\":\"2026-02-23T13:36:27Z\",\"stderr\":\"\",\"timestamp_ms\":1771853787127,\"step_index\":0}\n2026-02-23T13:36:27Z\n",
         )
         .expect("should produce summary");
-        assert_eq!(summary, "Current UTC time: 2026-02-23T13:36:27Z");
+        assert_eq!(summary, "2026-02-23T13:36:27Z");
     }
 
     #[test]
@@ -378,7 +400,20 @@ mod tests {
             "Current UTC time: COMMAND_HISTORY:{\"stdout\":\"2026-02-23T13:36:27Z\"}",
         )
         .expect("should produce summary");
-        assert_eq!(summary, "Current UTC time: 2026-02-23T13:36:27Z");
+        assert_eq!(summary, "2026-02-23T13:36:27Z");
+    }
+
+    #[test]
+    fn does_not_summarize_non_timestamp_clock_output() {
+        let summary = summarize_system_clock_output("9386\n");
+        assert!(summary.is_none());
+    }
+
+    #[test]
+    fn falls_back_to_plain_output_when_clock_summary_not_available() {
+        let summary = summarize_system_clock_or_plain_output("9386\n")
+            .expect("should preserve plain non-timestamp output");
+        assert_eq!(summary, "9386");
     }
 
     #[test]

@@ -1,8 +1,9 @@
 use crate::kernel::events::emission::{build_event, register_event};
 use crate::kernel::events::stream::fetch_pii::fetch_pii_review_info;
 use crate::kernel::events::support::{
-    clarification_preset_for_tool, is_hard_terminal_task, is_identity_resolution_kind,
-    is_install_package_tool, is_waiting_for_identity_clarification_step, thread_id_from_session,
+    bind_task_session, clarification_preset_for_tool, is_hard_terminal_task,
+    is_identity_resolution_kind, is_install_package_tool,
+    is_waiting_for_identity_clarification_step, thread_id_from_session,
 };
 use crate::kernel::state::update_task_state;
 use crate::models::{AgentPhase, EventStatus, EventType, GateInfo};
@@ -24,9 +25,7 @@ pub(super) async fn handle_action(app: &tauri::AppHandle, action: ActionIntercep
                     pii: Some(pii.clone()),
                 });
                 t.pending_request_hash = Some(action.reason.clone());
-                if !action.session_id.is_empty() {
-                    t.session_id = Some(action.session_id.clone());
-                }
+                bind_task_session(t, &action.session_id);
             });
         }
         return;
@@ -123,9 +122,7 @@ pub(super) async fn handle_action(app: &tauri::AppHandle, action: ActionIntercep
 
                 t.pending_request_hash = Some(action.reason.clone());
 
-                if !action.session_id.is_empty() {
-                    t.session_id = Some(action.session_id.clone());
-                }
+                bind_task_session(t, &action.session_id);
 
                 t.history.push(crate::models::ChatMessage {
                     role: "system".to_string(),

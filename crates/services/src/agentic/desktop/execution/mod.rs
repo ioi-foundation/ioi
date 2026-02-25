@@ -3,6 +3,7 @@
 pub mod browser;
 pub mod computer;
 pub mod filesystem;
+pub mod math;
 pub mod mcp;
 pub mod resilience;
 pub mod system;
@@ -333,6 +334,9 @@ impl ToolExecutor {
             | AgentTool::FsMove { .. }
             | AgentTool::FsCopy { .. }
             | AgentTool::FsDelete { .. } => filesystem::handle(self, tool).await,
+
+            // Deterministic math evaluation domain.
+            AgentTool::MathEval { .. } => math::handle(self, tool).await,
 
             // System Domain
             AgentTool::SysExec { .. }

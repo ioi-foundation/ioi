@@ -1,5 +1,5 @@
 use crate::kernel::events::emission::{build_event, register_event};
-use crate::kernel::events::support::thread_id_from_session;
+use crate::kernel::events::support::{bind_task_session, thread_id_from_session};
 use crate::kernel::state::update_task_state;
 use crate::kernel::thresholds;
 use crate::models::{AgentPhase, EventStatus, EventType};
@@ -36,9 +36,7 @@ pub(super) async fn handle_thought(app: &tauri::AppHandle, thought: AgentThought
         if !thought.visual_hash.is_empty() {
             t.visual_hash = Some(thought.visual_hash.clone());
         }
-        if !thought.session_id.is_empty() {
-            t.session_id = Some(thought.session_id.clone());
-        }
+        bind_task_session(t, &thought.session_id);
     });
 
     if thought.is_final {

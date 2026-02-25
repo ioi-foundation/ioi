@@ -356,6 +356,25 @@ fn queue_preserves_launch_app_for_sys_exec_target_with_app_name() {
 }
 
 #[test]
+fn queue_maps_custom_os_launch_app_target() {
+    let request = build_custom_request(
+        "os::launch_app",
+        153,
+        serde_json::json!({
+            "app_name": "calculator"
+        }),
+    );
+
+    let tool = queue_action_request_to_tool(&request).expect("queue mapping should succeed");
+    match tool {
+        AgentTool::OsLaunchApp { app_name } => {
+            assert_eq!(app_name, "calculator");
+        }
+        other => panic!("expected OsLaunchApp, got {:?}", other),
+    }
+}
+
+#[test]
 fn queue_does_not_allow_metadata_override_for_sys_exec_target() {
     let request = build_sys_exec_request(serde_json::json!({
         "app_name": "calculator",
@@ -425,6 +444,25 @@ fn queue_maps_sys_exec_session_reset_custom_alias() {
     match tool {
         AgentTool::SysExecSessionReset {} => {}
         other => panic!("expected SysExecSessionReset, got {:?}", other),
+    }
+}
+
+#[test]
+fn queue_maps_math_eval_custom_alias() {
+    let request = build_custom_request(
+        "math::eval",
+        153,
+        serde_json::json!({
+            "expression": "247 * 38"
+        }),
+    );
+
+    let tool = queue_action_request_to_tool(&request).expect("queue mapping should succeed");
+    match tool {
+        AgentTool::MathEval { expression } => {
+            assert_eq!(expression, "247 * 38");
+        }
+        other => panic!("expected MathEval, got {:?}", other),
     }
 }
 

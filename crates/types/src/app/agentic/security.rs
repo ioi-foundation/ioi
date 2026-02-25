@@ -207,6 +207,10 @@ pub struct IntentRoutingPolicy {
     /// Ambiguity abstention margin in basis points.
     #[serde(default = "default_ambiguity_margin_bps")]
     pub ambiguity_margin_bps: u16,
+    /// Intents exempt from ambiguity abstention fallback.
+    /// This is policy-defined and versioned behavior, not resolver heuristics.
+    #[serde(default)]
+    pub ambiguity_abstain_exempt_intents: Vec<String>,
     /// Baseline + override matrix entries.
     #[serde(default)]
     pub matrix: Vec<IntentMatrixEntry>,
@@ -229,12 +233,16 @@ impl Default for IntentRoutingPolicy {
         Self {
             enabled: true,
             shadow_mode: false,
-            matrix_version: "intent-matrix-v6".to_string(),
+            matrix_version: "intent-matrix-v11".to_string(),
             confidence: IntentConfidenceBandPolicy::default(),
             ambiguity: IntentAmbiguityPolicy::default(),
             score_quantization_bps: default_score_quantization_bps(),
             tie_region_eps_bps: default_tie_region_eps_bps(),
             ambiguity_margin_bps: default_ambiguity_margin_bps(),
+            ambiguity_abstain_exempt_intents: vec![
+                "app.launch".to_string(),
+                "command.exec".to_string(),
+            ],
             matrix: vec![
                 IntentMatrixEntry {
                     intent_id: "conversation.reply".to_string(),
@@ -257,6 +265,29 @@ impl Default for IntentRoutingPolicy {
                     exemplars: vec![
                         "answer the user message".to_string(),
                         "draft a response".to_string(),
+                    ],
+                },
+                IntentMatrixEntry {
+                    intent_id: "math.eval".to_string(),
+                    semantic_descriptor:
+                        "compute deterministic arithmetic results from explicit symbolic numeric expressions using numbers operators and grouping tokens and return the evaluated value"
+                            .to_string(),
+                    required_capabilities: vec![
+                        CapabilityId::from("agent.lifecycle"),
+                        CapabilityId::from("conversation.reply"),
+                    ],
+                    risk_class: "low".to_string(),
+                    scope: IntentScopeProfile::Conversation,
+                    preferred_tier: "tool_first".to_string(),
+                    aliases: vec![
+                        "math".to_string(),
+                        "calculate".to_string(),
+                        "arithmetic".to_string(),
+                        "expression".to_string(),
+                    ],
+                    exemplars: vec![
+                        "what is 247 times 38".to_string(),
+                        "evaluate (12 + 8) / 5".to_string(),
                     ],
                 },
                 IntentMatrixEntry {
@@ -309,7 +340,7 @@ impl Default for IntentRoutingPolicy {
                 IntentMatrixEntry {
                     intent_id: "app.launch".to_string(),
                     semantic_descriptor:
-                        "open launch start or run a named local desktop application and bring that app to the foreground"
+                        "open launch start or foreground a named local software process identified by a program title token and make it active for interaction"
                             .to_string(),
                     required_capabilities: vec![
                         CapabilityId::from("agent.lifecycle"),
@@ -325,7 +356,7 @@ impl Default for IntentRoutingPolicy {
                 IntentMatrixEntry {
                     intent_id: "ui.interaction".to_string(),
                     semantic_descriptor:
-                        "click type scroll or press controls in an existing focused window that is already running; excludes starting a new app"
+                        "perform direct input interactions such as click type scroll or keypress within an already-running focused application interface"
                             .to_string(),
                     required_capabilities: vec![
                         CapabilityId::from("agent.lifecycle"),
@@ -348,7 +379,7 @@ impl Default for IntentRoutingPolicy {
                 IntentMatrixEntry {
                     intent_id: "command.probe".to_string(),
                     semantic_descriptor:
-                        "check whether a command-line tool exists without mutating host state"
+                        "check whether a binary or tool is available in PATH without mutating host state"
                             .to_string(),
                     required_capabilities: vec![
                         CapabilityId::from("agent.lifecycle"),
@@ -378,7 +409,7 @@ impl Default for IntentRoutingPolicy {
                 IntentMatrixEntry {
                     intent_id: "system.clock.read".to_string(),
                     semantic_descriptor:
-                        "read current local or utc system clock timestamp from this host"
+                        "read only the current local or utc time-of-day timestamp from this host clock"
                             .to_string(),
                     required_capabilities: vec![
                         CapabilityId::from("agent.lifecycle"),
@@ -399,7 +430,7 @@ impl Default for IntentRoutingPolicy {
                 IntentMatrixEntry {
                     intent_id: "command.exec".to_string(),
                     semantic_descriptor:
-                        "execute local shell or terminal commands on the current machine, including local automation tasks like timers"
+                        "execute local shell or terminal commands on the current machine and run local automation tasks like timers"
                             .to_string(),
                     required_capabilities: vec![
                         CapabilityId::from("agent.lifecycle"),

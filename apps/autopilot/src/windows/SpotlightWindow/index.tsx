@@ -73,16 +73,6 @@ const CONTENT_PIPELINE_V2_ENABLED =
   String((import.meta as any).env?.[CONTENT_PIPELINE_V2_FLAG] ?? "true").toLowerCase() !==
   "false";
 
-function isIdentityResolutionClarificationKind(kind?: string): boolean {
-  if (!kind) return false;
-  const normalized = kind.trim().toLowerCase();
-  return (
-    normalized === "identity_resolution" ||
-    normalized === "tool_lookup" ||
-    normalized === "install_package_lookup"
-  );
-}
-
 type ChatEvent = ChatMessage & {
   isGate?: boolean;
   gateData?: any;
@@ -97,8 +87,6 @@ type ConversationTurn = {
 type TurnEventWindow = {
   id: string;
   index: number;
-  startStep: number;
-  endStep: number;
   startAtMs: number | null;
   endAtMs: number | null;
 };
@@ -137,8 +125,6 @@ function buildTurnWindows(events: AgentEvent[]): TurnEventWindow[] {
     return {
       id: event.event_id,
       index: idx + 1,
-      startStep: event.step_index,
-      endStep: next ? Math.max(event.step_index, next.step_index - 1) : Number.MAX_SAFE_INTEGER,
       startAtMs: parseTimestampMs(event.timestamp),
       endAtMs: next ? parseTimestampMs(next.timestamp) : null,
     };
@@ -146,9 +132,6 @@ function buildTurnWindows(events: AgentEvent[]): TurnEventWindow[] {
 }
 
 function eventInTurnWindow(event: AgentEvent, window: TurnEventWindow): boolean {
-  if (event.step_index < window.startStep || event.step_index > window.endStep) {
-    return false;
-  }
   const eventAtMs = parseTimestampMs(event.timestamp);
   if (window.startAtMs !== null && eventAtMs !== null && eventAtMs < window.startAtMs) {
     return false;
@@ -496,7 +479,19 @@ export function SpotlightWindow({ variant = "overlay" }: SpotlightWindowProps) {
     if (!text) return;
     if (task?.phase === "Gate" || task?.pending_request_hash) return;
     if (task?.credential_request?.kind === "sudo_password") return;
-    if (task?.clarification_request) return;
+    if (
+      task?.clarification_request &&
+      (() => {
+        const step = (task?.current_step || "").toLowerCase();
+        return (
+          step.includes("waiting for clarification") ||
+          step.includes("waiting for intent clarification") ||
+          step.includes("wait_for_clarification")
+        );
+      })()
+    ) {
+      return;
+    }
     if (
       (task?.current_step || "").toLowerCase().includes("waiting for sudo password")
     ) {
@@ -513,7 +508,7 @@ export function SpotlightWindow({ variant = "overlay" }: SpotlightWindowProps) {
 
     try {
       if (task && task.id && task.phase !== "Failed") {
-        await continueTask(task.session_id || task.id, text);
+        await continueTask(task.id || task.session_id || "", text);
       } else {
         if (
           !isStudioVariant &&
@@ -531,7 +526,7 @@ export function SpotlightWindow({ variant = "overlay" }: SpotlightWindowProps) {
 
   const handleSubmitRuntimePassword = useCallback(
     async (password: string) => {
-      const sessionId = task?.session_id || task?.id;
+      const sessionId = task?.id || task?.session_id;
       if (!sessionId) {
         throw new Error("No active session found");
       }
@@ -554,35 +549,46 @@ export function SpotlightWindow({ variant = "overlay" }: SpotlightWindowProps) {
 
   const handleSubmitClarification = useCallback(
     async (optionId: string, otherText: string) => {
-      const sessionId = task?.session_id || task?.id;
+      const sessionId = task?.id || task?.session_id;
       if (!sessionId) {
         throw new Error("No active session found");
       }
       const request = task?.clarification_request;
       const selected = request?.options?.find((option) => option.id === optionId);
       const exactIdentifier = otherText.trim();
-      const structuredPrompt = [
-        "Clarification response:",
-        request?.question ? `question=${request.question}` : undefined,
-        request?.tool_name ? `tool_name=${request.tool_name}` : undefined,
-        request?.failure_class
-          ? `failure_class=${request.failure_class}`
-          : undefined,
-        request?.context_hint ? `context_hint=${request.context_hint}` : undefined,
-        `strategy=${optionId}`,
-        selected ? `strategy_label=${selected.label}` : undefined,
-        exactIdentifier ? `exact_identifier=${exactIdentifier}` : undefined,
-        task?.intent ? `original_request=${task.intent}` : undefined,
-        "Execution constraints:",
-        exactIdentifier
-          ? `- Treat '${exactIdentifier}' as the authoritative target identifier for the next retry.`
-          : "- Use the selected strategy to resolve target identity.",
-        "- Retry once on the same session.",
-        "- If still unresolved, provide concrete discovered candidates and why each failed.",
-        "- Do not ask the same clarification again without new evidence.",
-      ]
-        .filter(Boolean)
-        .join("\n");
+      const requestKind = request?.kind?.toLowerCase() ?? "";
+      const isIntentResolution = requestKind === "intent_resolution";
+      const intentStrategyFallback: Record<string, string> = {
+        clarify_outcome: "Please continue with the current request outcome.",
+        add_constraints: "Please continue with added constraints.",
+        cancel_request: "Cancel this request.",
+      };
+      const structuredPrompt = isIntentResolution
+        ? exactIdentifier ||
+          selected?.description ||
+          intentStrategyFallback[optionId] ||
+          "Continue."
+        : [
+            "Clarification response:",
+            request?.question ? `question=${request.question}` : undefined,
+            request?.tool_name ? `tool_name=${request.tool_name}` : undefined,
+            request?.failure_class
+              ? `failure_class=${request.failure_class}`
+              : undefined,
+            request?.context_hint ? `context_hint=${request.context_hint}` : undefined,
+            `strategy=${optionId}`,
+            selected ? `strategy_label=${selected.label}` : undefined,
+            exactIdentifier ? `exact_identifier=${exactIdentifier}` : undefined,
+            "Execution constraints:",
+            exactIdentifier
+              ? `- Treat '${exactIdentifier}' as the authoritative target identifier for the next retry.`
+              : "- Use the selected strategy to resolve target identity.",
+            "- Retry once on the same session.",
+            "- If still unresolved, provide concrete discovered candidates and why each failed.",
+            "- Do not ask the same clarification again without new evidence.",
+          ]
+            .filter(Boolean)
+            .join("\n");
       console.info("[Autopilot][Clarification] submit", {
         sessionId,
         optionId,
@@ -594,7 +600,7 @@ export function SpotlightWindow({ variant = "overlay" }: SpotlightWindowProps) {
   );
 
   const handleCancelClarification = useCallback(() => {
-    const sessionId = task?.session_id || task?.id;
+    const sessionId = task?.id || task?.session_id;
     if (!sessionId) return;
     console.info("[Autopilot][Clarification] cancel", { sessionId });
     void continueTask(
@@ -713,10 +719,18 @@ export function SpotlightWindow({ variant = "overlay" }: SpotlightWindowProps) {
   const hasPendingApproval = !!task?.pending_request_hash;
   const credentialRequest = task?.credential_request;
   const clarificationRequest = task?.clarification_request;
-  const activeSessionId = task?.session_id || task?.id || null;
+  const activeSessionId = task?.id || task?.session_id || null;
   const waitingForSudoByStep = (task?.current_step || "")
     .toLowerCase()
     .includes("waiting for sudo password");
+  const waitingForClarificationByStep = (() => {
+    const step = (task?.current_step || "").toLowerCase();
+    return (
+      step.includes("waiting for clarification") ||
+      step.includes("waiting for intent clarification") ||
+      step.includes("wait_for_clarification")
+    );
+  })();
   const waitingForSudoPrompt =
     credentialRequest?.kind === "sudo_password" || waitingForSudoByStep;
   const suppressPasswordPrompt =
@@ -728,8 +742,10 @@ export function SpotlightWindow({ variant = "overlay" }: SpotlightWindowProps) {
     !suppressPasswordPrompt &&
     !!(task?.session_id || task?.id);
   const showClarificationPrompt =
-    isIdentityResolutionClarificationKind(clarificationRequest?.kind) &&
-    !!(task?.session_id || task?.id);
+    !!clarificationRequest &&
+    !!(task?.session_id || task?.id) &&
+    waitingForClarificationByStep &&
+    task?.phase === "Complete";
   const inputLockedByCredential = showPasswordPrompt || showClarificationPrompt;
   const gateInfo = task?.gate_info
     ? task.gate_info
@@ -874,19 +890,17 @@ export function SpotlightWindow({ variant = "overlay" }: SpotlightWindowProps) {
         };
       }
 
-      const thoughtCount = thoughtAgents.filter(
-        (agent) => agent.stepIndex >= window.startStep && agent.stepIndex <= window.endStep,
-      ).length;
+      const windowEvents = activeEvents.filter((event) => eventInTurnWindow(event, window));
+      const stepIndexes = new Set(windowEvents.map((event) => event.step_index));
+      const thoughtCount = thoughtAgents.filter((agent) => stepIndexes.has(agent.stepIndex)).length;
       const sourceCount = Math.max(
-        searches
-          .filter((row) => row.stepIndex >= window.startStep && row.stepIndex <= window.endStep)
-          .reduce((sum, row) => sum + Math.max(0, row.resultCount), 0),
-        browses.filter((row) => row.stepIndex >= window.startStep && row.stepIndex <= window.endStep)
-          .length,
+        searches.filter((row) => stepIndexes.has(row.stepIndex)).reduce(
+          (sum, row) => sum + Math.max(0, row.resultCount),
+          0,
+        ),
+        browses.filter((row) => stepIndexes.has(row.stepIndex)).length,
       );
-      const kernelEventCount = activeEvents.filter(
-        (event) => event.event_type !== "INFO_NOTE" && eventInTurnWindow(event, window),
-      ).length;
+      const kernelEventCount = windowEvents.filter((event) => event.event_type !== "INFO_NOTE").length;
       const defaultView: ArtifactHubViewKey =
         thoughtCount > 0 ? "thoughts" : sourceCount > 0 ? "sources" : "kernel_logs";
 

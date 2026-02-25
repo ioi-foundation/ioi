@@ -17,15 +17,42 @@ pub(super) fn now_iso() -> String {
     chrono::Utc::now().to_rfc3339()
 }
 
-pub(super) fn thread_id_from_session(app: &tauri::AppHandle, session_id: &str) -> String {
-    if !session_id.is_empty() {
-        return session_id.to_string();
+fn normalize_session_id(value: &str) -> String {
+    value
+        .trim()
+        .trim_start_matches("0x")
+        .replace('-', "")
+        .to_ascii_lowercase()
+}
+
+pub(super) fn bind_task_session(task: &mut AgentTask, incoming_session_id: &str) {
+    if incoming_session_id.trim().is_empty() {
+        return;
     }
+
+    match task.session_id.as_deref() {
+        None => {
+            task.session_id = Some(incoming_session_id.to_string());
+        }
+        Some(existing) => {
+            let existing_norm = normalize_session_id(existing);
+            let incoming_norm = normalize_session_id(incoming_session_id);
+            if existing_norm.is_empty() || existing_norm == incoming_norm {
+                task.session_id = Some(incoming_session_id.to_string());
+            }
+        }
+    }
+}
+
+pub(super) fn thread_id_from_session(app: &tauri::AppHandle, session_id: &str) -> String {
     let state = app.state::<Mutex<AppState>>();
     if let Ok(guard) = state.lock() {
         if let Some(task) = &guard.current_task {
             return task.session_id.clone().unwrap_or_else(|| task.id.clone());
         }
+    }
+    if !session_id.is_empty() {
+        return session_id.to_string();
     }
     "unknown-thread".to_string()
 }
@@ -252,6 +279,9 @@ pub(super) fn is_hard_terminal_task(task: &AgentTask) -> bool {
     }
     if task.phase != AgentPhase::Complete {
         return false;
+    }
+    if task.current_step.eq_ignore_ascii_case("Ready for input") {
+        return true;
     }
     if task.current_step.eq_ignore_ascii_case("Task completed") {
         return true;

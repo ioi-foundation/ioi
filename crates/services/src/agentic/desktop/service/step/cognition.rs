@@ -441,13 +441,12 @@ OPERATING RULES:
 8c. PACKAGE INSTALL RULE: Only use `sys__install_package` when the user explicitly asked to install something.
 8d. BROWSER RESILIENCE RULE: If `browser__navigate` fails with CDP/connection errors, retry `browser__navigate` once. If it still fails, switch to visual tools.
 8e. SHELL CONTINUITY RULE: For command workflows with more than one command step (build/test/install sequences, iterative probing), prefer `sys__exec_session` for continuity. Use `sys__exec_session_reset` only when output indicates the session is wedged.
-9. APP LAUNCH RULE: To open applications, ALWAYS prefer `os__launch_app`.
-   - It handles system paths automatically (e.g. finds 'Calculator' on Mac/Linux/Windows).
-   - ONLY if that fails should you try `ui__find` to locate the icon visually and click it.
+9. APP LAUNCH RULE: To open applications, use `os__launch_app` as the primary launch mechanism whenever it is available in TOOLS.
+   - If `os__launch_app` is unavailable, choose the best equivalent launch-capable tool available in the current scope and continue execution.
+   - Treat `system__fail` as a last resort only when no available tool can perform app launch in the current scope.
    - APP LAUNCH VERIFICATION: After launching, verify the app is actually open/focused before calling `agent__complete`.
-     If launch cannot be verified, treat it as failure and continue recovery instead of claiming success.
+     If launch cannot be verified, mark the launch as failed and continue recovery.
    - NEVER try to click random ID #1 (the background) hoping it opens a menu.
-   - RECOVERY HINT: If 'sys__exec' previously failed due to missing capabilities, check if you have been escalated. If so, 'os__launch_app' is your best option.
 10. DELEGATION RULE: Do NOT use 'agent__delegate' for simple, atomic actions like opening an app, clicking a button, or typing text. Use the direct tool.
 11. CAPABILITY CHECK: If a preferred tool is unavailable, first use an equivalent available tool (e.g. use `gui__click_element` when `computer` is unavailable). Only call `system__fail` when no equivalent tool can achieve the action.
 12. CHAT RULE: Do NOT use 'chat__reply' to announce planned actions (e.g. \"I will now open...\"). Use chat only for final user-facing answers or explicit clarification requests.
@@ -455,7 +454,7 @@ OPERATING RULES:
 14. CONTEXT SWITCHING RULE: Check the 'Active Window' in the state above.
     - If Active Window is 'Calculator' (or any non-browser app), DO NOT use 'browser__*' tools. Use `gui__click_element` first, then `computer.left_click` if needed.
     - If Active Window is 'Chrome' or 'Firefox', prefer 'browser__*' tools for web interaction.
- 15. SILENT EXECUTION: For action intents (web/ui/workspace/command), execute the action immediately. For conversation intents (summarize/draft/reply), use `chat__reply` with the requested output instead of forcing tool actions.
+ 15. SILENT EXECUTION: For action intents (web/ui/workspace/command), execute the action immediately. For conversation intents (summarize/draft/reply), use `chat__reply` with the requested output.
  16. SEARCH COMPLETION RULE: For search intents, do `web__search` first. If needed, follow with `web__read` on 1-3 top sources. For the final answer, use `chat__reply` with concise synthesis, citations, and absolute dates.
  17. COMMAND PROBE RULE: If resolved intent_id is `command.probe`, treat this as an environment check (not an install task).
      - Use `sys__exec` with a POSIX-sh-safe probe that exits 0 whether the command exists or not.
@@ -463,7 +462,8 @@ OPERATING RULES:
      - Treat `NOT_FOUND_IN_PATH` as a valid final answer (not an error or failure mode).
      - After the probe, summarize `FOUND:`/`NOT_FOUND_IN_PATH` and finish with `agent__complete` (do not attempt remediation).
      - Do NOT install packages unless the user explicitly asked to install.
-     - Example (replace <BIN>): `if command -v <BIN> >/dev/null 2>&1; then echo \"FOUND: $(command -v <BIN>)\"; <BIN> --version 2>/dev/null || true; else echo \"NOT_FOUND_IN_PATH\"; fi`.",
+     - Example (replace <BIN>): `if command -v <BIN> >/dev/null 2>&1; then echo \"FOUND: $(command -v <BIN>)\"; <BIN> --version 2>/dev/null || true; else echo \"NOT_FOUND_IN_PATH\"; fi`.
+ 18. MATH RULE: For pure arithmetic expressions or numeric calculations (for example `247 * 38`), use `math__eval` when available. Do NOT use `sys__exec`/`sys__exec_session` for arithmetic-only tasks.",
         perception.active_window_title,
         agent_state.goal,
         resolved_intent_summary,

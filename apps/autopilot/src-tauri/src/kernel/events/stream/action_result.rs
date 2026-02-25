@@ -4,7 +4,7 @@ use crate::kernel::events::emission::{
     emit_code_search, emit_command_run, emit_file_edit, emit_test_run, register_event,
 };
 use crate::kernel::events::support::{
-    clarification_prompt_for_preset, clarification_wait_step_for_preset,
+    bind_task_session, clarification_prompt_for_preset, clarification_wait_step_for_preset,
     detect_clarification_preset, event_status_from_agent_status, event_type_for_tool,
     is_hard_terminal_task, is_identity_resolution_kind, is_install_package_tool,
     is_sudo_password_required_install, is_waiting_for_identity_clarification_step,
@@ -139,17 +139,17 @@ pub(super) async fn handle_action_result(app: &tauri::AppHandle, res: AgentActio
         return;
     }
 
+    let mut accepted_for_processing = false;
     update_task_state(app, |t| {
         let dedup_key = format!("{}:{}", res.step_index, res.tool_name);
         if t.processed_steps.contains(&dedup_key) {
             return;
         }
         t.processed_steps.insert(dedup_key);
+        accepted_for_processing = true;
 
         t.current_step = format!("Executed {}: {}", res.tool_name, res.output);
-        if !res.session_id.is_empty() {
-            t.session_id = Some(res.session_id.clone());
-        }
+        bind_task_session(t, &res.session_id);
 
         if let Some(agent) = t.swarm_tree.iter_mut().find(|a| a.id == res.session_id) {
             agent.artifacts_produced += 1;
@@ -346,7 +346,7 @@ pub(super) async fn handle_action_result(app: &tauri::AppHandle, res: AgentActio
         }
 
         if is_chat_reply_tool(&res.tool_name) {
-            if res.agent_status == "Paused" {
+            if res.agent_status != "Failed" {
                 t.phase = AgentPhase::Complete;
                 t.current_step = "Ready for input".to_string();
             }
@@ -378,6 +378,9 @@ pub(super) async fn handle_action_result(app: &tauri::AppHandle, res: AgentActio
             });
         }
     });
+    if !accepted_for_processing {
+        return;
+    }
 
     let thread_id = thread_id_from_session(&app, &res.session_id);
     let kind = event_type_for_tool(&res.tool_name);

@@ -422,6 +422,42 @@ pub fn default_service_policies() -> BTreeMap<String, ServicePolicy> {
         },
     );
 
+    // Wallet Network
+    let mut wallet_methods = BTreeMap::new();
+    for method in [
+        "issue_session_grant@v1",
+        "store_secret_record@v1",
+        "mail_connector_upsert@v1",
+        "mail_connector_get@v1",
+        "open_channel_init@v1",
+        "open_channel_try@v1",
+        "open_channel_ack@v1",
+        "open_channel_confirm@v1",
+        "issue_session_lease@v1",
+        "mail_read_latest@v1",
+        "mail_list_recent@v1",
+        "mailbox_total_count@v1",
+        "mail_delete_spam@v1",
+        "mail_reply@v1",
+        "commit_receipt_root@v1",
+        "close_channel@v1",
+        "record_secret_injection_request@v1",
+        "grant_secret_injection@v1",
+        "record_interception@v1",
+        "record_approval@v1",
+        "consume_approval_token@v1",
+        "panic_stop@v1",
+    ] {
+        wallet_methods.insert(method.to_string(), MethodPermission::User);
+    }
+    map.insert(
+        "wallet_network".to_string(),
+        ServicePolicy {
+            methods: wallet_methods,
+            allowed_system_prefixes: vec![],
+        },
+    );
+
     map
 }
 

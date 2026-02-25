@@ -90,8 +90,10 @@ pub(super) fn infer_custom_tool_name(name: &str, args: &serde_json::Value) -> St
     match name {
         "ui::find" => "ui__find".to_string(),
         "os::focus" => "os__focus_window".to_string(),
+        "os::launch_app" => "os__launch_app".to_string(),
         "clipboard::write" => "os__copy".to_string(),
         "clipboard::read" => "os__paste".to_string(),
+        "math::eval" => "math__eval".to_string(),
         "computer::cursor" => "computer".to_string(),
         "fs::read" => infer_fs_read_tool_name(args).to_string(),
         "fs::write" => infer_fs_write_tool_name(args).to_string(),

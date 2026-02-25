@@ -3,11 +3,28 @@ use crate::agentic::desktop::service::step::action::command_contract::{
 };
 use crate::agentic::desktop::types::CommandExecution;
 use ioi_types::app::agentic::AgentTool;
+use std::collections::VecDeque;
 
 pub(super) fn duplicate_command_execution_summary(tool: &AgentTool) -> String {
     let _ = tool;
     "Duplicate command action was blocked because it was already executed in this run. Select a new action, verify postconditions, or finalize with evidence."
         .to_string()
+}
+
+pub(super) fn find_matching_command_history_entry<'a>(
+    tool: &AgentTool,
+    history: &'a VecDeque<CommandExecution>,
+) -> Option<&'a CommandExecution> {
+    let command_preview = match tool {
+        AgentTool::SysExec { command, args, .. } => render_command_preview(command, args),
+        AgentTool::SysExecSession { command, args, .. } => render_command_preview(command, args),
+        _ => return None,
+    };
+
+    history
+        .iter()
+        .rev()
+        .find(|entry| entry.exit_code == 0 && commands_equivalent(&command_preview, &entry.command))
 }
 
 pub(super) fn duplicate_command_completion_summary(
@@ -53,6 +70,124 @@ pub(super) fn duplicate_command_completion_summary(
     ))
 }
 
+pub(super) fn duplicate_command_cached_success_summary(
+    tool: &AgentTool,
+    history_entry: Option<&CommandExecution>,
+) -> Option<String> {
+    let command_preview = match tool {
+        AgentTool::SysExec {
+            command,
+            args,
+            detach,
+            ..
+        } => {
+            if *detach {
+                return None;
+            }
+            render_command_preview(command, args)
+        }
+        AgentTool::SysExecSession { command, args, .. } => render_command_preview(command, args),
+        _ => return None,
+    };
+
+    let entry = history_entry?;
+    if entry.exit_code != 0 {
+        return None;
+    }
+
+    // Reuse only read/probe commands to avoid masking side-effecting workflows.
+    if !is_safe_read_probe_command(&command_preview) {
+        return None;
+    }
+
+    if !commands_equivalent(&command_preview, &entry.command) {
+        return None;
+    }
+
+    let run_timestamp_utc = format_utc_rfc3339(entry.timestamp_ms)?;
+    let stdout = entry.stdout.trim();
+    let stderr = entry.stderr.trim();
+    let mut summary = format!(
+        "Reused prior successful command result for '{}'.\nRun timestamp (UTC): {}",
+        command_preview, run_timestamp_utc
+    );
+    if !stdout.is_empty() {
+        summary.push_str(&format!("\nStdout: {}", stdout));
+    }
+    if !stderr.is_empty() {
+        summary.push_str(&format!("\nStderr: {}", stderr));
+    }
+    Some(summary)
+}
+
+pub(super) fn duplicate_command_cached_completion_summary(
+    tool: &AgentTool,
+    history_entry: Option<&CommandExecution>,
+) -> Option<String> {
+    // Reuse eligibility checks from cached-success path.
+    let _ = duplicate_command_cached_success_summary(tool, history_entry)?;
+    let entry = history_entry?;
+    preferred_cached_completion_line(&entry.stdout)
+        .or_else(|| preferred_cached_completion_line(&entry.stderr))
+        .or_else(|| duplicate_command_cached_success_summary(tool, Some(entry)))
+}
+
+fn preferred_cached_completion_line(text: &str) -> Option<String> {
+    text.lines()
+        .map(str::trim)
+        .find(|line| !line.is_empty())
+        .map(|line| line.to_string())
+}
+
+fn commands_equivalent(left: &str, right: &str) -> bool {
+    normalize_command_string(left) == normalize_command_string(right)
+}
+
+fn normalize_command_string(value: &str) -> String {
+    value.split_whitespace().collect::<Vec<_>>().join(" ")
+}
+
+fn is_safe_read_probe_command(command_preview: &str) -> bool {
+    let trimmed = command_preview.trim();
+    if trimmed.is_empty() {
+        return false;
+    }
+
+    // Reject obvious side-effect operators/chaining.
+    if trimmed.contains("&&")
+        || trimmed.contains("||")
+        || trimmed.contains(';')
+        || trimmed.contains('|')
+        || trimmed.contains('>')
+        || trimmed.contains('<')
+    {
+        return false;
+    }
+
+    let binary = trimmed
+        .split_whitespace()
+        .next()
+        .unwrap_or_default()
+        .trim_matches(|ch: char| ch == '\'' || ch == '"' || ch == '`')
+        .to_ascii_lowercase();
+
+    matches!(
+        binary.as_str(),
+        "date"
+            | "echo"
+            | "printf"
+            | "pwd"
+            | "whoami"
+            | "uname"
+            | "id"
+            | "hostname"
+            | "which"
+            | "command"
+            | "ls"
+            | "env"
+    )
+}
+
 fn extract_background_pid(stdout: &str) -> Option<String> {
     let marker_idx = stdout.find("PID:")?;
     let suffix = &stdout[marker_idx + "PID:".len()..];
@@ -65,5 +200,117 @@ fn extract_background_pid(stdout: &str) -> Option<String> {
         None
     } else {
         Some(pid)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{
+        duplicate_command_cached_completion_summary, duplicate_command_cached_success_summary,
+        duplicate_command_completion_summary, find_matching_command_history_entry,
+    };
+    use crate::agentic::desktop::types::CommandExecution;
+    use ioi_types::app::agentic::AgentTool;
+    use std::collections::VecDeque;
+
+    #[test]
+    fn duplicate_detached_timer_terminalizes() {
+        let tool = AgentTool::SysExec {
+            command: "sleep".to_string(),
+            args: vec![
+                "900".to_string(),
+                "&&".to_string(),
+                "notify-send".to_string(),
+                "Timer".to_string(),
+            ],
+            stdin: None,
+            detach: true,
+        };
+        let history = CommandExecution {
+            command: "sleep 900 && notify-send Timer".to_string(),
+            exit_code: 0,
+            stdout: "Launched background process '/bin/bash' (PID: 1234)".to_string(),
+            stderr: String::new(),
+            timestamp_ms: 1_772_000_000_000,
+            step_index: 0,
+        };
+        let summary = duplicate_command_completion_summary(&tool, Some(&history))
+            .expect("detached timer should terminalize");
+        assert!(summary.contains("Timer scheduled."));
+        assert!(summary.contains("Target UTC:"));
+    }
+
+    #[test]
+    fn duplicate_safe_probe_reuses_prior_success() {
+        let tool = AgentTool::SysExec {
+            command: "date".to_string(),
+            args: vec!["+%Y-%m-%dT%H:%M:%SZ".to_string()],
+            stdin: None,
+            detach: false,
+        };
+        let history = CommandExecution {
+            command: "date +%Y-%m-%dT%H:%M:%SZ".to_string(),
+            exit_code: 0,
+            stdout: "2026-02-25T06:13:00Z".to_string(),
+            stderr: String::new(),
+            timestamp_ms: 1_772_000_000_000,
+            step_index: 1,
+        };
+        let summary = duplicate_command_cached_success_summary(&tool, Some(&history))
+            .expect("safe probe command should reuse cached success");
+        assert!(summary.contains("Reused prior successful command result"));
+        assert!(summary.contains("Stdout: 2026-02-25T06:13:00Z"));
+    }
+
+    #[test]
+    fn duplicate_safe_probe_completion_prefers_stdout_line() {
+        let tool = AgentTool::SysExec {
+            command: "echo".to_string(),
+            args: vec!["$((247 * 38))".to_string()],
+            stdin: None,
+            detach: false,
+        };
+        let history = CommandExecution {
+            command: "echo $((247 * 38))".to_string(),
+            exit_code: 0,
+            stdout: "9386\n".to_string(),
+            stderr: String::new(),
+            timestamp_ms: 1_772_000_000_000,
+            step_index: 1,
+        };
+        let summary = duplicate_command_cached_completion_summary(&tool, Some(&history))
+            .expect("completion summary should be derived from cached stdout");
+        assert_eq!(summary, "9386");
+    }
+
+    #[test]
+    fn matching_history_entry_finds_equivalent_command() {
+        let tool = AgentTool::SysExec {
+            command: "date".to_string(),
+            args: vec!["-u".to_string()],
+            stdin: None,
+            detach: false,
+        };
+        let history = VecDeque::from(vec![
+            CommandExecution {
+                command: "sleep 900 && notify-send Timer".to_string(),
+                exit_code: 0,
+                stdout: String::new(),
+                stderr: String::new(),
+                timestamp_ms: 1_772_000_000_000,
+                step_index: 0,
+            },
+            CommandExecution {
+                command: "date -u".to_string(),
+                exit_code: 0,
+                stdout: "Wed Feb 25 07:13:57 UTC 2026".to_string(),
+                stderr: String::new(),
+                timestamp_ms: 1_772_000_001_000,
+                step_index: 1,
+            },
+        ]);
+        let matched = find_matching_command_history_entry(&tool, &history)
+            .expect("expected to find matching date -u history entry");
+        assert_eq!(matched.command, "date -u");
     }
 }

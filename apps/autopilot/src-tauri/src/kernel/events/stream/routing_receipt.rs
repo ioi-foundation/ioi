@@ -2,9 +2,10 @@ use crate::kernel::artifacts as artifact_store;
 use crate::kernel::events::clarification::build_clarification_request_with_inference;
 use crate::kernel::events::emission::{emit_receipt_digest, register_artifact, register_event};
 use crate::kernel::events::support::{
-    clarification_preset_for_tool, is_hard_terminal_task, is_identity_resolution_kind,
-    is_install_package_tool, is_waiting_for_identity_clarification_step, thread_id_from_session,
-    ClarificationPreset, CLARIFICATION_WAIT_STEP,
+    bind_task_session, clarification_preset_for_tool, is_hard_terminal_task,
+    is_identity_resolution_kind, is_install_package_tool,
+    is_waiting_for_identity_clarification_step, thread_id_from_session, ClarificationPreset,
+    CLARIFICATION_WAIT_STEP,
 };
 use crate::kernel::state::update_task_state;
 use crate::models::AppState;
@@ -86,11 +87,7 @@ pub(super) async fn handle_routing_receipt(app: &tauri::AppHandle, receipt: Rout
             Ok(guard) => guard
                 .current_task
                 .as_ref()
-                .map(|task| {
-                    is_hard_terminal_task(task)
-                        && !receipt_waiting_for_sudo
-                        && !receipt_waiting_for_clarification
-                })
+                .map(is_hard_terminal_task)
                 .unwrap_or(false),
             Err(_) => false,
         };
@@ -180,15 +177,15 @@ pub(super) async fn handle_routing_receipt(app: &tauri::AppHandle, receipt: Rout
     }
     summary.push_str(&format!(", verify=[{}]", verification));
 
+    let mut accepted_for_processing = false;
     update_task_state(app, |t| {
         if t.processed_steps.contains(&receipt_dedup_key) {
             return;
         }
         t.processed_steps.insert(receipt_dedup_key.clone());
+        accepted_for_processing = true;
 
-        if !receipt.session_id.is_empty() {
-            t.session_id = Some(receipt.session_id.clone());
-        }
+        bind_task_session(t, &receipt.session_id);
 
         let waiting_for_sudo = t
             .credential_request
@@ -272,6 +269,9 @@ pub(super) async fn handle_routing_receipt(app: &tauri::AppHandle, receipt: Rout
             timestamp: crate::kernel::state::now(),
         });
     });
+    if !accepted_for_processing {
+        return;
+    }
 
     let thread_id = thread_id_from_session(&app, &receipt.session_id);
     let receipt_id = format!("{}:{}:{}", thread_id, receipt.step_index, receipt.tool_name);

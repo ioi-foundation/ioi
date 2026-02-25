@@ -138,6 +138,13 @@ pub fn default_safe_policy() -> ActionRules {
                 conditions: Default::default(),
                 action: Verdict::Allow,
             },
+            // Deterministic local arithmetic evaluation.
+            Rule {
+                rule_id: Some("allow-math-eval".into()),
+                target: "math::eval".into(),
+                conditions: Default::default(),
+                action: Verdict::Allow,
+            },
             // [NEW] Allow Echo for testing/feedback
             // The PolicyEngine's internal allowlist ensures this is safe (only allows safe commands)
             Rule {
@@ -271,7 +278,8 @@ pub fn should_auto_complete_open_app_goal(
 mod tests {
     use super::{
         default_safe_policy, is_live_external_research_goal, is_mailbox_connector_goal,
-        should_auto_complete_open_app_goal, LIVE_EXTERNAL_RESEARCH_SIGNAL_VERSION,
+        should_auto_complete_open_app_goal,
+        LIVE_EXTERNAL_RESEARCH_SIGNAL_VERSION,
     };
 
     #[test]
@@ -350,5 +358,14 @@ mod tests {
         assert!(!is_mailbox_connector_goal(
             "Find the latest cloud outage updates with citations"
         ));
+    }
+
+    #[test]
+    fn default_safe_policy_uses_current_intent_matrix_version() {
+        let upgraded = default_safe_policy();
+        assert_eq!(
+            upgraded.ontology_policy.intent_routing.matrix_version,
+            "intent-matrix-v11"
+        );
     }
 }

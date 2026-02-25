@@ -503,6 +503,9 @@ pub fn infer_intent_surface(
     if tool.contains("chat__reply") {
         return IntentSurface::Conversation;
     }
+    if tool.contains("math__eval") {
+        return IntentSurface::Conversation;
+    }
     if tool.contains("os__launch_app") {
         return IntentSurface::AppLaunch;
     }

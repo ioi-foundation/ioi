@@ -39,6 +39,7 @@ pub(super) fn is_deterministic_tool_name(name: &str) -> bool {
             | "os__copy"
             | "os__paste"
             | "os__launch_app"
+            | "math__eval"
             | "chat__reply"
             | "agent__delegate"
             | "agent__await_result"

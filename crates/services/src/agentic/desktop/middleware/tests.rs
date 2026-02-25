@@ -135,6 +135,16 @@ fn test_infer_sys_exec_flat() {
 }
 
 #[test]
+fn test_infer_agent_complete_from_result_only_payload() {
+    let input = r#"{"result":"Timer has been scheduled."}"#;
+    let tool = ToolNormalizer::normalize(input).unwrap();
+    match tool {
+        AgentTool::AgentComplete { result } => assert_eq!(result, "Timer has been scheduled."),
+        other => panic!("Expected AgentComplete, got {:?}", other),
+    }
+}
+
+#[test]
 fn test_schema_violation_for_builtin_tool_is_rejected() {
     // Missing required field for deterministic tool name should be a hard schema error
     // (not `Dynamic` fallback routed to MCP).
