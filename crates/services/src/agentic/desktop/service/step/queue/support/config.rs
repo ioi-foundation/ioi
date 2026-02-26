@@ -62,7 +62,7 @@ pub(crate) const LOCALITY_SCOPE_MAX_CHARS: usize = 96;
 pub(crate) const LOCALITY_SCOPE_TOKEN_MAX_CHARS: usize = 24;
 pub(crate) const LOCALITY_INFERENCE_MIN_SUPPORT: usize = 2;
 pub(crate) const LOCALITY_INFERENCE_MAX_TOKENS: usize = 4;
-pub(crate) const QUERY_COMPATIBILITY_STOPWORDS: [&str; 49] = [
+pub(crate) const QUERY_COMPATIBILITY_STOPWORDS: [&str; 50] = [
     "a",
     "an",
     "the",
@@ -92,6 +92,7 @@ pub(crate) const QUERY_COMPATIBILITY_STOPWORDS: [&str; 49] = [
     "active",
     "current",
     "currently",
+    "like",
     "latest",
     "today",
     "change",
