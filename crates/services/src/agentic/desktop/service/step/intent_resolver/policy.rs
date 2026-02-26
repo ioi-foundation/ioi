@@ -58,6 +58,7 @@ pub(super) fn query_binding_for_intent(entry: &IntentMatrixEntry) -> IntentQuery
     match entry.intent_id.as_str() {
         "system.clock.read" => IntentQueryBindingClass::HostLocal,
         "web.research" => IntentQueryBindingClass::RemotePublicFact,
+        "app.launch" => IntentQueryBindingClass::AppLaunchDirected,
         "command.exec" => IntentQueryBindingClass::CommandDirected,
         "ui.interaction" => IntentQueryBindingClass::DirectUiInput,
         "ui.capture_screenshot" => IntentQueryBindingClass::DesktopScreenshot,
@@ -147,6 +148,39 @@ pub(super) fn query_expresses_command_execution_intent(
         || query_has_timer_scheduling_shape(query)
 }
 
+pub(super) fn query_explicitly_mentions_app_target(query: &str) -> bool {
+    let padded = format!(" {} ", query.to_ascii_lowercase());
+    const APP_TARGET_MARKERS: [&str; 10] = [
+        " app ",
+        " application ",
+        " program ",
+        " calculator ",
+        " browser ",
+        " chrome ",
+        " firefox ",
+        " safari ",
+        " terminal ",
+        " settings ",
+    ];
+    APP_TARGET_MARKERS
+        .iter()
+        .any(|marker| padded.contains(marker))
+}
+
+pub(super) fn query_expresses_app_launch_intent(
+    query: &str,
+    query_facets: &QueryFacetProfile,
+) -> bool {
+    if query_requests_desktop_screenshot(query) || query_facets.goal.launch_hits == 0 {
+        return false;
+    }
+
+    // Keep app launch from hijacking file/command workflows unless the user explicitly
+    // identifies an application target.
+    let command_directed = query_expresses_command_execution_intent(query, query_facets);
+    !command_directed || query_explicitly_mentions_app_target(query)
+}
+
 pub(super) fn query_expresses_direct_ui_input(
     query: &str,
     query_facets: &QueryFacetProfile,
@@ -172,6 +206,9 @@ pub(super) fn query_binding_satisfied(
         }
         IntentQueryBindingClass::RemotePublicFact => {
             query_requires_remote_public_fact_grounding(query_facets)
+        }
+        IntentQueryBindingClass::AppLaunchDirected => {
+            query_expresses_app_launch_intent(query, query_facets)
         }
         IntentQueryBindingClass::CommandDirected => {
             query_expresses_command_execution_intent(query, query_facets)

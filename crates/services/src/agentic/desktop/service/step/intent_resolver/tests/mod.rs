@@ -452,6 +452,50 @@ impl InferenceRuntime for LaunchVsUiRuntime {
     }
 }
 
+#[derive(Debug, Default, Clone)]
+struct DesktopFolderSkewedRuntime;
+
+#[async_trait]
+impl InferenceRuntime for DesktopFolderSkewedRuntime {
+    async fn execute_inference(
+        &self,
+        _model_hash: [u8; 32],
+        _input_context: &[u8],
+        _options: InferenceOptions,
+    ) -> Result<Vec<u8>, VmError> {
+        Ok(Vec::new())
+    }
+
+    async fn embed_text(&self, text: &str) -> Result<Vec<f32>, VmError> {
+        let text_lc = text.to_ascii_lowercase();
+
+        if text_lc.contains("open launch start or foreground") {
+            return Ok(vec![10.0, 10.0]);
+        }
+        if text_lc.contains("execute local shell or terminal commands") {
+            return Ok(vec![10.0, 8.0]);
+        }
+        if text_lc.contains("inspect and modify files in the local workspace") {
+            return Ok(vec![2.0, 10.0]);
+        }
+        if text_lc.contains("create a new folder on my desktop called") {
+            // Deliberately skew toward app.launch so query-binding constraints must
+            // enforce feasibility and route to command.exec.
+            return Ok(vec![10.0, 10.0]);
+        }
+
+        Ok(vec![0.1, 0.1])
+    }
+
+    async fn load_model(&self, _model_hash: [u8; 32], _path: &Path) -> Result<(), VmError> {
+        Ok(())
+    }
+
+    async fn unload_model(&self, _model_hash: [u8; 32]) -> Result<(), VmError> {
+        Ok(())
+    }
+}
+
 fn test_agent_state() -> AgentState {
     AgentState {
         session_id: [0u8; 32],
@@ -896,6 +940,38 @@ async fn resolver_routes_open_calculator_to_app_launch_scope() {
     assert_eq!(resolved.intent_id, "app.launch");
     assert_eq!(resolved.scope, IntentScopeProfile::AppLaunch);
     assert_ne!(resolved.intent_id, "math.eval");
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn resolver_routes_desktop_folder_creation_to_command_exec_not_app_launch() {
+    let gui: Arc<dyn GuiDriver> = Arc::new(NoopGuiDriver);
+    let terminal = Arc::new(TerminalDriver::new());
+    let browser = Arc::new(BrowserDriver::new());
+    let inference: Arc<dyn InferenceRuntime> = Arc::new(DesktopFolderSkewedRuntime);
+    let service = DesktopAgentService::new(gui, terminal, browser, inference);
+
+    let mut agent_state = test_agent_state();
+    agent_state.goal =
+        "Create a new folder on my desktop called \"Project <some_number>\"".to_string();
+
+    let mut rules = ActionRules::default();
+    rules.ontology_policy.intent_routing.matrix_version =
+        "intent-matrix-v13-desktop-folder-command-exec-test".into();
+    rules.ontology_policy.intent_routing.matrix = rules
+        .ontology_policy
+        .intent_routing
+        .matrix
+        .iter()
+        .filter(|entry| matches!(entry.intent_id.as_str(), "app.launch" | "command.exec"))
+        .cloned()
+        .collect();
+    let resolved = resolve_step_intent(&service, &agent_state, &rules, "terminal")
+        .await
+        .unwrap();
+
+    assert_eq!(resolved.intent_id, "command.exec");
+    assert_eq!(resolved.scope, IntentScopeProfile::CommandExecution);
+    assert_ne!(resolved.intent_id, "app.launch");
 }
 
 #[tokio::test(flavor = "current_thread")]

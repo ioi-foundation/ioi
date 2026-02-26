@@ -75,6 +75,7 @@ pub async fn run_arbiter(
             "completed": observation.completed,
             "failed": observation.failed,
             "final_status": observation.final_status,
+            "paused_retry_blocked_unexpected_state": is_retry_blocked_unexpected_state(observation),
             "elapsed_ms": observation.elapsed_ms,
             "chat_reply_count": observation.chat_reply_count,
         },
@@ -154,7 +155,7 @@ Return JSON only with exact schema:\n\
 {{\"pass\":bool,\"confidence\":\"high|medium|low\",\"score\":number,\"rationale\":string,\"failures\":[string]}}\n\
 Rules:\n\
 1) Judge whether the query objective was successfully completed in this run.\n\
-2) `completion.completed=false` should be pass=false.\n\
+2) `completion.completed=false` should generally be pass=false, unless there is strong local runtime evidence and `completion.paused_retry_blocked_unexpected_state=true` with no contract failure markers.\n\
 3) Empty `final_reply_excerpt` can still pass when action/tool evidence clearly contains the successful outcome (for example math/system/app actions).\n\
 4) Treat local_judge checks as strong runtime evidence, but you may override only with clear contrary evidence.\n\
 5) `score` must be in [0,1].\n\
@@ -275,10 +276,13 @@ Payload:\n{}",
         }
     }
 
+    let completion_or_retry_blocked =
+        observation.completed || (is_retry_blocked_unexpected_state(observation) && local.pass);
+
     if !is_strict_arbiter_case(case.id)
         && local.pass
         && local.failures.is_empty()
-        && observation.completed
+        && completion_or_retry_blocked
         && !observation.failed
         && !contract_failure_marker
     {
@@ -316,6 +320,13 @@ Payload:\n{}",
     }
 
     Ok(verdict)
+}
+
+fn is_retry_blocked_unexpected_state(observation: &RunObservation) -> bool {
+    observation
+        .final_status
+        .to_ascii_lowercase()
+        .contains("retry blocked: unchanged attemptkey for unexpectedstate")
 }
 
 fn extract_json_object(raw: &str) -> Option<&str> {
