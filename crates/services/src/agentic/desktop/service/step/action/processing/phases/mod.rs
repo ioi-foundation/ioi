@@ -1,11 +1,11 @@
 use super::*;
 
 mod apply_post_execution_guards;
-mod execute_non_mailbox_tool;
+mod execute_non_mailbox_tools;
 mod finalize_action_processing;
 
 pub(super) use apply_post_execution_guards::apply_post_execution_guards;
-pub(super) use execute_non_mailbox_tool::execute_non_mailbox_tool;
+pub(super) use execute_non_mailbox_tools::execute_non_mailbox_tools;
 pub(super) use finalize_action_processing::finalize_action_processing;
 
 pub(super) struct ActionProcessingState {

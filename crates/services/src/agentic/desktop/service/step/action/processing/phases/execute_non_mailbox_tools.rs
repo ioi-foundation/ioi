@@ -147,7 +147,7 @@ fn emit_completion_gate_violation_events(
     }
 }
 
-pub(crate) async fn execute_non_mailbox_tool(
+pub(crate) async fn execute_non_mailbox_tools(
     ctx: ExecuteNonMailboxToolContext<'_, '_>,
     state_in: ActionProcessingState,
 ) -> Result<ActionProcessingState, TransactionError> {
