@@ -185,9 +185,8 @@ fn seeded_required_capabilities(scope: IntentScopeProfile) -> Vec<CapabilityId> 
             CapabilityId::from("conversation.reply"),
         ],
         IntentScopeProfile::UiInteraction => vec![
-            CapabilityId::from("gui.click"),
-            CapabilityId::from("gui.type"),
-            CapabilityId::from("gui.snapshot"),
+            CapabilityId::from("ui.interact"),
+            CapabilityId::from("ui.inspect"),
             CapabilityId::from("conversation.reply"),
         ],
         IntentScopeProfile::CommandExecution => vec![
@@ -428,7 +427,7 @@ pub async fn run_case(
     let started = Instant::now();
     let deadline = Duration::from_secs(case.sla_seconds);
     let mut captured_events: Vec<KernelEvent> = Vec::new();
-    let mut human_intervention_pause: Option<String> = None;
+    let mut paused_reason: Option<String> = None;
 
     loop {
         drain_events(&mut event_rx, &mut captured_events);
@@ -446,10 +445,8 @@ pub async fn run_case(
         match &current.status {
             AgentStatus::Running => {}
             AgentStatus::Paused(reason) => {
-                if requires_human_intervention(reason) {
-                    human_intervention_pause = Some(reason.clone());
-                    break;
-                }
+                paused_reason = Some(reason.clone());
+                break;
             }
             AgentStatus::Idle | AgentStatus::Terminated => {
                 break;
@@ -527,9 +524,13 @@ pub async fn run_case(
         }
     }
 
-    if let Some(reason) = human_intervention_pause {
-        approval_required_events = approval_required_events.saturating_add(1);
-        verification_checks.insert(format!("human_intervention_pause_reason={}", reason));
+    if let Some(reason) = paused_reason {
+        if requires_human_intervention(&reason) {
+            approval_required_events = approval_required_events.saturating_add(1);
+            verification_checks.insert(format!("human_intervention_pause_reason={}", reason));
+        } else {
+            verification_checks.insert(format!("terminal_pause_reason={}", reason));
+        }
     }
 
     let event_excerpt = captured_events
