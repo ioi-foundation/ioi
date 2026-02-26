@@ -88,8 +88,8 @@ use self::duplicate_guard::{
     find_matching_command_history_entry,
 };
 use self::phases::{
-    apply_post_execution_guards, execute_non_mailbox_tools, finalize_action_processing,
-    ActionProcessingState, ApplyPostExecutionGuardsContext, ExecuteNonMailboxToolContext,
+    apply_post_execution_guards, execute_tool_phase, finalize_action_processing,
+    ActionProcessingState, ApplyPostExecutionGuardsContext, ExecuteToolPhaseContext,
     FinalizeActionProcessingContext,
 };
 use self::web_helpers::{
@@ -282,8 +282,8 @@ pub async fn process_tool_output(
                     .verification_checks
                     .push("terminal_chat_reply_ready=true".to_string());
             } else {
-                processing_state = execute_non_mailbox_tools(
-                    ExecuteNonMailboxToolContext {
+                processing_state = execute_tool_phase(
+                    ExecuteToolPhaseContext {
                         service,
                         state,
                         agent_state,
