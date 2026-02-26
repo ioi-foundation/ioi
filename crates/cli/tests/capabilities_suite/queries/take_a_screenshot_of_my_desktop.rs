@@ -1,0 +1,240 @@
+use ioi_types::app::agentic::IntentScopeProfile;
+use serde::Serialize;
+
+use super::super::types::{
+    has_tool_with_token, truncate_chars, LocalCheck, LocalJudgeResult, QueryCase, RunObservation,
+};
+
+#[derive(Debug, Clone, Serialize)]
+struct EnvironmentEvidenceReceipt {
+    key: &'static str,
+    observed_value: String,
+    probe_source: &'static str,
+    timestamp_ms: u64,
+    satisfied: bool,
+}
+
+pub fn case() -> QueryCase {
+    QueryCase {
+        id: "take_a_screenshot_of_my_desktop",
+        query: "Take a screenshot of my desktop.",
+        success_definition: "Capture a desktop screenshot through the GUI screenshot pathway and complete without contract or policy failures.",
+        intent_scope: IntentScopeProfile::UiInteraction,
+        expected_pass: true,
+        sla_seconds: 45,
+        max_steps: 10,
+        min_local_score: 1.0,
+        local_sniff: evaluate,
+    }
+}
+
+fn evaluate(obs: &RunObservation) -> LocalJudgeResult {
+    let computer_screenshot_success_count = obs
+        .action_evidence
+        .iter()
+        .filter(|entry| is_computer_screenshot_success_event(entry))
+        .count();
+    let gui_snapshot_count = obs
+        .action_evidence
+        .iter()
+        .filter(|entry| is_gui_snapshot_event(entry))
+        .count();
+    let capture_action_count = computer_screenshot_success_count + gui_snapshot_count;
+    let capture_output_failures = obs
+        .action_evidence
+        .iter()
+        .filter(|entry| is_capture_action(entry) && capture_action_failed(entry))
+        .count();
+    let paused_retry_blocked = obs
+        .final_status
+        .to_ascii_lowercase()
+        .contains("retry blocked: unchanged attemptkey for unexpectedstate");
+    let any_contract_failure_marker = observation_has_contract_failure_marker(obs);
+    let completion_channel_present =
+        (obs.completed && (!obs.final_reply.trim().is_empty() || capture_action_count > 0))
+            || (paused_retry_blocked
+                && capture_action_count > 0
+                && !any_contract_failure_marker);
+    let action_path_seen = has_capture_path_signal(&obs.action_tools);
+    let routing_path_seen = has_capture_path_signal(&obs.routing_tools);
+    let policy_decision_allow = obs.verification_checks.iter().any(|check| {
+        check.eq_ignore_ascii_case("policy_decision=approved")
+            || check.eq_ignore_ascii_case("policy_decision=allowed")
+    });
+    let environment_receipts = build_environment_receipts(
+        obs,
+        capture_action_count,
+        capture_output_failures,
+        policy_decision_allow,
+    );
+    let environment_receipts_satisfied =
+        environment_receipts.iter().all(|receipt| receipt.satisfied);
+    let independent_evidence_channels_present =
+        capture_action_count > 0 && routing_path_seen && policy_decision_allow;
+
+    let checks = vec![
+        LocalCheck::new(
+            "completion_evidence_present",
+            completion_channel_present,
+            format!(
+                "status={} completed={} paused_retry_blocked={} reply_len={} capture_action_count={}",
+                obs.final_status,
+                obs.completed,
+                paused_retry_blocked,
+                obs.final_reply.chars().count(),
+                capture_action_count
+            ),
+        ),
+        LocalCheck::new(
+            "objective_specific_screenshot_evidence_present",
+            capture_action_count > 0,
+            format!(
+                "capture_action_count={} computer_screenshot_success_count={} gui_snapshot_count={} action_evidence_samples={:?}",
+                capture_action_count,
+                computer_screenshot_success_count,
+                gui_snapshot_count,
+                obs.action_evidence.iter().take(3).collect::<Vec<_>>()
+            ),
+        ),
+        LocalCheck::new(
+            "tool_and_route_path_evidence_present",
+            action_path_seen && routing_path_seen,
+            format!(
+                "action_tools={:?} routing_tools={:?}",
+                obs.action_tools, obs.routing_tools
+            ),
+        ),
+        LocalCheck::new(
+            "contract_failure_markers_absent",
+            !any_contract_failure_marker,
+            truncate_chars(
+                &format!(
+                    "verification_checks={:?} final_reply={} event_excerpt={:?}",
+                    obs.verification_checks, obs.final_reply, obs.event_excerpt
+                ),
+                220,
+            ),
+        ),
+        LocalCheck::new(
+            "environment_receipts_satisfied",
+            environment_receipts_satisfied,
+            serialize_environment_receipts(&environment_receipts),
+        ),
+        LocalCheck::new(
+            "independent_runtime_evidence_channels_present",
+            independent_evidence_channels_present,
+            format!(
+                "capture_action_count={} routing_path_seen={} policy_decision_allow={}",
+                capture_action_count, routing_path_seen, policy_decision_allow
+            ),
+        ),
+    ];
+
+    LocalJudgeResult::from_checks(checks)
+}
+
+fn is_computer_screenshot_success_event(entry: &super::super::types::ActionEvidence) -> bool {
+    entry.tool_name.eq_ignore_ascii_case("computer")
+        && entry.agent_status.eq_ignore_ascii_case("completed")
+        && screenshot_success_output(&entry.output_excerpt)
+}
+
+fn is_gui_snapshot_event(entry: &super::super::types::ActionEvidence) -> bool {
+    entry.tool_name.eq_ignore_ascii_case("gui__snapshot")
+}
+
+fn is_capture_action(entry: &super::super::types::ActionEvidence) -> bool {
+    entry.tool_name.eq_ignore_ascii_case("computer")
+        || entry.tool_name.eq_ignore_ascii_case("gui__snapshot")
+}
+
+fn capture_action_failed(entry: &super::super::types::ActionEvidence) -> bool {
+    entry.agent_status.eq_ignore_ascii_case("failed")
+        || has_contract_failure_marker(&entry.output_excerpt)
+}
+
+fn has_capture_path_signal(tools: &[String]) -> bool {
+    has_tool_with_token(tools, "computer") || has_tool_with_token(tools, "gui__snapshot")
+}
+
+fn screenshot_success_output(output: &str) -> bool {
+    let trimmed = output.trim();
+    trimmed == "Screenshot captured"
+        || trimmed.starts_with("Screenshot captured:")
+        || trimmed.starts_with("Screenshot captured ")
+}
+
+fn build_environment_receipts(
+    obs: &RunObservation,
+    capture_action_count: usize,
+    capture_output_failures: usize,
+    policy_decision_allow: bool,
+) -> Vec<EnvironmentEvidenceReceipt> {
+    vec![
+        EnvironmentEvidenceReceipt {
+            key: "desktop_capture_invocation",
+            observed_value: format!("capture_action_events={}", capture_action_count),
+            probe_source: "KernelEvent::AgentActionResult(tool=computer|gui__snapshot)",
+            timestamp_ms: obs.run_timestamp_ms,
+            satisfied: capture_action_count > 0,
+        },
+        EnvironmentEvidenceReceipt {
+            key: "desktop_capture_runtime_health",
+            observed_value: format!("capture_failure_markers={}", capture_output_failures),
+            probe_source: "KernelEvent::AgentActionResult.output_excerpt",
+            timestamp_ms: obs.run_timestamp_ms,
+            satisfied: capture_output_failures == 0,
+        },
+        EnvironmentEvidenceReceipt {
+            key: "desktop_capture_policy_gate",
+            observed_value: format!(
+                "policy_decision_allow={} approval_required_events={}",
+                policy_decision_allow, obs.approval_required_events
+            ),
+            probe_source: "RoutingReceipt.post_state.verification_checks",
+            timestamp_ms: obs.run_timestamp_ms,
+            satisfied: policy_decision_allow && obs.approval_required_events == 0,
+        },
+    ]
+}
+
+fn serialize_environment_receipts(receipts: &[EnvironmentEvidenceReceipt]) -> String {
+    serde_json::to_string(receipts).unwrap_or_else(|_| "[]".to_string())
+}
+
+fn observation_has_contract_failure_marker(obs: &RunObservation) -> bool {
+    let mut evidence_corpus = Vec::<String>::new();
+    evidence_corpus.push(obs.final_reply.clone());
+    evidence_corpus.extend(
+        obs.action_evidence
+            .iter()
+            .map(|entry| format!("{} {}", entry.agent_status, entry.output_excerpt)),
+    );
+    evidence_corpus.extend(obs.verification_checks.iter().cloned());
+    evidence_corpus.extend(obs.event_excerpt.iter().cloned());
+
+    evidence_corpus
+        .iter()
+        .any(|segment| has_contract_failure_marker(segment))
+}
+
+fn has_contract_failure_marker(text: &str) -> bool {
+    let lower = text.to_ascii_lowercase();
+    [
+        "execution_contract_gate_blocked=true",
+        "cec_terminal_error=true",
+        "execution contract unmet",
+        "base_error_class=executioncontractviolation",
+        "error_class=executioncontractviolation",
+        "error_class=discoverymissing",
+        "error_class=synthesisfailed",
+        "error_class=executionfailedterminal",
+        "error_class=verificationmissing",
+        "error_class=postconditionfailed",
+        "failed_stage=",
+        "missing_receipts=",
+        "missing_postconditions=",
+    ]
+    .iter()
+    .any(|marker| lower.contains(marker))
+}

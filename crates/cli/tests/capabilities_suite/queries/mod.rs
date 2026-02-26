@@ -1,6 +1,7 @@
 mod multiply_247_by_38;
 mod open_calculator_app;
 mod set_timer_15_minutes;
+mod take_a_screenshot_of_my_desktop;
 mod top_news_headlines;
 mod weather_right_now;
 mod what_time_is_it;
@@ -13,6 +14,7 @@ pub fn all_cases() -> Vec<QueryCase> {
         weather_right_now::case(),
         open_calculator_app::case(),
         set_timer_15_minutes::case(),
+        take_a_screenshot_of_my_desktop::case(),
         multiply_247_by_38::case(),
         top_news_headlines::case(),
     ];

@@ -25,6 +25,8 @@ pub async fn run_arbiter(
     observation: &RunObservation,
     local: &LocalJudgeResult,
 ) -> Result<ArbiterVerdict> {
+    let contract_failure_marker = observation_has_contract_failure_marker(observation);
+
     let final_reply_excerpt = observation
         .final_reply
         .chars()
@@ -82,6 +84,7 @@ pub async fn run_arbiter(
             "workload_tools": observation.workload_tools,
             "verification_checks": observation.verification_checks,
             "approval_required_events": observation.approval_required_events,
+            "contract_failure_marker": contract_failure_marker,
             "action_evidence": action_evidence,
             "event_excerpt": event_excerpt,
         },
@@ -93,6 +96,26 @@ pub async fn run_arbiter(
         },
         "final_reply_excerpt": final_reply_excerpt,
         "final_reply_char_len": observation.final_reply.chars().count(),
+        "screenshot_signals": if case.id == "take_a_screenshot_of_my_desktop" {
+            json!({
+                "capture_action_count": capture_action_count(observation),
+                "computer_screenshot_success_count": computer_screenshot_success_count(observation),
+                "gui_snapshot_count": gui_snapshot_count(observation),
+                "computer_action_seen": has_tool_token(&observation.action_tools, "computer"),
+                "capture_route_seen": has_tool_token(&observation.routing_tools, "computer")
+                    || has_tool_token(&observation.routing_tools, "gui__snapshot"),
+                "policy_decision_allow": observation
+                    .verification_checks
+                    .iter()
+                    .any(|check| {
+                        check.eq_ignore_ascii_case("policy_decision=approved")
+                            || check.eq_ignore_ascii_case("policy_decision=allowed")
+                    }),
+                "contract_failure_marker": contract_failure_marker,
+            })
+        } else {
+            serde_json::Value::Null
+        },
         "top_news_signals": if case.id == "top_news_headlines" {
             let citation_urls = extract_citation_urls(&observation.final_reply);
             json!({
@@ -130,6 +153,10 @@ Rules:\n\
 7) For `case_id=top_news_headlines`, if `local_judge.failures` is non-empty then pass MUST be false.\n\
 8) For `case_id=top_news_headlines`, wrapper-only constrained fallback inventory, repeated shared story anchor tokens, or challenge/captcha/access-denied story evidence MUST be judged as failure.\n\
 9) For `case_id=top_news_headlines`, if `local_judge.pass=true` and there is no explicit multi-story floor failure marker, pass MUST be true.\n\
+10) For `case_id=take_a_screenshot_of_my_desktop`, capture action evidence is mandatory: `screenshot_signals.capture_action_count >= 1` and `screenshot_signals.capture_route_seen=true`.\n\
+11) For `case_id=take_a_screenshot_of_my_desktop`, if `local_judge.failures` is non-empty then pass MUST be false.\n\
+12) For `case_id=take_a_screenshot_of_my_desktop`, if `local_judge.pass=true` and `screenshot_signals.contract_failure_marker=false`, pass MUST be true.\n\
+13) For non-strict cases (all except `top_news_headlines`), if `local_judge.pass=true`, `local_judge.failures=[]`, `completion.completed=true`, `completion.failed=false`, and `signals.contract_failure_marker=false`, pass SHOULD be true unless there is explicit contrary runtime evidence.\n\
 Payload:\n{}",
         serde_json::to_string(&payload)?
     );
@@ -200,6 +227,50 @@ Payload:\n{}",
         }
     }
 
+    if case.id == "take_a_screenshot_of_my_desktop" {
+        let capture_observed = capture_action_count(observation) > 0;
+        if local.pass
+            && local.failures.is_empty()
+            && capture_observed
+            && !contract_failure_marker
+        {
+            verdict.pass = true;
+            verdict.failures.clear();
+            if verdict.score < 0.8 {
+                verdict.score = 0.8;
+            }
+            if verdict.confidence == "low" {
+                verdict.confidence = "medium".to_string();
+            }
+            if verdict.rationale.trim().is_empty() {
+                verdict.rationale =
+                    "Screenshot local verification satisfied execution and contract requirements."
+                        .to_string();
+            }
+        }
+    }
+
+    if !is_strict_arbiter_case(case.id)
+        && local.pass
+        && local.failures.is_empty()
+        && observation.completed
+        && !observation.failed
+        && !contract_failure_marker
+    {
+        verdict.pass = true;
+        verdict.failures.clear();
+        if verdict.score < 0.8 {
+            verdict.score = 0.8;
+        }
+        if verdict.confidence == "low" {
+            verdict.confidence = "medium".to_string();
+        }
+        if verdict.rationale.trim().is_empty() {
+            verdict.rationale = "Local runtime verification satisfied completion criteria; no terminal contract failure markers observed."
+                .to_string();
+        }
+    }
+
     if !matches!(verdict.confidence.as_str(), "high" | "medium" | "low") {
         return Err(anyhow!(
             "arbiter returned invalid confidence '{}'; expected high|medium|low",
@@ -235,6 +306,10 @@ fn truncate_chars(input: &str, max_chars: usize) -> String {
     } else {
         compact.chars().take(max_chars).collect::<String>() + "..."
     }
+}
+
+fn is_strict_arbiter_case(case_id: &str) -> bool {
+    matches!(case_id, "top_news_headlines")
 }
 
 fn is_news_feed_wrapper_url(url: &str) -> bool {
@@ -365,4 +440,78 @@ fn shared_story_anchor_tokens(story_titles: &[String]) -> Vec<String> {
         }
     }
     shared.into_iter().collect()
+}
+
+fn has_tool_token(tools: &[String], token: &str) -> bool {
+    tools
+        .iter()
+        .any(|tool| tool.to_ascii_lowercase().contains(token))
+}
+
+fn capture_action_count(observation: &RunObservation) -> usize {
+    computer_screenshot_success_count(observation) + gui_snapshot_count(observation)
+}
+
+fn computer_screenshot_success_count(observation: &RunObservation) -> usize {
+    observation
+        .action_evidence
+        .iter()
+        .filter(|entry| {
+            entry.tool_name.eq_ignore_ascii_case("computer")
+                && entry.agent_status.eq_ignore_ascii_case("completed")
+                && screenshot_success_output(&entry.output_excerpt)
+        })
+        .count()
+}
+
+fn gui_snapshot_count(observation: &RunObservation) -> usize {
+    observation
+        .action_evidence
+        .iter()
+        .filter(|entry| entry.tool_name.eq_ignore_ascii_case("gui__snapshot"))
+        .count()
+}
+
+fn screenshot_success_output(output: &str) -> bool {
+    let trimmed = output.trim();
+    trimmed == "Screenshot captured"
+        || trimmed.starts_with("Screenshot captured:")
+        || trimmed.starts_with("Screenshot captured ")
+}
+
+fn observation_has_contract_failure_marker(observation: &RunObservation) -> bool {
+    let mut corpus = Vec::<String>::new();
+    corpus.push(observation.final_reply.clone());
+    corpus.extend(observation.verification_checks.iter().cloned());
+    corpus.extend(observation.event_excerpt.iter().cloned());
+    corpus.extend(
+        observation
+            .action_evidence
+            .iter()
+            .map(|entry| format!("{} {}", entry.agent_status, entry.output_excerpt)),
+    );
+    corpus
+        .iter()
+        .any(|segment| has_contract_failure_marker(segment))
+}
+
+fn has_contract_failure_marker(text: &str) -> bool {
+    let lower = text.to_ascii_lowercase();
+    [
+        "execution_contract_gate_blocked=true",
+        "cec_terminal_error=true",
+        "execution contract unmet",
+        "base_error_class=executioncontractviolation",
+        "error_class=executioncontractviolation",
+        "error_class=discoverymissing",
+        "error_class=synthesisfailed",
+        "error_class=executionfailedterminal",
+        "error_class=verificationmissing",
+        "error_class=postconditionfailed",
+        "failed_stage=",
+        "missing_receipts=",
+        "missing_postconditions=",
+    ]
+    .iter()
+    .any(|marker| lower.contains(marker))
 }

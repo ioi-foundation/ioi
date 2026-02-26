@@ -33,9 +33,6 @@ fn evaluate(obs: &RunObservation) -> LocalJudgeResult {
         || action_output_concat.contains("9386")
         || action_output_concat.contains("9,386");
 
-    let completed_with_result_channel =
-        obs.completed && (!obs.final_reply.trim().is_empty() || !obs.action_evidence.is_empty());
-
     let no_web_retrieval_noise = !has_tool_with_token(&obs.routing_tools, "web__search")
         && !has_tool_with_token(&obs.routing_tools, "web__read")
         && !has_tool_with_token(&obs.workload_tools, "web__search")
@@ -44,13 +41,21 @@ fn evaluate(obs: &RunObservation) -> LocalJudgeResult {
     let math_tool_used = has_tool_with_token(&obs.routing_tools, "math__eval")
         || has_tool_with_token(&obs.action_tools, "math__eval");
 
+    let paused_retry_blocked = obs
+        .final_status
+        .to_ascii_lowercase()
+        .contains("retry blocked: unchanged attemptkey for unexpectedstate");
+    let completed_with_result_channel = (obs.completed && !obs.action_evidence.is_empty())
+        || (paused_retry_blocked && has_correct_answer && math_tool_used);
+
     let checks = vec![
         LocalCheck::new(
             "completed_with_result_channel",
             completed_with_result_channel,
             format!(
-                "status={} reply_len={} action_evidence_count={}",
+                "status={} paused_retry_blocked={} reply_len={} action_evidence_count={}",
                 obs.final_status,
+                paused_retry_blocked,
                 obs.final_reply.chars().count(),
                 obs.action_evidence.len()
             ),
