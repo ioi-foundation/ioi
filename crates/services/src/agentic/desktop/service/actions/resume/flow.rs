@@ -170,7 +170,7 @@ pub(super) async fn resume_pending_action_flow(
             "Missing pending_visual_hash".into(),
         ))?;
 
-    let (mut precheck_error, log_visual_hash) = visual::run_visual_prechecks(
+    let (mut precheck_error, mut log_visual_hash) = visual::run_visual_prechecks(
         service,
         &os_driver,
         &tool,
@@ -313,10 +313,10 @@ pub(super) async fn resume_pending_action_flow(
         skip_execution_due_to_contract = true;
     }
 
-    let (mut success, mut out, mut err) = if skip_execution_due_to_contract {
+    let (mut success, mut out, mut err, persisted_visual_hash) = if skip_execution_due_to_contract {
         let error = pre_execution_contract_error
             .unwrap_or_else(|| "ERROR_CLASS=SynthesisFailed".to_string());
-        (false, Some(error.clone()), Some(error))
+        (false, Some(error.clone()), Some(error), None)
     } else {
         let exec = execution::execute(
             service,
@@ -336,8 +336,15 @@ pub(super) async fn resume_pending_action_flow(
             call_context,
         )
         .await;
-        (exec.success, exec.out, exec.err)
+        (exec.success, exec.out, exec.err, exec.visual_hash)
     };
+    if let Some(visual_hash) = persisted_visual_hash {
+        log_visual_hash = visual_hash;
+        verification_checks.push(format!(
+            "visual_observation_checksum={}",
+            hex::encode(visual_hash)
+        ));
+    }
     if matches!(
         &tool,
         AgentTool::SysExec { .. } | AgentTool::SysExecSession { .. }
@@ -704,6 +711,27 @@ pub(super) async fn resume_pending_action_flow(
                 }
                 agent_state.status = AgentStatus::Running;
             }
+            AgentTool::Computer(ComputerAction::Screenshot) => {
+                if success && is_ui_capture_screenshot_intent(agent_state.resolved_intent.as_ref())
+                {
+                    let summary = "Screenshot captured.".to_string();
+                    agent_state.status = AgentStatus::Completed(Some(summary.clone()));
+                    agent_state.execution_queue.clear();
+                    verification_checks.push("screenshot_capture_terminalized=true".to_string());
+                    evaluate_and_crystallize(service, agent_state, session_id, &summary).await;
+                    if let Some(tx) = &service.event_sender {
+                        emit_terminal_completion_events(
+                            tx,
+                            session_id,
+                            agent_state.step_count,
+                            &summary,
+                            status::status_str(&agent_state.status),
+                        );
+                    }
+                } else {
+                    agent_state.status = AgentStatus::Running;
+                }
+            }
             AgentTool::OsLaunchApp { app_name } => {
                 if success
                     && should_auto_complete_open_app_goal(
@@ -817,6 +845,34 @@ pub(super) async fn resume_pending_action_flow(
                 // For standard actions, just return to running state
                 agent_state.status = AgentStatus::Running;
             }
+        }
+    }
+
+    // Emit primary runtime evidence for approved resumed tools.
+    // Lifecycle terminal events (agent__complete/chat__reply) are emitted in their
+    // dedicated branches; avoid duplicating them here.
+    if !awaiting_sudo_password
+        && !awaiting_clarification
+        && !matches!(
+            &tool,
+            AgentTool::AgentComplete { .. } | AgentTool::ChatReply { .. }
+        )
+    {
+        if let Some(tx) = &service.event_sender {
+            let output = out.clone().or_else(|| err.clone()).unwrap_or_else(|| {
+                if success {
+                    "Action executed successfully.".to_string()
+                } else {
+                    "Unknown error".to_string()
+                }
+            });
+            let _ = tx.send(KernelEvent::AgentActionResult {
+                session_id,
+                step_index: agent_state.step_count,
+                tool_name: tool_name.clone(),
+                output,
+                agent_status: status::status_str(&agent_state.status),
+            });
         }
     }
 

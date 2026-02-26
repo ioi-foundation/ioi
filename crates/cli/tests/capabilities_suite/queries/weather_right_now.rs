@@ -10,6 +10,7 @@ pub fn case() -> QueryCase {
         id: "weather_right_now",
         query: "What's the weather like right now?",
         success_definition: "Answer current weather conditions for the active/inferred locality; concrete metrics are preferred, but explicitly caveated partial evidence is acceptable.",
+        seeded_intent_id: "web.research",
         intent_scope: IntentScopeProfile::WebResearch,
         expected_pass: true,
         sla_seconds: 75,

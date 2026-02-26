@@ -41,7 +41,9 @@ pub(super) async fn run_visual_prechecks(
     }
 
     if precheck_error.is_none() {
-        if let Err(e) = service.restore_visual_context(pending_vhash).await {
+        if pending_vhash == [0u8; 32] {
+            verification_checks.push("resume_visual_context=not_available".to_string());
+        } else if let Err(e) = service.restore_visual_context(pending_vhash).await {
             precheck_error = Some(format!(
                 "ERROR_CLASS=ContextDrift Failed to restore visual context: {}",
                 e

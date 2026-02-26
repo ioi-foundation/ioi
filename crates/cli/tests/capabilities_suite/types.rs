@@ -10,6 +10,7 @@ pub struct QueryCase {
     pub id: &'static str,
     pub query: &'static str,
     pub success_definition: &'static str,
+    pub seeded_intent_id: &'static str,
     pub intent_scope: IntentScopeProfile,
     pub expected_pass: bool,
     pub sla_seconds: u64,

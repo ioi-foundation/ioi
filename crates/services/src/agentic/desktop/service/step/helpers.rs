@@ -61,16 +61,16 @@ pub fn default_safe_policy() -> ActionRules {
             },
             // Read-Only Capability Defaults
             Rule {
-                rule_id: Some("allow-ui-read".into()),
+                rule_id: Some("gate-ui-screenshot".into()),
                 target: "gui::screenshot".into(),
                 conditions: Default::default(),
-                action: Verdict::Allow,
+                action: Verdict::RequireApproval,
             },
             Rule {
-                rule_id: Some("allow-ui-inspect".into()),
+                rule_id: Some("gate-ui-inspect".into()),
                 target: "gui::inspect".into(),
                 conditions: Default::default(),
-                action: Verdict::Allow,
+                action: Verdict::RequireApproval,
             },
             Rule {
                 rule_id: Some("allow-browser-inspect".into()),
@@ -364,7 +364,7 @@ mod tests {
         let upgraded = default_safe_policy();
         assert_eq!(
             upgraded.ontology_policy.intent_routing.matrix_version,
-            "intent-matrix-v11"
+            "intent-matrix-v12"
         );
     }
 }

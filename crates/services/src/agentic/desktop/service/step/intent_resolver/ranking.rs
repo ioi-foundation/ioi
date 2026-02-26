@@ -30,7 +30,10 @@ pub(super) fn sort_scores_desc(scores: &mut [IntentCandidateScore]) {
     });
 }
 
-pub(super) fn quantize_and_sort_scores(scores: &mut [IntentCandidateScore], policy: &IntentRoutingPolicy) {
+pub(super) fn quantize_and_sort_scores(
+    scores: &mut [IntentCandidateScore],
+    policy: &IntentRoutingPolicy,
+) {
     for score in scores.iter_mut() {
         score.score = quantize_score(score.score, policy);
     }
@@ -282,14 +285,20 @@ impl IntentRankBackend for Arc<dyn InferenceRuntime> {
     }
 }
 
-pub(super) fn scope_for_intent(matrix: &[IntentMatrixEntry], intent_id: &str) -> Option<IntentScopeProfile> {
+pub(super) fn scope_for_intent(
+    matrix: &[IntentMatrixEntry],
+    intent_id: &str,
+) -> Option<IntentScopeProfile> {
     matrix
         .iter()
         .find(|entry| entry.intent_id == intent_id)
         .map(|entry| entry.scope)
 }
 
-pub(super) fn preferred_tier_for_intent(matrix: &[IntentMatrixEntry], intent_id: &str) -> Option<String> {
+pub(super) fn preferred_tier_for_intent(
+    matrix: &[IntentMatrixEntry],
+    intent_id: &str,
+) -> Option<String> {
     matrix
         .iter()
         .find(|entry| entry.intent_id == intent_id)

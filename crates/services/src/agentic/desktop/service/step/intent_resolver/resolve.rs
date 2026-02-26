@@ -64,7 +64,8 @@ pub async fn resolve_step_intent(
     let normalized_query_hash = hex::encode(
         sha256(ranking_query.as_bytes()).map_err(|e| TransactionError::Invalid(e.to_string()))?,
     );
-    let raw_enabled = crate::agentic::desktop::service::step::helpers::should_log_raw_prompt_content();
+    let raw_enabled =
+        crate::agentic::desktop::service::step::helpers::should_log_raw_prompt_content();
     if raw_enabled {
         let query_json = serde_json::to_string(&query)
             .unwrap_or_else(|_| "\"<query-serialization-error>\"".to_string());
@@ -312,4 +313,3 @@ pub async fn resolve_step_intent(
 
     Ok(resolved)
 }
-

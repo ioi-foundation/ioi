@@ -238,4 +238,3 @@ pub(crate) fn constraint_grounded_search_query_with_hints(
 pub(crate) fn constraint_grounded_search_query(query: &str, min_sources: u32) -> String {
     constraint_grounded_search_query_with_hints(query, min_sources, &[])
 }
-

@@ -140,4 +140,3 @@ pub(crate) fn hint_for_url<'a>(
 
     best_hint
 }
-

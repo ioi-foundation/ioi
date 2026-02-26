@@ -1,6 +1,5 @@
 use super::*;
 
-
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub(crate) struct PreReadCandidatePlan {
     pub candidate_urls: Vec<String>,

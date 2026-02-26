@@ -101,7 +101,9 @@ pub(super) fn intent_set_hash(matrix: &[IntentMatrixEntry]) -> Result<[u8; 32], 
     hash_payload(&payload)
 }
 
-pub(super) fn tool_registry_hash(bindings: &[ToolCapabilityBinding]) -> Result<[u8; 32], TransactionError> {
+pub(super) fn tool_registry_hash(
+    bindings: &[ToolCapabilityBinding],
+) -> Result<[u8; 32], TransactionError> {
     let payload = json!({
         "bindings": bindings.iter().map(|binding| json!({
             "tool_name": binding.tool_name,

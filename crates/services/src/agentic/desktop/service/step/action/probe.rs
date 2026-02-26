@@ -15,6 +15,12 @@ pub fn is_system_clock_read_intent(resolved_intent: Option<&ResolvedIntentState>
         .unwrap_or(false)
 }
 
+pub fn is_ui_capture_screenshot_intent(resolved_intent: Option<&ResolvedIntentState>) -> bool {
+    resolved_intent
+        .map(|resolved| resolved.intent_id == "ui.capture_screenshot")
+        .unwrap_or(false)
+}
+
 fn is_utc_iso_timestamp(token: &str) -> bool {
     let bytes = token.as_bytes();
     if bytes.len() != 20 {

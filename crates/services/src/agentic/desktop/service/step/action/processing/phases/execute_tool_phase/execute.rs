@@ -1,8 +1,8 @@
-use super::*;
 use super::events::{
     emit_completion_gate_status_event, emit_completion_gate_violation_events,
     emit_execution_contract_receipt_event, resolved_intent_id, synthesized_payload_hash_for_tool,
 };
+use super::*;
 
 struct ContractBootstrap {
     command_scope: bool,
@@ -122,7 +122,10 @@ fn duplicate_execution_state<'a>(
     command_scope: bool,
     action_fingerprint: &str,
     verification_checks: &mut Vec<String>,
-) -> (bool, Option<&'a crate::agentic::desktop::types::CommandExecution>) {
+) -> (
+    bool,
+    Option<&'a crate::agentic::desktop::types::CommandExecution>,
+) {
     let duplicate_marker_seen = command_scope
         && matches!(
             tool,
@@ -178,6 +181,7 @@ pub(crate) async fn execute_tool_phase(
         mut current_tool_name,
         mut history_entry,
         mut action_output,
+        mut trace_visual_hash,
         executed_tool_jcs,
         failure_class,
         stop_condition_hit,
@@ -556,10 +560,17 @@ pub(crate) async fn execute_tool_phase(
                     )
                     .await
                 {
-                    Ok((s, entry, e)) => {
+                    Ok((s, entry, e, visual_hash)) => {
                         success = s;
                         error_msg = e;
                         history_entry = entry.clone();
+                        if let Some(visual_hash) = visual_hash {
+                            trace_visual_hash = Some(visual_hash);
+                            verification_checks.push(format!(
+                                "visual_observation_checksum={}",
+                                hex::encode(visual_hash)
+                            ));
+                        }
                         if command_scope
                             && matches!(
                                 &tool,
@@ -930,7 +941,7 @@ pub(crate) async fn execute_tool_phase(
                                     let completed_result = if is_system_clock_read_intent(
                                         agent_state.resolved_intent.as_ref(),
                                     ) {
-                                        summarize_system_clock_output(result)
+                                        summarize_system_clock_or_plain_output(result)
                                             .unwrap_or_else(|| result.clone())
                                     } else {
                                         result.clone()
@@ -1073,7 +1084,7 @@ pub(crate) async fn execute_tool_phase(
                                 ) {
                                     if let Some(summary) = history_entry
                                         .as_deref()
-                                        .and_then(summarize_system_clock_output)
+                                        .and_then(summarize_system_clock_or_plain_output)
                                     {
                                         let summary =
                                             enrich_command_scope_summary(&summary, agent_state);
@@ -1589,6 +1600,7 @@ pub(crate) async fn execute_tool_phase(
         current_tool_name,
         history_entry,
         action_output,
+        trace_visual_hash,
         executed_tool_jcs,
         failure_class,
         stop_condition_hit,

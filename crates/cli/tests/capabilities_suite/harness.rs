@@ -13,17 +13,19 @@ use ioi_scs::{SovereignContextStore, StoreConfig};
 use ioi_services::agentic::desktop::keys::AGENT_POLICY_PREFIX;
 use ioi_services::agentic::desktop::service::step::helpers::default_safe_policy;
 use ioi_services::agentic::desktop::{
-    AgentMode, AgentState, AgentStatus, DesktopAgentService, StartAgentParams, StepAgentParams,
+    AgentMode, AgentState, AgentStatus, DesktopAgentService, ResumeAgentParams, StartAgentParams,
+    StepAgentParams,
 };
 use ioi_services::agentic::rules::DefaultPolicy;
 use ioi_state::primitives::hash::HashCommitmentScheme;
 use ioi_state::tree::iavl::IAVLTree;
+use ioi_types::app::action::{ApprovalScope, ApprovalToken};
 use ioi_types::app::agentic::{
     CapabilityId, IntentAmbiguityAction, IntentConfidenceBand, IntentScopeProfile,
     ResolvedIntentState,
 };
 use ioi_types::app::{
-    ActionRequest, ContextSlice, KernelEvent, RoutingReceiptEvent, WorkloadReceipt,
+    ActionRequest, ContextSlice, KernelEvent, RoutingReceiptEvent, SignatureSuite, WorkloadReceipt,
 };
 use ioi_types::{codec, error::VmError};
 use std::collections::BTreeSet;
@@ -156,6 +158,32 @@ fn session_id_for_index(run_index: usize) -> [u8; 32] {
     deterministic_id(run_index, 0x63)
 }
 
+fn build_approval_token_for_resume(
+    request_hash: [u8; 32],
+    now_ms: u64,
+    pending_visual_hash: Option<[u8; 32]>,
+) -> ApprovalToken {
+    let mut nonce = [0u8; 32];
+    nonce.copy_from_slice(&request_hash);
+    ApprovalToken {
+        schema_version: 2,
+        request_hash,
+        audience: [0u8; 32],
+        revocation_epoch: 0,
+        nonce,
+        counter: 1,
+        scope: ApprovalScope {
+            expires_at: now_ms.saturating_add(120_000),
+            max_usages: Some(1),
+        },
+        visual_hash: pending_visual_hash,
+        pii_action: None,
+        scoped_exception: None,
+        approver_sig: Vec::new(),
+        approver_suite: SignatureSuite::ED25519,
+    }
+}
+
 fn read_agent_state(state: &IAVLTree<HashCommitmentScheme>, session_id: [u8; 32]) -> AgentState {
     let key = [b"agent::state::".as_slice(), session_id.as_slice()].concat();
     let bytes = state
@@ -205,6 +233,7 @@ fn seeded_required_capabilities(scope: IntentScopeProfile) -> Vec<CapabilityId> 
 fn seed_resolved_intent(
     state: &mut IAVLTree<HashCommitmentScheme>,
     session_id: [u8; 32],
+    intent_id: &str,
     scope: IntentScopeProfile,
 ) {
     let key = [b"agent::state::".as_slice(), session_id.as_slice()].concat();
@@ -215,7 +244,7 @@ fn seed_resolved_intent(
     let mut agent_state: AgentState =
         codec::from_bytes_canonical(&bytes).expect("agent state should decode");
     agent_state.resolved_intent = Some(ResolvedIntentState {
-        intent_id: "capabilities.test".to_string(),
+        intent_id: intent_id.to_string(),
         scope,
         band: IntentConfidenceBand::High,
         score: 0.99,
@@ -422,12 +451,19 @@ pub async fn run_case(
         .await?;
 
     enable_intent_shadow_mode(&mut state, session_id);
-    seed_resolved_intent(&mut state, session_id, case.intent_scope);
+    seed_resolved_intent(
+        &mut state,
+        session_id,
+        case.seeded_intent_id,
+        case.intent_scope,
+    );
 
     let started = Instant::now();
     let deadline = Duration::from_secs(case.sla_seconds);
     let mut captured_events: Vec<KernelEvent> = Vec::new();
     let mut paused_reason: Option<String> = None;
+    let mut auto_resume_count = 0usize;
+    const MAX_AUTO_APPROVAL_RESUMES: usize = 2;
 
     loop {
         drain_events(&mut event_rx, &mut captured_events);
@@ -445,6 +481,34 @@ pub async fn run_case(
         match &current.status {
             AgentStatus::Running => {}
             AgentStatus::Paused(reason) => {
+                let waiting_for_approval = reason.to_ascii_lowercase().contains("approval");
+                if waiting_for_approval && auto_resume_count < MAX_AUTO_APPROVAL_RESUMES {
+                    if let Some(request_hash) = current.pending_tool_hash {
+                        let now_ms = SystemTime::now()
+                            .duration_since(UNIX_EPOCH)
+                            .unwrap_or_default()
+                            .as_millis() as u64;
+                        let approval_token = build_approval_token_for_resume(
+                            request_hash,
+                            now_ms,
+                            current.pending_visual_hash,
+                        );
+                        service
+                            .handle_service_call(
+                                &mut state,
+                                "resume@v1",
+                                &codec::to_bytes_canonical(&ResumeAgentParams {
+                                    session_id,
+                                    approval_token: Some(approval_token),
+                                })
+                                .map_err(|e| anyhow!("failed to encode resume params: {}", e))?,
+                                &mut ctx,
+                            )
+                            .await?;
+                        auto_resume_count = auto_resume_count.saturating_add(1);
+                        continue;
+                    }
+                }
                 paused_reason = Some(reason.clone());
                 break;
             }

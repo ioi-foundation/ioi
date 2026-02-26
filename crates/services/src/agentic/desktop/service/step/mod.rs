@@ -31,7 +31,7 @@ use ioi_api::transaction::context::TxContext;
 use ioi_crypto::algorithms::hash::sha256;
 use ioi_scs::{FrameType, RetentionClass};
 use ioi_types::app::agentic::{AgentTool, IntentScopeProfile, StepTrace};
-use ioi_types::app::KernelEvent;
+use ioi_types::app::{ActionContext, ActionRequest, ActionTarget, KernelEvent};
 use ioi_types::codec;
 use ioi_types::error::TransactionError;
 use serde_json::json;
@@ -67,6 +67,25 @@ fn pending_tool_is_browser_action(agent_state: &AgentState) -> bool {
 
 fn is_web_research_intent(resolved_scope: IntentScopeProfile) -> bool {
     matches!(resolved_scope, IntentScopeProfile::WebResearch)
+}
+
+fn enqueue_deterministic_screenshot_capture(
+    agent_state: &mut AgentState,
+    session_id: [u8; 32],
+) -> Result<(), TransactionError> {
+    let params = serde_jcs::to_vec(&json!({}))
+        .map_err(|e| TransactionError::Serialization(e.to_string()))?;
+    agent_state.execution_queue.push(ActionRequest {
+        target: ActionTarget::GuiScreenshot,
+        params,
+        context: ActionContext {
+            agent_id: "desktop_agent".to_string(),
+            session_id: Some(session_id),
+            window_id: None,
+        },
+        nonce: agent_state.step_count as u64,
+    });
+    Ok(())
 }
 
 pub async fn handle_step(
@@ -396,6 +415,20 @@ pub async fn handle_step(
 
     // 4. Execution Queue
     if !agent_state.execution_queue.is_empty() {
+        return queue::process_queue_item(
+            service,
+            state,
+            &mut agent_state,
+            &p,
+            ctx.block_height,
+            ctx.block_timestamp,
+            call_context,
+        )
+        .await;
+    }
+
+    if action::is_ui_capture_screenshot_intent(agent_state.resolved_intent.as_ref()) {
+        enqueue_deterministic_screenshot_capture(&mut agent_state, p.session_id)?;
         return queue::process_queue_item(
             service,
             state,

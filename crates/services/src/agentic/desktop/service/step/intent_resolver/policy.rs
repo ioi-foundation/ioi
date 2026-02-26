@@ -59,8 +59,28 @@ pub(super) fn query_binding_for_intent(entry: &IntentMatrixEntry) -> IntentQuery
         "system.clock.read" => IntentQueryBindingClass::HostLocal,
         "web.research" => IntentQueryBindingClass::RemotePublicFact,
         "command.exec" => IntentQueryBindingClass::CommandDirected,
+        "ui.interaction" => IntentQueryBindingClass::DirectUiInput,
+        "ui.capture_screenshot" => IntentQueryBindingClass::DesktopScreenshot,
         _ => IntentQueryBindingClass::None,
     }
+}
+
+pub(super) fn query_requests_desktop_screenshot(query: &str) -> bool {
+    let padded = format!(" {} ", query.to_ascii_lowercase());
+    const SCREENSHOT_MARKERS: [&str; 9] = [
+        " screenshot ",
+        " screenshots ",
+        " screen capture ",
+        " capture screen ",
+        " capture my screen ",
+        " capture desktop ",
+        " capture my desktop ",
+        " desktop screenshot ",
+        " take a screenshot ",
+    ];
+    SCREENSHOT_MARKERS
+        .iter()
+        .any(|marker| padded.contains(marker))
 }
 
 pub(super) fn query_explicitly_targets_host_local_clock(query: &str) -> bool {
@@ -117,11 +137,21 @@ pub(super) fn query_has_timer_scheduling_shape(query: &str) -> bool {
     TIMER_MARKERS.iter().any(|marker| padded.contains(marker))
 }
 
-pub(super) fn query_expresses_command_execution_intent(query: &str, query_facets: &QueryFacetProfile) -> bool {
+pub(super) fn query_expresses_command_execution_intent(
+    query: &str,
+    query_facets: &QueryFacetProfile,
+) -> bool {
     query_facets.goal.command_hits > 0
         || query_facets.goal.workspace_hits > 0
         || query_facets.goal.install_hits > 0
         || query_has_timer_scheduling_shape(query)
+}
+
+pub(super) fn query_expresses_direct_ui_input(
+    query: &str,
+    query_facets: &QueryFacetProfile,
+) -> bool {
+    !query_requests_desktop_screenshot(query) && query_facets.goal.ui_hits > 0
 }
 
 pub(super) fn query_binding_satisfied(
@@ -146,6 +176,10 @@ pub(super) fn query_binding_satisfied(
         IntentQueryBindingClass::CommandDirected => {
             query_expresses_command_execution_intent(query, query_facets)
         }
+        IntentQueryBindingClass::DirectUiInput => {
+            query_expresses_direct_ui_input(query, query_facets)
+        }
+        IntentQueryBindingClass::DesktopScreenshot => query_requests_desktop_screenshot(query),
     }
 }
 

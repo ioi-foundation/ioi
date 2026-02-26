@@ -508,4 +508,3 @@ pub(crate) fn merge_pending_search_completion(
         min_sources: existing.min_sources.max(incoming.min_sources),
     }
 }
-

@@ -71,7 +71,7 @@ pub async fn execute_worker_step(
             )
             .await
         {
-            Ok((step_success, history_entry, step_error)) => {
+            Ok((step_success, history_entry, step_error, _step_visual_hash)) => {
                 output = history_entry;
                 error = step_error;
                 if step_success {

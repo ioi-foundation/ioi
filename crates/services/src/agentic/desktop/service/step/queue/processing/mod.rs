@@ -4,11 +4,11 @@ use crate::agentic::desktop::keys::{get_state_key, AGENT_POLICY_PREFIX};
 use crate::agentic::desktop::service::handler::{
     build_pii_review_request_for_tool, emit_pii_review_requested, persist_pii_review_request,
 };
+use crate::agentic::desktop::service::step::action::command_contract::is_cec_terminal_error;
 use crate::agentic::desktop::service::step::action::{
     canonical_intent_hash, canonical_retry_intent_hash, canonical_tool_identity,
     mark_action_fingerprint_executed,
 };
-use crate::agentic::desktop::service::step::action::command_contract::is_cec_terminal_error;
 use crate::agentic::desktop::service::step::anti_loop::{
     build_attempt_key, build_post_state_summary, classify_failure, emit_routing_receipt,
     escalation_path_for_failure, extract_artifacts, lineage_pointer, mutation_receipt_pointer,
@@ -39,7 +39,9 @@ mod completion;
 mod routing;
 mod web_pipeline;
 
-use self::completion::{maybe_complete_command_probe, maybe_complete_open_app};
+use self::completion::{
+    maybe_complete_command_probe, maybe_complete_open_app, maybe_complete_screenshot_capture,
+};
 use self::routing::{is_web_research_scope, resolve_queue_routing_context as resolve_routing};
 use self::web_pipeline::{
     maybe_handle_browser_snapshot, maybe_handle_web_read, maybe_handle_web_search,
@@ -65,7 +67,7 @@ async fn execute_queue_tool_request(
     tool_name: &str,
     rules: &ActionRules,
     session_id: [u8; 32],
-) -> Result<(bool, Option<String>, Option<String>), TransactionError> {
+) -> Result<(bool, Option<String>, Option<String>, Option<[u8; 32]>), TransactionError> {
     let os_driver = service
         .os_driver
         .clone()
@@ -211,8 +213,13 @@ pub async fn process_queue_item(
     let mut is_gated = false;
     let mut awaiting_sudo_password = false;
     let mut awaiting_clarification = false;
-    let (mut success, mut out, mut err): (bool, Option<String>, Option<String>) = match result_tuple
-    {
+    let mut trace_visual_hash = [0u8; 32];
+    let (mut success, mut out, mut err, persisted_visual_hash): (
+        bool,
+        Option<String>,
+        Option<String>,
+        Option<[u8; 32]>,
+    ) = match result_tuple {
         Ok(tuple) => tuple,
         Err(TransactionError::PendingApproval(h)) => {
             policy_decision = "require_approval".to_string();
@@ -320,7 +327,7 @@ pub async fn process_queue_item(
                     let _ = service
                         .append_chat_to_scs(p.session_id, &sys_msg, block_height)
                         .await?;
-                    (true, None, None)
+                    (true, None, None, None)
                 }
                 ApprovalDirective::SuppressDuplicatePrompt => {
                     let sys_msg = ioi_types::app::agentic::ChatMessage {
@@ -337,7 +344,7 @@ pub async fn process_queue_item(
                     let _ = service
                         .append_chat_to_scs(p.session_id, &sys_msg, block_height)
                         .await?;
-                    (true, None, None)
+                    (true, None, None, None)
                 }
                 ApprovalDirective::PauseLoop => {
                     policy_decision = "denied".to_string();
@@ -364,7 +371,7 @@ pub async fn process_queue_item(
                     let _ = service
                         .append_chat_to_scs(p.session_id, &sys_msg, block_height)
                         .await?;
-                    (false, None, Some(loop_msg))
+                    (false, None, Some(loop_msg), None)
                 }
             }
         }
@@ -373,9 +380,16 @@ pub async fn process_queue_item(
             if msg.to_lowercase().contains("blocked by policy") {
                 policy_decision = "denied".to_string();
             }
-            (false, None, Some(msg))
+            (false, None, Some(msg), None)
         }
     };
+    if let Some(visual_hash) = persisted_visual_hash {
+        trace_visual_hash = visual_hash;
+        verification_checks.push(format!(
+            "visual_observation_checksum={}",
+            hex::encode(visual_hash)
+        ));
+    }
     if !is_gated
         && command_scope
         && !success
@@ -573,6 +587,16 @@ pub async fn process_queue_item(
         &mut completion_summary,
         p.session_id,
     );
+    maybe_complete_screenshot_capture(
+        agent_state,
+        &tool_wrapper,
+        is_gated,
+        &mut success,
+        &mut out,
+        &mut err,
+        &mut completion_summary,
+        p.session_id,
+    );
 
     let output_str = out.clone().unwrap_or_default();
     let error_str = err.clone();
@@ -591,7 +615,7 @@ pub async fn process_queue_item(
         state,
         &key,
         p.session_id,
-        [0u8; 32],
+        trace_visual_hash,
         format!("[Macro Step] Executing queued action"),
         output_str,
         success,

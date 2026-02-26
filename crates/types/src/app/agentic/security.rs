@@ -324,7 +324,7 @@ impl Default for IntentRoutingPolicy {
         Self {
             enabled: true,
             shadow_mode: false,
-            matrix_version: "intent-matrix-v11".to_string(),
+            matrix_version: "intent-matrix-v12".to_string(),
             confidence: IntentConfidenceBandPolicy::default(),
             ambiguity: IntentAmbiguityPolicy::default(),
             score_quantization_bps: default_score_quantization_bps(),
@@ -333,6 +333,7 @@ impl Default for IntentRoutingPolicy {
             ambiguity_abstain_exempt_intents: vec![
                 "app.launch".to_string(),
                 "command.exec".to_string(),
+                "ui.capture_screenshot".to_string(),
             ],
             matrix: vec![
                 IntentMatrixEntry {
@@ -483,7 +484,7 @@ impl Default for IntentRoutingPolicy {
                 IntentMatrixEntry {
                     intent_id: "ui.interaction".to_string(),
                     semantic_descriptor:
-                        "perform direct input interactions such as click type scroll or keypress within an already-running focused application interface"
+                        "perform direct input interactions such as click type scroll drag or keypress within an already-running focused application interface"
                             .to_string(),
                     required_capabilities: vec![
                         CapabilityId::from("agent.lifecycle"),
@@ -512,6 +513,34 @@ impl Default for IntentRoutingPolicy {
                     exemplars: vec![
                         "click the login button".to_string(),
                         "type into the focused field".to_string(),
+                    ],
+                },
+                IntentMatrixEntry {
+                    intent_id: "ui.capture_screenshot".to_string(),
+                    semantic_descriptor:
+                        "take a screenshot of my desktop or capture the current screen image and return capture confirmation without click type scroll or keypress actions"
+                            .to_string(),
+                    required_capabilities: vec![
+                        CapabilityId::from("agent.lifecycle"),
+                        CapabilityId::from("ui.interact"),
+                    ],
+                    risk_class: "medium".to_string(),
+                    scope: IntentScopeProfile::UiInteraction,
+                    preferred_tier: "visual_last".to_string(),
+                    applicability_class: ExecutionApplicabilityClass::DeterministicLocal,
+                    requires_host_discovery: Some(false),
+                    provider_selection_mode: Some(ProviderSelectionMode::CapabilityOnly),
+                    required_receipts: vec!["execution".to_string(), "verification".to_string()],
+                    required_postconditions: vec![],
+                    verification_mode: Some(VerificationMode::DeterministicCheck),
+                    aliases: vec![
+                        "screenshot".to_string(),
+                        "screen capture".to_string(),
+                        "capture desktop".to_string(),
+                    ],
+                    exemplars: vec![
+                        "take a screenshot of my desktop".to_string(),
+                        "capture my screen".to_string(),
                     ],
                 },
                 IntentMatrixEntry {

@@ -9,6 +9,7 @@ pub fn case() -> QueryCase {
         id: "multiply_247_by_38",
         query: "What's 247 × 38?",
         success_definition: "Return the correct multiplication result (9386) clearly and directly.",
+        seeded_intent_id: "math.eval",
         intent_scope: IntentScopeProfile::Conversation,
         expected_pass: true,
         sla_seconds: 30,
