@@ -791,6 +791,46 @@ pub(crate) fn next_pending_web_candidate(pending: &PendingSearchCompletion) -> O
         }
     }
 
+    if query_prefers_multi_item_cardinality(&query_contract) {
+        let required_distinct_domains = required_story_count(&query_contract).max(1);
+        let mut observed_domains = BTreeSet::new();
+        for url in pending
+            .attempted_urls
+            .iter()
+            .chain(pending.blocked_urls.iter())
+            .chain(pending.successful_reads.iter().map(|source| &source.url))
+        {
+            let trimmed = url.trim();
+            if trimmed.is_empty() || is_search_hub_url(trimmed) {
+                continue;
+            }
+            if let Some(host) = source_host(trimmed) {
+                let canonical_host = host.strip_prefix("www.").unwrap_or(&host).to_string();
+                observed_domains.insert(canonical_host);
+            }
+        }
+
+        for candidate in &pending.candidate_urls {
+            let trimmed = candidate.trim();
+            if trimmed.is_empty() || attempted.contains(trimmed) || is_search_hub_url(trimmed) {
+                continue;
+            }
+            let domain_key = source_host(trimmed)
+                .map(|host| host.strip_prefix("www.").unwrap_or(&host).to_string())
+                .unwrap_or_else(|| trimmed.to_ascii_lowercase());
+            if observed_domains.len() < required_distinct_domains
+                && observed_domains.contains(&domain_key)
+            {
+                continue;
+            }
+            return Some(trimmed.to_string());
+        }
+
+        if observed_domains.len() < required_distinct_domains {
+            return None;
+        }
+    }
+
     for candidate in &pending.candidate_urls {
         let trimmed = candidate.trim();
         if trimmed.is_empty() {
@@ -1089,9 +1129,52 @@ pub(crate) fn compact_excerpt(input: &str, max_chars: usize) -> String {
         .collect::<String>()
 }
 
+pub(crate) fn looks_like_structured_metadata_noise(input: &str) -> bool {
+    let compact = compact_whitespace(input);
+    let trimmed = compact.trim();
+    if trimmed.is_empty() {
+        return false;
+    }
+    let lower = trimmed.to_ascii_lowercase();
+    let marker_hits = [
+        "\"@context\"",
+        "\"@type\"",
+        "datepublished",
+        "datemodified",
+        "inlanguage",
+        "thumbnailurl",
+        "contenturl",
+        "imageobject",
+        "\"width\"",
+        "\"height\"",
+        "\"caption\"",
+    ]
+    .iter()
+    .filter(|marker| lower.contains(**marker))
+    .count();
+    if marker_hits == 0 {
+        return false;
+    }
+
+    let structured_punctuation_hits = lower
+        .chars()
+        .filter(|ch| matches!(ch, '{' | '}' | '[' | ']' | '"' | ':'))
+        .count();
+    let strong_structured_shape = lower.contains("\",\"")
+        || lower.contains("\":")
+        || lower.contains("},{")
+        || lower.contains("\"@context\"")
+        || lower.contains("\"@type\"");
+
+    marker_hits >= 2 && (structured_punctuation_hits >= 12 || strong_structured_shape)
+}
+
 pub(crate) fn prioritized_signal_excerpt(input: &str, max_chars: usize) -> String {
     let compact = compact_whitespace(input);
     if compact.is_empty() {
+        return String::new();
+    }
+    if looks_like_structured_metadata_noise(&compact) {
         return String::new();
     }
 
@@ -1137,6 +1220,9 @@ pub(crate) fn is_low_signal_title(title: &str) -> bool {
     if trimmed.is_empty() {
         return true;
     }
+    if looks_like_structured_metadata_noise(trimmed) {
+        return true;
+    }
     let lower = trimmed.to_ascii_lowercase();
     matches!(
         lower.as_str(),
@@ -1164,6 +1250,9 @@ pub(crate) fn effective_primary_event_hits(signals: SourceSignalProfile) -> usiz
 pub(crate) fn excerpt_has_claim_signal(excerpt: &str) -> bool {
     let trimmed = excerpt.trim();
     if trimmed.is_empty() {
+        return false;
+    }
+    if looks_like_structured_metadata_noise(trimmed) {
         return false;
     }
     let metric_schema = analyze_metric_schema(trimmed);
@@ -1231,6 +1320,9 @@ pub(crate) fn is_low_signal_excerpt(excerpt: &str) -> bool {
     if trimmed.is_empty() {
         return true;
     }
+    if looks_like_structured_metadata_noise(trimmed) {
+        return true;
+    }
     if trimmed.chars().count() < ACTIONABLE_EXCERPT_SEGMENT_MIN_CHARS {
         return true;
     }
@@ -1267,6 +1359,9 @@ pub(crate) fn actionable_excerpt(excerpt: &str) -> Option<String> {
         .map(compact_whitespace)
         .filter(|value| !value.is_empty())
     {
+        if looks_like_structured_metadata_noise(&segment) {
+            continue;
+        }
         if segment.chars().count() < ACTIONABLE_EXCERPT_SEGMENT_MIN_CHARS {
             continue;
         }
@@ -1497,18 +1592,15 @@ pub(crate) fn push_pending_web_success(
         }
     }
 
-    let mut resolved_excerpt = excerpt.trim().to_string();
-    if let Some(hint_excerpt) = hint
+    let hint_excerpt = hint
         .map(|value| value.excerpt.trim())
         .filter(|value| !value.is_empty())
-    {
-        let resolved_has_quantitative = has_quantitative_metric_payload(&resolved_excerpt, false);
-        let resolved_has_metric = contains_metric_signal(&resolved_excerpt);
-        let hint_has_metric = contains_metric_signal(hint_excerpt);
-        let should_use_hint = is_low_signal_excerpt(&resolved_excerpt)
-            || (!resolved_has_quantitative && !resolved_has_metric && hint_has_metric)
-            || (!excerpt_has_claim_signal(&resolved_excerpt) && hint_has_metric);
-        if should_use_hint {
+        .map(|value| value.to_string());
+    let mut resolved_excerpt = excerpt.trim().to_string();
+    if let Some(hint_excerpt) = hint_excerpt.as_deref() {
+        // Keep retrieved page content authoritative. Only backfill from the search
+        // snippet when the read itself yielded no excerpt text.
+        if resolved_excerpt.is_empty() {
             resolved_excerpt = hint_excerpt.to_string();
         }
     }
@@ -1519,6 +1611,7 @@ pub(crate) fn push_pending_web_success(
         pending.min_sources,
         &pending.candidate_source_hints,
     );
+    let headline_collection_mode = query_is_generic_headline_collection(&query_contract);
     let min_sources_required = pending.min_sources.max(1) as usize;
     let source_floor_unmet = pending.successful_reads.len() < min_sources_required;
     let time_sensitive = projection
@@ -1526,6 +1619,24 @@ pub(crate) fn push_pending_web_success(
         .scopes
         .contains(&ConstraintScope::TimeSensitive);
     let reject_search_hub = projection.reject_search_hub_candidates();
+    if headline_collection_mode {
+        let script_like_excerpt = resolved_excerpt.contains("||")
+            && resolved_excerpt.contains("==")
+            && resolved_excerpt.to_ascii_lowercase().contains("return");
+        if (resolved_excerpt.is_empty()
+            || is_low_signal_excerpt(&resolved_excerpt)
+            || script_like_excerpt)
+            && hint_excerpt.is_some()
+        {
+            resolved_excerpt = hint_excerpt.unwrap_or_default();
+        }
+        pending.successful_reads.push(PendingSearchReadSummary {
+            url: trimmed.to_string(),
+            title: resolved_title,
+            excerpt: resolved_excerpt,
+        });
+        return;
+    }
     if reject_search_hub && is_search_hub_url(trimmed) {
         return;
     }
@@ -1971,15 +2082,6 @@ pub(crate) fn web_pipeline_completion_reason(
     let query_contract = synthesis_query_contract(pending);
     let required_distinct_source_floor = required_distinct_citations(&query_contract);
 
-    // Ontology-level fallback: if live reads are blocked but ranked source hints already
-    // satisfy citation diversity, synthesize from captured evidence instead of churning.
-    if pending.successful_reads.is_empty()
-        && !pending.blocked_urls.is_empty()
-        && pending.candidate_source_hints.len() >= required_distinct_source_floor
-    {
-        return Some(WebPipelineCompletionReason::ExhaustedCandidates);
-    }
-
     let single_snapshot_mode = prefers_single_fact_snapshot(&query_contract);
     let query_facets = analyze_query_facets(&query_contract);
     let remaining_candidates = remaining_pending_web_candidates(pending);
@@ -1987,18 +2089,24 @@ pub(crate) fn web_pipeline_completion_reason(
         single_snapshot_has_viable_followup_candidate(pending, &query_contract);
     let min_sources = pending.min_sources.max(1) as usize;
     let grounded_sources = grounded_source_evidence_count(pending);
+    let required_grounded_source_floor = required_distinct_source_floor.max(min_sources);
+    let grounded_floor_met = if single_snapshot_mode || !query_facets.grounded_external_required {
+        pending.successful_reads.len() >= min_sources
+    } else {
+        grounded_sources >= required_grounded_source_floor
+    };
 
     if single_snapshot_mode
         && pending.successful_reads.len() >= 1
         && pending.successful_reads.len() < min_sources
-        && grounded_sources >= min_sources
+        && grounded_floor_met
         && !single_snapshot_has_metric_grounding(pending)
         && !has_viable_followup_candidate
     {
         return Some(WebPipelineCompletionReason::ExhaustedCandidates);
     }
 
-    if pending.successful_reads.len() >= min_sources {
+    if grounded_floor_met {
         if single_snapshot_mode && web_pipeline_requires_metric_probe_followup(pending, now_ms) {
             return None;
         }
@@ -2032,7 +2140,7 @@ pub(crate) fn web_pipeline_completion_reason(
         };
         let grounded_probe_recovery = !single_snapshot_mode
             && query_facets.grounded_external_required
-            && pending.successful_reads.len() < min_sources
+            && !grounded_floor_met
             && single_snapshot_additional_probe_attempt_count(pending) < grounded_probe_limit
             && grounded_probe_budget_allows;
         if grounded_probe_recovery {
@@ -2041,7 +2149,7 @@ pub(crate) fn web_pipeline_completion_reason(
         // Keep the loop alive for one bounded probe when the citation/source floor
         // is still unmet in single-snapshot mode and budget allows recovery.
         if single_snapshot_mode
-            && pending.successful_reads.len() < min_sources
+            && !grounded_floor_met
             && single_snapshot_additional_probe_attempt_count(pending)
                 < SINGLE_SNAPSHOT_MAX_ADDITIONAL_PROBE_SOURCES
             && single_snapshot_probe_budget_allows_followup(pending, now_ms)

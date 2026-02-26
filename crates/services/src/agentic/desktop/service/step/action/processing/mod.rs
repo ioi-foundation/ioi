@@ -3,20 +3,24 @@ use super::command_contract::{
     execution_contract_violation_error, missing_execution_contract_markers,
     record_provider_selection_receipts, record_timer_notification_contract_requirement,
     record_verification_receipts, requires_timer_notification_contract,
-    sys_exec_arms_timer_delay_backend, sys_exec_command_preview,
+    synthesize_allowlisted_timer_notification_tool, sys_exec_arms_timer_delay_backend,
+    sys_exec_command_preview, sys_exec_satisfies_clock_read_contract,
+    CLOCK_TIMESTAMP_POSTCONDITION, PROVIDER_SELECTION_COMMIT_RECEIPT,
     TIMER_NOTIFICATION_PATH_POSTCONDITION, TIMER_SLEEP_BACKEND_POSTCONDITION,
+    VERIFICATION_COMMIT_RECEIPT,
 };
 use super::probe::{
     is_command_probe_intent, is_system_clock_read_intent, summarize_command_probe_output,
-    summarize_system_clock_or_plain_output, summarize_system_clock_output,
+    summarize_system_clock_output,
 };
 use super::refusal_eval::evaluate_and_crystallize;
 use super::search::{extract_navigation_url, is_search_results_url, search_query_from_url};
 use super::support::{
     canonical_intent_hash, canonical_retry_intent_hash, canonical_tool_identity,
-    enforce_system_fail_terminal_status, get_status_str, is_action_fingerprint_executed,
-    mark_action_fingerprint_executed, mark_execution_postcondition, mark_execution_receipt,
-    mark_system_fail_status, postcondition_marker, receipt_marker,
+    enforce_system_fail_terminal_status, execution_receipt_value, get_status_str,
+    has_execution_receipt, is_action_fingerprint_executed, mark_action_fingerprint_executed,
+    mark_execution_postcondition, mark_execution_receipt, mark_system_fail_status,
+    postcondition_marker, receipt_marker,
 };
 use crate::agentic::desktop::execution::system::is_sudo_password_required_install_error;
 use crate::agentic::desktop::keys::{get_state_key, AGENT_POLICY_PREFIX};
@@ -44,18 +48,11 @@ use crate::agentic::desktop::service::step::incident::{
 use crate::agentic::desktop::service::step::intent_resolver::is_tool_allowed_for_resolution;
 use crate::agentic::desktop::service::step::queue::web_pipeline::{
     append_pending_web_success_fallback, append_pending_web_success_from_bundle,
-    constraint_grounded_probe_query_with_hints, constraint_grounded_search_limit,
-    constraint_grounded_search_query, is_human_challenge_error, mark_pending_web_attempted,
-    mark_pending_web_blocked, merge_pending_search_completion, next_pending_web_candidate,
-    parse_web_evidence_bundle, pre_read_candidate_plan_from_bundle, queue_web_read_from_pipeline,
-    queue_web_search_from_pipeline, remaining_pending_web_candidates,
+    is_human_challenge_error, mark_pending_web_attempted, mark_pending_web_blocked,
+    parse_web_evidence_bundle, remaining_pending_web_candidates,
     render_mailbox_access_limited_reply, synthesize_web_pipeline_reply,
-    synthesize_web_pipeline_reply_hybrid, web_pipeline_can_queue_initial_read_latency_aware,
-    web_pipeline_can_queue_probe_search_latency_aware, web_pipeline_completion_reason,
-    web_pipeline_latency_pressure_label, web_pipeline_min_sources, web_pipeline_now_ms,
-    web_pipeline_remaining_budget_ms, web_pipeline_required_probe_budget_ms,
-    web_pipeline_required_read_budget_ms, web_pipeline_requires_metric_probe_followup,
-    WebPipelineCompletionReason, WEB_PIPELINE_BUDGET_MS,
+    synthesize_web_pipeline_reply_hybrid, web_pipeline_min_sources, web_pipeline_now_ms,
+    WebPipelineCompletionReason,
 };
 use crate::agentic::desktop::service::step::signals::is_mail_connector_tool_name;
 use crate::agentic::desktop::service::{DesktopAgentService, ServiceCallContext};
@@ -87,8 +84,8 @@ mod web_pre_read;
 
 use self::duplicate_guard::{
     duplicate_command_cached_completion_summary, duplicate_command_cached_success_summary,
-    duplicate_command_completion_summary,
-    duplicate_command_execution_summary, find_matching_command_history_entry,
+    duplicate_command_completion_summary, duplicate_command_execution_summary,
+    find_matching_command_history_entry,
 };
 use self::phases::{
     apply_post_execution_guards, execute_non_mailbox_tool, finalize_action_processing,
@@ -572,6 +569,7 @@ mod tests {
     #[test]
     fn execution_contract_violation_uses_spec_error_class() {
         let message = execution_contract_violation_error("receipt::verification=true");
-        assert!(message.starts_with("ERROR_CLASS=ExecutionContractViolation "));
+        assert!(message.starts_with("ERROR_CLASS=VerificationMissing "));
+        assert!(message.contains("base_error_class=ExecutionContractViolation"));
     }
 }

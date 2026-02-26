@@ -16,6 +16,7 @@ use ioi_types::error::TransactionError;
 use serde::Deserialize;
 use serde_json::json;
 use std::collections::VecDeque;
+use std::time::Duration;
 
 // --- Cognitive Router Types (System 1) ---
 #[derive(Debug, Deserialize, Clone, Copy, PartialEq)]
@@ -28,6 +29,16 @@ enum AttentionMode {
 pub struct CognitionResult {
     pub raw_output: String,
     pub strategy_used: String,
+}
+
+fn cognition_inference_timeout() -> Duration {
+    const DEFAULT_TIMEOUT_SECS: u64 = 15;
+    std::env::var("IOI_COGNITION_INFERENCE_TIMEOUT_SECS")
+        .ok()
+        .and_then(|raw| raw.parse::<u64>().ok())
+        .filter(|secs| *secs > 0)
+        .map(Duration::from_secs)
+        .unwrap_or_else(|| Duration::from_secs(DEFAULT_TIMEOUT_SECS))
 }
 
 fn preflight_missing_capability(
@@ -371,7 +382,7 @@ pub async fn think(
          - Final user response must be structured from evidence and include `Mechanism: ...`; include timestamps/handles/status controls whenever available.\n\
          - For time-sensitive tasks, include an absolute UTC timestamp in the final reply as `Target UTC: YYYY-MM-DDTHH:MM:SSZ`.\n\
          - For timer/alarm/countdown goals, the notification path must be deferred to fire at due time (for example `sleep ... && notify-send ...` or scheduler equivalent); immediate standalone `notify-send` does not satisfy the contract.\n\
-         - If tool output reports `ERROR_CLASS=ExecutionContractViolation ... missing_keys=...`, revise the next action to satisfy the missing markers; do not repeat the same command unchanged.\n\
+         - If tool output reports `ERROR_CLASS=ExecutionContractViolation ... missing_keys=...`, do not retry or rewrite the command loop; surface a terminal contract failure via `system__fail`.\n\
          - Use `system__fail` only when command tooling is unavailable."
     } else {
         ""
@@ -562,41 +573,64 @@ OPERATING RULES:
         service.fast_inference.clone()
     };
 
-    let output_bytes = match runtime
-        .execute_inference(
-            model_hash,
-            &service
-                .prepare_cloud_inference_input(
-                    Some(session_id),
-                    "desktop_agent",
-                    &format!("model_hash:{}", hex::encode(model_hash)),
-                    &input_bytes,
-                )
-                .await?,
-            options,
+    let inference_input = service
+        .prepare_cloud_inference_input(
+            Some(session_id),
+            "desktop_agent",
+            &format!("model_hash:{}", hex::encode(model_hash)),
+            &input_bytes,
         )
-        .await
+        .await?;
+    let inference_timeout = cognition_inference_timeout();
+    let output_bytes = match tokio::time::timeout(
+        inference_timeout,
+        runtime.execute_inference(model_hash, &inference_input, options),
+    )
+    .await
     {
-        Ok(bytes) => bytes,
-        Err(e) => {
-            let err_msg = e.to_string();
-            // Handle Refusals (Pause)
-            if err_msg.contains("LLM_REFUSAL") {
-                let reason = err_msg
-                    .replace("Host function error: LLM_REFUSAL: ", "")
-                    .replace("LLM_REFUSAL: ", "");
-                return Ok(CognitionResult {
-                    raw_output: json!({
-                        "name": "system::refusal",
-                        "arguments": { "reason": reason }
-                    })
-                    .to_string(),
-                    strategy_used: "Refusal".to_string(),
-                });
-            }
-            log::error!("CRITICAL: Agent Inference Failed: {}", e);
-            Vec::new()
+        Err(_) => {
+            let timeout_ms = inference_timeout.as_millis();
+            log::warn!(
+                "Cognition inference timed out session={} timeout_ms={}",
+                session_prefix,
+                timeout_ms
+            );
+            return Ok(CognitionResult {
+                raw_output: json!({
+                    "name": "system__fail",
+                    "arguments": {
+                        "reason": format!(
+                            "ERROR_CLASS=TimeoutOrHang Cognition inference timed out after {}ms.",
+                            timeout_ms
+                        )
+                    }
+                })
+                .to_string(),
+                strategy_used: "InferenceTimeout".to_string(),
+            });
         }
+        Ok(result) => match result {
+            Ok(bytes) => bytes,
+            Err(e) => {
+                let err_msg = e.to_string();
+                // Handle Refusals (Pause)
+                if err_msg.contains("LLM_REFUSAL") {
+                    let reason = err_msg
+                        .replace("Host function error: LLM_REFUSAL: ", "")
+                        .replace("LLM_REFUSAL: ", "");
+                    return Ok(CognitionResult {
+                        raw_output: json!({
+                            "name": "system::refusal",
+                            "arguments": { "reason": reason }
+                        })
+                        .to_string(),
+                        strategy_used: "Refusal".to_string(),
+                    });
+                }
+                log::error!("CRITICAL: Agent Inference Failed: {}", e);
+                Vec::new()
+            }
+        },
     };
 
     Ok(CognitionResult {

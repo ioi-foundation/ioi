@@ -3,13 +3,16 @@ use ioi_types::app::agentic::WebSource;
 use regex::Regex;
 use scraper::{Html, Selector};
 use std::collections::HashSet;
+use std::time::Duration;
 
 use super::transport::fetch_html_http_fallback;
 use super::urls::{
     build_google_news_rss_url, is_search_engine_host, normalize_bing_search_href,
     normalize_google_search_href, normalize_search_href,
 };
-use super::util::{compact_ws, domain_for_url, source_id_for_url, text_content};
+use super::util::{
+    compact_ws, domain_for_url, normalize_url_for_id, source_id_for_url, text_content,
+};
 
 pub(crate) fn parse_ddg_sources_from_html(html: &str, limit: usize) -> Vec<WebSource> {
     let document = Html::parse_document(html);
@@ -358,12 +361,94 @@ fn decode_rss_text(raw: &str) -> String {
         .replace("&#39;", "'")
 }
 
+fn is_google_news_rss_wrapper_url(url: &str) -> bool {
+    let lower = url.trim().to_ascii_lowercase();
+    lower.starts_with("https://news.google.com/rss/articles/")
+        || lower.starts_with("https://news.google.com/rss/read/")
+        || lower.starts_with("https://news.google.com/rss/topics/")
+}
+
+async fn resolve_google_news_rss_article_url(
+    client: &reqwest::Client,
+    url: &str,
+) -> Option<String> {
+    let trimmed = url.trim();
+    if trimmed.is_empty() || !is_google_news_rss_wrapper_url(trimmed) {
+        return None;
+    }
+
+    let response = tokio::time::timeout(Duration::from_millis(1_000), client.get(trimmed).send())
+        .await
+        .ok()
+        .and_then(|result| result.ok())?;
+    let resolved = response.url().as_str().trim().to_string();
+    if resolved.is_empty()
+        || (!resolved.starts_with("http://") && !resolved.starts_with("https://"))
+        || is_google_news_rss_wrapper_url(&resolved)
+    {
+        return None;
+    }
+    Some(resolved)
+}
+
+async fn resolve_google_news_rss_sources(
+    mut sources: Vec<WebSource>,
+    limit: usize,
+) -> Vec<WebSource> {
+    if sources.is_empty() {
+        return sources;
+    }
+
+    let client = match reqwest::Client::builder()
+        .redirect(reqwest::redirect::Policy::limited(8))
+        .timeout(Duration::from_millis(1_200))
+        .user_agent("Mozilla/5.0 (compatible; ioi-web-retriever/1.0; +https://ioi.local/web)")
+        .build()
+    {
+        Ok(client) => client,
+        Err(_) => return sources,
+    };
+
+    let resolve_limit = sources.len().min(8);
+    for source in sources.iter_mut().take(resolve_limit) {
+        let original = source.url.clone();
+        let Some(resolved) = resolve_google_news_rss_article_url(&client, &original).await else {
+            continue;
+        };
+        source.url = resolved.clone();
+        source.source_id = source_id_for_url(&resolved);
+        source.domain = domain_for_url(&resolved);
+    }
+
+    let mut deduped = Vec::new();
+    let mut seen = HashSet::new();
+    for mut source in sources {
+        let trimmed = source.url.trim();
+        if trimmed.is_empty() {
+            continue;
+        }
+        let normalized = normalize_url_for_id(trimmed);
+        if !seen.insert(normalized) {
+            continue;
+        }
+        source.url = trimmed.to_string();
+        deduped.push(source);
+        if deduped.len() >= limit {
+            break;
+        }
+    }
+
+    deduped
+}
+
 pub(crate) fn parse_google_news_sources_from_rss(rss_xml: &str, limit: usize) -> Vec<WebSource> {
     let item_re = Regex::new(r"(?is)<item\b[^>]*>(.*?)</item>").expect("static regex compiles");
     let title_re = Regex::new(r"(?is)<title\b[^>]*>(.*?)</title>").expect("static regex compiles");
     let link_re = Regex::new(r"(?is)<link\b[^>]*>(.*?)</link>").expect("static regex compiles");
     let source_re =
         Regex::new(r"(?is)<source\b[^>]*>(.*?)</source>").expect("static regex compiles");
+    let source_url_re =
+        Regex::new(r#"(?is)<source\b[^>]*\burl="([^"]+)""#).expect("static regex compiles");
     let mut out: Vec<WebSource> = Vec::new();
     let mut seen: HashSet<String> = HashSet::new();
     for item_cap in item_re.captures_iter(rss_xml) {
@@ -400,7 +485,7 @@ pub(crate) fn parse_google_news_sources_from_rss(rss_xml: &str, limit: usize) ->
                 (!trimmed.is_empty()).then(|| trimmed.to_string())
             });
 
-        let snippet_opt = source_re
+        let source_name_opt = source_re
             .captures(item)
             .and_then(|cap| cap.get(1))
             .map(|m| decode_rss_text(m.as_str()))
@@ -409,6 +494,21 @@ pub(crate) fn parse_google_news_sources_from_rss(rss_xml: &str, limit: usize) ->
                 let trimmed = raw.trim();
                 (!trimmed.is_empty()).then(|| trimmed.to_string())
             });
+        let source_url_opt = source_url_re
+            .captures(item)
+            .and_then(|cap| cap.get(1))
+            .map(|m| decode_rss_text(m.as_str()))
+            .and_then(|raw| {
+                let trimmed = raw.trim();
+                (trimmed.starts_with("http://") || trimmed.starts_with("https://"))
+                    .then(|| trimmed.to_string())
+            });
+        let snippet_opt = match (source_name_opt, source_url_opt.as_deref()) {
+            (Some(name), Some(source_url)) => Some(format!("{name} | source_url={source_url}")),
+            (Some(name), None) => Some(name),
+            (None, Some(source_url)) => Some(format!("source_url={source_url}")),
+            (None, None) => None,
+        };
 
         out.push(WebSource {
             source_id: source_id_for_url(&final_url),
@@ -416,7 +516,10 @@ pub(crate) fn parse_google_news_sources_from_rss(rss_xml: &str, limit: usize) ->
             url: final_url.clone(),
             title: title_opt,
             snippet: snippet_opt,
-            domain: domain_for_url(&final_url),
+            domain: source_url_opt
+                .as_deref()
+                .and_then(domain_for_url)
+                .or_else(|| domain_for_url(&final_url)),
         });
     }
 
@@ -429,5 +532,6 @@ pub(crate) async fn fetch_google_news_rss_sources(
 ) -> Result<Vec<WebSource>> {
     let rss_url = build_google_news_rss_url(query);
     let rss_xml = fetch_html_http_fallback(&rss_url).await?;
-    Ok(parse_google_news_sources_from_rss(&rss_xml, limit))
+    let parsed = parse_google_news_sources_from_rss(&rss_xml, limit);
+    Ok(resolve_google_news_rss_sources(parsed, limit).await)
 }

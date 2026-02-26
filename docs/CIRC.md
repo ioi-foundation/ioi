@@ -1,6 +1,6 @@
 # Capability-Intent Resolution Contract (CIRC)
 
-Status: Draft v0.4
+Status: Draft v0.5
 Owners: Agentic Platform
 Scope: Intent resolution and capability ontology for desktop agent execution
 
@@ -11,6 +11,8 @@ Primary goals:
 - Keep routing semantics stable under query paraphrase.
 - Keep behavior explainable and auditable.
 - Prevent layer mixing between domain semantics and system primitives.
+- Eliminate "heuristic routing" (guessing via regex/aliases).
+- Enable safe **probabilistic payload synthesis** at infinite scale by grounding generative actions in strict primitive capability boundaries.
 
 ## 2. Normative Terms
 The key words MUST, MUST NOT, SHOULD, SHOULD NOT, and MAY are to be interpreted as described in RFC 2119.
@@ -24,7 +26,7 @@ The resolver model MUST enforce three distinct layers:
 
 Layer constraints:
 - Intents MAY be domain-specific.
-- Tools MAY be domain-specific wrappers.
+- Tools MAY be generic executors for probabilistically synthesized payloads.
 - Capabilities MUST remain primitive and boundary-oriented.
 - Resolver winner selection MUST be intent-driven, not tool-driven.
 
@@ -37,6 +39,10 @@ An Intent is a canonical semantic action class mapping user goals to required pr
 - `preferred_tier`
 - `risk_class`
 
+Normative note for time-sensitive remote retrieval intents:
+- Intents that require "latest", "today", "current", or equivalent temporal grounding SHOULD include the primitive capability `sys.time.read` in `required_capabilities`.
+- The resolver/runtime contract SHOULD treat this as a hard feasibility dependency before remote retrieval execution begins.
+
 ### 3.3 Capability (Primitive Boundary Rule)
 A Capability is a foundational primitive (for example `sys.exec`, `fs.read`, `ui.interact`, `sys.env_read`).
 
@@ -45,7 +51,7 @@ Normative constraints:
 - Capability additions MUST correspond to a new permission, isolation, or risk boundary.
 - If a task can be expressed via existing primitives, the system MUST model it as a new intent or tool, not a new capability.
 
-### 3.4 Tool
+### 3.4 Tool (and Dynamic Synthesizers)
 A Tool is an executable operation that provides one or more primitive capabilities:
 - `tool_id`
 - `provides_capabilities`
@@ -55,6 +61,7 @@ Normative constraints:
 - Introducing a tool MUST NOT require resolver keyword patches.
 - Tool presence MAY change feasibility outcomes.
 - Tool presence MUST NOT alter semantic ranking scores.
+- If a Tool is designed to execute probabilistically synthesized payloads (e.g., an ephemeral shell), it MUST be strictly constrained by its declared `provides_capabilities`.
 
 ### 3.5 Policy
 Policy provides versioned deterministic controls:
@@ -64,23 +71,15 @@ Policy provides versioned deterministic controls:
 - safety and risk constraints
 
 ### 3.6 Normative Layering Examples
-The examples below are illustrative and conform to the three-layer rule:
-
 1. Arithmetic evaluation query:
 - Intent: `math.eval`
-- Required primitive capabilities: for example `agent.lifecycle`, `conversation.reply`
-- Tool: `math__eval` as a domain-specific wrapper
-- Note: this covers expression-style math only, not opening the Calculator application UI.
+- Required primitive capabilities: `agent.lifecycle`, `conversation.reply`
+- Tool: `math__eval` as a domain-specific wrapper.
 
-2. Timer creation:
+2. Timer creation via Dynamic Synthesis:
 - Intent: `time.timer.create`
-- Required primitive capabilities: for example `sys.exec`
-- Tool: any compliant execution tool exposing `sys.exec`
-
-3. Local app launch:
-- Intent: `app.launch`
-- Required primitive capabilities: for example `ui.interact` and/or `sys.exec` depending on platform policy
-- Tool: platform-specific launcher or shell wrapper, without changing resolver semantics
+- Required primitive capabilities: `sys.exec`
+- Tool: An ephemeral shell execution tool exposing `sys.exec` that runs a dynamically synthesized bash script based on topology discovery.
 
 ## 4. Resolution Contract
 For query `q`, active intent set `I`, and active tool set `T`, the resolver MUST perform the phases below.
@@ -92,17 +91,16 @@ Semantic ranking MUST depend only on:
 - embedding model output
 - similarity function
 
-The following MUST NOT affect ranking scores:
-- aliases
-- exemplars
-- scope
-- risk class
-- tool names
+The following MUST NOT affect ranking scores: aliases, exemplars, scope, risk class, or tool names.
 
 ### 4.2 Hard Constraint Phase
-Feasibility MUST be evaluated separately from ranking:
+Feasibility MUST be determined strictly upfront. Trial-and-error routing is forbidden.
 - `feasible(i)` iff all required primitive capabilities for intent `i` are satisfiable by `T`
 - and policy does not prohibit execution
+
+For intents that declare multi-source evidence floors, feasibility MUST also include a payload-shape check in Discovery/Synthesis before execution:
+- the selected candidate payload MUST satisfy policy-defined source-independence constraints (for example, distinct domains for multi-story headline aggregation).
+- if payload-shape constraints are not met, execution MUST NOT begin.
 
 If the top-ranked intent is infeasible, selection MUST proceed to the next feasible ranked intent before abstention.
 
@@ -115,9 +113,9 @@ After ranking and feasibility:
 ### 4.4 Ambiguity and Abstention
 Policy MAY define explicit versioned ambiguity margins.
 Low-confidence unresolved behavior MUST emit `resolver.unclassified` or policy-defined pause behavior.
+If a successfully resolved intent fails downstream during CEC execution, the resolver MUST NOT automatically re-trigger a semantic ranking phase to "guess" an alternative intent.
 
 ### 4.5 Policy Evaluation Order (Normative)
-When checks conflict, implementations MUST evaluate in this order:
 1. hard policy block rules
 2. capability feasibility
 3. quantization and tie handling
@@ -130,19 +128,19 @@ Resolver routing MUST depend only on canonical semantic ranking inputs plus expl
 
 ### 5.2 Prohibited Patterns
 Resolver logic MUST NOT:
-- route by ad hoc keyword or substring tests
-- route by tool-name prefixes
-- route by prompt-only exceptions
-- short-circuit to a tool before intent winner selection
+- route by ad hoc keyword, substring tests, or lexicographic assertions.
+- route by tool-name prefixes.
+- route by prompt-only exceptions.
+- short-circuit to a tool before intent winner selection.
+- fallback to lower-ranked intents dynamically based on downstream execution failures.
 
 ### 5.3 Allowed Patterns
 Resolver logic MAY:
-- use aliases and exemplars for observability and analytics
-- include deterministic post-ranking feasibility filtering
+- use aliases and exemplars for observability and analytics.
+- include deterministic post-ranking feasibility filtering.
 
 ## 6. Determinism and Replayability
 Resolver receipts MUST commit to model and policy state so selection is replayable.
-
 Minimum resolver receipt fields:
 - `contract_version`
 - `intent_matrix_version`
@@ -163,10 +161,6 @@ When adding a tool:
 - validate `provides_capabilities` maps to primitive capabilities
 - do not patch resolver winner logic for that tool
 
-When adding an intent:
-- add canonical descriptor
-- map to existing primitive capabilities where possible
-
 ### 7.2 Capability Admission Gate (Normative)
 A new capability MAY be added only if all of the following are true:
 1. Existing capabilities cannot represent the boundary safely.
@@ -178,17 +172,16 @@ A new capability MAY be added only if all of the following are true:
 Adding tools that do not change feasibility of existing intents MUST NOT change winners for the golden query corpus.
 
 ## 8. Intent Granularity and Collision Control
-Intent descriptors MUST be mutually discriminative.
-Implementations SHOULD run ontology collision linting and fail CI below policy-defined minimum separation thresholds.
+Intent descriptors MUST be mutually discriminative. Implementations SHOULD run ontology collision linting and fail CI below policy-defined minimum separation thresholds.
+
+Because execution strictly forbids fallbacks (per CEC), persistent execution failures indicate an inaccurate Discovery phase or poorly synthesized payload, NOT a need for runtime agentic retries. Teams MUST resolve execution gaps by refining the discovery context passed to the LLM or adding required primitives.
 
 ## 9. Conformance Profiles
 CIRC conformance MUST be tested by profile:
 
 Profile A: Resolver Core
-- paraphrase invariance
-- metadata independence
-- deterministic tie behavior
-- ambiguity behavior
+- paraphrase invariance and metadata independence
+- deterministic tie behavior and ambiguity handling
 
 Profile B: Ontology Governance
 - primitive capability enforcement
@@ -211,17 +204,17 @@ Required classes:
 - `ERROR_CLASS=OntologyViolation`
 
 ## 11. Migration Guidance
-To migrate a heuristic resolver to Draft v0.4:
+To migrate a heuristic resolver to Draft v0.5:
 1. Extract routing fields into typed schema.
 2. Separate semantic ranking from feasibility and policy checks.
 3. Replace domain-specific capability bindings with primitive capability mappings.
-4. Enforce deterministic selection and deterministic receipts.
-5. Wire execution behavior to CEC lifecycle gates.
+4. Enforce deterministic selection and full cryptographic receipts.
+5. Wire execution behavior strictly to CEC lifecycle gates (Zero Fallback).
 
 ## 12. Change Control and Versioning
 CIRC changes MUST be versioned.
 Breaking changes MUST include:
-- migration notes
+- migration notes (e.g., prohibition of heuristic execution retries)
 - conformance-suite updates
 - golden-corpus impact notes
 - ontology delta summary (intents, capabilities, tools)

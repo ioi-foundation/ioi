@@ -278,8 +278,7 @@ pub fn should_auto_complete_open_app_goal(
 mod tests {
     use super::{
         default_safe_policy, is_live_external_research_goal, is_mailbox_connector_goal,
-        should_auto_complete_open_app_goal,
-        LIVE_EXTERNAL_RESEARCH_SIGNAL_VERSION,
+        should_auto_complete_open_app_goal, LIVE_EXTERNAL_RESEARCH_SIGNAL_VERSION,
     };
 
     #[test]

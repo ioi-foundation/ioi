@@ -392,7 +392,7 @@ fn web_pipeline_reply_heading_is_query_agnostic() {
 }
 
 #[test]
-fn web_pipeline_reply_emits_insight_selector_and_receipts() {
+fn web_pipeline_reply_omits_internal_diagnostics_by_default() {
     let pending = PendingSearchCompletion {
         query: "latest regional cloud availability updates".to_string(),
         query_contract: "latest regional cloud availability updates".to_string(),
@@ -426,10 +426,12 @@ fn web_pipeline_reply_emits_insight_selector_and_receipts() {
 
     let reply =
         synthesize_web_pipeline_reply(&pending, WebPipelineCompletionReason::MinSourcesReached);
-    assert!(reply.contains(&format!(
+    assert!(!reply.contains(&format!(
         "Insight selector: {}",
         WEIGHTED_INSIGHT_SIGNAL_VERSION
     )));
-    assert!(reply.contains("Insights used:"));
-    assert!(reply.contains("Evidence gaps:"));
+    assert!(!reply.contains("Insights used:"));
+    assert!(!reply.contains("Evidence gaps:"));
+    assert!(reply.contains("Citations:"));
+    assert!(reply.contains("Overall confidence:"));
 }

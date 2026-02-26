@@ -9,7 +9,10 @@ use super::parsers::{
     parse_bing_sources_from_html, parse_ddg_sources_from_html, parse_google_news_sources_from_rss,
 };
 use super::readability::{build_document_text_and_spans, extract_read_blocks};
-use super::search::{search_backend_profile, search_budget_exhausted, search_provider_plan};
+use super::search::{
+    effective_search_provider_plan, search_backend_profile, search_budget_exhausted,
+    search_provider_plan,
+};
 use super::transport::{detect_human_challenge, retrieve_html_with_fallback};
 use super::types::{SearchBackendProfile, SearchProviderStage};
 use super::urls::{
@@ -61,6 +64,22 @@ fn search_backend_profile_uses_constraint_grounded_plan_for_time_sensitive_queri
         !plan.contains(&SearchProviderStage::GoogleNewsRss),
         "time-sensitive public-fact plan should avoid rss proxy fallback"
     );
+}
+
+#[test]
+fn search_backend_profile_treats_latest_news_as_time_sensitive_public_fact() {
+    let profile = search_backend_profile("today's top news headlines");
+    assert_eq!(
+        profile,
+        SearchBackendProfile::ConstraintGroundedTimeSensitive
+    );
+}
+
+#[test]
+fn search_provider_plan_appends_google_news_rss_for_headline_queries() {
+    let plan = effective_search_provider_plan("today's top news headlines");
+    assert_eq!(plan.first(), Some(&SearchProviderStage::GoogleNewsRss));
+    assert!(plan.contains(&SearchProviderStage::GoogleNewsRss));
 }
 
 #[test]
@@ -200,6 +219,24 @@ fn read_extract_builds_quote_spans_with_offsets() {
 }
 
 #[test]
+fn read_extract_ignores_structured_metadata_noise_blocks() {
+    let html = r#"
+        <html>
+          <head><title>Doc</title></head>
+          <body>
+            <article>
+              <p>{"@context":"https://schema.org","@type":"NewsMediaOrganization","datePublished":"1996-10-07","inLanguage":"en","image":{"@type":"ImageObject","width":1200,"height":630,"caption":"Example"}}</p>
+              <p>Top story update: officials announced a new response plan this morning.</p>
+            </article>
+          </body>
+        </html>
+        "#;
+    let (_title, blocks) = extract_read_blocks(html);
+    assert_eq!(blocks.len(), 1);
+    assert!(blocks[0].contains("Top story update"));
+}
+
+#[test]
 fn provider_anchor_policy_rejects_locality_only_overlap() {
     let query = "what's the weather right now in Anderson, SC";
     let sources = vec![test_source(
@@ -291,6 +328,26 @@ fn provider_anchor_policy_rejects_stopword_only_overlap() {
 
     let filtered = filter_provider_sources_by_query_anchors(query, sources);
     assert!(filtered.is_empty());
+}
+
+#[test]
+fn provider_anchor_policy_keeps_generic_headline_sources_without_strict_anchor_overlap() {
+    let query = "today's top news headlines";
+    let sources = vec![
+        test_source(
+            "https://www.reuters.com/world/europe/example-story/",
+            "Country leaders meet for emergency summit",
+            "Reuters",
+        ),
+        test_source(
+            "https://apnews.com/article/example-story",
+            "Major policy vote expected this afternoon",
+            "AP News",
+        ),
+    ];
+
+    let filtered = filter_provider_sources_by_query_anchors(query, sources.clone());
+    assert_eq!(filtered.len(), sources.len());
 }
 
 #[tokio::test(flavor = "current_thread")]

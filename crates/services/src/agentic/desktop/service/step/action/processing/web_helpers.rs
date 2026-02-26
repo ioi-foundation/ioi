@@ -1,11 +1,12 @@
 use super::super::search::is_search_scope;
 use super::{
-    constraint_grounded_search_limit, constraint_grounded_search_query, web_pipeline_min_sources,
     ActionContext, ActionRequest, ActionTarget, AgentState, FailureClass, TransactionError,
 };
 use crate::agentic::desktop::service::step::helpers::is_mailbox_connector_goal;
 use ioi_types::app::agentic::{IntentScopeProfile, ResolvedIntentState};
 use serde_json::json;
+
+const WEB_RESEARCH_BOOTSTRAP_SEARCH_LIMIT: u32 = 15;
 
 fn is_web_retrieval_timeout_tool(tool_name: &str) -> bool {
     matches!(tool_name, "web__search" | "web__read" | "browser__navigate")
@@ -109,18 +110,9 @@ pub(super) fn queue_web_search_bootstrap(
     if normalized_query.trim().is_empty() {
         return Ok(false);
     }
-    let min_sources = web_pipeline_min_sources(&normalized_query);
-    let grounded_query = constraint_grounded_search_query(&normalized_query, min_sources);
-    let search_limit = constraint_grounded_search_limit(&normalized_query, min_sources);
-    let search_query = if grounded_query.trim().is_empty() {
-        normalized_query
-    } else {
-        grounded_query
-    };
-
     let params = serde_jcs::to_vec(&json!({
-        "query": search_query,
-        "limit": search_limit
+        "query": normalized_query,
+        "limit": WEB_RESEARCH_BOOTSTRAP_SEARCH_LIMIT
     }))
     .map_err(|e| TransactionError::Serialization(e.to_string()))?;
     let request = ActionRequest {

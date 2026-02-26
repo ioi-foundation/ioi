@@ -25,6 +25,19 @@ pub const VERIFICATION_COMMIT_RECEIPT: &str = "verification_commit";
 const COMMAND_SCOPE_REQUIRED_RECEIPTS: [&str; 3] =
     ["provider_selection", "execution", "verification"];
 const COMMAND_SCOPE_REQUIRED_POSTCONDITIONS: [&str; 1] = ["execution_artifact"];
+pub const CLOCK_TIMESTAMP_POSTCONDITION: &str = "clock_timestamp_observed";
+
+const CLOCK_PAYLOAD_COMMAND_TOKENS: [&str; 6] = [
+    "date",
+    "timedatectl",
+    "hwclock",
+    "get-date",
+    "datetime",
+    "clock_gettime",
+];
+const CLOCK_PAYLOAD_NETWORK_TOKENS: [&str; 10] = [
+    "curl", "wget", "fetch", "http", "https", "ftp", "nc", "ncat", "netcat", "telnet",
+];
 
 pub fn capability_route_label(tool: &AgentTool) -> Option<&'static str> {
     match tool {
@@ -46,9 +59,55 @@ pub fn capability_route_label(tool: &AgentTool) -> Option<&'static str> {
 }
 
 pub fn execution_contract_violation_error(missing_keys: &str) -> String {
+    let mut missing_receipts = Vec::<String>::new();
+    let mut missing_postconditions = Vec::<String>::new();
+    for token in missing_keys
+        .split(',')
+        .map(|token| token.trim())
+        .filter(|token| !token.is_empty())
+    {
+        if let Some(rest) = token.strip_prefix("receipt::") {
+            missing_receipts.push(rest.trim_end_matches("=true").to_string());
+        } else if let Some(rest) = token.strip_prefix("postcondition::") {
+            missing_postconditions.push(rest.trim_end_matches("=true").to_string());
+        }
+    }
+
+    let (error_class, failed_stage) = if missing_receipts
+        .iter()
+        .any(|receipt| receipt == "host_discovery")
+    {
+        ("DiscoveryMissing", "discovery")
+    } else if missing_receipts
+        .iter()
+        .any(|receipt| receipt == "provider_selection" || receipt == "provider_selection_commit")
+    {
+        ("SynthesisFailed", "provider_selection")
+    } else if missing_receipts
+        .iter()
+        .any(|receipt| receipt == "verification" || receipt == "verification_commit")
+    {
+        ("VerificationMissing", "verification")
+    } else if !missing_postconditions.is_empty() {
+        ("PostconditionFailed", "completion_gate")
+    } else {
+        ("ExecutionContractViolation", "completion_gate")
+    };
+
+    let missing_receipts_str = if missing_receipts.is_empty() {
+        "none".to_string()
+    } else {
+        missing_receipts.join("|")
+    };
+    let missing_postconditions_str = if missing_postconditions.is_empty() {
+        "none".to_string()
+    } else {
+        missing_postconditions.join("|")
+    };
+
     format!(
-        "ERROR_CLASS=ExecutionContractViolation Execution contract unmet. Select a different action or verify required markers. missing_keys={}",
-        missing_keys
+        "ERROR_CLASS={} base_error_class=ExecutionContractViolation Execution contract unmet. failed_stage={} missing_receipts={} missing_postconditions={} missing_keys={}",
+        error_class, failed_stage, missing_receipts_str, missing_postconditions_str, missing_keys
     )
 }
 
@@ -197,6 +256,96 @@ pub fn sys_exec_command_preview(tool: &AgentTool) -> Option<String> {
         }
         _ => None,
     }
+}
+
+fn is_simple_sleep_timer_command(command_preview: &str) -> bool {
+    let tokens: Vec<&str> = command_preview.split_whitespace().collect();
+    if tokens.len() != 2 {
+        return false;
+    }
+    tokens
+        .first()
+        .map(|token| token.eq_ignore_ascii_case("sleep"))
+        .unwrap_or(false)
+        && tokens
+            .get(1)
+            .map(|token| token.chars().all(|ch| ch.is_ascii_digit()))
+            .unwrap_or(false)
+}
+
+fn scheduler_timer_notification_args(sleep_seconds: i64) -> Vec<String> {
+    let rounded_minutes = ((sleep_seconds + 59) / 60).max(1);
+    vec![
+        "--user".to_string(),
+        format!("--on-active={}s", sleep_seconds),
+        "notify-send".to_string(),
+        "Timer Complete".to_string(),
+        format!("{} minute timer elapsed.", rounded_minutes),
+    ]
+}
+
+pub fn synthesize_allowlisted_timer_notification_tool(tool: &AgentTool) -> Option<AgentTool> {
+    let command_preview = sys_exec_command_preview(tool)?;
+    let sleep_seconds = parse_sleep_seconds(&command_preview)?;
+    if !is_simple_sleep_timer_command(&command_preview) {
+        return None;
+    }
+
+    let args = scheduler_timer_notification_args(sleep_seconds);
+    match tool {
+        AgentTool::SysExec { stdin, detach, .. } => Some(AgentTool::SysExec {
+            command: "systemd-run".to_string(),
+            args,
+            stdin: stdin.clone(),
+            detach: *detach,
+        }),
+        AgentTool::SysExecSession { stdin, .. } => Some(AgentTool::SysExecSession {
+            command: "systemd-run".to_string(),
+            args,
+            stdin: stdin.clone(),
+        }),
+        _ => None,
+    }
+}
+
+pub fn is_system_clock_read_contract_intent(agent_state: &AgentState) -> bool {
+    agent_state
+        .resolved_intent
+        .as_ref()
+        .map(|resolved| resolved.intent_id == "system.clock.read")
+        .unwrap_or(false)
+}
+
+fn command_preview_tokens(command_preview: &str) -> Vec<String> {
+    command_preview
+        .to_ascii_lowercase()
+        .split(|ch: char| !(ch.is_ascii_alphanumeric() || ch == '-'))
+        .filter(|token| !token.trim().is_empty())
+        .map(|token| token.to_string())
+        .collect()
+}
+
+pub fn sys_exec_satisfies_clock_read_contract(tool: &AgentTool) -> bool {
+    let Some(command_preview) = sys_exec_command_preview(tool) else {
+        return false;
+    };
+    let tokens = command_preview_tokens(&command_preview);
+    if tokens.is_empty() {
+        return false;
+    }
+    let has_clock_token = tokens.iter().any(|token| {
+        CLOCK_PAYLOAD_COMMAND_TOKENS
+            .iter()
+            .any(|allowed| token == allowed)
+    });
+    if !has_clock_token {
+        return false;
+    }
+    !tokens.iter().any(|token| {
+        CLOCK_PAYLOAD_NETWORK_TOKENS
+            .iter()
+            .any(|blocked| token == blocked)
+    })
 }
 
 fn command_arms_notification_path(command_preview: &str) -> bool {
@@ -420,6 +569,14 @@ pub fn missing_execution_contract_markers(agent_state: &AgentState) -> Vec<Strin
             missing.push(postcondition_marker(postcondition));
         }
     }
+    if is_system_clock_read_contract_intent(agent_state)
+        && !has_execution_postcondition(
+            &agent_state.tool_execution_log,
+            CLOCK_TIMESTAMP_POSTCONDITION,
+        )
+    {
+        missing.push(postcondition_marker(CLOCK_TIMESTAMP_POSTCONDITION));
+    }
     if requires_timer_notification_contract(agent_state) {
         if !has_execution_postcondition(
             &agent_state.tool_execution_log,
@@ -479,14 +636,17 @@ pub fn enrich_command_scope_summary(summary: &str, agent_state: &AgentState) -> 
 #[cfg(test)]
 mod tests {
     use super::{
-        execution_contract_violation_error, provider_selection_commit, verification_probe_commit,
+        execution_contract_violation_error, provider_selection_commit,
+        synthesize_allowlisted_timer_notification_tool, sys_exec_command_preview,
+        sys_exec_satisfies_clock_read_contract, verification_probe_commit,
     };
     use ioi_types::app::agentic::AgentTool;
 
     #[test]
-    fn execution_contract_violation_error_uses_spec_class() {
+    fn execution_contract_violation_error_maps_missing_verification_to_spec_class() {
         let error = execution_contract_violation_error("receipt::verification=true");
-        assert!(error.starts_with("ERROR_CLASS=ExecutionContractViolation "));
+        assert!(error.starts_with("ERROR_CLASS=VerificationMissing "));
+        assert!(error.contains("base_error_class=ExecutionContractViolation"));
     }
 
     #[test]
@@ -509,5 +669,55 @@ mod tests {
         };
         let commit = verification_probe_commit(&tool, None).expect("verification commit");
         assert!(commit.starts_with("sha256:"));
+    }
+
+    #[test]
+    fn sys_exec_clock_read_contract_accepts_local_clock_reads() {
+        let tool = AgentTool::SysExec {
+            command: "date".to_string(),
+            args: vec!["-u".to_string(), "+%Y-%m-%dT%H:%M:%SZ".to_string()],
+            stdin: None,
+            detach: false,
+        };
+        assert!(sys_exec_satisfies_clock_read_contract(&tool));
+    }
+
+    #[test]
+    fn sys_exec_clock_read_contract_rejects_network_retrieval_payloads() {
+        let tool = AgentTool::SysExec {
+            command: "curl".to_string(),
+            args: vec!["https://example.com/weather".to_string()],
+            stdin: None,
+            detach: false,
+        };
+        assert!(!sys_exec_satisfies_clock_read_contract(&tool));
+    }
+
+    #[test]
+    fn simple_sleep_timer_is_rewritten_to_allowlisted_scheduler_payload() {
+        let tool = AgentTool::SysExec {
+            command: "sleep".to_string(),
+            args: vec!["900".to_string()],
+            stdin: None,
+            detach: true,
+        };
+
+        let rewritten =
+            synthesize_allowlisted_timer_notification_tool(&tool).expect("timer rewrite");
+        let preview = sys_exec_command_preview(&rewritten).expect("preview");
+        assert!(preview.contains("systemd-run"));
+        assert!(preview.contains("--on-active=900s"));
+        assert!(preview.contains("notify-send"));
+    }
+
+    #[test]
+    fn complex_shell_timer_command_is_not_auto_rewritten() {
+        let tool = AgentTool::SysExec {
+            command: "sleep 900 && echo done".to_string(),
+            args: vec![],
+            stdin: None,
+            detach: true,
+        };
+        assert!(synthesize_allowlisted_timer_notification_tool(&tool).is_none());
     }
 }

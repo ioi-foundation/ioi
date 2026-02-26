@@ -10,6 +10,10 @@ use std::future::Future;
 use super::constants::{BROWSER_RETRIEVAL_TIMEOUT_SECS, HTTP_FALLBACK_TIMEOUT_SECS};
 use super::util::env_flag_enabled;
 
+const DEFAULT_HTTP_USER_AGENT: &str = "ioi-web-retrieve/1.0";
+const STANDARD_WEB_USER_AGENT: &str =
+    "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36";
+
 pub(crate) fn record_challenge(
     challenge_reason: &mut Option<String>,
     challenge_url: &mut Option<String>,
@@ -117,7 +121,7 @@ pub(crate) async fn navigate_browser_retrieval(
     }
 }
 
-pub(crate) async fn fetch_html_http_fallback(url: &str) -> Result<String> {
+async fn fetch_html_http_fallback_with_user_agent(url: &str, user_agent: &str) -> Result<String> {
     if env_flag_enabled("IOI_WEB_TEST_FORCE_HTTP_TIMEOUT") {
         return Err(anyhow!("HTTP fallback request timed out (forced): {}", url));
     }
@@ -128,7 +132,7 @@ pub(crate) async fn fetch_html_http_fallback(url: &str) -> Result<String> {
     let client = Client::builder()
         .redirect(redirect::Policy::limited(5))
         .timeout(Duration::from_secs(HTTP_FALLBACK_TIMEOUT_SECS))
-        .user_agent("ioi-web-retrieve/1.0")
+        .user_agent(user_agent)
         .build()
         .map_err(|e| anyhow!("HTTP fallback client init failed: {}", e))?;
 
@@ -142,6 +146,14 @@ pub(crate) async fn fetch_html_http_fallback(url: &str) -> Result<String> {
         .text()
         .await
         .map_err(|e| anyhow!("HTTP fallback body read failed: {}", e))
+}
+
+pub(crate) async fn fetch_html_http_fallback(url: &str) -> Result<String> {
+    fetch_html_http_fallback_with_user_agent(url, DEFAULT_HTTP_USER_AGENT).await
+}
+
+pub(crate) async fn fetch_html_http_fallback_browser_ua(url: &str) -> Result<String> {
+    fetch_html_http_fallback_with_user_agent(url, STANDARD_WEB_USER_AGENT).await
 }
 
 #[cfg(test)]

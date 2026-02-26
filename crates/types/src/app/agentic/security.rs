@@ -121,6 +121,43 @@ impl Default for IntentAmbiguityPolicy {
     }
 }
 
+/// CEC execution applicability class for an intent.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Encode, Decode, Default)]
+#[serde(rename_all = "snake_case")]
+pub enum ExecutionApplicabilityClass {
+    /// Host discovery and provider selection are required.
+    #[default]
+    TopologyDependent,
+    /// Pure deterministic local transformation with no topology dependency.
+    DeterministicLocal,
+    /// External retrieval with no host topology discovery requirement.
+    RemoteRetrieval,
+    /// Combines multiple applicability classes.
+    Mixed,
+}
+
+/// CEC provider-selection behavior.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Encode, Decode, Default)]
+#[serde(rename_all = "snake_case")]
+pub enum ProviderSelectionMode {
+    /// Select/generate providers dynamically from runtime discovery.
+    #[default]
+    DynamicSynthesis,
+    /// Use only capability-availability checks.
+    CapabilityOnly,
+}
+
+/// CEC verification behavior.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Encode, Decode, Default)]
+#[serde(rename_all = "snake_case")]
+pub enum VerificationMode {
+    /// Verification material is generated/synthesized from runtime context.
+    #[default]
+    DynamicSynthesis,
+    /// Verification is deterministic/static.
+    DeterministicCheck,
+}
+
 /// A single canonical intent matrix row.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Encode, Decode)]
 pub struct IntentMatrixEntry {
@@ -137,6 +174,24 @@ pub struct IntentMatrixEntry {
     pub scope: IntentScopeProfile,
     /// Preferred execution tier label (`tool_first`, `ax_first`, `visual_last`).
     pub preferred_tier: String,
+    /// CEC applicability class for intent execution.
+    #[serde(default)]
+    pub applicability_class: ExecutionApplicabilityClass,
+    /// Optional host-discovery override. When omitted, class defaults apply.
+    #[serde(default)]
+    pub requires_host_discovery: Option<bool>,
+    /// Optional provider-selection mode.
+    #[serde(default)]
+    pub provider_selection_mode: Option<ProviderSelectionMode>,
+    /// Required execution receipts for completion gate enforcement.
+    #[serde(default)]
+    pub required_receipts: Vec<String>,
+    /// Required execution postconditions for completion gate enforcement.
+    #[serde(default)]
+    pub required_postconditions: Vec<String>,
+    /// Optional verification mode.
+    #[serde(default)]
+    pub verification_mode: Option<VerificationMode>,
     /// Optional alias metadata for observability and analytics only.
     /// Routing must not depend on this field.
     #[serde(default)]
@@ -145,6 +200,42 @@ pub struct IntentMatrixEntry {
     /// Routing must not depend on this field.
     #[serde(default)]
     pub exemplars: Vec<String>,
+}
+
+impl IntentMatrixEntry {
+    /// Returns the effective host-discovery requirement after class defaults.
+    pub fn effective_requires_host_discovery(&self) -> bool {
+        self.requires_host_discovery.unwrap_or(matches!(
+            self.applicability_class,
+            ExecutionApplicabilityClass::TopologyDependent
+        ))
+    }
+
+    /// Returns the effective provider-selection mode after class defaults.
+    pub fn effective_provider_selection_mode(&self) -> ProviderSelectionMode {
+        self.provider_selection_mode
+            .unwrap_or(match self.applicability_class {
+                ExecutionApplicabilityClass::TopologyDependent
+                | ExecutionApplicabilityClass::Mixed => ProviderSelectionMode::DynamicSynthesis,
+                ExecutionApplicabilityClass::DeterministicLocal
+                | ExecutionApplicabilityClass::RemoteRetrieval => {
+                    ProviderSelectionMode::CapabilityOnly
+                }
+            })
+    }
+
+    /// Returns the effective verification mode after class defaults.
+    pub fn effective_verification_mode(&self) -> VerificationMode {
+        self.verification_mode
+            .unwrap_or(match self.applicability_class {
+                ExecutionApplicabilityClass::TopologyDependent
+                | ExecutionApplicabilityClass::Mixed => VerificationMode::DynamicSynthesis,
+                ExecutionApplicabilityClass::DeterministicLocal
+                | ExecutionApplicabilityClass::RemoteRetrieval => {
+                    VerificationMode::DeterministicCheck
+                }
+            })
+    }
 }
 
 /// Canonical capability identifier.
@@ -256,6 +347,12 @@ impl Default for IntentRoutingPolicy {
                     risk_class: "low".to_string(),
                     scope: IntentScopeProfile::Conversation,
                     preferred_tier: "tool_first".to_string(),
+                    applicability_class: ExecutionApplicabilityClass::DeterministicLocal,
+                    requires_host_discovery: Some(false),
+                    provider_selection_mode: Some(ProviderSelectionMode::CapabilityOnly),
+                    required_receipts: vec!["execution".to_string(), "verification".to_string()],
+                    required_postconditions: vec![],
+                    verification_mode: Some(VerificationMode::DeterministicCheck),
                     aliases: vec![
                         "chat".to_string(),
                         "reply".to_string(),
@@ -279,6 +376,12 @@ impl Default for IntentRoutingPolicy {
                     risk_class: "low".to_string(),
                     scope: IntentScopeProfile::Conversation,
                     preferred_tier: "tool_first".to_string(),
+                    applicability_class: ExecutionApplicabilityClass::DeterministicLocal,
+                    requires_host_discovery: Some(false),
+                    provider_selection_mode: Some(ProviderSelectionMode::CapabilityOnly),
+                    required_receipts: vec!["execution".to_string(), "verification".to_string()],
+                    required_postconditions: vec![],
+                    verification_mode: Some(VerificationMode::DeterministicCheck),
                     aliases: vec![
                         "math".to_string(),
                         "calculate".to_string(),
@@ -293,16 +396,23 @@ impl Default for IntentRoutingPolicy {
                 IntentMatrixEntry {
                     intent_id: "web.research".to_string(),
                     semantic_descriptor:
-                        "research live information on the web and synthesize sourced findings"
+                        "research live information on the web including latest news headlines and current events then synthesize sourced findings"
                             .to_string(),
                     required_capabilities: vec![
                         CapabilityId::from("agent.lifecycle"),
                         CapabilityId::from("conversation.reply"),
+                        CapabilityId::from("sys.time.read"),
                         CapabilityId::from("web.retrieve"),
                     ],
                     risk_class: "medium".to_string(),
                     scope: IntentScopeProfile::WebResearch,
                     preferred_tier: "tool_first".to_string(),
+                    applicability_class: ExecutionApplicabilityClass::RemoteRetrieval,
+                    requires_host_discovery: Some(false),
+                    provider_selection_mode: Some(ProviderSelectionMode::CapabilityOnly),
+                    required_receipts: vec!["execution".to_string(), "verification".to_string()],
+                    required_postconditions: vec![],
+                    verification_mode: Some(VerificationMode::DeterministicCheck),
                     aliases: vec![
                         "web".to_string(),
                         "browse".to_string(),
@@ -327,6 +437,12 @@ impl Default for IntentRoutingPolicy {
                     risk_class: "medium".to_string(),
                     scope: IntentScopeProfile::WorkspaceOps,
                     preferred_tier: "tool_first".to_string(),
+                    applicability_class: ExecutionApplicabilityClass::DeterministicLocal,
+                    requires_host_discovery: Some(false),
+                    provider_selection_mode: Some(ProviderSelectionMode::CapabilityOnly),
+                    required_receipts: vec!["execution".to_string(), "verification".to_string()],
+                    required_postconditions: vec![],
+                    verification_mode: Some(VerificationMode::DeterministicCheck),
                     aliases: vec![
                         "repo".to_string(),
                         "workspace".to_string(),
@@ -350,6 +466,17 @@ impl Default for IntentRoutingPolicy {
                     risk_class: "medium".to_string(),
                     scope: IntentScopeProfile::AppLaunch,
                     preferred_tier: "tool_first".to_string(),
+                    applicability_class: ExecutionApplicabilityClass::TopologyDependent,
+                    requires_host_discovery: Some(true),
+                    provider_selection_mode: Some(ProviderSelectionMode::DynamicSynthesis),
+                    required_receipts: vec![
+                        "host_discovery".to_string(),
+                        "provider_selection".to_string(),
+                        "execution".to_string(),
+                        "verification".to_string(),
+                    ],
+                    required_postconditions: vec![],
+                    verification_mode: Some(VerificationMode::DynamicSynthesis),
                     aliases: vec!["open app".to_string(), "launch".to_string()],
                     exemplars: vec!["open calculator".to_string(), "launch browser".to_string()],
                 },
@@ -365,6 +492,17 @@ impl Default for IntentRoutingPolicy {
                     risk_class: "medium".to_string(),
                     scope: IntentScopeProfile::UiInteraction,
                     preferred_tier: "visual_last".to_string(),
+                    applicability_class: ExecutionApplicabilityClass::TopologyDependent,
+                    requires_host_discovery: Some(true),
+                    provider_selection_mode: Some(ProviderSelectionMode::CapabilityOnly),
+                    required_receipts: vec![
+                        "host_discovery".to_string(),
+                        "provider_selection".to_string(),
+                        "execution".to_string(),
+                        "verification".to_string(),
+                    ],
+                    required_postconditions: vec![],
+                    verification_mode: Some(VerificationMode::DeterministicCheck),
                     aliases: vec![
                         "click".to_string(),
                         "tap".to_string(),
@@ -389,6 +527,12 @@ impl Default for IntentRoutingPolicy {
                     risk_class: "low".to_string(),
                     scope: IntentScopeProfile::CommandExecution,
                     preferred_tier: "tool_first".to_string(),
+                    applicability_class: ExecutionApplicabilityClass::DeterministicLocal,
+                    requires_host_discovery: Some(false),
+                    provider_selection_mode: Some(ProviderSelectionMode::CapabilityOnly),
+                    required_receipts: vec!["execution".to_string(), "verification".to_string()],
+                    required_postconditions: vec![],
+                    verification_mode: Some(VerificationMode::DeterministicCheck),
                     aliases: vec![
                         "installed".to_string(),
                         "in path".to_string(),
@@ -409,7 +553,7 @@ impl Default for IntentRoutingPolicy {
                 IntentMatrixEntry {
                     intent_id: "system.clock.read".to_string(),
                     semantic_descriptor:
-                        "read only the current local or utc time-of-day timestamp from this host clock"
+                        "read only this host machine local or utc clock timestamp and time-of-day"
                             .to_string(),
                     required_capabilities: vec![
                         CapabilityId::from("agent.lifecycle"),
@@ -419,6 +563,12 @@ impl Default for IntentRoutingPolicy {
                     risk_class: "low".to_string(),
                     scope: IntentScopeProfile::CommandExecution,
                     preferred_tier: "tool_first".to_string(),
+                    applicability_class: ExecutionApplicabilityClass::DeterministicLocal,
+                    requires_host_discovery: Some(false),
+                    provider_selection_mode: Some(ProviderSelectionMode::CapabilityOnly),
+                    required_receipts: vec!["execution".to_string(), "verification".to_string()],
+                    required_postconditions: vec![],
+                    verification_mode: Some(VerificationMode::DeterministicCheck),
                     aliases: vec![],
                     exemplars: vec![
                         "read the current system time".to_string(),
@@ -440,6 +590,19 @@ impl Default for IntentRoutingPolicy {
                     risk_class: "high".to_string(),
                     scope: IntentScopeProfile::CommandExecution,
                     preferred_tier: "tool_first".to_string(),
+                    applicability_class: ExecutionApplicabilityClass::TopologyDependent,
+                    requires_host_discovery: Some(true),
+                    provider_selection_mode: Some(ProviderSelectionMode::DynamicSynthesis),
+                    required_receipts: vec![
+                        "host_discovery".to_string(),
+                        "provider_selection".to_string(),
+                        "provider_selection_commit".to_string(),
+                        "execution".to_string(),
+                        "verification".to_string(),
+                        "verification_commit".to_string(),
+                    ],
+                    required_postconditions: vec!["execution_artifact".to_string()],
+                    verification_mode: Some(VerificationMode::DynamicSynthesis),
                     aliases: vec![
                         "shell".to_string(),
                         "terminal".to_string(),
@@ -468,6 +631,12 @@ impl Default for IntentRoutingPolicy {
                     risk_class: "medium".to_string(),
                     scope: IntentScopeProfile::Delegation,
                     preferred_tier: "tool_first".to_string(),
+                    applicability_class: ExecutionApplicabilityClass::Mixed,
+                    requires_host_discovery: Some(false),
+                    provider_selection_mode: Some(ProviderSelectionMode::CapabilityOnly),
+                    required_receipts: vec!["execution".to_string(), "verification".to_string()],
+                    required_postconditions: vec![],
+                    verification_mode: Some(VerificationMode::DeterministicCheck),
                     aliases: vec!["delegate".to_string(), "sub-agent".to_string()],
                     exemplars: vec![
                         "delegate this task".to_string(),

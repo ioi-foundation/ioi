@@ -5,15 +5,18 @@ use super::support::{
     constraint_grounded_probe_query_with_hints_and_locality_hint, constraint_grounded_search_limit,
     constraint_grounded_search_query, constraint_grounded_search_query_with_hints,
     constraint_grounded_search_query_with_hints_and_locality_hint, fallback_search_summary,
-    merge_pending_search_completion, next_pending_web_candidate,
-    pre_read_candidate_plan_from_bundle, pre_read_candidate_plan_from_bundle_with_locality_hint,
-    queue_action_request_to_tool, render_synthesis_draft, select_web_pipeline_query_contract,
+    is_search_hub_url, looks_like_structured_metadata_noise, merge_pending_search_completion,
+    next_pending_web_candidate, pre_read_candidate_plan_from_bundle,
+    pre_read_candidate_plan_from_bundle_with_locality_hint, query_requires_structured_synthesis,
+    queue_action_request_to_tool, render_synthesis_draft, required_citations_per_story,
+    required_story_count, select_web_pipeline_query_contract,
     single_snapshot_constraint_set_with_hints, summarize_search_results,
     synthesize_web_pipeline_reply, web_pipeline_can_queue_initial_read_latency_aware,
     web_pipeline_can_queue_probe_search_latency_aware, web_pipeline_completion_reason,
     web_pipeline_latency_pressure_label, web_pipeline_min_sources,
     web_pipeline_required_probe_budget_ms, web_pipeline_required_read_budget_ms, CitationCandidate,
-    StoryDraft, SynthesisDraft, WebPipelineCompletionReason, WEIGHTED_INSIGHT_SIGNAL_VERSION,
+    StoryDraft, SynthesisDraft, WebPipelineCompletionReason, WEB_PIPELINE_REQUIRED_STORIES,
+    WEIGHTED_INSIGHT_SIGNAL_VERSION,
 };
 use crate::agentic::desktop::types::{PendingSearchCompletion, PendingSearchReadSummary};
 use ioi_types::app::agentic::{AgentTool, ComputerAction};

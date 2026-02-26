@@ -156,8 +156,46 @@ pub(crate) fn required_story_count(query: &str) -> usize {
     if prefers_single_fact_snapshot(query) {
         return 1;
     }
+    if query_prefers_multi_item_cardinality(query) {
+        WEB_PIPELINE_REQUIRED_STORIES
+    } else {
+        1
+    }
+}
 
-    WEB_PIPELINE_REQUIRED_STORIES
+fn normalized_phrase_query(query: &str) -> String {
+    let normalized = query
+        .to_ascii_lowercase()
+        .chars()
+        .map(|ch| if ch.is_ascii_alphanumeric() { ch } else { ' ' })
+        .collect::<String>();
+    format!(
+        " {} ",
+        normalized.split_whitespace().collect::<Vec<_>>().join(" ")
+    )
+}
+
+fn canonical_domain_key(url: &str) -> Option<String> {
+    let parsed = Url::parse(url.trim()).ok()?;
+    let host = parsed.host_str()?.trim();
+    if host.is_empty() {
+        return None;
+    }
+    let normalized = host.to_ascii_lowercase();
+    Some(
+        normalized
+            .strip_prefix("www.")
+            .unwrap_or(&normalized)
+            .to_string(),
+    )
+}
+
+fn required_distinct_domain_floor(query_contract: &str) -> usize {
+    if query_prefers_multi_item_cardinality(query_contract) {
+        required_story_count(query_contract).max(1)
+    } else {
+        0
+    }
 }
 
 pub(crate) fn prefers_single_fact_snapshot(query: &str) -> bool {
@@ -175,13 +213,224 @@ pub(crate) fn prefers_single_fact_snapshot(query: &str) -> bool {
     if explicit_story_count_hint(query).is_some() {
         return false;
     }
+    let padded = normalized_phrase_query(query);
+    let collection_topic = [
+        " headlines ",
+        " stories ",
+        " incidents ",
+        " outages ",
+        " updates ",
+        " events ",
+        " findings ",
+        " results ",
+        " providers ",
+        " services ",
+        " news ",
+    ]
+    .iter()
+    .any(|marker| padded.contains(marker));
+    if collection_topic
+        && [
+            " top ",
+            " roundup ",
+            " round-up ",
+            " list ",
+            " ranking ",
+            " ranked ",
+            " across ",
+            " between ",
+            " among ",
+        ]
+        .iter()
+        .any(|marker| padded.contains(marker))
+    {
+        return false;
+    }
     true
+}
+
+pub(crate) fn query_prefers_multi_item_cardinality(query: &str) -> bool {
+    if query.trim().is_empty() {
+        return false;
+    }
+    if explicit_story_count_hint(query).is_some() {
+        return true;
+    }
+    if prefers_single_fact_snapshot(query) {
+        return false;
+    }
+
+    let padded = normalized_phrase_query(query);
+    let has_collection_topic = [
+        " headlines ",
+        " stories ",
+        " incidents ",
+        " outages ",
+        " updates ",
+        " events ",
+        " findings ",
+        " results ",
+        " providers ",
+        " services ",
+    ]
+    .iter()
+    .any(|marker| padded.contains(marker));
+    let has_collection_directive = [
+        " roundup ",
+        " round-up ",
+        " list ",
+        " ranking ",
+        " ranked ",
+        " compare ",
+        " comparison ",
+        " versus ",
+        " vs ",
+        " across ",
+        " between ",
+        " among ",
+    ]
+    .iter()
+    .any(|marker| padded.contains(marker));
+    let has_ranked_collection = padded.contains(" top ") && has_collection_topic;
+
+    has_ranked_collection || (has_collection_directive && has_collection_topic)
+}
+
+pub(crate) fn query_is_generic_headline_collection(query: &str) -> bool {
+    if !query_prefers_multi_item_cardinality(query) {
+        return false;
+    }
+    let padded = normalized_phrase_query(query);
+    let has_headline_anchor = [
+        " headline ",
+        " headlines ",
+        " news ",
+        " story ",
+        " stories ",
+        " breaking news ",
+        " top stories ",
+    ]
+    .iter()
+    .any(|marker| padded.contains(marker));
+    if !has_headline_anchor {
+        return false;
+    }
+    [
+        " top ",
+        " latest ",
+        " today ",
+        " breaking ",
+        " recent ",
+        " now ",
+    ]
+    .iter()
+    .any(|marker| padded.contains(marker))
+}
+
+fn generic_headline_search_phrase(query: &str) -> String {
+    let mut tokens = Vec::new();
+    let mut seen = BTreeSet::new();
+    for raw in query.split(|ch: char| !ch.is_ascii_alphanumeric()) {
+        let mut normalized = raw.trim().to_ascii_lowercase();
+        if normalized == "todays" {
+            normalized = "today".to_string();
+        }
+        if normalized.len() < 2 {
+            continue;
+        }
+        if matches!(
+            normalized.as_str(),
+            "tell"
+                | "me"
+                | "give"
+                | "show"
+                | "what"
+                | "whats"
+                | "please"
+                | "could"
+                | "would"
+                | "can"
+                | "you"
+        ) {
+            continue;
+        }
+        if seen.insert(normalized.clone()) {
+            tokens.push(normalized);
+        }
+    }
+
+    if !tokens.iter().any(|token| token == "news") {
+        tokens.push("news".to_string());
+    }
+    if !tokens
+        .iter()
+        .any(|token| token == "headline" || token == "headlines")
+    {
+        tokens.push("headlines".to_string());
+    }
+    if !tokens
+        .iter()
+        .any(|token| matches!(token.as_str(), "today" | "latest" | "recent" | "breaking"))
+    {
+        tokens.push("today".to_string());
+    }
+    if !tokens
+        .iter()
+        .any(|token| matches!(token.as_str(), "top" | "latest" | "breaking"))
+    {
+        tokens.push("top".to_string());
+    }
+
+    let priority = ["today", "latest", "top", "breaking", "news", "headlines"];
+    let mut ordered = Vec::new();
+    let mut included = BTreeSet::new();
+    for wanted in priority {
+        if tokens.iter().any(|token| token == wanted) && included.insert(wanted.to_string()) {
+            ordered.push(wanted.to_string());
+        }
+    }
+    for token in tokens {
+        if included.insert(token.clone()) {
+            ordered.push(token);
+        }
+    }
+
+    let query = ordered.join(" ").trim().to_string();
+    if query.is_empty() {
+        "today top news headlines".to_string()
+    } else {
+        query
+    }
+}
+
+pub(crate) fn query_requires_structured_synthesis(query: &str) -> bool {
+    if query_prefers_multi_item_cardinality(query) {
+        return true;
+    }
+    if prefers_single_fact_snapshot(query) {
+        return false;
+    }
+
+    infer_report_sections(query).into_iter().any(|section| {
+        matches!(
+            section,
+            ReportSectionKind::RecentChange
+                | ReportSectionKind::Significance
+                | ReportSectionKind::UserImpact
+                | ReportSectionKind::Mitigation
+                | ReportSectionKind::EtaConfidence
+                | ReportSectionKind::Caveat
+        )
+    })
 }
 
 pub(crate) fn query_metric_axes_with_hints(
     query: &str,
     candidate_hints: &[PendingSearchReadSummary],
 ) -> BTreeSet<MetricAxis> {
+    if query_is_generic_headline_collection(query) {
+        return BTreeSet::new();
+    }
     let query_facets = analyze_query_facets(query);
     let query_native_tokens = query_native_anchor_tokens(query);
     let mut required_facets = query_facets.metric_schema.axis_hits;
@@ -339,6 +588,22 @@ pub(crate) fn is_query_stopword(token: &str) -> bool {
     QUERY_COMPATIBILITY_STOPWORDS.contains(&token)
 }
 
+fn is_tracking_noise_token(token: &str) -> bool {
+    if token.is_empty() {
+        return false;
+    }
+    if token.starts_with("utm") {
+        return true;
+    }
+    if matches!(
+        token,
+        "msockid" | "fbclid" | "gclid" | "dclid" | "yclid" | "mcid" | "mkt_tok"
+    ) {
+        return true;
+    }
+    token.len() >= 16 && token.chars().all(|ch| ch.is_ascii_hexdigit())
+}
+
 pub(crate) fn is_locality_scope_noise_token(token: &str) -> bool {
     LOCALITY_SCOPE_NOISE_TOKENS.contains(&token)
 }
@@ -354,6 +619,9 @@ pub(crate) fn normalized_anchor_tokens(text: &str) -> BTreeSet<String> {
                 return None;
             }
             if is_query_stopword(&normalized) {
+                return None;
+            }
+            if is_tracking_noise_token(&normalized) {
                 return None;
             }
             Some(normalized)
@@ -372,6 +640,9 @@ pub(crate) fn normalized_locality_tokens(text: &str) -> BTreeSet<String> {
                 return None;
             }
             if is_query_stopword(&normalized) {
+                return None;
+            }
+            if is_tracking_noise_token(&normalized) {
                 return None;
             }
             Some(normalized)
@@ -410,6 +681,9 @@ pub(crate) fn ordered_normalized_locality_tokens(text: &str) -> Vec<String> {
             continue;
         }
         if is_query_stopword(&normalized) {
+            continue;
+        }
+        if is_tracking_noise_token(&normalized) {
             continue;
         }
         if !seen.insert(normalized.clone()) {
@@ -840,6 +1114,9 @@ pub(crate) fn semantic_retrieval_query_contract_with_locality_hint(
     if resolved.trim().is_empty() {
         return resolved;
     }
+    if query_is_generic_headline_collection(&resolved) {
+        return generic_headline_search_phrase(&resolved);
+    }
 
     let facets = analyze_query_facets(&resolved);
     if facets.goal.provenance_hits == 0
@@ -1218,18 +1495,134 @@ pub(crate) fn is_search_hub_url(url: &str) -> bool {
             || path.starts_with("/search")
             || path == "/url"
             || path.starts_with("/rss/search"));
-    let is_google_news_rss_wrapper = host == "news.google.com"
-        && (path.starts_with("/rss/articles")
-            || path.starts_with("/rss/read")
-            || path.starts_with("/rss/topics"));
+    let is_google_news_hub = host == "news.google.com"
+        && (path == "/"
+            || path.starts_with("/topics")
+            || path.starts_with("/topstories")
+            || path.starts_with("/home")
+            || path.starts_with("/news"));
+    let is_google_news_rss_wrapper = is_google_news_rss_wrapper_url(url);
     let is_generic_query_search_hub = path.contains("/search")
         || path.ends_with("/search")
         || path.starts_with("/find")
         || path.contains("/results");
 
-    is_google_news_rss_wrapper
+    is_google_news_hub
+        || is_google_news_rss_wrapper
         || ((is_ddg_hub || is_bing_hub || is_google_hub || is_generic_query_search_hub)
             && has_query)
+}
+
+pub(crate) fn is_google_news_rss_wrapper_url(url: &str) -> bool {
+    let Ok(parsed) = Url::parse(url.trim()) else {
+        return false;
+    };
+    let Some(host) = parsed.host_str() else {
+        return false;
+    };
+    if host.to_ascii_lowercase() != "news.google.com" {
+        return false;
+    }
+    let path = parsed.path().to_ascii_lowercase();
+    path.starts_with("/rss/articles")
+        || path.starts_with("/rss/read")
+        || path.starts_with("/rss/topics")
+}
+
+fn is_multi_item_listing_url(url: &str) -> bool {
+    let Ok(parsed) = Url::parse(url.trim()) else {
+        return false;
+    };
+    let path = parsed.path().trim_matches('/').to_ascii_lowercase();
+    if path.is_empty() {
+        return true;
+    }
+    let segments = path
+        .split('/')
+        .filter(|segment| !segment.trim().is_empty())
+        .map(|segment| segment.to_ascii_lowercase())
+        .collect::<Vec<_>>();
+    if segments.is_empty() {
+        return true;
+    }
+
+    const LISTING_MARKERS: &[&str] = &[
+        "news",
+        "latest",
+        "headline",
+        "headlines",
+        "top",
+        "story",
+        "stories",
+        "world",
+        "us",
+        "u-s",
+        "politics",
+        "business",
+        "tech",
+        "technology",
+        "science",
+        "health",
+        "sports",
+        "entertainment",
+        "video",
+        "videos",
+        "category",
+        "categories",
+        "section",
+        "sections",
+        "topic",
+        "topics",
+        "home",
+        "index",
+        "live",
+    ];
+
+    let marker_segment = |segment: &str| {
+        if segment.is_empty() {
+            return false;
+        }
+        if LISTING_MARKERS.contains(&segment) {
+            return true;
+        }
+        segment
+            .split('-')
+            .all(|token| !token.is_empty() && LISTING_MARKERS.contains(&token))
+    };
+
+    let short_listing = segments.len() <= 2
+        && segments.iter().all(|segment| {
+            if segment.chars().any(|ch| ch.is_ascii_digit()) {
+                return false;
+            }
+            marker_segment(segment)
+        });
+    if short_listing {
+        return true;
+    }
+
+    segments.len() <= 2
+        && segments
+            .last()
+            .map(|segment| {
+                segment.ends_with("-news")
+                    || segment.ends_with("-headlines")
+                    || segment.ends_with("-stories")
+            })
+            .unwrap_or(false)
+}
+
+pub(crate) fn is_citable_web_url(url: &str) -> bool {
+    let Ok(parsed) = Url::parse(url.trim()) else {
+        return false;
+    };
+    if !matches!(parsed.scheme(), "http" | "https") {
+        return false;
+    }
+    parsed
+        .host_str()
+        .map(|host| !host.trim().is_empty())
+        .unwrap_or(false)
 }
 
 pub(crate) fn candidate_time_sensitive_resolvable_payload(title: &str, excerpt: &str) -> bool {
@@ -1772,6 +2165,14 @@ pub(crate) fn constraint_grounded_search_query_with_hints_and_locality_hint(
     candidate_hints: &[PendingSearchReadSummary],
     locality_hint: Option<&str>,
 ) -> String {
+    let resolved = resolved_query_contract_with_locality_hint(query, locality_hint);
+    if resolved.trim().is_empty() {
+        return String::new();
+    }
+    if query_is_generic_headline_collection(&resolved) {
+        return generic_headline_search_phrase(&resolved);
+    }
+
     let base = semantic_retrieval_query_contract_with_locality_hint(query, locality_hint);
     if base.trim().is_empty() {
         return String::new();
@@ -1858,16 +2259,57 @@ pub(crate) fn constraint_grounded_probe_query_with_hints_and_locality_hint(
     }
 
     let prior_trimmed = prior_query.trim();
+    let headline_collection_query = query_is_generic_headline_collection(query);
+    let projection = headline_collection_query.then(|| {
+        build_query_constraint_projection_with_locality_hint(
+            query,
+            min_sources,
+            candidate_hints,
+            locality_hint,
+        )
+    });
+    if headline_collection_query {
+        let mut diversification_terms = vec![
+            "latest headlines".to_string(),
+            "breaking news".to_string(),
+            "multiple outlets".to_string(),
+            "Reuters".to_string(),
+            "AP".to_string(),
+            "BBC".to_string(),
+            "NPR".to_string(),
+            "CNN".to_string(),
+        ];
+        if let Some(projection_ref) = projection.as_ref() {
+            let host_exclusion_terms =
+                projection_probe_host_exclusion_terms(projection_ref, candidate_hints);
+            for term in host_exclusion_terms.into_iter().take(1) {
+                if diversification_terms
+                    .iter()
+                    .any(|existing| existing == &term)
+                {
+                    continue;
+                }
+                diversification_terms.push(term);
+            }
+        }
+        let diversified_query = append_unique_query_terms(&grounded_query, &diversification_terms);
+        if !diversified_query.trim().is_empty()
+            && !diversified_query.eq_ignore_ascii_case(prior_trimmed)
+        {
+            return Some(diversified_query);
+        }
+    }
     if prior_trimmed.is_empty() || !grounded_query.eq_ignore_ascii_case(prior_trimmed) {
         return Some(grounded_query);
     }
-
-    let projection = build_query_constraint_projection_with_locality_hint(
-        query,
-        min_sources,
-        candidate_hints,
-        locality_hint,
-    );
+    let projection = projection.unwrap_or_else(|| {
+        build_query_constraint_projection_with_locality_hint(
+            query,
+            min_sources,
+            candidate_hints,
+            locality_hint,
+        )
+    });
     let mut escalation_terms =
         projection_probe_conflict_exclusion_terms(&projection, candidate_hints);
     let host_exclusion_terms = projection_probe_host_exclusion_terms(&projection, candidate_hints);
@@ -2100,6 +2542,7 @@ pub(crate) fn pre_read_candidate_plan(
     let has_constraint_objective = projection.has_constraint_objective();
     let time_sensitive_scope = constraints.scopes.contains(&ConstraintScope::TimeSensitive);
     let reject_search_hub = projection.reject_search_hub_candidates();
+    let prefer_non_listing_sources = query_prefers_multi_item_cardinality(query_contract);
     let mut requires_constraint_search_probe =
         if !has_constraint_objective || scoreable_candidates == 0 {
             false
@@ -2119,6 +2562,9 @@ pub(crate) fn pre_read_candidate_plan(
         .iter()
         .filter_map(|(_, url, score, _, compatibility, _)| {
             if reject_search_hub && is_search_hub_url(url) {
+                return None;
+            }
+            if prefer_non_listing_sources && is_multi_item_listing_url(url) {
                 return None;
             }
             if can_prune && !envelope_score_resolves_constraint(constraints, score) {
@@ -2148,29 +2594,13 @@ pub(crate) fn pre_read_candidate_plan(
                 compatibility_passes_projection(&projection, compatibility)
                     && compatibility.compatibility_score > 0
             })
+            .filter(|(_, url, _, _, _, _)| {
+                !prefer_non_listing_sources || !is_multi_item_listing_url(url)
+            })
             .take(fallback_limit)
             .map(|(_, url, _, _, _, _)| url.to_string())
             .collect::<Vec<_>>();
         candidate_urls = positive_fallback;
-    }
-    // Controlled bootstrap: when grounded constraints reject all candidates as hubs,
-    // allow a tiny hub-read seed so subsequent reads can discover concrete targets.
-    if candidate_urls.is_empty() && reject_search_hub && has_constraint_objective {
-        let mut seen_hub_bootstrap = BTreeSet::new();
-        for (_, url, _, _, _, _) in &ranked {
-            if !is_search_hub_url(url) {
-                continue;
-            }
-            if seen_hub_bootstrap.insert(url.to_string()) {
-                candidate_urls.push(url.to_string());
-            }
-            if candidate_urls.len() >= 2 {
-                break;
-            }
-        }
-        if !candidate_urls.is_empty() {
-            requires_constraint_search_probe = true;
-        }
     }
     if candidate_urls.len() < min_required && has_constraint_objective && scoreable_candidates > 0 {
         let candidate_count_before_top_up = candidate_urls.len();
@@ -2183,6 +2613,9 @@ pub(crate) fn pre_read_candidate_plan(
                 break;
             }
             if seen_candidate_urls.contains(url) || is_search_hub_url(url) {
+                continue;
+            }
+            if prefer_non_listing_sources && is_multi_item_listing_url(url) {
                 continue;
             }
             if !compatibility.locality_compatible {
@@ -2206,6 +2639,28 @@ pub(crate) fn pre_read_candidate_plan(
             }
         }
         if candidate_urls.len() > candidate_count_before_top_up {
+            requires_constraint_search_probe = true;
+        }
+    }
+    let distinct_domain_floor = required_distinct_domain_floor(query_contract);
+    if distinct_domain_floor > 1 && !candidate_urls.is_empty() {
+        let mut seen_domains = BTreeSet::new();
+        let mut distinct_domain_urls = Vec::new();
+        for url in &candidate_urls {
+            let trimmed = url.trim();
+            if trimmed.is_empty() {
+                continue;
+            }
+            let domain_key =
+                canonical_domain_key(trimmed).unwrap_or_else(|| trimmed.to_ascii_lowercase());
+            if seen_domains.insert(domain_key) {
+                distinct_domain_urls.push(trimmed.to_string());
+            }
+        }
+        if !distinct_domain_urls.is_empty() {
+            candidate_urls = distinct_domain_urls;
+        }
+        if seen_domains.len() < distinct_domain_floor {
             requires_constraint_search_probe = true;
         }
     }
@@ -2233,6 +2688,9 @@ pub(crate) fn pre_read_candidate_plan(
             continue;
         }
         if reject_search_hub && is_search_hub_url(url) {
+            continue;
+        }
+        if prefer_non_listing_sources && is_multi_item_listing_url(url) {
             continue;
         }
         if can_prune_by_locality && !compatibility.locality_compatible {
@@ -2334,6 +2792,8 @@ pub(crate) fn pre_read_candidate_plan_from_bundle_with_recovery_mode(
 
 pub(crate) fn required_citations_per_story(query: &str) -> usize {
     let tokens = query.split_whitespace().collect::<Vec<_>>();
+    let normalized_query = normalized_phrase_query(query);
+    let has_for_each_directive = normalized_query.contains(" for each ");
     for idx in 0..tokens.len() {
         let Some(value) = parse_small_count_token(tokens[idx]) else {
             continue;
@@ -2347,21 +2807,48 @@ pub(crate) fn required_citations_per_story(query: &str) -> usize {
                     .to_ascii_lowercase()
             })
             .unwrap_or_default();
-        if matches!(
-            next.as_str(),
-            "citation" | "citations" | "source" | "sources"
-        ) && tokens
+        let third = tokens
             .get(idx + 2)
             .map(|value| {
                 value
                     .trim()
                     .trim_matches(|ch: char| !ch.is_ascii_alphanumeric())
-                    .eq_ignore_ascii_case("each")
+                    .to_ascii_lowercase()
             })
-            .unwrap_or(false)
+            .unwrap_or_default();
+        let fourth = tokens
+            .get(idx + 3)
+            .map(|value| {
+                value
+                    .trim()
+                    .trim_matches(|ch: char| !ch.is_ascii_alphanumeric())
+                    .to_ascii_lowercase()
+            })
+            .unwrap_or_default();
+
+        let looks_like_citation_directive = matches!(
+            next.as_str(),
+            "citation" | "citations" | "source" | "sources"
+        ) || ((next == "source" || next == "sources")
+            && matches!(third.as_str(), "citation" | "citations"));
+        let explicit_each_directive = next == "each" || third == "each" || fourth == "each";
+        let explicit_per_story_directive =
+            third == "per" && matches!(fourth.as_str(), "story" | "stories" | "item" | "items");
+        if looks_like_citation_directive
+            && (explicit_each_directive || explicit_per_story_directive || has_for_each_directive)
         {
             return value.clamp(1, 6);
         }
+    }
+
+    if query_is_generic_headline_collection(query) {
+        return 2;
+    }
+
+    if query_prefers_multi_item_cardinality(query) {
+        // Multi-story web briefs cite the primary article URL per story by default.
+        // Explicit "N citations/sources each" directives are handled above.
+        return 1;
     }
 
     WEB_PIPELINE_CITATIONS_PER_STORY
@@ -2372,6 +2859,10 @@ pub(crate) fn required_distinct_citations(query: &str) -> usize {
 }
 
 pub(crate) fn web_pipeline_min_sources(query: &str) -> u32 {
+    if query_prefers_multi_item_cardinality(query) {
+        let target = required_story_count(query).max(1) as u32;
+        return target.min(WEB_PIPELINE_CONSTRAINT_SEARCH_LIMIT_MAX).max(1);
+    }
     if prefers_single_fact_snapshot(query) {
         return 2;
     }

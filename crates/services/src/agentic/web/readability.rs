@@ -12,11 +12,48 @@ use super::constants::{
     READ_BLOCK_STRUCTURED_SCRIPT_WINDOW_TOKENS, READ_BLOCK_SUPPLEMENTAL_MAX,
 };
 use super::transport::{
-    detect_human_challenge, fetch_html_http_fallback, navigate_browser_retrieval,
+    detect_human_challenge, fetch_html_http_fallback_browser_ua, navigate_browser_retrieval,
 };
 use super::util::{
     compact_ws, domain_for_url, now_ms, sha256_hex, source_id_for_url, text_content,
 };
+
+fn looks_like_structured_metadata_noise(text: &str) -> bool {
+    let compact = compact_ws(text);
+    let trimmed = compact.trim();
+    if trimmed.is_empty() {
+        return false;
+    }
+    let lower = trimmed.to_ascii_lowercase();
+    let marker_hits = [
+        "\"@context\"",
+        "\"@type\"",
+        "datepublished",
+        "datemodified",
+        "inlanguage",
+        "thumbnailurl",
+        "contenturl",
+        "imageobject",
+        "\"width\"",
+        "\"height\"",
+        "\"caption\"",
+    ]
+    .iter()
+    .filter(|marker| lower.contains(**marker))
+    .count();
+    if marker_hits == 0 {
+        return false;
+    }
+    let structured_punctuation_hits = lower
+        .chars()
+        .filter(|ch| matches!(ch, '{' | '}' | '[' | ']' | '"' | ':'))
+        .count();
+    marker_hits >= 2
+        && (structured_punctuation_hits >= 12
+            || lower.contains("\",\"")
+            || lower.contains("\":")
+            || lower.contains("},{"))
+}
 
 pub(crate) fn extract_read_blocks(html: &str) -> (Option<String>, Vec<String>) {
     let document = Html::parse_document(html);
@@ -56,6 +93,9 @@ pub(crate) fn extract_read_blocks(html: &str) -> (Option<String>, Vec<String>) {
         let raw = compact_ws(&text_content(elem));
         let text = raw.trim();
         if text.is_empty() {
+            continue;
+        }
+        if looks_like_structured_metadata_noise(text) {
             continue;
         }
         blocks.push(text.to_string());
@@ -135,6 +175,9 @@ pub(crate) fn extract_read_blocks(html: &str) -> (Option<String>, Vec<String>) {
 }
 
 fn structured_metric_window_score(segment: &str) -> usize {
+    if looks_like_structured_metadata_noise(segment) {
+        return 0;
+    }
     let schema = analyze_metric_schema(segment);
     if !schema.has_metric_payload() || schema.numeric_token_hits == 0 {
         return 0;
@@ -267,7 +310,7 @@ pub async fn edge_web_read(
     }
     let mut retrieval_notes: Vec<String> = Vec::new();
     let mut backend = "edge:read:http".to_string();
-    let initial_html = match fetch_html_http_fallback(read_url).await {
+    let initial_html = match fetch_html_http_fallback_browser_ua(read_url).await {
         Ok(html) => html,
         Err(http_err) => {
             retrieval_notes.push(format!("http_error={}", http_err));

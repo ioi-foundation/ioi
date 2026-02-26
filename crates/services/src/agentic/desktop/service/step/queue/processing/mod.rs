@@ -31,7 +31,7 @@ use ioi_crypto::algorithms::hash::sha256;
 use ioi_types::app::{KernelEvent, RoutingReceiptEvent, RoutingStateSummary};
 use ioi_types::codec;
 use ioi_types::error::TransactionError;
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 mod completion;
 mod routing;
@@ -43,6 +43,40 @@ use self::web_pipeline::{
     maybe_handle_browser_snapshot, maybe_handle_web_read, maybe_handle_web_search,
 };
 use crate::agentic::desktop::service::step::anti_loop::TierRoutingDecision;
+
+fn extract_error_class_token(error: Option<&str>) -> Option<&str> {
+    let raw = error?;
+    let marker = "ERROR_CLASS=";
+    let start = raw.find(marker)?;
+    raw[start + marker.len()..]
+        .split_whitespace()
+        .next()
+        .filter(|token| !token.trim().is_empty())
+}
+
+fn is_cec_terminal_error(error: Option<&str>) -> bool {
+    matches!(
+        extract_error_class_token(error),
+        Some(
+            "ExecutionContractViolation"
+                | "DiscoveryMissing"
+                | "SynthesisFailed"
+                | "ExecutionFailedTerminal"
+                | "VerificationMissing"
+                | "PostconditionFailed"
+        )
+    )
+}
+
+fn web_queue_action_timeout() -> Duration {
+    const DEFAULT_TIMEOUT_SECS: u64 = 20;
+    std::env::var("IOI_WEB_QUEUE_TOOL_TIMEOUT_SECS")
+        .ok()
+        .and_then(|raw| raw.parse::<u64>().ok())
+        .filter(|secs| *secs > 0)
+        .map(Duration::from_secs)
+        .unwrap_or_else(|| Duration::from_secs(DEFAULT_TIMEOUT_SECS))
+}
 
 pub fn resolve_queue_routing_context(
     agent_state: &mut AgentState,
@@ -108,6 +142,13 @@ pub async fn process_queue_item(
         routing_decision.tier,
         env!("CARGO_PKG_VERSION"),
     );
+    let command_scope = agent_state
+        .resolved_intent
+        .as_ref()
+        .map(|resolved| {
+            resolved.scope == ioi_types::app::agentic::IntentScopeProfile::CommandExecution
+        })
+        .unwrap_or(false);
     let mut verification_checks = Vec::new();
 
     // Execute
@@ -115,9 +156,43 @@ pub async fn process_queue_item(
     let result_tuple =
         if !is_tool_allowed_for_resolution(agent_state.resolved_intent.as_ref(), &tool_name) {
             Err(TransactionError::Invalid(format!(
-            "ERROR_CLASS=PermissionOrApprovalRequired Tool '{}' blocked by global intent scope.",
-            tool_name
-        )))
+                "ERROR_CLASS=PolicyBlocked Tool '{}' blocked by global intent scope.",
+                tool_name
+            )))
+        } else if is_web_research_scope(agent_state) {
+            let timeout = web_queue_action_timeout();
+            match tokio::time::timeout(
+                timeout,
+                service.handle_action_execution_with_state(
+                    state,
+                    call_context,
+                    tool_wrapper.clone(),
+                    p.session_id,
+                    agent_state.step_count,
+                    [0u8; 32],
+                    &rules,
+                    &agent_state,
+                    &os_driver,
+                    None,
+                ),
+            )
+            .await
+            {
+                Ok(result) => result,
+                Err(_) => {
+                    log::warn!(
+                        "Web queue tool execution timed out after {:?} (session={} tool={}).",
+                        timeout,
+                        hex::encode(&p.session_id[..4]),
+                        tool_name
+                    );
+                    Err(TransactionError::Invalid(format!(
+                        "ERROR_CLASS=TimeoutOrHang Web queue tool '{}' timed out after {}ms.",
+                        tool_name,
+                        timeout.as_millis()
+                    )))
+                }
+            }
         } else {
             service
                 .handle_action_execution_with_state(
@@ -303,6 +378,25 @@ pub async fn process_queue_item(
             (false, None, Some(msg))
         }
     };
+    if !is_gated
+        && command_scope
+        && !success
+        && matches!(
+            &tool_wrapper,
+            ioi_types::app::agentic::AgentTool::SysExec { .. }
+                | ioi_types::app::agentic::AgentTool::SysExecSession { .. }
+        )
+    {
+        let cause = err
+            .clone()
+            .unwrap_or_else(|| "unknown execution failure".to_string());
+        if !cause.contains("ERROR_CLASS=ExecutionFailedTerminal") {
+            err = Some(format!(
+                "ERROR_CLASS=ExecutionFailedTerminal stage=execution cause={}",
+                cause
+            ));
+        }
+    }
     let is_install_package_tool = tool_name == "sys__install_package"
         || tool_name == "sys::install_package"
         || tool_name.ends_with("install_package");
@@ -556,179 +650,212 @@ pub async fn process_queue_item(
     if success && !is_gated {
         agent_state.recent_actions.clear();
     } else if !success && !awaiting_sudo_password && !awaiting_clarification {
-        failure_class = classify_failure(err.as_deref(), &policy_decision);
-        if let Some(class) = failure_class {
-            let target_id = agent_state.target.as_ref().and_then(|target| {
-                target
-                    .app_hint
-                    .as_deref()
-                    .filter(|v| !v.trim().is_empty())
-                    .or_else(|| {
-                        target
-                            .title_pattern
-                            .as_deref()
-                            .filter(|v| !v.trim().is_empty())
-                    })
-            });
-            let window_fingerprint = agent_state
-                .last_screen_phash
-                .filter(|hash| *hash != [0u8; 32])
-                .map(hex::encode);
-            let attempt_key = build_attempt_key(
-                &retry_intent_hash,
-                routing_decision.tier,
-                &tool_name,
-                target_id,
-                window_fingerprint.as_deref(),
-            );
-            let (repeat_count, attempt_key_hash) =
-                register_failure_attempt(agent_state, class, &attempt_key);
-            let budget_remaining = retry_budget_remaining(repeat_count);
-            let blocked_without_change = should_block_retry_without_change(class, repeat_count);
-            verification_checks.push(format!("attempt_repeat_count={}", repeat_count));
-            verification_checks.push(format!("attempt_key_hash={}", attempt_key_hash));
-            verification_checks.push(format!(
-                "attempt_retry_budget_remaining={}",
-                budget_remaining
-            ));
-            verification_checks.push(format!(
-                "attempt_retry_blocked_without_change={}",
-                blocked_without_change
-            ));
-            let incident_state = load_incident_state(state, &p.session_id)?;
-            if should_enter_incident_recovery(
-                Some(class),
-                &policy_decision,
-                stop_condition_hit,
-                incident_state.as_ref(),
-            ) {
-                let (resolved_retry_hash, recovery_tool_name, recovery_tool_jcs): (
-                    String,
-                    String,
-                    Vec<u8>,
-                ) = if let Some(existing) = incident_state.as_ref().filter(|i| i.active) {
-                    (
-                        existing.root_retry_hash.clone(),
-                        existing.root_tool_name.clone(),
-                        existing.root_tool_jcs.clone(),
-                    )
-                } else {
-                    (
-                        retry_intent_hash.clone(),
-                        tool_name.clone(),
-                        tool_jcs.clone(),
-                    )
-                };
-                remediation_queued = matches!(
-                    start_or_continue_incident_recovery(
-                        service,
-                        state,
-                        agent_state,
-                        p.session_id,
-                        block_height,
-                        &rules,
-                        &resolved_retry_hash,
-                        &recovery_tool_name,
-                        &recovery_tool_jcs,
-                        class,
-                        err.as_deref(),
-                        &mut verification_checks,
-                    )
-                    .await?,
-                    IncidentDirective::QueueActions
+        if is_cec_terminal_error(err.as_deref()) {
+            stop_condition_hit = true;
+            escalation_path = Some("execution_contract_terminal".to_string());
+            remediation_queued = false;
+            agent_state.execution_queue.clear();
+            let terminal_reason = err
+                .clone()
+                .unwrap_or_else(|| "ERROR_CLASS=ExecutionContractViolation".to_string());
+            agent_state.status = AgentStatus::Failed(terminal_reason);
+            verification_checks.push("cec_terminal_error=true".to_string());
+        } else {
+            failure_class = classify_failure(err.as_deref(), &policy_decision);
+            if let Some(class) = failure_class {
+                let target_id = agent_state.target.as_ref().and_then(|target| {
+                    target
+                        .app_hint
+                        .as_deref()
+                        .filter(|v| !v.trim().is_empty())
+                        .or_else(|| {
+                            target
+                                .title_pattern
+                                .as_deref()
+                                .filter(|v| !v.trim().is_empty())
+                        })
+                });
+                let window_fingerprint = agent_state
+                    .last_screen_phash
+                    .filter(|hash| *hash != [0u8; 32])
+                    .map(hex::encode);
+                let attempt_key = build_attempt_key(
+                    &retry_intent_hash,
+                    routing_decision.tier,
+                    &tool_name,
+                    target_id,
+                    window_fingerprint.as_deref(),
                 );
-            }
-
-            let install_lookup_failure = err
-                .as_deref()
-                .map(|msg| requires_wait_for_clarification(&tool_name, msg))
-                .unwrap_or(false);
-
-            if remediation_queued {
-                stop_condition_hit = false;
-                escalation_path = None;
-                agent_state.status = AgentStatus::Running;
-            } else if install_lookup_failure {
-                stop_condition_hit = true;
-                escalation_path = Some("wait_for_clarification".to_string());
-                awaiting_clarification = true;
-                mark_incident_wait_for_user(
-                    state,
-                    p.session_id,
-                    "wait_for_clarification",
-                    FailureClass::UserInterventionNeeded,
-                    err.as_deref(),
-                )?;
-                agent_state.execution_queue.clear();
-                agent_state.status = AgentStatus::Paused(
-                    "Waiting for clarification on target identity.".to_string(),
-                );
-            } else if matches!(class, FailureClass::UserInterventionNeeded) {
-                stop_condition_hit = true;
-                escalation_path = Some(escalation_path_for_failure(class).to_string());
-                agent_state.status = AgentStatus::Paused(
-                    "Waiting for user intervention: complete the required human verification in your browser/app, then resume.".to_string(),
-                );
-            } else if is_web_research_scope(agent_state)
-                && matches!(class, FailureClass::UnexpectedState)
-            {
-                // Keep web research autonomous under transient tool/schema instability.
-                stop_condition_hit = false;
-                escalation_path = None;
-                success = true;
-                err = None;
-                out = Some(format!(
-                    "Transient unexpected state while executing '{}'; continuing web research.",
+                let (repeat_count, attempt_key_hash) =
+                    register_failure_attempt(agent_state, class, &attempt_key);
+                let budget_remaining = retry_budget_remaining(repeat_count);
+                let blocked_without_change = should_block_retry_without_change(class, repeat_count);
+                verification_checks.push(format!("attempt_repeat_count={}", repeat_count));
+                verification_checks.push(format!("attempt_key_hash={}", attempt_key_hash));
+                verification_checks.push(format!(
+                    "attempt_retry_budget_remaining={}",
+                    budget_remaining
+                ));
+                verification_checks.push(format!(
+                    "attempt_retry_blocked_without_change={}",
+                    blocked_without_change
+                ));
+                if is_web_research_scope(agent_state)
+                    && matches!(class, FailureClass::TimeoutOrHang)
+                {
+                    let summary = format!(
+                    "Web retrieval timed out while executing '{}'. Retry later or narrow the query/sources.",
                     tool_name
-                ));
-                agent_state.status = AgentStatus::Running;
-                agent_state.recent_actions.clear();
-                verification_checks.push("web_unexpected_retry_bypass=true".to_string());
-            } else if blocked_without_change {
-                stop_condition_hit = true;
-                escalation_path = Some(escalation_path_for_failure(class).to_string());
-                agent_state.status = AgentStatus::Paused(format!(
-                    "Retry blocked: unchanged AttemptKey for {}",
-                    class.as_str()
-                ));
-                if matches!(
-                    class,
-                    FailureClass::FocusMismatch
-                        | FailureClass::TargetNotFound
-                        | FailureClass::VisionTargetNotFound
-                        | FailureClass::NoEffectAfterAction
-                        | FailureClass::TierViolation
-                        | FailureClass::MissingDependency
-                        | FailureClass::ContextDrift
-                        | FailureClass::ToolUnavailable
-                        | FailureClass::NonDeterministicUI
-                        | FailureClass::TimeoutOrHang
-                        | FailureClass::UnexpectedState
-                ) {
-                    agent_state.consecutive_failures = agent_state.consecutive_failures.max(3);
-                }
-            } else if should_trip_retry_guard(class, repeat_count) {
-                stop_condition_hit = true;
-                escalation_path = Some(escalation_path_for_failure(class).to_string());
-                agent_state.status = AgentStatus::Paused(format!(
-                    "Retry guard tripped after repeated {} failures",
-                    class.as_str()
-                ));
-                if matches!(
-                    class,
-                    FailureClass::FocusMismatch
-                        | FailureClass::TargetNotFound
-                        | FailureClass::VisionTargetNotFound
-                        | FailureClass::NoEffectAfterAction
-                        | FailureClass::TierViolation
-                        | FailureClass::MissingDependency
-                        | FailureClass::ContextDrift
-                        | FailureClass::ToolUnavailable
-                        | FailureClass::NonDeterministicUI
-                        | FailureClass::TimeoutOrHang
-                        | FailureClass::UnexpectedState
-                ) {
-                    agent_state.consecutive_failures = agent_state.consecutive_failures.max(3);
+                );
+                    stop_condition_hit = true;
+                    escalation_path = Some("web_timeout_fail_fast".to_string());
+                    remediation_queued = false;
+                    success = true;
+                    err = None;
+                    out = Some(summary.clone());
+                    agent_state.execution_queue.clear();
+                    agent_state.pending_search_completion = None;
+                    agent_state.status = AgentStatus::Completed(Some(summary));
+                    verification_checks.push("web_timeout_fail_fast=true".to_string());
+                } else {
+                    let incident_state = load_incident_state(state, &p.session_id)?;
+                    if should_enter_incident_recovery(
+                        Some(class),
+                        &policy_decision,
+                        stop_condition_hit,
+                        incident_state.as_ref(),
+                    ) {
+                        let (resolved_retry_hash, recovery_tool_name, recovery_tool_jcs): (
+                            String,
+                            String,
+                            Vec<u8>,
+                        ) = if let Some(existing) = incident_state.as_ref().filter(|i| i.active) {
+                            (
+                                existing.root_retry_hash.clone(),
+                                existing.root_tool_name.clone(),
+                                existing.root_tool_jcs.clone(),
+                            )
+                        } else {
+                            (
+                                retry_intent_hash.clone(),
+                                tool_name.clone(),
+                                tool_jcs.clone(),
+                            )
+                        };
+                        remediation_queued = matches!(
+                            start_or_continue_incident_recovery(
+                                service,
+                                state,
+                                agent_state,
+                                p.session_id,
+                                block_height,
+                                &rules,
+                                &resolved_retry_hash,
+                                &recovery_tool_name,
+                                &recovery_tool_jcs,
+                                class,
+                                err.as_deref(),
+                                &mut verification_checks,
+                            )
+                            .await?,
+                            IncidentDirective::QueueActions
+                        );
+                    }
+
+                    let install_lookup_failure = err
+                        .as_deref()
+                        .map(|msg| requires_wait_for_clarification(&tool_name, msg))
+                        .unwrap_or(false);
+
+                    if remediation_queued {
+                        stop_condition_hit = false;
+                        escalation_path = None;
+                        agent_state.status = AgentStatus::Running;
+                    } else if install_lookup_failure {
+                        stop_condition_hit = true;
+                        escalation_path = Some("wait_for_clarification".to_string());
+                        awaiting_clarification = true;
+                        mark_incident_wait_for_user(
+                            state,
+                            p.session_id,
+                            "wait_for_clarification",
+                            FailureClass::UserInterventionNeeded,
+                            err.as_deref(),
+                        )?;
+                        agent_state.execution_queue.clear();
+                        agent_state.status = AgentStatus::Paused(
+                            "Waiting for clarification on target identity.".to_string(),
+                        );
+                    } else if matches!(class, FailureClass::UserInterventionNeeded) {
+                        stop_condition_hit = true;
+                        escalation_path = Some(escalation_path_for_failure(class).to_string());
+                        agent_state.status = AgentStatus::Paused(
+                        "Waiting for user intervention: complete the required human verification in your browser/app, then resume.".to_string(),
+                    );
+                    } else if is_web_research_scope(agent_state)
+                        && matches!(class, FailureClass::UnexpectedState)
+                    {
+                        // Keep web research autonomous under transient tool/schema instability.
+                        stop_condition_hit = false;
+                        escalation_path = None;
+                        success = true;
+                        err = None;
+                        out = Some(format!(
+                        "Transient unexpected state while executing '{}'; continuing web research.",
+                        tool_name
+                    ));
+                        agent_state.status = AgentStatus::Running;
+                        agent_state.recent_actions.clear();
+                        verification_checks.push("web_unexpected_retry_bypass=true".to_string());
+                    } else if blocked_without_change {
+                        stop_condition_hit = true;
+                        escalation_path = Some(escalation_path_for_failure(class).to_string());
+                        agent_state.status = AgentStatus::Paused(format!(
+                            "Retry blocked: unchanged AttemptKey for {}",
+                            class.as_str()
+                        ));
+                        if matches!(
+                            class,
+                            FailureClass::FocusMismatch
+                                | FailureClass::TargetNotFound
+                                | FailureClass::VisionTargetNotFound
+                                | FailureClass::NoEffectAfterAction
+                                | FailureClass::TierViolation
+                                | FailureClass::MissingDependency
+                                | FailureClass::ContextDrift
+                                | FailureClass::ToolUnavailable
+                                | FailureClass::NonDeterministicUI
+                                | FailureClass::TimeoutOrHang
+                                | FailureClass::UnexpectedState
+                        ) {
+                            agent_state.consecutive_failures =
+                                agent_state.consecutive_failures.max(3);
+                        }
+                    } else if should_trip_retry_guard(class, repeat_count) {
+                        stop_condition_hit = true;
+                        escalation_path = Some(escalation_path_for_failure(class).to_string());
+                        agent_state.status = AgentStatus::Paused(format!(
+                            "Retry guard tripped after repeated {} failures",
+                            class.as_str()
+                        ));
+                        if matches!(
+                            class,
+                            FailureClass::FocusMismatch
+                                | FailureClass::TargetNotFound
+                                | FailureClass::VisionTargetNotFound
+                                | FailureClass::NoEffectAfterAction
+                                | FailureClass::TierViolation
+                                | FailureClass::MissingDependency
+                                | FailureClass::ContextDrift
+                                | FailureClass::ToolUnavailable
+                                | FailureClass::NonDeterministicUI
+                                | FailureClass::TimeoutOrHang
+                                | FailureClass::UnexpectedState
+                        ) {
+                            agent_state.consecutive_failures =
+                                agent_state.consecutive_failures.max(3);
+                        }
+                    }
                 }
             }
         }

@@ -658,11 +658,35 @@ where
             .await
             .map_err(|e| ValidatorError::Other(e.to_string()))?;
 
+        // Avoid indefinite shutdown hangs when a background task is stuck in long-running
+        // in-flight work (e.g., model inference inside block execution).
+        const TASK_SHUTDOWN_GRACE_TIMEOUT: Duration = Duration::from_secs(2);
         let mut handles = self.task_handles.lock().await;
-        for handle in handles.drain(..) {
-            handle
-                .await
-                .map_err(|e| ValidatorError::Other(format!("Task panicked: {e}")))?;
+        for mut handle in handles.drain(..) {
+            match tokio::time::timeout(TASK_SHUTDOWN_GRACE_TIMEOUT, &mut handle).await {
+                Ok(join_result) => {
+                    if let Err(e) = join_result {
+                        if !e.is_cancelled() {
+                            return Err(ValidatorError::Other(format!("Task panicked: {e}")));
+                        }
+                    }
+                }
+                Err(_) => {
+                    tracing::warn!(
+                        target: "orchestration",
+                        "Task did not stop within {}ms; aborting.",
+                        TASK_SHUTDOWN_GRACE_TIMEOUT.as_millis()
+                    );
+                    handle.abort();
+                    if let Err(e) = handle.await {
+                        if !e.is_cancelled() {
+                            return Err(ValidatorError::Other(format!(
+                                "Task failed during abort: {e}"
+                            )));
+                        }
+                    }
+                }
+            }
         }
         Ok(())
     }

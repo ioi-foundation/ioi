@@ -243,6 +243,16 @@ fn summarize_kernel_event(kernel_event: &ioi_types::app::KernelEvent) -> String 
             receipt.constrained,
             hex::encode(receipt.receipt_hash)
         ),
+        Ev::ExecutionContractReceipt(receipt) => format!(
+            "ExecutionContractReceipt session={} step_index={} intent_id={} stage={} key={} satisfied={} evidence_commit_hash={}",
+            prefix_hex_4(&receipt.session_id),
+            receipt.step_index,
+            receipt.intent_id,
+            receipt.stage,
+            receipt.key,
+            receipt.satisfied,
+            receipt.evidence_commit_hash
+        ),
         Ev::PlanReceipt(receipt) => format!(
             "PlanReceipt session={} selected_route={} plan_hash={} worker_count={} policy_bindings={}",
             receipt
@@ -502,6 +512,19 @@ fn map_kernel_event(
                     receipt.score,
                     receipt.constrained,
                     hex::encode(receipt.receipt_hash)
+                ),
+            }))
+        }
+        ioi_types::app::KernelEvent::ExecutionContractReceipt(receipt) => {
+            Some(ChainEventEnum::System(ioi_ipc::public::SystemUpdate {
+                component: "ExecutionContract".to_string(),
+                status: format!(
+                    "intent_id={} stage={} key={} satisfied={} evidence_commit_hash={}",
+                    receipt.intent_id,
+                    receipt.stage,
+                    receipt.key,
+                    receipt.satisfied,
+                    receipt.evidence_commit_hash
                 ),
             }))
         }

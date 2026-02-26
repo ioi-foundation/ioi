@@ -64,7 +64,7 @@ const EXTERNAL_KNOWLEDGE_MARKERS: [&str; 20] = [
     "release note",
 ];
 
-const PUBLIC_FACT_MARKERS: [&str; 24] = [
+const PUBLIC_FACT_MARKERS: [&str; 29] = [
     "weather",
     "forecast",
     "temperature",
@@ -89,6 +89,11 @@ const PUBLIC_FACT_MARKERS: [&str; 24] = [
     "wait time",
     "travel time",
     "arrival time",
+    "news",
+    "headline",
+    "headlines",
+    "breaking news",
+    "top stories",
 ];
 
 const WORKSPACE_MARKERS: [&str; 24] = [

@@ -43,6 +43,40 @@ fn semantic_search_anchor_tokens(text: &str) -> HashSet<String> {
     }
 }
 
+pub(crate) fn query_is_generic_headline_lookup(query: &str) -> bool {
+    let tokens = search_anchor_tokens(query);
+    if tokens.is_empty() {
+        return false;
+    }
+    let has_headline_anchor = tokens.iter().any(|token| {
+        matches!(
+            token.as_str(),
+            "news" | "headline" | "headlines" | "stories"
+        )
+    });
+    if !has_headline_anchor {
+        return false;
+    }
+    let generic_tokens = [
+        "news",
+        "headline",
+        "headlines",
+        "top",
+        "latest",
+        "today",
+        "breaking",
+        "story",
+        "stories",
+        "updates",
+        "update",
+    ];
+    let non_generic_count = tokens
+        .iter()
+        .filter(|token| !generic_tokens.contains(&token.as_str()))
+        .count();
+    non_generic_count <= 1
+}
+
 fn scope_anchor_start(query_lower: &str) -> Option<usize> {
     for marker in QUERY_SCOPE_MARKERS {
         if let Some(idx) = query_lower.rfind(marker) {
@@ -143,6 +177,9 @@ pub(crate) fn filter_provider_sources_by_query_anchors(
     query: &str,
     sources: Vec<WebSource>,
 ) -> Vec<WebSource> {
+    if query_is_generic_headline_lookup(query) {
+        return sources;
+    }
     let semantic_tokens = semantic_search_anchor_tokens(query);
     let query_scope_tokens = query_scope_tokens(query);
     let mut query_tokens = semantic_tokens.clone();

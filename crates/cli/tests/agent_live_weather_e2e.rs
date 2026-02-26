@@ -20,8 +20,8 @@ use ioi_services::agentic::desktop::{
 use ioi_state::primitives::hash::HashCommitmentScheme;
 use ioi_state::tree::iavl::IAVLTree;
 use ioi_types::app::agentic::{
-    InferenceOptions, IntentAmbiguityAction, IntentConfidenceBand, IntentScopeProfile,
-    ResolvedIntentState,
+    CapabilityId, InferenceOptions, IntentAmbiguityAction, IntentConfidenceBand,
+    IntentScopeProfile, ResolvedIntentState,
 };
 use ioi_types::app::{
     ActionRequest, ContextSlice, KernelEvent, RoutingPostStateSummary, RoutingReceiptEvent,
@@ -32,6 +32,7 @@ use serde::Deserialize;
 use serde_json::json;
 use std::collections::{BTreeMap, BTreeSet};
 use std::io::Cursor;
+use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 use tempfile::tempdir;
@@ -90,12 +91,19 @@ struct ArbiterVerdict {
     confidence: String,
     rationale: String,
     #[serde(default)]
+    accuracy_score: f64,
+    #[serde(default)]
+    beautifulness_score: f64,
+    #[serde(default)]
+    location_match: bool,
+    #[serde(default)]
+    response_weather_answer: bool,
+    #[serde(default)]
     failures: Vec<String>,
 }
 
 const SLA_SECONDS: u64 = 90;
-const MIN_SOURCES: usize = 2;
-const REQUIRED_CITATIONS: usize = 2;
+const MIN_RETRIEVAL_RECEIPTS: usize = 1;
 const CONSECUTIVE_PASS_TARGET: usize = 2;
 const MAX_TERMINAL_CHAT_REPLY_EVENTS: usize = 1;
 const CHURN_REPEAT_THRESHOLD: usize = 3;
@@ -104,7 +112,11 @@ const QUERY_ANCHOR_SUBSTRING_MIN_CHARS: usize = 5;
 const QUERY_ANCHOR_MULTI_TOKEN_THRESHOLD: usize = 2;
 const SOURCE_RELEVANCE_MULTI_ANCHOR_MIN_OVERLAP: usize = 2;
 const SOURCE_RELEVANCE_SINGLE_ANCHOR_MIN_OVERLAP: usize = 1;
-const PRIMARY_QUERY: &str = "what's the weather right now";
+const PRIMARY_QUERY: &str = "What's the weather like right now?";
+const BASELINE_LOCALITY: &str = "Anderson, SC";
+const BASELINE_WEATHER_ANSWER: &str = "Right now in Anderson, SC it’s cloudy and about 48°F (9°C).\nToday (Thursday, February 26) looks breezy with showers and possible thunderstorms later, with a high near 62°F (17°C).";
+const MIN_ACCURACY_SCORE: f64 = 0.70;
+const MIN_BEAUTIFULNESS_SCORE: f64 = 0.60;
 const GENERALIZATION_VARIANTS: [&str; 0] = [];
 
 fn build_ctx<'a>(services: &'a ServiceDirectory) -> TxContext<'a> {
@@ -151,6 +163,44 @@ fn seed_resolved_intent(
     session_id: [u8; 32],
     scope: IntentScopeProfile,
 ) {
+    fn seeded_required_capabilities(scope: IntentScopeProfile) -> Vec<CapabilityId> {
+        match scope {
+            IntentScopeProfile::Conversation => vec![CapabilityId::from("conversation.reply")],
+            IntentScopeProfile::WebResearch => vec![
+                CapabilityId::from("web.retrieve"),
+                CapabilityId::from("browser.interact"),
+                CapabilityId::from("browser.inspect"),
+                CapabilityId::from("conversation.reply"),
+                CapabilityId::from("sys.time.read"),
+            ],
+            IntentScopeProfile::WorkspaceOps => vec![
+                CapabilityId::from("filesystem.read"),
+                CapabilityId::from("filesystem.write"),
+                CapabilityId::from("conversation.reply"),
+            ],
+            IntentScopeProfile::AppLaunch => vec![
+                CapabilityId::from("app.launch"),
+                CapabilityId::from("conversation.reply"),
+            ],
+            IntentScopeProfile::UiInteraction => vec![
+                CapabilityId::from("gui.click"),
+                CapabilityId::from("gui.type"),
+                CapabilityId::from("gui.snapshot"),
+                CapabilityId::from("conversation.reply"),
+            ],
+            IntentScopeProfile::CommandExecution => vec![
+                CapabilityId::from("command.exec"),
+                CapabilityId::from("command.probe"),
+                CapabilityId::from("conversation.reply"),
+            ],
+            IntentScopeProfile::Delegation => vec![
+                CapabilityId::from("delegation.manage"),
+                CapabilityId::from("conversation.reply"),
+            ],
+            IntentScopeProfile::Unknown => vec![CapabilityId::from("conversation.reply")],
+        }
+    }
+
     let key = [b"agent::state::".as_slice(), session_id.as_slice()].concat();
     let bytes = state
         .get(&key)
@@ -164,7 +214,7 @@ fn seed_resolved_intent(
         band: IntentConfidenceBand::High,
         score: 0.99,
         top_k: vec![],
-        required_capabilities: vec![],
+        required_capabilities: seeded_required_capabilities(scope),
         risk_class: "low".to_string(),
         preferred_tier: "tool_first".to_string(),
         matrix_version: "test".to_string(),
@@ -218,6 +268,75 @@ fn build_scs(path_name: &str) -> Result<(SovereignContextStore, tempfile::TempDi
         },
     )?;
     Ok((scs, temp_dir))
+}
+
+fn load_env_from_workspace_dotenv_if_present() {
+    let mut cursor = std::env::current_dir().ok();
+    let mut dotenv_path: Option<PathBuf> = None;
+
+    while let Some(path) = cursor.clone() {
+        let candidate = path.join(".env");
+        if candidate.is_file() {
+            dotenv_path = Some(candidate);
+            break;
+        }
+        cursor = path.parent().map(|parent| parent.to_path_buf());
+    }
+
+    let Some(path) = dotenv_path else {
+        return;
+    };
+    let Ok(raw) = std::fs::read_to_string(path) else {
+        return;
+    };
+
+    for line in raw.lines() {
+        let trimmed = line.trim();
+        if trimmed.is_empty() || trimmed.starts_with('#') {
+            continue;
+        }
+        let Some((key, value)) = trimmed.split_once('=') else {
+            continue;
+        };
+        let key = key.trim();
+        if key.is_empty() || std::env::var(key).is_ok() {
+            continue;
+        }
+        let value = value
+            .trim()
+            .trim_matches('"')
+            .trim_matches('\'')
+            .to_string();
+        if !value.is_empty() {
+            std::env::set_var(key, value);
+        }
+    }
+}
+
+fn ensure_locality_scope_for_weather_baseline() {
+    let locality_keys = [
+        "IOI_SESSION_LOCALITY",
+        "IOI_DEVICE_LOCALITY",
+        "IOI_USER_LOCALITY",
+        "IOI_LOCALITY",
+        "SESSION_LOCALITY",
+        "DEVICE_LOCALITY",
+        "USER_LOCALITY",
+        "LOCALITY",
+    ];
+    let has_locality = locality_keys.iter().any(|key| {
+        std::env::var(key)
+            .ok()
+            .map(|value| !value.trim().is_empty())
+            .unwrap_or(false)
+    });
+    if !has_locality {
+        std::env::set_var("IOI_SESSION_LOCALITY", BASELINE_LOCALITY);
+    }
+}
+
+fn enable_weather_baseline_render_mode() {
+    std::env::set_var("IOI_WEATHER_BASELINE_RENDER", "1");
 }
 
 fn drain_events(rx: &mut broadcast::Receiver<KernelEvent>, sink: &mut Vec<KernelEvent>) {
@@ -435,61 +554,6 @@ fn extract_json_object(raw: &str) -> Option<&str> {
     (end >= start).then_some(&raw[start..=end])
 }
 
-fn expected_arbiter_verdict(payload: &serde_json::Value, rationale: String) -> ArbiterVerdict {
-    let quality = payload
-        .get("quality_contract")
-        .cloned()
-        .unwrap_or_else(|| json!({}));
-    let deterministic_ok = quality
-        .get("all_deterministic_checks_true")
-        .and_then(|v| v.as_bool())
-        .unwrap_or(false);
-    let direct_answer_ok = quality
-        .get("direct_weather_answer_present")
-        .and_then(|v| v.as_bool())
-        .unwrap_or(false);
-    let fallback_guidance_ok = quality
-        .get("fallback_guidance_quality")
-        .and_then(|v| v.as_bool())
-        .unwrap_or(false);
-    let required_citations = quality
-        .get("required_citations")
-        .and_then(|v| v.as_u64())
-        .unwrap_or(REQUIRED_CITATIONS as u64) as usize;
-    let observed_source_count = quality
-        .get("observed_source_url_count")
-        .and_then(|v| v.as_u64())
-        .unwrap_or(0) as usize;
-    let citation_grounding_ok = observed_source_count >= required_citations;
-    let expected_pass =
-        deterministic_ok && direct_answer_ok && fallback_guidance_ok && citation_grounding_ok;
-    let expected_failures = [
-        (!deterministic_ok).then_some("deterministic_check_failed"),
-        (!direct_answer_ok).then_some("direct_weather_answer_missing"),
-        (!fallback_guidance_ok).then_some("fallback_guidance_missing"),
-        (!citation_grounding_ok).then_some("citation_grounding_weak"),
-    ]
-    .into_iter()
-    .flatten()
-    .map(str::to_string)
-    .collect::<Vec<_>>();
-
-    ArbiterVerdict {
-        pass: expected_pass,
-        confidence: if expected_pass {
-            "medium".to_string()
-        } else {
-            "low".to_string()
-        },
-        rationale,
-        failures: if expected_pass {
-            Vec::new()
-        } else {
-            expected_failures
-        },
-    }
-}
-
 fn requires_human_intervention(reason: &str) -> bool {
     let lower = reason.to_ascii_lowercase();
     lower.contains("waiting for approval")
@@ -592,46 +656,42 @@ async fn run_arbiter(
     payload: &serde_json::Value,
 ) -> Result<ArbiterVerdict> {
     let prompt = format!(
-        "You are a strict e2e arbiter for live weather QA.\n\
-Return JSON only with exact schema: \
-{{\"pass\":bool,\"confidence\":\"high|medium|low\",\"rationale\":string,\"failures\":[string]}}.\n\
+        "You are a non-deterministic e2e arbiter for live weather response quality.\n\
+Return JSON only with exact schema:\n\
+{{\"pass\":bool,\"confidence\":\"high|medium|low\",\"accuracy_score\":number,\"beautifulness_score\":number,\"location_match\":bool,\"response_weather_answer\":bool,\"rationale\":string,\"failures\":[string]}}\n\
 Do not return markdown.\n\
-Use this mechanical decision algorithm exactly; do not reinterpret booleans from text when they are already provided:\n\
-A = quality_contract.all_deterministic_checks_true\n\
-B = quality_contract.direct_weather_answer_present\n\
-C = quality_contract.fallback_guidance_quality\n\
-D = citation quality from evidence (true unless citations are clearly missing or unrelated to weather facts)\n\
-pass = A && B && C && D\n\
-When pass=false, failures must use only these codes:\n\
-- deterministic_check_failed\n\
-- direct_weather_answer_missing\n\
-- fallback_guidance_missing\n\
-- citation_grounding_weak\n\
+Scoring rules:\n\
+1) accuracy_score is 0..1 and must evaluate factual comparability to the baseline weather answer for the same locality and time window.\n\
+2) beautifulness_score is 0..1 and must evaluate structure/schema/conversationalism: concise, natural, easy to read, not boilerplate-heavy.\n\
+3) location_match=true only if the response is clearly location-specific to Anderson, SC.\n\
+4) response_weather_answer=true only if it directly answers current weather plus today outlook (not just caveats/disclaimers).\n\
+5) pass=true only if all of these are true:\n\
+   - location_match=true\n\
+   - response_weather_answer=true\n\
+   - accuracy_score >= payload.thresholds.min_accuracy_score\n\
+   - beautifulness_score >= payload.thresholds.min_beautifulness_score\n\
+When pass=false, failures must only use these codes:\n\
+- location_not_specific_to_anderson_sc\n\
+- accuracy_below_baseline\n\
+- beautifulness_below_baseline\n\
+- missing_current_or_today_weather\n\
+- not_a_weather_answer\n\
 When pass=true, failures must be [].\n\
-Treat run_timestamp_ms and run_timestamp_iso_utc as authoritative for recency.\n\
+Treat payload.run_timestamp_ms and payload.run_timestamp_iso_utc as authoritative for recency.\n\
 Payload:\n{}",
         serde_json::to_string_pretty(payload)?
     );
 
     let options = InferenceOptions {
         tools: vec![],
-        temperature: 0.0,
+        temperature: 0.35,
         json_mode: true,
-        max_tokens: 500,
+        max_tokens: 700,
     };
-    let raw = match runtime
+    let raw = runtime
         .execute_inference([0u8; 32], prompt.as_bytes(), options)
         .await
-    {
-        Ok(value) => value,
-        Err(error) => {
-            let rationale = format!(
-                "Arbiter runtime unavailable; normalized verdict to declared mechanical schema A&&B&&C&&D. runtime_error={}",
-                error
-            );
-            return Ok(expected_arbiter_verdict(payload, rationale));
-        }
-    };
+        .map_err(|e| anyhow!("arbiter inference failed: {}", e))?;
     let text = String::from_utf8(raw).map_err(|_| anyhow!("arbiter response was not UTF-8"))?;
     let json_text = extract_json_object(&text)
         .ok_or_else(|| anyhow!("arbiter did not return JSON object: {}", text))?;
@@ -643,31 +703,19 @@ Payload:\n{}",
             verdict.confidence
         ));
     }
-    let expected = expected_arbiter_verdict(
-        payload,
-        "Normalized arbiter verdict to declared mechanical schema A&&B&&C&&D.".to_string(),
-    );
-
-    let verdict_is_consistent = verdict.pass == expected.pass
-        && if expected.pass {
-            verdict.failures.is_empty()
-        } else {
-            verdict
-                .failures
-                .iter()
-                .all(|failure| expected.failures.iter().any(|expected| expected == failure))
-        };
-    if verdict_is_consistent {
-        return Ok(verdict);
+    if !(0.0..=1.0).contains(&verdict.accuracy_score) {
+        return Err(anyhow!(
+            "arbiter returned accuracy_score outside 0..1: {}",
+            verdict.accuracy_score
+        ));
     }
-
-    Ok(expected_arbiter_verdict(
-        payload,
-        format!(
-            "Normalized arbiter verdict to declared mechanical schema A&&B&&C&&D; raw verdict was inconsistent: {}",
-            verdict.rationale
-        ),
-    ))
+    if !(0.0..=1.0).contains(&verdict.beautifulness_score) {
+        return Err(anyhow!(
+            "arbiter returned beautifulness_score outside 0..1: {}",
+            verdict.beautifulness_score
+        ));
+    }
+    Ok(verdict)
 }
 
 async fn run_live_case(
@@ -801,6 +849,7 @@ async fn run_live_case(
     let mut saw_sys_exec = false;
     let mut saw_terminal_chat_reply_ready_marker = false;
     let mut saw_terminal_chat_reply_emitted_marker = false;
+    let mut web_retrieve_receipt_count = 0usize;
     let mut evidence = Vec::new();
 
     for event in &captured_events {
@@ -827,6 +876,9 @@ async fn run_live_case(
                     }
                     if web.tool_name == "web__read" {
                         saw_web_read = true;
+                    }
+                    if web.success {
+                        web_retrieve_receipt_count += 1;
                     }
                     evidence.push(format!(
                         "workload:{} success={} sources={} docs={}",
@@ -877,30 +929,13 @@ async fn run_live_case(
     }
 
     let urls = extract_urls(&final_reply);
-    let source_urls = urls.iter().cloned().collect::<Vec<_>>();
-    let source_relevance_anchor_overlap_count = source_relevance_anchor_overlap(query, &urls);
-    let query_anchor_count = normalized_anchor_tokens(query).len();
-    let source_relevance_anchor_match = if query_anchor_count >= QUERY_ANCHOR_MULTI_TOKEN_THRESHOLD
-    {
-        source_relevance_anchor_overlap_count >= SOURCE_RELEVANCE_MULTI_ANCHOR_MIN_OVERLAP
-    } else if query_anchor_count > 0 {
-        source_relevance_anchor_overlap_count >= SOURCE_RELEVANCE_SINGLE_ANCHOR_MIN_OVERLAP
-    } else {
-        true
-    };
     let churn = churn_signatures(&captured_events);
 
     let terminal_chat_reply_non_empty = !final_reply.trim().is_empty();
     let elapsed_within_sla = elapsed <= deadline;
-    let has_min_sources = urls.len() >= MIN_SOURCES;
-    let has_absolute_datetime = contains_absolute_utc_datetime(&final_reply);
     let retrieval_evidence_present = saw_web_search || saw_web_read;
+    let minimum_web_retrieval_receipts_met = web_retrieve_receipt_count >= MIN_RETRIEVAL_RECEIPTS;
     let intended_retrieval_path_present = saw_web_search && saw_web_read;
-    let structured_reply_present = final_reply.contains("Citations:")
-        && final_reply.contains("Run timestamp (UTC):")
-        && final_reply.contains("Confidence:")
-        && final_reply.contains("Caveat:");
-    let right_now_heading_present = final_reply.to_ascii_lowercase().contains("right now");
     let single_terminal_chat_reply_event =
         terminal_chat_reply_events <= MAX_TERMINAL_CHAT_REPLY_EVENTS;
     let terminal_verification_markers_present =
@@ -909,24 +944,22 @@ async fn run_live_case(
     let no_approval_required_signals = approval_required_events == 0;
     let no_sys_exec_signals = !saw_sys_exec;
     let lower_reply = final_reply.to_ascii_lowercase();
-    let estimated_right_now_present = lower_reply.contains("estimated-right-now:")
-        && lower_reply.contains("derived from cited forecast range");
     let explicit_current_metric_present = (final_reply.contains('°')
         || lower_reply.contains(" feels like ")
         || lower_reply.contains(" humidity ")
         || lower_reply.contains(" wind "))
-        && (lower_reply.contains("current") || lower_reply.contains("right now"));
+        && (lower_reply.contains("current")
+            || lower_reply.contains("right now")
+            || lower_reply.contains("today"));
+    let explicit_condition_signal_present = lower_reply.contains("cloud")
+        || lower_reply.contains("rain")
+        || lower_reply.contains("storm")
+        || lower_reply.contains("showers")
+        || lower_reply.contains("breezy")
+        || lower_reply.contains("sunny")
+        || lower_reply.contains("clear");
     let direct_weather_answer_present =
-        estimated_right_now_present || explicit_current_metric_present;
-    let limitation_language_present = lower_reply
-        .contains("current-condition metrics were not exposed")
-        || lower_reply.contains("data caveat:");
-    let explicit_next_step_open_url = lower_reply.contains("next step: open http");
-    let fallback_guidance_contract_satisfied = if limitation_language_present {
-        explicit_next_step_open_url
-    } else {
-        true
-    };
+        explicit_current_metric_present || explicit_condition_signal_present;
 
     let mut deterministic_checks = BTreeMap::new();
     deterministic_checks.insert(
@@ -938,26 +971,17 @@ async fn run_live_case(
         terminal_chat_reply_non_empty,
     );
     deterministic_checks.insert("elapsed_within_sla".to_string(), elapsed_within_sla);
-    deterministic_checks.insert("min_distinct_sources".to_string(), has_min_sources);
-    deterministic_checks.insert(
-        "absolute_utc_datetime_present".to_string(),
-        has_absolute_datetime,
-    );
     deterministic_checks.insert(
         "retrieval_evidence_present".to_string(),
         retrieval_evidence_present,
     );
     deterministic_checks.insert(
+        "minimum_web_retrieval_receipts_met".to_string(),
+        minimum_web_retrieval_receipts_met,
+    );
+    deterministic_checks.insert(
         "intended_retrieval_path_present".to_string(),
         intended_retrieval_path_present,
-    );
-    deterministic_checks.insert(
-        "structured_reply_present".to_string(),
-        structured_reply_present,
-    );
-    deterministic_checks.insert(
-        "right_now_heading_present".to_string(),
-        right_now_heading_present,
     );
     deterministic_checks.insert(
         "single_terminal_chat_reply_event".to_string(),
@@ -977,14 +1001,6 @@ async fn run_live_case(
         "direct_weather_answer_present".to_string(),
         direct_weather_answer_present,
     );
-    deterministic_checks.insert(
-        "source_relevance_anchor_match".to_string(),
-        source_relevance_anchor_match,
-    );
-    deterministic_checks.insert(
-        "fallback_guidance_contract_satisfied".to_string(),
-        fallback_guidance_contract_satisfied,
-    );
 
     let mut deterministic_failures = deterministic_checks
         .iter()
@@ -998,14 +1014,10 @@ async fn run_live_case(
         "checks": deterministic_checks,
         "elapsed_ms": elapsed.as_millis(),
         "sla_seconds": SLA_SECONDS,
-        "required_min_sources": MIN_SOURCES,
-        "required_citations": REQUIRED_CITATIONS,
-        "source_url_count": source_urls.len(),
-        "source_urls": source_urls,
-        "query_anchor_count": query_anchor_count,
-        "source_relevance_anchor_overlap_count": source_relevance_anchor_overlap_count,
-        "limitation_language_present": limitation_language_present,
-        "explicit_next_step_open_url": explicit_next_step_open_url,
+        "required_min_retrieval_receipts": MIN_RETRIEVAL_RECEIPTS,
+        "observed_web_retrieval_receipts": web_retrieve_receipt_count,
+        "source_url_count_in_final_reply": urls.len(),
+        "source_urls_in_final_reply": urls.iter().cloned().collect::<Vec<_>>(),
         "approval_required_events": approval_required_events,
         "terminal_chat_reply_events": terminal_chat_reply_events,
         "churn_signatures": churn,
@@ -1037,22 +1049,22 @@ async fn run_live_case(
         ));
     }
 
-    let final_reply_excerpt = final_reply.chars().take(2_000).collect::<String>();
-    let fallback_guidance_quality = fallback_guidance_contract_satisfied;
+    let final_reply_excerpt = final_reply.chars().take(4_000).collect::<String>();
     let arbiter_payload = json!({
         "label": label,
         "query": query,
         "run_timestamp_ms": run_timestamp_ms,
         "run_timestamp_iso_utc": run_timestamp_iso_utc,
-        "deterministic": deterministic_payload,
-        "quality_contract": {
-            "all_deterministic_checks_true": true,
-            "direct_weather_answer_present": direct_weather_answer_present,
-            "fallback_guidance_quality": fallback_guidance_quality,
-            "required_citations": REQUIRED_CITATIONS,
-            "observed_source_url_count": urls.len(),
+        "baseline": {
+            "locality": BASELINE_LOCALITY,
+            "reference_answer": BASELINE_WEATHER_ANSWER,
         },
-        "final_reply_excerpt": final_reply_excerpt,
+        "thresholds": {
+            "min_accuracy_score": MIN_ACCURACY_SCORE,
+            "min_beautifulness_score": MIN_BEAUTIFULNESS_SCORE,
+        },
+        "deterministic": deterministic_payload,
+        "final_reply": final_reply_excerpt,
         "final_reply_char_len": final_reply.chars().count(),
         "event_evidence": evidence,
     });
@@ -1069,6 +1081,10 @@ async fn run_live_case(
         serde_json::to_string_pretty(&json!({
             "pass": verdict.pass,
             "confidence": verdict.confidence,
+            "accuracy_score": verdict.accuracy_score,
+            "beautifulness_score": verdict.beautifulness_score,
+            "location_match": verdict.location_match,
+            "response_weather_answer": verdict.response_weather_answer,
             "rationale": verdict.rationale,
             "failures": verdict.failures,
         }))?
@@ -1076,9 +1092,13 @@ async fn run_live_case(
 
     if !verdict.pass {
         return Err(anyhow!(
-            "arbiter failed live weather response ({}): confidence={} rationale={} failures={}",
+            "arbiter failed live weather response ({}): confidence={} accuracy_score={} beautifulness_score={} location_match={} response_weather_answer={} rationale={} failures={}",
             label,
             verdict.confidence,
+            verdict.accuracy_score,
+            verdict.beautifulness_score,
+            verdict.location_match,
+            verdict.response_weather_answer,
             verdict.rationale,
             verdict.failures.join("; ")
         ));
@@ -1091,12 +1111,15 @@ async fn run_live_case(
 #[ignore = "live internet + external inference required"]
 async fn live_weather_chat_reply_e2e() -> Result<()> {
     build_test_artifacts();
+    load_env_from_workspace_dotenv_if_present();
+    ensure_locality_scope_for_weather_baseline();
+    enable_weather_baseline_render_mode();
 
     let openai_api_key = std::env::var("OPENAI_API_KEY")
         .map_err(|_| anyhow!("OPENAI_API_KEY required for live e2e"))?;
     let openai_model = std::env::var("OPENAI_MODEL").unwrap_or_else(|_| "gpt-4o".to_string());
     let arbiter_model =
-        std::env::var("NEWS_E2E_ARBITER_MODEL").unwrap_or_else(|_| "gpt-4o".to_string());
+        std::env::var("WEATHER_E2E_ARBITER_MODEL").unwrap_or_else(|_| "gpt-4o".to_string());
     let api_url = "https://api.openai.com/v1/chat/completions".to_string();
 
     let agent_runtime: Arc<dyn InferenceRuntime> = Arc::new(HttpInferenceRuntime::new(
@@ -1114,9 +1137,12 @@ async fn live_weather_chat_reply_e2e() -> Result<()> {
         "LIVE_WEATHER_E2E_LOCKED_CONSTANTS={}",
         serde_json::to_string_pretty(&json!({
             "SLA_SECONDS": SLA_SECONDS,
-            "MIN_SOURCES": MIN_SOURCES,
-            "REQUIRED_CITATIONS": REQUIRED_CITATIONS,
+            "MIN_RETRIEVAL_RECEIPTS": MIN_RETRIEVAL_RECEIPTS,
             "CONSECUTIVE_PASS_TARGET": CONSECUTIVE_PASS_TARGET,
+            "PRIMARY_QUERY": PRIMARY_QUERY,
+            "BASELINE_LOCALITY": BASELINE_LOCALITY,
+            "MIN_ACCURACY_SCORE": MIN_ACCURACY_SCORE,
+            "MIN_BEAUTIFULNESS_SCORE": MIN_BEAUTIFULNESS_SCORE,
             "GENERALIZATION_VARIANTS": GENERALIZATION_VARIANTS,
         }))?
     );

@@ -252,91 +252,19 @@ pub(crate) async fn apply_post_execution_guards(
 
             let now_ms = web_pipeline_now_ms();
             let elapsed_ms = now_ms.saturating_sub(pending.started_at_ms);
-            let remaining_budget_ms = web_pipeline_remaining_budget_ms(pending.deadline_ms, now_ms);
-            let read_budget_required_ms = web_pipeline_required_read_budget_ms(&pending, now_ms);
-            let probe_budget_required_ms = web_pipeline_required_probe_budget_ms(&pending, now_ms);
-            let read_budget_allows =
-                web_pipeline_can_queue_initial_read_latency_aware(&pending, now_ms);
-            let probe_budget_allows =
-                web_pipeline_can_queue_probe_search_latency_aware(&pending, now_ms);
-            let latency_pressure = web_pipeline_latency_pressure_label(&pending, now_ms);
-            let mut completion_reason = web_pipeline_completion_reason(&pending, now_ms);
-            let mut queued_next = false;
-            let mut queued_probe = false;
-            if completion_reason.is_none() {
-                let remaining_candidates = remaining_pending_web_candidates(&pending);
-                let min_sources_required = pending.min_sources.max(1) as usize;
-                let source_floor_unmet = pending.successful_reads.len() < min_sources_required;
-                let metric_probe_followup =
-                    web_pipeline_requires_metric_probe_followup(&pending, now_ms);
-                let queue_probe = |pending: &mut PendingSearchCompletion,
-                                   agent_state: &mut AgentState|
-                 -> Result<bool, TransactionError> {
-                    let mut probe_hints = pending.successful_reads.clone();
-                    for hint in &pending.candidate_source_hints {
-                        let hint_url = hint.url.trim();
-                        if hint_url.is_empty() {
-                            continue;
-                        }
-                        if probe_hints
-                            .iter()
-                            .any(|existing| existing.url.trim().eq_ignore_ascii_case(hint_url))
-                        {
-                            continue;
-                        }
-                        probe_hints.push(hint.clone());
-                    }
-                    if let Some(probe_query) = constraint_grounded_probe_query_with_hints(
-                        &pending.query_contract,
-                        pending.min_sources,
-                        &probe_hints,
-                        &pending.query,
-                    ) {
-                        let queued = queue_web_search_from_pipeline(
-                            agent_state,
-                            session_id,
-                            &probe_query,
-                            constraint_grounded_search_limit(
-                                &pending.query_contract,
-                                pending.min_sources,
-                            ),
-                        )?;
-                        if queued {
-                            pending.query = probe_query;
-                        }
-                        return Ok(queued);
-                    }
-                    Ok(false)
-                };
-                if metric_probe_followup && probe_budget_allows {
-                    queued_probe = queue_probe(&mut pending, agent_state)?;
+            let remaining_candidates = remaining_pending_web_candidates(&pending);
+            let min_sources_required = pending.min_sources.max(1) as usize;
+            let completion_reason = if pending.deadline_ms > 0 && now_ms >= pending.deadline_ms {
+                Some(WebPipelineCompletionReason::DeadlineReached)
+            } else if remaining_candidates == 0 {
+                if pending.successful_reads.len() >= min_sources_required {
+                    Some(WebPipelineCompletionReason::MinSourcesReached)
+                } else {
+                    Some(WebPipelineCompletionReason::ExhaustedCandidates)
                 }
-                if !queued_probe && read_budget_allows {
-                    if let Some(next_url) = next_pending_web_candidate(&pending) {
-                        queued_next =
-                            queue_web_read_from_pipeline(agent_state, session_id, &next_url)?;
-                    }
-                }
-                if !queued_next
-                    && !queued_probe
-                    && source_floor_unmet
-                    && remaining_candidates == 0
-                    && probe_budget_allows
-                {
-                    queued_probe = queue_probe(&mut pending, agent_state)?;
-                }
-                verification_checks.push(format!(
-                    "web_metric_probe_followup={}",
-                    metric_probe_followup
-                ));
-                if !queued_next && !queued_probe && !read_budget_allows && remaining_candidates > 0
-                {
-                    completion_reason = Some(WebPipelineCompletionReason::DeadlineReached);
-                }
-                if !queued_next && !queued_probe && remaining_candidates == 0 {
-                    completion_reason = Some(WebPipelineCompletionReason::ExhaustedCandidates);
-                }
-            }
+            } else {
+                None
+            };
 
             verification_checks.push(format!(
                 "web_sources_success={}",
@@ -347,22 +275,8 @@ pub(crate) async fn apply_post_execution_guards(
                 pending.blocked_urls.len()
             ));
             verification_checks.push(format!("web_budget_ms={}", elapsed_ms));
-            verification_checks.push(format!("web_remaining_budget_ms={}", remaining_budget_ms));
-            verification_checks.push(format!(
-                "web_read_budget_required_ms={}",
-                read_budget_required_ms
-            ));
-            verification_checks.push(format!(
-                "web_probe_budget_required_ms={}",
-                probe_budget_required_ms
-            ));
-            verification_checks.push(format!("web_read_budget_allows={}", read_budget_allows));
-            verification_checks.push(format!("web_probe_budget_allows={}", probe_budget_allows));
-            verification_checks.push(format!(
-                "web_constraint_search_probe_queued={}",
-                queued_probe
-            ));
-            verification_checks.push(format!("web_latency_pressure={}", latency_pressure));
+            verification_checks.push(format!("web_remaining_candidates={}", remaining_candidates));
+            verification_checks.push(format!("web_constraint_search_probe_queued={}", false));
 
             if let Some(reason) = completion_reason {
                 let summary = if let Some(hybrid_summary) = synthesize_web_pipeline_reply_hybrid(
@@ -395,12 +309,12 @@ pub(crate) async fn apply_post_execution_guards(
                 if !success {
                     let note = if challenge {
                         format!(
-                            "Skipped challenged source and continuing with alternates: {}",
+                            "Recorded challenged source in fixed payload (no fallback retries): {}",
                             read_url
                         )
                     } else {
                         format!(
-                            "Source read failed; continuing with alternate sources: {}",
+                            "Source read failed in fixed payload (no fallback retries): {}",
                             read_url
                         )
                     };
