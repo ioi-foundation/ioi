@@ -79,23 +79,20 @@ pub async fn discover_tools(
     }
 
     // Final filter:
-    // - Always respect resolved-intent allowlist.
-    // - Keep MCP tools when the intent scope allows external tools even if not explicitly listed.
-    let allow_mcp_tools = resolved_intent
-        .map(|resolved| {
-            !matches!(
-                resolved.scope,
-                ioi_types::app::agentic::IntentScopeProfile::Conversation
-                    | ioi_types::app::agentic::IntentScopeProfile::Unknown
-            )
-        })
-        .unwrap_or(true);
-
+    // - With a resolved intent, expose only tools whose capabilities satisfy the intent scope.
+    // - Without a resolved intent, keep the discovered set for pre-resolution operation.
     tools.retain(|tool| {
-        if is_tool_allowed_for_resolution(resolved_intent, &tool.name) {
+        if resolved_intent.is_none() {
             return true;
         }
-        allow_mcp_tools && mcp_tool_names.contains(&tool.name)
+        let allowed = is_tool_allowed_for_resolution(resolved_intent, &tool.name);
+        if !allowed && mcp_tool_names.contains(&tool.name) {
+            tracing::debug!(
+                "Hiding MCP tool '{}' because it is outside resolved intent capability scope",
+                tool.name
+            );
+        }
+        allowed
     });
 
     tools

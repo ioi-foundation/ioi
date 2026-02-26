@@ -31,6 +31,7 @@ enum IntentQueryBindingClass {
     None,
     HostLocal,
     RemotePublicFact,
+    AppLaunchDirected,
     CommandDirected,
     DirectUiInput,
     DesktopScreenshot,

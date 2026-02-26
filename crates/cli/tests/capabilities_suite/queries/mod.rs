@@ -1,3 +1,4 @@
+mod create_a_new_folder_on_my_desktop_called_project_some_number;
 mod multiply_247_by_38;
 mod open_calculator_app;
 mod set_timer_15_minutes;
@@ -14,6 +15,7 @@ pub fn all_cases() -> Vec<QueryCase> {
         weather_right_now::case(),
         open_calculator_app::case(),
         set_timer_15_minutes::case(),
+        create_a_new_folder_on_my_desktop_called_project_some_number::case(),
         take_a_screenshot_of_my_desktop::case(),
         multiply_247_by_38::case(),
         top_news_headlines::case(),
