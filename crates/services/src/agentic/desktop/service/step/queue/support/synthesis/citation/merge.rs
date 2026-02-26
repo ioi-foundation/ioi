@@ -1,0 +1,308 @@
+use super::shared::{
+    blocked_unverified_url_set, headline_source_is_low_quality, is_blocked_unverified_url,
+    successful_source_url_set,
+};
+use super::*;
+
+pub(crate) fn merged_story_sources(
+    pending: &PendingSearchCompletion,
+) -> Vec<PendingSearchReadSummary> {
+    let query_contract = synthesis_query_contract(pending);
+    let headline_lookup_mode = query_is_generic_headline_collection(&query_contract);
+    let projection = build_query_constraint_projection(
+        &query_contract,
+        pending.min_sources,
+        &pending.candidate_source_hints,
+    );
+    let enforce_grounded_compatibility =
+        projection.enforce_grounded_compatibility() && !headline_lookup_mode;
+    let reject_search_hub = projection.reject_search_hub_candidates();
+    let source_url_allowed = |url: &str| {
+        let trimmed = url.trim();
+        if trimmed.is_empty() || !is_citable_web_url(trimmed) {
+            return false;
+        }
+        if reject_search_hub && is_search_hub_url(trimmed) {
+            return false;
+        }
+        if headline_lookup_mode
+            && (is_search_hub_url(trimmed)
+                || is_news_feed_wrapper_url(trimmed)
+                || is_multi_item_listing_url(trimmed))
+        {
+            return false;
+        }
+        true
+    };
+    let successful_urls = successful_source_url_set(pending);
+    let blocked_unverified_urls = blocked_unverified_url_set(pending, &successful_urls);
+
+    let mut merged: Vec<PendingSearchReadSummary> = Vec::new();
+    let mut seen = BTreeSet::new();
+
+    for source in &pending.successful_reads {
+        let trimmed = source.url.trim();
+        if !source_url_allowed(trimmed) {
+            continue;
+        }
+        if enforce_grounded_compatibility {
+            let compatibility = candidate_constraint_compatibility(
+                &projection.constraints,
+                &projection.query_facets,
+                &projection.query_native_tokens,
+                &projection.query_tokens,
+                &projection.locality_tokens,
+                projection.locality_scope.is_some(),
+                trimmed,
+                source.title.as_deref().unwrap_or_default(),
+                &source.excerpt,
+            );
+            if !compatibility_passes_projection(&projection, &compatibility) {
+                continue;
+            }
+        }
+        if !seen.insert(trimmed.to_string()) {
+            continue;
+        }
+        merged.push(source.clone());
+    }
+
+    for source in &pending.candidate_source_hints {
+        let trimmed = source.url.trim();
+        if trimmed.is_empty()
+            || !source_url_allowed(trimmed)
+            || is_blocked_unverified_url(trimmed, &blocked_unverified_urls)
+        {
+            continue;
+        }
+        if enforce_grounded_compatibility {
+            let compatibility = candidate_constraint_compatibility(
+                &projection.constraints,
+                &projection.query_facets,
+                &projection.query_native_tokens,
+                &projection.query_tokens,
+                &projection.locality_tokens,
+                projection.locality_scope.is_some(),
+                trimmed,
+                source.title.as_deref().unwrap_or_default(),
+                &source.excerpt,
+            );
+            if !compatibility_passes_projection(&projection, &compatibility) {
+                continue;
+            }
+        }
+        if !seen.insert(trimmed.to_string()) {
+            continue;
+        }
+        merged.push(source.clone());
+    }
+
+    for url in &pending.candidate_urls {
+        let trimmed = url.trim();
+        if trimmed.is_empty()
+            || !source_url_allowed(trimmed)
+            || is_blocked_unverified_url(trimmed, &blocked_unverified_urls)
+        {
+            continue;
+        }
+        if enforce_grounded_compatibility {
+            let compatibility = candidate_constraint_compatibility(
+                &projection.constraints,
+                &projection.query_facets,
+                &projection.query_native_tokens,
+                &projection.query_tokens,
+                &projection.locality_tokens,
+                projection.locality_scope.is_some(),
+                trimmed,
+                "",
+                "",
+            );
+            if !compatibility_passes_projection(&projection, &compatibility) {
+                continue;
+            }
+        }
+        if !seen.insert(trimmed.to_string()) {
+            continue;
+        }
+        merged.push(PendingSearchReadSummary {
+            url: trimmed.to_string(),
+            title: None,
+            excerpt: String::new(),
+        });
+    }
+
+    merged.sort_by(|left, right| {
+        let left_signals = source_evidence_signals(left);
+        let right_signals = source_evidence_signals(right);
+        let left_success = successful_urls.contains(left.url.trim());
+        let right_success = successful_urls.contains(right.url.trim());
+        let left_key = (
+            !is_low_priority_coverage_story(left),
+            left_signals.official_status_host_hits > 0,
+            left_signals.official_status_host_hits,
+            left_signals.primary_status_surface_hits > 0,
+            left_signals.primary_status_surface_hits,
+            left_signals.secondary_coverage_hits == 0,
+            left_signals.documentation_surface_hits == 0,
+            left_signals.relevance_score(left_success),
+            left_signals.provenance_hits,
+            left_signals.primary_event_hits,
+            left_success,
+        );
+        let right_key = (
+            !is_low_priority_coverage_story(right),
+            right_signals.official_status_host_hits > 0,
+            right_signals.official_status_host_hits,
+            right_signals.primary_status_surface_hits > 0,
+            right_signals.primary_status_surface_hits,
+            right_signals.secondary_coverage_hits == 0,
+            right_signals.documentation_surface_hits == 0,
+            right_signals.relevance_score(right_success),
+            right_signals.provenance_hits,
+            right_signals.primary_event_hits,
+            right_success,
+        );
+        right_key
+            .cmp(&left_key)
+            .then_with(|| left.url.cmp(&right.url))
+    });
+
+    if headline_lookup_mode {
+        let filtered = merged
+            .iter()
+            .filter(|source| !headline_source_is_low_quality(source))
+            .cloned()
+            .collect::<Vec<_>>();
+        if !filtered.is_empty() {
+            return filtered;
+        }
+    }
+
+    merged
+}
+
+pub(crate) fn grounded_source_evidence_count(pending: &PendingSearchCompletion) -> usize {
+    let query_contract = synthesis_query_contract(pending);
+    let headline_lookup_mode = query_is_generic_headline_collection(&query_contract);
+    let projection = build_query_constraint_projection(
+        &query_contract,
+        pending.min_sources,
+        &pending.candidate_source_hints,
+    );
+    let enforce_grounded_compatibility =
+        projection.enforce_grounded_compatibility() && !headline_lookup_mode;
+    let reject_search_hub = projection.reject_search_hub_candidates();
+    let source_url_allowed = |url: &str| {
+        let trimmed = url.trim();
+        if trimmed.is_empty() || !is_citable_web_url(trimmed) {
+            return false;
+        }
+        if reject_search_hub && is_search_hub_url(trimmed) {
+            return false;
+        }
+        if headline_lookup_mode
+            && (is_search_hub_url(trimmed)
+                || is_news_feed_wrapper_url(trimmed)
+                || is_multi_item_listing_url(trimmed))
+        {
+            return false;
+        }
+        true
+    };
+    let has_constraint_objective = projection.has_constraint_objective();
+    let envelope_constraints = &projection.constraints;
+    let envelope_policy = ResolutionPolicy::default();
+    let successful_urls = successful_source_url_set(pending);
+    let blocked_unverified_urls = blocked_unverified_url_set(pending, &successful_urls);
+
+    let mut grounded_urls: BTreeSet<String> = BTreeSet::new();
+
+    for source in &pending.successful_reads {
+        let trimmed = source.url.trim();
+        if !source_url_allowed(trimmed) {
+            continue;
+        }
+        if enforce_grounded_compatibility {
+            let compatibility = candidate_constraint_compatibility(
+                &projection.constraints,
+                &projection.query_facets,
+                &projection.query_native_tokens,
+                &projection.query_tokens,
+                &projection.locality_tokens,
+                projection.locality_scope.is_some(),
+                trimmed,
+                source.title.as_deref().unwrap_or_default(),
+                &source.excerpt,
+            );
+            if !compatibility_passes_projection(&projection, &compatibility) {
+                continue;
+            }
+        }
+        if has_constraint_objective {
+            let title = source.title.as_deref().unwrap_or_default();
+            let score = single_snapshot_candidate_envelope_score(
+                envelope_constraints,
+                envelope_policy,
+                trimmed,
+                title,
+                &source.excerpt,
+            );
+            if !envelope_score_resolves_constraint(envelope_constraints, &score) {
+                continue;
+            }
+        }
+        grounded_urls.insert(trimmed.to_string());
+    }
+
+    for source in &pending.candidate_source_hints {
+        let trimmed = source.url.trim();
+        if trimmed.is_empty()
+            || !source_url_allowed(trimmed)
+            || is_blocked_unverified_url(trimmed, &blocked_unverified_urls)
+        {
+            continue;
+        }
+        if enforce_grounded_compatibility {
+            let compatibility = candidate_constraint_compatibility(
+                &projection.constraints,
+                &projection.query_facets,
+                &projection.query_native_tokens,
+                &projection.query_tokens,
+                &projection.locality_tokens,
+                projection.locality_scope.is_some(),
+                trimmed,
+                source.title.as_deref().unwrap_or_default(),
+                &source.excerpt,
+            );
+            if !compatibility_passes_projection(&projection, &compatibility) {
+                continue;
+            }
+        }
+        if has_constraint_objective {
+            let title = source.title.as_deref().unwrap_or_default();
+            let score = single_snapshot_candidate_envelope_score(
+                envelope_constraints,
+                envelope_policy,
+                trimmed,
+                title,
+                &source.excerpt,
+            );
+            if !envelope_score_resolves_constraint(envelope_constraints, &score) {
+                continue;
+            }
+        } else {
+            let has_signal = !source.excerpt.trim().is_empty()
+                || source
+                    .title
+                    .as_deref()
+                    .map(|value| !value.trim().is_empty())
+                    .unwrap_or(false);
+            if !has_signal {
+                continue;
+            }
+        }
+        grounded_urls.insert(trimmed.to_string());
+    }
+
+    grounded_urls.len()
+}
