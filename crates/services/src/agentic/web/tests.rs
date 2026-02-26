@@ -76,10 +76,9 @@ fn search_backend_profile_treats_latest_news_as_time_sensitive_public_fact() {
 }
 
 #[test]
-fn search_provider_plan_appends_google_news_rss_for_headline_queries() {
+fn search_provider_plan_prioritizes_google_news_rss_for_headline_queries() {
     let plan = effective_search_provider_plan("today's top news headlines");
     assert_eq!(plan.first(), Some(&SearchProviderStage::GoogleNewsRss));
-    assert!(plan.contains(&SearchProviderStage::GoogleNewsRss));
 }
 
 #[test]

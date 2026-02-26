@@ -13,18 +13,26 @@ pub(crate) fn build_deterministic_story_draft(
     let run_date = iso_date_from_unix_ms(run_timestamp_ms);
     let query = synthesis_query_contract(pending);
     let single_snapshot_mode = prefers_single_fact_snapshot(&query);
+    let headline_lookup_mode = query_is_generic_headline_collection(&query);
     let required_story_count = required_story_count(&query);
     let citations_per_story = required_citations_per_story(&query);
     let single_snapshot_policy = ResolutionPolicy::default();
     let completion_reason = completion_reason_line(reason).to_string();
     let partial_note = {
         let min_sources = pending.min_sources.max(1) as usize;
+        let required_readable_sources = if headline_lookup_mode && required_story_count > 1 {
+            min_sources
+                .saturating_sub(pending.blocked_urls.len())
+                .clamp(2, min_sources)
+        } else {
+            min_sources
+        };
         let readable_sources = pending.successful_reads.len();
         let blocked_sources = pending.blocked_urls.len();
-        (readable_sources < min_sources).then(|| {
+        (readable_sources < required_readable_sources).then(|| {
             format!(
                 "Partial evidence: verification receipt -> retrieved {} of {} required distinct readable sources ({} blocked by challenge).",
-                readable_sources, min_sources, blocked_sources
+                readable_sources, required_readable_sources, blocked_sources
             )
         })
     };
@@ -105,19 +113,38 @@ pub(crate) fn build_deterministic_story_draft(
         .filter(|source| !is_search_hub_url(source.url.trim()))
         .cloned()
         .collect::<Vec<_>>();
-    let preferred_source_pool =
-        if !single_snapshot_mode && non_hub_source_pool.len() >= required_story_count {
-            &non_hub_source_pool
-        } else {
-            &source_pool
-        };
+    let headline_curated_source_pool = if headline_lookup_mode {
+        non_hub_source_pool
+            .iter()
+            .filter(|source| headline_story_source_is_actionable(source))
+            .cloned()
+            .collect::<Vec<_>>()
+    } else {
+        Vec::new()
+    };
+    let preferred_source_pool = if headline_lookup_mode
+        && !single_snapshot_mode
+        && headline_curated_source_pool.len() >= required_story_count
+    {
+        &headline_curated_source_pool
+    } else if !single_snapshot_mode && non_hub_source_pool.len() >= required_story_count {
+        &non_hub_source_pool
+    } else {
+        &source_pool
+    };
 
     let mut selected_sources = Vec::new();
+    let mut selected_story_tokens = Vec::<BTreeSet<String>>::new();
     for source in preferred_source_pool {
         if single_snapshot_mode && is_low_signal_excerpt(source.excerpt.as_str()) {
             continue;
         }
         let title = canonical_source_title(source);
+        let source_tokens = if headline_lookup_mode {
+            Some(headline_story_source_tokens(source))
+        } else {
+            None
+        };
         if selected_sources
             .iter()
             .any(|existing: &PendingSearchReadSummary| {
@@ -126,7 +153,23 @@ pub(crate) fn build_deterministic_story_draft(
         {
             continue;
         }
+        if let Some(tokens) = source_tokens.as_ref() {
+            if selected_story_tokens.iter().any(|existing| {
+                !existing.is_empty() && !tokens.is_empty() && {
+                    let overlap = existing.intersection(tokens).count();
+                    let smaller = existing.len().min(tokens.len());
+                    overlap >= 2 && overlap * 5 >= smaller * 2
+                }
+            }) {
+                continue;
+            }
+        }
         selected_sources.push(source.clone());
+        if let Some(tokens) = source_tokens {
+            if !tokens.is_empty() {
+                selected_story_tokens.push(tokens);
+            }
+        }
         if selected_sources.len() >= required_story_count {
             break;
         }
@@ -141,6 +184,21 @@ pub(crate) fn build_deterministic_story_draft(
                     || url_structurally_equivalent(existing.url.as_str(), source.url.as_str())
             }) {
                 continue;
+            }
+            if headline_lookup_mode {
+                let tokens = headline_story_source_tokens(source);
+                if selected_story_tokens.iter().any(|existing| {
+                    !existing.is_empty() && !tokens.is_empty() && {
+                        let overlap = existing.intersection(&tokens).count();
+                        let smaller = existing.len().min(tokens.len());
+                        overlap >= 2 && overlap * 5 >= smaller * 2
+                    }
+                }) {
+                    continue;
+                }
+                if !tokens.is_empty() {
+                    selected_story_tokens.push(tokens);
+                }
             }
             selected_sources.push(source.clone());
         }
@@ -304,6 +362,190 @@ pub(crate) fn build_deterministic_story_draft(
     }
 }
 
+fn headline_story_topic_tokens(input: &str) -> BTreeSet<String> {
+    const STORY_TOPIC_STOPWORDS: &[&str] = &[
+        "the",
+        "and",
+        "for",
+        "with",
+        "that",
+        "this",
+        "from",
+        "into",
+        "what",
+        "happened",
+        "story",
+        "stories",
+        "today",
+        "top",
+        "news",
+        "headline",
+        "headlines",
+        "breaking",
+        "latest",
+        "update",
+        "updates",
+        "report",
+        "reports",
+        "source",
+        "sources",
+        "evidence",
+        "media",
+        "coverage",
+        "live",
+        "as",
+        "of",
+        "run",
+        "timestamp",
+        "utc",
+        "us",
+        "u",
+        "s",
+    ];
+    input
+        .to_ascii_lowercase()
+        .chars()
+        .map(|ch| if ch.is_ascii_alphanumeric() { ch } else { ' ' })
+        .collect::<String>()
+        .split_whitespace()
+        .filter_map(|token| {
+            let normalized = token.trim();
+            if normalized.len() < 3 {
+                return None;
+            }
+            if STORY_TOPIC_STOPWORDS.contains(&normalized) {
+                return None;
+            }
+            Some(normalized.to_string())
+        })
+        .collect()
+}
+
+fn headline_story_source_tokens(source: &PendingSearchReadSummary) -> BTreeSet<String> {
+    let title = canonical_source_title(source);
+    let detail = excerpt_headline(source.excerpt.trim())
+        .unwrap_or_else(|| compact_excerpt(source.excerpt.as_str(), 220));
+    headline_story_topic_tokens(&format!("{} {}", title, detail))
+}
+
+fn headline_story_title_has_specificity(title: &str) -> bool {
+    const GENERIC_TOKENS: &[&str] = &[
+        "top",
+        "news",
+        "headline",
+        "headlines",
+        "latest",
+        "breaking",
+        "story",
+        "stories",
+        "update",
+        "updates",
+        "today",
+        "live",
+        "report",
+        "reports",
+        "listen",
+        "watch",
+        "now",
+    ];
+    let tokens = title
+        .to_ascii_lowercase()
+        .chars()
+        .map(|ch| if ch.is_ascii_alphanumeric() { ch } else { ' ' })
+        .collect::<String>()
+        .split_whitespace()
+        .filter_map(|token| {
+            let normalized = token.trim();
+            if normalized.is_empty() {
+                None
+            } else {
+                Some(normalized.to_string())
+            }
+        })
+        .collect::<Vec<_>>();
+    if tokens.len() < 2 {
+        return false;
+    }
+    let informative_tokens = tokens
+        .iter()
+        .filter(|token| token.len() >= 3 && !GENERIC_TOKENS.contains(&token.as_str()))
+        .count();
+    informative_tokens >= 2
+}
+
+fn headline_story_source_is_actionable(source: &PendingSearchReadSummary) -> bool {
+    let url = source.url.trim();
+    if url.is_empty()
+        || is_search_hub_url(url)
+        || is_news_feed_wrapper_url(url)
+        || is_multi_item_listing_url(url)
+    {
+        return false;
+    }
+    let title = canonical_source_title(source);
+    if is_low_signal_title(&title) || !headline_story_title_has_specificity(&title) {
+        return false;
+    }
+    let excerpt = source.excerpt.trim();
+    if excerpt_has_claim_signal(excerpt) {
+        return true;
+    }
+    let signals = source_evidence_signals(source);
+    effective_primary_event_hits(signals) > 0
+        || signals.impact_hits > 0
+        || signals.mitigation_hits > 0
+}
+
+fn headline_story_titles_overlap(left: &str, right: &str) -> bool {
+    let left_tokens = headline_story_topic_tokens(left);
+    let right_tokens = headline_story_topic_tokens(right);
+    if left_tokens.is_empty() || right_tokens.is_empty() {
+        return false;
+    }
+    let overlap = left_tokens.intersection(&right_tokens).count();
+    let smaller = left_tokens.len().min(right_tokens.len());
+    overlap >= 2 && overlap * 5 >= smaller * 2
+}
+
+fn headline_story_shared_anchor_tokens(
+    stories: &[StoryDraft],
+    story_count: usize,
+) -> BTreeSet<String> {
+    let mut sets = stories
+        .iter()
+        .take(story_count)
+        .map(|story| {
+            headline_story_topic_tokens(&format!("{} {}", story.title, story.what_happened))
+        })
+        .filter(|tokens| !tokens.is_empty())
+        .collect::<Vec<_>>();
+    if sets.len() < story_count {
+        return BTreeSet::new();
+    }
+    let mut shared = sets.remove(0);
+    for tokens in sets {
+        shared = shared
+            .intersection(&tokens)
+            .cloned()
+            .collect::<BTreeSet<_>>();
+        if shared.is_empty() {
+            break;
+        }
+    }
+    shared
+}
+
+fn citation_source_independence_key(url: &str) -> Option<String> {
+    let trimmed = url.trim();
+    if trimmed.is_empty() {
+        return None;
+    }
+    if let Some(host) = source_host(trimmed) {
+        return Some(host.strip_prefix("www.").unwrap_or(&host).to_string());
+    }
+    Some(trimmed.to_ascii_lowercase())
+}
+
 pub(crate) fn render_synthesis_draft(draft: &SynthesisDraft) -> String {
     if requires_mailbox_access_notice(&draft.query) {
         return render_mailbox_access_limited_draft(draft);
@@ -329,22 +571,38 @@ pub(crate) fn render_synthesis_draft(draft: &SynthesisDraft) -> String {
     let gap_notes = synthesis_gap_notes(draft);
     let citation_usable_url = |url: &str| {
         let trimmed = url.trim();
-        !trimmed.is_empty()
-            && (!is_search_hub_url(trimmed)
-                || (headline_lookup_mode && is_google_news_rss_wrapper_url(trimmed)))
+        if trimmed.is_empty() || !is_citable_web_url(trimmed) {
+            return false;
+        }
+        if headline_lookup_mode {
+            !is_search_hub_url(trimmed)
+                && !is_news_feed_wrapper_url(trimmed)
+                && !is_multi_item_listing_url(trimmed)
+        } else {
+            !is_search_hub_url(trimmed)
+        }
     };
-    let required_distinct_source_floor = story_count.max(1);
-    let actionable_read_grounding_urls = draft
+    let required_distinct_source_floor = if headline_lookup_mode && story_count > 1 {
+        let challenge_adjusted = story_count.saturating_sub(draft.blocked_urls.len());
+        challenge_adjusted.clamp(2, story_count.max(1))
+    } else {
+        story_count.max(1)
+    };
+    let actionable_read_grounding_sources = draft
         .citations_by_id
         .values()
         .filter(|citation| {
             citation_usable_url(&citation.url)
-                && (excerpt_has_claim_signal(&citation.excerpt)
-                    || (headline_lookup_mode && !is_low_signal_title(&citation.source_label)))
+                && if headline_lookup_mode {
+                    excerpt_has_claim_signal(&citation.excerpt)
+                        || !is_low_signal_title(&citation.source_label)
+                } else {
+                    excerpt_has_claim_signal(&citation.excerpt)
+                }
         })
-        .map(|citation| citation.url.trim().to_string())
+        .filter_map(|citation| citation_source_independence_key(&citation.url))
         .collect::<BTreeSet<_>>();
-    let actionable_read_grounding_count = actionable_read_grounding_urls.len();
+    let actionable_read_grounding_count = actionable_read_grounding_sources.len();
     let has_read_grounding = actionable_read_grounding_count > 0;
     let story_citation_floor = citations_per_story.max(1);
     let complete_story_slots = draft
@@ -373,11 +631,33 @@ pub(crate) fn render_synthesis_draft(draft: &SynthesisDraft) -> String {
             &citation.excerpt,
         ))
     });
+    let headline_shared_story_anchor_tokens = if headline_lookup_mode {
+        headline_story_shared_anchor_tokens(&draft.stories, story_count)
+    } else {
+        BTreeSet::new()
+    };
+    let headline_story_title_overlap = if headline_lookup_mode {
+        let titles = draft
+            .stories
+            .iter()
+            .take(story_count)
+            .map(|story| story.title.as_str())
+            .collect::<Vec<_>>();
+        (0..titles.len()).any(|left_idx| {
+            ((left_idx + 1)..titles.len())
+                .any(|right_idx| headline_story_titles_overlap(titles[left_idx], titles[right_idx]))
+        })
+    } else {
+        false
+    };
+    let has_story_topic_diversity_floor = !headline_lookup_mode
+        || (headline_shared_story_anchor_tokens.is_empty() && !headline_story_title_overlap);
     let insufficient_multi_story_grounding = !use_single_snapshot_layout
         && story_count > 1
         && (!has_story_slot_floor
             || !has_story_coverage_floor
             || !has_distinct_source_floor
+            || !has_story_topic_diversity_floor
             || (!has_read_grounding && !has_primary_status_inventory));
 
     if insufficient_multi_story_grounding {
@@ -396,12 +676,13 @@ pub(crate) fn render_synthesis_draft(draft: &SynthesisDraft) -> String {
         lines.push(heading);
         lines.push(String::new());
         lines.push(format!(
-            "Synthesis unavailable: grounded evidence did not satisfy the multi-story floor (stories={} of {}, citations_per_story={}, distinct_actionable_sources={} of {}).",
+            "Synthesis unavailable: grounded evidence did not satisfy the multi-story floor (stories={} of {}, citations_per_story={}, distinct_actionable_sources={} of {}, shared_story_topics={}).",
             draft.stories.len().min(story_count),
             story_count,
             story_citation_floor,
             actionable_read_grounding_count,
-            required_distinct_source_floor
+            required_distinct_source_floor,
+            headline_shared_story_anchor_tokens.len()
         ));
 
         let mut candidate_citations = draft

@@ -1228,6 +1228,11 @@ pub(crate) fn is_low_signal_title(title: &str) -> bool {
         lower.as_str(),
         "google news" | "news" | "home" | "homepage" | "untitled"
     ) || lower.starts_with("google news -")
+        || lower.contains("breaking news, latest news")
+        || lower.contains("today's latest headlines")
+        || lower.contains("latest news and videos")
+        || lower.contains("reuters | breaking international news")
+        || lower.contains("top stories")
 }
 
 pub(crate) fn actionable_source_signal_strength(signals: SourceSignalProfile) -> usize {
@@ -1628,10 +1633,30 @@ pub(crate) fn push_pending_web_success(
             || script_like_excerpt)
             && hint_excerpt.is_some()
         {
-            resolved_excerpt = hint_excerpt.unwrap_or_default();
+            if let Some(hint_excerpt_text) = hint_excerpt.as_deref() {
+                resolved_excerpt = hint_excerpt_text.to_string();
+            }
         }
+        let resolved_url = if is_news_feed_wrapper_url(trimmed) {
+            source_url_from_metadata_excerpt(&resolved_excerpt)
+                .or_else(|| {
+                    hint_excerpt
+                        .as_deref()
+                        .and_then(source_url_from_metadata_excerpt)
+                })
+                .filter(|candidate_url| {
+                    let candidate = candidate_url.trim();
+                    is_citable_web_url(candidate)
+                        && !is_news_feed_wrapper_url(candidate)
+                        && !is_search_hub_url(candidate)
+                        && !is_multi_item_listing_url(candidate)
+                })
+                .unwrap_or_else(|| trimmed.to_string())
+        } else {
+            trimmed.to_string()
+        };
         pending.successful_reads.push(PendingSearchReadSummary {
-            url: trimmed.to_string(),
+            url: resolved_url,
             title: resolved_title,
             excerpt: resolved_excerpt,
         });
@@ -1809,6 +1834,24 @@ pub(crate) fn push_pending_web_success(
     });
 }
 
+fn source_url_from_metadata_excerpt(excerpt: &str) -> Option<String> {
+    let marker = "source_url=";
+    let lower = excerpt.to_ascii_lowercase();
+    let start = lower.find(marker)? + marker.len();
+    let candidate = excerpt
+        .get(start..)?
+        .split_whitespace()
+        .next()
+        .unwrap_or_default()
+        .trim_matches(|ch: char| "|,;:!?)]}\"'".contains(ch))
+        .trim();
+    if candidate.starts_with("http://") || candidate.starts_with("https://") {
+        Some(candidate.to_string())
+    } else {
+        None
+    }
+}
+
 pub(crate) fn append_pending_web_success_fallback(
     pending: &mut PendingSearchCompletion,
     url: &str,
@@ -1824,6 +1867,40 @@ pub(crate) fn append_pending_web_success_from_bundle(
     bundle: &WebEvidenceBundle,
     fallback_url: &str,
 ) {
+    let query_contract = synthesis_query_contract(pending);
+    let headline_collection_mode = query_is_generic_headline_collection(&query_contract);
+    if headline_collection_mode {
+        let before = pending.successful_reads.len();
+
+        for doc in bundle.documents.iter().take(8) {
+            let title = doc
+                .title
+                .clone()
+                .or_else(|| {
+                    bundle
+                        .sources
+                        .iter()
+                        .find(|source| source.source_id == doc.source_id)
+                        .and_then(|source| source.title.clone())
+                })
+                .filter(|value| !value.trim().is_empty());
+            let excerpt = prioritized_signal_excerpt(&doc.content_text, WEB_PIPELINE_EXCERPT_CHARS);
+            push_pending_web_success(pending, &doc.url, title, excerpt);
+        }
+
+        for source in bundle.sources.iter().take(8) {
+            let excerpt =
+                prioritized_signal_excerpt(source.snippet.as_deref().unwrap_or_default(), 180);
+            push_pending_web_success(pending, &source.url, source.title.clone(), excerpt);
+        }
+
+        let fallback_trimmed = fallback_url.trim();
+        if pending.successful_reads.len() == before && !fallback_trimmed.is_empty() {
+            append_pending_web_success_fallback(pending, fallback_trimmed, None);
+        }
+        return;
+    }
+
     if let Some(doc) = bundle.documents.first() {
         let title = doc
             .title

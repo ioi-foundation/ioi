@@ -1,0 +1,114 @@
+mod harness;
+mod judge;
+mod queries;
+mod types;
+
+use anyhow::{anyhow, Result};
+use ioi_api::vm::inference::{HttpInferenceRuntime, InferenceRuntime};
+use serde_json::json;
+use std::sync::Arc;
+
+use self::types::CaseOutcome;
+
+pub async fn run_capabilities_suite() -> Result<()> {
+    ioi_cli::testing::build_test_artifacts();
+    harness::load_env_from_workspace_dotenv_if_present();
+
+    let openai_api_key = std::env::var("OPENAI_API_KEY")
+        .map_err(|_| anyhow!("OPENAI_API_KEY is required for capabilities suite"))?;
+    let openai_model = std::env::var("OPENAI_MODEL").unwrap_or_else(|_| "gpt-4o".to_string());
+    let arbiter_model =
+        std::env::var("CAPABILITIES_E2E_ARBITER_MODEL").unwrap_or_else(|_| openai_model.clone());
+    let api_url = std::env::var("OPENAI_API_URL")
+        .unwrap_or_else(|_| "https://api.openai.com/v1/chat/completions".to_string());
+
+    let agent_runtime: Arc<dyn InferenceRuntime> = Arc::new(HttpInferenceRuntime::new(
+        api_url.clone(),
+        openai_api_key.clone(),
+        openai_model,
+    ));
+    let arbiter_runtime: Arc<dyn InferenceRuntime> = Arc::new(HttpInferenceRuntime::new(
+        api_url,
+        openai_api_key,
+        arbiter_model,
+    ));
+
+    let mut outcomes = Vec::new();
+    for (idx, case) in queries::all_cases().into_iter().enumerate() {
+        let run_index = idx + 1;
+        let observation = harness::run_case(&case, run_index, agent_runtime.clone()).await?;
+        let debug_observation = std::env::var("CAPABILITIES_DEBUG_OBSERVATION")
+            .map(|value| value.eq_ignore_ascii_case("1") || value.eq_ignore_ascii_case("true"))
+            .unwrap_or(false);
+        if debug_observation {
+            println!(
+                "CAPABILITIES_CASE_OBSERVATION_{}={}",
+                case.id,
+                serde_json::to_string_pretty(&observation)?
+            );
+        }
+        let local = (case.local_sniff)(&observation);
+        let arbiter =
+            judge::run_arbiter(arbiter_runtime.clone(), &case, &observation, &local).await?;
+        let strict_arbiter_required = matches!(case.id, "top_news_headlines");
+        let strict_local_required = matches!(case.id, "top_news_headlines");
+        let arbiter_effective_pass = if strict_arbiter_required {
+            arbiter.pass
+        } else {
+            arbiter.pass || (local.pass && !observation.failed)
+        };
+        let completion_effective_pass =
+            observation.completed || (arbiter.pass && local.score >= case.min_local_score);
+
+        let observed_pass = completion_effective_pass
+            && observation.approval_required_events == 0
+            && observation.elapsed_ms <= (case.sla_seconds as u128 * 1_000)
+            && local.score >= case.min_local_score
+            && (!strict_local_required || local.pass)
+            && arbiter_effective_pass;
+
+        let outcome = CaseOutcome {
+            case_id: case.id.to_string(),
+            query: case.query.to_string(),
+            expected_pass: case.expected_pass,
+            observed_pass,
+            completed: observation.completed,
+            final_status: observation.final_status.clone(),
+            local,
+            arbiter,
+        };
+
+        println!(
+            "CAPABILITIES_CASE_RESULT_{}={}",
+            case.id,
+            serde_json::to_string_pretty(&outcome)?
+        );
+
+        if outcome.observed_pass != outcome.expected_pass {
+            return Err(anyhow!(
+                "capabilities outcome mismatch for '{}': expected_pass={} observed_pass={} final_status={} local_score={} arbiter_confidence={} arbiter_rationale={}",
+                case.id,
+                outcome.expected_pass,
+                outcome.observed_pass,
+                outcome.final_status,
+                outcome.local.score,
+                outcome.arbiter.confidence,
+                outcome.arbiter.rationale,
+            ));
+        }
+
+        outcomes.push(outcome);
+    }
+
+    println!(
+        "CAPABILITIES_SUITE_SUMMARY={}",
+        serde_json::to_string_pretty(&json!({
+            "total_cases": outcomes.len(),
+            "matched_expectations": outcomes.iter().filter(|o| o.expected_pass == o.observed_pass).count(),
+            "expected_fail_cases": outcomes.iter().filter(|o| !o.expected_pass).map(|o| o.case_id.clone()).collect::<Vec<_>>(),
+            "observed_fail_cases": outcomes.iter().filter(|o| !o.observed_pass).map(|o| o.case_id.clone()).collect::<Vec<_>>(),
+        }))?
+    );
+
+    Ok(())
+}

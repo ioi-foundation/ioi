@@ -4,6 +4,7 @@ use regex::Regex;
 use scraper::{Html, Selector};
 use std::collections::HashSet;
 use std::time::Duration;
+use url::Url;
 
 use super::transport::fetch_html_http_fallback;
 use super::urls::{
@@ -361,37 +362,74 @@ fn decode_rss_text(raw: &str) -> String {
         .replace("&#39;", "'")
 }
 
-fn is_google_news_rss_wrapper_url(url: &str) -> bool {
-    let lower = url.trim().to_ascii_lowercase();
-    lower.starts_with("https://news.google.com/rss/articles/")
-        || lower.starts_with("https://news.google.com/rss/read/")
-        || lower.starts_with("https://news.google.com/rss/topics/")
+fn sanitize_rss_http_url(raw: &str) -> Option<String> {
+    let token = raw
+        .trim()
+        .split_whitespace()
+        .next()
+        .unwrap_or_default()
+        .trim_matches(|ch: char| "\"'<>".contains(ch))
+        .trim();
+    if !(token.starts_with("http://") || token.starts_with("https://")) {
+        return None;
+    }
+
+    let mut cleaned = token.to_string();
+    loop {
+        if Url::parse(&cleaned).is_ok() {
+            return Some(cleaned);
+        }
+        let Some((idx, _)) = cleaned.char_indices().next_back() else {
+            break;
+        };
+        cleaned.truncate(idx);
+        if cleaned.is_empty() {
+            break;
+        }
+    }
+    None
 }
 
-async fn resolve_google_news_rss_article_url(
+fn is_news_feed_wrapper_url(url: &str) -> bool {
+    let Ok(parsed) = Url::parse(url.trim()) else {
+        return false;
+    };
+    let Some(host) = parsed.host_str() else {
+        return false;
+    };
+    if host.to_ascii_lowercase() != "news.google.com" {
+        return false;
+    }
+    let path = parsed.path().to_ascii_lowercase();
+    path.starts_with("/rss/articles")
+        || path.starts_with("/rss/read")
+        || path.starts_with("/rss/topics")
+}
+
+async fn resolve_news_feed_wrapper_article_url(
     client: &reqwest::Client,
     url: &str,
 ) -> Option<String> {
     let trimmed = url.trim();
-    if trimmed.is_empty() || !is_google_news_rss_wrapper_url(trimmed) {
+    if trimmed.is_empty() || !is_news_feed_wrapper_url(trimmed) {
         return None;
     }
 
-    let response = tokio::time::timeout(Duration::from_millis(1_000), client.get(trimmed).send())
+    let response = tokio::time::timeout(Duration::from_millis(2_500), client.get(trimmed).send())
         .await
         .ok()
         .and_then(|result| result.ok())?;
     let resolved = response.url().as_str().trim().to_string();
     if resolved.is_empty()
         || (!resolved.starts_with("http://") && !resolved.starts_with("https://"))
-        || is_google_news_rss_wrapper_url(&resolved)
+        || is_news_feed_wrapper_url(&resolved)
     {
         return None;
     }
     Some(resolved)
 }
 
-async fn resolve_google_news_rss_sources(
+async fn resolve_news_feed_wrapper_sources(
     mut sources: Vec<WebSource>,
     limit: usize,
 ) -> Vec<WebSource> {
@@ -401,7 +439,7 @@ async fn resolve_google_news_rss_sources(
 
     let client = match reqwest::Client::builder()
         .redirect(reqwest::redirect::Policy::limited(8))
-        .timeout(Duration::from_millis(1_200))
+        .timeout(Duration::from_millis(3_000))
         .user_agent("Mozilla/5.0 (compatible; ioi-web-retriever/1.0; +https://ioi.local/web)")
         .build()
     {
@@ -409,10 +447,10 @@ async fn resolve_google_news_rss_sources(
         Err(_) => return sources,
     };
 
-    let resolve_limit = sources.len().min(8);
+    let resolve_limit = sources.len().min(limit.max(3)).min(5);
     for source in sources.iter_mut().take(resolve_limit) {
         let original = source.url.clone();
-        let Some(resolved) = resolve_google_news_rss_article_url(&client, &original).await else {
+        let Some(resolved) = resolve_news_feed_wrapper_article_url(&client, &original).await else {
             continue;
         };
         source.url = resolved.clone();
@@ -465,11 +503,9 @@ pub(crate) fn parse_google_news_sources_from_rss(rss_xml: &str, limit: usize) ->
             .and_then(|cap| cap.get(1))
             .map(|m| decode_rss_text(m.as_str()))
             .unwrap_or_default();
-        let link_trimmed = raw_link.trim();
-        if !(link_trimmed.starts_with("http://") || link_trimmed.starts_with("https://")) {
+        let Some(final_url) = sanitize_rss_http_url(&raw_link) else {
             continue;
-        }
-        let final_url = link_trimmed.to_string();
+        };
         if seen.contains(&final_url) {
             continue;
         }
@@ -498,11 +534,7 @@ pub(crate) fn parse_google_news_sources_from_rss(rss_xml: &str, limit: usize) ->
             .captures(item)
             .and_then(|cap| cap.get(1))
             .map(|m| decode_rss_text(m.as_str()))
-            .and_then(|raw| {
-                let trimmed = raw.trim();
-                (trimmed.starts_with("http://") || trimmed.starts_with("https://"))
-                    .then(|| trimmed.to_string())
-            });
+            .and_then(|raw| sanitize_rss_http_url(&raw));
         let snippet_opt = match (source_name_opt, source_url_opt.as_deref()) {
             (Some(name), Some(source_url)) => Some(format!("{name} | source_url={source_url}")),
             (Some(name), None) => Some(name),
@@ -533,5 +565,5 @@ pub(crate) async fn fetch_google_news_rss_sources(
     let rss_url = build_google_news_rss_url(query);
     let rss_xml = fetch_html_http_fallback(&rss_url).await?;
     let parsed = parse_google_news_sources_from_rss(&rss_xml, limit);
-    Ok(resolve_google_news_rss_sources(parsed, limit).await)
+    Ok(resolve_news_feed_wrapper_sources(parsed, limit).await)
 }

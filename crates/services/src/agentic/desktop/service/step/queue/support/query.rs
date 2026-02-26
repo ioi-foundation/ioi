@@ -351,6 +351,7 @@ fn generic_headline_search_phrase(query: &str) -> String {
                 | "would"
                 | "can"
                 | "you"
+                | "today"
         ) {
             continue;
         }
@@ -370,9 +371,9 @@ fn generic_headline_search_phrase(query: &str) -> String {
     }
     if !tokens
         .iter()
-        .any(|token| matches!(token.as_str(), "today" | "latest" | "recent" | "breaking"))
+        .any(|token| matches!(token.as_str(), "latest" | "recent" | "breaking"))
     {
-        tokens.push("today".to_string());
+        tokens.push("latest".to_string());
     }
     if !tokens
         .iter()
@@ -381,7 +382,7 @@ fn generic_headline_search_phrase(query: &str) -> String {
         tokens.push("top".to_string());
     }
 
-    let priority = ["today", "latest", "top", "breaking", "news", "headlines"];
+    let priority = ["latest", "breaking", "top", "news", "headlines"];
     let mut ordered = Vec::new();
     let mut included = BTreeSet::new();
     for wanted in priority {
@@ -395,12 +396,21 @@ fn generic_headline_search_phrase(query: &str) -> String {
         }
     }
 
-    let query = ordered.join(" ").trim().to_string();
+    let mut query = ordered.join(" ").trim().to_string();
     if query.is_empty() {
-        "today top news headlines".to_string()
-    } else {
-        query
+        query = "latest top news headlines".to_string();
     }
+
+    let quality_terms = ["world", "politics", "business"];
+    query = append_unique_query_terms(
+        &query,
+        &quality_terms
+            .iter()
+            .map(|term| term.to_string())
+            .collect::<Vec<_>>(),
+    );
+
+    query
 }
 
 pub(crate) fn query_requires_structured_synthesis(query: &str) -> bool {
@@ -1119,6 +1129,20 @@ pub(crate) fn semantic_retrieval_query_contract_with_locality_hint(
     }
 
     let facets = analyze_query_facets(&resolved);
+    let weather_single_snapshot = prefers_single_fact_snapshot(&resolved) && {
+        let padded = normalized_phrase_query(&resolved);
+        padded.contains(" weather ") || padded.contains(" forecast ")
+    };
+    if weather_single_snapshot {
+        if let Some(scope) = explicit_query_scope_hint(&resolved) {
+            return format!(
+                "weather current conditions temperature humidity wind in {}",
+                scope
+            );
+        }
+        return "weather current conditions temperature humidity wind".to_string();
+    }
+
     if facets.goal.provenance_hits == 0
         && !facets.time_sensitive_public_fact
         && !facets.grounded_external_required
@@ -1501,19 +1525,19 @@ pub(crate) fn is_search_hub_url(url: &str) -> bool {
             || path.starts_with("/topstories")
             || path.starts_with("/home")
             || path.starts_with("/news"));
-    let is_google_news_rss_wrapper = is_google_news_rss_wrapper_url(url);
+    let is_news_feed_wrapper = is_news_feed_wrapper_url(url);
     let is_generic_query_search_hub = path.contains("/search")
         || path.ends_with("/search")
         || path.starts_with("/find")
         || path.contains("/results");
 
     is_google_news_hub
-        || is_google_news_rss_wrapper
+        || is_news_feed_wrapper
         || ((is_ddg_hub || is_bing_hub || is_google_hub || is_generic_query_search_hub)
             && has_query)
 }
 
-pub(crate) fn is_google_news_rss_wrapper_url(url: &str) -> bool {
+pub(crate) fn is_news_feed_wrapper_url(url: &str) -> bool {
     let Ok(parsed) = Url::parse(url.trim()) else {
         return false;
     };
@@ -1529,7 +1553,7 @@ pub(crate) fn is_google_news_rss_wrapper_url(url: &str) -> bool {
         || path.starts_with("/rss/topics")
 }
 
-fn is_multi_item_listing_url(url: &str) -> bool {
+pub(crate) fn is_multi_item_listing_url(url: &str) -> bool {
     let Ok(parsed) = Url::parse(url.trim()) else {
         return false;
     };
@@ -2273,11 +2297,9 @@ pub(crate) fn constraint_grounded_probe_query_with_hints_and_locality_hint(
             "latest headlines".to_string(),
             "breaking news".to_string(),
             "multiple outlets".to_string(),
-            "Reuters".to_string(),
-            "AP".to_string(),
-            "BBC".to_string(),
-            "NPR".to_string(),
-            "CNN".to_string(),
+            "world".to_string(),
+            "politics".to_string(),
+            "business".to_string(),
         ];
         if let Some(projection_ref) = projection.as_ref() {
             let host_exclusion_terms =
@@ -2428,7 +2450,7 @@ pub(crate) fn pre_read_candidate_plan(
         &candidate_source_hints,
         locality_hint,
     );
-    let probe_source_hints = candidate_source_hints.clone();
+    let mut probe_source_hints = candidate_source_hints.clone();
     let constraints = &projection.constraints;
     let policy = ResolutionPolicy::default();
     let hints_by_url = candidate_source_hints
@@ -2532,16 +2554,20 @@ pub(crate) fn pre_read_candidate_plan(
             && (compatible_candidates >= min_required
                 || positive_compatibility_candidates >= min_required)
     };
+    let explicit_locality_scope =
+        projection.locality_scope.is_some() && !projection.locality_scope_inferred;
     let can_prune_by_locality = projection.locality_scope.is_some()
         && constraints.scopes.contains(&ConstraintScope::TimeSensitive)
         && (locality_compatible_candidates >= min_required
-            || (allow_floor_recovery_exploration && locality_compatible_candidates > 0));
+            || (allow_floor_recovery_exploration && locality_compatible_candidates > 0)
+            || (explicit_locality_scope && locality_compatible_candidates > 0));
     let can_prune_by_positive_compatibility =
         constraints.scopes.contains(&ConstraintScope::TimeSensitive)
             && positive_compatibility_candidates >= min_required;
     let has_constraint_objective = projection.has_constraint_objective();
     let time_sensitive_scope = constraints.scopes.contains(&ConstraintScope::TimeSensitive);
     let reject_search_hub = projection.reject_search_hub_candidates();
+    let headline_lookup_mode = query_is_generic_headline_collection(query_contract);
     let prefer_non_listing_sources = query_prefers_multi_item_cardinality(query_contract);
     let mut requires_constraint_search_probe =
         if !has_constraint_objective || scoreable_candidates == 0 {
@@ -2564,6 +2590,9 @@ pub(crate) fn pre_read_candidate_plan(
             if reject_search_hub && is_search_hub_url(url) {
                 return None;
             }
+            if headline_lookup_mode && is_news_feed_wrapper_url(url) {
+                return None;
+            }
             if prefer_non_listing_sources && is_multi_item_listing_url(url) {
                 return None;
             }
@@ -2575,7 +2604,9 @@ pub(crate) fn pre_read_candidate_plan(
             {
                 return None;
             }
-            if can_prune_by_locality && !compatibility.locality_compatible {
+            if (can_prune_by_locality || explicit_locality_scope)
+                && !compatibility.locality_compatible
+            {
                 return None;
             }
             if can_prune_by_positive_compatibility && compatibility.compatibility_score == 0 {
@@ -2613,6 +2644,9 @@ pub(crate) fn pre_read_candidate_plan(
                 break;
             }
             if seen_candidate_urls.contains(url) || is_search_hub_url(url) {
+                continue;
+            }
+            if headline_lookup_mode && is_news_feed_wrapper_url(url) {
                 continue;
             }
             if prefer_non_listing_sources && is_multi_item_listing_url(url) {
@@ -2676,6 +2710,9 @@ pub(crate) fn pre_read_candidate_plan(
     for url in &candidate_urls {
         if let Some(hint) = hints_by_url.get(url) {
             let trimmed = hint.url.trim();
+            if headline_lookup_mode && is_news_feed_wrapper_url(trimmed) {
+                continue;
+            }
             if !trimmed.is_empty() && seen_hint_urls.insert(trimmed.to_string()) {
                 candidate_source_hints.push(hint.clone());
             }
@@ -2690,10 +2727,14 @@ pub(crate) fn pre_read_candidate_plan(
         if reject_search_hub && is_search_hub_url(url) {
             continue;
         }
+        if headline_lookup_mode && is_news_feed_wrapper_url(url) {
+            continue;
+        }
         if prefer_non_listing_sources && is_multi_item_listing_url(url) {
             continue;
         }
-        if can_prune_by_locality && !compatibility.locality_compatible {
+        if (can_prune_by_locality || explicit_locality_scope) && !compatibility.locality_compatible
+        {
             continue;
         }
         let include_hint = compatibility_passes_projection(&projection, compatibility)
@@ -2708,6 +2749,10 @@ pub(crate) fn pre_read_candidate_plan(
                 candidate_source_hints.push(hint.clone());
             }
         }
+    }
+
+    if explicit_locality_scope {
+        probe_source_hints = candidate_source_hints.clone();
     }
 
     PreReadCandidatePlan {

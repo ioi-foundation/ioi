@@ -85,11 +85,20 @@ pub(crate) fn merged_story_sources(
     let reject_search_hub = projection.reject_search_hub_candidates();
     let source_url_allowed = |url: &str| {
         let trimmed = url.trim();
-        !trimmed.is_empty()
-            && is_citable_web_url(trimmed)
-            && (!reject_search_hub
-                || !is_search_hub_url(trimmed)
-                || (headline_lookup_mode && is_google_news_rss_wrapper_url(trimmed)))
+        if trimmed.is_empty() || !is_citable_web_url(trimmed) {
+            return false;
+        }
+        if reject_search_hub && is_search_hub_url(trimmed) {
+            return false;
+        }
+        if headline_lookup_mode
+            && (is_search_hub_url(trimmed)
+                || is_news_feed_wrapper_url(trimmed)
+                || is_multi_item_listing_url(trimmed))
+        {
+            return false;
+        }
+        true
     };
     let successful_urls = successful_source_url_set(pending);
     let blocked_unverified_urls = blocked_unverified_url_set(pending, &successful_urls);
@@ -251,11 +260,20 @@ pub(crate) fn grounded_source_evidence_count(pending: &PendingSearchCompletion) 
     let reject_search_hub = projection.reject_search_hub_candidates();
     let source_url_allowed = |url: &str| {
         let trimmed = url.trim();
-        !trimmed.is_empty()
-            && is_citable_web_url(trimmed)
-            && (!reject_search_hub
-                || !is_search_hub_url(trimmed)
-                || (headline_lookup_mode && is_google_news_rss_wrapper_url(trimmed)))
+        if trimmed.is_empty() || !is_citable_web_url(trimmed) {
+            return false;
+        }
+        if reject_search_hub && is_search_hub_url(trimmed) {
+            return false;
+        }
+        if headline_lookup_mode
+            && (is_search_hub_url(trimmed)
+                || is_news_feed_wrapper_url(trimmed)
+                || is_multi_item_listing_url(trimmed))
+        {
+            return false;
+        }
+        true
     };
     let has_constraint_objective = projection.has_constraint_objective();
     let envelope_constraints = &projection.constraints;
@@ -466,48 +484,31 @@ fn source_url_from_metadata_excerpt(excerpt: &str) -> Option<String> {
     }
 }
 
-fn headline_low_quality_domain(url: &str) -> bool {
-    let lower = url.trim().to_ascii_lowercase();
+fn source_has_human_challenge_signal(url: &str, title: &str, excerpt: &str) -> bool {
+    let surface = format!("{} {} {}", url, title, excerpt).to_ascii_lowercase();
     [
-        "stackexchange.com",
-        "stackoverflow.com",
-        "wikipedia.org",
-        "reddit.com",
-        "quora.com",
-        "facebook.com",
-        "instagram.com",
-        "tiktok.com",
-        "youtube.com",
-        "pressgazette.co.uk",
+        "please enable js",
+        "please enable javascript",
+        "enable javascript",
+        "verify you are human",
+        "access denied",
+        "captcha",
+        "recaptcha",
+        "cloudflare",
+        "dd={'rt':'c'",
     ]
     .iter()
-    .any(|domain| lower.contains(domain))
+    .any(|marker| surface.contains(marker))
 }
 
 fn headline_low_quality_signal(url: &str, title: &str, excerpt: &str) -> bool {
-    if headline_low_quality_domain(url) {
-        return true;
-    }
-    let context = format!(" {} {} {} ", title, excerpt, url).to_ascii_lowercase();
-    let low_priority_markers = [
-        " news websites ",
-        " fact sheet ",
-        " trust in media ",
-        " which news sources ",
-        " schedules and results ",
-        " watch live ",
-        " how to watch ",
-        " horoscope ",
-        " horoscopes ",
-        " social media and news ",
-    ];
-    if low_priority_markers
-        .iter()
-        .any(|marker| context.contains(marker))
-    {
+    if source_has_human_challenge_signal(url, title, excerpt) {
         return true;
     }
     let signals = analyze_source_record_signals(url, title, excerpt);
+    if is_multi_item_listing_url(url) && !is_news_feed_wrapper_url(url) {
+        return signals.low_priority_dominates();
+    }
     signals.low_priority_dominates() && !has_primary_status_authority(signals)
 }
 
@@ -528,10 +529,18 @@ pub(crate) fn build_citation_candidates(
     let headline_lookup_mode = query_is_generic_headline_collection(&query_contract);
     let citation_usable_url = |url: &str| {
         let trimmed = url.trim();
-        !trimmed.is_empty()
-            && is_citable_web_url(trimmed)
-            && (!is_search_hub_url(trimmed)
-                || (headline_lookup_mode && is_google_news_rss_wrapper_url(trimmed)))
+        if trimmed.is_empty() || !is_citable_web_url(trimmed) {
+            return false;
+        }
+        if is_search_hub_url(trimmed) {
+            return false;
+        }
+        if headline_lookup_mode
+            && (is_news_feed_wrapper_url(trimmed) || is_multi_item_listing_url(trimmed))
+        {
+            return false;
+        }
+        true
     };
     let successful_urls = successful_source_url_set(pending);
     let blocked_unverified_urls = blocked_unverified_url_set(pending, &successful_urls);
@@ -575,7 +584,7 @@ pub(crate) fn build_citation_candidates(
         }
     }
 
-    merged
+    let mut candidates = merged
         .into_iter()
         .filter(|source| {
             let trimmed = source.url.trim();
@@ -586,8 +595,14 @@ pub(crate) fn build_citation_candidates(
         .enumerate()
         .filter_map(|(idx, source)| {
             let original_url = source.url.trim().to_string();
-            let url = if headline_lookup_mode && is_google_news_rss_wrapper_url(&original_url) {
-                source_url_from_metadata_excerpt(source.excerpt.as_str()).unwrap_or(original_url)
+            let url = if headline_lookup_mode && is_news_feed_wrapper_url(&original_url) {
+                source_url_from_metadata_excerpt(source.excerpt.as_str())
+                    .filter(|resolved_url| {
+                        citation_usable_url(resolved_url)
+                            && !is_search_hub_url(resolved_url)
+                            && !is_multi_item_listing_url(resolved_url)
+                    })
+                    .unwrap_or(original_url)
             } else {
                 original_url
             };
@@ -615,7 +630,82 @@ pub(crate) fn build_citation_candidates(
                 from_successful_read: successful_urls.contains(source.url.trim()),
             })
         })
-        .collect()
+        .collect::<Vec<_>>();
+
+    if headline_lookup_mode && candidates.is_empty() {
+        let mut fallback_sources = Vec::new();
+        let mut seen = BTreeSet::new();
+
+        for source in pending
+            .successful_reads
+            .iter()
+            .chain(pending.candidate_source_hints.iter())
+        {
+            let trimmed = source.url.trim();
+            if trimmed.is_empty()
+                || !is_citable_web_url(trimmed)
+                || is_search_hub_url(trimmed)
+                || (headline_lookup_mode && is_news_feed_wrapper_url(trimmed))
+                || (headline_lookup_mode && is_multi_item_listing_url(trimmed))
+                || is_blocked_unverified_url(trimmed, &blocked_unverified_urls)
+                || headline_low_quality_signal(
+                    trimmed,
+                    source.title.as_deref().unwrap_or_default(),
+                    source.excerpt.as_str(),
+                )
+                || !seen.insert(trimmed.to_string())
+            {
+                continue;
+            }
+            fallback_sources.push(PendingSearchReadSummary {
+                url: trimmed.to_string(),
+                title: source.title.clone(),
+                excerpt: source.excerpt.clone(),
+            });
+        }
+
+        for url in pending
+            .candidate_urls
+            .iter()
+            .chain(pending.attempted_urls.iter())
+            .chain(std::iter::once(&pending.url))
+        {
+            let trimmed = url.trim();
+            if trimmed.is_empty()
+                || !is_citable_web_url(trimmed)
+                || is_search_hub_url(trimmed)
+                || (headline_lookup_mode && is_news_feed_wrapper_url(trimmed))
+                || (headline_lookup_mode && is_multi_item_listing_url(trimmed))
+                || is_blocked_unverified_url(trimmed, &blocked_unverified_urls)
+                || headline_low_quality_signal(trimmed, "", "")
+                || !seen.insert(trimmed.to_string())
+            {
+                continue;
+            }
+            fallback_sources.push(PendingSearchReadSummary {
+                url: trimmed.to_string(),
+                title: None,
+                excerpt: String::new(),
+            });
+        }
+
+        candidates = fallback_sources
+            .into_iter()
+            .enumerate()
+            .map(|(idx, source)| CitationCandidate {
+                id: format!("C{}", idx + 1),
+                url: source.url.clone(),
+                source_label: canonical_source_title(&source),
+                excerpt: String::new(),
+                timestamp_utc: run_timestamp_iso_utc.to_string(),
+                note: "retrieved_utc; fallback citation inventory from constrained source set"
+                    .to_string(),
+                from_successful_read: successful_urls.contains(source.url.trim()),
+            })
+            .collect();
+    }
+
+    candidates
 }
 
 pub(crate) fn title_overlap_score(a: &str, b: &str) -> usize {
@@ -844,6 +934,7 @@ pub(crate) fn citation_ids_for_story(
         if let Some(source_anchor_candidate) = candidates.iter().find(|candidate| {
             let candidate_url = candidate.url.trim();
             !candidate_url.is_empty()
+                && !used_urls.contains(candidate_url)
                 && url_structurally_equivalent(candidate_url, source.url.trim())
                 && !selected_ids.iter().any(|id| id == &candidate.id)
         }) {
