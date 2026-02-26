@@ -1,26 +1,20 @@
 // apps/autopilot/src/windows/SpotlightWindow/index.tsx
 
-import React, {
-  useState,
-  useEffect,
-  useRef,
-  useMemo,
-  useCallback,
-} from "react";
+import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { emit } from "@tauri-apps/api/event";
-import { useAgentStore, initEventListeners } from "../../store/agentStore";
+import { useAgentStore } from "../../store/agentStore";
 import {
   AgentEvent,
-  AgentTask,
   Artifact,
   ArtifactHubViewKey,
   ChatMessage,
   RunPresentation,
-  SessionSummary,
   SourceSummary,
 } from "../../types";
 import { useSpotlightLayout } from "./hooks/useSpotlightLayout";
+import { useSpotlightSession } from "./hooks/useSpotlightSession";
+import { useGateState } from "./hooks/useGateState";
+import { useTurnContexts } from "./hooks/useTurnContexts";
 
 // Sub-components
 import { icons } from "./components/Icons";
@@ -29,18 +23,16 @@ import { MessageActions } from "./components/MessageActions";
 import { MarkdownMessage } from "./components/MarkdownMessage";
 import { ScrollToBottom } from "./components/ScrollToBottom";
 import { HistorySidebar } from "./components/HistorySidebar";
-import { SpotlightApprovalCard } from "./components/SpotlightApprovalCard";
-import { SpotlightPasswordCard } from "./components/SpotlightPasswordCard";
-import { SpotlightClarificationCard } from "./components/SpotlightClarificationCard";
 import { ThoughtChain } from "./components/ThoughtChain";
 import { AnswerCard } from "./components/AnswerCard";
-import { Dropdown, DropdownOption } from "./components/SpotlightDropdown";
+import { DropdownOption } from "./components/SpotlightDropdown";
 import { ArtifactSidebar } from "./components/ArtifactSidebar";
 import { ArtifactHubSidebar } from "./components/ArtifactHubSidebar";
 import { VisualEvidenceCard } from "./components/VisualEvidenceCard";
+import { SpotlightInputSection } from "./components/SpotlightInputSection";
+import { SpotlightGateDock } from "./components/SpotlightGateDock";
 import { buildRunPresentation } from "./viewmodels/contentPipeline";
 import { exportThreadContextBundle } from "./utils/exportContext";
-import { collectScreenshotReceipts } from "./utils/screenshotEvidence";
 import { normalizeVisualHash } from "./utils/visualHash";
 
 // Styles
@@ -76,81 +68,6 @@ const CONTENT_PIPELINE_V2_ENABLED =
   String((import.meta as any).env?.[CONTENT_PIPELINE_V2_FLAG] ?? "true").toLowerCase() !==
   "false";
 
-type ChatEvent = ChatMessage & {
-  isGate?: boolean;
-  gateData?: any;
-};
-
-type ConversationTurn = {
-  key: string;
-  prompt: ChatMessage | null;
-  answer: ChatMessage | null;
-};
-
-type TurnEventWindow = {
-  id: string;
-  index: number;
-  startAtMs: number | null;
-  endAtMs: number | null;
-};
-
-type TurnContext = {
-  turnId: string | null;
-  thoughtCount: number;
-  sourceCount: number;
-  kernelEventCount: number;
-  visualReceiptCount: number;
-  latestVisualHash: string | null;
-  latestVisualTimestamp: string | null;
-  latestVisualStepIndex: number | null;
-  latestVisualHasBlob: boolean;
-  latestVisualSummary: string | null;
-  defaultView: ArtifactHubViewKey;
-};
-
-function parseTimestampMs(value: string): number | null {
-  const ms = Date.parse(value);
-  return Number.isNaN(ms) ? null : ms;
-}
-
-function isUserRequestEvent(event: AgentEvent): boolean {
-  const details = (event.details || {}) as Record<string, unknown>;
-  const kind = String(details.kind || "").trim().toLowerCase();
-  return kind === "user_input" || event.title.trim().toLowerCase() === "user request";
-}
-
-function buildTurnWindows(events: AgentEvent[]): TurnEventWindow[] {
-  const ordered = events
-    .slice()
-    .sort(
-      (a, b) =>
-        a.timestamp.localeCompare(b.timestamp) ||
-        a.step_index - b.step_index ||
-        a.event_id.localeCompare(b.event_id),
-    );
-  const prompts = ordered.filter(isUserRequestEvent);
-  return prompts.map((event, idx) => {
-    const next = prompts[idx + 1];
-    return {
-      id: event.event_id,
-      index: idx + 1,
-      startAtMs: parseTimestampMs(event.timestamp),
-      endAtMs: next ? parseTimestampMs(next.timestamp) : null,
-    };
-  });
-}
-
-function eventInTurnWindow(event: AgentEvent, window: TurnEventWindow): boolean {
-  const eventAtMs = parseTimestampMs(event.timestamp);
-  if (window.startAtMs !== null && eventAtMs !== null && eventAtMs < window.startAtMs) {
-    return false;
-  }
-  if (window.endAtMs !== null && eventAtMs !== null && eventAtMs >= window.endAtMs) {
-    return false;
-  }
-  return true;
-}
-
 type SpotlightWindowProps = {
   variant?: "overlay" | "studio";
 };
@@ -165,34 +82,9 @@ export function SpotlightWindow({ variant = "overlay" }: SpotlightWindowProps) {
   // Layout management (synced with Tauri backend)
   const { layout, toggleSidebar, toggleArtifactPanel } = useSpotlightLayout();
 
-  // Core state
-  const [intent, setIntent] = useState("");
-  const [localHistory, setLocalHistory] = useState<ChatMessage[]>([]);
-  const [autoContext, setAutoContext] = useState(true);
-  const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
-  const [sessions, setSessions] = useState<SessionSummary[]>([]);
-  const [workspaceMode, setWorkspaceMode] = useState("local");
-  const [selectedModel, setSelectedModel] = useState("GPT-4o");
-  const [chatEvents, setChatEvents] = useState<ChatEvent[]>([]);
-  const [artifactHubView, setArtifactHubView] = useState<ArtifactHubViewKey | null>(null);
-  const [artifactHubTurnId, setArtifactHubTurnId] = useState<string | null>(null);
-
-  // UI state
-  const [inputFocused, setInputFocused] = useState(false);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [showScrollButton, setShowScrollButton] = useState(false);
-  const [isDraggingFile] = useState(false);
-  const [runtimePasswordPending, setRuntimePasswordPending] = useState(false);
-  const [runtimePasswordSessionId, setRuntimePasswordSessionId] = useState<
-    string | null
-  >(null);
-  const [gateActionError, setGateActionError] = useState<string | null>(null);
-
-  // Refs
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const chatAreaRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
-  // [FIX] Track user scroll intention explicitly
   const isUserAtBottomRef = useRef(true);
 
   const {
@@ -207,6 +99,85 @@ export function SpotlightWindow({ variant = "overlay" }: SpotlightWindowProps) {
     loadThreadEvents,
     loadThreadArtifacts,
   } = useAgentStore();
+
+  const {
+    intent,
+    setIntent,
+    localHistory,
+    autoContext,
+    setAutoContext,
+    activeDropdown,
+    setActiveDropdown,
+    sessions,
+    workspaceMode,
+    setWorkspaceMode,
+    selectedModel,
+    setSelectedModel,
+    chatEvents,
+    setChatEvents,
+    artifactHubView,
+    setArtifactHubView,
+    artifactHubTurnId,
+    setArtifactHubTurnId,
+    runtimePasswordPending,
+    setRuntimePasswordPending,
+    runtimePasswordSessionId,
+    setRuntimePasswordSessionId,
+    inputFocused,
+    setInputFocused,
+    searchQuery,
+    setSearchQuery,
+    isDraggingFile,
+    openStudio,
+    handleLoadSession,
+    handleSubmit,
+    handleSubmitRuntimePassword,
+    handleCancelRuntimePassword,
+    handleSubmitClarification,
+    handleCancelClarification,
+    handleNewChat,
+    handleGlobalClick,
+    handleInputChange,
+    handleInputKeyDown,
+  } = useSpotlightSession({
+    isStudioVariant,
+    task,
+    inputRef,
+    startTask,
+    continueTask,
+    resetSession,
+    setSelectedArtifactId,
+    toggleArtifactPanel,
+    loadThreadEvents,
+    loadThreadArtifacts,
+  });
+
+  const {
+    gateActionError,
+    credentialRequest,
+    clarificationRequest,
+    activeSessionId,
+    showPasswordPrompt,
+    showClarificationPrompt,
+    inputLockedByCredential,
+    gateInfo,
+    isPiiGate,
+    isGated,
+    gateDeadlineMs,
+    handleApprove,
+    handleDeny,
+    handleGrantScopedException,
+  } = useGateState({
+    task,
+    chatEvents,
+    setChatEvents,
+    runtimePasswordPending,
+    runtimePasswordSessionId,
+    setRuntimePasswordPending,
+    setRuntimePasswordSessionId,
+  });
+
+  const [showScrollButton, setShowScrollButton] = useState(false);
 
   // ============================================
   // INITIALIZATION
@@ -229,29 +200,6 @@ export function SpotlightWindow({ variant = "overlay" }: SpotlightWindowProps) {
     };
   }, [isStudioVariant]);
 
-  useEffect(() => {
-    initEventListeners();
-    window.setTimeout(() => {
-      inputRef.current?.focus();
-    }, 0);
-  }, []);
-
-  // Load session history
-  useEffect(() => {
-    const loadHistory = async () => {
-      try {
-        const history = await invoke<SessionSummary[]>("get_session_history");
-        setSessions(history);
-      } catch (e) {
-        console.error("Failed to load history:", e);
-      }
-    };
-
-    loadHistory();
-    const interval = setInterval(loadHistory, 5000);
-    return () => clearInterval(interval);
-  }, []);
-
   // ============================================
   // SCROLL MANAGEMENT
   // ============================================
@@ -263,9 +211,8 @@ export function SpotlightWindow({ variant = "overlay" }: SpotlightWindowProps) {
     const handleScroll = () => {
       const { scrollTop, scrollHeight, clientHeight } = chatArea;
       const distFromBottom = scrollHeight - scrollTop - clientHeight;
-      const isNearBottom = distFromBottom < 100; // Threshold
+      const isNearBottom = distFromBottom < 100;
 
-      // [FIX] Update ref immediately on scroll to track intent
       isUserAtBottomRef.current = isNearBottom;
       setShowScrollButton(!isNearBottom);
     };
@@ -274,76 +221,34 @@ export function SpotlightWindow({ variant = "overlay" }: SpotlightWindowProps) {
     return () => chatArea.removeEventListener("scroll", handleScroll);
   }, []);
 
-  // Auto-scroll on new messages
-  const activeHistory: ChatMessage[] =
-    (task as AgentTask | null)?.history || localHistory;
-  const fallbackConversation = useMemo(
-    () => activeHistory.filter((message) => message.role === "user" || message.role === "agent"),
-    [activeHistory],
+  const activeHistory: ChatMessage[] = task?.history || localHistory;
+  const activeEvents: AgentEvent[] = task?.events?.length ? task.events : events;
+  const activeArtifacts: Artifact[] = task?.artifacts?.length ? task.artifacts : artifacts;
+  const selectedArtifact =
+    activeArtifacts.find((artifact) => artifact.artifact_id === selectedArtifactId) || null;
+
+  const isRunning = task?.phase === "Running";
+  const hasContent =
+    !!task || localHistory.length > 0 || chatEvents.length > 0 || activeEvents.length > 0;
+
+  const panelWidth =
+    BASE_PANEL_WIDTH +
+    (layout.sidebarVisible ? SIDEBAR_PANEL_WIDTH : 0) +
+    (layout.artifactPanelVisible ? ARTIFACT_PANEL_WIDTH : 0);
+  const containerStyle = isStudioVariant ? undefined : { width: `${panelWidth}px` };
+
+  const runPresentation: RunPresentation = useMemo(
+    () => buildRunPresentation(activeHistory, activeEvents, activeArtifacts),
+    [activeArtifacts, activeEvents, activeHistory],
   );
-  const conversationTurns = useMemo<ConversationTurn[]>(() => {
-    const turns: ConversationTurn[] = [];
-    let pendingPrompt: ChatMessage | null = null;
-    let idx = 0;
 
-    for (const message of fallbackConversation) {
-      if (message.role === "user") {
-        if (pendingPrompt) {
-          turns.push({
-            key: `turn-${idx}-${pendingPrompt.timestamp}`,
-            prompt: pendingPrompt,
-            answer: null,
-          });
-          idx += 1;
-        }
-        pendingPrompt = message;
-        continue;
-      }
-
-      if (message.role !== "agent") {
-        continue;
-      }
-
-      if (pendingPrompt) {
-        turns.push({
-          key: `turn-${idx}-${pendingPrompt.timestamp}-${message.timestamp}`,
-          prompt: pendingPrompt,
-          answer: message,
-        });
-        idx += 1;
-        pendingPrompt = null;
-      } else {
-        turns.push({
-          key: `turn-${idx}-agent-${message.timestamp}`,
-          prompt: null,
-          answer: message,
-        });
-        idx += 1;
-      }
-    }
-
-    if (pendingPrompt) {
-      turns.push({
-        key: `turn-${idx}-${pendingPrompt.timestamp}`,
-        prompt: pendingPrompt,
-        answer: null,
-      });
-    }
-
-    return turns;
-  }, [fallbackConversation]);
-  const latestAnsweredTurnIndex = useMemo(() => {
-    for (let i = conversationTurns.length - 1; i >= 0; i -= 1) {
-      if (conversationTurns[i]?.answer) {
-        return i;
-      }
-    }
-    return -1;
-  }, [conversationTurns]);
+  const { conversationTurns, latestAnsweredTurnIndex, turnContexts } = useTurnContexts({
+    activeHistory,
+    activeEvents,
+    runPresentation,
+  });
 
   useEffect(() => {
-    // [FIX] Scroll only if user was already at bottom (stick-to-bottom behavior)
-    // or if this is likely the first load (e.g. no scroll happened yet)
     if (chatAreaRef.current && isUserAtBottomRef.current) {
       chatAreaRef.current.scrollTo({
         top: chatAreaRef.current.scrollHeight,
@@ -358,40 +263,10 @@ export function SpotlightWindow({ variant = "overlay" }: SpotlightWindowProps) {
         top: chatAreaRef.current.scrollHeight,
         behavior: "smooth",
       });
-      // Force state update
       isUserAtBottomRef.current = true;
       setShowScrollButton(false);
     }
   }, []);
-
-  // ============================================
-  // ARTIFACT/GATE EVENTS
-  // ============================================
-
-  useEffect(() => {
-    if (task && task.phase === "Gate" && task.gate_info) {
-      const last = chatEvents[chatEvents.length - 1];
-      if (!last || !last.isGate) {
-        setChatEvents((prev) => [
-          ...prev,
-          {
-            role: "system",
-            text: "",
-            timestamp: Date.now(),
-            isGate: true,
-            gateData: task.gate_info,
-          },
-        ]);
-      }
-    }
-  }, [task?.phase, task?.gate_info, chatEvents]);
-
-  useEffect(() => {
-    const threadId = task?.session_id || task?.id;
-    if (!threadId) return;
-    void loadThreadEvents(threadId).catch(console.error);
-    void loadThreadArtifacts(threadId).catch(console.error);
-  }, [task?.session_id, task?.id, loadThreadEvents, loadThreadArtifacts]);
 
   // ============================================
   // KEYBOARD SHORTCUTS
@@ -412,12 +287,10 @@ export function SpotlightWindow({ variant = "overlay" }: SpotlightWindowProps) {
     const handleKeyDown = (e: KeyboardEvent) => {
       const editableTarget = isEditableTarget(e.target);
 
-      // Never run global shortcuts while typing in editable fields.
       if (editableTarget) {
         return;
       }
 
-      // Escape to close/dismiss
       if (e.key === "Escape") {
         if (activeDropdown) {
           setActiveDropdown(null);
@@ -429,14 +302,12 @@ export function SpotlightWindow({ variant = "overlay" }: SpotlightWindowProps) {
         return;
       }
 
-      // Cmd/Ctrl + K to toggle sidebar
       if ((e.metaKey || e.ctrlKey) && e.key === "k") {
         e.preventDefault();
         toggleSidebar();
         return;
       }
 
-      // Cmd/Ctrl + N for new chat
       if ((e.metaKey || e.ctrlKey) && e.key === "n") {
         e.preventDefault();
         handleNewChat();
@@ -448,405 +319,26 @@ export function SpotlightWindow({ variant = "overlay" }: SpotlightWindowProps) {
     return () => window.removeEventListener("keydown", handleKeyDown, true);
   }, [
     activeDropdown,
+    handleNewChat,
     isStudioVariant,
     layout.artifactPanelVisible,
+    setActiveDropdown,
     toggleSidebar,
     toggleArtifactPanel,
   ]);
 
   // ============================================
-  // HANDLERS
+  // ARTIFACT PANEL HANDLERS
   // ============================================
-
-  const openStudio = useCallback(
-    async (targetView: string = "compose") => {
-      // "settings" is not a first-class Studio tab yet; route to an existing view.
-      const resolvedView = targetView === "settings" ? "marketplace" : targetView;
-      await emit("request-studio-view", resolvedView);
-      if (isStudioVariant) {
-        return;
-      }
-      await invoke("hide_spotlight");
-      await invoke("show_studio");
-    },
-    [isStudioVariant],
-  );
-
-  const handleLoadSession = useCallback(async (id: string) => {
-    try {
-      setArtifactHubView(null);
-      setSelectedArtifactId(null);
-      toggleArtifactPanel(false);
-      await invoke("load_session", { sessionId: id });
-    } catch (e) {
-      console.error("Failed to load session:", e);
-    }
-  }, [setSelectedArtifactId, toggleArtifactPanel]);
-
-  const handleSubmit = useCallback(async () => {
-    const text = intent.trim();
-    if (!text) return;
-    if (task?.phase === "Gate" || task?.pending_request_hash) return;
-    if (task?.credential_request?.kind === "sudo_password") return;
-    if (
-      task?.clarification_request &&
-      (() => {
-        const step = (task?.current_step || "").toLowerCase();
-        return (
-          step.includes("waiting for clarification") ||
-          step.includes("waiting for intent clarification") ||
-          step.includes("wait_for_clarification")
-        );
-      })()
-    ) {
-      return;
-    }
-    if (
-      (task?.current_step || "").toLowerCase().includes("waiting for sudo password")
-    ) {
-      return;
-    }
-    setIntent("");
-
-    // Reset textarea height
-    if (inputRef.current) {
-      inputRef.current.style.height = "auto";
-    }
-
-    if (task && task.phase === "Running") return;
-
-    try {
-      if (task && task.id && task.phase !== "Failed") {
-        await continueTask(task.id || task.session_id || "", text);
-      } else {
-        if (
-          !isStudioVariant &&
-          (text.toLowerCase().includes("swarm") ||
-            text.toLowerCase().includes("team"))
-        ) {
-          await openStudio("autopilot");
-        }
-        await startTask(text);
-      }
-    } catch (e) {
-      console.error(e);
-    }
-  }, [intent, isStudioVariant, task, continueTask, startTask, openStudio]);
-
-  const handleSubmitRuntimePassword = useCallback(
-    async (password: string) => {
-      const sessionId = task?.id || task?.session_id;
-      if (!sessionId) {
-        throw new Error("No active session found");
-      }
-      setRuntimePasswordPending(true);
-      setRuntimePasswordSessionId(sessionId);
-      try {
-        await invoke("submit_runtime_password", { sessionId, password });
-      } catch (err) {
-        setRuntimePasswordPending(false);
-        setRuntimePasswordSessionId(null);
-        throw err;
-      }
-    },
-    [task?.id, task?.session_id],
-  );
-
-  const handleCancelRuntimePassword = useCallback(() => {
-    // Intentionally no-op: keep task paused until user provides password or starts a new chat.
-  }, []);
-
-  const handleSubmitClarification = useCallback(
-    async (optionId: string, otherText: string) => {
-      const sessionId = task?.id || task?.session_id;
-      if (!sessionId) {
-        throw new Error("No active session found");
-      }
-      const request = task?.clarification_request;
-      const selected = request?.options?.find((option) => option.id === optionId);
-      const exactIdentifier = otherText.trim();
-      const requestKind = request?.kind?.toLowerCase() ?? "";
-      const isIntentResolution = requestKind === "intent_resolution";
-      const intentStrategyFallback: Record<string, string> = {
-        clarify_outcome: "Please continue with the current request outcome.",
-        add_constraints: "Please continue with added constraints.",
-        cancel_request: "Cancel this request.",
-      };
-      const structuredPrompt = isIntentResolution
-        ? exactIdentifier ||
-          selected?.description ||
-          intentStrategyFallback[optionId] ||
-          "Continue."
-        : [
-            "Clarification response:",
-            request?.question ? `question=${request.question}` : undefined,
-            request?.tool_name ? `tool_name=${request.tool_name}` : undefined,
-            request?.failure_class
-              ? `failure_class=${request.failure_class}`
-              : undefined,
-            request?.context_hint ? `context_hint=${request.context_hint}` : undefined,
-            `strategy=${optionId}`,
-            selected ? `strategy_label=${selected.label}` : undefined,
-            exactIdentifier ? `exact_identifier=${exactIdentifier}` : undefined,
-            "Execution constraints:",
-            exactIdentifier
-              ? `- Treat '${exactIdentifier}' as the authoritative target identifier for the next retry.`
-              : "- Use the selected strategy to resolve target identity.",
-            "- Retry once on the same session.",
-            "- If still unresolved, provide concrete discovered candidates and why each failed.",
-            "- Do not ask the same clarification again without new evidence.",
-          ]
-            .filter(Boolean)
-            .join("\n");
-      console.info("[Autopilot][Clarification] submit", {
-        sessionId,
-        optionId,
-        exactIdentifier,
-      });
-      await continueTask(sessionId, structuredPrompt);
-    },
-    [continueTask, task],
-  );
-
-  const handleCancelClarification = useCallback(() => {
-    const sessionId = task?.id || task?.session_id;
-    if (!sessionId) return;
-    console.info("[Autopilot][Clarification] cancel", { sessionId });
-    void continueTask(
-      sessionId,
-      "User canceled clarification. Stop retries for this task, summarize the blocker, and remain idle until a new user request.",
-    ).catch(console.error);
-  }, [continueTask, task?.id, task?.session_id]);
-
-  const handleApprove = useCallback(async () => {
-    setGateActionError(null);
-    try {
-      await invoke("gate_respond", { approved: true });
-      setChatEvents((prev) =>
-        prev.map((m) =>
-          m.isGate ? { ...m, isGate: false, text: "✓ Approved" } : m,
-        ),
-      );
-    } catch (err) {
-      const reason =
-        err instanceof Error ? err.message : String(err || "Gate action failed");
-      setGateActionError(`Submit failed: ${reason}`);
-    }
-  }, []);
-
-  const handleDeny = useCallback(async () => {
-    setGateActionError(null);
-    try {
-      await invoke("gate_respond", { approved: false, action: "deny" });
-      setChatEvents((prev) =>
-        prev.map((m) =>
-          m.isGate ? { ...m, isGate: false, text: "✗ Denied" } : m,
-        ),
-      );
-    } catch (err) {
-      const reason =
-        err instanceof Error ? err.message : String(err || "Gate action failed");
-      setGateActionError(`Submit failed: ${reason}`);
-    }
-  }, []);
-
-  const handleGrantScopedException = useCallback(async () => {
-    setGateActionError(null);
-    try {
-      await invoke("gate_respond", {
-        approved: true,
-        action: "grant_scoped_exception",
-      });
-      setChatEvents((prev) =>
-        prev.map((m) =>
-          m.isGate ? { ...m, isGate: false, text: "✓ Scoped exception granted" } : m,
-        ),
-      );
-    } catch (err) {
-      const reason =
-        err instanceof Error ? err.message : String(err || "Gate action failed");
-      setGateActionError(`Submit failed: ${reason}`);
-    }
-  }, []);
-
-  const handleNewChat = useCallback(() => {
-    resetSession();
-    setLocalHistory([]);
-    setChatEvents([]);
-    setArtifactHubView(null);
-    setSelectedArtifactId(null);
-    toggleArtifactPanel(false);
-    setTimeout(() => inputRef.current?.focus(), 50);
-  }, [resetSession, setSelectedArtifactId, toggleArtifactPanel]);
-
-  const handleGlobalClick = useCallback(() => {
-    if (activeDropdown) setActiveDropdown(null);
-  }, [activeDropdown]);
-
-  const handleInputChange = useCallback(
-    (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-      setIntent(e.target.value);
-      // Auto-resize textarea
-      e.target.style.height = "auto";
-      e.target.style.height = Math.min(e.target.scrollHeight, 120) + "px";
-    },
-    [],
-  );
-
-  const handleInputKeyDown = useCallback(
-    (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-      if (e.key === "Escape") {
-        if (!isStudioVariant) {
-          e.preventDefault();
-          invoke("hide_spotlight").catch(console.error);
-        }
-        return;
-      }
-
-      if (e.key === "Enter" && !e.shiftKey) {
-        e.preventDefault();
-        handleSubmit();
-      }
-    },
-    [handleSubmit, isStudioVariant],
-  );
-
-  // ============================================
-  // COMPUTED VALUES
-  // ============================================
-
-  const activeEvents: AgentEvent[] = task?.events?.length
-    ? task.events
-    : events;
-  const activeArtifacts: Artifact[] = task?.artifacts?.length
-    ? task.artifacts
-    : artifacts;
-  const selectedArtifact =
-    activeArtifacts.find((a) => a.artifact_id === selectedArtifactId) || null;
-
-  const isRunning = task?.phase === "Running";
-  const hasPendingApproval = !!task?.pending_request_hash;
-  const credentialRequest = task?.credential_request;
-  const clarificationRequest = task?.clarification_request;
-  const activeSessionId = task?.id || task?.session_id || null;
-  const waitingForSudoByStep = (task?.current_step || "")
-    .toLowerCase()
-    .includes("waiting for sudo password");
-  const waitingForClarificationByStep = (() => {
-    const step = (task?.current_step || "").toLowerCase();
-    return (
-      step.includes("waiting for clarification") ||
-      step.includes("waiting for intent clarification") ||
-      step.includes("wait_for_clarification")
-    );
-  })();
-  const waitingForSudoPrompt =
-    credentialRequest?.kind === "sudo_password" || waitingForSudoByStep;
-  const suppressPasswordPrompt =
-    runtimePasswordPending &&
-    !!runtimePasswordSessionId &&
-    runtimePasswordSessionId === activeSessionId;
-  const showPasswordPrompt =
-    waitingForSudoPrompt &&
-    !suppressPasswordPrompt &&
-    !!(task?.session_id || task?.id);
-  const showClarificationPrompt =
-    !!clarificationRequest &&
-    !!(task?.session_id || task?.id) &&
-    waitingForClarificationByStep &&
-    task?.phase === "Complete";
-  const inputLockedByCredential = showPasswordPrompt || showClarificationPrompt;
-  const gateInfo = task?.gate_info
-    ? task.gate_info
-    : hasPendingApproval
-      ? {
-          title: "Approval Required",
-          description: task?.pending_request_hash
-            ? `Authorization required for request ${task.pending_request_hash}.`
-            : "Authorization required before execution can continue.",
-          risk: "high" as const,
-        }
-      : undefined;
-  const isPiiGate = !!gateInfo?.pii;
-  const isGated =
-    !showPasswordPrompt &&
-    !showClarificationPrompt &&
-    (task?.phase === "Gate" || hasPendingApproval) &&
-    !!gateInfo;
-  const gateDeadlineMs =
-    gateInfo?.deadline_ms ??
-    gateInfo?.pii?.deadline_ms ??
-    undefined;
-  const hasContent =
-    !!task ||
-    localHistory.length > 0 ||
-    chatEvents.length > 0 ||
-    activeEvents.length > 0;
-  const panelWidth =
-    BASE_PANEL_WIDTH +
-    (layout.sidebarVisible ? SIDEBAR_PANEL_WIDTH : 0) +
-    (layout.artifactPanelVisible ? ARTIFACT_PANEL_WIDTH : 0);
-  const containerStyle = isStudioVariant ? undefined : { width: `${panelWidth}px` };
-
-  useEffect(() => {
-    if (!runtimePasswordPending) return;
-    const activeId = task?.session_id || task?.id || null;
-    if (!activeId || runtimePasswordSessionId !== activeId) {
-      setRuntimePasswordPending(false);
-      setRuntimePasswordSessionId(null);
-      return;
-    }
-    if (!waitingForSudoPrompt) {
-      setRuntimePasswordPending(false);
-      setRuntimePasswordSessionId(null);
-    }
-  }, [
-    runtimePasswordPending,
-    runtimePasswordSessionId,
-    task?.id,
-    task?.session_id,
-    waitingForSudoPrompt,
-  ]);
-
-  useEffect(() => {
-    if (!isGated) {
-      setGateActionError(null);
-    }
-  }, [isGated]);
-
-  useEffect(() => {
-    if (!isGated || typeof gateDeadlineMs !== "number") return;
-    const emitTimeoutNote = () => {
-      setChatEvents((prev) => [
-        ...prev,
-        {
-          role: "system",
-          text: "⏱ Approval timed out. Submitting deny action.",
-          timestamp: Date.now(),
-        },
-      ]);
-    };
-    const remaining = gateDeadlineMs - Date.now();
-    if (remaining <= 0) {
-      emitTimeoutNote();
-      void handleDeny();
-      return;
-    }
-    const timer = window.setTimeout(() => {
-      emitTimeoutNote();
-      void handleDeny();
-    }, remaining);
-    return () => window.clearTimeout(timer);
-  }, [gateDeadlineMs, handleDeny, isGated]);
 
   const openArtifactById = useCallback(
     (artifactId: string) => {
       setArtifactHubView(null);
       setArtifactHubTurnId(null);
       setSelectedArtifactId(artifactId);
-      toggleArtifactPanel(true);
+      void toggleArtifactPanel(true);
     },
-    [setSelectedArtifactId, toggleArtifactPanel],
+    [setArtifactHubTurnId, setArtifactHubView, setSelectedArtifactId, toggleArtifactPanel],
   );
 
   const openArtifactHub = useCallback(
@@ -854,9 +346,9 @@ export function SpotlightWindow({ variant = "overlay" }: SpotlightWindowProps) {
       setArtifactHubView(preferredView);
       setArtifactHubTurnId(preferredTurnId || null);
       setSelectedArtifactId(null);
-      toggleArtifactPanel(true);
+      void toggleArtifactPanel(true);
     },
-    [setSelectedArtifactId, toggleArtifactPanel],
+    [setArtifactHubTurnId, setArtifactHubView, setSelectedArtifactId, toggleArtifactPanel],
   );
 
   const openSourceSummaryPanel = useCallback(
@@ -869,79 +361,8 @@ export function SpotlightWindow({ variant = "overlay" }: SpotlightWindowProps) {
   const closeRightPanel = useCallback(() => {
     setArtifactHubView(null);
     setArtifactHubTurnId(null);
-    toggleArtifactPanel(false);
-  }, [toggleArtifactPanel]);
-
-  // ============================================
-  // CONTENT PRESENTATION
-  // ============================================
-
-  const runPresentation: RunPresentation = useMemo(
-    () => buildRunPresentation(activeHistory, activeEvents, activeArtifacts),
-    [activeArtifacts, activeEvents, activeHistory],
-  );
-  const eventTurnWindows = useMemo(() => buildTurnWindows(activeEvents), [activeEvents]);
-  const turnContexts = useMemo<TurnContext[]>(() => {
-    let promptOrdinal = 0;
-    const thoughtAgents = runPresentation.thoughtSummary?.agents || [];
-    const searches = runPresentation.sourceSummary?.searches || [];
-    const browses = runPresentation.sourceSummary?.browses || [];
-
-    return conversationTurns.map((turn) => {
-      const window = turn.prompt ? eventTurnWindows[promptOrdinal++] || null : null;
-      if (!window) {
-        return {
-          turnId: null,
-          thoughtCount: 0,
-          sourceCount: 0,
-          kernelEventCount: 0,
-          visualReceiptCount: 0,
-          latestVisualHash: null,
-          latestVisualTimestamp: null,
-          latestVisualStepIndex: null,
-          latestVisualHasBlob: false,
-          latestVisualSummary: null,
-          defaultView: "kernel_logs",
-        };
-      }
-
-      const windowEvents = activeEvents.filter((event) => eventInTurnWindow(event, window));
-      const stepIndexes = new Set(windowEvents.map((event) => event.step_index));
-      const thoughtCount = thoughtAgents.filter((agent) => stepIndexes.has(agent.stepIndex)).length;
-      const sourceCount = Math.max(
-        searches.filter((row) => stepIndexes.has(row.stepIndex)).reduce(
-          (sum, row) => sum + Math.max(0, row.resultCount),
-          0,
-        ),
-        browses.filter((row) => stepIndexes.has(row.stepIndex)).length,
-      );
-      const kernelEventCount = windowEvents.filter((event) => event.event_type !== "INFO_NOTE").length;
-      const screenshotReceipts = collectScreenshotReceipts(windowEvents);
-      const latestVisualReceipt = screenshotReceipts[0] || null;
-      const defaultView: ArtifactHubViewKey =
-        thoughtCount > 0
-          ? "thoughts"
-          : sourceCount > 0
-            ? "sources"
-            : screenshotReceipts.length > 0
-              ? "screenshots"
-              : "kernel_logs";
-
-      return {
-        turnId: window.id,
-        thoughtCount,
-        sourceCount,
-        kernelEventCount,
-        visualReceiptCount: screenshotReceipts.length,
-        latestVisualHash: latestVisualReceipt?.hash || null,
-        latestVisualTimestamp: latestVisualReceipt?.timestamp || null,
-        latestVisualStepIndex: latestVisualReceipt?.stepIndex ?? null,
-        latestVisualHasBlob: latestVisualReceipt?.hasBlob || false,
-        latestVisualSummary: latestVisualReceipt?.summary || null,
-        defaultView,
-      };
-    });
-  }, [activeEvents, conversationTurns, eventTurnWindows, runPresentation]);
+    void toggleArtifactPanel(false);
+  }, [setArtifactHubTurnId, setArtifactHubView, toggleArtifactPanel]);
 
   const handleDownloadContext = useCallback(async () => {
     if (!activeSessionId) {
@@ -957,9 +378,13 @@ export function SpotlightWindow({ variant = "overlay" }: SpotlightWindowProps) {
     }
   }, [activeSessionId]);
 
+  // ============================================
+  // LEGACY PRESENTATION
+  // ============================================
+
   const { legacyChatElements, hasLegacyChainContent } = useMemo(() => {
-    const combined: ChatEvent[] = [
-      ...activeHistory.map((m) => ({ ...m, isGate: false, gateData: null })),
+    const combined = [
+      ...activeHistory.map((message) => ({ ...message, isGate: false, gateData: null })),
       ...chatEvents,
     ];
 
@@ -971,23 +396,23 @@ export function SpotlightWindow({ variant = "overlay" }: SpotlightWindowProps) {
     let currentChain: ChatMessage[] = [];
     let foundChain = false;
 
-    combined.forEach((msg) => {
-      if (msg.role === "tool" || (msg.role === "system" && !msg.isGate)) {
-        currentChain.push(msg);
-      } else if (msg.isGate) {
+    combined.forEach((message) => {
+      if (message.role === "tool" || (message.role === "system" && !message.isGate)) {
+        currentChain.push(message);
+      } else if (message.isGate) {
         if (currentChain.length > 0) {
           groups.push({ type: "chain", content: [...currentChain] });
           foundChain = true;
           currentChain = [];
         }
-        groups.push({ type: "gate", content: msg.gateData });
+        groups.push({ type: "gate", content: message.gateData });
       } else {
         if (currentChain.length > 0) {
           groups.push({ type: "chain", content: [...currentChain] });
           foundChain = true;
           currentChain = [];
         }
-        groups.push({ type: "message", content: msg });
+        groups.push({ type: "message", content: message });
       }
     });
 
@@ -996,33 +421,25 @@ export function SpotlightWindow({ variant = "overlay" }: SpotlightWindowProps) {
       foundChain = true;
     }
 
-    const historyElements = groups.map((g, i) => (
-      <React.Fragment key={i}>
-        {g.type === "message" && (
-          <div
-            className={`spot-message ${g.content.role === "user" ? "user" : "agent"}`}
-          >
-            {g.content.role === "agent" ? (
-              <MarkdownMessage text={g.content.text} />
+    const historyElements = groups.map((group, index) => (
+      <React.Fragment key={index}>
+        {group.type === "message" && (
+          <div className={`spot-message ${group.content.role === "user" ? "user" : "agent"}`}>
+            {group.content.role === "agent" ? (
+              <MarkdownMessage text={group.content.text} />
             ) : (
-              <div className="message-content-text">{g.content.text}</div>
+              <div className="message-content-text">{group.content.text}</div>
             )}
-            {g.content.role !== "user" && (
-              <MessageActions
-                text={g.content.text}
-                showRetry={true}
-                onRetry={() => {}}
-              />
+            {group.content.role !== "user" && (
+              <MessageActions text={group.content.text} showRetry={true} onRetry={() => {}} />
             )}
           </div>
         )}
 
-        {g.type === "chain" && (
+        {group.type === "chain" && (
           <ThoughtChain
-            messages={g.content}
-            activeStep={
-              isRunning && i === groups.length - 1 ? task?.current_step : null
-            }
+            messages={group.content}
+            activeStep={isRunning && index === groups.length - 1 ? task?.current_step : null}
             agentName={task?.agent}
             generation={task?.generation}
             progress={task?.progress}
@@ -1031,7 +448,7 @@ export function SpotlightWindow({ variant = "overlay" }: SpotlightWindowProps) {
           />
         )}
 
-        {g.type === "gate" && null}
+        {group.type === "gate" && null}
       </React.Fragment>
     ));
 
@@ -1066,16 +483,8 @@ export function SpotlightWindow({ variant = "overlay" }: SpotlightWindowProps) {
       legacyChatElements: [...historyElements, ...timelineElements],
       hasLegacyChainContent: foundChain || timelineElements.length > 0,
     };
-  }, [
-    activeEvents,
-    activeHistory,
-    chatEvents,
-    isRunning,
-    openArtifactById,
-    task,
-  ]);
+  }, [activeEvents, activeHistory, chatEvents, isRunning, openArtifactById, task]);
 
-  // Only show initial loader if running and no visible thinking content exists yet.
   const showInitialLoader = CONTENT_PIPELINE_V2_ENABLED
     ? isRunning && conversationTurns.length === 0
     : isRunning && !hasLegacyChainContent;
@@ -1094,11 +503,7 @@ export function SpotlightWindow({ variant = "overlay" }: SpotlightWindowProps) {
         className={`spot-container ${layout.sidebarVisible ? "sidebar-open" : ""}`}
         style={containerStyle}
       >
-        {/* ============================================
-            CONTENT AREA
-            ============================================ */}
         <div className="spot-content">
-          {/* Left Sidebar */}
           {layout.sidebarVisible && (
             <HistorySidebar
               sessions={sessions}
@@ -1110,9 +515,7 @@ export function SpotlightWindow({ variant = "overlay" }: SpotlightWindowProps) {
             />
           )}
 
-          {/* Main Panel */}
           <div className="spot-main">
-            {/* Sidebar toggle - shown when sidebar is hidden */}
             {!layout.sidebarVisible && (
               <button
                 className="spot-sidebar-toggle"
@@ -1123,11 +526,8 @@ export function SpotlightWindow({ variant = "overlay" }: SpotlightWindowProps) {
               </button>
             )}
 
-            {/* Chat Area */}
             <div className="spot-chat" ref={chatAreaRef}>
-              {!hasContent && (
-                <IOIWatermark onSuggestionClick={(text) => setIntent(text)} />
-              )}
+              {!hasContent && <IOIWatermark onSuggestionClick={(text) => setIntent(text)} />}
 
               {CONTENT_PIPELINE_V2_ENABLED ? (
                 <>
@@ -1139,11 +539,9 @@ export function SpotlightWindow({ variant = "overlay" }: SpotlightWindowProps) {
                       isLatestAnsweredTurn &&
                       !!turn.answer &&
                       !!runPresentation.finalAnswer &&
-                      runPresentation.finalAnswer.message.text.trim() ===
-                        turn.answer.text.trim();
+                      runPresentation.finalAnswer.message.text.trim() === turn.answer.text.trim();
                     const hasThoughtSummary = !!runPresentation.thoughtSummary;
-                    const showLiveThinking =
-                      isLatestTurn && !!turn.prompt && !turn.answer && isRunning;
+                    const showLiveThinking = isLatestTurn && !!turn.prompt && !turn.answer && isRunning;
                     const showThoughtTrigger = !!turn.prompt && (showLiveThinking || !!turn.answer);
                     const thoughtCount = turnContext?.thoughtCount || 0;
                     const visualReceiptCount = turnContext?.visualReceiptCount || 0;
@@ -1169,7 +567,9 @@ export function SpotlightWindow({ variant = "overlay" }: SpotlightWindowProps) {
 
                         {showThoughtTrigger && (
                           <button
-                            className={`spot-thinking-pill ${showLiveThinking ? "spot-thinking-pill--active" : ""}`}
+                            className={`spot-thinking-pill ${
+                              showLiveThinking ? "spot-thinking-pill--active" : ""
+                            }`}
                             type="button"
                             onClick={() =>
                               openArtifactHub(
@@ -1188,12 +588,12 @@ export function SpotlightWindow({ variant = "overlay" }: SpotlightWindowProps) {
                                 : !hasTurnTrace
                                   ? "No trace captured"
                                   : thoughtCount > 0
-                                  ? `${thoughtCount} ${thoughtCount === 1 ? "step" : "steps"} captured`
-                                  : visualReceiptCount > 0
-                                    ? `${visualReceiptCount} visual ${
-                                        visualReceiptCount === 1 ? "receipt" : "receipts"
-                                      } captured`
-                                  : `${turnContext?.kernelEventCount || 0} events captured`}
+                                    ? `${thoughtCount} ${thoughtCount === 1 ? "step" : "steps"} captured`
+                                    : visualReceiptCount > 0
+                                      ? `${visualReceiptCount} visual ${
+                                          visualReceiptCount === 1 ? "receipt" : "receipts"
+                                        } captured`
+                                      : `${turnContext?.kernelEventCount || 0} events captured`}
                             </span>
                           </button>
                         )}
@@ -1276,15 +676,13 @@ export function SpotlightWindow({ variant = "overlay" }: SpotlightWindowProps) {
                 <>{legacyChatElements}</>
               )}
 
-              {showInitialLoader && (
-                CONTENT_PIPELINE_V2_ENABLED ? (
+              {showInitialLoader &&
+                (CONTENT_PIPELINE_V2_ENABLED ? (
                   <button
                     className="spot-thinking-pill spot-thinking-pill--active"
                     type="button"
                     onClick={() =>
-                      openArtifactHub(
-                        runPresentation.thoughtSummary ? "thoughts" : "kernel_logs",
-                      )
+                      openArtifactHub(runPresentation.thoughtSummary ? "thoughts" : "kernel_logs")
                     }
                     title="Open thinking artifacts"
                   >
@@ -1303,168 +701,58 @@ export function SpotlightWindow({ variant = "overlay" }: SpotlightWindowProps) {
                     progress={0}
                     totalSteps={task?.total_steps || 10}
                   />
-                )
-              )}
+                ))}
             </div>
 
-            {/* [FIX] Moved ScrollToBottom outside spot-chat to float over it correctly */}
-            <ScrollToBottom
-              visible={showScrollButton}
-              onClick={scrollToBottom}
+            <ScrollToBottom visible={showScrollButton} onClick={scrollToBottom} />
+
+            <SpotlightGateDock
+              isGated={isGated}
+              gateInfo={gateInfo}
+              isPiiGate={isPiiGate}
+              gateDeadlineMs={gateDeadlineMs}
+              gateActionError={gateActionError}
+              onApprove={handleApprove}
+              onGrantScopedException={handleGrantScopedException}
+              onDeny={handleDeny}
+              showPasswordPrompt={showPasswordPrompt}
+              credentialRequest={credentialRequest}
+              onSubmitRuntimePassword={handleSubmitRuntimePassword}
+              onCancelRuntimePassword={handleCancelRuntimePassword}
+              showClarificationPrompt={showClarificationPrompt}
+              clarificationRequest={clarificationRequest}
+              onSubmitClarification={handleSubmitClarification}
+              onCancelClarification={handleCancelClarification}
             />
 
-            {isGated && gateInfo && (
-              <div className="spot-gate-dock">
-                <SpotlightApprovalCard
-                  title={gateInfo.title}
-                  description={gateInfo.description}
-                  risk={gateInfo.risk}
-                  approveLabel={isPiiGate ? "Approve Transform" : "Approve"}
-                  showDeny={true}
-                  denyLabel="Deny"
-                  deadlineMs={gateDeadlineMs}
-                  targetLabel={gateInfo.pii?.target_label}
-                  spanSummary={gateInfo.pii?.span_summary}
-                  classCounts={gateInfo.pii?.class_counts}
-                  severityCounts={gateInfo.pii?.severity_counts}
-                  stage2Prompt={gateInfo.pii?.stage2_prompt}
-                  targetId={(gateInfo.pii?.target_id as Record<string, unknown> | null) ?? null}
-                  errorMessage={gateActionError}
-                  onApproveTransform={handleApprove}
-                  onGrantScopedException={isPiiGate ? handleGrantScopedException : undefined}
-                  onDeny={handleDeny}
-                />
-              </div>
-            )}
-
-            {showPasswordPrompt && (
-              <div className="spot-gate-dock">
-                <SpotlightPasswordCard
-                  prompt={
-                    credentialRequest?.prompt ||
-                    "A one-time sudo password is required to continue."
-                  }
-                  onSubmit={handleSubmitRuntimePassword}
-                  onCancel={handleCancelRuntimePassword}
-                />
-              </div>
-            )}
-
-            {showClarificationPrompt && clarificationRequest && (
-              <div className="spot-gate-dock">
-                <SpotlightClarificationCard
-                  request={clarificationRequest}
-                  onSubmit={handleSubmitClarification}
-                  onCancel={handleCancelClarification}
-                />
-              </div>
-            )}
-
-            {/* Input Section */}
-            <div
-              className={`spot-input-section ${inputFocused ? "focused" : ""} ${isDraggingFile ? "drag-active" : ""}`}
-            >
-              <div className="spot-input-wrapper">
-                <textarea
-                  ref={inputRef}
-                  className="spot-input"
-                  placeholder={
-                    inputLockedByCredential
-                      ? showPasswordPrompt
-                        ? "Sudo password required below to continue install..."
-                        : "Clarification required below to continue..."
-                      : "How can I help you today?"
-                  }
-                  value={intent}
-                  onChange={handleInputChange}
-                  onKeyDown={handleInputKeyDown}
-                  onFocus={() => setInputFocused(true)}
-                  onBlur={() => setInputFocused(false)}
-                  rows={1}
-                  disabled={inputLockedByCredential}
-                />
-
-                <div className="spot-controls">
-                  <div className="spot-controls-left">
-                    <button
-                      className="spot-action-btn"
-                      title="Attach file (⌘U)"
-                    >
-                      {icons.paperclip}
-                    </button>
-                    <button className="spot-action-btn" title="Commands (/)">
-                      {icons.slash}
-                    </button>
-                    <button
-                      className={`spot-context-btn ${autoContext ? "active" : ""}`}
-                      onClick={() => setAutoContext(!autoContext)}
-                      title="Auto context (⌘.)"
-                    >
-                      {icons.sparkles}
-                      <span>Context</span>
-                    </button>
-                  </div>
-
-                  {isRunning ? (
-                    <button
-                      className="spot-stop-btn"
-                      onClick={() => invoke("cancel_task").catch(console.error)}
-                      title="Stop (Esc)"
-                    >
-                      {icons.stop}
-                      <span>Stop</span>
-                    </button>
-                  ) : (
-                    <button
-                      className="spot-send-btn"
-                      onClick={handleSubmit}
-                      disabled={!intent.trim() || isGated || inputLockedByCredential}
-                      title="Send (⏎)"
-                    >
-                      {icons.send}
-                    </button>
-                  )}
-                </div>
-              </div>
-
-              <div className="spot-toggles">
-                <Dropdown
-                  icon={icons.laptop}
-                  options={workspaceOptions}
-                  selected={workspaceMode}
-                  onSelect={setWorkspaceMode}
-                  isOpen={activeDropdown === "workspace"}
-                  onToggle={() =>
-                    setActiveDropdown(
-                      activeDropdown === "workspace" ? null : "workspace",
-                    )
-                  }
-                  footer={{
-                    label: "Manage Workspaces...",
-                    onClick: () => openStudio("settings"),
-                  }}
-                />
-                <Dropdown
-                  icon={icons.cube}
-                  options={modelOptions}
-                  selected={selectedModel}
-                  onSelect={setSelectedModel}
-                  isOpen={activeDropdown === "model"}
-                  onToggle={() =>
-                    setActiveDropdown(
-                      activeDropdown === "model" ? null : "model",
-                    )
-                  }
-                  footer={{
-                    label: "Manage Models...",
-                    onClick: () => openStudio("settings"),
-                  }}
-                />
-              </div>
-            </div>
+            <SpotlightInputSection
+              inputRef={inputRef}
+              inputFocused={inputFocused}
+              setInputFocused={setInputFocused}
+              isDraggingFile={isDraggingFile}
+              inputLockedByCredential={inputLockedByCredential}
+              showPasswordPrompt={showPasswordPrompt}
+              intent={intent}
+              onInputChange={handleInputChange}
+              onInputKeyDown={handleInputKeyDown}
+              autoContext={autoContext}
+              onToggleAutoContext={() => setAutoContext(!autoContext)}
+              isRunning={isRunning}
+              isGated={isGated}
+              onStop={() => invoke("cancel_task").catch(console.error)}
+              onSubmit={handleSubmit}
+              workspaceOptions={workspaceOptions}
+              workspaceMode={workspaceMode}
+              onSelectWorkspaceMode={setWorkspaceMode}
+              modelOptions={modelOptions}
+              selectedModel={selectedModel}
+              onSelectModel={setSelectedModel}
+              activeDropdown={activeDropdown}
+              setActiveDropdown={setActiveDropdown}
+              onOpenSettings={() => openStudio("settings")}
+            />
           </div>
 
-          {/* Artifact Panel */}
           {layout.artifactPanelVisible && artifactHubView && (
             <ArtifactHubSidebar
               initialView={artifactHubView}
