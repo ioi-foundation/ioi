@@ -1,11 +1,11 @@
 use super::*;
 
 mod apply_post_execution_guards;
-mod execute_non_mailbox_tools;
+mod execute_tool_phase;
 mod finalize_action_processing;
 
 pub(super) use apply_post_execution_guards::apply_post_execution_guards;
-pub(super) use execute_non_mailbox_tools::execute_non_mailbox_tools;
+pub(super) use execute_tool_phase::execute_tool_phase;
 pub(super) use finalize_action_processing::finalize_action_processing;
 
 pub(super) struct ActionProcessingState {
@@ -68,7 +68,7 @@ impl ActionProcessingState {
     }
 }
 
-pub(super) struct ExecuteNonMailboxToolContext<'a, 's> {
+pub(super) struct ExecuteToolPhaseContext<'a, 's> {
     pub service: &'a DesktopAgentService,
     pub state: &'s mut dyn StateAccess,
     pub agent_state: &'a mut AgentState,
