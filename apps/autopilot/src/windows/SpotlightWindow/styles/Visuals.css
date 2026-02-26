@@ -284,3 +284,81 @@
     box-shadow: 0 0 2px var(--spot-accent);
   }
 }
+
+/* ============================================
+   VISUAL EVIDENCE RECEIPTS
+   ============================================ */
+
+.visual-evidence-card {
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+  background: rgba(12, 14, 19, 0.75);
+  padding: 8px;
+}
+
+.visual-evidence-card.compact {
+  padding: 7px;
+}
+
+.visual-evidence-meta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  font-size: 10px;
+  color: var(--spot-text-dim);
+}
+
+.visual-evidence-title {
+  font-size: 11px;
+  color: var(--spot-text-secondary);
+  font-weight: 600;
+}
+
+.visual-evidence-pill {
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--spot-text-secondary);
+  padding: 2px 7px;
+}
+
+.visual-evidence-time {
+  margin-left: auto;
+}
+
+.visual-evidence-preview {
+  margin-top: 7px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(7, 8, 12, 0.92);
+  min-height: 80px;
+  overflow: hidden;
+}
+
+.visual-evidence-status {
+  padding: 10px;
+  font-size: 11px;
+  color: var(--spot-text-muted);
+}
+
+.visual-evidence-status.error {
+  color: #fca5a5;
+}
+
+.visual-evidence-image {
+  display: block;
+  width: 100%;
+  max-height: 360px;
+  object-fit: contain;
+  background: rgba(0, 0, 0, 0.38);
+}
+
+.visual-evidence-hash {
+  margin-top: 6px;
+  font-size: 10px;
+  line-height: 1.35;
+  color: var(--spot-text-dim);
+  font-family: "SFMono-Regular", ui-monospace, "Cascadia Code", Menlo, monospace;
+  word-break: break-all;
+}

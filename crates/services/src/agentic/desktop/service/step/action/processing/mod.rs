@@ -11,7 +11,7 @@ use super::command_contract::{
 };
 use super::probe::{
     is_command_probe_intent, is_system_clock_read_intent, summarize_command_probe_output,
-    summarize_system_clock_output,
+    summarize_system_clock_or_plain_output,
 };
 use super::refusal_eval::evaluate_and_crystallize;
 use super::search::{extract_navigation_url, is_search_results_url, search_query_from_url};

@@ -395,4 +395,3 @@ pub(crate) fn append_pending_web_success_from_bundle(
 
     append_pending_web_success_fallback(pending, fallback_url, None);
 }
-

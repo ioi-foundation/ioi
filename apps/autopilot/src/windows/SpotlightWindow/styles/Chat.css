@@ -1319,6 +1319,18 @@
   max-width: 420px;
 }
 
+.spot-inline-visual-evidence {
+  align-self: flex-start;
+  width: min(100%, 540px);
+  margin-top: 8px;
+}
+
+.spot-inline-visual-summary {
+  margin: 4px 0 0 0;
+  font-size: 12px;
+  color: var(--spot-text-muted);
+}
+
 @keyframes thinkingPulse {
   0%,
   100% {

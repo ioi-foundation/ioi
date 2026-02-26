@@ -413,6 +413,9 @@ fn headline_story_topic_tokens(input: &str) -> BTreeSet<String> {
             if normalized.len() < 3 {
                 return None;
             }
+            if normalized.chars().all(|ch| ch.is_ascii_digit()) {
+                return None;
+            }
             if STORY_TOPIC_STOPWORDS.contains(&normalized) {
                 return None;
             }
@@ -553,9 +556,8 @@ pub(crate) fn render_synthesis_draft(draft: &SynthesisDraft) -> String {
 
     let mut lines = Vec::new();
     let required_sections = build_hybrid_required_sections(&draft.query);
-    let story_count = required_story_count(&draft.query);
+    let requested_story_count = required_story_count(&draft.query);
     let citations_per_story = required_citations_per_story(&draft.query);
-    let use_single_snapshot_layout = story_count == 1 && prefers_single_fact_snapshot(&draft.query);
     let use_structured_report_layout = query_requires_structured_synthesis(&draft.query);
     let single_snapshot_query_axes = query_metric_axes(&draft.query);
     let headline_lookup_mode = {
@@ -566,6 +568,14 @@ pub(crate) fn render_synthesis_draft(draft: &SynthesisDraft) -> String {
                 || query_lower.contains("breaking news")
                 || (query_lower.contains("top") && query_lower.contains("news")))
     };
+    let story_count = if headline_lookup_mode && requested_story_count > 1 {
+        requested_story_count
+            .saturating_sub(draft.blocked_urls.len())
+            .clamp(2, requested_story_count)
+    } else {
+        requested_story_count
+    };
+    let use_single_snapshot_layout = story_count == 1 && prefers_single_fact_snapshot(&draft.query);
     let insight_receipts = synthesis_insight_receipts(draft);
     let conflict_notes = synthesis_conflict_notes(draft);
     let gap_notes = synthesis_gap_notes(draft);
@@ -582,12 +592,7 @@ pub(crate) fn render_synthesis_draft(draft: &SynthesisDraft) -> String {
             !is_search_hub_url(trimmed)
         }
     };
-    let required_distinct_source_floor = if headline_lookup_mode && story_count > 1 {
-        let challenge_adjusted = story_count.saturating_sub(draft.blocked_urls.len());
-        challenge_adjusted.clamp(2, story_count.max(1))
-    } else {
-        story_count.max(1)
-    };
+    let required_distinct_source_floor = story_count.max(1);
     let actionable_read_grounding_sources = draft
         .citations_by_id
         .values()

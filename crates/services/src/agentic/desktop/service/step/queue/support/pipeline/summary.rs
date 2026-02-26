@@ -134,4 +134,3 @@ pub(crate) fn summarize_search_results(query: &str, url: &str, extract_text: &st
     summary.push_str(&format!("Next refinement: {}", refinement_hint));
     summary
 }
-

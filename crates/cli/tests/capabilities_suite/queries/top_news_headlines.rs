@@ -10,6 +10,7 @@ pub fn case() -> QueryCase {
         id: "top_news_headlines",
         query: "Tell me today's top news headlines.",
         success_definition: "Return today's top headlines with article-level citation quality, not mostly homepage titles.",
+        seeded_intent_id: "web.research",
         intent_scope: IntentScopeProfile::WebResearch,
         expected_pass: true,
         sla_seconds: 90,

@@ -412,4 +412,3 @@ pub(crate) fn pre_read_candidate_plan_from_bundle_with_recovery_mode(
         allow_floor_recovery_exploration,
     )
 }
-

@@ -51,6 +51,10 @@ pub async fn restore_visual_context(
     service: &DesktopAgentService,
     visual_hash: [u8; 32],
 ) -> Result<(), TransactionError> {
+    if visual_hash == [0u8; 32] {
+        return Ok(());
+    }
+
     let history = service.som_history.read().await;
 
     if let Some(map) = history.get(&visual_hash) {

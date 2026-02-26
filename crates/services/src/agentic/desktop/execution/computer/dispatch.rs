@@ -832,7 +832,10 @@ async fn handle_computer_action(
             }
         }
         ComputerAction::Screenshot => match exec.gui.capture_screen(None).await {
-            Ok(_) => ToolExecutionResult::success("Screenshot captured"),
+            Ok(image_bytes) => ToolExecutionResult::success_with_visual_observation(
+                "Screenshot captured",
+                image_bytes,
+            ),
             Err(e) => ToolExecutionResult::failure(e.to_string()),
         },
         ComputerAction::CursorPosition => match exec.gui.get_cursor_position().await {

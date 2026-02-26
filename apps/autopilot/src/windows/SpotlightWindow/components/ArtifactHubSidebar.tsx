@@ -8,6 +8,11 @@ import type {
   ThoughtSummary,
 } from "../../../types";
 import { icons } from "./Icons";
+import { VisualEvidenceCard } from "./VisualEvidenceCard";
+import {
+  collectScreenshotReceipts,
+  type ScreenshotReceiptEvidence,
+} from "../utils/screenshotEvidence";
 
 interface ArtifactHubSidebarProps {
   initialView?: ArtifactHubViewKey;
@@ -374,9 +379,9 @@ export function ArtifactHubSidebar({
       ),
     [scopedArtifacts],
   );
-  const screenshotArtifacts = useMemo(
-    () => scopedArtifacts.filter((artifact) => artifact.artifact_type === "WEB"),
-    [scopedArtifacts],
+  const screenshotReceipts = useMemo<ScreenshotReceiptEvidence[]>(
+    () => collectScreenshotReceipts(scopedEvents),
+    [scopedEvents],
   );
 
   const sections = useMemo<HubSection[]>(
@@ -387,13 +392,13 @@ export function ArtifactHubSidebar({
       { key: "security_policy", label: sectionLabel("security_policy"), count: securityRows.length },
       { key: "files", label: sectionLabel("files"), count: fileArtifacts.length },
       { key: "revisions", label: sectionLabel("revisions"), count: revisionArtifacts.length },
-      { key: "screenshots", label: sectionLabel("screenshots"), count: screenshotArtifacts.length },
+      { key: "screenshots", label: sectionLabel("screenshots"), count: screenshotReceipts.length },
     ],
     [
       fileArtifacts.length,
       kernelLogs.length,
       revisionArtifacts.length,
-      screenshotArtifacts.length,
+      screenshotReceipts.length,
       securityRows.length,
       visibleSourceCount,
       thoughtAgents.length,
@@ -639,6 +644,41 @@ export function ArtifactHubSidebar({
     );
   };
 
+  const renderScreenshotsView = () => {
+    if (screenshotReceipts.length === 0) {
+      return <p className="artifact-hub-empty">No screenshots captured for this run.</p>;
+    }
+
+    return (
+      <div className="artifact-hub-screenshot-list">
+        {screenshotReceipts.map((receipt) => (
+          <article className="artifact-hub-screenshot-row" key={receipt.id}>
+            <div className="artifact-hub-generic-meta">
+              <span>{formatTimestamp(receipt.timestamp)}</span>
+              <span>{receipt.source}</span>
+              <span>step {receipt.stepIndex}</span>
+            </div>
+            {!receipt.hasBlob && (
+              <p className="artifact-hub-generic-summary">
+                Screenshot action receipt captured, but no retrievable blob hash was emitted.
+              </p>
+            )}
+            <VisualEvidenceCard
+              hash={receipt.hash}
+              timestamp={receipt.timestamp}
+              stepIndex={receipt.stepIndex}
+              title={receipt.hasBlob ? "Screenshot receipt" : "Screenshot receipt (metadata-only)"}
+              compact={true}
+            />
+            {!!receipt.summary && (
+              <p className="artifact-hub-generic-summary">{clipText(receipt.summary, 180)}</p>
+            )}
+          </article>
+        ))}
+      </div>
+    );
+  };
+
   const detailView = (() => {
     switch (activeView) {
       case "thoughts":
@@ -654,7 +694,7 @@ export function ArtifactHubSidebar({
       case "revisions":
         return renderArtifactList(revisionArtifacts, "Revisions");
       case "screenshots":
-        return renderArtifactList(screenshotArtifacts, "Screenshots");
+        return renderScreenshotsView();
       default:
         return null;
     }

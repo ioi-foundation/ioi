@@ -32,6 +32,7 @@ pub(crate) async fn finalize_action_processing(
         current_tool_name,
         mut history_entry,
         mut action_output,
+        trace_visual_hash,
         executed_tool_jcs,
         mut failure_class,
         mut stop_condition_hit,
@@ -46,6 +47,7 @@ pub(crate) async fn finalize_action_processing(
         invalid_tool_call_fail_fast_mailbox: _invalid_tool_call_fail_fast_mailbox,
         terminal_chat_reply_output,
     } = state_in;
+    let trace_visual_hash = trace_visual_hash.unwrap_or(final_visual_phash);
     if !is_gated && !awaiting_sudo_password && !awaiting_clarification {
         if let Some(tool_jcs) = executed_tool_jcs.as_deref() {
             let resolved_retry_hash = retry_intent_hash
@@ -104,10 +106,10 @@ pub(crate) async fn finalize_action_processing(
                                 .filter(|v| !v.trim().is_empty())
                         })
                 });
-                let window_fingerprint = if final_visual_phash == [0u8; 32] {
+                let window_fingerprint = if trace_visual_hash == [0u8; 32] {
                     None
                 } else {
-                    Some(hex::encode(final_visual_phash))
+                    Some(hex::encode(trace_visual_hash))
                 };
                 let retry_hash = retry_intent_hash.as_deref().unwrap_or(intent_hash.as_str());
                 let attempt_key = build_attempt_key(
@@ -356,7 +358,7 @@ pub(crate) async fn finalize_action_processing(
         state,
         &key,
         session_id,
-        final_visual_phash,
+        trace_visual_hash,
         format!("[Strategy: {}]\n{}", strategy_used, tool_call_result),
         tool_call_result,
         success,

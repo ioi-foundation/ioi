@@ -6,7 +6,23 @@ use crate::models::{AgentPhase, EventStatus, EventType};
 use ioi_ipc::public::AgentThought;
 use serde_json::json;
 
+fn normalize_visual_hash(raw: &str) -> Option<String> {
+    let trimmed = raw.trim();
+    if trimmed.len() != 64 {
+        return None;
+    }
+    if !trimmed.as_bytes().iter().all(|b| b.is_ascii_hexdigit()) {
+        return None;
+    }
+    if trimmed.bytes().all(|b| b == b'0') {
+        return None;
+    }
+    Some(trimmed.to_ascii_lowercase())
+}
+
 pub(super) async fn handle_thought(app: &tauri::AppHandle, thought: AgentThought) {
+    let visual_hash = normalize_visual_hash(&thought.visual_hash);
+
     update_task_state(&app, |t| {
         if let Some(agent) = t.swarm_tree.iter_mut().find(|a| a.id == thought.session_id) {
             if let Some(existing) = &agent.current_thought {
@@ -33,8 +49,8 @@ pub(super) async fn handle_thought(app: &tauri::AppHandle, thought: AgentThought
         }
 
         t.progress += 1;
-        if !thought.visual_hash.is_empty() {
-            t.visual_hash = Some(thought.visual_hash.clone());
+        if let Some(hash) = visual_hash.clone() {
+            t.visual_hash = Some(hash);
         }
         bind_task_session(t, &thought.session_id);
     });
@@ -48,7 +64,7 @@ pub(super) async fn handle_thought(app: &tauri::AppHandle, thought: AgentThought
             "Captured reasoning step".to_string(),
             json!({
                 "session_id": thought.session_id,
-                "visual_hash": thought.visual_hash,
+                "visual_hash": visual_hash,
                 "token_count": thought.content.chars().count(),
             }),
             json!({

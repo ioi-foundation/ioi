@@ -1,9 +1,9 @@
 use crate::agentic::desktop::service::step::action::{
-    is_command_probe_intent, summarize_command_probe_output,
+    is_command_probe_intent, is_ui_capture_screenshot_intent, summarize_command_probe_output,
 };
 use crate::agentic::desktop::service::step::helpers::should_auto_complete_open_app_goal;
 use crate::agentic::desktop::types::{AgentState, AgentStatus};
-use ioi_types::app::agentic::AgentTool;
+use ioi_types::app::agentic::{AgentTool, ComputerAction};
 
 pub(super) fn complete_with_summary(
     agent_state: &mut AgentState,
@@ -106,4 +106,50 @@ pub(super) fn maybe_complete_open_app(
             hex::encode(&session_id[..4])
         );
     }
+}
+
+pub(super) fn maybe_complete_screenshot_capture(
+    agent_state: &mut AgentState,
+    tool_wrapper: &AgentTool,
+    is_gated: bool,
+    success: &mut bool,
+    out: &mut Option<String>,
+    err: &mut Option<String>,
+    completion_summary: &mut Option<String>,
+    session_id: [u8; 32],
+) {
+    if is_gated || !*success || completion_summary.is_some() {
+        return;
+    }
+    if !is_ui_capture_screenshot_intent(agent_state.resolved_intent.as_ref()) {
+        return;
+    }
+
+    let screenshot_tool = matches!(
+        tool_wrapper,
+        AgentTool::Computer(ComputerAction::Screenshot)
+    );
+    if !screenshot_tool {
+        return;
+    }
+
+    let output = out.as_deref().unwrap_or_default();
+    if !output.trim_start().starts_with("Screenshot captured") {
+        return;
+    }
+
+    let summary = "Screenshot captured.".to_string();
+    complete_with_summary(
+        agent_state,
+        summary,
+        success,
+        out,
+        err,
+        completion_summary,
+        false,
+    );
+    log::info!(
+        "Auto-completed screenshot capture flow for session {}.",
+        hex::encode(&session_id[..4])
+    );
 }

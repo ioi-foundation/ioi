@@ -277,4 +277,3 @@ pub(crate) fn constrained_candidate_inventory_from_bundle_with_locality_hint(
 
     (selected_urls, selected_hints)
 }
-

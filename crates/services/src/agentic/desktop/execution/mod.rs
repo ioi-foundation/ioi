@@ -135,6 +135,7 @@ pub struct ToolExecutionResult {
     pub success: bool,
     pub history_entry: Option<String>,
     pub error: Option<String>,
+    pub visual_observation: Option<Vec<u8>>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -151,6 +152,19 @@ impl ToolExecutionResult {
             success: true,
             history_entry: Some(output.into()),
             error: None,
+            visual_observation: None,
+        }
+    }
+
+    pub fn success_with_visual_observation(
+        output: impl Into<String>,
+        visual_observation: Vec<u8>,
+    ) -> Self {
+        Self {
+            success: true,
+            history_entry: Some(output.into()),
+            error: None,
+            visual_observation: Some(visual_observation),
         }
     }
 
@@ -159,6 +173,7 @@ impl ToolExecutionResult {
             success: false,
             history_entry: None,
             error: Some(error.into()),
+            visual_observation: None,
         }
     }
 }

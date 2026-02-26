@@ -10,6 +10,7 @@ pub fn case() -> QueryCase {
         id: "what_time_is_it",
         query: "What time is it?",
         success_definition: "Provide the current time directly, ideally with a concrete timestamp or timezone context.",
+        seeded_intent_id: "system.clock.read",
         intent_scope: IntentScopeProfile::CommandExecution,
         expected_pass: true,
         sla_seconds: 45,

@@ -1,11 +1,11 @@
 use super::*;
 
-mod models;
-mod query_shape;
-mod locality;
-mod projection;
 mod grounded_query;
+mod locality;
+mod models;
 mod pre_read;
+mod projection;
+mod query_shape;
 mod response;
 
 pub(crate) use grounded_query::*;

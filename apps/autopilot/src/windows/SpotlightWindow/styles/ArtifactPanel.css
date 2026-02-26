@@ -864,3 +864,16 @@
 .artifact-hub-open-btn.secondary {
   border-style: dashed;
 }
+
+.artifact-hub-screenshot-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.artifact-hub-screenshot-row {
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.02);
+  padding: 8px;
+}

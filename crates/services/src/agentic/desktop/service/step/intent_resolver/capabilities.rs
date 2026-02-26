@@ -300,7 +300,10 @@ pub(super) fn capability_satisfiable(
     })
 }
 
-pub(super) fn capability_known(capability: &CapabilityId, bindings: &[ToolCapabilityBinding]) -> bool {
+pub(super) fn capability_known(
+    capability: &CapabilityId,
+    bindings: &[ToolCapabilityBinding],
+) -> bool {
     bindings
         .iter()
         .any(|binding| binding.capabilities.iter().any(|c| c == capability))
@@ -404,4 +407,3 @@ pub fn is_tool_allowed_for_resolution(
             .any(|required| required == tool_cap)
     })
 }
-

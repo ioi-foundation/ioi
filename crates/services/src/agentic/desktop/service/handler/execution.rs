@@ -9,7 +9,7 @@ use crate::agentic::desktop::types::{AgentState, RecordedMessage};
 use ioi_api::state::StateAccess;
 use ioi_api::vm::drivers::os::OsDriver;
 use ioi_drivers::mcp::McpManager;
-use ioi_scs::FrameType;
+use ioi_scs::{FrameType, RetentionClass};
 use ioi_types::app::agentic::AgentTool;
 use ioi_types::codec;
 use ioi_types::error::TransactionError;
@@ -18,6 +18,60 @@ use std::sync::Arc;
 use std::time::Duration;
 
 const ACTIVE_WINDOW_QUERY_TIMEOUT: Duration = Duration::from_millis(300);
+
+type ActionExecutionOutcome = (bool, Option<String>, Option<String>, Option<[u8; 32]>);
+
+fn no_visual(
+    success: bool,
+    history_entry: Option<String>,
+    error: Option<String>,
+) -> ActionExecutionOutcome {
+    (success, history_entry, error, None)
+}
+
+fn persist_visual_observation(
+    service: &DesktopAgentService,
+    session_id: [u8; 32],
+    block_height: u64,
+    visual_observation: Vec<u8>,
+) -> Result<[u8; 32], TransactionError> {
+    let scs_mutex = service.scs.as_ref().ok_or_else(|| {
+        TransactionError::Invalid(
+            "ERROR_CLASS=UnexpectedState Visual evidence store unavailable.".to_string(),
+        )
+    })?;
+
+    let mut store = scs_mutex
+        .lock()
+        .map_err(|_| TransactionError::Invalid("Internal: SCS lock poisoned".into()))?;
+
+    let frame_id = store
+        .append_frame(
+            FrameType::Observation,
+            &visual_observation,
+            block_height,
+            [0u8; 32],
+            session_id,
+            RetentionClass::Ephemeral,
+        )
+        .map_err(|e| {
+            TransactionError::Invalid(format!(
+                "ERROR_CLASS=UnexpectedState Failed to persist visual evidence: {}",
+                e
+            ))
+        })?;
+
+    store
+        .toc
+        .frames
+        .get(frame_id as usize)
+        .map(|frame| frame.checksum)
+        .ok_or_else(|| {
+            TransactionError::Invalid(
+                "ERROR_CLASS=UnexpectedState Persisted visual evidence frame missing.".to_string(),
+            )
+        })
+}
 
 async fn query_active_window_with_timeout(
     os_driver: &Arc<dyn OsDriver>,
@@ -64,7 +118,7 @@ pub async fn handle_action_execution(
     scoped_exception_hash: Option<[u8; 32]>,
     mut execution_state: Option<&mut dyn StateAccess>,
     execution_call_context: Option<ServiceCallContext<'_>>,
-) -> Result<(bool, Option<String>, Option<String>), TransactionError> {
+) -> Result<ActionExecutionOutcome, TransactionError> {
     let mut tool = tool;
 
     let mcp = service
@@ -248,7 +302,7 @@ pub async fn handle_action_execution(
                             query_active_window_with_timeout(os_driver, session_id, "post_focus")
                                 .await;
                         if !focus::window_matches_hint(foreground_window.as_ref(), hint) {
-                            return Ok((
+                            return Ok(no_visual(
                                 false,
                                 None,
                                 Some(format!(
@@ -259,7 +313,7 @@ pub async fn handle_action_execution(
                         }
                     }
                     Ok(false) => {
-                        return Ok((
+                        return Ok(no_visual(
                             false,
                             None,
                             Some(format!(
@@ -271,7 +325,7 @@ pub async fn handle_action_execution(
                     Err(e) => {
                         let err = e.to_string();
                         if focus::is_missing_focus_dependency_error(&err) {
-                            return Ok((
+                            return Ok(no_visual(
                                 false,
                                 None,
                                 Some(format!(
@@ -280,7 +334,7 @@ pub async fn handle_action_execution(
                                 )),
                             ));
                         }
-                        return Ok((
+                        return Ok(no_visual(
                             false,
                             None,
                             Some(format!(
@@ -329,6 +383,35 @@ pub async fn handle_action_execution(
         service.browser.set_lease(true);
     }
 
+    let finalize_executor_result =
+        |result: crate::agentic::desktop::execution::ToolExecutionResult| {
+            let visual_hash = if let Some(visual_observation) = result.visual_observation {
+                let block_height = execution_call_context
+                    .map(|ctx| ctx.block_height)
+                    .ok_or_else(|| {
+                        TransactionError::Invalid(
+                        "ERROR_CLASS=UnexpectedState Missing execution context for visual evidence."
+                            .to_string(),
+                    )
+                    })?;
+                Some(persist_visual_observation(
+                    service,
+                    session_id,
+                    block_height,
+                    visual_observation,
+                )?)
+            } else {
+                None
+            };
+
+            Ok((
+                result.success,
+                result.history_entry,
+                result.error,
+                visual_hash,
+            ))
+        };
+
     // 5. Handle Meta-Tools and Execution
     match tool {
         AgentTool::SystemFail {
@@ -376,11 +459,11 @@ pub async fn handle_action_execution(
                     agent_status: "Failed".to_string(),
                 });
             }
-            Ok((false, None, Some(error_msg)))
+            Ok(no_visual(false, None, Some(error_msg)))
         }
         AgentTool::MemorySearch { query } => {
             if service.scs.is_none() {
-                return Ok((
+                return Ok(no_visual(
                     false,
                     None,
                     Some(
@@ -392,7 +475,7 @@ pub async fn handle_action_execution(
 
             let trimmed = query.trim();
             if trimmed.is_empty() {
-                return Ok((
+                return Ok(no_visual(
                     false,
                     None,
                     Some(
@@ -408,13 +491,13 @@ pub async fn handle_action_execution(
             } else {
                 out
             };
-            Ok((true, Some(out), None))
+            Ok(no_visual(true, Some(out), None))
         }
         AgentTool::MemoryInspect { frame_id } => {
             let scs_mutex = match service.scs.as_ref() {
                 Some(m) => m,
                 None => {
-                    return Ok((
+                    return Ok(no_visual(
                         false,
                         None,
                         Some(
@@ -429,7 +512,7 @@ pub async fn handle_action_execution(
                 let store = match scs_mutex.lock() {
                     Ok(store) => store,
                     Err(_) => {
-                        return Ok((
+                        return Ok(no_visual(
                             false,
                             None,
                             Some("ERROR_CLASS=UnexpectedState SCS lock poisoned.".to_string()),
@@ -440,7 +523,7 @@ pub async fn handle_action_execution(
                 match store.toc.frames.get(frame_id as usize) {
                     Some(frame) => frame.frame_type,
                     None => {
-                        return Ok((
+                        return Ok(no_visual(
                             false,
                             None,
                             Some(format!(
@@ -454,8 +537,8 @@ pub async fn handle_action_execution(
 
             match frame_type {
                 FrameType::Observation => match service.inspect_frame(frame_id).await {
-                    Ok(desc) => Ok((true, Some(desc), None)),
-                    Err(e) => Ok((
+                    Ok(desc) => Ok(no_visual(true, Some(desc), None)),
+                    Err(e) => Ok(no_visual(
                         false,
                         None,
                         Some(format!(
@@ -469,7 +552,7 @@ pub async fn handle_action_execution(
                         let store = match scs_mutex.lock() {
                             Ok(store) => store,
                             Err(_) => {
-                                return Ok((
+                                return Ok(no_visual(
                                     false,
                                     None,
                                     Some("ERROR_CLASS=UnexpectedState SCS lock poisoned."
@@ -481,7 +564,7 @@ pub async fn handle_action_execution(
                         match store.read_frame_payload(frame_id) {
                             Ok(payload) => payload,
                             Err(e) => {
-                                return Ok((
+                                return Ok(no_visual(
                                     false,
                                     None,
                                     Some(format!(
@@ -508,9 +591,9 @@ pub async fn handle_action_execution(
                                 "content": content,
                             })
                             .to_string();
-                            Ok((true, Some(out), None))
+                            Ok(no_visual(true, Some(out), None))
                         }
-                        Err(_) => Ok((
+                        Err(_) => Ok(no_visual(
                             true,
                             Some(format!(
                                 "{{\"frame_id\":{},\"frame_type\":\"{:?}\",\"content\":\"<Non-Recorded Payload>\"}}",
@@ -520,7 +603,7 @@ pub async fn handle_action_execution(
                         )),
                     }
                 }
-                _ => Ok((
+                _ => Ok(no_visual(
                     true,
                     Some(format!(
                         "{{\"frame_id\":{},\"frame_type\":\"{:?}\",\"content\":\"<Unsupported Frame Type>\"}}",
@@ -534,17 +617,19 @@ pub async fn handle_action_execution(
             // Orchestration is stateful; spawning the child session is handled in the step layer
             // so receipts + session state mutations remain atomic and auditable.
             let _ = (goal, budget);
-            Ok((true, None, None))
+            Ok(no_visual(true, None, None))
         }
-        AgentTool::AgentAwait { .. } => Ok((true, None, None)),
-        AgentTool::AgentPause { .. } => Ok((true, None, None)),
-        AgentTool::AgentComplete { .. } => Ok((true, None, None)),
-        AgentTool::CommerceCheckout { .. } => Ok((
+        AgentTool::AgentAwait { .. } => Ok(no_visual(true, None, None)),
+        AgentTool::AgentPause { .. } => Ok(no_visual(true, None, None)),
+        AgentTool::AgentComplete { .. } => Ok(no_visual(true, None, None)),
+        AgentTool::CommerceCheckout { .. } => Ok(no_visual(
             true,
             Some("System: Initiated UCP Checkout (Pending Guardian Approval)".to_string()),
             None,
         )),
-        AgentTool::ChatReply { message } => Ok((true, Some(format!("Replied: {}", message)), None)),
+        AgentTool::ChatReply { message } => {
+            Ok(no_visual(true, Some(format!("Replied: {}", message)), None))
+        }
         AgentTool::OsFocusWindow { title } => match os_driver.focus_window(&title).await {
             Ok(true) => {
                 // Give the window manager a brief moment to apply focus.
@@ -555,13 +640,17 @@ pub async fn handle_action_execution(
                 } else {
                     format!("Focus requested for '{}'", title)
                 };
-                Ok((true, Some(msg), None))
+                Ok(no_visual(true, Some(msg), None))
             }
-            Ok(false) => Ok((false, None, Some(format!("No window matched '{}'", title)))),
+            Ok(false) => Ok(no_visual(
+                false,
+                None,
+                Some(format!("No window matched '{}'", title)),
+            )),
             Err(e) => {
                 let err = e.to_string();
                 if focus::is_missing_focus_dependency_error(&err) {
-                    Ok((
+                    Ok(no_visual(
                         false,
                         None,
                         Some(format!(
@@ -570,7 +659,7 @@ pub async fn handle_action_execution(
                         )),
                     ))
                 } else {
-                    Ok((
+                    Ok(no_visual(
                         false,
                         None,
                         Some(format!("Window focus failed for '{}': {}", title, err)),
@@ -579,12 +668,24 @@ pub async fn handle_action_execution(
             }
         },
         AgentTool::OsCopy { content } => match os_driver.set_clipboard(&content).await {
-            Ok(()) => Ok((true, Some("Copied to clipboard".to_string()), None)),
-            Err(e) => Ok((false, None, Some(format!("Clipboard write failed: {}", e)))),
+            Ok(()) => Ok(no_visual(
+                true,
+                Some("Copied to clipboard".to_string()),
+                None,
+            )),
+            Err(e) => Ok(no_visual(
+                false,
+                None,
+                Some(format!("Clipboard write failed: {}", e)),
+            )),
         },
         AgentTool::OsPaste {} => match os_driver.get_clipboard().await {
-            Ok(content) => Ok((true, Some(content), None)),
-            Err(e) => Ok((false, None, Some(format!("Clipboard read failed: {}", e)))),
+            Ok(content) => Ok(no_visual(true, Some(content), None)),
+            Err(e) => Ok(no_visual(
+                false,
+                None,
+                Some(format!("Clipboard read failed: {}", e)),
+            )),
         },
         AgentTool::Dynamic(value) => {
             if let (Some(state), Some(call_context)) =
@@ -599,7 +700,8 @@ pub async fn handle_action_execution(
                 )
                 .await?
                 {
-                    return Ok(result);
+                    let (success, out, err) = result;
+                    return Ok(no_visual(success, out, err));
                 }
             }
 
@@ -614,7 +716,7 @@ pub async fn handle_action_execution(
                     agent_state.active_lens.as_deref(),
                 )
                 .await;
-            Ok((result.success, result.history_entry, result.error))
+            finalize_executor_result(result)
         }
 
         // Delegate Execution Tools
@@ -630,7 +732,7 @@ pub async fn handle_action_execution(
                     agent_state.active_lens.as_deref(),
                 )
                 .await;
-            Ok((result.success, result.history_entry, result.error))
+            finalize_executor_result(result)
         }
     }
 }

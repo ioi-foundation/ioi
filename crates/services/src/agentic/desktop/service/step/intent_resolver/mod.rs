@@ -32,6 +32,8 @@ enum IntentQueryBindingClass {
     HostLocal,
     RemotePublicFact,
     CommandDirected,
+    DirectUiInput,
+    DesktopScreenshot,
 }
 
 mod capabilities;

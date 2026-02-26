@@ -52,7 +52,8 @@ pub async fn run_capabilities_suite() -> Result<()> {
 
         for attempt in 1..=attempts_allowed {
             run_index = run_index.saturating_add(1);
-            let observation = match harness::run_case(&case, run_index, agent_runtime.clone()).await {
+            let observation = match harness::run_case(&case, run_index, agent_runtime.clone()).await
+            {
                 Ok(observation) => observation,
                 Err(err) => {
                     println!(
@@ -90,9 +91,14 @@ pub async fn run_capabilities_suite() -> Result<()> {
             };
             let completion_effective_pass =
                 observation.completed || (arbiter.pass && local.score >= case.min_local_score);
+            let approval_effective_pass = if case.id == "take_a_screenshot_of_my_desktop" {
+                observation.approval_required_events > 0
+            } else {
+                observation.approval_required_events == 0
+            };
 
             let observed_pass = completion_effective_pass
-                && observation.approval_required_events == 0
+                && approval_effective_pass
                 && observation.elapsed_ms <= (case.sla_seconds as u128 * 1_000)
                 && local.score >= case.min_local_score
                 && (!strict_local_required || local.pass)

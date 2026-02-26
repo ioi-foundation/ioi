@@ -214,7 +214,7 @@ impl DesktopAgentService {
         agent_state: &crate::agentic::desktop::types::AgentState,
         os_driver: &Arc<dyn OsDriver>,
         scoped_exception_hash: Option<[u8; 32]>,
-    ) -> Result<(bool, Option<String>, Option<String>), TransactionError> {
+    ) -> Result<(bool, Option<String>, Option<String>, Option<[u8; 32]>), TransactionError> {
         self::handler::handle_action_execution(
             self,
             tool,
@@ -243,7 +243,7 @@ impl DesktopAgentService {
         agent_state: &crate::agentic::desktop::types::AgentState,
         os_driver: &Arc<dyn OsDriver>,
         scoped_exception_hash: Option<[u8; 32]>,
-    ) -> Result<(bool, Option<String>, Option<String>), TransactionError> {
+    ) -> Result<(bool, Option<String>, Option<String>, Option<[u8; 32]>), TransactionError> {
         self::handler::handle_action_execution(
             self,
             tool,

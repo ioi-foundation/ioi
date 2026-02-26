@@ -37,8 +37,11 @@ import { AnswerCard } from "./components/AnswerCard";
 import { Dropdown, DropdownOption } from "./components/SpotlightDropdown";
 import { ArtifactSidebar } from "./components/ArtifactSidebar";
 import { ArtifactHubSidebar } from "./components/ArtifactHubSidebar";
+import { VisualEvidenceCard } from "./components/VisualEvidenceCard";
 import { buildRunPresentation } from "./viewmodels/contentPipeline";
 import { exportThreadContextBundle } from "./utils/exportContext";
+import { collectScreenshotReceipts } from "./utils/screenshotEvidence";
+import { normalizeVisualHash } from "./utils/visualHash";
 
 // Styles
 import "./styles/Layout.css";
@@ -96,6 +99,12 @@ type TurnContext = {
   thoughtCount: number;
   sourceCount: number;
   kernelEventCount: number;
+  visualReceiptCount: number;
+  latestVisualHash: string | null;
+  latestVisualTimestamp: string | null;
+  latestVisualStepIndex: number | null;
+  latestVisualHasBlob: boolean;
+  latestVisualSummary: string | null;
   defaultView: ArtifactHubViewKey;
 };
 
@@ -886,6 +895,12 @@ export function SpotlightWindow({ variant = "overlay" }: SpotlightWindowProps) {
           thoughtCount: 0,
           sourceCount: 0,
           kernelEventCount: 0,
+          visualReceiptCount: 0,
+          latestVisualHash: null,
+          latestVisualTimestamp: null,
+          latestVisualStepIndex: null,
+          latestVisualHasBlob: false,
+          latestVisualSummary: null,
           defaultView: "kernel_logs",
         };
       }
@@ -901,14 +916,28 @@ export function SpotlightWindow({ variant = "overlay" }: SpotlightWindowProps) {
         browses.filter((row) => stepIndexes.has(row.stepIndex)).length,
       );
       const kernelEventCount = windowEvents.filter((event) => event.event_type !== "INFO_NOTE").length;
+      const screenshotReceipts = collectScreenshotReceipts(windowEvents);
+      const latestVisualReceipt = screenshotReceipts[0] || null;
       const defaultView: ArtifactHubViewKey =
-        thoughtCount > 0 ? "thoughts" : sourceCount > 0 ? "sources" : "kernel_logs";
+        thoughtCount > 0
+          ? "thoughts"
+          : sourceCount > 0
+            ? "sources"
+            : screenshotReceipts.length > 0
+              ? "screenshots"
+              : "kernel_logs";
 
       return {
         turnId: window.id,
         thoughtCount,
         sourceCount,
         kernelEventCount,
+        visualReceiptCount: screenshotReceipts.length,
+        latestVisualHash: latestVisualReceipt?.hash || null,
+        latestVisualTimestamp: latestVisualReceipt?.timestamp || null,
+        latestVisualStepIndex: latestVisualReceipt?.stepIndex ?? null,
+        latestVisualHasBlob: latestVisualReceipt?.hasBlob || false,
+        latestVisualSummary: latestVisualReceipt?.summary || null,
         defaultView,
       };
     });
@@ -1117,7 +1146,18 @@ export function SpotlightWindow({ variant = "overlay" }: SpotlightWindowProps) {
                       isLatestTurn && !!turn.prompt && !turn.answer && isRunning;
                     const showThoughtTrigger = !!turn.prompt && (showLiveThinking || !!turn.answer);
                     const thoughtCount = turnContext?.thoughtCount || 0;
-                    const hasTurnTrace = (turnContext?.kernelEventCount || 0) > 0 || thoughtCount > 0;
+                    const visualReceiptCount = turnContext?.visualReceiptCount || 0;
+                    const liveVisualHash =
+                      isLatestTurn && showLiveThinking
+                        ? normalizeVisualHash(task?.visual_hash ?? "") || null
+                        : null;
+                    const inlineVisualHash = liveVisualHash || turnContext?.latestVisualHash || null;
+                    const showInlineVisualReceipt =
+                      !!inlineVisualHash || (!!turnContext && turnContext.visualReceiptCount > 0);
+                    const hasTurnTrace =
+                      (turnContext?.kernelEventCount || 0) > 0 ||
+                      thoughtCount > 0 ||
+                      visualReceiptCount > 0;
 
                     return (
                       <React.Fragment key={turn.key}>
@@ -1149,10 +1189,38 @@ export function SpotlightWindow({ variant = "overlay" }: SpotlightWindowProps) {
                                   ? "No trace captured"
                                   : thoughtCount > 0
                                   ? `${thoughtCount} ${thoughtCount === 1 ? "step" : "steps"} captured`
+                                  : visualReceiptCount > 0
+                                    ? `${visualReceiptCount} visual ${
+                                        visualReceiptCount === 1 ? "receipt" : "receipts"
+                                      } captured`
                                   : `${turnContext?.kernelEventCount || 0} events captured`}
                             </span>
                           </button>
                         )}
+
+                        {showInlineVisualReceipt && (
+                          <VisualEvidenceCard
+                            hash={inlineVisualHash || ""}
+                            timestamp={turnContext?.latestVisualTimestamp || null}
+                            stepIndex={turnContext?.latestVisualStepIndex || null}
+                            title={
+                              showLiveThinking
+                                ? "Live visual context"
+                                : turnContext?.latestVisualHasBlob
+                                  ? "Captured visual context"
+                                  : "Captured screenshot receipt (metadata-only)"
+                            }
+                            compact={true}
+                            className="spot-inline-visual-evidence"
+                          />
+                        )}
+                        {showInlineVisualReceipt &&
+                          !inlineVisualHash &&
+                          !!turnContext?.latestVisualSummary && (
+                            <p className="spot-inline-visual-summary">
+                              {turnContext.latestVisualSummary}
+                            </p>
+                          )}
 
                         {turn.answer &&
                           (latestAnswerMatches && runPresentation.finalAnswer ? (

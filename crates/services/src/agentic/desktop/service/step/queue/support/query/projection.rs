@@ -944,4 +944,3 @@ pub(crate) fn append_unique_query_terms(base_query: &str, terms: &[String]) -> S
     }
     appended
 }
-

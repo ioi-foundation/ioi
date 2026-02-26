@@ -13,6 +13,7 @@ pub(super) struct ExecutionOutcome {
     pub(super) success: bool,
     pub(super) out: Option<String>,
     pub(super) err: Option<String>,
+    pub(super) visual_hash: Option<[u8; 32]>,
 }
 
 pub(super) async fn execute(
@@ -32,8 +33,8 @@ pub(super) async fn execute(
     block_height: u64,
     call_context: ServiceCallContext<'_>,
 ) -> ExecutionOutcome {
-    let (mut success, mut out, mut err) = match precheck_error {
-        Some(err) => (false, None, Some(err)),
+    let (mut success, mut out, mut err, visual_hash) = match precheck_error {
+        Some(err) => (false, None, Some(err), None),
         None => match service
             .handle_action_execution_with_state(
                 state,
@@ -50,7 +51,7 @@ pub(super) async fn execute(
             .await
         {
             Ok(t) => t,
-            Err(e) => (false, None, Some(e.to_string())),
+            Err(e) => (false, None, Some(e.to_string()), None),
         },
     };
 
@@ -173,5 +174,10 @@ pub(super) async fn execute(
         }
     }
 
-    ExecutionOutcome { success, out, err }
+    ExecutionOutcome {
+        success,
+        out,
+        err,
+        visual_hash,
+    }
 }
