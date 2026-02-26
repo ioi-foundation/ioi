@@ -137,6 +137,157 @@ fn web_pipeline_completion_deadline_produces_partial_low_confidence() {
 }
 
 #[test]
+fn web_pipeline_news_without_read_grounding_avoids_fabricated_story_sections() {
+    let pending = PendingSearchCompletion {
+        query: "today's top news headlines".to_string(),
+        query_contract: "today's top news headlines".to_string(),
+        url: "https://duckduckgo.com/?q=today+top+news+headlines".to_string(),
+        started_step: 1,
+        started_at_ms: 1_771_465_364_000,
+        deadline_ms: 1_771_465_424_000,
+        candidate_urls: vec![
+            "https://www.cnn.com/".to_string(),
+            "https://www.foxnews.com/".to_string(),
+            "https://www.bbc.com/news".to_string(),
+        ],
+        candidate_source_hints: vec![
+            PendingSearchReadSummary {
+                url: "https://www.cnn.com/".to_string(),
+                title: Some("Breaking News, Latest News and Videos | CNN".to_string()),
+                excerpt: "View the latest news and breaking news today".to_string(),
+            },
+            PendingSearchReadSummary {
+                url: "https://www.foxnews.com/".to_string(),
+                title: Some("Fox News - Breaking News Updates | Latest News Headlines".to_string()),
+                excerpt: "Breaking News, Latest News and Current News".to_string(),
+            },
+            PendingSearchReadSummary {
+                url: "https://www.bbc.com/news".to_string(),
+                title: Some("BBC News - Breaking news".to_string()),
+                excerpt: "Latest top stories".to_string(),
+            },
+        ],
+        attempted_urls: vec![
+            "https://www.cnn.com/".to_string(),
+            "https://www.foxnews.com/".to_string(),
+            "https://www.bbc.com/news".to_string(),
+        ],
+        blocked_urls: vec![],
+        successful_reads: vec![],
+        min_sources: 3,
+    };
+
+    let reply =
+        synthesize_web_pipeline_reply(&pending, WebPipelineCompletionReason::ExhaustedCandidates);
+    assert!(reply.contains("Synthesis unavailable"));
+    assert!(!reply.contains("Story 1:"));
+}
+
+#[test]
+fn web_pipeline_multi_story_query_does_not_duplicate_single_source_into_multiple_story_slots() {
+    let pending = PendingSearchCompletion {
+        query: "today's top news headlines".to_string(),
+        query_contract: "today's top news headlines".to_string(),
+        url: "https://duckduckgo.com/?q=today+top+news+headlines".to_string(),
+        started_step: 1,
+        started_at_ms: 1_771_465_364_000,
+        deadline_ms: 1_771_465_424_000,
+        candidate_urls: vec!["https://www.example.com/news/main".to_string()],
+        candidate_source_hints: vec![PendingSearchReadSummary {
+            url: "https://www.example.com/news/main".to_string(),
+            title: Some("Top headlines".to_string()),
+            excerpt: "Top headlines include market swings and policy updates.".to_string(),
+        }],
+        attempted_urls: vec!["https://www.example.com/news/main".to_string()],
+        blocked_urls: vec![],
+        successful_reads: vec![PendingSearchReadSummary {
+            url: "https://www.example.com/news/main".to_string(),
+            title: Some("Top headlines".to_string()),
+            excerpt: "Top headlines include market swings and policy updates.".to_string(),
+        }],
+        min_sources: 3,
+    };
+
+    let reply =
+        synthesize_web_pipeline_reply(&pending, WebPipelineCompletionReason::ExhaustedCandidates);
+    assert!(reply.contains("Synthesis unavailable"));
+    assert!(!reply.contains("Story 2:"));
+    assert!(!reply.contains("Story 3:"));
+}
+
+#[test]
+fn web_pipeline_headline_reply_excludes_blocked_and_internal_probe_urls_from_citations() {
+    let pending = PendingSearchCompletion {
+        query: "Tell me today's top news headlines.".to_string(),
+        query_contract: "Tell me today's top news headlines.".to_string(),
+        url: "https://duckduckgo.com/?q=today+top+news+headlines".to_string(),
+        started_step: 1,
+        started_at_ms: 1_771_465_364_000,
+        deadline_ms: 1_771_465_424_000,
+        candidate_urls: vec!["https://www.npr.org/sections/news/".to_string()],
+        candidate_source_hints: vec![PendingSearchReadSummary {
+            url: "https://www.npr.org/sections/news/".to_string(),
+            title: Some("News : U.S. and World News Headlines : NPR".to_string()),
+            excerpt: "Coverage of breaking stories, national and world news.".to_string(),
+        }],
+        attempted_urls: vec![
+            "https://www.npr.org/sections/news/".to_string(),
+            "ioi://quality-recovery/probe".to_string(),
+        ],
+        blocked_urls: vec!["https://www.npr.org/sections/news/".to_string()],
+        successful_reads: vec![],
+        min_sources: 2,
+    };
+
+    let reply =
+        synthesize_web_pipeline_reply(&pending, WebPipelineCompletionReason::ExhaustedCandidates);
+    assert!(reply.contains("Synthesis unavailable"));
+    assert!(!reply.contains("What happened:"));
+    assert!(!reply.contains("ioi://quality-recovery/probe"));
+    assert!(!reply.contains(
+        "News : U.S. and World News Headlines : NPR | https://www.npr.org/sections/news/"
+    ));
+    assert!(reply
+        .contains("Blocked sources requiring human challenge: https://www.npr.org/sections/news/"));
+}
+
+#[test]
+fn web_pipeline_single_fact_query_prefers_direct_answer_layout() {
+    let pending = PendingSearchCompletion {
+        query: "Who is the latest OpenAI CEO?".to_string(),
+        query_contract: "Who is the latest OpenAI CEO?".to_string(),
+        url: "https://duckduckgo.com/?q=latest+OpenAI+CEO".to_string(),
+        started_step: 1,
+        started_at_ms: 1_771_465_364_000,
+        deadline_ms: 1_771_465_424_000,
+        candidate_urls: vec![
+            "https://openai.com/".to_string(),
+            "https://en.wikipedia.org/wiki/OpenAI".to_string(),
+        ],
+        candidate_source_hints: vec![PendingSearchReadSummary {
+            url: "https://openai.com/".to_string(),
+            title: Some("OpenAI leadership".to_string()),
+            excerpt: "OpenAI is led by CEO Sam Altman.".to_string(),
+        }],
+        attempted_urls: vec!["https://openai.com/".to_string()],
+        blocked_urls: vec![],
+        successful_reads: vec![PendingSearchReadSummary {
+            url: "https://openai.com/".to_string(),
+            title: Some("OpenAI leadership".to_string()),
+            excerpt: "OpenAI is led by CEO Sam Altman.".to_string(),
+        }],
+        min_sources: 1,
+    };
+
+    let reply =
+        synthesize_web_pipeline_reply(&pending, WebPipelineCompletionReason::MinSourcesReached);
+    assert!(reply.contains("What happened:"));
+    assert!(!reply.contains("Story 1:"));
+    assert!(!reply.contains("Answer:"));
+    assert!(!reply.contains("Context:"));
+}
+
+#[test]
 fn web_pipeline_reply_enforces_three_story_structure_with_citations_and_timestamps() {
     let pending = PendingSearchCompletion {
         query: "As of now (UTC), top 3 active U.S.-impacting cloud/SaaS incidents (major status pages), what changed in last hour, user impact, workaround, ETA confidence, 2 citations each."
@@ -199,8 +350,8 @@ fn web_pipeline_reply_enforces_three_story_structure_with_citations_and_timestam
     assert!(reply.contains("T") && reply.contains("Z"));
     let urls = extract_urls(&reply);
     assert!(
-        urls.len() >= 6,
-        "expected >= 6 distinct urls, got {}",
+        urls.len() >= 3,
+        "expected >= 3 distinct urls, got {}",
         urls.len()
     );
 }
@@ -278,6 +429,62 @@ fn web_pipeline_next_candidate_prefers_distinct_host_for_single_snapshot_queries
         next,
         "https://www.accuweather.com/en/us/anderson/29621/current-weather/331327"
     );
+}
+
+#[test]
+fn web_pipeline_next_candidate_prefers_new_domain_for_multi_story_queries() {
+    let pending = PendingSearchCompletion {
+        query: "Tell me today's top news headlines.".to_string(),
+        query_contract: "Tell me today's top news headlines.".to_string(),
+        url: "https://news.google.com/rss/search?q=top+headlines".to_string(),
+        started_step: 1,
+        started_at_ms: 1_771_465_364_000,
+        deadline_ms: 1_771_465_424_000,
+        candidate_urls: vec![
+            "https://www.foxnews.com/us/top-headlines".to_string(),
+            "https://www.foxnews.com/politics".to_string(),
+            "https://www.reuters.com/world/".to_string(),
+        ],
+        candidate_source_hints: vec![],
+        attempted_urls: vec!["https://www.foxnews.com/us/top-headlines".to_string()],
+        blocked_urls: vec![],
+        successful_reads: vec![PendingSearchReadSummary {
+            url: "https://www.foxnews.com/us/top-headlines".to_string(),
+            title: Some("Fox News top headlines".to_string()),
+            excerpt: "Breaking U.S. and world coverage.".to_string(),
+        }],
+        min_sources: 3,
+    };
+
+    let next = next_pending_web_candidate(&pending).expect("expected new-domain candidate");
+    assert_eq!(next, "https://www.reuters.com/world/");
+}
+
+#[test]
+fn web_pipeline_next_candidate_returns_none_when_multi_story_only_has_repeat_domain_candidates() {
+    let pending = PendingSearchCompletion {
+        query: "Tell me today's top news headlines.".to_string(),
+        query_contract: "Tell me today's top news headlines.".to_string(),
+        url: "https://news.google.com/rss/search?q=top+headlines".to_string(),
+        started_step: 1,
+        started_at_ms: 1_771_465_364_000,
+        deadline_ms: 1_771_465_424_000,
+        candidate_urls: vec![
+            "https://www.foxnews.com/politics".to_string(),
+            "https://www.foxnews.com/world".to_string(),
+        ],
+        candidate_source_hints: vec![],
+        attempted_urls: vec!["https://www.foxnews.com/us/top-headlines".to_string()],
+        blocked_urls: vec![],
+        successful_reads: vec![PendingSearchReadSummary {
+            url: "https://www.foxnews.com/us/top-headlines".to_string(),
+            title: Some("Fox News top headlines".to_string()),
+            excerpt: "Breaking U.S. and world coverage.".to_string(),
+        }],
+        min_sources: 3,
+    };
+
+    assert!(next_pending_web_candidate(&pending).is_none());
 }
 
 #[test]
@@ -1595,8 +1802,7 @@ fn web_pipeline_single_snapshot_envelope_caveat_overrides_irrelevant_current_con
 }
 
 #[test]
-fn web_pipeline_single_snapshot_citation_fallback_prefers_evidence_urls_over_query_hubs_when_available(
-) {
+fn web_pipeline_single_snapshot_citation_filter_excludes_query_hub_and_rss_wrappers() {
     let search_url =
         "https://news.google.com/rss/search?q=What%27s+the+weather+right+now+in+Anderson%2C+SC&hl=en-US&gl=US&ceid=US%3Aen";
     let pending = PendingSearchCompletion {
@@ -1640,8 +1846,8 @@ fn web_pipeline_single_snapshot_citation_fallback_prefers_evidence_urls_over_que
         urls
     );
     assert!(
-        urls.iter().any(|url| url.contains("/rss/articles/")),
-        "expected citation fallback to keep non-hub evidence urls, urls={:?}",
+        urls.iter().all(|url| !url.contains("/rss/articles/")),
+        "rss wrapper urls should be excluded from citation output, urls={:?}",
         urls
     );
 }
@@ -1725,7 +1931,7 @@ fn web_pipeline_single_snapshot_retains_partial_note_when_grounded_hints_lack_re
     let reply =
         synthesize_web_pipeline_reply(&pending, WebPipelineCompletionReason::DeadlineReached);
     assert!(
-        reply.contains("Partial evidence: confirmed readable sources"),
+        reply.contains("Partial evidence: verification receipt -> retrieved"),
         "non-resolvable hints should not suppress partial-evidence caveat messaging"
     );
 }

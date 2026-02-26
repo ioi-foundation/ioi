@@ -497,7 +497,7 @@ pub async fn run_agent_driver_task_with_handles(
         tracing::debug!(target: "agent_driver", "No agent states found under prefix.");
         return Ok(false);
     }
-    tracing::info!(
+    tracing::debug!(
         target: "agent_driver",
         "Found {} agent state entries",
         kvs.len()
@@ -529,7 +529,7 @@ pub async fn run_agent_driver_task_with_handles(
             }
         };
 
-        tracing::info!(
+        tracing::debug!(
             target: "agent_driver",
             "Agent {} status {:?} step_count {}",
             hex::encode(&state.session_id[..4]),
@@ -661,7 +661,7 @@ pub async fn run_agent_driver_task_with_handles(
                 }
             }
         } else {
-            tracing::info!(
+            tracing::debug!(
                 target: "agent_driver",
                 "Agent {} not running; status {:?}",
                 hex::encode(&state.session_id[..4]),

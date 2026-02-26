@@ -332,6 +332,22 @@ pub(super) async fn handle_action_result(app: &tauri::AppHandle, res: AgentActio
                     text: format!("Task Failed: {}", res.output),
                     timestamp: crate::kernel::state::now(),
                 });
+
+                // Keep terminal failures visible in the primary conversation stream.
+                let agent_failure = format!("Task failed: {}", res.output);
+                let duplicate = t
+                    .history
+                    .iter()
+                    .rev()
+                    .take(8)
+                    .any(|m| m.role == "agent" && m.text == agent_failure);
+                if !duplicate {
+                    t.history.push(ChatMessage {
+                        role: "agent".to_string(),
+                        text: agent_failure,
+                        timestamp: crate::kernel::state::now(),
+                    });
+                }
             }
             "Paused" => {
                 if let Some(agent) = t.swarm_tree.iter_mut().find(|a| a.id == res.session_id) {

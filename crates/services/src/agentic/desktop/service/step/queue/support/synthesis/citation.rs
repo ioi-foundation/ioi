@@ -45,27 +45,61 @@ pub(crate) fn canonical_source_title(source: &PendingSearchReadSummary) -> Strin
     format!("Update from {}", source.url)
 }
 
+fn successful_source_url_set(pending: &PendingSearchCompletion) -> BTreeSet<String> {
+    pending
+        .successful_reads
+        .iter()
+        .map(|source| source.url.trim().to_string())
+        .filter(|url| !url.is_empty())
+        .collect()
+}
+
+fn blocked_unverified_url_set(
+    pending: &PendingSearchCompletion,
+    successful_urls: &BTreeSet<String>,
+) -> BTreeSet<String> {
+    pending
+        .blocked_urls
+        .iter()
+        .map(|url| url.trim().to_string())
+        .filter(|url| !url.is_empty() && !successful_urls.contains(url))
+        .collect()
+}
+
+fn is_blocked_unverified_url(url: &str, blocked_unverified_urls: &BTreeSet<String>) -> bool {
+    blocked_unverified_urls.contains(url.trim())
+}
+
 pub(crate) fn merged_story_sources(
     pending: &PendingSearchCompletion,
 ) -> Vec<PendingSearchReadSummary> {
     let query_contract = synthesis_query_contract(pending);
+    let headline_lookup_mode = query_is_generic_headline_collection(&query_contract);
     let projection = build_query_constraint_projection(
         &query_contract,
         pending.min_sources,
         &pending.candidate_source_hints,
     );
-    let enforce_grounded_compatibility = projection.enforce_grounded_compatibility();
+    let enforce_grounded_compatibility =
+        projection.enforce_grounded_compatibility() && !headline_lookup_mode;
     let reject_search_hub = projection.reject_search_hub_candidates();
+    let source_url_allowed = |url: &str| {
+        let trimmed = url.trim();
+        !trimmed.is_empty()
+            && is_citable_web_url(trimmed)
+            && (!reject_search_hub
+                || !is_search_hub_url(trimmed)
+                || (headline_lookup_mode && is_google_news_rss_wrapper_url(trimmed)))
+    };
+    let successful_urls = successful_source_url_set(pending);
+    let blocked_unverified_urls = blocked_unverified_url_set(pending, &successful_urls);
 
     let mut merged: Vec<PendingSearchReadSummary> = Vec::new();
     let mut seen = BTreeSet::new();
 
     for source in &pending.successful_reads {
         let trimmed = source.url.trim();
-        if trimmed.is_empty() {
-            continue;
-        }
-        if reject_search_hub && is_search_hub_url(trimmed) {
+        if !source_url_allowed(trimmed) {
             continue;
         }
         if enforce_grounded_compatibility {
@@ -92,10 +126,10 @@ pub(crate) fn merged_story_sources(
 
     for source in &pending.candidate_source_hints {
         let trimmed = source.url.trim();
-        if trimmed.is_empty() {
-            continue;
-        }
-        if reject_search_hub && is_search_hub_url(trimmed) {
+        if trimmed.is_empty()
+            || !source_url_allowed(trimmed)
+            || is_blocked_unverified_url(trimmed, &blocked_unverified_urls)
+        {
             continue;
         }
         if enforce_grounded_compatibility {
@@ -122,10 +156,10 @@ pub(crate) fn merged_story_sources(
 
     for url in &pending.candidate_urls {
         let trimmed = url.trim();
-        if trimmed.is_empty() {
-            continue;
-        }
-        if reject_search_hub && is_search_hub_url(trimmed) {
+        if trimmed.is_empty()
+            || !source_url_allowed(trimmed)
+            || is_blocked_unverified_url(trimmed, &blocked_unverified_urls)
+        {
             continue;
         }
         if enforce_grounded_compatibility {
@@ -153,13 +187,6 @@ pub(crate) fn merged_story_sources(
             excerpt: String::new(),
         });
     }
-
-    let successful_urls: BTreeSet<String> = pending
-        .successful_reads
-        .iter()
-        .map(|source| source.url.trim().to_string())
-        .filter(|url| !url.is_empty())
-        .collect();
 
     merged.sort_by(|left, right| {
         let left_signals = source_evidence_signals(left);
@@ -197,30 +224,50 @@ pub(crate) fn merged_story_sources(
             .then_with(|| left.url.cmp(&right.url))
     });
 
+    if headline_lookup_mode {
+        let filtered = merged
+            .iter()
+            .filter(|source| !headline_source_is_low_quality(source))
+            .cloned()
+            .collect::<Vec<_>>();
+        if !filtered.is_empty() {
+            return filtered;
+        }
+    }
+
     merged
 }
 
 pub(crate) fn grounded_source_evidence_count(pending: &PendingSearchCompletion) -> usize {
     let query_contract = synthesis_query_contract(pending);
+    let headline_lookup_mode = query_is_generic_headline_collection(&query_contract);
     let projection = build_query_constraint_projection(
         &query_contract,
         pending.min_sources,
         &pending.candidate_source_hints,
     );
-    let enforce_grounded_compatibility = projection.enforce_grounded_compatibility();
+    let enforce_grounded_compatibility =
+        projection.enforce_grounded_compatibility() && !headline_lookup_mode;
     let reject_search_hub = projection.reject_search_hub_candidates();
+    let source_url_allowed = |url: &str| {
+        let trimmed = url.trim();
+        !trimmed.is_empty()
+            && is_citable_web_url(trimmed)
+            && (!reject_search_hub
+                || !is_search_hub_url(trimmed)
+                || (headline_lookup_mode && is_google_news_rss_wrapper_url(trimmed)))
+    };
     let has_constraint_objective = projection.has_constraint_objective();
     let envelope_constraints = &projection.constraints;
     let envelope_policy = ResolutionPolicy::default();
+    let successful_urls = successful_source_url_set(pending);
+    let blocked_unverified_urls = blocked_unverified_url_set(pending, &successful_urls);
 
     let mut grounded_urls: BTreeSet<String> = BTreeSet::new();
 
     for source in &pending.successful_reads {
         let trimmed = source.url.trim();
-        if trimmed.is_empty() {
-            continue;
-        }
-        if reject_search_hub && is_search_hub_url(trimmed) {
+        if !source_url_allowed(trimmed) {
             continue;
         }
         if enforce_grounded_compatibility {
@@ -257,10 +304,10 @@ pub(crate) fn grounded_source_evidence_count(pending: &PendingSearchCompletion) 
 
     for source in &pending.candidate_source_hints {
         let trimmed = source.url.trim();
-        if trimmed.is_empty() {
-            continue;
-        }
-        if reject_search_hub && is_search_hub_url(trimmed) {
+        if trimmed.is_empty()
+            || !source_url_allowed(trimmed)
+            || is_blocked_unverified_url(trimmed, &blocked_unverified_urls)
+        {
             continue;
         }
         if enforce_grounded_compatibility {
@@ -401,270 +448,155 @@ pub(crate) fn changed_last_hour_line(
     )
 }
 
+fn source_url_from_metadata_excerpt(excerpt: &str) -> Option<String> {
+    let marker = "source_url=";
+    let lower = excerpt.to_ascii_lowercase();
+    let start = lower.find(marker)? + marker.len();
+    let candidate = excerpt
+        .get(start..)?
+        .split_whitespace()
+        .next()
+        .unwrap_or_default()
+        .trim_matches(|ch: char| "|,;:!?)]}\"'".contains(ch))
+        .trim();
+    if candidate.starts_with("http://") || candidate.starts_with("https://") {
+        Some(candidate.to_string())
+    } else {
+        None
+    }
+}
+
+fn headline_low_quality_domain(url: &str) -> bool {
+    let lower = url.trim().to_ascii_lowercase();
+    [
+        "stackexchange.com",
+        "stackoverflow.com",
+        "wikipedia.org",
+        "reddit.com",
+        "quora.com",
+        "facebook.com",
+        "instagram.com",
+        "tiktok.com",
+        "youtube.com",
+        "pressgazette.co.uk",
+    ]
+    .iter()
+    .any(|domain| lower.contains(domain))
+}
+
+fn headline_low_quality_signal(url: &str, title: &str, excerpt: &str) -> bool {
+    if headline_low_quality_domain(url) {
+        return true;
+    }
+    let context = format!(" {} {} {} ", title, excerpt, url).to_ascii_lowercase();
+    let low_priority_markers = [
+        " news websites ",
+        " fact sheet ",
+        " trust in media ",
+        " which news sources ",
+        " schedules and results ",
+        " watch live ",
+        " how to watch ",
+        " horoscope ",
+        " horoscopes ",
+        " social media and news ",
+    ];
+    if low_priority_markers
+        .iter()
+        .any(|marker| context.contains(marker))
+    {
+        return true;
+    }
+    let signals = analyze_source_record_signals(url, title, excerpt);
+    signals.low_priority_dominates() && !has_primary_status_authority(signals)
+}
+
+fn headline_source_is_low_quality(source: &PendingSearchReadSummary) -> bool {
+    headline_low_quality_signal(
+        source.url.as_str(),
+        source.title.as_deref().unwrap_or_default(),
+        source.excerpt.as_str(),
+    )
+}
+
 pub(crate) fn build_citation_candidates(
     pending: &PendingSearchCompletion,
     run_timestamp_iso_utc: &str,
 ) -> Vec<CitationCandidate> {
     let query_contract = synthesis_query_contract(pending);
+    let single_snapshot_mode = prefers_single_fact_snapshot(&query_contract);
+    let headline_lookup_mode = query_is_generic_headline_collection(&query_contract);
+    let citation_usable_url = |url: &str| {
+        let trimmed = url.trim();
+        !trimmed.is_empty()
+            && is_citable_web_url(trimmed)
+            && (!is_search_hub_url(trimmed)
+                || (headline_lookup_mode && is_google_news_rss_wrapper_url(trimmed)))
+    };
+    let successful_urls = successful_source_url_set(pending);
+    let blocked_unverified_urls = blocked_unverified_url_set(pending, &successful_urls);
     let mut merged = merged_story_sources(pending);
-    let minimum_candidate_floor =
-        (pending.min_sources.max(1) as usize).max(required_citations_per_story(&query_contract));
-    if merged.len() < minimum_candidate_floor {
-        let projection = build_query_constraint_projection(
-            &query_contract,
-            pending.min_sources,
-            &pending.candidate_source_hints,
-        );
-        let reject_search_hub = projection.reject_search_hub_candidates();
-        let has_non_search_hub_inventory = pending
-            .successful_reads
-            .iter()
-            .map(|source| source.url.as_str())
-            .chain(
-                pending
-                    .candidate_source_hints
-                    .iter()
-                    .map(|source| source.url.as_str()),
-            )
-            .chain(pending.candidate_urls.iter().map(|url| url.as_str()))
-            .chain(pending.attempted_urls.iter().map(|url| url.as_str()))
-            .chain(std::iter::once(pending.url.as_str()))
-            .map(str::trim)
-            .any(|url| !url.is_empty() && !is_search_hub_url(url));
-        let allow_search_hub_provenance_floor_recovery = reject_search_hub
-            && pending.successful_reads.is_empty()
-            && !has_non_search_hub_inventory;
-        let mut seen_urls = merged
-            .iter()
-            .map(|source| source.url.trim().to_string())
-            .filter(|url| !url.is_empty())
-            .collect::<BTreeSet<_>>();
-        let mut fallback_pool = Vec::new();
-        fn push_fallback_source(
-            seen_urls: &mut BTreeSet<String>,
-            fallback_pool: &mut Vec<PendingSearchReadSummary>,
-            source: PendingSearchReadSummary,
-            reject_search_hub: bool,
-            allow_search_hub: bool,
-        ) {
-            let trimmed = source.url.trim();
-            if trimmed.is_empty()
-                || (!allow_search_hub && reject_search_hub && is_search_hub_url(trimmed))
-                || !seen_urls.insert(trimmed.to_string())
-            {
-                return;
-            }
-            fallback_pool.push(source);
-        }
-
+    if single_snapshot_mode && merged.is_empty() {
+        let mut seen = BTreeSet::new();
         for source in pending
             .successful_reads
             .iter()
             .chain(pending.candidate_source_hints.iter())
         {
-            let allow_search_hub =
-                allow_search_hub_provenance_floor_recovery && is_search_hub_url(&source.url);
-            push_fallback_source(
-                &mut seen_urls,
-                &mut fallback_pool,
-                source.clone(),
-                reject_search_hub,
-                allow_search_hub,
-            );
+            let trimmed = source.url.trim();
+            if trimmed.is_empty()
+                || !citation_usable_url(trimmed)
+                || is_blocked_unverified_url(trimmed, &blocked_unverified_urls)
+                || !seen.insert(trimmed.to_string())
+            {
+                continue;
+            }
+            merged.push(source.clone());
         }
         for url in pending
-            .attempted_urls
+            .candidate_urls
             .iter()
-            .chain(pending.candidate_urls.iter())
+            .chain(pending.attempted_urls.iter())
             .chain(std::iter::once(&pending.url))
         {
             let trimmed = url.trim();
-            if trimmed.is_empty() {
+            if trimmed.is_empty()
+                || !citation_usable_url(trimmed)
+                || is_blocked_unverified_url(trimmed, &blocked_unverified_urls)
+                || !seen.insert(trimmed.to_string())
+            {
                 continue;
             }
-            let allow_search_hub = allow_search_hub_provenance_floor_recovery;
-            push_fallback_source(
-                &mut seen_urls,
-                &mut fallback_pool,
-                PendingSearchReadSummary {
-                    url: trimmed.to_string(),
-                    title: None,
-                    excerpt: String::new(),
-                },
-                reject_search_hub,
-                allow_search_hub,
-            );
-        }
-
-        if reject_search_hub
-            && merged.len().saturating_add(fallback_pool.len()) < minimum_candidate_floor
-        {
-            let query_provenance_url = std::iter::once(pending.url.as_str())
-                .chain(pending.attempted_urls.iter().map(|url| url.as_str()))
-                .map(str::trim)
-                .find(|url| !url.is_empty() && is_search_hub_url(url));
-            if let Some(query_provenance_url) = query_provenance_url {
-                if seen_urls.insert(query_provenance_url.to_string()) {
-                    fallback_pool.push(PendingSearchReadSummary {
-                        url: query_provenance_url.to_string(),
-                        title: None,
-                        excerpt: String::new(),
-                    });
-                }
-            }
-        }
-
-        if fallback_pool.is_empty() && merged.is_empty() {
-            for source in pending
-                .successful_reads
-                .iter()
-                .chain(pending.candidate_source_hints.iter())
-            {
-                push_fallback_source(
-                    &mut seen_urls,
-                    &mut fallback_pool,
-                    source.clone(),
-                    reject_search_hub,
-                    true,
-                );
-            }
-            for url in pending
-                .attempted_urls
-                .iter()
-                .chain(pending.candidate_urls.iter())
-                .chain(std::iter::once(&pending.url))
-            {
-                let trimmed = url.trim();
-                if trimmed.is_empty() {
-                    continue;
-                }
-                push_fallback_source(
-                    &mut seen_urls,
-                    &mut fallback_pool,
-                    PendingSearchReadSummary {
-                        url: trimmed.to_string(),
-                        title: None,
-                        excerpt: String::new(),
-                    },
-                    reject_search_hub,
-                    true,
-                );
-            }
-        }
-
-        let mut ranked_fallback = fallback_pool
-            .into_iter()
-            .enumerate()
-            .map(|(idx, source)| {
-                let title = source.title.as_deref().unwrap_or_default();
-                let has_content_signal =
-                    !title.trim().is_empty() || !source.excerpt.trim().is_empty();
-                let source_tokens = source_anchor_tokens(&source.url, title, &source.excerpt);
-                let native_overlap_count = projection
-                    .query_native_tokens
-                    .intersection(&source_tokens)
-                    .count();
-                let compatibility = candidate_constraint_compatibility(
-                    &projection.constraints,
-                    &projection.query_facets,
-                    &projection.query_native_tokens,
-                    &projection.query_tokens,
-                    &projection.locality_tokens,
-                    projection.locality_scope.is_some(),
-                    &source.url,
-                    title,
-                    &source.excerpt,
-                );
-                let resolvable_payload =
-                    candidate_time_sensitive_resolvable_payload(title, &source.excerpt);
-                (
-                    idx,
-                    source,
-                    compatibility,
-                    native_overlap_count,
-                    resolvable_payload,
-                    has_content_signal,
-                )
-            })
-            .collect::<Vec<_>>();
-        ranked_fallback.sort_by(|left, right| {
-            right
-                .4
-                .cmp(&left.4)
-                .then_with(|| right.5.cmp(&left.5))
-                .then_with(|| right.3.cmp(&left.3))
-                .then_with(|| {
-                    let right_passes = compatibility_passes_projection(&projection, &right.2);
-                    let left_passes = compatibility_passes_projection(&projection, &left.2);
-                    right_passes.cmp(&left_passes)
-                })
-                .then_with(|| right.2.compatibility_score.cmp(&left.2.compatibility_score))
-                .then_with(|| left.0.cmp(&right.0))
-        });
-        let enforce_grounded_compatibility = projection.enforce_grounded_compatibility();
-        let strict_grounded_compatibility = projection.strict_grounded_compatibility();
-        let has_compatible_fallback =
-            ranked_fallback
-                .iter()
-                .any(|(_, _, compatibility, _, _, _)| {
-                    compatibility_passes_projection(&projection, compatibility)
-                });
-        let require_native_overlap = !projection.query_native_tokens.is_empty()
-            && ranked_fallback
-                .iter()
-                .any(|(_, _, _, native_overlap, _, _)| *native_overlap > 0);
-        for pass in 0..2 {
-            for (_, source, compatibility, native_overlap_count, _, _) in ranked_fallback.iter() {
-                if merged.len() >= minimum_candidate_floor {
-                    break;
-                }
-                if strict_grounded_compatibility
-                    && has_compatible_fallback
-                    && !compatibility_passes_projection(&projection, compatibility)
-                {
-                    continue;
-                }
-                if enforce_grounded_compatibility
-                    && has_compatible_fallback
-                    && !compatibility_passes_projection(&projection, compatibility)
-                {
-                    continue;
-                }
-                if pass == 0 && require_native_overlap && *native_overlap_count == 0 {
-                    continue;
-                }
-                if pass == 1 && (!require_native_overlap || *native_overlap_count > 0) {
-                    continue;
-                }
-                let url = source.url.trim();
-                if url.is_empty()
-                    || merged
-                        .iter()
-                        .any(|existing| existing.url.trim().eq_ignore_ascii_case(url))
-                {
-                    continue;
-                }
-                merged.push(source.clone());
-            }
-            if merged.len() >= minimum_candidate_floor {
-                break;
-            }
+            merged.push(PendingSearchReadSummary {
+                url: trimmed.to_string(),
+                title: None,
+                excerpt: String::new(),
+            });
         }
     }
 
-    let successful_urls: BTreeSet<String> = pending
-        .successful_reads
-        .iter()
-        .map(|source| source.url.trim().to_string())
-        .filter(|url| !url.is_empty())
-        .collect();
-
     merged
         .into_iter()
+        .filter(|source| {
+            let trimmed = source.url.trim();
+            citation_usable_url(trimmed)
+                && !is_blocked_unverified_url(trimmed, &blocked_unverified_urls)
+                && !(headline_lookup_mode && headline_source_is_low_quality(source))
+        })
         .enumerate()
-        .map(|(idx, source)| {
-            let url = source.url.trim().to_string();
+        .filter_map(|(idx, source)| {
+            let original_url = source.url.trim().to_string();
+            let url = if headline_lookup_mode && is_google_news_rss_wrapper_url(&original_url) {
+                source_url_from_metadata_excerpt(source.excerpt.as_str()).unwrap_or(original_url)
+            } else {
+                original_url
+            };
             let source_label = canonical_source_title(&source);
+            if headline_lookup_mode
+                && headline_low_quality_signal(&url, source_label.as_str(), source.excerpt.as_str())
+            {
+                return None;
+            }
             let excerpt = {
                 let prioritized = prioritized_signal_excerpt(source.excerpt.as_str(), 180);
                 if prioritized.is_empty() || !excerpt_has_claim_signal(&prioritized) {
@@ -673,15 +605,15 @@ pub(crate) fn build_citation_candidates(
                     prioritized
                 }
             };
-            CitationCandidate {
+            Some(CitationCandidate {
                 id: format!("C{}", idx + 1),
                 url: url.clone(),
                 source_label,
                 excerpt,
                 timestamp_utc: run_timestamp_iso_utc.to_string(),
                 note: "retrieved_utc; source publish/update timestamp unavailable".to_string(),
-                from_successful_read: successful_urls.contains(&url),
-            }
+                from_successful_read: successful_urls.contains(source.url.trim()),
+            })
         })
         .collect()
 }
@@ -830,6 +762,7 @@ pub(crate) fn citation_ids_for_story(
                 std::cmp::Ordering::Equal
             };
             let left_key = (
+                left.from_successful_read,
                 prefer_host_diversity
                     && envelope_score_resolves_constraint(envelope_constraints, left_envelope),
                 citation_current_condition_metric_signal(left),
@@ -842,9 +775,9 @@ pub(crate) fn citation_ids_for_story(
                 left_signals.documentation_surface_hits == 0,
                 citation_relevance_score(source, left),
                 !citation_is_low_priority_coverage(left, *left_signals),
-                left.from_successful_read,
             );
             let right_key = (
+                right.from_successful_read,
                 prefer_host_diversity
                     && envelope_score_resolves_constraint(envelope_constraints, right_envelope),
                 citation_current_condition_metric_signal(right),
@@ -857,7 +790,6 @@ pub(crate) fn citation_ids_for_story(
                 right_signals.documentation_surface_hits == 0,
                 citation_relevance_score(source, right),
                 !citation_is_low_priority_coverage(right, *right_signals),
-                right.from_successful_read,
             );
             insight_order
                 .then_with(|| envelope_order)
@@ -905,6 +837,28 @@ pub(crate) fn citation_ids_for_story(
     let mut selected_urls = BTreeSet::new();
     let mut selected_hosts = BTreeSet::new();
     let mut selected_claim_counts = BTreeMap::<String, usize>::new();
+
+    // Keep story/citation alignment stable by anchoring to the story source URL first
+    // when that URL exists in the citation candidate inventory.
+    if selected_ids.len() < citations_per_story {
+        if let Some(source_anchor_candidate) = candidates.iter().find(|candidate| {
+            let candidate_url = candidate.url.trim();
+            !candidate_url.is_empty()
+                && url_structurally_equivalent(candidate_url, source.url.trim())
+                && !selected_ids.iter().any(|id| id == &candidate.id)
+        }) {
+            selected_ids.push(source_anchor_candidate.id.clone());
+            selected_urls.insert(source_anchor_candidate.url.clone());
+            used_urls.insert(source_anchor_candidate.url.clone());
+            if let Some(host) = source_host(&source_anchor_candidate.url) {
+                selected_hosts.insert(host);
+            }
+            let claim_key =
+                insight_claim_key_for_candidate(source_anchor_candidate, &insights_by_id);
+            *selected_claim_counts.entry(claim_key).or_insert(0) += 1;
+        }
+    }
+
     let prefer_primary_backfill = ranked
         .iter()
         .any(|(idx, signals, _)| has_primary_status_candidate(*signals, &candidates[*idx]));

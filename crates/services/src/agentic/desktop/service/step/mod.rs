@@ -255,9 +255,24 @@ pub async fn handle_step(
     } else {
         "Unknown".to_string()
     };
-    let resolved_intent =
+    let resolved_intent = if let Some(existing) = agent_state.resolved_intent.clone() {
+        if existing.intent_id != "resolver.unclassified"
+            && !agent_state.awaiting_intent_clarification
+        {
+            existing
+        } else {
+            intent_resolver::resolve_step_intent(
+                service,
+                &agent_state,
+                &rules,
+                &active_window_title,
+            )
+            .await?
+        }
+    } else {
         intent_resolver::resolve_step_intent(service, &agent_state, &rules, &active_window_title)
-            .await?;
+            .await?
+    };
     let locality_scope_required =
         queue::web_pipeline::query_requires_runtime_locality_scope(&agent_state.goal);
     if locality_scope_required && is_web_research_intent(resolved_intent.scope) {

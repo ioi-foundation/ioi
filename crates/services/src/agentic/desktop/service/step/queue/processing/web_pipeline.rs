@@ -1,23 +1,68 @@
 use super::super::support::{
     append_pending_web_success_fallback, append_pending_web_success_from_bundle,
-    constraint_grounded_probe_query_with_hints, constraint_grounded_search_limit,
-    fallback_search_summary, is_human_challenge_error, mark_pending_web_attempted,
-    mark_pending_web_blocked, merge_pending_search_completion, next_pending_web_candidate,
-    parse_web_evidence_bundle, pre_read_candidate_plan_from_bundle_with_recovery_mode,
-    queue_web_read_from_pipeline, queue_web_search_from_pipeline, remaining_pending_web_candidates,
-    select_web_pipeline_query_contract, summarize_search_results, synthesize_web_pipeline_reply,
-    synthesize_web_pipeline_reply_hybrid, web_pipeline_can_queue_initial_read,
-    web_pipeline_can_queue_probe_search, web_pipeline_can_queue_probe_search_latency_aware,
-    web_pipeline_completion_reason, web_pipeline_min_sources, web_pipeline_now_ms,
-    web_pipeline_remaining_budget_ms, web_pipeline_requires_metric_probe_followup,
-    WebPipelineCompletionReason, WEB_PIPELINE_BUDGET_MS,
+    candidate_source_hints_from_bundle,
+    constraint_grounded_probe_query_with_hints_and_locality_hint, constraint_grounded_search_limit,
+    effective_locality_scope_hint, extract_json_object, fallback_search_summary,
+    is_citable_web_url, is_google_news_rss_wrapper_url, is_human_challenge_error,
+    is_search_hub_url, mark_pending_web_attempted, mark_pending_web_blocked,
+    merge_pending_search_completion, parse_web_evidence_bundle,
+    pre_read_candidate_plan_from_bundle_with_locality_hint, query_is_generic_headline_collection,
+    query_requires_runtime_locality_scope, queue_web_read_from_pipeline,
+    queue_web_search_from_pipeline, remaining_pending_web_candidates,
+    select_web_pipeline_query_contract, source_host, summarize_search_results,
+    synthesize_web_pipeline_reply, synthesize_web_pipeline_reply_hybrid,
+    url_structurally_equivalent, web_pipeline_can_queue_probe_search_latency_aware,
+    web_pipeline_min_sources, web_pipeline_now_ms, WebPipelineCompletionReason,
+    WEB_PIPELINE_BUDGET_MS,
 };
 use super::completion::complete_with_summary;
 use super::routing::is_web_research_scope;
 use crate::agentic::desktop::service::DesktopAgentService;
-use crate::agentic::desktop::types::{AgentState, AgentStatus, PendingSearchCompletion};
-use ioi_types::app::agentic::AgentTool;
+use crate::agentic::desktop::types::{
+    AgentState, AgentStatus, PendingSearchCompletion, PendingSearchReadSummary,
+};
+use ioi_types::app::agentic::{AgentTool, InferenceOptions, WebEvidenceBundle, WebSource};
+use ioi_types::app::ActionTarget;
 use ioi_types::error::TransactionError;
+use serde::{Deserialize, Serialize};
+use tokio::time::Duration;
+use url::Url;
+
+const WEB_PIPELINE_DISCOVERY_SOURCE_LIMIT: usize = 15;
+const WEB_PIPELINE_PRE_READ_SYNTHESIS_MAX_ATTEMPTS: usize = 3;
+const WEB_PIPELINE_PRE_READ_SYNTHESIS_MAX_TOKENS: u32 = 700;
+
+fn pre_read_synthesis_timeout() -> Duration {
+    const DEFAULT_TIMEOUT_MS: u64 = 4_000;
+    std::env::var("IOI_WEB_PRE_READ_SYNTHESIS_TIMEOUT_MS")
+        .ok()
+        .and_then(|raw| raw.parse::<u64>().ok())
+        .filter(|ms| *ms > 0)
+        .map(Duration::from_millis)
+        .unwrap_or_else(|| Duration::from_millis(DEFAULT_TIMEOUT_MS))
+}
+
+#[derive(Debug, Clone, Serialize)]
+struct PreReadDiscoverySource {
+    rank: Option<u32>,
+    url: String,
+    domain: Option<String>,
+    title: Option<String>,
+    snippet: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+struct PreReadSelectionPayload {
+    query: String,
+    required_url_count: usize,
+    constraints: Vec<String>,
+    sources: Vec<PreReadDiscoverySource>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+struct PreReadSelectionResponse {
+    urls: Vec<String>,
+}
 
 async fn synthesize_summary(
     service: &DesktopAgentService,
@@ -32,6 +77,543 @@ async fn synthesize_summary(
     } else {
         synthesize_web_pipeline_reply(pending, reason)
     }
+}
+
+fn normalized_domain_key(url: &str) -> Option<String> {
+    source_host(url).map(|host| host.strip_prefix("www.").unwrap_or(&host).to_string())
+}
+
+fn looks_like_deep_article_url(raw: &str) -> bool {
+    let trimmed = raw.trim();
+    if trimmed.is_empty() || is_search_hub_url(trimmed) {
+        return false;
+    }
+    let Ok(parsed) = Url::parse(trimmed) else {
+        return false;
+    };
+    if parsed.scheme() != "http" && parsed.scheme() != "https" {
+        return false;
+    }
+    let Some(host) = parsed.host_str() else {
+        return false;
+    };
+    if host.trim().is_empty() {
+        return false;
+    }
+
+    let normalized_path = parsed.path().trim_matches('/').to_ascii_lowercase();
+    if normalized_path.is_empty() {
+        return false;
+    }
+
+    let path_hub_markers = [
+        "news",
+        "latest",
+        "home",
+        "homepage",
+        "index",
+        "index.html",
+        "video",
+        "videos",
+        "live",
+        "world",
+        "us",
+        "top-stories",
+        "top-news",
+    ];
+    if path_hub_markers
+        .iter()
+        .any(|marker| normalized_path == *marker)
+    {
+        return false;
+    }
+
+    true
+}
+
+fn lint_pre_read_payload_urls(
+    urls: &[String],
+    required_count: usize,
+) -> Result<Vec<String>, String> {
+    let mut normalized = Vec::new();
+    for url in urls {
+        let trimmed = url.trim();
+        if trimmed.is_empty()
+            || normalized
+                .iter()
+                .any(|existing: &String| existing.eq_ignore_ascii_case(trimmed))
+        {
+            continue;
+        }
+        normalized.push(trimmed.to_string());
+    }
+
+    if normalized.len() != required_count {
+        return Err(format!(
+            "expected exactly {} URLs but received {}",
+            required_count,
+            normalized.len()
+        ));
+    }
+
+    let mut domains = std::collections::BTreeSet::new();
+    for url in &normalized {
+        if !looks_like_deep_article_url(url) {
+            return Err(format!("non-deep-link URL selected: {}", url));
+        }
+        let Some(domain) = normalized_domain_key(url) else {
+            return Err(format!("failed to resolve domain for URL: {}", url));
+        };
+        domains.insert(domain);
+    }
+
+    if domains.len() != required_count {
+        return Err(format!(
+            "expected {} distinct domains but received {}",
+            required_count,
+            domains.len()
+        ));
+    }
+
+    Ok(normalized)
+}
+
+fn ranked_discovery_sources(bundle: &WebEvidenceBundle) -> Vec<WebSource> {
+    let mut indexed = bundle
+        .sources
+        .iter()
+        .cloned()
+        .enumerate()
+        .collect::<Vec<_>>();
+    indexed.sort_by(|(left_idx, left), (right_idx, right)| {
+        left.rank
+            .unwrap_or(u32::MAX)
+            .cmp(&right.rank.unwrap_or(u32::MAX))
+            .then_with(|| left_idx.cmp(right_idx))
+            .then_with(|| left.url.cmp(&right.url))
+    });
+
+    let mut out = Vec::new();
+    let mut seen = std::collections::BTreeSet::new();
+    for (_, source) in indexed {
+        let trimmed = source.url.trim();
+        if trimmed.is_empty() || !seen.insert(trimmed.to_string()) {
+            continue;
+        }
+        out.push(WebSource {
+            url: trimmed.to_string(),
+            ..source
+        });
+        if out.len() >= WEB_PIPELINE_DISCOVERY_SOURCE_LIMIT {
+            break;
+        }
+    }
+
+    out
+}
+
+fn build_pre_read_selection_payload(
+    query_contract: &str,
+    required_url_count: usize,
+    discovery_sources: &[WebSource],
+) -> PreReadSelectionPayload {
+    PreReadSelectionPayload {
+        query: query_contract.trim().to_string(),
+        required_url_count,
+        constraints: vec![
+            "Select only URLs that are direct article pages, not homepages, hubs, or section fronts."
+                .to_string(),
+            "Return exactly the required URL count.".to_string(),
+            "Each URL must come from a distinct domain.".to_string(),
+            "Do not invent or modify URLs; only choose from provided sources.".to_string(),
+        ],
+        sources: discovery_sources
+            .iter()
+            .map(|source| PreReadDiscoverySource {
+                rank: source.rank,
+                url: source.url.trim().to_string(),
+                domain: source.domain.clone(),
+                title: source.title.clone(),
+                snippet: source.snippet.clone(),
+            })
+            .collect(),
+    }
+}
+
+async fn synthesize_pre_read_payload_urls(
+    service: &DesktopAgentService,
+    query_contract: &str,
+    required_url_count: usize,
+    discovery_sources: &[WebSource],
+) -> Result<Vec<String>, String> {
+    if discovery_sources.len() < required_url_count {
+        return Err(format!(
+            "insufficient discovery inventory: have {} sources but require {}",
+            discovery_sources.len(),
+            required_url_count
+        ));
+    }
+
+    let payload =
+        build_pre_read_selection_payload(query_contract, required_url_count, discovery_sources);
+    let payload_json = serde_json::to_string_pretty(&payload)
+        .map_err(|err| format!("failed to serialize pre-read payload: {}", err))?;
+
+    let mut feedback: Option<String> = None;
+    let mut last_error = "pre-read payload synthesis failed".to_string();
+    let inference_timeout = pre_read_synthesis_timeout();
+
+    for attempt in 1..=WEB_PIPELINE_PRE_READ_SYNTHESIS_MAX_ATTEMPTS {
+        let prompt = if let Some(previous_error) = feedback.as_deref() {
+            format!(
+                "Return JSON only with schema {{\"urls\":[string]}}.\n\
+                 You are in CEC State 3 (Payload Synthesis).\n\
+                 Prior output failed lint: {}\n\
+                 Re-select URLs from payload.sources only and satisfy all constraints.\n\
+                 Payload:\n{}",
+                previous_error, payload_json
+            )
+        } else {
+            format!(
+                "Return JSON only with schema {{\"urls\":[string]}}.\n\
+                 You are in CEC State 3 (Payload Synthesis).\n\
+                 Select exact article URLs from payload.sources.\n\
+                 Requirements:\n\
+                 - Exactly {} URLs.\n\
+                 - Distinct domains only.\n\
+                 - Deep links only (not homepage/hub URLs).\n\
+                 - Use ONLY URLs present in payload.sources.\n\
+                 Payload:\n{}",
+                required_url_count, payload_json
+            )
+        };
+
+        let options = InferenceOptions {
+            tools: vec![],
+            temperature: 0.0,
+            json_mode: true,
+            max_tokens: WEB_PIPELINE_PRE_READ_SYNTHESIS_MAX_TOKENS,
+        };
+        let raw = match tokio::time::timeout(
+            inference_timeout,
+            service
+                .reasoning_inference
+                .execute_inference([0u8; 32], prompt.as_bytes(), options),
+        )
+        .await
+        {
+            Ok(Ok(bytes)) => bytes,
+            Ok(Err(err)) => {
+                last_error = format!("pre-read synthesis inference failed: {}", err);
+                feedback = Some(last_error.clone());
+                if attempt == WEB_PIPELINE_PRE_READ_SYNTHESIS_MAX_ATTEMPTS {
+                    break;
+                }
+                continue;
+            }
+            Err(_) => {
+                last_error = format!(
+                    "pre-read synthesis timed out after {}ms",
+                    inference_timeout.as_millis()
+                );
+                feedback = Some(last_error.clone());
+                if attempt == WEB_PIPELINE_PRE_READ_SYNTHESIS_MAX_ATTEMPTS {
+                    break;
+                }
+                continue;
+            }
+        };
+        let text = match String::from_utf8(raw) {
+            Ok(text) => text,
+            Err(err) => {
+                last_error = format!("pre-read synthesis response was not UTF-8: {}", err);
+                feedback = Some(last_error.clone());
+                if attempt == WEB_PIPELINE_PRE_READ_SYNTHESIS_MAX_ATTEMPTS {
+                    break;
+                }
+                continue;
+            }
+        };
+        let json_text = extract_json_object(&text).unwrap_or(text.as_str());
+        let parsed: PreReadSelectionResponse = match serde_json::from_str(json_text) {
+            Ok(parsed) => parsed,
+            Err(err) => {
+                last_error = format!("pre-read synthesis returned invalid JSON schema: {}", err);
+                feedback = Some(last_error.clone());
+                if attempt == WEB_PIPELINE_PRE_READ_SYNTHESIS_MAX_ATTEMPTS {
+                    break;
+                }
+                continue;
+            }
+        };
+
+        let source_inventory = discovery_sources
+            .iter()
+            .map(|source| source.url.trim().to_ascii_lowercase())
+            .collect::<std::collections::BTreeSet<_>>();
+        let selected_inventory = parsed
+            .urls
+            .iter()
+            .map(|url| url.trim().to_ascii_lowercase())
+            .collect::<std::collections::BTreeSet<_>>();
+        if !selected_inventory
+            .iter()
+            .all(|url| source_inventory.contains(url))
+        {
+            let missing = selected_inventory
+                .iter()
+                .filter(|url| !source_inventory.contains(*url))
+                .cloned()
+                .collect::<Vec<_>>();
+            last_error = format!(
+                "response included URLs outside discovery payload: {:?}",
+                missing
+            );
+            feedback = Some(last_error.clone());
+            if attempt == WEB_PIPELINE_PRE_READ_SYNTHESIS_MAX_ATTEMPTS {
+                break;
+            }
+            continue;
+        }
+
+        match lint_pre_read_payload_urls(&parsed.urls, required_url_count) {
+            Ok(validated) => return Ok(validated),
+            Err(lint_error) => {
+                last_error = lint_error;
+                feedback = Some(last_error.clone());
+            }
+        }
+    }
+
+    Err(last_error)
+}
+
+fn selected_source_hints_for_urls(
+    bundle: &WebEvidenceBundle,
+    selected_urls: &[String],
+) -> Vec<PendingSearchReadSummary> {
+    let source_hints = candidate_source_hints_from_bundle(bundle);
+    selected_urls
+        .iter()
+        .map(|selected| {
+            let selected_trimmed = selected.trim();
+            if selected_trimmed.is_empty() {
+                return PendingSearchReadSummary::default();
+            }
+            if let Some(source) = source_hints.iter().find(|source| {
+                let source_url = source.url.trim();
+                source_url.eq_ignore_ascii_case(selected_trimmed)
+                    || url_structurally_equivalent(source_url, selected_trimmed)
+            }) {
+                return PendingSearchReadSummary {
+                    url: selected_trimmed.to_string(),
+                    title: source.title.clone(),
+                    excerpt: source.excerpt.clone(),
+                };
+            }
+
+            let fallback_source = bundle.sources.iter().find(|source| {
+                let source_url = source.url.trim();
+                source_url.eq_ignore_ascii_case(selected_trimmed)
+                    || url_structurally_equivalent(source_url, selected_trimmed)
+            });
+            PendingSearchReadSummary {
+                url: selected_trimmed.to_string(),
+                title: fallback_source.and_then(|source| source.title.clone()),
+                excerpt: fallback_source
+                    .and_then(|source| source.snippet.clone())
+                    .unwrap_or_default(),
+            }
+        })
+        .collect()
+}
+
+fn merge_source_hints(
+    primary: Vec<PendingSearchReadSummary>,
+    additional: &[PendingSearchReadSummary],
+) -> Vec<PendingSearchReadSummary> {
+    let mut merged = Vec::new();
+
+    for source in primary {
+        let trimmed = source.url.trim();
+        if trimmed.is_empty() {
+            continue;
+        }
+        if merged.iter().any(|existing: &PendingSearchReadSummary| {
+            let existing_url = existing.url.trim();
+            existing_url.eq_ignore_ascii_case(trimmed)
+                || url_structurally_equivalent(existing_url, trimmed)
+        }) {
+            continue;
+        }
+        merged.push(PendingSearchReadSummary {
+            url: trimmed.to_string(),
+            title: source.title,
+            excerpt: source.excerpt.trim().to_string(),
+        });
+    }
+
+    for source in additional {
+        let trimmed = source.url.trim();
+        if trimmed.is_empty() {
+            continue;
+        }
+        if merged.iter().any(|existing: &PendingSearchReadSummary| {
+            let existing_url = existing.url.trim();
+            existing_url.eq_ignore_ascii_case(trimmed)
+                || url_structurally_equivalent(existing_url, trimmed)
+        }) {
+            continue;
+        }
+        merged.push(PendingSearchReadSummary {
+            url: trimmed.to_string(),
+            title: source.title.clone(),
+            excerpt: source.excerpt.trim().to_string(),
+        });
+    }
+
+    merged
+}
+
+fn headline_source_hint_allowed(hint: &PendingSearchReadSummary) -> bool {
+    let url = hint.url.trim();
+    if url.is_empty() || !is_citable_web_url(url) {
+        return false;
+    }
+    if is_search_hub_url(url) && !is_google_news_rss_wrapper_url(url) {
+        return false;
+    }
+
+    let lower_url = url.to_ascii_lowercase();
+    let blocked_domains = [
+        "stackexchange.com",
+        "stackoverflow.com",
+        "wikipedia.org",
+        "reddit.com",
+        "quora.com",
+        "facebook.com",
+        "instagram.com",
+        "tiktok.com",
+        "youtube.com",
+    ];
+    if blocked_domains
+        .iter()
+        .any(|domain| lower_url.contains(domain))
+    {
+        return false;
+    }
+
+    if is_google_news_rss_wrapper_url(url) {
+        return true;
+    }
+
+    let title = hint
+        .title
+        .as_deref()
+        .unwrap_or_default()
+        .to_ascii_lowercase();
+    let excerpt = hint.excerpt.to_ascii_lowercase();
+    let signal_text = format!(" {} {} ", title, excerpt);
+    let low_priority_markers = [
+        " news websites ",
+        " fact sheet ",
+        " trust in media ",
+        " which news sources ",
+        " schedules and results ",
+        " watch live ",
+        " horoscope ",
+        " horoscopes ",
+        " how to watch ",
+    ];
+    if low_priority_markers
+        .iter()
+        .any(|marker| signal_text.contains(marker))
+        || lower_url.contains("/horoscope")
+        || lower_url.contains("/horoscopes")
+    {
+        return false;
+    }
+    let has_news_signal = [
+        " news ",
+        " headline ",
+        " headlines ",
+        " breaking ",
+        " update ",
+        " updates ",
+        " report ",
+        " reports ",
+        " world ",
+        " politics ",
+        " business ",
+        " market ",
+        " economy ",
+        " election ",
+        " court ",
+        " war ",
+    ]
+    .iter()
+    .any(|marker| signal_text.contains(marker));
+    if has_news_signal {
+        return true;
+    }
+
+    [
+        "/news",
+        "/world",
+        "/politics",
+        "/business",
+        "/us/",
+        "/article",
+    ]
+    .iter()
+    .any(|marker| lower_url.contains(marker))
+}
+
+fn push_unique_selected_url(selected_urls: &mut Vec<String>, candidate_url: &str) -> bool {
+    let trimmed = candidate_url.trim();
+    if trimmed.is_empty() {
+        return false;
+    }
+    if selected_urls.iter().any(|existing| {
+        existing.eq_ignore_ascii_case(trimmed) || url_structurally_equivalent(existing, trimmed)
+    }) {
+        return false;
+    }
+    selected_urls.push(trimmed.to_string());
+    true
+}
+
+fn queue_web_read_batch_from_pipeline(
+    agent_state: &mut AgentState,
+    session_id: [u8; 32],
+    urls: &[String],
+) -> Result<usize, TransactionError> {
+    let mut queued = 0usize;
+    for url in urls.iter().rev() {
+        if queue_web_read_from_pipeline(agent_state, session_id, url)? {
+            queued += 1;
+        }
+    }
+    Ok(queued)
+}
+
+fn queued_web_read_count(agent_state: &AgentState) -> usize {
+    agent_state
+        .execution_queue
+        .iter()
+        .filter(|request| {
+            if !matches!(request.target, ActionTarget::WebRetrieve) {
+                return false;
+            }
+            let Ok(args) = serde_json::from_slice::<serde_json::Value>(&request.params) else {
+                return false;
+            };
+            args.get("url")
+                .and_then(|value| value.as_str())
+                .map(|url| !url.trim().is_empty())
+                .unwrap_or(false)
+        })
+        .count()
 }
 
 pub(super) async fn maybe_handle_web_search(
@@ -83,37 +665,118 @@ pub(super) async fn maybe_handle_web_search(
         .unwrap_or_else(|| agent_state.goal.clone());
     let query_contract =
         select_web_pipeline_query_contract(agent_state.goal.as_str(), &query_value);
-    let min_sources = web_pipeline_min_sources(&query_contract);
+    let min_sources = web_pipeline_min_sources(&query_contract).max(1);
+    let required_url_count = min_sources as usize;
     let started_at_ms = web_pipeline_now_ms();
-    let prior_pending = agent_state.pending_search_completion.clone();
-    let allow_floor_recovery_exploration = prior_pending
-        .as_ref()
-        .map(|existing| {
-            let min_sources_required = existing.min_sources.max(1) as usize;
-            let successful_sources = existing.successful_reads.len();
-            successful_sources > 0 && successful_sources < min_sources_required
-        })
-        .unwrap_or(false);
-    let candidate_plan = pre_read_candidate_plan_from_bundle_with_recovery_mode(
+    let locality_hint = if query_requires_runtime_locality_scope(&query_contract) {
+        effective_locality_scope_hint(None)
+    } else {
+        None
+    };
+
+    let discovery_sources = ranked_discovery_sources(bundle);
+    let deterministic_plan = pre_read_candidate_plan_from_bundle_with_locality_hint(
         &query_contract,
         min_sources,
         bundle,
-        allow_floor_recovery_exploration,
+        locality_hint.as_deref(),
     );
-    let plan_total_candidates = candidate_plan.total_candidates;
-    let plan_pruned_candidates = candidate_plan.pruned_candidates;
-    let plan_resolvable_candidates = candidate_plan.resolvable_candidates;
-    let probe_source_hints = candidate_plan.probe_source_hints.clone();
-    let mut plan_requires_probe = candidate_plan.requires_constraint_search_probe;
-    let prior_no_progress_probe_cycle = prior_pending
-        .as_ref()
-        .map(|existing| {
-            existing.successful_reads.is_empty()
-                && existing.blocked_urls.is_empty()
-                && existing.candidate_urls.is_empty()
-                && existing.candidate_source_hints.is_empty()
-        })
-        .unwrap_or(false);
+    let headline_lookup_mode = query_is_generic_headline_collection(&query_contract);
+    let probe_source_hints = if headline_lookup_mode {
+        let filtered = deterministic_plan
+            .probe_source_hints
+            .iter()
+            .filter(|source| headline_source_hint_allowed(source))
+            .cloned()
+            .collect::<Vec<_>>();
+        if filtered.is_empty() {
+            deterministic_plan.probe_source_hints.clone()
+        } else {
+            filtered
+        }
+    } else {
+        deterministic_plan.probe_source_hints.clone()
+    };
+    let selection = synthesize_pre_read_payload_urls(
+        service,
+        &query_contract,
+        required_url_count,
+        &discovery_sources,
+    )
+    .await;
+    let (selected_urls, payload_error) = match selection {
+        Ok(urls) => (urls, None),
+        Err(error) => (Vec::new(), Some(error)),
+    };
+    let mut selected_urls = selected_urls;
+    let mut selected_hints = selected_source_hints_for_urls(bundle, &selected_urls);
+    let deterministic_fallback_used = (payload_error.is_some() || selected_urls.is_empty())
+        && !deterministic_plan.candidate_urls.is_empty();
+    if deterministic_fallback_used {
+        selected_urls = deterministic_plan.candidate_urls.clone();
+        selected_hints = deterministic_plan.candidate_source_hints.clone();
+    }
+    let mut deterministic_top_up_used = false;
+    if selected_urls.len() < required_url_count {
+        for candidate in &deterministic_plan.candidate_urls {
+            if selected_urls.len() >= required_url_count {
+                break;
+            }
+            if push_unique_selected_url(&mut selected_urls, candidate) {
+                deterministic_top_up_used = true;
+            }
+        }
+        if selected_urls.len() < required_url_count {
+            for source in &probe_source_hints {
+                if selected_urls.len() >= required_url_count {
+                    break;
+                }
+                if push_unique_selected_url(&mut selected_urls, &source.url) {
+                    deterministic_top_up_used = true;
+                }
+            }
+        }
+        if deterministic_top_up_used {
+            selected_hints = selected_source_hints_for_urls(bundle, &selected_urls);
+        }
+    }
+    let mut merged_hints = merge_source_hints(
+        merge_source_hints(
+            selected_hints,
+            deterministic_plan.candidate_source_hints.as_slice(),
+        ),
+        probe_source_hints.as_slice(),
+    );
+    if headline_lookup_mode {
+        let discovery_hints = candidate_source_hints_from_bundle(bundle)
+            .into_iter()
+            .filter(headline_source_hint_allowed)
+            .collect::<Vec<_>>();
+        merged_hints = merge_source_hints(merged_hints, discovery_hints.as_slice());
+        merged_hints = merged_hints
+            .into_iter()
+            .filter(headline_source_hint_allowed)
+            .collect::<Vec<_>>();
+
+        selected_urls.retain(|selected| {
+            let selected_trimmed = selected.trim();
+            !selected_trimmed.is_empty()
+                && merged_hints.iter().any(|hint| {
+                    let hint_url = hint.url.trim();
+                    hint_url.eq_ignore_ascii_case(selected_trimmed)
+                        || url_structurally_equivalent(hint_url, selected_trimmed)
+                })
+        });
+        if selected_urls.len() < required_url_count {
+            for hint in &merged_hints {
+                if selected_urls.len() >= required_url_count {
+                    break;
+                }
+                let _ = push_unique_selected_url(&mut selected_urls, &hint.url);
+            }
+        }
+    }
+
     let search_url_attempt = bundle
         .url
         .as_deref()
@@ -122,186 +785,159 @@ pub(super) async fn maybe_handle_web_search(
         .map(|value| value.to_string())
         .into_iter()
         .collect::<Vec<_>>();
-    let mut pending = PendingSearchCompletion {
+
+    let had_pending_pipeline = agent_state.pending_search_completion.is_some();
+    let incoming_pending = PendingSearchCompletion {
         query: query_value,
-        query_contract: query_contract.clone(),
+        query_contract,
         url: bundle.url.clone().unwrap_or_default(),
         started_step: pre_state_step_index,
         started_at_ms,
         deadline_ms: started_at_ms.saturating_add(WEB_PIPELINE_BUDGET_MS),
-        candidate_urls: candidate_plan.candidate_urls,
-        candidate_source_hints: candidate_plan.candidate_source_hints,
+        candidate_urls: selected_urls.clone(),
+        candidate_source_hints: merged_hints,
         attempted_urls: search_url_attempt,
         blocked_urls: Vec::new(),
         successful_reads: Vec::new(),
         min_sources,
     };
-    if let Some(existing_pending) = agent_state.pending_search_completion.take() {
-        pending = merge_pending_search_completion(existing_pending, pending);
-    }
-    if pending.candidate_urls.is_empty() {
-        plan_requires_probe = true;
-    }
-    let min_sources = pending.min_sources;
-    let min_sources_required = min_sources.max(1) as usize;
-    if pending.successful_reads.len() < min_sources_required
-        && remaining_pending_web_candidates(&pending) == 0
-    {
-        plan_requires_probe = true;
-    }
-    if plan_total_candidates == 0 && prior_no_progress_probe_cycle {
-        plan_requires_probe = false;
-    }
+    let mut pending = if let Some(existing) = agent_state.pending_search_completion.clone() {
+        merge_pending_search_completion(existing, incoming_pending)
+    } else {
+        incoming_pending
+    };
 
-    let queue_now_ms = web_pipeline_now_ms();
-    let remaining_budget_ms = web_pipeline_remaining_budget_ms(pending.deadline_ms, queue_now_ms);
-    let probe_budget_allows =
-        web_pipeline_can_queue_probe_search(pending.deadline_ms, queue_now_ms);
-    let read_budget_allows = web_pipeline_can_queue_initial_read(pending.deadline_ms, queue_now_ms);
-
-    let mut completion_reason = web_pipeline_completion_reason(&pending, queue_now_ms);
-    let mut queued_next = false;
-    let mut queued_probe = false;
-    let remaining_candidates = remaining_pending_web_candidates(&pending);
-    let source_floor_gap = pending
-        .successful_reads
-        .len()
-        .saturating_add(remaining_candidates)
-        < min_sources_required;
-    let first_search_pass =
-        pending.successful_reads.is_empty() && pending.attempted_urls.len() <= 1;
-    let prefer_probe_before_read = plan_requires_probe
-        && !first_search_pass
-        && (remaining_candidates == 0 || (source_floor_gap && remaining_candidates <= 1))
-        && plan_resolvable_candidates == 0;
-    if completion_reason.is_none() {
-        if prefer_probe_before_read && plan_requires_probe && probe_budget_allows {
-            if let Some(probe_query) = constraint_grounded_probe_query_with_hints(
-                &query_contract,
-                min_sources,
+    let preexisting_queued_reads = queued_web_read_count(agent_state);
+    let queued_reads = if !selected_urls.is_empty() {
+        queue_web_read_batch_from_pipeline(agent_state, session_id, &selected_urls)?
+    } else {
+        0
+    };
+    let total_queued_reads = preexisting_queued_reads.saturating_add(queued_reads);
+    let mut probe_queued = false;
+    let mut probe_budget_ok = true;
+    let probe_allowed =
+        deterministic_plan.requires_constraint_search_probe && !had_pending_pipeline;
+    if probe_allowed {
+        let now_ms = web_pipeline_now_ms();
+        probe_budget_ok = web_pipeline_can_queue_probe_search_latency_aware(&pending, now_ms);
+        if probe_budget_ok {
+            let prior_query = bundle
+                .query
+                .as_deref()
+                .map(str::trim)
+                .filter(|value| !value.is_empty())
+                .unwrap_or_else(|| pending.query.trim());
+            if let Some(probe_query) = constraint_grounded_probe_query_with_hints_and_locality_hint(
+                pending.query_contract.as_str(),
+                pending.min_sources,
                 &probe_source_hints,
-                &pending.query,
+                prior_query,
+                locality_hint.as_deref(),
             ) {
-                queued_probe = queue_web_search_from_pipeline(
+                let probe_limit = constraint_grounded_search_limit(
+                    pending.query_contract.as_str(),
+                    pending.min_sources,
+                );
+                probe_queued = queue_web_search_from_pipeline(
                     agent_state,
                     session_id,
-                    &probe_query,
-                    constraint_grounded_search_limit(&query_contract, min_sources),
+                    probe_query.as_str(),
+                    probe_limit,
                 )?;
-                if queued_probe {
-                    pending.query = probe_query;
+                if probe_queued {
+                    verification_checks
+                        .push(format!("web_constraint_search_probe_query={}", probe_query));
+                    verification_checks
+                        .push(format!("web_constraint_search_probe_limit={}", probe_limit));
                 }
             }
         }
-        if !queued_probe && read_budget_allows {
-            if let Some(next_url) = next_pending_web_candidate(&pending) {
-                queued_next = queue_web_read_from_pipeline(agent_state, session_id, &next_url)?;
-            }
-        }
-        if !queued_next && !queued_probe && plan_requires_probe && probe_budget_allows {
-            if let Some(probe_query) = constraint_grounded_probe_query_with_hints(
-                &query_contract,
-                min_sources,
-                &probe_source_hints,
-                &pending.query,
-            ) {
-                queued_probe = queue_web_search_from_pipeline(
-                    agent_state,
-                    session_id,
-                    &probe_query,
-                    constraint_grounded_search_limit(&query_contract, min_sources),
-                )?;
-                if queued_probe {
-                    pending.query = probe_query;
-                }
-            }
-        }
-        if !queued_next && !queued_probe {
-            if remaining_candidates == 0 {
-                completion_reason = Some(WebPipelineCompletionReason::ExhaustedCandidates);
-            } else if !read_budget_allows && (!plan_requires_probe || !probe_budget_allows) {
-                completion_reason = Some(WebPipelineCompletionReason::DeadlineReached);
-            }
-        }
     }
-    let remaining = remaining_pending_web_candidates(&pending);
-    let budget_prevents_followup = completion_reason.is_none()
-        && !queued_probe
-        && !queued_next
-        && remaining > 0
-        && (!read_budget_allows || (plan_requires_probe && !probe_budget_allows));
 
     verification_checks.push(format!(
-        "web_pre_read_candidates_total={}",
-        plan_total_candidates
+        "web_pre_read_discovery_sources={}",
+        discovery_sources.len()
+    ));
+    verification_checks.push(format!("web_pre_read_required_urls={}", required_url_count));
+    verification_checks.push(format!(
+        "web_pre_read_selected_urls={}",
+        selected_urls.len()
+    ));
+    if !selected_urls.is_empty() {
+        verification_checks.push(format!(
+            "web_pre_read_selected_url_values={}",
+            selected_urls.join(" | ")
+        ));
+    }
+    if !discovery_sources.is_empty() {
+        let discovery_urls = discovery_sources
+            .iter()
+            .map(|source| source.url.trim())
+            .filter(|url| !url.is_empty())
+            .take(10)
+            .collect::<Vec<_>>();
+        if !discovery_urls.is_empty() {
+            verification_checks.push(format!(
+                "web_pre_read_discovery_url_values={}",
+                discovery_urls.join(" | ")
+            ));
+        }
+    }
+    verification_checks.push(format!(
+        "web_pre_read_existing_reads_queued={}",
+        preexisting_queued_reads
+    ));
+    verification_checks.push(format!("web_pre_read_batch_reads_queued={}", queued_reads));
+    verification_checks.push(format!(
+        "web_pre_read_total_reads_queued={}",
+        total_queued_reads
     ));
     verification_checks.push(format!(
-        "web_pre_read_candidates_pruned={}",
-        plan_pruned_candidates
+        "web_pre_read_deterministic_fallback_used={}",
+        deterministic_fallback_used
     ));
     verification_checks.push(format!(
-        "web_pre_read_candidates_resolvable={}",
-        plan_resolvable_candidates
+        "web_pre_read_deterministic_top_up_used={}",
+        deterministic_top_up_used
     ));
     verification_checks.push(format!("web_min_sources={}", min_sources));
     verification_checks.push(format!(
+        "web_query_contract={}",
+        pending.query_contract.trim()
+    ));
+    verification_checks.push(format!("web_pending_query={}", pending.query.trim()));
+    verification_checks.push(format!(
         "web_constraint_search_probe_required={}",
-        plan_requires_probe
+        deterministic_plan.requires_constraint_search_probe
     ));
     verification_checks.push(format!(
-        "web_probe_preferred_before_read={}",
-        prefer_probe_before_read
+        "web_constraint_search_probe_allowed={}",
+        probe_allowed
+    ));
+    verification_checks.push(format!(
+        "web_constraint_search_probe_budget_ok={}",
+        probe_budget_ok
     ));
     verification_checks.push(format!(
         "web_constraint_search_probe_queued={}",
-        queued_probe
+        probe_queued
     ));
-    verification_checks.push(format!("web_remaining_budget_ms={}", remaining_budget_ms));
-    verification_checks.push(format!("web_probe_budget_allows={}", probe_budget_allows));
-    verification_checks.push(format!("web_read_budget_allows={}", read_budget_allows));
     verification_checks.push(format!(
-        "web_pipeline_active={}",
-        queued_probe || queued_next || (remaining > 0 && !budget_prevents_followup)
+        "web_pre_read_payload_valid={}",
+        payload_error.is_none()
     ));
-    verification_checks.push("web_sources_success=0".to_string());
-    verification_checks.push("web_sources_blocked=0".to_string());
-    verification_checks.push("web_budget_ms=0".to_string());
+    if let Some(error) = payload_error.as_deref() {
+        verification_checks.push(format!("web_pre_read_payload_error={}", error));
+    }
 
-    if let Some(reason) = completion_reason {
-        let summary = synthesize_summary(service, &pending, reason).await;
-        complete_with_summary(
-            agent_state,
-            summary,
-            success,
-            out,
-            err,
-            completion_summary,
-            true,
-        );
-        verification_checks.push("web_pipeline_active=false".to_string());
-        verification_checks.push("terminal_chat_reply_ready=true".to_string());
-    } else if budget_prevents_followup {
-        let summary = synthesize_summary(
-            service,
-            &pending,
-            WebPipelineCompletionReason::DeadlineReached,
-        )
-        .await;
-        complete_with_summary(
-            agent_state,
-            summary,
-            success,
-            out,
-            err,
-            completion_summary,
-            true,
-        );
-        verification_checks.push("web_pipeline_active=false".to_string());
-        verification_checks.push("terminal_chat_reply_ready=true".to_string());
-    } else if queued_probe || queued_next || remaining > 0 {
-        agent_state.pending_search_completion = Some(pending);
-        agent_state.status = AgentStatus::Running;
-    } else {
+    if total_queued_reads == 0 && !probe_queued {
+        if let Some(error) = payload_error {
+            // Preserve synthesis diagnostics while carrying the explicit state-3 failure signal.
+            pending
+                .blocked_urls
+                .push(format!("ioi://state3-synthesis-error/{}", error));
+        }
         let summary = synthesize_summary(
             service,
             &pending,
@@ -319,8 +955,15 @@ pub(super) async fn maybe_handle_web_search(
         );
         verification_checks.push("web_pipeline_active=false".to_string());
         verification_checks.push("terminal_chat_reply_ready=true".to_string());
+        return Ok(());
     }
 
+    verification_checks.push("web_pipeline_active=true".to_string());
+    verification_checks.push("web_sources_success=0".to_string());
+    verification_checks.push("web_sources_blocked=0".to_string());
+    verification_checks.push("web_budget_ms=0".to_string());
+    agent_state.pending_search_completion = Some(pending);
+    agent_state.status = AgentStatus::Running;
     Ok(())
 }
 
@@ -365,80 +1008,76 @@ pub(super) async fn maybe_handle_web_read(
 
     let now_ms = web_pipeline_now_ms();
     let elapsed_ms = now_ms.saturating_sub(pending.started_at_ms);
-    let remaining_budget_ms = web_pipeline_remaining_budget_ms(pending.deadline_ms, now_ms);
-    let read_budget_allows = web_pipeline_can_queue_initial_read(pending.deadline_ms, now_ms);
-    let mut completion_reason = web_pipeline_completion_reason(&pending, now_ms);
-    let mut queued_next = false;
-    let mut queued_probe = false;
-    let probe_budget_allows = web_pipeline_can_queue_probe_search_latency_aware(&pending, now_ms);
-    if completion_reason.is_none() {
-        let remaining_candidates = remaining_pending_web_candidates(&pending);
-        let min_sources_required = pending.min_sources.max(1) as usize;
-        let source_floor_unmet = pending.successful_reads.len() < min_sources_required;
-        let metric_probe_followup = web_pipeline_requires_metric_probe_followup(&pending, now_ms);
-        let queue_probe = |pending: &mut PendingSearchCompletion,
-                           agent_state: &mut AgentState|
-         -> Result<bool, TransactionError> {
-            let mut probe_hints = pending.successful_reads.clone();
-            for hint in &pending.candidate_source_hints {
-                let hint_url = hint.url.trim();
-                if hint_url.is_empty() {
-                    continue;
-                }
-                if probe_hints
-                    .iter()
-                    .any(|existing| existing.url.trim().eq_ignore_ascii_case(hint_url))
-                {
-                    continue;
-                }
-                probe_hints.push(hint.clone());
-            }
-            if let Some(probe_query) = constraint_grounded_probe_query_with_hints(
-                &pending.query_contract,
+    let remaining_candidates = remaining_pending_web_candidates(&pending);
+    let min_sources_required = pending.min_sources.max(1) as usize;
+    let floor_unmet = pending.successful_reads.len() < min_sources_required;
+    let probe_marker_prefix = "ioi://constraint-probe/";
+    let probe_already_attempted = pending
+        .attempted_urls
+        .iter()
+        .any(|url| url.starts_with(probe_marker_prefix));
+    let probe_allowed = remaining_candidates == 0 && floor_unmet && !probe_already_attempted;
+    let mut probe_budget_ok = true;
+    let mut probe_queued = false;
+    if probe_allowed {
+        probe_budget_ok = web_pipeline_can_queue_probe_search_latency_aware(&pending, now_ms);
+        if probe_budget_ok {
+            let query_contract = if pending.query_contract.trim().is_empty() {
+                pending.query.as_str()
+            } else {
+                pending.query_contract.as_str()
+            };
+            let locality_hint = if query_requires_runtime_locality_scope(query_contract) {
+                effective_locality_scope_hint(None)
+            } else {
+                None
+            };
+            let prior_query = if pending.query.trim().is_empty() {
+                query_contract.trim()
+            } else {
+                pending.query.trim()
+            };
+            if let Some(probe_query) = constraint_grounded_probe_query_with_hints_and_locality_hint(
+                query_contract,
                 pending.min_sources,
-                &probe_hints,
-                &pending.query,
+                &pending.candidate_source_hints,
+                prior_query,
+                locality_hint.as_deref(),
             ) {
-                let queued = queue_web_search_from_pipeline(
+                let probe_limit =
+                    constraint_grounded_search_limit(query_contract, pending.min_sources);
+                probe_queued = queue_web_search_from_pipeline(
                     agent_state,
                     session_id,
-                    &probe_query,
-                    constraint_grounded_search_limit(&pending.query_contract, pending.min_sources),
+                    probe_query.as_str(),
+                    probe_limit,
                 )?;
-                if queued {
-                    pending.query = probe_query;
+                if probe_queued {
+                    pending
+                        .attempted_urls
+                        .push(format!("{}{}", probe_marker_prefix, probe_query));
+                    verification_checks
+                        .push(format!("web_constraint_search_probe_query={}", probe_query));
+                    verification_checks
+                        .push(format!("web_constraint_search_probe_limit={}", probe_limit));
                 }
-                return Ok(queued);
             }
-            Ok(false)
-        };
-        if read_budget_allows {
-            if let Some(next_url) = next_pending_web_candidate(&pending) {
-                queued_next = queue_web_read_from_pipeline(agent_state, session_id, &next_url)?;
-            }
-        }
-        if !queued_next && metric_probe_followup && probe_budget_allows {
-            queued_probe = queue_probe(&mut pending, agent_state)?;
-        }
-        if !queued_next
-            && !queued_probe
-            && source_floor_unmet
-            && remaining_candidates == 0
-            && probe_budget_allows
-        {
-            queued_probe = queue_probe(&mut pending, agent_state)?;
-        }
-        verification_checks.push(format!(
-            "web_metric_probe_followup={}",
-            metric_probe_followup
-        ));
-        if !queued_next && !queued_probe && !read_budget_allows && remaining_candidates > 0 {
-            completion_reason = Some(WebPipelineCompletionReason::DeadlineReached);
-        }
-        if !queued_next && !queued_probe && remaining_candidates == 0 {
-            completion_reason = Some(WebPipelineCompletionReason::ExhaustedCandidates);
         }
     }
+
+    let completion_reason = if probe_queued {
+        None
+    } else if pending.deadline_ms > 0 && now_ms >= pending.deadline_ms {
+        Some(WebPipelineCompletionReason::DeadlineReached)
+    } else if remaining_candidates == 0 {
+        if pending.successful_reads.len() >= min_sources_required {
+            Some(WebPipelineCompletionReason::MinSourcesReached)
+        } else {
+            Some(WebPipelineCompletionReason::ExhaustedCandidates)
+        }
+    } else {
+        None
+    };
 
     verification_checks.push(format!(
         "web_sources_success={}",
@@ -449,12 +1088,18 @@ pub(super) async fn maybe_handle_web_read(
         pending.blocked_urls.len()
     ));
     verification_checks.push(format!("web_budget_ms={}", elapsed_ms));
-    verification_checks.push(format!("web_remaining_budget_ms={}", remaining_budget_ms));
-    verification_checks.push(format!("web_read_budget_allows={}", read_budget_allows));
-    verification_checks.push(format!("web_probe_budget_allows={}", probe_budget_allows));
+    verification_checks.push(format!("web_remaining_candidates={}", remaining_candidates));
+    verification_checks.push(format!(
+        "web_constraint_search_probe_allowed={}",
+        probe_allowed
+    ));
+    verification_checks.push(format!(
+        "web_constraint_search_probe_budget_ok={}",
+        probe_budget_ok
+    ));
     verification_checks.push(format!(
         "web_constraint_search_probe_queued={}",
-        queued_probe
+        probe_queued
     ));
 
     if let Some(reason) = completion_reason {
@@ -470,33 +1115,28 @@ pub(super) async fn maybe_handle_web_read(
         );
         verification_checks.push("web_pipeline_active=false".to_string());
         verification_checks.push("terminal_chat_reply_ready=true".to_string());
-        log::info!(
-            "Web pipeline completed for session {} (sources_success={} blocked={}).",
-            hex::encode(&session_id[..4]),
-            pending.successful_reads.len(),
-            pending.blocked_urls.len()
-        );
-    } else {
-        let challenge = is_human_challenge_error(err.as_deref().unwrap_or(""));
-        verification_checks.push("web_pipeline_active=true".to_string());
-        agent_state.pending_search_completion = Some(pending);
-        if !*success {
-            let note = if challenge {
-                format!(
-                    "Skipped challenged source and queued next candidate: {}",
-                    current_url
-                )
-            } else {
-                format!(
-                    "Source read failed; queued alternate candidate: {}",
-                    current_url
-                )
-            };
-            *success = true;
-            *out = Some(note);
-            *err = None;
-            agent_state.status = AgentStatus::Running;
-        }
+        return Ok(());
+    }
+
+    let challenge = is_human_challenge_error(err.as_deref().unwrap_or(""));
+    verification_checks.push("web_pipeline_active=true".to_string());
+    agent_state.pending_search_completion = Some(pending);
+    if !*success {
+        let note = if challenge {
+            format!(
+                "Recorded challenged source in fixed payload (no fallback retries): {}",
+                current_url
+            )
+        } else {
+            format!(
+                "Source read failed in fixed payload (no fallback retries): {}",
+                current_url
+            )
+        };
+        *success = true;
+        *out = Some(note);
+        *err = None;
+        agent_state.status = AgentStatus::Running;
     }
 
     Ok(())

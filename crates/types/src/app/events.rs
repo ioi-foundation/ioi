@@ -182,16 +182,25 @@ pub struct PiiDecisionReceiptEvent {
 /// Intent resolution receipt emitted by the global step/action intent router.
 #[derive(Clone, Debug, Serialize, Deserialize, Encode, Decode, PartialEq)]
 pub struct IntentResolutionReceiptEvent {
+    /// Resolver contract version.
+    #[serde(default)]
+    pub contract_version: String,
     /// Session this resolution belongs to.
     pub session_id: Option<[u8; 32]>,
     /// Canonical winning intent id.
     pub intent_id: String,
+    /// Canonical selected intent id (duplicated for strict receipt schema parity).
+    #[serde(default)]
+    pub selected_intent_id: String,
     /// Ontological scope selected for this step.
     pub scope: IntentScopeProfile,
     /// Confidence band used for downstream policy.
     pub band: IntentConfidenceBand,
     /// Winning confidence score in [0.0, 1.0].
     pub score: f32,
+    /// Policy-quantized selected score in [0.0, 1.0].
+    #[serde(default)]
+    pub selected_score_quantized: f32,
     /// Ranked top-k candidates for diagnostics.
     #[serde(default)]
     pub top_k: Vec<IntentCandidateScore>,
@@ -224,9 +233,44 @@ pub struct IntentResolutionReceiptEvent {
     pub matrix_source_hash: [u8; 32],
     /// Deterministic receipt hash over resolution material.
     pub receipt_hash: [u8; 32],
+    /// Optional resolver failure class when classification is unclassified/blocked/infeasible.
+    #[serde(default)]
+    pub error_class: Option<String>,
     /// Deprecated/compat: always false (constrained mode removed).
     #[serde(default)]
     pub constrained: bool,
+}
+
+/// CEC execution-contract receipt emitted for each required stage key.
+#[derive(Clone, Debug, Serialize, Deserialize, Encode, Decode, PartialEq, Eq)]
+pub struct ExecutionContractReceiptEvent {
+    /// CEC contract version.
+    pub contract_version: String,
+    /// Session this receipt belongs to.
+    pub session_id: [u8; 32],
+    /// Step index this receipt belongs to.
+    pub step_index: u32,
+    /// Resolved intent id for this execution flow.
+    pub intent_id: String,
+    /// Execution stage (`discovery`, `provider_selection`, `execution`, `verification`, `completion_gate`).
+    pub stage: String,
+    /// Receipt/postcondition key under this stage.
+    pub key: String,
+    /// Whether the key is satisfied.
+    pub satisfied: bool,
+    /// Milliseconds since UNIX epoch when this receipt was emitted.
+    pub timestamp_ms: u64,
+    /// Cryptographic commit hash over receipt evidence.
+    pub evidence_commit_hash: String,
+    /// Optional verification-command commit hash.
+    #[serde(default)]
+    pub verifier_command_commit_hash: Option<String>,
+    /// Optional provider identifier.
+    #[serde(default)]
+    pub provider_id: Option<String>,
+    /// Optional synthesized-payload hash.
+    #[serde(default)]
+    pub synthesized_payload_hash: Option<String>,
 }
 
 /// Worker vertex captured in a planner receipt.
@@ -534,6 +578,8 @@ pub enum KernelEvent {
 
     /// Receipt emitted when the global intent resolver classifies a step/action.
     IntentResolutionReceipt(IntentResolutionReceiptEvent),
+    /// CEC execution-contract receipt for lifecycle evidence and completion gating.
+    ExecutionContractReceipt(ExecutionContractReceiptEvent),
     /// Receipt emitted when planner synthesis commits to an execution plan.
     PlanReceipt(PlanReceiptEvent),
 }

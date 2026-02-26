@@ -155,7 +155,7 @@ pub fn start_task(
         agent: "Autopilot".to_string(),
         phase: AgentPhase::Running,
         progress: 0,
-        total_steps: 10,
+        total_steps: 20,
         current_step: "Initializing...".to_string(),
         gate_info: None,
         receipt: None,

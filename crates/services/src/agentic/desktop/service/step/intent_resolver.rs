@@ -1,3 +1,4 @@
+use crate::agentic::desktop::service::step::signals::{analyze_query_facets, QueryFacetProfile};
 use crate::agentic::desktop::service::DesktopAgentService;
 use crate::agentic::desktop::types::{AgentState, ExecutionTier};
 use crate::agentic::rules::{ActionRules, Verdict};
@@ -5,9 +6,9 @@ use async_trait::async_trait;
 use ioi_api::vm::inference::InferenceRuntime;
 use ioi_crypto::algorithms::hash::sha256;
 use ioi_types::app::agentic::{
-    CapabilityId, IntentAmbiguityAction, IntentCandidateScore, IntentConfidenceBand,
-    IntentMatrixEntry, IntentRoutingPolicy, IntentScopeProfile, ResolvedIntentState,
-    ToolCapabilityBinding,
+    CapabilityId, ExecutionApplicabilityClass, IntentAmbiguityAction, IntentCandidateScore,
+    IntentConfidenceBand, IntentMatrixEntry, IntentRoutingPolicy, IntentScopeProfile,
+    ResolvedIntentState, ToolCapabilityBinding,
 };
 use ioi_types::app::{ActionTarget, IntentResolutionReceiptEvent, KernelEvent};
 use ioi_types::error::{TransactionError, VmError};
@@ -23,6 +24,15 @@ const INTENT_QUERY_NORMALIZATION_VERSION: &str = "intent_query_norm_v1";
 const INTENT_EMBEDDING_MODEL_ID: &str = "inference.embed_text";
 const INTENT_EMBEDDING_MODEL_VERSION: &str = "v1";
 const INTENT_SIMILARITY_FUNCTION_ID: &str = "cosine_similarity_v1";
+const CIRC_CONTRACT_VERSION: &str = "circ.v0.5";
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum IntentQueryBindingClass {
+    None,
+    HostLocal,
+    RemotePublicFact,
+    CommandDirected,
+}
 
 fn preferred_tier_from_label(label: &str, scope: IntentScopeProfile) -> ExecutionTier {
     match label {
@@ -78,6 +88,101 @@ fn normalize_query_for_ranking(raw: &str) -> String {
     raw.split_whitespace().collect::<Vec<_>>().join(" ")
 }
 
+fn query_binding_for_intent(entry: &IntentMatrixEntry) -> IntentQueryBindingClass {
+    match entry.intent_id.as_str() {
+        "system.clock.read" => IntentQueryBindingClass::HostLocal,
+        "web.research" => IntentQueryBindingClass::RemotePublicFact,
+        "command.exec" => IntentQueryBindingClass::CommandDirected,
+        _ => IntentQueryBindingClass::None,
+    }
+}
+
+fn query_explicitly_targets_host_local_clock(query: &str) -> bool {
+    let padded = format!(" {} ", query.to_ascii_lowercase());
+    const HOST_LOCAL_CLOCK_MARKERS: [&str; 12] = [
+        " this machine ",
+        " this computer ",
+        " this host ",
+        " this system ",
+        " local machine ",
+        " local computer ",
+        " local host ",
+        " local system ",
+        " on my machine ",
+        " on my computer ",
+        " on this machine ",
+        " on this computer ",
+    ];
+    HOST_LOCAL_CLOCK_MARKERS
+        .iter()
+        .any(|marker| padded.contains(marker))
+}
+
+fn query_requires_remote_public_fact_grounding(facets: &QueryFacetProfile) -> bool {
+    facets.grounded_external_required
+        || facets.time_sensitive_public_fact
+        || facets.goal.external_hits > 0
+        || facets.goal.public_fact_hits > 0
+        || facets.goal.explicit_url_hits > 0
+}
+
+fn intent_supports_remote_public_fact_grounding(entry: &IntentMatrixEntry) -> bool {
+    let has_web_retrieve_capability = entry
+        .required_capabilities
+        .iter()
+        .any(|capability| capability.as_str() == "web.retrieve");
+    match entry.applicability_class {
+        ExecutionApplicabilityClass::RemoteRetrieval => true,
+        ExecutionApplicabilityClass::Mixed => has_web_retrieve_capability,
+        _ => false,
+    }
+}
+
+fn query_has_timer_scheduling_shape(query: &str) -> bool {
+    let padded = format!(" {} ", query.to_ascii_lowercase());
+    const TIMER_MARKERS: [&str; 6] = [
+        " timer ",
+        " countdown ",
+        " alarm ",
+        " remind me ",
+        " reminder ",
+        " notify me ",
+    ];
+    TIMER_MARKERS.iter().any(|marker| padded.contains(marker))
+}
+
+fn query_expresses_command_execution_intent(query: &str, query_facets: &QueryFacetProfile) -> bool {
+    query_facets.goal.command_hits > 0
+        || query_facets.goal.workspace_hits > 0
+        || query_facets.goal.install_hits > 0
+        || query_has_timer_scheduling_shape(query)
+}
+
+fn query_binding_satisfied(
+    entry: &IntentMatrixEntry,
+    query: &str,
+    query_facets: &QueryFacetProfile,
+) -> bool {
+    if query_requires_remote_public_fact_grounding(query_facets)
+        && !intent_supports_remote_public_fact_grounding(entry)
+    {
+        return false;
+    }
+    match query_binding_for_intent(entry) {
+        IntentQueryBindingClass::None => true,
+        IntentQueryBindingClass::HostLocal => {
+            query_explicitly_targets_host_local_clock(query)
+                || !query_requires_remote_public_fact_grounding(query_facets)
+        }
+        IntentQueryBindingClass::RemotePublicFact => {
+            query_requires_remote_public_fact_grounding(query_facets)
+        }
+        IntentQueryBindingClass::CommandDirected => {
+            query_expresses_command_execution_intent(query, query_facets)
+        }
+    }
+}
+
 fn resolve_band(score: f32, policy: &IntentRoutingPolicy) -> IntentConfidenceBand {
     let high = policy
         .confidence
@@ -107,27 +212,27 @@ fn effective_matrix(
         let intent_id = entry.intent_id.trim();
         if intent_id.is_empty() {
             return Err(TransactionError::Invalid(
-                "Intent matrix contains empty intent_id".to_string(),
+                "ERROR_CLASS=OntologyViolation Intent matrix contains empty intent_id".to_string(),
             ));
         }
         let preferred_tier = entry.preferred_tier.trim();
         if !valid_preferred_tier_label(preferred_tier) {
             return Err(TransactionError::Invalid(format!(
-                "Intent '{}' has unsupported preferred_tier '{}'",
+                "ERROR_CLASS=OntologyViolation Intent '{}' has unsupported preferred_tier '{}'",
                 intent_id, entry.preferred_tier
             )));
         }
         let semantic_descriptor = entry.semantic_descriptor.trim();
         if semantic_descriptor.is_empty() {
             return Err(TransactionError::Invalid(format!(
-                "Intent '{}' has empty semantic_descriptor",
+                "ERROR_CLASS=OntologyViolation Intent '{}' has empty semantic_descriptor",
                 intent_id
             )));
         }
         let risk_class = entry.risk_class.trim();
         if risk_class.is_empty() {
             return Err(TransactionError::Invalid(format!(
-                "Intent '{}' has empty risk_class",
+                "ERROR_CLASS=OntologyViolation Intent '{}' has empty risk_class",
                 intent_id
             )));
         }
@@ -151,7 +256,7 @@ fn effective_matrix(
             .is_some()
         {
             return Err(TransactionError::Invalid(format!(
-                "Intent matrix contains duplicate intent_id '{}'",
+                "ERROR_CLASS=OntologyViolation Intent matrix contains duplicate intent_id '{}'",
                 intent_id
             )));
         }
@@ -239,6 +344,7 @@ fn receipt_hash(
     let normalized_query_hash = sha256(normalized_query.as_bytes())
         .map_err(|e| TransactionError::Invalid(e.to_string()))?;
     let payload = json!({
+        "contract_version": CIRC_CONTRACT_VERSION,
         "query": query,
         "query_hash": hex::encode(query_hash.as_ref()),
         "normalized_query": normalized_query,
@@ -265,6 +371,8 @@ fn receipt_hash(
         "score_quantization_bps": quantization_step_bps(policy),
         "tie_region_eps_bps": tie_region_eps_bps(policy),
         "ambiguity_margin_bps": ambiguity_margin_bps(policy),
+        "selected_intent_id": resolved.intent_id,
+        "selected_score_quantized": resolved.score,
         "ambiguity_abstain_exempt_intents": policy.ambiguity_abstain_exempt_intents,
         "constrained": resolved.constrained,
     });
@@ -280,15 +388,19 @@ fn emit_intent_resolution_receipt(
     service: &DesktopAgentService,
     session_id: [u8; 32],
     resolved: &ResolvedIntentState,
+    error_class: Option<String>,
 ) {
     if let Some(tx) = service.event_sender.as_ref() {
         let _ = tx.send(KernelEvent::IntentResolutionReceipt(
             IntentResolutionReceiptEvent {
+                contract_version: CIRC_CONTRACT_VERSION.to_string(),
                 session_id: Some(session_id),
                 intent_id: resolved.intent_id.clone(),
+                selected_intent_id: resolved.intent_id.clone(),
                 scope: resolved.scope,
                 band: resolved.band,
                 score: resolved.score,
+                selected_score_quantized: resolved.score,
                 top_k: resolved.top_k.clone(),
                 preferred_tier: resolved.preferred_tier.clone(),
                 matrix_version: resolved.matrix_version.clone(),
@@ -301,6 +413,7 @@ fn emit_intent_resolution_receipt(
                 query_normalization_version: resolved.query_normalization_version.clone(),
                 matrix_source_hash: resolved.matrix_source_hash,
                 receipt_hash: resolved.receipt_hash,
+                error_class,
                 constrained: resolved.constrained,
             },
         ));
@@ -388,13 +501,6 @@ fn should_abstain_for_ambiguity(
     gap < ambiguity_margin_bps(policy)
 }
 
-fn scope_feasible_for_query(scope: IntentScopeProfile, locality_scope_required: bool) -> bool {
-    if locality_scope_required {
-        return matches!(scope, IntentScopeProfile::WebResearch);
-    }
-    true
-}
-
 fn all_candidate_scores_zero(scores: &[IntentCandidateScore]) -> bool {
     !scores.is_empty()
         && scores
@@ -458,7 +564,7 @@ async fn build_intent_prototypes(
             })
             .collect::<Vec<_>>();
         return Err(TransactionError::Invalid(format!(
-            "Intent prototype cache incomplete: missing [{}]",
+            "ERROR_CLASS=ResolverContractViolation Intent prototype cache incomplete: missing [{}]",
             missing.join(", ")
         )));
     }
@@ -488,9 +594,11 @@ async fn ensure_intent_prototypes(
     }
 
     let prototypes = build_intent_prototypes(runtime, matrix).await?;
-    let mut cache = intent_prototype_cache()
-        .write()
-        .map_err(|_| TransactionError::Invalid("Intent prototype cache poisoned".to_string()))?;
+    let mut cache = intent_prototype_cache().write().map_err(|_| {
+        TransactionError::Invalid(
+            "ERROR_CLASS=ResolverContractViolation Intent prototype cache poisoned".to_string(),
+        )
+    })?;
     cache.insert(key, prototypes);
     Ok(())
 }
@@ -571,11 +679,14 @@ impl IntentRankBackend for Arc<dyn InferenceRuntime> {
         };
         let prototypes = {
             let cache = intent_prototype_cache().read().map_err(|_| {
-                TransactionError::Invalid("Intent prototype cache poisoned".to_string())
+                TransactionError::Invalid(
+                    "ERROR_CLASS=ResolverContractViolation Intent prototype cache poisoned"
+                        .to_string(),
+                )
             })?;
             cache.get(&key).cloned().ok_or_else(|| {
                 TransactionError::Invalid(format!(
-                    "Intent prototype cache miss matrix_version={} matrix_source_hash={}",
+                    "ERROR_CLASS=ResolverContractViolation Intent prototype cache miss matrix_version={} matrix_source_hash={}",
                     matrix_version,
                     hex::encode(matrix_source_hash)
                 ))
@@ -815,12 +926,12 @@ fn tool_capability_bindings() -> Vec<ToolCapabilityBinding> {
         ToolCapabilityBinding {
             tool_name: "web__search".to_string(),
             action_target: ActionTarget::WebRetrieve,
-            capabilities: vec![capability("web.retrieve")],
+            capabilities: vec![capability("web.retrieve"), capability("sys.time.read")],
         },
         ToolCapabilityBinding {
             tool_name: "web__read".to_string(),
             action_target: ActionTarget::WebRetrieve,
-            capabilities: vec![capability("web.retrieve")],
+            capabilities: vec![capability("web.retrieve"), capability("sys.time.read")],
         },
         ToolCapabilityBinding {
             tool_name: "net__fetch".to_string(),
@@ -933,13 +1044,38 @@ fn capability_satisfiable(
     })
 }
 
+fn capability_known(capability: &CapabilityId, bindings: &[ToolCapabilityBinding]) -> bool {
+    bindings
+        .iter()
+        .any(|binding| binding.capabilities.iter().any(|c| c == capability))
+}
+
+fn intent_feasible_without_policy(
+    entry: &IntentMatrixEntry,
+    bindings: &[ToolCapabilityBinding],
+    query: &str,
+    query_facets: &QueryFacetProfile,
+) -> bool {
+    if !query_binding_satisfied(entry, query, query_facets) {
+        return false;
+    }
+    if entry.required_capabilities.is_empty() {
+        return true;
+    }
+    entry
+        .required_capabilities
+        .iter()
+        .all(|required| capability_known(required, bindings))
+}
+
 fn intent_feasible_for_execution(
     entry: &IntentMatrixEntry,
     bindings: &[ToolCapabilityBinding],
     rules: &ActionRules,
-    locality_scope_required: bool,
+    query: &str,
+    query_facets: &QueryFacetProfile,
 ) -> bool {
-    if !scope_feasible_for_query(entry.scope, locality_scope_required) {
+    if !query_binding_satisfied(entry, query, query_facets) {
         return false;
     }
     if entry.required_capabilities.is_empty() {
@@ -949,6 +1085,42 @@ fn intent_feasible_for_execution(
         .required_capabilities
         .iter()
         .all(|required| capability_satisfiable(required, bindings, rules))
+}
+
+fn infer_unclassified_error_class(
+    ranked_candidates: &[IntentCandidateScore],
+    matrix: &[IntentMatrixEntry],
+    bindings: &[ToolCapabilityBinding],
+    rules: &ActionRules,
+    query: &str,
+    query_facets: &QueryFacetProfile,
+) -> String {
+    if ranked_candidates.is_empty() || all_candidate_scores_zero(ranked_candidates) {
+        return "IntentUnclassified".to_string();
+    }
+
+    let ranked_entries = ranked_candidates
+        .iter()
+        .filter_map(|candidate| {
+            matrix
+                .iter()
+                .find(|entry| entry.intent_id == candidate.intent_id)
+        })
+        .collect::<Vec<_>>();
+
+    if ranked_entries.is_empty() {
+        return "ResolverContractViolation".to_string();
+    }
+
+    let has_policy_block = ranked_entries.iter().any(|entry| {
+        intent_feasible_without_policy(entry, bindings, query, query_facets)
+            && !intent_feasible_for_execution(entry, bindings, rules, query, query_facets)
+    });
+    if has_policy_block {
+        return "PolicyBlocked".to_string();
+    }
+
+    "IntentInfeasible".to_string()
 }
 
 pub fn is_tool_allowed_for_resolution(
@@ -1033,8 +1205,7 @@ pub async fn resolve_step_intent(
     } else {
         normalized_query.clone()
     };
-    let locality_scope_required =
-        super::queue::web_pipeline::query_requires_runtime_locality_scope(&ranking_query);
+    let query_facets = analyze_query_facets(&query);
     let session_prefix = hex::encode(&agent_state.session_id[..4]);
     let query_hash = hex::encode(
         sha256(query.as_bytes()).map_err(|e| TransactionError::Invalid(e.to_string()))?,
@@ -1151,17 +1322,29 @@ pub async fn resolve_step_intent(
             let entry = matrix
                 .iter()
                 .find(|entry| entry.intent_id == candidate.intent_id)?;
-            intent_feasible_for_execution(entry, &bindings, rules, locality_scope_required)
+            intent_feasible_for_execution(entry, &bindings, rules, &query, &query_facets)
                 .then_some(candidate.clone())
         })
         .collect::<Vec<_>>();
+    let mut resolver_error_class: Option<String> = None;
     if selection_top_k.is_empty() {
         log::warn!(
             "IntentResolverFeasibility no feasible candidates after capability/policy checks session={}",
             session_prefix
         );
+        resolver_error_class = Some(infer_unclassified_error_class(
+            &ranked_candidates,
+            &matrix,
+            &bindings,
+            rules,
+            &query,
+            &query_facets,
+        ));
     }
     let unclassified = selection_top_k.is_empty() || all_candidate_scores_zero(&selection_top_k);
+    if unclassified && resolver_error_class.is_none() {
+        resolver_error_class = Some("IntentUnclassified".to_string());
+    }
     let mut winner = if unclassified {
         IntentCandidateScore {
             intent_id: "resolver.unclassified".to_string(),
@@ -1190,51 +1373,54 @@ pub async fn resolve_step_intent(
             intent_id: "resolver.unclassified".to_string(),
             score: 0.0,
         };
+        resolver_error_class = Some("IntentUnclassified".to_string());
     }
 
-    let (scope, preferred_tier, score, band, required_capabilities, risk_class) =
-        if winner.intent_id == "resolver.unclassified" {
-            (
-                IntentScopeProfile::Unknown,
-                "tool_first".to_string(),
-                0.0,
-                IntentConfidenceBand::Low,
-                vec![],
-                "unknown".to_string(),
-            )
-        } else {
-            let entry = matrix
-                .iter()
-                .find(|entry| entry.intent_id == winner.intent_id)
-                .ok_or_else(|| {
-                    TransactionError::Invalid(format!(
-                        "Intent '{}' missing matrix binding",
-                        winner.intent_id
-                    ))
-                })?;
-            let scope = scope_for_intent(&matrix, &winner.intent_id).ok_or_else(|| {
+    let (scope, preferred_tier, score, band, required_capabilities, risk_class) = if winner
+        .intent_id
+        == "resolver.unclassified"
+    {
+        (
+            IntentScopeProfile::Unknown,
+            "tool_first".to_string(),
+            0.0,
+            IntentConfidenceBand::Low,
+            vec![],
+            "unknown".to_string(),
+        )
+    } else {
+        let entry = matrix
+            .iter()
+            .find(|entry| entry.intent_id == winner.intent_id)
+            .ok_or_else(|| {
                 TransactionError::Invalid(format!(
-                    "Intent '{}' missing matrix scope binding",
+                    "ERROR_CLASS=ResolverContractViolation Intent '{}' missing matrix binding",
                     winner.intent_id
                 ))
             })?;
-            let preferred_tier =
+        let scope = scope_for_intent(&matrix, &winner.intent_id).ok_or_else(|| {
+            TransactionError::Invalid(format!(
+                "ERROR_CLASS=ResolverContractViolation Intent '{}' missing matrix scope binding",
+                winner.intent_id
+            ))
+        })?;
+        let preferred_tier =
                 preferred_tier_for_intent(&matrix, &winner.intent_id).ok_or_else(|| {
                     TransactionError::Invalid(format!(
-                        "Intent '{}' missing preferred tier binding",
+                        "ERROR_CLASS=ResolverContractViolation Intent '{}' missing preferred tier binding",
                         winner.intent_id
                     ))
                 })?;
-            let score = winner.score.clamp(0.0, 1.0);
-            (
-                scope,
-                preferred_tier,
-                score,
-                resolve_band(score, policy),
-                entry.required_capabilities.clone(),
-                entry.risk_class.clone(),
-            )
-        };
+        let score = winner.score.clamp(0.0, 1.0);
+        (
+            scope,
+            preferred_tier,
+            score,
+            resolve_band(score, policy),
+            entry.required_capabilities.clone(),
+            entry.risk_class.clone(),
+        )
+    };
     let mut resolved = ResolvedIntentState {
         intent_id: winner.intent_id,
         scope,
@@ -1266,1156 +1452,16 @@ pub async fn resolve_step_intent(
         active_window_title,
     )?;
 
-    emit_intent_resolution_receipt(service, agent_state.session_id, &resolved);
+    emit_intent_resolution_receipt(
+        service,
+        agent_state.session_id,
+        &resolved,
+        resolver_error_class,
+    );
 
     Ok(resolved)
 }
 
 #[cfg(test)]
-mod tests {
-    use super::{
-        is_ambiguity_abstain_exempt, is_tool_allowed_for_resolution, resolve_band,
-        resolve_step_intent, should_abstain_for_ambiguity, should_pause_for_clarification,
-        IntentCandidateScore,
-    };
-    use crate::agentic::desktop::service::DesktopAgentService;
-    use crate::agentic::desktop::types::{AgentMode, AgentState, AgentStatus, ExecutionTier};
-    use crate::agentic::rules::{ActionRules, Rule, RuleConditions, Verdict};
-    use async_trait::async_trait;
-    use ioi_api::vm::drivers::gui::{GuiDriver, InputEvent};
-    use ioi_api::vm::inference::{mock::MockInferenceRuntime, InferenceRuntime};
-    use ioi_drivers::browser::BrowserDriver;
-    use ioi_drivers::terminal::TerminalDriver;
-    use ioi_types::app::agentic::{
-        CapabilityId, InferenceOptions, IntentAmbiguityAction, IntentConfidenceBand,
-        IntentConfidenceBandPolicy, IntentMatrixEntry, IntentRoutingPolicy, IntentScopeProfile,
-        ResolvedIntentState,
-    };
-    use ioi_types::app::{ActionRequest, ContextSlice};
-    use ioi_types::error::VmError;
-    use std::collections::{BTreeMap, HashMap};
-    use std::path::Path;
-    use std::sync::Arc;
-
-    struct NoopGuiDriver;
-
-    #[async_trait]
-    impl GuiDriver for NoopGuiDriver {
-        async fn capture_screen(
-            &self,
-            _crop_rect: Option<(i32, i32, u32, u32)>,
-        ) -> Result<Vec<u8>, VmError> {
-            Err(VmError::HostError("noop gui".into()))
-        }
-
-        async fn capture_raw_screen(&self) -> Result<Vec<u8>, VmError> {
-            Err(VmError::HostError("noop gui".into()))
-        }
-
-        async fn capture_tree(&self) -> Result<String, VmError> {
-            Err(VmError::HostError("noop gui".into()))
-        }
-
-        async fn capture_context(&self, _intent: &ActionRequest) -> Result<ContextSlice, VmError> {
-            Err(VmError::HostError("noop gui".into()))
-        }
-
-        async fn inject_input(&self, _event: InputEvent) -> Result<(), VmError> {
-            Err(VmError::HostError("noop gui".into()))
-        }
-
-        async fn get_element_center(&self, _id: u32) -> Result<Option<(u32, u32)>, VmError> {
-            Ok(None)
-        }
-
-        async fn register_som_overlay(
-            &self,
-            _map: HashMap<u32, (i32, i32, i32, i32)>,
-        ) -> Result<(), VmError> {
-            Ok(())
-        }
-    }
-
-    #[derive(Debug, Default, Clone)]
-    struct ClockIntentRuntime;
-
-    #[async_trait]
-    impl InferenceRuntime for ClockIntentRuntime {
-        async fn execute_inference(
-            &self,
-            _model_hash: [u8; 32],
-            _input_context: &[u8],
-            _options: InferenceOptions,
-        ) -> Result<Vec<u8>, VmError> {
-            Ok(Vec::new())
-        }
-
-        async fn embed_text(&self, text: &str) -> Result<Vec<f32>, VmError> {
-            let text_lc = text.to_ascii_lowercase();
-            if text_lc.contains("clock")
-                || text_lc.contains("timestamp")
-                || text_lc.contains("time is it")
-            {
-                return Ok(vec![1.0, 0.0, 0.0]);
-            }
-            if text_lc.contains("web")
-                || text_lc.contains("research")
-                || text_lc.contains("weather")
-                || text_lc.contains("timer")
-                || text_lc.contains("countdown")
-            {
-                return Ok(vec![0.0, 1.0, 0.0]);
-            }
-            if text_lc.contains("command")
-                || text_lc.contains("terminal")
-                || text_lc.contains("shell")
-            {
-                return Ok(vec![0.0, 0.0, 1.0]);
-            }
-            Ok(vec![0.0, 0.0, 1.0])
-        }
-
-        async fn load_model(&self, _model_hash: [u8; 32], _path: &Path) -> Result<(), VmError> {
-            Ok(())
-        }
-
-        async fn unload_model(&self, _model_hash: [u8; 32]) -> Result<(), VmError> {
-            Ok(())
-        }
-    }
-
-    #[derive(Debug, Default, Clone)]
-    struct NoEmbeddingRuntime;
-
-    #[async_trait]
-    impl InferenceRuntime for NoEmbeddingRuntime {
-        async fn execute_inference(
-            &self,
-            _model_hash: [u8; 32],
-            _input_context: &[u8],
-            _options: InferenceOptions,
-        ) -> Result<Vec<u8>, VmError> {
-            Ok(Vec::new())
-        }
-
-        async fn embed_text(&self, _text: &str) -> Result<Vec<f32>, VmError> {
-            Err(VmError::HostError("embeddings unavailable".to_string()))
-        }
-
-        async fn load_model(&self, _model_hash: [u8; 32], _path: &Path) -> Result<(), VmError> {
-            Ok(())
-        }
-
-        async fn unload_model(&self, _model_hash: [u8; 32]) -> Result<(), VmError> {
-            Ok(())
-        }
-    }
-
-    #[derive(Debug, Default, Clone)]
-    struct WeatherVsClockRuntime;
-
-    #[async_trait]
-    impl InferenceRuntime for WeatherVsClockRuntime {
-        async fn execute_inference(
-            &self,
-            _model_hash: [u8; 32],
-            _input_context: &[u8],
-            _options: InferenceOptions,
-        ) -> Result<Vec<u8>, VmError> {
-            Ok(Vec::new())
-        }
-
-        async fn embed_text(&self, text: &str) -> Result<Vec<f32>, VmError> {
-            let text_lc = text.to_ascii_lowercase();
-            let web_terms = [
-                "web",
-                "research",
-                "online",
-                "internet",
-                "weather",
-                "forecast",
-                "temperature",
-                "humidity",
-                "wind",
-                "status",
-                "stock",
-                "score",
-            ];
-            let clock_terms = ["time", "clock", "utc", "timestamp"];
-
-            let mut web_score = 0.0f32;
-            for term in web_terms {
-                if text_lc.contains(term) {
-                    web_score += 1.0;
-                }
-            }
-
-            let mut clock_score = 0.0f32;
-            for term in clock_terms {
-                if text_lc.contains(term) {
-                    clock_score += 1.0;
-                }
-            }
-
-            if web_score == 0.0 && clock_score == 0.0 {
-                return Ok(vec![0.1, 0.1, 1.0]);
-            }
-
-            Ok(vec![web_score, clock_score, 0.0])
-        }
-
-        async fn load_model(&self, _model_hash: [u8; 32], _path: &Path) -> Result<(), VmError> {
-            Ok(())
-        }
-
-        async fn unload_model(&self, _model_hash: [u8; 32]) -> Result<(), VmError> {
-            Ok(())
-        }
-    }
-
-    #[derive(Debug, Default, Clone)]
-    struct TimerIntentRuntime;
-
-    #[async_trait]
-    impl InferenceRuntime for TimerIntentRuntime {
-        async fn execute_inference(
-            &self,
-            _model_hash: [u8; 32],
-            _input_context: &[u8],
-            _options: InferenceOptions,
-        ) -> Result<Vec<u8>, VmError> {
-            Ok(Vec::new())
-        }
-
-        async fn embed_text(&self, text: &str) -> Result<Vec<f32>, VmError> {
-            let text_lc = text.to_ascii_lowercase();
-            if text_lc.contains("timer") || text_lc.contains("countdown") {
-                return Ok(vec![1.0, 0.0, 0.0]);
-            }
-            if text_lc.contains("clock") || text_lc.contains("timestamp") {
-                return Ok(vec![0.0, 1.0, 0.0]);
-            }
-            Ok(vec![0.0, 0.0, 1.0])
-        }
-
-        async fn load_model(&self, _model_hash: [u8; 32], _path: &Path) -> Result<(), VmError> {
-            Ok(())
-        }
-
-        async fn unload_model(&self, _model_hash: [u8; 32]) -> Result<(), VmError> {
-            Ok(())
-        }
-    }
-
-    #[derive(Debug, Default, Clone)]
-    struct MathIntentRuntime;
-
-    #[async_trait]
-    impl InferenceRuntime for MathIntentRuntime {
-        async fn execute_inference(
-            &self,
-            _model_hash: [u8; 32],
-            _input_context: &[u8],
-            _options: InferenceOptions,
-        ) -> Result<Vec<u8>, VmError> {
-            Ok(Vec::new())
-        }
-
-        async fn embed_text(&self, text: &str) -> Result<Vec<f32>, VmError> {
-            let text_lc = text.to_ascii_lowercase();
-            let has_digits = text_lc.chars().any(|ch| ch.is_ascii_digit());
-            let has_math_symbol = text_lc
-                .chars()
-                .any(|ch| matches!(ch, '+' | '-' | '*' | '/' | '%' | '^' | '=' | 'x'));
-
-            if text_lc.contains("arithmetic")
-                || text_lc.contains("math")
-                || text_lc.contains("calculate")
-                || (has_digits && has_math_symbol)
-            {
-                return Ok(vec![1.0, 0.0, 0.0]);
-            }
-
-            if text_lc.contains("shell")
-                || text_lc.contains("terminal")
-                || text_lc.contains("command")
-                || text_lc.contains("timer")
-            {
-                return Ok(vec![0.0, 1.0, 0.0]);
-            }
-
-            if text_lc.contains("respond conversationally")
-                || text_lc.contains("draft a response")
-                || text_lc.contains("reply")
-            {
-                return Ok(vec![0.0, 0.0, 1.0]);
-            }
-
-            Ok(vec![0.0, 0.0, 0.1])
-        }
-
-        async fn load_model(&self, _model_hash: [u8; 32], _path: &Path) -> Result<(), VmError> {
-            Ok(())
-        }
-
-        async fn unload_model(&self, _model_hash: [u8; 32]) -> Result<(), VmError> {
-            Ok(())
-        }
-    }
-
-    #[derive(Debug, Default, Clone)]
-    struct LocalitySkewedRuntime;
-
-    #[async_trait]
-    impl InferenceRuntime for LocalitySkewedRuntime {
-        async fn execute_inference(
-            &self,
-            _model_hash: [u8; 32],
-            _input_context: &[u8],
-            _options: InferenceOptions,
-        ) -> Result<Vec<u8>, VmError> {
-            Ok(Vec::new())
-        }
-
-        async fn embed_text(&self, text: &str) -> Result<Vec<f32>, VmError> {
-            let text_lc = text.to_ascii_lowercase();
-            if text_lc.contains("system clock") || text_lc.contains("clock timestamp") {
-                return Ok(vec![1.0, 0.0]);
-            }
-            if text_lc.contains("web") && text_lc.contains("research") {
-                return Ok(vec![0.0, 1.0]);
-            }
-            if text_lc.contains("weather") {
-                // Deliberately skew weather queries toward the clock vector so
-                // we can assert no forced winner overrides are applied.
-                return Ok(vec![0.95, 0.05]);
-            }
-            if text_lc.contains("time") || text_lc.contains("clock") {
-                return Ok(vec![1.0, 0.0]);
-            }
-            Ok(vec![0.1, 0.1])
-        }
-
-        async fn load_model(&self, _model_hash: [u8; 32], _path: &Path) -> Result<(), VmError> {
-            Ok(())
-        }
-
-        async fn unload_model(&self, _model_hash: [u8; 32]) -> Result<(), VmError> {
-            Ok(())
-        }
-    }
-
-    #[derive(Debug, Default, Clone)]
-    struct AmbiguousRuntime;
-
-    #[async_trait]
-    impl InferenceRuntime for AmbiguousRuntime {
-        async fn execute_inference(
-            &self,
-            _model_hash: [u8; 32],
-            _input_context: &[u8],
-            _options: InferenceOptions,
-        ) -> Result<Vec<u8>, VmError> {
-            Ok(Vec::new())
-        }
-
-        async fn embed_text(&self, text: &str) -> Result<Vec<f32>, VmError> {
-            let text_lc = text.to_ascii_lowercase();
-            if text_lc.contains("system clock") || text_lc.contains("clock timestamp") {
-                return Ok(vec![1.0, 0.0]);
-            }
-            if text_lc.contains("shell or terminal")
-                || (text_lc.contains("command") && text_lc.contains("execute"))
-            {
-                return Ok(vec![0.0, 1.0]);
-            }
-            if text_lc.contains("ambiguous clock command intent") {
-                return Ok(vec![1.0, 1.0]);
-            }
-            Ok(vec![0.0, 0.0])
-        }
-
-        async fn load_model(&self, _model_hash: [u8; 32], _path: &Path) -> Result<(), VmError> {
-            Ok(())
-        }
-
-        async fn unload_model(&self, _model_hash: [u8; 32]) -> Result<(), VmError> {
-            Ok(())
-        }
-    }
-
-    #[derive(Debug, Default, Clone)]
-    struct LaunchVsUiRuntime;
-
-    #[async_trait]
-    impl InferenceRuntime for LaunchVsUiRuntime {
-        async fn execute_inference(
-            &self,
-            _model_hash: [u8; 32],
-            _input_context: &[u8],
-            _options: InferenceOptions,
-        ) -> Result<Vec<u8>, VmError> {
-            Ok(Vec::new())
-        }
-
-        async fn embed_text(&self, text: &str) -> Result<Vec<f32>, VmError> {
-            let text_lc = text.to_ascii_lowercase();
-            let tokens = text_lc
-                .split(|ch: char| !ch.is_ascii_alphanumeric())
-                .filter(|token| !token.trim().is_empty())
-                .collect::<Vec<_>>();
-            let has_token = |needle: &str| tokens.iter().any(|token| *token == needle);
-
-            let launch_terms = [
-                "launch",
-                "start",
-                "run",
-                "named",
-                "application",
-                "app",
-                "foreground",
-                "calculator",
-            ];
-            let ui_terms = [
-                "click", "type", "scroll", "press", "controls", "inside", "window", "already",
-                "button", "field",
-            ];
-
-            let launch_score = launch_terms.iter().filter(|term| has_token(term)).count() as f32;
-            let ui_score = ui_terms.iter().filter(|term| has_token(term)).count() as f32;
-
-            Ok(vec![launch_score, ui_score])
-        }
-
-        async fn load_model(&self, _model_hash: [u8; 32], _path: &Path) -> Result<(), VmError> {
-            Ok(())
-        }
-
-        async fn unload_model(&self, _model_hash: [u8; 32]) -> Result<(), VmError> {
-            Ok(())
-        }
-    }
-
-    fn test_agent_state() -> AgentState {
-        AgentState {
-            session_id: [0u8; 32],
-            goal: "check and see if we have gimp installed".to_string(),
-            transcript_root: [0u8; 32],
-            status: AgentStatus::Running,
-            step_count: 0,
-            max_steps: 8,
-            last_action_type: None,
-            parent_session_id: None,
-            child_session_ids: vec![],
-            budget: 1,
-            tokens_used: 0,
-            consecutive_failures: 0,
-            pending_approval: None,
-            pending_tool_call: None,
-            pending_tool_jcs: None,
-            pending_tool_hash: None,
-            pending_visual_hash: None,
-            recent_actions: vec![],
-            mode: AgentMode::Agent,
-            current_tier: ExecutionTier::DomHeadless,
-            last_screen_phash: None,
-            execution_queue: vec![],
-            pending_search_completion: None,
-            active_skill_hash: None,
-            tool_execution_log: BTreeMap::new(),
-            visual_som_map: None,
-            visual_semantic_map: None,
-            swarm_context: None,
-            target: None,
-            resolved_intent: None,
-            awaiting_intent_clarification: false,
-            working_directory: ".".to_string(),
-            active_lens: None,
-            command_history: Default::default(),
-        }
-    }
-
-    #[test]
-    fn conversation_scope_blocks_browser() {
-        let state = ResolvedIntentState {
-            intent_id: "conversation.reply".to_string(),
-            scope: IntentScopeProfile::Conversation,
-            band: IntentConfidenceBand::High,
-            score: 0.95,
-            top_k: vec![],
-            required_capabilities: vec![CapabilityId::from("conversation.reply")],
-            risk_class: "low".to_string(),
-            preferred_tier: "tool_first".to_string(),
-            matrix_version: "v1".to_string(),
-            embedding_model_id: "test".to_string(),
-            embedding_model_version: "test".to_string(),
-            similarity_function_id: "cosine".to_string(),
-            intent_set_hash: [0u8; 32],
-            tool_registry_hash: [0u8; 32],
-            capability_ontology_hash: [0u8; 32],
-            query_normalization_version: "v1".to_string(),
-            matrix_source_hash: [1u8; 32],
-            receipt_hash: [2u8; 32],
-            constrained: false,
-        };
-        assert!(!is_tool_allowed_for_resolution(
-            Some(&state),
-            "browser__navigate"
-        ));
-        assert!(!is_tool_allowed_for_resolution(Some(&state), "os__copy"));
-        assert!(!is_tool_allowed_for_resolution(Some(&state), "os__paste"));
-        assert!(is_tool_allowed_for_resolution(Some(&state), "chat__reply"));
-        assert!(is_tool_allowed_for_resolution(
-            Some(&state),
-            "wallet_network__mail_reply"
-        ));
-        assert!(!is_tool_allowed_for_resolution(None, "browser__navigate"));
-    }
-
-    #[test]
-    fn math_intent_allows_math_eval_and_chat_reply_only() {
-        let state = ResolvedIntentState {
-            intent_id: "math.eval".to_string(),
-            scope: IntentScopeProfile::Conversation,
-            band: IntentConfidenceBand::High,
-            score: 0.97,
-            top_k: vec![],
-            required_capabilities: vec![CapabilityId::from("conversation.reply")],
-            risk_class: "low".to_string(),
-            preferred_tier: "tool_first".to_string(),
-            matrix_version: "v1".to_string(),
-            embedding_model_id: "test".to_string(),
-            embedding_model_version: "test".to_string(),
-            similarity_function_id: "cosine".to_string(),
-            intent_set_hash: [0u8; 32],
-            tool_registry_hash: [0u8; 32],
-            capability_ontology_hash: [0u8; 32],
-            query_normalization_version: "v1".to_string(),
-            matrix_source_hash: [1u8; 32],
-            receipt_hash: [2u8; 32],
-            constrained: false,
-        };
-        assert!(is_tool_allowed_for_resolution(Some(&state), "math__eval"));
-        assert!(is_tool_allowed_for_resolution(Some(&state), "chat__reply"));
-        assert!(!is_tool_allowed_for_resolution(Some(&state), "sys__exec"));
-    }
-
-    #[test]
-    fn math_eval_tool_stays_on_primitive_capability_surface() {
-        let caps = super::tool_capabilities("math__eval");
-        assert_eq!(caps, vec![CapabilityId::from("conversation.reply")]);
-        assert!(!caps.iter().any(|cap| cap.as_str() == "math.eval"));
-    }
-
-    #[test]
-    fn unregistered_prefixed_tools_do_not_gain_capabilities_by_name_shape() {
-        let state = ResolvedIntentState {
-            intent_id: "command.exec".to_string(),
-            scope: IntentScopeProfile::CommandExecution,
-            band: IntentConfidenceBand::High,
-            score: 0.95,
-            top_k: vec![],
-            required_capabilities: vec![CapabilityId::from("command.exec")],
-            risk_class: "low".to_string(),
-            preferred_tier: "tool_first".to_string(),
-            matrix_version: "v1".to_string(),
-            embedding_model_id: "test".to_string(),
-            embedding_model_version: "test".to_string(),
-            similarity_function_id: "cosine".to_string(),
-            intent_set_hash: [0u8; 32],
-            tool_registry_hash: [0u8; 32],
-            capability_ontology_hash: [0u8; 32],
-            query_normalization_version: "v1".to_string(),
-            matrix_source_hash: [1u8; 32],
-            receipt_hash: [2u8; 32],
-            constrained: false,
-        };
-        assert!(!is_tool_allowed_for_resolution(
-            Some(&state),
-            "sys__nonexistent_custom_tool"
-        ));
-        assert!(!is_tool_allowed_for_resolution(
-            Some(&state),
-            "browser__unregistered_op"
-        ));
-    }
-
-    #[test]
-    fn ui_interaction_scope_allows_clipboard() {
-        let state = ResolvedIntentState {
-            intent_id: "ui.interact".to_string(),
-            scope: IntentScopeProfile::UiInteraction,
-            band: IntentConfidenceBand::High,
-            score: 0.95,
-            top_k: vec![],
-            required_capabilities: vec![
-                CapabilityId::from("clipboard.read"),
-                CapabilityId::from("clipboard.write"),
-            ],
-            risk_class: "low".to_string(),
-            preferred_tier: "visual_last".to_string(),
-            matrix_version: "v1".to_string(),
-            embedding_model_id: "test".to_string(),
-            embedding_model_version: "test".to_string(),
-            similarity_function_id: "cosine".to_string(),
-            intent_set_hash: [0u8; 32],
-            tool_registry_hash: [0u8; 32],
-            capability_ontology_hash: [0u8; 32],
-            query_normalization_version: "v1".to_string(),
-            matrix_source_hash: [1u8; 32],
-            receipt_hash: [2u8; 32],
-            constrained: false,
-        };
-        assert!(is_tool_allowed_for_resolution(Some(&state), "os__copy"));
-        assert!(is_tool_allowed_for_resolution(Some(&state), "os__paste"));
-    }
-
-    #[test]
-    fn command_execution_scope_allows_clipboard() {
-        let state = ResolvedIntentState {
-            intent_id: "command.exec".to_string(),
-            scope: IntentScopeProfile::CommandExecution,
-            band: IntentConfidenceBand::High,
-            score: 0.95,
-            top_k: vec![],
-            required_capabilities: vec![
-                CapabilityId::from("clipboard.read"),
-                CapabilityId::from("clipboard.write"),
-            ],
-            risk_class: "low".to_string(),
-            preferred_tier: "tool_first".to_string(),
-            matrix_version: "v1".to_string(),
-            embedding_model_id: "test".to_string(),
-            embedding_model_version: "test".to_string(),
-            similarity_function_id: "cosine".to_string(),
-            intent_set_hash: [0u8; 32],
-            tool_registry_hash: [0u8; 32],
-            capability_ontology_hash: [0u8; 32],
-            query_normalization_version: "v1".to_string(),
-            matrix_source_hash: [1u8; 32],
-            receipt_hash: [2u8; 32],
-            constrained: false,
-        };
-        assert!(is_tool_allowed_for_resolution(Some(&state), "os__copy"));
-        assert!(is_tool_allowed_for_resolution(Some(&state), "os__paste"));
-    }
-
-    #[test]
-    fn workspace_ops_scope_allows_clipboard() {
-        let state = ResolvedIntentState {
-            intent_id: "workspace.ops".to_string(),
-            scope: IntentScopeProfile::WorkspaceOps,
-            band: IntentConfidenceBand::High,
-            score: 0.95,
-            top_k: vec![],
-            required_capabilities: vec![
-                CapabilityId::from("clipboard.read"),
-                CapabilityId::from("clipboard.write"),
-            ],
-            risk_class: "low".to_string(),
-            preferred_tier: "tool_first".to_string(),
-            matrix_version: "v1".to_string(),
-            embedding_model_id: "test".to_string(),
-            embedding_model_version: "test".to_string(),
-            similarity_function_id: "cosine".to_string(),
-            intent_set_hash: [0u8; 32],
-            tool_registry_hash: [0u8; 32],
-            capability_ontology_hash: [0u8; 32],
-            query_normalization_version: "v1".to_string(),
-            matrix_source_hash: [1u8; 32],
-            receipt_hash: [2u8; 32],
-            constrained: false,
-        };
-        assert!(is_tool_allowed_for_resolution(Some(&state), "os__copy"));
-        assert!(is_tool_allowed_for_resolution(Some(&state), "os__paste"));
-    }
-
-    #[test]
-    fn confidence_thresholds_map_bands() {
-        let mut policy = IntentRoutingPolicy::default();
-        policy.confidence = IntentConfidenceBandPolicy {
-            high_threshold_bps: 7_000,
-            medium_threshold_bps: 4_500,
-        };
-        assert_eq!(resolve_band(0.91, &policy), IntentConfidenceBand::High);
-        assert_eq!(resolve_band(0.52, &policy), IntentConfidenceBand::Medium);
-        assert_eq!(resolve_band(0.2, &policy), IntentConfidenceBand::Low);
-    }
-
-    #[test]
-    fn pause_policy_applies_to_medium_confidence_band() {
-        let mut policy = IntentRoutingPolicy::default();
-        policy.ambiguity.low_confidence_action = IntentAmbiguityAction::Proceed;
-        policy.ambiguity.medium_confidence_action = IntentAmbiguityAction::PauseForClarification;
-
-        let resolved = ResolvedIntentState {
-            intent_id: "command.exec".to_string(),
-            scope: IntentScopeProfile::CommandExecution,
-            band: IntentConfidenceBand::Medium,
-            score: 0.61,
-            top_k: vec![],
-            required_capabilities: vec![CapabilityId::from("command.exec")],
-            risk_class: "low".to_string(),
-            preferred_tier: "tool_first".to_string(),
-            matrix_version: "v1".to_string(),
-            embedding_model_id: "test".to_string(),
-            embedding_model_version: "test".to_string(),
-            similarity_function_id: "cosine".to_string(),
-            intent_set_hash: [0u8; 32],
-            tool_registry_hash: [0u8; 32],
-            capability_ontology_hash: [0u8; 32],
-            query_normalization_version: "v1".to_string(),
-            matrix_source_hash: [0u8; 32],
-            receipt_hash: [0u8; 32],
-            constrained: false,
-        };
-
-        assert!(should_pause_for_clarification(&resolved, &policy));
-    }
-
-    #[test]
-    fn ambiguity_abstain_exemption_is_policy_driven() {
-        let mut policy = IntentRoutingPolicy::default();
-        policy.ambiguity_abstain_exempt_intents = vec![
-            "app.launch".to_string(),
-            "command.exec".to_string(),
-            "system.clock.read".to_string(),
-        ];
-        assert!(is_ambiguity_abstain_exempt(&policy, "app.launch"));
-        assert!(is_ambiguity_abstain_exempt(&policy, "command.exec"));
-        assert!(is_ambiguity_abstain_exempt(&policy, "system.clock.read"));
-        assert!(!is_ambiguity_abstain_exempt(&policy, "ui.interaction"));
-    }
-
-    #[test]
-    fn default_policy_exempts_command_exec_from_ambiguity_abstain() {
-        let policy = IntentRoutingPolicy::default();
-        assert!(is_ambiguity_abstain_exempt(&policy, "command.exec"));
-    }
-
-    #[test]
-    fn policy_exemption_overrides_ambiguity_abstain_gate() {
-        let mut policy = IntentRoutingPolicy::default();
-        policy.ambiguity_margin_bps = 50;
-        policy.ambiguity_abstain_exempt_intents = vec!["app.launch".to_string()];
-        let ranked = vec![
-            IntentCandidateScore {
-                intent_id: "app.launch".to_string(),
-                score: 0.646,
-            },
-            IntentCandidateScore {
-                intent_id: "ui.interaction".to_string(),
-                score: 0.642,
-            },
-        ];
-        let winner = ranked[0].clone();
-        assert!(should_abstain_for_ambiguity(&ranked, &winner, &policy));
-        let abstain = should_abstain_for_ambiguity(&ranked, &winner, &policy)
-            && !is_ambiguity_abstain_exempt(&policy, &winner.intent_id);
-        assert!(!abstain);
-    }
-
-    #[tokio::test(flavor = "current_thread")]
-    async fn resolver_never_emits_constrained_true() {
-        let gui: Arc<dyn GuiDriver> = Arc::new(NoopGuiDriver);
-        let terminal = Arc::new(TerminalDriver::new());
-        let browser = Arc::new(BrowserDriver::new());
-        let inference: Arc<dyn InferenceRuntime> = Arc::new(MockInferenceRuntime);
-        let service = DesktopAgentService::new(gui, terminal, browser, inference);
-
-        let agent_state = test_agent_state();
-
-        let mut rules = ActionRules::default();
-        rules
-            .ontology_policy
-            .intent_routing
-            .ambiguity
-            .medium_confidence_action = IntentAmbiguityAction::ConstrainedProceed;
-        rules
-            .ontology_policy
-            .intent_routing
-            .ambiguity
-            .low_confidence_action = IntentAmbiguityAction::ConstrainedProceed;
-
-        let resolved = resolve_step_intent(&service, &agent_state, &rules, "terminal")
-            .await
-            .unwrap();
-        assert!(!resolved.constrained);
-    }
-
-    #[tokio::test(flavor = "current_thread")]
-    async fn resolver_routes_clock_queries_to_system_clock_read() {
-        let gui: Arc<dyn GuiDriver> = Arc::new(NoopGuiDriver);
-        let terminal = Arc::new(TerminalDriver::new());
-        let browser = Arc::new(BrowserDriver::new());
-        let inference: Arc<dyn InferenceRuntime> = Arc::new(ClockIntentRuntime);
-        let service = DesktopAgentService::new(gui, terminal, browser, inference);
-
-        let mut agent_state = test_agent_state();
-        agent_state.goal = "What time is it right now on this machine?".to_string();
-
-        let mut rules = ActionRules::default();
-        rules.ontology_policy.intent_routing.matrix_version = "intent-matrix-v2-clock-test".into();
-        let resolved = resolve_step_intent(&service, &agent_state, &rules, "terminal")
-            .await
-            .unwrap();
-        assert_eq!(resolved.scope, IntentScopeProfile::CommandExecution);
-        assert_eq!(resolved.intent_id, "system.clock.read");
-        assert_eq!(
-            resolved
-                .top_k
-                .first()
-                .map(|candidate| candidate.intent_id.as_str()),
-            Some("system.clock.read")
-        );
-    }
-
-    #[tokio::test(flavor = "current_thread")]
-    async fn resolver_routes_weather_queries_to_web_research_not_clock_read() {
-        let gui: Arc<dyn GuiDriver> = Arc::new(NoopGuiDriver);
-        let terminal = Arc::new(TerminalDriver::new());
-        let browser = Arc::new(BrowserDriver::new());
-        let inference: Arc<dyn InferenceRuntime> = Arc::new(WeatherVsClockRuntime);
-        let service = DesktopAgentService::new(gui, terminal, browser, inference);
-
-        let mut agent_state = test_agent_state();
-        agent_state.goal = "What's the weather like right now?".to_string();
-
-        let mut rules = ActionRules::default();
-        rules.ontology_policy.intent_routing.matrix_version =
-            "intent-matrix-v2-weather-test".into();
-        let resolved = resolve_step_intent(&service, &agent_state, &rules, "terminal")
-            .await
-            .unwrap();
-
-        assert_eq!(resolved.intent_id, "web.research");
-        assert_eq!(resolved.scope, IntentScopeProfile::WebResearch);
-    }
-
-    #[tokio::test(flavor = "current_thread")]
-    async fn resolver_routes_open_calculator_to_app_launch_scope() {
-        let gui: Arc<dyn GuiDriver> = Arc::new(NoopGuiDriver);
-        let terminal = Arc::new(TerminalDriver::new());
-        let browser = Arc::new(BrowserDriver::new());
-        let inference: Arc<dyn InferenceRuntime> = Arc::new(LaunchVsUiRuntime);
-        let service = DesktopAgentService::new(gui, terminal, browser, inference);
-
-        let mut agent_state = test_agent_state();
-        agent_state.goal = "open calculator".to_string();
-
-        let mut rules = ActionRules::default();
-        rules.ontology_policy.intent_routing.matrix_version =
-            "intent-matrix-v10-app-launch-disambiguation-test".into();
-        let resolved = resolve_step_intent(&service, &agent_state, &rules, "terminal")
-            .await
-            .unwrap();
-
-        assert_eq!(resolved.intent_id, "app.launch");
-        assert_eq!(resolved.scope, IntentScopeProfile::AppLaunch);
-        assert_ne!(resolved.intent_id, "math.eval");
-    }
-
-    #[tokio::test(flavor = "current_thread")]
-    async fn resolver_routes_click_queries_to_ui_interaction_scope() {
-        let gui: Arc<dyn GuiDriver> = Arc::new(NoopGuiDriver);
-        let terminal = Arc::new(TerminalDriver::new());
-        let browser = Arc::new(BrowserDriver::new());
-        let inference: Arc<dyn InferenceRuntime> = Arc::new(LaunchVsUiRuntime);
-        let service = DesktopAgentService::new(gui, terminal, browser, inference);
-
-        let mut agent_state = test_agent_state();
-        agent_state.goal = "click the login button".to_string();
-
-        let mut rules = ActionRules::default();
-        rules.ontology_policy.intent_routing.matrix_version =
-            "intent-matrix-v10-ui-interaction-disambiguation-test".into();
-        let resolved = resolve_step_intent(&service, &agent_state, &rules, "terminal")
-            .await
-            .unwrap();
-
-        assert_eq!(resolved.intent_id, "ui.interaction");
-        assert_eq!(resolved.scope, IntentScopeProfile::UiInteraction);
-    }
-
-    #[tokio::test(flavor = "current_thread")]
-    async fn resolver_routes_timer_queries_to_command_exec() {
-        let gui: Arc<dyn GuiDriver> = Arc::new(NoopGuiDriver);
-        let terminal = Arc::new(TerminalDriver::new());
-        let browser = Arc::new(BrowserDriver::new());
-        let inference: Arc<dyn InferenceRuntime> = Arc::new(TimerIntentRuntime);
-        let service = DesktopAgentService::new(gui, terminal, browser, inference);
-
-        let mut agent_state = test_agent_state();
-        agent_state.goal = "Set a timer for 15 minutes".to_string();
-
-        let mut rules = ActionRules::default();
-        rules.ontology_policy.intent_routing.matrix_version = "intent-matrix-v4-timer-test".into();
-        let resolved = resolve_step_intent(&service, &agent_state, &rules, "terminal")
-            .await
-            .unwrap();
-
-        assert_eq!(resolved.intent_id, "command.exec");
-        assert_ne!(resolved.intent_id, "system.clock.read");
-    }
-
-    #[tokio::test(flavor = "current_thread")]
-    async fn resolver_routes_calculator_queries_to_math_eval_not_command_exec() {
-        let gui: Arc<dyn GuiDriver> = Arc::new(NoopGuiDriver);
-        let terminal = Arc::new(TerminalDriver::new());
-        let browser = Arc::new(BrowserDriver::new());
-        let inference: Arc<dyn InferenceRuntime> = Arc::new(MathIntentRuntime);
-        let service = DesktopAgentService::new(gui, terminal, browser, inference);
-
-        let mut agent_state = test_agent_state();
-        agent_state.goal = "What's 247 x 38?".to_string();
-
-        let mut rules = ActionRules::default();
-        rules.ontology_policy.intent_routing.matrix_version = "intent-matrix-v10-math-test".into();
-        let resolved = resolve_step_intent(&service, &agent_state, &rules, "terminal")
-            .await
-            .unwrap();
-
-        assert_eq!(resolved.intent_id, "math.eval");
-        assert_eq!(resolved.scope, IntentScopeProfile::Conversation);
-        assert_ne!(resolved.intent_id, "command.exec");
-    }
-
-    #[tokio::test(flavor = "current_thread")]
-    async fn resolver_routes_open_calculator_app_to_app_launch_not_math_eval() {
-        let gui: Arc<dyn GuiDriver> = Arc::new(NoopGuiDriver);
-        let terminal = Arc::new(TerminalDriver::new());
-        let browser = Arc::new(BrowserDriver::new());
-        let inference: Arc<dyn InferenceRuntime> = Arc::new(MathIntentRuntime);
-        let service = DesktopAgentService::new(gui, terminal, browser, inference);
-
-        let mut agent_state = test_agent_state();
-        agent_state.goal = "Open calculator app".to_string();
-
-        let mut rules = ActionRules::default();
-        rules.ontology_policy.intent_routing.matrix_version =
-            "intent-matrix-v10-open-calculator-app-launch-test".into();
-        let resolved = resolve_step_intent(&service, &agent_state, &rules, "terminal")
-            .await
-            .unwrap();
-
-        assert_eq!(resolved.intent_id, "app.launch");
-        assert_eq!(resolved.scope, IntentScopeProfile::AppLaunch);
-        assert_ne!(resolved.intent_id, "math.eval");
-    }
-
-    #[tokio::test(flavor = "current_thread")]
-    async fn resolver_routes_open_the_calculator_app_sentence_to_app_launch() {
-        let gui: Arc<dyn GuiDriver> = Arc::new(NoopGuiDriver);
-        let terminal = Arc::new(TerminalDriver::new());
-        let browser = Arc::new(BrowserDriver::new());
-        let inference: Arc<dyn InferenceRuntime> = Arc::new(MathIntentRuntime);
-        let service = DesktopAgentService::new(gui, terminal, browser, inference);
-
-        let mut agent_state = test_agent_state();
-        agent_state.goal = "Open the Calculator app.".to_string();
-
-        let mut rules = ActionRules::default();
-        rules.ontology_policy.intent_routing.matrix_version =
-            "intent-matrix-v10-open-the-calculator-app-launch-test".into();
-        let resolved = resolve_step_intent(&service, &agent_state, &rules, "terminal")
-            .await
-            .unwrap();
-
-        assert_eq!(resolved.intent_id, "app.launch");
-        assert_eq!(resolved.scope, IntentScopeProfile::AppLaunch);
-        assert_ne!(resolved.intent_id, "math.eval");
-    }
-
-    #[tokio::test(flavor = "current_thread")]
-    async fn resolver_keeps_app_launch_feasible_when_sys_exec_is_blocked() {
-        let gui: Arc<dyn GuiDriver> = Arc::new(NoopGuiDriver);
-        let terminal = Arc::new(TerminalDriver::new());
-        let browser = Arc::new(BrowserDriver::new());
-        let inference: Arc<dyn InferenceRuntime> = Arc::new(LaunchVsUiRuntime);
-        let service = DesktopAgentService::new(gui, terminal, browser, inference);
-
-        let mut agent_state = test_agent_state();
-        agent_state.goal = "Open the Calculator app.".to_string();
-
-        let mut rules = ActionRules::default();
-        rules.rules.push(Rule {
-            rule_id: Some("block-sys-exec".to_string()),
-            target: "sys::exec".to_string(),
-            conditions: RuleConditions::default(),
-            action: Verdict::Block,
-        });
-        rules.ontology_policy.intent_routing.matrix_version =
-            "intent-matrix-v11-open-calculator-with-sys-blocked".into();
-        let resolved = resolve_step_intent(&service, &agent_state, &rules, "terminal")
-            .await
-            .unwrap();
-
-        assert_eq!(resolved.intent_id, "app.launch");
-        assert_eq!(resolved.scope, IntentScopeProfile::AppLaunch);
-    }
-
-    #[tokio::test(flavor = "current_thread")]
-    async fn resolver_routing_is_not_driven_by_aliases_or_exemplars() {
-        let gui: Arc<dyn GuiDriver> = Arc::new(NoopGuiDriver);
-        let terminal = Arc::new(TerminalDriver::new());
-        let browser = Arc::new(BrowserDriver::new());
-        let inference: Arc<dyn InferenceRuntime> = Arc::new(ClockIntentRuntime);
-        let service = DesktopAgentService::new(gui, terminal, browser, inference);
-
-        let mut agent_state = test_agent_state();
-        agent_state.goal = "What time is it right now on this machine?".to_string();
-
-        let mut rules = ActionRules::default();
-        rules.ontology_policy.intent_routing.matrix_version =
-            "intent-matrix-v2-metadata-independence-test".into();
-        rules.ontology_policy.intent_routing.matrix = vec![
-            IntentMatrixEntry {
-                intent_id: "web.research".to_string(),
-                semantic_descriptor: "retrieve web research results".to_string(),
-                required_capabilities: vec![],
-                risk_class: "medium".to_string(),
-                scope: IntentScopeProfile::WebResearch,
-                preferred_tier: "tool_first".to_string(),
-                aliases: vec!["clock".to_string(), "time".to_string()],
-                exemplars: vec![
-                    "what time is it on this machine".to_string(),
-                    "read current utc clock timestamp".to_string(),
-                ],
-            },
-            IntentMatrixEntry {
-                intent_id: "system.clock.read".to_string(),
-                semantic_descriptor: "read system clock timestamp".to_string(),
-                required_capabilities: vec![],
-                risk_class: "low".to_string(),
-                scope: IntentScopeProfile::CommandExecution,
-                preferred_tier: "tool_first".to_string(),
-                aliases: vec!["weather".to_string()],
-                exemplars: vec![
-                    "what's the weather like right now".to_string(),
-                    "current temperature humidity and wind".to_string(),
-                ],
-            },
-        ];
-
-        let resolved = resolve_step_intent(&service, &agent_state, &rules, "terminal")
-            .await
-            .unwrap();
-        assert_eq!(resolved.intent_id, "system.clock.read");
-        assert_eq!(resolved.scope, IntentScopeProfile::CommandExecution);
-    }
-
-    #[tokio::test(flavor = "current_thread")]
-    async fn resolver_routes_runtime_locality_queries_to_web_research_scope() {
-        let gui: Arc<dyn GuiDriver> = Arc::new(NoopGuiDriver);
-        let terminal = Arc::new(TerminalDriver::new());
-        let browser = Arc::new(BrowserDriver::new());
-        let inference: Arc<dyn InferenceRuntime> = Arc::new(LocalitySkewedRuntime);
-        let service = DesktopAgentService::new(gui, terminal, browser, inference);
-
-        let mut agent_state = test_agent_state();
-        agent_state.goal = "What's the weather like right now?".to_string();
-
-        let mut rules = ActionRules::default();
-        rules.ontology_policy.intent_routing.matrix_version =
-            "intent-matrix-v2-runtime-locality-no-forced-override-test".into();
-        let resolved = resolve_step_intent(&service, &agent_state, &rules, "terminal")
-            .await
-            .unwrap();
-        assert_eq!(resolved.intent_id, "web.research");
-        assert_eq!(resolved.scope, IntentScopeProfile::WebResearch);
-    }
-
-    #[tokio::test(flavor = "current_thread")]
-    async fn resolver_abstains_when_embeddings_fail() {
-        let gui: Arc<dyn GuiDriver> = Arc::new(NoopGuiDriver);
-        let terminal = Arc::new(TerminalDriver::new());
-        let browser = Arc::new(BrowserDriver::new());
-        let inference: Arc<dyn InferenceRuntime> = Arc::new(NoEmbeddingRuntime);
-        let service = DesktopAgentService::new(gui, terminal, browser, inference);
-
-        let mut agent_state = test_agent_state();
-        agent_state.goal = "What time is it right now?".to_string();
-
-        let mut rules = ActionRules::default();
-        rules.ontology_policy.intent_routing.matrix_version =
-            "intent-matrix-v2-no-embed-test".into();
-        let resolved = resolve_step_intent(&service, &agent_state, &rules, "terminal")
-            .await
-            .unwrap();
-        assert_eq!(resolved.intent_id, "resolver.unclassified");
-        assert_eq!(resolved.scope, IntentScopeProfile::Unknown);
-        assert_eq!(resolved.score, 0.0);
-        assert_eq!(resolved.band, IntentConfidenceBand::Low);
-        assert!(!resolved.top_k.is_empty());
-        assert!(resolved
-            .top_k
-            .iter()
-            .all(|candidate| candidate.score <= f32::EPSILON));
-        assert!(should_pause_for_clarification(
-            &resolved,
-            &rules.ontology_policy.intent_routing
-        ));
-    }
-
-    #[tokio::test(flavor = "current_thread")]
-    async fn resolver_abstains_when_top_candidates_are_ambiguous() {
-        let gui: Arc<dyn GuiDriver> = Arc::new(NoopGuiDriver);
-        let terminal = Arc::new(TerminalDriver::new());
-        let browser = Arc::new(BrowserDriver::new());
-        let inference: Arc<dyn InferenceRuntime> = Arc::new(AmbiguousRuntime);
-        let service = DesktopAgentService::new(gui, terminal, browser, inference);
-
-        let mut agent_state = test_agent_state();
-        agent_state.goal = "ambiguous clock command intent".to_string();
-
-        let mut rules = ActionRules::default();
-        rules.ontology_policy.intent_routing.matrix_version =
-            "intent-matrix-v2-ambiguity-abstain-test".into();
-        rules.ontology_policy.intent_routing.ambiguity_margin_bps = 10_000;
-        rules
-            .ontology_policy
-            .intent_routing
-            .ambiguity_abstain_exempt_intents = vec![];
-        rules.ontology_policy.intent_routing.matrix = vec![
-            IntentMatrixEntry {
-                intent_id: "system.clock.read".to_string(),
-                semantic_descriptor: "system clock timestamp".to_string(),
-                required_capabilities: vec![],
-                risk_class: "low".to_string(),
-                scope: IntentScopeProfile::CommandExecution,
-                preferred_tier: "tool_first".to_string(),
-                aliases: vec![],
-                exemplars: vec![],
-            },
-            IntentMatrixEntry {
-                intent_id: "command.exec".to_string(),
-                semantic_descriptor: "shell or terminal command execute".to_string(),
-                required_capabilities: vec![],
-                risk_class: "low".to_string(),
-                scope: IntentScopeProfile::CommandExecution,
-                preferred_tier: "tool_first".to_string(),
-                aliases: vec![],
-                exemplars: vec![],
-            },
-        ];
-        let resolved = resolve_step_intent(&service, &agent_state, &rules, "terminal")
-            .await
-            .unwrap();
-
-        assert_eq!(resolved.intent_id, "resolver.unclassified");
-        assert_eq!(resolved.scope, IntentScopeProfile::Unknown);
-        assert_eq!(resolved.band, IntentConfidenceBand::Low);
-        assert!(resolved
-            .top_k
-            .iter()
-            .any(|candidate| candidate.intent_id == "system.clock.read"));
-        assert!(resolved
-            .top_k
-            .iter()
-            .any(|candidate| candidate.intent_id == "command.exec"));
-        assert!(should_pause_for_clarification(
-            &resolved,
-            &rules.ontology_policy.intent_routing
-        ));
-    }
-}
+#[path = "intent_resolver/tests/mod.rs"]
+mod tests;

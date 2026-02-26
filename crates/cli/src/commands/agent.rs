@@ -18,7 +18,7 @@ pub struct AgentArgs {
     pub rpc: String,
 
     /// Max steps to execute.
-    #[clap(long, default_value = "10")]
+    #[clap(long, default_value = "20")]
     pub steps: u32,
 }
 

@@ -1,4 +1,15 @@
 use super::*;
+use tokio::time::Duration;
+
+fn hybrid_synthesis_timeout() -> Duration {
+    const DEFAULT_TIMEOUT_MS: u64 = 4_000;
+    std::env::var("IOI_WEB_HYBRID_SYNTHESIS_TIMEOUT_MS")
+        .ok()
+        .and_then(|raw| raw.parse::<u64>().ok())
+        .filter(|ms| *ms > 0)
+        .map(Duration::from_millis)
+        .unwrap_or_else(|| Duration::from_millis(DEFAULT_TIMEOUT_MS))
+}
 
 pub(crate) fn extract_json_object(raw: &str) -> Option<&str> {
     let start = raw.find('{')?;
@@ -120,7 +131,9 @@ pub(crate) fn section_content_for_story(
         ReportSectionKind::Mitigation => story.workaround.clone(),
         ReportSectionKind::EtaConfidence => story.eta_confidence.clone(),
         ReportSectionKind::Caveat => story.caveat.clone(),
-        ReportSectionKind::Evidence => story.what_happened.clone(),
+        ReportSectionKind::Evidence => {
+            "Supporting source evidence is listed in the citations section.".to_string()
+        }
     };
 
     let normalized = compact_whitespace(content.trim());
@@ -317,6 +330,9 @@ pub(crate) async fn synthesize_web_pipeline_reply_hybrid(
     reason: WebPipelineCompletionReason,
 ) -> Option<String> {
     let draft = build_deterministic_story_draft(pending, reason);
+    if !query_requires_structured_synthesis(&draft.query) {
+        return None;
+    }
     let required_story_count = required_story_count(&draft.query);
     let citations_per_story = required_citations_per_story(&draft.query);
     let required_distinct_citations = required_distinct_citations(&draft.query);
@@ -394,10 +410,17 @@ Payload:\n{}",
         json_mode: true,
         max_tokens: WEB_PIPELINE_HYBRID_MAX_TOKENS,
     };
-    let raw = runtime
-        .execute_inference([0u8; 32], prompt.as_bytes(), options)
-        .await
-        .ok()?;
+    let timeout = hybrid_synthesis_timeout();
+    let raw = match tokio::time::timeout(
+        timeout,
+        runtime.execute_inference([0u8; 32], prompt.as_bytes(), options),
+    )
+    .await
+    {
+        Ok(Ok(bytes)) => bytes,
+        Ok(Err(_)) => return None,
+        Err(_) => return None,
+    };
     let text = String::from_utf8(raw).ok()?;
     let json_text = extract_json_object(&text).unwrap_or(text.as_str());
     let response: HybridSynthesisResponse = serde_json::from_str(json_text).ok()?;
@@ -411,7 +434,7 @@ Payload:\n{}",
     if !has_timestamps {
         return None;
     }
-    Some(render_synthesis_draft(&updated))
+    Some(render_user_synthesis_draft(&updated))
 }
 
 pub(crate) fn synthesize_web_pipeline_reply(
@@ -419,5 +442,5 @@ pub(crate) fn synthesize_web_pipeline_reply(
     reason: WebPipelineCompletionReason,
 ) -> String {
     let draft = build_deterministic_story_draft(pending, reason);
-    render_synthesis_draft(&draft)
+    render_user_synthesis_draft(&draft)
 }

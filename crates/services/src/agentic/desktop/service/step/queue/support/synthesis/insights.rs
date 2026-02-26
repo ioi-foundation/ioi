@@ -733,6 +733,10 @@ pub(crate) fn append_retrieval_receipts_for_source_floor(
     receipt_urls.sort();
     receipt_urls.dedup();
 
+    if receipt_urls.is_empty() {
+        return;
+    }
+
     lines.push("Retrieval receipts:".to_string());
     for url in receipt_urls {
         if surfaced_urls.len() >= required_distinct_source_floor {
@@ -743,21 +747,5 @@ pub(crate) fn append_retrieval_receipts_for_source_floor(
             url, draft.run_timestamp_iso_utc
         ));
         surfaced_urls.insert(url);
-    }
-
-    let mut receipt_idx = 1usize;
-    while surfaced_urls.len() < required_distinct_source_floor {
-        let synthetic_url = format!(
-            "https://ioi.local/receipts/{}/{}",
-            draft.run_date, receipt_idx
-        );
-        receipt_idx = receipt_idx.saturating_add(1);
-        if !surfaced_urls.insert(synthetic_url.clone()) {
-            continue;
-        }
-        lines.push(format!(
-            "- {} | {} | internal_provenance_receipt",
-            synthetic_url, draft.run_timestamp_iso_utc
-        ));
     }
 }
