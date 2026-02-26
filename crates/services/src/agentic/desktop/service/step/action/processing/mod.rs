@@ -1,6 +1,6 @@
 use super::command_contract::{
     capability_route_label, command_arms_deferred_notification_path, enrich_command_scope_summary,
-    execution_contract_violation_error, missing_execution_contract_markers,
+    execution_contract_violation_error, is_cec_terminal_error, missing_execution_contract_markers,
     record_provider_selection_receipts, record_timer_notification_contract_requirement,
     record_verification_receipts, requires_timer_notification_contract,
     synthesize_allowlisted_timer_notification_tool, sys_exec_arms_timer_delay_backend,

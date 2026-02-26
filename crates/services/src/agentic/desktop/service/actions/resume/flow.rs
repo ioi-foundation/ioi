@@ -10,28 +10,26 @@ pub(super) struct ResumePendingActionFlowContext<'a, 's> {
     pub call_context: ServiceCallContext<'a>,
 }
 
-fn extract_error_class_token(error: Option<&str>) -> Option<&str> {
-    let raw = error?;
-    let marker = "ERROR_CLASS=";
-    let start = raw.find(marker)?;
-    raw[start + marker.len()..]
-        .split_whitespace()
-        .next()
-        .filter(|token| !token.trim().is_empty())
+fn clear_pending_resume_state(agent_state: &mut AgentState) {
+    agent_state.pending_tool_jcs = None;
+    agent_state.pending_tool_hash = None;
+    agent_state.pending_visual_hash = None;
+    agent_state.pending_tool_call = None;
+    agent_state.pending_approval = None;
 }
 
-fn is_cec_terminal_error(error: Option<&str>) -> bool {
-    matches!(
-        extract_error_class_token(error),
-        Some(
-            "ExecutionContractViolation"
-                | "DiscoveryMissing"
-                | "SynthesisFailed"
-                | "ExecutionFailedTerminal"
-                | "VerificationMissing"
-                | "PostconditionFailed"
-        )
-    )
+fn restore_pending_resume_state(
+    agent_state: &mut AgentState,
+    tool_jcs: Vec<u8>,
+    tool_hash: [u8; 32],
+    pending_visual_hash: [u8; 32],
+    action_json: String,
+) {
+    agent_state.pending_tool_jcs = Some(tool_jcs);
+    agent_state.pending_tool_hash = Some(tool_hash);
+    agent_state.pending_visual_hash = Some(pending_visual_hash);
+    agent_state.pending_tool_call = Some(action_json);
+    agent_state.pending_approval = None;
 }
 
 pub(super) async fn resume_pending_action_flow(
@@ -221,11 +219,7 @@ pub(super) async fn resume_pending_action_flow(
             .append_chat_to_scs(session_id, &deny_msg, block_height)
             .await?;
 
-        agent_state.pending_tool_jcs = None;
-        agent_state.pending_tool_hash = None;
-        agent_state.pending_visual_hash = None;
-        agent_state.pending_tool_call = None;
-        agent_state.pending_approval = None;
+        clear_pending_resume_state(agent_state);
         agent_state.status = AgentStatus::Running;
         agent_state.step_count = agent_state.step_count.saturating_add(1);
         agent_state.consecutive_failures = agent_state.consecutive_failures.saturating_add(1);
@@ -513,11 +507,13 @@ pub(super) async fn resume_pending_action_flow(
     }
 
     if awaiting_sudo_password {
-        agent_state.pending_tool_jcs = Some(tool_jcs.clone());
-        agent_state.pending_tool_hash = Some(tool_hash);
-        agent_state.pending_visual_hash = Some(pending_vhash);
-        agent_state.pending_tool_call = Some(action_json.clone());
-        agent_state.pending_approval = None;
+        restore_pending_resume_state(
+            agent_state,
+            tool_jcs.clone(),
+            tool_hash,
+            pending_vhash,
+            action_json.clone(),
+        );
         agent_state.execution_queue.clear();
         let sys_msg = ioi_types::app::agentic::ChatMessage {
             role: "system".to_string(),
@@ -543,11 +539,7 @@ pub(super) async fn resume_pending_action_flow(
         }
         verification_checks.push("awaiting_sudo_password=true".to_string());
     } else if awaiting_clarification {
-        agent_state.pending_tool_jcs = None;
-        agent_state.pending_tool_hash = None;
-        agent_state.pending_visual_hash = None;
-        agent_state.pending_tool_call = None;
-        agent_state.pending_approval = None;
+        clear_pending_resume_state(agent_state);
         agent_state.execution_queue.clear();
         let sys_msg = ioi_types::app::agentic::ChatMessage {
             role: "system".to_string(),
@@ -565,12 +557,7 @@ pub(super) async fn resume_pending_action_flow(
             .await?;
         verification_checks.push("awaiting_clarification=true".to_string());
     } else {
-        // Clear pending state
-        agent_state.pending_tool_jcs = None;
-        agent_state.pending_tool_hash = None;
-        agent_state.pending_visual_hash = None;
-        agent_state.pending_tool_call = None;
-        agent_state.pending_approval = None;
+        clear_pending_resume_state(agent_state);
     }
 
     // [FIX] Reflexive Agent State Update (Ported from process.rs)

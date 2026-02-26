@@ -1,29 +1,5 @@
 use super::*;
 
-fn extract_error_class_token(error: Option<&str>) -> Option<&str> {
-    let raw = error?;
-    let marker = "ERROR_CLASS=";
-    let start = raw.find(marker)?;
-    raw[start + marker.len()..]
-        .split_whitespace()
-        .next()
-        .filter(|token| !token.trim().is_empty())
-}
-
-fn is_cec_terminal_error(error: Option<&str>) -> bool {
-    matches!(
-        extract_error_class_token(error),
-        Some(
-            "ExecutionContractViolation"
-                | "DiscoveryMissing"
-                | "SynthesisFailed"
-                | "ExecutionFailedTerminal"
-                | "VerificationMissing"
-                | "PostconditionFailed"
-        )
-    )
-}
-
 pub(crate) async fn finalize_action_processing(
     ctx: FinalizeActionProcessingContext<'_, '_>,
     state_in: ActionProcessingState,
