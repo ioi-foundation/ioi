@@ -58,6 +58,30 @@ pub fn capability_route_label(tool: &AgentTool) -> Option<&'static str> {
     }
 }
 
+pub fn extract_error_class_token(error: Option<&str>) -> Option<&str> {
+    let raw = error?;
+    let marker = "ERROR_CLASS=";
+    let start = raw.find(marker)?;
+    raw[start + marker.len()..]
+        .split_whitespace()
+        .next()
+        .filter(|token| !token.trim().is_empty())
+}
+
+pub fn is_cec_terminal_error(error: Option<&str>) -> bool {
+    matches!(
+        extract_error_class_token(error),
+        Some(
+            "ExecutionContractViolation"
+                | "DiscoveryMissing"
+                | "SynthesisFailed"
+                | "ExecutionFailedTerminal"
+                | "VerificationMissing"
+                | "PostconditionFailed"
+        )
+    )
+}
+
 pub fn execution_contract_violation_error(missing_keys: &str) -> String {
     let mut missing_receipts = Vec::<String>::new();
     let mut missing_postconditions = Vec::<String>::new();

@@ -8,6 +8,7 @@ use crate::agentic::desktop::service::step::action::{
     canonical_intent_hash, canonical_retry_intent_hash, canonical_tool_identity,
     mark_action_fingerprint_executed,
 };
+use crate::agentic::desktop::service::step::action::command_contract::is_cec_terminal_error;
 use crate::agentic::desktop::service::step::anti_loop::{
     build_attempt_key, build_post_state_summary, classify_failure, emit_routing_receipt,
     escalation_path_for_failure, extract_artifacts, lineage_pointer, mutation_receipt_pointer,
@@ -28,6 +29,7 @@ use crate::agentic::desktop::utils::goto_trace_log;
 use crate::agentic::rules::ActionRules;
 use ioi_api::state::StateAccess;
 use ioi_crypto::algorithms::hash::sha256;
+use ioi_types::app::agentic::AgentTool;
 use ioi_types::app::{KernelEvent, RoutingReceiptEvent, RoutingStateSummary};
 use ioi_types::codec;
 use ioi_types::error::TransactionError;
@@ -44,30 +46,6 @@ use self::web_pipeline::{
 };
 use crate::agentic::desktop::service::step::anti_loop::TierRoutingDecision;
 
-fn extract_error_class_token(error: Option<&str>) -> Option<&str> {
-    let raw = error?;
-    let marker = "ERROR_CLASS=";
-    let start = raw.find(marker)?;
-    raw[start + marker.len()..]
-        .split_whitespace()
-        .next()
-        .filter(|token| !token.trim().is_empty())
-}
-
-fn is_cec_terminal_error(error: Option<&str>) -> bool {
-    matches!(
-        extract_error_class_token(error),
-        Some(
-            "ExecutionContractViolation"
-                | "DiscoveryMissing"
-                | "SynthesisFailed"
-                | "ExecutionFailedTerminal"
-                | "VerificationMissing"
-                | "PostconditionFailed"
-        )
-    )
-}
-
 fn web_queue_action_timeout() -> Duration {
     const DEFAULT_TIMEOUT_SECS: u64 = 20;
     std::env::var("IOI_WEB_QUEUE_TOOL_TIMEOUT_SECS")
@@ -76,6 +54,80 @@ fn web_queue_action_timeout() -> Duration {
         .filter(|secs| *secs > 0)
         .map(Duration::from_secs)
         .unwrap_or_else(|| Duration::from_secs(DEFAULT_TIMEOUT_SECS))
+}
+
+async fn execute_queue_tool_request(
+    service: &DesktopAgentService,
+    state: &mut dyn StateAccess,
+    call_context: ServiceCallContext<'_>,
+    agent_state: &AgentState,
+    tool_wrapper: AgentTool,
+    tool_name: &str,
+    rules: &ActionRules,
+    session_id: [u8; 32],
+) -> Result<(bool, Option<String>, Option<String>), TransactionError> {
+    let os_driver = service
+        .os_driver
+        .clone()
+        .ok_or(TransactionError::Invalid("OS driver missing".into()))?;
+
+    if !is_tool_allowed_for_resolution(agent_state.resolved_intent.as_ref(), tool_name) {
+        return Err(TransactionError::Invalid(format!(
+            "ERROR_CLASS=PolicyBlocked Tool '{}' blocked by global intent scope.",
+            tool_name
+        )));
+    }
+
+    if is_web_research_scope(agent_state) {
+        let timeout = web_queue_action_timeout();
+        match tokio::time::timeout(
+            timeout,
+            service.handle_action_execution_with_state(
+                state,
+                call_context,
+                tool_wrapper.clone(),
+                session_id,
+                agent_state.step_count,
+                [0u8; 32],
+                rules,
+                agent_state,
+                &os_driver,
+                None,
+            ),
+        )
+        .await
+        {
+            Ok(result) => result,
+            Err(_) => {
+                log::warn!(
+                    "Web queue tool execution timed out after {:?} (session={} tool={}).",
+                    timeout,
+                    hex::encode(&session_id[..4]),
+                    tool_name
+                );
+                Err(TransactionError::Invalid(format!(
+                    "ERROR_CLASS=TimeoutOrHang Web queue tool '{}' timed out after {}ms.",
+                    tool_name,
+                    timeout.as_millis()
+                )))
+            }
+        }
+    } else {
+        service
+            .handle_action_execution_with_state(
+                state,
+                call_context,
+                tool_wrapper,
+                session_id,
+                agent_state.step_count,
+                [0u8; 32],
+                rules,
+                agent_state,
+                &os_driver,
+                None,
+            )
+            .await
+    }
 }
 
 pub fn resolve_queue_routing_context(
@@ -111,16 +163,8 @@ pub async fn process_queue_item(
     // Pop the first action
     let action_request = agent_state.execution_queue.remove(0);
 
-    // [NEW] Capture the active skill hash for attribution
+    // Capture the active skill hash for attribution.
     let active_skill = agent_state.active_skill_hash;
-
-    // [FIX] Removed manual ToolExecutor construction.
-    // The service method now handles it internally.
-
-    let os_driver = service
-        .os_driver
-        .clone()
-        .ok_or(TransactionError::Invalid("OS driver missing".into()))?;
 
     // Re-construct a typed AgentTool from ActionRequest.
     let tool_wrapper = queue_action_request_to_tool(&action_request)?;
@@ -152,63 +196,17 @@ pub async fn process_queue_item(
     let mut verification_checks = Vec::new();
 
     // Execute
-    // [FIX] Updated call: removed executor arg
-    let result_tuple =
-        if !is_tool_allowed_for_resolution(agent_state.resolved_intent.as_ref(), &tool_name) {
-            Err(TransactionError::Invalid(format!(
-                "ERROR_CLASS=PolicyBlocked Tool '{}' blocked by global intent scope.",
-                tool_name
-            )))
-        } else if is_web_research_scope(agent_state) {
-            let timeout = web_queue_action_timeout();
-            match tokio::time::timeout(
-                timeout,
-                service.handle_action_execution_with_state(
-                    state,
-                    call_context,
-                    tool_wrapper.clone(),
-                    p.session_id,
-                    agent_state.step_count,
-                    [0u8; 32],
-                    &rules,
-                    &agent_state,
-                    &os_driver,
-                    None,
-                ),
-            )
-            .await
-            {
-                Ok(result) => result,
-                Err(_) => {
-                    log::warn!(
-                        "Web queue tool execution timed out after {:?} (session={} tool={}).",
-                        timeout,
-                        hex::encode(&p.session_id[..4]),
-                        tool_name
-                    );
-                    Err(TransactionError::Invalid(format!(
-                        "ERROR_CLASS=TimeoutOrHang Web queue tool '{}' timed out after {}ms.",
-                        tool_name,
-                        timeout.as_millis()
-                    )))
-                }
-            }
-        } else {
-            service
-                .handle_action_execution_with_state(
-                    state,
-                    call_context,
-                    tool_wrapper.clone(),
-                    p.session_id,
-                    agent_state.step_count,
-                    [0u8; 32],
-                    &rules,
-                    &agent_state,
-                    &os_driver,
-                    None,
-                )
-                .await
-        };
+    let result_tuple = execute_queue_tool_request(
+        service,
+        state,
+        call_context,
+        agent_state,
+        tool_wrapper.clone(),
+        &tool_name,
+        &rules,
+        p.session_id,
+    )
+    .await;
 
     let mut is_gated = false;
     let mut awaiting_sudo_password = false;
@@ -600,7 +598,7 @@ pub async fn process_queue_item(
         error_str,
         "macro_step".to_string(),
         service.event_sender.clone(),
-        active_skill, // [NEW] Pass the skill hash
+        active_skill,
     )?;
 
     if let Some(summary) = completion_summary.as_ref() {
@@ -958,7 +956,7 @@ pub async fn process_queue_item(
     };
     emit_routing_receipt(service.event_sender.as_ref(), receipt);
 
-    // [NEW] If queue is empty, clear the active skill hash to reset context
+    // If the queue is empty, clear active skill context.
     if agent_state.execution_queue.is_empty() {
         agent_state.active_skill_hash = None;
     }
