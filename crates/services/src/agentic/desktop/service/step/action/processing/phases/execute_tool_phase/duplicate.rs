@@ -46,6 +46,10 @@ pub(super) fn handle_duplicate_command_execution(
     let mut terminal_chat_reply_output = None;
     let mut is_lifecycle_action = false;
     let matching_command_history_entry = matching_command_history_entry.as_ref();
+    let is_command_tool = matches!(
+        tool,
+        AgentTool::SysExec { .. } | AgentTool::SysExecSession { .. }
+    );
 
     if let Some(summary) =
         duplicate_command_completion_summary(tool, matching_command_history_entry)
@@ -142,7 +146,7 @@ pub(super) fn handle_duplicate_command_execution(
                 &missing,
             );
         }
-    } else {
+    } else if is_command_tool {
         let summary = duplicate_command_execution_summary(tool);
         let duplicate_error = format!("ERROR_CLASS=NoEffectAfterAction {}", summary);
         error_msg = Some(duplicate_error.clone());
@@ -150,6 +154,28 @@ pub(super) fn handle_duplicate_command_execution(
         action_output = Some(duplicate_error);
         agent_state.status = AgentStatus::Running;
         verification_checks.push("duplicate_action_fingerprint_blocked=true".to_string());
+    } else {
+        let tool_name = canonical_tool_identity(tool).0;
+        let summary = format!(
+            "Skipped immediate replay of '{}' because the same action fingerprint was already executed on the previous step. This fingerprint is now cooled down at the current step; choose a different action or finish with the gathered evidence.",
+            tool_name
+        );
+        let duplicate_error = format!("ERROR_CLASS=NoEffectAfterAction {}", summary);
+        mark_action_fingerprint_executed_at_step(
+            &mut agent_state.tool_execution_log,
+            action_fingerprint,
+            step_index,
+            "duplicate_skip",
+        );
+        success = false;
+        error_msg = Some(duplicate_error.clone());
+        history_entry = Some(summary.clone());
+        action_output = Some(duplicate_error);
+        agent_state.status = AgentStatus::Running;
+        verification_checks
+            .push("duplicate_action_fingerprint_non_command_skipped=true".to_string());
+        verification_checks
+            .push("duplicate_action_fingerprint_non_command_step_advanced=true".to_string());
     }
     verification_checks.push(format!(
         "duplicate_action_fingerprint={}",

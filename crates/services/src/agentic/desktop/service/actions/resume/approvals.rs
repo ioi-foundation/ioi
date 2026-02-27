@@ -28,10 +28,9 @@ fn to_shared_risk_surface(risk_surface: PiiEgressRiskSurface) -> RiskSurface {
 pub(super) async fn validate_and_apply(
     service: &DesktopAgentService,
     state: &mut dyn StateAccess,
-    agent_state: &AgentState,
+    agent_state: &mut AgentState,
     session_id: [u8; 32],
     tool: &AgentTool,
-    tool_hash: [u8; 32],
     expected_request_hash: [u8; 32],
     pii_request: Option<&PiiReviewRequest>,
     block_timestamp_ms: u64,

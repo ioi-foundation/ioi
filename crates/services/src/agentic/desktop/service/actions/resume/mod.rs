@@ -27,7 +27,7 @@ use crate::agentic::desktop::service::step::action::command_contract::{
 use crate::agentic::desktop::service::step::action::{
     canonical_intent_hash, canonical_retry_intent_hash, canonical_tool_identity,
     is_command_probe_intent, is_system_clock_read_intent, is_ui_capture_screenshot_intent,
-    mark_action_fingerprint_executed, mark_execution_postcondition, mark_execution_receipt,
+    mark_action_fingerprint_executed_at_step, mark_execution_postcondition, mark_execution_receipt,
     postcondition_marker, receipt_marker, summarize_command_probe_output,
     summarize_system_clock_or_plain_output, summarize_system_clock_output,
 };

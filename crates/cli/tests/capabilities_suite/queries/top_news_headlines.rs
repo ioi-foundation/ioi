@@ -12,6 +12,7 @@ pub fn case() -> QueryCase {
         success_definition: "Return today's top headlines with article-level citation quality, not mostly homepage titles.",
         seeded_intent_id: "web.research",
         intent_scope: IntentScopeProfile::WebResearch,
+        seed_resolved_intent: true,
         expected_pass: true,
         sla_seconds: 90,
         max_steps: 18,

@@ -17,11 +17,12 @@ use super::probe::{
 use super::refusal_eval::evaluate_and_crystallize;
 use super::search::{extract_navigation_url, is_search_results_url, search_query_from_url};
 use super::support::{
-    canonical_intent_hash, canonical_retry_intent_hash, canonical_tool_identity,
+    action_fingerprint_execution_step, canonical_intent_hash, canonical_retry_intent_hash,
+    canonical_tool_identity, drop_legacy_action_fingerprint_receipt,
     enforce_system_fail_terminal_status, execution_receipt_value, get_status_str,
-    has_execution_receipt, is_action_fingerprint_executed, mark_action_fingerprint_executed,
-    mark_execution_postcondition, mark_execution_receipt, mark_execution_receipt_with_value,
-    mark_system_fail_status, postcondition_marker, receipt_marker,
+    has_execution_receipt, mark_action_fingerprint_executed_at_step, mark_execution_postcondition,
+    mark_execution_receipt, mark_execution_receipt_with_value, mark_system_fail_status,
+    postcondition_marker, receipt_marker,
 };
 use crate::agentic::desktop::execution::system::is_sudo_password_required_install_error;
 use crate::agentic::desktop::keys::{get_state_key, AGENT_POLICY_PREFIX};

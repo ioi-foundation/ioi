@@ -39,6 +39,7 @@ use ioi_types::keys::active_service_key;
 use ioi_types::service_configs::{ActiveServiceMeta, Capabilities, MethodPermission};
 use ioi_types::{codec, error::VmError};
 use parity_scale_codec::Encode;
+use serde::Deserialize;
 use std::collections::{BTreeMap, BTreeSet};
 use std::io::Cursor;
 use std::path::PathBuf;
@@ -47,7 +48,7 @@ use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 use tempfile::tempdir;
 use tokio::sync::broadcast;
 
-use super::types::{ActionEvidence, QueryCase, RunObservation};
+use super::types::{ActionEvidence, CommandHistoryEvidence, QueryCase, RunObservation};
 
 #[derive(Clone)]
 struct MockGuiDriver;
@@ -677,6 +678,68 @@ fn event_full_line(event: &KernelEvent) -> String {
     event_log_line(event, 2_000)
 }
 
+#[derive(Debug, Deserialize)]
+struct CommandHistoryPayload {
+    command: String,
+    exit_code: i32,
+    stdout: String,
+    stderr: String,
+}
+
+fn extract_json_prefix_object(input: &str) -> Option<&str> {
+    let trimmed = input.trim_start();
+    let mut chars = trimmed.char_indices();
+    let (start_idx, first_char) = chars.next()?;
+    if start_idx != 0 || first_char != '{' {
+        return None;
+    }
+
+    let mut depth = 1usize;
+    let mut in_string = false;
+    let mut escaped = false;
+
+    for (idx, ch) in chars {
+        if in_string {
+            if escaped {
+                escaped = false;
+                continue;
+            }
+            match ch {
+                '\\' => escaped = true,
+                '"' => in_string = false,
+                _ => {}
+            }
+            continue;
+        }
+
+        match ch {
+            '"' => in_string = true,
+            '{' => depth = depth.saturating_add(1),
+            '}' => {
+                depth = depth.saturating_sub(1);
+                if depth == 0 {
+                    return Some(&trimmed[..=idx]);
+                }
+            }
+            _ => {}
+        }
+    }
+
+    None
+}
+
+fn extract_command_history_evidence(output: &str) -> Option<CommandHistoryEvidence> {
+    let payload = output.strip_prefix("COMMAND_HISTORY:")?;
+    let json_fragment = extract_json_prefix_object(payload)?;
+    let parsed: CommandHistoryPayload = serde_json::from_str(json_fragment).ok()?;
+    Some(CommandHistoryEvidence {
+        command: parsed.command,
+        exit_code: parsed.exit_code,
+        stdout: parsed.stdout,
+        stderr: parsed.stderr,
+    })
+}
+
 fn civil_date_from_days(days_since_epoch: i64) -> (i64, i64, i64) {
     let z = days_since_epoch + 719_468;
     let era = if z >= 0 { z } else { z - 146_096 } / 146_097;
@@ -1018,12 +1081,14 @@ pub async fn run_case(
         .await?;
 
     enable_intent_shadow_mode(&mut state, session_id);
-    seed_resolved_intent(
-        &mut state,
-        session_id,
-        case.seeded_intent_id,
-        case.intent_scope,
-    );
+    if case.seed_resolved_intent {
+        seed_resolved_intent(
+            &mut state,
+            session_id,
+            case.seeded_intent_id,
+            case.intent_scope,
+        );
+    }
 
     let started = Instant::now();
     let deadline = Duration::from_secs(case.sla_seconds);
@@ -1106,6 +1171,7 @@ pub async fn run_case(
     let mut workload_tools = BTreeSet::new();
     let mut verification_checks = BTreeSet::new();
     let mut action_evidence = Vec::new();
+    let mut command_history_evidence = Vec::new();
     let mut final_reply = String::new();
     let mut chat_reply_count = 0usize;
     let mut approval_required_events = 0usize;
@@ -1119,6 +1185,11 @@ pub async fn run_case(
                 ..
             } => {
                 action_tools.insert(tool_name.clone());
+                if tool_name.starts_with("sys__exec") {
+                    if let Some(entry) = extract_command_history_evidence(output) {
+                        command_history_evidence.push(entry);
+                    }
+                }
                 action_evidence.push(ActionEvidence {
                     tool_name: tool_name.clone(),
                     agent_status: agent_status.clone(),
@@ -1201,6 +1272,7 @@ pub async fn run_case(
         verification_checks: verification_checks.into_iter().collect(),
         approval_required_events,
         action_evidence,
+        command_history_evidence,
         event_excerpt,
         kernel_event_count: captured_events.len(),
         kernel_log_lines,

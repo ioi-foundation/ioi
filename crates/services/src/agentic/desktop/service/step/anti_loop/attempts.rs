@@ -11,6 +11,18 @@ fn normalize_optional(value: Option<&str>) -> Option<String> {
         .map(|value| value.to_string())
 }
 
+pub fn canonical_attempt_window_fingerprint(
+    failure_class: FailureClass,
+    command_scope: bool,
+    window_fingerprint: Option<&str>,
+) -> Option<String> {
+    if command_scope || matches!(failure_class, FailureClass::NoEffectAfterAction) {
+        return None;
+    }
+
+    normalize_optional(window_fingerprint)
+}
+
 pub fn build_attempt_key(
     intent_hash: &str,
     tier: ExecutionTier,

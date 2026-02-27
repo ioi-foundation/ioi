@@ -11,6 +11,7 @@ pub fn case() -> QueryCase {
         success_definition: "Return the correct multiplication result (9386) clearly and directly.",
         seeded_intent_id: "math.eval",
         intent_scope: IntentScopeProfile::Conversation,
+        seed_resolved_intent: true,
         expected_pass: true,
         sla_seconds: 30,
         max_steps: 8,

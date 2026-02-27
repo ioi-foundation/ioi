@@ -127,6 +127,14 @@ pub(super) fn duplicate_command_cached_completion_summary(
     // Reuse eligibility checks from cached-success path.
     let _ = duplicate_command_cached_success_summary(tool, history_entry)?;
     let entry = history_entry?;
+    if normalize_command_binary(&entry.command).as_deref() == Some("find")
+        && is_safe_find_probe_command(entry.command.trim())
+    {
+        let stdout = entry.stdout.trim();
+        if !stdout.is_empty() {
+            return Some(stdout.to_string());
+        }
+    }
     preferred_cached_completion_line(&entry.stdout)
         .or_else(|| preferred_cached_completion_line(&entry.stderr))
         .or_else(|| duplicate_command_cached_success_summary(tool, Some(entry)))
@@ -147,6 +155,24 @@ fn normalize_command_string(value: &str) -> String {
     value.split_whitespace().collect::<Vec<_>>().join(" ")
 }
 
+fn normalize_command_binary(command_preview: &str) -> Option<String> {
+    let trimmed = command_preview.trim();
+    if trimmed.is_empty() {
+        return None;
+    }
+    let binary = trimmed
+        .split_whitespace()
+        .next()
+        .unwrap_or_default()
+        .trim_matches(|ch: char| ch == '\'' || ch == '"' || ch == '`')
+        .to_ascii_lowercase();
+    if binary.is_empty() {
+        None
+    } else {
+        Some(binary)
+    }
+}
+
 fn is_safe_read_probe_command(command_preview: &str) -> bool {
     let trimmed = command_preview.trim();
     if trimmed.is_empty() {
@@ -164,12 +190,9 @@ fn is_safe_read_probe_command(command_preview: &str) -> bool {
         return false;
     }
 
-    let binary = trimmed
-        .split_whitespace()
-        .next()
-        .unwrap_or_default()
-        .trim_matches(|ch: char| ch == '\'' || ch == '"' || ch == '`')
-        .to_ascii_lowercase();
+    let Some(binary) = normalize_command_binary(trimmed) else {
+        return false;
+    };
 
     matches!(
         binary.as_str(),
@@ -186,6 +209,19 @@ fn is_safe_read_probe_command(command_preview: &str) -> bool {
             | "ls"
             | "env"
     )
+        || (binary == "find" && is_safe_find_probe_command(trimmed))
+}
+
+fn is_safe_find_probe_command(command_preview: &str) -> bool {
+    let disallowed_tokens = [
+        "-delete", "-exec", "-execdir", "-ok", "-okdir", "-fprint", "-fprint0", "-fprintf",
+        "-fls",
+    ];
+
+    command_preview
+        .split_whitespace()
+        .map(|token| token.to_ascii_lowercase())
+        .all(|token| !disallowed_tokens.contains(&token.as_str()))
 }
 
 fn extract_background_pid(stdout: &str) -> Option<String> {
@@ -312,5 +348,90 @@ mod tests {
         let matched = find_matching_command_history_entry(&tool, &history)
             .expect("expected to find matching date -u history entry");
         assert_eq!(matched.command, "date -u");
+    }
+
+    #[test]
+    fn duplicate_find_probe_reuses_prior_success() {
+        let tool = AgentTool::SysExec {
+            command: "find".to_string(),
+            args: vec![
+                "/home/user".to_string(),
+                "-type".to_string(),
+                "f".to_string(),
+                "-name".to_string(),
+                "*.pdf".to_string(),
+                "-mtime".to_string(),
+                "-7".to_string(),
+            ],
+            stdin: None,
+            detach: false,
+        };
+        let history = CommandExecution {
+            command: "find /home/user -type f -name *.pdf -mtime -7".to_string(),
+            exit_code: 0,
+            stdout: "/home/user/report.pdf".to_string(),
+            stderr: String::new(),
+            timestamp_ms: 1_772_000_000_000,
+            step_index: 1,
+        };
+        let summary = duplicate_command_cached_success_summary(&tool, Some(&history))
+            .expect("safe find probe command should reuse cached success");
+        assert!(summary.contains("Reused prior successful command result"));
+        assert!(summary.contains("Stdout: /home/user/report.pdf"));
+    }
+
+    #[test]
+    fn duplicate_find_with_delete_is_not_reused() {
+        let tool = AgentTool::SysExec {
+            command: "find".to_string(),
+            args: vec![
+                "/home/user".to_string(),
+                "-type".to_string(),
+                "f".to_string(),
+                "-name".to_string(),
+                "*.pdf".to_string(),
+                "-delete".to_string(),
+            ],
+            stdin: None,
+            detach: false,
+        };
+        let history = CommandExecution {
+            command: "find /home/user -type f -name *.pdf -delete".to_string(),
+            exit_code: 0,
+            stdout: String::new(),
+            stderr: String::new(),
+            timestamp_ms: 1_772_000_000_000,
+            step_index: 1,
+        };
+        assert!(duplicate_command_cached_success_summary(&tool, Some(&history)).is_none());
+    }
+
+    #[test]
+    fn duplicate_find_completion_returns_full_stdout() {
+        let tool = AgentTool::SysExec {
+            command: "find".to_string(),
+            args: vec![
+                "/home/user".to_string(),
+                "-type".to_string(),
+                "f".to_string(),
+                "-name".to_string(),
+                "*.pdf".to_string(),
+                "-mtime".to_string(),
+                "-7".to_string(),
+            ],
+            stdin: None,
+            detach: false,
+        };
+        let history = CommandExecution {
+            command: "find /home/user -type f -name *.pdf -mtime -7".to_string(),
+            exit_code: 0,
+            stdout: "/home/user/a.pdf\n/home/user/b.pdf\n".to_string(),
+            stderr: String::new(),
+            timestamp_ms: 1_772_000_000_000,
+            step_index: 1,
+        };
+        let summary = duplicate_command_cached_completion_summary(&tool, Some(&history))
+            .expect("safe find completion should use full stdout");
+        assert_eq!(summary, "/home/user/a.pdf\n/home/user/b.pdf");
     }
 }

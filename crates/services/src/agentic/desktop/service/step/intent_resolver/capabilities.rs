@@ -309,6 +309,33 @@ pub(super) fn capability_known(
         .any(|binding| binding.capabilities.iter().any(|c| c == capability))
 }
 
+fn workspace_temporal_filter_known(
+    entry: &IntentMatrixEntry,
+    bindings: &[ToolCapabilityBinding],
+    query_facets: &QueryFacetProfile,
+) -> bool {
+    if !matches!(entry.scope, IntentScopeProfile::WorkspaceOps)
+        || !query_requires_temporal_filesystem_filter(query_facets)
+    {
+        return true;
+    }
+    capability_known(&capability("filesystem.metadata"), bindings)
+}
+
+fn workspace_temporal_filter_satisfiable(
+    entry: &IntentMatrixEntry,
+    bindings: &[ToolCapabilityBinding],
+    rules: &ActionRules,
+    query_facets: &QueryFacetProfile,
+) -> bool {
+    if !matches!(entry.scope, IntentScopeProfile::WorkspaceOps)
+        || !query_requires_temporal_filesystem_filter(query_facets)
+    {
+        return true;
+    }
+    capability_satisfiable(&capability("filesystem.metadata"), bindings, rules)
+}
+
 pub(super) fn intent_feasible_without_policy(
     entry: &IntentMatrixEntry,
     bindings: &[ToolCapabilityBinding],
@@ -316,6 +343,9 @@ pub(super) fn intent_feasible_without_policy(
     query_facets: &QueryFacetProfile,
 ) -> bool {
     if !query_binding_satisfied(entry, query, query_facets) {
+        return false;
+    }
+    if !workspace_temporal_filter_known(entry, bindings, query_facets) {
         return false;
     }
     if entry.required_capabilities.is_empty() {
@@ -335,6 +365,9 @@ pub(super) fn intent_feasible_for_execution(
     query_facets: &QueryFacetProfile,
 ) -> bool {
     if !query_binding_satisfied(entry, query, query_facets) {
+        return false;
+    }
+    if !workspace_temporal_filter_satisfiable(entry, bindings, rules, query_facets) {
         return false;
     }
     if entry.required_capabilities.is_empty() {
@@ -406,4 +439,78 @@ pub fn is_tool_allowed_for_resolution(
             .iter()
             .any(|required| required == tool_cap)
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use ioi_types::app::agentic::{ProviderSelectionMode, VerificationMode};
+
+    fn workspace_ops_entry() -> IntentMatrixEntry {
+        IntentMatrixEntry {
+            intent_id: "workspace.ops".to_string(),
+            semantic_descriptor: "inspect and modify files in the local workspace".to_string(),
+            required_capabilities: vec![capability("filesystem.read")],
+            risk_class: "low".to_string(),
+            scope: IntentScopeProfile::WorkspaceOps,
+            preferred_tier: "tool_first".to_string(),
+            applicability_class: ExecutionApplicabilityClass::TopologyDependent,
+            requires_host_discovery: Some(false),
+            provider_selection_mode: Some(ProviderSelectionMode::DynamicSynthesis),
+            required_receipts: vec![],
+            required_postconditions: vec![],
+            verification_mode: Some(VerificationMode::DynamicSynthesis),
+            aliases: vec![],
+            exemplars: vec![],
+        }
+    }
+
+    fn command_exec_entry() -> IntentMatrixEntry {
+        IntentMatrixEntry {
+            intent_id: "command.exec".to_string(),
+            semantic_descriptor: "execute local shell or terminal commands".to_string(),
+            required_capabilities: vec![capability("command.exec")],
+            risk_class: "low".to_string(),
+            scope: IntentScopeProfile::CommandExecution,
+            preferred_tier: "tool_first".to_string(),
+            applicability_class: ExecutionApplicabilityClass::TopologyDependent,
+            requires_host_discovery: Some(true),
+            provider_selection_mode: Some(ProviderSelectionMode::DynamicSynthesis),
+            required_receipts: vec![],
+            required_postconditions: vec![],
+            verification_mode: Some(VerificationMode::DynamicSynthesis),
+            aliases: vec![],
+            exemplars: vec![],
+        }
+    }
+
+    #[test]
+    fn workspace_ops_temporal_file_queries_require_metadata_capability() {
+        let entry = workspace_ops_entry();
+        let query = "Find all PDF files on my computer modified in the last week.";
+        let facets = analyze_query_facets(query);
+        let bindings = tool_capability_bindings();
+        let rules = ActionRules::default();
+
+        assert!(!intent_feasible_without_policy(
+            &entry, &bindings, query, &facets
+        ));
+        assert!(!intent_feasible_for_execution(
+            &entry, &bindings, &rules, query, &facets
+        ));
+    }
+
+    #[test]
+    fn command_exec_remains_feasible_for_temporal_file_queries() {
+        let entry = command_exec_entry();
+        let query = "Find all PDF files on my computer modified in the last week.";
+        let facets = analyze_query_facets(query);
+        let bindings = tool_capability_bindings();
+        let rules = ActionRules::default();
+
+        assert!(intent_feasible_without_policy(&entry, &bindings, query, &facets));
+        assert!(intent_feasible_for_execution(
+            &entry, &bindings, &rules, query, &facets
+        ));
+    }
 }

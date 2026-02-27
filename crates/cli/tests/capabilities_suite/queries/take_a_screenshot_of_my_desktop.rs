@@ -21,6 +21,7 @@ pub fn case() -> QueryCase {
         success_definition: "Require explicit approval before desktop capture, then capture a desktop screenshot through the GUI screenshot pathway and complete without contract failures.",
         seeded_intent_id: "ui.capture_screenshot",
         intent_scope: IntentScopeProfile::UiInteraction,
+        seed_resolved_intent: true,
         expected_pass: true,
         sla_seconds: 45,
         max_steps: 10,

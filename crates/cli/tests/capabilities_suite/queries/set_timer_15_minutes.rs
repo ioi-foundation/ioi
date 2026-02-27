@@ -12,6 +12,7 @@ pub fn case() -> QueryCase {
         success_definition: "Create a 15-minute timer and confirm it is scheduled.",
         seeded_intent_id: "command.exec",
         intent_scope: IntentScopeProfile::CommandExecution,
+        seed_resolved_intent: true,
         expected_pass: true,
         sla_seconds: 50,
         max_steps: 12,

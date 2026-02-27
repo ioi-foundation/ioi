@@ -138,6 +138,11 @@ pub(super) fn query_has_timer_scheduling_shape(query: &str) -> bool {
     TIMER_MARKERS.iter().any(|marker| padded.contains(marker))
 }
 
+pub(super) fn query_requires_temporal_filesystem_filter(query_facets: &QueryFacetProfile) -> bool {
+    query_facets.goal.recency_hits > 0
+        && (query_facets.goal.workspace_hits > 0 || query_facets.goal.filesystem_hits > 0)
+}
+
 pub(super) fn query_expresses_command_execution_intent(
     query: &str,
     query_facets: &QueryFacetProfile,

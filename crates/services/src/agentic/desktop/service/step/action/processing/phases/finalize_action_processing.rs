@@ -106,11 +106,24 @@ pub(crate) async fn finalize_action_processing(
                                 .filter(|v| !v.trim().is_empty())
                         })
                 });
-                let window_fingerprint = if trace_visual_hash == [0u8; 32] {
+                let command_scope = agent_state
+                    .resolved_intent
+                    .as_ref()
+                    .map(|resolved| {
+                        resolved.scope
+                            == ioi_types::app::agentic::IntentScopeProfile::CommandExecution
+                    })
+                    .unwrap_or(false);
+                let raw_window_fingerprint = if trace_visual_hash == [0u8; 32] {
                     None
                 } else {
                     Some(hex::encode(trace_visual_hash))
                 };
+                let window_fingerprint = crate::agentic::desktop::service::step::anti_loop::canonical_attempt_window_fingerprint(
+                    class,
+                    command_scope,
+                    raw_window_fingerprint.as_deref(),
+                );
                 let retry_hash = retry_intent_hash.as_deref().unwrap_or(intent_hash.as_str());
                 let attempt_key = build_attempt_key(
                     retry_hash,

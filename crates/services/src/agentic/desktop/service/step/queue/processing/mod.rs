@@ -7,14 +7,14 @@ use crate::agentic::desktop::service::handler::{
 use crate::agentic::desktop::service::step::action::command_contract::is_cec_terminal_error;
 use crate::agentic::desktop::service::step::action::{
     canonical_intent_hash, canonical_retry_intent_hash, canonical_tool_identity,
-    mark_action_fingerprint_executed,
+    mark_action_fingerprint_executed_at_step,
 };
 use crate::agentic::desktop::service::step::anti_loop::{
-    build_attempt_key, build_post_state_summary, classify_failure, emit_routing_receipt,
-    escalation_path_for_failure, extract_artifacts, lineage_pointer, mutation_receipt_pointer,
-    policy_binding_hash, register_failure_attempt, requires_wait_for_clarification,
-    retry_budget_remaining, should_block_retry_without_change, should_trip_retry_guard,
-    tier_as_str, to_routing_failure_class, FailureClass,
+    build_attempt_key, build_post_state_summary, canonical_attempt_window_fingerprint,
+    classify_failure, emit_routing_receipt, escalation_path_for_failure, extract_artifacts,
+    lineage_pointer, mutation_receipt_pointer, policy_binding_hash, register_failure_attempt,
+    requires_wait_for_clarification, retry_budget_remaining, should_block_retry_without_change,
+    should_trip_retry_guard, tier_as_str, to_routing_failure_class, FailureClass,
 };
 use crate::agentic::desktop::service::step::helpers::default_safe_policy;
 use crate::agentic::desktop::service::step::incident::{
@@ -29,7 +29,7 @@ use crate::agentic::desktop::utils::goto_trace_log;
 use crate::agentic::rules::ActionRules;
 use ioi_api::state::StateAccess;
 use ioi_crypto::algorithms::hash::sha256;
-use ioi_types::app::agentic::AgentTool;
+use ioi_types::app::agentic::{AgentTool, IntentScopeProfile};
 use ioi_types::app::{KernelEvent, RoutingReceiptEvent, RoutingStateSummary};
 use ioi_types::codec;
 use ioi_types::error::TransactionError;
@@ -602,9 +602,10 @@ pub async fn process_queue_item(
     let error_str = err.clone();
 
     if success && !is_gated {
-        mark_action_fingerprint_executed(
+        mark_action_fingerprint_executed_at_step(
             &mut agent_state.tool_execution_log,
             &retry_intent_hash,
+            pre_state_summary.step_index,
             "success",
         );
     }
@@ -697,10 +698,20 @@ pub async fn process_queue_item(
                                 .filter(|v| !v.trim().is_empty())
                         })
                 });
-                let window_fingerprint = agent_state
+                let command_scope = agent_state
+                    .resolved_intent
+                    .as_ref()
+                    .map(|resolved| resolved.scope == IntentScopeProfile::CommandExecution)
+                    .unwrap_or(false);
+                let raw_window_fingerprint = agent_state
                     .last_screen_phash
                     .filter(|hash| *hash != [0u8; 32])
                     .map(hex::encode);
+                let window_fingerprint = canonical_attempt_window_fingerprint(
+                    class,
+                    command_scope,
+                    raw_window_fingerprint.as_deref(),
+                );
                 let attempt_key = build_attempt_key(
                     &retry_intent_hash,
                     routing_decision.tier,
