@@ -67,6 +67,9 @@ jobs:
             ~/.cargo/git
             target
           key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Contract Invariant Reference Check
+        run: bash .github/scripts/check_contract_invariants.sh
           
       - name: Check format
         uses: actions-rs/cargo@v1
