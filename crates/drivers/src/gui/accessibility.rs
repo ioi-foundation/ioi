@@ -194,8 +194,13 @@ pub fn merge_trees(
 /// Note: This is the DEFAULT serialization strategy. Specialized Lenses (e.g. ReactLens)
 /// will implement their own `render` logic to utilize the `attributes` field effectively.
 pub fn serialize_tree_to_xml(node: &AccessibilityNode, depth: usize) -> String {
-    // 1. Prune invisible nodes immediately
-    if !node.is_visible {
+    // 1. Prune invisible leaf nodes immediately, but keep structural containers so
+    // we can still traverse to visible descendants (common with AT-SPI roots/windows).
+    let structural_container = matches!(
+        node.role.as_str(),
+        "root" | "window" | "application" | "frame" | "pane" | "panel"
+    );
+    if !node.is_visible && node.children.is_empty() && !structural_container {
         return String::new();
     }
 

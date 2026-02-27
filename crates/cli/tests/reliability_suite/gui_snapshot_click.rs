@@ -3,6 +3,7 @@ use super::harness::{
 };
 use anyhow::{anyhow, Result};
 use ioi_api::vm::drivers::gui::InputEvent;
+use ioi_api::vm::drivers::os::WindowInfo;
 use ioi_services::agentic::desktop::execution::ToolExecutor;
 use ioi_services::agentic::desktop::types::ExecutionTier;
 use ioi_types::app::agentic::AgentTool;
@@ -226,9 +227,21 @@ async fn gui_snapshot_then_click_element_emits_click_input() -> Result<()> {
             return Err(e);
         }
     };
+    let fixture_window = WindowInfo {
+        title: "IOI GUI Click Fixture".to_string(),
+        x: 120,
+        y: 120,
+        width: 420,
+        height: 240,
+        app_name: "python3".to_string(),
+    };
+
     let (tx, mut rx) = broadcast::channel(256);
-    let (exec, gui, browser) =
-        build_executor_with_events(ExecutionTier::VisualForeground, None, Some(tx));
+    let (exec, gui, browser) = build_executor_with_events(
+        ExecutionTier::VisualForeground,
+        Some(fixture_window),
+        Some(tx),
+    );
     let mut all_events: Vec<KernelEvent> = Vec::new();
 
     let session_id = [0xB6; 32];
