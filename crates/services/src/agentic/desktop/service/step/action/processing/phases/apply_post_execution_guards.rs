@@ -280,12 +280,8 @@ pub(crate) async fn apply_post_execution_guards(
             verification_checks.push(format!("web_constraint_search_probe_queued={}", false));
 
             if let Some(reason) = completion_reason {
-                let summary = if let Some(hybrid_summary) = synthesize_web_pipeline_reply_hybrid(
-                    service.reasoning_inference.clone(),
-                    &pending,
-                    reason,
-                )
-                .await
+                let summary = if let Some(hybrid_summary) =
+                    synthesize_web_pipeline_reply_hybrid(service, &pending, reason).await
                 {
                     hybrid_summary
                 } else {

@@ -1,4 +1,5 @@
 use super::*;
+use crate::agentic::desktop::service::DesktopAgentService;
 use tokio::time::Duration;
 
 fn hybrid_synthesis_timeout() -> Duration {
@@ -325,7 +326,7 @@ pub(crate) fn apply_hybrid_synthesis_response(
 }
 
 pub(crate) async fn synthesize_web_pipeline_reply_hybrid(
-    runtime: Arc<dyn InferenceRuntime>,
+    service: &DesktopAgentService,
     pending: &PendingSearchCompletion,
     reason: WebPipelineCompletionReason,
 ) -> Option<String> {
@@ -410,10 +411,21 @@ Payload:\n{}",
         json_mode: true,
         max_tokens: WEB_PIPELINE_HYBRID_MAX_TOKENS,
     };
+    let airlocked_prompt = service
+        .prepare_cloud_inference_input(
+            None,
+            "desktop_agent",
+            "web_pipeline_hybrid_synthesis",
+            prompt.as_bytes(),
+        )
+        .await
+        .ok()?;
     let timeout = hybrid_synthesis_timeout();
     let raw = match tokio::time::timeout(
         timeout,
-        runtime.execute_inference([0u8; 32], prompt.as_bytes(), options),
+        service
+            .reasoning_inference
+            .execute_inference([0u8; 32], &airlocked_prompt, options),
     )
     .await
     {

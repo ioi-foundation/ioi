@@ -550,7 +550,8 @@ fn hard_gate_desktop_cloud_inference_callsites_use_airlock_path() {
         }
 
         let content = fs::read_to_string(entry.path()).expect("read desktop source file");
-        if !content.contains("execute_inference(") {
+        // Only inspect executable callsites, not trait method signatures in test fixtures.
+        if !content.contains(".execute_inference(") {
             continue;
         }
 

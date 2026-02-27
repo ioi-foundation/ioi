@@ -79,8 +79,7 @@ async fn synthesize_summary(
     reason: WebPipelineCompletionReason,
 ) -> String {
     if let Some(hybrid_summary) =
-        synthesize_web_pipeline_reply_hybrid(service.reasoning_inference.clone(), pending, reason)
-            .await
+        synthesize_web_pipeline_reply_hybrid(service, pending, reason).await
     {
         hybrid_summary
     } else {
@@ -448,11 +447,30 @@ async fn synthesize_pre_read_payload_urls(
             json_mode: true,
             max_tokens: WEB_PIPELINE_PRE_READ_SYNTHESIS_MAX_TOKENS,
         };
+        let airlocked_prompt = match service
+            .prepare_cloud_inference_input(
+                None,
+                "desktop_agent",
+                "web_pipeline_payload_synthesis",
+                prompt.as_bytes(),
+            )
+            .await
+        {
+            Ok(bytes) => bytes,
+            Err(err) => {
+                last_error = format!("pre-read synthesis airlock failed: {}", err);
+                feedback = Some(last_error.clone());
+                if attempt == WEB_PIPELINE_PRE_READ_SYNTHESIS_MAX_ATTEMPTS {
+                    break;
+                }
+                continue;
+            }
+        };
         let raw = match tokio::time::timeout(
             inference_timeout,
             service
                 .reasoning_inference
-                .execute_inference([0u8; 32], prompt.as_bytes(), options),
+                .execute_inference([0u8; 32], &airlocked_prompt, options),
         )
         .await
         {
