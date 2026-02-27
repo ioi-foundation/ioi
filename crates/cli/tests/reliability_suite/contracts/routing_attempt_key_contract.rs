@@ -1,4 +1,4 @@
-// Path: crates/cli/tests/routing_attempt_key_parity.rs
+// Path: crates/cli/tests/routing_attempt_key_contract.rs
 
 use ioi_crypto::algorithms::hash::sha256;
 use ioi_services::agentic::desktop::service::step::action::{
@@ -19,7 +19,7 @@ use std::collections::BTreeMap;
 fn test_agent_state() -> AgentState {
     AgentState {
         session_id: [0xAB; 32],
-        goal: "retry parity".to_string(),
+        goal: "retry contract".to_string(),
         transcript_root: [0u8; 32],
         status: AgentStatus::Running,
         step_count: 7,

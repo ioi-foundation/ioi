@@ -1,7 +1,7 @@
 use super::*;
 
 #[tokio::test]
-async fn wallet_network_mail_reply_draft_send_parity_replay_window_via_real_callservice_txs(
+async fn wallet_network_mail_reply_draft_send_contract_replay_window_via_real_callservice_txs(
 ) -> Result<()> {
     let _guard = E2E_TEST_LOCK.lock().expect("lock");
     build_test_artifacts();
@@ -148,23 +148,23 @@ async fn wallet_network_mail_reply_draft_send_parity_replay_window_via_real_call
 
         for (secret_id, alias, value) in [
             (
-                "mail-imap-user-reply-parity",
-                "mail.imap.user.reply.parity",
+                "mail-imap-user-reply-contract",
+                "mail.imap.user.reply.contract",
                 "agent@example.com",
             ),
             (
-                "mail-imap-pass-reply-parity",
-                "mail.imap.pass.reply.parity",
+                "mail-imap-pass-reply-contract",
+                "mail.imap.pass.reply.contract",
                 "imap-password",
             ),
             (
-                "mail-smtp-user-reply-parity",
-                "mail.smtp.user.reply.parity",
+                "mail-smtp-user-reply-contract",
+                "mail.smtp.user.reply.contract",
                 "agent@example.com",
             ),
             (
-                "mail-smtp-pass-reply-parity",
-                "mail.smtp.pass.reply.parity",
+                "mail-smtp-pass-reply-contract",
+                "mail.smtp.pass.reply.contract",
                 "smtp-password",
             ),
         ] {
@@ -211,10 +211,10 @@ async fn wallet_network_mail_reply_draft_send_parity_replay_window_via_real_call
                         tls_mode: MailConnectorTlsMode::Tls,
                     },
                     secret_aliases: MailConnectorSecretAliases {
-                        imap_username_alias: "mail.imap.user.reply.parity".to_string(),
-                        imap_password_alias: "mail.imap.pass.reply.parity".to_string(),
-                        smtp_username_alias: "mail.smtp.user.reply.parity".to_string(),
-                        smtp_password_alias: "mail.smtp.pass.reply.parity".to_string(),
+                        imap_username_alias: "mail.imap.user.reply.contract".to_string(),
+                        imap_password_alias: "mail.imap.pass.reply.contract".to_string(),
+                        smtp_username_alias: "mail.smtp.user.reply.contract".to_string(),
+                        smtp_password_alias: "mail.smtp.pass.reply.contract".to_string(),
                     },
                     metadata: BTreeMap::from([("driver".to_string(), "mock".to_string())]),
                 },
@@ -255,8 +255,8 @@ async fn wallet_network_mail_reply_draft_send_parity_replay_window_via_real_call
         .await?;
         nonce += 1;
 
-        let approval_request_hash = unique_id("wallet_network_mail_reply_parity_approval_request");
-        let approval_session_id = unique_id("wallet_network_mail_reply_parity_approval_session");
+        let approval_request_hash = unique_id("wallet_network_mail_reply_contract_approval_request");
+        let approval_session_id = unique_id("wallet_network_mail_reply_contract_approval_session");
         let interception = WalletInterceptionContext {
             session_id: Some(approval_session_id),
             request_hash: approval_request_hash,
@@ -285,7 +285,7 @@ async fn wallet_network_mail_reply_draft_send_parity_replay_window_via_real_call
                     request_hash: approval_request_hash,
                     audience: tx_signer_audience,
                     revocation_epoch: 0,
-                    nonce: unique_id("wallet_network_mail_reply_parity_approval_nonce"),
+                    nonce: unique_id("wallet_network_mail_reply_contract_approval_nonce"),
                     counter: 1,
                     scope: ApprovalScope {
                         expires_at: 4_200_000_000_000,

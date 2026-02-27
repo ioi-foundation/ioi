@@ -1,4 +1,4 @@
-// Path: crates/cli/tests/reliability_suite/parity/browser_scroll_parity.rs
+// Path: crates/cli/tests/reliability_suite/contracts/browser_scroll_contract.rs
 
 use ioi_api::state::{StateAccess, StateScanIter};
 use ioi_api::vm::inference::mock::MockInferenceRuntime;
