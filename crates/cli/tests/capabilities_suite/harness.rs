@@ -404,6 +404,13 @@ fn iso_datetime_from_unix_ms(unix_ms: u64) -> String {
     )
 }
 
+fn render_query_for_run(query_template: &str, run_index: usize, run_timestamp_ms: u64) -> String {
+    let run_unique_num = format!("{}{:03}", run_timestamp_ms, run_index);
+    query_template
+        .replace("{RUN_UNIQUE_NUM}", &run_unique_num)
+        .replace("{RUN_INDEX}", &run_index.to_string())
+}
+
 pub async fn run_case(
     case: &QueryCase,
     run_index: usize,
@@ -430,10 +437,11 @@ pub async fn run_case(
         .duration_since(UNIX_EPOCH)
         .unwrap_or_default()
         .as_millis() as u64;
+    let run_query = render_query_for_run(case.query, run_index, run_timestamp_ms);
 
     let start_params = StartAgentParams {
         session_id,
-        goal: case.query.to_string(),
+        goal: run_query.clone(),
         max_steps: case.max_steps,
         parent_session_id: None,
         initial_budget: 4_000,
@@ -609,7 +617,7 @@ pub async fn run_case(
 
     Ok(RunObservation {
         case_id: case.id.to_string(),
-        query: case.query.to_string(),
+        query: run_query,
         run_timestamp_ms,
         run_timestamp_iso_utc: iso_datetime_from_unix_ms(run_timestamp_ms),
         elapsed_ms,

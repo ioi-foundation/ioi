@@ -6,6 +6,7 @@ mod take_a_screenshot_of_my_desktop;
 mod top_news_headlines;
 mod weather_right_now;
 mod what_time_is_it;
+mod whats_the_current_price_of_bitcoin;
 
 use super::types::QueryCase;
 
@@ -13,6 +14,7 @@ pub fn all_cases() -> Vec<QueryCase> {
     let mut cases = vec![
         what_time_is_it::case(),
         weather_right_now::case(),
+        whats_the_current_price_of_bitcoin::case(),
         open_calculator_app::case(),
         set_timer_15_minutes::case(),
         create_a_new_folder_on_my_desktop_called_project_some_number::case(),

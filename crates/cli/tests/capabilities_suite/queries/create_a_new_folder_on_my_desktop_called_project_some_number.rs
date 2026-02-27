@@ -18,7 +18,7 @@ struct EnvironmentEvidenceReceipt {
 pub fn case() -> QueryCase {
     QueryCase {
         id: "create_a_new_folder_on_my_desktop_called_project_some_number",
-        query: "Create a new folder on my desktop called \"Project <some_number>\"",
+        query: "Create a new folder on my desktop called \"Project_{RUN_UNIQUE_NUM}\"",
         success_definition: "Create a new desktop folder named Project <number> using command/filesystem execution, verify existence with runtime receipts, and complete without contract failures.",
         seeded_intent_id: "command.exec",
         intent_scope: IntentScopeProfile::CommandExecution,
@@ -26,6 +26,7 @@ pub fn case() -> QueryCase {
         sla_seconds: 70,
         max_steps: 14,
         min_local_score: 1.0,
+        allow_retry_blocked_completion_with_local_evidence: true,
         local_sniff: evaluate,
     }
 }
