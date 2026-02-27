@@ -24,3 +24,4 @@ packages/agent-ide/tsconfig.tsbuildinfo
 .env
 .env.mail-e2e.local
 .output.txt
+MARATHON.md
