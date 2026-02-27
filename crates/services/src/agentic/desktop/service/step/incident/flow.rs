@@ -50,6 +50,27 @@ pub fn should_enter_incident_recovery(
     true
 }
 
+pub(crate) fn should_skip_incident_recovery_for_intent(
+    intent: IntentClass,
+    _root_tool_name: &str,
+    root_failure_class: FailureClass,
+) -> bool {
+    if matches!(intent, IntentClass::CommandTask) {
+        return true;
+    }
+
+    // File-task retry loops with no-effect/context-drift style failures should stay in the
+    // main cognition loop; incident remediation planners can otherwise select unrelated
+    // side-effect actions.
+    matches!(intent, IntentClass::FileTask)
+        && matches!(
+            root_failure_class,
+            FailureClass::NoEffectAfterAction
+                | FailureClass::ContextDrift
+                | FailureClass::UnexpectedState
+        )
+}
+
 pub async fn emit_incident_chat_progress(
     service: &DesktopAgentService,
     session_id: [u8; 32],
@@ -465,12 +486,22 @@ pub async fn start_or_continue_incident_recovery(
             .as_ref()
             .and_then(|target| target.app_hint.as_deref()),
     );
-    if matches!(intent, IntentClass::CommandTask) {
+    if should_skip_incident_recovery_for_intent(intent, root_tool_name, root_failure_class) {
         // Command execution recovery should remain in the main cognition loop so the model
         // can synthesize a revised command from fresh failure output instead of replaying
-        // incident remedy subgraphs.
+        // incident remedy subgraphs. The same applies to read-only file discovery loops.
         clear_incident_state(state, &session_id)?;
-        verification_checks.push("incident_recovery_skipped_for_command_task=true".to_string());
+        if matches!(intent, IntentClass::CommandTask) {
+            verification_checks.push("incident_recovery_skipped_for_command_task=true".to_string());
+        } else {
+            verification_checks
+                .push("incident_recovery_skipped_for_file_read_no_effect=true".to_string());
+            verification_checks.push(format!("incident_skip_root_tool={}", root_tool_name));
+            verification_checks.push(format!(
+                "incident_skip_failure_class={}",
+                root_failure_class.as_str()
+            ));
+        }
         verification_checks.push("incident_active=false".to_string());
         return Ok(IncidentDirective::Noop);
     }

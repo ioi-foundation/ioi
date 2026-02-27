@@ -15,6 +15,18 @@ fn status_as_str(status: &AgentStatus) -> String {
 pub fn choose_routing_tier(agent_state: &AgentState) -> TierRoutingDecision {
     let failures = agent_state.consecutive_failures as usize;
     let source_failure = latest_failure_class(agent_state);
+    let command_scope = agent_state
+        .resolved_intent
+        .as_ref()
+        .map(|resolved| {
+            resolved.scope == ioi_types::app::agentic::IntentScopeProfile::CommandExecution
+        })
+        .unwrap_or(false);
+    let workspace_scope = agent_state
+        .resolved_intent
+        .as_ref()
+        .map(|resolved| resolved.scope == ioi_types::app::agentic::IntentScopeProfile::WorkspaceOps)
+        .unwrap_or(false);
 
     if failures == 0 {
         if let Some(resolved) = agent_state.resolved_intent.as_ref() {
@@ -55,8 +67,18 @@ pub fn choose_routing_tier(agent_state: &AgentState) -> TierRoutingDecision {
                 "visual_last_vision_target_missing",
             ),
             FailureClass::NoEffectAfterAction => (
-                ExecutionTier::VisualForeground,
-                "visual_last_no_effect_recovery",
+                if command_scope || workspace_scope {
+                    ExecutionTier::DomHeadless
+                } else {
+                    ExecutionTier::VisualForeground
+                },
+                if command_scope {
+                    "tool_first_no_effect_command_recovery"
+                } else if workspace_scope {
+                    "tool_first_no_effect_workspace_recovery"
+                } else {
+                    "visual_last_no_effect_recovery"
+                },
             ),
             FailureClass::TierViolation => (
                 ExecutionTier::VisualForeground,

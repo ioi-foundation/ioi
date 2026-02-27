@@ -155,9 +155,10 @@ pub(crate) async fn run_lifecycle_status_phase(
         .await?;
 
     if success {
-        mark_action_fingerprint_executed(
+        mark_action_fingerprint_executed_at_step(
             &mut agent_state.tool_execution_log,
             &retry_intent_hash,
+            pre_state_summary.step_index,
             "success",
         );
     }
@@ -563,11 +564,17 @@ pub(crate) async fn run_lifecycle_status_phase(
                                 .filter(|v| !v.trim().is_empty())
                         })
                 });
-                let window_fingerprint = if log_visual_hash == [0u8; 32] {
+                let raw_window_fingerprint = if log_visual_hash == [0u8; 32] {
                     None
                 } else {
                     Some(hex::encode(log_visual_hash))
                 };
+                let window_fingerprint =
+                    crate::agentic::desktop::service::step::anti_loop::canonical_attempt_window_fingerprint(
+                        class,
+                        command_scope,
+                        raw_window_fingerprint.as_deref(),
+                    );
                 let attempt_key = build_attempt_key(
                     &retry_intent_hash,
                     routing_decision.tier,

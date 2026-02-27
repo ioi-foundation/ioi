@@ -22,6 +22,7 @@ pub fn case() -> QueryCase {
         success_definition: "Create a new desktop folder named Project <number> using command/filesystem execution, verify existence with runtime receipts, and complete without contract failures.",
         seeded_intent_id: "command.exec",
         intent_scope: IntentScopeProfile::CommandExecution,
+        seed_resolved_intent: true,
         expected_pass: true,
         sla_seconds: 70,
         max_steps: 14,

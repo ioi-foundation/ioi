@@ -12,6 +12,7 @@ pub struct QueryCase {
     pub success_definition: &'static str,
     pub seeded_intent_id: &'static str,
     pub intent_scope: IntentScopeProfile,
+    pub seed_resolved_intent: bool,
     pub expected_pass: bool,
     pub sla_seconds: u64,
     pub max_steps: u32,
@@ -25,6 +26,14 @@ pub struct ActionEvidence {
     pub tool_name: String,
     pub agent_status: String,
     pub output_excerpt: String,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct CommandHistoryEvidence {
+    pub command: String,
+    pub exit_code: i32,
+    pub stdout: String,
+    pub stderr: String,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -45,6 +54,7 @@ pub struct RunObservation {
     pub verification_checks: Vec<String>,
     pub approval_required_events: usize,
     pub action_evidence: Vec<ActionEvidence>,
+    pub command_history_evidence: Vec<CommandHistoryEvidence>,
     pub event_excerpt: Vec<String>,
     pub kernel_event_count: usize,
     pub kernel_log_lines: Vec<String>,

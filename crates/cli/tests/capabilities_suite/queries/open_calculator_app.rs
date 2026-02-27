@@ -12,6 +12,7 @@ pub fn case() -> QueryCase {
         success_definition: "Launch calculator successfully and acknowledge completion clearly.",
         seeded_intent_id: "app.launch",
         intent_scope: IntentScopeProfile::AppLaunch,
+        seed_resolved_intent: true,
         expected_pass: true,
         sla_seconds: 45,
         max_steps: 10,

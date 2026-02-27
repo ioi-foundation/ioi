@@ -291,6 +291,24 @@ fn stable_attempt_key_dedupes_and_resets_on_condition_change() {
 }
 
 #[test]
+fn attempt_window_fingerprint_is_stable_for_command_scope_and_no_effect_failures() {
+    let command_scope_window =
+        canonical_attempt_window_fingerprint(FailureClass::TargetNotFound, true, Some("deadbeef"));
+    assert_eq!(command_scope_window, None);
+
+    let no_effect_window = canonical_attempt_window_fingerprint(
+        FailureClass::NoEffectAfterAction,
+        false,
+        Some("cafebabe"),
+    );
+    assert_eq!(no_effect_window, None);
+
+    let retained_window =
+        canonical_attempt_window_fingerprint(FailureClass::TargetNotFound, false, Some("abcd1234"));
+    assert_eq!(retained_window, Some("abcd1234".to_string()));
+}
+
+#[test]
 fn trailing_repeat_count_is_contiguous() {
     let history = vec![
         "a".to_string(),
@@ -407,4 +425,86 @@ fn routing_stages_tool_unavailable_before_visual_last() {
     let second = choose_routing_tier(&state);
     assert_eq!(second.tier, ExecutionTier::VisualForeground);
     assert_eq!(second.reason_code, "visual_last_tool_gap");
+}
+
+#[test]
+fn routing_keeps_no_effect_failures_tool_first_for_command_scope() {
+    let mut state = test_agent_state();
+    state.consecutive_failures = 1;
+    state.resolved_intent = Some(ResolvedIntentState {
+        intent_id: "command.exec".to_string(),
+        scope: IntentScopeProfile::CommandExecution,
+        band: IntentConfidenceBand::High,
+        score: 0.95,
+        top_k: vec![],
+        required_capabilities: vec![],
+        risk_class: "low".to_string(),
+        preferred_tier: "tool_first".to_string(),
+        matrix_version: "intent-matrix-v2".to_string(),
+        embedding_model_id: "test".to_string(),
+        embedding_model_version: "test".to_string(),
+        similarity_function_id: "cosine".to_string(),
+        intent_set_hash: [0u8; 32],
+        tool_registry_hash: [0u8; 32],
+        capability_ontology_hash: [0u8; 32],
+        query_normalization_version: "v1".to_string(),
+        matrix_source_hash: [0u8; 32],
+        receipt_hash: [0u8; 32],
+        constrained: false,
+    });
+    state
+        .recent_actions
+        .push("filesystem__list_directory::NoEffectAfterAction::abcd1234".to_string());
+
+    let decision = choose_routing_tier(&state);
+    assert_eq!(decision.tier, ExecutionTier::DomHeadless);
+    assert_eq!(
+        decision.reason_code,
+        "tool_first_no_effect_command_recovery"
+    );
+    assert_eq!(
+        decision.source_failure,
+        Some(FailureClass::NoEffectAfterAction)
+    );
+}
+
+#[test]
+fn routing_keeps_no_effect_failures_tool_first_for_workspace_scope() {
+    let mut state = test_agent_state();
+    state.consecutive_failures = 1;
+    state.resolved_intent = Some(ResolvedIntentState {
+        intent_id: "workspace.ops".to_string(),
+        scope: IntentScopeProfile::WorkspaceOps,
+        band: IntentConfidenceBand::High,
+        score: 0.95,
+        top_k: vec![],
+        required_capabilities: vec![],
+        risk_class: "low".to_string(),
+        preferred_tier: "tool_first".to_string(),
+        matrix_version: "intent-matrix-v2".to_string(),
+        embedding_model_id: "test".to_string(),
+        embedding_model_version: "test".to_string(),
+        similarity_function_id: "cosine".to_string(),
+        intent_set_hash: [0u8; 32],
+        tool_registry_hash: [0u8; 32],
+        capability_ontology_hash: [0u8; 32],
+        query_normalization_version: "v1".to_string(),
+        matrix_source_hash: [0u8; 32],
+        receipt_hash: [0u8; 32],
+        constrained: false,
+    });
+    state
+        .recent_actions
+        .push("filesystem__list_directory::NoEffectAfterAction::abcd1234".to_string());
+
+    let decision = choose_routing_tier(&state);
+    assert_eq!(decision.tier, ExecutionTier::DomHeadless);
+    assert_eq!(
+        decision.reason_code,
+        "tool_first_no_effect_workspace_recovery"
+    );
+    assert_eq!(
+        decision.source_failure,
+        Some(FailureClass::NoEffectAfterAction)
+    );
 }

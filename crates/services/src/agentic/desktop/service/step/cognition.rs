@@ -399,6 +399,7 @@ pub async fn think(
              - Never run long blocking commands (for example `sleep`) in foreground mode; use `detach: true` or scheduler-style commands.\n\
              - Do not run more than 3 consecutive shell commands without either finalizing or escalating.\n\
              - If command history already shows the same command succeeded, do not rerun it; finalize instead.\n\
+             - If tool output reports a duplicate/no-effect replay guard (for example `ERROR_CLASS=NoEffectAfterAction` or `duplicate_action_fingerprint_non_command_skipped=true`), do not repeat the same tool+arguments; switch to a different capability path or finalize with available evidence.\n\
              - After goal success, emit `chat__reply` exactly once, then call `agent__complete`.\n\
              - Final user response must be structured from evidence and include `Mechanism: ...`; include timestamps/handles/status controls whenever available.\n\
              - For time-sensitive tasks, include an absolute UTC timestamp in the final reply as `Target UTC: YYYY-MM-DDTHH:MM:SSZ`.\n\
@@ -414,6 +415,41 @@ pub async fn think(
     } else {
         String::new()
     };
+    let workspace_scope_instruction =
+        if matches!(resolved_scope, IntentScopeProfile::WorkspaceOps) {
+            let has_filesystem_search = perception
+                .available_tools
+                .iter()
+                .any(|tool| tool.name == "filesystem__search");
+            let has_filesystem_stat = perception
+                .available_tools
+                .iter()
+                .any(|tool| tool.name == "filesystem__stat");
+            let has_filesystem_list = perception
+                .available_tools
+                .iter()
+                .any(|tool| tool.name == "filesystem__list_directory");
+            let has_command_tool = perception.available_tools.iter().any(|tool| {
+                matches!(tool.name.as_str(), "sys__exec" | "sys__exec_session")
+            });
+
+            format!(
+                "WORKSPACE OPS CONTRACT:\n\
+                 - Prefer filesystem-native tools first for local file discovery and metadata checks.\n\
+                 - For time-window constraints (for example \"modified in the last week\"), content regex alone is insufficient.\n\
+                 - Build candidates with `filesystem__search` / `filesystem__list_directory`, then use `filesystem__stat` to read modification timestamps and filter to the requested window.\n\
+                 - Report explicit outcome: either matching file paths with timestamps, or a clear zero-results result.\n\
+                 - Do NOT call `system__fail` claiming `sys__exec` is required when filesystem metadata tooling is available.\n\
+                 - If metadata tooling is unavailable, provide best-effort results plus a stated limitation via `chat__reply`, then `agent__complete`.\n\
+                 - Tool availability snapshot: filesystem__search={} filesystem__stat={} filesystem__list_directory={} sys__exec_or_session={}",
+                has_filesystem_search,
+                has_filesystem_stat,
+                has_filesystem_list,
+                has_command_tool
+            )
+        } else {
+            String::new()
+        };
 
     let system_instructions = format!(
  "SYSTEM: You are a local desktop assistant operating inside the IOI runtime.
@@ -524,6 +560,11 @@ OPERATING RULES:
         format!("{}\n{}", system_instructions, mailbox_instruction)
     } else {
         system_instructions
+    };
+    let system_instructions = if workspace_scope_instruction.is_empty() {
+        system_instructions
+    } else {
+        format!("{}\n{}", system_instructions, workspace_scope_instruction)
     };
 
     let include_screenshot =

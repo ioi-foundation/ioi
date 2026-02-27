@@ -140,26 +140,50 @@ pub fn action_fingerprint_key(fingerprint_hash: &str) -> String {
     format!("{}{}", ACTION_FINGERPRINT_LOG_PREFIX, fingerprint_hash)
 }
 
-pub fn is_action_fingerprint_executed(
+pub fn mark_action_fingerprint_executed_at_step(
+    tool_execution_log: &mut BTreeMap<String, ToolCallStatus>,
+    fingerprint_hash: &str,
+    step_index: u32,
+    label: impl AsRef<str>,
+) {
+    let value = format!("{};step={}", label.as_ref(), step_index);
+    tool_execution_log.insert(
+        action_fingerprint_key(fingerprint_hash),
+        ToolCallStatus::Executed(value),
+    );
+}
+
+pub fn action_fingerprint_execution_step(
     tool_execution_log: &BTreeMap<String, ToolCallStatus>,
+    fingerprint_hash: &str,
+) -> Option<u32> {
+    let key = action_fingerprint_key(fingerprint_hash);
+    match tool_execution_log.get(&key) {
+        Some(ToolCallStatus::Executed(value)) => parse_action_fingerprint_step(value),
+        _ => None,
+    }
+}
+
+fn parse_action_fingerprint_step(value: &str) -> Option<u32> {
+    value
+        .split(';')
+        .find_map(|segment| segment.strip_prefix("step="))
+        .and_then(|step| step.parse::<u32>().ok())
+}
+
+pub fn drop_legacy_action_fingerprint_receipt(
+    tool_execution_log: &mut BTreeMap<String, ToolCallStatus>,
     fingerprint_hash: &str,
 ) -> bool {
     let key = action_fingerprint_key(fingerprint_hash);
-    matches!(
+    let should_drop = matches!(
         tool_execution_log.get(&key),
-        Some(ToolCallStatus::Executed(_))
-    )
-}
-
-pub fn mark_action_fingerprint_executed(
-    tool_execution_log: &mut BTreeMap<String, ToolCallStatus>,
-    fingerprint_hash: &str,
-    label: impl Into<String>,
-) {
-    tool_execution_log.insert(
-        action_fingerprint_key(fingerprint_hash),
-        ToolCallStatus::Executed(label.into()),
+        Some(ToolCallStatus::Executed(value)) if parse_action_fingerprint_step(value).is_none()
     );
+    if should_drop {
+        tool_execution_log.remove(&key);
+    }
+    should_drop
 }
 
 pub fn receipt_marker(name: &str) -> String {
@@ -223,4 +247,33 @@ pub fn has_execution_postcondition(
         tool_execution_log.get(&postcondition_marker(name)),
         Some(ToolCallStatus::Executed(_))
     )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{
+        action_fingerprint_execution_step, drop_legacy_action_fingerprint_receipt,
+        mark_action_fingerprint_executed_at_step,
+    };
+    use crate::agentic::desktop::types::ToolCallStatus;
+    use std::collections::BTreeMap;
+
+    #[test]
+    fn action_fingerprint_step_roundtrips_when_recorded_with_step() {
+        let mut log = BTreeMap::new();
+        mark_action_fingerprint_executed_at_step(&mut log, "abc", 7, "success");
+        assert_eq!(action_fingerprint_execution_step(&log, "abc"), Some(7));
+    }
+
+    #[test]
+    fn legacy_action_fingerprint_marker_is_dropped() {
+        let mut log = BTreeMap::new();
+        log.insert(
+            "action_fingerprint::legacy".to_string(),
+            ToolCallStatus::Executed("success".to_string()),
+        );
+        assert!(drop_legacy_action_fingerprint_receipt(&mut log, "legacy"));
+        assert_eq!(action_fingerprint_execution_step(&log, "legacy"), None);
+        assert!(log.get("action_fingerprint::legacy").is_none());
+    }
 }

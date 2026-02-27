@@ -255,7 +255,8 @@ async fn wallet_network_mail_reply_draft_send_contract_replay_window_via_real_ca
         .await?;
         nonce += 1;
 
-        let approval_request_hash = unique_id("wallet_network_mail_reply_contract_approval_request");
+        let approval_request_hash =
+            unique_id("wallet_network_mail_reply_contract_approval_request");
         let approval_session_id = unique_id("wallet_network_mail_reply_contract_approval_session");
         let interception = WalletInterceptionContext {
             session_id: Some(approval_session_id),

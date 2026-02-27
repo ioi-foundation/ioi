@@ -1,5 +1,5 @@
 use super::core::ApprovalDirective;
-use super::flow::should_enter_incident_recovery;
+use super::flow::{should_enter_incident_recovery, should_skip_incident_recovery_for_intent};
 use super::recovery::{effective_forbidden_tools, policy_max_transitions};
 use crate::agentic::desktop::service::step::anti_loop::FailureClass;
 use crate::agentic::desktop::service::step::ontology::IntentClass;
@@ -70,5 +70,34 @@ fn approval_directive_type_is_exhaustive() {
         ApprovalDirective::PromptUser
             | ApprovalDirective::SuppressDuplicatePrompt
             | ApprovalDirective::PauseLoop
+    ));
+}
+
+#[test]
+fn file_task_no_effect_failures_skip_incident_recovery() {
+    assert!(should_skip_incident_recovery_for_intent(
+        IntentClass::FileTask,
+        "filesystem__list_directory",
+        FailureClass::NoEffectAfterAction
+    ));
+    assert!(should_skip_incident_recovery_for_intent(
+        IntentClass::FileTask,
+        "filesystem__search",
+        FailureClass::UnexpectedState
+    ));
+    assert!(should_skip_incident_recovery_for_intent(
+        IntentClass::FileTask,
+        "filesystem__create_directory",
+        FailureClass::NoEffectAfterAction
+    ));
+    assert!(!should_skip_incident_recovery_for_intent(
+        IntentClass::FileTask,
+        "filesystem__create_directory",
+        FailureClass::TargetNotFound
+    ));
+    assert!(!should_skip_incident_recovery_for_intent(
+        IntentClass::UIInteraction,
+        "gui__click",
+        FailureClass::NoEffectAfterAction
     ));
 }

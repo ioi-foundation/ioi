@@ -2,7 +2,7 @@ use super::util::{marker_hits, normalize_marker_text};
 use crate::agentic::desktop::types::InteractionTarget;
 use std::collections::BTreeSet;
 
-const RECENCY_MARKERS: [&str; 15] = [
+const RECENCY_MARKERS: [&str; 22] = [
     "as of",
     "as-of",
     "now",
@@ -18,6 +18,13 @@ const RECENCY_MARKERS: [&str; 15] = [
     "live",
     "recent",
     "most recent",
+    "recently",
+    "last week",
+    "past week",
+    "last 7 days",
+    "in the last week",
+    "in the past week",
+    "this week",
 ];
 
 const PROVENANCE_MARKERS: [&str; 18] = [

@@ -22,6 +22,7 @@ pub fn case() -> QueryCase {
         success_definition: "Return the current Bitcoin price with runtime-grounded web retrieval evidence, independent citations, and no CEC contract failures.",
         seeded_intent_id: "web.research",
         intent_scope: IntentScopeProfile::WebResearch,
+        seed_resolved_intent: true,
         expected_pass: true,
         sla_seconds: 90,
         max_steps: 18,

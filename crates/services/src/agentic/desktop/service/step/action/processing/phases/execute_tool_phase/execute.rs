@@ -84,6 +84,7 @@ pub(crate) async fn execute_tool_phase(
         agent_state,
         &tool,
         command_scope,
+        pre_state_summary.step_index,
         &action_fingerprint,
         &mut verification_checks,
     );
@@ -346,9 +347,10 @@ pub(crate) async fn execute_tool_phase(
                                 ToolCallStatus::Executed("success".into()),
                             );
                             if let Some(retry_hash) = retry_intent_hash.as_deref() {
-                                mark_action_fingerprint_executed(
+                                mark_action_fingerprint_executed_at_step(
                                     &mut agent_state.tool_execution_log,
                                     retry_hash,
+                                    pre_state_summary.step_index,
                                     "success",
                                 );
                             }

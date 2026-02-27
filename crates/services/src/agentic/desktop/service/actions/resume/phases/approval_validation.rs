@@ -111,7 +111,6 @@ pub(crate) async fn run_approval_validation_phase(
         agent_state,
         session_id,
         &tool,
-        tool_hash,
         expected_request_hash,
         pii_request.as_ref(),
         block_timestamp_ms,

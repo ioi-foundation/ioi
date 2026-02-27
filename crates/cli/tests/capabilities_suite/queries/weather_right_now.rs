@@ -12,6 +12,7 @@ pub fn case() -> QueryCase {
         success_definition: "Answer current weather conditions for the active/inferred locality; concrete metrics are preferred, but explicitly caveated partial evidence is acceptable.",
         seeded_intent_id: "web.research",
         intent_scope: IntentScopeProfile::WebResearch,
+        seed_resolved_intent: true,
         expected_pass: true,
         sla_seconds: 75,
         max_steps: 16,

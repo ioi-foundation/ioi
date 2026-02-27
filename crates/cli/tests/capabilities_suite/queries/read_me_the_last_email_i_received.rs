@@ -22,6 +22,7 @@ pub fn case() -> QueryCase {
         success_definition: "Read the latest inbox message through mailbox connector tooling with runtime connector setup receipts, structured message evidence, and no CEC/CIRC contract failures or mailbox fallback markers.",
         seeded_intent_id: "mail.read.latest",
         intent_scope: IntentScopeProfile::Conversation,
+        seed_resolved_intent: true,
         expected_pass: true,
         sla_seconds: 90,
         max_steps: 16,
