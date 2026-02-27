@@ -127,10 +127,12 @@ async fn snapshot_with_target_retry(
     rx: &mut broadcast::Receiver<KernelEvent>,
     all_events: &mut Vec<KernelEvent>,
 ) -> Result<(String, String, u32)> {
+    const MAX_ATTEMPTS: u32 = 10;
+    const RETRY_DELAY_MS: u64 = 500;
     let mut last_failure =
         "gui__snapshot did not return a targetable accessibility node".to_string();
 
-    for attempt in 0..6u32 {
+    for attempt in 0..MAX_ATTEMPTS {
         let step = step_start + attempt;
         let snapshot = exec
             .execute(
@@ -163,8 +165,8 @@ async fn snapshot_with_target_retry(
                 || err.contains("Accessibility")
                 || err.contains("atspi")
                 || err.contains("AT-SPI");
-            if transient && attempt < 5 {
-                sleep(Duration::from_millis(240)).await;
+            if transient && attempt + 1 < MAX_ATTEMPTS {
+                sleep(Duration::from_millis(RETRY_DELAY_MS)).await;
                 continue;
             }
             break;
@@ -177,8 +179,8 @@ async fn snapshot_with_target_retry(
                 &format!("step={} attempt={} empty_xml=true", step_start, attempt + 1),
             );
             last_failure = "gui__snapshot returned an empty XML payload".to_string();
-            if attempt < 5 {
-                sleep(Duration::from_millis(240)).await;
+            if attempt + 1 < MAX_ATTEMPTS {
+                sleep(Duration::from_millis(RETRY_DELAY_MS)).await;
                 continue;
             }
             break;
@@ -203,8 +205,8 @@ async fn snapshot_with_target_retry(
             ),
         );
         last_failure = "could not find 'Confirm Reliability' in GUI snapshot XML".to_string();
-        if attempt < 5 {
-            sleep(Duration::from_millis(240)).await;
+        if attempt + 1 < MAX_ATTEMPTS {
+            sleep(Duration::from_millis(RETRY_DELAY_MS)).await;
             continue;
         }
     }

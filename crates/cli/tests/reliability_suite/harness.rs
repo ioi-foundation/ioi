@@ -370,7 +370,7 @@ except Exception:
             .map_err(|e| anyhow!("failed to spawn tkinter fixture app: {}", e))?;
 
         let mut app = Self { child };
-        sleep(Duration::from_millis(1200)).await;
+        sleep(Duration::from_millis(2200)).await;
 
         if let Some(status) = app
             .child
