@@ -538,8 +538,7 @@ export function SpotlightWindow({ variant = "overlay" }: SpotlightWindowProps) {
                     const latestAnswerMatches =
                       isLatestAnsweredTurn &&
                       !!turn.answer &&
-                      !!runPresentation.finalAnswer &&
-                      runPresentation.finalAnswer.message.text.trim() === turn.answer.text.trim();
+                      !!runPresentation.finalAnswer;
                     const hasThoughtSummary = !!runPresentation.thoughtSummary;
                     const showLiveThinking = isLatestTurn && !!turn.prompt && !turn.answer && isRunning;
                     const showThoughtTrigger = !!turn.prompt && (showLiveThinking || !!turn.answer);
@@ -627,7 +626,6 @@ export function SpotlightWindow({ variant = "overlay" }: SpotlightWindowProps) {
                             <AnswerCard
                               answer={runPresentation.finalAnswer}
                               sourceSummary={runPresentation.sourceSummary}
-                              planSummary={runPresentation.planSummary}
                               sourceDurationLabel={task?.receipt?.duration}
                               onDownloadContext={handleDownloadContext}
                               onOpenArtifacts={() =>
@@ -656,7 +654,6 @@ export function SpotlightWindow({ variant = "overlay" }: SpotlightWindowProps) {
                     <AnswerCard
                       answer={runPresentation.finalAnswer}
                       sourceSummary={runPresentation.sourceSummary}
-                      planSummary={runPresentation.planSummary}
                       sourceDurationLabel={task?.receipt?.duration}
                       onDownloadContext={handleDownloadContext}
                       onOpenArtifacts={() =>

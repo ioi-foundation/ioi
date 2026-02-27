@@ -269,11 +269,54 @@ export interface ActivityGroup {
   events: ActivityEventRef[];
 }
 
+export type ChatContractScalar = string | number | boolean | null;
+export type ChatContractValue = ChatContractScalar | ChatContractScalar[];
+export type ChatContractSchemaVersion = "chat_contract_v1";
+export type ChatContractOutcomeStatus = "success" | "partial" | "failed";
+
+export interface ChatContractOutcome {
+  status: ChatContractOutcomeStatus;
+  summary?: string;
+  count?: number;
+}
+
+export interface ChatContractResultColumn {
+  key: string;
+  label: string;
+}
+
+export interface ChatContractAction {
+  id: string;
+  label: string;
+}
+
+export type ChatContractResultRow = Record<string, ChatContractScalar>;
+export type ChatContractInterpretation = Record<string, ChatContractValue>;
+
+export interface ChatContractEnvelopeV1 {
+  schema_version: ChatContractSchemaVersion;
+  intent_id: string;
+  outcome: ChatContractOutcome;
+  interpretation: ChatContractInterpretation;
+  result_rows: ChatContractResultRow[];
+  result_columns?: ChatContractResultColumn[];
+  actions?: ChatContractAction[];
+  artifact_ref?: string;
+  answer_markdown?: string;
+}
+
+export interface ChatContractValidationIssue {
+  path: string;
+  code: string;
+  message: string;
+}
+
 export interface AnswerPresentation {
   message: ChatMessage;
-  runTimestampUtc?: string;
-  confidence?: string;
-  completionReason?: string;
+  displayText: string;
+  copyText: string;
+  contract: ChatContractEnvelopeV1 | null;
+  contractValidationIssues: ChatContractValidationIssue[];
   citations: string[];
   sourceUrls: string[];
 }

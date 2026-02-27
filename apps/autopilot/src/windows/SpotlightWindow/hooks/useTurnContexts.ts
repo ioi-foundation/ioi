@@ -7,6 +7,8 @@ import type {
 } from "../../../types";
 import { collectScreenshotReceipts } from "../utils/screenshotEvidence";
 
+const TOOL_NAME_KEYS = ["tool_name", "tool", "name"];
+
 type TurnEventWindow = {
   id: string;
   index: number;
@@ -43,6 +45,65 @@ type UseTurnContextsOptions = {
 function parseTimestampMs(value: string): number | null {
   const ms = Date.parse(value);
   return Number.isNaN(ms) ? null : ms;
+}
+
+function getValueString(value: unknown): string {
+  if (typeof value === "string") {
+    return value;
+  }
+  if (typeof value === "number" || typeof value === "boolean") {
+    return String(value);
+  }
+  return "";
+}
+
+function normalizeOutputForCompare(value: string): string {
+  return value.replace(/\s+/g, " ").trim().toLowerCase();
+}
+
+function eventOutput(event: AgentEvent): string {
+  const details = event.details || {};
+  const digest = event.digest || {};
+  const candidates = [details.output, details.chunk, details.content, digest.output_snippet];
+  for (const candidate of candidates) {
+    const text = getValueString(candidate).trim();
+    if (text.length > 0) {
+      return text;
+    }
+  }
+  return "";
+}
+
+function eventToolName(event: AgentEvent): string {
+  const details = event.details || {};
+  const digest = event.digest || {};
+  for (const key of TOOL_NAME_KEYS) {
+    const digestValue = getValueString(digest[key as keyof typeof digest]).trim();
+    if (digestValue.length > 0) {
+      return digestValue;
+    }
+    const detailsValue = getValueString(details[key as keyof typeof details]).trim();
+    if (detailsValue.length > 0) {
+      return detailsValue;
+    }
+  }
+  return "";
+}
+
+function isChatReplyTool(event: AgentEvent): boolean {
+  const tool = eventToolName(event).toLowerCase();
+  return tool === "chat__reply" || tool === "chat::reply";
+}
+
+function collectCanonicalAnswerHashes(events: AgentEvent[]): Set<string> {
+  const hashes = new Set<string>();
+  for (const event of events) {
+    if (!isChatReplyTool(event)) continue;
+    const output = eventOutput(event).trim();
+    if (!output) continue;
+    hashes.add(normalizeOutputForCompare(output));
+  }
+  return hashes;
 }
 
 function isUserRequestEvent(event: AgentEvent): boolean {
@@ -90,10 +151,20 @@ export function useTurnContexts({
   activeEvents,
   runPresentation,
 }: UseTurnContextsOptions) {
-  const fallbackConversation = useMemo(
-    () => activeHistory.filter((message) => message.role === "user" || message.role === "agent"),
-    [activeHistory],
+  const canonicalAnswerHashes = useMemo(
+    () => collectCanonicalAnswerHashes(activeEvents),
+    [activeEvents],
   );
+
+  const fallbackConversation = useMemo(() => {
+    const shouldMatchCanonical = canonicalAnswerHashes.size > 0;
+    return activeHistory.filter((message) => {
+      if (message.role === "user") return true;
+      if (message.role !== "agent") return false;
+      if (!shouldMatchCanonical) return true;
+      return canonicalAnswerHashes.has(normalizeOutputForCompare(message.text));
+    });
+  }, [activeHistory, canonicalAnswerHashes]);
 
   const conversationTurns = useMemo<ConversationTurn[]>(() => {
     const turns: ConversationTurn[] = [];

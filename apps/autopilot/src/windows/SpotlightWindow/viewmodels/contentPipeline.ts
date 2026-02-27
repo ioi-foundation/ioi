@@ -15,13 +15,9 @@ import type {
   SourceSummary,
   ThoughtSummary,
 } from "../../../types";
+import { formatChatContractForClipboard, parseChatContractEnvelope } from "./chatContract";
 
 const TOOL_NAME_KEYS = ["tool_name", "tool", "name"];
-const RUN_TIMESTAMP_RE = /Run timestamp \(UTC\):\s*([^\n\r]+)/i;
-const TOP_TIMESTAMP_RE = /\(as of\s+([^\n\r\)]+)\s+UTC\)/i;
-const OVERALL_CONFIDENCE_RE = /Overall confidence:\s*([^\n\r]+)/i;
-const STORY_CONFIDENCE_RE = /^Confidence:\s*([^\n\r]+)/im;
-const COMPLETION_REASON_RE = /Completion reason:\s*([^\n\r]+)/i;
 const URL_RE = /https?:\/\/[^\s)\]}"']+/gim;
 const WEB_SEARCH_TOOL = "web__search";
 const WEB_READ_TOOL = "web__read";
@@ -153,40 +149,6 @@ export function classifyActivityEvent(event: AgentEvent): ActivityKind {
   }
 
   return "system_event";
-}
-
-function extractRunTimestamp(text: string): string | undefined {
-  const runMatch = RUN_TIMESTAMP_RE.exec(text);
-  if (runMatch?.[1]) {
-    return runMatch[1].trim();
-  }
-
-  const topMatch = TOP_TIMESTAMP_RE.exec(text);
-  if (topMatch?.[1]) {
-    const raw = topMatch[1].trim();
-    return raw.endsWith("Z") ? raw : `${raw}Z`;
-  }
-
-  return undefined;
-}
-
-function extractConfidence(text: string): string | undefined {
-  const overall = OVERALL_CONFIDENCE_RE.exec(text);
-  if (overall?.[1]) {
-    return overall[1].trim();
-  }
-
-  const story = STORY_CONFIDENCE_RE.exec(text);
-  if (story?.[1]) {
-    return story[1].trim();
-  }
-
-  return undefined;
-}
-
-function extractCompletionReason(text: string): string | undefined {
-  const match = COMPLETION_REASON_RE.exec(text);
-  return match?.[1] ? match[1].trim() : undefined;
 }
 
 function extractUrls(text: string): string[] {
@@ -511,13 +473,28 @@ function buildPlanSummary(events: ActivityEventRef[]): PlanSummary | null {
 
 function buildAnswerPresentation(message: ChatMessage): AnswerPresentation {
   const text = message.text || "";
-  const sourceUrls = extractUrls(text);
+  const contractParse = parseChatContractEnvelope(text);
+  const contract = contractParse.envelope;
+  const rejectedStructuredResponse = !contract && contractParse.issues.length > 0;
+  const fallbackText = rejectedStructuredResponse
+    ? "Structured response unavailable due to contract validation failure."
+    : text;
+  const displayText =
+    contract?.answer_markdown?.trim() && contract.answer_markdown.trim().length > 0
+      ? contract.answer_markdown
+      : contract
+        ? contract.outcome.summary || ""
+        : fallbackText;
+  const copyText = contract ? formatChatContractForClipboard(contract) : fallbackText;
+  const citationText = contract?.answer_markdown || (rejectedStructuredResponse ? "" : text);
+  const sourceUrls = extractUrls(citationText);
   return {
     message,
-    runTimestampUtc: extractRunTimestamp(text),
-    confidence: extractConfidence(text),
-    completionReason: extractCompletionReason(text),
-    citations: sourceUrls.slice(0, 12),
+    displayText,
+    copyText,
+    contract,
+    contractValidationIssues: contractParse.issues,
+    citations: extractUrls(citationText).slice(0, 12),
     sourceUrls,
   };
 }
@@ -532,15 +509,37 @@ function latestPrompt(history: ChatMessage[]): ChatMessage | null {
   return null;
 }
 
-function latestAgentAnswer(history: ChatMessage[]): ChatMessage | null {
+function latestAgentAnswer(
+  history: ChatMessage[],
+  canonicalAnswerHashes?: Set<string>,
+): ChatMessage | null {
+  const shouldMatchCanonical =
+    !!canonicalAnswerHashes && canonicalAnswerHashes.size > 0;
   for (let i = history.length - 1; i >= 0; i -= 1) {
     const message = history[i];
     if (message?.role === "agent" && message.text.trim().length > 0) {
+      if (shouldMatchCanonical) {
+        const normalized = normalizeOutputForHash(message.text).toLowerCase();
+        if (!canonicalAnswerHashes?.has(normalized)) {
+          continue;
+        }
+      }
       return message;
     }
   }
 
   return null;
+}
+
+function collectPrimaryAnswerHashes(events: AgentEvent[]): Set<string> {
+  const hashes = new Set<string>();
+  for (const event of events) {
+    if (classifyActivityEvent(event) !== "primary_answer_event") continue;
+    const output = normalizeOutputForHash(eventOutput(event)).toLowerCase();
+    if (!output) continue;
+    hashes.add(output);
+  }
+  return hashes;
 }
 
 function answerFromEvents(events: AgentEvent[]): ChatMessage | null {
@@ -709,7 +708,11 @@ export function buildRunPresentation(
   });
 
   const prompt = latestPrompt(history);
-  const answerMessage = latestAgentAnswer(history) || answerFromEvents(events);
+  const canonicalAnswerHashes = collectPrimaryAnswerHashes(events);
+  const answerMessage =
+    latestAgentAnswer(history, canonicalAnswerHashes) ||
+    answerFromEvents(events) ||
+    latestAgentAnswer(history);
   const finalAnswer = answerMessage ? buildAnswerPresentation(answerMessage) : null;
   const sourceSummary = buildSourceSummary(deduped);
   const thoughtSummary = buildThoughtSummary(activityGroups);
