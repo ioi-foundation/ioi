@@ -35,19 +35,24 @@ impl AccessibilityNode {
     /// Heuristic to determine if a node is relevant for interaction.
     /// Used for semantic filtering (Phase 1.1).
     pub fn is_interactive(&self) -> bool {
-        // Common interactive roles
-        matches!(
-            self.role.as_str(),
-            "button"
-                | "link"
-                | "checkbox"
-                | "radio"
-                | "slider"
-                | "textbox"
-                | "combobox"
-                | "menuitem"
-                | "listitem"
-        )
+        let role = self.role.to_ascii_lowercase();
+        role.contains("button")
+            || role.contains("link")
+            || role.contains("checkbox")
+            || role.contains("check_box")
+            || role.contains("radio")
+            || role.contains("slider")
+            || role.contains("textbox")
+            || role.contains("text_box")
+            || role.contains("combobox")
+            || role.contains("combo_box")
+            || role.contains("menuitem")
+            || role.contains("menu_item")
+            || role.contains("listitem")
+            || role.contains("list_item")
+            || role.contains("searchbox")
+            || role.contains("search_box")
+            || role.contains("entry")
     }
 
     /// Checks if the node carries meaningful text content.
@@ -224,8 +229,7 @@ pub fn serialize_tree_to_xml(node: &AccessibilityNode, depth: usize) -> String {
         || node.is_interactive()
         || (node.has_content() && !is_bulk_text)
         || is_container // Must traverse containers to find interactive children
-        || node.role == "window"
-        || node.role == "root";
+        || structural_container;
 
     if !is_interesting {
         // If it's a boring leaf (empty div), prune it.
@@ -257,8 +261,7 @@ pub fn serialize_tree_to_xml(node: &AccessibilityNode, depth: usize) -> String {
         && !node.is_interactive()
         && !node.has_content()
         && children_xml.is_empty()
-        && node.role != "window"
-        && node.role != "root"
+        && !structural_container
     {
         return String::new();
     }
@@ -316,10 +319,26 @@ pub fn serialize_tree_to_xml(node: &AccessibilityNode, depth: usize) -> String {
         state_attrs.push_str(" expanded=\"true\"");
     }
 
+    // Ensure tag names are XML-safe even if upstream role strings include spaces or symbols.
+    let tag_name = xml_tag_name(&node.role);
+    let role_attr = if tag_name != node.role {
+        format!(" role=\"{}\"", escape_xml(&node.role))
+    } else {
+        String::new()
+    };
+
     // [MODIFIED] Include som_attr in output (Fixed argument count mismatch)
     let mut output = format!(
-        "{}<{} id=\"{}\"{}{}{}{}{}",
-        indent_self, node.role, node.id, som_attr, name_attr, value_attr, state_attrs, coords_attr
+        "{}<{} id=\"{}\"{}{}{}{}{}{}",
+        indent_self,
+        tag_name,
+        node.id,
+        role_attr,
+        som_attr,
+        name_attr,
+        value_attr,
+        state_attrs,
+        coords_attr
     );
 
     if children_xml.is_empty() {
@@ -327,7 +346,7 @@ pub fn serialize_tree_to_xml(node: &AccessibilityNode, depth: usize) -> String {
     } else {
         output.push_str(">\n");
         output.push_str(&children_xml);
-        output.push_str(&format!("{}</{}>\n", indent_self, node.role));
+        output.push_str(&format!("{}</{}>\n", indent_self, tag_name));
     }
 
     output
@@ -339,6 +358,24 @@ fn escape_xml(s: &str) -> String {
         .replace('>', "&gt;")
         .replace('"', "&quot;")
         .replace('\'', "&apos;")
+}
+
+fn xml_tag_name(role: &str) -> String {
+    let mut out = String::with_capacity(role.len());
+    for ch in role.chars() {
+        if ch.is_ascii_alphanumeric() || ch == '_' || ch == '-' {
+            out.push(ch.to_ascii_lowercase());
+        } else if !out.ends_with('_') {
+            out.push('_');
+        }
+    }
+
+    let out = out.trim_matches('_').to_string();
+    if out.is_empty() {
+        "node".to_string()
+    } else {
+        out
+    }
 }
 
 /// The interface for the Sovereign Context Substrate (SCS).

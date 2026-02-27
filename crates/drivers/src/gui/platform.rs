@@ -190,18 +190,19 @@ mod linux_impl {
         }
 
         let normalized = out.split_whitespace().collect::<Vec<_>>().join(" ");
-        match normalized.as_str() {
-            "pushbutton" => "push button".to_string(),
-            "togglebutton" => "toggle button".to_string(),
-            "combobox" => "combo box".to_string(),
-            "checkbox" => "check box".to_string(),
-            "radiobutton" => "radio button".to_string(),
-            "menuitem" => "menu item".to_string(),
-            "listitem" => "list item".to_string(),
-            "textbox" => "text box".to_string(),
-            "searchbox" => "search box".to_string(),
-            _ => normalized,
-        }
+        let canonical = match normalized.as_str() {
+            "pushbutton" | "togglebutton" => "button",
+            "combobox" => "combobox",
+            "checkbox" => "checkbox",
+            "radiobutton" => "radio",
+            "menuitem" => "menuitem",
+            "listitem" => "listitem",
+            "textbox" => "textbox",
+            "searchbox" => "searchbox",
+            _ => normalized.as_str(),
+        };
+
+        canonical.replace(' ', "_")
     }
 
     fn normalize_attribute_key(key: &str) -> String {
