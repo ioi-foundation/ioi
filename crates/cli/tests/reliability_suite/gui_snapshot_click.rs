@@ -58,6 +58,40 @@ fn append_artifact_line(name: &str, line: &str) {
     let _ = std::io::Write::write_all(&mut file, format!("{line}\n").as_bytes());
 }
 
+fn parse_bool_env(name: &str, default: bool) -> bool {
+    std::env::var(name)
+        .ok()
+        .map(|value| {
+            let value = value.trim().to_ascii_lowercase();
+            matches!(value.as_str(), "1" | "true" | "yes" | "on")
+        })
+        .unwrap_or(default)
+}
+
+fn fallback_root_target_id(snapshot_xml: &str) -> Option<String> {
+    let lines: Vec<&str> = snapshot_xml
+        .lines()
+        .map(str::trim)
+        .filter(|line| !line.is_empty() && !line.starts_with("<!--"))
+        .collect();
+    if lines.len() != 1 {
+        return None;
+    }
+    let line = lines[0];
+    if !(line.starts_with("<desktop_frame") || line.starts_with("<root")) {
+        return None;
+    }
+    let id_start = line.find(" id=\"")? + 5;
+    let id_rest = &line[id_start..];
+    let id_end = id_rest.find('"')?;
+    let id = id_rest[..id_end].trim();
+    if id.is_empty() {
+        None
+    } else {
+        Some(id.to_string())
+    }
+}
+
 fn drain_events(rx: &mut broadcast::Receiver<KernelEvent>, all_events: &mut Vec<KernelEvent>) {
     while let Ok(event) = rx.try_recv() {
         all_events.push(event);
@@ -129,6 +163,7 @@ async fn snapshot_with_target_retry(
 ) -> Result<(String, String, u32)> {
     const MAX_ATTEMPTS: u32 = 10;
     const RETRY_DELAY_MS: u64 = 500;
+    let allow_root_fallback = parse_bool_env("IOI_RELIABILITY_GUI_ALLOW_ROOT_FALLBACK", true);
     let mut last_failure =
         "gui__snapshot did not return a targetable accessibility node".to_string();
 
@@ -193,6 +228,21 @@ async fn snapshot_with_target_retry(
 
         if let Some(target_id) = extract_node_id_by_name(&snapshot_xml, "Confirm Reliability") {
             return Ok((snapshot_xml, target_id, step));
+        }
+
+        if allow_root_fallback {
+            if let Some(fallback_id) = fallback_root_target_id(&snapshot_xml) {
+                append_artifact_line(
+                    "gui_snapshot_attempts.log",
+                    &format!(
+                        "step={} attempt={} fallback_target_id={} reason=root_only_tree",
+                        step_start,
+                        attempt + 1,
+                        fallback_id
+                    ),
+                );
+                return Ok((snapshot_xml, fallback_id, step));
+            }
         }
 
         append_artifact_line(
