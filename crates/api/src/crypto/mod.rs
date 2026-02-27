@@ -5,6 +5,8 @@ use crate::error::CryptoError;
 use ioi_types::app::SignatureSuite; // [NEW] Added for BatchVerifier signature suite
 use zeroize::Zeroizing;
 
+pub type BatchVerifyItem<'a> = (&'a [u8], &'a [u8], &'a [u8], SignatureSuite);
+
 /// A trait for any key that can be serialized to and from bytes.
 pub trait SerializableKey {
     /// Converts the key to a byte vector.
@@ -112,8 +114,5 @@ pub trait BatchVerifier: Send + Sync {
     /// # Returns
     /// A vector of booleans indicating the validity of each item in the batch.
     /// The order corresponds to the input slice.
-    fn verify_batch(
-        &self,
-        items: &[(&[u8], &[u8], &[u8], SignatureSuite)],
-    ) -> Result<Vec<bool>, CryptoError>;
+    fn verify_batch(&self, items: &[BatchVerifyItem<'_>]) -> Result<Vec<bool>, CryptoError>;
 }

@@ -65,17 +65,9 @@ impl CimAssistV0Config {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Default, Clone, PartialEq, Eq)]
 pub struct CimAssistV0Provider {
     config: CimAssistV0Config,
-}
-
-impl Default for CimAssistV0Provider {
-    fn default() -> Self {
-        Self {
-            config: CimAssistV0Config::default(),
-        }
-    }
 }
 
 impl CimAssistV0Provider {

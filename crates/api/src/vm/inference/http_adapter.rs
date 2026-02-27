@@ -17,6 +17,7 @@ use tokio::sync::mpsc::Sender;
 #[async_trait]
 pub trait ProviderStrategy: Send + Sync {
     /// Builds the HTTP request for the specific provider.
+    #[allow(clippy::too_many_arguments)]
     fn build_request(
         &self,
         client: &Client,
@@ -330,26 +331,30 @@ impl ProviderStrategy for AnthropicStrategy {
         let mut messages = Vec::new();
         if let Some(arr) = json_input.as_array() {
             for msg in arr {
-                let role = msg["role"].as_str().unwrap_or("user");
+                let role = msg.get("role").and_then(Value::as_str).unwrap_or("user");
                 let mut blocks = Vec::new();
 
-                if let Some(text) = msg["content"].as_str() {
+                if let Some(text) = msg.get("content").and_then(Value::as_str) {
                     blocks.push(AnthropicContentBlock::Text {
                         text: text.to_string(),
                     });
-                } else if let Some(content_arr) = msg["content"].as_array() {
+                } else if let Some(content_arr) = msg.get("content").and_then(Value::as_array) {
                     for item in content_arr {
-                        if let Some(t) = item["type"].as_str() {
+                        if let Some(t) = item.get("type").and_then(Value::as_str) {
                             match t {
                                 "text" => {
-                                    if let Some(txt) = item["text"].as_str() {
+                                    if let Some(txt) = item.get("text").and_then(Value::as_str) {
                                         blocks.push(AnthropicContentBlock::Text {
                                             text: txt.to_string(),
                                         });
                                     }
                                 }
                                 "image_url" => {
-                                    if let Some(url) = item["image_url"]["url"].as_str() {
+                                    if let Some(url) = item
+                                        .get("image_url")
+                                        .and_then(|v| v.get("url"))
+                                        .and_then(Value::as_str)
+                                    {
                                         if let Some(b64) =
                                             url.strip_prefix("data:image/jpeg;base64,")
                                         {
@@ -453,7 +458,7 @@ impl ProviderStrategy for AnthropicStrategy {
                     return Ok(tool_json.to_string().into_bytes());
                 }
                 ContentBlock::Text { text } => {
-                    if text.trim().len() > 0 {
+                    if !text.trim().is_empty() {
                         return Ok(text.into_bytes());
                     }
                 }
@@ -480,10 +485,16 @@ pub struct HttpInferenceRuntime {
 
 impl HttpInferenceRuntime {
     pub fn new(api_url: String, api_key: String, model_name: String) -> Self {
-        let client = Client::builder()
-            .timeout(Duration::from_secs(60))
-            .build()
-            .expect("Failed to build HTTP client");
+        let client = match Client::builder().timeout(Duration::from_secs(60)).build() {
+            Ok(client) => client,
+            Err(err) => {
+                log::warn!(
+                    "Failed to build configured HTTP client ({}); falling back to default client",
+                    err
+                );
+                Client::new()
+            }
+        };
 
         let strategy: Box<dyn ProviderStrategy> = if model_name.to_lowercase().contains("claude") {
             let beta = std::env::var("ANTHROPIC_BETA_HEADER")

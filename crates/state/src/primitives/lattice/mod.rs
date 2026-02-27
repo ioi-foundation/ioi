@@ -201,7 +201,7 @@ fn expand_message_to_ring(msg: &[u8], n: usize, q: u32) -> Result<Vec<u32>, Cryp
         // Consume 16-bit chunks from the hash block as coefficients mod q.
         for chunk in block.chunks_exact(2) {
             if coeffs.len() < n {
-                if let (Some(&byte1), Some(&byte2)) = (chunk.get(0), chunk.get(1)) {
+                if let (Some(&byte1), Some(&byte2)) = (chunk.first(), chunk.get(1)) {
                     let v_u16 = u16::from_le_bytes([byte1, byte2]);
                     let v_u32 = (v_u16 as u32) % q;
                     // Ensure coefficient is centered around 0 for some lattice schemes,

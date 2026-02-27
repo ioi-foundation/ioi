@@ -95,16 +95,14 @@ impl Default for ReadState {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 enum WriteState {
+    #[default]
     Idle,
-    Writing { buf: Vec<u8>, written: usize },
-}
-
-impl Default for WriteState {
-    fn default() -> Self {
-        WriteState::Idle
-    }
+    Writing {
+        buf: Vec<u8>,
+        written: usize,
+    },
 }
 
 #[inline]
@@ -317,7 +315,7 @@ impl<S: AsyncWrite + Unpin> AsyncWrite for AeadWrappedStream<S> {
 
     fn poll_flush(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
         // FIX: First, ensure any internally buffered write data is flushed.
-        if let Poll::Pending = self.as_mut().poll_write_buffered(cx) {
+        if self.as_mut().poll_write_buffered(cx).is_pending() {
             return Poll::Pending;
         }
         // Then, flush the underlying stream.
@@ -327,7 +325,7 @@ impl<S: AsyncWrite + Unpin> AsyncWrite for AeadWrappedStream<S> {
 
     fn poll_shutdown(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
         // FIX: Ensure all buffered data is written before shutting down.
-        if let Poll::Pending = self.as_mut().poll_write_buffered(cx) {
+        if self.as_mut().poll_write_buffered(cx).is_pending() {
             return Poll::Pending;
         }
         // Then, shut down the underlying stream.

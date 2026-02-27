@@ -107,7 +107,7 @@ pub fn poly_div_linear(poly: &Polynomial, z: Scalar) -> Result<Polynomial, Strin
         return Ok(Polynomial { coeffs: vec![] });
     }
     let degree = poly.coeffs.len() - 1;
-    if degree == 0 && poly.coeffs.get(0) == Some(&Scalar::zero()) {
+    if degree == 0 && poly.coeffs.first() == Some(&Scalar::zero()) {
         return Ok(Polynomial { coeffs: vec![] });
     }
     let mut quotient_coeffs = vec![Scalar::zero(); degree];

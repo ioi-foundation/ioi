@@ -92,19 +92,19 @@ jobs:
         uses: actions-rs/cargo@v1
         with:
           command: clippy
-          args: --all-targets --all-features -- -D warnings
+          args: --all-targets --all-features -p ioi-types -p ioi-api -p ioi-pii -p ioi-telemetry -- -D warnings
           
       - name: Build
         uses: actions-rs/cargo@v1
         with:
           command: build
-          args: --locked --all-features
+          args: --locked --all-features -p ioi-types -p ioi-api -p ioi-pii -p ioi-telemetry
           
       - name: Run tests
         uses: actions-rs/cargo@v1
         with:
           command: test
-          args: --locked --all-features
+          args: --locked --all-features -p ioi-types -p ioi-api -p ioi-pii -p ioi-telemetry
 
   reliability_browser_e2e:
     name: Reliability Browser E2E

@@ -224,7 +224,7 @@ impl CommitmentScheme for HashCommitmentScheme {
                 // Use context if provided
                 if let Some(verification_flag) = context.get_data("strict_verification") {
                     // --- FIX: Use .get() to avoid panicking index ---
-                    if verification_flag.get(0) == Some(&1) {
+                    if verification_flag.first() == Some(&1) {
                         // Strict verification mode would go here
                         return key_value_hash == commitment.as_ref();
                     }

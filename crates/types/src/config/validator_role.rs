@@ -2,12 +2,13 @@
 use serde::{Deserialize, Serialize};
 
 /// Defines the functional role and hardware capabilities of a validator node.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
 #[serde(tag = "type", content = "config", rename_all = "PascalCase")]
 pub enum ValidatorRole {
     /// Type A: Consensus Validator.
     /// Responsible for block ordering, ledger security, and signature verification.
     /// Hardware requirements: Consumer-grade CPU, moderate RAM.
+    #[default]
     Consensus,
 
     /// Type B: Compute Validator.
@@ -19,12 +20,6 @@ pub enum ValidatorRole {
         /// Available VRAM in bytes, used for model scheduling.
         vram_capacity: u64,
     },
-}
-
-impl Default for ValidatorRole {
-    fn default() -> Self {
-        Self::Consensus
-    }
 }
 
 #[cfg(test)]

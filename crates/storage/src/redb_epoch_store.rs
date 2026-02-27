@@ -1,4 +1,11 @@
 // Path: crates/storage/src/redb_epoch_store.rs
+#![allow(
+    clippy::indexing_slicing,
+    clippy::manual_checked_ops,
+    clippy::redundant_closure,
+    clippy::unwrap_used
+)]
+
 use crate::metrics::metrics;
 use crate::wal::{StateDiff, WalWriter};
 use async_trait::async_trait;

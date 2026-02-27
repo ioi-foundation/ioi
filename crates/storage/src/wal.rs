@@ -36,11 +36,7 @@ pub struct WalWriter {
 
 impl WalWriter {
     pub fn new(path: &Path) -> Result<Self> {
-        let file = OpenOptions::new()
-            .create(true)
-            .append(true)
-            .write(true)
-            .open(path)?;
+        let file = OpenOptions::new().create(true).append(true).open(path)?;
         Ok(Self {
             path: path.to_path_buf(),
             file: Mutex::new(BufWriter::new(file)),
@@ -125,7 +121,6 @@ impl WalWriter {
         let new_file = OpenOptions::new()
             .create(true)
             .append(true)
-            .write(true)
             .open(&self.path)?;
 
         *guard = BufWriter::new(new_file);

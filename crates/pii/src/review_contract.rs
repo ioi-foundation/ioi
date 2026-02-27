@@ -1,7 +1,7 @@
 // Submodule: review_contract (resume-token invariants)
 
 use ioi_types::app::action::{ApprovalToken, PiiApprovalAction};
-use ioi_types::app::agentic::{PiiDecisionMaterial, PiiReviewRequest, PiiReviewSummary};
+use ioi_types::app::agentic::PiiReviewRequest;
 
 use crate::assist::CimAssistProvider;
 use crate::cim_v0::CimAssistV0Provider;

@@ -250,7 +250,7 @@ impl KZGCommitmentScheme {
         // dd[i] holds the i-th element of the current column of the divided-difference table.
         let mut dd = ys;
         let mut a: Vec<Scalar> = Vec::with_capacity(n);
-        a.push(*dd.get(0).ok_or("dd cannot be empty here")?); // a0
+        a.push(*dd.first().ok_or("dd cannot be empty here")?); // a0
 
         // For each order j = 1..n-1, update dd[0..n-j] and take dd[0] as the next Newton coeff
         for j in 1..n {
@@ -268,7 +268,7 @@ impl KZGCommitmentScheme {
                 let entry = dd.get_mut(i).ok_or("dd index out of bounds")?;
                 *entry = new_val;
             }
-            a.push(*dd.get(0).ok_or("dd should not be empty")?); // a_j
+            a.push(*dd.first().ok_or("dd should not be empty")?); // a_j
         }
 
         // --- Convert Newton form to monomial coefficients ---

@@ -14,6 +14,7 @@ use std::collections::HashSet;
 
 /// Represents the decision a node should take in a given consensus round.
 #[derive(Debug)]
+#[allow(clippy::large_enum_variant)]
 pub enum ConsensusDecision<T> {
     /// The node is the leader and should produce a block with the given transactions.
     /// `expected_timestamp_secs` is the exact block timestamp (UNIX seconds) the engine

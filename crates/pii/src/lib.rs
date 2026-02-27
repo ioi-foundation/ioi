@@ -38,12 +38,14 @@ pub use scoped_exception::{
     DEFAULT_SCOPED_EXCEPTION_MAX_USES, DEFAULT_SCOPED_EXCEPTION_TTL_SECS,
 };
 
+#[allow(deprecated)]
 pub use routing::{
-    inspect_and_route_with_for_target, inspect_and_route_with_provider_for_target,
-    route_pii_decision, route_pii_decision_for_target, route_pii_decision_with_assist,
-    route_pii_decision_with_assist_for_target, PiiRoutingOutcome,
+    inspect_and_route_with, inspect_and_route_with_for_target, inspect_and_route_with_provider,
+    inspect_and_route_with_provider_for_target, route_pii_decision, route_pii_decision_for_target,
+    route_pii_decision_with_assist, route_pii_decision_with_assist_for_target, PiiRoutingOutcome,
 };
 
+#[allow(deprecated)]
 pub use targets::{is_high_risk_target, is_high_risk_target_legacy};
 
 pub use transform::{
@@ -51,5 +53,7 @@ pub use transform::{
 };
 
 // Re-export a few crate-private helpers used by unit tests.
+#[cfg(test)]
 pub(crate) use assist::build_assist_receipt;
+#[cfg(test)]
 pub(crate) use hashing::graph_hash;

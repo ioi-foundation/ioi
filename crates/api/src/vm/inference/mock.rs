@@ -34,21 +34,20 @@ impl InferenceRuntime for MockInferenceRuntime {
         // 1. Intent Resolver Logic (Control Plane)
         // Detect if this is a request to map Natural Language -> Transaction.
         // We look for keywords from the System Prompt or specific user intent triggers.
-        if input_str.contains("intent resolver")
+        if (input_str.contains("intent resolver")
             || input_str.contains("User Input:")
-            || input_str.contains("<user_intent>")
+            || input_str.contains("<user_intent>"))
+            && (input_str.contains("Analyze network traffic") || input_str.contains("example.com"))
         {
-            if input_str.contains("Analyze network traffic") || input_str.contains("example.com") {
-                // Return Intent Plan JSON matching the schema expected by IntentResolver
-                let mock_intent_json = json!({
-                    "operation_id": "start_agent",
-                    "params": {
-                        "goal": "Analyze network traffic on example.com"
-                    },
-                    "gas_ceiling": 5000000
-                });
-                return Ok(mock_intent_json.to_string().into_bytes());
-            }
+            // Return Intent Plan JSON matching the schema expected by IntentResolver
+            let mock_intent_json = json!({
+                "operation_id": "start_agent",
+                "params": {
+                    "goal": "Analyze network traffic on example.com"
+                },
+                "gas_ceiling": 5000000
+            });
+            return Ok(mock_intent_json.to_string().into_bytes());
         }
 
         // 2. Agent Execution Logic (Data Plane)
@@ -87,10 +86,11 @@ impl InferenceRuntime for MockInferenceRuntime {
 
         let seed = digest.as_ref();
         let mut embedding = Vec::with_capacity(384);
+        let seed_len = seed.len();
 
         for i in 0..384 {
             // Simple chaotic mapping to get floats in [-1.0, 1.0]
-            let byte = seed[i % 32];
+            let byte = seed.get(i % seed_len).copied().unwrap_or_default();
             let modifier = (i * 7) as u8;
             let val = byte.wrapping_add(modifier);
             let float_val = (val as f32 / 255.0) * 2.0 - 1.0;

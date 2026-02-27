@@ -19,6 +19,7 @@ pub enum AssetType {
 /// A tradeable unit of intelligence.
 /// Wraps the specific manifest type for polymorphic storage in the Market Registry.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Encode, Decode)]
+#[allow(clippy::large_enum_variant)]
 pub enum IntelligenceAsset {
     /// A single executable capability (e.g., "Stripe Login").
     Skill(SkillManifest),

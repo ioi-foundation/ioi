@@ -29,9 +29,9 @@ impl DeltaAccumulator {
         self.new_nodes.entry(node_hash).or_insert(bytes);
     }
 
-    pub fn build<'a>(&'a self) -> (Vec<StoreNodeHash>, Vec<(StoreNodeHash, Vec<u8>)>) {
+    pub fn build(&self) -> (Vec<StoreNodeHash>, Vec<(StoreNodeHash, Vec<u8>)>) {
         let mut uniq: Vec<StoreNodeHash> = self.touched.iter().map(|h| StoreNodeHash(*h)).collect();
-        uniq.sort_by(|a, b| a.0.cmp(&b.0));
+        uniq.sort_by_key(|a| a.0);
 
         let mut news: Vec<(StoreNodeHash, Vec<u8>)> = Vec::with_capacity(self.new_nodes.len());
         for (h, bytes) in &self.new_nodes {

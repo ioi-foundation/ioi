@@ -28,6 +28,7 @@ pub mod blockchain {
 // Nested inside `v1` to allow `super::super::blockchain::v1` references to resolve.
 pub mod public {
     pub mod v1 {
+        #![allow(clippy::large_enum_variant)]
         tonic::include_proto!("ioi.public.v1");
     }
     pub use v1::*;

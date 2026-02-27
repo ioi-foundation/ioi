@@ -64,7 +64,14 @@ pub async fn run_server(addr: SocketAddr) {
             return;
         }
     };
-    tracing::info!(target="telemetry", addr = %listener.local_addr().unwrap(), "listening");
+    match listener.local_addr() {
+        Ok(local_addr) => tracing::info!(target = "telemetry", addr = %local_addr, "listening"),
+        Err(err) => tracing::warn!(
+            target = "telemetry",
+            error = %err,
+            "listening (failed to resolve local addr)"
+        ),
+    }
 
     let graceful = axum::serve(listener, app.into_make_service()).with_graceful_shutdown(async {
         if let Err(e) = signal::ctrl_c().await {

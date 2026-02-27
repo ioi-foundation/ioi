@@ -7643,6 +7643,7 @@ dependencies = [
  "once_cell",
  "redb",
  "serde",
+ "tempfile",
  "thiserror 1.0.69",
  "tokio",
  "tracing",
