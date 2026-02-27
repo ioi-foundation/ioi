@@ -2,23 +2,17 @@
 
 use anyhow::Result;
 use ioi_types::app::agentic::{
-    EvidenceGraph, FirewallDecision, PiiControls, PiiDecisionMaterial, PiiReviewRequest,
-    PiiScopedException, PiiTarget, RawOverrideMode, Stage2Decision, TransformAction, TransformPlan,
+    EvidenceGraph, FirewallDecision, PiiControls, PiiTarget, RawOverrideMode, Stage2Decision,
+    TransformAction, TransformPlan,
 };
-use ioi_types::app::ActionTarget;
 
 use crate::assist::{
     build_assist_receipt, CimAssistContext, CimAssistProvider, CimAssistReceipt, CimAssistResult,
-    InspectFuture, NoopCimAssistProvider, RiskSurface,
+    InspectFuture, RiskSurface,
 };
 use crate::cim_v0::CimAssistV0Provider;
 use crate::decision::{
-    build_decision_material, build_transform_plan, compute_decision_hash, has_high_severity,
-    has_only_low_severity, is_secret_heavy, with_hash,
-};
-use crate::review_summary::build_review_summary;
-use crate::scoped_exception::{
-    mint_default_scoped_exception, verify_scoped_exception_for_decision,
+    build_transform_plan, has_high_severity, has_only_low_severity, is_secret_heavy, with_hash,
 };
 use crate::targets::is_high_risk_target;
 use crate::targets::legacy_target_from_str;

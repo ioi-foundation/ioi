@@ -64,18 +64,14 @@ impl<'a> Iterator for MergingIterator<'a> {
             match decision {
                 Some(std::cmp::Ordering::Less) => return self.base.next(),
                 Some(std::cmp::Ordering::Greater) => {
-                    if let Some((key, val_opt)) = self.writes.next() {
-                        if let Some(val) = val_opt {
-                            return Some(Ok((Arc::from(key.clone()), Arc::from(val.clone()))));
-                        }
+                    if let Some((key, Some(val))) = self.writes.next() {
+                        return Some(Ok((Arc::from(key.clone()), Arc::from(val.clone()))));
                     }
                 }
                 Some(std::cmp::Ordering::Equal) => {
                     self.base.next(); // Discard base item
-                    if let Some((key, val_opt)) = self.writes.next() {
-                        if let Some(val) = val_opt {
-                            return Some(Ok((Arc::from(key.clone()), Arc::from(val.clone()))));
-                        }
+                    if let Some((key, Some(val))) = self.writes.next() {
+                        return Some(Ok((Arc::from(key.clone()), Arc::from(val.clone()))));
                     }
                 }
                 None => return None,

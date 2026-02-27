@@ -108,13 +108,20 @@ pub fn decrypt_key(data: &[u8], passphrase: &str) -> Result<SensitiveBytes, Cryp
         return Err(CryptoError::InvalidInput("File too short".into()));
     }
 
-    let magic = &data[0..8];
+    let magic = data
+        .get(0..8)
+        .ok_or_else(|| CryptoError::InvalidInput("Missing file signature".into()))?;
     if magic != HEADER_MAGIC {
         // Fallback for legacy raw keys check handled by caller or migration tool
         return Err(CryptoError::InvalidInput("Invalid file signature".into()));
     }
 
-    let version = u16::from_be_bytes(data[8..10].try_into().unwrap());
+    let version_bytes: [u8; 2] = data
+        .get(8..10)
+        .ok_or_else(|| CryptoError::InvalidInput("Missing key format version".into()))?
+        .try_into()
+        .map_err(|_| CryptoError::InvalidInput("Invalid version encoding".into()))?;
+    let version = u16::from_be_bytes(version_bytes);
     if version != 1 {
         return Err(CryptoError::Unsupported(format!(
             "Unsupported key format version: {}",
@@ -123,15 +130,39 @@ pub fn decrypt_key(data: &[u8], passphrase: &str) -> Result<SensitiveBytes, Cryp
     }
 
     // 2. Extract Metadata
-    let _kdf_id = data[10];
-    let _mem_kib = u32::from_be_bytes(data[11..15].try_into().unwrap());
-    let _iters = u32::from_be_bytes(data[15..19].try_into().unwrap());
-    let _lanes = data[19];
-    let salt = &data[20..36];
-    let _aead_id = data[36];
-    let nonce_bytes = &data[37..49];
+    let _kdf_id = *data
+        .get(10)
+        .ok_or_else(|| CryptoError::InvalidInput("Missing KDF algorithm id".into()))?;
+    let _mem_kib = u32::from_be_bytes(
+        data.get(11..15)
+            .ok_or_else(|| CryptoError::InvalidInput("Missing KDF memory setting".into()))?
+            .try_into()
+            .map_err(|_| CryptoError::InvalidInput("Invalid KDF memory encoding".into()))?,
+    );
+    let _iters = u32::from_be_bytes(
+        data.get(15..19)
+            .ok_or_else(|| CryptoError::InvalidInput("Missing KDF iterations".into()))?
+            .try_into()
+            .map_err(|_| CryptoError::InvalidInput("Invalid KDF iteration encoding".into()))?,
+    );
+    let _lanes = *data
+        .get(19)
+        .ok_or_else(|| CryptoError::InvalidInput("Missing KDF lanes".into()))?;
+    let salt = data
+        .get(20..36)
+        .ok_or_else(|| CryptoError::InvalidInput("Missing KDF salt".into()))?;
+    let _aead_id = *data
+        .get(36)
+        .ok_or_else(|| CryptoError::InvalidInput("Missing AEAD algorithm id".into()))?;
+    let nonce_bytes: [u8; NONCE_LEN] = data
+        .get(37..49)
+        .ok_or_else(|| CryptoError::InvalidInput("Missing AEAD nonce".into()))?
+        .try_into()
+        .map_err(|_| CryptoError::InvalidInput("Invalid nonce encoding".into()))?;
 
-    let ciphertext_bytes = &data[HEADER_LEN..];
+    let ciphertext_bytes = data
+        .get(HEADER_LEN..)
+        .ok_or_else(|| CryptoError::InvalidInput("Missing ciphertext payload".into()))?;
 
     // 3. Derive KEK
     let kdf = Argon2::<SALT_LEN>::new();
@@ -149,7 +180,7 @@ pub fn decrypt_key(data: &[u8], passphrase: &str) -> Result<SensitiveBytes, Cryp
 
     // 4. Decrypt
     let cipher = ChaCha20Poly1305::new(&kek);
-    let nonce = Nonce::new(nonce_bytes.try_into().unwrap());
+    let nonce = Nonce::new(nonce_bytes);
     let ciphertext_obj = dcrypt::api::types::Ciphertext::new(ciphertext_bytes.to_vec());
 
     let plaintext = SymmetricCipher::decrypt(&cipher)

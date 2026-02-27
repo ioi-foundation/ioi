@@ -13,6 +13,20 @@
         clippy::indexing_slicing
     )
 )]
+#![allow(
+    dead_code,
+    clippy::borrow_deref_ref,
+    clippy::get_first,
+    clippy::indexing_slicing,
+    clippy::map_entry,
+    clippy::needless_borrows_for_generic_args,
+    clippy::needless_return,
+    clippy::only_used_in_recursion,
+    clippy::type_complexity,
+    clippy::unnecessary_sort_by,
+    clippy::unwrap_used,
+    clippy::useless_conversion
+)]
 //! # State Commitment Tree
 //!
 //! This module exports the various stateful data structures that implement

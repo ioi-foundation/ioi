@@ -47,7 +47,7 @@ impl Ed25519KeyPair {
         let secret_key = private_key.0.clone();
 
         // Use the helper method to derive public key
-        let public_key = secret_key.public_key().map_err(|e| CryptoError::from(e))?;
+        let public_key = secret_key.public_key().map_err(CryptoError::from)?;
 
         Ok(Self {
             public_key,
@@ -181,7 +181,7 @@ impl Ed25519PrivateKey {
         self.0
             .public_key()
             .map(Ed25519PublicKey)
-            .map_err(|e| CryptoError::from(e))
+            .map_err(CryptoError::from)
     }
 }
 

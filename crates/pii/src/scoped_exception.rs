@@ -96,6 +96,7 @@ impl std::fmt::Display for ScopedExceptionVerifyError {
 impl std::error::Error for ScopedExceptionVerifyError {}
 
 /// Verifies a scoped exception against the current deterministic decision context.
+#[allow(clippy::too_many_arguments)]
 pub fn verify_scoped_exception_for_decision(
     exception: &PiiScopedException,
     graph: &EvidenceGraph,

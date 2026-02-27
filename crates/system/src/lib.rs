@@ -99,7 +99,7 @@ impl<'a> SystemState for KvSystemState<'a> {
     }
 
     fn set_status(&mut self, status: &ChainStatus) -> Result<(), StateError> {
-        let bytes = codec::to_bytes_canonical(status).map_err(|e| StateError::InvalidValue(e))?;
+        let bytes = codec::to_bytes_canonical(status).map_err(StateError::InvalidValue)?;
         self.state.insert(STATUS_KEY, &bytes)
     }
 }
@@ -137,7 +137,7 @@ impl<'a> EvidenceRegistryMut for KvSystemState<'a> {
             None => BTreeSet::new(),
         };
         set.insert(id);
-        let bytes = codec::to_bytes_canonical(&set).map_err(|e| StateError::InvalidValue(e))?;
+        let bytes = codec::to_bytes_canonical(&set).map_err(StateError::InvalidValue)?;
         self.state.insert(EVIDENCE_REGISTRY_KEY, &bytes)
     }
 }
@@ -166,7 +166,7 @@ impl<'a> QuarantineRegistryMut for KvSystemState<'a> {
             None => BTreeSet::new(),
         };
         set.insert(account);
-        let bytes = codec::to_bytes_canonical(&set).map_err(|e| StateError::InvalidValue(e))?;
+        let bytes = codec::to_bytes_canonical(&set).map_err(StateError::InvalidValue)?;
         self.state.insert(QUARANTINED_VALIDATORS_KEY, &bytes)
     }
 }

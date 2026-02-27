@@ -188,7 +188,7 @@ pub struct PreparedBlock {
     /// The full block, including header and transactions.
     pub block: Block<ChainTransaction>,
     /// The complete set of state modifications derived from executing the block's transactions.
-    pub state_changes: Arc<(Vec<(Vec<u8>, Vec<u8>)>, Vec<Vec<u8>>)>,
+    pub state_changes: Arc<StateChanges>,
     /// The raw state root of the parent block, for validation during commit.
     pub parent_state_root: Vec<u8>,
     /// The Merkle root of the transactions in the block.
@@ -200,6 +200,8 @@ pub struct PreparedBlock {
     /// The total gas consumed by transactions in this block.
     pub gas_used: u64,
 }
+
+type StateChanges = (Vec<(Vec<u8>, Vec<u8>)>, Vec<Vec<u8>>);
 
 /// A trait that defines the logic and capabilities of an application-specific blockchain.
 #[async_trait]

@@ -296,13 +296,11 @@ impl WorkloadConfig {
         }
 
         // Validate legacy inference block if present
-        if self.inference.provider != "mock" {
-            if self.inference.api_url.is_none() {
-                return Err(
-                    "Configuration Error: 'api_url' is required for non-mock inference providers."
-                        .to_string(),
-                );
-            }
+        if self.inference.provider != "mock" && self.inference.api_url.is_none() {
+            return Err(
+                "Configuration Error: 'api_url' is required for non-mock inference providers."
+                    .to_string(),
+            );
         }
 
         // Validate new specialized blocks

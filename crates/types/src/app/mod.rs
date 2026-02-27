@@ -387,6 +387,7 @@ pub struct SignatureProof {
 
 /// A top-level enum representing any transaction the chain can process.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Encode, Decode)]
+#[allow(clippy::large_enum_variant)]
 pub enum ChainTransaction {
     /// A privileged transaction for kernel-level changes (Identity, Governance).
     System(Box<SystemTransaction>),

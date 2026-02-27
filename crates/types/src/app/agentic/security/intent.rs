@@ -52,21 +52,16 @@ pub struct IntentCandidateScore {
 }
 
 /// Action policy for ambiguous intent cases.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Encode, Decode)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Encode, Decode, Default)]
 #[serde(rename_all = "snake_case")]
 pub enum IntentAmbiguityAction {
     /// Pause execution and request user clarification.
+    #[default]
     PauseForClarification,
     /// Deprecated: treated as `Proceed` (constrained mode removed).
     ConstrainedProceed,
     /// Continue with full scope.
     Proceed,
-}
-
-impl Default for IntentAmbiguityAction {
-    fn default() -> Self {
-        Self::PauseForClarification
-    }
 }
 
 /// Confidence thresholds used to map intent scores into bands.

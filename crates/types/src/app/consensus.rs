@@ -67,15 +67,11 @@ pub fn write_validator_sets(sets: &ValidatorSetsV1) -> Result<Vec<u8>, StateErro
     let mut sorted_sets = sets.clone();
 
     // Sort current set
-    sorted_sets
-        .current
-        .validators
-        .sort_by(|a, b| a.account_id.cmp(&b.account_id));
+    sorted_sets.current.validators.sort_by_key(|a| a.account_id);
 
     // Sort next set if it exists
     if let Some(next) = &mut sorted_sets.next {
-        next.validators
-            .sort_by(|a, b| a.account_id.cmp(&b.account_id));
+        next.validators.sort_by_key(|a| a.account_id);
     }
 
     codec::to_bytes_canonical(&ValidatorSetBlob {

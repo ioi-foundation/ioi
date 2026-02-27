@@ -12,7 +12,6 @@ use dcrypt::algorithms::ec::bls12_381::{
 };
 use ioi_api::crypto::{SerializableKey, Signature, SigningKey, SigningKeyPair, VerifyingKey};
 use rand::rngs::OsRng;
-use subtle::ConstantTimeEq; // Added for ct_eq
 
 // Domain Separation Tag for Hashing
 const BLS_DST: &[u8] = b"BLS_SIG_BLS12381G1_XMD:SHA-256_SSWU_RO_NUL_";
@@ -105,7 +104,9 @@ impl SerializableKey for BlsPublicKey {
                 got: bytes.len(),
             });
         }
-        let arr: [u8; 96] = bytes.try_into().unwrap();
+        let arr: [u8; 96] = bytes
+            .try_into()
+            .map_err(|_| CryptoError::Deserialization("Invalid G2 bytes length".into()))?;
         // Use from_compressed with error handling
         let point = G2Affine::from_compressed(&arr)
             .into_option()
@@ -142,7 +143,9 @@ impl SerializableKey for BlsPrivateKey {
                 got: bytes.len(),
             });
         }
-        let arr: [u8; 32] = bytes.try_into().unwrap();
+        let arr: [u8; 32] = bytes
+            .try_into()
+            .map_err(|_| CryptoError::Deserialization("Invalid scalar bytes length".into()))?;
         // Use from_bytes which returns CtOption
         let scalar = Scalar::from_bytes(&arr)
             .into_option()
@@ -163,7 +166,9 @@ impl SerializableKey for BlsSignature {
                 got: bytes.len(),
             });
         }
-        let arr: [u8; 48] = bytes.try_into().unwrap();
+        let arr: [u8; 48] = bytes
+            .try_into()
+            .map_err(|_| CryptoError::Deserialization("Invalid G1 bytes length".into()))?;
         // Use from_compressed with error handling
         let point = G1Affine::from_compressed(&arr)
             .map_err(|_| CryptoError::Deserialization("Invalid G1 point".into()))?;
@@ -179,16 +184,15 @@ impl Signature for BlsSignature {}
 /// This relies on the homomorphic property of BLS signatures:
 /// S_agg = S_1 + S_2 + ... + S_n
 pub fn aggregate_signatures(signatures: &[BlsSignature]) -> Result<BlsSignature, CryptoError> {
-    if signatures.is_empty() {
+    let Some((first, rest)) = signatures.split_first() else {
         return Err(CryptoError::InvalidInput(
             "Cannot aggregate empty signatures".into(),
         ));
-    }
+    };
 
-    let mut agg_proj = G1Projective::from(signatures[0].0);
-
-    for sig in &signatures[1..] {
-        agg_proj = agg_proj + G1Projective::from(sig.0);
+    let mut agg_proj = G1Projective::from(first.0);
+    for sig in rest {
+        agg_proj += G1Projective::from(sig.0);
     }
 
     Ok(BlsSignature(G1Affine::from(agg_proj)))
@@ -205,16 +209,16 @@ pub fn verify_aggregate_fast(
     message: &[u8],
     aggregated_signature: &BlsSignature,
 ) -> Result<bool, CryptoError> {
-    if public_keys.is_empty() {
+    let Some((first, rest)) = public_keys.split_first() else {
         return Err(CryptoError::InvalidInput(
             "Cannot verify with empty public keys".into(),
         ));
-    }
+    };
 
     // 1. Aggregate Public Keys
-    let mut agg_pk_proj = G2Projective::from(public_keys[0].0);
-    for pk in &public_keys[1..] {
-        agg_pk_proj = agg_pk_proj + G2Projective::from(pk.0);
+    let mut agg_pk_proj = G2Projective::from(first.0);
+    for pk in rest {
+        agg_pk_proj += G2Projective::from(pk.0);
     }
     let agg_pk = G2Affine::from(agg_pk_proj);
 

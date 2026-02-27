@@ -131,10 +131,11 @@ pub struct TransformPlan {
 }
 
 /// Router result after Stage B/C policy evaluation.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Encode, Decode)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Encode, Decode, Default)]
 #[serde(rename_all = "snake_case")]
 pub enum FirewallDecision {
     /// Permit requested action without modification.
+    #[default]
     Allow,
     /// Permit only local continuation without egress.
     AllowLocalOnly,
@@ -150,26 +151,15 @@ pub enum FirewallDecision {
     RequireUserReview,
 }
 
-impl Default for FirewallDecision {
-    fn default() -> Self {
-        Self::Allow
-    }
-}
-
 /// Override mode for raw egress controls.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Encode, Decode)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Encode, Decode, Default)]
 #[serde(rename_all = "snake_case")]
 pub enum RawOverrideMode {
     /// Raw egress overrides are fully disabled.
+    #[default]
     Disabled,
     /// Raw overrides are restricted to low-severity classes and scoped grants.
     ScopedLowSeverityOnly,
-}
-
-impl Default for RawOverrideMode {
-    fn default() -> Self {
-        Self::Disabled
-    }
 }
 
 /// Scoped policy exception minted by Stage 2 review flow.

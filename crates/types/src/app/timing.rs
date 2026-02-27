@@ -55,7 +55,7 @@ pub fn compute_interval_from_parent_state(
     parent_gas_used: u64,
 ) -> u64 {
     if params.retarget_every_blocks == 0
-        || (parent_height + 1) % params.retarget_every_blocks as u64 != 0
+        || !(parent_height + 1).is_multiple_of(params.retarget_every_blocks as u64)
     {
         return runtime_state
             .effective_interval_secs

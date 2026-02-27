@@ -416,5 +416,11 @@ impl MldsaKeyPair {
     }
 }
 
+pub type DilithiumScheme = MldsaScheme;
+pub type DilithiumKeyPair = MldsaKeyPair;
+pub type DilithiumPublicKey = MldsaPublicKey;
+pub type DilithiumPrivateKey = MldsaPrivateKey;
+pub type DilithiumSignature = MldsaSignature;
+
 #[cfg(test)]
 mod tests;

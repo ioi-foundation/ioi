@@ -5,7 +5,6 @@ use parity_scale_codec::Encode;
 use std::future::Future;
 use std::pin::Pin;
 
-use dcrypt::algorithms::hash::{HashFunction, Sha256};
 use ioi_types::app::agentic::{EvidenceGraph, PiiControls, PiiTarget, Stage2Decision};
 
 use crate::hashing::{graph_hash, sha256_array};

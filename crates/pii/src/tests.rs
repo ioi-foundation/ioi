@@ -389,8 +389,10 @@ fn scoped_exception_verifier_rejects_class_mismatch() {
     let graph = low_severity_email_graph();
     let target = PiiTarget::Action(ActionTarget::ClipboardWrite);
     let decision_hash = [9u8; 32];
-    let mut policy = PiiControls::default();
-    policy.raw_override_mode = RawOverrideMode::ScopedLowSeverityOnly;
+    let policy = PiiControls {
+        raw_override_mode: RawOverrideMode::ScopedLowSeverityOnly,
+        ..PiiControls::default()
+    };
     let mut exception = mint_default_scoped_exception(
         &graph,
         &target,
@@ -420,8 +422,10 @@ fn scoped_exception_verifier_rejects_expired_and_overused_and_binding_mismatch()
     let graph = low_severity_email_graph();
     let target = PiiTarget::Action(ActionTarget::ClipboardWrite);
     let decision_hash = [11u8; 32];
-    let mut policy = PiiControls::default();
-    policy.raw_override_mode = RawOverrideMode::ScopedLowSeverityOnly;
+    let policy = PiiControls {
+        raw_override_mode: RawOverrideMode::ScopedLowSeverityOnly,
+        ..PiiControls::default()
+    };
     let exception = mint_default_scoped_exception(
         &graph,
         &target,

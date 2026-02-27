@@ -6,6 +6,8 @@ use ioi_types::{app::StateEntry, codec, error::StateError};
 use std::fmt::{self, Debug};
 use std::sync::Arc;
 
+type OverlayWrites = (Vec<(Vec<u8>, Vec<u8>)>, Vec<Vec<u8>>);
+
 /// An in-memory state overlay that captures writes from a VM execution
 /// without modifying the underlying state. It is thread-safe for parallel access.
 #[derive(Clone)]
@@ -34,7 +36,7 @@ impl VmStateOverlay {
     }
 
     /// Consumes the overlay and returns the captured writes separated into inserts and deletes.
-    pub fn into_writes(self) -> (Vec<(Vec<u8>, Vec<u8>)>, Vec<Vec<u8>>) {
+    pub fn into_writes(self) -> OverlayWrites {
         let mut inserts = Vec::new();
         let mut deletes = Vec::new();
         for (key, value_opt) in self.writes {
@@ -47,7 +49,7 @@ impl VmStateOverlay {
     }
 
     /// Returns a clone of captured writes without consuming the overlay.
-    pub fn snapshot_writes(&self) -> (Vec<(Vec<u8>, Vec<u8>)>, Vec<Vec<u8>>) {
+    pub fn snapshot_writes(&self) -> OverlayWrites {
         let mut inserts = Vec::new();
         let mut deletes = Vec::new();
         for item in self.writes.iter() {

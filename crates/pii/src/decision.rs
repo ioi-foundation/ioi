@@ -1,8 +1,8 @@
 // Submodule: decision (hash material + deterministic hashing)
 
 use ioi_types::app::agentic::{
-    EvidenceGraph, EvidenceSpan, FirewallDecision, PiiClass, PiiControls, PiiDecisionMaterial,
-    PiiSeverity, PiiTarget, RawOverrideMode, Stage2Decision, TransformAction, TransformPlan,
+    EvidenceGraph, FirewallDecision, PiiClass, PiiDecisionMaterial, PiiSeverity, PiiTarget,
+    Stage2Decision, TransformAction, TransformPlan,
 };
 use parity_scale_codec::Encode;
 
@@ -56,6 +56,7 @@ pub(crate) fn build_transform_plan(target: &PiiTarget, graph: &EvidenceGraph) ->
 }
 
 /// Builds canonical deterministic decision material from a routed outcome.
+#[allow(clippy::too_many_arguments)]
 pub fn build_decision_material(
     graph: &EvidenceGraph,
     decision: &FirewallDecision,
@@ -92,6 +93,7 @@ pub fn compute_decision_hash(material: &PiiDecisionMaterial) -> [u8; 32] {
     sha256_array(&material.encode()).unwrap_or([0u8; 32])
 }
 
+#[allow(clippy::too_many_arguments)]
 fn decision_hash(
     graph: &EvidenceGraph,
     decision: &FirewallDecision,
@@ -116,6 +118,7 @@ fn decision_hash(
     compute_decision_hash(&material)
 }
 
+#[allow(clippy::too_many_arguments)]
 pub(crate) fn with_hash(
     graph: &EvidenceGraph,
     decision: FirewallDecision,

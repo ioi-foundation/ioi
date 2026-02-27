@@ -24,3 +24,6 @@ bincode = { workspace = true }
 anyhow = { workspace = true }
 tokio = { workspace = true, features = ["sync"] }
 async-trait = { workspace = true }
+
+[dev-dependencies]
+tempfile = "3"
