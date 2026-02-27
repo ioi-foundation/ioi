@@ -37,7 +37,7 @@ jobs:
       - name: Install browser lane dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y xvfb dbus-x11 libdbus-1-dev pkg-config protobuf-compiler
+          sudo apt-get install -y xvfb dbus-x11 libdbus-1-dev pkg-config protobuf-compiler libxcb1-dev libxdo-dev
 
       - name: Run browser reliability suite test (ignored lane)
         env:
@@ -82,7 +82,7 @@ jobs:
       - name: Install GUI runtime dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y xvfb python3-tk dbus-x11 at-spi2-core libdbus-1-dev pkg-config protobuf-compiler
+          sudo apt-get install -y xvfb python3-tk dbus-x11 at-spi2-core libdbus-1-dev pkg-config protobuf-compiler libxcb1-dev libxdo-dev
 
       - name: Verify DBus pkg-config metadata (GUI lane)
         run: pkg-config --modversion dbus-1
@@ -130,7 +130,7 @@ jobs:
       - name: Install shell/web lane dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y libdbus-1-dev pkg-config protobuf-compiler
+          sudo apt-get install -y libdbus-1-dev pkg-config protobuf-compiler libxcb1-dev libxdo-dev
 
       - name: Verify DBus pkg-config metadata (shell/web lane)
         run: pkg-config --modversion dbus-1
