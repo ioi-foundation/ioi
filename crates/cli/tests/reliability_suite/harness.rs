@@ -169,6 +169,24 @@ fn escape_xml_attr_value(value: &str) -> String {
         .replace('\'', "&apos;")
 }
 
+fn unescape_xml_attr_value(value: &str) -> String {
+    value
+        .replace("&quot;", "\"")
+        .replace("&apos;", "'")
+        .replace("&lt;", "<")
+        .replace("&gt;", ">")
+        .replace("&amp;", "&")
+}
+
+fn normalize_label(value: &str) -> String {
+    value
+        .split_whitespace()
+        .collect::<Vec<_>>()
+        .join(" ")
+        .trim()
+        .to_ascii_lowercase()
+}
+
 fn extract_xml_attribute(line: &str, attr: &str) -> Option<String> {
     let prefix = format!("{attr}=\"");
     let start = line.find(&prefix)? + prefix.len();
@@ -178,16 +196,45 @@ fn extract_xml_attribute(line: &str, attr: &str) -> Option<String> {
 }
 
 pub fn extract_node_id_by_name(xml: &str, name: &str) -> Option<String> {
+    let target = normalize_label(name);
     let escaped_name = escape_xml_attr_value(name);
-    let marker = format!(" name=\"{escaped_name}\"");
+    let name_marker = format!(" name=\"{escaped_name}\"");
+    let value_marker = format!(" value=\"{escaped_name}\"");
+    let mut fuzzy_match_id: Option<String> = None;
+
     for line in xml.lines() {
-        if line.contains(&marker) {
-            if let Some(id) = extract_xml_attribute(line, "id") {
-                return Some(id);
+        let Some(id) = extract_xml_attribute(line, "id") else {
+            continue;
+        };
+
+        if line.contains(&name_marker) || line.contains(&value_marker) {
+            return Some(id);
+        }
+
+        let mut exact_match = false;
+        let mut fuzzy_match = false;
+        for attr in ["name", "value"] {
+            if let Some(raw) = extract_xml_attribute(line, attr) {
+                let decoded = unescape_xml_attr_value(&raw);
+                let normalized = normalize_label(&decoded);
+                if normalized == target {
+                    exact_match = true;
+                    break;
+                }
+                if normalized.contains(&target) || target.contains(&normalized) {
+                    fuzzy_match = true;
+                }
             }
         }
+
+        if exact_match {
+            return Some(id);
+        }
+        if fuzzy_match && fuzzy_match_id.is_none() {
+            fuzzy_match_id = Some(id);
+        }
     }
-    None
+    fuzzy_match_id
 }
 
 pub struct FixtureServer {

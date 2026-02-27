@@ -1,6 +1,280 @@
 use super::super::*;
 
+#[derive(Debug, serde::Deserialize)]
+struct DomFallbackRect {
+    x: f64,
+    y: f64,
+    width: f64,
+    height: f64,
+}
+
+#[derive(Debug, serde::Deserialize)]
+struct DomFallbackNode {
+    id: String,
+    role: String,
+    name: Option<String>,
+    value: Option<String>,
+    rect: DomFallbackRect,
+    #[serde(default)]
+    is_visible: Option<bool>,
+    #[serde(default)]
+    attributes: HashMap<String, String>,
+    #[serde(default)]
+    children: Vec<DomFallbackNode>,
+}
+
+fn clamp_coord(value: f64) -> i32 {
+    if !value.is_finite() {
+        return 0;
+    }
+    value.round().clamp(i32::MIN as f64, i32::MAX as f64) as i32
+}
+
+fn clamp_extent(value: f64) -> i32 {
+    if !value.is_finite() {
+        return 0;
+    }
+    value.round().clamp(0.0, i32::MAX as f64) as i32
+}
+
+fn allow_dom_fallback_for_ax_error(message: &str) -> bool {
+    let lower = message.to_ascii_lowercase();
+    lower.contains("uninteresting")
+        || lower.contains("empty accessibility tree")
+        || lower.contains("empty tree")
+}
+
+impl DomFallbackNode {
+    fn into_accessibility(self) -> AccessibilityNode {
+        AccessibilityNode {
+            id: if self.id.trim().is_empty() {
+                "dom-node".to_string()
+            } else {
+                self.id
+            },
+            role: if self.role.trim().is_empty() {
+                "generic".to_string()
+            } else {
+                self.role.to_ascii_lowercase()
+            },
+            name: self.name.and_then(|v| {
+                let trimmed = v.trim().to_string();
+                if trimmed.is_empty() {
+                    None
+                } else {
+                    Some(trimmed)
+                }
+            }),
+            value: self.value.and_then(|v| {
+                let trimmed = v.trim().to_string();
+                if trimmed.is_empty() {
+                    None
+                } else {
+                    Some(trimmed)
+                }
+            }),
+            rect: AccessibilityRect {
+                x: clamp_coord(self.rect.x),
+                y: clamp_coord(self.rect.y),
+                width: clamp_extent(self.rect.width),
+                height: clamp_extent(self.rect.height),
+            },
+            children: self
+                .children
+                .into_iter()
+                .map(DomFallbackNode::into_accessibility)
+                .collect(),
+            is_visible: self.is_visible.unwrap_or(true),
+            attributes: self.attributes,
+            som_id: None,
+        }
+    }
+}
+
 impl BrowserDriver {
+    async fn dom_fallback_tree(
+        &self,
+        page: &Page,
+        cause: &str,
+    ) -> std::result::Result<AccessibilityNode, BrowserError> {
+        let script = r#"(() => {
+            const MAX_CANDIDATES = 220;
+            const normalize = (value) =>
+                (value || "").replace(/\s+/g, " ").trim();
+            const toRole = (el) => {
+                if (!el) return "generic";
+                const ariaRole = normalize(el.getAttribute("role")).toLowerCase();
+                if (ariaRole) return ariaRole;
+                const tag = (el.tagName || "").toLowerCase();
+                switch (tag) {
+                    case "a": return "link";
+                    case "button": return "button";
+                    case "input": {
+                        const type = normalize(el.getAttribute("type")).toLowerCase();
+                        if (type === "checkbox") return "checkbox";
+                        if (type === "radio") return "radio";
+                        if (type === "button" || type === "submit" || type === "reset") return "button";
+                        return "textbox";
+                    }
+                    case "textarea": return "textbox";
+                    case "select": return "combobox";
+                    case "option": return "option";
+                    case "label": return "label";
+                    case "output": return "status";
+                    case "h1":
+                    case "h2":
+                    case "h3":
+                    case "h4":
+                    case "h5":
+                    case "h6":
+                        return "heading";
+                    default:
+                        return "generic";
+                }
+            };
+            const isInteractive = (el, role) => {
+                if (!el) return false;
+                if (typeof el.matches === "function" && el.matches(
+                    "button, a[href], input, textarea, select, [role='button'], [role='link'], [role='menuitem'], [tabindex]"
+                )) {
+                    return true;
+                }
+                return ["button", "link", "checkbox", "radio", "combobox", "textbox"].includes(role);
+            };
+            const isVisible = (el, rect) => {
+                if (!el || !rect) return false;
+                if (!(rect.width > 1 && rect.height > 1)) return false;
+                let style = null;
+                try {
+                    style = window.getComputedStyle(el);
+                } catch (_e) {}
+                if (style) {
+                    if (style.display === "none" || style.visibility === "hidden") return false;
+                    const opacity = parseFloat(style.opacity || "1");
+                    if (Number.isFinite(opacity) && opacity <= 0.01) return false;
+                    if (style.pointerEvents === "none") return false;
+                }
+                return true;
+            };
+            const elementName = (el) => {
+                const parts = [
+                    normalize(el.getAttribute("aria-label")),
+                    normalize(el.getAttribute("title")),
+                    normalize(el.getAttribute("placeholder")),
+                ].filter(Boolean);
+                if (parts.length > 0) {
+                    return parts[0].slice(0, 120);
+                }
+                const tag = (el.tagName || "").toLowerCase();
+                if (tag === "input" || tag === "textarea" || tag === "select") {
+                    const controlText = normalize(el.value || "");
+                    if (controlText) {
+                        return controlText.slice(0, 120);
+                    }
+                }
+                const text = normalize(el.innerText || el.textContent || "");
+                if (!text) return null;
+                return text.slice(0, 120);
+            };
+            const elementValue = (el) => {
+                const tag = (el.tagName || "").toLowerCase();
+                if (tag === "input" || tag === "textarea" || tag === "select") {
+                    const controlText = normalize(el.value || "");
+                    return controlText ? controlText.slice(0, 120) : null;
+                }
+                if (tag === "output") {
+                    const outputText = normalize(el.innerText || el.textContent || "");
+                    return outputText ? outputText.slice(0, 120) : null;
+                }
+                return null;
+            };
+
+            const bodyRect = {
+                x: 0,
+                y: 0,
+                width: Math.max(1, Math.round(window.innerWidth || 1)),
+                height: Math.max(1, Math.round(window.innerHeight || 1)),
+            };
+
+            const root = {
+                id: "dom-root",
+                role: "root",
+                name: "DOM fallback tree",
+                value: null,
+                rect: bodyRect,
+                is_visible: true,
+                attributes: { snapshot_fallback: "dom" },
+                children: [],
+            };
+
+            const all = Array.from(document.querySelectorAll("body *"));
+            for (let i = 0; i < all.length && root.children.length < MAX_CANDIDATES; i++) {
+                const el = all[i];
+                if (!el || !el.tagName) continue;
+                let rect = null;
+                try {
+                    rect = el.getBoundingClientRect();
+                } catch (_e) {
+                    continue;
+                }
+                if (!isVisible(el, rect)) continue;
+
+                const role = toRole(el);
+                const name = elementName(el);
+                const value = elementValue(el);
+                const keep = isInteractive(el, role) || !!name || !!value;
+                if (!keep) continue;
+
+                const domId = normalize(el.id);
+                const stableId = domId
+                    ? `dom-id-${domId}`
+                    : `dom-node-${root.children.length + 1}`;
+
+                root.children.push({
+                    id: stableId,
+                    role,
+                    name,
+                    value,
+                    rect: {
+                        x: Math.round(rect.left),
+                        y: Math.round(rect.top),
+                        width: Math.round(rect.width),
+                        height: Math.round(rect.height),
+                    },
+                    is_visible: true,
+                    attributes: {
+                        dom_fallback: "true",
+                        dom_id: domId,
+                        tag_name: (el.tagName || "").toLowerCase(),
+                    },
+                    children: [],
+                });
+            }
+
+            if (root.children.length === 0) {
+                const summary = normalize(
+                    (document.body && (document.body.innerText || document.body.textContent)) || ""
+                );
+                root.name = summary ? summary.slice(0, 120) : "DOM fallback tree";
+                root.attributes.fallback_reason = "empty_candidate_set";
+            }
+
+            return root;
+        })()"#;
+
+        let node = page
+            .evaluate(script)
+            .await
+            .map_err(|e| BrowserError::Internal(format!("DOM fallback JS eval failed: {}", e)))?
+            .into_value::<DomFallbackNode>()
+            .map_err(|e| BrowserError::Internal(format!("DOM fallback decode failed: {}", e)))?;
+
+        let mut tree = node.into_accessibility();
+        tree.attributes
+            .insert("snapshot_fallback_cause".to_string(), cause.to_string());
+        Ok(tree)
+    }
+
     pub async fn get_accessibility_tree(
         &self,
     ) -> std::result::Result<AccessibilityNode, BrowserError> {
@@ -14,17 +288,33 @@ impl BrowserDriver {
             .await
             .map_err(|e| BrowserError::Internal(format!("CDP AxEnable failed: {}", e)))?;
 
-        let nodes_vec = p
-            .execute(GetFullAxTreeParams::default())
-            .await
-            .map_err(|e| BrowserError::Internal(format!("CDP GetAxTree failed: {}", e)))?
-            .nodes
-            .clone();
+        let nodes_vec = match p.execute(GetFullAxTreeParams::default()).await {
+            Ok(snapshot) => snapshot.nodes.clone(),
+            Err(e) => {
+                let err_msg = e.to_string();
+                if allow_dom_fallback_for_ax_error(&err_msg) {
+                    log::warn!(
+                        target: "browser",
+                        "CDP AX snapshot unavailable ({}); falling back to DOM snapshot.",
+                        err_msg
+                    );
+                    return self
+                        .dom_fallback_tree(&p, &format!("ax_error:{}", err_msg))
+                        .await;
+                }
+                return Err(BrowserError::Internal(format!(
+                    "CDP GetAxTree failed: {}",
+                    e
+                )));
+            }
+        };
 
         if nodes_vec.is_empty() {
-            return Err(BrowserError::Internal(
-                "Empty accessibility tree returned".into(),
-            ));
+            log::warn!(
+                target: "browser",
+                "CDP AX snapshot returned an empty tree; falling back to DOM snapshot."
+            );
+            return self.dom_fallback_tree(&p, "ax_empty_tree").await;
         }
 
         let root_ax = &nodes_vec[0];
