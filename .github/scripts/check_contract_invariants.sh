@@ -9,6 +9,22 @@ fail() {
   exit 1
 }
 
+if command -v rg >/dev/null 2>&1; then
+  search_fixed() {
+    rg -n --fixed-strings "$1" "${@:2}" >/dev/null
+  }
+  search_regex() {
+    rg -n "$1" "${@:2}" >/dev/null
+  }
+else
+  search_fixed() {
+    grep -nF -- "$1" "${@:2}" >/dev/null
+  }
+  search_regex() {
+    grep -nE -- "$1" "${@:2}" >/dev/null
+  }
+fi
+
 required_files=(
   "docs/CIRC.md"
   "docs/CEC.md"
@@ -38,7 +54,7 @@ for anchor in \
   "crates/types/src/app/events.rs" \
   "crates/ipc/proto/public/v1/public.proto" \
   "crates/ipc/proto/control/v1/control.proto"; do
-  rg -n --fixed-strings "$anchor" docs/CONTRACT_GLOSSARY.md >/dev/null \
+  search_fixed "$anchor" docs/CONTRACT_GLOSSARY.md \
     || fail "glossary missing canonical path reference: ${anchor}"
 done
 
@@ -46,27 +62,27 @@ done
 for stale in \
   "crates/types/src/workloads/spec.rs" \
   "crates/services/src/search/mod.rs"; do
-  if rg -n --fixed-strings "$stale" docs/CIRC.md docs/CEC.md docs/CONTRACT_GLOSSARY.md >/dev/null; then
+  if search_fixed "$stale" docs/CIRC.md docs/CEC.md docs/CONTRACT_GLOSSARY.md; then
     fail "stale path reference detected in docs: $stale"
   fi
 done
 
 # Freeze glossary terms.
 for term in Intent Capability Tool Workload Lease; do
-  rg -n "^- \\*\\*${term}\\*\\*:" docs/CONTRACT_GLOSSARY.md >/dev/null \
+  search_regex "^- \\*\\*${term}\\*\\*:" docs/CONTRACT_GLOSSARY.md \
     || fail "glossary term missing or malformed: ${term}"
 done
 
 # Optional local guard when CODEX.txt is present (file is gitignored in this repo).
 if [[ -f "CODEX.txt" ]]; then
-  rg -n --fixed-strings "docs/CIRC.md" CODEX.txt >/dev/null || fail "CODEX.txt missing docs/CIRC.md invariant reference"
-  rg -n --fixed-strings "docs/CEC.md" CODEX.txt >/dev/null || fail "CODEX.txt missing docs/CEC.md invariant reference"
-  rg -n --fixed-strings "docs/CONTRACT_GLOSSARY.md" CODEX.txt >/dev/null || fail "CODEX.txt missing docs/CONTRACT_GLOSSARY.md reference"
-  rg -n --fixed-strings "crates/types/src/app/events.rs" CODEX.txt >/dev/null || fail "CODEX.txt missing canonical workload type path reference"
+  search_fixed "docs/CIRC.md" CODEX.txt || fail "CODEX.txt missing docs/CIRC.md invariant reference"
+  search_fixed "docs/CEC.md" CODEX.txt || fail "CODEX.txt missing docs/CEC.md invariant reference"
+  search_fixed "docs/CONTRACT_GLOSSARY.md" CODEX.txt || fail "CODEX.txt missing docs/CONTRACT_GLOSSARY.md reference"
+  search_fixed "crates/types/src/app/events.rs" CODEX.txt || fail "CODEX.txt missing canonical workload type path reference"
   for stale in \
     "crates/types/src/workloads/spec.rs" \
     "crates/services/src/search/mod.rs"; do
-    if rg -n --fixed-strings "$stale" CODEX.txt >/dev/null; then
+    if search_fixed "$stale" CODEX.txt; then
       fail "stale path reference detected in CODEX.txt: $stale"
     fi
   done
