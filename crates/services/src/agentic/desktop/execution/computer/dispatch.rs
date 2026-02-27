@@ -138,9 +138,16 @@ pub(super) async fn handle(
         }
 
         AgentTool::GuiSnapshot {} => match fetch_lensed_tree(exec, active_lens).await {
-            Ok(tree) => ToolExecutionResult::success(
-                ioi_drivers::gui::accessibility::serialize_tree_to_xml(&tree, 0),
-            ),
+            Ok(tree) => {
+                let strict_xml = ioi_drivers::gui::accessibility::serialize_tree_to_xml(&tree, 0);
+                if !strict_xml.trim().is_empty() {
+                    ToolExecutionResult::success(strict_xml)
+                } else {
+                    ToolExecutionResult::success(
+                        ioi_drivers::gui::accessibility::serialize_tree_to_xml_relaxed(&tree, 0),
+                    )
+                }
+            }
             Err(e) => ToolExecutionResult::failure(format!("Extraction failed: {}", e)),
         },
 
