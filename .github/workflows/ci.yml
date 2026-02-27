@@ -120,10 +120,10 @@ jobs:
             ioi-data/browser_cache
           key: ${{ runner.os }}-cargo-reliability-browser-${{ hashFiles('**/Cargo.lock') }}
 
-      - name: Install xvfb
+      - name: Install browser lane dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y xvfb
+          sudo apt-get install -y xvfb dbus-x11 libdbus-1-dev pkg-config
 
       - name: Run browser reliability suite test (ignored lane)
         env:
@@ -169,7 +169,10 @@ jobs:
       - name: Install GUI runtime dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y xvfb python3-tk dbus-x11 at-spi2-core
+          sudo apt-get install -y xvfb python3-tk dbus-x11 at-spi2-core libdbus-1-dev pkg-config
+
+      - name: Verify DBus pkg-config metadata (GUI lane)
+        run: pkg-config --modversion dbus-1
 
       - name: Run GUI reliability suite test (ignored lane)
         env:
@@ -211,6 +214,14 @@ jobs:
             ~/.cargo/git
             target
           key: ${{ runner.os }}-cargo-reliability-shell-web-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Install shell/web lane dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libdbus-1-dev pkg-config
+
+      - name: Verify DBus pkg-config metadata (shell/web lane)
+        run: pkg-config --modversion dbus-1
 
       - name: Run shell + web reliability suite tests (ignored lane)
         run: |
