@@ -143,9 +143,15 @@ pub(super) async fn handle(
                 if !strict_xml.trim().is_empty() {
                     ToolExecutionResult::success(strict_xml)
                 } else {
-                    ToolExecutionResult::success(
-                        ioi_drivers::gui::accessibility::serialize_tree_to_xml_relaxed(&tree, 0),
-                    )
+                    let relaxed_xml =
+                        ioi_drivers::gui::accessibility::serialize_tree_to_xml_relaxed(&tree, 0);
+                    if !relaxed_xml.trim().is_empty() {
+                        ToolExecutionResult::success(relaxed_xml)
+                    } else {
+                        ToolExecutionResult::success(
+                            ioi_drivers::gui::accessibility::serialize_tree_to_xml_debug(&tree, 0),
+                        )
+                    }
                 }
             }
             Err(e) => ToolExecutionResult::failure(format!("Extraction failed: {}", e)),

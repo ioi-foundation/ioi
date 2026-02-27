@@ -442,6 +442,69 @@ pub fn serialize_tree_to_xml_relaxed(node: &AccessibilityNode, depth: usize) -> 
     output
 }
 
+/// Debug serializer that keeps structure with minimal pruning.
+/// Used as a last resort to avoid empty GUI snapshots in CI diagnostics.
+pub fn serialize_tree_to_xml_debug(node: &AccessibilityNode, depth: usize) -> String {
+    if depth > 8 {
+        return String::new();
+    }
+
+    let tag_name = xml_tag_name(&node.role);
+    let role_attr = if tag_name != node.role {
+        format!(" role=\"{}\"", escape_xml(&node.role))
+    } else {
+        String::new()
+    };
+    let name_attr = node
+        .name
+        .as_ref()
+        .map(|n| format!(" name=\"{}\"", escape_xml(n)))
+        .unwrap_or_default();
+    let value_attr = node
+        .value
+        .as_ref()
+        .map(|v| format!(" value=\"{}\"", escape_xml(v)))
+        .unwrap_or_default();
+    let vis_attr = if node.is_visible {
+        String::new()
+    } else {
+        " visible=\"false\"".to_string()
+    };
+    let coords_attr = format!(
+        " rect=\"{},{},{},{}\"",
+        node.rect.x, node.rect.y, node.rect.width, node.rect.height
+    );
+
+    let indent_self = "  ".repeat(depth);
+    let mut children_xml = String::new();
+    let max_children = 80usize;
+    let indent_child = "  ".repeat(depth + 1);
+    for (i, child) in node.children.iter().enumerate() {
+        if i >= max_children {
+            children_xml.push_str(&format!(
+                "{}<!-- ... {} siblings truncated ... -->\n",
+                indent_child,
+                node.children.len() - max_children
+            ));
+            break;
+        }
+        children_xml.push_str(&serialize_tree_to_xml_debug(child, depth + 1));
+    }
+
+    let mut output = format!(
+        "{}<{} id=\"{}\"{}{}{}{}{}",
+        indent_self, tag_name, node.id, role_attr, name_attr, value_attr, vis_attr, coords_attr
+    );
+    if children_xml.is_empty() {
+        output.push_str(" />\n");
+    } else {
+        output.push_str(">\n");
+        output.push_str(&children_xml);
+        output.push_str(&format!("{}</{}>\n", indent_self, tag_name));
+    }
+    output
+}
+
 fn escape_xml(s: &str) -> String {
     s.replace('&', "&amp;")
         .replace('<', "&lt;")
