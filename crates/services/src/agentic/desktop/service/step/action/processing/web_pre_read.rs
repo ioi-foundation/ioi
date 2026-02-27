@@ -265,9 +265,18 @@ async fn synthesize_pre_read_payload_urls(
             json_mode: true,
             max_tokens: WEB_PIPELINE_PRE_READ_SYNTHESIS_MAX_TOKENS,
         };
+        let airlocked_prompt = service
+            .prepare_cloud_inference_input(
+                None,
+                "desktop_agent",
+                "web_pre_read_payload_synthesis",
+                prompt.as_bytes(),
+            )
+            .await
+            .map_err(|err| format!("pre-read synthesis airlock failed: {}", err))?;
         let raw = service
             .reasoning_inference
-            .execute_inference([0u8; 32], prompt.as_bytes(), options)
+            .execute_inference([0u8; 32], &airlocked_prompt, options)
             .await
             .map_err(|err| format!("pre-read synthesis inference failed: {}", err))?;
         let text = String::from_utf8(raw)
@@ -676,12 +685,8 @@ pub(super) async fn apply_pre_read_bundle(
                 .push(format!("ioi://state3-synthesis-error/{}", error));
         }
         let reason = WebPipelineCompletionReason::ExhaustedCandidates;
-        let summary = if let Some(hybrid_summary) = synthesize_web_pipeline_reply_hybrid(
-            service.reasoning_inference.clone(),
-            &pending,
-            reason,
-        )
-        .await
+        let summary = if let Some(hybrid_summary) =
+            synthesize_web_pipeline_reply_hybrid(service, &pending, reason).await
         {
             hybrid_summary
         } else {
