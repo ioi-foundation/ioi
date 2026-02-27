@@ -52,6 +52,16 @@ pub async fn run_arbiter(
         .take(12)
         .map(|line| truncate_chars(line, 180))
         .collect::<Vec<_>>();
+    let kernel_log_excerpt = observation
+        .kernel_log_lines
+        .iter()
+        .rev()
+        .take(48)
+        .map(|line| truncate_chars(line, 220))
+        .collect::<Vec<_>>()
+        .into_iter()
+        .rev()
+        .collect::<Vec<_>>();
 
     let local_checks = local
         .checks
@@ -85,6 +95,8 @@ pub async fn run_arbiter(
             "verification_checks": observation.verification_checks,
             "approval_required_events": observation.approval_required_events,
             "contract_failure_marker": contract_failure_marker,
+            "kernel_event_count": observation.kernel_event_count,
+            "kernel_log_excerpt": kernel_log_excerpt,
             "action_evidence": action_evidence,
             "event_excerpt": event_excerpt,
         },
@@ -325,8 +337,8 @@ Payload:\n{}",
             verdict.confidence = "medium".to_string();
         }
         if verdict.rationale.trim().is_empty() {
-            verdict.rationale = "Completion gate not satisfied: completion.completed=false."
-                .to_string();
+            verdict.rationale =
+                "Completion gate not satisfied: completion.completed=false.".to_string();
         }
     }
 
