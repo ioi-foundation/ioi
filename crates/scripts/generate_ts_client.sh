@@ -57,6 +57,20 @@ echo "   Plugin: ${PLUGIN_PATH}"
 # Create output dir if it doesn't exist
 mkdir -p "$UI_OUT_DIR"
 
+# Remove legacy flat outputs if they exist. Canonical output is versioned
+# (e.g., public/v1/public.ts) under src/generated.
+LEGACY_TS_FILES=(
+    "${UI_OUT_DIR}/public.ts"
+    "${UI_OUT_DIR}/control.ts"
+    "${UI_OUT_DIR}/blockchain.ts"
+)
+for legacy in "${LEGACY_TS_FILES[@]}"; do
+    if [ -f "$legacy" ]; then
+        rm -f "$legacy"
+        echo "🧹 Removed legacy generated file: $legacy"
+    fi
+done
+
 # We use --plugin=protoc-gen-ts=... to map the 'ts' output flag to the 'ts_proto' binary
 protoc \
     --plugin="protoc-gen-ts=${PLUGIN_PATH}" \
