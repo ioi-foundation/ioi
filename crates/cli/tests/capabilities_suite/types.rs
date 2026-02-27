@@ -46,6 +46,8 @@ pub struct RunObservation {
     pub approval_required_events: usize,
     pub action_evidence: Vec<ActionEvidence>,
     pub event_excerpt: Vec<String>,
+    pub kernel_event_count: usize,
+    pub kernel_log_lines: Vec<String>,
 }
 
 #[derive(Debug, Clone, Serialize)]

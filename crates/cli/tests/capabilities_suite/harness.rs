@@ -11,12 +11,15 @@ use ioi_drivers::browser::BrowserDriver;
 use ioi_drivers::terminal::TerminalDriver;
 use ioi_scs::{SovereignContextStore, StoreConfig};
 use ioi_services::agentic::desktop::keys::AGENT_POLICY_PREFIX;
-use ioi_services::agentic::desktop::service::step::helpers::default_safe_policy;
+use ioi_services::agentic::desktop::service::step::helpers::{
+    default_safe_policy, is_mailbox_connector_goal,
+};
 use ioi_services::agentic::desktop::{
     AgentMode, AgentState, AgentStatus, DesktopAgentService, ResumeAgentParams, StartAgentParams,
     StepAgentParams,
 };
 use ioi_services::agentic::rules::DefaultPolicy;
+use ioi_services::wallet_network::WalletNetworkService;
 use ioi_state::primitives::hash::HashCommitmentScheme;
 use ioi_state::tree::iavl::IAVLTree;
 use ioi_types::app::action::{ApprovalScope, ApprovalToken};
@@ -25,10 +28,18 @@ use ioi_types::app::agentic::{
     ResolvedIntentState,
 };
 use ioi_types::app::{
-    ActionRequest, ContextSlice, KernelEvent, RoutingReceiptEvent, SignatureSuite, WorkloadReceipt,
+    ActionRequest, ContextSlice, KernelEvent, MailConnectorAuthMode, MailConnectorConfig,
+    MailConnectorEndpoint, MailConnectorProvider, MailConnectorSecretAliases, MailConnectorTlsMode,
+    MailConnectorUpsertParams, RoutingReceiptEvent, SecretKind, SessionChannelDelegationRules,
+    SessionChannelEnvelope, SessionChannelMode, SessionChannelOrdering, SessionChannelRecord,
+    SessionChannelState, SessionLease, SessionLeaseMode, SignatureSuite, VaultSecretRecord,
+    WorkloadReceipt,
 };
+use ioi_types::keys::active_service_key;
+use ioi_types::service_configs::{ActiveServiceMeta, Capabilities, MethodPermission};
 use ioi_types::{codec, error::VmError};
-use std::collections::BTreeSet;
+use parity_scale_codec::Encode;
+use std::collections::{BTreeMap, BTreeSet};
 use std::io::Cursor;
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
@@ -85,20 +96,94 @@ impl GuiDriver for MockGuiDriver {
     }
 }
 
-pub fn load_env_from_workspace_dotenv_if_present() {
-    let mut cursor = std::env::current_dir().ok();
-    let mut dotenv_path: Option<PathBuf> = None;
+const MAIL_E2E_DEFAULT_MAILBOX: &str = "primary";
+const MAIL_E2E_DEFAULT_IMAP_USERNAME_ALIAS: &str = "mail.imap.username";
+const MAIL_E2E_DEFAULT_IMAP_PASSWORD_ALIAS: &str = "mail.imap.password";
+const MAIL_E2E_DEFAULT_IMAP_BEARER_TOKEN_ALIAS: &str = "mail.imap.bearer_token";
+const MAIL_E2E_DEFAULT_SMTP_USERNAME_ALIAS: &str = "mail.smtp.username";
+const MAIL_E2E_DEFAULT_SMTP_PASSWORD_ALIAS: &str = "mail.smtp.password";
+const MAIL_E2E_DEFAULT_SMTP_BEARER_TOKEN_ALIAS: &str = "mail.smtp.bearer_token";
+const MAIL_E2E_DEFAULT_IMAP_USERNAME_SECRET_ID: &str = "mail-imap-username";
+const MAIL_E2E_DEFAULT_IMAP_PASSWORD_SECRET_ID: &str = "mail-imap-password";
+const MAIL_E2E_DEFAULT_IMAP_BEARER_TOKEN_SECRET_ID: &str = "mail-imap-bearer-token";
+const MAIL_E2E_DEFAULT_SMTP_USERNAME_SECRET_ID: &str = "mail-smtp-username";
+const MAIL_E2E_DEFAULT_SMTP_PASSWORD_SECRET_ID: &str = "mail-smtp-password";
+const MAIL_E2E_DEFAULT_SMTP_BEARER_TOKEN_SECRET_ID: &str = "mail-smtp-bearer-token";
 
+const MAIL_E2E_KEY_AUTH_MODE: &str = "MAIL_E2E_AUTH_MODE";
+const MAIL_E2E_KEY_MAILBOX: &str = "MAIL_E2E_MAILBOX";
+const MAIL_E2E_KEY_ACCOUNT_EMAIL: &str = "MAIL_E2E_ACCOUNT_EMAIL";
+const MAIL_E2E_KEY_IMAP_HOST: &str = "MAIL_E2E_IMAP_HOST";
+const MAIL_E2E_KEY_IMAP_PORT: &str = "MAIL_E2E_IMAP_PORT";
+const MAIL_E2E_KEY_IMAP_TLS_MODE: &str = "MAIL_E2E_IMAP_TLS_MODE";
+const MAIL_E2E_KEY_SMTP_HOST: &str = "MAIL_E2E_SMTP_HOST";
+const MAIL_E2E_KEY_SMTP_PORT: &str = "MAIL_E2E_SMTP_PORT";
+const MAIL_E2E_KEY_SMTP_TLS_MODE: &str = "MAIL_E2E_SMTP_TLS_MODE";
+const MAIL_E2E_KEY_IMAP_USERNAME: &str = "MAIL_E2E_IMAP_USERNAME";
+const MAIL_E2E_KEY_IMAP_PASSWORD: &str = "MAIL_E2E_IMAP_PASSWORD";
+const MAIL_E2E_KEY_IMAP_BEARER_TOKEN: &str = "MAIL_E2E_IMAP_BEARER_TOKEN";
+const MAIL_E2E_KEY_SMTP_USERNAME: &str = "MAIL_E2E_SMTP_USERNAME";
+const MAIL_E2E_KEY_SMTP_PASSWORD: &str = "MAIL_E2E_SMTP_PASSWORD";
+const MAIL_E2E_KEY_SMTP_BEARER_TOKEN: &str = "MAIL_E2E_SMTP_BEARER_TOKEN";
+const MAIL_E2E_KEY_IMAP_USERNAME_ALIAS: &str = "MAIL_E2E_IMAP_USERNAME_ALIAS";
+const MAIL_E2E_KEY_IMAP_PASSWORD_ALIAS: &str = "MAIL_E2E_IMAP_PASSWORD_ALIAS";
+const MAIL_E2E_KEY_IMAP_BEARER_TOKEN_ALIAS: &str = "MAIL_E2E_IMAP_BEARER_TOKEN_ALIAS";
+const MAIL_E2E_KEY_SMTP_USERNAME_ALIAS: &str = "MAIL_E2E_SMTP_USERNAME_ALIAS";
+const MAIL_E2E_KEY_SMTP_PASSWORD_ALIAS: &str = "MAIL_E2E_SMTP_PASSWORD_ALIAS";
+const MAIL_E2E_KEY_SMTP_BEARER_TOKEN_ALIAS: &str = "MAIL_E2E_SMTP_BEARER_TOKEN_ALIAS";
+const MAIL_E2E_KEY_IMAP_USERNAME_SECRET_ID: &str = "MAIL_E2E_IMAP_USERNAME_SECRET_ID";
+const MAIL_E2E_KEY_IMAP_PASSWORD_SECRET_ID: &str = "MAIL_E2E_IMAP_PASSWORD_SECRET_ID";
+const MAIL_E2E_KEY_IMAP_BEARER_TOKEN_SECRET_ID: &str = "MAIL_E2E_IMAP_BEARER_TOKEN_SECRET_ID";
+const MAIL_E2E_KEY_SMTP_USERNAME_SECRET_ID: &str = "MAIL_E2E_SMTP_USERNAME_SECRET_ID";
+const MAIL_E2E_KEY_SMTP_PASSWORD_SECRET_ID: &str = "MAIL_E2E_SMTP_PASSWORD_SECRET_ID";
+const MAIL_E2E_KEY_SMTP_BEARER_TOKEN_SECRET_ID: &str = "MAIL_E2E_SMTP_BEARER_TOKEN_SECRET_ID";
+
+#[derive(Debug, Clone)]
+struct MailRuntimeBootstrapConfig {
+    auth_mode: MailConnectorAuthMode,
+    mailbox: String,
+    account_email: String,
+    imap_host: String,
+    imap_port: u16,
+    imap_tls_mode: MailConnectorTlsMode,
+    smtp_host: String,
+    smtp_port: u16,
+    smtp_tls_mode: MailConnectorTlsMode,
+    imap_username_alias: String,
+    imap_secret_alias: String,
+    smtp_username_alias: String,
+    smtp_secret_alias: String,
+    imap_username_secret_id: String,
+    imap_secret_secret_id: String,
+    smtp_username_secret_id: String,
+    smtp_secret_secret_id: String,
+    imap_username: String,
+    imap_secret: String,
+    smtp_username: String,
+    smtp_secret: String,
+}
+
+#[derive(Debug, Clone)]
+struct MailRuntimeSecretSpec {
+    secret_id: String,
+    alias: String,
+    value: String,
+}
+
+fn find_workspace_file(file_name: &str) -> Option<PathBuf> {
+    let mut cursor = std::env::current_dir().ok();
     while let Some(path) = cursor.clone() {
-        let candidate = path.join(".env");
+        let candidate = path.join(file_name);
         if candidate.is_file() {
-            dotenv_path = Some(candidate);
-            break;
+            return Some(candidate);
         }
         cursor = path.parent().map(|parent| parent.to_path_buf());
     }
+    None
+}
 
-    let Some(path) = dotenv_path else {
+fn load_env_file_if_present(file_name: &str) {
+    let Some(path) = find_workspace_file(file_name) else {
         return;
     };
     let Ok(raw) = std::fs::read_to_string(path) else {
@@ -126,6 +211,207 @@ pub fn load_env_from_workspace_dotenv_if_present() {
             std::env::set_var(key, value);
         }
     }
+}
+
+pub fn load_env_from_workspace_dotenv_if_present() {
+    load_env_file_if_present(".env");
+    load_env_file_if_present(".env.mail-e2e.local");
+}
+
+fn required_env_value(key: &str) -> Result<String> {
+    std::env::var(key)
+        .ok()
+        .map(|value| value.trim().to_string())
+        .filter(|value| !value.is_empty())
+        .ok_or_else(|| anyhow!("missing required environment variable '{}'", key))
+}
+
+fn optional_env_value(key: &str, default: &str) -> String {
+    std::env::var(key)
+        .ok()
+        .map(|value| value.trim().to_string())
+        .filter(|value| !value.is_empty())
+        .unwrap_or_else(|| default.to_string())
+}
+
+fn nonempty_env_value(key: &str) -> Option<String> {
+    std::env::var(key)
+        .ok()
+        .map(|value| value.trim().to_string())
+        .filter(|value| !value.is_empty())
+}
+
+fn parse_u16_env(key: &str) -> Result<u16> {
+    let raw = required_env_value(key)?;
+    let value = raw
+        .parse::<u16>()
+        .map_err(|e| anyhow!("invalid {} '{}': {}", key, raw, e))?;
+    if value == 0 {
+        return Err(anyhow!("invalid {}: value must be > 0", key));
+    }
+    Ok(value)
+}
+
+fn parse_mail_auth_mode_env() -> Result<MailConnectorAuthMode> {
+    if let Some(raw) = nonempty_env_value(MAIL_E2E_KEY_AUTH_MODE) {
+        return match raw.to_ascii_lowercase().as_str() {
+            "password" | "pass" => Ok(MailConnectorAuthMode::Password),
+            "oauth2" | "oauth" | "xoauth2" => Ok(MailConnectorAuthMode::Oauth2),
+            _ => Err(anyhow!(
+                "invalid {} '{}': expected password or oauth2",
+                MAIL_E2E_KEY_AUTH_MODE,
+                raw
+            )),
+        };
+    }
+
+    let has_password = nonempty_env_value(MAIL_E2E_KEY_IMAP_PASSWORD).is_some()
+        || nonempty_env_value(MAIL_E2E_KEY_SMTP_PASSWORD).is_some();
+    let has_bearer = nonempty_env_value(MAIL_E2E_KEY_IMAP_BEARER_TOKEN).is_some()
+        || nonempty_env_value(MAIL_E2E_KEY_SMTP_BEARER_TOKEN).is_some();
+    if has_bearer && !has_password {
+        Ok(MailConnectorAuthMode::Oauth2)
+    } else {
+        Ok(MailConnectorAuthMode::Password)
+    }
+}
+
+fn parse_tls_mode_env(key: &str, default: MailConnectorTlsMode) -> Result<MailConnectorTlsMode> {
+    let Some(raw) = nonempty_env_value(key) else {
+        return Ok(default);
+    };
+    match raw.to_ascii_lowercase().as_str() {
+        "plaintext" | "plain" => Ok(MailConnectorTlsMode::Plaintext),
+        "starttls" | "start_tls" | "start-tls" => Ok(MailConnectorTlsMode::StartTls),
+        "tls" | "ssl" => Ok(MailConnectorTlsMode::Tls),
+        _ => Err(anyhow!(
+            "invalid {} '{}': expected plaintext, starttls, or tls",
+            key,
+            raw
+        )),
+    }
+}
+
+fn parse_mail_runtime_bootstrap_config() -> Result<MailRuntimeBootstrapConfig> {
+    let auth_mode = parse_mail_auth_mode_env()?;
+    let (
+        imap_secret_alias,
+        smtp_secret_alias,
+        imap_secret_secret_id,
+        smtp_secret_secret_id,
+        imap_secret,
+        smtp_secret,
+    ) = match auth_mode {
+        MailConnectorAuthMode::Password => (
+            optional_env_value(
+                MAIL_E2E_KEY_IMAP_PASSWORD_ALIAS,
+                MAIL_E2E_DEFAULT_IMAP_PASSWORD_ALIAS,
+            ),
+            optional_env_value(
+                MAIL_E2E_KEY_SMTP_PASSWORD_ALIAS,
+                MAIL_E2E_DEFAULT_SMTP_PASSWORD_ALIAS,
+            ),
+            optional_env_value(
+                MAIL_E2E_KEY_IMAP_PASSWORD_SECRET_ID,
+                MAIL_E2E_DEFAULT_IMAP_PASSWORD_SECRET_ID,
+            ),
+            optional_env_value(
+                MAIL_E2E_KEY_SMTP_PASSWORD_SECRET_ID,
+                MAIL_E2E_DEFAULT_SMTP_PASSWORD_SECRET_ID,
+            ),
+            required_env_value(MAIL_E2E_KEY_IMAP_PASSWORD)?,
+            required_env_value(MAIL_E2E_KEY_SMTP_PASSWORD)?,
+        ),
+        MailConnectorAuthMode::Oauth2 => (
+            optional_env_value(
+                MAIL_E2E_KEY_IMAP_BEARER_TOKEN_ALIAS,
+                MAIL_E2E_DEFAULT_IMAP_BEARER_TOKEN_ALIAS,
+            ),
+            optional_env_value(
+                MAIL_E2E_KEY_SMTP_BEARER_TOKEN_ALIAS,
+                MAIL_E2E_DEFAULT_SMTP_BEARER_TOKEN_ALIAS,
+            ),
+            optional_env_value(
+                MAIL_E2E_KEY_IMAP_BEARER_TOKEN_SECRET_ID,
+                MAIL_E2E_DEFAULT_IMAP_BEARER_TOKEN_SECRET_ID,
+            ),
+            optional_env_value(
+                MAIL_E2E_KEY_SMTP_BEARER_TOKEN_SECRET_ID,
+                MAIL_E2E_DEFAULT_SMTP_BEARER_TOKEN_SECRET_ID,
+            ),
+            required_env_value(MAIL_E2E_KEY_IMAP_BEARER_TOKEN)?,
+            required_env_value(MAIL_E2E_KEY_SMTP_BEARER_TOKEN)?,
+        ),
+    };
+
+    Ok(MailRuntimeBootstrapConfig {
+        auth_mode,
+        mailbox: optional_env_value(MAIL_E2E_KEY_MAILBOX, MAIL_E2E_DEFAULT_MAILBOX)
+            .to_ascii_lowercase(),
+        account_email: required_env_value(MAIL_E2E_KEY_ACCOUNT_EMAIL)?.to_ascii_lowercase(),
+        imap_host: required_env_value(MAIL_E2E_KEY_IMAP_HOST)?.to_ascii_lowercase(),
+        imap_port: parse_u16_env(MAIL_E2E_KEY_IMAP_PORT)?,
+        imap_tls_mode: parse_tls_mode_env(MAIL_E2E_KEY_IMAP_TLS_MODE, MailConnectorTlsMode::Tls)?,
+        smtp_host: required_env_value(MAIL_E2E_KEY_SMTP_HOST)?.to_ascii_lowercase(),
+        smtp_port: parse_u16_env(MAIL_E2E_KEY_SMTP_PORT)?,
+        smtp_tls_mode: parse_tls_mode_env(
+            MAIL_E2E_KEY_SMTP_TLS_MODE,
+            MailConnectorTlsMode::StartTls,
+        )?,
+        imap_username_alias: optional_env_value(
+            MAIL_E2E_KEY_IMAP_USERNAME_ALIAS,
+            MAIL_E2E_DEFAULT_IMAP_USERNAME_ALIAS,
+        )
+        .to_ascii_lowercase(),
+        imap_secret_alias: imap_secret_alias.to_ascii_lowercase(),
+        smtp_username_alias: optional_env_value(
+            MAIL_E2E_KEY_SMTP_USERNAME_ALIAS,
+            MAIL_E2E_DEFAULT_SMTP_USERNAME_ALIAS,
+        )
+        .to_ascii_lowercase(),
+        smtp_secret_alias: smtp_secret_alias.to_ascii_lowercase(),
+        imap_username_secret_id: optional_env_value(
+            MAIL_E2E_KEY_IMAP_USERNAME_SECRET_ID,
+            MAIL_E2E_DEFAULT_IMAP_USERNAME_SECRET_ID,
+        ),
+        imap_secret_secret_id,
+        smtp_username_secret_id: optional_env_value(
+            MAIL_E2E_KEY_SMTP_USERNAME_SECRET_ID,
+            MAIL_E2E_DEFAULT_SMTP_USERNAME_SECRET_ID,
+        ),
+        smtp_secret_secret_id,
+        imap_username: required_env_value(MAIL_E2E_KEY_IMAP_USERNAME)?,
+        imap_secret,
+        smtp_username: required_env_value(MAIL_E2E_KEY_SMTP_USERNAME)?,
+        smtp_secret,
+    })
+}
+
+fn build_mail_runtime_secret_specs(
+    config: &MailRuntimeBootstrapConfig,
+) -> Vec<MailRuntimeSecretSpec> {
+    vec![
+        MailRuntimeSecretSpec {
+            secret_id: config.imap_username_secret_id.clone(),
+            alias: config.imap_username_alias.clone(),
+            value: config.imap_username.clone(),
+        },
+        MailRuntimeSecretSpec {
+            secret_id: config.imap_secret_secret_id.clone(),
+            alias: config.imap_secret_alias.clone(),
+            value: config.imap_secret.clone(),
+        },
+        MailRuntimeSecretSpec {
+            secret_id: config.smtp_username_secret_id.clone(),
+            alias: config.smtp_username_alias.clone(),
+            value: config.smtp_username.clone(),
+        },
+        MailRuntimeSecretSpec {
+            secret_id: config.smtp_secret_secret_id.clone(),
+            alias: config.smtp_secret_alias.clone(),
+            value: config.smtp_secret.clone(),
+        },
+    ]
 }
 
 fn build_ctx<'a>(services: &'a ServiceDirectory) -> TxContext<'a> {
@@ -338,7 +624,7 @@ fn truncate_for_log(input: &str, max_chars: usize) -> String {
     }
 }
 
-fn event_summary_line(event: &KernelEvent) -> String {
+fn event_log_line(event: &KernelEvent, max_chars: usize) -> String {
     match event {
         KernelEvent::AgentActionResult {
             tool_name,
@@ -349,7 +635,7 @@ fn event_summary_line(event: &KernelEvent) -> String {
             "action tool={} status={} output={}",
             tool_name,
             agent_status,
-            truncate_for_log(output, 140)
+            truncate_for_log(output, max_chars)
         ),
         KernelEvent::RoutingReceipt(RoutingReceiptEvent {
             tool_name,
@@ -361,7 +647,7 @@ fn event_summary_line(event: &KernelEvent) -> String {
             tool_name,
             policy_decision,
             post_state.success,
-            truncate_for_log(&post_state.verification_checks.join(","), 280)
+            truncate_for_log(&post_state.verification_checks.join(","), max_chars)
         ),
         KernelEvent::WorkloadReceipt(workload) => match &workload.receipt {
             WorkloadReceipt::WebRetrieve(web) => format!(
@@ -373,8 +659,22 @@ fn event_summary_line(event: &KernelEvent) -> String {
         KernelEvent::IntentResolutionReceipt(receipt) => {
             format!("intent scope={:?} band={:?}", receipt.scope, receipt.band)
         }
-        _ => "event(other)".to_string(),
+        _ => {
+            let debug_payload = format!("{:?}", event);
+            format!(
+                "event(other) payload={}",
+                truncate_for_log(&debug_payload, max_chars)
+            )
+        }
     }
+}
+
+fn event_summary_line(event: &KernelEvent) -> String {
+    event_log_line(event, 280)
+}
+
+fn event_full_line(event: &KernelEvent) -> String {
+    event_log_line(event, 2_000)
 }
 
 fn civil_date_from_days(days_since_epoch: i64) -> (i64, i64, i64) {
@@ -411,6 +711,251 @@ fn render_query_for_run(query_template: &str, run_index: usize, run_timestamp_ms
         .replace("{RUN_INDEX}", &run_index.to_string())
 }
 
+fn should_bootstrap_mailbox_runtime(goal: &str) -> bool {
+    is_mailbox_connector_goal(goal)
+}
+
+fn wallet_channel_key(channel_id: &[u8; 32]) -> Vec<u8> {
+    [b"channel::".as_slice(), channel_id.as_slice()].concat()
+}
+
+fn wallet_lease_key(channel_id: &[u8; 32], lease_id: &[u8; 32]) -> Vec<u8> {
+    [
+        b"lease::".as_slice(),
+        channel_id.as_slice(),
+        b"::",
+        lease_id.as_slice(),
+    ]
+    .concat()
+}
+
+fn action_output_excerpt_limit(tool_name: &str) -> usize {
+    let lower = tool_name.to_ascii_lowercase();
+    if lower.starts_with("wallet_network__mail_")
+        || lower.starts_with("wallet_mail_")
+        || lower.starts_with("mail__")
+    {
+        1_400
+    } else {
+        220
+    }
+}
+
+fn upsert_wallet_network_service_meta(state: &mut IAVLTree<HashCommitmentScheme>) -> Result<()> {
+    let mut methods = BTreeMap::new();
+    for method in [
+        "store_secret_record@v1",
+        "mail_connector_upsert@v1",
+        "mail_read_latest@v1",
+        "mail_list_recent@v1",
+        "mail_delete_spam@v1",
+        "mail_reply@v1",
+    ] {
+        methods.insert(method.to_string(), MethodPermission::User);
+    }
+
+    let meta = ActiveServiceMeta {
+        id: "wallet_network".to_string(),
+        abi_version: 1,
+        state_schema: "v1".to_string(),
+        caps: Capabilities::empty(),
+        artifact_hash: [0u8; 32],
+        activated_at: 0,
+        methods,
+        allowed_system_prefixes: vec![],
+        generation_id: 0,
+        parent_hash: None,
+        author: None,
+        context_filter: None,
+    };
+    state.insert(
+        &active_service_key("wallet_network"),
+        &codec::to_bytes_canonical(&meta)
+            .map_err(|e| anyhow!("failed to encode wallet_network ActiveServiceMeta: {}", e))?,
+    )?;
+    Ok(())
+}
+
+async fn invoke_wallet_method<P: Encode>(
+    wallet_service: &WalletNetworkService,
+    state: &mut IAVLTree<HashCommitmentScheme>,
+    ctx: &mut TxContext<'_>,
+    method: &str,
+    params: &P,
+) -> Result<()> {
+    let payload = codec::to_bytes_canonical(params)
+        .map_err(|e| anyhow!("failed to encode wallet method params '{}': {}", method, e))?;
+    wallet_service
+        .handle_service_call(state, method, &payload, ctx)
+        .await
+        .map_err(|e| anyhow!("wallet method '{}' failed: {}", method, e))
+}
+
+async fn bootstrap_mailbox_runtime_state(
+    state: &mut IAVLTree<HashCommitmentScheme>,
+    ctx: &mut TxContext<'_>,
+    wallet_service: &WalletNetworkService,
+    run_index: usize,
+    run_timestamp_ms: u64,
+) -> Result<Vec<String>> {
+    let config = parse_mail_runtime_bootstrap_config()?;
+    upsert_wallet_network_service_meta(state)?;
+
+    let secret_specs = build_mail_runtime_secret_specs(&config);
+    for spec in secret_specs {
+        let record = VaultSecretRecord {
+            secret_id: spec.secret_id,
+            alias: spec.alias,
+            kind: SecretKind::AccessToken,
+            ciphertext: spec.value.as_bytes().to_vec(),
+            metadata: BTreeMap::new(),
+            created_at_ms: run_timestamp_ms,
+            rotated_at_ms: None,
+        };
+        invoke_wallet_method(
+            wallet_service,
+            state,
+            ctx,
+            "store_secret_record@v1",
+            &record,
+        )
+        .await?;
+    }
+
+    let upsert = MailConnectorUpsertParams {
+        mailbox: config.mailbox.clone(),
+        config: MailConnectorConfig {
+            provider: MailConnectorProvider::ImapSmtp,
+            auth_mode: config.auth_mode,
+            account_email: config.account_email.clone(),
+            imap: MailConnectorEndpoint {
+                host: config.imap_host.clone(),
+                port: config.imap_port,
+                tls_mode: config.imap_tls_mode,
+            },
+            smtp: MailConnectorEndpoint {
+                host: config.smtp_host.clone(),
+                port: config.smtp_port,
+                tls_mode: config.smtp_tls_mode,
+            },
+            secret_aliases: MailConnectorSecretAliases {
+                imap_username_alias: config.imap_username_alias.clone(),
+                imap_password_alias: config.imap_secret_alias.clone(),
+                smtp_username_alias: config.smtp_username_alias.clone(),
+                smtp_password_alias: config.smtp_secret_alias.clone(),
+            },
+            metadata: BTreeMap::new(),
+        },
+    };
+    invoke_wallet_method(
+        wallet_service,
+        state,
+        ctx,
+        "mail_connector_upsert@v1",
+        &upsert,
+    )
+    .await?;
+
+    let channel_id = deterministic_id(run_index, 0xB1);
+    let lease_id = deterministic_id(run_index, 0xB2);
+    let policy_hash = deterministic_id(run_index, 0xB3);
+    let envelope_hash = deterministic_id(run_index, 0xB4);
+    let root_grant_id = deterministic_id(run_index, 0xB5);
+    let issuer_id = deterministic_id(run_index, 0xB6);
+    let subject_id = deterministic_id(run_index, 0xB7);
+    let lease_nonce = deterministic_id(run_index, 0xB8);
+    let channel_expires_at_ms = run_timestamp_ms.saturating_add(30 * 60 * 1_000);
+    let lease_expires_at_ms = run_timestamp_ms.saturating_add(15 * 60 * 1_000);
+
+    let mut constraints = BTreeMap::new();
+    constraints.insert("mailbox".to_string(), config.mailbox.clone());
+
+    let envelope = SessionChannelEnvelope {
+        channel_id,
+        lc_id: issuer_id,
+        rc_id: subject_id,
+        ordering: SessionChannelOrdering::Ordered,
+        mode: SessionChannelMode::AttestedRemoteExecution,
+        policy_hash,
+        policy_version: 1,
+        root_grant_id,
+        capability_set: vec![
+            "mail.read.latest".to_string(),
+            "mail.read".to_string(),
+            "email:read".to_string(),
+            "mail.list.recent".to_string(),
+            "mail.list".to_string(),
+            "email:list".to_string(),
+        ],
+        constraints: constraints.clone(),
+        delegation_rules: SessionChannelDelegationRules {
+            max_depth: 0,
+            can_redelegate: false,
+            issuance_budget: Some(0),
+        },
+        revocation_epoch: 0,
+        expires_at_ms: channel_expires_at_ms,
+    };
+    let channel = SessionChannelRecord {
+        envelope,
+        state: SessionChannelState::Open,
+        envelope_hash,
+        opened_at_ms: Some(run_timestamp_ms),
+        closed_at_ms: None,
+        last_seq: 0,
+        close_reason: None,
+    };
+    state.insert(
+        &wallet_channel_key(&channel_id),
+        &codec::to_bytes_canonical(&channel)
+            .map_err(|e| anyhow!("failed to encode seeded SessionChannelRecord: {}", e))?,
+    )?;
+
+    let lease = SessionLease {
+        lease_id,
+        channel_id,
+        issuer_id,
+        subject_id,
+        policy_hash,
+        grant_id: root_grant_id,
+        capability_subset: vec![
+            "mail.read.latest".to_string(),
+            "mail.read".to_string(),
+            "email:read".to_string(),
+        ],
+        constraints_subset: constraints,
+        mode: SessionLeaseMode::Lease,
+        expires_at_ms: lease_expires_at_ms,
+        revocation_epoch: 0,
+        audience: ctx.signer_account_id.0,
+        nonce: lease_nonce,
+        counter: 1,
+        issued_at_ms: run_timestamp_ms,
+        sig_hybrid_lc: vec![1u8],
+    };
+    state.insert(
+        &wallet_lease_key(&channel_id, &lease_id),
+        &codec::to_bytes_canonical(&lease)
+            .map_err(|e| anyhow!("failed to encode seeded SessionLease: {}", e))?,
+    )?;
+
+    let auth_mode_label = match config.auth_mode {
+        MailConnectorAuthMode::Password => "password",
+        MailConnectorAuthMode::Oauth2 => "oauth2",
+    };
+
+    Ok(vec![
+        "env_receipt::mail_env_file_loaded=true".to_string(),
+        "env_receipt::mail_service_meta_registered=true".to_string(),
+        "env_receipt::mail_connector_bootstrap=true".to_string(),
+        "env_receipt::mail_channel_seeded=true".to_string(),
+        "env_receipt::mail_lease_seeded=true".to_string(),
+        format!("env_receipt::mail_auth_mode={}", auth_mode_label),
+        format!("env_receipt::mail_mailbox={}", config.mailbox),
+        format!("env_receipt::mail_setup_timestamp_ms={}", run_timestamp_ms),
+    ])
+}
+
 pub async fn run_case(
     case: &QueryCase,
     run_index: usize,
@@ -430,7 +975,9 @@ pub async fn run_case(
     .with_event_sender(event_tx);
 
     let mut state = IAVLTree::new(HashCommitmentScheme::new());
-    let services_dir = ServiceDirectory::new(vec![]);
+    let wallet_service = Arc::new(WalletNetworkService::default());
+    let services_dir =
+        ServiceDirectory::new(vec![wallet_service.clone() as Arc<dyn BlockchainService>]);
     let mut ctx = build_ctx(&services_dir);
     let session_id = session_id_for_index(run_index);
     let run_timestamp_ms = SystemTime::now()
@@ -438,6 +985,18 @@ pub async fn run_case(
         .unwrap_or_default()
         .as_millis() as u64;
     let run_query = render_query_for_run(case.query, run_index, run_timestamp_ms);
+    let mailbox_setup_verification_checks = if should_bootstrap_mailbox_runtime(&run_query) {
+        bootstrap_mailbox_runtime_state(
+            &mut state,
+            &mut ctx,
+            wallet_service.as_ref(),
+            run_index,
+            run_timestamp_ms,
+        )
+        .await?
+    } else {
+        Vec::new()
+    };
 
     let start_params = StartAgentParams {
         session_id,
@@ -563,7 +1122,10 @@ pub async fn run_case(
                 action_evidence.push(ActionEvidence {
                     tool_name: tool_name.clone(),
                     agent_status: agent_status.clone(),
-                    output_excerpt: truncate_for_log(output, 220),
+                    output_excerpt: truncate_for_log(
+                        output,
+                        action_output_excerpt_limit(tool_name),
+                    ),
                 });
                 if tool_name == "chat__reply" && agent_status.eq_ignore_ascii_case("completed") {
                     chat_reply_count = chat_reply_count.saturating_add(1);
@@ -604,6 +1166,9 @@ pub async fn run_case(
             verification_checks.insert(format!("terminal_pause_reason={}", reason));
         }
     }
+    for check in mailbox_setup_verification_checks {
+        verification_checks.insert(check);
+    }
 
     let event_excerpt = captured_events
         .iter()
@@ -613,6 +1178,10 @@ pub async fn run_case(
         .collect::<Vec<_>>()
         .into_iter()
         .rev()
+        .collect::<Vec<_>>();
+    let kernel_log_lines = captured_events
+        .iter()
+        .map(event_full_line)
         .collect::<Vec<_>>();
 
     Ok(RunObservation {
@@ -633,5 +1202,7 @@ pub async fn run_case(
         approval_required_events,
         action_evidence,
         event_excerpt,
+        kernel_event_count: captured_events.len(),
+        kernel_log_lines,
     })
 }

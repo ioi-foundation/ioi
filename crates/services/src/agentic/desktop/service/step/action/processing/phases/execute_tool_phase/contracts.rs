@@ -32,9 +32,49 @@ pub(super) fn bootstrap_contract(
         && route_label.is_some()
         && !has_execution_receipt(&agent_state.tool_execution_log, "host_discovery")
     {
+        let timestamp_ms = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_millis() as u64;
+        let host_receipt = runtime_host_environment_receipt(timestamp_ms);
+        let desktop_dir = host_receipt
+            .desktop_directory
+            .clone()
+            .unwrap_or_else(|| "unavailable".to_string());
+        let evidence_material = format!(
+            "observed_value={};probe_source={};timestamp_ms={};satisfied={};desktop_dir={}",
+            host_receipt.observed_value.as_str(),
+            host_receipt.probe_source.as_str(),
+            host_receipt.timestamp_ms,
+            host_receipt.satisfied,
+            desktop_dir
+        );
         verification_checks.push("capability_execution_phase=discovery".to_string());
-        mark_execution_receipt(&mut agent_state.tool_execution_log, "host_discovery");
-        verification_checks.push(receipt_marker("host_discovery"));
+        verification_checks.push(format!(
+            "host_home_dir={}",
+            host_receipt.observed_value.as_str()
+        ));
+        verification_checks.push(format!("host_desktop_dir={}", desktop_dir));
+        verification_checks.push(format!(
+            "host_discovery_probe_source={}",
+            host_receipt.probe_source.as_str()
+        ));
+        verification_checks.push(format!(
+            "host_discovery_timestamp_ms={}",
+            host_receipt.timestamp_ms
+        ));
+        verification_checks.push(format!(
+            "host_discovery_satisfied={}",
+            host_receipt.satisfied
+        ));
+        if host_receipt.satisfied {
+            mark_execution_receipt_with_value(
+                &mut agent_state.tool_execution_log,
+                "host_discovery",
+                host_receipt.observed_value.clone(),
+            );
+            verification_checks.push(receipt_marker("host_discovery"));
+        }
         emit_execution_contract_receipt_event(
             service,
             session_id,
@@ -42,8 +82,8 @@ pub(super) fn bootstrap_contract(
             &resolved_intent_id,
             "discovery",
             "host_discovery",
-            true,
-            "host_discovery=recorded",
+            host_receipt.satisfied,
+            &evidence_material,
             None,
             None,
             None,

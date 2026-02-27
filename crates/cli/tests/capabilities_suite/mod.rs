@@ -10,6 +10,43 @@ use std::sync::Arc;
 
 use self::types::CaseOutcome;
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum KernelLogDumpMode {
+    Never,
+    FailureOnly,
+    Always,
+}
+
+fn kernel_log_dump_mode() -> KernelLogDumpMode {
+    match std::env::var("CAPABILITIES_DUMP_KERNEL_LOGS")
+        .unwrap_or_else(|_| "failure".to_string())
+        .trim()
+        .to_ascii_lowercase()
+        .as_str()
+    {
+        "never" | "0" | "false" => KernelLogDumpMode::Never,
+        "always" | "all" | "1" | "true" => KernelLogDumpMode::Always,
+        _ => KernelLogDumpMode::FailureOnly,
+    }
+}
+
+fn should_emit_kernel_log_dump(
+    mode: KernelLogDumpMode,
+    observed_pass: bool,
+    local_pass: bool,
+    arbiter_pass: bool,
+    completed: bool,
+    failed: bool,
+) -> bool {
+    match mode {
+        KernelLogDumpMode::Never => false,
+        KernelLogDumpMode::Always => true,
+        KernelLogDumpMode::FailureOnly => {
+            !observed_pass || !local_pass || !arbiter_pass || !completed || failed
+        }
+    }
+}
+
 pub async fn run_capabilities_suite() -> Result<()> {
     ioi_cli::testing::build_test_artifacts();
     harness::load_env_from_workspace_dotenv_if_present();
@@ -41,6 +78,7 @@ pub async fn run_capabilities_suite() -> Result<()> {
 
     let mut outcomes = Vec::new();
     let mut run_index = 0usize;
+    let kernel_log_mode = kernel_log_dump_mode();
     for case in queries::all_cases().into_iter() {
         let attempts_allowed = if case.expected_pass { max_attempts } else { 1 };
         let debug_observation = std::env::var("CAPABILITIES_DEBUG_OBSERVATION")
@@ -130,6 +168,38 @@ pub async fn run_capabilities_suite() -> Result<()> {
                 attempt,
                 serde_json::to_string_pretty(&outcome)?
             );
+            if should_emit_kernel_log_dump(
+                kernel_log_mode,
+                outcome.observed_pass,
+                outcome.local.pass,
+                outcome.arbiter.pass,
+                observation.completed,
+                observation.failed,
+            ) {
+                println!(
+                    "CAPABILITIES_KERNEL_LOG_DUMP_{}_ATTEMPT_{}={}",
+                    case.id,
+                    attempt,
+                    serde_json::to_string_pretty(&json!({
+                        "case_id": case.id,
+                        "attempt": attempt,
+                        "query": observation.query,
+                        "observed_pass": outcome.observed_pass,
+                        "expected_pass": outcome.expected_pass,
+                        "completed": observation.completed,
+                        "failed": observation.failed,
+                        "final_status": observation.final_status,
+                        "local_pass": outcome.local.pass,
+                        "local_failures": outcome.local.failures.clone(),
+                        "arbiter_pass": outcome.arbiter.pass,
+                        "arbiter_failures": outcome.arbiter.failures.clone(),
+                        "run_timestamp_ms": observation.run_timestamp_ms,
+                        "run_timestamp_iso_utc": observation.run_timestamp_iso_utc,
+                        "kernel_event_count": observation.kernel_event_count,
+                        "kernel_log_lines": observation.kernel_log_lines,
+                    }))?
+                );
+            }
 
             if outcome.observed_pass == outcome.expected_pass {
                 selected_outcome = Some(outcome);

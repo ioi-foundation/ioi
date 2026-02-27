@@ -1,6 +1,9 @@
 // Path: crates/services/src/agentic/desktop/service/step/cognition.rs
 
 use crate::agentic::desktop::service::actions::safe_truncate;
+use crate::agentic::desktop::service::step::action::command_contract::{
+    runtime_desktop_directory, runtime_home_directory, runtime_host_environment_receipt,
+};
 use crate::agentic::desktop::service::step::perception::PerceptionContext;
 use crate::agentic::desktop::service::step::signals::{
     is_browser_surface, is_mail_connector_tool_name, is_mailbox_connector_intent,
@@ -16,7 +19,7 @@ use ioi_types::error::TransactionError;
 use serde::Deserialize;
 use serde_json::json;
 use std::collections::VecDeque;
-use std::time::Duration;
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 // --- Cognitive Router Types (System 1) ---
 #[derive(Debug, Deserialize, Clone, Copy, PartialEq)]
@@ -367,25 +370,49 @@ pub async fn think(
         resolved_scope,
         IntentScopeProfile::CommandExecution
     ) {
-        "COMMAND EXECUTION CONTRACT:\n\
-         - Treat terminal output and command history as primary evidence.\n\
-         - Follow capability-execution lifecycle: discovery -> policy route -> execution -> verification -> final response.\n\
-         - Discovery must probe host capabilities in typed categories (apps/integrations, shell tools, permissions/approvals, and signal/notification channels when relevant).\n\
-         - Route selection must be explicit and evidence-backed: `native_integration` | `enablement_request` | `script_backend`.\n\
-         - Screenshot/visual artifacts are non-blocking for command workflows.\n\
-         - Perform environment discovery with `sys__exec`/`sys__exec_session` when command availability is uncertain.\n\
-         - Execute only after route selection and keep execution steps minimal.\n\
-         - Never run long blocking commands (for example `sleep`) in foreground mode; use `detach: true` or scheduler-style commands.\n\
-         - Do not run more than 3 consecutive shell commands without either finalizing or escalating.\n\
-         - If command history already shows the same command succeeded, do not rerun it; finalize instead.\n\
-         - After goal success, emit `chat__reply` exactly once, then call `agent__complete`.\n\
-         - Final user response must be structured from evidence and include `Mechanism: ...`; include timestamps/handles/status controls whenever available.\n\
-         - For time-sensitive tasks, include an absolute UTC timestamp in the final reply as `Target UTC: YYYY-MM-DDTHH:MM:SSZ`.\n\
-         - For timer/alarm/countdown goals, the notification path must be deferred to fire at due time (for example `sleep ... && notify-send ...` or scheduler equivalent); immediate standalone `notify-send` does not satisfy the contract.\n\
-         - If tool output reports `ERROR_CLASS=ExecutionContractViolation ... missing_keys=...`, do not retry or rewrite the command loop; surface a terminal contract failure via `system__fail`.\n\
-         - Use `system__fail` only when command tooling is unavailable."
+        let discovery_timestamp_ms = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_millis() as u64;
+        let host_receipt = runtime_host_environment_receipt(discovery_timestamp_ms);
+        let runtime_home_dir =
+            runtime_home_directory().unwrap_or_else(|| host_receipt.observed_value.clone());
+        let runtime_desktop_dir = runtime_desktop_directory().or(host_receipt.desktop_directory);
+        let runtime_desktop_dir = runtime_desktop_dir.unwrap_or_else(|| "unavailable".to_string());
+
+        format!(
+            "COMMAND EXECUTION CONTRACT:\n\
+             - Treat terminal output and command history as primary evidence.\n\
+             - Follow capability-execution lifecycle: discovery -> policy route -> execution -> verification -> final response.\n\
+             - Discovery must probe host capabilities in typed categories (apps/integrations, shell tools, permissions/approvals, and signal/notification channels when relevant).\n\
+             - Route selection must be explicit and evidence-backed: `native_integration` | `enablement_request` | `script_backend`.\n\
+             - Screenshot/visual artifacts are non-blocking for command workflows.\n\
+             - Perform environment discovery with `sys__exec`/`sys__exec_session` when command availability is uncertain.\n\
+             - Execute only after route selection and keep execution steps minimal.\n\
+             - Runtime host facts (authoritative for command synthesis):\n\
+               - runtime_home_dir={}\n\
+               - runtime_desktop_dir={}\n\
+               - discovery_probe={}\n\
+               - discovery_timestamp_ms={}\n\
+               - discovery_satisfied={}\n\
+             - Never synthesize absolute paths under a different home owner than runtime_home_dir.\n\
+             - Never run long blocking commands (for example `sleep`) in foreground mode; use `detach: true` or scheduler-style commands.\n\
+             - Do not run more than 3 consecutive shell commands without either finalizing or escalating.\n\
+             - If command history already shows the same command succeeded, do not rerun it; finalize instead.\n\
+             - After goal success, emit `chat__reply` exactly once, then call `agent__complete`.\n\
+             - Final user response must be structured from evidence and include `Mechanism: ...`; include timestamps/handles/status controls whenever available.\n\
+             - For time-sensitive tasks, include an absolute UTC timestamp in the final reply as `Target UTC: YYYY-MM-DDTHH:MM:SSZ`.\n\
+             - For timer/alarm/countdown goals, the notification path must be deferred to fire at due time (for example `sleep ... && notify-send ...` or scheduler equivalent); immediate standalone `notify-send` does not satisfy the contract.\n\
+             - If tool output reports `ERROR_CLASS=ExecutionContractViolation ... missing_keys=...`, do not retry or rewrite the command loop; surface a terminal contract failure via `system__fail`.\n\
+             - Use `system__fail` only when command tooling is unavailable.",
+            runtime_home_dir,
+            runtime_desktop_dir,
+            host_receipt.probe_source,
+            host_receipt.timestamp_ms,
+            host_receipt.satisfied
+        )
     } else {
-        ""
+        String::new()
     };
 
     let system_instructions = format!(

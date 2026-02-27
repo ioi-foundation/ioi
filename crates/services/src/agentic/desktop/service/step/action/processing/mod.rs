@@ -3,8 +3,9 @@ use super::command_contract::{
     execution_contract_violation_error, is_cec_terminal_error, missing_execution_contract_markers,
     record_provider_selection_receipts, record_timer_notification_contract_requirement,
     record_verification_receipts, requires_timer_notification_contract,
-    synthesize_allowlisted_timer_notification_tool, sys_exec_arms_timer_delay_backend,
-    sys_exec_command_preview, sys_exec_satisfies_clock_read_contract,
+    runtime_host_environment_receipt, synthesize_allowlisted_timer_notification_tool,
+    sys_exec_arms_timer_delay_backend, sys_exec_command_preview,
+    sys_exec_foreign_absolute_home_path, sys_exec_satisfies_clock_read_contract,
     CLOCK_TIMESTAMP_POSTCONDITION, PROVIDER_SELECTION_COMMIT_RECEIPT,
     TIMER_NOTIFICATION_PATH_POSTCONDITION, TIMER_SLEEP_BACKEND_POSTCONDITION,
     VERIFICATION_COMMIT_RECEIPT,
@@ -19,8 +20,8 @@ use super::support::{
     canonical_intent_hash, canonical_retry_intent_hash, canonical_tool_identity,
     enforce_system_fail_terminal_status, execution_receipt_value, get_status_str,
     has_execution_receipt, is_action_fingerprint_executed, mark_action_fingerprint_executed,
-    mark_execution_postcondition, mark_execution_receipt, mark_system_fail_status,
-    postcondition_marker, receipt_marker,
+    mark_execution_postcondition, mark_execution_receipt, mark_execution_receipt_with_value,
+    mark_system_fail_status, postcondition_marker, receipt_marker,
 };
 use crate::agentic::desktop::execution::system::is_sudo_password_required_install_error;
 use crate::agentic::desktop::keys::{get_state_key, AGENT_POLICY_PREFIX};
