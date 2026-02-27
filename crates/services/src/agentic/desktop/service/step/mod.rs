@@ -309,8 +309,10 @@ pub async fn handle_step(
         &resolved_intent,
         &rules.ontology_policy.intent_routing,
     );
-    let should_wait_for_clarification = locality_scope_missing
-        || (should_pause_for_intent && !defer_intent_pause_for_runtime_locality);
+    let has_canonical_pending_resume = agent_state.pending_tool_jcs.is_some();
+    let should_wait_for_clarification = !has_canonical_pending_resume
+        && (locality_scope_missing
+            || (should_pause_for_intent && !defer_intent_pause_for_runtime_locality));
     agent_state.resolved_intent = Some(resolved_intent);
     agent_state.awaiting_intent_clarification = should_wait_for_clarification;
     if should_wait_for_clarification {
