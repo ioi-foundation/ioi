@@ -1,4 +1,4 @@
-// Path: crates/cli/tests/routing_queue_tier_parity.rs
+// Path: crates/cli/tests/routing_queue_tier_contract.rs
 
 use ioi_crypto::algorithms::hash::sha256;
 use ioi_services::agentic::desktop::service::step::action::{

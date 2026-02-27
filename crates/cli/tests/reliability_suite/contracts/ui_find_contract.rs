@@ -1,4 +1,4 @@
-// Path: crates/cli/tests/reliability_suite/parity/ui_find_parity.rs
+// Path: crates/cli/tests/reliability_suite/contracts/ui_find_contract.rs
 
 use async_trait::async_trait;
 use ioi_api::vm::drivers::gui::{GuiDriver, InputEvent};

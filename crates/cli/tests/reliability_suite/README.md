@@ -6,17 +6,16 @@ This suite organizes reliability-focused flows around:
 - `gui__snapshot -> gui__click_element`
 - `sys__exec_session` continuity/reset/timeout+failure-class receipts
 - `web__search -> web__read -> net__fetch` deterministic retrieval chain
-- parity paths for browser/gui/computer/routing interaction tests
+- contract paths for browser/gui/computer/routing interaction tests
 
 ## Test Entry
 
 - Integration entrypoint: `crates/cli/tests/reliability_suite_e2e.rs`
 - Module root: `crates/cli/tests/reliability_suite/mod.rs`
-- Parity module storage: `crates/cli/tests/reliability_suite/parity/`
+- Contract module storage: `crates/cli/tests/reliability_suite/contracts/`
 
-Legacy integration test filenames in `crates/cli/tests/*.rs` are kept as
-thin wrappers (`#[path = ...]`) so existing `cargo test --test ...` targets
-do not change.
+Contract-focused integration test entry files in `crates/cli/tests/*.rs` are
+kept as thin wrappers (`#[path = ...]`) around this suite's module files.
 
 ## Running
 

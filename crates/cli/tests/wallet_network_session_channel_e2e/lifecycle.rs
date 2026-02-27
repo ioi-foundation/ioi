@@ -46,7 +46,7 @@ async fn wallet_network_session_channel_lifecycle_via_real_callservice_txs() -> 
             session_id: root_session_id,
             vault_id: [0x9au8; 32],
             agent_id: "wallet-e2e-agent".to_string(),
-            purpose: "wallet parity e2e".to_string(),
+            purpose: "wallet contract e2e".to_string(),
             scope: grant_scope.clone(),
             guardian_ephemeral_public_key: vec![1, 2, 3, 4],
             issued_at_ms: 4_100_000_000_000,
@@ -74,7 +74,7 @@ async fn wallet_network_session_channel_lifecycle_via_real_callservice_txs() -> 
             session_id: child_session_id,
             vault_id: [0x9au8; 32],
             agent_id: "wallet-e2e-agent-child".to_string(),
-            purpose: "wallet parity e2e child".to_string(),
+            purpose: "wallet contract e2e child".to_string(),
             scope: SessionScope {
                 expires_at_ms: 4_150_000_000_000,
                 max_actions: Some(5),

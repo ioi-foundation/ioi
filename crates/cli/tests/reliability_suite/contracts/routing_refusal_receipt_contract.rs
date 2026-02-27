@@ -1,4 +1,4 @@
-// Path: crates/cli/tests/routing_refusal_receipt_parity.rs
+// Path: crates/cli/tests/routing_refusal_receipt_contract.rs
 
 use ioi_crypto::algorithms::hash::sha256;
 use ioi_services::agentic::desktop::service::step::action::canonical_intent_hash;

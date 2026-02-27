@@ -359,6 +359,6 @@ mod approval_token_consumption;
 mod bridge_interceptions;
 mod lifecycle;
 mod mail_delete_spam;
-mod mail_reply_draft_send_parity;
+mod mail_reply_draft_send_contract;
 mod mail_reply_with_approval;
 mod secret_injection_binding;
