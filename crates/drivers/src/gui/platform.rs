@@ -273,7 +273,10 @@ mod linux_impl {
             }
 
             // 2. Standard State (The Critical Addition)
+            let mut state_available = false;
+            let mut state_indicates_visible = false;
             if let Ok(state_set) = proxy.get_state().await {
+                state_available = true;
                 // Map critical states to attributes for the Lens/XML serializer
                 if !state_set.contains(State::Enabled) {
                     attributes.insert("disabled".to_string(), "true".to_string());
@@ -290,12 +293,8 @@ mod linux_impl {
                 if state_set.contains(State::Expanded) {
                     attributes.insert("expanded".to_string(), "true".to_string());
                 }
-
-                // Visibility check optimization
-                // [FIX] Removed check for State::Hidden
-                if !state_set.contains(State::Visible) {
-                    // We mark it in attributes, let the serializer prune.
-                    attributes.insert("hidden".to_string(), "true".to_string());
+                if state_set.contains(State::Visible) || state_set.contains(State::Focused) {
+                    state_indicates_visible = true;
                 }
             }
 
@@ -306,8 +305,20 @@ mod linux_impl {
                 }
             }
 
-            // Determine visibility
-            let is_visible = !attributes.contains_key("hidden");
+            // Determine visibility. AT-SPI state reporting can be sparse/inconsistent in
+            // headless CI (xvfb/bridge startup), so use geometry/structure fallbacks rather
+            // than marking nodes hidden solely because State::Visible is absent.
+            let structural_role = matches!(
+                role.as_str(),
+                "root" | "window" | "application" | "frame" | "pane" | "panel"
+            );
+            let has_rect = rect.width > 0 && rect.height > 0;
+            let has_label = !name.trim().is_empty();
+            let is_visible = if state_available {
+                state_indicates_visible || has_rect || structural_role
+            } else {
+                has_rect || has_label || structural_role
+            };
 
             // Fetch children
             let child_count = proxy.child_count().await.unwrap_or(0);
@@ -325,8 +336,9 @@ mod linux_impl {
                         if let Ok(child_node) =
                             crawl_atspi_node(&child_proxy, conn, depth + 1).await
                         {
-                            // Only include visible children to save context
-                            if child_node.is_visible {
+                            // Keep structural/informative descendants even if a container is
+                            // currently marked invisible to avoid dropping viable targets.
+                            if child_node.is_visible || !child_node.children.is_empty() {
                                 children.push(child_node);
                             }
                         }

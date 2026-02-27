@@ -83,12 +83,13 @@ fn choose_active_window_subtree(
         best: &mut Option<(f32, AccessibilityNode)>,
     ) {
         let score = window_match_score(node, active);
+        let role = node.role.to_ascii_lowercase();
+        let window_like_role =
+            role.contains("window") || role.contains("application") || role.contains("frame");
         // Never select the synthetic root node as the "best window" candidate; this helper is
         // used to scope the tree to a meaningful active-window subtree, and returning root is
         // a no-op.
-        if !node.role.eq_ignore_ascii_case("root")
-            && score > 2.5
-            && best.as_ref().map(|(s, _)| score > *s).unwrap_or(true)
+        if window_like_role && score > 2.5 && best.as_ref().map(|(s, _)| score > *s).unwrap_or(true)
         {
             *best = Some((score, node.clone()));
         }
