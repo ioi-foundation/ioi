@@ -5,6 +5,7 @@ import {
   classifyActivityEvent,
   normalizeOutputForHash,
 } from "./contentPipeline";
+import { parseChatContractEnvelope } from "./chatContract";
 
 const BASE_TIMESTAMP = "2026-02-19T03:00:00Z";
 
@@ -72,7 +73,7 @@ function dedupAndAnswerTest(): void {
 
   const presentation = buildRunPresentation(history, [baseEvent, duplicateAnswerDifferentStep], []);
   assert.equal(presentation.prompt?.text, "question");
-  assert.equal(presentation.finalAnswer?.message.text.includes("final answer"), true);
+  assert.equal(presentation.finalAnswer?.message.text.includes("Top 3 stories"), true);
   assert.equal(presentation.activityGroups.length, 1);
   assert.equal(presentation.activityGroups[0]?.events.length, 1);
 }
@@ -326,6 +327,68 @@ function thoughtSummaryTest(): void {
   );
 }
 
+function chatContractParsingTest(): void {
+  const validPayload = {
+    schema_version: "chat_contract_v1",
+    intent_id: "search.list_files",
+    outcome: { status: "success", count: 2, summary: "Found matching files." },
+    interpretation: {
+      timezone: "America/New_York",
+      sort: "modified_desc",
+    },
+    result_columns: [
+      { key: "name", label: "File" },
+      { key: "modified", label: "Modified" },
+    ],
+    result_rows: [
+      { name: "a.pdf", modified: "2026-02-27T19:48:48Z" },
+      { name: "b.pdf", modified: "2026-02-26T19:48:48Z" },
+    ],
+    actions: [{ id: "open_all", label: "Open all" }],
+  };
+
+  const parsedValid = parseChatContractEnvelope(JSON.stringify(validPayload));
+  assert.ok(parsedValid.envelope);
+  assert.equal(parsedValid.issues.length, 0);
+
+  const invalidPayload = {
+    ...validPayload,
+    answer_markdown: "Completed. Final response emitted via chat_reply.",
+  };
+  const parsedInvalid = parseChatContractEnvelope(JSON.stringify(invalidPayload));
+  assert.equal(parsedInvalid.envelope, null);
+  assert.equal(
+    parsedInvalid.issues.some((issue) => issue.code === "forbidden_internal_label"),
+    true,
+  );
+}
+
+function invalidContractFallbackTest(): void {
+  const invalidPayload = {
+    schema_version: "chat_contract_v1",
+    intent_id: "search.list_files",
+    outcome: { status: "success", count: 1 },
+    interpretation: { timezone: "UTC" },
+    result_rows: [{ name: "a.pdf" }],
+    answer_markdown: "Completed. Final response emitted via chat_reply.",
+  };
+
+  const history: ChatMessage[] = [
+    { role: "user", text: "find files", timestamp: Date.now() - 5_000 },
+    { role: "agent", text: JSON.stringify(invalidPayload), timestamp: Date.now() - 2_000 },
+  ];
+
+  const presentation = buildRunPresentation(history, [], []);
+  assert.equal(
+    presentation.finalAnswer?.displayText,
+    "Structured response unavailable due to contract validation failure.",
+  );
+  assert.equal(
+    presentation.finalAnswer?.displayText.includes("final response emitted via chat_reply"),
+    false,
+  );
+}
+
 classifyEventTest();
 normalizeOutputTest();
 dedupAndAnswerTest();
@@ -333,3 +396,5 @@ activitySummaryTest();
 sourceSummaryTest();
 sourceSummaryReceiptOnlyTest();
 thoughtSummaryTest();
+chatContractParsingTest();
+invalidContractFallbackTest();

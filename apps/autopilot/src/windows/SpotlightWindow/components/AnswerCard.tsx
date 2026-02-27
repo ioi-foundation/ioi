@@ -1,13 +1,19 @@
 import { useCallback, useMemo, useState } from "react";
 import { openUrl } from "@tauri-apps/plugin-opener";
-import type { AnswerPresentation, PlanSummary, SourceSummary } from "../../../types";
+import type {
+  AnswerPresentation,
+  ChatContractResultColumn,
+  ChatContractResultRow,
+  ChatContractScalar,
+  ChatContractValue,
+  SourceSummary,
+} from "../../../types";
 import { icons } from "./Icons";
 import { MarkdownMessage } from "./MarkdownMessage";
 
 interface AnswerCardProps {
   answer: AnswerPresentation;
   sourceSummary: SourceSummary | null;
-  planSummary?: PlanSummary | null;
   sourceDurationLabel?: string;
   onDownloadContext: () => Promise<void> | void;
   onOpenArtifacts?: () => void;
@@ -15,11 +21,46 @@ interface AnswerCardProps {
 }
 
 const MAX_CITATION_PILLS = 8;
+const MAX_RESULT_ROWS = 8;
+
+function formatTitleCase(value: string): string {
+  return value
+    .replace(/_/g, " ")
+    .trim()
+    .replace(/\b\w/g, (char) => char.toUpperCase());
+}
+
+function formatScalar(value: ChatContractScalar): string {
+  if (value === null) return "null";
+  return String(value);
+}
+
+function formatValue(value: ChatContractValue): string {
+  if (Array.isArray(value)) {
+    return value.map((entry) => formatScalar(entry)).join(", ");
+  }
+  return formatScalar(value);
+}
+
+function deriveResultColumns(rows: ChatContractResultRow[]): ChatContractResultColumn[] {
+  if (rows.length === 0) {
+    return [];
+  }
+  return Object.keys(rows[0]).map((key) => ({
+    key,
+    label: formatTitleCase(key),
+  }));
+}
+
+function rowCellValue(row: ChatContractResultRow, key: string): string {
+  const cell = row[key];
+  if (cell === undefined) return "—";
+  return formatScalar(cell);
+}
 
 export function AnswerCard({
   answer,
   sourceSummary,
-  planSummary,
   sourceDurationLabel,
   onDownloadContext,
   onOpenArtifacts,
@@ -32,12 +73,28 @@ export function AnswerCard({
     () => answer.citations.slice(0, MAX_CITATION_PILLS),
     [answer.citations],
   );
+  const contract = answer.contract;
+  const interpretationEntries = useMemo(
+    () => (contract ? Object.entries(contract.interpretation) : []),
+    [contract],
+  );
+  const resultRows = useMemo(
+    () => (contract ? contract.result_rows.slice(0, MAX_RESULT_ROWS) : []),
+    [contract],
+  );
+  const resultColumns = useMemo(() => {
+    if (!contract) return [];
+    if (contract.result_columns && contract.result_columns.length > 0) {
+      return contract.result_columns;
+    }
+    return deriveResultColumns(resultRows);
+  }, [contract, resultRows]);
 
   const handleCopy = useCallback(async () => {
-    await navigator.clipboard.writeText(answer.message.text);
+    await navigator.clipboard.writeText(answer.copyText);
     setCopied(true);
     window.setTimeout(() => setCopied(false), 1600);
-  }, [answer.message.text]);
+  }, [answer.copyText]);
 
   const handleOpenCitation = useCallback(async (url: string) => {
     try {
@@ -70,7 +127,7 @@ export function AnswerCard({
     <section className="answer-card" aria-label="Final answer">
       <div className="answer-card-header">
         <div className="answer-card-title-wrap">
-          <div className="answer-card-eyebrow">Final Answer</div>
+          <div className="answer-card-eyebrow">Results</div>
           <h3 className="answer-card-title">Autopilot</h3>
         </div>
         <div className="answer-card-actions">
@@ -107,7 +164,96 @@ export function AnswerCard({
       </div>
 
       <div className="answer-card-body">
-        <MarkdownMessage text={answer.message.text} />
+        {contract ? (
+          <div className="answer-contract">
+            {answer.displayText.trim().length > 0 && (
+              <div className="answer-contract-summary">
+                <MarkdownMessage text={answer.displayText} />
+              </div>
+            )}
+
+            <section className="answer-contract-block" aria-label="Outcome">
+              <h4>Outcome</h4>
+              <p>
+                <strong>{contract.outcome.status}</strong>
+                {typeof contract.outcome.count === "number"
+                  ? ` • ${contract.outcome.count} result${contract.outcome.count === 1 ? "" : "s"}`
+                  : ""}
+                {contract.outcome.summary ? ` • ${contract.outcome.summary}` : ""}
+              </p>
+            </section>
+
+            {interpretationEntries.length > 0 && (
+              <section className="answer-contract-block" aria-label="Interpretation">
+                <h4>Interpretation</h4>
+                <dl className="answer-contract-kv">
+                  {interpretationEntries.map(([key, value]) => (
+                    <div key={key} className="answer-contract-kv-row">
+                      <dt>{formatTitleCase(key)}</dt>
+                      <dd>{formatValue(value)}</dd>
+                    </div>
+                  ))}
+                </dl>
+              </section>
+            )}
+
+            {resultRows.length > 0 && resultColumns.length > 0 && (
+              <section className="answer-contract-block" aria-label="Results">
+                <h4>Results</h4>
+                <div className="answer-contract-table-wrap">
+                  <table className="answer-contract-table">
+                    <thead>
+                      <tr>
+                        {resultColumns.map((column) => (
+                          <th key={column.key}>{column.label}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {resultRows.map((row, rowIndex) => (
+                        <tr key={`row-${rowIndex}`}>
+                          {resultColumns.map((column) => (
+                            <td key={`${rowIndex}-${column.key}`}>{rowCellValue(row, column.key)}</td>
+                          ))}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                {contract.result_rows.length > MAX_RESULT_ROWS && (
+                  <p className="answer-contract-note">
+                    Showing {MAX_RESULT_ROWS} of {contract.result_rows.length} rows.
+                  </p>
+                )}
+              </section>
+            )}
+
+            {!!contract.actions?.length && (
+              <section className="answer-contract-block" aria-label="Actions">
+                <h4>Actions</h4>
+                <div className="answer-contract-actions">
+                  {contract.actions.map((action) => (
+                    <span key={action.id} className="answer-contract-action-chip" title={action.id}>
+                      {action.label}
+                    </span>
+                  ))}
+                </div>
+              </section>
+            )}
+
+            {!!contract.artifact_ref && !!onOpenArtifacts && (
+              <button
+                className="answer-contract-artifact-link"
+                type="button"
+                onClick={handleOpenArtifacts}
+              >
+                View detailed artifact
+              </button>
+            )}
+          </div>
+        ) : (
+          <MarkdownMessage text={answer.displayText} />
+        )}
       </div>
 
       {citations.length > 0 && (
@@ -124,32 +270,6 @@ export function AnswerCard({
               <span className="citation-url">{citation}</span>
             </button>
           ))}
-        </div>
-      )}
-
-      <div className="answer-metadata-strip">
-        <span>
-          Run UTC: <strong>{answer.runTimestampUtc || "Unavailable"}</strong>
-        </span>
-        <span>
-          Confidence: <strong>{answer.confidence || "n/a"}</strong>
-        </span>
-        <span>
-          Completion: <strong>{answer.completionReason || "n/a"}</strong>
-        </span>
-      </div>
-
-      {planSummary && (
-        <div className="answer-metadata-strip">
-          <span>
-            Route: <strong>{planSummary.selectedRoute}</strong>
-          </span>
-          <span>
-            Plan: <strong>{planSummary.status}</strong>
-          </span>
-          <span>
-            Workers: <strong>{planSummary.workerCount}</strong>
-          </span>
         </div>
       )}
 
