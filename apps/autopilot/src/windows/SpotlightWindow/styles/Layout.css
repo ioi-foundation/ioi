@@ -196,6 +196,7 @@ body.spotlight-shell-host,
   display: flex;
   flex-direction: column;
   min-width: 0;
+  --spot-content-lane-template: minmax(12px, 1fr) minmax(0, 5fr) minmax(12px, 1fr);
   position: relative;
   background: transparent;
   isolation: isolate;
@@ -327,21 +328,33 @@ body.spotlight-shell-host,
   flex-shrink: 0;
   z-index: 30;
   display: grid;
-  grid-template-columns: minmax(12px, 1fr) minmax(0, 5fr) minmax(12px, 1fr);
+  grid-template-columns: var(
+    --spot-content-lane-template,
+    minmax(12px, 1fr) minmax(0, 5fr) minmax(12px, 1fr)
+  );
 }
 
 /* Persistent approval dock shown while task is in Gate phase. */
 .spot-gate-dock {
-  padding: 0 16px 10px;
+  padding: 0 0 10px;
   flex-shrink: 0;
   position: relative;
   z-index: 32;
+  display: grid;
+  grid-template-columns: var(
+    --spot-content-lane-template,
+    minmax(12px, 1fr) minmax(0, 5fr) minmax(12px, 1fr)
+  );
   background: linear-gradient(
     to top,
     rgba(12, 12, 14, 0.98) 0%,
     rgba(12, 12, 14, 0.85) 45%,
     transparent 100%
   );
+}
+
+.spot-gate-dock > * {
+  grid-column: 2;
 }
 
 /* Fade gradient above input */

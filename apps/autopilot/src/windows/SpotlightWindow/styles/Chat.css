@@ -9,9 +9,13 @@
   /* [FIX] Critical for scrolling: overflow-y auto + min-height 0 prevents flex child explosion */
   overflow-y: auto;
   overflow-x: hidden;
-  padding: 20px 16px 8px;
-  display: flex;
-  flex-direction: column;
+  padding: 20px 0 120px;
+  display: grid;
+  grid-template-columns: var(
+    --spot-content-lane-template,
+    minmax(12px, 1fr) minmax(0, 5fr) minmax(12px, 1fr)
+  );
+  align-content: start;
   gap: 12px;
   scroll-behavior: smooth;
   position: relative;
@@ -21,12 +25,15 @@
   min-height: 0;
   height: 100%; 
   
-  /* [FIX] Add bottom padding so the last message isn't hidden behind the floating input bar */
-  padding-bottom: 120px; 
-  
   /* Refined scrollbar */
   scrollbar-width: thin;
   scrollbar-color: rgba(255, 255, 255, 0.08) transparent;
+}
+
+.spot-chat > * {
+  grid-column: 2;
+  min-width: 0;
+  justify-self: start;
 }
 
 .spot-chat::-webkit-scrollbar {
@@ -72,6 +79,7 @@
 
 /* User Message - Accent Gradient */
 .spot-message.user {
+  justify-self: end;
   align-self: flex-end;
   background: linear-gradient(135deg, var(--spot-accent) 0%, #4A7AFF 100%);
   color: white;
