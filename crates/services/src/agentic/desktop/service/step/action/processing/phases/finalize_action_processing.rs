@@ -419,14 +419,26 @@ pub(crate) async fn finalize_action_processing(
     }
 
     if !is_gated {
+        let composed_terminal_chat = terminal_chat_reply_output
+            .as_deref()
+            .map(compose_terminal_chat_reply);
         if let Some(tx) = &service.event_sender {
-            let output_str = action_output
+            let mut output_str = action_output
                 .or_else(|| if success { history_entry.clone() } else { None })
                 .unwrap_or_else(|| {
                     error_msg
                         .clone()
                         .unwrap_or_else(|| "Unknown error".to_string())
                 });
+            if success
+                && current_tool_name != "chat__reply"
+                && composed_terminal_chat.is_some()
+                && !output_str.trim().is_empty()
+            {
+                output_str = "Completed. Final response emitted via chat__reply.".to_string();
+                verification_checks
+                    .push("terminal_tool_output_suppressed_for_chat_reply=true".to_string());
+            }
             let _ = tx.send(KernelEvent::AgentActionResult {
                 session_id,
                 step_index: pre_state_summary.step_index,
@@ -435,14 +447,27 @@ pub(crate) async fn finalize_action_processing(
                 agent_status: get_status_str(&agent_state.status),
             });
 
-            if let Some(chat_output) = terminal_chat_reply_output {
+            if let Some(composed) = composed_terminal_chat {
+                verification_checks.push(format!("response_composer_applied={}", composed.applied));
+                verification_checks.push(format!(
+                    "response_composer_template={}",
+                    composed.template_id
+                ));
+                verification_checks.push(format!(
+                    "response_composer_validator_passed={}",
+                    composed.validator_passed
+                ));
+                if let Some(reason) = composed.fallback_reason {
+                    verification_checks
+                        .push(format!("response_composer_fallback_reason={}", reason));
+                }
                 verification_checks.push("terminal_chat_reply_emitted=true".to_string());
                 if current_tool_name != "chat__reply" {
                     let _ = tx.send(KernelEvent::AgentActionResult {
                         session_id,
                         step_index: pre_state_summary.step_index,
                         tool_name: "chat__reply".to_string(),
-                        output: chat_output,
+                        output: composed.output,
                         agent_status: get_status_str(&agent_state.status),
                     });
                 }

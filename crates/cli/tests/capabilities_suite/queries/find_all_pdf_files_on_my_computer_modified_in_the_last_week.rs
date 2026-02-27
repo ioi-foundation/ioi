@@ -531,12 +531,57 @@ fn baseline_pdf_matches_from_command_history(obs: &RunObservation) -> BTreeSet<S
 }
 
 fn extract_pdf_paths(text: &str) -> BTreeSet<String> {
-    text.lines()
-        .map(str::trim)
-        .filter(|line| line.contains(".pdf"))
-        .filter(|line| line.starts_with('/') || line.starts_with("~/"))
-        .map(|line| line.to_string())
-        .collect()
+    let mut paths = BTreeSet::new();
+    let lower = text.to_ascii_lowercase();
+
+    for marker in ["/home/", "/Users/", "~/"] {
+        let mut offset = 0usize;
+        while offset < text.len() {
+            let Some(found) = text[offset..].find(marker) else {
+                break;
+            };
+            let start = offset + found;
+            if !is_pdf_path_start_boundary(text, start) {
+                offset = start + marker.len();
+                continue;
+            }
+            let Some(pdf_suffix_idx) = lower[start..].find(".pdf") else {
+                break;
+            };
+            let end = start + pdf_suffix_idx + 4;
+            let candidate = normalize_pdf_path_candidate(&text[start..end]);
+            if candidate.to_ascii_lowercase().ends_with(".pdf") {
+                paths.insert(candidate);
+            }
+            offset = start + marker.len();
+        }
+    }
+
+    paths
+}
+
+fn is_pdf_path_start_boundary(text: &str, idx: usize) -> bool {
+    if idx == 0 {
+        return true;
+    }
+    let prev = text.as_bytes()[idx - 1] as char;
+    prev.is_ascii_whitespace()
+        || matches!(
+            prev,
+            '`' | '"' | '\'' | '(' | ')' | '[' | ']' | '{' | '}' | '-' | '*' | '>' | ':'
+        )
+}
+
+fn normalize_pdf_path_candidate(value: &str) -> String {
+    value
+        .trim()
+        .trim_matches(|ch: char| {
+            matches!(
+                ch,
+                '`' | '"' | '\'' | '(' | ')' | '[' | ']' | '{' | '}' | ',' | ';' | ':' | '>'
+            )
+        })
+        .to_string()
 }
 
 fn observation_has_contract_failure_marker(obs: &RunObservation) -> bool {

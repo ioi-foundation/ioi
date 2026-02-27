@@ -16,6 +16,7 @@ use time::OffsetDateTime;
 const COMMAND_HISTORY_PREFIX: &str = "COMMAND_HISTORY:";
 pub const TARGET_UTC_MARKER: &str = "Target UTC:";
 pub const RUN_TIMESTAMP_UTC_MARKER: &str = "Run timestamp (UTC):";
+pub const MECHANISM_MARKER: &str = "Mechanism:";
 pub const TIMER_SLEEP_BACKEND_POSTCONDITION: &str = "timer_sleep_backend";
 pub const TIMER_NOTIFICATION_PATH_POSTCONDITION: &str = "notification_path_armed";
 pub const TIMER_NOTIFICATION_CONTRACT_REQUIRED_RECEIPT: &str =
@@ -38,6 +39,15 @@ const CLOCK_PAYLOAD_COMMAND_TOKENS: [&str; 6] = [
 const CLOCK_PAYLOAD_NETWORK_TOKENS: [&str; 10] = [
     "curl", "wget", "fetch", "http", "https", "ftp", "nc", "ncat", "netcat", "telnet",
 ];
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct TerminalReplyComposerOutcome {
+    pub output: String,
+    pub applied: bool,
+    pub template_id: &'static str,
+    pub validator_passed: bool,
+    pub fallback_reason: Option<&'static str>,
+}
 
 #[derive(Debug, Clone)]
 pub struct HostEnvironmentReceipt {
@@ -356,8 +366,27 @@ fn parse_utc_rfc3339(value: &str) -> Option<OffsetDateTime> {
 fn extract_structured_field(summary: &str, marker: &str) -> Option<String> {
     for line in summary.lines() {
         let trimmed = line.trim();
-        if let Some(rest) = trimmed.strip_prefix(marker) {
-            let token = rest.trim().trim_end_matches('.');
+        let rest = if let Some(rest) = trimmed.strip_prefix(marker) {
+            Some(rest)
+        } else if let Some(marker_idx) = trimmed.find(marker) {
+            Some(&trimmed[marker_idx + marker.len()..])
+        } else {
+            None
+        };
+        if let Some(rest) = rest {
+            let token = rest
+                .trim()
+                .split(" Target UTC:")
+                .next()
+                .unwrap_or_default()
+                .split(" Run timestamp (UTC):")
+                .next()
+                .unwrap_or_default()
+                .split(" Mechanism:")
+                .next()
+                .unwrap_or_default()
+                .trim()
+                .trim_end_matches('.');
             if !token.is_empty() {
                 return Some(token.to_string());
             }
@@ -389,6 +418,251 @@ pub fn upsert_structured_field(summary: &str, marker: &str, value: &str) -> Stri
         lines.push(replacement_line);
     }
     lines.join("\n")
+}
+
+pub fn compose_terminal_chat_reply(summary: &str) -> TerminalReplyComposerOutcome {
+    let trimmed = summary.trim();
+    if trimmed.is_empty() {
+        return TerminalReplyComposerOutcome {
+            output: summary.to_string(),
+            applied: false,
+            template_id: "passthrough",
+            validator_passed: true,
+            fallback_reason: None,
+        };
+    }
+
+    let pdf_paths = extract_pdf_paths_for_composer(trimmed);
+    if pdf_paths.len() < 2 {
+        return TerminalReplyComposerOutcome {
+            output: summary.to_string(),
+            applied: false,
+            template_id: "passthrough",
+            validator_passed: true,
+            fallback_reason: None,
+        };
+    }
+
+    let summary_len = trimmed.chars().count().max(1);
+    let path_chars: usize = pdf_paths.iter().map(|path| path.chars().count()).sum();
+    if path_chars * 100 < summary_len * 35 {
+        return TerminalReplyComposerOutcome {
+            output: summary.to_string(),
+            applied: false,
+            template_id: "passthrough",
+            validator_passed: true,
+            fallback_reason: None,
+        };
+    }
+
+    let run_timestamp = extract_structured_field(trimmed, RUN_TIMESTAMP_UTC_MARKER);
+    let target_utc = extract_structured_field(trimmed, TARGET_UTC_MARKER);
+    let mechanism = extract_structured_field(trimmed, MECHANISM_MARKER);
+    let template_choice = deterministic_template_choice(trimmed);
+    let template_id = if template_choice == 0 {
+        "markdown_paths"
+    } else {
+        "markdown_paths_with_count"
+    };
+
+    let mut lines = Vec::<String>::new();
+    if template_choice == 1 {
+        lines.push(format!("Found {} matching PDF files:", pdf_paths.len()));
+    } else {
+        lines.push("Matching PDF files:".to_string());
+    }
+    lines.push(String::new());
+    for path in &pdf_paths {
+        lines.push(format!("- `{}`", path));
+    }
+
+    let mut metadata_lines = Vec::<String>::new();
+    if let Some(mechanism) = mechanism.as_deref() {
+        metadata_lines.push(format!("{} {}", MECHANISM_MARKER, mechanism));
+    }
+    if let Some(run_timestamp) = run_timestamp.as_deref() {
+        metadata_lines.push(format!("{} {}", RUN_TIMESTAMP_UTC_MARKER, run_timestamp));
+    }
+    if let Some(target_utc) = target_utc.as_deref() {
+        metadata_lines.push(format!("{} {}", TARGET_UTC_MARKER, target_utc));
+    }
+    if !metadata_lines.is_empty() {
+        lines.push(String::new());
+    }
+    lines.extend(metadata_lines);
+
+    let candidate = lines.join("\n").trim().to_string();
+    if candidate.is_empty() {
+        return TerminalReplyComposerOutcome {
+            output: summary.to_string(),
+            applied: false,
+            template_id,
+            validator_passed: false,
+            fallback_reason: Some("empty_candidate"),
+        };
+    }
+
+    if !composed_reply_is_valid(
+        &candidate,
+        &pdf_paths,
+        run_timestamp.as_deref(),
+        target_utc.as_deref(),
+        mechanism.as_deref(),
+    ) {
+        return TerminalReplyComposerOutcome {
+            output: summary.to_string(),
+            applied: false,
+            template_id,
+            validator_passed: false,
+            fallback_reason: Some("validator_failed"),
+        };
+    }
+
+    TerminalReplyComposerOutcome {
+        output: candidate,
+        applied: true,
+        template_id,
+        validator_passed: true,
+        fallback_reason: None,
+    }
+}
+
+fn deterministic_template_choice(summary: &str) -> u8 {
+    sha256(summary.as_bytes())
+        .ok()
+        .map(|digest| digest.as_ref().first().copied().unwrap_or(0) % 2)
+        .unwrap_or(0)
+}
+
+fn composed_reply_is_valid(
+    candidate: &str,
+    pdf_paths: &[String],
+    run_timestamp: Option<&str>,
+    target_utc: Option<&str>,
+    mechanism: Option<&str>,
+) -> bool {
+    if candidate.trim().is_empty() {
+        return false;
+    }
+
+    let candidate_paths = extract_pdf_paths_for_composer(candidate);
+    if !pdf_paths.iter().all(|path| {
+        candidate_paths
+            .iter()
+            .any(|candidate_path| candidate_path.eq_ignore_ascii_case(path))
+    }) {
+        return false;
+    }
+
+    if let Some(run_timestamp) = run_timestamp {
+        if extract_structured_field(candidate, RUN_TIMESTAMP_UTC_MARKER).as_deref()
+            != Some(run_timestamp)
+        {
+            return false;
+        }
+    }
+    if let Some(target_utc) = target_utc {
+        if extract_structured_field(candidate, TARGET_UTC_MARKER).as_deref() != Some(target_utc) {
+            return false;
+        }
+    }
+    if let Some(mechanism) = mechanism {
+        if extract_structured_field(candidate, MECHANISM_MARKER).as_deref() != Some(mechanism) {
+            return false;
+        }
+    }
+    true
+}
+
+fn extract_pdf_paths_for_composer(summary: &str) -> Vec<String> {
+    let lower = summary.to_ascii_lowercase();
+    let bytes = summary.as_bytes();
+    let mut paths = Vec::<String>::new();
+    let mut offset = 0usize;
+
+    while offset < lower.len() {
+        let Some(found) = lower[offset..].find(".pdf") else {
+            break;
+        };
+        let end = offset + found + 4;
+        let mut start = find_preferred_pdf_path_start(summary, end).unwrap_or(offset + found);
+        if start == offset + found {
+            while start > 0 {
+                if bytes.get(start) == Some(&b'/')
+                    && start >= 4
+                    && lower[start - 4..start].eq_ignore_ascii_case(".pdf")
+                {
+                    break;
+                }
+                let prev = bytes[start - 1] as char;
+                if !is_path_token_char(prev) {
+                    break;
+                }
+                start -= 1;
+            }
+        }
+        let candidate = normalize_composer_path(&summary[start..end]);
+        if is_valid_composer_pdf_path(&candidate)
+            && !paths
+                .iter()
+                .any(|existing| existing.eq_ignore_ascii_case(&candidate))
+        {
+            paths.push(candidate);
+        }
+        offset = end;
+    }
+
+    paths
+}
+
+fn find_preferred_pdf_path_start(summary: &str, end: usize) -> Option<usize> {
+    let prefix = &summary[..end];
+    let mut best: Option<usize> = None;
+    for marker in ["/home/", "/Users/", "~/"] {
+        for (idx, _) in prefix.match_indices(marker) {
+            if !is_path_start_boundary(prefix, idx) {
+                continue;
+            }
+            if best.map(|current| idx > current).unwrap_or(true) {
+                best = Some(idx);
+            }
+        }
+    }
+    best
+}
+
+fn is_path_start_boundary(prefix: &str, idx: usize) -> bool {
+    if idx == 0 {
+        return true;
+    }
+    if prefix[..idx].to_ascii_lowercase().ends_with(".pdf") {
+        return true;
+    }
+    let prev = prefix.as_bytes()[idx - 1] as char;
+    prev.is_ascii_whitespace()
+        || matches!(prev, '"' | '\'' | '`' | '(' | '[' | '{' | ',' | ';' | ':')
+}
+
+fn normalize_composer_path(path: &str) -> String {
+    path.trim()
+        .trim_matches(|ch: char| {
+            matches!(
+                ch,
+                '"' | '\'' | '`' | '(' | ')' | '[' | ']' | '{' | '}' | ',' | ';' | '<' | '>'
+            )
+        })
+        .to_string()
+}
+
+fn is_valid_composer_pdf_path(path: &str) -> bool {
+    if path.is_empty() {
+        return false;
+    }
+    let lower = path.to_ascii_lowercase();
+    if !(lower.starts_with('/') || lower.starts_with("~/")) {
+        return false;
+    }
+    lower.ends_with(".pdf")
 }
 
 pub fn parse_sleep_seconds(command: &str) -> Option<i64> {
@@ -830,10 +1104,10 @@ pub fn enrich_command_scope_summary(summary: &str, agent_state: &AgentState) -> 
 #[cfg(test)]
 mod tests {
     use super::{
-        detect_foreign_home_path_for_runtime_home, execution_contract_violation_error,
-        provider_selection_commit, synthesize_allowlisted_timer_notification_tool,
-        sys_exec_command_preview, sys_exec_satisfies_clock_read_contract,
-        verification_probe_commit,
+        compose_terminal_chat_reply, detect_foreign_home_path_for_runtime_home,
+        execution_contract_violation_error, provider_selection_commit,
+        synthesize_allowlisted_timer_notification_tool, sys_exec_command_preview,
+        sys_exec_satisfies_clock_read_contract, verification_probe_commit,
     };
     use ioi_types::app::agentic::AgentTool;
 
@@ -948,5 +1222,37 @@ mod tests {
         };
 
         assert!(detect_foreign_home_path_for_runtime_home(&tool, "/home/heathledger").is_none());
+    }
+
+    #[test]
+    fn terminal_reply_composer_formats_dense_pdf_path_output() {
+        let summary = "/home/heathledger/Documents/ioi/one.pdf/home/heathledger/Documents/ioi/two.pdf /home/heathledger/Pictures/news at DuckDuckGo.pdf Run timestamp (UTC): 2026-02-27T17:55:09.632Z";
+        let outcome = compose_terminal_chat_reply(summary);
+
+        assert!(outcome.applied);
+        assert!(outcome.validator_passed);
+        assert!(outcome
+            .output
+            .contains("- `/home/heathledger/Documents/ioi/one.pdf`"));
+        assert!(outcome
+            .output
+            .contains("- `/home/heathledger/Documents/ioi/two.pdf`"));
+        assert!(outcome
+            .output
+            .contains("- `/home/heathledger/Pictures/news at DuckDuckGo.pdf`"));
+        assert!(outcome
+            .output
+            .contains("Run timestamp (UTC): 2026-02-27T17:55:09.632Z"));
+    }
+
+    #[test]
+    fn terminal_reply_composer_passthrough_when_not_pdf_path_dense() {
+        let summary = "Opened browser and navigated to search results.";
+        let outcome = compose_terminal_chat_reply(summary);
+
+        assert!(!outcome.applied);
+        assert!(outcome.validator_passed);
+        assert_eq!(outcome.output, summary);
+        assert_eq!(outcome.template_id, "passthrough");
     }
 }

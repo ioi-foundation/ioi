@@ -64,6 +64,7 @@ pub(crate) async fn run_lifecycle_status_phase(
     let mut remediation_queued = false;
     let mut awaiting_sudo_password = false;
     let mut awaiting_clarification = false;
+    let mut terminal_response_emitted = false;
 
     let is_install_package_tool = matches!(tool, AgentTool::SysInstallPackage { .. });
     let clarification_required = !success
@@ -252,6 +253,8 @@ pub(crate) async fn run_lifecycle_status_phase(
                                 };
                                 let completed_result =
                                     enrich_command_scope_summary(&completed_result, agent_state);
+                                let composed = compose_terminal_chat_reply(&completed_result);
+                                let completed_result = composed.output;
                                 agent_state.status =
                                     AgentStatus::Completed(Some(completed_result.clone()));
                                 reflexive_completion = true;
@@ -264,6 +267,7 @@ pub(crate) async fn run_lifecycle_status_phase(
                                         &completed_result,
                                         status::status_str(&agent_state.status),
                                     );
+                                    terminal_response_emitted = true;
                                 }
 
                                 evaluate_and_crystallize(
@@ -304,6 +308,8 @@ pub(crate) async fn run_lifecycle_status_phase(
                         };
                     let completed_result =
                         enrich_command_scope_summary(&completed_result, agent_state);
+                    let composed = compose_terminal_chat_reply(&completed_result);
+                    let completed_result = composed.output;
                     agent_state.status = AgentStatus::Completed(Some(completed_result.clone()));
                     evaluate_and_crystallize(service, agent_state, session_id, &completed_result)
                         .await;
@@ -316,6 +322,7 @@ pub(crate) async fn run_lifecycle_status_phase(
                             &completed_result,
                             status::status_str(&agent_state.status),
                         );
+                        terminal_response_emitted = true;
                     }
                 }
             }
@@ -333,6 +340,8 @@ pub(crate) async fn run_lifecycle_status_phase(
                     agent_state.status = AgentStatus::Running;
                 } else {
                     let message = enrich_command_scope_summary(message, agent_state);
+                    let composed = compose_terminal_chat_reply(&message);
+                    let message = composed.output;
                     agent_state.status = AgentStatus::Completed(Some(message.clone()));
                     evaluate_and_crystallize(service, agent_state, session_id, &message).await;
 
@@ -344,6 +353,7 @@ pub(crate) async fn run_lifecycle_status_phase(
                             output: message.clone(),
                             agent_status: status::status_str(&agent_state.status),
                         });
+                        terminal_response_emitted = true;
                     }
                 }
             }
@@ -369,6 +379,7 @@ pub(crate) async fn run_lifecycle_status_phase(
                             &summary,
                             status::status_str(&agent_state.status),
                         );
+                        terminal_response_emitted = true;
                     }
                 } else {
                     agent_state.status = AgentStatus::Running;
@@ -396,6 +407,7 @@ pub(crate) async fn run_lifecycle_status_phase(
                             &summary,
                             status::status_str(&agent_state.status),
                         );
+                        terminal_response_emitted = true;
                     }
                 } else {
                     agent_state.status = AgentStatus::Running;
@@ -418,6 +430,7 @@ pub(crate) async fn run_lifecycle_status_phase(
                                 &summary,
                                 status::status_str(&agent_state.status),
                             );
+                            terminal_response_emitted = true;
                         }
                     } else {
                         agent_state.status = AgentStatus::Running;
@@ -440,6 +453,7 @@ pub(crate) async fn run_lifecycle_status_phase(
                             &summary,
                             status::status_str(&agent_state.status),
                         );
+                        terminal_response_emitted = true;
                     }
                 } else if success && command_scope {
                     if let Some(summary) =
@@ -474,6 +488,7 @@ pub(crate) async fn run_lifecycle_status_phase(
                                     &summary,
                                     status::status_str(&agent_state.status),
                                 );
+                                terminal_response_emitted = true;
                             }
                         }
                     } else {
@@ -491,6 +506,7 @@ pub(crate) async fn run_lifecycle_status_phase(
 
     if !awaiting_sudo_password
         && !awaiting_clarification
+        && !terminal_response_emitted
         && !matches!(
             &tool,
             AgentTool::AgentComplete { .. } | AgentTool::ChatReply { .. }
