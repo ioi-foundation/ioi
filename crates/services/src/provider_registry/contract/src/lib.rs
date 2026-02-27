@@ -1,4 +1,4 @@
-// Path: crates/services/src/oracle/contract/src/lib.rs
+// Path: crates/services/src/provider_registry/contract/src/lib.rs
 #![no_std]
 extern crate alloc;
 
