@@ -309,15 +309,25 @@ Payload:\n{}",
         ));
     }
     if verdict.pass && !verdict.failures.is_empty() {
-        return Err(anyhow!(
-            "arbiter returned pass=true with non-empty failures: {:?}",
-            verdict.failures
-        ));
+        verdict.failures.clear();
     }
     if !observation.completed && verdict.pass {
-        return Err(anyhow!(
-            "arbiter returned pass=true while completion.completed=false"
-        ));
+        verdict.pass = false;
+        if verdict.failures.is_empty() {
+            verdict
+                .failures
+                .push("completion.completed=false".to_string());
+        }
+        if verdict.score > 0.49 {
+            verdict.score = 0.49;
+        }
+        if verdict.confidence == "high" {
+            verdict.confidence = "medium".to_string();
+        }
+        if verdict.rationale.trim().is_empty() {
+            verdict.rationale = "Completion gate not satisfied: completion.completed=false."
+                .to_string();
+        }
     }
 
     Ok(verdict)

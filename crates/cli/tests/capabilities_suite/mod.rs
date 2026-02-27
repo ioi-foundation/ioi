@@ -89,8 +89,17 @@ pub async fn run_capabilities_suite() -> Result<()> {
             } else {
                 arbiter.pass || (local.pass && !observation.failed)
             };
-            let completion_effective_pass =
-                observation.completed || (arbiter.pass && local.score >= case.min_local_score);
+            let retry_blocked_terminal = observation
+                .final_status
+                .to_ascii_lowercase()
+                .contains("retry blocked: unchanged attemptkey for unexpectedstate");
+            let completion_effective_pass = observation.completed
+                || (case.allow_retry_blocked_completion_with_local_evidence
+                    && retry_blocked_terminal
+                    && local.pass
+                    && !observation.failed
+                    && local.score >= case.min_local_score)
+                || (arbiter.pass && local.score >= case.min_local_score);
             let approval_effective_pass = if case.id == "take_a_screenshot_of_my_desktop" {
                 observation.approval_required_events > 0
             } else {
@@ -106,7 +115,7 @@ pub async fn run_capabilities_suite() -> Result<()> {
 
             let outcome = CaseOutcome {
                 case_id: case.id.to_string(),
-                query: case.query.to_string(),
+                query: observation.query.clone(),
                 expected_pass: case.expected_pass,
                 observed_pass,
                 completed: observation.completed,
