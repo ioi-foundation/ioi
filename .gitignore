@@ -1,5 +1,5 @@
 target/
-tools/
+/tools/
 codebase_snapshot.md
 keypair.seed
 state_node1.json
