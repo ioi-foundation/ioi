@@ -1,10 +1,58 @@
 use super::*;
 
+fn reliability_fixture_sources() -> Option<Vec<String>> {
+    let raw = std::env::var("IOI_RELIABILITY_WEB_SEARCH_FIXTURE_URLS").ok()?;
+    let urls = raw
+        .split(',')
+        .map(|part| part.trim())
+        .filter(|part| !part.is_empty())
+        .map(|part| part.to_string())
+        .collect::<Vec<_>>();
+    if urls.is_empty() {
+        None
+    } else {
+        Some(urls)
+    }
+}
+
 pub async fn edge_web_search(
     browser: &BrowserDriver,
     query: &str,
     limit: u32,
 ) -> Result<WebEvidenceBundle> {
+    if let Some(fixture_urls) = reliability_fixture_sources() {
+        let effective_limit = limit.max(1) as usize;
+        let sources = fixture_urls
+            .into_iter()
+            .take(effective_limit)
+            .enumerate()
+            .map(|(idx, url)| WebSource {
+                source_id: source_id_for_url(&url),
+                rank: Some((idx + 1) as u32),
+                domain: domain_for_url(&url),
+                title: Some(format!("Reliability Fixture Source {}", idx + 1)),
+                snippet: Some("Deterministic search fixture source".to_string()),
+                url,
+            })
+            .collect::<Vec<_>>();
+
+        let source_url = sources
+            .first()
+            .map(|source| source.url.clone())
+            .unwrap_or_else(|| build_ddg_serp_url(query.trim()));
+
+        return Ok(WebEvidenceBundle {
+            schema_version: 1,
+            retrieved_at_ms: now_ms(),
+            tool: "web__search".to_string(),
+            backend: "edge:search:fixture".to_string(),
+            query: Some(query.trim().to_string()),
+            url: Some(source_url),
+            sources,
+            documents: vec![],
+        });
+    }
+
     let effective_query = provider_search_query(query);
     let query_for_provider = if effective_query.trim().is_empty() {
         query.trim()

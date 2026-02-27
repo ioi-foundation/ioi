@@ -1,0 +1,315 @@
+use super::harness::{
+    build_executor_with_events, describe_result, extract_node_id_by_name,
+    spawn_browser_fixture_server,
+};
+use anyhow::{anyhow, Result};
+use ioi_services::agentic::desktop::execution::ToolExecutor;
+use ioi_services::agentic::desktop::types::ExecutionTier;
+use ioi_types::app::agentic::AgentTool;
+use ioi_types::app::{KernelEvent, WorkloadActivityKind};
+use std::fs::{self, OpenOptions};
+use std::io::Write;
+use std::path::PathBuf;
+use tokio::sync::broadcast;
+use tokio::time::{sleep, Duration};
+
+fn artifact_dir() -> Option<PathBuf> {
+    std::env::var("IOI_RELIABILITY_ARTIFACT_DIR")
+        .ok()
+        .map(|v| v.trim().to_string())
+        .filter(|v| !v.is_empty())
+        .map(PathBuf::from)
+}
+
+fn write_artifact(name: &str, content: &str) {
+    let Some(dir) = artifact_dir() else {
+        return;
+    };
+    if let Err(e) = fs::create_dir_all(&dir) {
+        eprintln!("reliability artifact mkdir failed for {:?}: {}", dir, e);
+        return;
+    }
+    let path = dir.join(name);
+    if let Err(e) = fs::write(&path, content.as_bytes()) {
+        eprintln!("reliability artifact write failed for {:?}: {}", path, e);
+    }
+}
+
+fn append_artifact_line(name: &str, line: &str) {
+    let Some(dir) = artifact_dir() else {
+        return;
+    };
+    if let Err(e) = fs::create_dir_all(&dir) {
+        eprintln!("reliability artifact mkdir failed for {:?}: {}", dir, e);
+        return;
+    }
+    let path = dir.join(name);
+    let mut file = match OpenOptions::new().create(true).append(true).open(&path) {
+        Ok(file) => file,
+        Err(e) => {
+            eprintln!("reliability artifact open failed for {:?}: {}", path, e);
+            return;
+        }
+    };
+    let _ = writeln!(file, "{}", line);
+}
+
+fn drain_events(rx: &mut broadcast::Receiver<KernelEvent>, all_events: &mut Vec<KernelEvent>) {
+    while let Ok(event) = rx.try_recv() {
+        all_events.push(event);
+    }
+}
+
+fn receipt_count_for_step(events: &[KernelEvent], step_index: u32) -> usize {
+    events
+        .iter()
+        .filter(|event| {
+            matches!(
+                event,
+                KernelEvent::WorkloadReceipt(receipt_event)
+                    if receipt_event.step_index == step_index
+            )
+        })
+        .count()
+}
+
+fn count_lifecycle_phase(events: &[KernelEvent], step_index: u32, phase: &str) -> usize {
+    events
+        .iter()
+        .filter_map(|event| match event {
+            KernelEvent::WorkloadActivity(activity) if activity.step_index == step_index => {
+                Some(&activity.kind)
+            }
+            _ => None,
+        })
+        .filter(|kind| {
+            matches!(
+                kind,
+                WorkloadActivityKind::Lifecycle {
+                    phase: event_phase,
+                    ..
+                } if event_phase == phase
+            )
+        })
+        .count()
+}
+
+async fn snapshot_with_retry(
+    exec: &ToolExecutor,
+    session_id: [u8; 32],
+    visual_phash: [u8; 32],
+    step_start: u32,
+    rx: &mut broadcast::Receiver<KernelEvent>,
+    all_events: &mut Vec<KernelEvent>,
+) -> Result<String> {
+    let mut last_failure = String::new();
+
+    for attempt in 0..5u32 {
+        let snapshot = exec
+            .execute(
+                AgentTool::BrowserSnapshot {},
+                session_id,
+                step_start + attempt,
+                visual_phash,
+                None,
+                None,
+                None,
+            )
+            .await;
+        sleep(Duration::from_millis(40)).await;
+        drain_events(rx, all_events);
+
+        if snapshot.success {
+            return snapshot
+                .history_entry
+                .ok_or_else(|| anyhow!("browser snapshot returned no XML payload"));
+        }
+
+        let err = snapshot
+            .error
+            .unwrap_or_else(|| "unknown browser snapshot failure".to_string());
+        append_artifact_line(
+            "snapshot_attempts.log",
+            &format!("step={} attempt={} error={}", step_start, attempt + 1, err),
+        );
+        last_failure = err.clone();
+        let transient_ax = err.contains("CDP GetAxTree failed: uninteresting")
+            || err.contains("Empty accessibility tree returned");
+        if !transient_ax || attempt == 4 {
+            break;
+        }
+        sleep(Duration::from_millis(180)).await;
+    }
+
+    Err(anyhow!(
+        "browser snapshot failed after retries: {}",
+        last_failure
+    ))
+}
+
+#[tokio::test(flavor = "multi_thread")]
+#[ignore = "requires Chromium runtime and local browser fixture server"]
+async fn browser_snapshot_then_click_element_updates_fixture() -> Result<()> {
+    let mut fixture = spawn_browser_fixture_server().await?;
+    let (tx, mut rx) = broadcast::channel(256);
+    let (exec, _gui, browser) =
+        build_executor_with_events(ExecutionTier::DomHeadless, None, Some(tx));
+    let mut all_events: Vec<KernelEvent> = Vec::new();
+
+    // Prefer non-headless under Xvfb CI for more stable AX trees.
+    let headless = std::env::var("DISPLAY").is_err() && std::env::var("WAYLAND_DISPLAY").is_err();
+    let require_display = std::env::var("IOI_RELIABILITY_REQUIRE_DISPLAY")
+        .map(|v| v == "1" || v.eq_ignore_ascii_case("true"))
+        .unwrap_or(false);
+    if require_display && headless {
+        return Err(anyhow!(
+            "display session required for browser reliability run (set by IOI_RELIABILITY_REQUIRE_DISPLAY)"
+        ));
+    }
+    browser
+        .launch(headless)
+        .await
+        .map_err(|e| anyhow!("failed to launch Chromium for reliability test: {}", e))?;
+
+    let session_id = [0xA4; 32];
+    let visual_phash = [0u8; 32];
+
+    let navigate = exec
+        .execute(
+            AgentTool::BrowserNavigate { url: fixture.url() },
+            session_id,
+            1,
+            visual_phash,
+            None,
+            None,
+            None,
+        )
+        .await;
+    sleep(Duration::from_millis(40)).await;
+    drain_events(&mut rx, &mut all_events);
+    if !navigate.success {
+        write_artifact("navigate_result.txt", &describe_result(&navigate));
+        browser.stop().await;
+        fixture.stop().await;
+        return Err(anyhow!("navigate failed: {}", describe_result(&navigate)));
+    }
+    if let Some(history) = navigate.history_entry.as_ref() {
+        write_artifact("navigate_result.txt", history);
+    }
+
+    let first_xml =
+        match snapshot_with_retry(&exec, session_id, visual_phash, 2, &mut rx, &mut all_events)
+            .await
+        {
+            Ok(xml) => {
+                write_artifact("first_snapshot.xml", &xml);
+                xml
+            }
+            Err(e) => {
+                write_artifact("first_snapshot_error.txt", &e.to_string());
+                if !require_display
+                    && e.to_string()
+                        .contains("CDP GetAxTree failed: uninteresting")
+                {
+                    // Some local/dev Chromium runtime configurations can report an uninteresting AX tree.
+                    // CI enables IOI_RELIABILITY_REQUIRE_DISPLAY=1 to make this a hard failure.
+                    browser.stop().await;
+                    fixture.stop().await;
+                    eprintln!(
+                        "Skipping browser reliability assertion due local AX-tree limitation: {}",
+                        e
+                    );
+                    return Ok(());
+                }
+                browser.stop().await;
+                fixture.stop().await;
+                return Err(e);
+            }
+        };
+    let target_id = extract_node_id_by_name(&first_xml, "Increment Count")
+        .ok_or_else(|| anyhow!("could not find Increment Count button in browser snapshot XML"))?;
+
+    let click = exec
+        .execute(
+            AgentTool::BrowserClickElement {
+                id: target_id.clone(),
+            },
+            session_id,
+            7,
+            visual_phash,
+            None,
+            None,
+            None,
+        )
+        .await;
+    sleep(Duration::from_millis(40)).await;
+    drain_events(&mut rx, &mut all_events);
+    if !click.success {
+        write_artifact("click_result.txt", &describe_result(&click));
+        browser.stop().await;
+        fixture.stop().await;
+        return Err(anyhow!(
+            "browser__click_element failed for id '{}': {}",
+            target_id,
+            describe_result(&click)
+        ));
+    }
+    if let Some(history) = click.history_entry.as_ref() {
+        write_artifact("click_result.txt", history);
+    }
+
+    let second_xml =
+        match snapshot_with_retry(&exec, session_id, visual_phash, 8, &mut rx, &mut all_events)
+            .await
+        {
+            Ok(xml) => {
+                write_artifact("second_snapshot.xml", &xml);
+                xml
+            }
+            Err(e) => {
+                write_artifact("second_snapshot_error.txt", &e.to_string());
+                browser.stop().await;
+                fixture.stop().await;
+                return Err(e);
+            }
+        };
+
+    assert!(
+        second_xml.contains("Increment Count (clicked 1)") || second_xml.contains("Count is now 1"),
+        "post-click browser snapshot did not reflect the expected click side effect"
+    );
+    assert_eq!(
+        receipt_count_for_step(&all_events, 1),
+        1,
+        "anti-loop guard: navigate should emit exactly one receipt"
+    );
+    assert_eq!(
+        count_lifecycle_phase(&all_events, 1, "started"),
+        1,
+        "anti-loop guard: navigate should emit one started lifecycle event"
+    );
+    assert_eq!(
+        count_lifecycle_phase(&all_events, 1, "completed"),
+        1,
+        "anti-loop guard: navigate should emit one completed lifecycle event"
+    );
+    assert_eq!(
+        receipt_count_for_step(&all_events, 7),
+        1,
+        "anti-loop guard: click should emit exactly one receipt"
+    );
+    assert_eq!(
+        count_lifecycle_phase(&all_events, 7, "started"),
+        1,
+        "anti-loop guard: click should emit one started lifecycle event"
+    );
+    assert_eq!(
+        count_lifecycle_phase(&all_events, 7, "completed"),
+        1,
+        "anti-loop guard: click should emit one completed lifecycle event"
+    );
+
+    browser.stop().await;
+    fixture.stop().await;
+    Ok(())
+}

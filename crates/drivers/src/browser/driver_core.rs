@@ -298,6 +298,7 @@ impl BrowserDriver {
             "--disable-software-rasterizer".to_string(),
             "--disable-setuid-sandbox".to_string(),
             "--disable-extensions".to_string(),
+            "--force-renderer-accessibility".to_string(),
             format!("--user-data-dir={}", profile_dir.display()),
         ];
         if headless {
