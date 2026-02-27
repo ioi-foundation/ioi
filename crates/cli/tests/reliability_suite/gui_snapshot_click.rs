@@ -184,6 +184,11 @@ async fn snapshot_with_target_retry(
             break;
         }
 
+        write_artifact(
+            &format!("gui_snapshot_attempt_{}.xml", attempt + 1),
+            &snapshot_xml,
+        );
+
         if let Some(target_id) = extract_node_id_by_name(&snapshot_xml, "Confirm Reliability") {
             return Ok((snapshot_xml, target_id, step));
         }
