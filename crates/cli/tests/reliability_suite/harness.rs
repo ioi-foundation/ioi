@@ -300,21 +300,64 @@ impl GuiFixtureApp {
         }
 
         let script = r#"
-import tkinter as tk
-root = tk.Tk()
-root.title("IOI GUI Click Fixture")
-root.geometry("420x240+120+120")
-state = tk.StringVar(value="ready")
-def _clicked():
-    state.set("clicked")
-frame = tk.Frame(root)
-frame.pack(expand=True, fill="both")
-btn = tk.Button(frame, text="Confirm Reliability", command=_clicked)
-btn.pack(pady=24)
-lbl = tk.Label(frame, textvariable=state)
-lbl.pack(pady=6)
-root.after(30000, root.destroy)
-root.mainloop()
+import sys
+
+def run_gtk():
+    import gi
+    gi.require_version("Gtk", "3.0")
+    from gi.repository import Gtk, GLib
+
+    win = Gtk.Window(title="IOI GUI Click Fixture")
+    win.set_default_size(420, 240)
+    win.move(120, 120)
+    win.connect("destroy", Gtk.main_quit)
+
+    box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12)
+    box.set_border_width(24)
+    btn = Gtk.Button(label="Confirm Reliability")
+    lbl = Gtk.Label(label="ready")
+
+    def _clicked(_btn):
+        lbl.set_text("clicked")
+
+    def _close():
+        win.destroy()
+        return False
+
+    btn.connect("clicked", _clicked)
+    box.pack_start(btn, False, False, 0)
+    box.pack_start(lbl, False, False, 0)
+    win.add(box)
+    win.show_all()
+    GLib.timeout_add_seconds(30, _close)
+    Gtk.main()
+
+
+def run_tk():
+    import tkinter as tk
+
+    root = tk.Tk()
+    root.title("IOI GUI Click Fixture")
+    root.geometry("420x240+120+120")
+    state = tk.StringVar(value="ready")
+
+    def _clicked():
+        state.set("clicked")
+
+    frame = tk.Frame(root)
+    frame.pack(expand=True, fill="both")
+    btn = tk.Button(frame, text="Confirm Reliability", command=_clicked)
+    btn.pack(pady=24)
+    lbl = tk.Label(frame, textvariable=state)
+    lbl.pack(pady=6)
+    root.after(30000, root.destroy)
+    root.mainloop()
+
+
+try:
+    run_gtk()
+except Exception:
+    run_tk()
 "#;
 
         let child = Command::new("python3")
