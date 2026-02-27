@@ -177,6 +177,7 @@ jobs:
       - name: Run GUI reliability suite test (ignored lane)
         env:
           IOI_RELIABILITY_REQUIRE_GUI: "1"
+          IOI_RELIABILITY_GUI_ALLOW_ROOT_FALLBACK: "1"
           NO_AT_BRIDGE: "0"
           GTK_MODULES: "gail:atk-bridge"
         run: |
