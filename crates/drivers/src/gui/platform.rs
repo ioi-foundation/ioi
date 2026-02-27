@@ -321,39 +321,77 @@ mod linux_impl {
                 has_rect || has_label || structural_role
             };
 
-            // Fetch children
-            let child_count = proxy.child_count().await.unwrap_or(0);
-            let mut children = Vec::new();
+            // Fetch children. `get_children()` is more reliable for the AT-SPI registry/root;
+            // some environments report child_count=0 while still exposing child references.
+            let child_refs = match proxy.get_children().await {
+                Ok(children) if !children.is_empty() => children,
+                _ => {
+                    let child_count = proxy.child_count().await.unwrap_or(0);
+                    let mut refs = Vec::new();
+                    for i in 0..child_count.min(50) {
+                        if let Ok(child_ref) = proxy.get_child_at_index(i).await {
+                            refs.push(child_ref);
+                        }
+                    }
+                    refs
+                }
+            };
 
-            // Limit fan-out
-            for i in 0..child_count.min(50) {
-                if let Ok(child_ref) = proxy.get_child_at_index(i).await {
-                    if let Ok(child_proxy) = AccessibleProxy::builder(&conn.connection().clone())
-                        .destination(child_ref.name)?
-                        .path(child_ref.path)?
-                        .build()
-                        .await
-                    {
-                        if let Ok(child_node) =
-                            crawl_atspi_node(&child_proxy, conn, depth + 1).await
-                        {
-                            // Keep structural/informative descendants even if a container is
-                            // currently marked invisible to avoid dropping viable targets.
-                            if child_node.is_visible || !child_node.children.is_empty() {
-                                children.push(child_node);
-                            }
+            let mut children = Vec::new();
+            let current_path = proxy.path().to_string();
+            for child_ref in child_refs.into_iter().take(50) {
+                let child_path = child_ref.path.to_string();
+                // Skip invalid/null/self refs to avoid crawler stalls or trivial cycles.
+                if child_path.ends_with("/null") || child_path == current_path {
+                    continue;
+                }
+                let child_builder = match AccessibleProxy::builder(&conn.connection().clone())
+                    .destination(child_ref.name.clone())
+                {
+                    Ok(builder) => builder,
+                    Err(_) => continue,
+                };
+                let child_builder = match child_builder.path(child_ref.path.clone()) {
+                    Ok(builder) => builder,
+                    Err(_) => continue,
+                };
+                if let Ok(child_proxy) = child_builder.build().await {
+                    if let Ok(child_node) = crawl_atspi_node(&child_proxy, conn, depth + 1).await {
+                        // Keep structural/informative descendants even if a container is
+                        // currently marked invisible to avoid dropping viable targets.
+                        if child_node.is_visible || !child_node.children.is_empty() {
+                            children.push(child_node);
                         }
                     }
                 }
             }
 
+            let destination = proxy
+                .destination()
+                .to_string()
+                .replace(':', "_")
+                .replace('.', "_")
+                .replace('-', "_");
+            let object_path = proxy
+                .path()
+                .to_string()
+                .trim_matches('/')
+                .replace('/', "_")
+                .replace('-', "_");
+            let stable_destination = if destination.is_empty() {
+                "unk".to_string()
+            } else {
+                destination
+            };
+            let stable_object_path = if object_path.is_empty() {
+                "root".to_string()
+            } else {
+                object_path
+            };
+
             Ok(AccessibilityNode {
                 // Generate a stable-ish ID based on path + index to allow referencing
-                id: format!(
-                    "atspi_{}_{}",
-                    proxy.name().await.unwrap_or("unk".into()),
-                    depth
-                ),
+                id: format!("atspi_{}_{}", stable_destination, stable_object_path),
                 role,
                 name: if name.is_empty() { None } else { Some(name) },
                 value: None,
