@@ -42,7 +42,9 @@ use parity_scale_codec::Encode;
 use serde::Deserialize;
 use std::collections::{BTreeMap, BTreeSet};
 use std::io::Cursor;
-use std::path::PathBuf;
+#[cfg(unix)]
+use std::os::unix::fs::PermissionsExt;
+use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 use tempfile::tempdir;
@@ -138,6 +140,9 @@ const MAIL_E2E_KEY_IMAP_BEARER_TOKEN_SECRET_ID: &str = "MAIL_E2E_IMAP_BEARER_TOK
 const MAIL_E2E_KEY_SMTP_USERNAME_SECRET_ID: &str = "MAIL_E2E_SMTP_USERNAME_SECRET_ID";
 const MAIL_E2E_KEY_SMTP_PASSWORD_SECRET_ID: &str = "MAIL_E2E_SMTP_PASSWORD_SECRET_ID";
 const MAIL_E2E_KEY_SMTP_BEARER_TOKEN_SECRET_ID: &str = "MAIL_E2E_SMTP_BEARER_TOKEN_SECRET_ID";
+const VLC_INSTALL_CASE_ID: &str = "download_and_install_vlc_media_player";
+const VLC_INSTALL_FIXTURE_MODE: &str = "apt_get_vlc_fixture_v1";
+const VLC_INSTALL_FIXTURE_PROBE_SOURCE: &str = "harness.vlc_install_fixture";
 
 #[derive(Debug, Clone)]
 struct MailRuntimeBootstrapConfig {
@@ -169,6 +174,41 @@ struct MailRuntimeSecretSpec {
     secret_id: String,
     alias: String,
     value: String,
+}
+
+struct ScopedEnvVar {
+    key: String,
+    previous: Option<String>,
+}
+
+impl ScopedEnvVar {
+    fn set(key: impl Into<String>, value: impl Into<String>) -> Self {
+        let key = key.into();
+        let previous = std::env::var(&key).ok();
+        std::env::set_var(&key, value.into());
+        Self { key, previous }
+    }
+}
+
+impl Drop for ScopedEnvVar {
+    fn drop(&mut self) {
+        if let Some(previous) = self.previous.as_ref() {
+            std::env::set_var(&self.key, previous);
+        } else {
+            std::env::remove_var(&self.key);
+        }
+    }
+}
+
+struct VlcInstallFixtureRuntime {
+    _temp_dir: tempfile::TempDir,
+    _env_path: ScopedEnvVar,
+    _env_prefix: ScopedEnvVar,
+    _env_mode: ScopedEnvVar,
+    prefix: PathBuf,
+    download_receipt_path: PathBuf,
+    install_receipt_path: PathBuf,
+    vlc_binary_path: PathBuf,
 }
 
 fn find_workspace_file(file_name: &str) -> Option<PathBuf> {
@@ -480,8 +520,8 @@ fn read_agent_state(state: &IAVLTree<HashCommitmentScheme>, session_id: [u8; 32]
     codec::from_bytes_canonical(&bytes).expect("agent state should decode")
 }
 
-fn seeded_required_capabilities(scope: IntentScopeProfile) -> Vec<CapabilityId> {
-    match scope {
+fn seeded_required_capabilities(scope: IntentScopeProfile, intent_id: &str) -> Vec<CapabilityId> {
+    let mut caps = match scope {
         IntentScopeProfile::Conversation => vec![CapabilityId::from("conversation.reply")],
         IntentScopeProfile::WebResearch => vec![
             CapabilityId::from("web.retrieve"),
@@ -514,7 +554,14 @@ fn seeded_required_capabilities(scope: IntentScopeProfile) -> Vec<CapabilityId> 
             CapabilityId::from("conversation.reply"),
         ],
         IntentScopeProfile::Unknown => vec![CapabilityId::from("conversation.reply")],
+    };
+
+    let install_intent = intent_id.to_ascii_lowercase().contains("install");
+    if install_intent && matches!(scope, IntentScopeProfile::CommandExecution) {
+        caps.push(CapabilityId::from("system.install_package"));
     }
+
+    caps
 }
 
 fn seed_resolved_intent(
@@ -536,7 +583,7 @@ fn seed_resolved_intent(
         band: IntentConfidenceBand::High,
         score: 0.99,
         top_k: vec![],
-        required_capabilities: seeded_required_capabilities(scope),
+        required_capabilities: seeded_required_capabilities(scope, intent_id),
         risk_class: "low".to_string(),
         preferred_tier: "tool_first".to_string(),
         matrix_version: "test".to_string(),
@@ -776,6 +823,233 @@ fn render_query_for_run(query_template: &str, run_index: usize, run_timestamp_ms
 
 fn should_bootstrap_mailbox_runtime(goal: &str) -> bool {
     is_mailbox_connector_goal(goal)
+}
+
+fn should_bootstrap_vlc_install_fixture(case_id: &str) -> bool {
+    case_id.eq_ignore_ascii_case(VLC_INSTALL_CASE_ID)
+}
+
+fn write_executable_script(path: &Path, content: &str) -> Result<()> {
+    std::fs::write(path, content)?;
+    #[cfg(unix)]
+    {
+        let mut permissions = std::fs::metadata(path)?.permissions();
+        permissions.set_mode(0o755);
+        std::fs::set_permissions(path, permissions)?;
+    }
+    Ok(())
+}
+
+fn bootstrap_vlc_install_fixture_runtime() -> Result<VlcInstallFixtureRuntime> {
+    let temp_dir = tempdir()?;
+    let fixture_bin = temp_dir.path().join("bin");
+    let fixture_prefix = temp_dir.path().join("prefix");
+    let fixture_prefix_bin = fixture_prefix.join("bin");
+    let fixture_downloads = fixture_prefix.join("downloads");
+    let fixture_receipts = fixture_prefix.join("install_receipts");
+    std::fs::create_dir_all(&fixture_bin)?;
+    std::fs::create_dir_all(&fixture_prefix_bin)?;
+    std::fs::create_dir_all(&fixture_downloads)?;
+    std::fs::create_dir_all(&fixture_receipts)?;
+
+    let sudo_script = r#"#!/usr/bin/env bash
+set -euo pipefail
+if [ "$#" -eq 0 ]; then
+  exit 0
+fi
+args=()
+for arg in "$@"; do
+  case "$arg" in
+    -n|-S|-k|--) ;;
+    *) args+=("$arg") ;;
+  esac
+done
+if [ "${#args[@]}" -eq 0 ]; then
+  exit 0
+fi
+exec "${args[@]}"
+"#;
+    write_executable_script(&fixture_bin.join("sudo"), sudo_script)?;
+
+    let apt_script = r#"#!/usr/bin/env bash
+set -euo pipefail
+prefix="${IOI_VLC_FIXTURE_PREFIX:-}"
+if [ -z "$prefix" ]; then
+  echo "apt-get fixture: IOI_VLC_FIXTURE_PREFIX missing" >&2
+  exit 2
+fi
+command_name="${1:-}"
+if [ -z "$command_name" ]; then
+  echo "apt-get fixture: missing command" >&2
+  exit 2
+fi
+shift
+case "$command_name" in
+  update)
+    echo "Hit:1 http://fixture.example stable InRelease"
+    echo "Reading package lists... Done"
+    exit 0
+    ;;
+  install)
+    package=""
+    for arg in "$@"; do
+      case "$arg" in
+        -*) ;;
+        *) package="$arg" ;;
+      esac
+    done
+    if [ -z "$package" ]; then
+      echo "E: Unable to locate package" >&2
+      exit 100
+    fi
+    if [ "$package" != "vlc" ]; then
+      echo "E: Unable to locate package $package" >&2
+      exit 100
+    fi
+
+    mkdir -p "$prefix/bin" "$prefix/downloads" "$prefix/install_receipts"
+    cat > "$prefix/bin/vlc" <<'EOS'
+#!/usr/bin/env bash
+set -euo pipefail
+if [ "${1:-}" = "--version" ]; then
+  echo "VLC media player 3.0.20 Vetinari (fixture)"
+else
+  echo "VLC fixture executable"
+fi
+EOS
+    chmod +x "$prefix/bin/vlc"
+    printf 'fixture-vlc-package\n' > "$prefix/downloads/vlc-fixture.deb"
+    printf 'vlc\n' > "$prefix/install_receipts/vlc.installed"
+    echo "Get:1 http://fixture.example/vlc vlc 3.0.20-fixture amd64"
+    echo "Fetched 42.0 MB in 1s (42.0 MB/s)"
+    echo "Selecting previously unselected package vlc."
+    echo "Setting up vlc (3.0.20-fixture) ..."
+    exit 0
+    ;;
+  *)
+    echo "apt-get fixture: unsupported command '$command_name'" >&2
+    exit 2
+    ;;
+esac
+"#;
+    write_executable_script(&fixture_bin.join("apt-get"), apt_script)?;
+    write_executable_script(
+        &fixture_bin.join("apt"),
+        "#!/usr/bin/env bash\nset -euo pipefail\nexec apt-get \"$@\"\n",
+    )?;
+
+    let inherited_path = std::env::var("PATH").unwrap_or_default();
+    let fixture_path = format!(
+        "{}:{}:{}",
+        fixture_bin.to_string_lossy(),
+        fixture_prefix_bin.to_string_lossy(),
+        inherited_path
+    );
+    let env_path = ScopedEnvVar::set("PATH", fixture_path);
+    let env_prefix = ScopedEnvVar::set(
+        "IOI_VLC_FIXTURE_PREFIX",
+        fixture_prefix.to_string_lossy().to_string(),
+    );
+    let env_mode = ScopedEnvVar::set("IOI_VLC_FIXTURE_MODE", VLC_INSTALL_FIXTURE_MODE);
+
+    Ok(VlcInstallFixtureRuntime {
+        _temp_dir: temp_dir,
+        _env_path: env_path,
+        _env_prefix: env_prefix,
+        _env_mode: env_mode,
+        prefix: fixture_prefix.clone(),
+        download_receipt_path: fixture_downloads.join("vlc-fixture.deb"),
+        install_receipt_path: fixture_receipts.join("vlc.installed"),
+        vlc_binary_path: fixture_prefix_bin.join("vlc"),
+    })
+}
+
+fn vlc_install_fixture_preflight_checks(
+    fixture: &VlcInstallFixtureRuntime,
+    run_timestamp_ms: u64,
+) -> Vec<String> {
+    vec![
+        format!("env_receipt::vlc_fixture_mode={}", VLC_INSTALL_FIXTURE_MODE),
+        format!(
+            "env_receipt::vlc_fixture_prefix={}",
+            fixture.prefix.to_string_lossy()
+        ),
+        format!(
+            "env_receipt::vlc_fixture_probe_source={}",
+            VLC_INSTALL_FIXTURE_PROBE_SOURCE
+        ),
+        format!(
+            "env_receipt::vlc_fixture_timestamp_ms={}",
+            run_timestamp_ms
+        ),
+        "env_receipt::vlc_fixture_satisfied=true".to_string(),
+    ]
+}
+
+fn vlc_install_fixture_post_run_checks(fixture: &VlcInstallFixtureRuntime) -> Vec<String> {
+    let timestamp_ms = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_millis() as u64;
+    let download_exists = fixture.download_receipt_path.is_file();
+    let install_exists = fixture.install_receipt_path.is_file();
+    let binary_exists = fixture.vlc_binary_path.is_file();
+    let install_receipt_value = std::fs::read_to_string(&fixture.install_receipt_path)
+        .ok()
+        .map(|value| value.trim().to_string())
+        .unwrap_or_default();
+    let install_receipt_value_satisfied = install_receipt_value == "vlc";
+    let probe_source = format!("{}.fs_probe", VLC_INSTALL_FIXTURE_PROBE_SOURCE);
+
+    vec![
+        format!(
+            "env_receipt::vlc_download_receipt_path={}",
+            fixture.download_receipt_path.to_string_lossy()
+        ),
+        format!(
+            "env_receipt::vlc_download_receipt_probe_source={}",
+            probe_source
+        ),
+        format!(
+            "env_receipt::vlc_download_receipt_timestamp_ms={}",
+            timestamp_ms
+        ),
+        format!(
+            "env_receipt::vlc_download_receipt_satisfied={}",
+            download_exists
+        ),
+        format!(
+            "env_receipt::vlc_install_receipt_path={}",
+            fixture.install_receipt_path.to_string_lossy()
+        ),
+        format!(
+            "env_receipt::vlc_install_receipt_probe_source={}",
+            probe_source
+        ),
+        format!(
+            "env_receipt::vlc_install_receipt_timestamp_ms={}",
+            timestamp_ms
+        ),
+        format!(
+            "env_receipt::vlc_install_receipt_satisfied={}",
+            install_exists
+        ),
+        format!(
+            "env_receipt::vlc_install_receipt_value={}",
+            install_receipt_value
+        ),
+        format!(
+            "env_receipt::vlc_install_receipt_value_satisfied={}",
+            install_receipt_value_satisfied
+        ),
+        format!(
+            "env_receipt::vlc_binary_path={}",
+            fixture.vlc_binary_path.to_string_lossy()
+        ),
+        format!("env_receipt::vlc_binary_probe_source={}", probe_source),
+        format!("env_receipt::vlc_binary_timestamp_ms={}", timestamp_ms),
+        format!("env_receipt::vlc_binary_satisfied={}", binary_exists),
+    ]
 }
 
 fn wallet_channel_key(channel_id: &[u8; 32]) -> Vec<u8> {
@@ -1048,18 +1322,27 @@ pub async fn run_case(
         .unwrap_or_default()
         .as_millis() as u64;
     let run_query = render_query_for_run(case.query, run_index, run_timestamp_ms);
-    let mailbox_setup_verification_checks = if should_bootstrap_mailbox_runtime(&run_query) {
-        bootstrap_mailbox_runtime_state(
-            &mut state,
-            &mut ctx,
-            wallet_service.as_ref(),
-            run_index,
-            run_timestamp_ms,
-        )
-        .await?
+    let mut runtime_setup_verification_checks = Vec::<String>::new();
+    let vlc_install_fixture = if should_bootstrap_vlc_install_fixture(case.id) {
+        let fixture = bootstrap_vlc_install_fixture_runtime()?;
+        runtime_setup_verification_checks
+            .extend(vlc_install_fixture_preflight_checks(&fixture, run_timestamp_ms));
+        Some(fixture)
     } else {
-        Vec::new()
+        None
     };
+    if should_bootstrap_mailbox_runtime(&run_query) {
+        runtime_setup_verification_checks.extend(
+            bootstrap_mailbox_runtime_state(
+                &mut state,
+                &mut ctx,
+                wallet_service.as_ref(),
+                run_index,
+                run_timestamp_ms,
+            )
+            .await?,
+        );
+    }
 
     let start_params = StartAgentParams {
         session_id,
@@ -1251,8 +1534,13 @@ pub async fn run_case(
             verification_checks.insert(format!("terminal_pause_reason={}", reason));
         }
     }
-    for check in mailbox_setup_verification_checks {
+    for check in runtime_setup_verification_checks {
         verification_checks.insert(check);
+    }
+    if let Some(fixture) = vlc_install_fixture.as_ref() {
+        for check in vlc_install_fixture_post_run_checks(fixture) {
+            verification_checks.insert(check);
+        }
     }
 
     let event_excerpt = captured_events

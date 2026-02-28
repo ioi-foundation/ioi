@@ -160,17 +160,26 @@ pub(super) fn handle_duplicate_command_execution(
             "Skipped immediate replay of '{}' because the same action fingerprint was already executed on the previous step. This fingerprint is now cooled down at the current step; choose a different action or finish with the gathered evidence.",
             tool_name
         );
-        let duplicate_error = format!("ERROR_CLASS=NoEffectAfterAction {}", summary);
         mark_action_fingerprint_executed_at_step(
             &mut agent_state.tool_execution_log,
             action_fingerprint,
             step_index,
             "duplicate_skip",
         );
-        success = false;
-        error_msg = Some(duplicate_error.clone());
+        let noop_duplicate_allowed = is_non_command_duplicate_noop_tool(&tool_name);
+        if noop_duplicate_allowed {
+            success = true;
+            error_msg = None;
+            action_output = Some(summary.clone());
+            verification_checks
+                .push("duplicate_action_fingerprint_non_command_noop=true".to_string());
+        } else {
+            let duplicate_error = format!("ERROR_CLASS=NoEffectAfterAction {}", summary);
+            success = false;
+            error_msg = Some(duplicate_error.clone());
+            action_output = Some(duplicate_error);
+        }
         history_entry = Some(summary.clone());
-        action_output = Some(duplicate_error);
         agent_state.status = AgentStatus::Running;
         verification_checks
             .push("duplicate_action_fingerprint_non_command_skipped=true".to_string());
@@ -194,4 +203,11 @@ pub(super) fn handle_duplicate_command_execution(
         terminal_chat_reply_output,
         is_lifecycle_action,
     }
+}
+
+fn is_non_command_duplicate_noop_tool(tool_name: &str) -> bool {
+    matches!(
+        tool_name,
+        "wallet_network__mail_read_latest" | "wallet_mail_read_latest" | "mail__read_latest"
+    )
 }
