@@ -29,6 +29,7 @@ pub fn case() -> QueryCase {
         max_steps: 18,
         min_local_score: 1.0,
         allow_retry_blocked_completion_with_local_evidence: false,
+        allow_timeout_completion_with_local_evidence: false,
         local_sniff: evaluate,
     }
 }

@@ -6,6 +6,14 @@ use ioi_types::service_configs::ActiveServiceMeta;
 use regex::Regex;
 use serde_json::json;
 
+fn should_expose_service_method_tool(service_id: &str, simple_name: &str) -> bool {
+    if service_id.eq_ignore_ascii_case("wallet_network") && simple_name.starts_with("mail_connector_")
+    {
+        return false;
+    }
+    true
+}
+
 pub(super) fn push_service_tools(
     state: &dyn StateAccess,
     active_window_title: &str,
@@ -41,6 +49,9 @@ pub(super) fn push_service_tools(
                     for (method, perm) in &meta.methods {
                         if *perm == ioi_types::service_configs::MethodPermission::User {
                             let simple_name = method.split('@').next().unwrap_or(method);
+                            if !should_expose_service_method_tool(&meta.id, simple_name) {
+                                continue;
+                            }
                             let tool_name = format!("{}__{}", meta.id, simple_name);
 
                             let params_json = json!({

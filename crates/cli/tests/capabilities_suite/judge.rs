@@ -121,15 +121,31 @@ pub async fn run_arbiter(
                     check.eq_ignore_ascii_case("policy_decision=approved")
                         || check.eq_ignore_ascii_case("policy_decision=allowed")
                 });
+            let capture_route_seen = has_tool_token(&observation.routing_tools, "computer");
+            let capture_route_terminalized =
+                has_verification_check(observation, "screenshot_capture_terminalized=true");
+            let incident_resolved = has_verification_check(observation, "incident_resolved=true");
+            let screenshot_reply_signal = screenshot_reply_evidence(observation);
+            let capture_runtime_evidence = capture_action_count(observation) > 0
+                || (capture_route_terminalized
+                    && capture_route_seen
+                    && approval_gate_seen
+                    && policy_decision_allow
+                    && incident_resolved
+                    && screenshot_reply_signal);
             json!({
                 "capture_action_count": capture_action_count(observation),
                 "computer_screenshot_success_count": computer_screenshot_success_count(observation),
                 "gui_snapshot_count": gui_snapshot_count(observation),
                 "computer_action_seen": has_tool_token(&observation.action_tools, "computer"),
-                "capture_route_seen": has_tool_token(&observation.routing_tools, "computer"),
+                "capture_route_seen": capture_route_seen,
                 "policy_decision_allow": policy_decision_allow,
                 "approval_gate_seen": approval_gate_seen,
                 "approval_transition_seen": approval_gate_seen && policy_decision_allow,
+                "capture_route_terminalized": capture_route_terminalized,
+                "incident_resolved": incident_resolved,
+                "screenshot_reply_signal": screenshot_reply_signal,
+                "capture_runtime_evidence": capture_runtime_evidence,
                 "no_gui_snapshot_fallback": gui_snapshot_count(observation) == 0
                     && !has_tool_token(&observation.routing_tools, "gui__snapshot"),
                 "contract_failure_marker": contract_failure_marker,
@@ -174,7 +190,7 @@ Rules:\n\
 7) For `case_id=top_news_headlines`, if `local_judge.failures` is non-empty then pass MUST be false.\n\
 8) For `case_id=top_news_headlines`, wrapper-only constrained fallback inventory, repeated shared story anchor tokens, or challenge/captcha/access-denied story evidence MUST be judged as failure.\n\
 9) For `case_id=top_news_headlines`, if `local_judge.pass=true` and there is no explicit multi-story floor failure marker, pass MUST be true.\n\
-10) For `case_id=take_a_screenshot_of_my_desktop`, approval-gate evidence is mandatory before capture success: `screenshot_signals.approval_transition_seen=true`, plus capture action evidence `screenshot_signals.capture_action_count >= 1`, `screenshot_signals.capture_route_seen=true`, and `screenshot_signals.no_gui_snapshot_fallback=true`.\n\
+10) For `case_id=take_a_screenshot_of_my_desktop`, approval-gate evidence is mandatory before capture success: `screenshot_signals.approval_transition_seen=true`, `screenshot_signals.capture_runtime_evidence=true`, `screenshot_signals.capture_route_seen=true`, and `screenshot_signals.no_gui_snapshot_fallback=true`.\n\
 11) For `case_id=take_a_screenshot_of_my_desktop`, if `local_judge.failures` is non-empty then pass MUST be false.\n\
 12) For `case_id=take_a_screenshot_of_my_desktop`, if `local_judge.pass=true` and `screenshot_signals.contract_failure_marker=false`, pass MUST be true.\n\
 13) For non-strict cases (all except `top_news_headlines`), if `local_judge.pass=true`, `local_judge.failures=[]`, `completion.completed=true`, `completion.failed=false`, and `signals.contract_failure_marker=false`, pass SHOULD be true unless there is explicit contrary runtime evidence.\n\
@@ -249,7 +265,9 @@ Payload:\n{}",
     }
 
     if case.id == "take_a_screenshot_of_my_desktop" {
-        let capture_observed = capture_action_count(observation) > 0;
+        let capture_route_seen = has_tool_token(&observation.routing_tools, "computer");
+        let capture_route_terminalized =
+            has_verification_check(observation, "screenshot_capture_terminalized=true");
         let approval_gate_seen = observation.approval_required_events > 0
             || observation
                 .verification_checks
@@ -260,13 +278,20 @@ Payload:\n{}",
                 || check.eq_ignore_ascii_case("policy_decision=allowed")
         });
         let approval_transition_seen = approval_gate_seen && policy_decision_allow;
+        let incident_resolved = has_verification_check(observation, "incident_resolved=true");
+        let screenshot_reply_signal = screenshot_reply_evidence(observation);
+        let capture_runtime_evidence = capture_action_count(observation) > 0
+            || (capture_route_terminalized
+                && capture_route_seen
+                && approval_transition_seen
+                && incident_resolved
+                && screenshot_reply_signal);
         let no_gui_snapshot_fallback = gui_snapshot_count(observation) == 0
             && !has_tool_token(&observation.routing_tools, "gui__snapshot");
-        let capture_route_seen = has_tool_token(&observation.routing_tools, "computer");
         if local.pass
             && local.failures.is_empty()
             && approval_transition_seen
-            && capture_observed
+            && capture_runtime_evidence
             && capture_route_seen
             && no_gui_snapshot_fallback
             && !contract_failure_marker
@@ -500,6 +525,13 @@ fn has_tool_token(tools: &[String], token: &str) -> bool {
         .any(|tool| tool.to_ascii_lowercase().contains(token))
 }
 
+fn has_verification_check(observation: &RunObservation, expected: &str) -> bool {
+    observation
+        .verification_checks
+        .iter()
+        .any(|check| check.eq_ignore_ascii_case(expected))
+}
+
 fn capture_action_count(observation: &RunObservation) -> usize {
     computer_screenshot_success_count(observation)
 }
@@ -527,8 +559,17 @@ fn gui_snapshot_count(observation: &RunObservation) -> usize {
 fn screenshot_success_output(output: &str) -> bool {
     let trimmed = output.trim();
     trimmed == "Screenshot captured"
+        || trimmed == "Screenshot captured."
         || trimmed.starts_with("Screenshot captured:")
         || trimmed.starts_with("Screenshot captured ")
+}
+
+fn screenshot_reply_evidence(observation: &RunObservation) -> bool {
+    screenshot_success_output(&observation.final_reply)
+        || observation
+            .action_evidence
+            .iter()
+            .any(|entry| screenshot_success_output(&entry.output_excerpt))
 }
 
 fn observation_has_contract_failure_marker(observation: &RunObservation) -> bool {

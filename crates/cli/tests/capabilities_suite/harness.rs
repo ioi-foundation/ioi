@@ -1095,7 +1095,9 @@ pub async fn run_case(
     let mut captured_events: Vec<KernelEvent> = Vec::new();
     let mut paused_reason: Option<String> = None;
     let mut auto_resume_count = 0usize;
+    let mut duplicate_incident_retry_count = 0usize;
     const MAX_AUTO_APPROVAL_RESUMES: usize = 2;
+    const MAX_DUPLICATE_INCIDENT_RETRY_COUNT: usize = 3;
 
     loop {
         drain_events(&mut event_rx, &mut captured_events);
@@ -1150,7 +1152,7 @@ pub async fn run_case(
             AgentStatus::Completed(_) | AgentStatus::Failed(_) => {}
         }
 
-        service
+        let step_result = service
             .handle_service_call(
                 &mut state,
                 "step@v1",
@@ -1158,7 +1160,19 @@ pub async fn run_case(
                     .map_err(|e| anyhow!("failed to encode step params: {}", e))?,
                 &mut ctx,
             )
-            .await?;
+            .await;
+        if let Err(err) = step_result {
+            let err_text = err.to_string();
+            if err_text.contains("Duplicate incident remedy fingerprint")
+                && duplicate_incident_retry_count < MAX_DUPLICATE_INCIDENT_RETRY_COUNT
+            {
+                duplicate_incident_retry_count =
+                    duplicate_incident_retry_count.saturating_add(1);
+                continue;
+            }
+            return Err(err.into());
+        }
+        duplicate_incident_retry_count = 0;
     }
 
     drain_events(&mut event_rx, &mut captured_events);

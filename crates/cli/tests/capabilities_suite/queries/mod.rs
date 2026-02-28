@@ -3,6 +3,7 @@ mod find_all_pdf_files_on_my_computer_modified_in_the_last_week;
 mod multiply_247_by_38;
 mod open_calculator_app;
 mod read_me_the_last_email_i_received;
+mod rename_every_file_in_my_downloads_folder_to_lowercase;
 mod set_timer_15_minutes;
 mod take_a_screenshot_of_my_desktop;
 mod top_news_headlines;
@@ -21,6 +22,7 @@ pub fn all_cases() -> Vec<QueryCase> {
         set_timer_15_minutes::case(),
         create_a_new_folder_on_my_desktop_called_project_some_number::case(),
         find_all_pdf_files_on_my_computer_modified_in_the_last_week::case(),
+        rename_every_file_in_my_downloads_folder_to_lowercase::case(),
         take_a_screenshot_of_my_desktop::case(),
         read_me_the_last_email_i_received::case(),
         multiply_247_by_38::case(),

@@ -238,9 +238,21 @@ pub(super) fn tool_capability_bindings() -> Vec<ToolCapabilityBinding> {
 }
 
 pub(super) fn is_mail_connector_tool(tool_name: &str) -> bool {
-    tool_name.starts_with("wallet_network__mail_")
-        || tool_name.starts_with("wallet_mail_")
-        || tool_name.starts_with("mail__")
+    matches!(
+        tool_name,
+        "wallet_network__mail_read_latest"
+            | "wallet_mail_read_latest"
+            | "mail__read_latest"
+            | "wallet_network__mail_list_recent"
+            | "wallet_mail_list_recent"
+            | "mail__list_recent"
+            | "wallet_network__mail_delete_spam"
+            | "wallet_mail_delete_spam"
+            | "mail__delete_spam"
+            | "wallet_network__mail_reply"
+            | "wallet_mail_reply"
+            | "mail__reply"
+    )
 }
 
 pub(super) fn tool_capabilities(tool_name: &str) -> Vec<CapabilityId> {

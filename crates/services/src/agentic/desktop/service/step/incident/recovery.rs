@@ -125,6 +125,11 @@ fn is_phase0_browser_gui_click_violation(incident_state: &IncidentState) -> bool
             .unwrap_or(false)
 }
 
+fn is_duplicate_recovery_fingerprint(tool: &AgentTool, visited_node_fingerprints: &[String]) -> bool {
+    let fp = tool_fingerprint(tool);
+    visited_node_fingerprints.iter().any(|known| known == &fp)
+}
+
 pub(super) fn deterministic_recovery_tool(
     available_tool_names: &BTreeSet<String>,
     incident_state: &IncidentState,
@@ -145,7 +150,9 @@ pub(super) fn deterministic_recovery_tool(
         let tool = middleware::normalize_tool_call(&payload.to_string()).map_err(|e| {
             TransactionError::Invalid(format!("browser__snapshot fallback invalid: {}", e))
         })?;
-        return Ok(Some(tool));
+        if !is_duplicate_recovery_fingerprint(&tool, &incident_state.visited_node_fingerprints) {
+            return Ok(Some(tool));
+        }
     }
 
     if is_phase0_browser_gui_click_violation(incident_state)
@@ -161,7 +168,9 @@ pub(super) fn deterministic_recovery_tool(
                 e
             ))
         })?;
-        return Ok(Some(tool));
+        if !is_duplicate_recovery_fingerprint(&tool, &incident_state.visited_node_fingerprints) {
+            return Ok(Some(tool));
+        }
     }
 
     if available_tool_names.contains("ui__find") {
@@ -179,7 +188,9 @@ pub(super) fn deterministic_recovery_tool(
         });
         let tool = middleware::normalize_tool_call(&payload.to_string())
             .map_err(|e| TransactionError::Invalid(format!("ui__find fallback invalid: {}", e)))?;
-        return Ok(Some(tool));
+        if !is_duplicate_recovery_fingerprint(&tool, &incident_state.visited_node_fingerprints) {
+            return Ok(Some(tool));
+        }
     }
 
     if available_tool_names.contains("os__focus_window") {
@@ -195,7 +206,10 @@ pub(super) fn deterministic_recovery_tool(
             let tool = middleware::normalize_tool_call(&payload.to_string()).map_err(|e| {
                 TransactionError::Invalid(format!("os__focus_window fallback invalid: {}", e))
             })?;
-            return Ok(Some(tool));
+            if !is_duplicate_recovery_fingerprint(&tool, &incident_state.visited_node_fingerprints)
+            {
+                return Ok(Some(tool));
+            }
         }
     }
 
@@ -221,8 +235,7 @@ pub(super) fn validate_recovery_tool(
             name
         )));
     }
-    let fp = tool_fingerprint(tool);
-    if visited_node_fingerprints.iter().any(|known| known == &fp) {
+    if is_duplicate_recovery_fingerprint(tool, visited_node_fingerprints) {
         return Err(TransactionError::Invalid(
             "Duplicate incident remedy fingerprint".to_string(),
         ));
@@ -347,9 +360,12 @@ pub(super) fn queue_root_retry(
 #[cfg(test)]
 mod tests {
     use super::{
-        deterministic_recovery_tool, tool_to_action_request, IncidentState, QUEUE_TOOL_NAME_KEY,
+        deterministic_recovery_tool, tool_fingerprint, tool_to_action_request, IncidentState,
+        QUEUE_TOOL_NAME_KEY,
     };
-    use crate::agentic::desktop::types::{AgentMode, AgentState, AgentStatus, ExecutionTier};
+    use crate::agentic::desktop::types::{
+        AgentMode, AgentState, AgentStatus, ExecutionTier, InteractionTarget,
+    };
     use crate::agentic::rules::ActionRules;
     use ioi_types::app::{agentic::AgentTool, ActionTarget};
     use std::collections::{BTreeMap, BTreeSet, VecDeque};
@@ -571,6 +587,57 @@ mod tests {
         match tool {
             AgentTool::UiFind { query } => assert_eq!(query, "find login button"),
             other => panic!("expected UiFind, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn deterministic_recovery_skips_visited_ui_find_without_alternative() {
+        let available = BTreeSet::from(["ui__find".to_string()]);
+        let mut incident = test_incident_state("browser__click_element", "TargetNotFound");
+        let agent_state = test_agent_state("find login button");
+        incident.visited_node_fingerprints.push(tool_fingerprint(&AgentTool::UiFind {
+            query: "find login button".to_string(),
+        }));
+
+        let tool = deterministic_recovery_tool(
+            &available,
+            &incident,
+            &agent_state,
+            &ActionRules::default(),
+        )
+        .expect("deterministic selection should succeed");
+
+        assert!(
+            tool.is_none(),
+            "visited ui__find fingerprint should not be selected again"
+        );
+    }
+
+    #[test]
+    fn deterministic_recovery_falls_back_to_focus_window_when_ui_find_is_visited() {
+        let available = BTreeSet::from(["ui__find".to_string(), "os__focus_window".to_string()]);
+        let mut incident = test_incident_state("browser__click_element", "TargetNotFound");
+        let mut agent_state = test_agent_state("find login button");
+        agent_state.target = Some(InteractionTarget {
+            app_hint: Some("Firefox".to_string()),
+            title_pattern: None,
+        });
+        incident.visited_node_fingerprints.push(tool_fingerprint(&AgentTool::UiFind {
+            query: "Firefox".to_string(),
+        }));
+
+        let tool = deterministic_recovery_tool(
+            &available,
+            &incident,
+            &agent_state,
+            &ActionRules::default(),
+        )
+        .expect("deterministic selection should succeed")
+        .expect("deterministic selection should choose focus window fallback");
+
+        match tool {
+            AgentTool::OsFocusWindow { title } => assert_eq!(title, "Firefox"),
+            other => panic!("expected OsFocusWindow, got {:?}", other),
         }
     }
 }

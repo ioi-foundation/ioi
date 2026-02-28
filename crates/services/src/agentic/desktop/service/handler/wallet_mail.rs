@@ -101,6 +101,13 @@ fn wallet_mail_method_from_tool_name(name: &str) -> Option<WalletMailToolMethod>
     }
 }
 
+fn is_wallet_mail_namespace_tool_name(name: &str) -> bool {
+    let normalized = name.trim().to_ascii_lowercase();
+    normalized.starts_with("wallet_network__mail_")
+        || normalized.starts_with("wallet_mail_")
+        || normalized.starts_with("mail__")
+}
+
 fn channel_storage_key(channel_id: &[u8; 32]) -> Vec<u8> {
     [CHANNEL_PREFIX, channel_id.as_slice()].concat()
 }
@@ -404,6 +411,16 @@ pub(super) async fn try_execute_wallet_mail_dynamic_tool(
         return Ok(None);
     };
     let Some(method) = wallet_mail_method_from_tool_name(tool_name) else {
+        if is_wallet_mail_namespace_tool_name(tool_name) {
+            return Ok(Some((
+                false,
+                None,
+                Some(format!(
+                    "ERROR_CLASS=UnsupportedTool unsupported wallet mail tool '{}'",
+                    tool_name.trim()
+                )),
+            )));
+        }
         return Ok(None);
     };
 
@@ -907,4 +924,24 @@ pub(super) async fn try_execute_wallet_mail_dynamic_tool(
     };
 
     Ok(Some((true, Some(output), None)))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{is_wallet_mail_namespace_tool_name, wallet_mail_method_from_tool_name};
+
+    #[test]
+    fn wallet_mail_namespace_detection_includes_connector_tools() {
+        assert!(is_wallet_mail_namespace_tool_name(
+            "wallet_network__mail_connector_upsert"
+        ));
+        assert!(is_wallet_mail_namespace_tool_name("mail__read_latest"));
+        assert!(!is_wallet_mail_namespace_tool_name("web__search"));
+    }
+
+    #[test]
+    fn wallet_mail_method_mapping_excludes_connector_setup_tools() {
+        assert!(wallet_mail_method_from_tool_name("wallet_network__mail_read_latest").is_some());
+        assert!(wallet_mail_method_from_tool_name("wallet_network__mail_connector_upsert").is_none());
+    }
 }
