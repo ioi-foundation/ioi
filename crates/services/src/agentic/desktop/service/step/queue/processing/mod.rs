@@ -36,12 +36,14 @@ use ioi_types::error::TransactionError;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 mod completion;
+mod failure;
 mod routing;
 mod web_pipeline;
 
 use self::completion::{
     maybe_complete_command_probe, maybe_complete_open_app, maybe_complete_screenshot_capture,
 };
+use self::failure::{apply_queue_failure_policies, QueueFailureHandlingOutcome};
 use self::routing::{is_web_research_scope, resolve_queue_routing_context as resolve_routing};
 use self::web_pipeline::{
     maybe_handle_browser_snapshot, maybe_handle_web_read, maybe_handle_web_search,
@@ -130,6 +132,204 @@ async fn execute_queue_tool_request(
             )
             .await
     }
+}
+
+fn current_unix_timestamp_ms() -> u64 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap()
+        .as_millis() as u64
+}
+
+async fn append_chat_message(
+    service: &DesktopAgentService,
+    session_id: [u8; 32],
+    block_height: u64,
+    role: &str,
+    content: String,
+) -> Result<(), TransactionError> {
+    let msg = ioi_types::app::agentic::ChatMessage {
+        role: role.to_string(),
+        content,
+        timestamp: current_unix_timestamp_ms(),
+        trace_hash: None,
+    };
+    let _ = service
+        .append_chat_to_scs(session_id, &msg, block_height)
+        .await?;
+    Ok(())
+}
+
+async fn resolve_approval_directive_outcome(
+    service: &DesktopAgentService,
+    agent_state: &mut AgentState,
+    session_id: [u8; 32],
+    block_height: u64,
+    approval_hash: &str,
+    approval_directive: ApprovalDirective,
+    policy_decision: &mut String,
+) -> Result<(bool, Option<String>, Option<String>, Option<[u8; 32]>), TransactionError> {
+    match approval_directive {
+        ApprovalDirective::PromptUser => {
+            append_chat_message(
+                service,
+                session_id,
+                block_height,
+                "system",
+                format!(
+                    "System: Queued action halted by Agency Firewall (Hash: {}). Requesting authorization.",
+                    approval_hash
+                ),
+            )
+            .await?;
+            Ok((true, None, None, None))
+        }
+        ApprovalDirective::SuppressDuplicatePrompt => {
+            append_chat_message(
+                service,
+                session_id,
+                block_height,
+                "system",
+                "System: Approval already pending for this incident/action. Waiting for your decision."
+                    .to_string(),
+            )
+            .await?;
+            Ok((true, None, None, None))
+        }
+        ApprovalDirective::PauseLoop => {
+            *policy_decision = "denied".to_string();
+            let loop_msg = format!(
+                "ERROR_CLASS=PermissionOrApprovalRequired Approval loop policy paused this incident for request hash {}.",
+                approval_hash
+            );
+            agent_state.status = AgentStatus::Paused(
+                "Approval loop detected for the same incident/action. Automatic retries paused."
+                    .to_string(),
+            );
+            append_chat_message(
+                service,
+                session_id,
+                block_height,
+                "system",
+                format!(
+                    "System: {} Please approve, deny, or change policy settings.",
+                    loop_msg
+                ),
+            )
+            .await?;
+            Ok((false, None, Some(loop_msg), None))
+        }
+    }
+}
+
+async fn append_tool_output_message_if_present(
+    service: &DesktopAgentService,
+    session_id: [u8; 32],
+    block_height: u64,
+    tool_name: &str,
+    err: Option<&str>,
+) -> Result<(), TransactionError> {
+    if let Some(err_text) = err {
+        append_chat_message(
+            service,
+            session_id,
+            block_height,
+            "tool",
+            format!("Tool Output ({}): {}", tool_name, err_text),
+        )
+        .await?;
+    }
+    Ok(())
+}
+
+async fn enter_wait_for_sudo_password(
+    service: &DesktopAgentService,
+    state: &mut dyn StateAccess,
+    agent_state: &mut AgentState,
+    session_id: [u8; 32],
+    block_height: u64,
+    tool_name: &str,
+    err: Option<&str>,
+    action_json: &str,
+    tool_jcs: &[u8],
+    verification_checks: &mut Vec<String>,
+) -> Result<(), TransactionError> {
+    agent_state.status = AgentStatus::Paused("Waiting for sudo password".to_string());
+    mark_incident_wait_for_user(
+        state,
+        session_id,
+        "wait_for_sudo_password",
+        FailureClass::PermissionOrApprovalRequired,
+        err,
+    )?;
+    // Clear queued remedies while waiting for credentials so resume retries
+    // the original install action instead of stale fallback actions.
+    agent_state.execution_queue.clear();
+    agent_state.pending_approval = None;
+    agent_state.pending_tool_call = Some(action_json.to_string());
+    agent_state.pending_tool_jcs = Some(tool_jcs.to_vec());
+    agent_state.pending_visual_hash = Some(agent_state.last_screen_phash.unwrap_or([0u8; 32]));
+    let tool_hash_bytes = ioi_crypto::algorithms::hash::sha256(tool_jcs).map_err(|e| {
+        TransactionError::Invalid(format!("Failed to hash queued install tool JCS: {}", e))
+    })?;
+    let mut hash_arr = [0u8; 32];
+    hash_arr.copy_from_slice(tool_hash_bytes.as_ref());
+    agent_state.pending_tool_hash = Some(hash_arr);
+
+    append_tool_output_message_if_present(service, session_id, block_height, tool_name, err)
+        .await?;
+    append_chat_message(
+        service,
+        session_id,
+        block_height,
+        "system",
+        "System: WAIT_FOR_SUDO_PASSWORD. Install requires sudo password. Enter password to retry once."
+            .to_string(),
+    )
+    .await?;
+    verification_checks.push("awaiting_sudo_password=true".to_string());
+    Ok(())
+}
+
+async fn enter_wait_for_clarification(
+    service: &DesktopAgentService,
+    state: &mut dyn StateAccess,
+    agent_state: &mut AgentState,
+    session_id: [u8; 32],
+    block_height: u64,
+    tool_name: &str,
+    err: Option<&str>,
+    verification_checks: &mut Vec<String>,
+) -> Result<(), TransactionError> {
+    mark_incident_wait_for_user(
+        state,
+        session_id,
+        "wait_for_clarification",
+        FailureClass::UserInterventionNeeded,
+        err,
+    )?;
+    agent_state.status =
+        AgentStatus::Paused("Waiting for clarification on target identity.".to_string());
+    agent_state.pending_approval = None;
+    agent_state.pending_tool_call = None;
+    agent_state.pending_tool_jcs = None;
+    agent_state.pending_tool_hash = None;
+    agent_state.pending_visual_hash = None;
+    agent_state.execution_queue.clear();
+
+    append_tool_output_message_if_present(service, session_id, block_height, tool_name, err)
+        .await?;
+    append_chat_message(
+        service,
+        session_id,
+        block_height,
+        "system",
+        "System: WAIT_FOR_CLARIFICATION. Target identity could not be resolved. Provide clarification input to continue."
+            .to_string(),
+    )
+    .await?;
+    verification_checks.push("awaiting_clarification=true".to_string());
+    Ok(())
 }
 
 pub fn resolve_queue_routing_context(
@@ -309,71 +509,16 @@ pub async fn process_queue_item(
                 }
             }
 
-            match approval_directive {
-                ApprovalDirective::PromptUser => {
-                    let msg = format!(
-                        "System: Queued action halted by Agency Firewall (Hash: {}). Requesting authorization.",
-                        h
-                    );
-                    let sys_msg = ioi_types::app::agentic::ChatMessage {
-                        role: "system".to_string(),
-                        content: msg,
-                        timestamp: std::time::SystemTime::now()
-                            .duration_since(std::time::UNIX_EPOCH)
-                            .unwrap()
-                            .as_millis() as u64,
-                        trace_hash: None,
-                    };
-                    let _ = service
-                        .append_chat_to_scs(p.session_id, &sys_msg, block_height)
-                        .await?;
-                    (true, None, None, None)
-                }
-                ApprovalDirective::SuppressDuplicatePrompt => {
-                    let sys_msg = ioi_types::app::agentic::ChatMessage {
-                        role: "system".to_string(),
-                        content:
-                            "System: Approval already pending for this incident/action. Waiting for your decision."
-                                .to_string(),
-                        timestamp: std::time::SystemTime::now()
-                            .duration_since(std::time::UNIX_EPOCH)
-                            .unwrap()
-                            .as_millis() as u64,
-                        trace_hash: None,
-                    };
-                    let _ = service
-                        .append_chat_to_scs(p.session_id, &sys_msg, block_height)
-                        .await?;
-                    (true, None, None, None)
-                }
-                ApprovalDirective::PauseLoop => {
-                    policy_decision = "denied".to_string();
-                    let loop_msg = format!(
-                        "ERROR_CLASS=PermissionOrApprovalRequired Approval loop policy paused this incident for request hash {}.",
-                        h
-                    );
-                    agent_state.status = AgentStatus::Paused(
-                        "Approval loop detected for the same incident/action. Automatic retries paused."
-                            .to_string(),
-                    );
-                    let sys_msg = ioi_types::app::agentic::ChatMessage {
-                        role: "system".to_string(),
-                        content: format!(
-                            "System: {} Please approve, deny, or change policy settings.",
-                            loop_msg
-                        ),
-                        timestamp: std::time::SystemTime::now()
-                            .duration_since(std::time::UNIX_EPOCH)
-                            .unwrap()
-                            .as_millis() as u64,
-                        trace_hash: None,
-                    };
-                    let _ = service
-                        .append_chat_to_scs(p.session_id, &sys_msg, block_height)
-                        .await?;
-                    (false, None, Some(loop_msg), None)
-                }
-            }
+            resolve_approval_directive_outcome(
+                service,
+                agent_state,
+                p.session_id,
+                block_height,
+                &h,
+                approval_directive,
+                &mut policy_decision,
+            )
+            .await?
         }
         Err(e) => {
             let msg = e.to_string();
@@ -427,105 +572,34 @@ pub async fn process_queue_item(
             .unwrap_or(false)
     {
         awaiting_sudo_password = true;
-        agent_state.status = AgentStatus::Paused("Waiting for sudo password".to_string());
-        mark_incident_wait_for_user(
+        enter_wait_for_sudo_password(
+            service,
             state,
+            agent_state,
             p.session_id,
-            "wait_for_sudo_password",
-            FailureClass::PermissionOrApprovalRequired,
+            block_height,
+            &tool_name,
             err.as_deref(),
-        )?;
-        // Clear queued remedies while waiting for credentials so resume retries
-        // the original install action instead of stale fallback actions.
-        agent_state.execution_queue.clear();
-        agent_state.pending_approval = None;
-        agent_state.pending_tool_call = Some(action_json.clone());
-        agent_state.pending_tool_jcs = Some(tool_jcs.clone());
-        agent_state.pending_visual_hash = Some(agent_state.last_screen_phash.unwrap_or([0u8; 32]));
-        let tool_hash_bytes = ioi_crypto::algorithms::hash::sha256(&tool_jcs).map_err(|e| {
-            TransactionError::Invalid(format!("Failed to hash queued install tool JCS: {}", e))
-        })?;
-        let mut hash_arr = [0u8; 32];
-        hash_arr.copy_from_slice(tool_hash_bytes.as_ref());
-        agent_state.pending_tool_hash = Some(hash_arr);
-        if let Some(err_text) = err.clone() {
-            let tool_msg = ioi_types::app::agentic::ChatMessage {
-                role: "tool".to_string(),
-                content: format!("Tool Output ({}): {}", tool_name, err_text),
-                timestamp: SystemTime::now()
-                    .duration_since(UNIX_EPOCH)
-                    .unwrap()
-                    .as_millis() as u64,
-                trace_hash: None,
-            };
-            let _ = service
-                .append_chat_to_scs(p.session_id, &tool_msg, block_height)
-                .await?;
-        }
-
-        let sys_msg = ioi_types::app::agentic::ChatMessage {
-            role: "system".to_string(),
-            content: "System: WAIT_FOR_SUDO_PASSWORD. Install requires sudo password. Enter password to retry once."
-                .to_string(),
-            timestamp: std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)
-                .unwrap()
-                .as_millis() as u64,
-            trace_hash: None,
-        };
-        let _ = service
-            .append_chat_to_scs(p.session_id, &sys_msg, block_height)
-            .await?;
-        verification_checks.push("awaiting_sudo_password=true".to_string());
+            &action_json,
+            &tool_jcs,
+            &mut verification_checks,
+        )
+        .await?;
     }
 
     if !is_gated && clarification_required {
         awaiting_clarification = true;
-        mark_incident_wait_for_user(
+        enter_wait_for_clarification(
+            service,
             state,
+            agent_state,
             p.session_id,
-            "wait_for_clarification",
-            FailureClass::UserInterventionNeeded,
+            block_height,
+            &tool_name,
             err.as_deref(),
-        )?;
-        agent_state.status =
-            AgentStatus::Paused("Waiting for clarification on target identity.".to_string());
-        agent_state.pending_approval = None;
-        agent_state.pending_tool_call = None;
-        agent_state.pending_tool_jcs = None;
-        agent_state.pending_tool_hash = None;
-        agent_state.pending_visual_hash = None;
-        agent_state.execution_queue.clear();
-
-        if let Some(err_text) = err.clone() {
-            let tool_msg = ioi_types::app::agentic::ChatMessage {
-                role: "tool".to_string(),
-                content: format!("Tool Output ({}): {}", tool_name, err_text),
-                timestamp: SystemTime::now()
-                    .duration_since(UNIX_EPOCH)
-                    .unwrap()
-                    .as_millis() as u64,
-                trace_hash: None,
-            };
-            let _ = service
-                .append_chat_to_scs(p.session_id, &tool_msg, block_height)
-                .await?;
-        }
-        let sys_msg = ioi_types::app::agentic::ChatMessage {
-            role: "system".to_string(),
-            content:
-                "System: WAIT_FOR_CLARIFICATION. Target identity could not be resolved. Provide clarification input to continue."
-                    .to_string(),
-            timestamp: SystemTime::now()
-                .duration_since(UNIX_EPOCH)
-                .unwrap()
-                .as_millis() as u64,
-            trace_hash: None,
-        };
-        let _ = service
-            .append_chat_to_scs(p.session_id, &sys_msg, block_height)
-            .await?;
-        verification_checks.push("awaiting_clarification=true".to_string());
+            &mut verification_checks,
+        )
+        .await?;
     }
     let mut completion_summary: Option<String> = None;
     maybe_handle_web_search(
@@ -639,273 +713,32 @@ pub async fn process_queue_item(
         }
     }
 
-    let mut failure_class: Option<FailureClass> = None;
-    let mut stop_condition_hit = false;
-    let mut escalation_path: Option<String> = None;
-    let mut remediation_queued = false;
-    if awaiting_sudo_password {
-        failure_class = Some(FailureClass::PermissionOrApprovalRequired);
-        stop_condition_hit = true;
-        escalation_path = Some("wait_for_sudo_password".to_string());
-    }
-    if !is_gated && !awaiting_sudo_password && !awaiting_clarification {
-        let incident_directive = advance_incident_after_action_outcome(
-            service,
-            state,
-            agent_state,
-            p.session_id,
-            &retry_intent_hash,
-            &tool_jcs,
-            success,
-            block_height,
-            err.as_deref(),
-            &mut verification_checks,
-        )
-        .await?;
-        if matches!(incident_directive, IncidentDirective::QueueActions) {
-            remediation_queued = true;
-            stop_condition_hit = false;
-            escalation_path = None;
-            agent_state.status = AgentStatus::Running;
-        }
-    }
-
-    if success && !is_gated {
-        agent_state.recent_actions.clear();
-    } else if !success && !awaiting_sudo_password && !awaiting_clarification {
-        if is_cec_terminal_error(err.as_deref()) {
-            stop_condition_hit = true;
-            escalation_path = Some("execution_contract_terminal".to_string());
-            remediation_queued = false;
-            agent_state.execution_queue.clear();
-            let terminal_reason = err
-                .clone()
-                .unwrap_or_else(|| "ERROR_CLASS=ExecutionContractViolation".to_string());
-            agent_state.status = AgentStatus::Failed(terminal_reason);
-            verification_checks.push("cec_terminal_error=true".to_string());
-        } else {
-            failure_class = classify_failure(err.as_deref(), &policy_decision);
-            if let Some(class) = failure_class {
-                let target_id = agent_state.target.as_ref().and_then(|target| {
-                    target
-                        .app_hint
-                        .as_deref()
-                        .filter(|v| !v.trim().is_empty())
-                        .or_else(|| {
-                            target
-                                .title_pattern
-                                .as_deref()
-                                .filter(|v| !v.trim().is_empty())
-                        })
-                });
-                let command_scope = agent_state
-                    .resolved_intent
-                    .as_ref()
-                    .map(|resolved| resolved.scope == IntentScopeProfile::CommandExecution)
-                    .unwrap_or(false);
-                let raw_window_fingerprint = agent_state
-                    .last_screen_phash
-                    .filter(|hash| *hash != [0u8; 32])
-                    .map(hex::encode);
-                let window_fingerprint = canonical_attempt_window_fingerprint(
-                    class,
-                    command_scope,
-                    raw_window_fingerprint.as_deref(),
-                );
-                let attempt_key = build_attempt_key(
-                    &retry_intent_hash,
-                    routing_decision.tier,
-                    &tool_name,
-                    target_id,
-                    window_fingerprint.as_deref(),
-                );
-                let (repeat_count, attempt_key_hash) =
-                    register_failure_attempt(agent_state, class, &attempt_key);
-                let budget_remaining = retry_budget_remaining(repeat_count);
-                let blocked_without_change = should_block_retry_without_change(class, repeat_count);
-                verification_checks.push(format!("attempt_repeat_count={}", repeat_count));
-                verification_checks.push(format!("attempt_key_hash={}", attempt_key_hash));
-                verification_checks.push(format!(
-                    "attempt_retry_budget_remaining={}",
-                    budget_remaining
-                ));
-                verification_checks.push(format!(
-                    "attempt_retry_blocked_without_change={}",
-                    blocked_without_change
-                ));
-                if is_web_research_scope(agent_state)
-                    && matches!(class, FailureClass::TimeoutOrHang)
-                {
-                    let summary = format!(
-                    "Web retrieval timed out while executing '{}'. Retry later or narrow the query/sources.",
-                    tool_name
-                );
-                    stop_condition_hit = true;
-                    escalation_path = Some("web_timeout_fail_fast".to_string());
-                    remediation_queued = false;
-                    success = true;
-                    err = None;
-                    out = Some(summary.clone());
-                    agent_state.execution_queue.clear();
-                    agent_state.pending_search_completion = None;
-                    agent_state.status = AgentStatus::Completed(Some(summary));
-                    verification_checks.push("web_timeout_fail_fast=true".to_string());
-                } else {
-                    let incident_state = load_incident_state(state, &p.session_id)?;
-                    if should_enter_incident_recovery(
-                        Some(class),
-                        &policy_decision,
-                        stop_condition_hit,
-                        incident_state.as_ref(),
-                    ) {
-                        let (resolved_retry_hash, recovery_tool_name, recovery_tool_jcs): (
-                            String,
-                            String,
-                            Vec<u8>,
-                        ) = if let Some(existing) = incident_state.as_ref().filter(|i| i.active) {
-                            (
-                                existing.root_retry_hash.clone(),
-                                existing.root_tool_name.clone(),
-                                existing.root_tool_jcs.clone(),
-                            )
-                        } else {
-                            (
-                                retry_intent_hash.clone(),
-                                tool_name.clone(),
-                                tool_jcs.clone(),
-                            )
-                        };
-                        remediation_queued = matches!(
-                            start_or_continue_incident_recovery(
-                                service,
-                                state,
-                                agent_state,
-                                p.session_id,
-                                block_height,
-                                &rules,
-                                &resolved_retry_hash,
-                                &recovery_tool_name,
-                                &recovery_tool_jcs,
-                                class,
-                                err.as_deref(),
-                                &mut verification_checks,
-                            )
-                            .await?,
-                            IncidentDirective::QueueActions
-                        );
-                    }
-
-                    let install_lookup_failure = err
-                        .as_deref()
-                        .map(|msg| requires_wait_for_clarification(&tool_name, msg))
-                        .unwrap_or(false);
-
-                    if remediation_queued {
-                        stop_condition_hit = false;
-                        escalation_path = None;
-                        agent_state.status = AgentStatus::Running;
-                    } else if install_lookup_failure {
-                        stop_condition_hit = true;
-                        escalation_path = Some("wait_for_clarification".to_string());
-                        awaiting_clarification = true;
-                        mark_incident_wait_for_user(
-                            state,
-                            p.session_id,
-                            "wait_for_clarification",
-                            FailureClass::UserInterventionNeeded,
-                            err.as_deref(),
-                        )?;
-                        agent_state.execution_queue.clear();
-                        agent_state.status = AgentStatus::Paused(
-                            "Waiting for clarification on target identity.".to_string(),
-                        );
-                    } else if matches!(class, FailureClass::UserInterventionNeeded) {
-                        stop_condition_hit = true;
-                        escalation_path = Some(escalation_path_for_failure(class).to_string());
-                        agent_state.status = AgentStatus::Paused(
-                        "Waiting for user intervention: complete the required human verification in your browser/app, then resume.".to_string(),
-                    );
-                    } else if is_web_research_scope(agent_state)
-                        && matches!(class, FailureClass::UnexpectedState)
-                    {
-                        // Keep web research autonomous under transient tool/schema instability.
-                        stop_condition_hit = false;
-                        escalation_path = None;
-                        success = true;
-                        err = None;
-                        out = Some(format!(
-                        "Transient unexpected state while executing '{}'; continuing web research.",
-                        tool_name
-                    ));
-                        agent_state.status = AgentStatus::Running;
-                        agent_state.recent_actions.clear();
-                        verification_checks.push("web_unexpected_retry_bypass=true".to_string());
-                    } else if blocked_without_change {
-                        stop_condition_hit = true;
-                        escalation_path = Some(escalation_path_for_failure(class).to_string());
-                        agent_state.status = AgentStatus::Paused(format!(
-                            "Retry blocked: unchanged AttemptKey for {}",
-                            class.as_str()
-                        ));
-                        if matches!(
-                            class,
-                            FailureClass::FocusMismatch
-                                | FailureClass::TargetNotFound
-                                | FailureClass::VisionTargetNotFound
-                                | FailureClass::NoEffectAfterAction
-                                | FailureClass::TierViolation
-                                | FailureClass::MissingDependency
-                                | FailureClass::ContextDrift
-                                | FailureClass::ToolUnavailable
-                                | FailureClass::NonDeterministicUI
-                                | FailureClass::TimeoutOrHang
-                                | FailureClass::UnexpectedState
-                        ) {
-                            agent_state.consecutive_failures =
-                                agent_state.consecutive_failures.max(3);
-                        }
-                    } else if should_trip_retry_guard(class, repeat_count) {
-                        stop_condition_hit = true;
-                        escalation_path = Some(escalation_path_for_failure(class).to_string());
-                        agent_state.status = AgentStatus::Paused(format!(
-                            "Retry guard tripped after repeated {} failures",
-                            class.as_str()
-                        ));
-                        if matches!(
-                            class,
-                            FailureClass::FocusMismatch
-                                | FailureClass::TargetNotFound
-                                | FailureClass::VisionTargetNotFound
-                                | FailureClass::NoEffectAfterAction
-                                | FailureClass::TierViolation
-                                | FailureClass::MissingDependency
-                                | FailureClass::ContextDrift
-                                | FailureClass::ToolUnavailable
-                                | FailureClass::NonDeterministicUI
-                                | FailureClass::TimeoutOrHang
-                                | FailureClass::UnexpectedState
-                        ) {
-                            agent_state.consecutive_failures =
-                                agent_state.consecutive_failures.max(3);
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    if !success
-        && matches!(agent_state.status, AgentStatus::Paused(_))
-        && !stop_condition_hit
-        && !is_gated
-        && !awaiting_sudo_password
-        && !awaiting_clarification
-    {
-        stop_condition_hit = true;
-        if escalation_path.is_none() {
-            escalation_path = Some("wait_for_user".to_string());
-        }
-    }
+    let QueueFailureHandlingOutcome {
+        failure_class,
+        stop_condition_hit,
+        escalation_path,
+        remediation_queued,
+    } = apply_queue_failure_policies(
+        service,
+        state,
+        agent_state,
+        p,
+        block_height,
+        &routing_decision,
+        &rules,
+        &retry_intent_hash,
+        &tool_name,
+        &tool_jcs,
+        &policy_decision,
+        &mut success,
+        &mut out,
+        &mut err,
+        is_gated,
+        awaiting_sudo_password,
+        &mut awaiting_clarification,
+        &mut verification_checks,
+    )
+    .await?;
 
     verification_checks.push(format!("policy_decision={}", policy_decision));
     verification_checks.push(format!("was_gated={}", is_gated));
