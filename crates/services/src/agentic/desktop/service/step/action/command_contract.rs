@@ -3,9 +3,7 @@ use super::support::{
     mark_execution_receipt, mark_execution_receipt_with_value, postcondition_marker,
     receipt_marker,
 };
-use crate::agentic::desktop::types::{
-    AgentState, CommandExecution, ToolCallStatus,
-};
+use crate::agentic::desktop::types::{AgentState, CommandExecution, ToolCallStatus};
 use ioi_crypto::algorithms::hash::sha256;
 use ioi_types::app::agentic::{AgentTool, IntentScopeProfile};
 use ioi_types::app::ActionTarget;

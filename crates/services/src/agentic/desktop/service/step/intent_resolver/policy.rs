@@ -153,7 +153,9 @@ fn parse_query_binding_profile(raw: &str) -> Result<QueryBindingProfile, Transac
 }
 
 pub(super) async fn infer_query_binding_profile(
+    service: &DesktopAgentService,
     runtime: &Arc<dyn InferenceRuntime>,
+    session_id: [u8; 32],
     query: &str,
 ) -> QueryBindingProfile {
     let payload = json!([
@@ -179,10 +181,29 @@ pub(super) async fn infer_query_binding_profile(
             return QueryBindingProfile::default();
         }
     };
+    let airlocked_input = match service
+        .prepare_cloud_inference_input(
+            Some(session_id),
+            "intent_resolver",
+            INTENT_QUERY_BINDING_MODEL_ID,
+            &input_bytes,
+        )
+        .await
+    {
+        Ok(encoded) => encoded,
+        Err(err) => {
+            log::warn!(
+                "IntentResolver query binding airlock failed session={} error={}",
+                hex::encode(&session_id[..4]),
+                err
+            );
+            return QueryBindingProfile::default();
+        }
+    };
     let output = match runtime
         .execute_inference(
             [0u8; 32],
-            &input_bytes,
+            &airlocked_input,
             ioi_types::app::agentic::InferenceOptions {
                 temperature: 0.0,
                 json_mode: true,

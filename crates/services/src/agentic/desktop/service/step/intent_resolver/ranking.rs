@@ -163,6 +163,8 @@ pub trait IntentRankBackend: Send + Sync {
         matrix_version: &str,
         matrix_source_hash: [u8; 32],
         matrix: &[IntentMatrixEntry],
+        service: Option<&DesktopAgentService>,
+        session_id: Option<[u8; 32]>,
     ) -> Result<IntentRankResult, TransactionError>;
 }
 
@@ -320,6 +322,8 @@ async fn rank_with_inference_model(
     runtime: &Arc<dyn InferenceRuntime>,
     query: &str,
     matrix: &[IntentMatrixEntry],
+    service: Option<&DesktopAgentService>,
+    session_id: Option<[u8; 32]>,
 ) -> Result<Vec<IntentCandidateScore>, TransactionError> {
     if matrix.is_empty() {
         return Ok(vec![]);
@@ -354,10 +358,28 @@ async fn rank_with_inference_model(
             e
         ))
     })?;
+    let inference_input = if let Some(desktop_service) = service {
+        desktop_service
+            .prepare_cloud_inference_input(
+                session_id,
+                "intent_resolver",
+                INTENT_MODEL_RANK_MODEL_ID,
+                &input_bytes,
+            )
+            .await
+            .map_err(|e| {
+                TransactionError::Invalid(format!(
+                    "ERROR_CLASS=ResolverContractViolation intent rank airlock failed: {}",
+                    e
+                ))
+            })?
+    } else {
+        input_bytes
+    };
     let output = runtime
         .execute_inference(
             [0u8; 32],
-            &input_bytes,
+            &inference_input,
             ioi_types::app::agentic::InferenceOptions {
                 temperature: 0.0,
                 json_mode: true,
@@ -384,6 +406,8 @@ impl IntentRankBackend for Arc<dyn InferenceRuntime> {
         matrix_version: &str,
         matrix_source_hash: [u8; 32],
         matrix: &[IntentMatrixEntry],
+        service: Option<&DesktopAgentService>,
+        session_id: Option<[u8; 32]>,
     ) -> Result<IntentRankResult, TransactionError> {
         if matrix.is_empty() {
             return Ok(IntentRankResult {
@@ -447,7 +471,7 @@ impl IntentRankBackend for Arc<dyn InferenceRuntime> {
             }
         }
 
-        match rank_with_inference_model(self, query, matrix).await {
+        match rank_with_inference_model(self, query, matrix, service, session_id).await {
             Ok(ranked) => {
                 log::info!(
                     "IntentResolver used model-ranking backend matrix_version={} matrix_source_hash={}",

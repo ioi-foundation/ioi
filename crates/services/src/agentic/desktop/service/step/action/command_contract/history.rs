@@ -41,7 +41,10 @@ fn latest_command_history_payload(output: &str) -> Option<&str> {
     latest_payload
 }
 
-pub fn append_command_history_entry(history: &mut VecDeque<CommandExecution>, entry: CommandExecution) {
+pub fn append_command_history_entry(
+    history: &mut VecDeque<CommandExecution>,
+    entry: CommandExecution,
+) {
     history.push_back(entry);
     while history.len() > MAX_COMMAND_HISTORY {
         let _ = history.pop_front();
