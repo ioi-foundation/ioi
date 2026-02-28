@@ -492,6 +492,18 @@ export function SpotlightWindow({ variant = "overlay" }: SpotlightWindowProps) {
                           </button>
                         )}
 
+                        {showLiveThinking && !!turnContext?.streamPreview && (
+                          <div className="thought-stream-panel spot-inline-stream-panel">
+                            <div className="thought-stream-header">
+                              <span>{turnContext.streamLabel || "Terminal output"}</span>
+                              <span>{turnContext.streamIsFinal ? "final" : "live"}</span>
+                            </div>
+                            <pre className="thought-stream-output">
+                              {turnContext.streamPreview}
+                            </pre>
+                          </div>
+                        )}
+
                         {showInlineVisualReceipt && (
                           <VisualEvidenceCard
                             hash={inlineVisualHash || ""}

@@ -60,6 +60,7 @@ pub(crate) async fn run_execution_timer_phase(
         tool,
         AgentTool::SysExec { .. } | AgentTool::SysExecSession { .. }
     );
+    let is_command_provider_tool = is_command_execution_provider_tool(&tool);
     if command_scope && sys_exec_arms_timer_delay_backend(&tool) {
         record_timer_notification_contract_requirement(
             &mut agent_state.tool_execution_log,
@@ -189,47 +190,49 @@ pub(crate) async fn run_execution_timer_phase(
         if !command_history_seen {
             verification_checks.push("capability_execution_evidence=tool_output".to_string());
         }
-        if success {
-            if command_scope && requires_timer_notification_contract(agent_state) {
-                if sys_exec_arms_timer_delay_backend(&tool) {
+        if success && command_scope && requires_timer_notification_contract(agent_state) {
+            if sys_exec_arms_timer_delay_backend(&tool) {
+                mark_execution_postcondition(
+                    &mut agent_state.tool_execution_log,
+                    TIMER_SLEEP_BACKEND_POSTCONDITION,
+                );
+                verification_checks.push(postcondition_marker(TIMER_SLEEP_BACKEND_POSTCONDITION));
+            }
+            if let Some(command_preview) = sys_exec_command_preview(&tool) {
+                if command_arms_deferred_notification_path(&command_preview) {
                     mark_execution_postcondition(
                         &mut agent_state.tool_execution_log,
-                        TIMER_SLEEP_BACKEND_POSTCONDITION,
+                        TIMER_NOTIFICATION_PATH_POSTCONDITION,
                     );
                     verification_checks
-                        .push(postcondition_marker(TIMER_SLEEP_BACKEND_POSTCONDITION));
+                        .push(postcondition_marker(TIMER_NOTIFICATION_PATH_POSTCONDITION));
+                    mark_execution_receipt(
+                        &mut agent_state.tool_execution_log,
+                        "notification_strategy",
+                    );
+                    verification_checks.push(receipt_marker("notification_strategy"));
+                    verification_checks.push("timer_notification_path_armed=true".to_string());
                 }
-                if let Some(command_preview) = sys_exec_command_preview(&tool) {
-                    if command_arms_deferred_notification_path(&command_preview) {
-                        mark_execution_postcondition(
-                            &mut agent_state.tool_execution_log,
-                            TIMER_NOTIFICATION_PATH_POSTCONDITION,
-                        );
-                        verification_checks
-                            .push(postcondition_marker(TIMER_NOTIFICATION_PATH_POSTCONDITION));
-                        mark_execution_receipt(
-                            &mut agent_state.tool_execution_log,
-                            "notification_strategy",
-                        );
-                        verification_checks.push(receipt_marker("notification_strategy"));
-                        verification_checks.push("timer_notification_path_armed=true".to_string());
-                    }
-                }
-            }
-            if command_scope {
-                mark_execution_receipt(&mut agent_state.tool_execution_log, "execution");
-                verification_checks.push(receipt_marker("execution"));
-            }
-            verification_checks.push("capability_execution_phase=verification".to_string());
-            if command_scope {
-                record_verification_receipts(
-                    &mut agent_state.tool_execution_log,
-                    verification_checks,
-                    &tool,
-                    agent_state.command_history.back(),
-                );
             }
         }
+    }
+
+    if command_scope && success && matches!(tool, AgentTool::SysInstallPackage { .. }) {
+        verification_checks.push("capability_execution_evidence=tool_output".to_string());
+        mark_execution_postcondition(&mut agent_state.tool_execution_log, "execution_artifact");
+        verification_checks.push(postcondition_marker("execution_artifact"));
+    }
+
+    if success && command_scope && is_command_provider_tool {
+        mark_execution_receipt(&mut agent_state.tool_execution_log, "execution");
+        verification_checks.push(receipt_marker("execution"));
+        verification_checks.push("capability_execution_phase=verification".to_string());
+        record_verification_receipts(
+            &mut agent_state.tool_execution_log,
+            verification_checks,
+            &tool,
+            agent_state.command_history.back(),
+        );
     }
 
     if let Some(err_msg) = err.as_deref() {

@@ -328,6 +328,44 @@ IntentMatrixEntry {
     ],
 },
 IntentMatrixEntry {
+    intent_id: "command.exec.install_dependency".to_string(),
+    semantic_descriptor:
+        "download and install a named software package dependency on this local machine using the host package manager and verify the installed binary is available"
+            .to_string(),
+    query_binding: IntentQueryBindingClass::None,
+    required_capabilities: vec![
+        CapabilityId::from("agent.lifecycle"),
+        CapabilityId::from("conversation.reply"),
+        CapabilityId::from("system.install_package"),
+    ],
+    risk_class: "high".to_string(),
+    scope: IntentScopeProfile::CommandExecution,
+    preferred_tier: "tool_first".to_string(),
+    applicability_class: ExecutionApplicabilityClass::TopologyDependent,
+    requires_host_discovery: Some(true),
+    provider_selection_mode: Some(ProviderSelectionMode::DynamicSynthesis),
+    required_receipts: vec![
+        "host_discovery".to_string(),
+        "provider_selection".to_string(),
+        "provider_selection_commit".to_string(),
+        "execution".to_string(),
+        "verification".to_string(),
+        "verification_commit".to_string(),
+    ],
+    required_postconditions: vec!["execution_artifact".to_string()],
+    verification_mode: Some(VerificationMode::DynamicSynthesis),
+    aliases: vec![
+        "install dependency".to_string(),
+        "install package".to_string(),
+        "package manager".to_string(),
+    ],
+    exemplars: vec![
+        "download and install vlc media player".to_string(),
+        "install ffmpeg on this machine".to_string(),
+        "install package dependency locally".to_string(),
+    ],
+},
+IntentMatrixEntry {
     intent_id: "delegation.task".to_string(),
     semantic_descriptor:
         "delegate work to child agent sessions and aggregate worker outputs"

@@ -200,6 +200,13 @@ pub(super) async fn handle_routing_receipt(app: &tauri::AppHandle, receipt: Rout
             .map(|req| is_identity_resolution_kind(&req.kind))
             .unwrap_or(false)
             || is_waiting_for_identity_clarification_step(&t.current_step);
+        // Keep interactive wait-state transitions monotonic: routing receipts are audit summaries
+        // and must not reopen waiting UI while execution is actively running.
+        let receipt_can_assert_sudo_wait =
+            receipt_waiting_for_sudo && (waiting_for_sudo || t.phase != AgentPhase::Running);
+        let receipt_can_assert_clarification_wait = receipt_waiting_for_clarification
+            && (waiting_for_clarification || t.phase != AgentPhase::Running);
+
         let mut effective_waiting_for_sudo = waiting_for_sudo;
         let mut effective_waiting_for_clarification = waiting_for_clarification;
 
@@ -212,7 +219,7 @@ pub(super) async fn handle_routing_receipt(app: &tauri::AppHandle, receipt: Rout
             effective_waiting_for_clarification = false;
         }
 
-        if receipt_waiting_for_sudo {
+        if receipt_can_assert_sudo_wait {
             t.phase = AgentPhase::Complete;
             t.current_step = "Waiting for sudo password".to_string();
             t.gate_info = None;
@@ -223,24 +230,26 @@ pub(super) async fn handle_routing_receipt(app: &tauri::AppHandle, receipt: Rout
                 prompt: "A one-time sudo password is required to continue the install.".to_string(),
                 one_time: true,
             });
+            effective_waiting_for_sudo = true;
         }
 
-        if receipt_waiting_for_clarification {
+        if receipt_can_assert_clarification_wait {
             t.phase = AgentPhase::Complete;
             t.current_step = CLARIFICATION_WAIT_STEP.to_string();
             t.gate_info = None;
             t.pending_request_hash = None;
             t.credential_request = None;
             t.clarification_request = receipt_clarification_request.clone();
+            effective_waiting_for_clarification = true;
         }
 
         if receipt
             .policy_decision
             .eq_ignore_ascii_case("require_approval")
             && !effective_waiting_for_sudo
-            && !receipt_waiting_for_sudo
+            && !receipt_can_assert_sudo_wait
             && !effective_waiting_for_clarification
-            && !receipt_waiting_for_clarification
+            && !receipt_can_assert_clarification_wait
         {
             t.phase = AgentPhase::Gate;
             if t.gate_info.is_none() {
@@ -257,7 +266,7 @@ pub(super) async fn handle_routing_receipt(app: &tauri::AppHandle, receipt: Rout
             }
         }
 
-        if !receipt_waiting_for_sudo && !receipt_waiting_for_clarification {
+        if !effective_waiting_for_sudo && !effective_waiting_for_clarification {
             t.current_step = format!(
                 "Routing: {} ({})",
                 receipt.tool_name, receipt.policy_decision
