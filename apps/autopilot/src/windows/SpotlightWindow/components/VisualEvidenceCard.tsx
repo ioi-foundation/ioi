@@ -7,6 +7,8 @@ interface ContextBlob {
   mime_type: string;
 }
 
+const CONTEXT_BLOB_UNAVAILABLE_MIME = "application/x-ioi-context-unavailable";
+
 interface VisualEvidenceCardProps {
   hash: string;
   timestamp?: string | null;
@@ -68,10 +70,16 @@ export function VisualEvidenceCard({
 
   const imageSrc = useMemo(() => {
     if (!blob) return "";
+    if (blob.mime_type === CONTEXT_BLOB_UNAVAILABLE_MIME) return "";
     if (!blob.mime_type.toLowerCase().startsWith("image/")) return "";
     if (!blob.data_base64) return "";
     return `data:${blob.mime_type};base64,${blob.data_base64}`;
   }, [blob]);
+
+  const contextUnavailable = useMemo(
+    () => !!blob && blob.mime_type === CONTEXT_BLOB_UNAVAILABLE_MIME,
+    [blob],
+  );
 
   return (
     <article
@@ -93,7 +101,12 @@ export function VisualEvidenceCard({
         )}
         {loading && <div className="visual-evidence-status">Loading screenshot…</div>}
         {!loading && error && <div className="visual-evidence-status error">{error}</div>}
-        {!loading && !error && !!normalizedHash && !imageSrc && (
+        {!loading && !error && contextUnavailable && (
+          <div className="visual-evidence-status">
+            Visual context is not currently available for this step.
+          </div>
+        )}
+        {!loading && !error && !!normalizedHash && !contextUnavailable && !imageSrc && (
           <div className="visual-evidence-status">
             Visual blob is available but not an image payload.
           </div>

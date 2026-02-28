@@ -6,6 +6,9 @@ use ioi_ipc::public::GetContextBlobRequest;
 use ioi_types::app::agentic::LlmToolDefinition;
 use std::sync::Mutex;
 use tauri::State;
+use tonic::Code;
+
+const CONTEXT_BLOB_UNAVAILABLE_MIME: &str = "application/x-ioi-context-unavailable";
 
 #[tauri::command]
 pub async fn get_available_tools() -> Result<Vec<LlmToolDefinition>, String> {
@@ -21,11 +24,16 @@ pub async fn get_context_blob(
 
     let request = tonic::Request::new(GetContextBlobRequest { blob_hash: hash });
 
-    let response = client
-        .get_context_blob(request)
-        .await
-        .map_err(|e| format!("RPC error: {}", e))?
-        .into_inner();
+    let response = match client.get_context_blob(request).await {
+        Ok(resp) => resp.into_inner(),
+        Err(status) if status.code() == Code::NotFound => {
+            return Ok(ContextBlob {
+                data_base64: String::new(),
+                mime_type: CONTEXT_BLOB_UNAVAILABLE_MIME.to_string(),
+            });
+        }
+        Err(status) => return Err(format!("RPC error: {}", status)),
+    };
 
     let data_base64 = STANDARD.encode(&response.data);
 
