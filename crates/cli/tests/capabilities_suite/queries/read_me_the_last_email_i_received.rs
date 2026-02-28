@@ -71,6 +71,7 @@ fn evaluate(obs: &RunObservation) -> LocalJudgeResult {
         || output_lower.contains("\"received_at_utc\":");
     let mailbox_output_present = output_lower.contains("\"mailbox\":");
     let objective_specific_mail_read_evidence_present = mail_read_success_count > 0
+        && mail_read_failure_count == 0
         && structured_mail_payload_present
         && imap_citation_present
         && received_timestamp_present
@@ -110,6 +111,7 @@ fn evaluate(obs: &RunObservation) -> LocalJudgeResult {
             .event_excerpt
             .iter()
             .any(|line| has_mailbox_fallback_marker(line));
+    let no_mailbox_fallback_markers = !mailbox_fallback_markers_present;
 
     let any_contract_failure_marker = observation_has_contract_failure_marker(obs);
     let completion_evidence_present = obs.completed
@@ -169,8 +171,9 @@ fn evaluate(obs: &RunObservation) -> LocalJudgeResult {
             "objective_specific_mail_read_evidence_present",
             objective_specific_mail_read_evidence_present,
             format!(
-                "mail_read_success_count={} structured_mail_payload_present={} imap_citation_present={} received_timestamp_present={} mailbox_output_present={}",
+                "mail_read_success_count={} mail_read_failure_count={} structured_mail_payload_present={} imap_citation_present={} received_timestamp_present={} mailbox_output_present={}",
                 mail_read_success_count,
+                mail_read_failure_count,
                 structured_mail_payload_present,
                 imap_citation_present,
                 received_timestamp_present,
@@ -211,11 +214,11 @@ fn evaluate(obs: &RunObservation) -> LocalJudgeResult {
         ),
         LocalCheck::new(
             "no_mailbox_fallback_markers",
-            !mailbox_fallback_markers_present,
+            no_mailbox_fallback_markers,
             truncate_chars(
                 &format!(
-                    "verification_checks={:?} final_reply={} event_excerpt={:?}",
-                    obs.verification_checks, obs.final_reply, obs.event_excerpt
+                    "mailbox_fallback_markers_present={} verification_checks={:?} final_reply={} event_excerpt={:?}",
+                    mailbox_fallback_markers_present, obs.verification_checks, obs.final_reply, obs.event_excerpt
                 ),
                 260,
             ),
@@ -385,10 +388,21 @@ fn observation_has_contract_failure_marker(obs: &RunObservation) -> bool {
     evidence_corpus.extend(
         obs.action_evidence
             .iter()
+            .filter(|entry| is_mail_read_latest_tool_name(&entry.tool_name))
             .map(|entry| format!("{} {}", entry.agent_status, entry.output_excerpt)),
     );
     evidence_corpus.extend(obs.verification_checks.iter().cloned());
-    evidence_corpus.extend(obs.event_excerpt.iter().cloned());
+    evidence_corpus.extend(
+        obs.event_excerpt
+            .iter()
+            .filter(|line| {
+                let lower = line.to_ascii_lowercase();
+                lower.contains("mail_read_latest")
+                    || lower.contains("completion_gate")
+                    || lower.contains("contract_gate")
+            })
+            .cloned(),
+    );
 
     evidence_corpus
         .iter()
