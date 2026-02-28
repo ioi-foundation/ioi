@@ -15,25 +15,31 @@ import { useSpotlightLayout } from "./hooks/useSpotlightLayout";
 import { useSpotlightSession } from "./hooks/useSpotlightSession";
 import { useGateState } from "./hooks/useGateState";
 import { useTurnContexts } from "./hooks/useTurnContexts";
+import { useLegacyPresentation } from "./hooks/useLegacyPresentation";
 
 // Sub-components
 import { icons } from "./components/Icons";
 import { IOIWatermark } from "./components/IOIWatermark";
-import { MessageActions } from "./components/MessageActions";
 import { MarkdownMessage } from "./components/MarkdownMessage";
 import { ScrollToBottom } from "./components/ScrollToBottom";
 import { HistorySidebar } from "./components/HistorySidebar";
 import { ThoughtChain } from "./components/ThoughtChain";
 import { AnswerCard } from "./components/AnswerCard";
-import { DropdownOption } from "./components/SpotlightDropdown";
-import { ArtifactSidebar } from "./components/ArtifactSidebar";
-import { ArtifactHubSidebar } from "./components/ArtifactHubSidebar";
+import { SpotlightArtifactPanel } from "./components/SpotlightArtifactPanel";
 import { VisualEvidenceCard } from "./components/VisualEvidenceCard";
 import { SpotlightInputSection } from "./components/SpotlightInputSection";
 import { SpotlightGateDock } from "./components/SpotlightGateDock";
 import { buildRunPresentation } from "./viewmodels/contentPipeline";
 import { exportThreadContextBundle } from "./utils/exportContext";
 import { normalizeVisualHash } from "./utils/visualHash";
+import {
+  ARTIFACT_PANEL_WIDTH,
+  BASE_PANEL_WIDTH,
+  CONTENT_PIPELINE_V2_ENABLED,
+  modelOptions,
+  SIDEBAR_PANEL_WIDTH,
+  workspaceOptions,
+} from "./constants";
 
 // Styles
 import "./styles/Layout.css";
@@ -44,29 +50,6 @@ import "./styles/Visuals.css";
 import "./styles/ArtifactPanel.css";
 import "./styles/Overrides.css";
 import "./styles/MicroEventCard.css";
-
-// ============================================
-// CONSTANTS
-// ============================================
-
-const workspaceOptions: DropdownOption[] = [
-  { value: "local", label: "Local", desc: "On-device", icon: icons.laptop },
-  { value: "cloud", label: "Cloud", desc: "Remote", icon: icons.cloud },
-];
-
-const modelOptions: DropdownOption[] = [
-  { value: "GPT-4o", label: "GPT-4o", desc: "OpenAI" },
-  { value: "Claude 3.5", label: "Claude 3.5", desc: "Anthropic" },
-  { value: "Llama 3", label: "Llama 3", desc: "Meta" },
-];
-
-const BASE_PANEL_WIDTH = 450;
-const SIDEBAR_PANEL_WIDTH = 260;
-const ARTIFACT_PANEL_WIDTH = 400;
-const CONTENT_PIPELINE_V2_FLAG = "AUTOPILOT_CONTENT_PIPELINE_V2";
-const CONTENT_PIPELINE_V2_ENABLED =
-  String((import.meta as any).env?.[CONTENT_PIPELINE_V2_FLAG] ?? "true").toLowerCase() !==
-  "false";
 
 type SpotlightWindowProps = {
   variant?: "overlay" | "studio";
@@ -382,108 +365,20 @@ export function SpotlightWindow({ variant = "overlay" }: SpotlightWindowProps) {
   // LEGACY PRESENTATION
   // ============================================
 
-  const { legacyChatElements, hasLegacyChainContent } = useMemo(() => {
-    const combined = [
-      ...activeHistory.map((message) => ({ ...message, isGate: false, gateData: null })),
-      ...chatEvents,
-    ];
-
-    const groups: Array<{
-      type: "message" | "chain" | "gate";
-      content: any;
-    }> = [];
-
-    let currentChain: ChatMessage[] = [];
-    let foundChain = false;
-
-    combined.forEach((message) => {
-      if (message.role === "tool" || (message.role === "system" && !message.isGate)) {
-        currentChain.push(message);
-      } else if (message.isGate) {
-        if (currentChain.length > 0) {
-          groups.push({ type: "chain", content: [...currentChain] });
-          foundChain = true;
-          currentChain = [];
-        }
-        groups.push({ type: "gate", content: message.gateData });
-      } else {
-        if (currentChain.length > 0) {
-          groups.push({ type: "chain", content: [...currentChain] });
-          foundChain = true;
-          currentChain = [];
-        }
-        groups.push({ type: "message", content: message });
-      }
-    });
-
-    if (currentChain.length > 0) {
-      groups.push({ type: "chain", content: currentChain });
-      foundChain = true;
-    }
-
-    const historyElements = groups.map((group, index) => (
-      <React.Fragment key={index}>
-        {group.type === "message" && (
-          <div className={`spot-message ${group.content.role === "user" ? "user" : "agent"}`}>
-            {group.content.role === "agent" ? (
-              <MarkdownMessage text={group.content.text} />
-            ) : (
-              <div className="message-content-text">{group.content.text}</div>
-            )}
-            {group.content.role !== "user" && (
-              <MessageActions text={group.content.text} showRetry={true} onRetry={() => {}} />
-            )}
-          </div>
-        )}
-
-        {group.type === "chain" && (
-          <ThoughtChain
-            messages={group.content}
-            activeStep={isRunning && index === groups.length - 1 ? task?.current_step : null}
-            agentName={task?.agent}
-            generation={task?.generation}
-            progress={task?.progress}
-            totalSteps={task?.total_steps}
-            onOpenArtifact={openArtifactById}
-          />
-        )}
-
-        {group.type === "gate" && null}
-      </React.Fragment>
-    ));
-
-    const timelineElements: React.ReactNode[] = [];
-    if (activeEvents.length > 0) {
-      const byStep = new Map<number, AgentEvent[]>();
-      for (const event of activeEvents) {
-        const list = byStep.get(event.step_index) || [];
-        list.push(event);
-        byStep.set(event.step_index, list);
-      }
-      const orderedSteps = Array.from(byStep.keys()).sort((a, b) => a - b);
-      const latestStep = orderedSteps[orderedSteps.length - 1];
-      for (const stepIndex of orderedSteps) {
-        timelineElements.push(
-          <ThoughtChain
-            key={`thinking-${stepIndex}`}
-            messages={[]}
-            events={byStep.get(stepIndex) || []}
-            onOpenArtifact={openArtifactById}
-            activeStep={isRunning && stepIndex === latestStep ? task?.current_step : null}
-            agentName={task?.agent}
-            generation={task?.generation}
-            progress={task?.progress}
-            totalSteps={task?.total_steps}
-          />,
-        );
-      }
-    }
-
-    return {
-      legacyChatElements: [...historyElements, ...timelineElements],
-      hasLegacyChainContent: foundChain || timelineElements.length > 0,
-    };
-  }, [activeEvents, activeHistory, chatEvents, isRunning, openArtifactById, task]);
+  const { legacyChatElements, hasLegacyChainContent } = useLegacyPresentation({
+    activeHistory,
+    chatEvents: chatEvents as any,
+    activeEvents,
+    isRunning,
+    taskMeta: {
+      currentStep: task?.current_step,
+      agent: task?.agent,
+      generation: task?.generation,
+      progress: task?.progress,
+      totalSteps: task?.total_steps,
+    },
+    onOpenArtifact: openArtifactById,
+  });
 
   const showInitialLoader = CONTENT_PIPELINE_V2_ENABLED
     ? isRunning && conversationTurns.length === 0
@@ -750,22 +645,18 @@ export function SpotlightWindow({ variant = "overlay" }: SpotlightWindowProps) {
             />
           </div>
 
-          {layout.artifactPanelVisible && artifactHubView && (
-            <ArtifactHubSidebar
-              initialView={artifactHubView}
-              initialTurnId={artifactHubTurnId}
-              events={activeEvents}
-              artifacts={activeArtifacts}
-              sourceSummary={runPresentation.sourceSummary}
-              thoughtSummary={runPresentation.thoughtSummary}
-              onOpenArtifact={openArtifactById}
-              onClose={closeRightPanel}
-            />
-          )}
-
-          {layout.artifactPanelVisible && selectedArtifact && !artifactHubView && (
-            <ArtifactSidebar artifact={selectedArtifact} onClose={closeRightPanel} />
-          )}
+          <SpotlightArtifactPanel
+            visible={layout.artifactPanelVisible}
+            artifactHubView={artifactHubView}
+            artifactHubTurnId={artifactHubTurnId}
+            events={activeEvents}
+            artifacts={activeArtifacts}
+            selectedArtifact={selectedArtifact}
+            sourceSummary={runPresentation.sourceSummary}
+            thoughtSummary={runPresentation.thoughtSummary}
+            onOpenArtifact={openArtifactById}
+            onClose={closeRightPanel}
+          />
         </div>
       </div>
     </div>

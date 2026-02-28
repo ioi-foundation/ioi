@@ -129,12 +129,13 @@ export function StudioWindow() {
                     <BuilderView 
                         runtime={runtime}
                         onBack={() => setEditingAgent(null)}
-                        onAddToGraph={(config) => { 
+                        onAddToGraph={(config) => {
                             // 1. Switch to Compose View
                             setActiveView('compose');
                             setEditingAgent(null);
-                            console.log("Loading Agent Config into Graph:", config);
-                            // TODO: runtime.loadConfig(config)
+                            void runtime.loadBuilderConfigToCompose(config).catch((error) => {
+                                console.error("Builder->Compose handoff unavailable:", error);
+                            });
                         }} 
                     />
                 )}

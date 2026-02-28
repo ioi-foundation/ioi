@@ -119,7 +119,7 @@ export function CommandPalette({ onClose }: CommandPaletteProps) {
           {Object.entries(groupedCommands).map(([category, cmds]) => (
             <div key={category} className="command-group">
               <div className="command-group-title">{category}</div>
-              {cmds.map((cmd, cmdIdx) => {
+              {cmds.map((cmd) => {
                 const globalIdx = filteredCommands.indexOf(cmd);
                 return (
                   <button

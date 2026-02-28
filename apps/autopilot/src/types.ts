@@ -1,16 +1,14 @@
 // apps/autopilot/src/types.ts
 
 // Import Graph Types from the shared package
-// (Once installed, this will resolve to node_modules/@ioi/agent-ide/dist/...)
-// For now, we will assume the build step handles this mapping.
-import type { 
+import type {
   Node, 
   Edge, 
   NodeLogic, 
   FirewallPolicy, 
   GraphGlobalConfig, 
   AgentConfiguration 
-} from "@ioi/agent-ide/dist/types/graph"; // Path may vary depending on exports config
+} from "@ioi/agent-ide";
 
 // Re-export for local consumption if needed, or update imports in Autopilot components
 export type { Node, Edge, NodeLogic, FirewallPolicy, GraphGlobalConfig, AgentConfiguration };

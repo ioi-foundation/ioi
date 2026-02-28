@@ -6,15 +6,15 @@ import type {
   RunPresentation,
 } from "../../../types";
 import { collectScreenshotReceipts } from "../utils/screenshotEvidence";
-
-const TOOL_NAME_KEYS = ["tool_name", "tool", "name"];
-
-type TurnEventWindow = {
-  id: string;
-  index: number;
-  startAtMs: number | null;
-  endAtMs: number | null;
-};
+import {
+  eventOutputText,
+  eventToolName,
+} from "../utils/eventFields";
+import {
+  buildEventTurnWindows,
+  eventBelongsToTurnWindow,
+  type EventTurnWindow,
+} from "../utils/turnWindows";
 
 export type ConversationTurn = {
   key: string;
@@ -42,52 +42,8 @@ type UseTurnContextsOptions = {
   runPresentation: RunPresentation;
 };
 
-function parseTimestampMs(value: string): number | null {
-  const ms = Date.parse(value);
-  return Number.isNaN(ms) ? null : ms;
-}
-
-function getValueString(value: unknown): string {
-  if (typeof value === "string") {
-    return value;
-  }
-  if (typeof value === "number" || typeof value === "boolean") {
-    return String(value);
-  }
-  return "";
-}
-
 function normalizeOutputForCompare(value: string): string {
   return value.replace(/\s+/g, " ").trim().toLowerCase();
-}
-
-function eventOutput(event: AgentEvent): string {
-  const details = event.details || {};
-  const digest = event.digest || {};
-  const candidates = [details.output, details.chunk, details.content, digest.output_snippet];
-  for (const candidate of candidates) {
-    const text = getValueString(candidate).trim();
-    if (text.length > 0) {
-      return text;
-    }
-  }
-  return "";
-}
-
-function eventToolName(event: AgentEvent): string {
-  const details = event.details || {};
-  const digest = event.digest || {};
-  for (const key of TOOL_NAME_KEYS) {
-    const digestValue = getValueString(digest[key as keyof typeof digest]).trim();
-    if (digestValue.length > 0) {
-      return digestValue;
-    }
-    const detailsValue = getValueString(details[key as keyof typeof details]).trim();
-    if (detailsValue.length > 0) {
-      return detailsValue;
-    }
-  }
-  return "";
 }
 
 function isChatReplyTool(event: AgentEvent): boolean {
@@ -99,51 +55,11 @@ function collectCanonicalAnswerHashes(events: AgentEvent[]): Set<string> {
   const hashes = new Set<string>();
   for (const event of events) {
     if (!isChatReplyTool(event)) continue;
-    const output = eventOutput(event).trim();
+    const output = eventOutputText(event).trim();
     if (!output) continue;
     hashes.add(normalizeOutputForCompare(output));
   }
   return hashes;
-}
-
-function isUserRequestEvent(event: AgentEvent): boolean {
-  const details = (event.details || {}) as Record<string, unknown>;
-  const kind = String(details.kind || "")
-    .trim()
-    .toLowerCase();
-  return kind === "user_input" || event.title.trim().toLowerCase() === "user request";
-}
-
-function buildTurnWindows(events: AgentEvent[]): TurnEventWindow[] {
-  const ordered = events
-    .slice()
-    .sort(
-      (a, b) =>
-        a.timestamp.localeCompare(b.timestamp) ||
-        a.step_index - b.step_index ||
-        a.event_id.localeCompare(b.event_id),
-    );
-  const prompts = ordered.filter(isUserRequestEvent);
-  return prompts.map((event, idx) => {
-    const next = prompts[idx + 1];
-    return {
-      id: event.event_id,
-      index: idx + 1,
-      startAtMs: parseTimestampMs(event.timestamp),
-      endAtMs: next ? parseTimestampMs(next.timestamp) : null,
-    };
-  });
-}
-
-function eventInTurnWindow(event: AgentEvent, window: TurnEventWindow): boolean {
-  const eventAtMs = parseTimestampMs(event.timestamp);
-  if (window.startAtMs !== null && eventAtMs !== null && eventAtMs < window.startAtMs) {
-    return false;
-  }
-  if (window.endAtMs !== null && eventAtMs !== null && eventAtMs >= window.endAtMs) {
-    return false;
-  }
-  return true;
 }
 
 export function useTurnContexts({
@@ -227,7 +143,10 @@ export function useTurnContexts({
     return -1;
   }, [conversationTurns]);
 
-  const eventTurnWindows = useMemo(() => buildTurnWindows(activeEvents), [activeEvents]);
+  const eventTurnWindows = useMemo<EventTurnWindow[]>(
+    () => buildEventTurnWindows(activeEvents),
+    [activeEvents],
+  );
 
   const turnContexts = useMemo<TurnContext[]>(() => {
     let promptOrdinal = 0;
@@ -253,7 +172,9 @@ export function useTurnContexts({
         };
       }
 
-      const windowEvents = activeEvents.filter((event) => eventInTurnWindow(event, window));
+      const windowEvents = activeEvents.filter((event) =>
+        eventBelongsToTurnWindow(event, window),
+      );
       const stepIndexes = new Set(windowEvents.map((event) => event.step_index));
       const thoughtCount = thoughtAgents.filter((agent) => stepIndexes.has(agent.stepIndex)).length;
       const sourceCount = Math.max(

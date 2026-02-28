@@ -1,187 +1,35 @@
 // Path: crates/services/src/agentic/desktop/service/step/cognition.rs
 
-use crate::agentic::desktop::service::actions::safe_truncate;
+#[path = "cognition/capability.rs"]
+mod capability;
+#[path = "cognition/history.rs"]
+mod history;
+#[path = "cognition/inference.rs"]
+mod inference;
+#[path = "cognition/router.rs"]
+mod router;
+
 use crate::agentic::desktop::service::step::action::command_contract::{
     runtime_desktop_directory, runtime_home_directory, runtime_host_environment_receipt,
 };
 use crate::agentic::desktop::service::step::perception::PerceptionContext;
-use crate::agentic::desktop::service::step::signals::{
-    is_browser_surface, is_mail_connector_tool_name, is_mailbox_connector_intent,
-};
+use crate::agentic::desktop::service::step::signals::is_browser_surface;
 use crate::agentic::desktop::service::DesktopAgentService;
-use crate::agentic::desktop::types::{
-    AgentState, CommandExecution, ExecutionTier, MAX_PROMPT_HISTORY,
-};
+use crate::agentic::desktop::types::{AgentState, ExecutionTier, MAX_PROMPT_HISTORY};
+use capability::{mailbox_connector_instruction, preflight_missing_capability};
 use hex;
+use history::build_recent_command_history_context;
+use inference::{cognition_inference_timeout, inference_error_system_fail_reason};
 use ioi_crypto::algorithms::hash::sha256;
-use ioi_types::app::agentic::{InferenceOptions, IntentScopeProfile, LlmToolDefinition};
+use ioi_types::app::agentic::{InferenceOptions, IntentScopeProfile};
 use ioi_types::error::TransactionError;
-use serde::Deserialize;
+use router::{determine_attention_mode, AttentionMode};
 use serde_json::json;
-use std::collections::VecDeque;
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
-
-// --- Cognitive Router Types (System 1) ---
-#[derive(Debug, Deserialize, Clone, Copy, PartialEq)]
-enum AttentionMode {
-    Chat,
-    BlindAction,
-    VisualAction,
-}
+use std::time::{SystemTime, UNIX_EPOCH};
 
 pub struct CognitionResult {
     pub raw_output: String,
     pub strategy_used: String,
-}
-
-fn cognition_inference_timeout() -> Duration {
-    const DEFAULT_TIMEOUT_SECS: u64 = 15;
-    std::env::var("IOI_COGNITION_INFERENCE_TIMEOUT_SECS")
-        .ok()
-        .and_then(|raw| raw.parse::<u64>().ok())
-        .filter(|secs| *secs > 0)
-        .map(Duration::from_secs)
-        .unwrap_or_else(|| Duration::from_secs(DEFAULT_TIMEOUT_SECS))
-}
-
-fn compact_single_line(input: &str, max_chars: usize) -> String {
-    let collapsed = input.split_whitespace().collect::<Vec<_>>().join(" ");
-    if collapsed.chars().count() <= max_chars {
-        collapsed
-    } else {
-        let mut truncated = collapsed.chars().take(max_chars).collect::<String>();
-        truncated.push_str("...");
-        truncated
-    }
-}
-
-fn inference_error_system_fail_reason(raw_error: &str) -> String {
-    let lower = raw_error.to_ascii_lowercase();
-
-    if lower.contains("insufficient_quota")
-        || (lower.contains("429") && lower.contains("too many requests"))
-    {
-        return "ERROR_CLASS=UserInterventionNeeded Cognition inference unavailable: provider quota exhausted (HTTP 429 insufficient_quota). Update billing/quota and resume.".to_string();
-    }
-
-    if lower.contains("invalid_api_key")
-        || lower.contains("authentication")
-        || (lower.contains("401") && lower.contains("unauthorized"))
-    {
-        return "ERROR_CLASS=UserInterventionNeeded Cognition inference unavailable: provider authentication failed (check API key/runtime credentials).".to_string();
-    }
-
-    if lower.contains("forbidden") || (lower.contains("403") && lower.contains("provider")) {
-        return "ERROR_CLASS=UserInterventionNeeded Cognition inference unavailable: provider access is forbidden for current credentials/config.".to_string();
-    }
-
-    let detail = compact_single_line(raw_error, 240);
-    format!(
-        "ERROR_CLASS=UserInterventionNeeded Cognition inference failed before tool planning. detail={}",
-        detail
-    )
-}
-
-fn preflight_missing_capability(
-    scope: IntentScopeProfile,
-    is_browser_active: bool,
-    tools: &[LlmToolDefinition],
-) -> Option<(String, String)> {
-    // Browser windows have their own tool surface; avoid false escalations here.
-    if is_browser_active {
-        return None;
-    }
-
-    let has_tool = |name: &str| tools.iter().any(|t| t.name == name);
-
-    let requires_ui_interaction = matches!(scope, IntentScopeProfile::UiInteraction);
-    let requires_browser_interaction = matches!(scope, IntentScopeProfile::WebResearch);
-    let requires_command_execution = matches!(scope, IntentScopeProfile::CommandExecution);
-    let requires_workspace_ops = matches!(scope, IntentScopeProfile::WorkspaceOps);
-
-    let has_browser_tooling = has_tool("web__search")
-        || has_tool("web__read")
-        || has_tool("browser__navigate")
-        || has_tool("browser__snapshot")
-        || has_tool("browser__click")
-        || has_tool("browser__click_element");
-
-    let can_click =
-        has_tool("computer") || has_tool("gui__click_element") || has_tool("gui__click");
-    let can_type = has_tool("computer") || has_tool("gui__type");
-
-    let has_command_tool = has_tool("sys__exec") || has_tool("sys__exec_session");
-    let has_filesystem_tooling = tools.iter().any(|t| t.name.starts_with("filesystem__"));
-
-    if requires_browser_interaction && !has_browser_tooling {
-        return Some((
-            "browser__navigate".to_string(),
-            "Resolver selected web_research scope but browser tooling is unavailable.".to_string(),
-        ));
-    }
-
-    if requires_ui_interaction && !can_click {
-        return Some((
-            "gui__click_element".to_string(),
-            "Resolver selected ui_interaction scope but no click-capable tool is available."
-                .to_string(),
-        ));
-    }
-
-    if requires_ui_interaction && !can_type {
-        return Some((
-            "gui__type".to_string(),
-            "Resolver selected ui_interaction scope but no typing-capable tool is available."
-                .to_string(),
-        ));
-    }
-
-    if requires_command_execution && !has_command_tool {
-        return Some((
-            "sys__exec".to_string(),
-            "Resolver selected command_execution scope but neither sys__exec nor sys__exec_session is available."
-                .to_string(),
-        ));
-    }
-
-    if requires_workspace_ops && !has_filesystem_tooling {
-        return Some((
-            "filesystem__read_file".to_string(),
-            "Resolver selected workspace_ops scope but filesystem tooling is unavailable."
-                .to_string(),
-        ));
-    }
-
-    None
-}
-
-fn mailbox_connector_tool_names(tools: &[LlmToolDefinition]) -> Vec<String> {
-    let mut names = tools
-        .iter()
-        .filter(|tool| is_mail_connector_tool_name(&tool.name))
-        .map(|tool| tool.name.clone())
-        .collect::<Vec<_>>();
-    names.sort();
-    names.dedup();
-    names
-}
-
-fn mailbox_connector_instruction(goal: &str, tools: &[LlmToolDefinition]) -> Option<String> {
-    if !is_mailbox_connector_intent(goal) {
-        return None;
-    }
-
-    let names = mailbox_connector_tool_names(tools);
-    if names.is_empty() {
-        return Some(
-            "18. MAILBOX CONNECTOR RULE: This request is mailbox-local. Do NOT use `web__search`, `web__read`, `browser__*`, or `memory__search` as a substitute. Use `chat__reply` to state mailbox-access limitation and provide actionable connector next steps with an absolute UTC timestamp and at least one citation line.".to_string(),
-        );
-    }
-
-    Some(format!(
-        "18. MAILBOX CONNECTOR RULE: This request is mailbox-local. Use mailbox connector tooling first: {}. Do NOT use `web__search`, `web__read`, or `browser__*` unless the user explicitly asks for public-web context.",
-        names.join(", ")
-    ))
 }
 
 pub async fn think(
@@ -771,118 +619,6 @@ OPERATING RULES:
         raw_output,
         strategy_used: format!("{:?}", perception.tier),
     })
-}
-
-fn build_recent_command_history_context(command_history: &VecDeque<CommandExecution>) -> String {
-    if command_history.is_empty() {
-        return String::new();
-    }
-
-    let mut section = String::new();
-    section.push_str(
-        "\n## RECENT COMMAND EXECUTION HISTORY (Redacted/Reasoning-only)\nYou have access to recent sanitized command context for continuity.\n",
-    );
-
-    for (idx, entry) in command_history
-        .iter()
-        .rev()
-        .take(MAX_PROMPT_HISTORY)
-        .enumerate()
-    {
-        section.push_str(&format!(
-            "{}. [Step {}] {} → exit={} (stdout: {} | stderr: {})\n",
-            idx + 1,
-            entry.step_index,
-            entry.command,
-            entry.exit_code,
-            safe_truncate(&entry.stdout, 60),
-            safe_truncate(&entry.stderr, 60),
-        ));
-    }
-
-    section.push_str(
-        "Use this context to avoid repeating failed commands and to build on successful steps.\n",
-    );
-    section
-}
-
-async fn determine_attention_mode(
-    service: &DesktopAgentService,
-    latest_input: &str,
-    goal: &str,
-    _step: u32,
-    last_output: Option<&str>,
-    resolved_scope: Option<IntentScopeProfile>,
-) -> AttentionMode {
-    if let Some(scope) = resolved_scope {
-        match scope {
-            IntentScopeProfile::Conversation => return AttentionMode::Chat,
-            IntentScopeProfile::WebResearch | IntentScopeProfile::UiInteraction => {
-                return AttentionMode::VisualAction;
-            }
-            IntentScopeProfile::WorkspaceOps
-            | IntentScopeProfile::AppLaunch
-            | IntentScopeProfile::CommandExecution
-            | IntentScopeProfile::Delegation => return AttentionMode::BlindAction,
-            IntentScopeProfile::Unknown => {}
-        }
-    }
-    if let Some(out) = last_output {
-        if out.contains("I need to see") || out.contains("screenshot") {
-            return AttentionMode::VisualAction;
-        }
-    }
-
-    let prompt = format!(
-        "GOAL: \"{}\"\n\
-        LATEST USER MESSAGE: \"{}\"\n\
-        Classify the immediate next execution mode and respond with strict JSON:\n\
-        {{ \"mode\": \"Chat\" | \"Blind\" | \"Visual\" }}.\n\
-        Choose Visual when perception/browser/UI state is needed, Blind for deterministic non-visual actions, Chat for conversational-only responses.\n\
-        Respond JSON: {{ \"mode\": \"Chat\" | \"Blind\" | \"Visual\" }}",
-        goal, latest_input
-    );
-
-    let options = InferenceOptions {
-        temperature: 0.0,
-        json_mode: true,
-        ..Default::default()
-    };
-
-    match service
-        .fast_inference
-        .execute_inference(
-            [0u8; 32],
-            &match service
-                .prepare_cloud_inference_input(
-                    None,
-                    "desktop_agent",
-                    "model_hash:0000000000000000000000000000000000000000000000000000000000000000",
-                    prompt.as_bytes(),
-                )
-                .await
-            {
-                Ok(v) => v,
-                Err(_) => return AttentionMode::VisualAction,
-            },
-            options,
-        )
-        .await
-    {
-        Ok(bytes) => {
-            let s = String::from_utf8_lossy(&bytes);
-            if let Ok(val) = serde_json::from_str::<serde_json::Value>(&s) {
-                return match val["mode"].as_str() {
-                    Some("Chat") => AttentionMode::Chat,
-                    Some("Blind") => AttentionMode::BlindAction,
-                    Some("Visual") => AttentionMode::VisualAction,
-                    _ => AttentionMode::VisualAction,
-                };
-            }
-            AttentionMode::VisualAction
-        }
-        Err(_) => AttentionMode::VisualAction,
-    }
 }
 
 #[cfg(test)]

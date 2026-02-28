@@ -1,4 +1,7 @@
 use super::util::{marker_hits, normalize_marker_text};
+use crate::agentic::desktop::service::step::text_tokens::{
+    is_iso_date_token, looks_like_clock_time, token_has_numeric_payload,
+};
 use std::collections::BTreeSet;
 
 const METRIC_AXIS_TEMPERATURE_MARKERS: [&str; 5] = [
@@ -185,59 +188,6 @@ fn metric_tokens(text: &str) -> Vec<String> {
     .collect()
 }
 
-fn token_has_numeric_payload(token: &str) -> bool {
-    let mut digits = 0usize;
-    for ch in token.chars() {
-        if ch.is_ascii_digit() {
-            digits += 1;
-            continue;
-        }
-        if ch.is_ascii_alphabetic() {
-            return false;
-        }
-        if matches!(ch, '.' | '%' | '/' | '-' | '+' | ',' | '$' | ':') {
-            continue;
-        }
-        return false;
-    }
-    digits > 0
-}
-
-fn has_iso_date_token(token: &str) -> bool {
-    let bytes = token.as_bytes();
-    if bytes.len() != 10 {
-        return false;
-    }
-    bytes[0].is_ascii_digit()
-        && bytes[1].is_ascii_digit()
-        && bytes[2].is_ascii_digit()
-        && bytes[3].is_ascii_digit()
-        && bytes[4] == b'-'
-        && bytes[5].is_ascii_digit()
-        && bytes[6].is_ascii_digit()
-        && bytes[7] == b'-'
-        && bytes[8].is_ascii_digit()
-        && bytes[9].is_ascii_digit()
-}
-
-fn has_clock_token(token: &str) -> bool {
-    let cleaned = token.trim_matches(|ch: char| !ch.is_ascii_digit() && ch != ':');
-    let mut parts = cleaned.split(':');
-    let Some(hours) = parts.next() else {
-        return false;
-    };
-    let Some(minutes) = parts.next() else {
-        return false;
-    };
-    if parts.next().is_some() {
-        return false;
-    }
-    !hours.is_empty()
-        && minutes.len() == 2
-        && hours.chars().all(|ch| ch.is_ascii_digit())
-        && minutes.chars().all(|ch| ch.is_ascii_digit())
-}
-
 fn axis_hits(lower: &str) -> BTreeSet<MetricAxis> {
     let mut out = BTreeSet::new();
     if metric_marker_hits(lower, &METRIC_AXIS_TEMPERATURE_MARKERS) > 0 {
@@ -308,7 +258,7 @@ pub fn analyze_metric_schema(text: &str) -> MetricSchemaProfile {
         .count();
     let timestamp_hits = tokens
         .iter()
-        .filter(|token| has_clock_token(token) || has_iso_date_token(token))
+        .filter(|token| looks_like_clock_time(token) || is_iso_date_token(token))
         .count();
     let observation_hits = marker_hits(&normalized_lower, &METRIC_OBSERVATION_MARKERS);
     let horizon_hits = marker_hits(&normalized_lower, &METRIC_HORIZON_MARKERS);

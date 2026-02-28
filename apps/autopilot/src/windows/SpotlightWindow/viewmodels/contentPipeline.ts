@@ -16,8 +16,12 @@ import type {
   ThoughtSummary,
 } from "../../../types";
 import { formatChatContractForClipboard, parseChatContractEnvelope } from "./chatContract";
+import {
+  eventOutputText,
+  eventToolName as normalizedEventToolName,
+  toEventString,
+} from "../utils/eventFields";
 
-const TOOL_NAME_KEYS = ["tool_name", "tool", "name"];
 const URL_RE = /https?:\/\/[^\s)\]}"']+/gim;
 const WEB_SEARCH_TOOL = "web__search";
 const WEB_READ_TOOL = "web__read";
@@ -62,47 +66,16 @@ export function normalizeOutputForHash(value: string): string {
 }
 
 function getValueString(value: unknown): string {
-  if (typeof value === "string") {
-    return value;
-  }
-  if (typeof value === "number" || typeof value === "boolean") {
-    return String(value);
-  }
-  return "";
+  return toEventString(value);
 }
 
 function eventOutput(event: AgentEvent): string {
-  const details = event.details || {};
-  const digest = event.digest || {};
-
-  const candidates = [details.output, details.chunk, details.content, digest.output_snippet];
-  for (const candidate of candidates) {
-    const text = getValueString(candidate).trim();
-    if (text.length > 0) {
-      return text;
-    }
-  }
-
-  return "";
+  return eventOutputText(event);
 }
 
 function eventToolName(event: AgentEvent): string | undefined {
-  const digest = event.digest || {};
-  const details = event.details || {};
-
-  for (const key of TOOL_NAME_KEYS) {
-    const digestValue = getValueString(digest[key as keyof typeof digest]).trim();
-    if (digestValue.length > 0) {
-      return digestValue;
-    }
-
-    const detailsValue = getValueString(details[key as keyof typeof details]).trim();
-    if (detailsValue.length > 0) {
-      return detailsValue;
-    }
-  }
-
-  return undefined;
+  const value = normalizedEventToolName(event).trim();
+  return value.length > 0 ? value : undefined;
 }
 
 function isChatReplyTool(toolName?: string): boolean {
