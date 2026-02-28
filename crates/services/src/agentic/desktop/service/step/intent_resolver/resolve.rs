@@ -57,7 +57,8 @@ pub async fn resolve_step_intent(
         normalized_query.clone()
     };
     let runtime = service.reasoning_inference.clone();
-    let query_binding_profile = infer_query_binding_profile(&runtime, &query).await;
+    let query_binding_profile =
+        infer_query_binding_profile(service, &runtime, agent_state.session_id, &query).await;
     let session_prefix = hex::encode(&agent_state.session_id[..4]);
     let query_hash = hex::encode(
         sha256(query.as_bytes()).map_err(|e| TransactionError::Invalid(e.to_string()))?,
@@ -108,7 +109,14 @@ pub async fn resolve_step_intent(
 
     let rank_result = match timeout(
         INTENT_EMBED_RANK_TIMEOUT,
-        runtime.embed_or_rank(&ranking_query, &policy.matrix_version, matrix_hash, &matrix),
+        runtime.embed_or_rank(
+            &ranking_query,
+            &policy.matrix_version,
+            matrix_hash,
+            &matrix,
+            Some(service),
+            Some(agent_state.session_id),
+        ),
     )
     .await
     {
