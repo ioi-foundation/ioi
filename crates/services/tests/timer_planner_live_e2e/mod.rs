@@ -20,7 +20,7 @@ use ioi_services::agentic::rules::{ActionRules, Rule, Verdict};
 use ioi_state::primitives::hash::HashCommitmentScheme;
 use ioi_state::tree::iavl::IAVLTree;
 use ioi_types::app::action::{ApprovalScope, ApprovalToken};
-use ioi_types::app::agentic::{InferenceOptions, IntentAmbiguityAction};
+use ioi_types::app::agentic::InferenceOptions;
 use ioi_types::app::{ActionRequest, ContextSlice, KernelEvent, SignatureSuite};
 use ioi_types::codec;
 use ioi_types::error::VmError;
@@ -261,13 +261,8 @@ fn read_agent_state(
 fn apply_policy_for_session(
     state: &mut IAVLTree<HashCommitmentScheme>,
     session_id: [u8; 32],
-    mut rules: ActionRules,
+    rules: ActionRules,
 ) -> Result<()> {
-    rules
-        .ontology_policy
-        .intent_routing
-        .ambiguity
-        .low_confidence_action = IntentAmbiguityAction::Proceed;
     let policy_key = [AGENT_POLICY_PREFIX, session_id.as_slice()].concat();
     state.insert(
         &policy_key,

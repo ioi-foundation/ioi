@@ -520,7 +520,9 @@ mod tests {
         let bindings = tool_capability_bindings();
         let rules = ActionRules::default();
 
-        assert!(intent_feasible_without_policy(&entry, &bindings, query, &facets));
+        assert!(intent_feasible_without_policy(
+            &entry, &bindings, query, &facets
+        ));
         assert!(intent_feasible_for_execution(
             &entry, &bindings, &rules, query, &facets
         ));

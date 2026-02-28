@@ -125,7 +125,10 @@ fn is_phase0_browser_gui_click_violation(incident_state: &IncidentState) -> bool
             .unwrap_or(false)
 }
 
-fn is_duplicate_recovery_fingerprint(tool: &AgentTool, visited_node_fingerprints: &[String]) -> bool {
+fn is_duplicate_recovery_fingerprint(
+    tool: &AgentTool,
+    visited_node_fingerprints: &[String],
+) -> bool {
     let fp = tool_fingerprint(tool);
     visited_node_fingerprints.iter().any(|known| known == &fp)
 }
@@ -595,9 +598,11 @@ mod tests {
         let available = BTreeSet::from(["ui__find".to_string()]);
         let mut incident = test_incident_state("browser__click_element", "TargetNotFound");
         let agent_state = test_agent_state("find login button");
-        incident.visited_node_fingerprints.push(tool_fingerprint(&AgentTool::UiFind {
-            query: "find login button".to_string(),
-        }));
+        incident
+            .visited_node_fingerprints
+            .push(tool_fingerprint(&AgentTool::UiFind {
+                query: "find login button".to_string(),
+            }));
 
         let tool = deterministic_recovery_tool(
             &available,
@@ -622,9 +627,11 @@ mod tests {
             app_hint: Some("Firefox".to_string()),
             title_pattern: None,
         });
-        incident.visited_node_fingerprints.push(tool_fingerprint(&AgentTool::UiFind {
-            query: "Firefox".to_string(),
-        }));
+        incident
+            .visited_node_fingerprints
+            .push(tool_fingerprint(&AgentTool::UiFind {
+                query: "Firefox".to_string(),
+            }));
 
         let tool = deterministic_recovery_tool(
             &available,

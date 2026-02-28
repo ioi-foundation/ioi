@@ -296,6 +296,14 @@ impl ShellSession {
                         if sent_lines.contains(trimmed) {
                             continue;
                         }
+                        if let Some(echo_candidate) = unix_prompt_echo_candidate(trimmed) {
+                            if echo_candidate.trim().is_empty() {
+                                continue;
+                            }
+                            if sent_lines.contains(echo_candidate) {
+                                continue;
+                            }
+                        }
 
                         if trimmed == done_marker {
                             let code =
@@ -505,4 +513,13 @@ fn emit_final_status(
             exit_code: if timed_out { None } else { Some(exit_code) },
         });
     }
+}
+
+#[cfg(unix)]
+fn unix_prompt_echo_candidate(line: &str) -> Option<&str> {
+    let trimmed = line.trim_start();
+    if trimmed == ">" {
+        return Some("");
+    }
+    trimmed.strip_prefix("> ")
 }

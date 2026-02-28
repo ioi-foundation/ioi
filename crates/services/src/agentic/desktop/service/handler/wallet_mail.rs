@@ -942,6 +942,8 @@ mod tests {
     #[test]
     fn wallet_mail_method_mapping_excludes_connector_setup_tools() {
         assert!(wallet_mail_method_from_tool_name("wallet_network__mail_read_latest").is_some());
-        assert!(wallet_mail_method_from_tool_name("wallet_network__mail_connector_upsert").is_none());
+        assert!(
+            wallet_mail_method_from_tool_name("wallet_network__mail_connector_upsert").is_none()
+        );
     }
 }

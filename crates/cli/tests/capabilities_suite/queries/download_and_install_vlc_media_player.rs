@@ -48,9 +48,9 @@ fn evaluate(obs: &RunObservation) -> LocalJudgeResult {
         .count();
 
     let action_install_path_seen = has_tool_with_token(&obs.action_tools, "sys__install_package");
-    let routing_install_path_seen =
-        has_tool_with_token(&obs.routing_tools, "sys__install_package");
-    let tool_and_route_path_evidence_present = action_install_path_seen && routing_install_path_seen;
+    let routing_install_path_seen = has_tool_with_token(&obs.routing_tools, "sys__install_package");
+    let tool_and_route_path_evidence_present =
+        action_install_path_seen && routing_install_path_seen;
 
     let cec_discovery_seen = has_verification_check(obs, "receipt::host_discovery=true")
         || has_verification_check(obs, "capability_execution_phase=discovery");
@@ -74,7 +74,8 @@ fn evaluate(obs: &RunObservation) -> LocalJudgeResult {
         && cec_verification_seen
         && cec_postcondition_seen;
 
-    let fixture_mode = verification_value(obs, "env_receipt::vlc_fixture_mode=").unwrap_or_default();
+    let fixture_mode =
+        verification_value(obs, "env_receipt::vlc_fixture_mode=").unwrap_or_default();
     let fixture_mode_satisfied = fixture_mode.eq_ignore_ascii_case(EXPECTED_FIXTURE_MODE);
     let fixture_probe_source =
         verification_value(obs, "env_receipt::vlc_fixture_probe_source=").unwrap_or_default();
@@ -97,7 +98,8 @@ fn evaluate(obs: &RunObservation) -> LocalJudgeResult {
     let install_receipt_path =
         verification_value(obs, "env_receipt::vlc_install_receipt_path=").unwrap_or_default();
     let install_receipt_probe_source =
-        verification_value(obs, "env_receipt::vlc_install_receipt_probe_source=").unwrap_or_default();
+        verification_value(obs, "env_receipt::vlc_install_receipt_probe_source=")
+            .unwrap_or_default();
     let install_receipt_timestamp_ms =
         verification_u64(obs, "env_receipt::vlc_install_receipt_timestamp_ms=")
             .unwrap_or(obs.run_timestamp_ms);
@@ -106,10 +108,12 @@ fn evaluate(obs: &RunObservation) -> LocalJudgeResult {
     let install_receipt_value =
         verification_value(obs, "env_receipt::vlc_install_receipt_value=").unwrap_or_default();
     let install_receipt_value_satisfied =
-        verification_bool(obs, "env_receipt::vlc_install_receipt_value_satisfied=").unwrap_or(false)
+        verification_bool(obs, "env_receipt::vlc_install_receipt_value_satisfied=")
+            .unwrap_or(false)
             && install_receipt_value.eq_ignore_ascii_case("vlc");
 
-    let vlc_binary_path = verification_value(obs, "env_receipt::vlc_binary_path=").unwrap_or_default();
+    let vlc_binary_path =
+        verification_value(obs, "env_receipt::vlc_binary_path=").unwrap_or_default();
     let vlc_binary_probe_source =
         verification_value(obs, "env_receipt::vlc_binary_probe_source=").unwrap_or_default();
     let vlc_binary_timestamp_ms = verification_u64(obs, "env_receipt::vlc_binary_timestamp_ms=")
@@ -294,10 +298,12 @@ fn verification_value(obs: &RunObservation, prefix: &str) -> Option<String> {
 }
 
 fn verification_bool(obs: &RunObservation, prefix: &str) -> Option<bool> {
-    verification_value(obs, prefix).and_then(|value| match value.trim().to_ascii_lowercase().as_str() {
-        "true" => Some(true),
-        "false" => Some(false),
-        _ => None,
+    verification_value(obs, prefix).and_then(|value| {
+        match value.trim().to_ascii_lowercase().as_str() {
+            "true" => Some(true),
+            "false" => Some(false),
+            _ => None,
+        }
     })
 }
 

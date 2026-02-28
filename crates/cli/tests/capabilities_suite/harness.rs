@@ -24,8 +24,7 @@ use ioi_state::primitives::hash::HashCommitmentScheme;
 use ioi_state::tree::iavl::IAVLTree;
 use ioi_types::app::action::{ApprovalScope, ApprovalToken};
 use ioi_types::app::agentic::{
-    CapabilityId, IntentAmbiguityAction, IntentConfidenceBand, IntentScopeProfile,
-    ResolvedIntentState,
+    CapabilityId, IntentConfidenceBand, IntentScopeProfile, ResolvedIntentState,
 };
 use ioi_types::app::{
     ActionRequest, ContextSlice, KernelEvent, MailConnectorAuthMode, MailConnectorConfig,
@@ -608,17 +607,11 @@ fn seed_resolved_intent(
         .expect("state insert should not fail");
 }
 
-fn enable_intent_shadow_mode(state: &mut IAVLTree<HashCommitmentScheme>, session_id: [u8; 32]) {
+fn apply_capabilities_policy(state: &mut IAVLTree<HashCommitmentScheme>, session_id: [u8; 32]) {
     let mut rules = default_safe_policy();
     // Dedicated live capabilities suite should validate execution success without
     // interactive approval gates blocking baseline command/app flows.
     rules.defaults = DefaultPolicy::AllowAll;
-    rules.ontology_policy.intent_routing.shadow_mode = true;
-    rules
-        .ontology_policy
-        .intent_routing
-        .ambiguity
-        .low_confidence_action = IntentAmbiguityAction::Proceed;
     let policy_key = [AGENT_POLICY_PREFIX, session_id.as_slice()].concat();
     state
         .insert(
@@ -978,10 +971,7 @@ fn vlc_install_fixture_preflight_checks(
             "env_receipt::vlc_fixture_probe_source={}",
             VLC_INSTALL_FIXTURE_PROBE_SOURCE
         ),
-        format!(
-            "env_receipt::vlc_fixture_timestamp_ms={}",
-            run_timestamp_ms
-        ),
+        format!("env_receipt::vlc_fixture_timestamp_ms={}", run_timestamp_ms),
         "env_receipt::vlc_fixture_satisfied=true".to_string(),
     ]
 }
@@ -1325,8 +1315,10 @@ pub async fn run_case(
     let mut runtime_setup_verification_checks = Vec::<String>::new();
     let vlc_install_fixture = if should_bootstrap_vlc_install_fixture(case.id) {
         let fixture = bootstrap_vlc_install_fixture_runtime()?;
-        runtime_setup_verification_checks
-            .extend(vlc_install_fixture_preflight_checks(&fixture, run_timestamp_ms));
+        runtime_setup_verification_checks.extend(vlc_install_fixture_preflight_checks(
+            &fixture,
+            run_timestamp_ms,
+        ));
         Some(fixture)
     } else {
         None
@@ -1363,7 +1355,7 @@ pub async fn run_case(
         )
         .await?;
 
-    enable_intent_shadow_mode(&mut state, session_id);
+    apply_capabilities_policy(&mut state, session_id);
     if case.seed_resolved_intent {
         seed_resolved_intent(
             &mut state,
@@ -1449,8 +1441,7 @@ pub async fn run_case(
             if err_text.contains("Duplicate incident remedy fingerprint")
                 && duplicate_incident_retry_count < MAX_DUPLICATE_INCIDENT_RETRY_COUNT
             {
-                duplicate_incident_retry_count =
-                    duplicate_incident_retry_count.saturating_add(1);
+                duplicate_incident_retry_count = duplicate_incident_retry_count.saturating_add(1);
                 continue;
             }
             return Err(err.into());

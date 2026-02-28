@@ -18,12 +18,17 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::sync::{Arc, OnceLock, RwLock};
 use tokio::time::{timeout, Duration};
 
-const INTENT_EMBED_RANK_TIMEOUT: Duration = Duration::from_secs(5);
-const INTENT_PROTOTYPE_BUILD_TIMEOUT: Duration = Duration::from_secs(30);
+const INTENT_EMBED_RANK_TIMEOUT: Duration = Duration::from_secs(15);
 const INTENT_QUERY_NORMALIZATION_VERSION: &str = "intent_query_norm_v1";
 const INTENT_EMBEDDING_MODEL_ID: &str = "inference.embed_text";
 const INTENT_EMBEDDING_MODEL_VERSION: &str = "v1";
 const INTENT_SIMILARITY_FUNCTION_ID: &str = "cosine_similarity_v1";
+const INTENT_MODEL_RANK_MODEL_ID: &str = "inference.execute_inference";
+const INTENT_MODEL_RANK_MODEL_VERSION: &str = "v1";
+const INTENT_MODEL_RANK_SIMILARITY_FUNCTION_ID: &str = "llm_descriptor_rank_v1";
+const INTENT_LEXICAL_RANK_MODEL_ID: &str = "resolver.lexical.token_frequency";
+const INTENT_LEXICAL_RANK_MODEL_VERSION: &str = "v1";
+const INTENT_LEXICAL_RANK_SIMILARITY_FUNCTION_ID: &str = "token_cosine_v1";
 const CIRC_CONTRACT_VERSION: &str = "circ.v0.5";
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
