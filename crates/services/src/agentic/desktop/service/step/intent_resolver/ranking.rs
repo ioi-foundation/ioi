@@ -155,37 +155,6 @@ async fn build_intent_prototypes(
     Ok(prototypes)
 }
 
-pub(super) async fn ensure_intent_prototypes(
-    runtime: &Arc<dyn InferenceRuntime>,
-    matrix_version: &str,
-    matrix_source_hash: [u8; 32],
-    matrix: &[IntentMatrixEntry],
-) -> Result<(), TransactionError> {
-    if matrix.is_empty() {
-        return Ok(());
-    }
-
-    let key = IntentPrototypeCacheKey {
-        matrix_version: matrix_version.to_string(),
-        matrix_source_hash,
-    };
-
-    if let Ok(cache) = intent_prototype_cache().read() {
-        if cache.contains_key(&key) {
-            return Ok(());
-        }
-    }
-
-    let prototypes = build_intent_prototypes(runtime, matrix).await?;
-    let mut cache = intent_prototype_cache().write().map_err(|_| {
-        TransactionError::Invalid(
-            "ERROR_CLASS=ResolverContractViolation Intent prototype cache poisoned".to_string(),
-        )
-    })?;
-    cache.insert(key, prototypes);
-    Ok(())
-}
-
 #[async_trait]
 pub trait IntentRankBackend: Send + Sync {
     async fn embed_or_rank(
@@ -194,7 +163,15 @@ pub trait IntentRankBackend: Send + Sync {
         matrix_version: &str,
         matrix_source_hash: [u8; 32],
         matrix: &[IntentMatrixEntry],
-    ) -> Result<Vec<IntentCandidateScore>, TransactionError>;
+    ) -> Result<IntentRankResult, TransactionError>;
+}
+
+#[derive(Debug, Clone)]
+pub(super) struct IntentRankResult {
+    pub scores: Vec<IntentCandidateScore>,
+    pub model_id: String,
+    pub model_version: String,
+    pub similarity_function_id: String,
 }
 
 pub(super) fn cosine_similarity(a: &[f32], b: &[f32]) -> Option<f32> {
@@ -243,6 +220,255 @@ pub(super) fn vm_error_to_tx(err: VmError) -> TransactionError {
     TransactionError::Invalid(err.to_string())
 }
 
+fn extract_first_json_object(raw: &str) -> Option<String> {
+    let start = raw.find('{')?;
+    let mut brace_depth = 0usize;
+    let mut in_string = false;
+    let mut escaped = false;
+    for (idx, ch) in raw[start..].char_indices() {
+        if escaped {
+            escaped = false;
+            continue;
+        }
+        if ch == '\\' {
+            escaped = true;
+            continue;
+        }
+        if ch == '"' {
+            in_string = !in_string;
+            continue;
+        }
+        if in_string {
+            continue;
+        }
+        if ch == '{' {
+            brace_depth = brace_depth.saturating_add(1);
+            continue;
+        }
+        if ch == '}' {
+            brace_depth = brace_depth.saturating_sub(1);
+            if brace_depth == 0 {
+                let end = start + idx + 1;
+                return Some(raw[start..end].to_string());
+            }
+        }
+    }
+    None
+}
+
+fn parse_model_rank_scores(
+    raw: &str,
+    matrix: &[IntentMatrixEntry],
+) -> Result<Vec<IntentCandidateScore>, TransactionError> {
+    let parsed = serde_json::from_str::<serde_json::Value>(raw).or_else(|_| {
+        let extracted = extract_first_json_object(raw).ok_or_else(|| {
+            TransactionError::Invalid(
+                "ERROR_CLASS=ResolverContractViolation intent rank model output missing JSON"
+                    .to_string(),
+            )
+        })?;
+        serde_json::from_str::<serde_json::Value>(&extracted).map_err(|e| {
+            TransactionError::Invalid(format!(
+                "ERROR_CLASS=ResolverContractViolation intent rank model output parse failed: {}",
+                e
+            ))
+        })
+    })?;
+
+    let scores = parsed
+        .get("scores")
+        .and_then(|scores| scores.as_array())
+        .ok_or_else(|| {
+            TransactionError::Invalid(
+                "ERROR_CLASS=ResolverContractViolation intent rank model output missing scores[]"
+                    .to_string(),
+            )
+        })?;
+
+    let matrix_ids = matrix
+        .iter()
+        .map(|entry| entry.intent_id.as_str())
+        .collect::<BTreeSet<_>>();
+    let mut score_map = BTreeMap::<String, f32>::new();
+    for candidate in scores {
+        let Some(intent_id) = candidate.get("intent_id").and_then(|value| value.as_str()) else {
+            continue;
+        };
+        if !matrix_ids.contains(intent_id) {
+            continue;
+        }
+        let score = candidate
+            .get("score")
+            .and_then(|value| value.as_f64())
+            .unwrap_or(0.0)
+            .clamp(0.0, 1.0) as f32;
+        score_map.insert(intent_id.to_string(), score);
+    }
+
+    let mut ranked = matrix
+        .iter()
+        .map(|entry| IntentCandidateScore {
+            intent_id: entry.intent_id.clone(),
+            score: *score_map.get(entry.intent_id.as_str()).unwrap_or(&0.0),
+        })
+        .collect::<Vec<_>>();
+    sort_scores_desc(&mut ranked);
+    Ok(ranked)
+}
+
+async fn rank_with_inference_model(
+    runtime: &Arc<dyn InferenceRuntime>,
+    query: &str,
+    matrix: &[IntentMatrixEntry],
+) -> Result<Vec<IntentCandidateScore>, TransactionError> {
+    if matrix.is_empty() {
+        return Ok(vec![]);
+    }
+
+    let intent_rows = matrix
+        .iter()
+        .map(|entry| {
+            json!({
+                "intent_id": entry.intent_id,
+                "semantic_descriptor": canonical_descriptor_for_entry(entry),
+            })
+        })
+        .collect::<Vec<_>>();
+    let payload = json!([
+        {
+            "role": "system",
+            "content": "Rank user query semantic similarity to intent descriptors. Output JSON only."
+        },
+        {
+            "role": "user",
+            "content": format!(
+                "Query:\n{}\n\nIntents:\n{}\n\nReturn exactly one JSON object with this schema:\n{{\"scores\":[{{\"intent_id\":\"<intent_id>\",\"score\":<0_to_1_float>}}]}}\nRules:\n1) Include every listed intent_id exactly once.\n2) Scores must be in [0,1].\n3) Score only semantic fit to descriptor text.",
+                query,
+                serde_json::to_string_pretty(&intent_rows).unwrap_or_else(|_| "[]".to_string())
+            )
+        }
+    ]);
+    let input_bytes = serde_json::to_vec(&payload).map_err(|e| {
+        TransactionError::Invalid(format!(
+            "ERROR_CLASS=ResolverContractViolation intent rank payload encode failed: {}",
+            e
+        ))
+    })?;
+    let output = runtime
+        .execute_inference(
+            [0u8; 32],
+            &input_bytes,
+            ioi_types::app::agentic::InferenceOptions {
+                temperature: 0.0,
+                json_mode: true,
+                max_tokens: 768,
+                ..Default::default()
+            },
+        )
+        .await
+        .map_err(vm_error_to_tx)?;
+    let raw = String::from_utf8(output).map_err(|e| {
+        TransactionError::Invalid(format!(
+            "ERROR_CLASS=ResolverContractViolation intent rank model output utf8 failed: {}",
+            e
+        ))
+    })?;
+    parse_model_rank_scores(&raw, matrix)
+}
+
+fn normalize_rank_token(raw: &str) -> Option<String> {
+    let mut token = raw.trim().to_ascii_lowercase();
+    if token.len() < 2 {
+        return None;
+    }
+
+    const STOPWORDS: &[&str] = &[
+        "a", "an", "and", "at", "be", "by", "do", "for", "from", "in", "into", "is", "it", "local",
+        "machine", "my", "of", "on", "or", "the", "this", "to", "with",
+    ];
+    if STOPWORDS.contains(&token.as_str()) {
+        return None;
+    }
+
+    if token.len() > 5 && token.ends_with("ing") {
+        token.truncate(token.len().saturating_sub(3));
+    } else if token.len() > 4 && token.ends_with("ed") {
+        token.truncate(token.len().saturating_sub(2));
+    } else if token.len() > 4 && token.ends_with("es") {
+        token.truncate(token.len().saturating_sub(2));
+    } else if token.len() > 3 && token.ends_with('s') {
+        token.truncate(token.len().saturating_sub(1));
+    }
+
+    if token.len() < 2 {
+        return None;
+    }
+    Some(token)
+}
+
+fn token_frequency_map(text: &str) -> BTreeMap<String, f32> {
+    let mut counts = BTreeMap::<String, f32>::new();
+    for token in text.split(|ch: char| !ch.is_ascii_alphanumeric()) {
+        let Some(normalized) = normalize_rank_token(token) else {
+            continue;
+        };
+        let entry = counts.entry(normalized).or_insert(0.0);
+        *entry += 1.0;
+    }
+    counts
+}
+
+fn lexical_cosine_similarity(query: &str, descriptor: &str) -> f32 {
+    let query_tokens = token_frequency_map(query);
+    let descriptor_tokens = token_frequency_map(descriptor);
+    if query_tokens.is_empty() || descriptor_tokens.is_empty() {
+        return 0.0;
+    }
+
+    let dot = query_tokens
+        .iter()
+        .filter_map(|(token, query_count)| {
+            descriptor_tokens
+                .get(token)
+                .map(|descriptor_count| query_count * descriptor_count)
+        })
+        .sum::<f32>();
+    if dot <= f32::EPSILON {
+        return 0.0;
+    }
+
+    let query_norm = query_tokens
+        .values()
+        .map(|count| count * count)
+        .sum::<f32>()
+        .sqrt();
+    let descriptor_norm = descriptor_tokens
+        .values()
+        .map(|count| count * count)
+        .sum::<f32>()
+        .sqrt();
+    if query_norm <= f32::EPSILON || descriptor_norm <= f32::EPSILON {
+        return 0.0;
+    }
+
+    (dot / (query_norm * descriptor_norm)).clamp(0.0, 1.0)
+}
+
+fn rank_with_lexical_similarity(
+    query: &str,
+    matrix: &[IntentMatrixEntry],
+) -> Vec<IntentCandidateScore> {
+    let mut ranked = matrix
+        .iter()
+        .map(|entry| IntentCandidateScore {
+            intent_id: entry.intent_id.clone(),
+            score: lexical_cosine_similarity(query, &canonical_descriptor_for_entry(entry)),
+        })
+        .collect::<Vec<_>>();
+    sort_scores_desc(&mut ranked);
+    ranked
+}
+
 #[async_trait]
 impl IntentRankBackend for Arc<dyn InferenceRuntime> {
     async fn embed_or_rank(
@@ -251,37 +477,104 @@ impl IntentRankBackend for Arc<dyn InferenceRuntime> {
         matrix_version: &str,
         matrix_source_hash: [u8; 32],
         matrix: &[IntentMatrixEntry],
-    ) -> Result<Vec<IntentCandidateScore>, TransactionError> {
+    ) -> Result<IntentRankResult, TransactionError> {
         if matrix.is_empty() {
-            return Ok(vec![]);
+            return Ok(IntentRankResult {
+                scores: vec![],
+                model_id: INTENT_EMBEDDING_MODEL_ID.to_string(),
+                model_version: INTENT_EMBEDDING_MODEL_VERSION.to_string(),
+                similarity_function_id: INTENT_SIMILARITY_FUNCTION_ID.to_string(),
+            });
         }
 
         let key = IntentPrototypeCacheKey {
             matrix_version: matrix_version.to_string(),
             matrix_source_hash,
         };
-        let prototypes = {
-            let cache = intent_prototype_cache().read().map_err(|_| {
-                TransactionError::Invalid(
-                    "ERROR_CLASS=ResolverContractViolation Intent prototype cache poisoned"
-                        .to_string(),
-                )
-            })?;
-            cache.get(&key).cloned().ok_or_else(|| {
-                TransactionError::Invalid(format!(
-                    "ERROR_CLASS=ResolverContractViolation Intent prototype cache miss matrix_version={} matrix_source_hash={}",
+        let cached = intent_prototype_cache()
+            .read()
+            .ok()
+            .and_then(|cache| cache.get(&key).cloned());
+        let prototypes = match cached {
+            Some(existing) => Some(existing),
+            None => match build_intent_prototypes(self, matrix).await {
+                Ok(built) => {
+                    if let Ok(mut cache) = intent_prototype_cache().write() {
+                        cache.insert(key.clone(), built.clone());
+                    }
+                    Some(built)
+                }
+                Err(err) => {
+                    log::warn!(
+                        "IntentResolver embedding backend unavailable matrix_version={} matrix_source_hash={} error={}",
+                        matrix_version,
+                        hex::encode(matrix_source_hash),
+                        err
+                    );
+                    None
+                }
+            },
+        };
+        if let Some(prototypes) = prototypes {
+            match self.embed_text(query).await {
+                Ok(query_embedding) => {
+                    return Ok(IntentRankResult {
+                        scores: score_query_against_prototypes(
+                            &query_embedding,
+                            matrix,
+                            &prototypes,
+                        ),
+                        model_id: INTENT_EMBEDDING_MODEL_ID.to_string(),
+                        model_version: INTENT_EMBEDDING_MODEL_VERSION.to_string(),
+                        similarity_function_id: INTENT_SIMILARITY_FUNCTION_ID.to_string(),
+                    });
+                }
+                Err(err) => {
+                    log::warn!(
+                        "IntentResolver query embedding failed matrix_version={} matrix_source_hash={} error={}",
+                        matrix_version,
+                        hex::encode(matrix_source_hash),
+                        err
+                    );
+                }
+            }
+        }
+
+        match rank_with_inference_model(self, query, matrix).await {
+            Ok(ranked) => {
+                log::info!(
+                    "IntentResolver used model-ranking backend matrix_version={} matrix_source_hash={}",
                     matrix_version,
                     hex::encode(matrix_source_hash)
-                ))
-            })?
-        };
-
-        let query_embedding = self.embed_text(query).await.map_err(vm_error_to_tx)?;
-        Ok(score_query_against_prototypes(
-            &query_embedding,
-            matrix,
-            &prototypes,
-        ))
+                );
+                Ok(IntentRankResult {
+                    scores: ranked,
+                    model_id: INTENT_MODEL_RANK_MODEL_ID.to_string(),
+                    model_version: INTENT_MODEL_RANK_MODEL_VERSION.to_string(),
+                    similarity_function_id: INTENT_MODEL_RANK_SIMILARITY_FUNCTION_ID.to_string(),
+                })
+            }
+            Err(err) => {
+                log::warn!(
+                    "IntentResolver model-ranking backend failed matrix_version={} matrix_source_hash={} error={}",
+                    matrix_version,
+                    hex::encode(matrix_source_hash),
+                    err
+                );
+                let ranked = rank_with_lexical_similarity(query, matrix);
+                log::warn!(
+                    "IntentResolver used lexical-ranking backend matrix_version={} matrix_source_hash={}",
+                    matrix_version,
+                    hex::encode(matrix_source_hash)
+                );
+                Ok(IntentRankResult {
+                    scores: ranked,
+                    model_id: INTENT_LEXICAL_RANK_MODEL_ID.to_string(),
+                    model_version: INTENT_LEXICAL_RANK_MODEL_VERSION.to_string(),
+                    similarity_function_id: INTENT_LEXICAL_RANK_SIMILARITY_FUNCTION_ID.to_string(),
+                })
+            }
+        }
     }
 }
 

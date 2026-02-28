@@ -208,14 +208,12 @@ fn is_safe_read_probe_command(command_preview: &str) -> bool {
             | "command"
             | "ls"
             | "env"
-    )
-        || (binary == "find" && is_safe_find_probe_command(trimmed))
+    ) || (binary == "find" && is_safe_find_probe_command(trimmed))
 }
 
 fn is_safe_find_probe_command(command_preview: &str) -> bool {
     let disallowed_tokens = [
-        "-delete", "-exec", "-execdir", "-ok", "-okdir", "-fprint", "-fprint0", "-fprintf",
-        "-fls",
+        "-delete", "-exec", "-execdir", "-ok", "-okdir", "-fprint", "-fprint0", "-fprintf", "-fls",
     ];
 
     command_preview

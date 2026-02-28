@@ -185,32 +185,154 @@ pub(super) async fn handle_execution_success(
         tool,
         AgentTool::SysExec { .. } | AgentTool::SysExecSession { .. }
     ) {
-        if let Some(raw_entry) = command_history::extract_command_history(history_entry) {
+        let raw_entry = command_history::extract_command_history(history_entry);
+        if raw_entry.is_some() {
             verification_checks.push("capability_execution_evidence=command_history".to_string());
+        } else {
+            verification_checks.push("capability_execution_evidence=tool_output".to_string());
+        }
+        if let Some(raw_entry_ref) = raw_entry.as_ref() {
             verification_checks.push(format!(
                 "capability_execution_last_exit_code={}",
-                raw_entry.exit_code
+                raw_entry_ref.exit_code
             ));
-            if command_scope {
-                mark_execution_postcondition(
-                    &mut agent_state.tool_execution_log,
-                    "execution_artifact",
+        }
+
+        if command_scope {
+            mark_execution_postcondition(&mut agent_state.tool_execution_log, "execution_artifact");
+            verification_checks.push(postcondition_marker("execution_artifact"));
+            let artifact_evidence = raw_entry
+                .as_ref()
+                .map(|entry| format!("command_exit_code={}", entry.exit_code))
+                .unwrap_or_else(|| {
+                    format!(
+                        "command_history_missing=true;tool_output_chars={}",
+                        history_entry
+                            .as_ref()
+                            .map(|entry| entry.chars().count())
+                            .unwrap_or(0)
+                    )
+                });
+            emit_execution_contract_receipt_event(
+                service,
+                session_id,
+                step_index,
+                resolved_intent_id,
+                "execution",
+                "execution_artifact",
+                true,
+                &artifact_evidence,
+                None,
+                None,
+                synthesized_payload_hash.clone(),
+            );
+        }
+
+        if command_scope && requires_lowercase_rename_contract(agent_state) {
+            let history_postcheck = raw_entry
+                .as_ref()
+                .and_then(command_history_lowercase_rename_postcheck);
+            let transcript_postcheck = if history_postcheck.is_none() {
+                history_entry
+                    .as_deref()
+                    .and_then(parse_lowercase_rename_postcheck_receipt)
+            } else {
+                None
+            };
+            let discovery_postcheck =
+                if history_postcheck.is_none() && transcript_postcheck.is_none() {
+                    lowercase_rename_contract_target(agent_state, tool).and_then(|target| {
+                        match discover_lowercase_rename_postcheck(&target.target_dir) {
+                            Ok(receipt) => Some(receipt),
+                            Err(error) => {
+                                verification_checks.push(format!(
+                                    "lowercase_rename_postcheck_discovery_error={}",
+                                    error
+                                ));
+                                None
+                            }
+                        }
+                    })
+                } else {
+                    None
+                };
+            let (postcheck, postcheck_source) = if let Some(receipt) = history_postcheck {
+                (Some(receipt), "command_history")
+            } else if let Some(receipt) = transcript_postcheck {
+                (Some(receipt), "tool_output")
+            } else if let Some(receipt) = discovery_postcheck {
+                (Some(receipt), "filesystem_discovery")
+            } else {
+                (None, "none")
+            };
+            verification_checks.push(format!(
+                "lowercase_rename_postcheck_seen={}",
+                postcheck.is_some()
+            ));
+            verification_checks.push(format!(
+                "lowercase_rename_postcheck_source={}",
+                postcheck_source
+            ));
+            if let Some(receipt) = postcheck {
+                verification_checks.push(format!(
+                    "lowercase_rename_postcheck_total_files={}",
+                    receipt.total_files
+                ));
+                verification_checks.push(format!(
+                    "lowercase_rename_postcheck_uppercase_remaining={}",
+                    receipt.uppercase_remaining
+                ));
+                verification_checks.push(format!(
+                    "lowercase_rename_postcheck_target_dir={}",
+                    receipt.target_dir
+                ));
+                let satisfied = receipt.uppercase_remaining == 0;
+                if satisfied {
+                    mark_execution_postcondition(
+                        &mut agent_state.tool_execution_log,
+                        LOWERCASE_RENAME_POSTCONDITION,
+                    );
+                    verification_checks.push(postcondition_marker(LOWERCASE_RENAME_POSTCONDITION));
+                }
+                let evidence = format!(
+                    "source={};target_dir={};total_files={};uppercase_remaining={};final_names_count={}",
+                    postcheck_source,
+                    receipt.target_dir,
+                    receipt.total_files,
+                    receipt.uppercase_remaining,
+                    receipt.final_names.len()
                 );
-                verification_checks.push(postcondition_marker("execution_artifact"));
                 emit_execution_contract_receipt_event(
                     service,
                     session_id,
                     step_index,
                     resolved_intent_id,
                     "execution",
-                    "execution_artifact",
-                    true,
-                    &format!("command_exit_code={}", raw_entry.exit_code),
+                    LOWERCASE_RENAME_POSTCONDITION,
+                    satisfied,
+                    &evidence,
+                    None,
+                    None,
+                    synthesized_payload_hash.clone(),
+                );
+            } else {
+                emit_execution_contract_receipt_event(
+                    service,
+                    session_id,
+                    step_index,
+                    resolved_intent_id,
+                    "execution",
+                    LOWERCASE_RENAME_POSTCONDITION,
+                    false,
+                    "lowercase_rename_postcheck_missing source=none",
                     None,
                     None,
                     synthesized_payload_hash.clone(),
                 );
             }
+        }
+
+        if let Some(raw_entry) = raw_entry {
             let history =
                 command_history::scrub_command_history_fields(&service.scrubber, raw_entry).await;
             command_history::append_to_bounded_history(

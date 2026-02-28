@@ -106,59 +106,46 @@ pub async fn resolve_step_intent(
     }
 
     let runtime = service.reasoning_inference.clone();
-    let prototypes_ready = match timeout(
-        INTENT_PROTOTYPE_BUILD_TIMEOUT,
-        ensure_intent_prototypes(&runtime, &policy.matrix_version, matrix_hash, &matrix),
+    let rank_result = match timeout(
+        INTENT_EMBED_RANK_TIMEOUT,
+        runtime.embed_or_rank(&ranking_query, &policy.matrix_version, matrix_hash, &matrix),
     )
     .await
     {
-        Ok(Ok(())) => true,
+        Ok(Ok(result)) => Some(result),
         Ok(Err(e)) => {
             log::warn!(
-                "IntentResolver prototype build failed session={} error={}",
+                "IntentResolver semantic rank failed session={} error={}",
                 session_prefix,
                 e
             );
-            false
+            None
         }
         Err(_) => {
             log::warn!(
-                "IntentResolver prototype build timed out session={} timeout_ms={}",
+                "IntentResolver semantic rank timed out session={} timeout_ms={}",
                 session_prefix,
-                INTENT_PROTOTYPE_BUILD_TIMEOUT.as_millis()
+                INTENT_EMBED_RANK_TIMEOUT.as_millis()
             );
-            false
+            None
         }
     };
-
-    let mut ranked_candidates = if prototypes_ready {
-        match timeout(
-            INTENT_EMBED_RANK_TIMEOUT,
-            runtime.embed_or_rank(&ranking_query, &policy.matrix_version, matrix_hash, &matrix),
-        )
-        .await
-        {
-            Ok(Ok(scores)) => scores,
-            Ok(Err(e)) => {
-                log::warn!(
-                    "IntentResolver embedding rank failed session={} error={}",
-                    session_prefix,
-                    e
-                );
-                vec![]
-            }
-            Err(_) => {
-                log::warn!(
-                    "IntentResolver embedding rank timed out session={} timeout_ms={}",
-                    session_prefix,
-                    INTENT_EMBED_RANK_TIMEOUT.as_millis()
-                );
-                vec![]
-            }
-        }
-    } else {
-        vec![]
-    };
+    let mut ranked_candidates = rank_result
+        .as_ref()
+        .map(|result| result.scores.clone())
+        .unwrap_or_default();
+    let rank_model_id = rank_result
+        .as_ref()
+        .map(|result| result.model_id.clone())
+        .unwrap_or_else(|| "resolver.unavailable".to_string());
+    let rank_model_version = rank_result
+        .as_ref()
+        .map(|result| result.model_version.clone())
+        .unwrap_or_else(|| "v0".to_string());
+    let rank_similarity_function_id = rank_result
+        .as_ref()
+        .map(|result| result.similarity_function_id.clone())
+        .unwrap_or_else(|| "none".to_string());
     if ranked_candidates.is_empty() && !matrix.is_empty() {
         ranked_candidates = zero_ranked_candidates(&matrix);
     }
@@ -228,51 +215,85 @@ pub async fn resolve_step_intent(
         resolver_error_class = Some("IntentUnclassified".to_string());
     }
 
-    let (scope, preferred_tier, score, band, required_capabilities, risk_class) = if winner
-        .intent_id
-        == "resolver.unclassified"
-    {
-        (
-            IntentScopeProfile::Unknown,
-            "tool_first".to_string(),
-            0.0,
-            IntentConfidenceBand::Low,
-            vec![],
-            "unknown".to_string(),
-        )
-    } else {
-        let entry = matrix
+    fn maybe_promote_low_band_for_policy_exempt_winner(
+        winner: &IntentCandidateScore,
+        selection_top_k: &[IntentCandidateScore],
+        policy: &IntentRoutingPolicy,
+        band: IntentConfidenceBand,
+    ) -> IntentConfidenceBand {
+        if winner.intent_id == "resolver.unclassified" || !matches!(band, IntentConfidenceBand::Low)
+        {
+            return band;
+        }
+        if !is_ambiguity_abstain_exempt(policy, &winner.intent_id) {
+            return band;
+        }
+
+        let winner_bps = score_to_bps(winner.score);
+        let second_bps = selection_top_k
             .iter()
-            .find(|entry| entry.intent_id == winner.intent_id)
-            .ok_or_else(|| {
-                TransactionError::Invalid(format!(
-                    "ERROR_CLASS=ResolverContractViolation Intent '{}' missing matrix binding",
-                    winner.intent_id
-                ))
-            })?;
-        let scope = scope_for_intent(&matrix, &winner.intent_id).ok_or_else(|| {
-            TransactionError::Invalid(format!(
-                "ERROR_CLASS=ResolverContractViolation Intent '{}' missing matrix scope binding",
-                winner.intent_id
-            ))
-        })?;
-        let preferred_tier =
-                preferred_tier_for_intent(&matrix, &winner.intent_id).ok_or_else(|| {
+            .find(|candidate| candidate.intent_id != winner.intent_id)
+            .map(|candidate| score_to_bps(candidate.score))
+            .unwrap_or(0);
+        let gap_bps = winner_bps.saturating_sub(second_bps);
+
+        if gap_bps >= ambiguity_margin_bps(policy) {
+            IntentConfidenceBand::Medium
+        } else {
+            band
+        }
+    }
+
+    let (scope, preferred_tier, score, band, required_capabilities, risk_class) =
+        if winner.intent_id == "resolver.unclassified" {
+            (
+                IntentScopeProfile::Unknown,
+                "tool_first".to_string(),
+                0.0,
+                IntentConfidenceBand::Low,
+                vec![],
+                "unknown".to_string(),
+            )
+        } else {
+            let entry = matrix
+                .iter()
+                .find(|entry| entry.intent_id == winner.intent_id)
+                .ok_or_else(|| {
                     TransactionError::Invalid(format!(
-                        "ERROR_CLASS=ResolverContractViolation Intent '{}' missing preferred tier binding",
+                        "ERROR_CLASS=ResolverContractViolation Intent '{}' missing matrix binding",
                         winner.intent_id
                     ))
                 })?;
-        let score = winner.score.clamp(0.0, 1.0);
-        (
-            scope,
-            preferred_tier,
-            score,
-            resolve_band(score, policy),
-            entry.required_capabilities.clone(),
-            entry.risk_class.clone(),
-        )
-    };
+            let scope = scope_for_intent(&matrix, &winner.intent_id).ok_or_else(|| {
+                TransactionError::Invalid(format!(
+                "ERROR_CLASS=ResolverContractViolation Intent '{}' missing matrix scope binding",
+                winner.intent_id
+            ))
+            })?;
+            let preferred_tier =
+                preferred_tier_for_intent(&matrix, &winner.intent_id).ok_or_else(|| {
+                    TransactionError::Invalid(format!(
+                "ERROR_CLASS=ResolverContractViolation Intent '{}' missing preferred tier binding",
+                winner.intent_id
+            ))
+                })?;
+            let score = winner.score.clamp(0.0, 1.0);
+            let base_band = resolve_band(score, policy);
+            let band = maybe_promote_low_band_for_policy_exempt_winner(
+                &winner,
+                &selection_top_k,
+                policy,
+                base_band,
+            );
+            (
+                scope,
+                preferred_tier,
+                score,
+                band,
+                entry.required_capabilities.clone(),
+                entry.risk_class.clone(),
+            )
+        };
     let mut resolved = ResolvedIntentState {
         intent_id: winner.intent_id,
         scope,
@@ -283,9 +304,9 @@ pub async fn resolve_step_intent(
         risk_class,
         preferred_tier,
         matrix_version: policy.matrix_version.clone(),
-        embedding_model_id: INTENT_EMBEDDING_MODEL_ID.to_string(),
-        embedding_model_version: INTENT_EMBEDDING_MODEL_VERSION.to_string(),
-        similarity_function_id: INTENT_SIMILARITY_FUNCTION_ID.to_string(),
+        embedding_model_id: rank_model_id,
+        embedding_model_version: rank_model_version,
+        similarity_function_id: rank_similarity_function_id,
         intent_set_hash: intent_hash,
         tool_registry_hash: registry_hash,
         capability_ontology_hash: ontology_hash,

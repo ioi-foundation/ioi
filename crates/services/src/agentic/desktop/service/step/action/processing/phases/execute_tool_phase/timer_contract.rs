@@ -53,6 +53,12 @@ pub(super) fn prepare_timer_contract(ctx: TimerContractContext<'_>) -> TimerCont
     let mut synthesized_payload_hash = synthesized_payload_hash;
     let mut should_execute_tool = true;
     let mut pre_execution_error = None;
+    let is_sys_exec_tool = matches!(
+        tool,
+        AgentTool::SysExec { .. } | AgentTool::SysExecSession { .. }
+    );
+    let lowercase_rename_payload_candidate =
+        is_sys_exec_tool && sys_exec_targets_lowercase_rename_payload(&tool);
 
     if command_scope && sys_exec_arms_timer_delay_backend(&tool) {
         record_timer_notification_contract_requirement(
@@ -60,12 +66,17 @@ pub(super) fn prepare_timer_contract(ctx: TimerContractContext<'_>) -> TimerCont
             verification_checks,
         );
     }
-    let timer_notification_required = command_scope
-        && requires_timer_notification_contract(agent_state)
-        && matches!(
-            tool,
-            AgentTool::SysExec { .. } | AgentTool::SysExecSession { .. }
+    if command_scope
+        && lowercase_rename_payload_candidate
+        && lowercase_rename_contract_target(agent_state, &tool).is_some()
+    {
+        record_lowercase_rename_contract_requirement(
+            &mut agent_state.tool_execution_log,
+            verification_checks,
         );
+    }
+    let timer_notification_required =
+        command_scope && requires_timer_notification_contract(agent_state) && is_sys_exec_tool;
     let mut timer_delay_backend_armed = sys_exec_arms_timer_delay_backend(&tool);
     let mut notification_path_armed = sys_exec_command_preview(&tool)
         .as_deref()
@@ -179,6 +190,84 @@ pub(super) fn prepare_timer_contract(ctx: TimerContractContext<'_>) -> TimerCont
             );
         }
         should_execute_tool = false;
+    }
+
+    let lowercase_rename_required = command_scope
+        && requires_lowercase_rename_contract(agent_state)
+        && is_sys_exec_tool
+        && lowercase_rename_payload_candidate;
+    if lowercase_rename_required && pre_execution_error.is_none() {
+        verification_checks.push("lowercase_rename_contract_required=true".to_string());
+        if let Some(rewritten_tool) =
+            synthesize_allowlisted_lowercase_rename_tool(agent_state, &tool)
+        {
+            let original_preview = sys_exec_command_preview(&tool).unwrap_or_default();
+            tool = rewritten_tool;
+            synthesized_payload_hash = synthesized_payload_hash_for_tool(&tool);
+            let rewritten_preview = sys_exec_command_preview(&tool).unwrap_or_default();
+            verification_checks.push("lowercase_rename_payload_auto_synthesized=true".to_string());
+            verification_checks.push(format!(
+                "lowercase_rename_payload_original={}",
+                original_preview
+            ));
+            verification_checks.push(format!(
+                "lowercase_rename_payload_synthesized={}",
+                rewritten_preview
+            ));
+        }
+
+        let has_postcheck_payload = sys_exec_payload_contains(&tool, "LOWERCASE_RENAME_POSTCHECK");
+        verification_checks.push(format!(
+            "lowercase_rename_postcheck_payload_detected={}",
+            has_postcheck_payload
+        ));
+
+        if !has_postcheck_payload {
+            let missing_key = postcondition_marker(LOWERCASE_RENAME_POSTCONDITION);
+            verification_checks.push(format!("execution_contract_missing_keys={}", missing_key));
+            verification_checks.push("cec_pre_execution_payload_lint_failed=true".to_string());
+            verification_checks.push("execution_contract_gate_blocked=true".to_string());
+            let synth_error = format!(
+                "ERROR_CLASS=SynthesisFailed stage=provider_selection cause=lowercase_rename_payload_contract_lint_failed missing_keys={} guidance=Use a files-only lowercase rename payload that emits LOWERCASE_RENAME_POSTCHECK with uppercase_remaining.",
+                missing_key
+            );
+            pre_execution_error = Some(synth_error);
+            emit_execution_contract_receipt_event(
+                service,
+                session_id,
+                step_index,
+                resolved_intent_id,
+                "provider_selection",
+                "provider_selection",
+                false,
+                "lowercase_rename_payload_contract_lint_failed",
+                None,
+                None,
+                synthesized_payload_hash.clone(),
+            );
+            emit_execution_contract_receipt_event(
+                service,
+                session_id,
+                step_index,
+                resolved_intent_id,
+                "execution",
+                LOWERCASE_RENAME_POSTCONDITION,
+                false,
+                "lowercase_rename_postcheck_payload=false_pre_execution",
+                None,
+                None,
+                synthesized_payload_hash.clone(),
+            );
+            if !req_hash_hex.is_empty() {
+                agent_state.tool_execution_log.insert(
+                    req_hash_hex.to_string(),
+                    ToolCallStatus::Failed(
+                        "lowercase_rename_payload_contract_lint_failed".to_string(),
+                    ),
+                );
+            }
+            should_execute_tool = false;
+        }
     }
 
     TimerContractPreparation {

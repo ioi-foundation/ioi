@@ -10,28 +10,79 @@ static COMMAND_HISTORY_SCRUB_FAIL_COUNT: AtomicU64 = AtomicU64::new(0);
 
 pub(super) fn extract_command_history(history_entry: &Option<String>) -> Option<CommandExecution> {
     let entry = history_entry.as_deref()?;
-    if !entry.starts_with(COMMAND_HISTORY_PREFIX) {
-        let _ = COMMAND_HISTORY_MARKER_MISS_COUNT.fetch_add(1, Ordering::Relaxed);
-        return None;
-    }
+    let mut latest: Option<CommandExecution> = None;
+    let mut saw_marker = false;
+    let mut saw_parse_failure = false;
 
-    let suffix = &entry[COMMAND_HISTORY_PREFIX.len()..];
-    let json_payload = suffix
-        .find('\n')
-        .map_or(suffix, |idx| &suffix[..idx])
-        .trim();
-    if json_payload.is_empty() {
-        let _ = COMMAND_HISTORY_PARSE_FAIL_COUNT.fetch_add(1, Ordering::Relaxed);
-        return None;
-    }
-
-    match serde_json::from_str::<CommandExecution>(json_payload) {
-        Ok(entry) => Some(entry),
-        Err(_) => {
-            let _ = COMMAND_HISTORY_PARSE_FAIL_COUNT.fetch_add(1, Ordering::Relaxed);
-            None
+    for (marker_idx, _) in entry.match_indices(COMMAND_HISTORY_PREFIX) {
+        saw_marker = true;
+        let payload = &entry[marker_idx + COMMAND_HISTORY_PREFIX.len()..];
+        if payload.trim().is_empty() {
+            saw_parse_failure = true;
+            continue;
+        }
+        match parse_command_history_payload(payload) {
+            Ok(parsed) => latest = Some(parsed),
+            Err(_) => saw_parse_failure = true,
         }
     }
+
+    if let Some(parsed) = latest {
+        return Some(parsed);
+    }
+
+    if !saw_marker {
+        let _ = COMMAND_HISTORY_MARKER_MISS_COUNT.fetch_add(1, Ordering::Relaxed);
+    } else if saw_parse_failure {
+        let _ = COMMAND_HISTORY_PARSE_FAIL_COUNT.fetch_add(1, Ordering::Relaxed);
+    }
+    None
+}
+
+fn parse_command_history_payload(payload: &str) -> Result<CommandExecution, serde_json::Error> {
+    if let Some(start) = payload.find('{') {
+        if let Some(json) = extract_balanced_json_object(payload, start) {
+            return serde_json::from_str::<CommandExecution>(json);
+        }
+    }
+    serde_json::from_str::<CommandExecution>(payload.trim())
+}
+
+fn extract_balanced_json_object(payload: &str, start: usize) -> Option<&str> {
+    let mut depth = 0usize;
+    let mut in_string = false;
+    let mut escaped = false;
+    let mut started = false;
+
+    for (idx, ch) in payload[start..].char_indices() {
+        match ch {
+            '"' if !escaped => {
+                in_string = !in_string;
+            }
+            '\\' if in_string => {
+                escaped = !escaped;
+                continue;
+            }
+            '{' if !in_string => {
+                depth += 1;
+                started = true;
+            }
+            '}' if !in_string => {
+                if depth == 0 {
+                    return None;
+                }
+                depth -= 1;
+                if started && depth == 0 {
+                    let end = start + idx;
+                    return Some(&payload[start..=end]);
+                }
+            }
+            _ => {}
+        }
+        escaped = false;
+    }
+
+    None
 }
 
 pub(super) async fn scrub_command_history_fields(
@@ -162,6 +213,50 @@ mod tests {
 
         let unrelated = Some("no metadata here".to_string());
         assert!(extract_command_history(&unrelated).is_none());
+
+        let prefixed = Some(format!(
+            "stdout line\n> {}{}\n",
+            COMMAND_HISTORY_PREFIX,
+            serde_json::to_string(&valid_entry).expect("serialize")
+        ));
+        let parsed_prefixed = extract_command_history(&prefixed).expect("prefixed payload");
+        assert_eq!(parsed_prefixed.command, "echo hi");
+
+        let newer_entry = CommandExecution {
+            command: "echo newer".to_string(),
+            exit_code: 0,
+            stdout: "new".to_string(),
+            stderr: String::new(),
+            timestamp_ms: 2,
+            step_index: 4,
+        };
+        let multi = Some(format!(
+            "{}{}\nnoise\n{}{}\n",
+            COMMAND_HISTORY_PREFIX,
+            serde_json::to_string(&valid_entry).expect("serialize"),
+            COMMAND_HISTORY_PREFIX,
+            serde_json::to_string(&newer_entry).expect("serialize")
+        ));
+        let parsed_multi = extract_command_history(&multi).expect("latest payload");
+        assert_eq!(parsed_multi.command, "echo newer");
+        assert_eq!(parsed_multi.step_index, 4);
+
+        let merged_with_noise = Some(format!(
+            "noise {}{} tail",
+            COMMAND_HISTORY_PREFIX,
+            serde_json::to_string(&valid_entry).expect("serialize")
+        ));
+        let parsed_merged = extract_command_history(&merged_with_noise).expect("merged payload");
+        assert_eq!(parsed_merged.command, "echo hi");
+        assert_eq!(parsed_merged.step_index, 3);
+
+        let json_with_trailing = Some(format!(
+            "{}{} \u{001b}[0m",
+            COMMAND_HISTORY_PREFIX,
+            serde_json::to_string(&valid_entry).expect("serialize")
+        ));
+        let parsed_trailing = extract_command_history(&json_with_trailing).expect("trailing noise");
+        assert_eq!(parsed_trailing.command, "echo hi");
     }
 
     #[test]

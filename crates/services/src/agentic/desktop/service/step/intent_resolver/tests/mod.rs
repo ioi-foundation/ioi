@@ -135,6 +135,49 @@ impl InferenceRuntime for NoEmbeddingRuntime {
 }
 
 #[derive(Debug, Default, Clone)]
+struct NoEmbeddingModelRankRuntime;
+
+#[async_trait]
+impl InferenceRuntime for NoEmbeddingModelRankRuntime {
+    async fn execute_inference(
+        &self,
+        _model_hash: [u8; 32],
+        input_context: &[u8],
+        _options: InferenceOptions,
+    ) -> Result<Vec<u8>, VmError> {
+        let prompt = String::from_utf8_lossy(input_context).to_ascii_lowercase();
+        if prompt.contains("rename every file in my downloads folder to lowercase") {
+            return Ok(serde_json::json!({
+                "scores": [
+                    {"intent_id": "command.exec", "score": 0.96},
+                    {"intent_id": "workspace.ops", "score": 0.44},
+                    {"intent_id": "app.launch", "score": 0.05}
+                ]
+            })
+            .to_string()
+            .into_bytes());
+        }
+        Ok(serde_json::json!({
+            "scores": []
+        })
+        .to_string()
+        .into_bytes())
+    }
+
+    async fn embed_text(&self, _text: &str) -> Result<Vec<f32>, VmError> {
+        Err(VmError::HostError("embeddings unavailable".to_string()))
+    }
+
+    async fn load_model(&self, _model_hash: [u8; 32], _path: &Path) -> Result<(), VmError> {
+        Ok(())
+    }
+
+    async fn unload_model(&self, _model_hash: [u8; 32]) -> Result<(), VmError> {
+        Ok(())
+    }
+}
+
+#[derive(Debug, Default, Clone)]
 struct WeatherVsClockRuntime;
 
 #[async_trait]
@@ -334,6 +377,9 @@ struct AmbiguousRuntime;
 #[derive(Debug, Default, Clone)]
 struct HeadlinesDescriptorRuntime;
 
+#[derive(Debug, Default, Clone)]
+struct LowConfidenceExemptRuntime;
+
 #[async_trait]
 impl InferenceRuntime for HeadlinesDescriptorRuntime {
     async fn execute_inference(
@@ -390,6 +436,41 @@ impl InferenceRuntime for AmbiguousRuntime {
             return Ok(vec![1.0, 1.0]);
         }
         Ok(vec![0.0, 0.0])
+    }
+
+    async fn load_model(&self, _model_hash: [u8; 32], _path: &Path) -> Result<(), VmError> {
+        Ok(())
+    }
+
+    async fn unload_model(&self, _model_hash: [u8; 32]) -> Result<(), VmError> {
+        Ok(())
+    }
+}
+
+#[async_trait]
+impl InferenceRuntime for LowConfidenceExemptRuntime {
+    async fn execute_inference(
+        &self,
+        _model_hash: [u8; 32],
+        _input_context: &[u8],
+        _options: InferenceOptions,
+    ) -> Result<Vec<u8>, VmError> {
+        Ok(Vec::new())
+    }
+
+    async fn embed_text(&self, text: &str) -> Result<Vec<f32>, VmError> {
+        let text_lc = text.to_ascii_lowercase();
+        if text_lc.contains("execute local shell or terminal commands") {
+            return Ok(vec![1.0, 0.0, 0.0]);
+        }
+        if text_lc.contains("inspect and modify files in the local workspace") {
+            return Ok(vec![0.0, 1.0, 0.0]);
+        }
+        if text_lc.contains("rename every file in my downloads folder to lowercase") {
+            // Keep both candidates low-confidence but with a deterministic winner gap.
+            return Ok(vec![0.10, 0.09, 1.0]);
+        }
+        Ok(vec![0.0, 0.0, 1.0])
     }
 
     async fn load_model(&self, _model_hash: [u8; 32], _path: &Path) -> Result<(), VmError> {
@@ -483,6 +564,10 @@ impl InferenceRuntime for DesktopFolderSkewedRuntime {
             // Deliberately skew toward app.launch so query-binding constraints must
             // enforce feasibility and route to command.exec.
             return Ok(vec![10.0, 10.0]);
+        }
+        if text_lc.contains("rename every file in my downloads folder to lowercase") {
+            // Filesystem-heavy local automation should stay command-exec directed.
+            return Ok(vec![10.0, 8.0]);
         }
 
         Ok(vec![0.1, 0.1])

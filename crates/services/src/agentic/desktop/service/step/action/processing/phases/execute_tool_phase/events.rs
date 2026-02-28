@@ -66,9 +66,11 @@ fn stage_for_contract_key(key: &str) -> &'static str {
     match key {
         "host_discovery" => "discovery",
         "provider_selection" | PROVIDER_SELECTION_COMMIT_RECEIPT => "provider_selection",
+        LOWERCASE_RENAME_CONTRACT_REQUIRED_RECEIPT => "provider_selection",
         "execution"
         | "execution_artifact"
         | "notification_strategy"
+        | LOWERCASE_RENAME_POSTCONDITION
         | TIMER_SLEEP_BACKEND_POSTCONDITION
         | TIMER_NOTIFICATION_PATH_POSTCONDITION => "execution",
         "verification" | VERIFICATION_COMMIT_RECEIPT | CLOCK_TIMESTAMP_POSTCONDITION => {

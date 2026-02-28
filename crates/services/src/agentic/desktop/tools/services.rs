@@ -7,7 +7,8 @@ use regex::Regex;
 use serde_json::json;
 
 fn should_expose_service_method_tool(service_id: &str, simple_name: &str) -> bool {
-    if service_id.eq_ignore_ascii_case("wallet_network") && simple_name.starts_with("mail_connector_")
+    if service_id.eq_ignore_ascii_case("wallet_network")
+        && simple_name.starts_with("mail_connector_")
     {
         return false;
     }

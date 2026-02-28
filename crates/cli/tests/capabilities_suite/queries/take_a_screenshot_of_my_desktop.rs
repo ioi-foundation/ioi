@@ -61,16 +61,16 @@ fn evaluate(obs: &RunObservation) -> LocalJudgeResult {
         .to_ascii_lowercase()
         .contains("retry blocked: unchanged attemptkey for unexpectedstate");
     let any_contract_failure_marker = observation_has_contract_failure_marker(obs);
-    let capture_route_terminalized = has_verification_check(obs, "screenshot_capture_terminalized=true");
+    let capture_route_terminalized =
+        has_verification_check(obs, "screenshot_capture_terminalized=true");
     let incident_resolved = has_verification_check(obs, "incident_resolved=true");
     let screenshot_reply_signal = screenshot_success_output(&obs.final_reply)
         || obs
             .action_evidence
             .iter()
             .any(|entry| screenshot_success_output(&entry.output_excerpt));
-    let capture_route_evidence = capture_route_terminalized
-        && incident_resolved
-        && screenshot_reply_signal;
+    let capture_route_evidence =
+        capture_route_terminalized && incident_resolved && screenshot_reply_signal;
     let capture_evidence_present = capture_action_count > 0
         || (capture_route_evidence && has_capture_path_signal(&obs.routing_tools));
     let completion_channel_present = (obs.completed

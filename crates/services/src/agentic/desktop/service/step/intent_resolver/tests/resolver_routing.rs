@@ -160,6 +160,76 @@ async fn resolver_routes_desktop_folder_creation_to_command_exec_not_app_launch(
 }
 
 #[tokio::test(flavor = "current_thread")]
+async fn resolver_routes_downloads_lowercase_rename_to_command_exec() {
+    let gui: Arc<dyn GuiDriver> = Arc::new(NoopGuiDriver);
+    let terminal = Arc::new(TerminalDriver::new());
+    let browser = Arc::new(BrowserDriver::new());
+    let inference: Arc<dyn InferenceRuntime> = Arc::new(DesktopFolderSkewedRuntime);
+    let service = DesktopAgentService::new(gui, terminal, browser, inference);
+
+    let mut agent_state = test_agent_state();
+    agent_state.goal = "Rename every file in my Downloads folder to lowercase.".to_string();
+
+    let mut rules = ActionRules::default();
+    rules.ontology_policy.intent_routing.matrix_version =
+        "intent-matrix-v13-downloads-rename-command-exec-test".into();
+    rules.ontology_policy.intent_routing.matrix = rules
+        .ontology_policy
+        .intent_routing
+        .matrix
+        .iter()
+        .filter(|entry| {
+            matches!(
+                entry.intent_id.as_str(),
+                "app.launch" | "workspace.ops" | "command.exec"
+            )
+        })
+        .cloned()
+        .collect();
+    let resolved = resolve_step_intent(&service, &agent_state, &rules, "terminal")
+        .await
+        .unwrap();
+
+    assert_eq!(resolved.intent_id, "command.exec");
+    assert_eq!(resolved.scope, IntentScopeProfile::CommandExecution);
+    assert_ne!(resolved.intent_id, "app.launch");
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn resolver_promotes_exempt_low_confidence_winner_to_medium_band() {
+    let gui: Arc<dyn GuiDriver> = Arc::new(NoopGuiDriver);
+    let terminal = Arc::new(TerminalDriver::new());
+    let browser = Arc::new(BrowserDriver::new());
+    let inference: Arc<dyn InferenceRuntime> = Arc::new(LowConfidenceExemptRuntime);
+    let service = DesktopAgentService::new(gui, terminal, browser, inference);
+
+    let mut agent_state = test_agent_state();
+    agent_state.goal = "Rename every file in my Downloads folder to lowercase.".to_string();
+
+    let mut rules = ActionRules::default();
+    rules.ontology_policy.intent_routing.matrix_version =
+        "intent-matrix-v13-exempt-low-band-promotion-test".into();
+    rules.ontology_policy.intent_routing.matrix = rules
+        .ontology_policy
+        .intent_routing
+        .matrix
+        .iter()
+        .filter(|entry| matches!(entry.intent_id.as_str(), "workspace.ops" | "command.exec"))
+        .cloned()
+        .collect();
+    let resolved = resolve_step_intent(&service, &agent_state, &rules, "terminal")
+        .await
+        .unwrap();
+
+    assert_eq!(resolved.intent_id, "command.exec");
+    assert_eq!(resolved.band, IntentConfidenceBand::Medium);
+    assert!(!should_pause_for_clarification(
+        &resolved,
+        &rules.ontology_policy.intent_routing
+    ));
+}
+
+#[tokio::test(flavor = "current_thread")]
 async fn resolver_routes_click_queries_to_ui_interaction_scope() {
     let gui: Arc<dyn GuiDriver> = Arc::new(NoopGuiDriver);
     let terminal = Arc::new(TerminalDriver::new());
@@ -403,7 +473,50 @@ async fn resolver_keeps_host_local_clock_queries_on_system_clock_read() {
 }
 
 #[tokio::test(flavor = "current_thread")]
-async fn resolver_abstains_when_embeddings_fail() {
+async fn resolver_uses_model_ranking_when_embeddings_are_unavailable() {
+    let gui: Arc<dyn GuiDriver> = Arc::new(NoopGuiDriver);
+    let terminal = Arc::new(TerminalDriver::new());
+    let browser = Arc::new(BrowserDriver::new());
+    let inference: Arc<dyn InferenceRuntime> = Arc::new(NoEmbeddingModelRankRuntime);
+    let service = DesktopAgentService::new(gui, terminal, browser, inference);
+
+    let mut agent_state = test_agent_state();
+    agent_state.goal = "Rename every file in my Downloads folder to lowercase.".to_string();
+
+    let mut rules = ActionRules::default();
+    rules.ontology_policy.intent_routing.matrix_version =
+        "intent-matrix-v13-no-embed-model-rank-test".into();
+    rules.ontology_policy.intent_routing.matrix = rules
+        .ontology_policy
+        .intent_routing
+        .matrix
+        .iter()
+        .filter(|entry| {
+            matches!(
+                entry.intent_id.as_str(),
+                "app.launch" | "workspace.ops" | "command.exec"
+            )
+        })
+        .cloned()
+        .collect();
+
+    let resolved = resolve_step_intent(&service, &agent_state, &rules, "terminal")
+        .await
+        .unwrap();
+    assert_eq!(resolved.intent_id, "command.exec");
+    assert_eq!(resolved.scope, IntentScopeProfile::CommandExecution);
+    assert!(matches!(
+        resolved.band,
+        IntentConfidenceBand::High | IntentConfidenceBand::Medium
+    ));
+    assert!(!should_pause_for_clarification(
+        &resolved,
+        &rules.ontology_policy.intent_routing
+    ));
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn resolver_uses_lexical_ranking_when_embeddings_and_model_ranking_fail() {
     let gui: Arc<dyn GuiDriver> = Arc::new(NoopGuiDriver);
     let terminal = Arc::new(TerminalDriver::new());
     let browser = Arc::new(BrowserDriver::new());
@@ -418,15 +531,18 @@ async fn resolver_abstains_when_embeddings_fail() {
     let resolved = resolve_step_intent(&service, &agent_state, &rules, "terminal")
         .await
         .unwrap();
-    assert_eq!(resolved.intent_id, "resolver.unclassified");
-    assert_eq!(resolved.scope, IntentScopeProfile::Unknown);
-    assert_eq!(resolved.score, 0.0);
+    assert_eq!(resolved.intent_id, "system.clock.read");
+    assert_eq!(resolved.scope, IntentScopeProfile::CommandExecution);
+    assert!(resolved.score > 0.0);
     assert_eq!(resolved.band, IntentConfidenceBand::Low);
     assert!(!resolved.top_k.is_empty());
+    assert!(resolved.top_k.iter().any(|candidate| {
+        candidate.intent_id == "system.clock.read" && candidate.score > f32::EPSILON
+    }));
     assert!(resolved
         .top_k
         .iter()
-        .all(|candidate| candidate.score <= f32::EPSILON));
+        .any(|candidate| candidate.score <= f32::EPSILON));
     assert!(should_pause_for_clarification(
         &resolved,
         &rules.ontology_policy.intent_routing

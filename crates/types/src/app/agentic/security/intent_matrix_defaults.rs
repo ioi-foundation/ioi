@@ -97,7 +97,8 @@ IntentMatrixEntry {
 IntentMatrixEntry {
     intent_id: "workspace.ops".to_string(),
     semantic_descriptor:
-        "inspect and modify files in the local workspace and repository".to_string(),
+        "inspect and modify files in the local workspace and repository checkout source tree"
+            .to_string(),
     required_capabilities: vec![
         CapabilityId::from("agent.lifecycle"),
         CapabilityId::from("conversation.reply"),
@@ -278,7 +279,7 @@ IntentMatrixEntry {
 IntentMatrixEntry {
     intent_id: "command.exec".to_string(),
     semantic_descriptor:
-        "execute local shell or terminal commands on the current machine and run local automation tasks like timers"
+        "execute local shell or terminal commands on the current machine for local automation tasks including file renaming batch directory transforms filename case normalization and timers"
             .to_string(),
     required_capabilities: vec![
         CapabilityId::from("agent.lifecycle"),

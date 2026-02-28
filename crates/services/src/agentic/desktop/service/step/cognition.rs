@@ -44,6 +44,44 @@ fn cognition_inference_timeout() -> Duration {
         .unwrap_or_else(|| Duration::from_secs(DEFAULT_TIMEOUT_SECS))
 }
 
+fn compact_single_line(input: &str, max_chars: usize) -> String {
+    let collapsed = input.split_whitespace().collect::<Vec<_>>().join(" ");
+    if collapsed.chars().count() <= max_chars {
+        collapsed
+    } else {
+        let mut truncated = collapsed.chars().take(max_chars).collect::<String>();
+        truncated.push_str("...");
+        truncated
+    }
+}
+
+fn inference_error_system_fail_reason(raw_error: &str) -> String {
+    let lower = raw_error.to_ascii_lowercase();
+
+    if lower.contains("insufficient_quota")
+        || (lower.contains("429") && lower.contains("too many requests"))
+    {
+        return "ERROR_CLASS=UserInterventionNeeded Cognition inference unavailable: provider quota exhausted (HTTP 429 insufficient_quota). Update billing/quota and resume.".to_string();
+    }
+
+    if lower.contains("invalid_api_key")
+        || lower.contains("authentication")
+        || (lower.contains("401") && lower.contains("unauthorized"))
+    {
+        return "ERROR_CLASS=UserInterventionNeeded Cognition inference unavailable: provider authentication failed (check API key/runtime credentials).".to_string();
+    }
+
+    if lower.contains("forbidden") || (lower.contains("403") && lower.contains("provider")) {
+        return "ERROR_CLASS=UserInterventionNeeded Cognition inference unavailable: provider access is forbidden for current credentials/config.".to_string();
+    }
+
+    let detail = compact_single_line(raw_error, 240);
+    format!(
+        "ERROR_CLASS=UserInterventionNeeded Cognition inference failed before tool planning. detail={}",
+        detail
+    )
+}
+
 fn preflight_missing_capability(
     scope: IntentScopeProfile,
     is_browser_active: bool,
@@ -415,25 +453,26 @@ pub async fn think(
     } else {
         String::new()
     };
-    let workspace_scope_instruction =
-        if matches!(resolved_scope, IntentScopeProfile::WorkspaceOps) {
-            let has_filesystem_search = perception
-                .available_tools
-                .iter()
-                .any(|tool| tool.name == "filesystem__search");
-            let has_filesystem_stat = perception
-                .available_tools
-                .iter()
-                .any(|tool| tool.name == "filesystem__stat");
-            let has_filesystem_list = perception
-                .available_tools
-                .iter()
-                .any(|tool| tool.name == "filesystem__list_directory");
-            let has_command_tool = perception.available_tools.iter().any(|tool| {
-                matches!(tool.name.as_str(), "sys__exec" | "sys__exec_session")
-            });
+    let workspace_scope_instruction = if matches!(resolved_scope, IntentScopeProfile::WorkspaceOps)
+    {
+        let has_filesystem_search = perception
+            .available_tools
+            .iter()
+            .any(|tool| tool.name == "filesystem__search");
+        let has_filesystem_stat = perception
+            .available_tools
+            .iter()
+            .any(|tool| tool.name == "filesystem__stat");
+        let has_filesystem_list = perception
+            .available_tools
+            .iter()
+            .any(|tool| tool.name == "filesystem__list_directory");
+        let has_command_tool = perception
+            .available_tools
+            .iter()
+            .any(|tool| matches!(tool.name.as_str(), "sys__exec" | "sys__exec_session"));
 
-            format!(
+        format!(
                 "WORKSPACE OPS CONTRACT:\n\
                  - Prefer filesystem-native tools first for local file discovery and metadata checks.\n\
                  - For time-window constraints (for example \"modified in the last week\"), content regex alone is insufficient.\n\
@@ -447,9 +486,9 @@ pub async fn think(
                 has_filesystem_list,
                 has_command_tool
             )
-        } else {
-            String::new()
-        };
+    } else {
+        String::new()
+    };
 
     let system_instructions = format!(
  "SYSTEM: You are a local desktop assistant operating inside the IOI runtime.
@@ -696,13 +735,40 @@ OPERATING RULES:
                     });
                 }
                 log::error!("CRITICAL: Agent Inference Failed: {}", e);
-                Vec::new()
+                return Ok(CognitionResult {
+                    raw_output: json!({
+                        "name": "system__fail",
+                        "arguments": {
+                            "reason": inference_error_system_fail_reason(&err_msg),
+                        }
+                    })
+                    .to_string(),
+                    strategy_used: "InferenceError".to_string(),
+                });
             }
         },
     };
 
+    let raw_output = String::from_utf8_lossy(&output_bytes).to_string();
+    if raw_output.trim().is_empty() {
+        log::error!(
+            "CRITICAL: Agent Inference Returned Empty Output session={}",
+            session_prefix
+        );
+        return Ok(CognitionResult {
+            raw_output: json!({
+                "name": "system__fail",
+                "arguments": {
+                    "reason": "ERROR_CLASS=UserInterventionNeeded Cognition inference returned empty output. Verify provider health and credentials, then resume."
+                }
+            })
+            .to_string(),
+            strategy_used: "InferenceEmptyOutput".to_string(),
+        });
+    }
+
     Ok(CognitionResult {
-        raw_output: String::from_utf8_lossy(&output_bytes).to_string(),
+        raw_output,
         strategy_used: format!("{:?}", perception.tier),
     })
 }
@@ -821,8 +887,10 @@ async fn determine_attention_mode(
 
 #[cfg(test)]
 mod tests {
-    use super::build_recent_command_history_context;
-    use super::preflight_missing_capability;
+    use super::{
+        build_recent_command_history_context, inference_error_system_fail_reason,
+        preflight_missing_capability,
+    };
     use crate::agentic::desktop::types::CommandExecution;
     use ioi_types::app::agentic::{IntentScopeProfile, LlmToolDefinition};
     use std::collections::VecDeque;
@@ -932,5 +1000,31 @@ mod tests {
         assert!(context.contains("command-1"));
         assert!(context.contains("command-2"));
         assert!(context.contains("<REDACTED>"));
+    }
+
+    #[test]
+    fn inference_error_reason_marks_quota_failures_as_user_intervention() {
+        let reason = inference_error_system_fail_reason(
+            "Provider Error 429 Too Many Requests: { \"error\": { \"code\": \"insufficient_quota\" } }",
+        );
+        assert!(reason.contains("ERROR_CLASS=UserInterventionNeeded"));
+        assert!(reason.contains("insufficient_quota"));
+    }
+
+    #[test]
+    fn inference_error_reason_marks_auth_failures_as_user_intervention() {
+        let reason =
+            inference_error_system_fail_reason("Provider Error 401 Unauthorized: invalid_api_key");
+        assert!(reason.contains("ERROR_CLASS=UserInterventionNeeded"));
+        assert!(reason.contains("authentication failed"));
+    }
+
+    #[test]
+    fn inference_error_reason_includes_compact_detail_for_unknown_failures() {
+        let reason = inference_error_system_fail_reason(
+            "upstream runtime panic: envelope decode failed in cognition bridge",
+        );
+        assert!(reason.contains("ERROR_CLASS=UserInterventionNeeded"));
+        assert!(reason.contains("detail=upstream runtime panic"));
     }
 }

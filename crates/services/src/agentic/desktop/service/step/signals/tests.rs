@@ -97,7 +97,8 @@ fn goal_profile_handles_empty_input() {
 
 #[test]
 fn goal_profile_treats_last_week_file_queries_as_recency_sensitive() {
-    let profile = analyze_goal_signals("Find all PDF files on my computer modified in the last week.");
+    let profile =
+        analyze_goal_signals("Find all PDF files on my computer modified in the last week.");
     assert!(profile.recency_hits > 0);
     assert!(profile.workspace_hits > 0 || profile.filesystem_hits > 0);
 }

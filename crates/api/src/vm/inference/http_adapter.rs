@@ -600,10 +600,21 @@ impl InferenceRuntime for HttpInferenceRuntime {
             .await
             .map_err(|e| VmError::HostError(format!("Embedding req failed: {}", e)))?;
 
-        let data: EmbeddingResponse = resp
-            .json()
+        let status = resp.status();
+        let raw = resp
+            .text()
             .await
-            .map_err(|e| VmError::HostError(format!("Embedding parse failed: {}", e)))?;
+            .map_err(|e| VmError::HostError(format!("Embedding read failed: {}", e)))?;
+        if !status.is_success() {
+            return Err(VmError::HostError(format!(
+                "Embedding provider error {}: {}",
+                status, raw
+            )));
+        }
+
+        let data: EmbeddingResponse = serde_json::from_str(&raw).map_err(|e| {
+            VmError::HostError(format!("Embedding parse failed: {} | Raw: {}", e, raw))
+        })?;
 
         if let Some(item) = data.data.first() {
             Ok(item.embedding.clone())

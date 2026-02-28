@@ -50,9 +50,9 @@ pub(crate) async fn run_visual_prechecks_phase(
     if explicit_pii_deny {
         mark_gate_denied(state, session_id)?;
         let deny_error = if pii_request_present {
-            "PII review denied by approver. Step failed closed.".to_string()
+            "PII review denied by approver. Current step stopped before execution; no further changes were made.".to_string()
         } else {
-            "Approval denied by approver. Step failed closed.".to_string()
+            "Approval denied by approver. Current step stopped before execution; no further changes were made.".to_string()
         };
         let key = get_state_key(&session_id);
         goto_trace_log(
@@ -73,9 +73,9 @@ pub(crate) async fn run_visual_prechecks_phase(
         let deny_msg = ioi_types::app::agentic::ChatMessage {
             role: "system".to_string(),
             content: if pii_request_present {
-                "System: PII review denied. Current step failed closed.".to_string()
+                "System: PII review denied. Step stopped before execution. Approve and retry to continue.".to_string()
             } else {
-                "System: Approval denied. Current step failed closed.".to_string()
+                "System: Approval denied. Step stopped before execution. Approve and retry to continue.".to_string()
             },
             timestamp: SystemTime::now()
                 .duration_since(UNIX_EPOCH)

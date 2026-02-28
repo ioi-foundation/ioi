@@ -132,6 +132,34 @@ async fn session_exec_has_tty_on_unix() {
     let _ = driver.reset_session(key).await;
 }
 
+#[cfg(unix)]
+#[tokio::test]
+async fn session_exec_stdin_heredoc_filters_prompt_echo_noise() {
+    let driver = TerminalDriver::new();
+    let key = "test-session-stdin-heredoc";
+    let script = "printf 'LOWERCASE_RENAME_POSTCHECK:{\"target_dir\":\"/tmp\",\"total_files\":1,\"uppercase_remaining\":0,\"final_names\":[\"a.txt\"]}\\n'\n";
+
+    let out = driver
+        .execute_session_in_dir_with_options(
+            key,
+            "bash",
+            &["-s".to_string()],
+            None,
+            CommandExecutionOptions::default()
+                .with_timeout(Duration::from_secs(5))
+                .with_stdin_data(Some(script.as_bytes().to_vec())),
+        )
+        .await
+        .expect("bash -s stdin script should succeed");
+
+    assert!(out.contains("LOWERCASE_RENAME_POSTCHECK:"));
+    assert!(!out.contains("__IOI_RC:"));
+    assert!(!out.contains("__IOI_DONE:"));
+    assert!(!out.lines().any(|line| line.trim() == ">"));
+
+    let _ = driver.reset_session(key).await;
+}
+
 #[cfg(windows)]
 #[tokio::test]
 async fn session_exec_preserves_shell_state_across_calls() {
