@@ -1,4 +1,4 @@
-// apps/autopilot/src-tauri/src/kernel/task.rs
+use crate::identity;
 use crate::kernel::state::update_task_state;
 use crate::models::{
     AgentEvent, AgentPhase, AgentTask, AppState, ChatMessage, EventStatus, EventType,
@@ -6,21 +6,19 @@ use crate::models::{
 };
 use crate::orchestrator;
 use crate::windows;
+use ioi_ipc::blockchain::QueryRawStateRequest;
 use ioi_ipc::public::public_api_client::PublicApiClient;
 use ioi_ipc::public::{DraftTransactionRequest, SubmitTransactionRequest};
-use parity_scale_codec::{Decode, Encode};
-use serde_json::json;
-use std::collections::HashSet;
-use std::sync::Mutex;
-use tauri::{AppHandle, Emitter, Manager, State};
-
-// [NEW] Imports for continue_task
-use ioi_ipc::blockchain::QueryRawStateRequest;
 use ioi_types::app::{
     account_id_from_key_material, AccountId, ChainId, ChainTransaction, SignHeader, SignatureProof,
     SignatureSuite, SystemPayload, SystemTransaction,
 };
 use ioi_types::codec;
+use parity_scale_codec::{Decode, Encode};
+use serde_json::json;
+use std::collections::HashSet;
+use std::sync::Mutex;
+use tauri::{AppHandle, Emitter, State};
 
 fn input_probe_logging_enabled() -> bool {
     std::env::var("AUTOPILOT_INPUT_PROBE_LOG")
@@ -39,7 +37,6 @@ fn now_iso() -> String {
 }
 
 fn generate_session_id_hex() -> String {
-    // Use two UUIDv4 values to build a canonical 32-byte session id (64 hex chars).
     let mut session_bytes = [0u8; 32];
     session_bytes[..16].copy_from_slice(uuid::Uuid::new_v4().as_bytes());
     session_bytes[16..].copy_from_slice(uuid::Uuid::new_v4().as_bytes());
@@ -69,6 +66,174 @@ fn build_user_input_event(thread_id: &str, step_index: u32, text: &str) -> Agent
     }
 }
 
+#[derive(Encode, Decode)]
+struct PostMessageParams {
+    pub session_id: [u8; 32],
+    pub role: String,
+    pub content: String,
+}
+
+fn normalize_session_id(session_id: &str) -> Result<[u8; 32], String> {
+    let clean_session_id = session_id.replace('-', "");
+    let session_bytes = hex::decode(&clean_session_id).map_err(|_| "Invalid session ID hex")?;
+    if session_bytes.len() > 32 {
+        return Err("Session ID too long".into());
+    }
+
+    let mut session_arr = [0u8; 32];
+    session_arr[..session_bytes.len()].copy_from_slice(&session_bytes);
+    Ok(session_arr)
+}
+
+fn encode_post_message_params(session_id: [u8; 32], content: String) -> Result<Vec<u8>, String> {
+    let params = PostMessageParams {
+        session_id,
+        role: "user".to_string(),
+        content,
+    };
+    codec::to_bytes_canonical(&params).map_err(|e| e.to_string())
+}
+
+fn build_post_message_tx_bytes(
+    account_id: AccountId,
+    nonce: u64,
+    public_key: Vec<u8>,
+    keypair: &libp2p::identity::Keypair,
+    params_bytes: Vec<u8>,
+) -> Result<Vec<u8>, String> {
+    let payload = SystemPayload::CallService {
+        service_id: "desktop_agent".to_string(),
+        method: "post_message@v1".to_string(),
+        params: params_bytes,
+    };
+
+    let mut sys_tx = SystemTransaction {
+        header: SignHeader {
+            account_id,
+            nonce,
+            chain_id: ChainId(0),
+            tx_version: 1,
+            session_auth: None,
+        },
+        payload,
+        signature_proof: SignatureProof::default(),
+    };
+
+    let sign_bytes = sys_tx.to_sign_bytes().map_err(|e| e.to_string())?;
+    let signature = keypair.sign(&sign_bytes).map_err(|e| e.to_string())?;
+
+    sys_tx.signature_proof = SignatureProof {
+        suite: SignatureSuite::ED25519,
+        public_key,
+        signature,
+    };
+
+    let tx = ChainTransaction::System(Box::new(sys_tx));
+    codec::to_bytes_canonical(&tx).map_err(|e| e.to_string())
+}
+
+async fn query_account_nonce(
+    client: &mut PublicApiClient<tonic::transport::Channel>,
+    account_id: &AccountId,
+) -> u64 {
+    let nonce_key = [ioi_types::keys::ACCOUNT_NONCE_PREFIX, account_id.as_ref()].concat();
+    match client
+        .query_raw_state(tonic::Request::new(QueryRawStateRequest { key: nonce_key }))
+        .await
+    {
+        Ok(resp) => {
+            let val = resp.into_inner().value;
+            if val.is_empty() {
+                0
+            } else {
+                codec::from_bytes_canonical::<u64>(&val).unwrap_or(0)
+            }
+        }
+        Err(_) => 0,
+    }
+}
+
+async fn submit_post_message_with_nonce_retry(
+    client: &mut PublicApiClient<tonic::transport::Channel>,
+    keypair: &libp2p::identity::Keypair,
+    account_id: AccountId,
+    public_key: Vec<u8>,
+    params_bytes: Vec<u8>,
+) -> Result<(), String> {
+    let mut attempts = 0;
+    let max_retries = 8;
+    let mut backoff_ms = 100;
+    let mut nonce_offset = 0;
+    let mut last_state_nonce: Option<u64> = None;
+    let mut last_error: Option<String> = None;
+
+    while attempts < max_retries {
+        let state_nonce = query_account_nonce(client, &account_id).await;
+
+        if last_state_nonce.map(|n| state_nonce > n).unwrap_or(false) {
+            nonce_offset = 0;
+            backoff_ms = 100;
+        }
+        last_state_nonce = Some(state_nonce);
+
+        let nonce = state_nonce + nonce_offset;
+
+        let tx_bytes = build_post_message_tx_bytes(
+            account_id.clone(),
+            nonce,
+            public_key.clone(),
+            keypair,
+            params_bytes.clone(),
+        )?;
+
+        match client
+            .submit_transaction(tonic::Request::new(SubmitTransactionRequest {
+                transaction_bytes: tx_bytes,
+            }))
+            .await
+        {
+            Ok(_) => {
+                println!("[Autopilot] Message sent successfully (Nonce: {})", nonce);
+                return Ok(());
+            }
+            Err(e) => {
+                attempts += 1;
+                let msg = e.message().to_string();
+                last_error = Some(msg.clone());
+
+                if msg.contains("already exists") || msg.contains("too low") {
+                    println!("[Autopilot] Nonce {} collision/low. Incrementing...", nonce);
+                    nonce_offset = nonce_offset.saturating_add(1);
+
+                    if nonce_offset >= 32 {
+                        nonce_offset = 0;
+                        tokio::time::sleep(std::time::Duration::from_millis(backoff_ms)).await;
+                        backoff_ms = (backoff_ms * 2).min(2000);
+                    }
+                } else if msg.contains("too high")
+                    || msg.contains("gap")
+                    || msg.contains("expected")
+                {
+                    println!(
+                        "[Autopilot] Nonce {} gap/high. Resetting offset and backing off.",
+                        nonce
+                    );
+                    nonce_offset = 0;
+                    tokio::time::sleep(std::time::Duration::from_millis(backoff_ms)).await;
+                    backoff_ms = (backoff_ms * 2).min(2000);
+                } else if msg.contains("Ingestion queue full") {
+                    tokio::time::sleep(std::time::Duration::from_millis(backoff_ms)).await;
+                    backoff_ms = (backoff_ms * 2).min(2000);
+                } else {
+                    return Err(msg);
+                }
+            }
+        }
+    }
+
+    Err(last_error.unwrap_or_else(|| "Network busy (Nonce Lock)".to_string()))
+}
+
 async fn submit_continue_via_ephemeral_post_message(
     client: &mut PublicApiClient<tonic::transport::Channel>,
     params_bytes: Vec<u8>,
@@ -80,48 +245,32 @@ async fn submit_continue_via_ephemeral_post_message(
             .map_err(|e| e.to_string())?,
     );
 
-    let payload = SystemPayload::CallService {
-        service_id: "desktop_agent".to_string(),
-        method: "post_message@v1".to_string(),
-        params: params_bytes,
-    };
-    let mut sys_tx = SystemTransaction {
-        header: SignHeader {
-            account_id,
-            nonce: 0,
-            chain_id: ChainId(0),
-            tx_version: 1,
-            session_auth: None,
-        },
-        payload,
-        signature_proof: SignatureProof::default(),
-    };
+    let tx_bytes = build_post_message_tx_bytes(account_id, 0, public_key, &keypair, params_bytes)?;
 
-    let sign_bytes = sys_tx.to_sign_bytes().map_err(|e| e.to_string())?;
-    let signature = keypair.sign(&sign_bytes).map_err(|e| e.to_string())?;
-    sys_tx.signature_proof = SignatureProof {
-        suite: SignatureSuite::ED25519,
-        public_key,
-        signature,
-    };
-
-    let tx = ChainTransaction::System(Box::new(sys_tx));
-    let tx_bytes = codec::to_bytes_canonical(&tx).map_err(|e| e.to_string())?;
     client
         .submit_transaction(tonic::Request::new(SubmitTransactionRequest {
             transaction_bytes: tx_bytes,
         }))
         .await
         .map_err(|e| format!("Submission Error: {}", e))?;
+
     Ok(())
 }
 
-// [FIX] Local definition to avoid dependency on private/missing service types
-#[derive(Encode, Decode)]
-struct PostMessageParams {
-    pub session_id: [u8; 32],
-    pub role: String,
-    pub content: String,
+async fn submit_continue_authenticated(
+    client: &mut PublicApiClient<tonic::transport::Channel>,
+    app: &AppHandle,
+    params_bytes: Vec<u8>,
+) -> Result<(), String> {
+    let keypair = identity::load_identity_keypair_for_app(app)?;
+    let public_key = keypair.public().encode_protobuf();
+    let account_id = AccountId(
+        account_id_from_key_material(SignatureSuite::ED25519, &public_key)
+            .map_err(|e| e.to_string())?,
+    );
+
+    submit_post_message_with_nonce_retry(client, &keypair, account_id, public_key, params_bytes)
+        .await
 }
 
 #[tauri::command]
@@ -146,12 +295,10 @@ pub fn start_task(
 
     let task_id = generate_session_id_hex();
 
-    // We treat task_id as session_id for local context unless provided otherwise
     let mut task = AgentTask {
         id: task_id.clone(),
         session_id: Some(task_id.clone()),
         intent: intent.clone(),
-        // [MODIFIED] Unified Agent Name
         agent: "Autopilot".to_string(),
         phase: AgentPhase::Running,
         progress: 0,
@@ -174,14 +321,11 @@ pub fn start_task(
         fitness_score: 0.0,
     };
 
-    let scs_handle;
-
-    {
+    let scs_handle = {
         let app_state = state.lock().map_err(|_| "Failed to lock state")?;
-        scs_handle = app_state.studio_scs.clone();
-    }
+        app_state.studio_scs.clone()
+    };
 
-    // Persist Initial Session State Locally
     if let Some(scs) = scs_handle.clone() {
         let run_bundle =
             crate::kernel::artifacts::create_run_bundle(&scs, &task_id, &task_id, vec![]);
@@ -208,17 +352,11 @@ pub fn start_task(
     }
 
     let _ = app.emit("task-started", &task);
-
-    // [MODIFIED] Show Spotlight instead of Pill (Glass Box Migration)
     crate::windows::show_spotlight(app.clone());
 
     let app_clone = app.clone();
-    let intent_clone = intent.clone();
+    let effective_intent = format!("SESSION:{} {}", task_id, intent);
 
-    // [MODIFIED] Unified Intent Construction
-    let effective_intent = format!("SESSION:{} {}", task_id, intent_clone);
-
-    // Async submission to Kernel
     tauri::async_runtime::spawn(async move {
         let mut client = match PublicApiClient::connect("http://127.0.0.1:9000").await {
             Ok(c) => c,
@@ -279,7 +417,6 @@ pub async fn continue_task(
         );
     }
 
-    // 1. Optimistic UI Update
     let user_msg_ui = ChatMessage {
         role: "user".to_string(),
         text: user_input.clone(),
@@ -288,7 +425,6 @@ pub async fn continue_task(
     let user_input_for_event = user_input.clone();
 
     update_task_state(&app, move |t| {
-        // Step indexes are reused across turns, so dedup caches must reset per new user turn.
         t.processed_steps.clear();
         t.history.push(user_msg_ui.clone());
         t.credential_request = None;
@@ -301,36 +437,14 @@ pub async fn continue_task(
             &user_input_for_event,
         ));
         t.current_step = "Sending message...".to_string();
-        t.phase = crate::models::AgentPhase::Running;
+        t.phase = AgentPhase::Running;
     });
 
-    // Remove hyphens if present to support UUID string format from UI
-    let clean_session_id = session_id.replace("-", "");
-    let session_bytes = hex::decode(&clean_session_id).map_err(|_| "Invalid session ID hex")?;
-
-    let mut session_arr = [0u8; 32];
-
-    // Ensure we handle potential length mismatches
-    if session_bytes.len() > 32 {
-        return Err("Session ID too long".into());
-    }
-
-    // Copy bytes, zero-padding if shorter than 32 (e.g. 16-byte UUID)
-    session_arr[..session_bytes.len()].copy_from_slice(&session_bytes);
-
-    // [FIX] Use local PostMessageParams struct
-    let params = PostMessageParams {
-        session_id: session_arr,
-        role: "user".to_string(),
-        content: user_input,
-    };
-
-    let params_bytes = codec::to_bytes_canonical(&params).map_err(|e| e.to_string())?;
+    let session_arr = normalize_session_id(&session_id)?;
+    let params_bytes = encode_post_message_params(session_arr, user_input)?;
     let fallback_params_bytes = params_bytes.clone();
 
-    // 3. Async Kernel Call with Backoff Retry
     let app_clone = app.clone();
-
     tauri::async_runtime::spawn(async move {
         let mut client = match PublicApiClient::connect("http://127.0.0.1:9000").await {
             Ok(c) => c,
@@ -340,238 +454,22 @@ pub async fn continue_task(
             }
         };
 
-        // Identity Load
-        let data_dir = app_clone
-            .path()
-            .app_data_dir()
-            .unwrap_or_else(|_| std::path::PathBuf::from("./ioi-data"));
-        let key_path = data_dir.join("identity.key");
-        if std::env::var("IOI_GUARDIAN_KEY_PASS").is_err() {
-            unsafe {
-                std::env::set_var("IOI_GUARDIAN_KEY_PASS", "local-mode");
-            }
-        }
-
-        let raw_key = match ioi_validator::common::GuardianContainer::load_encrypted_file(&key_path)
+        if let Err(base_err) =
+            submit_continue_authenticated(&mut client, &app_clone, params_bytes.clone()).await
         {
-            Ok(k) => k,
-            Err(e) => {
-                eprintln!(
-                    "[Autopilot] Failed to load identity key: {}. Falling back to ephemeral post_message flow.",
-                    e
-                );
-                if let Err(err) = submit_continue_via_ephemeral_post_message(
-                    &mut client,
-                    fallback_params_bytes.clone(),
-                )
-                .await
-                {
-                    update_task_state(&app_clone, move |t| {
-                        t.phase = crate::models::AgentPhase::Failed;
-                        t.current_step = format!("Failed to send message: {}", err);
-                    });
-                }
-                return;
-            }
-        };
-
-        let keypair = match libp2p::identity::Keypair::from_protobuf_encoding(&raw_key) {
-            Ok(kp) => kp,
-            Err(e) => {
-                eprintln!(
-                    "[Autopilot] Failed to decode identity key: {}. Falling back to ephemeral post_message flow.",
-                    e
-                );
-                if let Err(err) = submit_continue_via_ephemeral_post_message(
-                    &mut client,
-                    fallback_params_bytes.clone(),
-                )
-                .await
-                {
-                    update_task_state(&app_clone, move |t| {
-                        t.phase = crate::models::AgentPhase::Failed;
-                        t.current_step = format!("Failed to send message: {}", err);
-                    });
-                }
-                return;
-            }
-        };
-        let pk_bytes = keypair.public().encode_protobuf();
-        let account_id = match account_id_from_key_material(SignatureSuite::ED25519, &pk_bytes) {
-            Ok(id) => AccountId(id),
-            Err(e) => {
-                eprintln!(
-                    "[Autopilot] Failed to derive account id from identity key: {}. Falling back to ephemeral post_message flow.",
-                    e
-                );
-                if let Err(err) = submit_continue_via_ephemeral_post_message(
-                    &mut client,
-                    fallback_params_bytes.clone(),
-                )
-                .await
-                {
-                    update_task_state(&app_clone, move |t| {
-                        t.phase = crate::models::AgentPhase::Failed;
-                        t.current_step = format!("Failed to send message: {}", err);
-                    });
-                }
-                return;
-            }
-        };
-
-        // --- CONVERGENT RETRY LOOP ---
-        let mut attempts = 0;
-        let max_retries = 8;
-        let mut backoff_ms = 100;
-        let mut nonce_offset = 0;
-        let mut last_state_nonce: Option<u64> = None;
-        let mut success = false;
-        let mut last_error: Option<String> = None;
-
-        while attempts < max_retries {
-            // 1. Fetch State Nonce (Base)
-            let nonce_key = [ioi_types::keys::ACCOUNT_NONCE_PREFIX, account_id.as_ref()].concat();
-            let state_nonce = match client
-                .query_raw_state(tonic::Request::new(QueryRawStateRequest { key: nonce_key }))
-                .await
-            {
-                Ok(resp) => {
-                    let val = resp.into_inner().value;
-                    if val.is_empty() {
-                        0
-                    } else {
-                        codec::from_bytes_canonical::<u64>(&val).unwrap_or(0)
-                    }
-                }
-                Err(_) => 0,
-            };
-
-            // If block committed and state advanced, reset our offset logic to avoid overshooting
-            if last_state_nonce.map(|n| state_nonce > n).unwrap_or(false) {
-                nonce_offset = 0;
-                backoff_ms = 100; // Reset backoff on progress
-            }
-            last_state_nonce = Some(state_nonce);
-
-            // Calculate candidate nonce based on offset strategy
-            let nonce = state_nonce + nonce_offset;
-
-            // ... (Payload construction and signing) ...
-            let payload = SystemPayload::CallService {
-                service_id: "desktop_agent".to_string(),
-                method: "post_message@v1".to_string(),
-                params: params_bytes.clone(),
-            };
-
-            let mut sys_tx = SystemTransaction {
-                header: SignHeader {
-                    account_id,
-                    nonce,
-                    chain_id: ChainId(0),
-                    tx_version: 1,
-                    session_auth: None,
-                },
-                payload,
-                signature_proof: SignatureProof::default(),
-            };
-
-            let sign_bytes = match sys_tx.to_sign_bytes() {
-                Ok(bytes) => bytes,
-                Err(e) => {
-                    last_error = Some(format!("Failed to build sign bytes: {}", e));
-                    break;
-                }
-            };
-            let sig = match keypair.sign(&sign_bytes) {
-                Ok(sig) => sig,
-                Err(e) => {
-                    last_error = Some(format!("Failed to sign transaction: {}", e));
-                    break;
-                }
-            };
-
-            sys_tx.signature_proof = SignatureProof {
-                suite: SignatureSuite::ED25519,
-                public_key: pk_bytes.clone(),
-                signature: sig,
-            };
-
-            let tx = ChainTransaction::System(Box::new(sys_tx));
-            let tx_bytes = match codec::to_bytes_canonical(&tx) {
-                Ok(bytes) => bytes,
-                Err(e) => {
-                    last_error = Some(format!("Failed to encode transaction: {}", e));
-                    break;
-                }
-            };
-
-            // Submit
-            match client
-                .submit_transaction(tonic::Request::new(
-                    ioi_ipc::public::SubmitTransactionRequest {
-                        transaction_bytes: tx_bytes,
-                    },
-                ))
-                .await
-            {
-                Ok(_) => {
-                    println!("[Autopilot] Message sent successfully (Nonce: {})", nonce);
-                    success = true;
-                    break;
-                }
-                Err(e) => {
-                    attempts += 1;
-                    let msg = e.message();
-                    last_error = Some(msg.to_string());
-
-                    // Specific Error Matching
-                    if msg.contains("already exists") || msg.contains("too low") {
-                        // Collision: Increment and retry
-                        println!("[Autopilot] Nonce {} collision/low. Incrementing...", nonce);
-                        nonce_offset = nonce_offset.saturating_add(1);
-
-                        if nonce_offset >= 32 {
-                            nonce_offset = 0;
-                            tokio::time::sleep(std::time::Duration::from_millis(backoff_ms)).await;
-                            backoff_ms = (backoff_ms * 2).min(2000);
-                        }
-                    } else if msg.contains("too high")
-                        || msg.contains("gap")
-                        || msg.contains("expected")
-                    {
-                        // Gap: We are too far ahead. Reset offset and wait.
-                        println!(
-                            "[Autopilot] Nonce {} gap/high. Resetting offset and backing off.",
-                            nonce
-                        );
-                        nonce_offset = 0;
-                        tokio::time::sleep(std::time::Duration::from_millis(backoff_ms)).await;
-                        backoff_ms = (backoff_ms * 2).min(2000);
-                    } else if msg.contains("Ingestion queue full") {
-                        // Transient load: Backoff
-                        tokio::time::sleep(std::time::Duration::from_millis(backoff_ms)).await;
-                        backoff_ms = (backoff_ms * 2).min(2000);
-                    } else {
-                        eprintln!("[Autopilot] Fatal submission error: {}", msg);
-                        break;
-                    }
-                }
-            }
-        }
-
-        if !success {
             eprintln!(
-                "[Autopilot] post_message@v1 submission did not converge. Falling back to ephemeral post_message flow."
+                "[Autopilot] post_message@v1 submission did not converge. Falling back to ephemeral post_message flow: {}",
+                base_err
             );
-            if let Err(err) =
+            if let Err(fallback_err) =
                 submit_continue_via_ephemeral_post_message(&mut client, fallback_params_bytes).await
             {
-                let base_err =
-                    last_error.unwrap_or_else(|| "Network busy (Nonce Lock)".to_string());
                 update_task_state(&app_clone, move |t| {
-                    t.phase = crate::models::AgentPhase::Failed;
-                    t.current_step =
-                        format!("Failed to send message: {} | fallback: {}", base_err, err);
+                    t.phase = AgentPhase::Failed;
+                    t.current_step = format!(
+                        "Failed to send message: {} | fallback: {}",
+                        base_err, fallback_err
+                    );
                 });
             }
         }

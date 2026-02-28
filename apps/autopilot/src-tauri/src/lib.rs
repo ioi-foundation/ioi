@@ -1,4 +1,4 @@
-// apps/autopilot/src-tauri/src/lib.rs
+use std::path::Path;
 use std::sync::{Arc, Mutex};
 use tauri::{
     menu::{Menu, MenuItem},
@@ -8,21 +8,20 @@ use tauri::{
 use tauri_plugin_global_shortcut::{Code, GlobalShortcutExt, Modifiers, Shortcut, ShortcutState};
 
 mod execution;
+mod identity;
 mod ingestion;
 mod kernel;
 mod models;
 mod orchestrator;
 mod project;
+mod template;
 mod windows;
 
 use ioi_api::vm::inference::{HttpInferenceRuntime, InferenceRuntime};
 use ioi_scs::{SovereignContextStore, StoreConfig};
 use ioi_types::app::{account_id_from_key_material, SignatureSuite};
-use ioi_validator::common::GuardianContainer;
 use models::AppState;
 
-/// Initialize X11 for multi-threaded access (Linux only)
-/// MUST be called before any GTK/X11 operations
 #[cfg(target_os = "linux")]
 fn init_x11_threads() {
     let result = unsafe { x11::xlib::XInitThreads() };
@@ -34,9 +33,7 @@ fn init_x11_threads() {
 }
 
 #[cfg(not(target_os = "linux"))]
-fn init_x11_threads() {
-    // No-op on non-Linux platforms
-}
+fn init_x11_threads() {}
 
 fn is_env_var_truthy(key: &str) -> bool {
     std::env::var(key)
@@ -47,39 +44,23 @@ fn is_env_var_truthy(key: &str) -> bool {
         .unwrap_or(false)
 }
 
-fn derive_studio_scs_config(data_dir: &std::path::Path) -> StoreConfig {
+fn derive_studio_scs_config(data_dir: &Path) -> StoreConfig {
     let mut config = StoreConfig {
         chain_id: 0,
         owner_id: [0u8; 32],
         identity_key: [0u8; 32],
     };
+
     let key_path = data_dir.join("identity.key");
     if !key_path.exists() {
         return config;
     }
 
-    if std::env::var("IOI_GUARDIAN_KEY_PASS").is_err() {
-        unsafe {
-            std::env::set_var("IOI_GUARDIAN_KEY_PASS", "local-mode");
-        }
-    }
-
-    let raw = match GuardianContainer::load_encrypted_file(&key_path) {
-        Ok(raw) => raw,
-        Err(e) => {
-            eprintln!(
-                "[Autopilot] Failed to load identity key for SCS config (fallback active): {}",
-                e
-            );
-            return config;
-        }
-    };
-
-    let keypair = match libp2p::identity::Keypair::from_protobuf_encoding(&raw) {
+    let keypair = match identity::load_identity_keypair_from_file(&key_path) {
         Ok(kp) => kp,
         Err(e) => {
             eprintln!(
-                "[Autopilot] Failed to decode identity key for SCS config (fallback active): {}",
+                "[Autopilot] Failed to load identity key for SCS config (fallback active): {}",
                 e
             );
             return config;
@@ -99,6 +80,40 @@ fn derive_studio_scs_config(data_dir: &std::path::Path) -> StoreConfig {
     config
 }
 
+fn create_inference_runtime() -> Arc<dyn InferenceRuntime> {
+    let openai_key = std::env::var("OPENAI_API_KEY").ok();
+    let local_url = std::env::var("LOCAL_LLM_URL").ok();
+
+    if let Some(key) = openai_key {
+        let model = std::env::var("OPENAI_MODEL").unwrap_or_else(|_| "gpt-4o".to_string());
+        let api_url = "https://api.openai.com/v1/chat/completions".to_string();
+        Arc::new(HttpInferenceRuntime::new(api_url, key, model))
+    } else if let Some(url) = local_url {
+        Arc::new(HttpInferenceRuntime::new(
+            url,
+            "".to_string(),
+            "llama3".to_string(),
+        ))
+    } else {
+        Arc::new(ioi_api::vm::inference::mock::MockInferenceRuntime)
+    }
+}
+
+#[cfg(target_os = "macos")]
+const SPOTLIGHT_SHORTCUT_LABEL: &str = "Open Autopilot (Cmd+Space)";
+#[cfg(not(target_os = "macos"))]
+const SPOTLIGHT_SHORTCUT_LABEL: &str = "Open Autopilot (Ctrl+Space)";
+
+#[cfg(target_os = "macos")]
+fn spotlight_shortcut() -> Shortcut {
+    Shortcut::new(Some(Modifiers::SUPER), Code::Space)
+}
+
+#[cfg(not(target_os = "macos"))]
+fn spotlight_shortcut() -> Shortcut {
+    Shortcut::new(Some(Modifiers::CONTROL), Code::Space)
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     #[cfg(target_os = "linux")]
@@ -106,7 +121,6 @@ pub fn run() {
         std::env::set_var("WINIT_UNIX_BACKEND", "x11");
     }
 
-    // Initialize X11 threading BEFORE anything else on Linux
     init_x11_threads();
 
     #[cfg(target_os = "linux")]
@@ -129,19 +143,18 @@ pub fn run() {
         .manage(Mutex::new(models::AppState::default()))
         .setup(|app| {
             println!("[Autopilot] Initializing...");
-            let app_handle = app.handle();
 
             #[cfg(target_os = "linux")]
             {
                 kernel::cosmic::ensure_cosmic_window_rules();
             }
 
+            let app_handle = app.handle();
             let data_dir = app_handle
                 .path()
                 .app_data_dir()
                 .unwrap_or_else(|_| std::path::PathBuf::from("./ioi-data"));
 
-            // 1. Initialize Studio SCS
             let scs_path = data_dir.join("studio.scs");
             let scs_config = derive_studio_scs_config(&data_dir);
             let studio_scs = if scs_path.exists() {
@@ -159,45 +172,28 @@ pub fn run() {
                 eprintln!("[Studio] Failed to initialize SCS. Persistence disabled.");
             }
 
-            // 2. Initialize Local Inference Runtime
-            let openai_key = std::env::var("OPENAI_API_KEY").ok();
-            let local_url = std::env::var("LOCAL_LLM_URL").ok();
-
-            let inference_runtime: Arc<dyn InferenceRuntime> = if let Some(key) = openai_key {
-                let model = std::env::var("OPENAI_MODEL").unwrap_or("gpt-4o".to_string());
-                let api_url = "https://api.openai.com/v1/chat/completions".to_string();
-                Arc::new(HttpInferenceRuntime::new(api_url, key, model))
-            } else if let Some(url) = local_url {
-                let model = "llama3".to_string();
-                Arc::new(HttpInferenceRuntime::new(url, "".to_string(), model))
-            } else {
-                Arc::new(ioi_api::vm::inference::mock::MockInferenceRuntime)
-            };
-
+            let inference_runtime = create_inference_runtime();
             {
-                let state: State<Mutex<AppState>> = app.handle().state();
+                let state: State<Mutex<AppState>> = app_handle.state();
                 let mut s = state.lock().expect("Failed to lock app state");
-                s.inference_runtime = Some(inference_runtime.clone());
+                s.inference_runtime = Some(inference_runtime);
             }
 
-            // 3. Initialize Local MCP Runtime
             let handle = app.handle().clone();
             tauri::async_runtime::spawn(async move {
                 execution::init_mcp_servers(handle).await;
             });
 
-            // 4. Setup Menu and Tray
             let show_spotlight_item = MenuItem::with_id(
                 app,
                 "spotlight",
-                "Open Autopilot (Ctrl+Space)",
+                SPOTLIGHT_SHORTCUT_LABEL,
                 true,
                 None::<&str>,
             )?;
             let show_studio_item =
                 MenuItem::with_id(app, "studio", "Open Studio", true, None::<&str>)?;
             let quit_item = MenuItem::with_id(app, "quit", "Quit", true, None::<&str>)?;
-
             let menu =
                 Menu::with_items(app, &[&show_spotlight_item, &show_studio_item, &quit_item])?;
 
@@ -225,12 +221,7 @@ pub fn run() {
                     .build(app);
             }
 
-            // 5. Setup Global Shortcuts
-            #[cfg(target_os = "macos")]
-            let shortcut = Shortcut::new(Some(Modifiers::CONTROL), Code::Space);
-            #[cfg(not(target_os = "macos"))]
-            let shortcut = Shortcut::new(Some(Modifiers::CONTROL), Code::Space);
-
+            let shortcut = spotlight_shortcut();
             let app_handle = app.handle().clone();
             let _ = app
                 .global_shortcut()
@@ -261,7 +252,6 @@ pub fn run() {
                 });
             }
 
-            // 7. Start Kernel Event Monitor
             let monitor_handle = app.handle().clone();
             tauri::async_runtime::spawn(async move {
                 kernel::monitor_kernel_events(monitor_handle).await;
@@ -271,7 +261,6 @@ pub fn run() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
-            // Window Management
             windows::show_spotlight,
             windows::hide_spotlight,
             windows::toggle_spotlight_sidebar,
@@ -281,19 +270,16 @@ pub fn run() {
             windows::hide_gate,
             windows::show_studio,
             windows::hide_studio,
-            // Kernel / Agent Logic
             kernel::task::start_task,
             kernel::task::continue_task,
             kernel::task::update_task,
             kernel::task::complete_task,
             kernel::task::dismiss_task,
             kernel::task::get_current_task,
-            // Governance
             kernel::governance::gate_respond,
             kernel::governance::get_gate_response,
             kernel::governance::clear_gate_response,
             kernel::governance::submit_runtime_password,
-            // Connectors
             kernel::connectors::wallet_mail_configure_account,
             kernel::connectors::wallet_mail_generate_approval_artifact,
             kernel::connectors::wallet_mail_read_latest,
@@ -301,7 +287,6 @@ pub fn run() {
             kernel::connectors::wallet_mail_delete_spam,
             kernel::connectors::wallet_mail_reply,
             kernel::connectors::wallet_mail_handle_intent,
-            // Data / Context
             kernel::data::get_context_blob,
             kernel::data::get_available_tools,
             kernel::artifacts::get_thread_events,
@@ -309,17 +294,13 @@ pub fn run() {
             kernel::artifacts::get_artifact_content,
             kernel::artifacts::get_run_bundle,
             kernel::artifacts::export_thread_bundle,
-            // Session
             kernel::session::get_session_history,
             kernel::session::load_session,
             kernel::session::delete_session,
-            // Studio Inspector & Execution
             kernel::graph::test_node_execution,
             kernel::graph::run_studio_graph,
             kernel::graph::check_node_cache,
-            // Ingestion
             ingestion::ingest_file,
-            // Project Persistence
             project::save_project,
             project::load_project
         ])

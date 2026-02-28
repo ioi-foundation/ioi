@@ -4,11 +4,19 @@ use super::layout::{apply_layout, focus_window_best_effort};
 use super::state::SPOTLIGHT_LAYOUT;
 
 pub fn show_spotlight(app: AppHandle) {
+    show_autopilot_surface(app);
+}
+
+pub fn hide_spotlight(app: AppHandle) {
+    hide_autopilot_surface(app);
+}
+
+fn show_autopilot_surface(app: AppHandle) {
     show_studio(app.clone());
     let _ = app.emit("request-studio-view", "autopilot");
 }
 
-pub fn hide_spotlight(app: AppHandle) {
+fn hide_autopilot_surface(app: AppHandle) {
     hide_studio(app);
 }
 

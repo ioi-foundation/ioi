@@ -31,7 +31,6 @@ pub async fn run_studio_graph(
     let app_handle = app.clone();
 
     tauri::async_runtime::spawn(async move {
-        // [MODIFIED] Pass inference to run_local_graph
         let result = orchestrator::run_local_graph(scs, inference, payload, move |event| {
             let _ = app_handle.emit("graph-event", event);
         })
