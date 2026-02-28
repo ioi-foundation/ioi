@@ -137,7 +137,8 @@ async fn session_exec_has_tty_on_unix() {
 async fn session_exec_stdin_heredoc_filters_prompt_echo_noise() {
     let driver = TerminalDriver::new();
     let key = "test-session-stdin-heredoc";
-    let script = "printf 'LOWERCASE_RENAME_POSTCHECK:{\"target_dir\":\"/tmp\",\"total_files\":1,\"uppercase_remaining\":0,\"final_names\":[\"a.txt\"]}\\n'\n";
+    let script =
+        "printf 'IOI_POSTCHECK:{\"target_dir\":\"/tmp\",\"total_files\":1,\"ok\":true}\\n'\n";
 
     let out = driver
         .execute_session_in_dir_with_options(
@@ -152,7 +153,7 @@ async fn session_exec_stdin_heredoc_filters_prompt_echo_noise() {
         .await
         .expect("bash -s stdin script should succeed");
 
-    assert!(out.contains("LOWERCASE_RENAME_POSTCHECK:"));
+    assert!(out.contains("IOI_POSTCHECK:"));
     assert!(!out.contains("__IOI_RC:"));
     assert!(!out.contains("__IOI_DONE:"));
     assert!(!out.lines().any(|line| line.trim() == ">"));

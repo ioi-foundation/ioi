@@ -9,10 +9,7 @@ use crate::agentic::desktop::types::{
 use ioi_crypto::algorithms::hash::sha256;
 use ioi_types::app::agentic::{AgentTool, IntentScopeProfile};
 use ioi_types::app::ActionTarget;
-use serde::Deserialize;
 use std::collections::{BTreeMap, VecDeque};
-use std::fs;
-use std::path::Path;
 use time::format_description::well_known::Rfc3339;
 use time::OffsetDateTime;
 
@@ -24,20 +21,12 @@ pub const TIMER_SLEEP_BACKEND_POSTCONDITION: &str = "timer_sleep_backend";
 pub const TIMER_NOTIFICATION_PATH_POSTCONDITION: &str = "notification_path_armed";
 pub const TIMER_NOTIFICATION_CONTRACT_REQUIRED_RECEIPT: &str =
     "timer_notification_contract_required";
-pub const LOWERCASE_RENAME_CONTRACT_REQUIRED_RECEIPT: &str = "lowercase_rename_contract_required";
 pub const PROVIDER_SELECTION_COMMIT_RECEIPT: &str = "provider_selection_commit";
 pub const VERIFICATION_COMMIT_RECEIPT: &str = "verification_commit";
-pub const LOWERCASE_RENAME_POSTCONDITION: &str = "lowercase_rename_postcheck";
-pub const LOWERCASE_RENAME_TARGET_DIR_RECEIPT: &str = "lowercase_rename_target_dir";
-pub const LOWERCASE_RENAME_TOTAL_FILES_RECEIPT: &str = "lowercase_rename_total_files";
-pub const LOWERCASE_RENAME_UPPERCASE_REMAINING_RECEIPT: &str =
-    "lowercase_rename_uppercase_remaining";
 const COMMAND_SCOPE_REQUIRED_RECEIPTS: [&str; 3] =
     ["provider_selection", "execution", "verification"];
 const COMMAND_SCOPE_REQUIRED_POSTCONDITIONS: [&str; 1] = ["execution_artifact"];
 pub const CLOCK_TIMESTAMP_POSTCONDITION: &str = "clock_timestamp_observed";
-const LOWERCASE_RENAME_POSTCHECK_PREFIX: &str = "LOWERCASE_RENAME_POSTCHECK:";
-const LOWERCASE_RENAME_POSTCHECK_MAX_FINAL_NAMES: usize = 64;
 
 const CLOCK_PAYLOAD_COMMAND_TOKENS: [&str; 6] = [
     "date",
@@ -75,20 +64,6 @@ pub struct ForeignHomePathEvidence {
     pub runtime_home_owner: String,
     pub payload_home_directory: String,
     pub payload_home_owner: String,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct LowercaseRenameContractTarget {
-    pub target_dir: String,
-}
-
-#[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
-pub struct LowercaseRenamePostcheckReceipt {
-    pub target_dir: String,
-    pub total_files: usize,
-    pub uppercase_remaining: usize,
-    #[serde(default)]
-    pub final_names: Vec<String>,
 }
 
 pub fn runtime_home_directory() -> Option<String> {
@@ -743,13 +718,6 @@ pub fn requires_timer_notification_contract(agent_state: &AgentState) -> bool {
     ) || latest_timer_backend_history_entry(agent_state).is_some()
 }
 
-pub fn requires_lowercase_rename_contract(agent_state: &AgentState) -> bool {
-    has_execution_receipt(
-        &agent_state.tool_execution_log,
-        LOWERCASE_RENAME_CONTRACT_REQUIRED_RECEIPT,
-    )
-}
-
 pub fn render_command_preview(command: &str, args: &[String]) -> String {
     let command = command.trim();
     if args.is_empty() {
@@ -767,297 +735,6 @@ pub fn sys_exec_command_preview(tool: &AgentTool) -> Option<String> {
         }
         _ => None,
     }
-}
-
-fn is_lowercase_rename_contract_goal(goal: &str) -> bool {
-    let goal_lc = goal.to_ascii_lowercase();
-    let has_rename = goal_lc.contains("rename");
-    let has_lowercase = goal_lc.contains("lowercase") || goal_lc.contains("lower case");
-    let has_downloads = goal_lc.contains("download");
-    let has_file_scope = goal_lc.contains("file");
-    has_rename && has_lowercase && has_downloads && has_file_scope
-}
-
-fn extract_goal_lowercase_fixture_token(goal: &str) -> Option<String> {
-    let goal_lc = goal.to_ascii_lowercase();
-    let marker = "ioi_lowercase_";
-    let start = goal_lc.find(marker)?;
-    let suffix = &goal_lc[start..];
-    let token = suffix
-        .chars()
-        .take_while(|ch| ch.is_ascii_alphanumeric() || matches!(ch, '_' | '-'))
-        .collect::<String>();
-    if token.len() <= marker.len() {
-        None
-    } else {
-        Some(token)
-    }
-}
-
-fn path_targets_downloads(path: &str) -> bool {
-    let normalized = normalize_path_for_receipts(path);
-    normalized
-        .split('/')
-        .any(|segment| segment.eq_ignore_ascii_case("downloads"))
-}
-
-fn extract_tilde_paths(command_preview: &str) -> Vec<String> {
-    let mut paths = Vec::<String>::new();
-    let mut search_offset = 0usize;
-    while let Some(relative_idx) = command_preview[search_offset..].find("~/") {
-        let absolute_idx = search_offset + relative_idx;
-        let suffix = &command_preview[absolute_idx..];
-        let candidate = suffix
-            .chars()
-            .take_while(|ch| *ch == '~' || is_path_token_char(*ch))
-            .collect::<String>();
-        if candidate.len() > 2 {
-            if let Some(home_dir) = runtime_home_directory() {
-                let expanded = normalize_path_for_receipts(
-                    format!("{}/{}", home_dir, candidate.trim_start_matches("~/")).as_str(),
-                );
-                if !paths.iter().any(|existing| existing == &expanded) {
-                    paths.push(expanded);
-                }
-            }
-        }
-        search_offset = absolute_idx + 2;
-    }
-    paths
-}
-
-fn extract_downloads_target_from_command_preview(command_preview: &str) -> Option<String> {
-    let mut candidates = extract_absolute_home_directories(command_preview);
-    candidates.extend(extract_tilde_paths(command_preview));
-
-    let preview_lc = command_preview.to_ascii_lowercase();
-    if preview_lc.contains("$home/downloads") || preview_lc.contains("${home}/downloads") {
-        if let Some(home_dir) = runtime_home_directory() {
-            let fallback = format!("{}/Downloads", home_dir.trim_end_matches('/'));
-            if !candidates.iter().any(|existing| existing == &fallback) {
-                candidates.push(fallback);
-            }
-        }
-    }
-
-    candidates
-        .into_iter()
-        .filter(|candidate| path_targets_downloads(candidate))
-        .max_by_key(|candidate| candidate.len())
-}
-
-fn is_naive_lowercase_rename_payload(command_preview: &str) -> bool {
-    let preview_lc = command_preview.to_ascii_lowercase();
-    (preview_lc.contains("for file in ")
-        && preview_lc.contains("tr '[:upper:]' '[:lower:]'")
-        && preview_lc.contains("mv "))
-        || (preview_lc.contains("rename ")
-            && preview_lc.contains("y/a-z/a-z/")
-            && preview_lc.contains(" *"))
-}
-
-fn is_lowercase_rename_payload_candidate(command_preview: &str) -> bool {
-    let preview_lc = command_preview.to_ascii_lowercase();
-    preview_lc.contains("lowercase_rename_postcheck")
-        || is_naive_lowercase_rename_payload(command_preview)
-        || (preview_lc.contains("tr '[:upper:]' '[:lower:]'") && preview_lc.contains("mv "))
-        || (preview_lc.contains("rename ")
-            && preview_lc.contains("a-z")
-            && preview_lc.contains("*"))
-}
-
-pub fn sys_exec_targets_lowercase_rename_payload(tool: &AgentTool) -> bool {
-    let preview_match = sys_exec_command_preview(tool)
-        .map(|preview| is_lowercase_rename_payload_candidate(&preview))
-        .unwrap_or(false);
-    let stdin_match = match tool {
-        AgentTool::SysExec { stdin, .. } | AgentTool::SysExecSession { stdin, .. } => stdin
-            .as_deref()
-            .map(is_lowercase_rename_payload_candidate)
-            .unwrap_or(false),
-        _ => false,
-    };
-    preview_match || stdin_match
-}
-
-pub fn sys_exec_payload_contains(tool: &AgentTool, needle: &str) -> bool {
-    if needle.is_empty() {
-        return true;
-    }
-    match tool {
-        AgentTool::SysExec {
-            command,
-            args,
-            stdin,
-            ..
-        } => {
-            render_command_preview(command, args).contains(needle)
-                || stdin
-                    .as_deref()
-                    .map(|payload| payload.contains(needle))
-                    .unwrap_or(false)
-        }
-        AgentTool::SysExecSession {
-            command,
-            args,
-            stdin,
-        } => {
-            render_command_preview(command, args).contains(needle)
-                || stdin
-                    .as_deref()
-                    .map(|payload| payload.contains(needle))
-                    .unwrap_or(false)
-        }
-        _ => false,
-    }
-}
-
-pub fn lowercase_rename_contract_target(
-    agent_state: &AgentState,
-    tool: &AgentTool,
-) -> Option<LowercaseRenameContractTarget> {
-    if !is_lowercase_rename_contract_goal(&agent_state.goal) {
-        return None;
-    }
-
-    if let Some(fixture_token) = extract_goal_lowercase_fixture_token(&agent_state.goal) {
-        if let Some(home_dir) = runtime_home_directory() {
-            return Some(LowercaseRenameContractTarget {
-                target_dir: format!(
-                    "{}/Downloads/{}",
-                    home_dir.trim_end_matches('/'),
-                    fixture_token
-                ),
-            });
-        }
-    }
-
-    if let Some(command_preview) = sys_exec_command_preview(tool) {
-        if let Some(target_dir) = extract_downloads_target_from_command_preview(&command_preview) {
-            return Some(LowercaseRenameContractTarget { target_dir });
-        }
-    }
-
-    runtime_home_directory().map(|home_dir| LowercaseRenameContractTarget {
-        target_dir: format!("{}/Downloads", home_dir.trim_end_matches('/')),
-    })
-}
-
-fn lowercase_rename_contract_script(target_dir: &str) -> String {
-    let target_dir_quoted = shell_quote_single(target_dir);
-    format!(
-        r#"set -euo pipefail
-target_dir={target_dir_quoted}
-mkdir -p -- "$target_dir"
-
-while IFS= read -r -d '' src; do
-  base="$(basename -- "$src")"
-  lower="$(printf '%s' "$base" | tr '[:upper:]' '[:lower:]')"
-  if [ "$base" = "$lower" ]; then
-    continue
-  fi
-  dst="$target_dir/$lower"
-  if [ "$src" = "$dst" ]; then
-    continue
-  fi
-  if [ -e "$dst" ] && [ "$src" != "$dst" ]; then
-    stem="$lower"
-    ext=""
-    if [[ "$lower" == *.* ]]; then
-      stem="${{lower%.*}}"
-      ext=".${{lower##*.}}"
-    fi
-    n=1
-    while [ -e "$target_dir/${{stem}}(${{n}})${{ext}}" ]; do
-      n=$((n + 1))
-    done
-    dst="$target_dir/${{stem}}(${{n}})${{ext}}"
-  fi
-  mv -- "$src" "$dst"
-done < <(find "$target_dir" -mindepth 1 -maxdepth 1 -type f -print0)
-
-uppercase_remaining=0
-total_files=0
-final_names_json="["
-sep=""
-final_names_count=0
-max_final_names={LOWERCASE_RENAME_POSTCHECK_MAX_FINAL_NAMES}
-while IFS= read -r -d '' name; do
-  total_files=$((total_files + 1))
-  lower="$(printf '%s' "$name" | tr '[:upper:]' '[:lower:]')"
-  if [ "$name" != "$lower" ]; then
-    uppercase_remaining=$((uppercase_remaining + 1))
-  fi
-  if [ "$final_names_count" -lt "$max_final_names" ]; then
-    escaped="${{name//\\/\\\\}}"
-    escaped="${{escaped//\"/\\\"}}"
-    escaped="${{escaped//$'\n'/\\n}}"
-    escaped="${{escaped//$'\r'/\\r}}"
-    escaped="${{escaped//$'\t'/\\t}}"
-    escaped="${{escaped//$'\b'/\\b}}"
-    escaped="${{escaped//$'\f'/\\f}}"
-    final_names_json="${{final_names_json}}${{sep}}\"${{escaped}}\""
-    sep=","
-    final_names_count=$((final_names_count + 1))
-  fi
-done < <(find "$target_dir" -mindepth 1 -maxdepth 1 -type f -printf '%f\0' | LC_ALL=C sort -z)
-
-final_names_json="${{final_names_json}}]"
-target_escaped="$(printf '%s' "$target_dir" | sed 's/\\/\\\\/g; s/\"/\\\"/g')"
-printf 'LOWERCASE_RENAME_POSTCHECK:{{"target_dir":"%s","total_files":%d,"uppercase_remaining":%d,"final_names":%s}}\n' "$target_escaped" "$total_files" "$uppercase_remaining" "$final_names_json"
-"#
-    )
-}
-
-pub fn synthesize_allowlisted_lowercase_rename_tool(
-    agent_state: &AgentState,
-    tool: &AgentTool,
-) -> Option<AgentTool> {
-    if !sys_exec_targets_lowercase_rename_payload(tool) {
-        return None;
-    }
-    let target = lowercase_rename_contract_target(agent_state, tool)?;
-    let script = lowercase_rename_contract_script(&target.target_dir);
-    let args = vec!["-s".to_string()];
-    match tool {
-        AgentTool::SysExec { .. } => Some(AgentTool::SysExec {
-            command: "bash".to_string(),
-            args,
-            stdin: Some(script),
-            detach: false,
-        }),
-        AgentTool::SysExecSession { .. } => Some(AgentTool::SysExecSession {
-            command: "bash".to_string(),
-            args,
-            stdin: Some(script),
-        }),
-        _ => None,
-    }
-}
-
-pub fn parse_lowercase_rename_postcheck_receipt(
-    output: &str,
-) -> Option<LowercaseRenamePostcheckReceipt> {
-    output
-        .match_indices(LOWERCASE_RENAME_POSTCHECK_PREFIX)
-        .filter_map(|(marker_idx, _)| {
-            let payload = &output[marker_idx + LOWERCASE_RENAME_POSTCHECK_PREFIX.len()..];
-            parse_lowercase_rename_postcheck_payload(payload)
-        })
-        .last()
-}
-
-fn parse_lowercase_rename_postcheck_payload(
-    payload: &str,
-) -> Option<LowercaseRenamePostcheckReceipt> {
-    payload
-        .char_indices()
-        .filter_map(|(idx, ch)| (ch == '{').then_some(idx))
-        .filter_map(|start| {
-            extract_balanced_json_object(payload, start)
-                .and_then(|json| serde_json::from_str::<LowercaseRenamePostcheckReceipt>(json).ok())
-        })
-        .last()
 }
 
 fn extract_balanced_json_object(payload: &str, start: usize) -> Option<&str> {
@@ -1095,65 +772,6 @@ fn extract_balanced_json_object(payload: &str, start: usize) -> Option<&str> {
     }
 
     None
-}
-
-pub fn command_history_lowercase_rename_postcheck(
-    history_entry: &CommandExecution,
-) -> Option<LowercaseRenamePostcheckReceipt> {
-    parse_lowercase_rename_postcheck_receipt(&history_entry.stdout)
-        .or_else(|| parse_lowercase_rename_postcheck_receipt(&history_entry.stderr))
-}
-
-pub fn discover_lowercase_rename_postcheck(
-    target_dir: &str,
-) -> Result<LowercaseRenamePostcheckReceipt, String> {
-    let target = Path::new(target_dir);
-    let entries = fs::read_dir(target).map_err(|error| {
-        format!(
-            "target_dir_read_failed target_dir={} error={}",
-            target_dir, error
-        )
-    })?;
-
-    let mut names = Vec::<String>::new();
-    let mut uppercase_remaining = 0usize;
-
-    for entry in entries {
-        let entry = entry.map_err(|error| {
-            format!(
-                "target_dir_iter_failed target_dir={} error={}",
-                target_dir, error
-            )
-        })?;
-        let file_type = entry.file_type().map_err(|error| {
-            format!(
-                "target_dir_file_type_failed target_dir={} error={}",
-                target_dir, error
-            )
-        })?;
-        if !file_type.is_file() {
-            continue;
-        }
-        let name = entry.file_name().to_string_lossy().to_string();
-        if name != name.to_ascii_lowercase() {
-            uppercase_remaining = uppercase_remaining.saturating_add(1);
-        }
-        names.push(name);
-    }
-
-    names.sort_by(|left, right| left.as_bytes().cmp(right.as_bytes()));
-    let total_files = names.len();
-    let final_names = names
-        .into_iter()
-        .take(LOWERCASE_RENAME_POSTCHECK_MAX_FINAL_NAMES)
-        .collect::<Vec<_>>();
-
-    Ok(LowercaseRenamePostcheckReceipt {
-        target_dir: target_dir.to_string(),
-        total_files,
-        uppercase_remaining,
-        final_names,
-    })
 }
 
 fn is_simple_sleep_timer_command(command_preview: &str) -> bool {
@@ -1318,38 +936,6 @@ pub fn record_timer_notification_contract_requirement(
         TIMER_NOTIFICATION_CONTRACT_REQUIRED_RECEIPT,
     );
     verification_checks.push(receipt_marker(TIMER_NOTIFICATION_CONTRACT_REQUIRED_RECEIPT));
-}
-
-pub fn record_lowercase_rename_contract_requirement(
-    tool_execution_log: &mut BTreeMap<String, ToolCallStatus>,
-    verification_checks: &mut Vec<String>,
-) {
-    mark_execution_receipt(
-        tool_execution_log,
-        LOWERCASE_RENAME_CONTRACT_REQUIRED_RECEIPT,
-    );
-    verification_checks.push(receipt_marker(LOWERCASE_RENAME_CONTRACT_REQUIRED_RECEIPT));
-}
-
-pub fn record_lowercase_rename_postcheck_receipts(
-    tool_execution_log: &mut BTreeMap<String, ToolCallStatus>,
-    receipt: &LowercaseRenamePostcheckReceipt,
-) {
-    mark_execution_receipt_with_value(
-        tool_execution_log,
-        LOWERCASE_RENAME_TARGET_DIR_RECEIPT,
-        receipt.target_dir.clone(),
-    );
-    mark_execution_receipt_with_value(
-        tool_execution_log,
-        LOWERCASE_RENAME_TOTAL_FILES_RECEIPT,
-        receipt.total_files.to_string(),
-    );
-    mark_execution_receipt_with_value(
-        tool_execution_log,
-        LOWERCASE_RENAME_UPPERCASE_REMAINING_RECEIPT,
-        receipt.uppercase_remaining.to_string(),
-    );
 }
 
 pub fn record_verification_receipts(
@@ -1524,14 +1110,6 @@ pub fn missing_execution_contract_markers(agent_state: &AgentState) -> Vec<Strin
             missing.push(postcondition_marker(TIMER_NOTIFICATION_PATH_POSTCONDITION));
         }
     }
-    if requires_lowercase_rename_contract(agent_state)
-        && !has_execution_postcondition(
-            &agent_state.tool_execution_log,
-            LOWERCASE_RENAME_POSTCONDITION,
-        )
-    {
-        missing.push(postcondition_marker(LOWERCASE_RENAME_POSTCONDITION));
-    }
     missing
 }
 
@@ -1545,25 +1123,35 @@ pub fn enrich_command_scope_summary(summary: &str, agent_state: &AgentState) -> 
         return summary.to_string();
     }
 
-    let mut enriched =
-        lowercase_rename_completion_summary(agent_state).unwrap_or_else(|| summary.to_string());
-    let run_timestamp_utc = latest_timer_backend_history_entry(agent_state)
-        .or_else(|| agent_state.command_history.back())
-        .and_then(|entry| format_utc_rfc3339(entry.timestamp_ms));
+    let mut enriched = summary.to_string();
+    let timer_contract_active = requires_timer_notification_contract(agent_state);
+    let run_timestamp_utc = if timer_contract_active {
+        latest_timer_backend_history_entry(agent_state)
+            .or_else(|| agent_state.command_history.back())
+            .and_then(|entry| format_utc_rfc3339(entry.timestamp_ms))
+    } else {
+        agent_state
+            .command_history
+            .back()
+            .and_then(|entry| format_utc_rfc3339(entry.timestamp_ms))
+    };
     let Some(run_timestamp_utc) = run_timestamp_utc else {
         return enriched;
     };
-    let run_timestamp = parse_utc_rfc3339(&run_timestamp_utc);
-    let target_timestamp = extract_structured_field(&enriched, TARGET_UTC_MARKER)
-        .as_deref()
-        .and_then(parse_utc_rfc3339);
-    if target_timestamp
-        .zip(run_timestamp)
-        .map(|(target, run)| target < run)
-        .unwrap_or(true)
-    {
-        if let Some(derived_target_utc) = derived_target_utc_from_history(agent_state) {
-            enriched = upsert_structured_field(&enriched, TARGET_UTC_MARKER, &derived_target_utc);
+    if timer_contract_active {
+        let run_timestamp = parse_utc_rfc3339(&run_timestamp_utc);
+        let target_timestamp = extract_structured_field(&enriched, TARGET_UTC_MARKER)
+            .as_deref()
+            .and_then(parse_utc_rfc3339);
+        if target_timestamp
+            .zip(run_timestamp)
+            .map(|(target, run)| target < run)
+            .unwrap_or(true)
+        {
+            if let Some(derived_target_utc) = derived_target_utc_from_history(agent_state) {
+                enriched =
+                    upsert_structured_field(&enriched, TARGET_UTC_MARKER, &derived_target_utc);
+            }
         }
     }
     if extract_structured_field(&enriched, RUN_TIMESTAMP_UTC_MARKER).is_none() {
@@ -1572,106 +1160,25 @@ pub fn enrich_command_scope_summary(summary: &str, agent_state: &AgentState) -> 
     enriched
 }
 
-fn lowercase_rename_completion_summary(agent_state: &AgentState) -> Option<String> {
-    if !requires_lowercase_rename_contract(agent_state) {
-        return None;
-    }
-    if !has_execution_postcondition(
-        &agent_state.tool_execution_log,
-        LOWERCASE_RENAME_POSTCONDITION,
-    ) {
-        return None;
-    }
-
-    let latest_postcheck = agent_state
-        .command_history
-        .iter()
-        .rev()
-        .find_map(command_history_lowercase_rename_postcheck);
-    let target_dir = execution_receipt_value(
-        &agent_state.tool_execution_log,
-        LOWERCASE_RENAME_TARGET_DIR_RECEIPT,
-    )
-    .filter(|value| !value.trim().is_empty())
-    .map(str::to_string)
-    .or_else(|| {
-        latest_postcheck
-            .as_ref()
-            .map(|receipt| receipt.target_dir.clone())
-    })
-    .unwrap_or_else(|| "target directory".to_string());
-    let total_files = execution_receipt_value(
-        &agent_state.tool_execution_log,
-        LOWERCASE_RENAME_TOTAL_FILES_RECEIPT,
-    )
-    .and_then(|value| value.parse::<usize>().ok())
-    .or_else(|| latest_postcheck.as_ref().map(|receipt| receipt.total_files))
-    .unwrap_or(0);
-    let uppercase_remaining = execution_receipt_value(
-        &agent_state.tool_execution_log,
-        LOWERCASE_RENAME_UPPERCASE_REMAINING_RECEIPT,
-    )
-    .and_then(|value| value.parse::<usize>().ok())
-    .or_else(|| {
-        latest_postcheck
-            .as_ref()
-            .map(|receipt| receipt.uppercase_remaining)
-    })
-    .unwrap_or(0);
-
-    if uppercase_remaining == 0 {
-        if path_targets_downloads(&target_dir) {
-            Some(format!(
-                "All files in the Downloads folder are lowercase. Files checked: {}.",
-                total_files
-            ))
-        } else {
-            Some(format!(
-                "All files in '{}' are lowercase. Files checked: {}.",
-                target_dir, total_files
-            ))
-        }
-    } else {
-        Some(format!(
-            "Lowercase rename is incomplete in '{}': {} files still contain uppercase characters ({} files checked).",
-            target_dir, uppercase_remaining, total_files
-        ))
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::{
-        command_history_entry, command_history_exit_code,
-        command_history_lowercase_rename_postcheck, compose_terminal_chat_reply,
-        detect_foreign_home_path_for_runtime_home, discover_lowercase_rename_postcheck,
-        enrich_command_scope_summary, execution_contract_violation_error,
-        lowercase_rename_contract_target, parse_lowercase_rename_postcheck_receipt,
-        provider_selection_commit, synthesize_allowlisted_lowercase_rename_tool,
-        synthesize_allowlisted_timer_notification_tool, sys_exec_command_preview,
-        sys_exec_satisfies_clock_read_contract, sys_exec_targets_lowercase_rename_payload,
-        verification_probe_commit, COMMAND_HISTORY_PREFIX,
-        LOWERCASE_RENAME_CONTRACT_REQUIRED_RECEIPT, LOWERCASE_RENAME_POSTCONDITION,
-        LOWERCASE_RENAME_TARGET_DIR_RECEIPT, LOWERCASE_RENAME_TOTAL_FILES_RECEIPT,
-        LOWERCASE_RENAME_UPPERCASE_REMAINING_RECEIPT,
+        compose_terminal_chat_reply, enrich_command_scope_summary,
+        execution_contract_violation_error,
     };
     use crate::agentic::desktop::service::step::action::support::{
-        mark_execution_postcondition, mark_execution_receipt, mark_execution_receipt_with_value,
+        mark_execution_postcondition, mark_execution_receipt,
     };
     use crate::agentic::desktop::types::{
         AgentMode, AgentState, AgentStatus, CommandExecution, ExecutionTier,
     };
-    use ioi_types::app::agentic::{
-        AgentTool, IntentConfidenceBand, IntentScopeProfile, ResolvedIntentState,
-    };
+    use ioi_types::app::agentic::{IntentConfidenceBand, IntentScopeProfile, ResolvedIntentState};
     use std::collections::{BTreeMap, VecDeque};
-    use std::fs;
-    use std::time::{SystemTime, UNIX_EPOCH};
 
-    fn test_agent_state_with_goal(goal: &str) -> AgentState {
+    fn test_agent_state() -> AgentState {
         AgentState {
             session_id: [0u8; 32],
-            goal: goal.to_string(),
+            goal: "Run a command".to_string(),
             transcript_root: [0u8; 32],
             status: AgentStatus::Running,
             step_count: 0,
@@ -1707,10 +1214,10 @@ mod tests {
         }
     }
 
-    fn test_resolved_intent(scope: IntentScopeProfile) -> ResolvedIntentState {
+    fn command_scope_intent(intent_id: &str) -> ResolvedIntentState {
         ResolvedIntentState {
-            intent_id: "command.exec".to_string(),
-            scope,
+            intent_id: intent_id.to_string(),
+            scope: IntentScopeProfile::CommandExecution,
             band: IntentConfidenceBand::High,
             score: 0.92,
             top_k: vec![],
@@ -1739,410 +1246,6 @@ mod tests {
     }
 
     #[test]
-    fn provider_selection_commit_is_stable_sha256_value() {
-        let left =
-            provider_selection_commit("sys__exec", "script_backend").expect("provider commit");
-        let right =
-            provider_selection_commit("sys__exec", "script_backend").expect("provider commit");
-        assert_eq!(left, right);
-        assert!(left.starts_with("sha256:"));
-    }
-
-    #[test]
-    fn verification_probe_commit_is_emitted_for_sys_exec() {
-        let tool = AgentTool::SysExec {
-            command: "sleep".to_string(),
-            args: vec!["10".to_string()],
-            stdin: None,
-            detach: true,
-        };
-        let commit = verification_probe_commit(&tool, None).expect("verification commit");
-        assert!(commit.starts_with("sha256:"));
-    }
-
-    #[test]
-    fn sys_exec_clock_read_contract_accepts_local_clock_reads() {
-        let tool = AgentTool::SysExec {
-            command: "date".to_string(),
-            args: vec!["-u".to_string(), "+%Y-%m-%dT%H:%M:%SZ".to_string()],
-            stdin: None,
-            detach: false,
-        };
-        assert!(sys_exec_satisfies_clock_read_contract(&tool));
-    }
-
-    #[test]
-    fn sys_exec_clock_read_contract_rejects_network_retrieval_payloads() {
-        let tool = AgentTool::SysExec {
-            command: "curl".to_string(),
-            args: vec!["https://example.com/weather".to_string()],
-            stdin: None,
-            detach: false,
-        };
-        assert!(!sys_exec_satisfies_clock_read_contract(&tool));
-    }
-
-    #[test]
-    fn simple_sleep_timer_is_rewritten_to_allowlisted_scheduler_payload() {
-        let tool = AgentTool::SysExec {
-            command: "sleep".to_string(),
-            args: vec!["900".to_string()],
-            stdin: None,
-            detach: true,
-        };
-
-        let rewritten =
-            synthesize_allowlisted_timer_notification_tool(&tool).expect("timer rewrite");
-        let preview = sys_exec_command_preview(&rewritten).expect("preview");
-        assert!(preview.contains("systemd-run"));
-        assert!(preview.contains("--on-active=900s"));
-        assert!(preview.contains("notify-send"));
-    }
-
-    #[test]
-    fn complex_shell_timer_command_is_not_auto_rewritten() {
-        let tool = AgentTool::SysExec {
-            command: "sleep 900 && echo done".to_string(),
-            args: vec![],
-            stdin: None,
-            detach: true,
-        };
-        assert!(synthesize_allowlisted_timer_notification_tool(&tool).is_none());
-    }
-
-    #[test]
-    fn lowercase_rename_contract_target_uses_fixture_token_from_goal() {
-        let goal = "Rename every file in my Downloads folder to lowercase. operate only inside \"~/Downloads/ioi_lowercase_12345\".";
-        let state = test_agent_state_with_goal(goal);
-        let tool = AgentTool::SysExec {
-            command: "echo".to_string(),
-            args: vec!["noop".to_string()],
-            stdin: None,
-            detach: false,
-        };
-
-        let target = lowercase_rename_contract_target(&state, &tool).expect("target");
-        assert!(target
-            .target_dir
-            .to_ascii_lowercase()
-            .ends_with("/downloads/ioi_lowercase_12345"));
-    }
-
-    #[test]
-    fn naive_lowercase_rename_payload_is_rewritten_to_safe_script() {
-        let goal = "Rename every file in my Downloads folder to lowercase.";
-        let state = test_agent_state_with_goal(goal);
-        let tool = AgentTool::SysExec {
-            command: "cd /home/heathledger/Downloads && for file in *; do mv \"$file\" \"$(echo $file | tr '[:upper:]' '[:lower:]')\"; done".to_string(),
-            args: vec![],
-            stdin: None,
-            detach: false,
-        };
-
-        let rewritten =
-            synthesize_allowlisted_lowercase_rename_tool(&state, &tool).expect("rewrite");
-        let preview = sys_exec_command_preview(&rewritten).expect("preview");
-        assert!(preview.contains("bash -s"));
-        match rewritten {
-            AgentTool::SysExec { stdin, .. } => {
-                let payload = stdin.expect("synthesized stdin payload");
-                assert!(payload.contains("LOWERCASE_RENAME_POSTCHECK"));
-                assert!(payload.contains("find \"$target_dir\" -mindepth 1 -maxdepth 1 -type f"));
-            }
-            other => panic!("expected SysExec rewrite, got {:?}", other),
-        }
-    }
-
-    #[test]
-    fn lowercase_payload_candidate_ignores_setup_commands() {
-        let mkdir_tool = AgentTool::SysExec {
-            command: "mkdir".to_string(),
-            args: vec![
-                "-p".to_string(),
-                "/home/heathledger/Downloads/ioi_lowercase_1".to_string(),
-            ],
-            stdin: None,
-            detach: false,
-        };
-        assert!(!sys_exec_targets_lowercase_rename_payload(&mkdir_tool));
-
-        let rename_tool = AgentTool::SysExec {
-            command: "for file in *; do mv \"$file\" \"$(echo $file | tr '[:upper:]' '[:lower:]')\"; done".to_string(),
-            args: vec![],
-            stdin: None,
-            detach: false,
-        };
-        assert!(sys_exec_targets_lowercase_rename_payload(&rename_tool));
-    }
-
-    #[test]
-    fn stdin_lowercase_payload_is_detected_and_rewritten() {
-        let goal = "Rename every file in my Downloads folder to lowercase.";
-        let state = test_agent_state_with_goal(goal);
-        let tool = AgentTool::SysExec {
-            command: "bash".to_string(),
-            args: vec![],
-            stdin: Some(
-                "for file in /home/heathledger/Downloads/*; do mv \"$file\" \"$(echo $file | tr '[:upper:]' '[:lower:]')\"; done".to_string(),
-            ),
-            detach: false,
-        };
-
-        assert!(sys_exec_targets_lowercase_rename_payload(&tool));
-        let rewritten =
-            synthesize_allowlisted_lowercase_rename_tool(&state, &tool).expect("rewrite");
-        let preview = sys_exec_command_preview(&rewritten).expect("preview");
-        assert!(preview.contains("bash -s"));
-        match rewritten {
-            AgentTool::SysExec { stdin, .. } => {
-                let payload = stdin.expect("stdin payload");
-                assert!(payload.contains("LOWERCASE_RENAME_POSTCHECK"));
-            }
-            other => panic!("expected SysExec rewrite, got {:?}", other),
-        }
-    }
-
-    #[test]
-    fn absolute_glob_lowercase_loop_is_rewritten_for_exec_session() {
-        let goal = "Rename every file in my Downloads folder to lowercase.";
-        let state = test_agent_state_with_goal(goal);
-        let tool = AgentTool::SysExecSession {
-            command: "for file in /home/heathledger/Downloads/ioi_lowercase_1/*; do basename=$(basename \"$file\"); lowercase_basename=$(echo \"$basename\" | tr '[:upper:]' '[:lower:]'); mv \"$file\" \"/home/heathledger/Downloads/ioi_lowercase_1/$lowercase_basename\"; done".to_string(),
-            args: vec![],
-            stdin: None,
-        };
-
-        assert!(sys_exec_targets_lowercase_rename_payload(&tool));
-        let rewritten =
-            synthesize_allowlisted_lowercase_rename_tool(&state, &tool).expect("rewrite");
-        let preview = sys_exec_command_preview(&rewritten).expect("preview");
-        assert!(preview.contains("bash -s"));
-        match rewritten {
-            AgentTool::SysExecSession { stdin, .. } => {
-                let payload = stdin.expect("synthesized stdin payload");
-                assert!(payload.contains("LOWERCASE_RENAME_POSTCHECK"));
-            }
-            other => panic!("expected SysExecSession rewrite, got {:?}", other),
-        }
-    }
-
-    #[test]
-    fn bash_c_absolute_glob_lowercase_loop_is_rewritten() {
-        let goal = "Rename every file in my Downloads folder to lowercase.";
-        let state = test_agent_state_with_goal(goal);
-        let tool = AgentTool::SysExec {
-            command: "bash".to_string(),
-            args: vec![
-                "-c".to_string(),
-                "for file in /home/heathledger/Downloads/ioi_lowercase_1/*; do basename=$(basename \\\"$file\\\"); lowercase_basename=$(echo \\\"$basename\\\" | tr '[:upper:]' '[:lower:]'); mv \\\"$file\\\" \\\"/home/heathledger/Downloads/ioi_lowercase_1/$lowercase_basename\\\"; done".to_string(),
-            ],
-            stdin: None,
-            detach: false,
-        };
-
-        assert!(sys_exec_targets_lowercase_rename_payload(&tool));
-        let rewritten =
-            synthesize_allowlisted_lowercase_rename_tool(&state, &tool).expect("rewrite");
-        let preview = sys_exec_command_preview(&rewritten).expect("preview");
-        assert!(preview.contains("bash -s"));
-        match rewritten {
-            AgentTool::SysExec { stdin, .. } => {
-                let payload = stdin.expect("synthesized stdin payload");
-                assert!(payload.contains("LOWERCASE_RENAME_POSTCHECK"));
-            }
-            other => panic!("expected SysExec rewrite, got {:?}", other),
-        }
-    }
-
-    #[test]
-    fn lowercase_rename_postcheck_parser_reads_latest_receipt() {
-        let output = concat!(
-            "noise\n",
-            "LOWERCASE_RENAME_POSTCHECK:{\"target_dir\":\"/tmp/a\",\"total_files\":1,\"uppercase_remaining\":1,\"final_names\":[\"A.TXT\"]}\n",
-            "LOWERCASE_RENAME_POSTCHECK:{\"target_dir\":\"/tmp/a\",\"total_files\":1,\"uppercase_remaining\":0,\"final_names\":[\"a.txt\"]}\n",
-        );
-
-        let receipt = parse_lowercase_rename_postcheck_receipt(output).expect("receipt");
-        assert_eq!(receipt.target_dir, "/tmp/a");
-        assert_eq!(receipt.uppercase_remaining, 0);
-        assert_eq!(receipt.final_names, vec!["a.txt".to_string()]);
-    }
-
-    #[test]
-    fn lowercase_rename_postcheck_parser_accepts_prefixed_terminal_lines() {
-        let output = concat!(
-            "> printf 'LOWERCASE_RENAME_POSTCHECK:{{\"target_dir\":\"%s\"}}\\n'\n",
-            "> LOWERCASE_RENAME_POSTCHECK:{\"target_dir\":\"/tmp/a\",\"total_files\":1,\"uppercase_remaining\":0,\"final_names\":[\"a.txt\"]}\n",
-        );
-        let receipt = parse_lowercase_rename_postcheck_receipt(output).expect("receipt");
-        assert_eq!(receipt.target_dir, "/tmp/a");
-        assert_eq!(receipt.total_files, 1);
-        assert_eq!(receipt.uppercase_remaining, 0);
-    }
-
-    #[test]
-    fn lowercase_rename_postcheck_parser_handles_merged_echo_noise() {
-        let output = concat!(
-            "LOWERCASE_RENAME_POSTCHECK:{{\"target_dir\":\"%s\",\"total_files\":%d}}",
-            "noise",
-            "LOWERCASE_RENAME_POSTCHECK:{\"target_dir\":\"/tmp/c\",\"total_files\":3,\"uppercase_remaining\":0,\"final_names\":[\"a.txt\",\"b.txt\",\"c.txt\"]}",
-            "tail"
-        );
-        let receipt = parse_lowercase_rename_postcheck_receipt(output).expect("receipt");
-        assert_eq!(receipt.target_dir, "/tmp/c");
-        assert_eq!(receipt.total_files, 3);
-        assert_eq!(receipt.uppercase_remaining, 0);
-        assert_eq!(
-            receipt.final_names,
-            vec![
-                "a.txt".to_string(),
-                "b.txt".to_string(),
-                "c.txt".to_string()
-            ]
-        );
-    }
-
-    #[test]
-    fn lowercase_rename_postcheck_parser_handles_json_with_braces_in_names() {
-        let output = concat!(
-            "LOWERCASE_RENAME_POSTCHECK:{\"target_dir\":\"/tmp/d\",\"total_files\":1,\"uppercase_remaining\":0,\"final_names\":[\"a{b}.txt\"]}\n"
-        );
-        let receipt = parse_lowercase_rename_postcheck_receipt(output).expect("receipt");
-        assert_eq!(receipt.target_dir, "/tmp/d");
-        assert_eq!(receipt.total_files, 1);
-        assert_eq!(receipt.uppercase_remaining, 0);
-        assert_eq!(receipt.final_names, vec!["a{b}.txt".to_string()]);
-    }
-
-    #[test]
-    fn lowercase_rename_postcheck_discovery_counts_files_and_uppercase_names() {
-        let stamp = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .expect("clock")
-            .as_nanos();
-        let target_dir = std::env::temp_dir().join(format!("ioi_lowercase_discovery_{}", stamp));
-        fs::create_dir_all(&target_dir).expect("create temp target");
-        fs::write(target_dir.join("A.TXT"), b"a").expect("write A.TXT");
-        fs::write(target_dir.join("b.txt"), b"b").expect("write b.txt");
-        fs::write(target_dir.join("C File.MD"), b"c").expect("write C File.MD");
-        let nested = target_dir.join("UPPERDIR");
-        fs::create_dir_all(&nested).expect("create nested dir");
-        fs::write(nested.join("NESTED.TXT"), b"n").expect("write nested file");
-
-        let receipt = discover_lowercase_rename_postcheck(&target_dir.to_string_lossy())
-            .expect("discovery receipt");
-
-        assert_eq!(receipt.target_dir, target_dir.to_string_lossy());
-        assert_eq!(receipt.total_files, 3);
-        assert_eq!(receipt.uppercase_remaining, 2);
-        assert_eq!(
-            receipt.final_names,
-            vec![
-                "A.TXT".to_string(),
-                "C File.MD".to_string(),
-                "b.txt".to_string()
-            ]
-        );
-
-        let _ = fs::remove_dir_all(&target_dir);
-    }
-
-    #[test]
-    fn lowercase_rename_postcheck_discovery_errors_for_missing_directory() {
-        let missing = std::env::temp_dir().join(format!(
-            "ioi_lowercase_missing_{}",
-            SystemTime::now()
-                .duration_since(UNIX_EPOCH)
-                .expect("clock")
-                .as_nanos()
-        ));
-        let result = discover_lowercase_rename_postcheck(&missing.to_string_lossy());
-        assert!(result.is_err());
-    }
-
-    #[test]
-    fn command_history_lowercase_postcheck_reads_receipt() {
-        let history = CommandExecution {
-            command: "bash -lc rename".to_string(),
-            exit_code: 0,
-            stdout: "LOWERCASE_RENAME_POSTCHECK:{\"target_dir\":\"/tmp/b\",\"total_files\":2,\"uppercase_remaining\":0,\"final_names\":[\"a.txt\",\"b.txt\"]}".to_string(),
-            stderr: String::new(),
-            timestamp_ms: 1,
-            step_index: 1,
-        };
-        let receipt = command_history_lowercase_rename_postcheck(&history).expect("receipt");
-        assert_eq!(receipt.target_dir, "/tmp/b");
-        assert_eq!(receipt.total_files, 2);
-    }
-
-    #[test]
-    fn command_history_parser_prefers_latest_valid_payload_with_noise() {
-        let older = CommandExecution {
-            command: "echo older".to_string(),
-            exit_code: 1,
-            stdout: "old".to_string(),
-            stderr: String::new(),
-            timestamp_ms: 1,
-            step_index: 1,
-        };
-        let newer = CommandExecution {
-            command: "bash -s".to_string(),
-            exit_code: 0,
-            stdout: "LOWERCASE_RENAME_POSTCHECK:{\"target_dir\":\"/tmp/d\",\"total_files\":1,\"uppercase_remaining\":0,\"final_names\":[\"a.txt\"]}".to_string(),
-            stderr: String::new(),
-            timestamp_ms: 2,
-            step_index: 2,
-        };
-
-        let output = format!(
-            "noise {}{} tail\n> {}{}\u{001b}[0m",
-            COMMAND_HISTORY_PREFIX,
-            serde_json::to_string(&older).expect("serialize older"),
-            COMMAND_HISTORY_PREFIX,
-            serde_json::to_string(&newer).expect("serialize newer"),
-        );
-
-        let parsed = command_history_entry(&output).expect("parse latest command history");
-        assert_eq!(parsed.command, "bash -s");
-        assert_eq!(parsed.step_index, 2);
-        assert_eq!(command_history_exit_code(&output), Some(0));
-    }
-
-    #[test]
-    fn provider_selection_home_lint_flags_foreign_linux_home_owner() {
-        let tool = AgentTool::SysExec {
-            command: "mkdir".to_string(),
-            args: vec!["-p".to_string(), "/home/user/Desktop/Projects".to_string()],
-            stdin: None,
-            detach: false,
-        };
-
-        let evidence = detect_foreign_home_path_for_runtime_home(&tool, "/home/heathledger")
-            .expect("foreign home directory evidence");
-        assert_eq!(evidence.runtime_home_owner, "heathledger");
-        assert_eq!(evidence.payload_home_owner, "user");
-        assert_eq!(
-            evidence.payload_home_directory,
-            "/home/user/Desktop/Projects"
-        );
-    }
-
-    #[test]
-    fn provider_selection_home_lint_allows_runtime_home_owner_match() {
-        let tool = AgentTool::SysExec {
-            command: "mkdir".to_string(),
-            args: vec![
-                "-p".to_string(),
-                "/home/heathledger/Desktop/Projects".to_string(),
-            ],
-            stdin: None,
-            detach: false,
-        };
-
-        assert!(detect_foreign_home_path_for_runtime_home(&tool, "/home/heathledger").is_none());
-    }
-
-    #[test]
     fn terminal_reply_composer_formats_dense_pdf_path_output() {
         let summary = "/home/heathledger/Documents/ioi/one.pdf/home/heathledger/Documents/ioi/two.pdf /home/heathledger/Pictures/news at DuckDuckGo.pdf Run timestamp (UTC): 2026-02-27T17:55:09.632Z";
         let outcome = compose_terminal_chat_reply(summary);
@@ -2164,44 +1267,11 @@ mod tests {
     }
 
     #[test]
-    fn terminal_reply_composer_passthrough_when_not_pdf_path_dense() {
-        let summary = "Opened browser and navigated to search results.";
-        let outcome = compose_terminal_chat_reply(summary);
-
-        assert!(!outcome.applied);
-        assert!(outcome.validator_passed);
-        assert_eq!(outcome.output, summary);
-        assert_eq!(outcome.template_id, "passthrough");
-    }
-
-    #[test]
-    fn enrich_summary_uses_lowercase_contract_receipts_over_raw_stdout() {
-        let mut state =
-            test_agent_state_with_goal("Rename every file in my Downloads folder to lowercase.");
-        state.resolved_intent = Some(test_resolved_intent(IntentScopeProfile::CommandExecution));
-        mark_execution_receipt(
-            &mut state.tool_execution_log,
-            LOWERCASE_RENAME_CONTRACT_REQUIRED_RECEIPT,
-        );
-        mark_execution_postcondition(
-            &mut state.tool_execution_log,
-            LOWERCASE_RENAME_POSTCONDITION,
-        );
-        mark_execution_receipt_with_value(
-            &mut state.tool_execution_log,
-            LOWERCASE_RENAME_TARGET_DIR_RECEIPT,
-            "/home/heathledger/Downloads".to_string(),
-        );
-        mark_execution_receipt_with_value(
-            &mut state.tool_execution_log,
-            LOWERCASE_RENAME_TOTAL_FILES_RECEIPT,
-            "73".to_string(),
-        );
-        mark_execution_receipt_with_value(
-            &mut state.tool_execution_log,
-            LOWERCASE_RENAME_UPPERCASE_REMAINING_RECEIPT,
-            "0".to_string(),
-        );
+    fn enrich_summary_preserves_terse_message_and_appends_timestamp() {
+        let mut state = test_agent_state();
+        state.resolved_intent = Some(command_scope_intent("command.exec"));
+        mark_execution_receipt(&mut state.tool_execution_log, "execution");
+        mark_execution_postcondition(&mut state.tool_execution_log, "execution_artifact");
         state.command_history.push_back(CommandExecution {
             command: "bash -s".to_string(),
             exit_code: 0,
@@ -2212,9 +1282,27 @@ mod tests {
         });
 
         let enriched = enrich_command_scope_summary("phone-preview.mp4", &state);
-        assert!(enriched.contains("All files in the Downloads folder are lowercase."));
-        assert!(enriched.contains("Files checked: 73."));
+        assert!(enriched.contains("phone-preview.mp4"));
         assert!(enriched.contains("Run timestamp (UTC):"));
-        assert!(!enriched.contains("phone-preview.mp4"));
+    }
+
+    #[test]
+    fn enrich_summary_preserves_non_terse_message() {
+        let mut state = test_agent_state();
+        state.resolved_intent = Some(command_scope_intent("command.exec"));
+        mark_execution_receipt(&mut state.tool_execution_log, "execution");
+        mark_execution_postcondition(&mut state.tool_execution_log, "execution_artifact");
+        state.command_history.push_back(CommandExecution {
+            command: "bash -s".to_string(),
+            exit_code: 0,
+            stdout: String::new(),
+            stderr: String::new(),
+            timestamp_ms: 1_772_304_000_000,
+            step_index: 1,
+        });
+
+        let summary = "Completed command run with expected output.";
+        let enriched = enrich_command_scope_summary(summary, &state);
+        assert!(enriched.contains(summary));
     }
 }

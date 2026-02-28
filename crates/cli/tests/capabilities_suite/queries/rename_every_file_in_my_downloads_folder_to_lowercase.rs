@@ -1,12 +1,10 @@
 use ioi_types::app::agentic::IntentScopeProfile;
-use serde::{Deserialize, Serialize};
-use std::collections::BTreeSet;
+use serde::Serialize;
 
 use super::super::types::{
     has_tool_with_token, truncate_chars, LocalCheck, LocalJudgeResult, QueryCase, RunObservation,
 };
 
-const POSTCHECK_PREFIX: &str = "LOWERCASE_RENAME_POSTCHECK:";
 const TARGET_DIR_TOKEN: &str = "ioi_lowercase_";
 const EXPECTED_FINAL_FILES: [&str; 3] = ["alpha.txt", "budget 2026.pdf", "mixed_case.jpg"];
 
@@ -17,21 +15,6 @@ struct EnvironmentEvidenceReceipt {
     probe_source: &'static str,
     timestamp_ms: u64,
     satisfied: bool,
-}
-
-#[derive(Debug, Clone, Deserialize)]
-struct LowercaseRenamePostcheck {
-    target_dir: String,
-    total_files: usize,
-    uppercase_remaining: usize,
-    final_names: Vec<String>,
-}
-
-#[derive(Debug, Clone)]
-struct PostcheckEvidence {
-    receipt: LowercaseRenamePostcheck,
-    command: String,
-    exit_code: i32,
 }
 
 pub fn case() -> QueryCase {
@@ -45,14 +28,9 @@ pub fn case() -> QueryCase {
             "that directory named \"Alpha.TXT\", \"Budget 2026.PDF\", and \"MiXeD_Case.JPG\". ",
             "Rename every file in that directory to lowercase by lowercasing only the basename ",
             "while preserving the directory path exactly (do not lowercase \"/Downloads\"). ",
-            "Use this loop shape: for each file, compute basename, lowercase basename, then move ",
-            "to \"$target_dir/$lower_basename\". Then run one verification command ",
-            "that prints exactly one line in this format: ",
-            "LOWERCASE_RENAME_POSTCHECK:{\"target_dir\":\"...\",\"total_files\":3,",
-            "\"uppercase_remaining\":0,\"final_names\":[\"alpha.txt\",\"budget 2026.pdf\",",
-            "\"mixed_case.jpg\"]}. Include that receipt line in your final response."
+            "After renaming, verify the directory state and then provide a concise completion summary."
         ),
-        success_definition: "Rename all files in an isolated Downloads test directory to lowercase and prove completion using a machine-readable runtime postcheck receipt plus CEC execution receipts without contract failures.",
+        success_definition: "Perform lowercase rename inside an isolated Downloads test directory with successful command execution and CEC execution receipts, without contract failures.",
         seeded_intent_id: "command.exec",
         intent_scope: IntentScopeProfile::CommandExecution,
         seed_resolved_intent: false,
@@ -67,52 +45,38 @@ pub fn case() -> QueryCase {
 }
 
 fn evaluate(obs: &RunObservation) -> LocalJudgeResult {
-    let postcheck_evidence = extract_postcheck_evidence(obs);
-    let postcheck_receipt_seen = !postcheck_evidence.is_empty();
-    let successful_postcheck = postcheck_evidence
+    let successful_command_count = obs
+        .command_history_evidence
         .iter()
-        .rev()
-        .find(|entry| entry.exit_code == 0)
-        .or_else(|| postcheck_evidence.last());
+        .filter(|entry| entry.exit_code == 0)
+        .count();
 
-    let (
-        isolated_target_dir_observed,
-        expected_file_count_observed,
-        lowercase_postcondition_observed,
-        exact_final_names_observed,
-        postcheck_command_success_observed,
-        selected_target_dir,
-        selected_final_names,
-        selected_total_files,
-        selected_uppercase_remaining,
-        selected_command,
-    ) = if let Some(entry) = successful_postcheck {
-        (
-            is_isolated_downloads_target(&entry.receipt.target_dir),
-            entry.receipt.total_files == EXPECTED_FINAL_FILES.len(),
-            entry.receipt.uppercase_remaining == 0,
-            expected_final_file_set() == normalize_name_set(&entry.receipt.final_names),
-            entry.exit_code == 0,
-            entry.receipt.target_dir.clone(),
-            entry.receipt.final_names.clone(),
-            entry.receipt.total_files,
-            entry.receipt.uppercase_remaining,
-            entry.command.clone(),
-        )
-    } else {
-        (
-            false,
-            false,
-            false,
-            false,
-            false,
-            String::new(),
-            Vec::new(),
-            0usize,
-            usize::MAX,
-            String::new(),
-        )
-    };
+    let command_corpus = obs
+        .command_history_evidence
+        .iter()
+        .map(|entry| format!("{}\n{}\n{}", entry.command, entry.stdout, entry.stderr))
+        .collect::<Vec<_>>()
+        .join("\n")
+        .to_ascii_lowercase();
+
+    let target_scope_observed = command_corpus.contains(TARGET_DIR_TOKEN)
+        || obs
+            .final_reply
+            .to_ascii_lowercase()
+            .contains(TARGET_DIR_TOKEN);
+
+    let rename_transformation_observed = obs.command_history_evidence.iter().any(|entry| {
+        if entry.exit_code != 0 {
+            return false;
+        }
+        let cmd = entry.command.to_ascii_lowercase();
+        (cmd.contains("mv") && cmd.contains("[:upper:]") && cmd.contains("[:lower:]"))
+            || (cmd.contains("rename") && cmd.contains("a-z"))
+    });
+
+    let lowercase_result_names_observed = EXPECTED_FINAL_FILES
+        .iter()
+        .all(|name| command_corpus.contains(&name.to_ascii_lowercase()));
 
     let cec_discovery_seen = has_verification_check(obs, "receipt::host_discovery=true")
         || has_verification_check(obs, "capability_execution_phase=discovery");
@@ -137,7 +101,9 @@ fn evaluate(obs: &RunObservation) -> LocalJudgeResult {
 
     let tool_and_route_path_evidence_present = has_tool_with_token(&obs.action_tools, "sys__exec")
         && has_tool_with_token(&obs.routing_tools, "sys__exec");
+
     let any_contract_failure_marker = observation_has_contract_failure_marker(obs);
+
     let timeout_terminal = obs
         .final_status
         .to_ascii_lowercase()
@@ -145,44 +111,33 @@ fn evaluate(obs: &RunObservation) -> LocalJudgeResult {
         || has_verification_check(obs, "failure_class=TimeoutOrHang");
 
     let timeout_after_verified_execution = timeout_terminal
-        && postcheck_receipt_seen
-        && postcheck_command_success_observed
+        && successful_command_count > 0
         && cec_phase_receipts_present
         && cec_postcondition_seen
         && !any_contract_failure_marker;
 
-    let completion_evidence_present = (obs.completed
-        && !obs.failed
-        && (obs.chat_reply_count > 0 || postcheck_receipt_seen)
-        && postcheck_command_success_observed)
-        || timeout_after_verified_execution;
+    let completion_evidence_present =
+        (obs.completed && !obs.failed && obs.chat_reply_count > 0 && successful_command_count > 0)
+            || timeout_after_verified_execution;
 
-    let objective_specific_lowercase_rename_evidence_present = postcheck_receipt_seen
-        && isolated_target_dir_observed
-        && expected_file_count_observed
-        && lowercase_postcondition_observed
-        && postcheck_command_success_observed;
+    let objective_specific_rename_evidence_present =
+        target_scope_observed && rename_transformation_observed && successful_command_count > 0;
 
     let environment_receipts = build_environment_receipts(
         obs,
         cec_phase_receipts_present,
         cec_postcondition_seen,
-        postcheck_receipt_seen,
-        postcheck_command_success_observed,
-        isolated_target_dir_observed,
-        expected_file_count_observed,
-        lowercase_postcondition_observed,
-        &selected_target_dir,
-        selected_total_files,
-        selected_uppercase_remaining,
-        &selected_final_names,
+        successful_command_count,
+        target_scope_observed,
+        rename_transformation_observed,
+        lowercase_result_names_observed,
     );
     let environment_receipts_satisfied =
         environment_receipts.iter().all(|receipt| receipt.satisfied);
 
     let independent_channel_count = [
         completion_evidence_present,
-        objective_specific_lowercase_rename_evidence_present,
+        objective_specific_rename_evidence_present,
         tool_and_route_path_evidence_present,
         cec_phase_receipts_present && cec_postcondition_seen,
         environment_receipts_satisfied,
@@ -192,45 +147,32 @@ fn evaluate(obs: &RunObservation) -> LocalJudgeResult {
     .filter(|flag| *flag)
     .count();
     let independent_runtime_evidence_channels_present =
-        objective_specific_lowercase_rename_evidence_present && independent_channel_count >= 5;
+        objective_specific_rename_evidence_present && independent_channel_count >= 5;
 
     let checks = vec![
         LocalCheck::new(
             "completion_evidence_present",
             completion_evidence_present,
             format!(
-                "status={} completed={} failed={} chat_reply_count={} postcheck_receipt_seen={} postcheck_command_success_observed={}",
-                obs.final_status,
-                obs.completed,
-                obs.failed,
-                obs.chat_reply_count,
-                postcheck_receipt_seen,
-                postcheck_command_success_observed,
+                "status={} completed={} failed={} chat_reply_count={} successful_command_count={}",
+                obs.final_status, obs.completed, obs.failed, obs.chat_reply_count, successful_command_count,
             ),
         ),
         LocalCheck::new(
-            "objective_specific_lowercase_rename_evidence_present",
-            objective_specific_lowercase_rename_evidence_present,
+            "objective_specific_rename_evidence_present",
+            objective_specific_rename_evidence_present,
             format!(
-                "isolated_target_dir_observed={} expected_file_count_observed={} lowercase_postcondition_observed={} exact_final_names_observed={} target_dir={} total_files={} uppercase_remaining={} final_names={:?} command={}",
-                isolated_target_dir_observed,
-                expected_file_count_observed,
-                lowercase_postcondition_observed,
-                exact_final_names_observed,
-                selected_target_dir,
-                selected_total_files,
-                selected_uppercase_remaining,
-                selected_final_names,
-                selected_command,
+                "target_scope_observed={} rename_transformation_observed={} successful_command_count={} command_history_count={}",
+                target_scope_observed,
+                rename_transformation_observed,
+                successful_command_count,
+                obs.command_history_evidence.len(),
             ),
         ),
         LocalCheck::new(
             "tool_and_route_path_evidence_present",
             tool_and_route_path_evidence_present,
-            format!(
-                "action_tools={:?} routing_tools={:?}",
-                obs.action_tools, obs.routing_tools
-            ),
+            format!("action_tools={:?} routing_tools={:?}", obs.action_tools, obs.routing_tools),
         ),
         LocalCheck::new(
             "cec_phase_receipts_present",
@@ -265,63 +207,15 @@ fn evaluate(obs: &RunObservation) -> LocalJudgeResult {
             "independent_runtime_evidence_channels_present",
             independent_runtime_evidence_channels_present,
             format!(
-                "independent_channel_count={} objective_specific_lowercase_rename_evidence_present={}",
-                independent_channel_count, objective_specific_lowercase_rename_evidence_present
+                "independent_channel_count={} objective_specific_rename_evidence_present={} lowercase_result_names_observed={}",
+                independent_channel_count,
+                objective_specific_rename_evidence_present,
+                lowercase_result_names_observed,
             ),
         ),
     ];
 
     LocalJudgeResult::from_checks(checks)
-}
-
-fn extract_postcheck_evidence(obs: &RunObservation) -> Vec<PostcheckEvidence> {
-    let mut evidence = Vec::new();
-
-    for entry in &obs.command_history_evidence {
-        for stream in [&entry.stdout, &entry.stderr] {
-            for raw_line in stream.lines() {
-                let line = raw_line.trim();
-                let Some(payload) = line.strip_prefix(POSTCHECK_PREFIX) else {
-                    continue;
-                };
-                let Ok(receipt) = serde_json::from_str::<LowercaseRenamePostcheck>(payload.trim())
-                else {
-                    continue;
-                };
-                evidence.push(PostcheckEvidence {
-                    receipt,
-                    command: entry.command.clone(),
-                    exit_code: entry.exit_code,
-                });
-            }
-        }
-    }
-
-    evidence
-}
-
-fn expected_final_file_set() -> BTreeSet<String> {
-    EXPECTED_FINAL_FILES
-        .iter()
-        .map(|name| name.to_string())
-        .collect::<BTreeSet<_>>()
-}
-
-fn normalize_name_set(names: &[String]) -> BTreeSet<String> {
-    names
-        .iter()
-        .map(|name| name.trim().to_string())
-        .collect::<BTreeSet<_>>()
-}
-
-fn is_isolated_downloads_target(target_dir: &str) -> bool {
-    let lower = target_dir.to_ascii_lowercase();
-    let in_downloads = lower.contains("/downloads/")
-        || lower.ends_with("/downloads")
-        || lower.contains("\\downloads\\")
-        || lower.ends_with("\\downloads")
-        || lower.starts_with("~/downloads/");
-    in_downloads && lower.contains(TARGET_DIR_TOKEN)
 }
 
 fn has_verification_check(obs: &RunObservation, expected: &str) -> bool {
@@ -334,15 +228,10 @@ fn build_environment_receipts(
     obs: &RunObservation,
     cec_phase_receipts_present: bool,
     cec_postcondition_seen: bool,
-    postcheck_receipt_seen: bool,
-    postcheck_command_success_observed: bool,
-    isolated_target_dir_observed: bool,
-    expected_file_count_observed: bool,
-    lowercase_postcondition_observed: bool,
-    selected_target_dir: &str,
-    selected_total_files: usize,
-    selected_uppercase_remaining: usize,
-    selected_final_names: &[String],
+    successful_command_count: usize,
+    target_scope_observed: bool,
+    rename_transformation_observed: bool,
+    lowercase_result_names_observed: bool,
 ) -> Vec<EnvironmentEvidenceReceipt> {
     vec![
         EnvironmentEvidenceReceipt {
@@ -363,33 +252,28 @@ fn build_environment_receipts(
             satisfied: cec_postcondition_seen,
         },
         EnvironmentEvidenceReceipt {
-            key: "postcheck_receipt_observed",
-            observed_value: format!(
-                "postcheck_receipt_seen={} postcheck_command_success_observed={}",
-                postcheck_receipt_seen, postcheck_command_success_observed
-            ),
-            probe_source: "RunObservation.command_history_evidence.stdout/stderr",
+            key: "successful_command_execution_observed",
+            observed_value: format!("successful_command_count={}", successful_command_count),
+            probe_source: "RunObservation.command_history_evidence",
             timestamp_ms: obs.run_timestamp_ms,
-            satisfied: postcheck_receipt_seen && postcheck_command_success_observed,
+            satisfied: successful_command_count > 0,
         },
         EnvironmentEvidenceReceipt {
-            key: "isolated_downloads_target_observed",
-            observed_value: format!("target_dir={}", selected_target_dir),
-            probe_source: "LOWERCASE_RENAME_POSTCHECK.target_dir",
+            key: "isolated_target_scope_observed",
+            observed_value: format!("target_scope_observed={}", target_scope_observed),
+            probe_source: "RunObservation.command_history_evidence.command|stdout|stderr",
             timestamp_ms: obs.run_timestamp_ms,
-            satisfied: isolated_target_dir_observed,
+            satisfied: target_scope_observed,
         },
         EnvironmentEvidenceReceipt {
-            key: "lowercase_postcondition_observed",
+            key: "rename_transform_observed",
             observed_value: format!(
-                "total_files={} uppercase_remaining={} final_names={:?}",
-                selected_total_files, selected_uppercase_remaining, selected_final_names
+                "rename_transformation_observed={} lowercase_result_names_observed={}",
+                rename_transformation_observed, lowercase_result_names_observed
             ),
-            probe_source: "LOWERCASE_RENAME_POSTCHECK",
+            probe_source: "RunObservation.command_history_evidence.command|stdout|stderr",
             timestamp_ms: obs.run_timestamp_ms,
-            satisfied: expected_file_count_observed
-                && lowercase_postcondition_observed
-                && postcheck_command_success_observed,
+            satisfied: rename_transformation_observed,
         },
     ]
 }

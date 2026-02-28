@@ -15,19 +15,14 @@ use crate::agentic::desktop::execution::system::is_sudo_password_required_instal
 use crate::agentic::desktop::keys::{get_state_key, pii, AGENT_POLICY_PREFIX};
 use crate::agentic::desktop::service::step::action::command_contract::{
     append_command_history_entry, capability_route_label, command_arms_deferred_notification_path,
-    command_history_entry, command_history_exit_code, command_history_lowercase_rename_postcheck,
-    compose_terminal_chat_reply, discover_lowercase_rename_postcheck, enrich_command_scope_summary,
-    execution_contract_violation_error, format_utc_rfc3339, is_cec_terminal_error,
-    lowercase_rename_contract_target, missing_execution_contract_markers,
-    parse_lowercase_rename_postcheck_receipt, parse_sleep_seconds,
-    record_lowercase_rename_contract_requirement, record_provider_selection_receipts,
-    record_timer_notification_contract_requirement, record_verification_receipts,
-    render_command_preview, requires_lowercase_rename_contract,
-    requires_timer_notification_contract, synthesize_allowlisted_lowercase_rename_tool,
+    command_history_entry, command_history_exit_code, compose_terminal_chat_reply,
+    enrich_command_scope_summary, execution_contract_violation_error, format_utc_rfc3339,
+    is_cec_terminal_error, missing_execution_contract_markers, parse_sleep_seconds,
+    record_provider_selection_receipts, record_timer_notification_contract_requirement,
+    record_verification_receipts, render_command_preview, requires_timer_notification_contract,
     synthesize_allowlisted_timer_notification_tool, sys_exec_arms_timer_delay_backend,
-    sys_exec_command_preview, sys_exec_payload_contains, sys_exec_targets_lowercase_rename_payload,
-    target_utc_from_run_and_sleep, LOWERCASE_RENAME_POSTCONDITION,
-    TIMER_NOTIFICATION_PATH_POSTCONDITION, TIMER_SLEEP_BACKEND_POSTCONDITION,
+    sys_exec_command_preview, target_utc_from_run_and_sleep, TIMER_NOTIFICATION_PATH_POSTCONDITION,
+    TIMER_SLEEP_BACKEND_POSTCONDITION,
 };
 use crate::agentic::desktop::service::step::action::{
     canonical_intent_hash, canonical_retry_intent_hash, canonical_tool_identity,
