@@ -13,8 +13,9 @@ use ioi_drivers::browser::BrowserDriver;
 use ioi_drivers::terminal::TerminalDriver;
 use ioi_types::app::agentic::{
     CapabilityId, ExecutionApplicabilityClass, InferenceOptions, IntentAmbiguityAction,
-    IntentConfidenceBand, IntentConfidenceBandPolicy, IntentMatrixEntry, IntentRoutingPolicy,
-    IntentScopeProfile, ProviderSelectionMode, ResolvedIntentState, VerificationMode,
+    IntentConfidenceBand, IntentConfidenceBandPolicy, IntentMatrixEntry, IntentQueryBindingClass,
+    IntentRoutingPolicy, IntentScopeProfile, ProviderSelectionMode, ResolvedIntentState,
+    VerificationMode,
 };
 use ioi_types::app::{ActionRequest, ContextSlice};
 use ioi_types::error::VmError;
@@ -59,6 +60,45 @@ impl GuiDriver for NoopGuiDriver {
     ) -> Result<(), VmError> {
         Ok(())
     }
+}
+
+fn query_from_prompt(prompt: &str) -> String {
+    let marker = "query:\n";
+    let Some(start) = prompt.find(marker).map(|idx| idx + marker.len()) else {
+        return prompt.to_string();
+    };
+    let rest = &prompt[start..];
+    let end = rest.find("\n\nreturn exactly one json object");
+    match end {
+        Some(idx) => rest[..idx].trim().to_string(),
+        None => rest.trim().to_string(),
+    }
+}
+
+fn query_from_input_context(input_context: &[u8]) -> String {
+    let raw = String::from_utf8_lossy(input_context).to_string();
+    if let Ok(value) = serde_json::from_str::<serde_json::Value>(&raw) {
+        if let Some(messages) = value.as_array() {
+            for message in messages {
+                let role = message
+                    .get("role")
+                    .and_then(|r| r.as_str())
+                    .unwrap_or_default();
+                if role != "user" {
+                    continue;
+                }
+                let content = message
+                    .get("content")
+                    .and_then(|c| c.as_str())
+                    .unwrap_or_default();
+                let extracted = query_from_prompt(&content.to_ascii_lowercase());
+                if !extracted.is_empty() {
+                    return extracted;
+                }
+            }
+        }
+    }
+    query_from_prompt(&raw.to_ascii_lowercase())
 }
 
 #[derive(Debug, Default, Clone)]
@@ -118,7 +158,7 @@ impl InferenceRuntime for NoEmbeddingRuntime {
         _input_context: &[u8],
         _options: InferenceOptions,
     ) -> Result<Vec<u8>, VmError> {
-        Ok(Vec::new())
+        Err(VmError::HostError("inference unavailable".to_string()))
     }
 
     async fn embed_text(&self, _text: &str) -> Result<Vec<f32>, VmError> {
@@ -146,7 +186,28 @@ impl InferenceRuntime for NoEmbeddingModelRankRuntime {
         _options: InferenceOptions,
     ) -> Result<Vec<u8>, VmError> {
         let prompt = String::from_utf8_lossy(input_context).to_ascii_lowercase();
-        if prompt.contains("rename every file in my downloads folder to lowercase") {
+        let query = query_from_input_context(input_context);
+        if prompt.contains("remote_public_fact_required")
+            && query.contains("rename every file")
+            && query.contains("downloads")
+            && query.contains("lowercase")
+        {
+            return Ok(serde_json::json!({
+                "remote_public_fact_required": false,
+                "host_local_clock_targeted": false,
+                "command_directed": true,
+                "app_launch_directed": false,
+                "direct_ui_input": false,
+                "desktop_screenshot_requested": false,
+                "temporal_filesystem_filter": false
+            })
+            .to_string()
+            .into_bytes());
+        }
+        if query.contains("rename every file")
+            && query.contains("downloads")
+            && query.contains("lowercase")
+        {
             return Ok(serde_json::json!({
                 "scores": [
                     {"intent_id": "command.exec", "score": 0.96},
@@ -337,9 +398,40 @@ impl InferenceRuntime for LocalitySkewedRuntime {
     async fn execute_inference(
         &self,
         _model_hash: [u8; 32],
-        _input_context: &[u8],
+        input_context: &[u8],
         _options: InferenceOptions,
     ) -> Result<Vec<u8>, VmError> {
+        let prompt = String::from_utf8_lossy(input_context).to_ascii_lowercase();
+        let query = query_from_input_context(input_context);
+        if prompt.contains("remote_public_fact_required") && query.contains("weather") {
+            return Ok(serde_json::json!({
+                "remote_public_fact_required": true,
+                "host_local_clock_targeted": false,
+                "command_directed": false,
+                "app_launch_directed": false,
+                "direct_ui_input": false,
+                "desktop_screenshot_requested": false,
+                "temporal_filesystem_filter": false
+            })
+            .to_string()
+            .into_bytes());
+        }
+        if prompt.contains("remote_public_fact_required")
+            && query.contains("time")
+            && (query.contains("this machine") || query.contains("this computer"))
+        {
+            return Ok(serde_json::json!({
+                "remote_public_fact_required": false,
+                "host_local_clock_targeted": true,
+                "command_directed": false,
+                "app_launch_directed": false,
+                "direct_ui_input": false,
+                "desktop_screenshot_requested": false,
+                "temporal_filesystem_filter": false
+            })
+            .to_string()
+            .into_bytes());
+        }
         Ok(Vec::new())
     }
 
@@ -490,9 +582,44 @@ impl InferenceRuntime for LaunchVsUiRuntime {
     async fn execute_inference(
         &self,
         _model_hash: [u8; 32],
-        _input_context: &[u8],
+        input_context: &[u8],
         _options: InferenceOptions,
     ) -> Result<Vec<u8>, VmError> {
+        let prompt = String::from_utf8_lossy(input_context).to_ascii_lowercase();
+        let query = query_from_input_context(input_context);
+        if prompt.contains("remote_public_fact_required")
+            && query.contains("open")
+            && query.contains("calculator")
+        {
+            return Ok(serde_json::json!({
+                "remote_public_fact_required": false,
+                "host_local_clock_targeted": false,
+                "command_directed": false,
+                "app_launch_directed": true,
+                "direct_ui_input": false,
+                "desktop_screenshot_requested": false,
+                "temporal_filesystem_filter": false
+            })
+            .to_string()
+            .into_bytes());
+        }
+        if prompt.contains("remote_public_fact_required")
+            && query.contains("click")
+            && query.contains("login")
+            && query.contains("button")
+        {
+            return Ok(serde_json::json!({
+                "remote_public_fact_required": false,
+                "host_local_clock_targeted": false,
+                "command_directed": false,
+                "app_launch_directed": false,
+                "direct_ui_input": true,
+                "desktop_screenshot_requested": false,
+                "temporal_filesystem_filter": false
+            })
+            .to_string()
+            .into_bytes());
+        }
         Ok(Vec::new())
     }
 
@@ -542,9 +669,45 @@ impl InferenceRuntime for DesktopFolderSkewedRuntime {
     async fn execute_inference(
         &self,
         _model_hash: [u8; 32],
-        _input_context: &[u8],
+        input_context: &[u8],
         _options: InferenceOptions,
     ) -> Result<Vec<u8>, VmError> {
+        let prompt = String::from_utf8_lossy(input_context).to_ascii_lowercase();
+        let query = query_from_input_context(input_context);
+        if prompt.contains("remote_public_fact_required")
+            && query.contains("create")
+            && query.contains("folder")
+            && query.contains("desktop")
+        {
+            return Ok(serde_json::json!({
+                "remote_public_fact_required": false,
+                "host_local_clock_targeted": false,
+                "command_directed": true,
+                "app_launch_directed": false,
+                "direct_ui_input": false,
+                "desktop_screenshot_requested": false,
+                "temporal_filesystem_filter": false
+            })
+            .to_string()
+            .into_bytes());
+        }
+        if prompt.contains("remote_public_fact_required")
+            && query.contains("rename every file")
+            && query.contains("downloads")
+            && query.contains("lowercase")
+        {
+            return Ok(serde_json::json!({
+                "remote_public_fact_required": false,
+                "host_local_clock_targeted": false,
+                "command_directed": true,
+                "app_launch_directed": false,
+                "direct_ui_input": false,
+                "desktop_screenshot_requested": false,
+                "temporal_filesystem_filter": false
+            })
+            .to_string()
+            .into_bytes());
+        }
         Ok(Vec::new())
     }
 

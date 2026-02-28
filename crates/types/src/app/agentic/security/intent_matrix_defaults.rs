@@ -1,6 +1,6 @@
 use super::{
-    CapabilityId, ExecutionApplicabilityClass, IntentMatrixEntry, IntentScopeProfile,
-    ProviderSelectionMode, VerificationMode,
+    CapabilityId, ExecutionApplicabilityClass, IntentMatrixEntry, IntentQueryBindingClass,
+    IntentScopeProfile, ProviderSelectionMode, VerificationMode,
 };
 
 pub(super) fn default_intent_matrix() -> Vec<IntentMatrixEntry> {
@@ -10,6 +10,7 @@ IntentMatrixEntry {
     semantic_descriptor:
         "respond conversationally without executing external side effects"
             .to_string(),
+    query_binding: IntentQueryBindingClass::None,
     required_capabilities: vec![
         CapabilityId::from("agent.lifecycle"),
         CapabilityId::from("conversation.reply"),
@@ -39,6 +40,7 @@ IntentMatrixEntry {
     semantic_descriptor:
         "compute deterministic arithmetic results from explicit symbolic numeric expressions using numbers operators and grouping tokens and return the evaluated value"
             .to_string(),
+    query_binding: IntentQueryBindingClass::None,
     required_capabilities: vec![
         CapabilityId::from("agent.lifecycle"),
         CapabilityId::from("conversation.reply"),
@@ -68,6 +70,7 @@ IntentMatrixEntry {
     semantic_descriptor:
         "research live information on the web including latest news headlines and current events then synthesize sourced findings"
             .to_string(),
+    query_binding: IntentQueryBindingClass::RemotePublicFact,
     required_capabilities: vec![
         CapabilityId::from("agent.lifecycle"),
         CapabilityId::from("conversation.reply"),
@@ -99,6 +102,7 @@ IntentMatrixEntry {
     semantic_descriptor:
         "inspect and modify files in the local workspace and repository checkout source tree"
             .to_string(),
+    query_binding: IntentQueryBindingClass::None,
     required_capabilities: vec![
         CapabilityId::from("agent.lifecycle"),
         CapabilityId::from("conversation.reply"),
@@ -129,6 +133,7 @@ IntentMatrixEntry {
     semantic_descriptor:
         "open launch start or foreground a named local software process identified by a program title token and make it active for interaction"
             .to_string(),
+    query_binding: IntentQueryBindingClass::AppLaunchDirected,
     required_capabilities: vec![
         CapabilityId::from("agent.lifecycle"),
         CapabilityId::from("app.launch"),
@@ -156,6 +161,7 @@ IntentMatrixEntry {
     semantic_descriptor:
         "perform direct input interactions such as click type scroll drag or keypress within an already-running focused application interface"
             .to_string(),
+    query_binding: IntentQueryBindingClass::DirectUiInput,
     required_capabilities: vec![
         CapabilityId::from("agent.lifecycle"),
         CapabilityId::from("ui.interact"),
@@ -190,6 +196,7 @@ IntentMatrixEntry {
     semantic_descriptor:
         "take a screenshot of my desktop or capture the current screen image and return capture confirmation without click type scroll or keypress actions"
             .to_string(),
+    query_binding: IntentQueryBindingClass::DesktopScreenshot,
     required_capabilities: vec![
         CapabilityId::from("agent.lifecycle"),
         CapabilityId::from("ui.interact"),
@@ -218,6 +225,7 @@ IntentMatrixEntry {
     semantic_descriptor:
         "check whether a binary or tool is available in PATH without mutating host state"
             .to_string(),
+    query_binding: IntentQueryBindingClass::None,
     required_capabilities: vec![
         CapabilityId::from("agent.lifecycle"),
         CapabilityId::from("command.probe"),
@@ -254,6 +262,7 @@ IntentMatrixEntry {
     semantic_descriptor:
         "read only this host machine local or utc clock timestamp and time-of-day"
             .to_string(),
+    query_binding: IntentQueryBindingClass::HostLocal,
     required_capabilities: vec![
         CapabilityId::from("agent.lifecycle"),
         CapabilityId::from("conversation.reply"),
@@ -281,6 +290,7 @@ IntentMatrixEntry {
     semantic_descriptor:
         "execute local shell or terminal commands on the current machine for local automation tasks including file renaming batch directory transforms filename case normalization and timers"
             .to_string(),
+    query_binding: IntentQueryBindingClass::CommandDirected,
     required_capabilities: vec![
         CapabilityId::from("agent.lifecycle"),
         CapabilityId::from("conversation.reply"),
@@ -322,6 +332,7 @@ IntentMatrixEntry {
     semantic_descriptor:
         "delegate work to child agent sessions and aggregate worker outputs"
             .to_string(),
+    query_binding: IntentQueryBindingClass::None,
     required_capabilities: vec![
         CapabilityId::from("agent.lifecycle"),
         CapabilityId::from("conversation.reply"),

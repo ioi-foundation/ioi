@@ -1,4 +1,3 @@
-use crate::agentic::desktop::service::step::signals::{analyze_query_facets, QueryFacetProfile};
 use crate::agentic::desktop::service::DesktopAgentService;
 use crate::agentic::desktop::types::{AgentState, ExecutionTier};
 use crate::agentic::rules::{ActionRules, Verdict};
@@ -7,8 +6,8 @@ use ioi_api::vm::inference::InferenceRuntime;
 use ioi_crypto::algorithms::hash::sha256;
 use ioi_types::app::agentic::{
     CapabilityId, ExecutionApplicabilityClass, IntentAmbiguityAction, IntentCandidateScore,
-    IntentConfidenceBand, IntentMatrixEntry, IntentRoutingPolicy, IntentScopeProfile,
-    ResolvedIntentState, ToolCapabilityBinding,
+    IntentConfidenceBand, IntentMatrixEntry, IntentQueryBindingClass, IntentRoutingPolicy,
+    IntentScopeProfile, ResolvedIntentState, ToolCapabilityBinding,
 };
 use ioi_types::app::{ActionTarget, IntentResolutionReceiptEvent, KernelEvent};
 use ioi_types::error::{TransactionError, VmError};
@@ -26,20 +25,21 @@ const INTENT_SIMILARITY_FUNCTION_ID: &str = "cosine_similarity_v1";
 const INTENT_MODEL_RANK_MODEL_ID: &str = "inference.execute_inference";
 const INTENT_MODEL_RANK_MODEL_VERSION: &str = "v1";
 const INTENT_MODEL_RANK_SIMILARITY_FUNCTION_ID: &str = "llm_descriptor_rank_v1";
-const INTENT_LEXICAL_RANK_MODEL_ID: &str = "resolver.lexical.token_frequency";
-const INTENT_LEXICAL_RANK_MODEL_VERSION: &str = "v1";
-const INTENT_LEXICAL_RANK_SIMILARITY_FUNCTION_ID: &str = "token_cosine_v1";
+const INTENT_QUERY_BINDING_MODEL_ID: &str = "inference.execute_inference";
+const INTENT_QUERY_BINDING_MODEL_VERSION: &str = "v1";
+const INTENT_QUERY_BINDING_SCHEMA_ID: &str = "query_binding_profile_v1";
 const CIRC_CONTRACT_VERSION: &str = "circ.v0.5";
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum IntentQueryBindingClass {
-    None,
-    HostLocal,
-    RemotePublicFact,
-    AppLaunchDirected,
-    CommandDirected,
-    DirectUiInput,
-    DesktopScreenshot,
+#[derive(Debug, Clone, Copy, Default)]
+struct QueryBindingProfile {
+    available: bool,
+    remote_public_fact_required: bool,
+    host_local_clock_targeted: bool,
+    command_directed: bool,
+    app_launch_directed: bool,
+    direct_ui_input: bool,
+    desktop_screenshot_requested: bool,
+    temporal_filesystem_filter: bool,
 }
 
 mod capabilities;

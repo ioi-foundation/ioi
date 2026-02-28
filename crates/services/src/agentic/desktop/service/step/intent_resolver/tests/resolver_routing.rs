@@ -386,6 +386,7 @@ async fn resolver_routing_is_not_driven_by_aliases_or_exemplars() {
         IntentMatrixEntry {
             intent_id: "web.research".to_string(),
             semantic_descriptor: "retrieve web research results".to_string(),
+            query_binding: IntentQueryBindingClass::RemotePublicFact,
             required_capabilities: vec![],
             risk_class: "medium".to_string(),
             scope: IntentScopeProfile::WebResearch,
@@ -405,6 +406,7 @@ async fn resolver_routing_is_not_driven_by_aliases_or_exemplars() {
         IntentMatrixEntry {
             intent_id: "system.clock.read".to_string(),
             semantic_descriptor: "read system clock timestamp".to_string(),
+            query_binding: IntentQueryBindingClass::HostLocal,
             required_capabilities: vec![],
             risk_class: "low".to_string(),
             scope: IntentScopeProfile::CommandExecution,
@@ -516,7 +518,7 @@ async fn resolver_uses_model_ranking_when_embeddings_are_unavailable() {
 }
 
 #[tokio::test(flavor = "current_thread")]
-async fn resolver_uses_lexical_ranking_when_embeddings_and_model_ranking_fail() {
+async fn resolver_abstains_when_embeddings_and_model_ranking_fail() {
     let gui: Arc<dyn GuiDriver> = Arc::new(NoopGuiDriver);
     let terminal = Arc::new(TerminalDriver::new());
     let browser = Arc::new(BrowserDriver::new());
@@ -531,14 +533,11 @@ async fn resolver_uses_lexical_ranking_when_embeddings_and_model_ranking_fail() 
     let resolved = resolve_step_intent(&service, &agent_state, &rules, "terminal")
         .await
         .unwrap();
-    assert_eq!(resolved.intent_id, "system.clock.read");
-    assert_eq!(resolved.scope, IntentScopeProfile::CommandExecution);
-    assert!(resolved.score > 0.0);
+    assert_eq!(resolved.intent_id, "resolver.unclassified");
+    assert_eq!(resolved.scope, IntentScopeProfile::Unknown);
+    assert_eq!(resolved.score, 0.0);
     assert_eq!(resolved.band, IntentConfidenceBand::Low);
     assert!(!resolved.top_k.is_empty());
-    assert!(resolved.top_k.iter().any(|candidate| {
-        candidate.intent_id == "system.clock.read" && candidate.score > f32::EPSILON
-    }));
     assert!(resolved
         .top_k
         .iter()
@@ -572,6 +571,7 @@ async fn resolver_abstains_when_top_candidates_are_ambiguous() {
         IntentMatrixEntry {
             intent_id: "system.clock.read".to_string(),
             semantic_descriptor: "system clock timestamp".to_string(),
+            query_binding: IntentQueryBindingClass::HostLocal,
             required_capabilities: vec![],
             risk_class: "low".to_string(),
             scope: IntentScopeProfile::CommandExecution,
@@ -588,6 +588,7 @@ async fn resolver_abstains_when_top_candidates_are_ambiguous() {
         IntentMatrixEntry {
             intent_id: "command.exec".to_string(),
             semantic_descriptor: "shell or terminal command execute".to_string(),
+            query_binding: IntentQueryBindingClass::CommandDirected,
             required_capabilities: vec![],
             risk_class: "low".to_string(),
             scope: IntentScopeProfile::CommandExecution,

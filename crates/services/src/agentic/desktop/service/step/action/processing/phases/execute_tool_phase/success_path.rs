@@ -274,6 +274,10 @@ pub(super) async fn handle_execution_success(
                 postcheck_source
             ));
             if let Some(receipt) = postcheck {
+                record_lowercase_rename_postcheck_receipts(
+                    &mut agent_state.tool_execution_log,
+                    &receipt,
+                );
                 verification_checks.push(format!(
                     "lowercase_rename_postcheck_total_files={}",
                     receipt.total_files
