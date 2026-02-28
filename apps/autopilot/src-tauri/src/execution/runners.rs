@@ -1,4 +1,6 @@
 use super::*;
+use crate::template::interpolate_template;
+use serde_json::json;
 
 pub(super) async fn run_mcp_tool(
     tool_name: &str,
@@ -144,7 +146,6 @@ pub(super) async fn run_browser_execution(
                 .and_then(|v| v.as_str())
                 .ok_or("Missing 'selector'")?;
 
-            // [UPDATED] Interpolate the selector string
             let selector = interpolate_template(selector_template, &input_obj);
 
             match BROWSER_DRIVER.click_selector(&selector).await {
@@ -808,7 +809,6 @@ pub(super) async fn run_retrieval_execution(
             "hits": results.len()
         })),
         input_snapshot: Some(input_obj),
-        // [NEW] Populate context_slice with the raw results array
         context_slice: Some(json!(results)),
     })
 }

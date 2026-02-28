@@ -52,18 +52,18 @@ use ioi_services::agentic::pii_adapter::RuntimeAsPiiModel;
 use ioi_services::agentic::rules::{ActionRules, DefaultPolicy, Rule, Verdict};
 use ioi_types::codec;
 
-// [UPDATED] Import Market Service types
+// Import Market Service types
 use ioi_services::market::MarketService;
-// [FIX] Import OptimizerService
+// Import OptimizerService
 use ioi_services::agentic::optimizer::OptimizerService;
 use ioi_services::wallet_network::WalletNetworkService;
 
-// [NEW] Import for SwarmCommand
+// Import for SwarmCommand
 use ioi_networking::libp2p::SwarmCommand;
 use ioi_networking::noop::NoOpBlockSync;
 
-// [NEW] Import for Skill Injection
-// [FIX] Used in commented out blocks or future extensions, keeping to avoid churn if needed
+// Import for Skill Injection
+// Used in commented out blocks or future extensions, keeping to avoid churn if needed
 // use ioi_types::app::agentic::{AgentMacro, LlmToolDefinition};
 
 #[derive(Parser, Debug)]
@@ -107,7 +107,7 @@ async fn main() -> Result<()> {
     // 2. SCS Setup
     let scs_path = opts.data_dir.join("context.scs");
 
-    // [FIX] Derive identity key from the local node key for SCS encryption
+    // Derive identity key from the local node key for SCS encryption
     let ed_kp = local_key
         .clone()
         .try_into_ed25519()
@@ -118,7 +118,7 @@ async fn main() -> Result<()> {
     let scs_config = StoreConfig {
         chain_id: 0,
         owner_id: local_account_id.0,
-        identity_key, // [FIX] Field added
+        identity_key, // Field added
     };
     let scs = if scs_path.exists() {
         println!(
@@ -150,8 +150,8 @@ async fn main() -> Result<()> {
         allowed_system_prefixes: vec![],
         generation_id: 0,
         parent_hash: None,
-        author: Some(local_account_id), // [FIX] User owns their agent
-        context_filter: None,           // [FIX] Initialize context_filter
+        author: Some(local_account_id), // User owns their agent
+        context_filter: None,           // Initialize context_filter
     };
 
     let session_id = [0u8; 32];
@@ -222,7 +222,7 @@ async fn main() -> Result<()> {
                 conditions: Default::default(),
                 action: Verdict::Allow,
             },
-            // [NEW] Allow Computer Use for UI-TARS
+            // Allow Computer Use for UI-TARS
             Rule {
                 rule_id: Some("allow-computer".into()),
                 target: "gui::click".into(), // Maps to computer.left_click AND ui__click_component
@@ -291,7 +291,7 @@ async fn main() -> Result<()> {
     optimizer_methods.insert("optimize_agent@v1".to_string(), MethodPermission::User);
     optimizer_methods.insert("crystallize_skill@v1".to_string(), MethodPermission::User);
     optimizer_methods.insert("deploy_skill@v1".to_string(), MethodPermission::User);
-    // [NEW] Allow import_skill via CLI
+    // Allow import_skill via CLI
     optimizer_methods.insert("import_skill@v1".to_string(), MethodPermission::User);
 
     service_policies.insert(
@@ -326,7 +326,7 @@ async fn main() -> Result<()> {
     };
 
     let user_home = std::env::var("HOME").unwrap_or_else(|_| ".".to_string());
-    // [FIX] Mount a specific workspace instead of full home to prevent timeouts on large dirs
+    // Mount a specific workspace instead of full home to prevent timeouts on large dirs
     let workspace_path = std::path::Path::new(&user_home).join("ioi-workspace");
     std::fs::create_dir_all(&workspace_path)?;
     let workspace_str = workspace_path.to_string_lossy().to_string();
@@ -467,8 +467,8 @@ async fn main() -> Result<()> {
             allowed_system_prefixes: vec![],
             generation_id: 0,
             parent_hash: None,
-            author: None,         // [FIX] System service has no specific owner
-            context_filter: None, // [FIX] Initialize context_filter
+            author: None,         // System service has no specific owner
+            context_filter: None, // Initialize context_filter
         };
         let market_key = ioi_types::keys::active_service_key("market");
         insert_raw(&market_key, to_bytes_canonical(&market_meta).unwrap());
@@ -484,13 +484,13 @@ async fn main() -> Result<()> {
     let (event_tx, _event_rx) = tokio::sync::broadcast::channel(1000);
     let os_driver = Arc::new(NativeOsDriver::new());
 
-    // [MODIFIED] Create GUI driver mutably to register lenses
+    // Create GUI driver mutably to register lenses
     let mut gui_driver = IoiGuiDriver::new()
         .with_event_sender(event_tx.clone())
         .with_scs(scs_arc.clone())
-        .with_som(true); // [FIX] Explicitly enable SoM Visual Grounding
+        .with_som(true); // Explicitly enable SoM Visual Grounding
 
-    // [NEW] Register Auto-Lens as the fallback for "LiDAR"
+    // Register Auto-Lens as the fallback for "LiDAR"
     // This allows the agent to semantically target ANY native app, not just Calculator.
     // e.g. a button labeled "Play" becomes ID="btn_play".
     gui_driver.register_lens(Box::new(ioi_drivers::gui::lenses::auto::AutoLens));
@@ -807,7 +807,7 @@ async fn main() -> Result<()> {
                     )
                     .await {
                         Ok(true) => {
-                             // [FIX] Removed aggressive reset to prevent runaway execution loops (e.g. opening 100 windows).
+                             // Removed aggressive reset to prevent runaway execution loops (e.g. opening 100 windows).
                              // operator_ticker.reset();
                         },
                         Ok(false) => {

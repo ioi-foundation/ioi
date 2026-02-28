@@ -1,33 +1,25 @@
-// apps/autopilot/src-tauri/src/execution.rs
-
 use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
-use serde_json::{json, Value};
+use serde_json::Value;
 use std::collections::HashMap;
 use std::error::Error;
 use std::sync::{Arc, Mutex};
 
-// Native Drivers & MCP
-use ioi_drivers::browser::BrowserDriver;
-use ioi_drivers::mcp::{McpManager, McpServerConfig};
-use tauri::Manager;
-
-// Governance & Policy Integration
 use async_trait::async_trait;
 use ioi_api::vm::drivers::os::OsDriver;
 use ioi_api::vm::inference::{
     InferenceRuntime, LocalSafetyModel, PiiInspection, PiiRiskSurface, SafetyVerdict,
 };
+use ioi_drivers::browser::BrowserDriver;
+use ioi_drivers::mcp::{McpManager, McpServerConfig};
 use ioi_drivers::os::NativeOsDriver;
+use ioi_scs::SovereignContextStore;
 use ioi_services::agentic::policy::PolicyEngine;
 use ioi_services::agentic::rules::{ActionRules, DefaultPolicy, Rule, RuleConditions, Verdict};
 use ioi_types::app::agentic::EvidenceGraph;
 use ioi_types::app::{ActionContext, ActionRequest, ActionTarget};
+use tauri::Manager;
 
-// SCS Integration
-use ioi_scs::SovereignContextStore;
-
-// [NEW] Governance Tiers for Execution Context
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum GovernanceTier {
     None,
@@ -45,30 +37,26 @@ pub struct ExecutionResult {
     pub context_slice: Option<Value>,
 }
 
-// Persistent Browser Driver for the Simulator
-static BROWSER_DRIVER: Lazy<BrowserDriver> = Lazy::new(|| BrowserDriver::new());
-
-// Persistent MCP Manager for the Simulator
+static BROWSER_DRIVER: Lazy<BrowserDriver> = Lazy::new(BrowserDriver::new);
 static MCP_MANAGER: Lazy<Arc<McpManager>> = Lazy::new(|| Arc::new(McpManager::new()));
+static OS_DRIVER: Lazy<Arc<dyn OsDriver>> = Lazy::new(|| Arc::new(NativeOsDriver::new()));
 
-// Public accessor for Kernel commands
 pub async fn get_active_mcp_tools() -> Vec<ioi_types::app::agentic::LlmToolDefinition> {
     MCP_MANAGER.get_all_tools().await
 }
 
-// Native OS Driver for Policy Context
-static OS_DRIVER: Lazy<Arc<dyn OsDriver>> = Lazy::new(|| Arc::new(NativeOsDriver::new()));
-
-// Simulation Safety Model (Mock)
 struct SimulationSafetyModel;
+
 #[async_trait]
 impl LocalSafetyModel for SimulationSafetyModel {
     async fn classify_intent(&self, _input: &str) -> anyhow::Result<SafetyVerdict> {
         Ok(SafetyVerdict::Safe)
     }
+
     async fn detect_pii(&self, _input: &str) -> anyhow::Result<Vec<(usize, usize, String)>> {
         Ok(vec![])
     }
+
     async fn inspect_pii(
         &self,
         _input: &str,
@@ -81,10 +69,10 @@ impl LocalSafetyModel for SimulationSafetyModel {
         })
     }
 }
+
 static SAFETY_MODEL: Lazy<Arc<dyn LocalSafetyModel>> =
     Lazy::new(|| Arc::new(SimulationSafetyModel));
 
-/// Initializes default MCP servers for the local Studio environment.
 pub async fn init_mcp_servers(app_handle: tauri::AppHandle) {
     let data_dir = app_handle
         .path()
@@ -114,39 +102,9 @@ pub async fn init_mcp_servers(app_handle: tauri::AppHandle) {
     }
 }
 
-/// Helper: Basic Handlebars-style interpolation {{key}} -> value
-fn interpolate_template(template: &str, context: &Value) -> String {
-    let mut result = template.to_string();
-    let mut start_idx = 0;
-    while let Some(open) = result[start_idx..].find("{{") {
-        let actual_open = start_idx + open;
-        if let Some(close) = result[actual_open..].find("}}") {
-            let actual_close = actual_open + close;
-            let key = &result[actual_open + 2..actual_close].trim();
-
-            let replacement = if let Some(val) = context.get(key) {
-                if let Some(s) = val.as_str() {
-                    s.to_string()
-                } else {
-                    val.to_string()
-                }
-            } else {
-                format!("<<MISSING:{}>>", key)
-            };
-
-            result.replace_range(actual_open..actual_close + 2, &replacement);
-            start_idx = actual_open + replacement.len();
-        } else {
-            break;
-        }
-    }
-    result
-}
-
 mod governance;
 mod runners;
 
-/// Main entry point for executing a node in the local environment.
 pub async fn execute_ephemeral_node(
     node_type: &str,
     full_config: &Value,
@@ -154,12 +112,10 @@ pub async fn execute_ephemeral_node(
     session_id: Option<String>,
     scs: Arc<Mutex<SovereignContextStore>>,
     inference: Arc<dyn InferenceRuntime>,
-    // [NEW] Configurable Governance Tier
     tier: GovernanceTier,
 ) -> Result<ExecutionResult, Box<dyn Error>> {
     let input_snapshot: Option<Value> = serde_json::from_str(input_json).ok();
 
-    // --- STEP 1: GOVERNANCE CHECK ---
     if let Err(violation) =
         governance::check_governance(node_type, full_config, input_json, session_id.clone(), tier)
             .await
@@ -174,7 +130,6 @@ pub async fn execute_ephemeral_node(
         });
     }
 
-    // --- STEP 2: EXECUTION ---
     let logic_config = full_config.get("logic").unwrap_or(full_config);
 
     match node_type {
@@ -194,7 +149,6 @@ pub async fn execute_ephemeral_node(
         "retrieval" => {
             runners::run_retrieval_execution(logic_config, input_json, scs, inference).await
         }
-
         "receipt" => Ok(ExecutionResult {
             status: "success".to_string(),
             output: format!(
@@ -212,7 +166,6 @@ pub async fn execute_ephemeral_node(
         "router" => runners::run_router_execution(logic_config, input_json).await,
         "wait" => runners::run_wait_execution(logic_config).await,
         "context" => runners::run_context_execution(logic_config, input_json).await,
-
         _ => Ok(ExecutionResult {
             status: "skipped".to_string(),
             output: format!("Ephemeral execution not implemented for {}", node_type),

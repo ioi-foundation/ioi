@@ -45,11 +45,11 @@ ioi-drivers = { path = "../../../crates/drivers" }
 ioi-scs = { path = "../../../crates/scs" }
 ioi-pii = { path = "../../../crates/pii" }
 
-# [FIX] Added validator for key loading and libp2p for key types
+# Validator + key types for local identity loading.
 ioi-validator = { path = "../../../crates/validator" }
 libp2p = { workspace = true }
 
-# [FIX] Added dcrypt for ByteSerializable trait used in orchestrator
+# ByteSerializable support used by orchestration and storage paths.
 dcrypt = { workspace = true }
 
 parity-scale-codec = { workspace = true, features = ["derive", "std"] }

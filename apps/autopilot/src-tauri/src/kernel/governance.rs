@@ -166,7 +166,7 @@ pub async fn gate_respond(
 ) -> Result<(), String> {
     let mut session_id_hex = None;
     let mut request_hash_hex = None;
-    let mut visual_hash_hex = None; // [NEW] Capture visual hash
+    let mut visual_hash_hex = None; // Capture visual hash
     let mut is_pii_gate = false;
     let action_label = action;
 
@@ -203,7 +203,7 @@ pub async fn gate_respond(
                             .map(str::to_string)
                     })
                 });
-                visual_hash_hex = task.visual_hash.clone(); // [NEW] Capture visual hash
+                visual_hash_hex = task.visual_hash.clone(); // Capture visual hash
             }
         }
     }
@@ -284,7 +284,7 @@ pub async fn gate_respond(
     let mut client = get_rpc_client(&state).await?;
     wait_for_gate_ready(&mut client, session_id_arr, request_hash_arr).await?;
 
-    // [NEW] Decode visual hash if present
+    // Decode visual hash if present
     let visual_hash_arr = if let Some(v_hex) = visual_hash_hex {
         if let Ok(v_bytes) = hex::decode(&v_hex) {
             if v_bytes.len() == 32 {

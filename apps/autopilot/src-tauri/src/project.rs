@@ -14,7 +14,7 @@ pub struct ProjectFile {
     pub nodes: Vec<GraphNode>,
     pub edges: Vec<GraphEdge>,
     pub global_config: Option<Value>,
-    // [NEW] Metadata for tracking
+    // Metadata for tracking
     pub metadata: Option<ProjectMetadata>,
 }
 

@@ -1,7 +1,8 @@
 use super::*;
+use crate::template::interpolate_template;
 use ioi_types::app::agentic::PiiControls;
+use serde_json::json;
 
-// Governance Logic: Synthesize ActionRules from UI Config
 pub(super) fn synthesize_node_policy(node_type: &str, law_config: &Value) -> ActionRules {
     let mut rules = Vec::new();
     let mut conditions = RuleConditions::default();
@@ -61,7 +62,6 @@ pub(super) fn synthesize_node_policy(node_type: &str, law_config: &Value) -> Act
     }
 }
 
-// Governance Logic: Construct canonical ActionRequest with Session Context
 pub(super) fn map_to_action_request(
     node_type: &str,
     logic_config: &Value,
@@ -136,13 +136,12 @@ pub(super) fn map_to_action_request(
     }
 }
 
-/// The Governance Layer
 pub(super) async fn check_governance(
     node_type: &str,
     config: &Value,
     input_context: &str,
     session_id: Option<String>,
-    tier: GovernanceTier, // [NEW] Accept Tier
+    tier: GovernanceTier,
 ) -> Result<(), String> {
     if tier == GovernanceTier::None {
         return Ok(());
@@ -155,22 +154,16 @@ pub(super) async fn check_governance(
     let policy = synthesize_node_policy(node_type, law_config);
     let request = map_to_action_request(node_type, logic_config, input_context, session_id);
 
-    // Evaluate against policy + current OS state
     let verdict =
         PolicyEngine::evaluate(&policy, &request, &*SAFETY_MODEL, &*OS_DRIVER, None).await;
 
     match verdict {
         Verdict::Allow => Ok(()),
         Verdict::Block => {
-            // 2. Silent Mode: Only block if it's a "Hard" violation (e.g. key access),
-            // otherwise allow but log warning.
-            // For MVP, we treat Block as Block, but in production this would differ.
             Err("🛡️ BLOCKED: Policy violation (e.g., Domain not in allowlist)".into())
         }
         Verdict::RequireApproval => {
-            // 3. Silent Mode: Auto-approve "Soft" gates
             if tier == GovernanceTier::Silent {
-                // Log the bypass
                 println!(
                     "[Governance] Auto-approving gate for {} (Silent Mode)",
                     node_type

@@ -2,10 +2,10 @@
 
 use crate::models::AppState;
 use ioi_crypto::algorithms::hash::sha256;
-use ioi_scs::{FrameType, RetentionClass, VectorIndex}; // [FIX] Import RetentionClass
+use ioi_scs::{FrameType, RetentionClass, VectorIndex};
 use std::fs;
 use std::path::Path;
-use std::sync::Mutex; // [FIX] Removed Arc
+use std::sync::Mutex;
 use tauri::State;
 
 const CHUNK_SIZE: usize = 4096;
@@ -61,7 +61,6 @@ pub async fn ingest_file(
         let mhnsw_root = [0u8; 32];
 
         for chunk in &chunks {
-            // [NEW] Calculate content hash for integrity/deduplication
             let hash_res = sha256(chunk).map_err(|e| format!("Hash failed: {}", e))?;
             let mut content_hash = [0u8; 32];
             content_hash.copy_from_slice(hash_res.as_ref());
@@ -76,7 +75,7 @@ pub async fn ingest_file(
                     block_height,
                     mhnsw_root,
                     content_hash,
-                    RetentionClass::Archival, // [FIX] Add retention (Files are archival)
+                    RetentionClass::Archival,
                 )
                 .map_err(|e| format!("Failed to write frame: {}", e))?;
 

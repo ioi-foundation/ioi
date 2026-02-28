@@ -144,7 +144,7 @@ pub struct Artifact {
 pub struct ChatMessage {
     pub role: String, // "user", "agent", "system", "tool"
 
-    // [NOTE] We map backend `content` to frontend `text` for compatibility with UI components
+    // We map backend `content` to frontend `text` for compatibility with UI components
     #[serde(alias = "content")]
     pub text: String,
 
@@ -249,7 +249,7 @@ pub struct AgentTask {
     #[serde(default)]
     pub swarm_tree: Vec<SwarmAgent>,
 
-    // [NEW] Evolutionary Metadata (Genetics)
+    // Evolutionary Metadata (Genetics)
     #[serde(default)]
     pub generation: u64,
 
