@@ -1,4 +1,3 @@
-import React from "react";
 import { SessionSummary } from "../../../types";
 import { formatTimeAgo, groupSessionsByDate } from "../utils";
 import { icons } from "./Icons";

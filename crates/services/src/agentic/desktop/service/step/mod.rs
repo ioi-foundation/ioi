@@ -10,6 +10,7 @@ pub mod ontology;
 pub mod perception;
 pub mod queue;
 pub mod signals;
+pub mod text_tokens;
 pub mod visual;
 pub mod worker;
 

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { icons } from "./Icons";
 import "../styles/Visuals.css";
 

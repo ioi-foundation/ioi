@@ -122,8 +122,23 @@ export class TauriRuntime implements AgentRuntime {
     }
 
     async installAgent(agentId: string): Promise<void> {
-        console.log("Installing agent:", agentId);
-        // TODO: Implement backend install logic
+        try {
+            await invoke("install_marketplace_agent", { agentId });
+        } catch (error) {
+            throw new Error(
+                `NotImplemented: backend command 'install_marketplace_agent' is unavailable for agent '${agentId}'. detail=${String(error)}`
+            );
+        }
+    }
+
+    async loadBuilderConfigToCompose(config: unknown): Promise<void> {
+        try {
+            await invoke("load_builder_config_to_compose", { config });
+        } catch (error) {
+            throw new Error(
+                `NotImplemented: builder->compose handoff is not wired. detail=${String(error)}`
+            );
+        }
     }
 
     async getConnectors(): Promise<ConnectorSummary[]> {

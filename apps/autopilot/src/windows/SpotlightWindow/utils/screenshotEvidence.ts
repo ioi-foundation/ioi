@@ -1,5 +1,6 @@
 import type { AgentEvent } from "../../../types";
 import { firstMeaningfulVisualHash } from "./visualHash";
+import { eventOutputText, eventToolName } from "./eventFields";
 
 export interface ScreenshotReceiptEvidence {
   id: string;
@@ -12,34 +13,6 @@ export interface ScreenshotReceiptEvidence {
 }
 
 const SCREENSHOT_OUTPUT_PREFIX = "screenshot captured";
-
-function safeString(value: unknown): string {
-  if (typeof value === "string") return value;
-  if (typeof value === "number" || typeof value === "boolean") return String(value);
-  return "";
-}
-
-function eventToolName(event: AgentEvent): string {
-  const digest = event.digest || {};
-  const details = event.details || {};
-  return (
-    safeString(digest.tool_name).trim() ||
-    safeString(digest.tool).trim() ||
-    safeString(details.tool_name).trim() ||
-    safeString(details.tool).trim()
-  );
-}
-
-function eventOutputText(event: AgentEvent): string {
-  const details = event.details || {};
-  const digest = event.digest || {};
-  return (
-    safeString(details.output).trim() ||
-    safeString(details.chunk).trim() ||
-    safeString(details.content).trim() ||
-    safeString(digest.output_snippet).trim()
-  );
-}
 
 function eventVisualHash(event: AgentEvent): string {
   const digest = event.digest || {};

@@ -2,6 +2,8 @@
 
 #[path = "action/command_contract.rs"]
 pub(crate) mod command_contract;
+#[path = "action/json.rs"]
+pub(crate) mod json;
 #[path = "action/probe.rs"]
 mod probe;
 #[path = "action/processing/mod.rs"]

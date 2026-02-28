@@ -354,34 +354,11 @@ pub(crate) fn first_metric_sentence(text: &str) -> Option<String> {
 }
 
 pub(crate) fn looks_like_clock_time(token: &str) -> bool {
-    let normalized = token.trim_matches(|ch: char| !ch.is_ascii_digit() && ch != ':');
-    if normalized.is_empty() {
-        return false;
-    }
-    let mut parts = normalized.split(':');
-    let Some(hours) = parts.next() else {
-        return false;
-    };
-    let Some(minutes) = parts.next() else {
-        return false;
-    };
-    if parts.next().is_some() {
-        return false;
-    }
-    if hours.is_empty() || minutes.len() != 2 {
-        return false;
-    }
-    hours.chars().all(|ch| ch.is_ascii_digit()) && minutes.chars().all(|ch| ch.is_ascii_digit())
+    crate::agentic::desktop::service::step::text_tokens::looks_like_clock_time(token)
 }
 
 pub(crate) fn token_is_numeric_literal(token: &str) -> bool {
-    let normalized = token.trim_matches(|ch: char| {
-        !ch.is_ascii_alphanumeric() && ch != '.' && ch != '-' && ch != '+'
-    });
-    if normalized.is_empty() || looks_like_clock_time(normalized) {
-        return false;
-    }
-    normalized.replace(',', "").parse::<f64>().is_ok()
+    crate::agentic::desktop::service::step::text_tokens::token_is_numeric_literal(token)
 }
 
 pub(crate) fn token_is_measurement_unit(token: &str) -> bool {

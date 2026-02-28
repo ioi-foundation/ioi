@@ -1,4 +1,4 @@
-import React, { useMemo } from "react";
+import { useMemo } from "react";
 import { icons } from "./Icons";
 import "../styles/ArtifactPanel.css";
 
@@ -30,7 +30,7 @@ export function ArtifactPanel({
         <div className="artifact-meta">
           <div className="artifact-icon">{icons.code}</div>
           <span className="artifact-filename">{fileName}</span>
-          <span className="artifact-tag">Generated</span>
+          <span className="artifact-tag">{language}</span>
         </div>
         <div className="artifact-actions">
           <button 

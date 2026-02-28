@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import type { ActivityKind, AgentEvent, EventType } from "../../../types";
+import { toEventString } from "../utils/eventFields";
 
 interface MicroEventCardProps {
   event: AgentEvent;
@@ -33,9 +34,7 @@ const KIND_LABELS: Record<ActivityKind, string> = {
 };
 
 function safeString(value: unknown): string {
-  if (typeof value === "string") return value;
-  if (typeof value === "number" || typeof value === "boolean") return String(value);
-  return "";
+  return toEventString(value);
 }
 
 function outputSnippet(event: AgentEvent): string {

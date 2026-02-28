@@ -17,7 +17,7 @@ interface GhostEvent {
 
 export function VisionHUD() {
   const [events, setEvents] = useState<GhostEvent[]>([]);
-  const [isRecording, setIsRecording] = useState(true);
+  const [isRecording] = useState(true);
   const scrollRef = useRef<HTMLDivElement>(null);
   const [activeInterlock, setActiveInterlock] = useState<{ x: number, y: number } | null>(null);
 

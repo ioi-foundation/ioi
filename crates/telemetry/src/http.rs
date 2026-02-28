@@ -7,10 +7,16 @@ use axum::{
     Router,
 };
 use prometheus::{Encoder, TextEncoder};
-use std::{net::SocketAddr, time::Duration};
+use std::{
+    net::SocketAddr,
+    sync::atomic::{AtomicBool, Ordering},
+    time::Duration,
+};
 use tokio::signal;
 use tower::{BoxError, ServiceBuilder};
 use tower_http::trace::TraceLayer;
+
+static TELEMETRY_READY: AtomicBool = AtomicBool::new(false);
 
 async fn metrics_handler() -> ([(HeaderName, String); 1], Bytes) {
     let encoder = TextEncoder::new();
@@ -28,9 +34,13 @@ async fn metrics_handler() -> ([(HeaderName, String); 1], Bytes) {
 async fn healthz_handler() -> &'static str {
     "OK"
 }
-async fn readyz_handler() -> &'static str {
-    "OK"
-} // TODO: Implement readiness checks
+async fn readyz_handler() -> (StatusCode, &'static str) {
+    if TELEMETRY_READY.load(Ordering::Relaxed) {
+        (StatusCode::OK, "READY")
+    } else {
+        (StatusCode::SERVICE_UNAVAILABLE, "NOT_READY")
+    }
+}
 
 async fn handle_service_error(err: BoxError) -> (StatusCode, String) {
     if err.is::<tower::timeout::error::Elapsed>() {
@@ -44,6 +54,7 @@ async fn handle_service_error(err: BoxError) -> (StatusCode, String) {
 }
 
 pub async fn run_server(addr: SocketAddr) {
+    TELEMETRY_READY.store(false, Ordering::Relaxed);
     let app = Router::new()
         .route("/metrics", get(metrics_handler))
         .route("/healthz", get(healthz_handler))
@@ -72,12 +83,14 @@ pub async fn run_server(addr: SocketAddr) {
             "listening (failed to resolve local addr)"
         ),
     }
+    TELEMETRY_READY.store(true, Ordering::Relaxed);
 
     let graceful = axum::serve(listener, app.into_make_service()).with_graceful_shutdown(async {
         if let Err(e) = signal::ctrl_c().await {
             tracing::error!(target = "telemetry", error = %e, "Failed to install CTRL+C handler");
         }
         tracing::info!(target = "telemetry", "shutting down gracefully");
+        TELEMETRY_READY.store(false, Ordering::Relaxed);
     });
 
     if let Err(e) = graceful.await {
