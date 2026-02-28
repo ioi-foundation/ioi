@@ -73,10 +73,7 @@ pub(crate) async fn run_approval_validation_phase(
             );
         }
     }
-    if matches!(
-        &tool,
-        AgentTool::SysExec { .. } | AgentTool::SysExecSession { .. }
-    ) {
+    if is_command_execution_provider_tool(&tool) {
         if agent_state.command_history.is_empty() {
             verification_checks.push("capability_execution_phase=discovery".to_string());
             if command_scope {

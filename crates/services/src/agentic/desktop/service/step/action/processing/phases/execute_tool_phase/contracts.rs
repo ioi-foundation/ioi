@@ -138,12 +138,7 @@ pub(super) fn bootstrap_contract(
         }
     }
 
-    if command_scope
-        && matches!(
-            tool,
-            AgentTool::SysExec { .. } | AgentTool::SysExecSession { .. }
-        )
-    {
+    if command_scope && is_command_execution_provider_tool(tool) {
         verification_checks.push("capability_execution_phase=execution".to_string());
     }
 

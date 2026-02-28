@@ -170,6 +170,54 @@ pub(super) async fn apply_tool_outcome_and_followups(
                 );
             }
         }
+        AgentTool::SysInstallPackage { package, .. } => {
+            if *success && command_scope {
+                let summary = history_entry
+                    .as_deref()
+                    .map(str::trim)
+                    .filter(|entry| !entry.is_empty())
+                    .map(str::to_string)
+                    .unwrap_or_else(|| format!("Installed package '{}'.", package));
+                let summary = enrich_command_scope_summary(&summary, agent_state);
+                let missing_contract_markers = missing_execution_contract_markers(agent_state);
+                if missing_contract_markers.is_empty() {
+                    *error_msg = None;
+                    agent_state.status = AgentStatus::Completed(Some(summary.clone()));
+                    *is_lifecycle_action = true;
+                    *action_output = Some(summary.clone());
+                    *terminal_chat_reply_output = None;
+                    verification_checks.push("install_dependency_terminalized=true".to_string());
+                    agent_state.execution_queue.clear();
+                    agent_state.pending_search_completion = None;
+                    emit_completion_gate_status_event(
+                        service,
+                        session_id,
+                        step_index,
+                        resolved_intent_id,
+                        true,
+                        "install_dependency_completion_gate_passed",
+                    );
+                } else {
+                    let missing = missing_contract_markers.join(",");
+                    let contract_error = execution_contract_violation_error(&missing);
+                    *success = false;
+                    *error_msg = Some(contract_error.clone());
+                    *history_entry = Some(contract_error.clone());
+                    *action_output = Some(contract_error);
+                    agent_state.status = AgentStatus::Running;
+                    verification_checks.push("execution_contract_gate_blocked=true".to_string());
+                    verification_checks
+                        .push(format!("execution_contract_missing_keys={}", missing));
+                    emit_completion_gate_violation_events(
+                        service,
+                        session_id,
+                        step_index,
+                        resolved_intent_id,
+                        &missing,
+                    );
+                }
+            }
+        }
         AgentTool::SysExec { .. } | AgentTool::SysExecSession { .. } => {
             if is_command_probe_intent(agent_state.resolved_intent.as_ref()) {
                 if let Some(raw) = history_entry.as_deref() {

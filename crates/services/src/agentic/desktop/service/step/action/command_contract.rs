@@ -77,6 +77,15 @@ pub fn capability_route_label(tool: &AgentTool) -> Option<&'static str> {
     }
 }
 
+pub fn is_command_execution_provider_tool(tool: &AgentTool) -> bool {
+    matches!(
+        tool,
+        AgentTool::SysExec { .. }
+            | AgentTool::SysExecSession { .. }
+            | AgentTool::SysInstallPackage { .. }
+    )
+}
+
 pub fn extract_error_class_token(error: Option<&str>) -> Option<&str> {
     let raw = error?;
     let marker = "ERROR_CLASS=";
@@ -731,6 +740,14 @@ fn verification_probe_command(
     tool: &AgentTool,
     history_entry: Option<&CommandExecution>,
 ) -> Option<String> {
+    if let AgentTool::SysInstallPackage { package, .. } = tool {
+        let package = package.trim();
+        if package.is_empty() {
+            return None;
+        }
+        return Some(format!("command -v -- {}", shell_quote_single(package)));
+    }
+
     let source_command = history_entry
         .map(|entry| entry.command.clone())
         .or_else(|| sys_exec_command_preview(tool))?;
@@ -923,14 +940,16 @@ pub fn enrich_command_scope_summary(summary: &str, agent_state: &AgentState) -> 
 mod tests {
     use super::{
         compose_terminal_chat_reply, enrich_command_scope_summary,
-        execution_contract_violation_error,
+        execution_contract_violation_error, is_command_execution_provider_tool,
+        record_verification_receipts, VERIFICATION_COMMIT_RECEIPT,
     };
     use crate::agentic::desktop::service::step::action::support::{
         mark_execution_postcondition, mark_execution_receipt,
     };
     use crate::agentic::desktop::types::{
-        AgentMode, AgentState, AgentStatus, CommandExecution, ExecutionTier,
+        AgentMode, AgentState, AgentStatus, CommandExecution, ExecutionTier, ToolCallStatus,
     };
+    use ioi_types::app::agentic::AgentTool;
     use ioi_types::app::agentic::{IntentConfidenceBand, IntentScopeProfile, ResolvedIntentState};
     use std::collections::{BTreeMap, VecDeque};
 
@@ -1002,6 +1021,35 @@ mod tests {
         let error = execution_contract_violation_error("receipt::verification=true");
         assert!(error.starts_with("ERROR_CLASS=VerificationMissing "));
         assert!(error.contains("base_error_class=ExecutionContractViolation"));
+    }
+
+    #[test]
+    fn install_package_is_treated_as_command_execution_provider_tool() {
+        let install = AgentTool::SysInstallPackage {
+            package: "vlc".to_string(),
+            manager: None,
+        };
+        assert!(is_command_execution_provider_tool(&install));
+    }
+
+    #[test]
+    fn install_package_verification_receipts_emit_commit() {
+        let mut log = BTreeMap::<String, ToolCallStatus>::new();
+        let mut checks = Vec::<String>::new();
+        let tool = AgentTool::SysInstallPackage {
+            package: "vlc".to_string(),
+            manager: Some("apt-get".to_string()),
+        };
+
+        record_verification_receipts(&mut log, &mut checks, &tool, None);
+
+        assert!(super::has_execution_receipt(&log, "verification"));
+        let commit = super::execution_receipt_value(&log, VERIFICATION_COMMIT_RECEIPT)
+            .expect("verification commit receipt should be present for install package");
+        assert!(commit.starts_with("sha256:"));
+        assert!(checks
+            .iter()
+            .any(|check| check == "receipt::verification=true"));
     }
 
     #[test]

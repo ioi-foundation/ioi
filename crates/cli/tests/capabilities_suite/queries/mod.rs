@@ -23,6 +23,7 @@ pub fn all_cases() -> Vec<QueryCase> {
         set_timer_15_minutes::case(),
         create_a_new_folder_on_my_desktop_called_project_some_number::case(),
         download_and_install_vlc_media_player::case(),
+        download_and_install_vlc_media_player::case_unseeded(),
         find_all_pdf_files_on_my_computer_modified_in_the_last_week::case(),
         rename_every_file_in_my_downloads_folder_to_lowercase::case(),
         take_a_screenshot_of_my_desktop::case(),

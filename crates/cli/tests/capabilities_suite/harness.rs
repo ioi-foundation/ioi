@@ -140,6 +140,7 @@ const MAIL_E2E_KEY_SMTP_USERNAME_SECRET_ID: &str = "MAIL_E2E_SMTP_USERNAME_SECRE
 const MAIL_E2E_KEY_SMTP_PASSWORD_SECRET_ID: &str = "MAIL_E2E_SMTP_PASSWORD_SECRET_ID";
 const MAIL_E2E_KEY_SMTP_BEARER_TOKEN_SECRET_ID: &str = "MAIL_E2E_SMTP_BEARER_TOKEN_SECRET_ID";
 const VLC_INSTALL_CASE_ID: &str = "download_and_install_vlc_media_player";
+const VLC_INSTALL_UNSEEDED_CASE_ID: &str = "download_and_install_vlc_media_player_unseeded";
 const VLC_INSTALL_FIXTURE_MODE: &str = "apt_get_vlc_fixture_v1";
 const VLC_INSTALL_FIXTURE_PROBE_SOURCE: &str = "harness.vlc_install_fixture";
 
@@ -820,6 +821,7 @@ fn should_bootstrap_mailbox_runtime(goal: &str) -> bool {
 
 fn should_bootstrap_vlc_install_fixture(case_id: &str) -> bool {
     case_id.eq_ignore_ascii_case(VLC_INSTALL_CASE_ID)
+        || case_id.eq_ignore_ascii_case(VLC_INSTALL_UNSEEDED_CASE_ID)
 }
 
 fn write_executable_script(path: &Path, content: &str) -> Result<()> {

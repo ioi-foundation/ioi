@@ -658,6 +658,15 @@ mod tests {
     }
 
     #[test]
+    fn command_execution_accepts_install_package_tooling() {
+        let tools = vec![tool("sys__install_package")];
+        assert!(
+            preflight_missing_capability(IntentScopeProfile::CommandExecution, false, &tools)
+                .is_none()
+        );
+    }
+
+    #[test]
     fn command_execution_requires_sys_exec_when_missing() {
         let tools = vec![tool("chat__reply")];
         let missing =

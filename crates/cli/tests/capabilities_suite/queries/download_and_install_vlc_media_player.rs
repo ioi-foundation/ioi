@@ -35,6 +35,24 @@ pub fn case() -> QueryCase {
     }
 }
 
+pub fn case_unseeded() -> QueryCase {
+    QueryCase {
+        id: "download_and_install_vlc_media_player_unseeded",
+        query: "Download and install VLC media player.",
+        success_definition: "Resolve and execute VLC install without seeded intent override: route through package-install execution, satisfy CEC discovery/execution/verification receipts, and prove download/install/binary postconditions through fixture-backed environment receipts.",
+        seeded_intent_id: "command.exec.install_dependency",
+        intent_scope: IntentScopeProfile::CommandExecution,
+        seed_resolved_intent: false,
+        expected_pass: true,
+        sla_seconds: 120,
+        max_steps: 22,
+        min_local_score: 1.0,
+        allow_retry_blocked_completion_with_local_evidence: true,
+        allow_timeout_completion_with_local_evidence: true,
+        local_sniff: evaluate,
+    }
+}
+
 fn evaluate(obs: &RunObservation) -> LocalJudgeResult {
     let install_action_success_count = obs
         .action_evidence

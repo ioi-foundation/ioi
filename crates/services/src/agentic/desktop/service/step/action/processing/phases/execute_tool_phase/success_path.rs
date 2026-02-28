@@ -72,13 +72,7 @@ pub(super) async fn handle_execution_success(
             hex::encode(visual_hash)
         ));
     }
-    if command_scope
-        && matches!(
-            tool,
-            AgentTool::SysExec { .. } | AgentTool::SysExecSession { .. }
-        )
-        && !*success
-    {
+    if command_scope && is_command_execution_provider_tool(tool) && !*success {
         let cause = error_msg
             .clone()
             .unwrap_or_else(|| "unknown execution failure".to_string());
@@ -239,6 +233,40 @@ pub(super) async fn handle_execution_success(
         }
     }
 
+    if command_scope && *success && matches!(tool, AgentTool::SysInstallPackage { .. }) {
+        verification_checks.push("capability_execution_evidence=tool_output".to_string());
+        mark_execution_postcondition(&mut agent_state.tool_execution_log, "execution_artifact");
+        verification_checks.push(postcondition_marker("execution_artifact"));
+        let (package, manager) = match tool {
+            AgentTool::SysInstallPackage { package, manager } => {
+                (package.trim(), manager.as_deref().unwrap_or("auto"))
+            }
+            _ => ("unknown", "auto"),
+        };
+        let artifact_evidence = format!(
+            "install_package={};install_manager={};tool_output_chars={}",
+            package,
+            manager,
+            history_entry
+                .as_ref()
+                .map(|entry| entry.chars().count())
+                .unwrap_or(0)
+        );
+        emit_execution_contract_receipt_event(
+            service,
+            session_id,
+            step_index,
+            resolved_intent_id,
+            "execution",
+            "execution_artifact",
+            true,
+            &artifact_evidence,
+            None,
+            None,
+            synthesized_payload_hash.clone(),
+        );
+    }
+
     if (*success || *command_probe_completed) && !req_hash_hex.is_empty() {
         agent_state.tool_execution_log.insert(
             req_hash_hex.to_string(),
@@ -257,72 +285,75 @@ pub(super) async fn handle_execution_success(
     }
 
     if *success {
-        if matches!(
-            tool,
-            AgentTool::SysExec { .. } | AgentTool::SysExecSession { .. }
-        ) {
+        if is_command_execution_provider_tool(tool) {
             if command_scope && requires_timer_notification_contract(agent_state) {
-                if sys_exec_arms_timer_delay_backend(tool) {
-                    mark_execution_postcondition(
-                        &mut agent_state.tool_execution_log,
-                        TIMER_SLEEP_BACKEND_POSTCONDITION,
-                    );
-                    verification_checks
-                        .push(postcondition_marker(TIMER_SLEEP_BACKEND_POSTCONDITION));
-                    emit_execution_contract_receipt_event(
-                        service,
-                        session_id,
-                        step_index,
-                        resolved_intent_id,
-                        "execution",
-                        TIMER_SLEEP_BACKEND_POSTCONDITION,
-                        true,
-                        "timer_sleep_backend=armed",
-                        None,
-                        None,
-                        synthesized_payload_hash.clone(),
-                    );
-                }
-                if let Some(command_preview) = sys_exec_command_preview(tool) {
-                    if command_arms_deferred_notification_path(&command_preview) {
+                if matches!(
+                    tool,
+                    AgentTool::SysExec { .. } | AgentTool::SysExecSession { .. }
+                ) {
+                    if sys_exec_arms_timer_delay_backend(tool) {
                         mark_execution_postcondition(
                             &mut agent_state.tool_execution_log,
-                            TIMER_NOTIFICATION_PATH_POSTCONDITION,
+                            TIMER_SLEEP_BACKEND_POSTCONDITION,
                         );
                         verification_checks
-                            .push(postcondition_marker(TIMER_NOTIFICATION_PATH_POSTCONDITION));
+                            .push(postcondition_marker(TIMER_SLEEP_BACKEND_POSTCONDITION));
                         emit_execution_contract_receipt_event(
                             service,
                             session_id,
                             step_index,
                             resolved_intent_id,
                             "execution",
-                            TIMER_NOTIFICATION_PATH_POSTCONDITION,
+                            TIMER_SLEEP_BACKEND_POSTCONDITION,
                             true,
-                            "timer_notification_path_armed=true",
+                            "timer_sleep_backend=armed",
                             None,
                             None,
                             synthesized_payload_hash.clone(),
                         );
-                        mark_execution_receipt(
-                            &mut agent_state.tool_execution_log,
-                            "notification_strategy",
-                        );
-                        verification_checks.push(receipt_marker("notification_strategy"));
-                        emit_execution_contract_receipt_event(
-                            service,
-                            session_id,
-                            step_index,
-                            resolved_intent_id,
-                            "execution",
-                            "notification_strategy",
-                            true,
-                            "notification_strategy=deferred",
-                            None,
-                            None,
-                            synthesized_payload_hash.clone(),
-                        );
-                        verification_checks.push("timer_notification_path_armed=true".to_string());
+                    }
+                    if let Some(command_preview) = sys_exec_command_preview(tool) {
+                        if command_arms_deferred_notification_path(&command_preview) {
+                            mark_execution_postcondition(
+                                &mut agent_state.tool_execution_log,
+                                TIMER_NOTIFICATION_PATH_POSTCONDITION,
+                            );
+                            verification_checks
+                                .push(postcondition_marker(TIMER_NOTIFICATION_PATH_POSTCONDITION));
+                            emit_execution_contract_receipt_event(
+                                service,
+                                session_id,
+                                step_index,
+                                resolved_intent_id,
+                                "execution",
+                                TIMER_NOTIFICATION_PATH_POSTCONDITION,
+                                true,
+                                "timer_notification_path_armed=true",
+                                None,
+                                None,
+                                synthesized_payload_hash.clone(),
+                            );
+                            mark_execution_receipt(
+                                &mut agent_state.tool_execution_log,
+                                "notification_strategy",
+                            );
+                            verification_checks.push(receipt_marker("notification_strategy"));
+                            emit_execution_contract_receipt_event(
+                                service,
+                                session_id,
+                                step_index,
+                                resolved_intent_id,
+                                "execution",
+                                "notification_strategy",
+                                true,
+                                "notification_strategy=deferred",
+                                None,
+                                None,
+                                synthesized_payload_hash.clone(),
+                            );
+                            verification_checks
+                                .push("timer_notification_path_armed=true".to_string());
+                        }
                     }
                 }
             }
@@ -349,7 +380,14 @@ pub(super) async fn handle_execution_success(
                     &mut agent_state.tool_execution_log,
                     verification_checks,
                     tool,
-                    agent_state.command_history.back(),
+                    if matches!(
+                        tool,
+                        AgentTool::SysExec { .. } | AgentTool::SysExecSession { .. }
+                    ) {
+                        agent_state.command_history.back()
+                    } else {
+                        None
+                    },
                 );
                 let verification_commit = execution_receipt_value(
                     &agent_state.tool_execution_log,

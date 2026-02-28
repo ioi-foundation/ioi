@@ -196,6 +196,45 @@ async fn resolver_routes_downloads_lowercase_rename_to_command_exec() {
 }
 
 #[tokio::test(flavor = "current_thread")]
+async fn resolver_routes_vlc_install_query_to_install_dependency_intent() {
+    let gui: Arc<dyn GuiDriver> = Arc::new(NoopGuiDriver);
+    let terminal = Arc::new(TerminalDriver::new());
+    let browser = Arc::new(BrowserDriver::new());
+    let inference: Arc<dyn InferenceRuntime> = Arc::new(InstallVsWebRuntime);
+    let service = DesktopAgentService::new(gui, terminal, browser, inference);
+
+    let mut agent_state = test_agent_state();
+    agent_state.goal = "Download and install VLC media player.".to_string();
+
+    let mut rules = ActionRules::default();
+    rules.ontology_policy.intent_routing.matrix_version =
+        "intent-matrix-v14-vlc-install-intent-test".into();
+    rules.ontology_policy.intent_routing.matrix = rules
+        .ontology_policy
+        .intent_routing
+        .matrix
+        .iter()
+        .filter(|entry| {
+            matches!(
+                entry.intent_id.as_str(),
+                "web.research" | "command.exec" | "command.exec.install_dependency"
+            )
+        })
+        .cloned()
+        .collect();
+    let resolved = resolve_step_intent(&service, &agent_state, &rules, "terminal")
+        .await
+        .unwrap();
+
+    assert_eq!(resolved.intent_id, "command.exec.install_dependency");
+    assert_eq!(resolved.scope, IntentScopeProfile::CommandExecution);
+    assert!(resolved
+        .required_capabilities
+        .iter()
+        .any(|capability| { capability.as_str() == "system.install_package" }));
+}
+
+#[tokio::test(flavor = "current_thread")]
 async fn resolver_promotes_exempt_low_confidence_winner_to_medium_band() {
     let gui: Arc<dyn GuiDriver> = Arc::new(NoopGuiDriver);
     let terminal = Arc::new(TerminalDriver::new());

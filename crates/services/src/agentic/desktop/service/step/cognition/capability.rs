@@ -32,6 +32,7 @@ pub(super) fn preflight_missing_capability(
     let can_type = has_tool("computer") || has_tool("gui__type");
 
     let has_command_tool = has_tool("sys__exec") || has_tool("sys__exec_session");
+    let has_install_package_tool = has_tool("sys__install_package");
     let has_filesystem_tooling = tools.iter().any(|t| t.name.starts_with("filesystem__"));
 
     if requires_browser_interaction && !has_browser_tooling {
@@ -57,7 +58,7 @@ pub(super) fn preflight_missing_capability(
         ));
     }
 
-    if requires_command_execution && !has_command_tool {
+    if requires_command_execution && !has_command_tool && !has_install_package_tool {
         return Some((
             "sys__exec".to_string(),
             "Resolver selected command_execution scope but neither sys__exec nor sys__exec_session is available."

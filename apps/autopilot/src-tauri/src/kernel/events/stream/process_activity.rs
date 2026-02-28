@@ -10,8 +10,153 @@ use crate::models::AppState;
 use crate::models::CredentialRequest;
 use ioi_ipc::public::workload_activity::Kind as WorkloadActivityKind;
 use ioi_ipc::public::WorkloadActivity;
+use once_cell::sync::Lazy;
+use std::collections::HashMap;
 use std::sync::Mutex;
 use tauri::Manager;
+
+const STREAM_COALESCE_MAX_CHARS: usize = 1200;
+const STREAM_COALESCE_MAX_LINES: usize = 8;
+const STREAM_PROGRESS_MAX_CHARS: usize = 140;
+
+#[derive(Debug, Clone, Default)]
+struct StreamBuffer {
+    chunk: String,
+    seq: u64,
+}
+
+static STREAM_BUFFERS: Lazy<Mutex<HashMap<String, StreamBuffer>>> =
+    Lazy::new(|| Mutex::new(HashMap::new()));
+
+fn stream_buffer_key(thread_id: &str, step_index: u32, stream_id: &str, channel: &str) -> String {
+    format!("{}:{}:{}:{}", thread_id, step_index, stream_id, channel)
+}
+
+fn should_flush_stream_buffer(buffer: &str) -> bool {
+    if buffer.chars().count() >= STREAM_COALESCE_MAX_CHARS {
+        return true;
+    }
+    buffer
+        .lines()
+        .filter(|line| !line.trim().is_empty())
+        .count()
+        >= STREAM_COALESCE_MAX_LINES
+}
+
+fn stream_progress_excerpt(chunk: &str) -> Option<String> {
+    let line = chunk
+        .lines()
+        .rev()
+        .map(str::trim)
+        .find(|line| !line.is_empty())
+        .unwrap_or_else(|| chunk.trim());
+    if line.is_empty() {
+        return None;
+    }
+    let mut clipped = line
+        .chars()
+        .take(STREAM_PROGRESS_MAX_CHARS)
+        .collect::<String>();
+    if line.chars().count() > STREAM_PROGRESS_MAX_CHARS {
+        clipped.push_str("...");
+    }
+    Some(clipped)
+}
+
+fn emit_coalesced_stream_event(
+    app: &tauri::AppHandle,
+    thread_id: &str,
+    step_index: u32,
+    tool_name: &str,
+    stream_id: &str,
+    channel: &str,
+    chunk: &str,
+    seq: u64,
+    is_final: bool,
+    exit_code: Option<i32>,
+) {
+    let key = stream_buffer_key(thread_id, step_index, stream_id, channel);
+    let mut emit_payload: Option<(String, u64)> = None;
+
+    if let Ok(mut buffers) = STREAM_BUFFERS.lock() {
+        let buffer = buffers.entry(key.clone()).or_default();
+        if !chunk.is_empty() {
+            buffer.chunk.push_str(chunk);
+        }
+        buffer.seq = seq;
+
+        if is_final || should_flush_stream_buffer(&buffer.chunk) {
+            emit_payload = Some((std::mem::take(&mut buffer.chunk), buffer.seq));
+            if is_final {
+                buffers.remove(&key);
+            }
+        }
+    } else {
+        emit_payload = Some((chunk.to_string(), seq));
+    }
+
+    if let Some((merged_chunk, merged_seq)) = emit_payload {
+        if merged_chunk.is_empty() && !is_final {
+            return;
+        }
+        let event = emit_command_stream(
+            thread_id,
+            step_index,
+            tool_name,
+            stream_id,
+            channel,
+            &merged_chunk,
+            merged_seq,
+            is_final,
+            exit_code,
+            "",
+        );
+        register_event(app, event);
+    }
+}
+
+fn flush_stream_buffers_for_workload(
+    app: &tauri::AppHandle,
+    thread_id: &str,
+    step_index: u32,
+    tool_name: &str,
+    stream_id: &str,
+    exit_code: Option<i32>,
+) {
+    let prefix = format!("{}:{}:{}:", thread_id, step_index, stream_id);
+    let mut pending = Vec::<(String, StreamBuffer)>::new();
+    if let Ok(mut buffers) = STREAM_BUFFERS.lock() {
+        let keys: Vec<String> = buffers
+            .keys()
+            .filter(|key| key.starts_with(&prefix))
+            .cloned()
+            .collect();
+        for key in keys {
+            if let Some(buffer) = buffers.remove(&key) {
+                pending.push((key, buffer));
+            }
+        }
+    }
+    for (key, buffer) in pending {
+        let channel = key.rsplit(':').next().unwrap_or("status");
+        if buffer.chunk.trim().is_empty() {
+            continue;
+        }
+        let event = emit_command_stream(
+            thread_id,
+            step_index,
+            tool_name,
+            stream_id,
+            channel,
+            &buffer.chunk,
+            buffer.seq,
+            true,
+            exit_code,
+            "",
+        );
+        register_event(app, event);
+    }
+}
 
 pub(super) async fn handle_workload_activity(app: &tauri::AppHandle, activity: WorkloadActivity) {
     let WorkloadActivity {
@@ -99,7 +244,17 @@ pub(super) async fn handle_workload_activity(app: &tauri::AppHandle, activity: W
                 ) {
                     t.phase = crate::models::AgentPhase::Running;
                 }
-                t.current_step = format!("Streaming {} ({})", tool_name, channel);
+                if !stream_password_required && !stream_clarification_required {
+                    t.credential_request = None;
+                    t.clarification_request = None;
+                }
+                let progress = stream_progress_excerpt(&stdio.chunk);
+                t.current_step = match progress {
+                    Some(progress) => {
+                        format!("Streaming {} ({}) • {}", tool_name, channel, progress)
+                    }
+                    None => format!("Streaming {} ({})", tool_name, channel),
+                };
             });
 
             if stream_password_required {
@@ -177,7 +332,8 @@ pub(super) async fn handle_workload_activity(app: &tauri::AppHandle, activity: W
                 });
             }
 
-            let event = emit_command_stream(
+            emit_coalesced_stream_event(
+                &app,
                 &thread_id,
                 step_index,
                 &tool_name,
@@ -187,9 +343,7 @@ pub(super) async fn handle_workload_activity(app: &tauri::AppHandle, activity: W
                 stdio.seq,
                 stdio.is_final,
                 exit_code,
-                "",
             );
-            register_event(&app, event);
         }
         Some(WorkloadActivityKind::Lifecycle(lifecycle)) => {
             let display = if workload_id.is_empty() {
@@ -197,6 +351,19 @@ pub(super) async fn handle_workload_activity(app: &tauri::AppHandle, activity: W
             } else {
                 workload_id
             };
+            let stream_id = if display == "workload" {
+                format!("step-{}", step_index)
+            } else {
+                display.clone()
+            };
+            let exit_code = if lifecycle.has_exit_code {
+                Some(lifecycle.exit_code)
+            } else {
+                None
+            };
+            flush_stream_buffers_for_workload(
+                app, &thread_id, step_index, &display, &stream_id, exit_code,
+            );
             update_task_state(app, |t| {
                 bind_task_session(t, &session_id);
                 if matches!(
@@ -209,5 +376,35 @@ pub(super) async fn handle_workload_activity(app: &tauri::AppHandle, activity: W
             });
         }
         None => {}
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{should_flush_stream_buffer, stream_progress_excerpt};
+
+    #[test]
+    fn stream_progress_excerpt_prefers_last_non_empty_line() {
+        let excerpt = stream_progress_excerpt("line one\n\nline two\n")
+            .expect("expected stream progress excerpt");
+        assert_eq!(excerpt, "line two");
+    }
+
+    #[test]
+    fn stream_progress_excerpt_truncates_long_lines() {
+        let long_line = "a".repeat(200);
+        let excerpt =
+            stream_progress_excerpt(&long_line).expect("expected stream progress excerpt");
+        assert!(excerpt.ends_with("..."));
+        assert!(excerpt.len() < long_line.len());
+    }
+
+    #[test]
+    fn stream_buffer_flushes_on_line_threshold() {
+        let mut payload = String::new();
+        for idx in 0..8 {
+            payload.push_str(&format!("line-{}\n", idx));
+        }
+        assert!(should_flush_stream_buffer(&payload));
     }
 }

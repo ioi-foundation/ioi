@@ -745,6 +745,65 @@ impl InferenceRuntime for DesktopFolderSkewedRuntime {
     }
 }
 
+#[derive(Debug, Default, Clone)]
+struct InstallVsWebRuntime;
+
+#[async_trait]
+impl InferenceRuntime for InstallVsWebRuntime {
+    async fn execute_inference(
+        &self,
+        _model_hash: [u8; 32],
+        input_context: &[u8],
+        _options: InferenceOptions,
+    ) -> Result<Vec<u8>, VmError> {
+        let prompt = String::from_utf8_lossy(input_context).to_ascii_lowercase();
+        let query = query_from_input_context(input_context);
+        if prompt.contains("remote_public_fact_required")
+            && query.contains("download and install vlc media player")
+        {
+            return Ok(serde_json::json!({
+                "remote_public_fact_required": false,
+                "host_local_clock_targeted": false,
+                "command_directed": true,
+                "app_launch_directed": false,
+                "direct_ui_input": false,
+                "desktop_screenshot_requested": false,
+                "temporal_filesystem_filter": false
+            })
+            .to_string()
+            .into_bytes());
+        }
+        Ok(Vec::new())
+    }
+
+    async fn embed_text(&self, text: &str) -> Result<Vec<f32>, VmError> {
+        let text_lc = text.to_ascii_lowercase();
+        if text_lc.contains("download and install a named software package dependency")
+            || text_lc.contains("host package manager")
+        {
+            return Ok(vec![1.0, 0.0, 0.0]);
+        }
+        if text_lc.contains("research live information on the web") {
+            return Ok(vec![0.0, 1.0, 0.0]);
+        }
+        if text_lc.contains("execute local shell or terminal commands") {
+            return Ok(vec![0.0, 0.0, 1.0]);
+        }
+        if text_lc.contains("download and install vlc media player") {
+            return Ok(vec![1.0, 0.0, 0.0]);
+        }
+        Ok(vec![0.0, 1.0, 1.0])
+    }
+
+    async fn load_model(&self, _model_hash: [u8; 32], _path: &Path) -> Result<(), VmError> {
+        Ok(())
+    }
+
+    async fn unload_model(&self, _model_hash: [u8; 32]) -> Result<(), VmError> {
+        Ok(())
+    }
+}
+
 fn test_agent_state() -> AgentState {
     AgentState {
         session_id: [0u8; 32],

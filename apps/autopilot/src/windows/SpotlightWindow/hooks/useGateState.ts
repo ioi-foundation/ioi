@@ -60,7 +60,10 @@ export function useGateState({
     !!runtimePasswordSessionId &&
     runtimePasswordSessionId === activeSessionId;
   const showPasswordPrompt =
-    waitingForSudoPrompt && !suppressPasswordPrompt && !!(task?.session_id || task?.id);
+    waitingForSudoPrompt &&
+    task?.phase === "Complete" &&
+    !suppressPasswordPrompt &&
+    !!(task?.session_id || task?.id);
   const showClarificationPrompt =
     !!clarificationRequest &&
     !!(task?.session_id || task?.id) &&

@@ -9,6 +9,7 @@ import { collectScreenshotReceipts } from "../utils/screenshotEvidence";
 import {
   eventOutputText,
   eventToolName,
+  toEventString,
 } from "../utils/eventFields";
 import {
   buildEventTurnWindows,
@@ -33,6 +34,9 @@ export type TurnContext = {
   latestVisualStepIndex: number | null;
   latestVisualHasBlob: boolean;
   latestVisualSummary: string | null;
+  streamPreview: string | null;
+  streamLabel: string | null;
+  streamIsFinal: boolean;
   defaultView: ArtifactHubViewKey;
 };
 
@@ -60,6 +64,75 @@ function collectCanonicalAnswerHashes(events: AgentEvent[]): Set<string> {
     hashes.add(normalizeOutputForCompare(output));
   }
   return hashes;
+}
+
+const STREAM_PREVIEW_MAX_LINES = 12;
+const STREAM_PREVIEW_MAX_CHARS = 1600;
+
+function buildStreamPreview(windowEvents: AgentEvent[]): {
+  streamPreview: string | null;
+  streamLabel: string | null;
+  streamIsFinal: boolean;
+} {
+  const streamEvents = windowEvents.filter(
+    (event) => event.event_type === "COMMAND_STREAM",
+  );
+  if (streamEvents.length === 0) {
+    return {
+      streamPreview: null,
+      streamLabel: null,
+      streamIsFinal: false,
+    };
+  }
+
+  const byTimestamp = [...streamEvents].sort((a, b) =>
+    a.timestamp.localeCompare(b.timestamp),
+  );
+  const latest = byTimestamp[byTimestamp.length - 1];
+  const latestDigest = latest.digest || {};
+  const latestStreamId = toEventString(
+    latestDigest.stream_id as unknown,
+  ).trim();
+  const scoped = latestStreamId
+    ? byTimestamp.filter((event) => {
+        const digest = event.digest || {};
+        return (
+          toEventString(digest.stream_id as unknown).trim() === latestStreamId
+        );
+      })
+    : byTimestamp;
+  const ordered = [...scoped].sort((a, b) => {
+    const seqA = Number((a.digest as any)?.seq ?? 0);
+    const seqB = Number((b.digest as any)?.seq ?? 0);
+    if (seqA !== seqB) {
+      return seqA - seqB;
+    }
+    return a.timestamp.localeCompare(b.timestamp);
+  });
+  const merged = ordered.map((event) => eventOutputText(event)).join("");
+  const lines = merged
+    .split(/\r?\n/g)
+    .map((line) => line.trimEnd())
+    .filter((line) => line.trim().length > 0);
+  let preview =
+    lines.length > 0
+      ? lines.slice(-STREAM_PREVIEW_MAX_LINES).join("\n")
+      : merged.trim();
+  if (preview.length > STREAM_PREVIEW_MAX_CHARS) {
+    preview = preview.slice(preview.length - STREAM_PREVIEW_MAX_CHARS);
+  }
+
+  const tool = eventToolName(latest).trim();
+  const channel = toEventString((latest.digest || {}).channel as unknown).trim();
+  const streamLabel = [tool || "command", channel ? `(${channel})` : ""]
+    .filter(Boolean)
+    .join(" ");
+
+  return {
+    streamPreview: preview || null,
+    streamLabel: streamLabel || null,
+    streamIsFinal: Boolean((latest.digest as any)?.is_final),
+  };
 }
 
 export function useTurnContexts({
@@ -168,6 +241,9 @@ export function useTurnContexts({
           latestVisualStepIndex: null,
           latestVisualHasBlob: false,
           latestVisualSummary: null,
+          streamPreview: null,
+          streamLabel: null,
+          streamIsFinal: false,
           defaultView: "kernel_logs",
         };
       }
@@ -186,6 +262,7 @@ export function useTurnContexts({
       const kernelEventCount = windowEvents.filter((event) => event.event_type !== "INFO_NOTE").length;
       const screenshotReceipts = collectScreenshotReceipts(windowEvents);
       const latestVisualReceipt = screenshotReceipts[0] || null;
+      const streamPreview = buildStreamPreview(windowEvents);
 
       const defaultView: ArtifactHubViewKey =
         thoughtCount > 0
@@ -207,6 +284,9 @@ export function useTurnContexts({
         latestVisualStepIndex: latestVisualReceipt?.stepIndex ?? null,
         latestVisualHasBlob: latestVisualReceipt?.hasBlob || false,
         latestVisualSummary: latestVisualReceipt?.summary || null,
+        streamPreview: streamPreview.streamPreview,
+        streamLabel: streamPreview.streamLabel,
+        streamIsFinal: streamPreview.streamIsFinal,
         defaultView,
       };
     });
