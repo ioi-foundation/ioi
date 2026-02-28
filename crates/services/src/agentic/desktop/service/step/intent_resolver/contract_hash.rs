@@ -94,6 +94,7 @@ pub(super) fn intent_set_hash(matrix: &[IntentMatrixEntry]) -> Result<[u8; 32], 
         "intents": matrix.iter().map(|entry| json!({
             "intent_id": entry.intent_id,
             "semantic_descriptor": entry.semantic_descriptor,
+            "query_binding": entry.query_binding,
             "required_capabilities": entry.required_capabilities,
             "risk_class": entry.risk_class,
         })).collect::<Vec<_>>(),

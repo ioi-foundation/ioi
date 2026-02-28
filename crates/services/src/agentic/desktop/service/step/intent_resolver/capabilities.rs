@@ -324,10 +324,10 @@ pub(super) fn capability_known(
 fn workspace_temporal_filter_known(
     entry: &IntentMatrixEntry,
     bindings: &[ToolCapabilityBinding],
-    query_facets: &QueryFacetProfile,
+    query_binding_profile: &QueryBindingProfile,
 ) -> bool {
     if !matches!(entry.scope, IntentScopeProfile::WorkspaceOps)
-        || !query_requires_temporal_filesystem_filter(query_facets)
+        || !query_binding_profile.temporal_filesystem_filter
     {
         return true;
     }
@@ -338,10 +338,10 @@ fn workspace_temporal_filter_satisfiable(
     entry: &IntentMatrixEntry,
     bindings: &[ToolCapabilityBinding],
     rules: &ActionRules,
-    query_facets: &QueryFacetProfile,
+    query_binding_profile: &QueryBindingProfile,
 ) -> bool {
     if !matches!(entry.scope, IntentScopeProfile::WorkspaceOps)
-        || !query_requires_temporal_filesystem_filter(query_facets)
+        || !query_binding_profile.temporal_filesystem_filter
     {
         return true;
     }
@@ -351,13 +351,12 @@ fn workspace_temporal_filter_satisfiable(
 pub(super) fn intent_feasible_without_policy(
     entry: &IntentMatrixEntry,
     bindings: &[ToolCapabilityBinding],
-    query: &str,
-    query_facets: &QueryFacetProfile,
+    query_binding_profile: &QueryBindingProfile,
 ) -> bool {
-    if !query_binding_satisfied(entry, query, query_facets) {
+    if !query_binding_satisfied(entry, query_binding_profile) {
         return false;
     }
-    if !workspace_temporal_filter_known(entry, bindings, query_facets) {
+    if !workspace_temporal_filter_known(entry, bindings, query_binding_profile) {
         return false;
     }
     if entry.required_capabilities.is_empty() {
@@ -373,13 +372,12 @@ pub(super) fn intent_feasible_for_execution(
     entry: &IntentMatrixEntry,
     bindings: &[ToolCapabilityBinding],
     rules: &ActionRules,
-    query: &str,
-    query_facets: &QueryFacetProfile,
+    query_binding_profile: &QueryBindingProfile,
 ) -> bool {
-    if !query_binding_satisfied(entry, query, query_facets) {
+    if !query_binding_satisfied(entry, query_binding_profile) {
         return false;
     }
-    if !workspace_temporal_filter_satisfiable(entry, bindings, rules, query_facets) {
+    if !workspace_temporal_filter_satisfiable(entry, bindings, rules, query_binding_profile) {
         return false;
     }
     if entry.required_capabilities.is_empty() {
@@ -396,8 +394,7 @@ pub(super) fn infer_unclassified_error_class(
     matrix: &[IntentMatrixEntry],
     bindings: &[ToolCapabilityBinding],
     rules: &ActionRules,
-    query: &str,
-    query_facets: &QueryFacetProfile,
+    query_binding_profile: &QueryBindingProfile,
 ) -> String {
     if ranked_candidates.is_empty() || all_candidate_scores_zero(ranked_candidates) {
         return "IntentUnclassified".to_string();
@@ -417,8 +414,8 @@ pub(super) fn infer_unclassified_error_class(
     }
 
     let has_policy_block = ranked_entries.iter().any(|entry| {
-        intent_feasible_without_policy(entry, bindings, query, query_facets)
-            && !intent_feasible_for_execution(entry, bindings, rules, query, query_facets)
+        intent_feasible_without_policy(entry, bindings, query_binding_profile)
+            && !intent_feasible_for_execution(entry, bindings, rules, query_binding_profile)
     });
     if has_policy_block {
         return "PolicyBlocked".to_string();
@@ -456,12 +453,15 @@ pub fn is_tool_allowed_for_resolution(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use ioi_types::app::agentic::{ProviderSelectionMode, VerificationMode};
+    use ioi_types::app::agentic::{
+        IntentQueryBindingClass, ProviderSelectionMode, VerificationMode,
+    };
 
     fn workspace_ops_entry() -> IntentMatrixEntry {
         IntentMatrixEntry {
             intent_id: "workspace.ops".to_string(),
             semantic_descriptor: "inspect and modify files in the local workspace".to_string(),
+            query_binding: IntentQueryBindingClass::None,
             required_capabilities: vec![capability("filesystem.read")],
             risk_class: "low".to_string(),
             scope: IntentScopeProfile::WorkspaceOps,
@@ -481,6 +481,7 @@ mod tests {
         IntentMatrixEntry {
             intent_id: "command.exec".to_string(),
             semantic_descriptor: "execute local shell or terminal commands".to_string(),
+            query_binding: IntentQueryBindingClass::CommandDirected,
             required_capabilities: vec![capability("command.exec")],
             risk_class: "low".to_string(),
             scope: IntentScopeProfile::CommandExecution,
@@ -496,35 +497,38 @@ mod tests {
         }
     }
 
+    fn temporal_files_profile() -> QueryBindingProfile {
+        QueryBindingProfile {
+            available: true,
+            command_directed: true,
+            temporal_filesystem_filter: true,
+            ..Default::default()
+        }
+    }
+
     #[test]
     fn workspace_ops_temporal_file_queries_require_metadata_capability() {
         let entry = workspace_ops_entry();
-        let query = "Find all PDF files on my computer modified in the last week.";
-        let facets = analyze_query_facets(query);
+        let profile = temporal_files_profile();
         let bindings = tool_capability_bindings();
         let rules = ActionRules::default();
 
-        assert!(!intent_feasible_without_policy(
-            &entry, &bindings, query, &facets
-        ));
+        assert!(!intent_feasible_without_policy(&entry, &bindings, &profile));
         assert!(!intent_feasible_for_execution(
-            &entry, &bindings, &rules, query, &facets
+            &entry, &bindings, &rules, &profile
         ));
     }
 
     #[test]
     fn command_exec_remains_feasible_for_temporal_file_queries() {
         let entry = command_exec_entry();
-        let query = "Find all PDF files on my computer modified in the last week.";
-        let facets = analyze_query_facets(query);
+        let profile = temporal_files_profile();
         let bindings = tool_capability_bindings();
         let rules = ActionRules::default();
 
-        assert!(intent_feasible_without_policy(
-            &entry, &bindings, query, &facets
-        ));
+        assert!(intent_feasible_without_policy(&entry, &bindings, &profile));
         assert!(intent_feasible_for_execution(
-            &entry, &bindings, &rules, query, &facets
+            &entry, &bindings, &rules, &profile
         ));
     }
 }

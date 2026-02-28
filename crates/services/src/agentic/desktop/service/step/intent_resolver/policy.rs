@@ -1,4 +1,5 @@
 use super::*;
+use serde::Deserialize;
 
 pub(super) fn preferred_tier_from_label(label: &str, scope: IntentScopeProfile) -> ExecutionTier {
     match label {
@@ -55,62 +56,7 @@ pub(super) fn normalize_query_for_ranking(raw: &str) -> String {
 }
 
 pub(super) fn query_binding_for_intent(entry: &IntentMatrixEntry) -> IntentQueryBindingClass {
-    match entry.intent_id.as_str() {
-        "system.clock.read" => IntentQueryBindingClass::HostLocal,
-        "web.research" => IntentQueryBindingClass::RemotePublicFact,
-        "app.launch" => IntentQueryBindingClass::AppLaunchDirected,
-        "command.exec" => IntentQueryBindingClass::CommandDirected,
-        "ui.interaction" => IntentQueryBindingClass::DirectUiInput,
-        "ui.capture_screenshot" => IntentQueryBindingClass::DesktopScreenshot,
-        _ => IntentQueryBindingClass::None,
-    }
-}
-
-pub(super) fn query_requests_desktop_screenshot(query: &str) -> bool {
-    let padded = format!(" {} ", query.to_ascii_lowercase());
-    const SCREENSHOT_MARKERS: [&str; 9] = [
-        " screenshot ",
-        " screenshots ",
-        " screen capture ",
-        " capture screen ",
-        " capture my screen ",
-        " capture desktop ",
-        " capture my desktop ",
-        " desktop screenshot ",
-        " take a screenshot ",
-    ];
-    SCREENSHOT_MARKERS
-        .iter()
-        .any(|marker| padded.contains(marker))
-}
-
-pub(super) fn query_explicitly_targets_host_local_clock(query: &str) -> bool {
-    let padded = format!(" {} ", query.to_ascii_lowercase());
-    const HOST_LOCAL_CLOCK_MARKERS: [&str; 12] = [
-        " this machine ",
-        " this computer ",
-        " this host ",
-        " this system ",
-        " local machine ",
-        " local computer ",
-        " local host ",
-        " local system ",
-        " on my machine ",
-        " on my computer ",
-        " on this machine ",
-        " on this computer ",
-    ];
-    HOST_LOCAL_CLOCK_MARKERS
-        .iter()
-        .any(|marker| padded.contains(marker))
-}
-
-pub(super) fn query_requires_remote_public_fact_grounding(facets: &QueryFacetProfile) -> bool {
-    facets.grounded_external_required
-        || facets.time_sensitive_public_fact
-        || facets.goal.external_hits > 0
-        || facets.goal.public_fact_hits > 0
-        || facets.goal.explicit_url_hits > 0
+    entry.query_binding
 }
 
 pub(super) fn intent_supports_remote_public_fact_grounding(entry: &IntentMatrixEntry) -> bool {
@@ -125,80 +71,171 @@ pub(super) fn intent_supports_remote_public_fact_grounding(entry: &IntentMatrixE
     }
 }
 
-pub(super) fn query_has_timer_scheduling_shape(query: &str) -> bool {
-    let padded = format!(" {} ", query.to_ascii_lowercase());
-    const TIMER_MARKERS: [&str; 6] = [
-        " timer ",
-        " countdown ",
-        " alarm ",
-        " remind me ",
-        " reminder ",
-        " notify me ",
-    ];
-    TIMER_MARKERS.iter().any(|marker| padded.contains(marker))
-}
-
-pub(super) fn query_requires_temporal_filesystem_filter(query_facets: &QueryFacetProfile) -> bool {
-    query_facets.goal.recency_hits > 0
-        && (query_facets.goal.workspace_hits > 0 || query_facets.goal.filesystem_hits > 0)
-}
-
-pub(super) fn query_expresses_command_execution_intent(
-    query: &str,
-    query_facets: &QueryFacetProfile,
-) -> bool {
-    query_facets.goal.command_hits > 0
-        || query_facets.goal.workspace_hits > 0
-        || query_facets.goal.install_hits > 0
-        || query_has_timer_scheduling_shape(query)
-}
-
-pub(super) fn query_explicitly_mentions_app_target(query: &str) -> bool {
-    let padded = format!(" {} ", query.to_ascii_lowercase());
-    const APP_TARGET_MARKERS: [&str; 10] = [
-        " app ",
-        " application ",
-        " program ",
-        " calculator ",
-        " browser ",
-        " chrome ",
-        " firefox ",
-        " safari ",
-        " terminal ",
-        " settings ",
-    ];
-    APP_TARGET_MARKERS
-        .iter()
-        .any(|marker| padded.contains(marker))
-}
-
-pub(super) fn query_expresses_app_launch_intent(
-    query: &str,
-    query_facets: &QueryFacetProfile,
-) -> bool {
-    if query_requests_desktop_screenshot(query) || query_facets.goal.launch_hits == 0 {
-        return false;
+fn extract_first_json_object(raw: &str) -> Option<String> {
+    let start = raw.find('{')?;
+    let mut brace_depth = 0usize;
+    let mut in_string = false;
+    let mut escaped = false;
+    for (idx, ch) in raw[start..].char_indices() {
+        if escaped {
+            escaped = false;
+            continue;
+        }
+        if ch == '\\' {
+            escaped = true;
+            continue;
+        }
+        if ch == '"' {
+            in_string = !in_string;
+            continue;
+        }
+        if in_string {
+            continue;
+        }
+        if ch == '{' {
+            brace_depth = brace_depth.saturating_add(1);
+            continue;
+        }
+        if ch == '}' {
+            brace_depth = brace_depth.saturating_sub(1);
+            if brace_depth == 0 {
+                let end = start + idx + 1;
+                return Some(raw[start..end].to_string());
+            }
+        }
     }
-
-    // Keep app launch from hijacking file/command workflows unless the user explicitly
-    // identifies an application target.
-    let command_directed = query_expresses_command_execution_intent(query, query_facets);
-    !command_directed || query_explicitly_mentions_app_target(query)
+    None
 }
 
-pub(super) fn query_expresses_direct_ui_input(
+#[derive(Debug, Clone, Deserialize, Default)]
+struct QueryBindingProfilePayload {
+    #[serde(default)]
+    remote_public_fact_required: bool,
+    #[serde(default)]
+    host_local_clock_targeted: bool,
+    #[serde(default)]
+    command_directed: bool,
+    #[serde(default)]
+    app_launch_directed: bool,
+    #[serde(default)]
+    direct_ui_input: bool,
+    #[serde(default)]
+    desktop_screenshot_requested: bool,
+    #[serde(default)]
+    temporal_filesystem_filter: bool,
+}
+
+fn parse_query_binding_profile(raw: &str) -> Result<QueryBindingProfile, TransactionError> {
+    let parsed = serde_json::from_str::<QueryBindingProfilePayload>(raw).or_else(|_| {
+        let extracted = extract_first_json_object(raw).ok_or_else(|| {
+            TransactionError::Invalid(
+                "ERROR_CLASS=ResolverContractViolation query binding output missing JSON"
+                    .to_string(),
+            )
+        })?;
+        serde_json::from_str::<QueryBindingProfilePayload>(&extracted).map_err(|e| {
+            TransactionError::Invalid(format!(
+                "ERROR_CLASS=ResolverContractViolation query binding output parse failed: {}",
+                e
+            ))
+        })
+    })?;
+    Ok(QueryBindingProfile {
+        available: true,
+        remote_public_fact_required: parsed.remote_public_fact_required,
+        host_local_clock_targeted: parsed.host_local_clock_targeted,
+        command_directed: parsed.command_directed,
+        app_launch_directed: parsed.app_launch_directed,
+        direct_ui_input: parsed.direct_ui_input,
+        desktop_screenshot_requested: parsed.desktop_screenshot_requested,
+        temporal_filesystem_filter: parsed.temporal_filesystem_filter,
+    })
+}
+
+pub(super) async fn infer_query_binding_profile(
+    runtime: &Arc<dyn InferenceRuntime>,
     query: &str,
-    query_facets: &QueryFacetProfile,
-) -> bool {
-    !query_requests_desktop_screenshot(query) && query_facets.goal.ui_hits > 0
+) -> QueryBindingProfile {
+    let payload = json!([
+        {
+            "role": "system",
+            "content": "Classify query semantics for intent-policy feasibility. Output JSON only."
+        },
+        {
+            "role": "user",
+            "content": format!(
+                "Query:\n{}\n\nReturn exactly one JSON object with this schema:\n{{\"remote_public_fact_required\":<bool>,\"host_local_clock_targeted\":<bool>,\"command_directed\":<bool>,\"app_launch_directed\":<bool>,\"direct_ui_input\":<bool>,\"desktop_screenshot_requested\":<bool>,\"temporal_filesystem_filter\":<bool>}}\nRules:\n1) remote_public_fact_required=true only when current/public external grounding is required.\n2) host_local_clock_targeted=true only when the user explicitly asks for this host machine/system clock.\n3) command_directed=true for local shell/terminal or host automation tasks.\n4) app_launch_directed=true for opening/launching a local application.\n5) direct_ui_input=true for click/type/scroll-like interaction in an active UI.\n6) desktop_screenshot_requested=true for screenshot capture intent.\n7) temporal_filesystem_filter=true for recency filters on local files/folders.\n8) Keep decisions semantic; do not keyword-match mechanically.",
+                query
+            )
+        }
+    ]);
+    let input_bytes = match serde_json::to_vec(&payload) {
+        Ok(encoded) => encoded,
+        Err(err) => {
+            log::warn!(
+                "IntentResolver query binding payload encode failed error={}",
+                err
+            );
+            return QueryBindingProfile::default();
+        }
+    };
+    let output = match runtime
+        .execute_inference(
+            [0u8; 32],
+            &input_bytes,
+            ioi_types::app::agentic::InferenceOptions {
+                temperature: 0.0,
+                json_mode: true,
+                max_tokens: 256,
+                ..Default::default()
+            },
+        )
+        .await
+    {
+        Ok(bytes) => bytes,
+        Err(err) => {
+            log::warn!(
+                "IntentResolver query binding inference failed error={}",
+                vm_error_to_tx(err)
+            );
+            return QueryBindingProfile::default();
+        }
+    };
+    let raw = match String::from_utf8(output) {
+        Ok(content) => content,
+        Err(err) => {
+            log::warn!(
+                "IntentResolver query binding utf8 decode failed error={}",
+                err
+            );
+            return QueryBindingProfile::default();
+        }
+    };
+    match parse_query_binding_profile(&raw) {
+        Ok(profile) => {
+            log::info!(
+                "IntentResolver query binding classified model_id={} model_version={} schema_id={}",
+                INTENT_QUERY_BINDING_MODEL_ID,
+                INTENT_QUERY_BINDING_MODEL_VERSION,
+                INTENT_QUERY_BINDING_SCHEMA_ID
+            );
+            profile
+        }
+        Err(err) => {
+            log::warn!("IntentResolver query binding parse failed error={}", err);
+            QueryBindingProfile::default()
+        }
+    }
 }
 
 pub(super) fn query_binding_satisfied(
     entry: &IntentMatrixEntry,
-    query: &str,
-    query_facets: &QueryFacetProfile,
+    query_binding_profile: &QueryBindingProfile,
 ) -> bool {
-    if query_requires_remote_public_fact_grounding(query_facets)
+    if !query_binding_profile.available {
+        return true;
+    }
+    if query_binding_profile.remote_public_fact_required
         && !intent_supports_remote_public_fact_grounding(entry)
     {
         return false;
@@ -206,22 +243,18 @@ pub(super) fn query_binding_satisfied(
     match query_binding_for_intent(entry) {
         IntentQueryBindingClass::None => true,
         IntentQueryBindingClass::HostLocal => {
-            query_explicitly_targets_host_local_clock(query)
-                || !query_requires_remote_public_fact_grounding(query_facets)
+            query_binding_profile.host_local_clock_targeted
+                || !query_binding_profile.remote_public_fact_required
         }
         IntentQueryBindingClass::RemotePublicFact => {
-            query_requires_remote_public_fact_grounding(query_facets)
+            query_binding_profile.remote_public_fact_required
         }
-        IntentQueryBindingClass::AppLaunchDirected => {
-            query_expresses_app_launch_intent(query, query_facets)
+        IntentQueryBindingClass::AppLaunchDirected => query_binding_profile.app_launch_directed,
+        IntentQueryBindingClass::CommandDirected => query_binding_profile.command_directed,
+        IntentQueryBindingClass::DirectUiInput => query_binding_profile.direct_ui_input,
+        IntentQueryBindingClass::DesktopScreenshot => {
+            query_binding_profile.desktop_screenshot_requested
         }
-        IntentQueryBindingClass::CommandDirected => {
-            query_expresses_command_execution_intent(query, query_facets)
-        }
-        IntentQueryBindingClass::DirectUiInput => {
-            query_expresses_direct_ui_input(query, query_facets)
-        }
-        IntentQueryBindingClass::DesktopScreenshot => query_requests_desktop_screenshot(query),
     }
 }
 

@@ -28,6 +28,10 @@ pub const LOWERCASE_RENAME_CONTRACT_REQUIRED_RECEIPT: &str = "lowercase_rename_c
 pub const PROVIDER_SELECTION_COMMIT_RECEIPT: &str = "provider_selection_commit";
 pub const VERIFICATION_COMMIT_RECEIPT: &str = "verification_commit";
 pub const LOWERCASE_RENAME_POSTCONDITION: &str = "lowercase_rename_postcheck";
+pub const LOWERCASE_RENAME_TARGET_DIR_RECEIPT: &str = "lowercase_rename_target_dir";
+pub const LOWERCASE_RENAME_TOTAL_FILES_RECEIPT: &str = "lowercase_rename_total_files";
+pub const LOWERCASE_RENAME_UPPERCASE_REMAINING_RECEIPT: &str =
+    "lowercase_rename_uppercase_remaining";
 const COMMAND_SCOPE_REQUIRED_RECEIPTS: [&str; 3] =
     ["provider_selection", "execution", "verification"];
 const COMMAND_SCOPE_REQUIRED_POSTCONDITIONS: [&str; 1] = ["execution_artifact"];
@@ -1327,6 +1331,27 @@ pub fn record_lowercase_rename_contract_requirement(
     verification_checks.push(receipt_marker(LOWERCASE_RENAME_CONTRACT_REQUIRED_RECEIPT));
 }
 
+pub fn record_lowercase_rename_postcheck_receipts(
+    tool_execution_log: &mut BTreeMap<String, ToolCallStatus>,
+    receipt: &LowercaseRenamePostcheckReceipt,
+) {
+    mark_execution_receipt_with_value(
+        tool_execution_log,
+        LOWERCASE_RENAME_TARGET_DIR_RECEIPT,
+        receipt.target_dir.clone(),
+    );
+    mark_execution_receipt_with_value(
+        tool_execution_log,
+        LOWERCASE_RENAME_TOTAL_FILES_RECEIPT,
+        receipt.total_files.to_string(),
+    );
+    mark_execution_receipt_with_value(
+        tool_execution_log,
+        LOWERCASE_RENAME_UPPERCASE_REMAINING_RECEIPT,
+        receipt.uppercase_remaining.to_string(),
+    );
+}
+
 pub fn record_verification_receipts(
     tool_execution_log: &mut BTreeMap<String, ToolCallStatus>,
     verification_checks: &mut Vec<String>,
@@ -1520,13 +1545,14 @@ pub fn enrich_command_scope_summary(summary: &str, agent_state: &AgentState) -> 
         return summary.to_string();
     }
 
+    let mut enriched =
+        lowercase_rename_completion_summary(agent_state).unwrap_or_else(|| summary.to_string());
     let run_timestamp_utc = latest_timer_backend_history_entry(agent_state)
         .or_else(|| agent_state.command_history.back())
         .and_then(|entry| format_utc_rfc3339(entry.timestamp_ms));
     let Some(run_timestamp_utc) = run_timestamp_utc else {
-        return summary.to_string();
+        return enriched;
     };
-    let mut enriched = summary.to_string();
     let run_timestamp = parse_utc_rfc3339(&run_timestamp_utc);
     let target_timestamp = extract_structured_field(&enriched, TARGET_UTC_MARKER)
         .as_deref()
@@ -1546,23 +1572,98 @@ pub fn enrich_command_scope_summary(summary: &str, agent_state: &AgentState) -> 
     enriched
 }
 
+fn lowercase_rename_completion_summary(agent_state: &AgentState) -> Option<String> {
+    if !requires_lowercase_rename_contract(agent_state) {
+        return None;
+    }
+    if !has_execution_postcondition(
+        &agent_state.tool_execution_log,
+        LOWERCASE_RENAME_POSTCONDITION,
+    ) {
+        return None;
+    }
+
+    let latest_postcheck = agent_state
+        .command_history
+        .iter()
+        .rev()
+        .find_map(command_history_lowercase_rename_postcheck);
+    let target_dir = execution_receipt_value(
+        &agent_state.tool_execution_log,
+        LOWERCASE_RENAME_TARGET_DIR_RECEIPT,
+    )
+    .filter(|value| !value.trim().is_empty())
+    .map(str::to_string)
+    .or_else(|| {
+        latest_postcheck
+            .as_ref()
+            .map(|receipt| receipt.target_dir.clone())
+    })
+    .unwrap_or_else(|| "target directory".to_string());
+    let total_files = execution_receipt_value(
+        &agent_state.tool_execution_log,
+        LOWERCASE_RENAME_TOTAL_FILES_RECEIPT,
+    )
+    .and_then(|value| value.parse::<usize>().ok())
+    .or_else(|| latest_postcheck.as_ref().map(|receipt| receipt.total_files))
+    .unwrap_or(0);
+    let uppercase_remaining = execution_receipt_value(
+        &agent_state.tool_execution_log,
+        LOWERCASE_RENAME_UPPERCASE_REMAINING_RECEIPT,
+    )
+    .and_then(|value| value.parse::<usize>().ok())
+    .or_else(|| {
+        latest_postcheck
+            .as_ref()
+            .map(|receipt| receipt.uppercase_remaining)
+    })
+    .unwrap_or(0);
+
+    if uppercase_remaining == 0 {
+        if path_targets_downloads(&target_dir) {
+            Some(format!(
+                "All files in the Downloads folder are lowercase. Files checked: {}.",
+                total_files
+            ))
+        } else {
+            Some(format!(
+                "All files in '{}' are lowercase. Files checked: {}.",
+                target_dir, total_files
+            ))
+        }
+    } else {
+        Some(format!(
+            "Lowercase rename is incomplete in '{}': {} files still contain uppercase characters ({} files checked).",
+            target_dir, uppercase_remaining, total_files
+        ))
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::{
         command_history_entry, command_history_exit_code,
         command_history_lowercase_rename_postcheck, compose_terminal_chat_reply,
         detect_foreign_home_path_for_runtime_home, discover_lowercase_rename_postcheck,
-        execution_contract_violation_error, lowercase_rename_contract_target,
-        parse_lowercase_rename_postcheck_receipt, provider_selection_commit,
-        synthesize_allowlisted_lowercase_rename_tool,
+        enrich_command_scope_summary, execution_contract_violation_error,
+        lowercase_rename_contract_target, parse_lowercase_rename_postcheck_receipt,
+        provider_selection_commit, synthesize_allowlisted_lowercase_rename_tool,
         synthesize_allowlisted_timer_notification_tool, sys_exec_command_preview,
         sys_exec_satisfies_clock_read_contract, sys_exec_targets_lowercase_rename_payload,
         verification_probe_commit, COMMAND_HISTORY_PREFIX,
+        LOWERCASE_RENAME_CONTRACT_REQUIRED_RECEIPT, LOWERCASE_RENAME_POSTCONDITION,
+        LOWERCASE_RENAME_TARGET_DIR_RECEIPT, LOWERCASE_RENAME_TOTAL_FILES_RECEIPT,
+        LOWERCASE_RENAME_UPPERCASE_REMAINING_RECEIPT,
+    };
+    use crate::agentic::desktop::service::step::action::support::{
+        mark_execution_postcondition, mark_execution_receipt, mark_execution_receipt_with_value,
     };
     use crate::agentic::desktop::types::{
         AgentMode, AgentState, AgentStatus, CommandExecution, ExecutionTier,
     };
-    use ioi_types::app::agentic::AgentTool;
+    use ioi_types::app::agentic::{
+        AgentTool, IntentConfidenceBand, IntentScopeProfile, ResolvedIntentState,
+    };
     use std::collections::{BTreeMap, VecDeque};
     use std::fs;
     use std::time::{SystemTime, UNIX_EPOCH};
@@ -1603,6 +1704,30 @@ mod tests {
             working_directory: ".".to_string(),
             command_history: VecDeque::new(),
             active_lens: None,
+        }
+    }
+
+    fn test_resolved_intent(scope: IntentScopeProfile) -> ResolvedIntentState {
+        ResolvedIntentState {
+            intent_id: "command.exec".to_string(),
+            scope,
+            band: IntentConfidenceBand::High,
+            score: 0.92,
+            top_k: vec![],
+            required_capabilities: vec![],
+            risk_class: "low".to_string(),
+            preferred_tier: "tool_first".to_string(),
+            matrix_version: "v1".to_string(),
+            embedding_model_id: "test".to_string(),
+            embedding_model_version: "test".to_string(),
+            similarity_function_id: "cosine".to_string(),
+            intent_set_hash: [0u8; 32],
+            tool_registry_hash: [0u8; 32],
+            capability_ontology_hash: [0u8; 32],
+            query_normalization_version: "v1".to_string(),
+            matrix_source_hash: [0u8; 32],
+            receipt_hash: [0u8; 32],
+            constrained: false,
         }
     }
 
@@ -2047,5 +2172,49 @@ mod tests {
         assert!(outcome.validator_passed);
         assert_eq!(outcome.output, summary);
         assert_eq!(outcome.template_id, "passthrough");
+    }
+
+    #[test]
+    fn enrich_summary_uses_lowercase_contract_receipts_over_raw_stdout() {
+        let mut state =
+            test_agent_state_with_goal("Rename every file in my Downloads folder to lowercase.");
+        state.resolved_intent = Some(test_resolved_intent(IntentScopeProfile::CommandExecution));
+        mark_execution_receipt(
+            &mut state.tool_execution_log,
+            LOWERCASE_RENAME_CONTRACT_REQUIRED_RECEIPT,
+        );
+        mark_execution_postcondition(
+            &mut state.tool_execution_log,
+            LOWERCASE_RENAME_POSTCONDITION,
+        );
+        mark_execution_receipt_with_value(
+            &mut state.tool_execution_log,
+            LOWERCASE_RENAME_TARGET_DIR_RECEIPT,
+            "/home/heathledger/Downloads".to_string(),
+        );
+        mark_execution_receipt_with_value(
+            &mut state.tool_execution_log,
+            LOWERCASE_RENAME_TOTAL_FILES_RECEIPT,
+            "73".to_string(),
+        );
+        mark_execution_receipt_with_value(
+            &mut state.tool_execution_log,
+            LOWERCASE_RENAME_UPPERCASE_REMAINING_RECEIPT,
+            "0".to_string(),
+        );
+        state.command_history.push_back(CommandExecution {
+            command: "bash -s".to_string(),
+            exit_code: 0,
+            stdout: String::new(),
+            stderr: String::new(),
+            timestamp_ms: 1_772_304_000_000,
+            step_index: 1,
+        });
+
+        let enriched = enrich_command_scope_summary("phone-preview.mp4", &state);
+        assert!(enriched.contains("All files in the Downloads folder are lowercase."));
+        assert!(enriched.contains("Files checked: 73."));
+        assert!(enriched.contains("Run timestamp (UTC):"));
+        assert!(!enriched.contains("phone-preview.mp4"));
     }
 }

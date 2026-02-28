@@ -137,6 +137,29 @@ pub enum VerificationMode {
     DeterministicCheck,
 }
 
+/// Semantic query-binding class used by resolver feasibility policy.
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, Encode, Decode, Default,
+)]
+#[serde(rename_all = "snake_case")]
+pub enum IntentQueryBindingClass {
+    /// No additional semantic binding gate.
+    #[default]
+    None,
+    /// Query must explicitly target host-local clock semantics.
+    HostLocal,
+    /// Query must require remote/public fact grounding.
+    RemotePublicFact,
+    /// Query must express app-launch direction.
+    AppLaunchDirected,
+    /// Query must express command execution direction.
+    CommandDirected,
+    /// Query must express direct UI input interaction.
+    DirectUiInput,
+    /// Query must request desktop screenshot capture.
+    DesktopScreenshot,
+}
+
 /// A single canonical intent matrix row.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Encode, Decode)]
 pub struct IntentMatrixEntry {
@@ -144,6 +167,9 @@ pub struct IntentMatrixEntry {
     pub intent_id: String,
     /// Canonical semantic descriptor used for embedding-based ranking.
     pub semantic_descriptor: String,
+    /// Semantic query-binding gate used during feasibility filtering.
+    #[serde(default)]
+    pub query_binding: IntentQueryBindingClass,
     /// Canonical capability requirements that must be satisfiable for execution.
     #[serde(default)]
     pub required_capabilities: Vec<CapabilityId>,

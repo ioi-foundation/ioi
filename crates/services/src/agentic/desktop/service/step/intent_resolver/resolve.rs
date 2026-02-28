@@ -56,7 +56,8 @@ pub async fn resolve_step_intent(
     } else {
         normalized_query.clone()
     };
-    let query_facets = analyze_query_facets(&query);
+    let runtime = service.reasoning_inference.clone();
+    let query_binding_profile = infer_query_binding_profile(&runtime, &query).await;
     let session_prefix = hex::encode(&agent_state.session_id[..4]);
     let query_hash = hex::encode(
         sha256(query.as_bytes()).map_err(|e| TransactionError::Invalid(e.to_string()))?,
@@ -105,7 +106,6 @@ pub async fn resolve_step_intent(
         );
     }
 
-    let runtime = service.reasoning_inference.clone();
     let rank_result = match timeout(
         INTENT_EMBED_RANK_TIMEOUT,
         runtime.embed_or_rank(&ranking_query, &policy.matrix_version, matrix_hash, &matrix),
@@ -161,7 +161,7 @@ pub async fn resolve_step_intent(
             let entry = matrix
                 .iter()
                 .find(|entry| entry.intent_id == candidate.intent_id)?;
-            intent_feasible_for_execution(entry, &bindings, rules, &query, &query_facets)
+            intent_feasible_for_execution(entry, &bindings, rules, &query_binding_profile)
                 .then_some(candidate.clone())
         })
         .collect::<Vec<_>>();
@@ -176,8 +176,7 @@ pub async fn resolve_step_intent(
             &matrix,
             &bindings,
             rules,
-            &query,
-            &query_facets,
+            &query_binding_profile,
         ));
     }
     let unclassified = selection_top_k.is_empty() || all_candidate_scores_zero(&selection_top_k);

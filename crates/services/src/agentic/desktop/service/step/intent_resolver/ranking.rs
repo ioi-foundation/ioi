@@ -376,99 +376,6 @@ async fn rank_with_inference_model(
     parse_model_rank_scores(&raw, matrix)
 }
 
-fn normalize_rank_token(raw: &str) -> Option<String> {
-    let mut token = raw.trim().to_ascii_lowercase();
-    if token.len() < 2 {
-        return None;
-    }
-
-    const STOPWORDS: &[&str] = &[
-        "a", "an", "and", "at", "be", "by", "do", "for", "from", "in", "into", "is", "it", "local",
-        "machine", "my", "of", "on", "or", "the", "this", "to", "with",
-    ];
-    if STOPWORDS.contains(&token.as_str()) {
-        return None;
-    }
-
-    if token.len() > 5 && token.ends_with("ing") {
-        token.truncate(token.len().saturating_sub(3));
-    } else if token.len() > 4 && token.ends_with("ed") {
-        token.truncate(token.len().saturating_sub(2));
-    } else if token.len() > 4 && token.ends_with("es") {
-        token.truncate(token.len().saturating_sub(2));
-    } else if token.len() > 3 && token.ends_with('s') {
-        token.truncate(token.len().saturating_sub(1));
-    }
-
-    if token.len() < 2 {
-        return None;
-    }
-    Some(token)
-}
-
-fn token_frequency_map(text: &str) -> BTreeMap<String, f32> {
-    let mut counts = BTreeMap::<String, f32>::new();
-    for token in text.split(|ch: char| !ch.is_ascii_alphanumeric()) {
-        let Some(normalized) = normalize_rank_token(token) else {
-            continue;
-        };
-        let entry = counts.entry(normalized).or_insert(0.0);
-        *entry += 1.0;
-    }
-    counts
-}
-
-fn lexical_cosine_similarity(query: &str, descriptor: &str) -> f32 {
-    let query_tokens = token_frequency_map(query);
-    let descriptor_tokens = token_frequency_map(descriptor);
-    if query_tokens.is_empty() || descriptor_tokens.is_empty() {
-        return 0.0;
-    }
-
-    let dot = query_tokens
-        .iter()
-        .filter_map(|(token, query_count)| {
-            descriptor_tokens
-                .get(token)
-                .map(|descriptor_count| query_count * descriptor_count)
-        })
-        .sum::<f32>();
-    if dot <= f32::EPSILON {
-        return 0.0;
-    }
-
-    let query_norm = query_tokens
-        .values()
-        .map(|count| count * count)
-        .sum::<f32>()
-        .sqrt();
-    let descriptor_norm = descriptor_tokens
-        .values()
-        .map(|count| count * count)
-        .sum::<f32>()
-        .sqrt();
-    if query_norm <= f32::EPSILON || descriptor_norm <= f32::EPSILON {
-        return 0.0;
-    }
-
-    (dot / (query_norm * descriptor_norm)).clamp(0.0, 1.0)
-}
-
-fn rank_with_lexical_similarity(
-    query: &str,
-    matrix: &[IntentMatrixEntry],
-) -> Vec<IntentCandidateScore> {
-    let mut ranked = matrix
-        .iter()
-        .map(|entry| IntentCandidateScore {
-            intent_id: entry.intent_id.clone(),
-            score: lexical_cosine_similarity(query, &canonical_descriptor_for_entry(entry)),
-        })
-        .collect::<Vec<_>>();
-    sort_scores_desc(&mut ranked);
-    ranked
-}
-
 #[async_trait]
 impl IntentRankBackend for Arc<dyn InferenceRuntime> {
     async fn embed_or_rank(
@@ -561,18 +468,7 @@ impl IntentRankBackend for Arc<dyn InferenceRuntime> {
                     hex::encode(matrix_source_hash),
                     err
                 );
-                let ranked = rank_with_lexical_similarity(query, matrix);
-                log::warn!(
-                    "IntentResolver used lexical-ranking backend matrix_version={} matrix_source_hash={}",
-                    matrix_version,
-                    hex::encode(matrix_source_hash)
-                );
-                Ok(IntentRankResult {
-                    scores: ranked,
-                    model_id: INTENT_LEXICAL_RANK_MODEL_ID.to_string(),
-                    model_version: INTENT_LEXICAL_RANK_MODEL_VERSION.to_string(),
-                    similarity_function_id: INTENT_LEXICAL_RANK_SIMILARITY_FUNCTION_ID.to_string(),
-                })
+                Err(err)
             }
         }
     }
