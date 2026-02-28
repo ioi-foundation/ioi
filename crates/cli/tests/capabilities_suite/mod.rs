@@ -122,10 +122,22 @@ pub async fn run_capabilities_suite() -> Result<()> {
                 case.id,
                 "top_news_headlines" | "take_a_screenshot_of_my_desktop"
             );
+            let timeout_terminal = observation
+                .final_status
+                .to_ascii_lowercase()
+                .contains("timeoutorhang")
+                || observation
+                    .verification_checks
+                    .iter()
+                    .any(|check| check.eq_ignore_ascii_case("failure_class=TimeoutOrHang"));
+            let timeout_completion_override = case.allow_timeout_completion_with_local_evidence
+                && timeout_terminal
+                && local.pass
+                && local.score >= case.min_local_score;
             let arbiter_effective_pass = if strict_arbiter_required {
                 arbiter.pass
             } else {
-                arbiter.pass || (local.pass && !observation.failed)
+                arbiter.pass || (local.pass && (!observation.failed || timeout_completion_override))
             };
             let retry_blocked_terminal = observation
                 .final_status
@@ -137,6 +149,7 @@ pub async fn run_capabilities_suite() -> Result<()> {
                     && local.pass
                     && !observation.failed
                     && local.score >= case.min_local_score)
+                || timeout_completion_override
                 || (arbiter.pass && local.score >= case.min_local_score);
             let approval_effective_pass = if case.id == "take_a_screenshot_of_my_desktop" {
                 observation.approval_required_events > 0

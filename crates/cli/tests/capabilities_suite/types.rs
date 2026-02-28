@@ -18,6 +18,7 @@ pub struct QueryCase {
     pub max_steps: u32,
     pub min_local_score: f64,
     pub allow_retry_blocked_completion_with_local_evidence: bool,
+    pub allow_timeout_completion_with_local_evidence: bool,
     pub local_sniff: LocalSniffFn,
 }
 

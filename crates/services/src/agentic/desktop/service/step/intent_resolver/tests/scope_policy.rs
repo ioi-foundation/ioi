@@ -34,6 +34,10 @@ fn conversation_scope_blocks_browser() {
         Some(&state),
         "wallet_network__mail_reply"
     ));
+    assert!(!is_tool_allowed_for_resolution(
+        Some(&state),
+        "wallet_network__mail_connector_upsert"
+    ));
     assert!(!is_tool_allowed_for_resolution(None, "browser__navigate"));
 }
 
@@ -70,6 +74,12 @@ fn math_eval_tool_stays_on_primitive_capability_surface() {
     let caps = super::tool_capabilities("math__eval");
     assert_eq!(caps, vec![CapabilityId::from("conversation.reply")]);
     assert!(!caps.iter().any(|cap| cap.as_str() == "math.eval"));
+}
+
+#[test]
+fn mail_connector_setup_tools_do_not_inherit_conversation_capability() {
+    let caps = super::tool_capabilities("wallet_network__mail_connector_upsert");
+    assert!(caps.is_empty());
 }
 
 #[test]

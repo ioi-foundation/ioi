@@ -598,9 +598,34 @@ pub async fn start_or_continue_incident_recovery(
         .into_iter()
         .filter(|tool| !forbidden_tools.contains(&tool.name))
         .collect();
+    let mut planner_forbidden_tools = forbidden_tools.clone();
 
     let mut chosen_tool =
         deterministic_recovery_tool(&available_tool_names, &incident_state, agent_state, rules)?;
+    if let Some(tool) = chosen_tool.as_ref() {
+        if let Err(err) = validate_recovery_tool(
+            tool,
+            &available_tool_names,
+            &forbidden_tools,
+            &incident_state.visited_node_fingerprints,
+        ) {
+            let duplicate_remedy = matches!(
+                &err,
+                TransactionError::Invalid(msg) if msg == "Duplicate incident remedy fingerprint"
+            );
+            if duplicate_remedy {
+                let duplicate_tool_name = canonical_tool_name(tool);
+                planner_forbidden_tools.insert(duplicate_tool_name.clone());
+                verification_checks.push(format!(
+                    "incident_deterministic_duplicate_remedy_rejected={}",
+                    duplicate_tool_name
+                ));
+                chosen_tool = None;
+            } else {
+                return Err(err);
+            }
+        }
+    }
 
     if chosen_tool.is_none() {
         if matches!(intent, IntentClass::BrowserTask) {
@@ -658,41 +683,126 @@ pub async fn start_or_continue_incident_recovery(
             ));
         }
 
-        let prompt = build_planner_prompt(&incident_state, &forbidden_tools);
-        let messages = json!([
-            { "role": "system", "content": prompt },
-            { "role": "user", "content": "Choose the next recovery action now." }
-        ]);
-        let input = serde_json::to_vec(&messages)
-            .map_err(|e| TransactionError::Serialization(e.to_string()))?;
-        let options = InferenceOptions {
-            temperature: 0.0,
-            json_mode: true,
-            max_tokens: 384,
-            tools: planner_tools,
-        };
-        let output = service
-            .reasoning_inference
-            .execute_inference(
-                [0u8; 32],
-                &service
-                    .prepare_cloud_inference_input(
-                        Some(session_id),
-                        "desktop_agent",
-                        "model_hash:0000000000000000000000000000000000000000000000000000000000000000",
-                        &input,
-                    )
-                    .await?,
-                options,
-            )
-            .await
-            .map_err(|e| {
-                TransactionError::Invalid(format!("Incident planner inference failed: {}", e))
+        const PLANNER_MAX_ATTEMPTS: u32 = 3;
+        let mut duplicate_rejection_count = 0u32;
+        for attempt in 0..PLANNER_MAX_ATTEMPTS {
+            let planner_attempt_tools: Vec<LlmToolDefinition> = planner_tools
+                .iter()
+                .filter(|tool| !planner_forbidden_tools.contains(&tool.name))
+                .cloned()
+                .collect();
+            if planner_attempt_tools.is_empty() {
+                break;
+            }
+
+            let prompt = build_planner_prompt(&incident_state, &planner_forbidden_tools);
+            let messages = json!([
+                { "role": "system", "content": prompt },
+                { "role": "user", "content": "Choose the next recovery action now." }
+            ]);
+            let input = serde_json::to_vec(&messages)
+                .map_err(|e| TransactionError::Serialization(e.to_string()))?;
+            let options = InferenceOptions {
+                temperature: 0.0,
+                json_mode: true,
+                max_tokens: 384,
+                tools: planner_attempt_tools,
+            };
+            let output = service
+                .reasoning_inference
+                .execute_inference(
+                    [0u8; 32],
+                    &service
+                        .prepare_cloud_inference_input(
+                            Some(session_id),
+                            "desktop_agent",
+                            "model_hash:0000000000000000000000000000000000000000000000000000000000000000",
+                            &input,
+                        )
+                        .await?,
+                    options,
+                )
+                .await
+                .map_err(|e| {
+                    TransactionError::Invalid(format!("Incident planner inference failed: {}", e))
+                })?;
+            let raw_output = String::from_utf8_lossy(&output).to_string();
+            let candidate_tool = middleware::normalize_tool_call(&raw_output).map_err(|e| {
+                TransactionError::Invalid(format!("Incident planner output invalid: {}", e))
             })?;
-        let raw_output = String::from_utf8_lossy(&output).to_string();
-        chosen_tool = Some(middleware::normalize_tool_call(&raw_output).map_err(|e| {
-            TransactionError::Invalid(format!("Incident planner output invalid: {}", e))
-        })?);
+            match validate_recovery_tool(
+                &candidate_tool,
+                &available_tool_names,
+                &planner_forbidden_tools,
+                &incident_state.visited_node_fingerprints,
+            ) {
+                Ok(()) => {
+                    chosen_tool = Some(candidate_tool);
+                    break;
+                }
+                Err(err) => {
+                    let duplicate_remedy = matches!(
+                        &err,
+                        TransactionError::Invalid(msg) if msg == "Duplicate incident remedy fingerprint"
+                    );
+                    if duplicate_remedy {
+                        duplicate_rejection_count = duplicate_rejection_count.saturating_add(1);
+                        let duplicate_tool_name = canonical_tool_name(&candidate_tool);
+                        planner_forbidden_tools.insert(duplicate_tool_name.clone());
+                        verification_checks.push(format!(
+                            "incident_planner_duplicate_remedy_rejected_attempt_{}={}",
+                            attempt + 1,
+                            duplicate_tool_name
+                        ));
+                        continue;
+                    }
+                    return Err(err);
+                }
+            }
+        }
+
+        if chosen_tool.is_none() {
+            incident_state.active = false;
+            incident_state.transitions_used = incident_state.max_transitions;
+            incident_state.stage = IncidentStage::Exhausted.as_str().to_string();
+            incident_state.strategy_cursor = StrategyNode::PauseForUser.as_str().to_string();
+            incident_state.gate_state = GateState::Cleared.as_str().to_string();
+            incident_state.resolution_action = ResolutionAction::MarkExhausted.as_str().to_string();
+            incident_state.pending_remedy_fingerprint = None;
+            incident_state.pending_remedy_tool_jcs = None;
+            incident_state.retry_enqueued = false;
+            incident_state.root_error = Some(format!(
+                "No non-duplicate recovery tool available after {} planner attempt(s) with {} duplicate rejection(s).",
+                PLANNER_MAX_ATTEMPTS, duplicate_rejection_count
+            ));
+            persist_incident_state(state, &session_id, &incident_state)?;
+            emit_incident_chat_progress(
+                service,
+                session_id,
+                block_height,
+                format!(
+                    "System: Incident '{}' exhausted because no non-duplicate recovery remedy could be selected.",
+                    incident_state.incident_id
+                ),
+            )
+            .await?;
+            verification_checks.push("incident_active=false".to_string());
+            verification_checks.push("incident_exhausted=true".to_string());
+            verification_checks.push(format!("incident_id_stable={}", incident_id_stable));
+            verification_checks.push(format!("incident_id={}", incident_state.incident_id));
+            verification_checks.push(format!("incident_stage_before={}", stage_before));
+            verification_checks.push(format!("incident_stage_after={}", incident_state.stage));
+            verification_checks.push(format!(
+                "incident_transitions_used={}",
+                incident_state.transitions_used
+            ));
+            verification_checks.push("incident_budget_remaining=0".to_string());
+            verification_checks.push(format!(
+                "incident_duplicate_remedy_rejections={}",
+                duplicate_rejection_count
+            ));
+            return Ok(IncidentDirective::MarkExhausted);
+        }
     }
 
     let recovery_tool = chosen_tool.ok_or_else(|| {

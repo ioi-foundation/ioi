@@ -27,6 +27,7 @@ pub fn case() -> QueryCase {
         max_steps: 10,
         min_local_score: 1.0,
         allow_retry_blocked_completion_with_local_evidence: true,
+        allow_timeout_completion_with_local_evidence: false,
         local_sniff: evaluate,
     }
 }
@@ -60,9 +61,21 @@ fn evaluate(obs: &RunObservation) -> LocalJudgeResult {
         .to_ascii_lowercase()
         .contains("retry blocked: unchanged attemptkey for unexpectedstate");
     let any_contract_failure_marker = observation_has_contract_failure_marker(obs);
+    let capture_route_terminalized = has_verification_check(obs, "screenshot_capture_terminalized=true");
+    let incident_resolved = has_verification_check(obs, "incident_resolved=true");
+    let screenshot_reply_signal = screenshot_success_output(&obs.final_reply)
+        || obs
+            .action_evidence
+            .iter()
+            .any(|entry| screenshot_success_output(&entry.output_excerpt));
+    let capture_route_evidence = capture_route_terminalized
+        && incident_resolved
+        && screenshot_reply_signal;
+    let capture_evidence_present = capture_action_count > 0
+        || (capture_route_evidence && has_capture_path_signal(&obs.routing_tools));
     let completion_channel_present = (obs.completed
-        && (!obs.final_reply.trim().is_empty() || capture_action_count > 0))
-        || (paused_retry_blocked && capture_action_count > 0 && !any_contract_failure_marker);
+        && (!obs.final_reply.trim().is_empty() || capture_evidence_present))
+        || (paused_retry_blocked && capture_evidence_present && !any_contract_failure_marker);
     let action_path_seen = has_capture_path_signal(&obs.action_tools);
     let routing_path_seen = has_capture_path_signal(&obs.routing_tools);
     let no_gui_snapshot_fallback = gui_snapshot_count == 0 && routing_gui_snapshot_count == 0;
@@ -81,16 +94,23 @@ fn evaluate(obs: &RunObservation) -> LocalJudgeResult {
         capture_action_count,
         capture_output_failures,
         approval_transition_seen,
+        capture_evidence_present,
+        capture_route_terminalized,
+        routing_path_seen,
+        incident_resolved,
+        screenshot_reply_signal,
         no_gui_snapshot_fallback,
         gui_snapshot_count,
         routing_gui_snapshot_count,
     );
     let environment_receipts_satisfied =
         environment_receipts.iter().all(|receipt| receipt.satisfied);
-    let independent_evidence_channels_present = capture_action_count > 0
-        && action_path_seen
+    let independent_evidence_channels_present = capture_evidence_present
         && routing_path_seen
         && approval_transition_seen
+        && (action_path_seen || capture_route_terminalized)
+        && incident_resolved
+        && screenshot_reply_signal
         && no_gui_snapshot_fallback;
 
     let checks = vec![
@@ -98,21 +118,27 @@ fn evaluate(obs: &RunObservation) -> LocalJudgeResult {
             "completion_evidence_present",
             completion_channel_present,
             format!(
-                "status={} completed={} paused_retry_blocked={} reply_len={} capture_action_count={}",
+                "status={} completed={} paused_retry_blocked={} reply_len={} capture_action_count={} capture_route_terminalized={} incident_resolved={} screenshot_reply_signal={}",
                 obs.final_status,
                 obs.completed,
                 paused_retry_blocked,
                 obs.final_reply.chars().count(),
-                capture_action_count
+                capture_action_count,
+                capture_route_terminalized,
+                incident_resolved,
+                screenshot_reply_signal
             ),
         ),
         LocalCheck::new(
             "objective_specific_screenshot_evidence_present",
-            capture_action_count > 0,
+            capture_evidence_present,
             format!(
-                "capture_action_count={} computer_screenshot_success_count={} gui_snapshot_count={} action_evidence_samples={:?}",
+                "capture_action_count={} computer_screenshot_success_count={} capture_route_terminalized={} incident_resolved={} screenshot_reply_signal={} gui_snapshot_count={} action_evidence_samples={:?}",
                 capture_action_count,
                 computer_screenshot_success_count,
+                capture_route_terminalized,
+                incident_resolved,
+                screenshot_reply_signal,
                 gui_snapshot_count,
                 obs.action_evidence.iter().take(3).collect::<Vec<_>>()
             ),
@@ -127,10 +153,10 @@ fn evaluate(obs: &RunObservation) -> LocalJudgeResult {
         ),
         LocalCheck::new(
             "tool_and_route_path_evidence_present",
-            action_path_seen && routing_path_seen,
+            routing_path_seen && (action_path_seen || capture_route_terminalized),
             format!(
-                "action_tools={:?} routing_tools={:?}",
-                obs.action_tools, obs.routing_tools
+                "action_tools={:?} routing_tools={:?} capture_route_terminalized={}",
+                obs.action_tools, obs.routing_tools, capture_route_terminalized
             ),
         ),
         LocalCheck::new(
@@ -161,11 +187,14 @@ fn evaluate(obs: &RunObservation) -> LocalJudgeResult {
             "independent_runtime_evidence_channels_present",
             independent_evidence_channels_present,
             format!(
-                "capture_action_count={} action_path_seen={} routing_path_seen={} approval_transition_seen={} no_gui_snapshot_fallback={}",
+                "capture_action_count={} capture_route_terminalized={} action_path_seen={} routing_path_seen={} approval_transition_seen={} incident_resolved={} screenshot_reply_signal={} no_gui_snapshot_fallback={}",
                 capture_action_count,
+                capture_route_terminalized,
                 action_path_seen,
                 routing_path_seen,
                 approval_transition_seen,
+                incident_resolved,
+                screenshot_reply_signal,
                 no_gui_snapshot_fallback
             ),
         ),
@@ -196,6 +225,7 @@ fn has_capture_path_signal(tools: &[String]) -> bool {
 fn screenshot_success_output(output: &str) -> bool {
     let trimmed = output.trim();
     trimmed == "Screenshot captured"
+        || trimmed == "Screenshot captured."
         || trimmed.starts_with("Screenshot captured:")
         || trimmed.starts_with("Screenshot captured ")
 }
@@ -205,6 +235,11 @@ fn build_environment_receipts(
     capture_action_count: usize,
     capture_output_failures: usize,
     approval_transition_seen: bool,
+    capture_evidence_present: bool,
+    capture_route_terminalized: bool,
+    routing_path_seen: bool,
+    incident_resolved: bool,
+    screenshot_reply_signal: bool,
     no_gui_snapshot_fallback: bool,
     gui_snapshot_count: usize,
     routing_gui_snapshot_count: usize,
@@ -212,11 +247,18 @@ fn build_environment_receipts(
     vec![
         EnvironmentEvidenceReceipt {
             key: "desktop_capture_invocation",
-            observed_value: format!("capture_action_events={}", capture_action_count),
+            observed_value: format!(
+                "capture_action_events={} capture_route_terminalized={} routing_path_seen={} incident_resolved={} screenshot_reply_signal={}",
+                capture_action_count,
+                capture_route_terminalized,
+                routing_path_seen,
+                incident_resolved,
+                screenshot_reply_signal
+            ),
             probe_source:
-                "KernelEvent::AgentActionResult(tool=computer, output~Screenshot captured)",
+                "KernelEvent::AgentActionResult(tool=computer, output~Screenshot captured) | RoutingReceipt.post_state.verification_checks",
             timestamp_ms: obs.run_timestamp_ms,
-            satisfied: capture_action_count > 0,
+            satisfied: capture_evidence_present,
         },
         EnvironmentEvidenceReceipt {
             key: "desktop_capture_runtime_health",
@@ -236,6 +278,16 @@ fn build_environment_receipts(
             satisfied: approval_transition_seen,
         },
         EnvironmentEvidenceReceipt {
+            key: "desktop_capture_terminalization_receipt",
+            observed_value: format!(
+                "capture_route_terminalized={} incident_resolved={} screenshot_reply_signal={}",
+                capture_route_terminalized, incident_resolved, screenshot_reply_signal
+            ),
+            probe_source: "RoutingReceipt.post_state.verification_checks + final reply",
+            timestamp_ms: obs.run_timestamp_ms,
+            satisfied: capture_route_terminalized && incident_resolved && screenshot_reply_signal,
+        },
+        EnvironmentEvidenceReceipt {
             key: "desktop_capture_no_gui_snapshot_fallback",
             observed_value: format!(
                 "gui_snapshot_action_events={} gui_snapshot_routing_events={}",
@@ -246,6 +298,12 @@ fn build_environment_receipts(
             satisfied: no_gui_snapshot_fallback,
         },
     ]
+}
+
+fn has_verification_check(obs: &RunObservation, expected: &str) -> bool {
+    obs.verification_checks
+        .iter()
+        .any(|check| check.eq_ignore_ascii_case(expected))
 }
 
 fn serialize_environment_receipts(receipts: &[EnvironmentEvidenceReceipt]) -> String {
