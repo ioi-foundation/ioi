@@ -31,9 +31,9 @@ pub(crate) fn handle_system_fail_tool(
         if is_true_capability_gap {
             (
                 format!(
-                "ESCALATE_REQUEST: Missing capability '{}'. Reason: {}",
-                cap, reason
-            ),
+                    "ESCALATE_REQUEST: Missing capability '{}'. Reason: {}",
+                    cap, reason
+                ),
                 Some("ToolUnavailable".to_string()),
             )
         } else {

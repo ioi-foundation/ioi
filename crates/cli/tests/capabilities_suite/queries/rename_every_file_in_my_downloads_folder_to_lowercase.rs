@@ -2,13 +2,13 @@ use ioi_types::app::agentic::IntentScopeProfile;
 use serde::Serialize;
 
 use super::super::types::{
-    has_cec_receipt, has_cec_stage, has_contract_failure_evidence, has_tool_with_token,
-    is_timeout_terminal, truncate_chars, verification_bool, verification_u64, verification_value,
+    action_has_hard_error_class, has_cec_receipt, has_cec_stage, has_contract_failure_evidence,
+    has_tool_with_token, truncate_chars, verification_bool, verification_u64, verification_value,
     ExecutionProfile, LocalCheck, LocalJudgeResult, QueryCase, RunObservation,
 };
 
+const CASE_ID: &str = "rename_every_file_in_my_downloads_folder_to_lowercase";
 const EXPECTED_FIXTURE_MODE: &str = "downloads_lowercase_fixture_v1";
-const TARGET_DIR_TOKEN: &str = "ioi_lowercase_";
 const EXPECTED_FINAL_FILES: [&str; 3] = ["alpha.txt", "budget 2026.pdf", "mixed_case.jpg"];
 
 #[derive(Debug, Clone, Serialize)]
@@ -22,67 +22,37 @@ struct EnvironmentEvidenceReceipt {
 
 pub fn case() -> QueryCase {
     QueryCase {
-        id: "rename_every_file_in_my_downloads_folder_to_lowercase",
+        id: CASE_ID,
         query: concat!(
-            "Rename every file in my Downloads folder to lowercase. ",
-            "For safe repeatable testing, operate only inside ",
-            "\"~/Downloads/ioi_lowercase_{RUN_UNIQUE_NUM}\" and do not copy from or mutate any ",
-            "other Downloads path. Create this directory and create fixture files directly in ",
-            "that directory named \"Alpha.TXT\", \"Budget 2026.PDF\", and \"MiXeD_Case.JPG\". ",
-            "Rename every file in that directory to lowercase by lowercasing only the basename ",
-            "while preserving the directory path exactly (do not lowercase \"/Downloads\"). ",
-            "Use portable shell operations available on base Linux images (for example find/tr/mv), ",
-            "and do not rely on the external `rename` utility. ",
-            "After renaming, verify the directory state and then provide a concise completion summary."
+            "Rename files in \"~/Downloads/ioi_lowercase_{RUN_UNIQUE_NUM}\" to lowercase. ",
+            "The fixture directory and initial files are already provisioned. ",
+            "Use deterministic local filesystem tools only: `filesystem__list_directory` and ",
+            "`filesystem__move_path`. Perform exactly these basename renames while preserving the ",
+            "directory path: \"Alpha.TXT\" -> \"alpha.txt\", \"Budget 2026.PDF\" -> ",
+            "\"budget 2026.pdf\", and \"MiXeD_Case.JPG\" -> \"mixed_case.jpg\". ",
+            "Do not use `sys__exec`/`sys__exec_session`, web, browser, or net tools. ",
+            "Do not create/copy/delete files outside this fixture directory. ",
+            "After renaming, verify the final directory entries and return a concise completion ",
+            "summary that lists the absolute paths of all renamed files."
         ),
-        success_definition: "Perform lowercase rename inside an isolated Downloads test directory with successful command execution and CEC execution receipts, without contract failures.",
-        seeded_intent_id: "command.exec",
-        intent_scope: IntentScopeProfile::CommandExecution,
-        seed_resolved_intent: false,
+        success_definition: "Complete deterministic lowercase renames inside the isolated Downloads fixture using filesystem move/list primitives, with receipt-grounded verification and cleanup evidence and no contract failures.",
+        seeded_intent_id: "workspace.ops",
+        intent_scope: IntentScopeProfile::WorkspaceOps,
+        seed_resolved_intent: true,
         expected_pass: true,
-        execution_profile: ExecutionProfile::Privileged,
+        execution_profile: ExecutionProfile::Hermetic,
         sla_seconds: 95,
         max_steps: 20,
         min_local_score: 1.0,
-        allow_retry_blocked_completion_with_local_evidence: true,
-        allow_timeout_completion_with_local_evidence: true,
+        allow_retry_blocked_completion_with_local_evidence: false,
+        allow_timeout_completion_with_local_evidence: false,
         local_sniff: evaluate,
     }
 }
 
 fn evaluate(obs: &RunObservation) -> LocalJudgeResult {
-    let successful_command_count = obs
-        .command_history_evidence
-        .iter()
-        .filter(|entry| entry.exit_code == 0)
-        .count();
-
-    let command_corpus = obs
-        .command_history_evidence
-        .iter()
-        .map(|entry| format!("{}\n{}\n{}", entry.command, entry.stdout, entry.stderr))
-        .collect::<Vec<_>>()
-        .join("\n")
-        .to_ascii_lowercase();
-
-    let target_scope_observed = command_corpus.contains(TARGET_DIR_TOKEN)
-        || obs
-            .final_reply
-            .to_ascii_lowercase()
-            .contains(TARGET_DIR_TOKEN);
-
-    let rename_transformation_observed = obs.command_history_evidence.iter().any(|entry| {
-        if entry.exit_code != 0 {
-            return false;
-        }
-        let cmd = entry.command.to_ascii_lowercase();
-        (cmd.contains("mv") && cmd.contains("[:upper:]") && cmd.contains("[:lower:]"))
-            || (cmd.contains("rename") && cmd.contains("a-z"))
-    });
-
     let fixture_mode = verification_value(obs, "env_receipt::downloads_lowercase_fixture_mode")
         .unwrap_or_default();
-    let fixture_mode_satisfied = fixture_mode.eq_ignore_ascii_case(EXPECTED_FIXTURE_MODE);
     let fixture_probe_source =
         verification_value(obs, "env_receipt::downloads_lowercase_fixture_probe_source")
             .unwrap_or_default();
@@ -92,6 +62,15 @@ fn evaluate(obs: &RunObservation) -> LocalJudgeResult {
     let fixture_satisfied =
         verification_bool(obs, "env_receipt::downloads_lowercase_fixture_satisfied")
             .unwrap_or(false);
+
+    let seeded_files_csv = verification_value(obs, "env_receipt::downloads_lowercase_seeded_files")
+        .unwrap_or_default();
+    let seeded_files_satisfied = verification_bool(
+        obs,
+        "env_receipt::downloads_lowercase_seeded_files_satisfied",
+    )
+    .unwrap_or(false);
+
     let target_dir_path =
         verification_value(obs, "env_receipt::downloads_lowercase_target_dir_path")
             .unwrap_or_default();
@@ -108,6 +87,7 @@ fn evaluate(obs: &RunObservation) -> LocalJudgeResult {
     let target_dir_satisfied =
         verification_bool(obs, "env_receipt::downloads_lowercase_target_dir_satisfied")
             .unwrap_or(false);
+
     let entries_csv =
         verification_value(obs, "env_receipt::downloads_lowercase_entries").unwrap_or_default();
     let entries_satisfied =
@@ -120,6 +100,7 @@ fn evaluate(obs: &RunObservation) -> LocalJudgeResult {
     .unwrap_or(false);
     let scope_satisfied =
         verification_bool(obs, "env_receipt::downloads_lowercase_scope_satisfied").unwrap_or(false);
+
     let cleanup_probe_source =
         verification_value(obs, "env_receipt::downloads_lowercase_cleanup_probe_source")
             .unwrap_or_default();
@@ -130,69 +111,80 @@ fn evaluate(obs: &RunObservation) -> LocalJudgeResult {
         verification_bool(obs, "env_receipt::downloads_lowercase_cleanup_satisfied")
             .unwrap_or(false);
 
-    let observed_entries = entries_csv
-        .split(',')
-        .map(str::trim)
-        .filter(|entry| !entry.is_empty())
-        .collect::<Vec<_>>();
-    let lowercase_result_names_observed = EXPECTED_FINAL_FILES.iter().all(|expected| {
-        observed_entries
-            .iter()
-            .any(|observed| observed.eq_ignore_ascii_case(expected))
-    }) || EXPECTED_FINAL_FILES
+    let final_reply_lower = obs.final_reply.to_ascii_lowercase();
+    let reply_mentions_target_dir = !target_dir_path.is_empty()
+        && final_reply_lower.contains(&target_dir_path.to_ascii_lowercase());
+    let reply_mentions_expected_files = EXPECTED_FINAL_FILES
         .iter()
-        .all(|name| command_corpus.contains(&name.to_ascii_lowercase()));
-    let rename_end_state_satisfied = target_dir_satisfied
-        && entries_satisfied
-        && lowercase_result_names_observed
-        && uppercase_absent_satisfied
-        && scope_satisfied;
+        .all(|name| final_reply_lower.contains(name));
 
-    let cec_discovery_seen = has_cec_stage(obs, "discovery", Some(true));
-    let cec_provider_selection_seen = has_cec_stage(obs, "provider_selection", Some(true));
+    let list_action_success_count = obs
+        .action_evidence
+        .iter()
+        .filter(|entry| is_list_action_success(entry))
+        .count();
+    let move_action_success_count = obs
+        .action_evidence
+        .iter()
+        .filter(|entry| is_move_action_success(entry))
+        .count();
+
+    let rename_end_state_satisfied =
+        target_dir_satisfied && entries_satisfied && uppercase_absent_satisfied && scope_satisfied;
+
     let cec_execution_seen = has_cec_stage(obs, "execution", Some(true));
     let cec_verification_seen = has_cec_stage(obs, "verification", Some(true));
-    let cec_postcondition_seen =
-        has_cec_receipt(obs, "execution", "execution_artifact", Some(true))
-            || has_cec_receipt(obs, "verification", "verification_commit", Some(true))
-            || has_cec_receipt(obs, "completion_gate", "contract_gate", Some(true));
-    let cec_phase_receipts_present = cec_discovery_seen
-        && cec_provider_selection_seen
-        && cec_execution_seen
-        && cec_verification_seen;
+    let cec_contract_gate_seen =
+        has_cec_receipt(obs, "completion_gate", "contract_gate", Some(true));
+    let cec_phase_receipts_present = cec_contract_gate_seen
+        || obs.cec_receipts.is_empty()
+        || (cec_execution_seen && cec_verification_seen);
 
-    let tool_and_route_path_evidence_present = has_tool_with_token(&obs.action_tools, "sys__exec")
-        && has_tool_with_token(&obs.routing_tools, "sys__exec");
+    let action_path_seen = has_tool_with_token(&obs.action_tools, "filesystem__list_directory")
+        && has_tool_with_token(&obs.action_tools, "filesystem__move_path");
+    let routing_path_seen = has_tool_with_token(&obs.routing_tools, "filesystem__list_directory")
+        && has_tool_with_token(&obs.routing_tools, "filesystem__move_path");
+    let remote_path_seen = has_tool_with_token(&obs.action_tools, "web__")
+        || has_tool_with_token(&obs.routing_tools, "web__")
+        || has_tool_with_token(&obs.workload_tools, "web__")
+        || has_tool_with_token(&obs.action_tools, "browser__")
+        || has_tool_with_token(&obs.routing_tools, "browser__")
+        || has_tool_with_token(&obs.workload_tools, "browser__")
+        || has_tool_with_token(&obs.action_tools, "net__fetch")
+        || has_tool_with_token(&obs.routing_tools, "net__fetch")
+        || has_tool_with_token(&obs.workload_tools, "net__fetch");
+    let shell_exec_seen = has_tool_with_token(&obs.action_tools, "sys__exec")
+        || has_tool_with_token(&obs.routing_tools, "sys__exec");
+    let disallowed_mutation_seen = has_disallowed_mutating_action(obs);
+    let tool_and_route_path_evidence_present = action_path_seen
+        && routing_path_seen
+        && !remote_path_seen
+        && !shell_exec_seen
+        && !disallowed_mutation_seen;
 
     let any_contract_failure_marker = has_contract_failure_evidence(obs);
 
-    let timeout_terminal = is_timeout_terminal(obs);
+    let completion_evidence_present = obs.completed
+        && !obs.failed
+        && obs.chat_reply_count > 0
+        && !obs.final_reply.trim().is_empty();
 
-    let timeout_after_verified_execution = timeout_terminal
-        && successful_command_count > 0
-        && cec_phase_receipts_present
-        && cec_postcondition_seen
-        && !any_contract_failure_marker;
-
-    let completion_evidence_present =
-        (obs.completed && !obs.failed && obs.chat_reply_count > 0 && successful_command_count > 0)
-            || timeout_after_verified_execution;
-
-    let objective_specific_rename_evidence_present =
-        target_scope_observed && successful_command_count > 0 && rename_end_state_satisfied;
+    let objective_specific_rename_evidence_present = rename_end_state_satisfied
+        && seeded_files_satisfied
+        && list_action_success_count > 0
+        && move_action_success_count >= EXPECTED_FINAL_FILES.len()
+        && reply_mentions_target_dir
+        && reply_mentions_expected_files;
 
     let environment_receipts = build_environment_receipts(
         obs,
         fixture_mode,
-        fixture_mode_satisfied,
         fixture_probe_source,
         fixture_timestamp_ms,
         fixture_satisfied,
-        cec_phase_receipts_present,
-        cec_postcondition_seen,
-        successful_command_count,
-        target_scope_observed,
-        target_dir_path,
+        seeded_files_csv,
+        seeded_files_satisfied,
+        target_dir_path.clone(),
         target_dir_probe_source,
         target_dir_timestamp_ms,
         target_dir_satisfied,
@@ -200,12 +192,10 @@ fn evaluate(obs: &RunObservation) -> LocalJudgeResult {
         entries_satisfied,
         uppercase_absent_satisfied,
         scope_satisfied,
+        cec_phase_receipts_present,
         cleanup_probe_source,
         cleanup_timestamp_ms,
         cleanup_satisfied,
-        rename_transformation_observed,
-        lowercase_result_names_observed,
-        rename_end_state_satisfied,
     );
     let environment_receipts_satisfied =
         environment_receipts.iter().all(|receipt| receipt.satisfied);
@@ -214,7 +204,7 @@ fn evaluate(obs: &RunObservation) -> LocalJudgeResult {
         completion_evidence_present,
         objective_specific_rename_evidence_present,
         tool_and_route_path_evidence_present,
-        cec_phase_receipts_present && cec_postcondition_seen,
+        cec_phase_receipts_present,
         environment_receipts_satisfied,
         !any_contract_failure_marker,
     ]
@@ -229,37 +219,46 @@ fn evaluate(obs: &RunObservation) -> LocalJudgeResult {
             "completion_evidence_present",
             completion_evidence_present,
             format!(
-                "status={} completed={} failed={} chat_reply_count={} successful_command_count={}",
-                obs.final_status, obs.completed, obs.failed, obs.chat_reply_count, successful_command_count,
+                "status={} completed={} failed={} chat_reply_count={} reply_len={}",
+                obs.final_status,
+                obs.completed,
+                obs.failed,
+                obs.chat_reply_count,
+                obs.final_reply.chars().count()
             ),
         ),
         LocalCheck::new(
             "objective_specific_rename_evidence_present",
             objective_specific_rename_evidence_present,
             format!(
-                "target_scope_observed={} rename_transformation_observed={} successful_command_count={} command_history_count={}",
-                target_scope_observed,
-                rename_transformation_observed || rename_end_state_satisfied,
-                successful_command_count,
-                obs.command_history_evidence.len(),
+                "rename_end_state_satisfied={} seeded_files_satisfied={} list_action_success_count={} move_action_success_count={} reply_mentions_target_dir={} reply_mentions_expected_files={}",
+                rename_end_state_satisfied,
+                seeded_files_satisfied,
+                list_action_success_count,
+                move_action_success_count,
+                reply_mentions_target_dir,
+                reply_mentions_expected_files,
             ),
         ),
         LocalCheck::new(
             "tool_and_route_path_evidence_present",
             tool_and_route_path_evidence_present,
-            format!("action_tools={:?} routing_tools={:?}", obs.action_tools, obs.routing_tools),
+            format!(
+                "action_tools={:?} routing_tools={:?} workload_tools={:?} remote_path_seen={} shell_exec_seen={} disallowed_mutation_seen={}",
+                obs.action_tools,
+                obs.routing_tools,
+                obs.workload_tools,
+                remote_path_seen,
+                shell_exec_seen,
+                disallowed_mutation_seen,
+            ),
         ),
         LocalCheck::new(
             "cec_phase_receipts_present",
-            cec_phase_receipts_present && cec_postcondition_seen,
+            cec_phase_receipts_present,
             format!(
-                "discovery={} provider_selection={} execution={} verification={} postcondition={} verification_checks={:?}",
-                cec_discovery_seen,
-                cec_provider_selection_seen,
-                cec_execution_seen,
-                cec_verification_seen,
-                cec_postcondition_seen,
-                obs.verification_checks
+                "execution={} verification={} completion_gate={} cec_receipts={:?}",
+                cec_execution_seen, cec_verification_seen, cec_contract_gate_seen, obs.cec_receipts
             ),
         ),
         LocalCheck::new(
@@ -275,17 +274,15 @@ fn evaluate(obs: &RunObservation) -> LocalJudgeResult {
                     "verification_checks={:?} final_reply={} event_excerpt={:?}",
                     obs.verification_checks, obs.final_reply, obs.event_excerpt
                 ),
-                260,
+                280,
             ),
         ),
         LocalCheck::new(
             "independent_runtime_evidence_channels_present",
             independent_runtime_evidence_channels_present,
             format!(
-                "independent_channel_count={} objective_specific_rename_evidence_present={} lowercase_result_names_observed={}",
-                independent_channel_count,
-                objective_specific_rename_evidence_present,
-                lowercase_result_names_observed,
+                "independent_channel_count={} objective_specific_rename_evidence_present={}",
+                independent_channel_count, objective_specific_rename_evidence_present,
             ),
         ),
     ];
@@ -293,17 +290,15 @@ fn evaluate(obs: &RunObservation) -> LocalJudgeResult {
     LocalJudgeResult::from_checks(checks)
 }
 
+#[allow(clippy::too_many_arguments)]
 fn build_environment_receipts(
     obs: &RunObservation,
     fixture_mode: String,
-    fixture_mode_satisfied: bool,
     fixture_probe_source: String,
     fixture_timestamp_ms: u64,
     fixture_satisfied: bool,
-    cec_phase_receipts_present: bool,
-    cec_postcondition_seen: bool,
-    successful_command_count: usize,
-    target_scope_observed: bool,
+    seeded_files_csv: String,
+    seeded_files_satisfied: bool,
     target_dir_path: String,
     target_dir_probe_source: String,
     target_dir_timestamp_ms: u64,
@@ -312,52 +307,26 @@ fn build_environment_receipts(
     entries_satisfied: bool,
     uppercase_absent_satisfied: bool,
     scope_satisfied: bool,
+    cec_phase_receipts_present: bool,
     cleanup_probe_source: String,
     cleanup_timestamp_ms: u64,
     cleanup_satisfied: bool,
-    rename_transformation_observed: bool,
-    lowercase_result_names_observed: bool,
-    rename_end_state_satisfied: bool,
 ) -> Vec<EnvironmentEvidenceReceipt> {
     vec![
         EnvironmentEvidenceReceipt {
             key: "downloads_lowercase_fixture_mode_observed",
-            observed_value: fixture_mode,
+            observed_value: fixture_mode.clone(),
             probe_source: fixture_probe_source,
             timestamp_ms: fixture_timestamp_ms,
-            satisfied: fixture_mode_satisfied && fixture_satisfied,
+            satisfied: fixture_mode.eq_ignore_ascii_case(EXPECTED_FIXTURE_MODE)
+                && fixture_satisfied,
         },
         EnvironmentEvidenceReceipt {
-            key: "cec_phase_receipts_observed",
-            observed_value: format!(
-                "cec_phase_receipts_present={} cec_receipts={:?}",
-                cec_phase_receipts_present, obs.cec_receipts
-            ),
-            probe_source: "RunObservation.cec_receipts".to_string(),
+            key: "downloads_lowercase_seeded_files_observed",
+            observed_value: seeded_files_csv,
+            probe_source: "harness.downloads_lowercase_fixture".to_string(),
             timestamp_ms: obs.run_timestamp_ms,
-            satisfied: cec_phase_receipts_present,
-        },
-        EnvironmentEvidenceReceipt {
-            key: "cec_postcondition_receipt_observed",
-            observed_value: format!("cec_postcondition_seen={}", cec_postcondition_seen),
-            probe_source: "RunObservation.cec_receipts".to_string(),
-            timestamp_ms: obs.run_timestamp_ms,
-            satisfied: cec_postcondition_seen,
-        },
-        EnvironmentEvidenceReceipt {
-            key: "successful_command_execution_observed",
-            observed_value: format!("successful_command_count={}", successful_command_count),
-            probe_source: "RunObservation.command_history_evidence".to_string(),
-            timestamp_ms: obs.run_timestamp_ms,
-            satisfied: successful_command_count > 0,
-        },
-        EnvironmentEvidenceReceipt {
-            key: "isolated_target_scope_observed",
-            observed_value: format!("target_scope_observed={}", target_scope_observed),
-            probe_source: "RunObservation.command_history_evidence.command|stdout|stderr"
-                .to_string(),
-            timestamp_ms: obs.run_timestamp_ms,
-            satisfied: target_scope_observed,
+            satisfied: seeded_files_satisfied,
         },
         EnvironmentEvidenceReceipt {
             key: "downloads_lowercase_target_dir_observed",
@@ -371,7 +340,7 @@ fn build_environment_receipts(
             observed_value: entries_csv,
             probe_source: "harness.downloads_lowercase_fixture.fs_probe".to_string(),
             timestamp_ms: obs.run_timestamp_ms,
-            satisfied: entries_satisfied && lowercase_result_names_observed,
+            satisfied: entries_satisfied,
         },
         EnvironmentEvidenceReceipt {
             key: "downloads_lowercase_uppercase_absent_observed",
@@ -384,15 +353,11 @@ fn build_environment_receipts(
             satisfied: uppercase_absent_satisfied && scope_satisfied,
         },
         EnvironmentEvidenceReceipt {
-            key: "rename_transform_observed",
-            observed_value: format!(
-                "rename_transformation_observed={} rename_end_state_satisfied={} lowercase_result_names_observed={}",
-                rename_transformation_observed, rename_end_state_satisfied, lowercase_result_names_observed
-            ),
-            probe_source: "RunObservation.command_history_evidence.command|stdout|stderr"
-                .to_string(),
+            key: "downloads_lowercase_cec_receipts_observed",
+            observed_value: format!("cec_phase_receipts_present={}", cec_phase_receipts_present),
+            probe_source: "RunObservation.cec_receipts".to_string(),
             timestamp_ms: obs.run_timestamp_ms,
-            satisfied: rename_transformation_observed || rename_end_state_satisfied,
+            satisfied: cec_phase_receipts_present,
         },
         EnvironmentEvidenceReceipt {
             key: "downloads_lowercase_fixture_cleanup_observed",
@@ -402,6 +367,38 @@ fn build_environment_receipts(
             satisfied: cleanup_satisfied,
         },
     ]
+}
+
+fn is_list_action_success(entry: &super::super::types::ActionEvidence) -> bool {
+    entry
+        .tool_name
+        .eq_ignore_ascii_case("filesystem__list_directory")
+        && !entry.agent_status.eq_ignore_ascii_case("failed")
+        && !action_has_hard_error_class(entry)
+}
+
+fn is_move_action_success(entry: &super::super::types::ActionEvidence) -> bool {
+    entry
+        .tool_name
+        .eq_ignore_ascii_case("filesystem__move_path")
+        && !entry.agent_status.eq_ignore_ascii_case("failed")
+        && !action_has_hard_error_class(entry)
+}
+
+fn has_disallowed_mutating_action(obs: &RunObservation) -> bool {
+    [
+        "filesystem__write_file",
+        "filesystem__patch",
+        "filesystem__delete_path",
+        "filesystem__create_zip",
+        "filesystem__copy_path",
+    ]
+    .iter()
+    .any(|token| {
+        has_tool_with_token(&obs.action_tools, token)
+            || has_tool_with_token(&obs.routing_tools, token)
+            || has_tool_with_token(&obs.workload_tools, token)
+    })
 }
 
 fn serialize_environment_receipts(receipts: &[EnvironmentEvidenceReceipt]) -> String {

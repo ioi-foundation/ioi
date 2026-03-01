@@ -53,8 +53,7 @@ pub(crate) fn build_bing_news_rss_url(query: &str) -> String {
     if trimmed.is_empty() {
         return "https://www.bing.com/news/search?format=rss".to_string();
     }
-    let mut url =
-        Url::parse("https://www.bing.com/news/search").expect("static base url parses");
+    let mut url = Url::parse("https://www.bing.com/news/search").expect("static base url parses");
     url.query_pairs_mut()
         .append_pair("q", trimmed)
         .append_pair("format", "rss");

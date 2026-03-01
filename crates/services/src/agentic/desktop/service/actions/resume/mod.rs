@@ -16,9 +16,9 @@ use crate::agentic::desktop::keys::{get_state_key, pii, AGENT_POLICY_PREFIX};
 use crate::agentic::desktop::service::step::action::command_contract::{
     append_command_history_entry, capability_route_label, command_arms_deferred_notification_path,
     command_history_entry, command_history_exit_code, compose_terminal_chat_reply,
-    enrich_command_scope_summary, execution_contract_violation_error, extract_error_class_token, format_utc_rfc3339,
-    is_cec_terminal_error, is_command_execution_provider_tool, missing_execution_contract_markers,
-    parse_sleep_seconds, record_provider_selection_receipts,
+    enrich_command_scope_summary, execution_contract_violation_error, extract_error_class_token,
+    format_utc_rfc3339, is_cec_terminal_error, is_command_execution_provider_tool,
+    missing_execution_contract_markers, parse_sleep_seconds, record_provider_selection_receipts,
     record_timer_notification_contract_requirement, record_verification_receipts,
     render_command_preview, requires_timer_notification_contract,
     synthesize_allowlisted_timer_notification_tool, sys_exec_arms_timer_delay_backend,

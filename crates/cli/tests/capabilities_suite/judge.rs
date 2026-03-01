@@ -289,8 +289,8 @@ Payload:\n{}",
                 verdict.confidence = "medium".to_string();
             }
             if verdict.rationale.trim().is_empty() {
-                verdict.rationale = "Top-news local verification and receipt gates were satisfied."
-                    .to_string();
+                verdict.rationale =
+                    "Top-news local verification and receipt gates were satisfied.".to_string();
             }
         }
     }
@@ -497,17 +497,14 @@ fn extract_urls_from_text(text: &str) -> Vec<String> {
     let mut cursor = text;
 
     loop {
-        let start = cursor
-            .find("https://")
-            .or_else(|| cursor.find("http://"));
+        let start = cursor.find("https://").or_else(|| cursor.find("http://"));
         let Some(start) = start else {
             break;
         };
         let remainder = &cursor[start..];
         let end = remainder
             .find(|ch: char| {
-                ch.is_whitespace()
-                    || matches!(ch, ')' | '(' | ']' | '[' | '<' | '>' | '"' | '\'')
+                ch.is_whitespace() || matches!(ch, ')' | '(' | ']' | '[' | '<' | '>' | '"' | '\'')
             })
             .unwrap_or(remainder.len());
         let candidate = remainder[..end]
