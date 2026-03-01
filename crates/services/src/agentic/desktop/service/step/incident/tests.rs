@@ -31,6 +31,7 @@ fn incident_gate_blocks_non_recoverable_classes() {
 fn policy_max_transitions_defaults_to_ontology_policy() {
     let rules = ActionRules {
         ontology_policy: OntologyPolicy {
+            planning_enabled: true,
             approval_mode: ApprovalMode::SinglePending,
             max_incident_transitions: 19,
             intent_failure_overrides: Vec::new(),

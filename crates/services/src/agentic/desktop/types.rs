@@ -15,6 +15,7 @@ pub const MESSAGE_SANITIZED_PLACEHOLDER: &str = "[REDACTED_PII]";
 pub const DEFAULT_MESSAGE_REDACTION_VERSION: &str = "v1";
 pub const DEFAULT_MESSAGE_PRIVACY_POLICY_ID: &str = "desktop-agent/default";
 pub const DEFAULT_MESSAGE_PRIVACY_POLICY_VERSION: &str = "1";
+pub const PLANNER_SCHEMA_VERSION_V1: &str = "planner.v1";
 
 #[derive(Debug, Clone, Serialize, Deserialize, Encode, Decode, PartialEq, Eq)]
 pub struct InteractionTarget {
@@ -86,6 +87,136 @@ pub struct ExecutionPlanState {
     pub selected_route: String,
     pub status: String,
     pub worker_assignments: Vec<WorkerAssignment>,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, Encode, Decode, PartialEq, Eq, Default)]
+#[serde(rename_all = "snake_case")]
+pub enum PlannerStepKind {
+    #[default]
+    ToolCallIntent,
+    Clarification,
+    Wait,
+    Completion,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, Encode, Decode, PartialEq, Eq, Default)]
+#[serde(rename_all = "snake_case")]
+pub enum PlannerStepStatus {
+    #[default]
+    Pending,
+    Dispatched,
+    Succeeded,
+    Blocked,
+    RetryableFailed,
+    TerminalFailed,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Encode, Decode, PartialEq, Eq)]
+#[serde(default)]
+pub struct PlanStepConstraint {
+    pub max_retries: u8,
+    pub retry_eligible: bool,
+    pub requires_approval: bool,
+    pub timeout_ms: Option<u64>,
+}
+
+impl Default for PlanStepConstraint {
+    fn default() -> Self {
+        Self {
+            max_retries: 1,
+            retry_eligible: false,
+            requires_approval: false,
+            timeout_ms: None,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Encode, Decode, PartialEq, Eq)]
+#[serde(default)]
+pub struct PlanStep {
+    pub step_id: String,
+    pub kind: PlannerStepKind,
+    pub tool_name: Option<String>,
+    pub arguments_json: Option<String>,
+    pub constraints: PlanStepConstraint,
+    pub depends_on: Vec<String>,
+    pub status: PlannerStepStatus,
+    pub receipts: Vec<String>,
+}
+
+impl Default for PlanStep {
+    fn default() -> Self {
+        Self {
+            step_id: String::new(),
+            kind: PlannerStepKind::ToolCallIntent,
+            tool_name: None,
+            arguments_json: None,
+            constraints: PlanStepConstraint::default(),
+            depends_on: Vec::new(),
+            status: PlannerStepStatus::Pending,
+            receipts: Vec::new(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, Encode, Decode, PartialEq, Eq, Default)]
+#[serde(rename_all = "snake_case")]
+pub enum PlannerStatus {
+    #[default]
+    Draft,
+    Ready,
+    Running,
+    Completed,
+    Failed,
+    Blocked,
+}
+
+#[derive(
+    Debug, Clone, Copy, Serialize, Deserialize, Encode, Decode, PartialEq, Eq, PartialOrd, Ord,
+)]
+#[serde(rename_all = "snake_case")]
+pub enum PlannerDiscoveryRequirement {
+    ResolvedIntent,
+    InteractionTarget,
+    VisualContext,
+    PendingSearchContext,
+    ActiveLens,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Encode, Decode, PartialEq, Eq)]
+#[serde(default)]
+pub struct PlannerState {
+    pub plan_id: String,
+    pub plan_schema_version: String,
+    pub goal_hash: [u8; 32],
+    pub intent_receipt_hash: [u8; 32],
+    pub plan_hash: [u8; 32],
+    pub discovery_requirements: Vec<PlannerDiscoveryRequirement>,
+    pub steps: Vec<PlanStep>,
+    pub cursor: u32,
+    pub replan_count: u32,
+    pub status: PlannerStatus,
+    pub last_replan_reason: Option<String>,
+    pub last_batch: Vec<String>,
+}
+
+impl Default for PlannerState {
+    fn default() -> Self {
+        Self {
+            plan_id: String::new(),
+            plan_schema_version: PLANNER_SCHEMA_VERSION_V1.to_string(),
+            goal_hash: [0u8; 32],
+            intent_receipt_hash: [0u8; 32],
+            plan_hash: [0u8; 32],
+            discovery_requirements: Vec::new(),
+            steps: Vec::new(),
+            cursor: 0,
+            replan_count: 0,
+            status: PlannerStatus::Draft,
+            last_replan_reason: None,
+            last_batch: Vec::new(),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Encode, Decode, PartialEq, Eq)]
@@ -253,6 +384,9 @@ pub struct AgentState {
 
     #[serde(default)]
     pub pending_search_completion: Option<PendingSearchCompletion>,
+
+    #[serde(default)]
+    pub planner_state: Option<PlannerState>,
 
     #[serde(default)]
     pub active_skill_hash: Option<[u8; 32]>,

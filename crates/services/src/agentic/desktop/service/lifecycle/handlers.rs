@@ -170,6 +170,7 @@ pub async fn handle_start(
         working_directory: ".".to_string(),
         active_lens: None,
         pending_search_completion: None,
+        planner_state: None,
         command_history: Default::default(),
     };
     state.insert(&key, &codec::to_bytes_canonical(&agent_state)?)?;
@@ -486,6 +487,7 @@ mod tests {
             last_screen_phash: None,
             execution_queue: vec![],
             pending_search_completion: Some(PendingSearchCompletion::default()),
+            planner_state: None,
             active_skill_hash: None,
             tool_execution_log: BTreeMap::new(),
             visual_som_map: None,

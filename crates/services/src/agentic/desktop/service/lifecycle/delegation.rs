@@ -96,6 +96,7 @@ pub async fn spawn_delegated_child_session(
         last_screen_phash: None,
         execution_queue: Vec::new(),
         pending_search_completion: None,
+        planner_state: None,
         active_skill_hash: None,
         tool_execution_log: Default::default(),
         visual_som_map: None,

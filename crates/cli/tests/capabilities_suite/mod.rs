@@ -49,7 +49,7 @@ fn should_emit_kernel_log_dump(
 
 fn configured_execution_profile() -> Result<Option<ExecutionProfile>> {
     let raw = std::env::var("CAPABILITIES_PROFILE")
-        .unwrap_or_else(|_| "hermetic".to_string())
+        .unwrap_or_else(|_| "all".to_string())
         .trim()
         .to_ascii_lowercase();
     match raw.as_str() {
@@ -114,7 +114,7 @@ pub async fn run_capabilities_suite() -> Result<()> {
     if cases.is_empty() {
         return Err(anyhow!(
             "no capabilities cases selected for CAPABILITIES_PROFILE={}",
-            std::env::var("CAPABILITIES_PROFILE").unwrap_or_else(|_| "hermetic".to_string())
+            std::env::var("CAPABILITIES_PROFILE").unwrap_or_else(|_| "all".to_string())
         ));
     }
 

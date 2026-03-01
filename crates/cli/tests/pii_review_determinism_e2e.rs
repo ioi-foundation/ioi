@@ -166,6 +166,7 @@ fn build_agent_state(session_id: [u8; 32], tool_jcs: Vec<u8>, tool_hash: [u8; 32
         last_screen_phash: None,
         execution_queue: vec![],
         pending_search_completion: None,
+        planner_state: None,
         active_skill_hash: None,
         tool_execution_log: BTreeMap::new(),
         visual_som_map: None,

@@ -580,8 +580,9 @@ fn web_pipeline_constraint_grounded_probe_query_avoids_host_exclusions_for_incid
         },
     ];
     let grounded = constraint_grounded_search_query_with_hints(query, 3, &hints);
-    let probe =
-        constraint_grounded_probe_query_with_hints_and_locality_hint(query, 3, &hints, &grounded, None);
+    let probe = constraint_grounded_probe_query_with_hints_and_locality_hint(
+        query, 3, &hints, &grounded, None,
+    );
     if let Some(candidate) = probe {
         let normalized = candidate.to_ascii_lowercase();
         assert!(

@@ -24,6 +24,9 @@ use crate::agentic::desktop::service::step::incident::{
     start_or_continue_incident_recovery, ApprovalDirective, IncidentDirective,
 };
 use crate::agentic::desktop::service::step::intent_resolver::is_tool_allowed_for_resolution;
+use crate::agentic::desktop::service::step::planner::{
+    self, PlannerDispatchMatch, PLANNER_FALLBACK_REASON_EXECUTOR_MISMATCH,
+};
 use crate::agentic::desktop::service::{DesktopAgentService, ServiceCallContext};
 use crate::agentic::desktop::types::{AgentState, AgentStatus, StepAgentParams};
 use crate::agentic::desktop::utils::goto_trace_log;
@@ -397,19 +400,88 @@ pub async fn process_queue_item(
         })
         .unwrap_or(false);
     let mut verification_checks = Vec::new();
+    let action_request_hash_hex = hex::encode(action_request.hash());
+    let resolved_intent_snapshot = agent_state.resolved_intent.clone();
+    let mut planner_step_index: Option<usize> = None;
+
+    let mut planner_executor_mismatch_reason: Option<String> = None;
+    if let Some(planner_state) = agent_state.planner_state.as_ref() {
+        if let Some(dispatch_match) =
+            planner::match_dispatched_step_for_execution(planner_state, &tool_name, &intent_args)?
+        {
+            match dispatch_match {
+                PlannerDispatchMatch::Matched {
+                    step_index,
+                    step_id,
+                } => {
+                    planner_step_index = Some(step_index);
+                    verification_checks.push("planner_executor_match=true".to_string());
+                    verification_checks.push(format!("planner_step_id={}", step_id));
+                }
+                PlannerDispatchMatch::Mismatch {
+                    step_index,
+                    step_id,
+                    expected_tool_name,
+                } => {
+                    let reason = format!(
+                        "ERROR_CLASS=PolicyBlocked {} expected='{}' observed='{}' step_id='{}'",
+                        PLANNER_FALLBACK_REASON_EXECUTOR_MISMATCH,
+                        expected_tool_name,
+                        tool_name,
+                        step_id
+                    );
+                    planner_step_index = Some(step_index);
+                    planner_executor_mismatch_reason = Some(reason);
+                    verification_checks.push("planner_executor_match=false".to_string());
+                    verification_checks.push(format!(
+                        "planner_executor_expected_tool={}",
+                        expected_tool_name
+                    ));
+                    verification_checks.push(format!("planner_step_id={}", step_id));
+                }
+            }
+        }
+    }
+
+    if let Some(reason) = planner_executor_mismatch_reason.as_deref() {
+        policy_decision = "denied".to_string();
+        if let Some(step_index) = planner_step_index {
+            if let Some(planner_state) = agent_state.planner_state.as_mut() {
+                planner::record_planner_step_outcome(
+                    planner_state,
+                    step_index,
+                    false,
+                    true,
+                    true,
+                    Some(reason),
+                    Some(action_request_hash_hex.as_str()),
+                    resolved_intent_snapshot.as_ref(),
+                )?;
+                planner::mark_planner_fallback(
+                    planner_state,
+                    PLANNER_FALLBACK_REASON_EXECUTOR_MISMATCH,
+                    resolved_intent_snapshot.as_ref(),
+                );
+            }
+        }
+    }
 
     // Execute
-    let result_tuple = execute_queue_tool_request(
-        service,
-        state,
-        call_context,
-        agent_state,
-        tool_wrapper.clone(),
-        &tool_name,
-        &rules,
-        p.session_id,
-    )
-    .await;
+    let result_tuple = if let Some(reason) = planner_executor_mismatch_reason.clone() {
+        Ok((false, None, Some(reason), None))
+    } else {
+        execute_queue_tool_request(
+            service,
+            state,
+            call_context,
+            agent_state,
+            tool_wrapper.clone(),
+            &tool_name,
+            &rules,
+            p.session_id,
+        )
+        .await
+    };
 
     let mut is_gated = false;
     let mut awaiting_sudo_password = false;
@@ -752,6 +824,35 @@ pub async fn process_queue_item(
         &mut verification_checks,
     )
     .await?;
+
+    if planner_executor_mismatch_reason.is_none() {
+        if let Some(step_index) = planner_step_index {
+            let planner_blocked = is_gated
+                || awaiting_sudo_password
+                || awaiting_clarification
+                || policy_decision == "denied";
+            let planner_terminal_failure = !success && stop_condition_hit;
+            if let Some(planner_state) = agent_state.planner_state.as_mut() {
+                planner::record_planner_step_outcome(
+                    planner_state,
+                    step_index,
+                    success,
+                    planner_blocked,
+                    planner_terminal_failure,
+                    err.as_deref(),
+                    Some(action_request_hash_hex.as_str()),
+                    resolved_intent_snapshot.as_ref(),
+                )?;
+            }
+            verification_checks.push("planner_step_outcome_recorded=true".to_string());
+            verification_checks.push(format!("planner_step_index={}", step_index));
+            verification_checks.push(format!("planner_step_blocked={}", planner_blocked));
+            verification_checks.push(format!(
+                "planner_step_terminal_failure={}",
+                planner_terminal_failure
+            ));
+        }
+    }
 
     verification_checks.push(format!("policy_decision={}", policy_decision));
     verification_checks.push(format!("was_gated={}", is_gated));
