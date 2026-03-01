@@ -5,6 +5,7 @@ use crate::app::SignatureSuite;
 use dcrypt::algorithms::hash::HashFunction;
 use parity_scale_codec::{Decode, Encode};
 use serde::{Deserialize, Serialize};
+use thiserror::Error;
 
 /// The target capability domain of an action.
 /// This enum maps directly to the `cap:*` scopes defined in the Agency Firewall policy.
@@ -162,33 +163,339 @@ pub struct ActionRequest {
     pub nonce: u64,
 }
 
+/// Errors returned while canonicalizing or hashing an [`ActionRequest`].
+#[derive(Debug, Error)]
+pub enum ActionHashError {
+    /// `params` bytes were not valid JSON and could not be normalized.
+    #[error("action params must be valid JSON: {0}")]
+    InvalidParamsJson(String),
+    /// RFC 8785 JCS canonicalization failed.
+    #[error("action request canonicalization failed: {0}")]
+    Canonicalization(String),
+    /// SHA-256 hashing failed.
+    #[error("action request hashing failed: {0}")]
+    Hash(String),
+}
+
+#[derive(Debug, Serialize)]
+struct ActionContextHashMaterial<'a> {
+    agent_id: &'a str,
+    session_id: Option<[u8; 32]>,
+    window_id: Option<u64>,
+}
+
+#[derive(Debug, Serialize)]
+struct ActionRequestHashMaterial<'a> {
+    target: String,
+    params: serde_json::Value,
+    context: ActionContextHashMaterial<'a>,
+    nonce: u64,
+}
+
 impl ActionRequest {
+    /// Returns deterministic RFC 8785 JCS bytes for this request.
+    pub fn canonical_bytes(&self) -> Result<Vec<u8>, ActionHashError> {
+        let params_value = serde_json::from_slice(&self.params)
+            .map_err(|e| ActionHashError::InvalidParamsJson(e.to_string()))?;
+
+        let material = ActionRequestHashMaterial {
+            target: self.target.canonical_label(),
+            params: params_value,
+            context: ActionContextHashMaterial {
+                agent_id: &self.context.agent_id,
+                session_id: self.context.session_id,
+                window_id: self.context.window_id,
+            },
+            nonce: self.nonce,
+        };
+
+        serde_jcs::to_vec(&material).map_err(|e| ActionHashError::Canonicalization(e.to_string()))
+    }
+
     /// Creates a deterministic hash of the action request for signing or logging.
-    pub fn hash(&self) -> [u8; 32] {
+    /// Hashing is fail-closed: invalid/canonicalization failures are returned as errors.
+    pub fn try_hash(&self) -> Result<[u8; 32], ActionHashError> {
         use dcrypt::algorithms::hash::Sha256;
 
-        let mut data = Vec::new();
-        // Naive serialization for hashing placeholder
-        data.extend_from_slice(&self.nonce.to_le_bytes());
-        data.extend_from_slice(&self.params);
-        if let Some(sid) = self.context.session_id {
-            data.extend_from_slice(&sid);
-        }
-
-        // Include Target in hash to prevent semantic aliasing
-        // We use the JSON serialization of the target enum to ensure unique representation
-        if let Ok(target_bytes) = serde_json::to_vec(&self.target) {
-            data.extend_from_slice(&target_bytes);
-        }
-
-        // Include Agent ID to prevent cross-agent replay
-        data.extend_from_slice(self.context.agent_id.as_bytes());
-
-        let digest = Sha256::digest(&data).expect("Sha256 failed");
+        let canonical = self.canonical_bytes()?;
+        let digest =
+            Sha256::digest(&canonical).map_err(|e| ActionHashError::Hash(e.to_string()))?;
         let mut out = [0u8; 32];
         out.copy_from_slice(digest.as_ref());
-        out
+        Ok(out)
     }
+
+    /// Creates a deterministic hash of the action request.
+    /// For call sites that cannot fail yet, this panics on invalid/non-canonical inputs.
+    pub fn hash(&self) -> [u8; 32] {
+        self.try_hash()
+            .expect("ActionRequest::hash failed: request must be JSON and JCS canonicalizable")
+    }
+}
+
+fn default_committed_action_schema_version() -> u16 {
+    1
+}
+
+/// State key prefix for persisted deterministic commit artifacts.
+pub const DETERMINISM_COMMIT_STATE_PREFIX: &[u8] = b"agentic:determinism:commit:v1:";
+/// State key prefix for persisted deterministic verification evidence bundles.
+pub const DETERMINISM_EVIDENCE_STATE_PREFIX: &[u8] = b"agentic:determinism:evidence:v1:";
+/// State key prefix for persisted deterministic step contract evidence bundles.
+pub const DETERMINISM_STEP_CONTRACT_STATE_PREFIX: &[u8] = b"agentic:determinism:contract:v1:";
+
+/// Errors returned while creating or verifying a [`CommittedAction`].
+#[derive(Debug, Error)]
+pub enum CommittedActionError {
+    /// Failed to hash the bound action request.
+    #[error(transparent)]
+    RequestHash(#[from] ActionHashError),
+    /// RFC 8785 JCS canonicalization failed for commitment material.
+    #[error("committed action canonicalization failed: {0}")]
+    Canonicalization(String),
+    /// SHA-256 hashing failed for commitment material.
+    #[error("committed action hashing failed: {0}")]
+    Hash(String),
+    /// Schema version mismatch while verifying a committed action.
+    #[error("committed action schema mismatch: expected {expected}, found {found}")]
+    SchemaMismatch {
+        /// Expected schema version.
+        expected: u16,
+        /// Found schema version in the artifact.
+        found: u16,
+    },
+    /// The bound action request hash does not match the committed hash.
+    #[error("committed action request hash mismatch")]
+    RequestHashMismatch,
+    /// The bound policy hash does not match the expected active policy hash.
+    #[error("committed action policy hash mismatch")]
+    PolicyHashMismatch,
+    /// The bound window context does not match the request context.
+    #[error("committed action window binding mismatch")]
+    WindowBindingMismatch,
+    /// The approval reference does not match expected approval linkage.
+    #[error("committed action approval reference mismatch")]
+    ApprovalRefMismatch,
+    /// The commitment hash does not match recomputed commitment material.
+    #[error("committed action commitment hash mismatch")]
+    CommitmentHashMismatch,
+}
+
+#[derive(Debug, Serialize)]
+struct CommittedActionHashMaterial {
+    schema_version: u16,
+    request_hash: [u8; 32],
+    policy_hash: [u8; 32],
+    window_id: Option<u64>,
+    approval_ref: Option<[u8; 32]>,
+}
+
+/// Deterministic commit artifact that gates side effects.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Encode, Decode)]
+pub struct CommittedAction {
+    /// Schema version for this commit artifact format.
+    #[serde(default = "default_committed_action_schema_version")]
+    pub schema_version: u16,
+    /// Canonical hash of the bound [`ActionRequest`].
+    pub request_hash: [u8; 32],
+    /// Canonical hash of the active policy ruleset used for authorization.
+    pub policy_hash: [u8; 32],
+    /// Optional deterministic window binding used for UI/browser execution context.
+    pub window_id: Option<u64>,
+    /// Optional hash reference to the approval artifact authorizing this action.
+    #[serde(default)]
+    pub approval_ref: Option<[u8; 32]>,
+    /// Canonical hash of the commitment material.
+    pub commitment_hash: [u8; 32],
+}
+
+impl CommittedAction {
+    /// Builds a deterministic commitment for an authorized action.
+    pub fn commit(
+        request: &ActionRequest,
+        policy_hash: [u8; 32],
+        approval_ref: Option<[u8; 32]>,
+    ) -> Result<Self, CommittedActionError> {
+        let request_hash = request.try_hash()?;
+        let window_id = request.context.window_id;
+        let commitment_hash =
+            Self::compute_commitment_hash(request_hash, policy_hash, window_id, approval_ref)?;
+
+        Ok(Self {
+            schema_version: default_committed_action_schema_version(),
+            request_hash,
+            policy_hash,
+            window_id,
+            approval_ref,
+            commitment_hash,
+        })
+    }
+
+    /// Verifies the commitment against the request, expected policy hash, and approval reference.
+    pub fn verify(
+        &self,
+        request: &ActionRequest,
+        expected_policy_hash: [u8; 32],
+        expected_approval_ref: Option<[u8; 32]>,
+    ) -> Result<(), CommittedActionError> {
+        let expected_schema = default_committed_action_schema_version();
+        if self.schema_version != expected_schema {
+            return Err(CommittedActionError::SchemaMismatch {
+                expected: expected_schema,
+                found: self.schema_version,
+            });
+        }
+
+        let request_hash = request.try_hash()?;
+        if self.request_hash != request_hash {
+            return Err(CommittedActionError::RequestHashMismatch);
+        }
+        if self.policy_hash != expected_policy_hash {
+            return Err(CommittedActionError::PolicyHashMismatch);
+        }
+
+        let expected_window = request.context.window_id;
+        if self.window_id != expected_window {
+            return Err(CommittedActionError::WindowBindingMismatch);
+        }
+        if self.approval_ref != expected_approval_ref {
+            return Err(CommittedActionError::ApprovalRefMismatch);
+        }
+
+        let expected_commitment = Self::compute_commitment_hash(
+            self.request_hash,
+            self.policy_hash,
+            self.window_id,
+            self.approval_ref,
+        )?;
+        if self.commitment_hash != expected_commitment {
+            return Err(CommittedActionError::CommitmentHashMismatch);
+        }
+
+        Ok(())
+    }
+
+    fn compute_commitment_hash(
+        request_hash: [u8; 32],
+        policy_hash: [u8; 32],
+        window_id: Option<u64>,
+        approval_ref: Option<[u8; 32]>,
+    ) -> Result<[u8; 32], CommittedActionError> {
+        use dcrypt::algorithms::hash::Sha256;
+
+        let material = CommittedActionHashMaterial {
+            schema_version: default_committed_action_schema_version(),
+            request_hash,
+            policy_hash,
+            window_id,
+            approval_ref,
+        };
+
+        let canonical = serde_jcs::to_vec(&material)
+            .map_err(|e| CommittedActionError::Canonicalization(e.to_string()))?;
+        let digest =
+            Sha256::digest(&canonical).map_err(|e| CommittedActionError::Hash(e.to_string()))?;
+        let mut out = [0u8; 32];
+        out.copy_from_slice(digest.as_ref());
+        Ok(out)
+    }
+}
+
+fn default_determinism_evidence_schema_version() -> u16 {
+    1
+}
+
+/// Deterministic evidence bundle persisted for public verification.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Encode, Decode)]
+pub struct DeterminismEvidence {
+    /// Schema version for this evidence bundle.
+    #[serde(default = "default_determinism_evidence_schema_version")]
+    pub schema_version: u16,
+    /// Canonical action request that was committed before side effects.
+    pub request: ActionRequest,
+    /// Committed action artifact bound to `request`.
+    pub committed_action: CommittedAction,
+    /// Whether this commit was recorded as a retry/recovery action.
+    #[serde(default)]
+    pub recovery_retry: bool,
+    /// Optional machine-readable retry/recovery reason.
+    #[serde(default)]
+    pub recovery_reason: Option<String>,
+}
+
+impl DeterminismEvidence {
+    /// Returns the expected schema version for deterministic evidence bundles.
+    pub fn schema_version() -> u16 {
+        default_determinism_evidence_schema_version()
+    }
+}
+
+/// Constructs the canonical state key for a persisted committed action.
+pub fn determinism_commit_state_key(session_id: [u8; 32], step_index: u32) -> Vec<u8> {
+    let mut key = Vec::with_capacity(
+        DETERMINISM_COMMIT_STATE_PREFIX.len() + session_id.len() + std::mem::size_of::<u32>(),
+    );
+    key.extend_from_slice(DETERMINISM_COMMIT_STATE_PREFIX);
+    key.extend_from_slice(&session_id);
+    key.extend_from_slice(&step_index.to_be_bytes());
+    key
+}
+
+/// Constructs the canonical state key for a persisted determinism evidence bundle.
+pub fn determinism_evidence_state_key(session_id: [u8; 32], step_index: u32) -> Vec<u8> {
+    let mut key = Vec::with_capacity(
+        DETERMINISM_EVIDENCE_STATE_PREFIX.len() + session_id.len() + std::mem::size_of::<u32>(),
+    );
+    key.extend_from_slice(DETERMINISM_EVIDENCE_STATE_PREFIX);
+    key.extend_from_slice(&session_id);
+    key.extend_from_slice(&step_index.to_be_bytes());
+    key
+}
+
+fn default_determinism_step_contract_schema_version() -> u16 {
+    1
+}
+
+/// Deterministic step-scoped completion evidence used to verify required receipt sets.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Encode, Decode)]
+pub struct DeterminismStepContractEvidence {
+    /// Schema version for this step contract evidence format.
+    #[serde(default = "default_determinism_step_contract_schema_version")]
+    pub schema_version: u16,
+    /// Resolved intent identifier associated with the completed step.
+    pub intent_id: String,
+    /// Receipts observed for this step.
+    #[serde(default)]
+    pub receipts: Vec<String>,
+    /// Postconditions observed for this step.
+    #[serde(default)]
+    pub postconditions: Vec<String>,
+    /// Whether the step was executed as an explicit retry/recovery action.
+    #[serde(default)]
+    pub recovery_retry: bool,
+    /// Optional machine-readable recovery reason.
+    #[serde(default)]
+    pub recovery_reason: Option<String>,
+}
+
+impl DeterminismStepContractEvidence {
+    /// Returns the expected schema version for step contract evidence bundles.
+    pub fn schema_version() -> u16 {
+        default_determinism_step_contract_schema_version()
+    }
+}
+
+/// Constructs the canonical state key for step-scoped deterministic contract evidence.
+pub fn determinism_step_contract_state_key(session_id: [u8; 32], step_index: u32) -> Vec<u8> {
+    let mut key = Vec::with_capacity(
+        DETERMINISM_STEP_CONTRACT_STATE_PREFIX.len()
+            + session_id.len()
+            + std::mem::size_of::<u32>(),
+    );
+    key.extend_from_slice(DETERMINISM_STEP_CONTRACT_STATE_PREFIX);
+    key.extend_from_slice(&session_id);
+    key.extend_from_slice(&step_index.to_be_bytes());
+    key
 }
 
 // -----------------------------------------------------------------------------
@@ -291,4 +598,58 @@ pub struct FirewallDecisionReceipt {
     pub prev_receipt_hash: [u8; 32],
     /// Guardian attestation over the fields above.
     pub guardian_sig: Vec<u8>,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{
+        ActionContext, ActionHashError, ActionRequest, ActionTarget, CommittedAction,
+        CommittedActionError,
+    };
+
+    fn base_request(window_id: Option<u64>) -> ActionRequest {
+        ActionRequest {
+            target: ActionTarget::GuiClick,
+            params: serde_jcs::to_vec(&serde_json::json!({
+                "x": 10,
+                "y": 20,
+                "button": "left",
+            }))
+            .expect("params should canonicalize"),
+            context: ActionContext {
+                agent_id: "desktop_agent".to_string(),
+                session_id: Some([7u8; 32]),
+                window_id,
+            },
+            nonce: 1,
+        }
+    }
+
+    #[test]
+    fn action_request_hash_changes_when_window_binding_changes() {
+        let a = base_request(Some(111));
+        let b = base_request(Some(222));
+
+        assert_ne!(a.try_hash().expect("hash"), b.try_hash().expect("hash"));
+    }
+
+    #[test]
+    fn action_request_try_hash_rejects_non_json_params() {
+        let mut req = base_request(Some(5));
+        req.params = vec![0xFF, 0xFE];
+
+        let err = req.try_hash().expect_err("invalid json params should fail");
+        assert!(matches!(err, ActionHashError::InvalidParamsJson(_)));
+    }
+
+    #[test]
+    fn committed_action_verify_rejects_policy_hash_mismatch() {
+        let req = base_request(Some(1));
+        let committed = CommittedAction::commit(&req, [1u8; 32], None).expect("commit");
+
+        let err = committed
+            .verify(&req, [2u8; 32], None)
+            .expect_err("policy mismatch should fail");
+        assert!(matches!(err, CommittedActionError::PolicyHashMismatch));
+    }
 }

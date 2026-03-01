@@ -375,7 +375,6 @@ pub async fn process_queue_item(
     // Re-construct a typed AgentTool from ActionRequest.
     let tool_wrapper = queue_action_request_to_tool(&action_request)?;
     let tool_jcs = serde_jcs::to_vec(&tool_wrapper)
-        .or_else(|_| serde_json::to_vec(&tool_wrapper))
         .map_err(|e| TransactionError::Serialization(e.to_string()))?;
     let (tool_name, intent_args) = canonical_tool_identity(&tool_wrapper);
     let action_json = serde_json::to_string(&tool_wrapper).unwrap_or_else(|_| "{}".to_string());

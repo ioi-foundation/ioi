@@ -333,7 +333,6 @@ pub(crate) fn queue_web_read_from_pipeline(
         return Ok(false);
     }
     let params = serde_jcs::to_vec(&json!({ "url": trimmed }))
-        .or_else(|_| serde_json::to_vec(&json!({ "url": trimmed })))
         .map_err(|e| TransactionError::Serialization(e.to_string()))?;
     let request = ActionRequest {
         target: ActionTarget::WebRetrieve,
@@ -372,12 +371,6 @@ pub(crate) fn queue_web_search_from_pipeline(
         "query": trimmed,
         "limit": limit.max(1),
     }))
-    .or_else(|_| {
-        serde_json::to_vec(&json!({
-            "query": trimmed,
-            "limit": limit.max(1),
-        }))
-    })
     .map_err(|e| TransactionError::Serialization(e.to_string()))?;
     let request = ActionRequest {
         target: ActionTarget::WebRetrieve,

@@ -40,20 +40,10 @@ pub fn build_attempt_key(
 }
 
 pub fn attempt_key_hash(attempt_key: &AttemptKey) -> String {
-    let canonical_bytes = serde_jcs::to_vec(attempt_key).unwrap_or_else(|_| {
-        format!(
-            "{}::{}::{}::{}::{}",
-            attempt_key.intent_hash,
-            attempt_key.tier,
-            attempt_key.tool_name,
-            attempt_key.target_id.as_deref().unwrap_or(""),
-            attempt_key.window_fingerprint.as_deref().unwrap_or("")
-        )
-        .into_bytes()
-    });
-    sha256(&canonical_bytes)
-        .map(hex::encode)
-        .unwrap_or_else(|_| String::new())
+    let canonical_bytes =
+        serde_jcs::to_vec(attempt_key).expect("attempt_key_hash: JCS canonicalization failed");
+    let digest = sha256(&canonical_bytes).expect("attempt_key_hash: sha256 failed");
+    hex::encode(digest)
 }
 
 pub fn failure_attempt_fingerprint(failure_class: FailureClass, attempt_key_hash: &str) -> String {

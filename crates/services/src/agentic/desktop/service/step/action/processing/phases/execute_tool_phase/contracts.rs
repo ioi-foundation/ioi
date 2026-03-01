@@ -28,8 +28,7 @@ pub(super) fn bootstrap_contract(
     let synthesized_payload_hash = synthesized_payload_hash_for_tool(tool);
     let route_label = capability_route_label(tool);
 
-    if command_scope
-        && route_label.is_some()
+    if route_label.is_some()
         && !has_execution_receipt(&agent_state.tool_execution_log, "host_discovery")
     {
         let timestamp_ms = SystemTime::now()
@@ -92,50 +91,48 @@ pub(super) fn bootstrap_contract(
 
     if let Some(route_label) = route_label {
         verification_checks.push(format!("capability_route_selected={}", route_label));
-        if command_scope {
-            record_provider_selection_receipts(
-                &mut agent_state.tool_execution_log,
-                verification_checks,
-                current_tool_name,
-                route_label,
-            );
-            emit_execution_contract_receipt_event(
-                service,
-                session_id,
-                step_index,
-                &resolved_intent_id,
-                "provider_selection",
-                "provider_selection",
-                true,
-                &format!("route_label={}", route_label),
-                None,
-                Some(route_label.to_string()),
-                synthesized_payload_hash.clone(),
-            );
-            let provider_selection_commit = execution_receipt_value(
-                &agent_state.tool_execution_log,
-                PROVIDER_SELECTION_COMMIT_RECEIPT,
-            )
-            .map(str::to_string);
-            emit_execution_contract_receipt_event(
-                service,
-                session_id,
-                step_index,
-                &resolved_intent_id,
-                "provider_selection",
-                PROVIDER_SELECTION_COMMIT_RECEIPT,
-                provider_selection_commit
-                    .as_deref()
-                    .map(|value| value.starts_with("sha256:"))
-                    .unwrap_or(false),
-                provider_selection_commit
-                    .as_deref()
-                    .unwrap_or("provider_selection_commit=missing"),
-                None,
-                Some(route_label.to_string()),
-                synthesized_payload_hash.clone(),
-            );
-        }
+        record_provider_selection_receipts(
+            &mut agent_state.tool_execution_log,
+            verification_checks,
+            current_tool_name,
+            route_label,
+        );
+        emit_execution_contract_receipt_event(
+            service,
+            session_id,
+            step_index,
+            &resolved_intent_id,
+            "provider_selection",
+            "provider_selection",
+            true,
+            &format!("route_label={}", route_label),
+            None,
+            Some(route_label.to_string()),
+            synthesized_payload_hash.clone(),
+        );
+        let provider_selection_commit = execution_receipt_value(
+            &agent_state.tool_execution_log,
+            PROVIDER_SELECTION_COMMIT_RECEIPT,
+        )
+        .map(str::to_string);
+        emit_execution_contract_receipt_event(
+            service,
+            session_id,
+            step_index,
+            &resolved_intent_id,
+            "provider_selection",
+            PROVIDER_SELECTION_COMMIT_RECEIPT,
+            provider_selection_commit
+                .as_deref()
+                .map(|value| value.starts_with("sha256:"))
+                .unwrap_or(false),
+            provider_selection_commit
+                .as_deref()
+                .unwrap_or("provider_selection_commit=missing"),
+            None,
+            Some(route_label.to_string()),
+            synthesized_payload_hash.clone(),
+        );
     }
 
     if command_scope && is_command_execution_provider_tool(tool) {

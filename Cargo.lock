@@ -7715,6 +7715,7 @@ dependencies = [
  "prost 0.13.5",
  "schemars 0.8.22",
  "serde",
+ "serde_jcs",
  "serde_json",
  "thiserror 1.0.69",
  "toml 0.8.23",

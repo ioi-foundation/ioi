@@ -817,7 +817,6 @@ pub async fn start_or_continue_incident_recovery(
     )?;
 
     let recovery_tool_jcs = serde_jcs::to_vec(&recovery_tool)
-        .or_else(|_| serde_json::to_vec(&recovery_tool))
         .map_err(|e| TransactionError::Serialization(e.to_string()))?;
     let recovery_fingerprint = action_fingerprint_from_tool_jcs(&recovery_tool_jcs);
     let fp = tool_fingerprint(&recovery_tool);

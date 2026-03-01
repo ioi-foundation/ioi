@@ -22,7 +22,16 @@ impl PolicyEngine {
         os_driver: &Arc<dyn OsDriver>,
         presented_approval: Option<&ApprovalToken>,
     ) -> Verdict {
-        let request_hash = request.hash();
+        let request_hash = match request.try_hash() {
+            Ok(hash) => hash,
+            Err(err) => {
+                tracing::warn!(
+                    "Policy Gate: request canonicalization/hash failed; blocking (fail-closed): {}",
+                    err
+                );
+                return Verdict::Block;
+            }
+        };
 
         // 1. Authorization Gate: Check for valid ApprovalToken first.
         // If the user has already signed a token for this EXACT request hash, it bypasses policy checks.

@@ -1,15 +1,15 @@
 use super::command_contract::{
     capability_route_label, command_arms_deferred_notification_path, compose_terminal_chat_reply,
     enrich_command_scope_summary, execution_contract_violation_error, extract_error_class_token,
-    is_cec_terminal_error, is_command_execution_provider_tool, missing_execution_contract_markers,
-    record_provider_selection_receipts, record_timer_notification_contract_requirement,
-    record_verification_receipts, requires_timer_notification_contract,
-    runtime_host_environment_receipt, synthesize_allowlisted_timer_notification_tool,
-    sys_exec_arms_timer_delay_backend, sys_exec_command_preview,
-    sys_exec_foreign_absolute_home_path, sys_exec_satisfies_clock_read_contract,
-    CLOCK_TIMESTAMP_POSTCONDITION, PROVIDER_SELECTION_COMMIT_RECEIPT,
-    TIMER_NOTIFICATION_PATH_POSTCONDITION, TIMER_SLEEP_BACKEND_POSTCONDITION,
-    VERIFICATION_COMMIT_RECEIPT,
+    is_cec_terminal_error, is_command_execution_provider_tool,
+    missing_execution_contract_markers_with_rules, record_provider_selection_receipts,
+    record_timer_notification_contract_requirement, record_verification_receipts,
+    requires_timer_notification_contract, runtime_host_environment_receipt,
+    synthesize_allowlisted_timer_notification_tool, sys_exec_arms_timer_delay_backend,
+    sys_exec_command_preview, sys_exec_foreign_absolute_home_path,
+    sys_exec_satisfies_clock_read_contract, CLOCK_TIMESTAMP_POSTCONDITION,
+    PROVIDER_SELECTION_COMMIT_RECEIPT, TIMER_NOTIFICATION_PATH_POSTCONDITION,
+    TIMER_SLEEP_BACKEND_POSTCONDITION, VERIFICATION_COMMIT_RECEIPT,
 };
 use super::probe::{
     is_command_probe_intent, is_system_clock_read_intent, summarize_command_probe_output,
@@ -23,13 +23,14 @@ use super::support::{
     enforce_system_fail_terminal_status, execution_receipt_value, get_status_str,
     has_execution_receipt, mark_action_fingerprint_executed_at_step, mark_execution_postcondition,
     mark_execution_receipt, mark_execution_receipt_with_value, mark_system_fail_status,
-    postcondition_marker, receipt_marker,
+    persist_step_contract_evidence, postcondition_marker, receipt_marker,
 };
 use crate::agentic::desktop::execution::system::is_sudo_password_required_install_error;
 use crate::agentic::desktop::keys::{get_state_key, AGENT_POLICY_PREFIX};
 use crate::agentic::desktop::middleware;
 use crate::agentic::desktop::service::handler::{
     build_pii_review_request_for_tool, emit_pii_review_requested, persist_pii_review_request,
+    resolve_window_binding_for_target, target_requires_window_binding,
 };
 use crate::agentic::desktop::service::lifecycle::spawn_delegated_child_session;
 use crate::agentic::desktop::service::step::anti_loop::{
@@ -195,25 +196,49 @@ pub async fn process_tool_output(
         }
     }
 
-    let (_req_hash, req_hash_hex) = if let Ok(ref t) = tool_call {
-        let target = t.target();
-        let tool_val = serde_json::to_value(t).unwrap_or(json!({}));
-        let args_val = tool_val.get("arguments").cloned().unwrap_or(json!({}));
-        let params = serde_jcs::to_vec(&args_val).unwrap_or_default();
-        let req = ActionRequest {
-            target,
-            params,
-            context: ActionContext {
-                agent_id: "desktop_agent".into(),
-                session_id: Some(session_id),
-                window_id: None,
-            },
-            nonce: agent_state.step_count as u64,
-        };
-        let h = req.hash();
-        (h, hex::encode(h))
-    } else {
-        ([0u8; 32], String::new())
+    let (_req_hash, req_hash_hex) = match tool_call.as_ref() {
+        Ok(t) => {
+            let target = t.target();
+            let window_binding = if target_requires_window_binding(&target) {
+                let os_driver = service.os_driver.as_ref().ok_or_else(|| {
+                    TransactionError::Invalid(
+                        "ERROR_CLASS=DeterminismBoundary Missing OS driver for window-bound action."
+                            .to_string(),
+                    )
+                })?;
+                resolve_window_binding_for_target(
+                    os_driver,
+                    session_id,
+                    &target,
+                    "pre_action_request_hash",
+                )
+                .await?
+            } else {
+                None
+            };
+            let tool_val = serde_json::to_value(t).unwrap_or(json!({}));
+            let args_val = tool_val.get("arguments").cloned().unwrap_or(json!({}));
+            let params = serde_jcs::to_vec(&args_val)
+                .map_err(|e| TransactionError::Serialization(e.to_string()))?;
+            let req = ActionRequest {
+                target,
+                params,
+                context: ActionContext {
+                    agent_id: "desktop_agent".into(),
+                    session_id: Some(session_id),
+                    window_id: window_binding,
+                },
+                nonce: agent_state.step_count as u64,
+            };
+            let h = req.try_hash().map_err(|e| {
+                TransactionError::Invalid(format!(
+                    "ERROR_CLASS=DeterminismBoundary Failed to hash tool request: {}",
+                    e
+                ))
+            })?;
+            (h, hex::encode(h))
+        }
+        Err(_) => ([0u8; 32], String::new()),
     };
 
     if !req_hash_hex.is_empty() {

@@ -23,8 +23,7 @@ pub(super) fn apply_web_research_followups(
                     .filter(|value| !value.trim().is_empty())
                     .unwrap_or_else(|| agent_state.goal.clone());
                 let extract_params = serde_jcs::to_vec(&json!({}))
-                    .or_else(|_| serde_json::to_vec(&json!({})))
-                    .unwrap_or_else(|_| b"{}".to_vec());
+                    .map_err(|e| TransactionError::Serialization(e.to_string()))?;
                 agent_state.execution_queue.push(ActionRequest {
                     target: ActionTarget::BrowserInspect,
                     params: extract_params,

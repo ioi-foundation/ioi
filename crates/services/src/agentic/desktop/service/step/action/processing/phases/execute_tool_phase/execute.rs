@@ -75,6 +75,13 @@ pub(crate) async fn execute_tool_phase(
     let resolved_intent_id = bootstrap.resolved_intent_id;
     let mut synthesized_payload_hash = bootstrap.synthesized_payload_hash;
     let route_label = bootstrap.route_label;
+    if agent_state.consecutive_failures > 0 {
+        verification_checks.push("determinism_recovery_retry=true".to_string());
+        verification_checks.push(format!(
+            "determinism_recovery_reason=consecutive_failures={}",
+            agent_state.consecutive_failures
+        ));
+    }
     let (duplicate_command_execution, matching_command_history_entry) = duplicate_execution_state(
         agent_state,
         &tool,
@@ -87,6 +94,7 @@ pub(crate) async fn execute_tool_phase(
         let duplicate_outcome = handle_duplicate_command_execution(DuplicateExecutionContext {
             service,
             agent_state,
+            rules,
             tool: &tool,
             matching_command_history_entry,
             command_scope,
@@ -168,6 +176,7 @@ pub(crate) async fn execute_tool_phase(
                             service,
                             state,
                             agent_state,
+                            rules,
                             tool: &tool,
                             tool_args: &tool_args,
                             session_id,
