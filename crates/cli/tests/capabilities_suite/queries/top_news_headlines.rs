@@ -110,16 +110,10 @@ fn evaluate(obs: &RunObservation) -> LocalJudgeResult {
     let story_floor_shape_met = structured_story_count >= required_story_floor.max(1);
     let headline_selected_sources_total =
         max_verification_usize(obs, "web_headline_selected_sources_total").unwrap_or(0);
-    let headline_selected_sources_low_priority = max_verification_usize(
-        obs,
-        "web_headline_selected_sources_low_priority",
-    )
-    .unwrap_or(0);
-    let headline_selected_sources_distinct_domains = max_verification_usize(
-        obs,
-        "web_headline_selected_sources_distinct_domains",
-    )
-    .unwrap_or(0);
+    let headline_selected_sources_low_priority =
+        max_verification_usize(obs, "web_headline_selected_sources_low_priority").unwrap_or(0);
+    let headline_selected_sources_distinct_domains =
+        max_verification_usize(obs, "web_headline_selected_sources_distinct_domains").unwrap_or(0);
     let headline_quality_floor_receipt_met =
         has_verification_check(obs, "web_headline_selected_sources_quality_floor_met=true");
     let observed_blocked_sources = max_verification_usize(obs, "web_sources_blocked").unwrap_or(0);
@@ -522,17 +516,14 @@ fn extract_urls_from_text(text: &str) -> Vec<String> {
     let mut cursor = text;
 
     loop {
-        let start = cursor
-            .find("https://")
-            .or_else(|| cursor.find("http://"));
+        let start = cursor.find("https://").or_else(|| cursor.find("http://"));
         let Some(start) = start else {
             break;
         };
         let remainder = &cursor[start..];
         let end = remainder
             .find(|ch: char| {
-                ch.is_whitespace()
-                    || matches!(ch, ')' | '(' | ']' | '[' | '<' | '>' | '"' | '\'')
+                ch.is_whitespace() || matches!(ch, ')' | '(' | ']' | '[' | '<' | '>' | '"' | '\'')
             })
             .unwrap_or(remainder.len());
         let candidate = remainder[..end]
@@ -560,10 +551,7 @@ fn extract_indexed_citation_urls(reply: &str) -> Vec<String> {
         let Some(close_bracket) = trimmed.find(']') else {
             continue;
         };
-        let index = trimmed[1..close_bracket]
-            .trim()
-            .parse::<usize>()
-            .ok();
+        let index = trimmed[1..close_bracket].trim().parse::<usize>().ok();
         let Some(index) = index else {
             continue;
         };

@@ -7,6 +7,7 @@ mod open_calculator_app;
 mod read_me_the_last_email_i_received;
 mod rename_every_file_in_my_downloads_folder_to_lowercase;
 mod set_timer_15_minutes;
+mod summarize_the_contents_of_the_most_recent_document_in_my_documents_folder;
 mod take_a_screenshot_of_my_desktop;
 mod top_news_headlines;
 mod weather_right_now;
@@ -28,6 +29,7 @@ pub fn all_cases() -> Vec<QueryCase> {
         download_and_install_vlc_media_player::case_unseeded(),
         find_all_pdf_files_on_my_computer_modified_in_the_last_week::case(),
         rename_every_file_in_my_downloads_folder_to_lowercase::case(),
+        summarize_the_contents_of_the_most_recent_document_in_my_documents_folder::case(),
         take_a_screenshot_of_my_desktop::case(),
         read_me_the_last_email_i_received::case(),
         multiply_247_by_38::case(),

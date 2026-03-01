@@ -162,6 +162,27 @@ const DOWNLOADS_LOWERCASE_EXPECTED_FINAL_FILES: [&str; 3] =
     ["alpha.txt", "budget 2026.pdf", "mixed_case.jpg"];
 const DOWNLOADS_LOWERCASE_EXPECTED_ORIGINAL_FILES: [&str; 3] =
     ["Alpha.TXT", "Budget 2026.PDF", "MiXeD_Case.JPG"];
+const DOCUMENTS_SUMMARY_CASE_ID: &str =
+    "summarize_the_contents_of_the_most_recent_document_in_my_documents_folder";
+const DOCUMENTS_SUMMARY_FIXTURE_MODE: &str = "documents_latest_summary_fixture_v1";
+const DOCUMENTS_SUMMARY_FIXTURE_PROBE_SOURCE: &str = "harness.documents_latest_summary_fixture";
+const DOCUMENTS_SUMMARY_FIXTURE_DIR_PREFIX: &str = "ioi_recent_document_";
+const DOCUMENTS_SUMMARY_EXPECTED_FILE_NAMES: [&str; 3] = [
+    "project_brief.txt",
+    "meeting_notes.txt",
+    "incident_update_latest.txt",
+];
+const DOCUMENTS_SUMMARY_EXPECTED_LATEST_MARKERS: [&str; 3] = [
+    "root cause: expired api token on ingestion worker",
+    "mitigation: rotated the token and restarted the worker",
+    "next step: add a 30-day token expiry alert",
+];
+const PDF_LAST_WEEK_CASE_ID: &str = "find_all_pdf_files_on_my_computer_modified_in_the_last_week";
+const PDF_LAST_WEEK_FIXTURE_MODE: &str = "pdf_last_week_fixture_v1";
+const PDF_LAST_WEEK_FIXTURE_PROBE_SOURCE: &str = "harness.pdf_last_week_fixture";
+const PDF_LAST_WEEK_FIXTURE_DIR_PREFIX: &str = "ioi_pdf_last_week_";
+const PDF_LAST_WEEK_EXPECTED_PDF_FILES: [&str; 2] = ["weekly_status.pdf", "incident_report.pdf"];
+const PDF_LAST_WEEK_SUPPORTING_FILE: &str = "notes.txt";
 
 #[derive(Debug, Clone)]
 struct MailRuntimeBootstrapConfig {
@@ -246,6 +267,28 @@ struct DownloadsLowercaseFixtureRuntime {
     _env_userprofile: ScopedEnvVar,
     home_dir: PathBuf,
     downloads_dir: PathBuf,
+    target_dir: PathBuf,
+}
+
+struct DocumentsSummaryFixtureRuntime {
+    _temp_dir: tempfile::TempDir,
+    _env_home: ScopedEnvVar,
+    _env_userprofile: ScopedEnvVar,
+    home_dir: PathBuf,
+    documents_dir: PathBuf,
+    fixture_dir: PathBuf,
+    latest_document_path: PathBuf,
+}
+
+struct PdfLastWeekFixtureRuntime {
+    _temp_dir: tempfile::TempDir,
+    _env_home: ScopedEnvVar,
+    _env_userprofile: ScopedEnvVar,
+    home_dir: PathBuf,
+    documents_dir: PathBuf,
+    fixture_dir: PathBuf,
+    expected_pdf_paths: Vec<PathBuf>,
+    window_start_epoch_ms: u64,
 }
 
 fn find_workspace_file(file_name: &str) -> Option<PathBuf> {
@@ -887,8 +930,12 @@ fn iso_datetime_from_unix_ms(unix_ms: u64) -> String {
     )
 }
 
+fn run_unique_num(run_index: usize, run_timestamp_ms: u64) -> String {
+    format!("{}{:03}", run_timestamp_ms, run_index)
+}
+
 fn render_query_for_run(query_template: &str, run_index: usize, run_timestamp_ms: u64) -> String {
-    let run_unique_num = format!("{}{:03}", run_timestamp_ms, run_index);
+    let run_unique_num = run_unique_num(run_index, run_timestamp_ms);
     query_template
         .replace("{RUN_UNIQUE_NUM}", &run_unique_num)
         .replace("{RUN_INDEX}", &run_index.to_string())
@@ -909,6 +956,14 @@ fn should_bootstrap_projects_zip_fixture(case_id: &str) -> bool {
 
 fn should_bootstrap_downloads_lowercase_fixture(case_id: &str) -> bool {
     case_id.eq_ignore_ascii_case(DOWNLOADS_LOWERCASE_CASE_ID)
+}
+
+fn should_bootstrap_documents_summary_fixture(case_id: &str) -> bool {
+    case_id.eq_ignore_ascii_case(DOCUMENTS_SUMMARY_CASE_ID)
+}
+
+fn should_bootstrap_pdf_last_week_fixture(case_id: &str) -> bool {
+    case_id.eq_ignore_ascii_case(PDF_LAST_WEEK_CASE_ID)
 }
 
 fn write_executable_script(path: &Path, content: &str) -> Result<()> {
@@ -1304,11 +1359,24 @@ fn projects_zip_fixture_cleanup_checks(fixture: &ProjectsZipFixtureRuntime) -> V
     ]
 }
 
-fn bootstrap_downloads_lowercase_fixture_runtime() -> Result<DownloadsLowercaseFixtureRuntime> {
+fn bootstrap_downloads_lowercase_fixture_runtime(
+    run_unique_num: &str,
+) -> Result<DownloadsLowercaseFixtureRuntime> {
     let temp_dir = tempdir()?;
     let home_dir = temp_dir.path().join("home");
     let downloads_dir = home_dir.join("Downloads");
     std::fs::create_dir_all(&downloads_dir)?;
+    let target_dir = downloads_dir.join(format!(
+        "{}{}",
+        DOWNLOADS_LOWERCASE_TARGET_PREFIX, run_unique_num
+    ));
+    std::fs::create_dir_all(&target_dir)?;
+    for file_name in DOWNLOADS_LOWERCASE_EXPECTED_ORIGINAL_FILES {
+        std::fs::write(
+            target_dir.join(file_name),
+            format!("fixture content for {}", file_name),
+        )?;
+    }
 
     let env_home = ScopedEnvVar::set("HOME", home_dir.to_string_lossy().to_string());
     let env_userprofile = ScopedEnvVar::set("USERPROFILE", home_dir.to_string_lossy().to_string());
@@ -1319,6 +1387,7 @@ fn bootstrap_downloads_lowercase_fixture_runtime() -> Result<DownloadsLowercaseF
         _env_userprofile: env_userprofile,
         home_dir,
         downloads_dir,
+        target_dir,
     })
 }
 
@@ -1326,6 +1395,11 @@ fn downloads_lowercase_fixture_preflight_checks(
     fixture: &DownloadsLowercaseFixtureRuntime,
     run_timestamp_ms: u64,
 ) -> Vec<String> {
+    let seeded_files = list_directory_entry_names(&fixture.target_dir);
+    let seeded_files_satisfied = DOWNLOADS_LOWERCASE_EXPECTED_ORIGINAL_FILES
+        .iter()
+        .all(|expected| seeded_files.iter().any(|observed| observed == expected));
+
     vec![
         format!(
             "env_receipt::downloads_lowercase_fixture_mode={}",
@@ -1346,6 +1420,18 @@ fn downloads_lowercase_fixture_preflight_checks(
         format!(
             "env_receipt::downloads_lowercase_downloads_dir={}",
             fixture.downloads_dir.to_string_lossy()
+        ),
+        format!(
+            "env_receipt::downloads_lowercase_target_dir={}",
+            fixture.target_dir.to_string_lossy()
+        ),
+        format!(
+            "env_receipt::downloads_lowercase_seeded_files={}",
+            seeded_files.join(",")
+        ),
+        format!(
+            "env_receipt::downloads_lowercase_seeded_files_satisfied={}",
+            seeded_files_satisfied
         ),
         "env_receipt::downloads_lowercase_fixture_satisfied=true".to_string(),
     ]
@@ -1481,6 +1567,593 @@ fn downloads_lowercase_fixture_cleanup_checks(
         ),
         format!(
             "env_receipt::downloads_lowercase_cleanup_satisfied={}",
+            cleanup_satisfied
+        ),
+    ]
+}
+
+fn bootstrap_documents_summary_fixture_runtime(
+    run_unique_num: &str,
+) -> Result<DocumentsSummaryFixtureRuntime> {
+    let temp_dir = tempdir()?;
+    let home_dir = temp_dir.path().join("home");
+    let documents_dir = home_dir.join("Documents");
+    let fixture_dir = documents_dir.join(format!(
+        "{}{}",
+        DOCUMENTS_SUMMARY_FIXTURE_DIR_PREFIX, run_unique_num
+    ));
+    std::fs::create_dir_all(&fixture_dir)?;
+
+    let brief_path = fixture_dir.join(DOCUMENTS_SUMMARY_EXPECTED_FILE_NAMES[0]);
+    let notes_path = fixture_dir.join(DOCUMENTS_SUMMARY_EXPECTED_FILE_NAMES[1]);
+    let latest_path = fixture_dir.join(DOCUMENTS_SUMMARY_EXPECTED_FILE_NAMES[2]);
+
+    std::fs::write(
+        &brief_path,
+        concat!(
+            "Project brief\n",
+            "Owner: Platform Ops\n",
+            "Status: Planning\n",
+        ),
+    )?;
+    std::thread::sleep(Duration::from_millis(1_100));
+    std::fs::write(
+        &notes_path,
+        concat!(
+            "Meeting notes\n",
+            "Topic: ingestion backlog\n",
+            "Action: investigate worker token expiry policy\n",
+        ),
+    )?;
+    std::thread::sleep(Duration::from_millis(1_100));
+    std::fs::write(
+        &latest_path,
+        concat!(
+            "Incident update\n",
+            "Root cause: expired API token on ingestion worker.\n",
+            "Mitigation: rotated the token and restarted the worker.\n",
+            "Next step: add a 30-day token expiry alert.\n",
+        ),
+    )?;
+
+    let env_home = ScopedEnvVar::set("HOME", home_dir.to_string_lossy().to_string());
+    let env_userprofile = ScopedEnvVar::set("USERPROFILE", home_dir.to_string_lossy().to_string());
+
+    Ok(DocumentsSummaryFixtureRuntime {
+        _temp_dir: temp_dir,
+        _env_home: env_home,
+        _env_userprofile: env_userprofile,
+        home_dir,
+        documents_dir,
+        fixture_dir,
+        latest_document_path: latest_path,
+    })
+}
+
+fn file_modified_epoch_ms(path: &Path) -> Option<u64> {
+    std::fs::metadata(path)
+        .ok()
+        .and_then(|metadata| metadata.modified().ok())
+        .and_then(|modified| modified.duration_since(UNIX_EPOCH).ok())
+        .map(|duration| duration.as_millis() as u64)
+}
+
+fn latest_file_path_and_mtime(path: &Path) -> Option<(PathBuf, u64)> {
+    let mut candidates = std::fs::read_dir(path)
+        .ok()?
+        .filter_map(|entry| entry.ok())
+        .filter_map(|entry| {
+            let entry_path = entry.path();
+            let metadata = entry.metadata().ok()?;
+            if !metadata.is_file() {
+                return None;
+            }
+            let mtime_ms = metadata
+                .modified()
+                .ok()
+                .and_then(|value| value.duration_since(UNIX_EPOCH).ok())
+                .map(|duration| duration.as_millis() as u64)?;
+            Some((entry_path, mtime_ms))
+        })
+        .collect::<Vec<_>>();
+
+    candidates.sort_by(|left, right| {
+        left.1
+            .cmp(&right.1)
+            .then_with(|| left.0.to_string_lossy().cmp(&right.0.to_string_lossy()))
+    });
+    candidates.pop()
+}
+
+fn documents_summary_fixture_preflight_checks(
+    fixture: &DocumentsSummaryFixtureRuntime,
+    run_unique_num: &str,
+    run_timestamp_ms: u64,
+) -> Vec<String> {
+    let seeded_files = list_directory_entry_names(&fixture.fixture_dir);
+    let seeded_files_satisfied = DOCUMENTS_SUMMARY_EXPECTED_FILE_NAMES
+        .iter()
+        .all(|expected| seeded_files.iter().any(|observed| observed == expected));
+    let run_unique_satisfied = fixture
+        .fixture_dir
+        .file_name()
+        .and_then(|name| name.to_str())
+        .map(|name| name.ends_with(run_unique_num))
+        .unwrap_or(false);
+
+    vec![
+        format!(
+            "env_receipt::documents_summary_fixture_mode={}",
+            DOCUMENTS_SUMMARY_FIXTURE_MODE
+        ),
+        format!(
+            "env_receipt::documents_summary_fixture_probe_source={}",
+            DOCUMENTS_SUMMARY_FIXTURE_PROBE_SOURCE
+        ),
+        format!(
+            "env_receipt::documents_summary_fixture_timestamp_ms={}",
+            run_timestamp_ms
+        ),
+        format!(
+            "env_receipt::documents_summary_home_dir={}",
+            fixture.home_dir.to_string_lossy()
+        ),
+        format!(
+            "env_receipt::documents_summary_documents_dir={}",
+            fixture.documents_dir.to_string_lossy()
+        ),
+        format!(
+            "env_receipt::documents_summary_fixture_dir={}",
+            fixture.fixture_dir.to_string_lossy()
+        ),
+        format!(
+            "env_receipt::documents_summary_run_unique_num={}",
+            run_unique_num
+        ),
+        format!(
+            "env_receipt::documents_summary_expected_latest_path={}",
+            fixture.latest_document_path.to_string_lossy()
+        ),
+        format!(
+            "env_receipt::documents_summary_seeded_files={}",
+            seeded_files.join(",")
+        ),
+        format!(
+            "env_receipt::documents_summary_seeded_files_satisfied={}",
+            seeded_files_satisfied
+        ),
+        format!(
+            "env_receipt::documents_summary_run_unique_satisfied={}",
+            run_unique_satisfied
+        ),
+        format!(
+            "env_receipt::documents_summary_fixture_satisfied={}",
+            seeded_files_satisfied && run_unique_satisfied
+        ),
+    ]
+}
+
+fn documents_summary_fixture_post_run_checks(
+    fixture: &DocumentsSummaryFixtureRuntime,
+) -> Vec<String> {
+    let timestamp_ms = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_millis() as u64;
+    let probe_source = format!("{}.fs_probe", DOCUMENTS_SUMMARY_FIXTURE_PROBE_SOURCE);
+    let observed_files = list_directory_entry_names(&fixture.fixture_dir);
+    let observed_files_satisfied = DOCUMENTS_SUMMARY_EXPECTED_FILE_NAMES
+        .iter()
+        .all(|expected| observed_files.iter().any(|observed| observed == expected));
+    let latest_observed = latest_file_path_and_mtime(&fixture.fixture_dir);
+    let latest_observed_path = latest_observed
+        .as_ref()
+        .map(|(path, _)| path.to_string_lossy().to_string())
+        .unwrap_or_default();
+    let latest_observed_mtime_ms = latest_observed
+        .as_ref()
+        .map(|(_, mtime_ms)| *mtime_ms)
+        .unwrap_or(0);
+    let latest_expected_path = fixture.latest_document_path.to_string_lossy().to_string();
+    let latest_path_satisfied = latest_observed
+        .as_ref()
+        .map(|(path, _)| path == &fixture.latest_document_path)
+        .unwrap_or(false);
+    let latest_content = std::fs::read_to_string(&fixture.latest_document_path).unwrap_or_default();
+    let latest_content_lower = latest_content.to_ascii_lowercase();
+    let latest_content_satisfied = DOCUMENTS_SUMMARY_EXPECTED_LATEST_MARKERS
+        .iter()
+        .all(|marker| latest_content_lower.contains(marker));
+    let latest_content_probe_source = format!("{}.content_probe", probe_source);
+    let latest_expected_mtime_ms =
+        file_modified_epoch_ms(&fixture.latest_document_path).unwrap_or(0);
+
+    vec![
+        format!(
+            "env_receipt::documents_summary_observed_files={}",
+            observed_files.join(",")
+        ),
+        format!(
+            "env_receipt::documents_summary_observed_files_probe_source={}",
+            probe_source
+        ),
+        format!(
+            "env_receipt::documents_summary_observed_files_timestamp_ms={}",
+            timestamp_ms
+        ),
+        format!(
+            "env_receipt::documents_summary_observed_files_satisfied={}",
+            observed_files_satisfied
+        ),
+        format!(
+            "env_receipt::documents_summary_latest_observed_path={}",
+            latest_observed_path
+        ),
+        format!(
+            "env_receipt::documents_summary_latest_observed_path_probe_source={}",
+            probe_source
+        ),
+        format!(
+            "env_receipt::documents_summary_latest_observed_path_timestamp_ms={}",
+            timestamp_ms
+        ),
+        format!(
+            "env_receipt::documents_summary_latest_observed_path_satisfied={}",
+            latest_path_satisfied
+        ),
+        format!(
+            "env_receipt::documents_summary_latest_observed_modified_epoch_ms={}",
+            latest_observed_mtime_ms
+        ),
+        format!(
+            "env_receipt::documents_summary_latest_expected_modified_epoch_ms={}",
+            latest_expected_mtime_ms
+        ),
+        format!(
+            "env_receipt::documents_summary_latest_expected_path={}",
+            latest_expected_path
+        ),
+        format!(
+            "env_receipt::documents_summary_latest_content_probe_source={}",
+            latest_content_probe_source
+        ),
+        format!(
+            "env_receipt::documents_summary_latest_content_timestamp_ms={}",
+            timestamp_ms
+        ),
+        format!(
+            "env_receipt::documents_summary_latest_content_markers_satisfied={}",
+            latest_content_satisfied
+        ),
+        format!(
+            "env_receipt::documents_summary_latest_content_excerpt={}",
+            truncate_for_log(&latest_content, 240)
+        ),
+    ]
+}
+
+fn documents_summary_fixture_cleanup_checks(
+    fixture: &DocumentsSummaryFixtureRuntime,
+) -> Vec<String> {
+    let timestamp_ms = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_millis() as u64;
+    let probe_source = format!("{}.cleanup_probe", DOCUMENTS_SUMMARY_FIXTURE_PROBE_SOURCE);
+    let _ = std::fs::remove_dir_all(&fixture.fixture_dir);
+    let fixture_dir_exists_after_cleanup = fixture.fixture_dir.exists();
+    let documents_dir_entries = list_directory_entry_names(&fixture.documents_dir);
+    let cleanup_satisfied = !fixture_dir_exists_after_cleanup && documents_dir_entries.is_empty();
+
+    vec![
+        format!(
+            "env_receipt::documents_summary_cleanup_probe_source={}",
+            probe_source
+        ),
+        format!(
+            "env_receipt::documents_summary_cleanup_timestamp_ms={}",
+            timestamp_ms
+        ),
+        format!(
+            "env_receipt::documents_summary_cleanup_fixture_dir_exists={}",
+            fixture_dir_exists_after_cleanup
+        ),
+        format!(
+            "env_receipt::documents_summary_cleanup_documents_dir_entries={}",
+            documents_dir_entries.join(",")
+        ),
+        format!(
+            "env_receipt::documents_summary_cleanup_satisfied={}",
+            cleanup_satisfied
+        ),
+    ]
+}
+
+fn list_pdf_file_paths(path: &Path) -> Vec<PathBuf> {
+    let mut entries = std::fs::read_dir(path)
+        .ok()
+        .into_iter()
+        .flatten()
+        .filter_map(|entry| entry.ok())
+        .map(|entry| entry.path())
+        .filter(|entry_path| {
+            entry_path
+                .extension()
+                .and_then(|value| value.to_str())
+                .map(|ext| ext.eq_ignore_ascii_case("pdf"))
+                .unwrap_or(false)
+        })
+        .collect::<Vec<_>>();
+    entries.sort_by(|left, right| left.to_string_lossy().cmp(&right.to_string_lossy()));
+    entries
+}
+
+fn join_paths_csv(paths: &[PathBuf]) -> String {
+    paths
+        .iter()
+        .map(|path| path.to_string_lossy().to_string())
+        .collect::<Vec<_>>()
+        .join(",")
+}
+
+fn bootstrap_pdf_last_week_fixture_runtime(
+    run_unique_num: &str,
+) -> Result<PdfLastWeekFixtureRuntime> {
+    let temp_dir = tempdir()?;
+    let home_dir = temp_dir.path().join("home");
+    let documents_dir = home_dir.join("Documents");
+    let fixture_dir = documents_dir.join(format!(
+        "{}{}",
+        PDF_LAST_WEEK_FIXTURE_DIR_PREFIX, run_unique_num
+    ));
+    std::fs::create_dir_all(&fixture_dir)?;
+
+    let weekly_status = fixture_dir.join(PDF_LAST_WEEK_EXPECTED_PDF_FILES[0]);
+    let incident_report = fixture_dir.join(PDF_LAST_WEEK_EXPECTED_PDF_FILES[1]);
+    let notes = fixture_dir.join(PDF_LAST_WEEK_SUPPORTING_FILE);
+    std::fs::write(
+        &weekly_status,
+        concat!(
+            "Weekly status packet\n",
+            "PDF fixture content for deterministic capabilities testing.\n",
+        ),
+    )?;
+    std::thread::sleep(Duration::from_millis(1_100));
+    std::fs::write(
+        &incident_report,
+        concat!(
+            "Incident report packet\n",
+            "PDF fixture content for deterministic capabilities testing.\n",
+        ),
+    )?;
+    std::thread::sleep(Duration::from_millis(1_100));
+    std::fs::write(
+        &notes,
+        concat!(
+            "Supporting notes\n",
+            "This file is intentionally non-PDF and must not appear in results.\n",
+        ),
+    )?;
+
+    let env_home = ScopedEnvVar::set("HOME", home_dir.to_string_lossy().to_string());
+    let env_userprofile = ScopedEnvVar::set("USERPROFILE", home_dir.to_string_lossy().to_string());
+    let now_epoch_ms = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_millis() as u64;
+    let seven_days_ms = 7 * 24 * 60 * 60 * 1_000;
+
+    Ok(PdfLastWeekFixtureRuntime {
+        _temp_dir: temp_dir,
+        _env_home: env_home,
+        _env_userprofile: env_userprofile,
+        home_dir,
+        documents_dir,
+        fixture_dir,
+        expected_pdf_paths: vec![incident_report, weekly_status],
+        window_start_epoch_ms: now_epoch_ms.saturating_sub(seven_days_ms),
+    })
+}
+
+fn pdf_last_week_fixture_preflight_checks(
+    fixture: &PdfLastWeekFixtureRuntime,
+    run_unique_num: &str,
+    run_timestamp_ms: u64,
+) -> Vec<String> {
+    let seeded_files = list_directory_entry_names(&fixture.fixture_dir);
+    let expected_seeded_files_present = PDF_LAST_WEEK_EXPECTED_PDF_FILES
+        .iter()
+        .all(|expected| seeded_files.iter().any(|observed| observed == expected))
+        && seeded_files
+            .iter()
+            .any(|observed| observed.eq_ignore_ascii_case(PDF_LAST_WEEK_SUPPORTING_FILE));
+    let expected_pdf_paths_satisfied = fixture.expected_pdf_paths.iter().all(|path| path.is_file());
+    let run_unique_satisfied = fixture
+        .fixture_dir
+        .file_name()
+        .and_then(|name| name.to_str())
+        .map(|name| name.ends_with(run_unique_num))
+        .unwrap_or(false);
+
+    vec![
+        format!(
+            "env_receipt::pdf_last_week_fixture_mode={}",
+            PDF_LAST_WEEK_FIXTURE_MODE
+        ),
+        format!(
+            "env_receipt::pdf_last_week_fixture_probe_source={}",
+            PDF_LAST_WEEK_FIXTURE_PROBE_SOURCE
+        ),
+        format!(
+            "env_receipt::pdf_last_week_fixture_timestamp_ms={}",
+            run_timestamp_ms
+        ),
+        format!(
+            "env_receipt::pdf_last_week_home_dir={}",
+            fixture.home_dir.to_string_lossy()
+        ),
+        format!(
+            "env_receipt::pdf_last_week_documents_dir={}",
+            fixture.documents_dir.to_string_lossy()
+        ),
+        format!(
+            "env_receipt::pdf_last_week_fixture_dir={}",
+            fixture.fixture_dir.to_string_lossy()
+        ),
+        format!(
+            "env_receipt::pdf_last_week_run_unique_num={}",
+            run_unique_num
+        ),
+        format!(
+            "env_receipt::pdf_last_week_expected_paths={}",
+            join_paths_csv(&fixture.expected_pdf_paths)
+        ),
+        format!(
+            "env_receipt::pdf_last_week_expected_count={}",
+            fixture.expected_pdf_paths.len()
+        ),
+        format!(
+            "env_receipt::pdf_last_week_expected_window_start_epoch_ms={}",
+            fixture.window_start_epoch_ms
+        ),
+        format!(
+            "env_receipt::pdf_last_week_seeded_files={}",
+            seeded_files.join(",")
+        ),
+        format!(
+            "env_receipt::pdf_last_week_seeded_files_satisfied={}",
+            expected_seeded_files_present
+        ),
+        format!(
+            "env_receipt::pdf_last_week_expected_paths_satisfied={}",
+            expected_pdf_paths_satisfied
+        ),
+        format!(
+            "env_receipt::pdf_last_week_run_unique_satisfied={}",
+            run_unique_satisfied
+        ),
+        format!(
+            "env_receipt::pdf_last_week_fixture_satisfied={}",
+            expected_seeded_files_present && expected_pdf_paths_satisfied && run_unique_satisfied
+        ),
+    ]
+}
+
+fn pdf_last_week_fixture_post_run_checks(fixture: &PdfLastWeekFixtureRuntime) -> Vec<String> {
+    let timestamp_ms = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_millis() as u64;
+    let probe_source = format!("{}.fs_probe", PDF_LAST_WEEK_FIXTURE_PROBE_SOURCE);
+    let observed_files = list_directory_entry_names(&fixture.fixture_dir);
+    let observed_pdf_paths = list_pdf_file_paths(&fixture.fixture_dir);
+    let observed_pdf_paths_csv = join_paths_csv(&observed_pdf_paths);
+    let expected_pdf_paths_csv = join_paths_csv(&fixture.expected_pdf_paths);
+    let observed_files_satisfied = PDF_LAST_WEEK_EXPECTED_PDF_FILES
+        .iter()
+        .all(|expected| observed_files.iter().any(|observed| observed == expected))
+        && observed_files
+            .iter()
+            .any(|observed| observed.eq_ignore_ascii_case(PDF_LAST_WEEK_SUPPORTING_FILE));
+    let expected_pdf_paths_satisfied = observed_pdf_paths == fixture.expected_pdf_paths;
+    let observed_within_window_count = observed_pdf_paths
+        .iter()
+        .filter_map(|path| file_modified_epoch_ms(path))
+        .filter(|mtime_ms| *mtime_ms >= fixture.window_start_epoch_ms)
+        .count();
+    let observed_within_window_satisfied =
+        observed_within_window_count == fixture.expected_pdf_paths.len();
+
+    vec![
+        format!(
+            "env_receipt::pdf_last_week_observed_files={}",
+            observed_files.join(",")
+        ),
+        format!(
+            "env_receipt::pdf_last_week_observed_files_probe_source={}",
+            probe_source
+        ),
+        format!(
+            "env_receipt::pdf_last_week_observed_files_timestamp_ms={}",
+            timestamp_ms
+        ),
+        format!(
+            "env_receipt::pdf_last_week_observed_files_satisfied={}",
+            observed_files_satisfied
+        ),
+        format!(
+            "env_receipt::pdf_last_week_expected_paths={}",
+            expected_pdf_paths_csv
+        ),
+        format!(
+            "env_receipt::pdf_last_week_observed_pdf_paths={}",
+            observed_pdf_paths_csv
+        ),
+        format!(
+            "env_receipt::pdf_last_week_observed_pdf_paths_probe_source={}",
+            probe_source
+        ),
+        format!(
+            "env_receipt::pdf_last_week_observed_pdf_paths_timestamp_ms={}",
+            timestamp_ms
+        ),
+        format!(
+            "env_receipt::pdf_last_week_observed_pdf_paths_satisfied={}",
+            expected_pdf_paths_satisfied
+        ),
+        format!(
+            "env_receipt::pdf_last_week_observed_window_start_epoch_ms={}",
+            fixture.window_start_epoch_ms
+        ),
+        format!(
+            "env_receipt::pdf_last_week_observed_window_start_probe_source={}",
+            probe_source
+        ),
+        format!(
+            "env_receipt::pdf_last_week_observed_window_start_timestamp_ms={}",
+            timestamp_ms
+        ),
+        format!(
+            "env_receipt::pdf_last_week_observed_within_window_count={}",
+            observed_within_window_count
+        ),
+        format!(
+            "env_receipt::pdf_last_week_observed_within_window_satisfied={}",
+            observed_within_window_satisfied
+        ),
+    ]
+}
+
+fn pdf_last_week_fixture_cleanup_checks(fixture: &PdfLastWeekFixtureRuntime) -> Vec<String> {
+    let timestamp_ms = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_millis() as u64;
+    let probe_source = format!("{}.cleanup_probe", PDF_LAST_WEEK_FIXTURE_PROBE_SOURCE);
+    let _ = std::fs::remove_dir_all(&fixture.fixture_dir);
+    let fixture_dir_exists_after_cleanup = fixture.fixture_dir.exists();
+    let documents_dir_entries = list_directory_entry_names(&fixture.documents_dir);
+    let cleanup_satisfied = !fixture_dir_exists_after_cleanup && documents_dir_entries.is_empty();
+
+    vec![
+        format!(
+            "env_receipt::pdf_last_week_cleanup_probe_source={}",
+            probe_source
+        ),
+        format!(
+            "env_receipt::pdf_last_week_cleanup_timestamp_ms={}",
+            timestamp_ms
+        ),
+        format!(
+            "env_receipt::pdf_last_week_cleanup_fixture_dir_exists={}",
+            fixture_dir_exists_after_cleanup
+        ),
+        format!(
+            "env_receipt::pdf_last_week_cleanup_documents_dir_entries={}",
+            documents_dir_entries.join(",")
+        ),
+        format!(
+            "env_receipt::pdf_last_week_cleanup_satisfied={}",
             cleanup_satisfied
         ),
     ]
@@ -1755,7 +2428,8 @@ pub async fn run_case(
         .duration_since(UNIX_EPOCH)
         .unwrap_or_default()
         .as_millis() as u64;
-    let run_query = render_query_for_run(case.query, run_index, run_timestamp_ms);
+    let run_unique_num = run_unique_num(run_index, run_timestamp_ms);
+    let mut run_query = render_query_for_run(case.query, run_index, run_timestamp_ms);
     let mut runtime_setup_verification_checks = Vec::<String>::new();
     let vlc_install_fixture = if should_bootstrap_vlc_install_fixture(case.id) {
         let fixture = bootstrap_vlc_install_fixture_runtime()?;
@@ -1778,11 +2452,38 @@ pub async fn run_case(
         None
     };
     let downloads_lowercase_fixture = if should_bootstrap_downloads_lowercase_fixture(case.id) {
-        let fixture = bootstrap_downloads_lowercase_fixture_runtime()?;
+        let fixture = bootstrap_downloads_lowercase_fixture_runtime(&run_unique_num)?;
         runtime_setup_verification_checks.extend(downloads_lowercase_fixture_preflight_checks(
             &fixture,
             run_timestamp_ms,
         ));
+        Some(fixture)
+    } else {
+        None
+    };
+    let documents_summary_fixture = if should_bootstrap_documents_summary_fixture(case.id) {
+        let fixture = bootstrap_documents_summary_fixture_runtime(&run_unique_num)?;
+        runtime_setup_verification_checks.extend(documents_summary_fixture_preflight_checks(
+            &fixture,
+            &run_unique_num,
+            run_timestamp_ms,
+        ));
+        run_query = run_query.replace("{DOCS_FIXTURE_DIR}", &fixture.fixture_dir.to_string_lossy());
+        Some(fixture)
+    } else {
+        None
+    };
+    let pdf_last_week_fixture = if should_bootstrap_pdf_last_week_fixture(case.id) {
+        let fixture = bootstrap_pdf_last_week_fixture_runtime(&run_unique_num)?;
+        runtime_setup_verification_checks.extend(pdf_last_week_fixture_preflight_checks(
+            &fixture,
+            &run_unique_num,
+            run_timestamp_ms,
+        ));
+        run_query = run_query.replace(
+            "{PDF_LAST_WEEK_FIXTURE_DIR}",
+            &fixture.fixture_dir.to_string_lossy(),
+        );
         Some(fixture)
     } else {
         None
@@ -2071,6 +2772,22 @@ pub async fn run_case(
             verification_checks.insert(check);
         }
         for check in downloads_lowercase_fixture_cleanup_checks(fixture) {
+            verification_checks.insert(check);
+        }
+    }
+    if let Some(fixture) = documents_summary_fixture.as_ref() {
+        for check in documents_summary_fixture_post_run_checks(fixture) {
+            verification_checks.insert(check);
+        }
+        for check in documents_summary_fixture_cleanup_checks(fixture) {
+            verification_checks.insert(check);
+        }
+    }
+    if let Some(fixture) = pdf_last_week_fixture.as_ref() {
+        for check in pdf_last_week_fixture_post_run_checks(fixture) {
+            verification_checks.insert(check);
+        }
+        for check in pdf_last_week_fixture_cleanup_checks(fixture) {
             verification_checks.insert(check);
         }
     }
