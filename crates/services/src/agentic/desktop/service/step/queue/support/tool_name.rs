@@ -46,6 +46,11 @@ pub(super) fn infer_fs_write_tool_name(args: &serde_json::Value) -> &'static str
         return "filesystem__patch";
     }
 
+    // Preserve deterministic archive creation requests queued under ActionTarget::FsWrite.
+    if obj.contains_key("source_path") && obj.contains_key("destination_zip_path") {
+        return "filesystem__create_zip";
+    }
+
     // Preserve deterministic delete/create-directory requests queued under
     // ActionTarget::FsWrite for backward compatibility.
     if obj.contains_key("path")
@@ -212,7 +217,10 @@ pub(super) fn is_explicit_tool_name_allowed_for_scope(
     match scope {
         QueueToolNameScope::Read => matches!(
             tool_name,
-            "filesystem__read_file" | "filesystem__list_directory" | "filesystem__search"
+            "filesystem__read_file"
+                | "filesystem__list_directory"
+                | "filesystem__search"
+                | "filesystem__stat"
         ),
         QueueToolNameScope::Write => matches!(
             tool_name,
@@ -220,6 +228,7 @@ pub(super) fn is_explicit_tool_name_allowed_for_scope(
                 | "filesystem__patch"
                 | "filesystem__delete_path"
                 | "filesystem__create_directory"
+                | "filesystem__create_zip"
                 | "filesystem__copy_path"
                 | "filesystem__move_path"
         ),

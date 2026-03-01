@@ -7,7 +7,8 @@ use crate::agentic::desktop::service::handler::{
 use crate::agentic::desktop::service::step::action::command_contract::is_cec_terminal_error;
 use crate::agentic::desktop::service::step::action::{
     canonical_intent_hash, canonical_retry_intent_hash, canonical_tool_identity,
-    mark_action_fingerprint_executed_at_step,
+    emit_completion_gate_status_event, mark_action_fingerprint_executed_at_step,
+    resolved_intent_id,
 };
 use crate::agentic::desktop::service::step::anti_loop::{
     build_attempt_key, build_post_state_summary, canonical_attempt_window_fingerprint,
@@ -621,6 +622,7 @@ pub async fn process_queue_item(
         service,
         agent_state,
         p.session_id,
+        pre_state_summary.step_index,
         &tool_name,
         &tool_wrapper,
         is_gated,
@@ -703,11 +705,22 @@ pub async fn process_queue_item(
     if let Some(summary) = completion_summary.as_ref() {
         if let Some(tx) = &service.event_sender {
             verification_checks.push("terminal_chat_reply_emitted=true".to_string());
+            let intent_id = resolved_intent_id(agent_state);
+            emit_completion_gate_status_event(
+                service,
+                p.session_id,
+                pre_state_summary.step_index,
+                intent_id.as_str(),
+                true,
+                "queue_completion_summary_gate_passed",
+            );
+            verification_checks.push("cec_completion_gate_emitted=true".to_string());
             let _ = tx.send(KernelEvent::AgentActionResult {
                 session_id: p.session_id,
                 step_index: agent_state.step_count,
                 tool_name: "chat__reply".to_string(),
                 output: summary.clone(),
+                error_class: None,
                 agent_status: "Completed".to_string(),
             });
         }

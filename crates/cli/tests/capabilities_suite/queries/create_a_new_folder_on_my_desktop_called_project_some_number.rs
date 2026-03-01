@@ -2,7 +2,9 @@ use ioi_types::app::agentic::IntentScopeProfile;
 use serde::Serialize;
 
 use super::super::types::{
-    contains_any, has_tool_with_token, truncate_chars, LocalCheck, LocalJudgeResult, QueryCase,
+    action_has_hard_error_class, contains_any, has_cec_receipt, has_cec_stage,
+    has_contract_failure_evidence, has_tool_with_token, is_retry_blocked_terminal,
+    is_timeout_terminal, truncate_chars, ExecutionProfile, LocalCheck, LocalJudgeResult, QueryCase,
     RunObservation,
 };
 
@@ -24,11 +26,12 @@ pub fn case() -> QueryCase {
         intent_scope: IntentScopeProfile::CommandExecution,
         seed_resolved_intent: true,
         expected_pass: true,
+        execution_profile: ExecutionProfile::Hermetic,
         sla_seconds: 70,
         max_steps: 14,
         min_local_score: 1.0,
         allow_retry_blocked_completion_with_local_evidence: true,
-        allow_timeout_completion_with_local_evidence: false,
+        allow_timeout_completion_with_local_evidence: true,
         local_sniff: evaluate,
     }
 }
@@ -71,39 +74,39 @@ fn evaluate(obs: &RunObservation) -> LocalJudgeResult {
 
     let action_path_seen = has_create_path_tool(&obs.action_tools);
     let routing_path_seen = has_create_path_tool(&obs.routing_tools);
-    let any_contract_failure_marker = observation_has_contract_failure_marker(obs);
-    let paused_retry_blocked = obs
-        .final_status
-        .to_ascii_lowercase()
-        .contains("retry blocked: unchanged attemptkey for unexpectedstate");
+    let any_contract_failure_marker = has_contract_failure_evidence(obs);
+    let paused_retry_blocked = is_retry_blocked_terminal(obs);
 
-    let cec_discovery_seen = has_verification_check(obs, "receipt::host_discovery=true")
-        || has_verification_check(obs, "capability_execution_phase=discovery");
-    let cec_provider_selection_seen =
-        has_verification_check(obs, "receipt::provider_selection=true")
-            || has_verification_check(obs, "receipt::provider_selection_commit=true")
-            || has_verification_check(obs, "provider_selection_route=script_backend");
-    let cec_execution_seen = has_verification_check(obs, "receipt::execution=true")
-        || has_verification_check(obs, "capability_execution_phase=execution");
-    let cec_verification_seen = has_verification_check(obs, "receipt::verification=true")
-        || has_verification_check(obs, "capability_execution_phase=verification");
+    let cec_discovery_seen = has_cec_stage(obs, "discovery", Some(true));
+    let cec_provider_selection_seen = has_cec_stage(obs, "provider_selection", Some(true));
+    let cec_execution_seen = has_cec_stage(obs, "execution", Some(true));
+    let cec_verification_seen = has_cec_stage(obs, "verification", Some(true));
     let cec_phase_receipts_present = cec_discovery_seen
         && cec_provider_selection_seen
         && cec_execution_seen
         && cec_verification_seen;
     let cec_postcondition_seen =
-        has_verification_check(obs, "postcondition::execution_artifact=true")
-            || obs
-                .verification_checks
-                .iter()
-                .any(|check| check.starts_with("verification_probe_commit="));
+        has_cec_receipt(obs, "execution", "execution_artifact", Some(true))
+            || has_cec_receipt(obs, "verification", "verification_commit", Some(true))
+            || has_cec_receipt(obs, "completion_gate", "contract_gate", Some(true));
     let postcondition_verification_evidence_present =
         cec_postcondition_seen || verification_action_count > 0;
+    let target_path_and_name_evidence_present = desktop_path_hits > 0 && project_number_hits > 0;
+    let timeout_terminal = is_timeout_terminal(obs);
+    let timeout_after_verified_execution = timeout_terminal
+        && create_action_count > 0
+        && create_action_failures == 0
+        && target_path_and_name_evidence_present
+        && action_path_seen
+        && routing_path_seen
+        && cec_phase_receipts_present
+        && postcondition_verification_evidence_present
+        && !any_contract_failure_marker;
 
     let completion_channel_present = (obs.completed
         && (create_action_count > 0 || !obs.final_reply.trim().is_empty()))
-        || (paused_retry_blocked && create_action_count > 0 && !any_contract_failure_marker);
-    let target_path_and_name_evidence_present = desktop_path_hits > 0 && project_number_hits > 0;
+        || (paused_retry_blocked && create_action_count > 0 && !any_contract_failure_marker)
+        || timeout_after_verified_execution;
     let reply_target_acknowledged = reply_acknowledges_target(&obs.final_reply);
 
     let environment_receipts = build_environment_receipts(
@@ -136,10 +139,12 @@ fn evaluate(obs: &RunObservation) -> LocalJudgeResult {
             "completion_evidence_present",
             completion_channel_present,
             format!(
-                "status={} completed={} paused_retry_blocked={} reply_len={} create_action_count={}",
+                "status={} completed={} paused_retry_blocked={} timeout_terminal={} timeout_after_verified_execution={} reply_len={} create_action_count={}",
                 obs.final_status,
                 obs.completed,
                 paused_retry_blocked,
+                timeout_terminal,
+                timeout_after_verified_execution,
                 obs.final_reply.chars().count(),
                 create_action_count
             ),
@@ -251,7 +256,7 @@ fn is_desktop_project_create_failure(entry: &super::super::types::ActionEvidence
         && !output.contains("\"exit_code\":0");
     entry.agent_status.eq_ignore_ascii_case("failed")
         || sys_exec_nonzero_exit
-        || has_contract_failure_marker(&entry.output_excerpt)
+        || action_has_hard_error_class(entry)
         || entry
             .output_excerpt
             .to_ascii_lowercase()
@@ -316,12 +321,6 @@ fn has_create_path_tool(tools: &[String]) -> bool {
         || has_tool_with_token(tools, "sys__exec")
 }
 
-fn has_verification_check(obs: &RunObservation, expected: &str) -> bool {
-    obs.verification_checks
-        .iter()
-        .any(|check| check.eq_ignore_ascii_case(expected))
-}
-
 fn build_environment_receipts(
     obs: &RunObservation,
     desktop_path_hits: usize,
@@ -360,11 +359,11 @@ fn build_environment_receipts(
         EnvironmentEvidenceReceipt {
             key: "cec_phase_receipts_observed",
             observed_value: format!(
-                "cec_phase_receipts_present={} verification_checks_count={}",
+                "cec_phase_receipts_present={} cec_receipts_count={}",
                 cec_phase_receipts_present,
-                obs.verification_checks.len()
+                obs.cec_receipts.len()
             ),
-            probe_source: "RoutingReceipt.post_state.verification_checks",
+            probe_source: "RunObservation.cec_receipts",
             timestamp_ms: obs.run_timestamp_ms,
             satisfied: cec_phase_receipts_present,
         },
@@ -374,8 +373,7 @@ fn build_environment_receipts(
                 "postcondition_verification_evidence_present={}",
                 postcondition_verification_evidence_present
             ),
-            probe_source:
-                "RoutingReceipt.post_state.verification_checks + AgentActionResult verification actions",
+            probe_source: "RunObservation.cec_receipts + AgentActionResult verification actions",
             timestamp_ms: obs.run_timestamp_ms,
             satisfied: postcondition_verification_evidence_present,
         },
@@ -433,41 +431,4 @@ fn contains_project_number_token(text: &str) -> bool {
     }
 
     false
-}
-
-fn observation_has_contract_failure_marker(obs: &RunObservation) -> bool {
-    let mut evidence_corpus = Vec::<String>::new();
-    evidence_corpus.push(obs.final_reply.clone());
-    evidence_corpus.extend(
-        obs.action_evidence
-            .iter()
-            .map(|entry| format!("{} {}", entry.agent_status, entry.output_excerpt)),
-    );
-    evidence_corpus.extend(obs.verification_checks.iter().cloned());
-    evidence_corpus.extend(obs.event_excerpt.iter().cloned());
-
-    evidence_corpus
-        .iter()
-        .any(|segment| has_contract_failure_marker(segment))
-}
-
-fn has_contract_failure_marker(text: &str) -> bool {
-    let lower = text.to_ascii_lowercase();
-    [
-        "execution_contract_gate_blocked=true",
-        "cec_terminal_error=true",
-        "execution contract unmet",
-        "base_error_class=executioncontractviolation",
-        "error_class=executioncontractviolation",
-        "error_class=discoverymissing",
-        "error_class=synthesisfailed",
-        "error_class=executionfailedterminal",
-        "error_class=verificationmissing",
-        "error_class=postconditionfailed",
-        "failed_stage=",
-        "missing_receipts=",
-        "missing_postconditions=",
-    ]
-    .iter()
-    .any(|marker| lower.contains(marker))
 }

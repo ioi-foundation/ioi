@@ -173,13 +173,36 @@ fn web_pipeline_pre_read_multi_story_marks_probe_when_distinct_domain_floor_unme
 }
 
 #[test]
+fn web_pipeline_pre_read_multi_story_marks_probe_when_discovery_inventory_is_empty() {
+    let query = "Tell me today's top news headlines.";
+    let bundle = WebEvidenceBundle {
+        schema_version: 1,
+        retrieved_at_ms: 0,
+        tool: "web__search".to_string(),
+        backend: "edge:bing:http".to_string(),
+        query: Some(query.to_string()),
+        url: Some("https://www.bing.com/search?q=today+top+news+headlines".to_string()),
+        sources: vec![],
+        documents: vec![],
+    };
+
+    let plan = pre_read_candidate_plan_from_bundle(query, 3, &bundle);
+    assert_eq!(plan.total_candidates, 0, "plan={:?}", plan);
+    assert!(
+        plan.requires_constraint_search_probe,
+        "time-sensitive multi-story queries should request a typed probe when discovery inventory is empty: {:?}",
+        plan
+    );
+}
+
+#[test]
 fn web_pipeline_pre_read_multi_story_prefers_article_urls_over_listing_pages() {
     let query = "Tell me today's top news headlines.";
     let bundle = WebEvidenceBundle {
         schema_version: 1,
         retrieved_at_ms: 0,
         tool: "web__search".to_string(),
-        backend: "edge:headline-aggregate".to_string(),
+        backend: "edge:bing:http".to_string(),
         query: Some(query.to_string()),
         url: Some("https://www.bing.com/search?q=today+top+news+headlines".to_string()),
         sources: vec![

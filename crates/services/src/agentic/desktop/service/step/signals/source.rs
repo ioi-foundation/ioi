@@ -1,7 +1,7 @@
 use super::util::marker_hits;
 use url::Url;
 
-const SOURCE_LOW_PRIORITY_MARKERS: [&str; 16] = [
+const SOURCE_LOW_PRIORITY_MARKERS: [&str; 40] = [
     "fact sheet",
     "news websites",
     "trust in media",
@@ -18,6 +18,30 @@ const SOURCE_LOW_PRIORITY_MARKERS: [&str; 16] = [
     "news, schedules, results",
     "advertisement",
     "sponsored",
+    "wordle",
+    "crossword",
+    "sudoku",
+    "puzzle",
+    "hints and answer",
+    "hints answer and help",
+    "nyt strands",
+    "connections puzzle",
+    "word game",
+    "quiz",
+    "trivia",
+    "horoscope",
+    "horoscopes",
+    "astrology",
+    "zodiac",
+    "daily horoscope",
+    "zodiac sign",
+    "school assembly",
+    "school-assembly",
+    "thought of the day",
+    "thought-of-the-day",
+    "newspaper headlines",
+    "newspaper-headlines",
+    "headlines for today",
 ];
 
 const SOURCE_PRIMARY_EVENT_MARKERS: [&str; 28] = [

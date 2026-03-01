@@ -1,7 +1,8 @@
 use ioi_types::app::agentic::IntentScopeProfile;
 
 use super::super::types::{
-    has_tool_with_token, truncate_chars, LocalCheck, LocalJudgeResult, QueryCase, RunObservation,
+    has_tool_with_token, is_retry_blocked_terminal, truncate_chars, ExecutionProfile, LocalCheck,
+    LocalJudgeResult, QueryCase, RunObservation,
 };
 
 pub fn case() -> QueryCase {
@@ -13,6 +14,7 @@ pub fn case() -> QueryCase {
         intent_scope: IntentScopeProfile::Conversation,
         seed_resolved_intent: true,
         expected_pass: true,
+        execution_profile: ExecutionProfile::Hermetic,
         sla_seconds: 30,
         max_steps: 8,
         min_local_score: 0.67,
@@ -45,10 +47,7 @@ fn evaluate(obs: &RunObservation) -> LocalJudgeResult {
     let math_tool_used = has_tool_with_token(&obs.routing_tools, "math__eval")
         || has_tool_with_token(&obs.action_tools, "math__eval");
 
-    let paused_retry_blocked = obs
-        .final_status
-        .to_ascii_lowercase()
-        .contains("retry blocked: unchanged attemptkey for unexpectedstate");
+    let paused_retry_blocked = is_retry_blocked_terminal(obs);
     let completed_with_result_channel = (obs.completed && !obs.action_evidence.is_empty())
         || (paused_retry_blocked && has_correct_answer && math_tool_used);
 

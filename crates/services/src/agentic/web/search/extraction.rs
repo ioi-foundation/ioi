@@ -1,412 +1,12 @@
 use super::*;
-
-pub(super) fn is_news_feed_wrapper_url(url: &str) -> bool {
-    let Ok(parsed) = Url::parse(url.trim()) else {
-        return false;
-    };
-    let Some(host) = parsed.host_str() else {
-        return false;
-    };
-    if host.to_ascii_lowercase() != "news.google.com" {
-        return false;
-    }
-    let path = parsed.path().to_ascii_lowercase();
-    path.starts_with("/rss/articles")
-        || path.starts_with("/rss/read")
-        || path.starts_with("/rss/topics")
-}
-
-pub(super) fn source_has_headline_news_signal(source: &WebSource) -> bool {
-    let title = source.title.as_deref().unwrap_or_default();
-    let snippet = source.snippet.as_deref().unwrap_or_default();
-    let signal_text = format!(" {} {} {} ", source.url, title, snippet).to_ascii_lowercase();
-    let keyword_signal = [
-        " news ",
-        " headline ",
-        " headlines ",
-        " breaking ",
-        "/article/",
-        "/story/",
-        "/news/",
-        "/world/",
-        "/politics/",
-        "/business/",
-        "/us/",
-        "/live/",
-    ]
-    .iter()
-    .any(|marker| signal_text.contains(marker));
-    keyword_signal || headline_url_has_article_structure(source.url.as_str())
-}
-
-pub(super) fn civil_date_from_days(days_since_epoch: i64) -> (i64, i64, i64) {
-    let z = days_since_epoch + 719_468;
-    let era = if z >= 0 { z } else { z - 146_096 } / 146_097;
-    let doe = z - era * 146_097;
-    let yoe = (doe - doe / 1_460 + doe / 36_524 - doe / 146_096) / 365;
-    let y = yoe + era * 400;
-    let doy = doe - (365 * yoe + yoe / 4 - yoe / 100);
-    let mp = (5 * doy + 2) / 153;
-    let day = doy - (153 * mp + 2) / 5 + 1;
-    let month = mp + if mp < 10 { 3 } else { -9 };
-    let year = y + if month <= 2 { 1 } else { 0 };
-    (year, month, day)
-}
-
-pub(super) fn current_utc_year() -> i64 {
-    let days_since_epoch = (now_ms() / 86_400_000) as i64;
-    let (year, _, _) = civil_date_from_days(days_since_epoch);
-    year
-}
-
-pub(super) fn headline_url_has_article_structure(url: &str) -> bool {
-    let Ok(parsed) = Url::parse(url.trim()) else {
-        return false;
-    };
-    if !matches!(parsed.scheme(), "http" | "https") {
-        return false;
-    }
-    let path = parsed.path().trim_matches('/').to_ascii_lowercase();
-    if path.is_empty() {
-        return false;
-    }
-    let segments = path
-        .split('/')
-        .map(str::trim)
-        .filter(|segment| !segment.is_empty())
-        .collect::<Vec<_>>();
-    if segments.is_empty() {
-        return false;
-    }
-
-    let taxonomy_markers = [
-        "category",
-        "categories",
-        "topic",
-        "topics",
-        "tag",
-        "tags",
-        "section",
-        "sections",
-        "author",
-        "authors",
-        "collection",
-        "collections",
-        "hub",
-        "hubs",
-        "search",
-        "results",
-    ];
-    if segments.iter().any(|segment| {
-        let normalized = segment.replace('-', " ");
-        normalized
-            .split_whitespace()
-            .any(|token| taxonomy_markers.contains(&token))
-    }) {
-        return false;
-    }
-
-    let listing_markers = [
-        "news",
-        "latest",
-        "headlines",
-        "headline",
-        "home",
-        "world",
-        "us",
-        "politics",
-        "business",
-        "technology",
-        "tech",
-        "health",
-        "sports",
-        "entertainment",
-        "video",
-        "videos",
-        "index",
-        "top-stories",
-        "top-news",
-        "latest-news",
-    ];
-    if segments.len() <= 2
-        && segments.iter().all(|segment| {
-            let normalized = segment.replace('-', " ");
-            normalized
-                .split_whitespace()
-                .all(|token| listing_markers.contains(&token))
-        })
-    {
-        return false;
-    }
-
-    let has_year_segment = segments.iter().any(|segment| {
-        segment.starts_with("20")
-            && segment.len() == 4
-            && segment
-                .chars()
-                .skip(2)
-                .take(2)
-                .all(|ch| ch.is_ascii_digit())
-    });
-    let has_slug_segment = segments.iter().any(|segment| {
-        segment
-            .split('-')
-            .filter(|token| !token.trim().is_empty() && token.len() >= 3)
-            .count()
-            >= 3
-    });
-    let has_alphanumeric_id_segment = segments.iter().any(|segment| {
-        segment.len() >= 10
-            && segment.chars().any(|ch| ch.is_ascii_alphabetic())
-            && segment.chars().any(|ch| ch.is_ascii_digit())
-    });
-    let terminal = segments.last().copied().unwrap_or_default();
-    let terminal_slug_tokens = terminal
-        .split('-')
-        .filter(|token| !token.trim().is_empty() && token.len() >= 3)
-        .count();
-    let terminal_has_structure = terminal_slug_tokens >= 3
-        || terminal.chars().filter(|ch| ch.is_ascii_digit()).count() >= 4
-        || (terminal.len() >= 10
-            && terminal.chars().any(|ch| ch.is_ascii_alphabetic())
-            && terminal.chars().any(|ch| ch.is_ascii_digit()));
-    let has_article_path_keyword = path.contains("/article/")
-        || path.contains("/story/")
-        || path.contains("/live/")
-        || path.contains("/news/")
-        || path.contains("/world/")
-        || path.contains("/politics/")
-        || path.contains("/business/")
-        || path.contains("/us/");
-
-    has_alphanumeric_id_segment
-        || (has_year_segment && terminal_has_structure)
-        || (has_article_path_keyword && terminal_has_structure && segments.len() >= 2)
-        || (segments.len() >= 3 && has_slug_segment && terminal_has_structure)
-}
-
-pub(super) fn source_is_likely_headline_article(source: &WebSource) -> bool {
-    let url = source.url.trim();
-    if url.is_empty() {
-        return false;
-    }
-    if is_news_feed_wrapper_url(url) {
-        return false;
-    }
-    let Ok(parsed) = Url::parse(url) else {
-        return false;
-    };
-    if !matches!(parsed.scheme(), "http" | "https") {
-        return false;
-    }
-
-    let path = parsed.path().trim_matches('/').to_ascii_lowercase();
-    if path.is_empty() {
-        return false;
-    }
-    if headline_url_has_article_structure(url) {
-        return true;
-    }
-
-    // Keep a metadata fallback for providers that omit useful path detail.
-    let has_signal = source_has_headline_news_signal(source);
-    if !has_signal {
-        return false;
-    }
-    parsed.path().trim_matches('/').split('/').count() >= 3
-}
-
-pub(super) fn headline_article_like_source_count(sources: &[WebSource]) -> usize {
-    sources
-        .iter()
-        .filter(|source| source_is_likely_headline_article(source))
-        .count()
-}
-
-pub(super) fn normalized_domain_key(value: &str) -> String {
-    value.trim().trim_start_matches("www.").to_ascii_lowercase()
-}
-
-pub(super) fn source_domain_matches(expected_domain: &str, source: &WebSource) -> bool {
-    let expected = normalized_domain_key(expected_domain);
-    if expected.is_empty() {
-        return false;
-    }
-    let candidate_domain = canonical_source_domain(source).unwrap_or_default();
-    if candidate_domain.is_empty() {
-        return false;
-    }
-    candidate_domain == expected || candidate_domain.ends_with(&format!(".{}", expected))
-}
-
-pub(super) fn resolved_href_with_base(base_url: &str, href: &str) -> Option<String> {
-    let trimmed = href.trim();
-    if trimmed.is_empty() {
-        return None;
-    }
-    let resolved = if trimmed.starts_with("http://") || trimmed.starts_with("https://") {
-        Url::parse(trimmed).ok()?
-    } else {
-        let base = Url::parse(base_url).ok()?;
-        base.join(trimmed).ok()?
-    };
-    if !matches!(resolved.scheme(), "http" | "https") {
-        return None;
-    }
-    Some(resolved.as_str().to_string())
-}
-
-pub(super) fn extract_domain_article_sources_from_html(
-    domain: &str,
-    base_url: &str,
-    html: &str,
-    limit: usize,
-) -> Vec<WebSource> {
-    if limit == 0 {
-        return Vec::new();
-    }
-    let normalized_domain = normalized_domain_key(domain);
-    if normalized_domain.is_empty() {
-        return Vec::new();
-    }
-    let document = Html::parse_document(html);
-    let Ok(anchor_selector) = Selector::parse("a[href]") else {
-        return Vec::new();
-    };
-
-    let mut out = Vec::new();
-    let mut seen = HashSet::new();
-    for anchor in document.select(&anchor_selector) {
-        if out.len() >= limit {
-            break;
-        }
-        let Some(href) = anchor.value().attr("href") else {
-            continue;
-        };
-        let Some(resolved_url) = resolved_href_with_base(base_url, href) else {
-            continue;
-        };
-        let Some(candidate_domain) = domain_for_url(&resolved_url) else {
-            continue;
-        };
-        let candidate_domain = normalized_domain_key(&candidate_domain);
-        if candidate_domain != normalized_domain
-            && !candidate_domain.ends_with(&format!(".{}", normalized_domain))
-        {
-            continue;
-        }
-        if !headline_url_has_article_structure(&resolved_url) {
-            continue;
-        }
-        let normalized_url = normalize_url_for_id(&resolved_url);
-        if !seen.insert(normalized_url) {
-            continue;
-        }
-        let title_raw = anchor.text().collect::<Vec<_>>().join(" ");
-        let title_compact = title_raw
-            .split_whitespace()
-            .collect::<Vec<_>>()
-            .join(" ")
-            .trim()
-            .to_string();
-        out.push(WebSource {
-            source_id: source_id_for_url(&resolved_url),
-            rank: Some((out.len() as u32) + 1),
-            url: resolved_url.clone(),
-            title: (!title_compact.is_empty()).then_some(title_compact),
-            snippet: None,
-            domain: Some(candidate_domain),
-        });
-    }
-
-    out
-}
+use url::Url;
 
 pub(super) fn provider_search_query(query: &str) -> String {
     let trimmed = query.trim();
     if trimmed.is_empty() {
         return String::new();
     }
-    if !query_is_generic_headline_lookup(trimmed) {
-        return trimmed.to_string();
-    }
-
-    let mut tokens = Vec::new();
-    let mut seen = HashSet::new();
-    for raw in trimmed.split(|ch: char| !ch.is_ascii_alphanumeric()) {
-        let mut normalized = raw.trim().to_ascii_lowercase();
-        if normalized == "todays" {
-            normalized = "today".to_string();
-        }
-        if normalized.len() < 2 {
-            continue;
-        }
-        if matches!(
-            normalized.as_str(),
-            "tell"
-                | "me"
-                | "give"
-                | "show"
-                | "what"
-                | "whats"
-                | "please"
-                | "could"
-                | "would"
-                | "can"
-                | "you"
-                | "today"
-        ) {
-            continue;
-        }
-        if seen.insert(normalized.clone()) {
-            tokens.push(normalized);
-        }
-    }
-
-    if !tokens.iter().any(|token| token == "news") {
-        tokens.push("news".to_string());
-    }
-    if !tokens
-        .iter()
-        .any(|token| token == "headline" || token == "headlines")
-    {
-        tokens.push("headlines".to_string());
-    }
-    if !tokens
-        .iter()
-        .any(|token| matches!(token.as_str(), "latest" | "recent" | "breaking"))
-    {
-        tokens.push("latest".to_string());
-    }
-    if !tokens
-        .iter()
-        .any(|token| matches!(token.as_str(), "top" | "latest" | "breaking"))
-    {
-        tokens.push("top".to_string());
-    }
-
-    let priority = ["latest", "breaking", "top", "news", "headlines"];
-    let mut ordered = Vec::new();
-    let mut included = HashSet::new();
-    for wanted in priority {
-        if tokens.iter().any(|token| token == wanted) && included.insert(wanted.to_string()) {
-            ordered.push(wanted.to_string());
-        }
-    }
-    for token in tokens {
-        if included.insert(token.clone()) {
-            ordered.push(token);
-        }
-    }
-    if !ordered.iter().any(|token| token == "world") {
-        ordered.push("world".to_string());
-    }
-    let query = ordered.join(" ").trim().to_string();
-    if query.is_empty() {
-        "latest top news headlines world".to_string()
-    } else {
-        query
-    }
+    trimmed.to_string()
 }
 
 pub(super) fn canonical_source_domain(source: &WebSource) -> Option<String> {
@@ -421,212 +21,169 @@ pub(super) fn canonical_source_domain(source: &WebSource) -> Option<String> {
     Some(domain.strip_prefix("www.").unwrap_or(&domain).to_string())
 }
 
-pub(super) fn distinct_source_domain_count(sources: &[WebSource]) -> usize {
-    let mut domains = HashSet::new();
-    for source in sources {
-        if let Some(domain) = canonical_source_domain(source) {
-            domains.insert(domain);
-        } else {
-            domains.insert(normalize_url_for_id(&source.url));
-        }
+fn looks_like_placeholder_article_slug_segment(segment: &str) -> bool {
+    let trimmed = segment.trim().to_ascii_lowercase();
+    if trimmed.is_empty() {
+        return false;
     }
-    domains.len()
-}
-
-pub(super) fn append_unique_sources(existing: &mut Vec<WebSource>, incoming: Vec<WebSource>) {
-    let mut seen_urls = existing
+    let tokenized = trimmed
+        .split(|ch: char| !ch.is_ascii_alphanumeric())
+        .filter(|token| !token.is_empty())
+        .collect::<Vec<_>>();
+    if tokenized.is_empty() {
+        return false;
+    }
+    let role_tokens = [
+        "article", "story", "news", "headline", "post", "report", "item",
+    ];
+    let placeholder_tokens = [
+        "title",
+        "slug",
+        "name",
+        "text",
+        "content",
+        "page",
+        "link",
+        "sample",
+        "placeholder",
+    ];
+    let has_role = tokenized.iter().any(|token| role_tokens.contains(token));
+    let has_placeholder = tokenized
         .iter()
-        .map(|source| normalize_url_for_id(&source.url))
-        .collect::<HashSet<_>>();
-    for source in incoming {
-        let url_key = normalize_url_for_id(&source.url);
-        if seen_urls.insert(url_key) {
-            existing.push(source);
-        }
-    }
+        .any(|token| placeholder_tokens.contains(token));
+    let all_generic = tokenized
+        .iter()
+        .all(|token| role_tokens.contains(token) || placeholder_tokens.contains(token));
+
+    tokenized.len() >= 2 && has_role && has_placeholder && all_generic
 }
 
-pub(super) async fn enrich_headline_sources_from_domains(
-    query_for_provider: &str,
-    sources: &[WebSource],
-    required_domain_floor: usize,
-) -> Vec<WebSource> {
-    if sources.is_empty() || required_domain_floor == 0 {
-        return Vec::new();
+pub(super) fn looks_like_headline_article_url(url: &str) -> bool {
+    let trimmed = url.trim();
+    if trimmed.is_empty() {
+        return false;
+    }
+    let Ok(parsed) = Url::parse(trimmed) else {
+        return false;
+    };
+    if parsed.scheme() != "http" && parsed.scheme() != "https" {
+        return false;
+    }
+    let Some(host) = parsed.host_str() else {
+        return false;
+    };
+    if host.trim().is_empty() {
+        return false;
+    }
+    let host = host.to_ascii_lowercase();
+    let path = parsed.path().trim_matches('/').to_ascii_lowercase();
+    if path.is_empty() {
+        return false;
+    }
+    if host == "news.google.com" && path.starts_with("rss/") {
+        return false;
+    }
+    let segments = path
+        .split('/')
+        .filter(|segment| !segment.trim().is_empty())
+        .collect::<Vec<_>>();
+    if segments.is_empty() {
+        return false;
+    }
+    let hub_markers = [
+        "news",
+        "latest",
+        "home",
+        "homepage",
+        "index",
+        "index.html",
+        "video",
+        "videos",
+        "live",
+        "world",
+        "us",
+        "top-stories",
+        "top-news",
+    ];
+    let marker_segment = |segment: &str| {
+        if segment.is_empty() {
+            return false;
+        }
+        if hub_markers.contains(&segment) {
+            return true;
+        }
+        segment
+            .split('-')
+            .all(|token| !token.is_empty() && hub_markers.contains(&token))
+    };
+    if hub_markers.iter().any(|marker| path == *marker) {
+        return false;
+    }
+    if segments
+        .last()
+        .map(|segment| marker_segment(segment))
+        .unwrap_or(false)
+    {
+        return false;
+    }
+    if segments
+        .last()
+        .copied()
+        .map(looks_like_placeholder_article_slug_segment)
+        .unwrap_or(false)
+    {
+        return false;
     }
 
-    let mut domains: Vec<(String, Vec<String>)> = Vec::new();
-    let domain_probe_limit = required_domain_floor.saturating_add(6).max(4);
-    let enriched_target = required_domain_floor.saturating_add(2).max(3);
-    for source in sources {
-        let Some(domain) = canonical_source_domain(source) else {
-            continue;
-        };
-        let seed_url = source.url.trim();
-        if let Some((_, seed_urls)) = domains.iter_mut().find(|(existing, _)| existing == &domain) {
-            if !seed_url.is_empty()
-                && !seed_urls
-                    .iter()
-                    .any(|existing| existing.eq_ignore_ascii_case(seed_url))
-            {
-                seed_urls.push(seed_url.to_string());
-            }
-            continue;
-        }
-        let mut seed_urls = Vec::new();
-        if !seed_url.is_empty() {
-            seed_urls.push(seed_url.to_string());
-        }
-        domains.push((domain, seed_urls));
-        if domains.len() >= domain_probe_limit {
-            break;
-        }
-    }
-    if domains.is_empty() {
-        return Vec::new();
-    }
-
-    let mut enriched = Vec::new();
-    let utc_year = current_utc_year();
-    for (domain, seed_urls) in domains {
-        let mut resolved_for_domain = false;
-
-        for seed_url in seed_urls.iter().take(2) {
-            let Ok(html) = fetch_html_http_fallback(seed_url).await else {
-                continue;
-            };
-            let extracted = extract_domain_article_sources_from_html(&domain, seed_url, &html, 6);
-            let Some(best_match) = extracted
-                .into_iter()
-                .find(|candidate| source_is_likely_headline_article(candidate))
-            else {
-                continue;
-            };
-            enriched.push(best_match);
-            resolved_for_domain = true;
-            break;
-        }
-
-        if resolved_for_domain {
-            if enriched.len() >= enriched_target {
-                break;
-            }
-            continue;
-        }
-
-        let probe_queries = [
-            format!("site:{} {} world breaking news", domain, utc_year),
-            format!("site:{} {} politics breaking news", domain, utc_year),
-            format!("site:{} {} business breaking news", domain, utc_year),
-            format!("site:{} {} {}", domain, utc_year, query_for_provider),
-        ];
-        for probe_query in probe_queries {
-            let probe_attempts = [
-                (
-                    SearchProviderStage::BingHttp,
-                    build_bing_serp_url(&probe_query),
-                ),
-                (
-                    SearchProviderStage::GoogleHttp,
-                    build_google_serp_url(&probe_query),
-                ),
-            ];
-            for (provider, probe_url) in probe_attempts {
-                let Ok(html) = fetch_html_http_fallback(&probe_url).await else {
-                    continue;
-                };
-                let probe_sources = match provider {
-                    SearchProviderStage::BingHttp => parse_bing_sources_from_html(&html, 20),
-                    SearchProviderStage::GoogleHttp => parse_google_sources_from_html(&html, 20),
-                    _ => Vec::new(),
-                };
-                let Some(best_match) = probe_sources.into_iter().find(|candidate| {
-                    source_domain_matches(&domain, candidate)
-                        && !is_news_feed_wrapper_url(candidate.url.trim())
-                        && source_is_likely_headline_article(candidate)
-                }) else {
-                    continue;
-                };
-                enriched.push(best_match);
-                resolved_for_domain = true;
-                break;
-            }
-            if resolved_for_domain {
-                break;
-            }
-        }
-        if !resolved_for_domain {
-            let homepage_candidates = [
-                format!("https://{}", domain),
-                format!("https://www.{}", domain),
-                format!("https://{}/news", domain),
-                format!("https://www.{}/news", domain),
-                format!("https://{}/world", domain),
-                format!("https://www.{}/world", domain),
-                format!("https://{}/politics", domain),
-                format!("https://www.{}/politics", domain),
-                format!("https://{}/business", domain),
-                format!("https://www.{}/business", domain),
-            ];
-            for homepage_url in homepage_candidates {
-                let Ok(html) = fetch_html_http_fallback(&homepage_url).await else {
-                    continue;
-                };
-                let fallback_sources =
-                    extract_domain_article_sources_from_html(&domain, &homepage_url, &html, 4);
-                let Some(best_match) = fallback_sources
-                    .into_iter()
-                    .find(|candidate| source_is_likely_headline_article(candidate))
-                else {
-                    continue;
-                };
-                enriched.push(best_match);
-                resolved_for_domain = true;
-                break;
-            }
-        }
-        if resolved_for_domain && enriched.len() >= enriched_target {
-            break;
-        }
-    }
-
-    enriched
+    true
 }
 
-pub(super) fn diversify_sources_by_domain(sources: Vec<WebSource>, limit: usize) -> Vec<WebSource> {
-    if sources.is_empty() || limit == 0 {
-        return Vec::new();
+pub(super) fn headline_article_path_depth(url: &str) -> usize {
+    let Ok(parsed) = Url::parse(url.trim()) else {
+        return 0;
+    };
+    parsed
+        .path()
+        .split('/')
+        .filter(|segment| !segment.trim().is_empty())
+        .count()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{
+        headline_article_path_depth, looks_like_headline_article_url, provider_search_query,
+    };
+
+    #[test]
+    fn provider_search_query_preserves_structured_exclusion_terms() {
+        let query = "latest top news headlines -site:www.fifa.com -site:media.fifa.com";
+        assert_eq!(provider_search_query(query), query);
     }
 
-    let mut ranked_sources = Vec::new();
-    let mut fallback_sources = Vec::new();
-    for source in sources {
-        if source_is_likely_headline_article(&source) {
-            ranked_sources.push(source);
-        } else {
-            fallback_sources.push(source);
-        }
-    }
-    ranked_sources.extend(fallback_sources);
-
-    let mut unique_domain_first = Vec::new();
-    let mut duplicates = Vec::new();
-    let mut seen_domains = HashSet::new();
-    for source in ranked_sources {
-        let domain_key =
-            canonical_source_domain(&source).unwrap_or_else(|| normalize_url_for_id(&source.url));
-        if seen_domains.insert(domain_key) {
-            unique_domain_first.push(source);
-        } else {
-            duplicates.push(source);
-        }
+    #[test]
+    fn provider_search_query_leaves_headline_queries_unchanged() {
+        let query = provider_search_query("today's top news headlines");
+        assert_eq!(query, "today's top news headlines");
     }
 
-    let mut selected = unique_domain_first;
-    selected.extend(duplicates);
-    selected.truncate(limit);
-    for (idx, source) in selected.iter_mut().enumerate() {
-        source.rank = Some((idx + 1) as u32);
+    #[test]
+    fn looks_like_headline_article_url_rejects_wrapper_and_hub_paths() {
+        assert!(!looks_like_headline_article_url(
+            "https://news.google.com/rss/articles/CBMiUkFVX3lxTE0x?oc=5"
+        ));
+        assert!(!looks_like_headline_article_url("https://www.nbcnews.com/"));
     }
-    selected
+
+    #[test]
+    fn looks_like_headline_article_url_accepts_story_paths() {
+        assert!(looks_like_headline_article_url(
+            "https://www.reuters.com/world/europe/example-story-2026-03-01/"
+        ));
+        assert!(
+            headline_article_path_depth(
+                "https://www.reuters.com/world/europe/example-story-2026-03-01/"
+            ) >= 3
+        );
+    }
 }

@@ -101,66 +101,22 @@ pub(crate) fn constraint_grounded_probe_query_with_hints_and_locality_hint(
 
     let prior_trimmed = prior_query.trim();
     let headline_collection_query = query_is_generic_headline_collection(query);
-    let projection = headline_collection_query.then(|| {
-        build_query_constraint_projection_with_locality_hint(
-            query,
-            min_sources,
-            candidate_hints,
-            locality_hint,
-        )
-    });
     if headline_collection_query {
-        let mut diversification_terms = vec![
-            "latest headlines".to_string(),
-            "breaking news".to_string(),
-            "multiple outlets".to_string(),
-            "world".to_string(),
-            "politics".to_string(),
-            "business".to_string(),
-        ];
-        if let Some(projection_ref) = projection.as_ref() {
-            let host_exclusion_terms =
-                projection_probe_host_exclusion_terms(projection_ref, candidate_hints);
-            for term in host_exclusion_terms.into_iter().take(1) {
-                if diversification_terms
-                    .iter()
-                    .any(|existing| existing == &term)
-                {
-                    continue;
-                }
-                diversification_terms.push(term);
-            }
+        if prior_trimmed.is_empty() || !grounded_query.eq_ignore_ascii_case(prior_trimmed) {
+            return Some(grounded_query);
         }
-        let diversified_query = append_unique_query_terms(&grounded_query, &diversification_terms);
-        if !diversified_query.trim().is_empty()
-            && !diversified_query.eq_ignore_ascii_case(prior_trimmed)
-        {
-            return Some(diversified_query);
-        }
+        return None;
     }
     if prior_trimmed.is_empty() || !grounded_query.eq_ignore_ascii_case(prior_trimmed) {
         return Some(grounded_query);
     }
-    let projection = projection.unwrap_or_else(|| {
-        build_query_constraint_projection_with_locality_hint(
-            query,
-            min_sources,
-            candidate_hints,
-            locality_hint,
-        )
-    });
-    let mut escalation_terms =
-        projection_probe_conflict_exclusion_terms(&projection, candidate_hints);
-    let host_exclusion_terms = projection_probe_host_exclusion_terms(&projection, candidate_hints);
-    for term in host_exclusion_terms {
-        if escalation_terms.iter().any(|existing| existing == &term) {
-            continue;
-        }
-        escalation_terms.push(term);
-    }
-    if escalation_terms.is_empty() {
-        escalation_terms = projection_probe_structural_terms(&projection);
-    }
+    let projection = build_query_constraint_projection_with_locality_hint(
+        query,
+        min_sources,
+        candidate_hints,
+        locality_hint,
+    );
+    let escalation_terms = projection_probe_structural_terms(&projection);
     let requires_locality_metric_escalation = projection
         .constraints
         .scopes

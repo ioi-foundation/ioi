@@ -498,3 +498,53 @@ fn web_pipeline_single_snapshot_continues_when_grounded_hints_lack_resolvable_me
         reason
     );
 }
+
+#[test]
+fn web_pipeline_grounded_probe_attempts_remain_available_before_limit() {
+    let pending = PendingSearchCompletion {
+        query: "Tell me today's top news headlines.".to_string(),
+        query_contract: "Tell me today's top news headlines.".to_string(),
+        url: "https://www.bing.com/search?q=today+top+news+headlines".to_string(),
+        started_step: 1,
+        started_at_ms: 1_771_465_364_000,
+        deadline_ms: 1_771_465_424_000,
+        candidate_urls: vec![],
+        candidate_source_hints: vec![],
+        attempted_urls: vec![
+            "https://www.bing.com/search?q=today+top+news+headlines".to_string(),
+            "https://www.bing.com/search?q=latest+top+news+headlines+world".to_string(),
+        ],
+        blocked_urls: vec![],
+        successful_reads: vec![],
+        min_sources: 3,
+    };
+
+    assert!(web_pipeline_grounded_probe_attempt_available(&pending));
+}
+
+#[test]
+fn web_pipeline_grounded_probe_attempts_stop_at_limit() {
+    let pending = PendingSearchCompletion {
+        query: "Tell me today's top news headlines.".to_string(),
+        query_contract: "Tell me today's top news headlines.".to_string(),
+        url: "https://www.bing.com/search?q=today+top+news+headlines".to_string(),
+        started_step: 1,
+        started_at_ms: 1_771_465_364_000,
+        deadline_ms: 1_771_465_424_000,
+        candidate_urls: vec![],
+        candidate_source_hints: vec![],
+        attempted_urls: vec![
+            "https://www.bing.com/search?q=today+top+news+headlines".to_string(),
+            "https://www.bing.com/search?q=latest+top+news+headlines+world".to_string(),
+            "https://www.bing.com/search?q=latest+top+news+headlines+politics".to_string(),
+            "https://www.bing.com/search?q=latest+top+news+headlines+business".to_string(),
+            "https://www.bing.com/search?q=latest+top+news+headlines+us".to_string(),
+            "https://www.bing.com/search?q=latest+top+news+headlines+global".to_string(),
+        ],
+        blocked_urls: vec![],
+        successful_reads: vec![],
+        min_sources: 3,
+    };
+
+    assert!(!web_pipeline_grounded_probe_attempt_available(&pending));
+}

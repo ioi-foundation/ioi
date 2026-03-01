@@ -433,7 +433,7 @@ fn web_pipeline_constraint_grounded_probe_query_adds_metric_probe_terms_when_loc
 }
 
 #[test]
-fn web_pipeline_constraint_grounded_probe_query_diversifies_generic_headline_queries() {
+fn web_pipeline_constraint_grounded_probe_query_does_not_inject_site_exclusions_for_headlines() {
     let query = "Tell me today's top news headlines.";
     let hints = vec![PendingSearchReadSummary {
         url: "https://www.foxnews.com/us/example-headline".to_string(),
@@ -443,23 +443,48 @@ fn web_pipeline_constraint_grounded_probe_query_diversifies_generic_headline_que
     let grounded = constraint_grounded_search_query_with_hints(query, 3, &hints);
     let probe = constraint_grounded_probe_query_with_hints_and_locality_hint(
         query, 3, &hints, &grounded, None,
+    );
+    assert!(
+        probe.is_none(),
+        "headline probe query should not inject site-exclusion terms when grounded query is unchanged: {:?}",
+        probe
+    );
+}
+
+#[test]
+fn web_pipeline_constraint_grounded_probe_query_removes_site_exclusions_when_present_in_prior() {
+    let query = "Tell me today's top news headlines.";
+    let hints = vec![
+        PendingSearchReadSummary {
+            url: "https://www.foxnews.com/us/example-headline".to_string(),
+            title: Some("Top headlines from Fox News".to_string()),
+            excerpt: "Breaking U.S. and world coverage from Fox.".to_string(),
+        },
+        PendingSearchReadSummary {
+            url: "https://video.foxnews.com/v/123".to_string(),
+            title: Some("Live coverage stream".to_string()),
+            excerpt: "Video stream from Fox News.".to_string(),
+        },
+    ];
+    let grounded = constraint_grounded_search_query_with_hints(query, 3, &hints);
+    let prior_probe = format!("{grounded} -site:www.foxnews.com -site:video.foxnews.com");
+    let probe = constraint_grounded_probe_query_with_hints_and_locality_hint(
+        query,
+        3,
+        &hints,
+        &prior_probe,
+        None,
     )
-    .expect("headline probe query should be generated");
+    .expect("headline follow-up probe query should be generated");
     let normalized = probe.to_ascii_lowercase();
     assert!(
-        normalized.contains("reuters")
-            && (normalized.contains("ap news") || normalized.contains("ap")),
-        "expected diversified newsroom anchors in headline probe query: {}",
+        !normalized.contains("-site:"),
+        "headline probe query should not retain site exclusions: {}",
         probe
     );
     assert!(
-        normalized.contains("-site:www.foxnews.com") || normalized.contains("-site:foxnews.com"),
-        "expected repeated-domain exclusion in headline probe query: {}",
-        probe
-    );
-    assert!(
-        !probe.eq_ignore_ascii_case(&grounded),
-        "headline probe query should differ from grounded query"
+        !probe.eq_ignore_ascii_case(&prior_probe),
+        "follow-up probe should differ from previous probe query"
     );
 }
 
@@ -474,10 +499,10 @@ fn web_pipeline_constraint_grounded_search_query_keeps_generic_headline_contract
     let grounded = constraint_grounded_search_query_with_hints(query, 3, &hints);
     let normalized = grounded.to_ascii_lowercase();
     assert!(
-        normalized.contains("today")
-            && normalized.contains("top")
+        normalized.contains("top")
             && normalized.contains("news")
-            && normalized.contains("headlines"),
+            && normalized.contains("headlines")
+            && (normalized.contains("today") || normalized.contains("latest")),
         "headline grounded query should preserve headline intent anchors: {}",
         grounded
     );
@@ -491,8 +516,7 @@ fn web_pipeline_constraint_grounded_search_query_keeps_generic_headline_contract
 }
 
 #[test]
-fn web_pipeline_constraint_grounded_probe_query_excludes_low_signal_hosts_when_metric_gap_persists()
-{
+fn web_pipeline_constraint_grounded_probe_query_avoids_host_exclusion_terms_for_metric_gaps() {
     let query = "what's the weather right now in anderson, sc";
     let hints = vec![
         PendingSearchReadSummary {
@@ -512,19 +536,15 @@ fn web_pipeline_constraint_grounded_probe_query_excludes_low_signal_hosts_when_m
     let grounded = constraint_grounded_search_query_with_hints(query, 2, &hints);
     let probe = constraint_grounded_probe_query_with_hints_and_locality_hint(
         query, 2, &hints, &grounded, None,
-    )
-    .expect("probe query should be generated when metric grounding remains weak");
-    let normalized = probe.to_ascii_lowercase();
-    assert!(
-        normalized.contains("-site:www.accuweather.com")
-            || normalized.contains("-site:www.weather-forecast.com"),
-        "expected probe to exclude at least one previously low-signal host: {}",
-        probe
     );
-    assert!(
-        !probe.eq_ignore_ascii_case(&grounded),
-        "host-exclusion probe should differ from grounded query"
-    );
+    if let Some(candidate) = probe {
+        let normalized = candidate.to_ascii_lowercase();
+        assert!(
+            !normalized.contains("-site:"),
+            "probe query should not contain host-exclusion operators: {}",
+            candidate
+        );
+    }
 }
 
 #[test]
@@ -545,7 +565,7 @@ fn web_pipeline_constraint_grounded_search_query_adds_status_surface_terms_for_i
 }
 
 #[test]
-fn web_pipeline_constraint_grounded_probe_query_excludes_repeated_hosts_for_incident_queries() {
+fn web_pipeline_constraint_grounded_probe_query_avoids_host_exclusions_for_incident_queries() {
     let query = "As of now (UTC), top 3 active U.S.-impacting cloud/SaaS incidents from major status pages with citations.";
     let hints = vec![
         PendingSearchReadSummary {
@@ -560,20 +580,16 @@ fn web_pipeline_constraint_grounded_probe_query_excludes_repeated_hosts_for_inci
         },
     ];
     let grounded = constraint_grounded_search_query_with_hints(query, 3, &hints);
-    let probe = constraint_grounded_probe_query_with_hints_and_locality_hint(
-        query, 3, &hints, &grounded, None,
-    )
-    .expect("probe query should be generated when incident retrieval stalls on repeated hosts");
-    let normalized = probe.to_ascii_lowercase();
-    assert!(
-        normalized.contains("-site:www.reddit.com") || normalized.contains("-site:reddit.com"),
-        "expected host exclusion for repeated low-signal domain: {}",
-        probe
-    );
-    assert!(
-        !probe.eq_ignore_ascii_case(&grounded),
-        "probe query should differ from grounded query"
-    );
+    let probe =
+        constraint_grounded_probe_query_with_hints_and_locality_hint(query, 3, &hints, &grounded, None);
+    if let Some(candidate) = probe {
+        let normalized = candidate.to_ascii_lowercase();
+        assert!(
+            !normalized.contains("-site:"),
+            "probe query should not contain host-exclusion operators: {}",
+            candidate
+        );
+    }
 }
 
 #[test]

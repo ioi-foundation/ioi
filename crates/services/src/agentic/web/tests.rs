@@ -6,7 +6,8 @@ use super::anchor_policy::{
 };
 use super::constants::EDGE_WEB_SEARCH_TOTAL_BUDGET_MS;
 use super::parsers::{
-    parse_bing_sources_from_html, parse_ddg_sources_from_html, parse_google_news_sources_from_rss,
+    parse_bing_news_sources_from_rss, parse_bing_sources_from_html, parse_ddg_sources_from_html,
+    parse_google_news_sources_from_rss,
 };
 use super::readability::{build_document_text_and_spans, extract_read_blocks};
 use super::search::{
@@ -16,8 +17,8 @@ use super::search::{
 use super::transport::{detect_human_challenge, retrieve_html_with_fallback};
 use super::types::{SearchBackendProfile, SearchProviderStage};
 use super::urls::{
-    build_bing_serp_url, build_ddg_serp_url, build_google_serp_url, normalize_google_search_href,
-    normalize_search_href,
+    build_bing_serp_url, build_ddg_serp_url, build_google_news_serp_url, build_google_serp_url,
+    normalize_google_search_href, normalize_search_href,
 };
 use super::util::{domain_for_url, now_ms, source_id_for_url};
 
@@ -45,6 +46,13 @@ fn provider_specific_search_urls_encode_query() {
     assert!(google.starts_with("https://www.google.com/search"));
     assert!(google.contains("q=internet+of+intelligence"));
 
+    let google_news = build_google_news_serp_url("internet of intelligence");
+    assert!(google_news.starts_with("https://www.google.com/search"));
+    assert!(google_news.contains("q=internet+of+intelligence"));
+    assert!(google_news.contains("tbm=nws"));
+    assert!(google_news.contains("hl=en-US"));
+    assert!(google_news.contains("gl=US"));
+
     let bing = build_bing_serp_url("internet of intelligence");
     assert!(bing.starts_with("https://www.bing.com/search"));
     assert!(bing.contains("q=internet+of+intelligence"));
@@ -59,10 +67,11 @@ fn search_backend_profile_uses_constraint_grounded_plan_for_time_sensitive_queri
     );
     let plan = search_provider_plan(profile);
     assert_eq!(plan.first(), Some(&SearchProviderStage::BingHttp));
-    assert_eq!(plan.get(1), Some(&SearchProviderStage::GoogleHttp));
+    assert_eq!(plan.get(1), Some(&SearchProviderStage::BingNewsRss));
+    assert_eq!(plan.get(2), Some(&SearchProviderStage::GoogleHttp));
     assert!(
-        !plan.contains(&SearchProviderStage::GoogleNewsRss),
-        "time-sensitive public-fact plan should avoid rss proxy fallback"
+        plan.contains(&SearchProviderStage::GoogleNewsRss),
+        "time-sensitive public-fact plan should include rss provider to improve source diversity"
     );
 }
 
@@ -76,9 +85,11 @@ fn search_backend_profile_treats_latest_news_as_time_sensitive_public_fact() {
 }
 
 #[test]
-fn search_provider_plan_prioritizes_google_news_rss_for_headline_queries() {
-    let plan = effective_search_provider_plan("today's top news headlines");
-    assert_eq!(plan.first(), Some(&SearchProviderStage::GoogleNewsRss));
+fn search_provider_plan_follows_profile_order_for_headline_queries() {
+    let query = "today's top news headlines";
+    let profile = search_backend_profile(query);
+    let plan = effective_search_provider_plan(query);
+    assert_eq!(plan, search_provider_plan(profile));
 }
 
 #[test]
@@ -189,6 +200,39 @@ fn parses_google_news_rss_items() {
     assert_eq!(sources[0].snippet.as_deref(), Some("Outlet A"));
     assert_eq!(sources[1].url, "https://example.com/story-two");
     assert_eq!(sources[1].title.as_deref(), Some("Headline Two"));
+}
+
+#[test]
+fn parses_bing_news_rss_items_and_decodes_article_links() {
+    let rss = r#"
+        <?xml version="1.0" encoding="utf-8" ?>
+        <rss version="2.0">
+          <channel>
+            <item>
+              <title>Headline One</title>
+              <link>http://www.bing.com/news/apiclick.aspx?ref=FexRss&amp;url=https%3a%2f%2fexample.com%2fstory-one&amp;c=1</link>
+              <description>Summary one.</description>
+              <News:Source>Outlet A</News:Source>
+            </item>
+            <item>
+              <title>Headline Two</title>
+              <link>https://example.org/story-two</link>
+              <description>Summary two.</description>
+            </item>
+          </channel>
+        </rss>
+        "#;
+
+    let sources = parse_bing_news_sources_from_rss(rss, 10);
+    assert_eq!(sources.len(), 2);
+    assert_eq!(sources[0].url, "https://example.com/story-one");
+    assert_eq!(sources[0].title.as_deref(), Some("Headline One"));
+    assert!(sources[0]
+        .snippet
+        .as_deref()
+        .unwrap_or_default()
+        .contains("Outlet A"));
+    assert_eq!(sources[1].url, "https://example.org/story-two");
 }
 
 #[test]
@@ -403,6 +447,15 @@ fn challenge_detection_still_triggers() {
     let reason = detect_human_challenge(
         "https://duckduckgo.com/?q=latest+news",
         "Please verify you are human to continue",
+    );
+    assert!(reason.is_some());
+}
+
+#[test]
+fn challenge_detection_flags_cloudflare_interstitial() {
+    let reason = detect_human_challenge(
+        "https://www.politico.com/news/2026/02/28/iran-strike-democrats-split-message-00806051",
+        "Just a moment... Please enable JavaScript and cookies to continue. Cloudflare Ray ID: 123abc",
     );
     assert!(reason.is_some());
 }

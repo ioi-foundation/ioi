@@ -3,7 +3,7 @@ use super::super::support::{
     candidate_source_hints_from_bundle,
     constraint_grounded_probe_query_with_hints_and_locality_hint, constraint_grounded_search_limit,
     effective_locality_scope_hint, extract_json_object, fallback_search_summary,
-    has_primary_status_authority, is_citable_web_url, is_human_challenge_error,
+    is_citable_web_url, is_human_challenge_error,
     is_multi_item_listing_url, is_news_feed_wrapper_url, is_search_hub_url, iso_date_from_unix_ms,
     mark_pending_web_attempted, mark_pending_web_blocked, merge_pending_search_completion,
     parse_web_evidence_bundle, pre_read_candidate_plan_from_bundle_with_locality_hint,
@@ -12,11 +12,15 @@ use super::super::support::{
     select_web_pipeline_query_contract, source_host, summarize_search_results,
     synthesize_web_pipeline_reply, synthesize_web_pipeline_reply_hybrid,
     url_structurally_equivalent, web_pipeline_can_queue_probe_search_latency_aware,
+    web_pipeline_completion_reason, web_pipeline_grounded_probe_attempt_available,
     web_pipeline_min_sources, web_pipeline_now_ms, WebPipelineCompletionReason,
-    WEB_PIPELINE_BUDGET_MS,
+    WEB_PIPELINE_BUDGET_MS, WEB_PIPELINE_SEARCH_LIMIT,
 };
 use super::completion::complete_with_summary;
 use super::routing::is_web_research_scope;
+use crate::agentic::desktop::service::step::action::{
+    emit_completion_gate_status_event, resolved_intent_id,
+};
 use crate::agentic::desktop::service::step::signals::analyze_source_record_signals;
 use crate::agentic::desktop::service::DesktopAgentService;
 use crate::agentic::desktop::types::{
@@ -174,6 +178,27 @@ fn looks_like_deep_article_url(raw: &str) -> bool {
     if normalized_path.is_empty() {
         return false;
     }
+    let segments = normalized_path
+        .split('/')
+        .filter(|segment| !segment.trim().is_empty())
+        .collect::<Vec<_>>();
+    if segments.is_empty() {
+        return false;
+    }
+    if segments.len() <= 2
+        && segments
+            .first()
+            .copied()
+            .map(|segment| {
+                matches!(
+                    segment,
+                    "show" | "shows" | "watch" | "video" | "videos" | "live" | "tv"
+                )
+            })
+            .unwrap_or(false)
+    {
+        return false;
+    }
 
     let path_hub_markers = [
         "news",
@@ -190,14 +215,85 @@ fn looks_like_deep_article_url(raw: &str) -> bool {
         "top-stories",
         "top-news",
     ];
+    let marker_segment = |segment: &str| {
+        if segment.is_empty() {
+            return false;
+        }
+        if path_hub_markers.contains(&segment) {
+            return true;
+        }
+        segment
+            .split('-')
+            .all(|token| !token.is_empty() && path_hub_markers.contains(&token))
+    };
     if path_hub_markers
         .iter()
         .any(|marker| normalized_path == *marker)
     {
         return false;
     }
+    if segments
+        .last()
+        .map(|segment| marker_segment(segment))
+        .unwrap_or(false)
+    {
+        return false;
+    }
+    if segments
+        .last()
+        .copied()
+        .map(looks_like_placeholder_article_slug_segment)
+        .unwrap_or(false)
+    {
+        return false;
+    }
+    if segments.len() <= 3
+        && segments
+            .first()
+            .map(|segment| matches!(*segment, "c" | "channel" | "user"))
+            .unwrap_or(false)
+    {
+        return false;
+    }
 
     true
+}
+
+fn looks_like_placeholder_article_slug_segment(segment: &str) -> bool {
+    let trimmed = segment.trim().to_ascii_lowercase();
+    if trimmed.is_empty() {
+        return false;
+    }
+    let tokenized = trimmed
+        .split(|ch: char| !ch.is_ascii_alphanumeric())
+        .filter(|token| !token.is_empty())
+        .collect::<Vec<_>>();
+    if tokenized.is_empty() {
+        return false;
+    }
+    let role_tokens = [
+        "article", "story", "news", "headline", "post", "report", "item",
+    ];
+    let placeholder_tokens = [
+        "title",
+        "slug",
+        "name",
+        "text",
+        "content",
+        "page",
+        "link",
+        "sample",
+        "placeholder",
+    ];
+    let has_role = tokenized.iter().any(|token| role_tokens.contains(token));
+    let has_placeholder = tokenized
+        .iter()
+        .any(|token| placeholder_tokens.contains(token));
+    let all_generic = tokenized
+        .iter()
+        .all(|token| role_tokens.contains(token) || placeholder_tokens.contains(token));
+
+    tokenized.len() >= 2 && has_role && has_placeholder && all_generic
 }
 
 fn is_headline_citable_page_url(raw: &str) -> bool {
@@ -207,6 +303,7 @@ fn is_headline_citable_page_url(raw: &str) -> bool {
         || is_news_feed_wrapper_url(trimmed)
         || is_search_hub_url(trimmed)
         || is_multi_item_listing_url(trimmed)
+        || !looks_like_deep_article_url(trimmed)
     {
         return false;
     }
@@ -535,20 +632,12 @@ async fn synthesize_pre_read_payload_urls(
             .cloned()
             .collect::<Vec<_>>();
         if !outside_payload.is_empty() {
-            if headline_lookup_mode {
-                last_error = format!(
-                    "headline pre-read selection included URLs outside discovery payload: {:?}",
-                    outside_payload
-                );
-                feedback = Some(last_error.clone());
-                if attempt == WEB_PIPELINE_PRE_READ_SYNTHESIS_MAX_ATTEMPTS {
-                    break;
-                }
-                continue;
-            }
             let disallowed = outside_payload
                 .iter()
-                .filter(|url| !payload_allows_external_article_url(url, &allowed_external_hosts))
+                .filter(|url| {
+                    !payload_allows_external_article_url(url, &allowed_external_hosts)
+                        || (headline_lookup_mode && !is_headline_citable_page_url(url))
+                })
                 .cloned()
                 .collect::<Vec<_>>();
             if !disallowed.is_empty() {
@@ -658,6 +747,64 @@ fn headline_resolved_hint_url(hint: &PendingSearchReadSummary) -> Option<String>
         return None;
     }
     Some(resolved.to_string())
+}
+
+fn headline_source_low_priority(url: &str, title: &str, excerpt: &str) -> bool {
+    let signals = analyze_source_record_signals(url, title, excerpt);
+    signals.low_priority_hits > 0 || signals.low_priority_dominates()
+}
+
+pub(super) fn headline_selection_quality_metrics(
+    selected_urls: &[String],
+    source_hints: &[PendingSearchReadSummary],
+) -> (usize, usize, usize, Vec<String>) {
+    let mut total_sources = 0usize;
+    let mut low_priority_sources = 0usize;
+    let mut distinct_domains = std::collections::BTreeSet::new();
+    let mut low_priority_urls = Vec::new();
+    let mut seen_urls = std::collections::BTreeSet::new();
+
+    for selected in selected_urls {
+        let selected_trimmed = selected.trim();
+        if selected_trimmed.is_empty() {
+            continue;
+        }
+        let dedup_key = selected_trimmed.to_ascii_lowercase();
+        if !seen_urls.insert(dedup_key) {
+            continue;
+        }
+
+        total_sources = total_sources.saturating_add(1);
+        if let Some(domain) = normalized_domain_key(selected_trimmed) {
+            distinct_domains.insert(domain);
+        }
+
+        let (title, excerpt) = source_hints
+            .iter()
+            .find(|hint| {
+                let hint_url = hint.url.trim();
+                hint_url.eq_ignore_ascii_case(selected_trimmed)
+                    || url_structurally_equivalent(hint_url, selected_trimmed)
+            })
+            .map(|hint| {
+                (
+                    hint.title.as_deref().unwrap_or_default(),
+                    hint.excerpt.as_str(),
+                )
+            })
+            .unwrap_or(("", ""));
+        if headline_source_low_priority(selected_trimmed, title, excerpt) {
+            low_priority_sources = low_priority_sources.saturating_add(1);
+            low_priority_urls.push(selected_trimmed.to_string());
+        }
+    }
+
+    (
+        total_sources,
+        low_priority_sources,
+        distinct_domains.len(),
+        low_priority_urls,
+    )
 }
 
 fn normalize_headline_source_hints(
@@ -775,8 +922,7 @@ fn headline_source_hint_allowed(hint: &PendingSearchReadSummary) -> bool {
 
     let title = hint.title.as_deref().unwrap_or_default();
     let excerpt = hint.excerpt.as_str();
-    let signals = analyze_source_record_signals(&url, title, excerpt);
-    has_primary_status_authority(signals) || !signals.low_priority_dominates()
+    !headline_source_low_priority(&url, title, excerpt)
 }
 
 fn push_unique_selected_url(selected_urls: &mut Vec<String>, candidate_url: &str) -> bool {
@@ -824,4 +970,35 @@ fn queued_web_read_count(agent_state: &AgentState) -> usize {
                 .unwrap_or(false)
         })
         .count()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn headline_citable_url_rejects_placeholder_slug_segments() {
+        assert!(!is_headline_citable_page_url(
+            "https://www.cbsnews.com/news/article-title/"
+        ));
+        assert!(!is_headline_citable_page_url(
+            "https://apnews.com/article/story-title"
+        ));
+        assert!(!is_headline_citable_page_url(
+            "https://www.foxnews.com/shows/fox-news-live"
+        ));
+        assert!(!looks_like_deep_article_url(
+            "https://example.com/world/news/article-title"
+        ));
+    }
+
+    #[test]
+    fn headline_citable_url_accepts_real_article_paths() {
+        assert!(is_headline_citable_page_url(
+            "https://www.reuters.com/world/europe/example-article-slug-2026-03-01/"
+        ));
+        assert!(looks_like_deep_article_url(
+            "https://www.bbc.com/news/world-us-canada-12345678"
+        ));
+    }
 }

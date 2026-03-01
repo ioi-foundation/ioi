@@ -16,10 +16,12 @@ fn is_expected_egress_tool_exhaustive(tool: &AgentTool) -> bool {
         | AgentTool::FsRead { .. }
         | AgentTool::FsList { .. }
         | AgentTool::FsSearch { .. }
+        | AgentTool::FsStat { .. }
         | AgentTool::FsMove { .. }
         | AgentTool::FsCopy { .. }
         | AgentTool::FsDelete { .. }
         | AgentTool::FsCreateDirectory { .. }
+        | AgentTool::FsCreateZip { .. }
         | AgentTool::SysExec { .. }
         | AgentTool::SysExecSession { .. }
         | AgentTool::SysExecSessionReset {}
@@ -116,6 +118,14 @@ fn filesystem_search_target_maps_to_fs_read_scope() {
 }
 
 #[test]
+fn filesystem_stat_target_maps_to_fs_read_scope() {
+    let tool = AgentTool::FsStat {
+        path: "/tmp/example.pdf".to_string(),
+    };
+    assert_eq!(tool.target(), crate::app::ActionTarget::FsRead);
+}
+
+#[test]
 fn filesystem_move_target_maps_to_custom_scope() {
     let tool = AgentTool::FsMove {
         source_path: "/tmp/a.txt".to_string(),
@@ -160,6 +170,19 @@ fn filesystem_create_directory_target_maps_to_custom_scope() {
     assert_eq!(
         tool.target(),
         crate::app::ActionTarget::Custom("filesystem__create_directory".into())
+    );
+}
+
+#[test]
+fn filesystem_create_zip_target_maps_to_custom_scope() {
+    let tool = AgentTool::FsCreateZip {
+        source_path: "/tmp/projects".to_string(),
+        destination_zip_path: "/tmp/projects.zip".to_string(),
+        overwrite: false,
+    };
+    assert_eq!(
+        tool.target(),
+        crate::app::ActionTarget::Custom("filesystem__create_zip".into())
     );
 }
 

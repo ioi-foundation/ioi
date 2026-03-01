@@ -6,7 +6,9 @@ use serde_json::json;
 use std::sync::Arc;
 use tokio::time::{sleep, Duration};
 
-use super::types::{LocalJudgeResult, QueryCase, RunObservation};
+use super::types::{
+    has_contract_failure_evidence, has_policy_decision, LocalJudgeResult, QueryCase, RunObservation,
+};
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct ArbiterVerdict {
@@ -25,7 +27,7 @@ pub async fn run_arbiter(
     observation: &RunObservation,
     local: &LocalJudgeResult,
 ) -> Result<ArbiterVerdict> {
-    let contract_failure_marker = observation_has_contract_failure_marker(observation);
+    let contract_failure_marker = has_contract_failure_evidence(observation);
 
     let final_reply_excerpt = observation
         .final_reply
@@ -92,6 +94,7 @@ pub async fn run_arbiter(
             "action_tools": observation.action_tools,
             "routing_tools": observation.routing_tools,
             "workload_tools": observation.workload_tools,
+            "cec_receipts": observation.cec_receipts,
             "verification_checks": observation.verification_checks,
             "approval_required_events": observation.approval_required_events,
             "contract_failure_marker": contract_failure_marker,
@@ -110,17 +113,9 @@ pub async fn run_arbiter(
         "final_reply_char_len": observation.final_reply.chars().count(),
         "screenshot_signals": if case.id == "take_a_screenshot_of_my_desktop" {
             let approval_gate_seen = observation.approval_required_events > 0
-                || observation
-                    .verification_checks
-                    .iter()
-                    .any(|check| check.eq_ignore_ascii_case("policy_decision=require_approval"));
-            let policy_decision_allow = observation
-                .verification_checks
-                .iter()
-                .any(|check| {
-                    check.eq_ignore_ascii_case("policy_decision=approved")
-                        || check.eq_ignore_ascii_case("policy_decision=allowed")
-                });
+                || has_policy_decision(observation, "require_approval");
+            let policy_decision_allow = has_policy_decision(observation, "approved")
+                || has_policy_decision(observation, "allowed");
             let capture_route_seen = has_tool_token(&observation.routing_tools, "computer");
             let capture_route_terminalized =
                 has_verification_check(observation, "screenshot_capture_terminalized=true");
@@ -161,6 +156,14 @@ pub async fn run_arbiter(
                     .filter(|url| is_news_feed_wrapper_url(url))
                     .count(),
                 "citation_url_count": citation_urls.len(),
+                "story_floor_receipt_met": has_verification_check(
+                    observation,
+                    "web_headline_story_floor_met=true"
+                ),
+                "source_floor_receipt_met": has_verification_check(
+                    observation,
+                    "web_source_floor_met=true"
+                ),
                 "contains_constrained_fallback_inventory": observation
                     .final_reply
                     .to_ascii_lowercase()
@@ -189,7 +192,7 @@ Rules:\n\
 6) If pass=true then failures must be [].\n\
 7) For `case_id=top_news_headlines`, if `local_judge.failures` is non-empty then pass MUST be false.\n\
 8) For `case_id=top_news_headlines`, wrapper-only constrained fallback inventory, repeated shared story anchor tokens, or challenge/captcha/access-denied story evidence MUST be judged as failure.\n\
-9) For `case_id=top_news_headlines`, if `local_judge.pass=true` and there is no explicit multi-story floor failure marker, pass MUST be true.\n\
+9) For `case_id=top_news_headlines`, if `top_news_signals.story_floor_receipt_met=false` or `top_news_signals.source_floor_receipt_met=false`, pass MUST be false.\n\
 10) For `case_id=take_a_screenshot_of_my_desktop`, approval-gate evidence is mandatory before capture success: `screenshot_signals.approval_transition_seen=true`, `screenshot_signals.capture_runtime_evidence=true`, `screenshot_signals.capture_route_seen=true`, and `screenshot_signals.no_gui_snapshot_fallback=true`.\n\
 11) For `case_id=take_a_screenshot_of_my_desktop`, if `local_judge.failures` is non-empty then pass MUST be false.\n\
 12) For `case_id=take_a_screenshot_of_my_desktop`, if `local_judge.pass=true` and `screenshot_signals.contract_failure_marker=false`, pass MUST be true.\n\
@@ -245,11 +248,38 @@ Payload:\n{}",
         .map_err(|e| anyhow!("failed to parse arbiter verdict: {} raw={}", e, text))?;
 
     if case.id == "top_news_headlines" {
-        let reply_lower = observation.final_reply.to_ascii_lowercase();
-        let explicit_floor_failure = reply_lower.contains(
-            "synthesis unavailable: grounded evidence did not satisfy the multi-story floor",
-        );
-        if local.pass && local.failures.is_empty() && !explicit_floor_failure {
+        let story_floor_receipt_met =
+            has_verification_check(observation, "web_headline_story_floor_met=true");
+        let source_floor_receipt_met =
+            has_verification_check(observation, "web_source_floor_met=true");
+        let top_news_gate_failed = !story_floor_receipt_met || !source_floor_receipt_met;
+        let local_failed = !local.pass || !local.failures.is_empty();
+        if local_failed || top_news_gate_failed || contract_failure_marker {
+            verdict.pass = false;
+            let mut failures = Vec::new();
+            failures.extend(local.failures.iter().cloned());
+            if !story_floor_receipt_met {
+                failures.push("web_headline_story_floor_met=false".to_string());
+            }
+            if !source_floor_receipt_met {
+                failures.push("web_source_floor_met=false".to_string());
+            }
+            if contract_failure_marker {
+                failures.push("contract_failure_marker=true".to_string());
+            }
+            failures.sort();
+            failures.dedup();
+            verdict.failures = failures;
+            if verdict.score > 0.49 {
+                verdict.score = 0.49;
+            }
+            if verdict.confidence == "high" {
+                verdict.confidence = "medium".to_string();
+            }
+            if verdict.rationale.trim().is_empty() {
+                verdict.rationale = "Top-news receipt gates were not satisfied.".to_string();
+            }
+        } else {
             verdict.pass = true;
             verdict.failures.clear();
             if verdict.score < 0.8 {
@@ -259,7 +289,8 @@ Payload:\n{}",
                 verdict.confidence = "medium".to_string();
             }
             if verdict.rationale.trim().is_empty() {
-                verdict.rationale = "Top-news local verification satisfied structural and source-diversity requirements.".to_string();
+                verdict.rationale = "Top-news local verification and receipt gates were satisfied."
+                    .to_string();
             }
         }
     }
@@ -269,14 +300,9 @@ Payload:\n{}",
         let capture_route_terminalized =
             has_verification_check(observation, "screenshot_capture_terminalized=true");
         let approval_gate_seen = observation.approval_required_events > 0
-            || observation
-                .verification_checks
-                .iter()
-                .any(|check| check.eq_ignore_ascii_case("policy_decision=require_approval"));
-        let policy_decision_allow = observation.verification_checks.iter().any(|check| {
-            check.eq_ignore_ascii_case("policy_decision=approved")
-                || check.eq_ignore_ascii_case("policy_decision=allowed")
-        });
+            || has_policy_decision(observation, "require_approval");
+        let policy_decision_allow = has_policy_decision(observation, "approved")
+            || has_policy_decision(observation, "allowed");
         let approval_transition_seen = approval_gate_seen && policy_decision_allow;
         let incident_resolved = has_verification_check(observation, "incident_resolved=true");
         let screenshot_reply_signal = screenshot_reply_evidence(observation);
@@ -570,41 +596,4 @@ fn screenshot_reply_evidence(observation: &RunObservation) -> bool {
             .action_evidence
             .iter()
             .any(|entry| screenshot_success_output(&entry.output_excerpt))
-}
-
-fn observation_has_contract_failure_marker(observation: &RunObservation) -> bool {
-    let mut corpus = Vec::<String>::new();
-    corpus.push(observation.final_reply.clone());
-    corpus.extend(observation.verification_checks.iter().cloned());
-    corpus.extend(observation.event_excerpt.iter().cloned());
-    corpus.extend(
-        observation
-            .action_evidence
-            .iter()
-            .map(|entry| format!("{} {}", entry.agent_status, entry.output_excerpt)),
-    );
-    corpus
-        .iter()
-        .any(|segment| has_contract_failure_marker(segment))
-}
-
-fn has_contract_failure_marker(text: &str) -> bool {
-    let lower = text.to_ascii_lowercase();
-    [
-        "execution_contract_gate_blocked=true",
-        "cec_terminal_error=true",
-        "execution contract unmet",
-        "base_error_class=executioncontractviolation",
-        "error_class=executioncontractviolation",
-        "error_class=discoverymissing",
-        "error_class=synthesisfailed",
-        "error_class=executionfailedterminal",
-        "error_class=verificationmissing",
-        "error_class=postconditionfailed",
-        "failed_stage=",
-        "missing_receipts=",
-        "missing_postconditions=",
-    ]
-    .iter()
-    .any(|marker| lower.contains(marker))
 }

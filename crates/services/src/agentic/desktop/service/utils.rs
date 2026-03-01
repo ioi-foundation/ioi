@@ -88,6 +88,7 @@ pub fn goto_trace_log(
                  step_index: agent_state.step_count,
                  tool_name: "system::max_steps_reached".to_string(),
                  output: "Max steps reached. Task completed.".to_string(),
+                 error_class: None,
                  // [FIX] Added missing agent_status field
                  agent_status: get_status_str(&agent_state.status),
              });

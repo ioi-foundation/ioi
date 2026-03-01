@@ -18,24 +18,23 @@ pub(crate) fn build_deterministic_story_draft(
     let citations_per_story = required_citations_per_story(&query);
     let single_snapshot_policy = ResolutionPolicy::default();
     let completion_reason = completion_reason_line(reason).to_string();
-    let partial_note = {
-        let min_sources = pending.min_sources.max(1) as usize;
-        let required_readable_sources = if headline_lookup_mode && required_story_count > 1 {
-            min_sources
-                .saturating_sub(pending.blocked_urls.len())
-                .clamp(2, min_sources)
-        } else {
-            min_sources
-        };
-        let readable_sources = pending.successful_reads.len();
-        let blocked_sources = pending.blocked_urls.len();
-        (readable_sources < required_readable_sources).then(|| {
-            format!(
-                "Partial evidence: verification receipt -> retrieved {} of {} required distinct readable sources ({} blocked by challenge).",
-                readable_sources, required_readable_sources, blocked_sources
-            )
-        })
+    let min_sources = pending.min_sources.max(1) as usize;
+    let required_readable_sources = if headline_lookup_mode && required_story_count > 1 {
+        min_sources
+            .saturating_sub(pending.blocked_urls.len())
+            .clamp(2, min_sources)
+    } else {
+        min_sources
     };
+    let readable_sources = pending.successful_reads.len();
+    let blocked_sources = pending.blocked_urls.len();
+    let readable_floor_unmet = readable_sources < required_readable_sources;
+    let partial_note = readable_floor_unmet.then(|| {
+        format!(
+            "Partial evidence: verification receipt -> retrieved {} of {} required distinct readable sources ({} blocked by challenge).",
+            readable_sources, required_readable_sources, blocked_sources
+        )
+    });
 
     let candidates = build_citation_candidates(pending, &run_timestamp_iso_utc);
     let mut citations_by_id = BTreeMap::new();
@@ -203,6 +202,34 @@ pub(crate) fn build_deterministic_story_draft(
             selected_sources.push(source.clone());
         }
     }
+    if headline_lookup_mode && selected_sources.len() < required_story_count {
+        for source in preferred_source_pool {
+            if selected_sources.len() >= required_story_count {
+                break;
+            }
+            if selected_sources.iter().any(|existing| {
+                existing.url.eq_ignore_ascii_case(source.url.as_str())
+                    || url_structurally_equivalent(existing.url.as_str(), source.url.as_str())
+            }) {
+                continue;
+            }
+            selected_sources.push(source.clone());
+        }
+    }
+    if headline_lookup_mode && selected_sources.len() < required_story_count {
+        for source in &source_pool {
+            if selected_sources.len() >= required_story_count {
+                break;
+            }
+            if selected_sources.iter().any(|existing| {
+                existing.url.eq_ignore_ascii_case(source.url.as_str())
+                    || url_structurally_equivalent(existing.url.as_str(), source.url.as_str())
+            }) {
+                continue;
+            }
+            selected_sources.push(source.clone());
+        }
+    }
     if single_snapshot_mode && selected_sources.is_empty() {
         if let Some(source) = source_pool.first() {
             selected_sources.push(source.clone());
@@ -334,14 +361,18 @@ pub(crate) fn build_deterministic_story_draft(
         });
     }
 
-    let blocked_urls = pending
-        .blocked_urls
-        .iter()
-        .map(|url| url.trim().to_string())
-        .filter(|url| is_citable_web_url(url) && !successful_urls.contains(url))
-        .collect::<BTreeSet<_>>()
-        .into_iter()
-        .collect::<Vec<_>>();
+    let blocked_urls = if readable_floor_unmet || stories.len() < required_story_count {
+        pending
+            .blocked_urls
+            .iter()
+            .map(|url| url.trim().to_string())
+            .filter(|url| is_citable_web_url(url) && !successful_urls.contains(url))
+            .collect::<BTreeSet<_>>()
+            .into_iter()
+            .collect::<Vec<_>>()
+    } else {
+        Vec::new()
+    };
 
     SynthesisDraft {
         query,

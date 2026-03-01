@@ -1,7 +1,8 @@
 use super::{
     apply_patch, copy_path_deterministic, create_directory_deterministic,
-    delete_path_deterministic, edit_line_content, list_directory_entries, move_path_deterministic,
-    resolve_tool_path, search_files, AgentTool, ToolExecutionResult, ToolExecutor,
+    create_zip_from_directory_deterministic, delete_path_deterministic, edit_line_content,
+    list_directory_entries, move_path_deterministic, resolve_tool_path, search_files,
+    stat_path_deterministic, AgentTool, ToolExecutionResult, ToolExecutor,
 };
 use std::fs;
 
@@ -183,6 +184,17 @@ pub async fn handle(exec: &ToolExecutor, tool: AgentTool) -> ToolExecutionResult
                 Err(e) => ToolExecutionResult::failure(format!("Search task panicked: {}", e)),
             }
         }
+        AgentTool::FsStat { path } => {
+            let resolved_path = match resolve_tool_path(&path, cwd) {
+                Ok(path) => path,
+                Err(e) => return ToolExecutionResult::failure(format!("Stat failed: {}", e)),
+            };
+
+            match stat_path_deterministic(&resolved_path) {
+                Ok(payload) => ToolExecutionResult::success(payload),
+                Err(e) => ToolExecutionResult::failure(format!("Stat failed: {}", e)),
+            }
+        }
         AgentTool::FsCreateDirectory { path, recursive } => {
             let resolved_path = match resolve_tool_path(&path, cwd) {
                 Ok(path) => path,
@@ -200,6 +212,41 @@ pub async fn handle(exec: &ToolExecutor, tool: AgentTool) -> ToolExecutionResult
                     resolved_path.display()
                 )),
                 Err(e) => ToolExecutionResult::failure(format!("Create directory failed: {}", e)),
+            }
+        }
+        AgentTool::FsCreateZip {
+            source_path,
+            destination_zip_path,
+            overwrite,
+        } => {
+            let source = match resolve_tool_path(&source_path, cwd) {
+                Ok(path) => path,
+                Err(e) => {
+                    return ToolExecutionResult::failure(format!(
+                        "Create zip failed for '{}': {}",
+                        source_path, e
+                    ))
+                }
+            };
+            let destination = match resolve_tool_path(&destination_zip_path, cwd) {
+                Ok(path) => path,
+                Err(e) => {
+                    return ToolExecutionResult::failure(format!(
+                        "Create zip failed for '{}': {}",
+                        destination_zip_path, e
+                    ))
+                }
+            };
+
+            match create_zip_from_directory_deterministic(&source, &destination, overwrite) {
+                Ok(entries) => ToolExecutionResult::success(format!(
+                    "Created zip {} from {} entries={} members={:?}",
+                    destination.display(),
+                    source.display(),
+                    entries.len(),
+                    entries
+                )),
+                Err(e) => ToolExecutionResult::failure(format!("Create zip failed: {}", e)),
             }
         }
         AgentTool::FsMove {

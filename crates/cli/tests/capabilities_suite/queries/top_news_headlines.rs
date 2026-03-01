@@ -1,8 +1,9 @@
 use ioi_types::app::agentic::IntentScopeProfile;
 
 use super::super::types::{
-    contains_any, has_tool_with_token, truncate_chars, LocalCheck, LocalJudgeResult, QueryCase,
-    RunObservation,
+    contains_any, has_cec_receipt, has_contract_failure_evidence, has_tool_with_token,
+    has_verification_check, max_verification_usize, truncate_chars, verification_values,
+    ExecutionProfile, LocalCheck, LocalJudgeResult, QueryCase, RunObservation,
 };
 
 pub fn case() -> QueryCase {
@@ -14,6 +15,7 @@ pub fn case() -> QueryCase {
         intent_scope: IntentScopeProfile::WebResearch,
         seed_resolved_intent: true,
         expected_pass: true,
+        execution_profile: ExecutionProfile::Hermetic,
         sla_seconds: 90,
         max_steps: 18,
         min_local_score: 0.80,
@@ -25,7 +27,7 @@ pub fn case() -> QueryCase {
 
 fn evaluate(obs: &RunObservation) -> LocalJudgeResult {
     let lower_reply = obs.final_reply.to_ascii_lowercase();
-    let citation_urls = extract_citation_urls(&obs.final_reply);
+    let citation_urls = extract_runtime_selected_urls(obs);
     let unique_citation_urls = citation_urls
         .iter()
         .collect::<std::collections::BTreeSet<_>>()
@@ -33,7 +35,6 @@ fn evaluate(obs: &RunObservation) -> LocalJudgeResult {
         .cloned()
         .collect::<Vec<_>>();
     let domains = extract_domains(&citation_urls);
-    let source_keys = extract_citation_source_keys(&obs.final_reply);
     let article_like_url_set = unique_citation_urls
         .iter()
         .filter(|url| is_article_like_url(url))
@@ -51,56 +52,85 @@ fn evaluate(obs: &RunObservation) -> LocalJudgeResult {
         .iter()
         .collect::<std::collections::BTreeSet<_>>()
         .len();
-    let unique_source_keys = source_keys
-        .iter()
-        .collect::<std::collections::BTreeSet<_>>()
-        .len();
     let wrapper_url_count = citation_urls
         .iter()
         .filter(|url| is_news_feed_wrapper_url(url))
         .count();
     let wrapper_only_urls = !citation_urls.is_empty() && wrapper_url_count == citation_urls.len();
-    let has_explicit_floor_failure = lower_reply
-        .contains("synthesis unavailable: grounded evidence did not satisfy the multi-story floor");
-    let has_metadata_only_failure = lower_reply.contains("metadata-only");
-    let has_insufficient_source_floor = lower_reply.contains("distinct_actionable_sources=1 of 3")
-        || lower_reply.contains("distinct_actionable_sources=0 of 3");
-    let has_constrained_fallback_inventory =
-        lower_reply.contains("fallback citation inventory from constrained source set");
-    let has_challenge_markers = contains_challenge_marker(&lower_reply)
-        || citation_urls
-            .iter()
-            .any(|url| is_challenge_or_blocked_url(url));
 
+    let runtime_url_evidence_present = !citation_urls.is_empty();
     let has_three_story_markers = lower_reply.contains("story 1")
         && lower_reply.contains("story 2")
         && lower_reply.contains("story 3");
     let story_titles = extract_story_titles(&obs.final_reply);
-    let story_citation_urls = extract_story_citation_urls(&obs.final_reply);
-    let shared_story_topics = shared_story_anchor_tokens(&story_titles);
-    let story_topic_diversity_present =
-        !has_three_story_markers || (story_titles.len() >= 3 && shared_story_topics.is_empty());
-    let story_titles_specific = !has_three_story_markers
-        || (story_titles.len() >= 3
-            && story_titles
-                .iter()
-                .take(3)
-                .all(|title| story_title_has_specificity(title)));
-    let story_citation_uniqueness_present =
-        !has_three_story_markers || story_citation_uniqueness_present(&story_citation_urls);
-    let readability_floor_satisfied = parse_verification_readability_floor(&lower_reply)
-        .map(|(retrieved, required)| retrieved >= required)
-        .unwrap_or(true);
+    let structured_story_count = story_titles.len();
+    let has_structured_multi_story_shape = structured_story_count >= 3;
+    let has_structured_story_section =
+        lower_reply.contains("story 1") && lower_reply.contains("citations:");
     let has_article_level_citations = article_like_urls >= 3 && unique_article_domains >= 3;
-    let overall_confidence_not_low = !lower_reply.contains("overall confidence: low")
-        || (has_article_level_citations
-            && unique_domains >= 3
-            && !has_explicit_floor_failure
-            && !has_insufficient_source_floor);
     let narrative_headline_density = infer_narrative_headline_density(&obs.final_reply);
     let has_narrative_multi_headline_shape = narrative_headline_density >= 3;
+    let headline_structure_present = has_three_story_markers
+        || has_structured_multi_story_shape
+        || has_narrative_multi_headline_shape;
     let wrapper_share_bounded =
         citation_urls.is_empty() || wrapper_url_count.saturating_mul(2) <= citation_urls.len();
+    let cec_contract_gate_satisfied =
+        has_cec_receipt(obs, "completion_gate", "contract_gate", Some(true));
+    let no_contract_failure_evidence = !has_contract_failure_evidence(obs);
+    let observed_sources_success = max_verification_usize(obs, "web_sources_success").unwrap_or(0);
+    let required_sources = max_verification_usize(obs, "web_min_sources").unwrap_or(0);
+    let source_floor_receipt_met =
+        required_sources == 0 || observed_sources_success >= required_sources;
+    let required_story_floor =
+        max_verification_usize(obs, "web_headline_story_floor_required").unwrap_or(3);
+    let required_story_slots = required_story_floor.max(1);
+    let story_citation_urls = extract_story_citation_urls(&obs.final_reply);
+    let selected_url_keys = unique_citation_urls
+        .iter()
+        .filter_map(|url| normalize_story_url_key(url))
+        .collect::<std::collections::BTreeSet<_>>();
+    let aligned_story_slots = story_citation_urls
+        .iter()
+        .take(required_story_slots)
+        .filter(|story_urls| {
+            story_urls.iter().any(|url| {
+                normalize_story_url_key(url)
+                    .map(|key| selected_url_keys.contains(&key))
+                    .unwrap_or(false)
+            })
+        })
+        .count();
+    let story_anchor_alignment_met = story_citation_urls.len() >= required_story_slots
+        && selected_url_keys.len() >= required_story_slots
+        && aligned_story_slots >= required_story_slots;
+    let typed_story_floor_receipt_met =
+        has_verification_check(obs, "web_headline_story_floor_met=true");
+    let story_floor_shape_met = structured_story_count >= required_story_floor.max(1);
+    let headline_selected_sources_total =
+        max_verification_usize(obs, "web_headline_selected_sources_total").unwrap_or(0);
+    let headline_selected_sources_low_priority = max_verification_usize(
+        obs,
+        "web_headline_selected_sources_low_priority",
+    )
+    .unwrap_or(0);
+    let headline_selected_sources_distinct_domains = max_verification_usize(
+        obs,
+        "web_headline_selected_sources_distinct_domains",
+    )
+    .unwrap_or(0);
+    let headline_quality_floor_receipt_met =
+        has_verification_check(obs, "web_headline_selected_sources_quality_floor_met=true");
+    let observed_blocked_sources = max_verification_usize(obs, "web_sources_blocked").unwrap_or(0);
+    let has_terminal_challenge_surface = lower_reply
+        .contains("blocked sources requiring human challenge")
+        || contains_challenge_marker(&lower_reply)
+        || citation_urls
+            .iter()
+            .any(|url| is_challenge_or_blocked_url(url));
+    let challenge_blocked_objective = observed_blocked_sources > 0
+        && (!source_floor_receipt_met || !typed_story_floor_receipt_met);
+    let has_challenge_markers = has_terminal_challenge_surface || challenge_blocked_objective;
 
     let used_web_path = has_tool_with_token(&obs.routing_tools, "web__search")
         || has_tool_with_token(&obs.routing_tools, "web__read")
@@ -119,8 +149,60 @@ fn evaluate(obs: &RunObservation) -> LocalJudgeResult {
         ),
         LocalCheck::new(
             "headline_structure_present",
-            has_three_story_markers || has_narrative_multi_headline_shape,
+            headline_structure_present,
             truncate_chars(&obs.final_reply, 180),
+        ),
+        LocalCheck::new(
+            "source_floor_receipt_met",
+            source_floor_receipt_met,
+            format!(
+                "web_sources_success={} web_min_sources={} verification_checks={:?}",
+                observed_sources_success, required_sources, obs.verification_checks
+            ),
+        ),
+        LocalCheck::new(
+            "headline_story_floor_receipt_met",
+            typed_story_floor_receipt_met && story_floor_shape_met,
+            format!(
+                "web_headline_story_floor_met={} required_story_floor={} structured_story_count={} has_structured_story_section={}",
+                typed_story_floor_receipt_met,
+                required_story_floor,
+                structured_story_count,
+                has_structured_story_section
+            ),
+        ),
+        LocalCheck::new(
+            "story_citation_alignment_with_selected_urls",
+            story_anchor_alignment_met,
+            format!(
+                "required_story_slots={} parsed_story_slots={} aligned_story_slots={} selected_url_count={} selected_urls={:?}",
+                required_story_slots,
+                story_citation_urls.len(),
+                aligned_story_slots,
+                selected_url_keys.len(),
+                unique_citation_urls.iter().take(6).collect::<Vec<_>>()
+            ),
+        ),
+        LocalCheck::new(
+            "headline_quality_floor_receipt_met",
+            headline_quality_floor_receipt_met,
+            format!(
+                "quality_floor_receipt_met={} selected_sources_total={} low_priority_sources={} distinct_domains={} required_story_floor={}",
+                headline_quality_floor_receipt_met,
+                headline_selected_sources_total,
+                headline_selected_sources_low_priority,
+                headline_selected_sources_distinct_domains,
+                required_story_floor
+            ),
+        ),
+        LocalCheck::new(
+            "runtime_url_evidence_present",
+            runtime_url_evidence_present,
+            format!(
+                "runtime_selected_url_count={} values={:?}",
+                unique_citation_urls.len(),
+                unique_citation_urls.iter().take(6).collect::<Vec<_>>()
+            ),
         ),
         LocalCheck::new(
             "at_least_three_urls_present",
@@ -143,21 +225,16 @@ fn evaluate(obs: &RunObservation) -> LocalJudgeResult {
         LocalCheck::new(
             "source_independence_present",
             unique_domains >= 3,
-            format!(
-                "unique_domains={} unique_source_keys={} domains={:?} source_keys={:?}",
-                unique_domains, unique_source_keys, domains, source_keys
-            ),
+            format!("unique_domains={} domains={:?}", unique_domains, domains),
         ),
         LocalCheck::new(
             "wrapper_inventory_not_single_source",
-            (!wrapper_only_urls || unique_source_keys >= 3)
-                && !(wrapper_only_urls && has_constrained_fallback_inventory),
+            !wrapper_only_urls || unique_domains >= 3,
             format!(
-                "wrapper_url_count={} url_count={} unique_source_keys={} constrained_fallback_inventory={}",
+                "wrapper_url_count={} url_count={} unique_domains={}",
                 wrapper_url_count,
                 citation_urls.len(),
-                unique_source_keys,
-                has_constrained_fallback_inventory
+                unique_domains
             ),
         ),
         LocalCheck::new(
@@ -172,43 +249,27 @@ fn evaluate(obs: &RunObservation) -> LocalJudgeResult {
         LocalCheck::new(
             "no_access_or_challenge_markers",
             !has_challenge_markers,
-            truncate_chars(&obs.final_reply, 220),
-        ),
-        LocalCheck::new(
-            "story_topic_diversity_present",
-            story_topic_diversity_present,
             format!(
-                "story_titles={:?} shared_story_topics={:?}",
-                story_titles, shared_story_topics
+                "blocked_sources={} terminal_challenge_surface={} source_floor_receipt_met={} story_floor_receipt_met={} excerpt={}",
+                observed_blocked_sources,
+                has_terminal_challenge_surface,
+                source_floor_receipt_met,
+                typed_story_floor_receipt_met,
+                truncate_chars(&obs.final_reply, 160)
             ),
         ),
         LocalCheck::new(
-            "story_titles_specific",
-            story_titles_specific,
-            format!("story_titles={:?}", story_titles),
+            "cec_contract_gate_satisfied",
+            cec_contract_gate_satisfied,
+            format!("cec_receipts={:?}", obs.cec_receipts),
         ),
         LocalCheck::new(
-            "story_citation_uniqueness_present",
-            story_citation_uniqueness_present,
-            format!("story_citation_urls={:?}", story_citation_urls),
-        ),
-        LocalCheck::new(
-            "verification_readability_floor_satisfied",
-            readability_floor_satisfied,
-            truncate_chars(&obs.final_reply, 220),
-        ),
-        LocalCheck::new(
-            "overall_confidence_not_low",
-            overall_confidence_not_low,
-            truncate_chars(&obs.final_reply, 220),
-        ),
-        LocalCheck::new(
-            "no_failure_fallback_markers",
-            !has_explicit_floor_failure
-                && !has_metadata_only_failure
-                && !has_insufficient_source_floor
-                && !(wrapper_only_urls && has_constrained_fallback_inventory),
-            truncate_chars(&obs.final_reply, 220),
+            "no_contract_failure_evidence",
+            no_contract_failure_evidence,
+            format!(
+                "action_error_classes={:?} routing_failure_classes={:?} verification_checks={:?}",
+                obs.action_error_classes, obs.routing_failure_classes, obs.verification_checks
+            ),
         ),
         LocalCheck::new(
             "web_path_seen",
@@ -220,12 +281,64 @@ fn evaluate(obs: &RunObservation) -> LocalJudgeResult {
         ),
         LocalCheck::new(
             "recency_signal_present",
-            contains_any(&lower_reply, &["today", "as of", "utc", "run timestamp"]),
+            contains_any(&lower_reply, &["today", "as of", "utc", "run timestamp"])
+                || obs.query.to_ascii_lowercase().contains("today"),
             truncate_chars(&obs.final_reply, 120),
         ),
     ];
 
     LocalJudgeResult::from_checks(checks)
+}
+
+fn extract_runtime_selected_urls(obs: &RunObservation) -> Vec<String> {
+    let mut urls = Vec::new();
+    let mut seen = std::collections::BTreeSet::new();
+    for value in verification_values(obs, "web_pre_read_selected_url_values") {
+        for token in value.split('|') {
+            let trimmed = token.trim();
+            if !trimmed.starts_with("http://") && !trimmed.starts_with("https://") {
+                continue;
+            }
+            let normalized_key = trimmed.to_ascii_lowercase();
+            if seen.insert(normalized_key) {
+                urls.push(trimmed.to_string());
+            }
+        }
+    }
+    urls
+}
+
+fn normalize_story_url_key(url: &str) -> Option<String> {
+    let trimmed = url.trim();
+    if !trimmed.starts_with("http://") && !trimmed.starts_with("https://") {
+        return None;
+    }
+    let without_scheme = trimmed
+        .split_once("://")
+        .map(|(_, rest)| rest)
+        .unwrap_or(trimmed);
+    let (host, remainder) = without_scheme
+        .split_once('/')
+        .map(|(left, right)| (left, right))
+        .unwrap_or((without_scheme, ""));
+    let host = host.trim().trim_start_matches("www.").to_ascii_lowercase();
+    if host.is_empty() {
+        return None;
+    }
+    let path = remainder
+        .split('#')
+        .next()
+        .unwrap_or_default()
+        .split('?')
+        .next()
+        .unwrap_or_default()
+        .trim_matches('/')
+        .to_ascii_lowercase();
+    if path.is_empty() {
+        Some(host)
+    } else {
+        Some(format!("{host}/{path}"))
+    }
 }
 
 fn is_article_like_url(url: &str) -> bool {

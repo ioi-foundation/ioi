@@ -2,9 +2,12 @@ use ioi_types::app::agentic::IntentScopeProfile;
 use serde::Serialize;
 
 use super::super::types::{
-    has_tool_with_token, truncate_chars, LocalCheck, LocalJudgeResult, QueryCase, RunObservation,
+    has_cec_receipt, has_cec_stage, has_contract_failure_evidence, has_tool_with_token,
+    is_timeout_terminal, truncate_chars, verification_bool, verification_u64, verification_value,
+    ExecutionProfile, LocalCheck, LocalJudgeResult, QueryCase, RunObservation,
 };
 
+const EXPECTED_FIXTURE_MODE: &str = "downloads_lowercase_fixture_v1";
 const TARGET_DIR_TOKEN: &str = "ioi_lowercase_";
 const EXPECTED_FINAL_FILES: [&str; 3] = ["alpha.txt", "budget 2026.pdf", "mixed_case.jpg"];
 
@@ -12,7 +15,7 @@ const EXPECTED_FINAL_FILES: [&str; 3] = ["alpha.txt", "budget 2026.pdf", "mixed_
 struct EnvironmentEvidenceReceipt {
     key: &'static str,
     observed_value: String,
-    probe_source: &'static str,
+    probe_source: String,
     timestamp_ms: u64,
     satisfied: bool,
 }
@@ -28,6 +31,8 @@ pub fn case() -> QueryCase {
             "that directory named \"Alpha.TXT\", \"Budget 2026.PDF\", and \"MiXeD_Case.JPG\". ",
             "Rename every file in that directory to lowercase by lowercasing only the basename ",
             "while preserving the directory path exactly (do not lowercase \"/Downloads\"). ",
+            "Use portable shell operations available on base Linux images (for example find/tr/mv), ",
+            "and do not rely on the external `rename` utility. ",
             "After renaming, verify the directory state and then provide a concise completion summary."
         ),
         success_definition: "Perform lowercase rename inside an isolated Downloads test directory with successful command execution and CEC execution receipts, without contract failures.",
@@ -35,6 +40,7 @@ pub fn case() -> QueryCase {
         intent_scope: IntentScopeProfile::CommandExecution,
         seed_resolved_intent: false,
         expected_pass: true,
+        execution_profile: ExecutionProfile::Privileged,
         sla_seconds: 95,
         max_steps: 20,
         min_local_score: 1.0,
@@ -74,26 +80,82 @@ fn evaluate(obs: &RunObservation) -> LocalJudgeResult {
             || (cmd.contains("rename") && cmd.contains("a-z"))
     });
 
-    let lowercase_result_names_observed = EXPECTED_FINAL_FILES
+    let fixture_mode = verification_value(obs, "env_receipt::downloads_lowercase_fixture_mode")
+        .unwrap_or_default();
+    let fixture_mode_satisfied = fixture_mode.eq_ignore_ascii_case(EXPECTED_FIXTURE_MODE);
+    let fixture_probe_source =
+        verification_value(obs, "env_receipt::downloads_lowercase_fixture_probe_source")
+            .unwrap_or_default();
+    let fixture_timestamp_ms =
+        verification_u64(obs, "env_receipt::downloads_lowercase_fixture_timestamp_ms")
+            .unwrap_or(obs.run_timestamp_ms);
+    let fixture_satisfied =
+        verification_bool(obs, "env_receipt::downloads_lowercase_fixture_satisfied")
+            .unwrap_or(false);
+    let target_dir_path =
+        verification_value(obs, "env_receipt::downloads_lowercase_target_dir_path")
+            .unwrap_or_default();
+    let target_dir_probe_source = verification_value(
+        obs,
+        "env_receipt::downloads_lowercase_target_dir_probe_source",
+    )
+    .unwrap_or_default();
+    let target_dir_timestamp_ms = verification_u64(
+        obs,
+        "env_receipt::downloads_lowercase_target_dir_timestamp_ms",
+    )
+    .unwrap_or(obs.run_timestamp_ms);
+    let target_dir_satisfied =
+        verification_bool(obs, "env_receipt::downloads_lowercase_target_dir_satisfied")
+            .unwrap_or(false);
+    let entries_csv =
+        verification_value(obs, "env_receipt::downloads_lowercase_entries").unwrap_or_default();
+    let entries_satisfied =
+        verification_bool(obs, "env_receipt::downloads_lowercase_entries_satisfied")
+            .unwrap_or(false);
+    let uppercase_absent_satisfied = verification_bool(
+        obs,
+        "env_receipt::downloads_lowercase_uppercase_absent_satisfied",
+    )
+    .unwrap_or(false);
+    let scope_satisfied =
+        verification_bool(obs, "env_receipt::downloads_lowercase_scope_satisfied").unwrap_or(false);
+    let cleanup_probe_source =
+        verification_value(obs, "env_receipt::downloads_lowercase_cleanup_probe_source")
+            .unwrap_or_default();
+    let cleanup_timestamp_ms =
+        verification_u64(obs, "env_receipt::downloads_lowercase_cleanup_timestamp_ms")
+            .unwrap_or(obs.run_timestamp_ms);
+    let cleanup_satisfied =
+        verification_bool(obs, "env_receipt::downloads_lowercase_cleanup_satisfied")
+            .unwrap_or(false);
+
+    let observed_entries = entries_csv
+        .split(',')
+        .map(str::trim)
+        .filter(|entry| !entry.is_empty())
+        .collect::<Vec<_>>();
+    let lowercase_result_names_observed = EXPECTED_FINAL_FILES.iter().all(|expected| {
+        observed_entries
+            .iter()
+            .any(|observed| observed.eq_ignore_ascii_case(expected))
+    }) || EXPECTED_FINAL_FILES
         .iter()
         .all(|name| command_corpus.contains(&name.to_ascii_lowercase()));
+    let rename_end_state_satisfied = target_dir_satisfied
+        && entries_satisfied
+        && lowercase_result_names_observed
+        && uppercase_absent_satisfied
+        && scope_satisfied;
 
-    let cec_discovery_seen = has_verification_check(obs, "receipt::host_discovery=true")
-        || has_verification_check(obs, "capability_execution_phase=discovery");
-    let cec_provider_selection_seen =
-        has_verification_check(obs, "receipt::provider_selection=true")
-            || has_verification_check(obs, "receipt::provider_selection_commit=true")
-            || has_verification_check(obs, "provider_selection_route=script_backend");
-    let cec_execution_seen = has_verification_check(obs, "receipt::execution=true")
-        || has_verification_check(obs, "capability_execution_phase=execution");
-    let cec_verification_seen = has_verification_check(obs, "receipt::verification=true")
-        || has_verification_check(obs, "capability_execution_phase=verification");
+    let cec_discovery_seen = has_cec_stage(obs, "discovery", Some(true));
+    let cec_provider_selection_seen = has_cec_stage(obs, "provider_selection", Some(true));
+    let cec_execution_seen = has_cec_stage(obs, "execution", Some(true));
+    let cec_verification_seen = has_cec_stage(obs, "verification", Some(true));
     let cec_postcondition_seen =
-        has_verification_check(obs, "postcondition::execution_artifact=true")
-            || obs
-                .verification_checks
-                .iter()
-                .any(|check| check.starts_with("verification_probe_commit=sha256:"));
+        has_cec_receipt(obs, "execution", "execution_artifact", Some(true))
+            || has_cec_receipt(obs, "verification", "verification_commit", Some(true))
+            || has_cec_receipt(obs, "completion_gate", "contract_gate", Some(true));
     let cec_phase_receipts_present = cec_discovery_seen
         && cec_provider_selection_seen
         && cec_execution_seen
@@ -102,13 +164,9 @@ fn evaluate(obs: &RunObservation) -> LocalJudgeResult {
     let tool_and_route_path_evidence_present = has_tool_with_token(&obs.action_tools, "sys__exec")
         && has_tool_with_token(&obs.routing_tools, "sys__exec");
 
-    let any_contract_failure_marker = observation_has_contract_failure_marker(obs);
+    let any_contract_failure_marker = has_contract_failure_evidence(obs);
 
-    let timeout_terminal = obs
-        .final_status
-        .to_ascii_lowercase()
-        .contains("timeoutorhang")
-        || has_verification_check(obs, "failure_class=TimeoutOrHang");
+    let timeout_terminal = is_timeout_terminal(obs);
 
     let timeout_after_verified_execution = timeout_terminal
         && successful_command_count > 0
@@ -121,16 +179,33 @@ fn evaluate(obs: &RunObservation) -> LocalJudgeResult {
             || timeout_after_verified_execution;
 
     let objective_specific_rename_evidence_present =
-        target_scope_observed && rename_transformation_observed && successful_command_count > 0;
+        target_scope_observed && successful_command_count > 0 && rename_end_state_satisfied;
 
     let environment_receipts = build_environment_receipts(
         obs,
+        fixture_mode,
+        fixture_mode_satisfied,
+        fixture_probe_source,
+        fixture_timestamp_ms,
+        fixture_satisfied,
         cec_phase_receipts_present,
         cec_postcondition_seen,
         successful_command_count,
         target_scope_observed,
+        target_dir_path,
+        target_dir_probe_source,
+        target_dir_timestamp_ms,
+        target_dir_satisfied,
+        entries_csv,
+        entries_satisfied,
+        uppercase_absent_satisfied,
+        scope_satisfied,
+        cleanup_probe_source,
+        cleanup_timestamp_ms,
+        cleanup_satisfied,
         rename_transformation_observed,
         lowercase_result_names_observed,
+        rename_end_state_satisfied,
     );
     let environment_receipts_satisfied =
         environment_receipts.iter().all(|receipt| receipt.satisfied);
@@ -164,7 +239,7 @@ fn evaluate(obs: &RunObservation) -> LocalJudgeResult {
             format!(
                 "target_scope_observed={} rename_transformation_observed={} successful_command_count={} command_history_count={}",
                 target_scope_observed,
-                rename_transformation_observed,
+                rename_transformation_observed || rename_end_state_satisfied,
                 successful_command_count,
                 obs.command_history_evidence.len(),
             ),
@@ -218,108 +293,117 @@ fn evaluate(obs: &RunObservation) -> LocalJudgeResult {
     LocalJudgeResult::from_checks(checks)
 }
 
-fn has_verification_check(obs: &RunObservation, expected: &str) -> bool {
-    obs.verification_checks
-        .iter()
-        .any(|check| check.eq_ignore_ascii_case(expected))
-}
-
 fn build_environment_receipts(
     obs: &RunObservation,
+    fixture_mode: String,
+    fixture_mode_satisfied: bool,
+    fixture_probe_source: String,
+    fixture_timestamp_ms: u64,
+    fixture_satisfied: bool,
     cec_phase_receipts_present: bool,
     cec_postcondition_seen: bool,
     successful_command_count: usize,
     target_scope_observed: bool,
+    target_dir_path: String,
+    target_dir_probe_source: String,
+    target_dir_timestamp_ms: u64,
+    target_dir_satisfied: bool,
+    entries_csv: String,
+    entries_satisfied: bool,
+    uppercase_absent_satisfied: bool,
+    scope_satisfied: bool,
+    cleanup_probe_source: String,
+    cleanup_timestamp_ms: u64,
+    cleanup_satisfied: bool,
     rename_transformation_observed: bool,
     lowercase_result_names_observed: bool,
+    rename_end_state_satisfied: bool,
 ) -> Vec<EnvironmentEvidenceReceipt> {
     vec![
         EnvironmentEvidenceReceipt {
+            key: "downloads_lowercase_fixture_mode_observed",
+            observed_value: fixture_mode,
+            probe_source: fixture_probe_source,
+            timestamp_ms: fixture_timestamp_ms,
+            satisfied: fixture_mode_satisfied && fixture_satisfied,
+        },
+        EnvironmentEvidenceReceipt {
             key: "cec_phase_receipts_observed",
             observed_value: format!(
-                "cec_phase_receipts_present={} verification_checks={:?}",
-                cec_phase_receipts_present, obs.verification_checks
+                "cec_phase_receipts_present={} cec_receipts={:?}",
+                cec_phase_receipts_present, obs.cec_receipts
             ),
-            probe_source: "RunObservation.verification_checks",
+            probe_source: "RunObservation.cec_receipts".to_string(),
             timestamp_ms: obs.run_timestamp_ms,
             satisfied: cec_phase_receipts_present,
         },
         EnvironmentEvidenceReceipt {
             key: "cec_postcondition_receipt_observed",
             observed_value: format!("cec_postcondition_seen={}", cec_postcondition_seen),
-            probe_source: "RunObservation.verification_checks",
+            probe_source: "RunObservation.cec_receipts".to_string(),
             timestamp_ms: obs.run_timestamp_ms,
             satisfied: cec_postcondition_seen,
         },
         EnvironmentEvidenceReceipt {
             key: "successful_command_execution_observed",
             observed_value: format!("successful_command_count={}", successful_command_count),
-            probe_source: "RunObservation.command_history_evidence",
+            probe_source: "RunObservation.command_history_evidence".to_string(),
             timestamp_ms: obs.run_timestamp_ms,
             satisfied: successful_command_count > 0,
         },
         EnvironmentEvidenceReceipt {
             key: "isolated_target_scope_observed",
             observed_value: format!("target_scope_observed={}", target_scope_observed),
-            probe_source: "RunObservation.command_history_evidence.command|stdout|stderr",
+            probe_source: "RunObservation.command_history_evidence.command|stdout|stderr"
+                .to_string(),
             timestamp_ms: obs.run_timestamp_ms,
             satisfied: target_scope_observed,
         },
         EnvironmentEvidenceReceipt {
+            key: "downloads_lowercase_target_dir_observed",
+            observed_value: target_dir_path,
+            probe_source: target_dir_probe_source,
+            timestamp_ms: target_dir_timestamp_ms,
+            satisfied: target_dir_satisfied,
+        },
+        EnvironmentEvidenceReceipt {
+            key: "downloads_lowercase_entries_observed",
+            observed_value: entries_csv,
+            probe_source: "harness.downloads_lowercase_fixture.fs_probe".to_string(),
+            timestamp_ms: obs.run_timestamp_ms,
+            satisfied: entries_satisfied && lowercase_result_names_observed,
+        },
+        EnvironmentEvidenceReceipt {
+            key: "downloads_lowercase_uppercase_absent_observed",
+            observed_value: format!(
+                "uppercase_absent_satisfied={} scope_satisfied={}",
+                uppercase_absent_satisfied, scope_satisfied
+            ),
+            probe_source: "harness.downloads_lowercase_fixture.fs_probe".to_string(),
+            timestamp_ms: obs.run_timestamp_ms,
+            satisfied: uppercase_absent_satisfied && scope_satisfied,
+        },
+        EnvironmentEvidenceReceipt {
             key: "rename_transform_observed",
             observed_value: format!(
-                "rename_transformation_observed={} lowercase_result_names_observed={}",
-                rename_transformation_observed, lowercase_result_names_observed
+                "rename_transformation_observed={} rename_end_state_satisfied={} lowercase_result_names_observed={}",
+                rename_transformation_observed, rename_end_state_satisfied, lowercase_result_names_observed
             ),
-            probe_source: "RunObservation.command_history_evidence.command|stdout|stderr",
+            probe_source: "RunObservation.command_history_evidence.command|stdout|stderr"
+                .to_string(),
             timestamp_ms: obs.run_timestamp_ms,
-            satisfied: rename_transformation_observed,
+            satisfied: rename_transformation_observed || rename_end_state_satisfied,
+        },
+        EnvironmentEvidenceReceipt {
+            key: "downloads_lowercase_fixture_cleanup_observed",
+            observed_value: format!("cleanup_satisfied={}", cleanup_satisfied),
+            probe_source: cleanup_probe_source,
+            timestamp_ms: cleanup_timestamp_ms,
+            satisfied: cleanup_satisfied,
         },
     ]
 }
 
 fn serialize_environment_receipts(receipts: &[EnvironmentEvidenceReceipt]) -> String {
     serde_json::to_string(receipts).unwrap_or_else(|_| "[]".to_string())
-}
-
-fn observation_has_contract_failure_marker(obs: &RunObservation) -> bool {
-    let mut evidence_corpus = Vec::<String>::new();
-    evidence_corpus.push(obs.final_reply.clone());
-    evidence_corpus.extend(
-        obs.action_evidence
-            .iter()
-            .map(|entry| format!("{} {}", entry.agent_status, entry.output_excerpt)),
-    );
-    evidence_corpus.extend(obs.verification_checks.iter().cloned());
-    evidence_corpus.extend(obs.event_excerpt.iter().cloned());
-
-    evidence_corpus
-        .iter()
-        .any(|segment| has_contract_failure_marker(segment))
-}
-
-fn has_contract_failure_marker(text: &str) -> bool {
-    let lower = text.to_ascii_lowercase();
-    [
-        "execution_contract_gate_blocked=true",
-        "cec_terminal_error=true",
-        "execution contract unmet",
-        "base_error_class=executioncontractviolation",
-        "error_class=executioncontractviolation",
-        "error_class=discoverymissing",
-        "error_class=synthesisfailed",
-        "error_class=executionfailedterminal",
-        "error_class=verificationmissing",
-        "error_class=postconditionfailed",
-        "system::invalid_tool_call",
-        "failed to parse tool call",
-        "schema_validation_error=true",
-        "system::intent_clarification",
-        "awaiting_clarification=true",
-        "failed_stage=",
-        "missing_receipts=",
-        "missing_postconditions=",
-    ]
-    .iter()
-    .any(|marker| lower.contains(marker))
 }

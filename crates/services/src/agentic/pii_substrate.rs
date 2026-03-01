@@ -31,7 +31,9 @@ fn email_re() -> &'static Regex {
 fn phone_re() -> &'static Regex {
     static RE: OnceLock<Regex> = OnceLock::new();
     RE.get_or_init(|| {
-        Regex::new(r"(?x)\b(?:\+?\d{1,3}[-.\s]?)?(?:\(?\d{3}\)?[-.\s]?)\d{3}[-.\s]?\d{4}\b")
+        // Require '+' for an explicit country prefix; this avoids false positives where
+        // URL slugs like `2875631-2026` are misread as `+2 875-631-2026`.
+        Regex::new(r"(?x)\b(?:\+\d{1,3}[-.\s]?)?(?:\(?\d{3}\)?[-.\s]?)\d{3}[-.\s]?\d{4}\b")
             .expect("phone regex must compile")
     })
 }
@@ -694,5 +696,15 @@ mod tests {
         let g = build_evidence_graph("key ｓｋ＿ｌｉｖｅ＿abcd1234abcd1234").expect("graph");
         let cats = categories(&g);
         assert!(cats.contains("api_key"));
+    }
+
+    #[test]
+    fn url_slug_numeric_ids_do_not_trigger_phone_detection() {
+        let g = build_evidence_graph(
+            "https://www.indiatoday.in/education-today/news/story/school-assembly-news-headlines-february-28-top-india-world-sports-business-news-2875631-2026-02-28",
+        )
+        .expect("graph");
+        let cats = categories(&g);
+        assert!(!cats.contains("phone"));
     }
 }

@@ -2,8 +2,8 @@ use ioi_types::app::agentic::IntentScopeProfile;
 use serde::Serialize;
 
 use super::super::types::{
-    contains_any, has_tool_with_token, truncate_chars, LocalCheck, LocalJudgeResult, QueryCase,
-    RunObservation,
+    contains_any, has_contract_failure_evidence, has_tool_with_token, max_verification_usize,
+    truncate_chars, ExecutionProfile, LocalCheck, LocalJudgeResult, QueryCase, RunObservation,
 };
 
 #[derive(Debug, Clone, Serialize)]
@@ -24,6 +24,7 @@ pub fn case() -> QueryCase {
         intent_scope: IntentScopeProfile::WebResearch,
         seed_resolved_intent: true,
         expected_pass: true,
+        execution_profile: ExecutionProfile::Hermetic,
         sla_seconds: 90,
         max_steps: 18,
         min_local_score: 1.0,
@@ -74,8 +75,8 @@ fn evaluate(obs: &RunObservation) -> LocalJudgeResult {
     let price_line_count = bitcoin_price_line_count(&obs.final_reply);
     let objective_specific_price_signal_present = has_bitcoin_anchor && price_line_count > 0;
 
-    let web_min_sources = max_usize_verification_value(obs, "web_min_sources=");
-    let web_sources_success = max_usize_verification_value(obs, "web_sources_success=");
+    let web_min_sources = max_verification_usize(obs, "web_min_sources");
+    let web_sources_success = max_verification_usize(obs, "web_sources_success");
     let web_source_floor_present = match (web_min_sources, web_sources_success) {
         (Some(min_sources), Some(success_sources)) => {
             min_sources >= 2 && success_sources >= min_sources
@@ -92,7 +93,7 @@ fn evaluate(obs: &RunObservation) -> LocalJudgeResult {
     let source_quality_and_independence_present = unique_citation_urls.len() >= 2
         && unique_domain_count >= 2
         && search_hub_or_wrapper_citations == 0;
-    let any_contract_failure_marker = observation_has_contract_failure_marker(obs);
+    let any_contract_failure_marker = has_contract_failure_evidence(obs);
     let completion_evidence_present = obs.completed && !obs.failed && !obs.final_reply.is_empty();
 
     let environment_receipts = build_environment_receipts(
@@ -358,14 +359,6 @@ fn looks_like_iso_utc_timestamp(value: &str) -> bool {
         && trimmed.ends_with('Z')
 }
 
-fn max_usize_verification_value(obs: &RunObservation, prefix: &str) -> Option<usize> {
-    obs.verification_checks
-        .iter()
-        .filter_map(|check| check.strip_prefix(prefix))
-        .filter_map(|value| value.trim().parse::<usize>().ok())
-        .max()
-}
-
 fn bitcoin_price_line_count(reply: &str) -> usize {
     let has_global_bitcoin_anchor = reply
         .lines()
@@ -427,41 +420,4 @@ fn is_search_hub_or_wrapper_url(url: &str) -> bool {
         || lower.contains("bing.com/search?")
         || lower.contains("duckduckgo.com/?q=")
         || lower.contains("/search?")
-}
-
-fn observation_has_contract_failure_marker(obs: &RunObservation) -> bool {
-    let mut evidence_corpus = Vec::<String>::new();
-    evidence_corpus.push(obs.final_reply.clone());
-    evidence_corpus.extend(
-        obs.action_evidence
-            .iter()
-            .map(|entry| format!("{} {}", entry.agent_status, entry.output_excerpt)),
-    );
-    evidence_corpus.extend(obs.verification_checks.iter().cloned());
-    evidence_corpus.extend(obs.event_excerpt.iter().cloned());
-
-    evidence_corpus
-        .iter()
-        .any(|segment| has_contract_failure_marker(segment))
-}
-
-fn has_contract_failure_marker(text: &str) -> bool {
-    let lower = text.to_ascii_lowercase();
-    [
-        "execution_contract_gate_blocked=true",
-        "cec_terminal_error=true",
-        "execution contract unmet",
-        "base_error_class=executioncontractviolation",
-        "error_class=executioncontractviolation",
-        "error_class=discoverymissing",
-        "error_class=synthesisfailed",
-        "error_class=executionfailedterminal",
-        "error_class=verificationmissing",
-        "error_class=postconditionfailed",
-        "failed_stage=",
-        "missing_receipts=",
-        "missing_postconditions=",
-    ]
-    .iter()
-    .any(|marker| lower.contains(marker))
 }

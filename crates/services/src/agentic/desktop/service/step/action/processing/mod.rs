@@ -1,6 +1,6 @@
 use super::command_contract::{
     capability_route_label, command_arms_deferred_notification_path, compose_terminal_chat_reply,
-    enrich_command_scope_summary, execution_contract_violation_error, is_cec_terminal_error,
+    enrich_command_scope_summary, execution_contract_violation_error, extract_error_class_token, is_cec_terminal_error,
     is_command_execution_provider_tool, missing_execution_contract_markers,
     record_provider_selection_receipts, record_timer_notification_contract_requirement,
     record_verification_receipts, requires_timer_notification_contract,
@@ -90,6 +90,7 @@ use self::duplicate_guard::{
     duplicate_command_completion_summary, duplicate_command_execution_summary,
     find_matching_command_history_entry,
 };
+pub(crate) use self::phases::{emit_completion_gate_status_event, resolved_intent_id};
 use self::phases::{
     apply_post_execution_guards, execute_tool_phase, finalize_action_processing,
     ActionProcessingState, ApplyPostExecutionGuardsContext, ExecuteToolPhaseContext,

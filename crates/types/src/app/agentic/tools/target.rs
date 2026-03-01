@@ -7,12 +7,14 @@ pub(super) fn target_for_tool(tool: &AgentTool) -> ActionTarget {
         AgentTool::FsWrite { .. } | AgentTool::FsPatch { .. } | AgentTool::FsDelete { .. } => {
             ActionTarget::FsWrite
         }
-        AgentTool::FsRead { .. } | AgentTool::FsList { .. } | AgentTool::FsSearch { .. } => {
-            ActionTarget::FsRead
-        }
+        AgentTool::FsRead { .. }
+        | AgentTool::FsList { .. }
+        | AgentTool::FsSearch { .. }
+        | AgentTool::FsStat { .. } => ActionTarget::FsRead,
         AgentTool::FsCreateDirectory { .. } => {
             ActionTarget::Custom("filesystem__create_directory".into())
         }
+        AgentTool::FsCreateZip { .. } => ActionTarget::Custom("filesystem__create_zip".into()),
         AgentTool::FsMove { .. } => ActionTarget::Custom("filesystem__move_path".into()),
         AgentTool::FsCopy { .. } => ActionTarget::Custom("filesystem__copy_path".into()),
 

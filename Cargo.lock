@@ -7161,6 +7161,7 @@ dependencies = [
  "transport-verifier",
  "uuid 1.21.0",
  "wit-component 0.201.0",
+ "zip",
  "zk-types",
 ]
 
@@ -7598,6 +7599,7 @@ dependencies = [
  "unicode-normalization",
  "url",
  "walkdir",
+ "zip",
 ]
 
 [[package]]

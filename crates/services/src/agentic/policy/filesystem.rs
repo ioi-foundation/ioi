@@ -26,12 +26,14 @@ fn filesystem_scope_for_target(target: &ActionTarget) -> Option<FilesystemScope>
             "fs::read"
             | "filesystem__read_file"
             | "filesystem__list_directory"
-            | "filesystem__search" => Some(FilesystemScope::Read),
+            | "filesystem__search"
+            | "filesystem__stat" => Some(FilesystemScope::Read),
             "fs::write"
             | "filesystem__write_file"
             | "filesystem__patch"
             | "filesystem__delete_path"
             | "filesystem__create_directory"
+            | "filesystem__create_zip"
             | "filesystem__move_path"
             | "filesystem__copy_path" => Some(FilesystemScope::Write),
             _ => None,
@@ -54,11 +56,13 @@ pub(super) fn required_filesystem_path_keys(
             | "filesystem__read_file"
             | "filesystem__list_directory"
             | "filesystem__search"
+            | "filesystem__stat"
             | "fs::write"
             | "filesystem__write_file"
             | "filesystem__patch"
             | "filesystem__delete_path"
             | "filesystem__create_directory" => Some(&["path"]),
+            "filesystem__create_zip" => Some(&["source_path", "destination_zip_path"]),
             "filesystem__move_path" | "filesystem__copy_path" => {
                 Some(&["source_path", "destination_path"])
             }

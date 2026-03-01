@@ -1,8 +1,8 @@
 use ioi_types::app::agentic::IntentScopeProfile;
 
 use super::super::types::{
-    contains_any, has_tool_with_token, truncate_chars, LocalCheck, LocalJudgeResult, QueryCase,
-    RunObservation,
+    contains_any, has_tool_with_token, truncate_chars, ExecutionProfile, LocalCheck,
+    LocalJudgeResult, QueryCase, RunObservation,
 };
 
 pub fn case() -> QueryCase {
@@ -14,6 +14,7 @@ pub fn case() -> QueryCase {
         intent_scope: IntentScopeProfile::CommandExecution,
         seed_resolved_intent: true,
         expected_pass: true,
+        execution_profile: ExecutionProfile::Hermetic,
         sla_seconds: 50,
         max_steps: 12,
         min_local_score: 0.67,

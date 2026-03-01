@@ -151,11 +151,12 @@ pub(crate) fn citation_ids_for_story(
 
     // Keep story/citation alignment stable by anchoring to the story source URL first
     // when that URL exists in the citation candidate inventory.
+    // Anchor reuse is allowed even when the URL was already used by another story;
+    // cross-story dedupe still applies to non-anchor citations via `used_urls`.
     if selected_ids.len() < citations_per_story {
         if let Some(source_anchor_candidate) = candidates.iter().find(|candidate| {
             let candidate_url = candidate.url.trim();
             !candidate_url.is_empty()
-                && !used_urls.contains(candidate_url)
                 && url_structurally_equivalent(candidate_url, source.url.trim())
                 && !selected_ids.iter().any(|id| id == &candidate.id)
         }) {

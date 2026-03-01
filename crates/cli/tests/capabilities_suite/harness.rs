@@ -10,10 +10,11 @@ use ioi_api::vm::inference::InferenceRuntime;
 use ioi_drivers::browser::BrowserDriver;
 use ioi_drivers::terminal::TerminalDriver;
 use ioi_scs::{SovereignContextStore, StoreConfig};
-use ioi_services::agentic::desktop::keys::AGENT_POLICY_PREFIX;
+use ioi_services::agentic::desktop::keys::{AGENT_POLICY_PREFIX, INCIDENT_PREFIX};
 use ioi_services::agentic::desktop::service::step::helpers::{
     default_safe_policy, is_mailbox_connector_goal,
 };
+use ioi_services::agentic::desktop::service::step::incident::IncidentState;
 use ioi_services::agentic::desktop::{
     AgentMode, AgentState, AgentStatus, DesktopAgentService, ResumeAgentParams, StartAgentParams,
     StepAgentParams,
@@ -22,6 +23,7 @@ use ioi_services::agentic::rules::DefaultPolicy;
 use ioi_services::wallet_network::WalletNetworkService;
 use ioi_state::primitives::hash::HashCommitmentScheme;
 use ioi_state::tree::iavl::IAVLTree;
+use ioi_types::app::action::PiiApprovalAction;
 use ioi_types::app::action::{ApprovalScope, ApprovalToken};
 use ioi_types::app::agentic::{
     CapabilityId, IntentConfidenceBand, IntentScopeProfile, ResolvedIntentState,
@@ -48,8 +50,12 @@ use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 use tempfile::tempdir;
 use tokio::sync::broadcast;
+use zip::ZipArchive;
 
-use super::types::{ActionEvidence, CommandHistoryEvidence, QueryCase, RunObservation};
+use super::types::{
+    parse_verification_facts, ActionEvidence, CecReceiptEvidence, CommandHistoryEvidence,
+    QueryCase, RunObservation,
+};
 
 #[derive(Clone)]
 struct MockGuiDriver;
@@ -143,6 +149,19 @@ const VLC_INSTALL_CASE_ID: &str = "download_and_install_vlc_media_player";
 const VLC_INSTALL_UNSEEDED_CASE_ID: &str = "download_and_install_vlc_media_player_unseeded";
 const VLC_INSTALL_FIXTURE_MODE: &str = "apt_get_vlc_fixture_v1";
 const VLC_INSTALL_FIXTURE_PROBE_SOURCE: &str = "harness.vlc_install_fixture";
+const PROJECTS_ZIP_CASE_ID: &str =
+    "compress_the_projects_folder_into_a_zip_file_and_put_it_on_my_desktop";
+const PROJECTS_ZIP_FIXTURE_MODE: &str = "desktop_projects_zip_fixture_v1";
+const PROJECTS_ZIP_FIXTURE_PROBE_SOURCE: &str = "harness.projects_zip_fixture";
+const PROJECTS_ZIP_EXPECTED_ENTRIES: [&str; 3] = ["README.md", "docs/spec.txt", "src/main.rs"];
+const DOWNLOADS_LOWERCASE_CASE_ID: &str = "rename_every_file_in_my_downloads_folder_to_lowercase";
+const DOWNLOADS_LOWERCASE_FIXTURE_MODE: &str = "downloads_lowercase_fixture_v1";
+const DOWNLOADS_LOWERCASE_FIXTURE_PROBE_SOURCE: &str = "harness.downloads_lowercase_fixture";
+const DOWNLOADS_LOWERCASE_TARGET_PREFIX: &str = "ioi_lowercase_";
+const DOWNLOADS_LOWERCASE_EXPECTED_FINAL_FILES: [&str; 3] =
+    ["alpha.txt", "budget 2026.pdf", "mixed_case.jpg"];
+const DOWNLOADS_LOWERCASE_EXPECTED_ORIGINAL_FILES: [&str; 3] =
+    ["Alpha.TXT", "Budget 2026.PDF", "MiXeD_Case.JPG"];
 
 #[derive(Debug, Clone)]
 struct MailRuntimeBootstrapConfig {
@@ -209,6 +228,24 @@ struct VlcInstallFixtureRuntime {
     download_receipt_path: PathBuf,
     install_receipt_path: PathBuf,
     vlc_binary_path: PathBuf,
+}
+
+struct ProjectsZipFixtureRuntime {
+    _temp_dir: tempfile::TempDir,
+    _env_home: ScopedEnvVar,
+    _env_userprofile: ScopedEnvVar,
+    home_dir: PathBuf,
+    projects_dir: PathBuf,
+    desktop_dir: PathBuf,
+    archive_path: PathBuf,
+}
+
+struct DownloadsLowercaseFixtureRuntime {
+    _temp_dir: tempfile::TempDir,
+    _env_home: ScopedEnvVar,
+    _env_userprofile: ScopedEnvVar,
+    home_dir: PathBuf,
+    downloads_dir: PathBuf,
 }
 
 fn find_workspace_file(file_name: &str) -> Option<PathBuf> {
@@ -489,6 +526,7 @@ fn build_approval_token_for_resume(
     request_hash: [u8; 32],
     now_ms: u64,
     pending_visual_hash: Option<[u8; 32]>,
+    pii_action: Option<PiiApprovalAction>,
 ) -> ApprovalToken {
     let mut nonce = [0u8; 32];
     nonce.copy_from_slice(&request_hash);
@@ -504,7 +542,7 @@ fn build_approval_token_for_resume(
             max_usages: Some(1),
         },
         visual_hash: pending_visual_hash,
-        pii_action: None,
+        pii_action,
         scoped_exception: None,
         approver_sig: Vec::new(),
         approver_suite: SignatureSuite::ED25519,
@@ -518,6 +556,45 @@ fn read_agent_state(state: &IAVLTree<HashCommitmentScheme>, session_id: [u8; 32]
         .expect("state get should not fail")
         .expect("session state should exist");
     codec::from_bytes_canonical(&bytes).expect("agent state should decode")
+}
+
+fn parse_hex_hash_32(raw: &str) -> Option<[u8; 32]> {
+    let trimmed = raw.trim();
+    if trimmed.is_empty() {
+        return None;
+    }
+    let stripped = trimmed.strip_prefix("0x").unwrap_or(trimmed);
+    let bytes = hex::decode(stripped).ok()?;
+    if bytes.len() != 32 {
+        return None;
+    }
+    let mut out = [0u8; 32];
+    out.copy_from_slice(&bytes);
+    Some(out)
+}
+
+fn read_incident_pending_gate_hash(
+    state: &IAVLTree<HashCommitmentScheme>,
+    session_id: [u8; 32],
+) -> Option<[u8; 32]> {
+    let key = [INCIDENT_PREFIX, session_id.as_slice()].concat();
+    let bytes = state.get(&key).ok().flatten()?;
+    let incident: IncidentState = codec::from_bytes_canonical(&bytes).ok()?;
+    if !incident.active {
+        return None;
+    }
+    incident
+        .pending_gate
+        .as_ref()
+        .and_then(|gate| parse_hex_hash_32(&gate.request_hash))
+}
+
+fn has_review_request_for_hash(
+    state: &IAVLTree<HashCommitmentScheme>,
+    request_hash: [u8; 32],
+) -> bool {
+    let key = ioi_services::agentic::desktop::keys::pii::review::request(&request_hash);
+    state.get(&key).ok().flatten().is_some()
 }
 
 fn seeded_required_capabilities(scope: IntentScopeProfile, intent_id: &str) -> Vec<CapabilityId> {
@@ -671,12 +748,14 @@ fn event_log_line(event: &KernelEvent, max_chars: usize) -> String {
         KernelEvent::AgentActionResult {
             tool_name,
             output,
+            error_class,
             agent_status,
             ..
         } => format!(
-            "action tool={} status={} output={}",
+            "action tool={} status={} error_class={} output={}",
             tool_name,
             agent_status,
+            error_class.as_deref().unwrap_or("none"),
             truncate_for_log(output, max_chars)
         ),
         KernelEvent::RoutingReceipt(RoutingReceiptEvent {
@@ -822,6 +901,14 @@ fn should_bootstrap_mailbox_runtime(goal: &str) -> bool {
 fn should_bootstrap_vlc_install_fixture(case_id: &str) -> bool {
     case_id.eq_ignore_ascii_case(VLC_INSTALL_CASE_ID)
         || case_id.eq_ignore_ascii_case(VLC_INSTALL_UNSEEDED_CASE_ID)
+}
+
+fn should_bootstrap_projects_zip_fixture(case_id: &str) -> bool {
+    case_id.eq_ignore_ascii_case(PROJECTS_ZIP_CASE_ID)
+}
+
+fn should_bootstrap_downloads_lowercase_fixture(case_id: &str) -> bool {
+    case_id.eq_ignore_ascii_case(DOWNLOADS_LOWERCASE_CASE_ID)
 }
 
 fn write_executable_script(path: &Path, content: &str) -> Result<()> {
@@ -1041,6 +1128,361 @@ fn vlc_install_fixture_post_run_checks(fixture: &VlcInstallFixtureRuntime) -> Ve
         format!("env_receipt::vlc_binary_probe_source={}", probe_source),
         format!("env_receipt::vlc_binary_timestamp_ms={}", timestamp_ms),
         format!("env_receipt::vlc_binary_satisfied={}", binary_exists),
+    ]
+}
+
+fn bootstrap_projects_zip_fixture_runtime() -> Result<ProjectsZipFixtureRuntime> {
+    let temp_dir = tempdir()?;
+    let home_dir = temp_dir.path().join("home");
+    let projects_dir = home_dir.join("Projects");
+    let desktop_dir = home_dir.join("Desktop");
+    let archive_path = desktop_dir.join("Projects.zip");
+    std::fs::create_dir_all(projects_dir.join("src"))?;
+    std::fs::create_dir_all(projects_dir.join("docs"))?;
+    std::fs::create_dir_all(&desktop_dir)?;
+
+    std::fs::write(projects_dir.join("README.md"), "# fixture project\n")?;
+    std::fs::write(
+        projects_dir.join("src").join("main.rs"),
+        "fn main() { println!(\"fixture\"); }\n",
+    )?;
+    std::fs::write(
+        projects_dir.join("docs").join("spec.txt"),
+        "fixture spec document\n",
+    )?;
+
+    let env_home = ScopedEnvVar::set("HOME", home_dir.to_string_lossy().to_string());
+    let env_userprofile = ScopedEnvVar::set("USERPROFILE", home_dir.to_string_lossy().to_string());
+
+    Ok(ProjectsZipFixtureRuntime {
+        _temp_dir: temp_dir,
+        _env_home: env_home,
+        _env_userprofile: env_userprofile,
+        home_dir,
+        projects_dir,
+        desktop_dir,
+        archive_path,
+    })
+}
+
+fn projects_zip_fixture_preflight_checks(
+    fixture: &ProjectsZipFixtureRuntime,
+    run_timestamp_ms: u64,
+) -> Vec<String> {
+    vec![
+        format!(
+            "env_receipt::projects_zip_fixture_mode={}",
+            PROJECTS_ZIP_FIXTURE_MODE
+        ),
+        format!(
+            "env_receipt::projects_zip_fixture_probe_source={}",
+            PROJECTS_ZIP_FIXTURE_PROBE_SOURCE
+        ),
+        format!(
+            "env_receipt::projects_zip_fixture_timestamp_ms={}",
+            run_timestamp_ms
+        ),
+        format!(
+            "env_receipt::projects_zip_home_dir={}",
+            fixture.home_dir.to_string_lossy()
+        ),
+        format!(
+            "env_receipt::projects_zip_projects_dir={}",
+            fixture.projects_dir.to_string_lossy()
+        ),
+        format!(
+            "env_receipt::projects_zip_desktop_dir={}",
+            fixture.desktop_dir.to_string_lossy()
+        ),
+        format!(
+            "env_receipt::projects_zip_archive_path={}",
+            fixture.archive_path.to_string_lossy()
+        ),
+        format!(
+            "env_receipt::projects_zip_expected_entries={}",
+            PROJECTS_ZIP_EXPECTED_ENTRIES.join(",")
+        ),
+        "env_receipt::projects_zip_fixture_satisfied=true".to_string(),
+    ]
+}
+
+fn zip_archive_entries(path: &Path) -> Result<Vec<String>> {
+    let file = std::fs::File::open(path)?;
+    let mut archive = ZipArchive::new(file)?;
+    let mut entries = Vec::new();
+    for idx in 0..archive.len() {
+        let entry = archive.by_index(idx)?;
+        entries.push(entry.name().to_string());
+    }
+    entries.sort();
+    Ok(entries)
+}
+
+fn projects_zip_fixture_post_run_checks(fixture: &ProjectsZipFixtureRuntime) -> Vec<String> {
+    let timestamp_ms = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_millis() as u64;
+    let probe_source = format!("{}.fs_probe", PROJECTS_ZIP_FIXTURE_PROBE_SOURCE);
+    let archive_exists = fixture.archive_path.is_file();
+    let archive_entries = if archive_exists {
+        zip_archive_entries(&fixture.archive_path).unwrap_or_default()
+    } else {
+        Vec::new()
+    };
+    let expected_entries_satisfied = PROJECTS_ZIP_EXPECTED_ENTRIES
+        .iter()
+        .all(|entry| archive_entries.iter().any(|observed| observed == entry));
+    let source_preserved = PROJECTS_ZIP_EXPECTED_ENTRIES
+        .iter()
+        .all(|entry| fixture.projects_dir.join(entry).is_file());
+
+    vec![
+        format!(
+            "env_receipt::projects_zip_archive_path={}",
+            fixture.archive_path.to_string_lossy()
+        ),
+        format!(
+            "env_receipt::projects_zip_archive_probe_source={}",
+            probe_source
+        ),
+        format!(
+            "env_receipt::projects_zip_archive_timestamp_ms={}",
+            timestamp_ms
+        ),
+        format!(
+            "env_receipt::projects_zip_archive_satisfied={}",
+            archive_exists
+        ),
+        format!(
+            "env_receipt::projects_zip_entries={}",
+            archive_entries.join(",")
+        ),
+        format!(
+            "env_receipt::projects_zip_entries_probe_source={}",
+            probe_source
+        ),
+        format!(
+            "env_receipt::projects_zip_entries_timestamp_ms={}",
+            timestamp_ms
+        ),
+        format!(
+            "env_receipt::projects_zip_entries_satisfied={}",
+            expected_entries_satisfied
+        ),
+        format!(
+            "env_receipt::projects_zip_source_preserved_satisfied={}",
+            source_preserved
+        ),
+    ]
+}
+
+fn projects_zip_fixture_cleanup_checks(fixture: &ProjectsZipFixtureRuntime) -> Vec<String> {
+    let timestamp_ms = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_millis() as u64;
+    let probe_source = format!("{}.cleanup_probe", PROJECTS_ZIP_FIXTURE_PROBE_SOURCE);
+
+    let _ = std::fs::remove_file(&fixture.archive_path);
+    let _ = std::fs::remove_dir_all(&fixture.projects_dir);
+    let cleanup_satisfied = !fixture.archive_path.exists() && !fixture.projects_dir.exists();
+
+    vec![
+        format!(
+            "env_receipt::projects_zip_cleanup_probe_source={}",
+            probe_source
+        ),
+        format!(
+            "env_receipt::projects_zip_cleanup_timestamp_ms={}",
+            timestamp_ms
+        ),
+        format!(
+            "env_receipt::projects_zip_cleanup_satisfied={}",
+            cleanup_satisfied
+        ),
+    ]
+}
+
+fn bootstrap_downloads_lowercase_fixture_runtime() -> Result<DownloadsLowercaseFixtureRuntime> {
+    let temp_dir = tempdir()?;
+    let home_dir = temp_dir.path().join("home");
+    let downloads_dir = home_dir.join("Downloads");
+    std::fs::create_dir_all(&downloads_dir)?;
+
+    let env_home = ScopedEnvVar::set("HOME", home_dir.to_string_lossy().to_string());
+    let env_userprofile = ScopedEnvVar::set("USERPROFILE", home_dir.to_string_lossy().to_string());
+
+    Ok(DownloadsLowercaseFixtureRuntime {
+        _temp_dir: temp_dir,
+        _env_home: env_home,
+        _env_userprofile: env_userprofile,
+        home_dir,
+        downloads_dir,
+    })
+}
+
+fn downloads_lowercase_fixture_preflight_checks(
+    fixture: &DownloadsLowercaseFixtureRuntime,
+    run_timestamp_ms: u64,
+) -> Vec<String> {
+    vec![
+        format!(
+            "env_receipt::downloads_lowercase_fixture_mode={}",
+            DOWNLOADS_LOWERCASE_FIXTURE_MODE
+        ),
+        format!(
+            "env_receipt::downloads_lowercase_fixture_probe_source={}",
+            DOWNLOADS_LOWERCASE_FIXTURE_PROBE_SOURCE
+        ),
+        format!(
+            "env_receipt::downloads_lowercase_fixture_timestamp_ms={}",
+            run_timestamp_ms
+        ),
+        format!(
+            "env_receipt::downloads_lowercase_home_dir={}",
+            fixture.home_dir.to_string_lossy()
+        ),
+        format!(
+            "env_receipt::downloads_lowercase_downloads_dir={}",
+            fixture.downloads_dir.to_string_lossy()
+        ),
+        "env_receipt::downloads_lowercase_fixture_satisfied=true".to_string(),
+    ]
+}
+
+fn list_directory_entry_names(path: &Path) -> Vec<String> {
+    let mut entries = std::fs::read_dir(path)
+        .ok()
+        .into_iter()
+        .flatten()
+        .filter_map(|entry| entry.ok())
+        .filter_map(|entry| entry.file_name().to_str().map(str::to_string))
+        .collect::<Vec<_>>();
+    entries.sort();
+    entries
+}
+
+fn downloads_lowercase_fixture_post_run_checks(
+    fixture: &DownloadsLowercaseFixtureRuntime,
+) -> Vec<String> {
+    let timestamp_ms = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_millis() as u64;
+    let probe_source = format!("{}.fs_probe", DOWNLOADS_LOWERCASE_FIXTURE_PROBE_SOURCE);
+    let mut target_dirs_sorted = std::fs::read_dir(&fixture.downloads_dir)
+        .ok()
+        .into_iter()
+        .flatten()
+        .filter_map(|entry| entry.ok())
+        .filter(|entry| entry.file_type().map(|kind| kind.is_dir()).unwrap_or(false))
+        .filter_map(|entry| entry.file_name().to_str().map(str::to_string))
+        .filter(|name| name.starts_with(DOWNLOADS_LOWERCASE_TARGET_PREFIX))
+        .collect::<Vec<_>>();
+    target_dirs_sorted.sort();
+    let target_dir_count = target_dirs_sorted.len();
+    let target_dir_name = target_dirs_sorted.first().cloned().unwrap_or_default();
+    let target_dir_path = if target_dir_name.is_empty() {
+        String::new()
+    } else {
+        fixture
+            .downloads_dir
+            .join(&target_dir_name)
+            .to_string_lossy()
+            .to_string()
+    };
+    let target_dir_satisfied = target_dir_count == 1 && !target_dir_path.is_empty();
+    let target_entries = if target_dir_satisfied {
+        list_directory_entry_names(&fixture.downloads_dir.join(&target_dir_name))
+    } else {
+        Vec::new()
+    };
+    let entries_satisfied = DOWNLOADS_LOWERCASE_EXPECTED_FINAL_FILES
+        .iter()
+        .all(|expected| target_entries.iter().any(|observed| observed == expected));
+    let uppercase_absent = DOWNLOADS_LOWERCASE_EXPECTED_ORIGINAL_FILES
+        .iter()
+        .all(|original| !target_entries.iter().any(|observed| observed == original));
+    let scope_satisfied = std::fs::read_dir(&fixture.downloads_dir)
+        .ok()
+        .into_iter()
+        .flatten()
+        .filter_map(|entry| entry.ok())
+        .all(|entry| {
+            entry
+                .file_name()
+                .to_str()
+                .map(|name| name.starts_with(DOWNLOADS_LOWERCASE_TARGET_PREFIX))
+                .unwrap_or(false)
+        });
+
+    vec![
+        format!(
+            "env_receipt::downloads_lowercase_target_dir_count={}",
+            target_dir_count
+        ),
+        format!(
+            "env_receipt::downloads_lowercase_target_dir_path={}",
+            target_dir_path
+        ),
+        format!(
+            "env_receipt::downloads_lowercase_target_dir_probe_source={}",
+            probe_source
+        ),
+        format!(
+            "env_receipt::downloads_lowercase_target_dir_timestamp_ms={}",
+            timestamp_ms
+        ),
+        format!(
+            "env_receipt::downloads_lowercase_target_dir_satisfied={}",
+            target_dir_satisfied
+        ),
+        format!(
+            "env_receipt::downloads_lowercase_entries={}",
+            target_entries.join(",")
+        ),
+        format!(
+            "env_receipt::downloads_lowercase_entries_satisfied={}",
+            entries_satisfied
+        ),
+        format!(
+            "env_receipt::downloads_lowercase_uppercase_absent_satisfied={}",
+            uppercase_absent
+        ),
+        format!(
+            "env_receipt::downloads_lowercase_scope_satisfied={}",
+            scope_satisfied
+        ),
+    ]
+}
+
+fn downloads_lowercase_fixture_cleanup_checks(
+    fixture: &DownloadsLowercaseFixtureRuntime,
+) -> Vec<String> {
+    let timestamp_ms = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_millis() as u64;
+    let probe_source = format!("{}.cleanup_probe", DOWNLOADS_LOWERCASE_FIXTURE_PROBE_SOURCE);
+    let _ = std::fs::remove_dir_all(&fixture.downloads_dir);
+    let _ = std::fs::create_dir_all(&fixture.downloads_dir);
+    let remaining_entries = list_directory_entry_names(&fixture.downloads_dir);
+    let cleanup_satisfied = remaining_entries.is_empty();
+
+    vec![
+        format!(
+            "env_receipt::downloads_lowercase_cleanup_probe_source={}",
+            probe_source
+        ),
+        format!(
+            "env_receipt::downloads_lowercase_cleanup_timestamp_ms={}",
+            timestamp_ms
+        ),
+        format!(
+            "env_receipt::downloads_lowercase_cleanup_satisfied={}",
+            cleanup_satisfied
+        ),
     ]
 }
 
@@ -1325,6 +1767,26 @@ pub async fn run_case(
     } else {
         None
     };
+    let projects_zip_fixture = if should_bootstrap_projects_zip_fixture(case.id) {
+        let fixture = bootstrap_projects_zip_fixture_runtime()?;
+        runtime_setup_verification_checks.extend(projects_zip_fixture_preflight_checks(
+            &fixture,
+            run_timestamp_ms,
+        ));
+        Some(fixture)
+    } else {
+        None
+    };
+    let downloads_lowercase_fixture = if should_bootstrap_downloads_lowercase_fixture(case.id) {
+        let fixture = bootstrap_downloads_lowercase_fixture_runtime()?;
+        runtime_setup_verification_checks.extend(downloads_lowercase_fixture_preflight_checks(
+            &fixture,
+            run_timestamp_ms,
+        ));
+        Some(fixture)
+    } else {
+        None
+    };
     if should_bootstrap_mailbox_runtime(&run_query) {
         runtime_setup_verification_checks.extend(
             bootstrap_mailbox_runtime_state(
@@ -1394,15 +1856,23 @@ pub async fn run_case(
             AgentStatus::Paused(reason) => {
                 let waiting_for_approval = reason.to_ascii_lowercase().contains("approval");
                 if waiting_for_approval && auto_resume_count < MAX_AUTO_APPROVAL_RESUMES {
-                    if let Some(request_hash) = current.pending_tool_hash {
+                    if let Some(tool_hash) = current.pending_tool_hash {
+                        let request_hash = read_incident_pending_gate_hash(&state, session_id)
+                            .unwrap_or(tool_hash);
                         let now_ms = SystemTime::now()
                             .duration_since(UNIX_EPOCH)
                             .unwrap_or_default()
                             .as_millis() as u64;
+                        let pii_action = if has_review_request_for_hash(&state, request_hash) {
+                            Some(PiiApprovalAction::ApproveTransform)
+                        } else {
+                            None
+                        };
                         let approval_token = build_approval_token_for_resume(
                             request_hash,
                             now_ms,
                             current.pending_visual_hash,
+                            pii_action,
                         );
                         service
                             .handle_service_call(
@@ -1459,9 +1929,14 @@ pub async fn run_case(
     let mut action_tools = BTreeSet::new();
     let mut routing_tools = BTreeSet::new();
     let mut workload_tools = BTreeSet::new();
+    let mut routing_policy_decisions = BTreeSet::new();
+    let mut routing_failure_classes = BTreeSet::new();
+    let mut routing_stop_condition_hits = 0usize;
     let mut verification_checks = BTreeSet::new();
     let mut action_evidence = Vec::new();
+    let mut action_error_classes = BTreeSet::new();
     let mut command_history_evidence = Vec::new();
+    let mut cec_receipts = Vec::new();
     let mut final_reply = String::new();
     let mut chat_reply_count = 0usize;
     let mut approval_required_events = 0usize;
@@ -1471,6 +1946,7 @@ pub async fn run_case(
             KernelEvent::AgentActionResult {
                 tool_name,
                 output,
+                error_class,
                 agent_status,
                 ..
             } => {
@@ -1480,6 +1956,9 @@ pub async fn run_case(
                         command_history_evidence.push(entry);
                     }
                 }
+                if let Some(class_name) = error_class.as_ref() {
+                    action_error_classes.insert(class_name.clone());
+                }
                 action_evidence.push(ActionEvidence {
                     tool_name: tool_name.clone(),
                     agent_status: agent_status.clone(),
@@ -1487,6 +1966,7 @@ pub async fn run_case(
                         output,
                         action_output_excerpt_limit(tool_name),
                     ),
+                    error_class: error_class.clone(),
                 });
                 if tool_name == "chat__reply" && agent_status.eq_ignore_ascii_case("completed") {
                     chat_reply_count = chat_reply_count.saturating_add(1);
@@ -1495,6 +1975,13 @@ pub async fn run_case(
             }
             KernelEvent::RoutingReceipt(receipt) => {
                 routing_tools.insert(receipt.tool_name.clone());
+                routing_policy_decisions.insert(receipt.policy_decision.clone());
+                if !receipt.failure_class_name.trim().is_empty() {
+                    routing_failure_classes.insert(receipt.failure_class_name.clone());
+                }
+                if receipt.stop_condition_hit {
+                    routing_stop_condition_hits = routing_stop_condition_hits.saturating_add(1);
+                }
                 for check in &receipt.post_state.verification_checks {
                     verification_checks.insert(check.clone());
                 }
@@ -1505,10 +1992,35 @@ pub async fn run_case(
                     approval_required_events = approval_required_events.saturating_add(1);
                 }
             }
-            KernelEvent::WorkloadReceipt(workload) => {
-                if let WorkloadReceipt::WebRetrieve(web) = &workload.receipt {
+            KernelEvent::WorkloadReceipt(workload) => match &workload.receipt {
+                WorkloadReceipt::WebRetrieve(web) => {
                     workload_tools.insert(web.tool_name.clone());
+                    if let Some(error_class) = web.error_class.as_ref() {
+                        action_error_classes.insert(error_class.clone());
+                    }
                 }
+                WorkloadReceipt::Exec(exec) => {
+                    workload_tools.insert(exec.tool_name.clone());
+                    if let Some(error_class) = exec.error_class.as_ref() {
+                        action_error_classes.insert(error_class.clone());
+                    }
+                }
+                WorkloadReceipt::NetFetch(fetch) => {
+                    workload_tools.insert(fetch.tool_name.clone());
+                    if let Some(error_class) = fetch.error_class.as_ref() {
+                        action_error_classes.insert(error_class.clone());
+                    }
+                }
+            },
+            KernelEvent::ExecutionContractReceipt(receipt) => {
+                cec_receipts.push(CecReceiptEvidence {
+                    contract_version: receipt.contract_version.clone(),
+                    stage: receipt.stage.clone(),
+                    key: receipt.key.clone(),
+                    satisfied: receipt.satisfied,
+                    timestamp_ms: receipt.timestamp_ms,
+                    provider_id: receipt.provider_id.clone(),
+                });
             }
             KernelEvent::FirewallInterception { verdict, .. } => {
                 if verdict.eq_ignore_ascii_case("require_approval") {
@@ -1518,6 +2030,17 @@ pub async fn run_case(
             _ => {}
         }
     }
+
+    let terminal_pause_reason = if let AgentStatus::Paused(reason) = &final_state.status {
+        Some(reason.clone())
+    } else {
+        paused_reason.clone()
+    };
+    let terminal_failure_reason = if let AgentStatus::Failed(reason) = &final_state.status {
+        Some(reason.clone())
+    } else {
+        None
+    };
 
     if let Some(reason) = paused_reason {
         if requires_human_intervention(&reason) {
@@ -1532,6 +2055,22 @@ pub async fn run_case(
     }
     if let Some(fixture) = vlc_install_fixture.as_ref() {
         for check in vlc_install_fixture_post_run_checks(fixture) {
+            verification_checks.insert(check);
+        }
+    }
+    if let Some(fixture) = projects_zip_fixture.as_ref() {
+        for check in projects_zip_fixture_post_run_checks(fixture) {
+            verification_checks.insert(check);
+        }
+        for check in projects_zip_fixture_cleanup_checks(fixture) {
+            verification_checks.insert(check);
+        }
+    }
+    if let Some(fixture) = downloads_lowercase_fixture.as_ref() {
+        for check in downloads_lowercase_fixture_post_run_checks(fixture) {
+            verification_checks.insert(check);
+        }
+        for check in downloads_lowercase_fixture_cleanup_checks(fixture) {
             verification_checks.insert(check);
         }
     }
@@ -1550,6 +2089,9 @@ pub async fn run_case(
         .map(event_full_line)
         .collect::<Vec<_>>();
 
+    let verification_checks = verification_checks.into_iter().collect::<Vec<_>>();
+    let verification_facts = parse_verification_facts(&verification_checks);
+
     Ok(RunObservation {
         case_id: case.id.to_string(),
         query: run_query,
@@ -1559,15 +2101,23 @@ pub async fn run_case(
         completed: matches!(final_state.status, AgentStatus::Completed(_)),
         failed: matches!(final_state.status, AgentStatus::Failed(_)),
         final_status: format!("{:?}", final_state.status),
+        terminal_pause_reason,
+        terminal_failure_reason,
         final_reply,
         chat_reply_count,
         action_tools: action_tools.into_iter().collect(),
         routing_tools: routing_tools.into_iter().collect(),
         workload_tools: workload_tools.into_iter().collect(),
-        verification_checks: verification_checks.into_iter().collect(),
+        routing_policy_decisions: routing_policy_decisions.into_iter().collect(),
+        routing_failure_classes: routing_failure_classes.into_iter().collect(),
+        routing_stop_condition_hits,
+        verification_checks,
+        verification_facts,
         approval_required_events,
         action_evidence,
+        action_error_classes: action_error_classes.into_iter().collect(),
         command_history_evidence,
+        cec_receipts,
         event_excerpt,
         kernel_event_count: captured_events.len(),
         kernel_log_lines,

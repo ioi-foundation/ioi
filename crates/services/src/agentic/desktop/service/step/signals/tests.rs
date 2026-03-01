@@ -55,6 +55,32 @@ fn source_signals_rank_operational_updates_above_roundups() {
 }
 
 #[test]
+fn source_signals_demote_word_puzzle_content() {
+    let puzzle = analyze_source_record_signals(
+        "https://www.forbes.com/sites/example/2026/02/27/wordle-answer-saturday-february-28/",
+        "Today’s Wordle hints and answer",
+        "Wordle hints and answer for today.",
+    );
+    assert!(puzzle.low_priority_dominates());
+}
+
+#[test]
+fn source_signals_demote_headline_roundup_and_horoscope_content() {
+    let roundup = analyze_source_record_signals(
+        "https://www.timesnownews.com/education/school-assembly-news-headlines-today-feb-28-top-national-international-sports-updates-thought-of-the-day-article-153711381",
+        "School Assembly News Headlines Today (Feb 28)",
+        "Top national, international and sports updates with thought of the day.",
+    );
+    let horoscope = analyze_source_record_signals(
+        "https://www.today.com/life/astrology/march-2026-horoscopes-each-zodiac-sign-rcna260859",
+        "March 2026 horoscopes for each zodiac sign",
+        "Astrology predictions for each zodiac sign.",
+    );
+    assert!(roundup.low_priority_dominates());
+    assert!(horoscope.low_priority_dominates());
+}
+
+#[test]
 fn source_signals_prefer_primary_status_surface_over_secondary_aggregation() {
     let primary = analyze_source_record_signals(
         "https://status.vendor-a.com/incidents/12345",

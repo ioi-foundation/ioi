@@ -343,6 +343,92 @@ fn web_pipeline_metadata_noise_excerpt_is_rejected_and_replaced_by_hint_payload(
 }
 
 #[test]
+fn web_pipeline_headline_bundle_success_ignores_cross_domain_noise() {
+    let requested_url =
+        "https://www.cbsnews.com/news/us-israel-attack-iran-world-reaction-to-war-middle-east/";
+    let mut pending = PendingSearchCompletion {
+        query: "Tell me today's top news headlines.".to_string(),
+        query_contract: "Tell me today's top news headlines.".to_string(),
+        url: "https://www.google.com/search?q=today+top+news+headlines&tbm=nws".to_string(),
+        started_step: 1,
+        started_at_ms: 100,
+        deadline_ms: 60_100,
+        candidate_urls: vec![requested_url.to_string()],
+        candidate_source_hints: vec![PendingSearchReadSummary {
+            url: requested_url.to_string(),
+            title: Some(
+                "As the U.S. and Israel attack Iran, governments around the world stress risks of new war in the Middle East"
+                    .to_string(),
+            ),
+            excerpt: "Updated on: March 1, 2026 / 7:19 AM EST / CBS News.".to_string(),
+        }],
+        attempted_urls: vec![],
+        blocked_urls: vec![],
+        successful_reads: vec![],
+        min_sources: 3,
+    };
+    let bundle = WebEvidenceBundle {
+        schema_version: 1,
+        retrieved_at_ms: 0,
+        tool: "web__read".to_string(),
+        backend: "edge:read:http".to_string(),
+        query: None,
+        url: Some(requested_url.to_string()),
+        sources: vec![
+            WebSource {
+                source_id: "source:cbs".to_string(),
+                rank: None,
+                url: requested_url.to_string(),
+                title: Some("CBS News".to_string()),
+                snippet: Some("CBS story snippet.".to_string()),
+                domain: Some("cbsnews.com".to_string()),
+            },
+            WebSource {
+                source_id: "source:noise".to_string(),
+                rank: None,
+                url: "https://www.today.com/popculture/awards/where-to-watch-naacp-image-awards-2026-rcna260446"
+                    .to_string(),
+                title: Some("Where to Watch the 2026 NAACP Image Awards".to_string()),
+                snippet: Some("Unrelated entertainment story.".to_string()),
+                domain: Some("today.com".to_string()),
+            },
+        ],
+        documents: vec![
+            WebDocument {
+                source_id: "source:cbs".to_string(),
+                url: requested_url.to_string(),
+                title: Some("CBS News".to_string()),
+                content_text: "Article content from CBS.".to_string(),
+                content_hash: "hash-cbs".to_string(),
+                quote_spans: vec![],
+            },
+            WebDocument {
+                source_id: "source:noise".to_string(),
+                url: "https://www.today.com/popculture/awards/where-to-watch-naacp-image-awards-2026-rcna260446"
+                    .to_string(),
+                title: Some("Noise story".to_string()),
+                content_text: "Article content from unrelated domain.".to_string(),
+                content_hash: "hash-noise".to_string(),
+                quote_spans: vec![],
+            },
+        ],
+    };
+
+    append_pending_web_success_from_bundle(&mut pending, &bundle, requested_url);
+
+    assert_eq!(
+        pending.successful_reads.len(),
+        1,
+        "headline ingestion should only record evidence bound to the requested read URL"
+    );
+    assert_eq!(pending.successful_reads[0].url, requested_url);
+    assert!(
+        !pending.successful_reads[0].url.contains("today.com"),
+        "cross-domain bundle noise must not be recorded as a successful read"
+    );
+}
+
+#[test]
 fn web_pipeline_merge_pending_search_completion_preserves_existing_inventory() {
     let existing = PendingSearchCompletion {
         query: "what's the weather right now".to_string(),

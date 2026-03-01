@@ -16,6 +16,24 @@ pub(crate) fn parse_web_evidence_bundle(raw: &str) -> Option<WebEvidenceBundle> 
     serde_json::from_str::<WebEvidenceBundle>(trimmed).ok()
 }
 
+fn source_url_from_metadata_excerpt(excerpt: &str) -> Option<String> {
+    let marker = "source_url=";
+    let lower = excerpt.to_ascii_lowercase();
+    let start = lower.find(marker)? + marker.len();
+    let candidate = excerpt
+        .get(start..)?
+        .split_whitespace()
+        .next()
+        .unwrap_or_default()
+        .trim_matches(|ch: char| "|,;:!?)]}\"'".contains(ch))
+        .trim();
+    if candidate.starts_with("http://") || candidate.starts_with("https://") {
+        Some(candidate.to_string())
+    } else {
+        None
+    }
+}
+
 pub(crate) fn candidate_source_hints_from_bundle_ranked(
     bundle: &WebEvidenceBundle,
 ) -> Vec<PendingSearchReadSummary> {
@@ -64,11 +82,30 @@ pub(crate) fn candidate_source_hints_from_bundle_ranked(
     });
     for source in sources {
         let url = source.url.trim();
-        if url.is_empty() || !seen.insert(url.to_string()) {
+        if url.is_empty() {
+            continue;
+        }
+        let resolved_url = if is_news_feed_wrapper_url(url) {
+            source
+                .snippet
+                .as_deref()
+                .and_then(source_url_from_metadata_excerpt)
+                .filter(|candidate| {
+                    let trimmed = candidate.trim();
+                    is_citable_web_url(trimmed)
+                        && !is_news_feed_wrapper_url(trimmed)
+                        && !is_search_hub_url(trimmed)
+                        && !is_multi_item_listing_url(trimmed)
+                })
+                .unwrap_or_else(|| url.to_string())
+        } else {
+            url.to_string()
+        };
+        if !seen.insert(resolved_url.clone()) {
             continue;
         }
         hints.push(PendingSearchReadSummary {
-            url: url.to_string(),
+            url: resolved_url,
             title: source
                 .title
                 .as_deref()
@@ -79,6 +116,43 @@ pub(crate) fn candidate_source_hints_from_bundle_ranked(
         });
     }
     hints
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use ioi_types::app::agentic::WebSource;
+
+    #[test]
+    fn candidate_source_hints_resolve_wrapper_source_url_metadata() {
+        let bundle = WebEvidenceBundle {
+            schema_version: 1,
+            retrieved_at_ms: 0,
+            tool: "web__search".to_string(),
+            backend: "edge:google-news-rss".to_string(),
+            query: Some("today top news headlines".to_string()),
+            url: Some("https://news.google.com/rss/search?q=today+top+news+headlines".to_string()),
+            sources: vec![WebSource {
+                source_id: "google-item-1".to_string(),
+                rank: Some(1),
+                url: "https://news.google.com/rss/articles/CBMiUkFVX3lxTE0x?oc=5".to_string(),
+                title: Some("Sample Story".to_string()),
+                snippet: Some(
+                    "Reuters | source_url=https://www.reuters.com/world/europe/example-story-2026-03-01/"
+                        .to_string(),
+                ),
+                domain: Some("reuters.com".to_string()),
+            }],
+            documents: vec![],
+        };
+
+        let hints = candidate_source_hints_from_bundle_ranked(&bundle);
+        assert_eq!(hints.len(), 1);
+        assert_eq!(
+            hints[0].url,
+            "https://www.reuters.com/world/europe/example-story-2026-03-01/"
+        );
+    }
 }
 
 pub(crate) fn document_source_hints_from_bundle(

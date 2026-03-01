@@ -62,6 +62,13 @@ pub enum AgentTool {
         file_pattern: Option<String>,
     },
 
+    /// Returns metadata for a filesystem path.
+    #[serde(rename = "filesystem__stat")]
+    FsStat {
+        /// Path to inspect.
+        path: String,
+    },
+
     /// Moves or renames a file/directory deterministically.
     #[serde(rename = "filesystem__move_path")]
     FsMove {
@@ -107,6 +114,18 @@ pub enum AgentTool {
         /// When true, create missing parent directories as well.
         #[serde(default)]
         recursive: bool,
+    },
+
+    /// Creates a ZIP archive from a source directory deterministically.
+    #[serde(rename = "filesystem__create_zip")]
+    FsCreateZip {
+        /// Source directory to archive.
+        source_path: String,
+        /// Destination .zip file path.
+        destination_zip_path: String,
+        /// When true, replace an existing destination archive.
+        #[serde(default)]
+        overwrite: bool,
     },
 
     /// Executes a system command.

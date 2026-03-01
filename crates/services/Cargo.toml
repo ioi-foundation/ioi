@@ -57,6 +57,7 @@ image_hasher = "2.0"
 regex = "1.10"
 unicode-normalization = "0.1"
 walkdir = "2.4"
+zip = { version = "0.6.6", default-features = false, features = ["deflate"] }
 ioi-state = { path = "../state" }
 ioi-client = { path = "../client" }
 ioi-drivers = { path = "../drivers" }

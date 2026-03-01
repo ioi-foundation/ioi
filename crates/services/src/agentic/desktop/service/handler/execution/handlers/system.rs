@@ -14,7 +14,7 @@ pub(crate) fn handle_system_fail_tool(
         missing_capability
     );
 
-    let error_msg = if let Some(cap) = missing_capability {
+    let (error_msg, error_class) = if let Some(cap) = missing_capability {
         let reason_lc = reason.to_lowercase();
         let is_true_capability_gap = reason_lc.contains("missing tool")
             || reason_lc.contains("tool is missing")
@@ -29,16 +29,22 @@ pub(crate) fn handle_system_fail_tool(
                 && reason_lc.contains("available"));
 
         if is_true_capability_gap {
-            format!(
+            (
+                format!(
                 "ESCALATE_REQUEST: Missing capability '{}'. Reason: {}",
                 cap, reason
+            ),
+                Some("ToolUnavailable".to_string()),
             )
         } else {
             // Treat lookup/runtime failures as action failures, not tier/capability upgrades.
-            format!("Agent Failure: {} (claimed capability: '{}')", reason, cap)
+            (
+                format!("Agent Failure: {} (claimed capability: '{}')", reason, cap),
+                None,
+            )
         }
     } else {
-        format!("Agent Failure: {}", reason)
+        (format!("Agent Failure: {}", reason), None)
     };
 
     if let Some(tx) = &service.event_sender {
@@ -47,6 +53,7 @@ pub(crate) fn handle_system_fail_tool(
             step_index,
             tool_name: "system__fail".to_string(),
             output: error_msg.clone(),
+            error_class,
             // [FIX] Authoritative Status
             agent_status: "Failed".to_string(),
         });
