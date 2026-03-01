@@ -85,7 +85,11 @@ pub(crate) fn candidate_source_hints_from_bundle_ranked(
         if url.is_empty() {
             continue;
         }
-        let resolved_url = if is_news_feed_wrapper_url(url) {
+        let base_url_allowed =
+            is_citable_web_url(url) && !is_search_hub_url(url) && !is_multi_item_listing_url(url);
+        let resolved_url = if base_url_allowed {
+            url.to_string()
+        } else {
             source
                 .snippet
                 .as_deref()
@@ -93,13 +97,10 @@ pub(crate) fn candidate_source_hints_from_bundle_ranked(
                 .filter(|candidate| {
                     let trimmed = candidate.trim();
                     is_citable_web_url(trimmed)
-                        && !is_news_feed_wrapper_url(trimmed)
                         && !is_search_hub_url(trimmed)
                         && !is_multi_item_listing_url(trimmed)
                 })
                 .unwrap_or_else(|| url.to_string())
-        } else {
-            url.to_string()
         };
         if !seen.insert(resolved_url.clone()) {
             continue;

@@ -286,33 +286,16 @@ pub(crate) fn is_search_hub_url(url: &str) -> bool {
             || path.starts_with("/topics")
             || path.starts_with("/topstories")
             || path.starts_with("/home")
-            || path.starts_with("/news"));
-    let is_news_feed_wrapper = is_news_feed_wrapper_url(url);
+            || path.starts_with("/news")
+            || path.starts_with("/rss/"));
     let is_generic_query_search_hub = path.contains("/search")
         || path.ends_with("/search")
         || path.starts_with("/find")
         || path.contains("/results");
 
     is_google_news_hub
-        || is_news_feed_wrapper
         || ((is_ddg_hub || is_bing_hub || is_google_hub || is_generic_query_search_hub)
             && has_query)
-}
-
-pub(crate) fn is_news_feed_wrapper_url(url: &str) -> bool {
-    let Ok(parsed) = Url::parse(url.trim()) else {
-        return false;
-    };
-    let Some(host) = parsed.host_str() else {
-        return false;
-    };
-    if host.to_ascii_lowercase() != "news.google.com" {
-        return false;
-    }
-    let path = parsed.path().to_ascii_lowercase();
-    path.starts_with("/rss/articles")
-        || path.starts_with("/rss/read")
-        || path.starts_with("/rss/topics")
 }
 
 pub(crate) fn is_multi_item_listing_url(url: &str) -> bool {

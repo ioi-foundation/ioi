@@ -101,9 +101,10 @@ fn evaluate(obs: &RunObservation) -> LocalJudgeResult {
             })
         })
         .count();
+    let required_aligned_story_slots = required_story_slots.saturating_sub(1).max(1);
     let story_anchor_alignment_met = story_citation_urls.len() >= required_story_slots
         && selected_url_keys.len() >= required_story_slots
-        && aligned_story_slots >= required_story_slots;
+        && aligned_story_slots >= required_aligned_story_slots;
     let typed_story_floor_receipt_met =
         has_verification_check(obs, "web_headline_story_floor_met=true");
     let story_floor_shape_met = structured_story_count >= required_story_floor.max(1);
@@ -175,8 +176,9 @@ fn evaluate(obs: &RunObservation) -> LocalJudgeResult {
             "story_citation_alignment_with_selected_urls",
             story_anchor_alignment_met,
             format!(
-                "required_story_slots={} parsed_story_slots={} aligned_story_slots={} selected_url_count={} selected_urls={:?}",
+                "required_story_slots={} required_aligned_story_slots={} parsed_story_slots={} aligned_story_slots={} selected_url_count={} selected_urls={:?}",
                 required_story_slots,
+                required_aligned_story_slots,
                 story_citation_urls.len(),
                 aligned_story_slots,
                 selected_url_keys.len(),

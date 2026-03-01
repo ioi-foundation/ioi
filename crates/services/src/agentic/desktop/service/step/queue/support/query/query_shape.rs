@@ -206,34 +206,19 @@ pub(crate) fn query_prefers_multi_item_cardinality(query: &str) -> bool {
 }
 
 pub(crate) fn query_is_generic_headline_collection(query: &str) -> bool {
+    if query.trim().is_empty() {
+        return false;
+    }
+    if prefers_single_fact_snapshot(query) {
+        return false;
+    }
     if !query_prefers_multi_item_cardinality(query) {
         return false;
     }
-    let padded = normalized_phrase_query(query);
-    let has_headline_anchor = [
-        " headline ",
-        " headlines ",
-        " news ",
-        " story ",
-        " stories ",
-        " breaking news ",
-        " top stories ",
-    ]
-    .iter()
-    .any(|marker| padded.contains(marker));
-    if !has_headline_anchor {
-        return false;
-    }
-    [
-        " top ",
-        " latest ",
-        " today ",
-        " breaking ",
-        " recent ",
-        " now ",
-    ]
-    .iter()
-    .any(|marker| padded.contains(marker))
+    let facets = analyze_query_facets(query);
+    facets.time_sensitive_public_fact
+        && facets.grounded_external_required
+        && !facets.workspace_constrained
 }
 
 pub(super) fn generic_headline_search_phrase(query: &str) -> String {

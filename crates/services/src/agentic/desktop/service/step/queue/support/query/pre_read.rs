@@ -156,7 +156,6 @@ pub(crate) fn pre_read_candidate_plan(
     let has_constraint_objective = projection.has_constraint_objective();
     let time_sensitive_scope = constraints.scopes.contains(&ConstraintScope::TimeSensitive);
     let reject_search_hub = projection.reject_search_hub_candidates();
-    let headline_lookup_mode = query_is_generic_headline_collection(query_contract);
     let prefer_non_listing_sources = query_prefers_multi_item_cardinality(query_contract);
     let mut requires_constraint_search_probe =
         if !has_constraint_objective || scoreable_candidates == 0 {
@@ -320,13 +319,12 @@ pub(crate) fn pre_read_candidate_plan(
         }
         let domain_key =
             canonical_domain_key(url).unwrap_or_else(|| url.trim().to_ascii_lowercase());
-        let headline_floor_gap = headline_lookup_mode
-            && seen_hint_domains.len() < distinct_domain_floor
+        let domain_floor_gap = seen_hint_domains.len() < distinct_domain_floor
             && !seen_hint_domains.contains(&domain_key);
         let include_hint = compatibility_passes_projection(&projection, compatibility)
             || compatibility.compatibility_score > 0
             || *resolvable_payload
-            || headline_floor_gap;
+            || domain_floor_gap;
         if !include_hint {
             continue;
         }

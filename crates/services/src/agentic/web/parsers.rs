@@ -9,8 +9,7 @@ use url::Url;
 use super::transport::fetch_html_http_fallback;
 use super::urls::{
     build_bing_news_rss_url, build_google_news_rss_url, is_search_engine_host,
-    normalize_bing_search_href,
-    normalize_google_search_href, normalize_search_href,
+    normalize_bing_search_href, normalize_google_search_href, normalize_search_href,
 };
 use super::util::{
     compact_ws, domain_for_url, normalize_url_for_id, source_id_for_url, text_content,
@@ -480,28 +479,9 @@ fn sanitize_rss_http_url(raw: &str) -> Option<String> {
     None
 }
 
-fn is_news_feed_wrapper_url(url: &str) -> bool {
-    let Ok(parsed) = Url::parse(url.trim()) else {
-        return false;
-    };
-    let Some(host) = parsed.host_str() else {
-        return false;
-    };
-    if host.to_ascii_lowercase() != "news.google.com" {
-        return false;
-    }
-    let path = parsed.path().to_ascii_lowercase();
-    path.starts_with("/rss/articles")
-        || path.starts_with("/rss/read")
-        || path.starts_with("/rss/topics")
-}
-
-async fn resolve_news_feed_wrapper_article_url(
-    client: &reqwest::Client,
-    url: &str,
-) -> Option<String> {
+async fn resolve_google_news_rss_item_url(client: &reqwest::Client, url: &str) -> Option<String> {
     let trimmed = url.trim();
-    if trimmed.is_empty() || !is_news_feed_wrapper_url(trimmed) {
+    if trimmed.is_empty() {
         return None;
     }
 
@@ -512,14 +492,20 @@ async fn resolve_news_feed_wrapper_article_url(
     let resolved = response.url().as_str().trim().to_string();
     if resolved.is_empty()
         || (!resolved.starts_with("http://") && !resolved.starts_with("https://"))
-        || is_news_feed_wrapper_url(&resolved)
     {
+        return None;
+    }
+
+    let resolved_host = Url::parse(&resolved)
+        .ok()
+        .and_then(|parsed| parsed.host_str().map(|host| host.to_ascii_lowercase()));
+    if resolved_host.as_deref() == Some("news.google.com") {
         return None;
     }
     Some(resolved)
 }
 
-async fn resolve_news_feed_wrapper_sources(
+async fn resolve_google_news_rss_sources(
     mut sources: Vec<WebSource>,
     limit: usize,
 ) -> Vec<WebSource> {
@@ -540,7 +526,7 @@ async fn resolve_news_feed_wrapper_sources(
     let resolve_limit = sources.len().min(limit.max(3)).min(5);
     for source in sources.iter_mut().take(resolve_limit) {
         let original = source.url.clone();
-        let Some(resolved) = resolve_news_feed_wrapper_article_url(&client, &original).await else {
+        let Some(resolved) = resolve_google_news_rss_item_url(&client, &original).await else {
             continue;
         };
         source.url = resolved.clone();
@@ -655,10 +641,13 @@ pub(crate) async fn fetch_google_news_rss_sources(
     let rss_url = build_google_news_rss_url(query);
     let rss_xml = fetch_html_http_fallback(&rss_url).await?;
     let parsed = parse_google_news_sources_from_rss(&rss_xml, limit);
-    Ok(resolve_news_feed_wrapper_sources(parsed, limit).await)
+    Ok(resolve_google_news_rss_sources(parsed, limit).await)
 }
 
-pub(crate) async fn fetch_bing_news_rss_sources(query: &str, limit: usize) -> Result<Vec<WebSource>> {
+pub(crate) async fn fetch_bing_news_rss_sources(
+    query: &str,
+    limit: usize,
+) -> Result<Vec<WebSource>> {
     let rss_url = build_bing_news_rss_url(query);
     let rss_xml = fetch_html_http_fallback(&rss_url).await?;
     Ok(parse_bing_news_sources_from_rss(&rss_xml, limit))
