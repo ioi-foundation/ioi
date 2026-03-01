@@ -1,4 +1,5 @@
 use super::*;
+use crate::agentic::desktop::service::step::queue::web_pipeline::query_is_generic_headline_collection;
 use crate::agentic::desktop::service::step::signals::analyze_source_record_signals;
 
 fn reliability_fixture_sources() -> Option<Vec<String>> {
@@ -128,13 +129,10 @@ fn reorder_headline_sources_for_truncation(sources: Vec<WebSource>) -> Vec<WebSo
         }
         reordered.push(source.clone());
     }
-    for source in ranked
-        .iter()
-        .filter(|source| {
-            looks_like_headline_article_url(&source.url)
-                && !source_is_low_priority_headline_surface(source)
-        })
-    {
+    for source in ranked.iter().filter(|source| {
+        looks_like_headline_article_url(&source.url)
+            && !source_is_low_priority_headline_surface(source)
+    }) {
         let url_key = normalize_url_for_id(&source.url);
         if seen_urls.insert(url_key) {
             reordered.push(source.clone());
@@ -148,48 +146,6 @@ fn reorder_headline_sources_for_truncation(sources: Vec<WebSource>) -> Vec<WebSo
     }
 
     reordered
-}
-
-fn query_is_generic_headline_collection(query: &str) -> bool {
-    let trimmed = query.trim();
-    if trimmed.is_empty() {
-        return false;
-    }
-    let padded = format!(
-        " {} ",
-        trimmed
-            .to_ascii_lowercase()
-            .chars()
-            .map(|ch| if ch.is_ascii_alphanumeric() { ch } else { ' ' })
-            .collect::<String>()
-            .split_whitespace()
-            .collect::<Vec<_>>()
-            .join(" ")
-    );
-    let has_headline_anchor = [
-        " headline ",
-        " headlines ",
-        " news ",
-        " story ",
-        " stories ",
-        " breaking news ",
-        " top stories ",
-    ]
-    .iter()
-    .any(|marker| padded.contains(marker));
-    if !has_headline_anchor {
-        return false;
-    }
-    [
-        " top ",
-        " latest ",
-        " today ",
-        " breaking ",
-        " recent ",
-        " now ",
-    ]
-    .iter()
-    .any(|marker| padded.contains(marker))
 }
 
 pub async fn edge_web_search(

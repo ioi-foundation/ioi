@@ -78,7 +78,12 @@ pub(crate) fn push_pending_web_success(
                 resolved_excerpt = hint_excerpt_text.to_string();
             }
         }
-        let resolved_url = if is_news_feed_wrapper_url(trimmed) {
+        let base_url_allowed = is_citable_web_url(trimmed)
+            && !is_search_hub_url(trimmed)
+            && !is_multi_item_listing_url(trimmed);
+        let resolved_url = if base_url_allowed {
+            trimmed.to_string()
+        } else {
             source_url_from_metadata_excerpt(&resolved_excerpt)
                 .or_else(|| {
                     hint_excerpt
@@ -88,13 +93,10 @@ pub(crate) fn push_pending_web_success(
                 .filter(|candidate_url| {
                     let candidate = candidate_url.trim();
                     is_citable_web_url(candidate)
-                        && !is_news_feed_wrapper_url(candidate)
                         && !is_search_hub_url(candidate)
                         && !is_multi_item_listing_url(candidate)
                 })
                 .unwrap_or_else(|| trimmed.to_string())
-        } else {
-            trimmed.to_string()
         };
         pending.successful_reads.push(PendingSearchReadSummary {
             url: resolved_url,
@@ -459,8 +461,11 @@ fn headline_bundle_url_matches_requested(candidate_url: &str, requested_url: &st
 }
 
 fn normalized_source_host(url: &str) -> Option<String> {
-    source_host(url)
-        .map(|host| host.strip_prefix("www.").unwrap_or(&host).to_ascii_lowercase())
+    source_host(url).map(|host| {
+        host.strip_prefix("www.")
+            .unwrap_or(&host)
+            .to_ascii_lowercase()
+    })
 }
 
 fn headline_read_success_url_allowed(url: &str) -> bool {
@@ -468,6 +473,5 @@ fn headline_read_success_url_allowed(url: &str) -> bool {
     !trimmed.is_empty()
         && is_citable_web_url(trimmed)
         && !is_search_hub_url(trimmed)
-        && !is_news_feed_wrapper_url(trimmed)
         && !is_multi_item_listing_url(trimmed)
 }

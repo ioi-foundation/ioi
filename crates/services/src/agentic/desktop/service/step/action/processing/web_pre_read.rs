@@ -5,14 +5,14 @@ use crate::agentic::desktop::service::step::queue::web_pipeline::{
     candidate_source_hints_from_bundle,
     constraint_grounded_probe_query_with_hints_and_locality_hint, constraint_grounded_search_limit,
     effective_locality_scope_hint, is_citable_web_url, is_multi_item_listing_url,
-    is_news_feed_wrapper_url, is_search_hub_url, merge_pending_search_completion,
+    is_search_hub_url, merge_pending_search_completion,
     pre_read_candidate_plan_from_bundle_with_locality_hint, query_is_generic_headline_collection,
     query_requires_runtime_locality_scope, queue_web_read_from_pipeline,
     queue_web_search_from_pipeline, select_web_pipeline_query_contract, source_host,
     synthesize_web_pipeline_reply, synthesize_web_pipeline_reply_hybrid,
     url_structurally_equivalent, web_pipeline_can_queue_probe_search_latency_aware,
     web_pipeline_grounded_probe_attempt_available, web_pipeline_min_sources, web_pipeline_now_ms,
-    WebPipelineCompletionReason, WEB_PIPELINE_BUDGET_MS, WEB_PIPELINE_SEARCH_LIMIT,
+    WebPipelineCompletionReason, WEB_PIPELINE_BUDGET_MS,
 };
 use crate::agentic::desktop::service::step::signals::analyze_source_record_signals;
 use crate::agentic::desktop::service::DesktopAgentService;
@@ -529,27 +529,25 @@ fn source_url_from_metadata_excerpt(excerpt: &str) -> Option<String> {
     }
 }
 
-fn headline_citable_url(raw: &str) -> bool {
+fn projection_candidate_url_allowed(raw: &str) -> bool {
     let trimmed = raw.trim();
     !trimmed.is_empty()
         && is_citable_web_url(trimmed)
         && !is_search_hub_url(trimmed)
-        && !is_news_feed_wrapper_url(trimmed)
         && !is_multi_item_listing_url(trimmed)
         && looks_like_deep_article_url(trimmed)
 }
 
-fn headline_resolved_hint_url(hint: &PendingSearchReadSummary) -> Option<String> {
+fn resolved_hint_candidate_url(hint: &PendingSearchReadSummary) -> Option<String> {
     let trimmed = hint.url.trim();
     if trimmed.is_empty() {
         return None;
     }
-    let candidate = if is_news_feed_wrapper_url(trimmed) {
-        source_url_from_metadata_excerpt(&hint.excerpt)?
-    } else {
-        trimmed.to_string()
-    };
-    headline_citable_url(&candidate).then_some(candidate)
+    if projection_candidate_url_allowed(trimmed) {
+        return Some(trimmed.to_string());
+    }
+    let candidate = source_url_from_metadata_excerpt(&hint.excerpt)?;
+    projection_candidate_url_allowed(&candidate).then_some(candidate)
 }
 
 fn headline_source_low_priority(url: &str, title: &str, excerpt: &str) -> bool {
@@ -610,53 +608,13 @@ fn headline_selection_quality_metrics(
     )
 }
 
-fn normalize_headline_source_hints(
-    hints: Vec<PendingSearchReadSummary>,
-) -> Vec<PendingSearchReadSummary> {
-    let mut normalized = Vec::new();
-    for hint in hints {
-        if !headline_source_hint_allowed(&hint) {
-            continue;
-        }
-        let Some(url) = headline_resolved_hint_url(&hint) else {
-            continue;
-        };
-        if normalized
-            .iter()
-            .any(|existing: &PendingSearchReadSummary| {
-                let existing_url = existing.url.trim();
-                existing_url.eq_ignore_ascii_case(&url)
-                    || url_structurally_equivalent(existing_url, &url)
-            })
-        {
-            continue;
-        }
-        normalized.push(PendingSearchReadSummary {
-            url,
-            title: hint.title,
-            excerpt: hint.excerpt.trim().to_string(),
-        });
-    }
-    normalized
-}
-
-fn headline_source_hint_allowed(hint: &PendingSearchReadSummary) -> bool {
-    let Some(url) = headline_resolved_hint_url(hint) else {
-        return false;
-    };
-
-    let title = hint.title.as_deref().unwrap_or_default();
-    let excerpt = hint.excerpt.as_str();
-    !headline_source_low_priority(&url, title, excerpt)
-}
-
 fn resolve_selected_urls_from_hints(
     selected_urls: &mut Vec<String>,
     source_hints: &[PendingSearchReadSummary],
 ) {
     for selected in selected_urls.iter_mut() {
         let selected_trimmed = selected.trim().to_string();
-        if selected_trimmed.is_empty() || !is_news_feed_wrapper_url(&selected_trimmed) {
+        if selected_trimmed.is_empty() {
             continue;
         }
         let resolved = source_hints
@@ -667,9 +625,11 @@ fn resolve_selected_urls_from_hints(
                     || url_structurally_equivalent(hint_url, &selected_trimmed)
             })
             .and_then(|hint| source_url_from_metadata_excerpt(&hint.excerpt))
-            .filter(|resolved_url| headline_citable_url(resolved_url));
+            .filter(|resolved_url| projection_candidate_url_allowed(resolved_url));
         if let Some(resolved_url) = resolved {
-            *selected = resolved_url;
+            if !projection_candidate_url_allowed(&selected_trimmed) {
+                *selected = resolved_url;
+            }
         }
     }
 
@@ -680,69 +640,71 @@ fn resolve_selected_urls_from_hints(
     *selected_urls = deduped;
 }
 
-fn collect_headline_distinct_domain_urls(
+fn collect_projection_candidate_urls(
     selected_urls: &[String],
     source_hints: &[PendingSearchReadSummary],
-    required_url_count: usize,
+    target_count: usize,
+    distinct_domain_floor: usize,
+    blocked_domains: &std::collections::BTreeSet<String>,
 ) -> Vec<String> {
-    fn try_push_distinct_url(
-        output: &mut Vec<String>,
-        seen_urls: &mut std::collections::BTreeSet<String>,
-        seen_domains: &mut std::collections::BTreeSet<String>,
-        raw_url: &str,
-        required_url_count: usize,
-    ) {
-        if output.len() >= required_url_count.max(1) {
-            return;
-        }
-        let trimmed = raw_url.trim();
-        if trimmed.is_empty() || seen_urls.contains(trimmed) || !headline_citable_url(trimmed) {
-            return;
-        }
-        let domain_key =
-            normalized_domain_key(trimmed).unwrap_or_else(|| trimmed.to_ascii_lowercase());
-        if seen_domains.contains(&domain_key) {
-            return;
-        }
-        seen_urls.insert(trimmed.to_string());
-        seen_domains.insert(domain_key);
-        output.push(trimmed.to_string());
-    }
-
-    let mut output = Vec::new();
-    let mut seen_urls = std::collections::BTreeSet::new();
-    let mut seen_domains = std::collections::BTreeSet::new();
+    let mut ordered_candidates = Vec::new();
     for url in selected_urls {
-        try_push_distinct_url(
-            &mut output,
-            &mut seen_urls,
-            &mut seen_domains,
-            url,
-            required_url_count,
-        );
-        if output.len() >= required_url_count.max(1) {
-            return output;
+        let trimmed = url.trim();
+        if !projection_candidate_url_allowed(trimmed) {
+            continue;
         }
+        if normalized_domain_key(trimmed)
+            .map(|domain| blocked_domains.contains(&domain))
+            .unwrap_or(false)
+        {
+            continue;
+        }
+        let _ = push_unique_selected_url(&mut ordered_candidates, trimmed);
     }
     for hint in source_hints {
-        try_push_distinct_url(
-            &mut output,
-            &mut seen_urls,
-            &mut seen_domains,
-            &hint.url,
-            required_url_count,
-        );
-        if output.len() >= required_url_count.max(1) {
-            break;
+        let Some(candidate) = resolved_hint_candidate_url(hint) else {
+            continue;
+        };
+        if normalized_domain_key(&candidate)
+            .map(|domain| blocked_domains.contains(&domain))
+            .unwrap_or(false)
+        {
+            continue;
+        }
+        let _ = push_unique_selected_url(&mut ordered_candidates, &candidate);
+    }
+
+    let target = target_count.max(1);
+    let domain_floor = distinct_domain_floor.min(target);
+    let mut output = Vec::new();
+    let mut seen_domains = std::collections::BTreeSet::new();
+
+    if domain_floor > 1 {
+        for candidate in &ordered_candidates {
+            if output.len() >= target || seen_domains.len() >= domain_floor {
+                break;
+            }
+            let domain_key = normalized_domain_key(candidate)
+                .unwrap_or_else(|| candidate.trim().to_ascii_lowercase());
+            if !seen_domains.insert(domain_key) {
+                continue;
+            }
+            let _ = push_unique_selected_url(&mut output, candidate);
         }
     }
+
+    for candidate in &ordered_candidates {
+        if output.len() >= target {
+            break;
+        }
+        let _ = push_unique_selected_url(&mut output, candidate);
+    }
+
     output
 }
 
-fn headline_read_batch_target(required_url_count: usize) -> usize {
-    required_url_count
-        .saturating_add(2)
-        .clamp(required_url_count.max(1), WEB_PIPELINE_SEARCH_LIMIT as usize)
+fn pre_read_batch_target(query_contract: &str, min_sources: u32) -> usize {
+    constraint_grounded_search_limit(query_contract, min_sources.max(1)) as usize
 }
 
 fn push_unique_selected_url(selected_urls: &mut Vec<String>, candidate_url: &str) -> bool {
@@ -820,7 +782,7 @@ pub(super) async fn apply_pre_read_bundle(
     let min_sources = web_pipeline_min_sources(&query_contract).max(1);
     let headline_lookup_mode = query_is_generic_headline_collection(&query_contract);
     let required_url_count = min_sources as usize;
-    let headline_read_target = headline_read_batch_target(required_url_count);
+    let pre_read_target = pre_read_batch_target(&query_contract, min_sources);
     let started_at_ms = web_pipeline_now_ms();
     let locality_hint = if query_requires_runtime_locality_scope(&query_contract) {
         effective_locality_scope_hint(None)
@@ -835,50 +797,25 @@ pub(super) async fn apply_pre_read_bundle(
         bundle,
         locality_hint.as_deref(),
     );
-    let probe_source_hints = if headline_lookup_mode {
-        normalize_headline_source_hints(deterministic_plan.probe_source_hints.clone())
-            .into_iter()
-            .filter(headline_source_hint_allowed)
-            .collect::<Vec<_>>()
-    } else {
-        deterministic_plan.probe_source_hints.clone()
-    };
-    let (selected_urls, payload_error, payload_synthesis_skipped) = if headline_lookup_mode {
-        // Headline mode uses deterministic pre-read selection to avoid fabricated URLs
-        // and avoid cloud payload synthesis for URL picking.
-        (deterministic_plan.candidate_urls.clone(), None, true)
-    } else {
-        let selection = synthesize_pre_read_payload_urls(
-            service,
-            &query_contract,
-            required_url_count,
-            &discovery_sources,
-        )
-        .await;
-        match selection {
-            Ok(urls) => (urls, None, false),
-            Err(error) => (Vec::new(), Some(error), false),
-        }
+    let probe_source_hints = deterministic_plan.probe_source_hints.clone();
+    let selection = synthesize_pre_read_payload_urls(
+        service,
+        &query_contract,
+        required_url_count,
+        &discovery_sources,
+    )
+    .await;
+    let (selected_urls, payload_error, payload_synthesis_skipped) = match selection {
+        Ok(urls) => (urls, None, false),
+        Err(error) => (Vec::new(), Some(error), false),
     };
     let mut selected_urls = selected_urls;
     let mut selected_hints = selected_source_hints_for_urls(bundle, &selected_urls);
-    if headline_lookup_mode {
-        selected_hints = normalize_headline_source_hints(selected_hints)
-            .into_iter()
-            .filter(headline_source_hint_allowed)
-            .collect();
-    }
     let deterministic_fallback_used = (payload_error.is_some() || selected_urls.is_empty())
         && !deterministic_plan.candidate_urls.is_empty();
     if deterministic_fallback_used {
         selected_urls = deterministic_plan.candidate_urls.clone();
         selected_hints = deterministic_plan.candidate_source_hints.clone();
-        if headline_lookup_mode {
-            selected_hints = normalize_headline_source_hints(selected_hints)
-                .into_iter()
-                .filter(headline_source_hint_allowed)
-                .collect();
-        }
     }
     let mut deterministic_top_up_used = false;
     if selected_urls.len() < required_url_count {
@@ -902,12 +839,6 @@ pub(super) async fn apply_pre_read_bundle(
         }
         if deterministic_top_up_used {
             selected_hints = selected_source_hints_for_urls(bundle, &selected_urls);
-            if headline_lookup_mode {
-                selected_hints = normalize_headline_source_hints(selected_hints)
-                    .into_iter()
-                    .filter(headline_source_hint_allowed)
-                    .collect();
-            }
         }
     }
     let mut merged_hints = merge_source_hints(
@@ -917,43 +848,10 @@ pub(super) async fn apply_pre_read_bundle(
         ),
         probe_source_hints.as_slice(),
     );
-    if headline_lookup_mode {
-        let discovery_hints =
-            normalize_headline_source_hints(candidate_source_hints_from_bundle(bundle));
-        merged_hints = merge_source_hints(merged_hints, discovery_hints.as_slice());
-        merged_hints = merged_hints
-            .into_iter()
-            .filter(headline_source_hint_allowed)
-            .collect::<Vec<_>>();
-        merged_hints = normalize_headline_source_hints(merged_hints);
-
-        selected_urls.retain(|selected| {
-            let selected_trimmed = selected.trim();
-            !selected_trimmed.is_empty()
-                && merged_hints.iter().any(|hint| {
-                    let hint_url = hint.url.trim();
-                    hint_url.eq_ignore_ascii_case(selected_trimmed)
-                        || url_structurally_equivalent(hint_url, selected_trimmed)
-                })
-        });
-        if selected_urls.len() < required_url_count {
-            for hint in &merged_hints {
-                if selected_urls.len() >= required_url_count {
-                    break;
-                }
-                let _ = push_unique_selected_url(&mut selected_urls, &hint.url);
-            }
-        }
-    }
+    let discovery_hints = candidate_source_hints_from_bundle(bundle);
+    merged_hints = merge_source_hints(merged_hints, discovery_hints.as_slice());
     resolve_selected_urls_from_hints(&mut selected_urls, &merged_hints);
-    if headline_lookup_mode {
-        selected_urls = collect_headline_distinct_domain_urls(
-            &selected_urls,
-            &merged_hints,
-            headline_read_target,
-        );
-    }
-    let blocked_headline_domains = agent_state
+    let blocked_domains = agent_state
         .pending_search_completion
         .as_ref()
         .map(|pending| {
@@ -964,36 +862,13 @@ pub(super) async fn apply_pre_read_bundle(
                 .collect::<std::collections::BTreeSet<_>>()
         })
         .unwrap_or_default();
-    if headline_lookup_mode && !blocked_headline_domains.is_empty() {
-        selected_urls.retain(|selected| {
-            normalized_domain_key(selected)
-                .map(|domain| !blocked_headline_domains.contains(&domain))
-                .unwrap_or(true)
-        });
-        if selected_urls.len() < required_url_count {
-            for hint in &merged_hints {
-                if selected_urls.len() >= required_url_count {
-                    break;
-                }
-                let url = hint.url.trim();
-                if url.is_empty() {
-                    continue;
-                }
-                if normalized_domain_key(url)
-                    .map(|domain| blocked_headline_domains.contains(&domain))
-                    .unwrap_or(false)
-                {
-                    continue;
-                }
-                let _ = push_unique_selected_url(&mut selected_urls, url);
-            }
-            selected_urls = collect_headline_distinct_domain_urls(
-                &selected_urls,
-                &merged_hints,
-                headline_read_target,
-            );
-        }
-    }
+    selected_urls = collect_projection_candidate_urls(
+        &selected_urls,
+        &merged_hints,
+        pre_read_target,
+        required_url_count,
+        &blocked_domains,
+    );
 
     let search_url_attempt = bundle
         .url
@@ -1138,14 +1013,13 @@ pub(super) async fn apply_pre_read_bundle(
         "web_pre_read_selected_urls={}",
         selected_urls.len()
     ));
-    verification_checks.push(format!(
-        "web_headline_read_batch_target={}",
-        if headline_lookup_mode {
-            headline_read_target
-        } else {
-            required_url_count
-        }
-    ));
+    verification_checks.push(format!("web_pre_read_batch_target={}", pre_read_target));
+    if headline_lookup_mode {
+        verification_checks.push(format!(
+            "web_headline_read_batch_target={}",
+            pre_read_target
+        ));
+    }
     if !selected_urls.is_empty() {
         verification_checks.push(format!(
             "web_pre_read_selected_url_values={}",
@@ -1275,21 +1149,21 @@ mod tests {
     use super::*;
 
     #[test]
-    fn headline_citable_url_rejects_placeholder_slug_segments() {
-        assert!(!headline_citable_url(
+    fn projection_candidate_url_rejects_placeholder_slug_segments() {
+        assert!(!projection_candidate_url_allowed(
             "https://www.cbsnews.com/news/article-title/"
         ));
-        assert!(!headline_citable_url(
+        assert!(!projection_candidate_url_allowed(
             "https://apnews.com/article/story-title"
         ));
-        assert!(!headline_citable_url(
+        assert!(!projection_candidate_url_allowed(
             "https://www.foxnews.com/shows/fox-news-live"
         ));
     }
 
     #[test]
-    fn headline_citable_url_accepts_real_article_paths() {
-        assert!(headline_citable_url(
+    fn projection_candidate_url_accepts_real_article_paths() {
+        assert!(projection_candidate_url_allowed(
             "https://www.reuters.com/world/europe/example-article-slug-2026-03-01/"
         ));
     }

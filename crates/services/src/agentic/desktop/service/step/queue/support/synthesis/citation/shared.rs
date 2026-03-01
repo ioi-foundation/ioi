@@ -68,7 +68,7 @@ pub(super) fn headline_low_quality_signal(url: &str, title: &str, excerpt: &str)
         return true;
     }
     let signals = analyze_source_record_signals(url, title, excerpt);
-    if is_multi_item_listing_url(url) && !is_news_feed_wrapper_url(url) {
+    if is_multi_item_listing_url(url) {
         return signals.low_priority_dominates();
     }
     signals.low_priority_dominates() && !has_primary_status_authority(signals)

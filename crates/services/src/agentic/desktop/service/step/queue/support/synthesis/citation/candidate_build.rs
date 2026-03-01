@@ -19,12 +19,21 @@ pub(crate) fn build_citation_candidates(
         if is_search_hub_url(trimmed) {
             return false;
         }
-        if headline_lookup_mode
-            && (is_news_feed_wrapper_url(trimmed) || is_multi_item_listing_url(trimmed))
-        {
+        if headline_lookup_mode && is_multi_item_listing_url(trimmed) {
             return false;
         }
         true
+    };
+    let resolved_source_url = |source: &PendingSearchReadSummary| {
+        let original_url = source.url.trim();
+        if original_url.is_empty() {
+            return None;
+        }
+        if citation_usable_url(original_url) {
+            return Some(original_url.to_string());
+        }
+        source_url_from_metadata_excerpt(source.excerpt.as_str())
+            .filter(|resolved_url| citation_usable_url(resolved_url))
     };
     let successful_urls = successful_source_url_set(pending);
     let blocked_unverified_urls = blocked_unverified_url_set(pending, &successful_urls);
@@ -79,17 +88,14 @@ pub(crate) fn build_citation_candidates(
         .enumerate()
         .filter_map(|(idx, source)| {
             let original_url = source.url.trim().to_string();
-            let url = if headline_lookup_mode && is_news_feed_wrapper_url(&original_url) {
-                source_url_from_metadata_excerpt(source.excerpt.as_str())
-                    .filter(|resolved_url| {
-                        citation_usable_url(resolved_url)
-                            && !is_search_hub_url(resolved_url)
-                            && !is_multi_item_listing_url(resolved_url)
-                    })
-                    .unwrap_or(original_url)
+            let url = if headline_lookup_mode {
+                resolved_source_url(&source).unwrap_or(original_url)
             } else {
                 original_url
             };
+            if !citation_usable_url(&url) {
+                return None;
+            }
             let source_label = canonical_source_title(&source);
             if headline_lookup_mode
                 && headline_low_quality_signal(&url, source_label.as_str(), source.excerpt.as_str())
@@ -129,7 +135,6 @@ pub(crate) fn build_citation_candidates(
             if trimmed.is_empty()
                 || !is_citable_web_url(trimmed)
                 || is_search_hub_url(trimmed)
-                || (headline_lookup_mode && is_news_feed_wrapper_url(trimmed))
                 || (headline_lookup_mode && is_multi_item_listing_url(trimmed))
                 || is_blocked_unverified_url(trimmed, &blocked_unverified_urls)
                 || headline_low_quality_signal(
@@ -158,7 +163,6 @@ pub(crate) fn build_citation_candidates(
             if trimmed.is_empty()
                 || !is_citable_web_url(trimmed)
                 || is_search_hub_url(trimmed)
-                || (headline_lookup_mode && is_news_feed_wrapper_url(trimmed))
                 || (headline_lookup_mode && is_multi_item_listing_url(trimmed))
                 || is_blocked_unverified_url(trimmed, &blocked_unverified_urls)
                 || headline_low_quality_signal(trimmed, "", "")

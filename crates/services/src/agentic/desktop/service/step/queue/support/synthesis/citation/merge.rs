@@ -26,9 +26,7 @@ pub(crate) fn merged_story_sources(
             return false;
         }
         if headline_lookup_mode
-            && (is_search_hub_url(trimmed)
-                || is_news_feed_wrapper_url(trimmed)
-                || is_multi_item_listing_url(trimmed))
+            && (is_search_hub_url(trimmed) || is_multi_item_listing_url(trimmed))
         {
             return false;
         }
@@ -201,9 +199,7 @@ pub(crate) fn grounded_source_evidence_count(pending: &PendingSearchCompletion) 
             return false;
         }
         if headline_lookup_mode
-            && (is_search_hub_url(trimmed)
-                || is_news_feed_wrapper_url(trimmed)
-                || is_multi_item_listing_url(trimmed))
+            && (is_search_hub_url(trimmed) || is_multi_item_listing_url(trimmed))
         {
             return false;
         }

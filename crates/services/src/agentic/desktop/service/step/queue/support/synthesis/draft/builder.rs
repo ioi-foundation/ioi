@@ -509,11 +509,7 @@ fn headline_story_title_has_specificity(title: &str) -> bool {
 
 fn headline_story_source_is_actionable(source: &PendingSearchReadSummary) -> bool {
     let url = source.url.trim();
-    if url.is_empty()
-        || is_search_hub_url(url)
-        || is_news_feed_wrapper_url(url)
-        || is_multi_item_listing_url(url)
-    {
+    if url.is_empty() || is_search_hub_url(url) || is_multi_item_listing_url(url) {
         return false;
     }
     let title = canonical_source_title(source);
