@@ -483,9 +483,14 @@ fn extract_story_citation_urls(reply: &str) -> Vec<Vec<String>> {
     for line in reply.lines() {
         let trimmed = line.trim();
         let lower = trimmed.to_ascii_lowercase();
-        if lower.starts_with("story ") {
+        if lower.starts_with("story ") || starts_with_numbered_item(trimmed) {
             stories.push(Vec::new());
             current_story = Some(stories.len().saturating_sub(1));
+            if let Some(idx) = current_story {
+                for url in extract_urls_from_text(trimmed) {
+                    stories[idx].push(url);
+                }
+            }
             continue;
         }
         if lower.starts_with("additional source inventory:") {
@@ -495,19 +500,83 @@ fn extract_story_citation_urls(reply: &str) -> Vec<Vec<String>> {
         let Some(idx) = current_story else {
             continue;
         };
-        if !trimmed.starts_with("- ") || !trimmed.contains(" | http") {
-            continue;
+        for url in extract_urls_from_text(trimmed) {
+            stories[idx].push(url);
         }
-        if let Some(url) = trimmed
-            .split(" | ")
-            .find(|segment| segment.starts_with("http://") || segment.starts_with("https://"))
-            .map(str::trim)
-        {
-            stories[idx].push(url.to_string());
+    }
+
+    if stories.iter().all(|urls| urls.is_empty()) {
+        let indexed_urls = extract_indexed_citation_urls(reply);
+        for (index, url) in indexed_urls.into_iter().enumerate() {
+            if let Some(story_urls) = stories.get_mut(index) {
+                story_urls.push(url);
+            }
         }
     }
 
     stories
+}
+
+fn extract_urls_from_text(text: &str) -> Vec<String> {
+    let mut urls = Vec::new();
+    let mut cursor = text;
+
+    loop {
+        let start = cursor
+            .find("https://")
+            .or_else(|| cursor.find("http://"));
+        let Some(start) = start else {
+            break;
+        };
+        let remainder = &cursor[start..];
+        let end = remainder
+            .find(|ch: char| {
+                ch.is_whitespace()
+                    || matches!(ch, ')' | '(' | ']' | '[' | '<' | '>' | '"' | '\'')
+            })
+            .unwrap_or(remainder.len());
+        let candidate = remainder[..end]
+            .trim_end_matches(|ch: char| ",.;:!?".contains(ch))
+            .trim();
+        if !candidate.is_empty() {
+            urls.push(candidate.to_string());
+        }
+        if start + end >= cursor.len() {
+            break;
+        }
+        cursor = &cursor[start + end..];
+    }
+
+    urls
+}
+
+fn extract_indexed_citation_urls(reply: &str) -> Vec<String> {
+    let mut indexed = Vec::<(usize, String)>::new();
+    for line in reply.lines() {
+        let trimmed = line.trim();
+        if !trimmed.starts_with('[') {
+            continue;
+        }
+        let Some(close_bracket) = trimmed.find(']') else {
+            continue;
+        };
+        let index = trimmed[1..close_bracket]
+            .trim()
+            .parse::<usize>()
+            .ok();
+        let Some(index) = index else {
+            continue;
+        };
+        let url = extract_urls_from_text(&trimmed[close_bracket + 1..])
+            .into_iter()
+            .next();
+        let Some(url) = url else {
+            continue;
+        };
+        indexed.push((index, url));
+    }
+    indexed.sort_by_key(|(index, _)| *index);
+    indexed.into_iter().map(|(_, url)| url).collect()
 }
 
 fn is_news_feed_wrapper_url(url: &str) -> bool {
@@ -712,22 +781,53 @@ fn extract_story_titles(reply: &str) -> Vec<String> {
         .filter_map(|line| {
             let trimmed = line.trim();
             let lower = trimmed.to_ascii_lowercase();
-            if !lower.starts_with("story ") {
-                return None;
+            if lower.starts_with("story ") {
+                let (_, rest) = trimmed.split_once(':')?;
+                let title_portion = if let Some((left, _)) = rest.split_once("What happened:") {
+                    left.trim()
+                } else {
+                    rest.trim()
+                };
+                if title_portion.is_empty() {
+                    return None;
+                }
+                return Some(title_portion.to_string());
             }
-            let (_, rest) = trimmed.split_once(':')?;
-            let title_portion = if let Some((left, _)) = rest.split_once("What happened:") {
-                left.trim()
+            if starts_with_numbered_item(trimmed) {
+                let (_, rest) = trimmed.split_once('.')?;
+                let content = rest.trim();
+                if content.is_empty() {
+                    return None;
+                }
+                let title = if let Some(title) = extract_bold_segment(content) {
+                    title
+                } else if let Some((left, _)) = content.split_once(" - ") {
+                    left.trim().to_string()
+                } else {
+                    content.to_string()
+                };
+                if title.is_empty() {
+                    None
+                } else {
+                    Some(title)
+                }
             } else {
-                rest.trim()
-            };
-            if title_portion.is_empty() {
                 None
-            } else {
-                Some(title_portion.to_string())
             }
         })
         .collect()
+}
+
+fn extract_bold_segment(content: &str) -> Option<String> {
+    let start = content.find("**")?;
+    let remainder = &content[start + 2..];
+    let end = remainder.find("**")?;
+    let value = remainder[..end].trim();
+    if value.is_empty() {
+        None
+    } else {
+        Some(value.to_string())
+    }
 }
 
 fn shared_story_anchor_tokens(story_titles: &[String]) -> Vec<String> {

@@ -8,6 +8,7 @@ pub mod incident;
 pub mod intent_resolver;
 pub mod ontology;
 pub mod perception;
+pub mod planner;
 pub mod queue;
 pub mod signals;
 pub mod text_tokens;
@@ -42,6 +43,47 @@ const RUNTIME_SECRET_KIND_SUDO_PASSWORD: &str = "sudo_password";
 const STEP_ACTIVE_WINDOW_QUERY_TIMEOUT: Duration = Duration::from_millis(300);
 const WAIT_FOR_INTENT_CLARIFICATION_PROMPT: &str =
     "System: WAIT_FOR_INTENT_CLARIFICATION. Intent confidence is too low to proceed safely. Please clarify the requested outcome.";
+
+async fn emit_planner_fallback_evidence(
+    service: &DesktopAgentService,
+    session_id: [u8; 32],
+    step_index: u32,
+    block_height: u64,
+    reason: &str,
+) -> Result<(), TransactionError> {
+    let normalized = reason.trim();
+    if normalized.is_empty() {
+        return Ok(());
+    }
+
+    let msg = ioi_types::app::agentic::ChatMessage {
+        role: "system".to_string(),
+        content: format!(
+            "Planner fallback engaged (reason: {}). Switching to direct step cognition.",
+            normalized
+        ),
+        timestamp: std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_millis() as u64,
+        trace_hash: None,
+    };
+    let _ = service
+        .append_chat_to_scs(session_id, &msg, block_height)
+        .await?;
+
+    if let Some(tx) = service.event_sender.as_ref() {
+        let _ = tx.send(KernelEvent::AgentActionResult {
+            session_id,
+            step_index,
+            tool_name: "system::planner_fallback".to_string(),
+            output: normalized.to_string(),
+            error_class: Some("PlannerFallback".to_string()),
+            agent_status: "Running".to_string(),
+        });
+    }
+    Ok(())
+}
 
 fn should_clear_stale_canonical_pending(
     agent_state: &AgentState,
@@ -352,6 +394,49 @@ pub async fn handle_step(
         return Ok(());
     }
 
+    let planning_disabled =
+        planner::planner_runtime_disabled_for_policy(rules.ontology_policy.planning_enabled);
+    let mut planner_fallback_reason: Option<String> = None;
+    let resolved_intent_snapshot = agent_state.resolved_intent.clone();
+    if let Some(planner_state) = agent_state.planner_state.as_mut() {
+        if planning_disabled {
+            if planner::mark_planner_fallback(
+                planner_state,
+                planner::PLANNER_FALLBACK_REASON_PLANNING_DISABLED,
+                resolved_intent_snapshot.as_ref(),
+            ) {
+                planner_fallback_reason =
+                    Some(planner::PLANNER_FALLBACK_REASON_PLANNING_DISABLED.to_string());
+            }
+        } else if let Err(err) = planner::validate_and_hash_planner_state(
+            planner_state,
+            resolved_intent_snapshot.as_ref(),
+        ) {
+            let reason = format!(
+                "{}: {}",
+                planner::PLANNER_FALLBACK_REASON_VALIDATION_FAILED,
+                err
+            );
+            if planner::mark_planner_fallback(
+                planner_state,
+                reason.as_str(),
+                resolved_intent_snapshot.as_ref(),
+            ) {
+                planner_fallback_reason = Some(reason);
+            }
+        }
+    }
+    if let Some(reason) = planner_fallback_reason.as_deref() {
+        emit_planner_fallback_evidence(
+            service,
+            p.session_id,
+            agent_state.step_count,
+            ctx.block_height,
+            reason,
+        )
+        .await?;
+    }
+
     // [NEW] Browser Lease Management
     if pending_tool_is_browser_action(&agent_state) {
         service.browser.set_lease(true);
@@ -414,6 +499,104 @@ pub async fn handle_step(
             agent_state.pending_visual_hash = None;
             agent_state.pending_approval = None;
             agent_state.pending_tool_call = None;
+        }
+    }
+
+    if agent_state.execution_queue.is_empty() && agent_state.pending_tool_jcs.is_none() {
+        if planning_disabled {
+            // Planning explicitly disabled; continue through legacy direct cognition path.
+        } else {
+            let (planner_has_open_work, unmet_discovery_requirements) = agent_state
+                .planner_state
+                .as_ref()
+                .map(|planner_state| {
+                    (
+                        planner::planner_has_open_work(planner_state),
+                        planner::planner_unmet_discovery_requirements(planner_state, &agent_state),
+                    )
+                })
+                .unwrap_or((false, Vec::new()));
+            if planner_has_open_work && !unmet_discovery_requirements.is_empty() {
+                let reason = format!(
+                    "{}: {}",
+                    planner::PLANNER_FALLBACK_REASON_DISCOVERY_REQUIREMENTS_UNSATISFIED,
+                    unmet_discovery_requirements.join(",")
+                );
+                if let Some(planner_state) = agent_state.planner_state.as_mut() {
+                    planner::mark_planner_fallback(
+                        planner_state,
+                        reason.as_str(),
+                        resolved_intent_snapshot.as_ref(),
+                    );
+                }
+                emit_planner_fallback_evidence(
+                    service,
+                    p.session_id,
+                    agent_state.step_count,
+                    ctx.block_height,
+                    reason.as_str(),
+                )
+                .await?;
+            } else {
+                let resolved_intent_snapshot = agent_state.resolved_intent.clone();
+                let planner_nonce = agent_state.step_count as u64 + 1;
+                match planner::dispatch_next_planner_action(
+                    &mut agent_state,
+                    p.session_id,
+                    planner_nonce,
+                    resolved_intent_snapshot.as_ref(),
+                ) {
+                    Ok(Some(step_id)) => {
+                        log::info!(
+                            "Planner dispatched step '{}' for session {}.",
+                            step_id,
+                            hex::encode(&p.session_id[..4])
+                        );
+                    }
+                    Ok(None) => {
+                        if let Some(planner_state) = agent_state.planner_state.as_mut() {
+                            if planner::planner_has_open_work(planner_state)
+                                && planner::mark_planner_fallback(
+                                    planner_state,
+                                    planner::PLANNER_FALLBACK_REASON_NO_DISPATCHABLE_STEP,
+                                    resolved_intent_snapshot.as_ref(),
+                                )
+                            {
+                                emit_planner_fallback_evidence(
+                                    service,
+                                    p.session_id,
+                                    agent_state.step_count,
+                                    ctx.block_height,
+                                    planner::PLANNER_FALLBACK_REASON_NO_DISPATCHABLE_STEP,
+                                )
+                                .await?;
+                            }
+                        }
+                    }
+                    Err(err) => {
+                        let reason = format!(
+                            "{}: {}",
+                            planner::PLANNER_FALLBACK_REASON_DISPATCH_FAILED,
+                            err
+                        );
+                        if let Some(planner_state) = agent_state.planner_state.as_mut() {
+                            planner::mark_planner_fallback(
+                                planner_state,
+                                reason.as_str(),
+                                resolved_intent_snapshot.as_ref(),
+                            );
+                        }
+                        emit_planner_fallback_evidence(
+                            service,
+                            p.session_id,
+                            agent_state.step_count,
+                            ctx.block_height,
+                            reason.as_str(),
+                        )
+                        .await?;
+                    }
+                }
+            }
         }
     }
 
@@ -527,6 +710,7 @@ mod tests {
             last_screen_phash: None,
             execution_queue: vec![],
             pending_search_completion: None,
+            planner_state: None,
             active_skill_hash: None,
             tool_execution_log: BTreeMap::new(),
             visual_som_map: None,

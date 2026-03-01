@@ -221,6 +221,7 @@ mod tests {
             command_history: Default::default(),
             active_lens: None,
             pending_search_completion: None,
+            planner_state: None,
         }
     }
 

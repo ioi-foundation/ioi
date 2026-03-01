@@ -124,6 +124,7 @@ fn reflection_test_agent_state(session_id: [u8; 32]) -> AgentState {
         command_history: Default::default(),
         active_lens: None,
         pending_search_completion: None,
+        planner_state: None,
     }
 }
 

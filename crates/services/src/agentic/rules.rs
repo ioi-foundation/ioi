@@ -57,6 +57,9 @@ pub struct ToolPreferences {
 /// Ontology incident policy settings.
 #[derive(Debug, Clone, Serialize, Deserialize, Encode, Decode)]
 pub struct OntologyPolicy {
+    /// Enables planner-driven two-phase execution when true.
+    #[serde(default = "default_planning_enabled")]
+    pub planning_enabled: bool,
     /// Gate handling mode for repeated approval interceptions.
     pub approval_mode: ApprovalMode,
     /// Maximum transitions allowed inside a single incident state machine.
@@ -73,6 +76,7 @@ pub struct OntologyPolicy {
 impl Default for OntologyPolicy {
     fn default() -> Self {
         Self {
+            planning_enabled: default_planning_enabled(),
             approval_mode: ApprovalMode::SinglePending,
             max_incident_transitions: 32,
             intent_failure_overrides: Vec::new(),
@@ -84,6 +88,10 @@ impl Default for OntologyPolicy {
             intent_routing: IntentRoutingPolicy::default(),
         }
     }
+}
+
+fn default_planning_enabled() -> bool {
+    true
 }
 
 /// A collection of rules defining the security boundary for an agent.
