@@ -4,8 +4,11 @@ use super::support::{
     receipt_marker,
 };
 use crate::agentic::desktop::types::{AgentState, CommandExecution, ToolCallStatus};
+use crate::agentic::rules::ActionRules;
 use ioi_crypto::algorithms::hash::sha256;
-use ioi_types::app::agentic::{AgentTool, IntentScopeProfile};
+use ioi_types::app::agentic::{
+    AgentTool, IntentMatrixEntry, IntentRoutingPolicy, IntentScopeProfile,
+};
 use ioi_types::app::ActionTarget;
 use std::collections::BTreeMap;
 use time::format_description::well_known::Rfc3339;
@@ -811,70 +814,133 @@ fn derived_target_utc_from_history(agent_state: &AgentState) -> Option<String> {
     target_utc_from_command_history_entry(entry)
 }
 
-pub fn missing_execution_contract_markers(agent_state: &AgentState) -> Vec<String> {
+fn append_unique_marker(values: &mut Vec<String>, marker: &str) {
+    if !values.iter().any(|value| value == marker) {
+        values.push(marker.to_string());
+    }
+}
+
+fn canonical_contract_markers(markers: &[String]) -> Vec<String> {
+    let mut normalized = Vec::<String>::new();
+    for marker in markers.iter().map(|value| value.trim()) {
+        if marker.is_empty() {
+            continue;
+        }
+        append_unique_marker(&mut normalized, marker);
+    }
+    normalized
+}
+
+fn required_markers_from_matrix(
+    intent_id: &str,
+    matrix: &[IntentMatrixEntry],
+) -> Option<(Vec<String>, Vec<String>)> {
+    let entry = matrix
+        .iter()
+        .find(|entry| entry.intent_id.trim() == intent_id.trim())?;
+    Some((
+        canonical_contract_markers(&entry.required_receipts),
+        canonical_contract_markers(&entry.required_postconditions),
+    ))
+}
+
+fn resolved_contract_requirements(
+    agent_state: &AgentState,
+    matrix: Option<&[IntentMatrixEntry]>,
+) -> (Vec<String>, Vec<String>) {
     let command_scope = agent_state
         .resolved_intent
         .as_ref()
         .map(|resolved| resolved.scope == IntentScopeProfile::CommandExecution)
         .unwrap_or(false);
-    if !command_scope {
-        return Vec::new();
+    let resolved_from_matrix = agent_state.resolved_intent.as_ref().and_then(|resolved| {
+        matrix.and_then(|entries| required_markers_from_matrix(&resolved.intent_id, entries))
+    });
+
+    let mut required_receipts = resolved_from_matrix
+        .as_ref()
+        .map(|(receipts, _)| receipts.clone())
+        .unwrap_or_default();
+    let mut required_postconditions = resolved_from_matrix
+        .map(|(_, postconditions)| postconditions)
+        .unwrap_or_default();
+
+    if required_receipts.is_empty() && required_postconditions.is_empty() && command_scope {
+        append_unique_marker(&mut required_receipts, "host_discovery");
+        for receipt in COMMAND_SCOPE_REQUIRED_RECEIPTS {
+            append_unique_marker(&mut required_receipts, receipt);
+        }
+        for postcondition in COMMAND_SCOPE_REQUIRED_POSTCONDITIONS {
+            append_unique_marker(&mut required_postconditions, postcondition);
+        }
     }
 
+    (required_receipts, required_postconditions)
+}
+
+fn receipt_requires_commit_hash(receipt: &str) -> bool {
+    matches!(
+        receipt,
+        PROVIDER_SELECTION_COMMIT_RECEIPT | VERIFICATION_COMMIT_RECEIPT
+    ) || receipt.ends_with("_commit")
+}
+
+fn push_unique_missing(missing: &mut Vec<String>, marker: String) {
+    if !missing.iter().any(|existing| existing == &marker) {
+        missing.push(marker);
+    }
+}
+
+fn collect_missing_contract_markers(
+    agent_state: &AgentState,
+    required_receipts: &[String],
+    required_postconditions: &[String],
+) -> Vec<String> {
     let mut missing = Vec::<String>::new();
-    if !has_execution_receipt(&agent_state.tool_execution_log, "host_discovery") {
-        missing.push(receipt_marker("host_discovery"));
-    }
-    for receipt in COMMAND_SCOPE_REQUIRED_RECEIPTS {
+    for receipt in required_receipts {
         if !has_execution_receipt(&agent_state.tool_execution_log, receipt) {
-            missing.push(receipt_marker(receipt));
+            push_unique_missing(&mut missing, receipt_marker(receipt));
+            continue;
+        }
+        let receipt_value = execution_receipt_value(&agent_state.tool_execution_log, receipt)
+            .unwrap_or_default()
+            .trim()
+            .to_string();
+        if receipt_value.is_empty() {
+            push_unique_missing(&mut missing, receipt_marker(receipt));
+            continue;
+        }
+        if receipt_requires_commit_hash(receipt) && !receipt_value.starts_with("sha256:") {
+            push_unique_missing(&mut missing, receipt_marker(receipt));
         }
     }
-    let provider_selection_value =
-        execution_receipt_value(&agent_state.tool_execution_log, "provider_selection");
-    if provider_selection_value
-        .map(|value| value.trim().is_empty())
-        .unwrap_or(false)
-    {
-        missing.push(receipt_marker("provider_selection"));
-    }
-    let provider_selection_commit = execution_receipt_value(
-        &agent_state.tool_execution_log,
-        PROVIDER_SELECTION_COMMIT_RECEIPT,
-    );
-    if provider_selection_commit
-        .map(|value| !value.starts_with("sha256:"))
-        .unwrap_or(true)
-    {
-        missing.push(receipt_marker(PROVIDER_SELECTION_COMMIT_RECEIPT));
-    }
-    let verification_commit =
-        execution_receipt_value(&agent_state.tool_execution_log, VERIFICATION_COMMIT_RECEIPT);
-    if verification_commit
-        .map(|value| !value.starts_with("sha256:"))
-        .unwrap_or(true)
-    {
-        missing.push(receipt_marker(VERIFICATION_COMMIT_RECEIPT));
-    }
-    for postcondition in COMMAND_SCOPE_REQUIRED_POSTCONDITIONS {
+
+    for postcondition in required_postconditions {
         if !has_execution_postcondition(&agent_state.tool_execution_log, postcondition) {
-            missing.push(postcondition_marker(postcondition));
+            push_unique_missing(&mut missing, postcondition_marker(postcondition));
         }
     }
+
     if is_system_clock_read_contract_intent(agent_state)
         && !has_execution_postcondition(
             &agent_state.tool_execution_log,
             CLOCK_TIMESTAMP_POSTCONDITION,
         )
     {
-        missing.push(postcondition_marker(CLOCK_TIMESTAMP_POSTCONDITION));
+        push_unique_missing(
+            &mut missing,
+            postcondition_marker(CLOCK_TIMESTAMP_POSTCONDITION),
+        );
     }
     if requires_timer_notification_contract(agent_state) {
         if !has_execution_postcondition(
             &agent_state.tool_execution_log,
             TIMER_SLEEP_BACKEND_POSTCONDITION,
         ) {
-            missing.push(postcondition_marker(TIMER_SLEEP_BACKEND_POSTCONDITION));
+            push_unique_missing(
+                &mut missing,
+                postcondition_marker(TIMER_SLEEP_BACKEND_POSTCONDITION),
+            );
         }
         if has_execution_postcondition(
             &agent_state.tool_execution_log,
@@ -883,10 +949,32 @@ pub fn missing_execution_contract_markers(agent_state: &AgentState) -> Vec<Strin
             &agent_state.tool_execution_log,
             TIMER_NOTIFICATION_PATH_POSTCONDITION,
         ) {
-            missing.push(postcondition_marker(TIMER_NOTIFICATION_PATH_POSTCONDITION));
+            push_unique_missing(
+                &mut missing,
+                postcondition_marker(TIMER_NOTIFICATION_PATH_POSTCONDITION),
+            );
         }
     }
+
     missing
+}
+
+pub fn missing_execution_contract_markers(agent_state: &AgentState) -> Vec<String> {
+    let default_matrix = IntentRoutingPolicy::default().matrix;
+    let (required_receipts, required_postconditions) =
+        resolved_contract_requirements(agent_state, Some(&default_matrix));
+    collect_missing_contract_markers(agent_state, &required_receipts, &required_postconditions)
+}
+
+pub fn missing_execution_contract_markers_with_rules(
+    agent_state: &AgentState,
+    rules: &ActionRules,
+) -> Vec<String> {
+    let (required_receipts, required_postconditions) = resolved_contract_requirements(
+        agent_state,
+        Some(&rules.ontology_policy.intent_routing.matrix),
+    );
+    collect_missing_contract_markers(agent_state, &required_receipts, &required_postconditions)
 }
 
 pub fn enrich_command_scope_summary(summary: &str, agent_state: &AgentState) -> String {
@@ -941,7 +1029,8 @@ mod tests {
     use super::{
         compose_terminal_chat_reply, enrich_command_scope_summary,
         execution_contract_violation_error, is_command_execution_provider_tool,
-        record_verification_receipts, VERIFICATION_COMMIT_RECEIPT,
+        missing_execution_contract_markers_with_rules, record_verification_receipts,
+        VERIFICATION_COMMIT_RECEIPT,
     };
     use crate::agentic::desktop::service::step::action::support::{
         mark_execution_postcondition, mark_execution_receipt,
@@ -949,6 +1038,7 @@ mod tests {
     use crate::agentic::desktop::types::{
         AgentMode, AgentState, AgentStatus, CommandExecution, ExecutionTier, ToolCallStatus,
     };
+    use crate::agentic::rules::ActionRules;
     use ioi_types::app::agentic::AgentTool;
     use ioi_types::app::agentic::{IntentConfidenceBand, IntentScopeProfile, ResolvedIntentState};
     use std::collections::{BTreeMap, VecDeque};
@@ -993,10 +1083,10 @@ mod tests {
         }
     }
 
-    fn command_scope_intent(intent_id: &str) -> ResolvedIntentState {
+    fn resolved_intent(intent_id: &str, scope: IntentScopeProfile) -> ResolvedIntentState {
         ResolvedIntentState {
             intent_id: intent_id.to_string(),
-            scope: IntentScopeProfile::CommandExecution,
+            scope,
             band: IntentConfidenceBand::High,
             score: 0.92,
             top_k: vec![],
@@ -1015,6 +1105,10 @@ mod tests {
             receipt_hash: [0u8; 32],
             constrained: false,
         }
+    }
+
+    fn command_scope_intent(intent_id: &str) -> ResolvedIntentState {
+        resolved_intent(intent_id, IntentScopeProfile::CommandExecution)
     }
 
     #[test]
@@ -1112,5 +1206,35 @@ mod tests {
         let summary = "Completed command run with expected output.";
         let enriched = enrich_command_scope_summary(summary, &state);
         assert!(enriched.contains(summary));
+    }
+
+    #[test]
+    fn command_probe_rrs_does_not_require_topology_receipts() {
+        let mut state = test_agent_state();
+        state.resolved_intent = Some(command_scope_intent("command.probe"));
+        mark_execution_receipt(&mut state.tool_execution_log, "execution");
+        mark_execution_receipt(&mut state.tool_execution_log, "verification");
+
+        let rules = ActionRules::default();
+        let missing = missing_execution_contract_markers_with_rules(&state, &rules);
+
+        assert!(
+            missing.is_empty(),
+            "expected no missing markers, got {missing:?}"
+        );
+    }
+
+    #[test]
+    fn app_launch_rrs_requires_topology_receipts() {
+        let mut state = test_agent_state();
+        state.resolved_intent = Some(resolved_intent("app.launch", IntentScopeProfile::AppLaunch));
+        mark_execution_receipt(&mut state.tool_execution_log, "execution");
+        mark_execution_receipt(&mut state.tool_execution_log, "verification");
+
+        let rules = ActionRules::default();
+        let missing = missing_execution_contract_markers_with_rules(&state, &rules);
+
+        assert!(missing.contains(&"receipt::host_discovery=true".to_string()));
+        assert!(missing.contains(&"receipt::provider_selection=true".to_string()));
     }
 }

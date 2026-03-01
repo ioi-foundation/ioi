@@ -209,12 +209,10 @@ pub(super) fn tool_fingerprint(tool: &AgentTool) -> String {
         "name": canonical_tool_name(tool),
         "arguments": canonical_tool_args(tool),
     });
-    let canonical = serde_jcs::to_vec(&payload)
-        .or_else(|_| serde_json::to_vec(&payload))
-        .unwrap_or_default();
-    sha256(&canonical)
-        .map(hex::encode)
-        .unwrap_or_else(|_| String::new())
+    let canonical =
+        serde_jcs::to_vec(&payload).expect("tool_fingerprint: JCS canonicalization failed");
+    let digest = sha256(&canonical).expect("tool_fingerprint: sha256 failed");
+    hex::encode(digest)
 }
 
 pub fn action_fingerprint_from_tool_jcs(tool_jcs: &[u8]) -> String {

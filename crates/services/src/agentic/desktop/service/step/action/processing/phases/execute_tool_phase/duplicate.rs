@@ -4,6 +4,7 @@ use super::*;
 pub(super) struct DuplicateExecutionContext<'a> {
     pub service: &'a DesktopAgentService,
     pub agent_state: &'a mut AgentState,
+    pub rules: &'a ActionRules,
     pub tool: &'a AgentTool,
     pub matching_command_history_entry: Option<crate::agentic::desktop::types::CommandExecution>,
     pub command_scope: bool,
@@ -29,6 +30,7 @@ pub(super) fn handle_duplicate_command_execution(
     let DuplicateExecutionContext {
         service,
         agent_state,
+        rules,
         tool,
         matching_command_history_entry,
         command_scope,
@@ -54,7 +56,8 @@ pub(super) fn handle_duplicate_command_execution(
     if let Some(summary) =
         duplicate_command_completion_summary(tool, matching_command_history_entry)
     {
-        let missing_contract_markers = missing_execution_contract_markers(agent_state);
+        let missing_contract_markers =
+            missing_execution_contract_markers_with_rules(agent_state, rules);
         if missing_contract_markers.is_empty() {
             success = true;
             history_entry = Some(summary.clone());
@@ -95,7 +98,8 @@ pub(super) fn handle_duplicate_command_execution(
     } else if let Some(summary) =
         duplicate_command_cached_success_summary(tool, matching_command_history_entry)
     {
-        let missing_contract_markers = missing_execution_contract_markers(agent_state);
+        let missing_contract_markers =
+            missing_execution_contract_markers_with_rules(agent_state, rules);
         if missing_contract_markers.is_empty() {
             success = true;
             history_entry = Some(summary.clone());

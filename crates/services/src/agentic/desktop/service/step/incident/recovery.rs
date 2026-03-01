@@ -304,9 +304,8 @@ fn tool_to_action_request(
             obj.insert(QUEUE_TOOL_NAME_KEY.to_string(), json!(tool_name));
         }
     }
-    let params = serde_jcs::to_vec(&args)
-        .or_else(|_| serde_json::to_vec(&args))
-        .map_err(|e| TransactionError::Serialization(e.to_string()))?;
+    let params =
+        serde_jcs::to_vec(&args).map_err(|e| TransactionError::Serialization(e.to_string()))?;
     Ok(ActionRequest {
         target,
         params,

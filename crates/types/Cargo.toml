@@ -13,6 +13,7 @@ serde = { workspace = true, features = ["derive", "rc"] }
 thiserror = { workspace = true }
 dcrypt = { workspace = true }
 serde_json = { workspace = true }
+serde_jcs = "0.1.0"
 libp2p = { workspace = true }
 bcs = "0.1"
 parity-scale-codec = { workspace = true }

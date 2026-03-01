@@ -68,6 +68,9 @@ enum Commands {
     /// Visualize agent execution traces.
     Trace(trace::TraceArgs),
 
+    /// Verify determinism-boundary evidence artifacts.
+    Verify(verify::VerifyArgs),
+
     /// Policy management tools.
     Policy(policy::PolicyArgs),
 
@@ -119,6 +122,9 @@ async fn main() -> Result<()> {
 
         // --- Trace ---
         Commands::Trace(args) => trace::run(args).await,
+
+        // --- Verify ---
+        Commands::Verify(args) => verify::run(args).await,
 
         // --- Policy ---
         Commands::Policy(args) => policy::run(args).await,

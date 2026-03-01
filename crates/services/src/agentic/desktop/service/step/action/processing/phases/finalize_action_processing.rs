@@ -48,6 +48,7 @@ pub(crate) async fn finalize_action_processing(
         terminal_chat_reply_output,
     } = state_in;
     let trace_visual_hash = trace_visual_hash.unwrap_or(final_visual_phash);
+    let prior_consecutive_failures = agent_state.consecutive_failures;
     if !is_gated && !awaiting_sudo_password && !awaiting_clarification {
         if let Some(tool_jcs) = executed_tool_jcs.as_deref() {
             let resolved_retry_hash = retry_intent_hash
@@ -510,6 +511,16 @@ pub(crate) async fn finalize_action_processing(
         pre_state_summary.step_index
     ));
     artifacts.push(format!("trace://session/{}", hex::encode(&session_id[..4])));
+
+    let intent_id_for_contract = resolved_intent_id(agent_state);
+    persist_step_contract_evidence(
+        state,
+        session_id,
+        pre_state_summary.step_index,
+        intent_id_for_contract.as_str(),
+        &verification_checks,
+        prior_consecutive_failures,
+    )?;
 
     let post_state = build_post_state_summary(agent_state, success, verification_checks);
     let policy_binding = policy_binding_hash(&intent_hash, &policy_decision);

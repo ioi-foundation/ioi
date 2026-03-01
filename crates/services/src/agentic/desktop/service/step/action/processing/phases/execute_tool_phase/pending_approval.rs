@@ -53,8 +53,14 @@ pub(super) async fn handle_pending_approval(
     let mut is_gated = true;
     let mut is_lifecycle_action = true;
 
-    let tool_jcs = serde_jcs::to_vec(tool).unwrap();
-    let tool_hash_bytes = ioi_crypto::algorithms::hash::sha256(&tool_jcs).unwrap();
+    let tool_jcs =
+        serde_jcs::to_vec(tool).map_err(|e| TransactionError::Serialization(e.to_string()))?;
+    let tool_hash_bytes = ioi_crypto::algorithms::hash::sha256(&tool_jcs).map_err(|e| {
+        TransactionError::Invalid(format!(
+            "Failed to hash pending approval tool payload: {}",
+            e
+        ))
+    })?;
     let mut hash_arr = [0u8; 32];
     hash_arr.copy_from_slice(tool_hash_bytes.as_ref());
 

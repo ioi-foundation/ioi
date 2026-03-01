@@ -1,9 +1,12 @@
 use crate::agentic::desktop::service::step::anti_loop::tier_as_str;
 use crate::agentic::desktop::types::{AgentStatus, ExecutionTier, ToolCallStatus};
+use ioi_api::state::StateAccess;
 use ioi_crypto::algorithms::hash::sha256;
 use ioi_types::app::agentic::AgentTool;
+use ioi_types::app::{determinism_step_contract_state_key, DeterminismStepContractEvidence};
+use ioi_types::error::TransactionError;
 use serde_json::json;
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 const ACTION_FINGERPRINT_LOG_PREFIX: &str = "action_fingerprint::";
 const EXECUTION_RECEIPT_PREFIX: &str = "receipt::";
@@ -105,13 +108,10 @@ pub fn canonical_intent_hash(
         "tool_version": tool_version,
     });
 
-    let canonical_bytes = serde_jcs::to_vec(&payload)
-        .or_else(|_| serde_json::to_vec(&payload))
-        .unwrap_or_default();
-
-    sha256(&canonical_bytes)
-        .map(hex::encode)
-        .unwrap_or_else(|_| "unknown".to_string())
+    let canonical_bytes =
+        serde_jcs::to_vec(&payload).expect("canonical_intent_hash: JCS canonicalization failed");
+    let digest = sha256(&canonical_bytes).expect("canonical_intent_hash: sha256 failed");
+    hex::encode(digest)
 }
 
 pub fn canonical_retry_intent_hash(
@@ -128,12 +128,9 @@ pub fn canonical_retry_intent_hash(
     });
 
     let canonical_bytes = serde_jcs::to_vec(&payload)
-        .or_else(|_| serde_json::to_vec(&payload))
-        .unwrap_or_default();
-
-    sha256(&canonical_bytes)
-        .map(hex::encode)
-        .unwrap_or_else(|_| "unknown".to_string())
+        .expect("canonical_retry_intent_hash: JCS canonicalization failed");
+    let digest = sha256(&canonical_bytes).expect("canonical_retry_intent_hash: sha256 failed");
+    hex::encode(digest)
 }
 
 pub fn action_fingerprint_key(fingerprint_hash: &str) -> String {
@@ -247,6 +244,101 @@ pub fn has_execution_postcondition(
         tool_execution_log.get(&postcondition_marker(name)),
         Some(ToolCallStatus::Executed(_))
     )
+}
+
+pub fn extract_contract_markers(verification_checks: &[String]) -> (Vec<String>, Vec<String>) {
+    let mut receipts = BTreeSet::<String>::new();
+    let mut postconditions = BTreeSet::<String>::new();
+    for check in verification_checks {
+        let token = check.trim();
+        if let Some(rest) = token.strip_prefix("receipt::") {
+            let marker = rest.trim_end_matches("=true").trim();
+            if !marker.is_empty() {
+                receipts.insert(marker.to_string());
+            }
+        } else if let Some(rest) = token.strip_prefix("postcondition::") {
+            let marker = rest.trim_end_matches("=true").trim();
+            if !marker.is_empty() {
+                postconditions.insert(marker.to_string());
+            }
+        }
+    }
+    (
+        receipts.into_iter().collect::<Vec<_>>(),
+        postconditions.into_iter().collect::<Vec<_>>(),
+    )
+}
+
+pub fn recovery_retry_from_checks(
+    verification_checks: &[String],
+    prior_consecutive_failures: u8,
+) -> (bool, Option<String>) {
+    let mut explicit_retry = false;
+    let mut explicit_reason: Option<String> = None;
+    for check in verification_checks {
+        let token = check.trim();
+        if token == "determinism_recovery_retry=true" {
+            explicit_retry = true;
+            continue;
+        }
+        if let Some(rest) = token.strip_prefix("determinism_recovery_reason=") {
+            let reason = rest.trim();
+            if !reason.is_empty() {
+                explicit_reason = Some(reason.to_string());
+                explicit_retry = true;
+            }
+            continue;
+        }
+        if let Some(rest) = token.strip_prefix("attempt_repeat_count=") {
+            if let Ok(count) = rest.trim().parse::<u32>() {
+                if count > 0 {
+                    explicit_retry = true;
+                    if explicit_reason.is_none() {
+                        explicit_reason = Some(format!("attempt_repeat_count={}", count));
+                    }
+                }
+            }
+        }
+    }
+
+    let recovery_retry = explicit_retry || prior_consecutive_failures > 0;
+    let recovery_reason = if let Some(reason) = explicit_reason {
+        Some(reason)
+    } else if prior_consecutive_failures > 0 {
+        Some(format!(
+            "consecutive_failures={}",
+            prior_consecutive_failures
+        ))
+    } else {
+        None
+    };
+    (recovery_retry, recovery_reason)
+}
+
+pub fn persist_step_contract_evidence(
+    state: &mut dyn StateAccess,
+    session_id: [u8; 32],
+    step_index: u32,
+    intent_id: &str,
+    verification_checks: &[String],
+    prior_consecutive_failures: u8,
+) -> Result<(), TransactionError> {
+    let (receipts, postconditions) = extract_contract_markers(verification_checks);
+    let (recovery_retry, recovery_reason) =
+        recovery_retry_from_checks(verification_checks, prior_consecutive_failures);
+    let evidence = DeterminismStepContractEvidence {
+        schema_version: DeterminismStepContractEvidence::schema_version(),
+        intent_id: intent_id.to_string(),
+        receipts,
+        postconditions,
+        recovery_retry,
+        recovery_reason,
+    };
+    let key = determinism_step_contract_state_key(session_id, step_index);
+    let bytes = ioi_types::codec::to_bytes_canonical(&evidence)
+        .map_err(|e| TransactionError::Serialization(e.to_string()))?;
+    state.insert(&key, &bytes)?;
+    Ok(())
 }
 
 #[cfg(test)]

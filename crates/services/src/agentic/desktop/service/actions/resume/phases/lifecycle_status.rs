@@ -65,6 +65,7 @@ pub(crate) async fn run_lifecycle_status_phase(
     let mut awaiting_sudo_password = false;
     let mut awaiting_clarification = false;
     let mut terminal_response_emitted = false;
+    let prior_consecutive_failures = agent_state.consecutive_failures;
 
     let is_install_package_tool = matches!(tool, AgentTool::SysInstallPackage { .. });
     let clarification_required = !success
@@ -231,7 +232,7 @@ pub(crate) async fn run_lifecycle_status_phase(
                                 "Reflexive Agent (Resume): Detected completion signal in tool output."
                             );
                             let missing_contract_markers =
-                                missing_execution_contract_markers(agent_state);
+                                missing_execution_contract_markers_with_rules(agent_state, &rules);
                             if !missing_contract_markers.is_empty() {
                                 let missing = missing_contract_markers.join(",");
                                 let contract_error = execution_contract_violation_error(&missing);
@@ -289,7 +290,8 @@ pub(crate) async fn run_lifecycle_status_phase(
     if !reflexive_completion && !awaiting_sudo_password && !awaiting_clarification {
         match &tool {
             AgentTool::AgentComplete { result } => {
-                let missing_contract_markers = missing_execution_contract_markers(agent_state);
+                let missing_contract_markers =
+                    missing_execution_contract_markers_with_rules(agent_state, &rules);
                 if !missing_contract_markers.is_empty() {
                     let missing = missing_contract_markers.join(",");
                     let contract_error = execution_contract_violation_error(&missing);
@@ -328,7 +330,8 @@ pub(crate) async fn run_lifecycle_status_phase(
                 }
             }
             AgentTool::ChatReply { message } => {
-                let missing_contract_markers = missing_execution_contract_markers(agent_state);
+                let missing_contract_markers =
+                    missing_execution_contract_markers_with_rules(agent_state, &rules);
                 if !missing_contract_markers.is_empty() {
                     let missing = missing_contract_markers.join(",");
                     let contract_error = execution_contract_violation_error(&missing);
@@ -462,7 +465,7 @@ pub(crate) async fn run_lifecycle_status_phase(
                         timer_completion_summary(&tool, agent_state.command_history.back())
                     {
                         let missing_contract_markers =
-                            missing_execution_contract_markers(agent_state);
+                            missing_execution_contract_markers_with_rules(agent_state, &rules);
                         if !missing_contract_markers.is_empty() {
                             let missing = missing_contract_markers.join(",");
                             let contract_error = execution_contract_violation_error(&missing);
@@ -801,6 +804,19 @@ pub(crate) async fn run_lifecycle_status_phase(
         pre_state_summary.step_index
     ));
     artifacts.push(format!("trace://session/{}", hex::encode(&session_id[..4])));
+    let intent_id_for_contract = agent_state
+        .resolved_intent
+        .as_ref()
+        .map(|resolved| resolved.intent_id.clone())
+        .unwrap_or_else(|| "resolver.unclassified".to_string());
+    persist_step_contract_evidence(
+        state,
+        session_id,
+        pre_state_summary.step_index,
+        intent_id_for_contract.as_str(),
+        verification_checks,
+        prior_consecutive_failures,
+    )?;
     let checks = std::mem::take(verification_checks);
     let post_state = build_post_state_summary(agent_state, success, checks);
     let policy_binding = policy_binding_hash(&intent_hash, &policy_decision);

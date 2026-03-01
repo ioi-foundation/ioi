@@ -5,10 +5,7 @@ use serde_json::json;
 
 /// Helper to produce canonical JSON bytes for parameters.
 fn to_canonical_params(value: serde_json::Value) -> Vec<u8> {
-    // In production, use serde_jcs::to_vec. For this module, we assume standard JSON serialization
-    // is sufficient as a placeholder, or we import serde_jcs if available.
-    // Using serde_json::to_vec for now to match imports availability.
-    serde_json::to_vec(&value).unwrap_or_default()
+    serde_jcs::to_vec(&value).expect("grounding params must be JCS canonicalizable")
 }
 
 /// Converts VLM output coordinates to OS absolute pixel coordinates.

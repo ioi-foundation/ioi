@@ -10,6 +10,7 @@ pub(super) struct ToolOutcomeContext<'a, 's> {
     pub service: &'a DesktopAgentService,
     pub _state: &'s mut dyn StateAccess,
     pub agent_state: &'a mut AgentState,
+    pub rules: &'a ActionRules,
     pub tool: &'a AgentTool,
     pub tool_args: &'a serde_json::Value,
     pub session_id: [u8; 32],
@@ -36,6 +37,7 @@ pub(super) async fn apply_tool_outcome_and_followups(
         service,
         _state: _,
         agent_state,
+        rules,
         tool,
         tool_args,
         session_id,
@@ -57,7 +59,8 @@ pub(super) async fn apply_tool_outcome_and_followups(
 
     match tool {
         AgentTool::AgentComplete { result } => {
-            let missing_contract_markers = missing_execution_contract_markers(agent_state);
+            let missing_contract_markers =
+                missing_execution_contract_markers_with_rules(agent_state, rules);
             if !missing_contract_markers.is_empty() {
                 let missing = missing_contract_markers.join(",");
                 let contract_error = execution_contract_violation_error(&missing);
@@ -110,7 +113,8 @@ pub(super) async fn apply_tool_outcome_and_followups(
             }
         }
         AgentTool::ChatReply { message } => {
-            let missing_contract_markers = missing_execution_contract_markers(agent_state);
+            let missing_contract_markers =
+                missing_execution_contract_markers_with_rules(agent_state, rules);
             if !missing_contract_markers.is_empty() {
                 let missing = missing_contract_markers.join(",");
                 let contract_error = execution_contract_violation_error(&missing);
@@ -179,7 +183,8 @@ pub(super) async fn apply_tool_outcome_and_followups(
                     .map(str::to_string)
                     .unwrap_or_else(|| format!("Installed package '{}'.", package));
                 let summary = enrich_command_scope_summary(&summary, agent_state);
-                let missing_contract_markers = missing_execution_contract_markers(agent_state);
+                let missing_contract_markers =
+                    missing_execution_contract_markers_with_rules(agent_state, rules);
                 if missing_contract_markers.is_empty() {
                     *error_msg = None;
                     agent_state.status = AgentStatus::Completed(Some(summary.clone()));
@@ -295,7 +300,8 @@ pub(super) async fn apply_tool_outcome_and_followups(
                 if let Some(summary) =
                     duplicate_command_completion_summary(tool, agent_state.command_history.back())
                 {
-                    let missing_contract_markers = missing_execution_contract_markers(agent_state);
+                    let missing_contract_markers =
+                        missing_execution_contract_markers_with_rules(agent_state, rules);
                     if missing_contract_markers.is_empty() {
                         *success = true;
                         *error_msg = None;

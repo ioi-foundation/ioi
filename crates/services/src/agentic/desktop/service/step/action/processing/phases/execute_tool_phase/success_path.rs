@@ -6,6 +6,7 @@ pub(super) struct ExecutionSuccessContext<'a, 's> {
     pub service: &'a DesktopAgentService,
     pub state: &'s mut dyn StateAccess,
     pub agent_state: &'a mut AgentState,
+    pub rules: &'a ActionRules,
     pub tool: &'a AgentTool,
     pub tool_args: &'a serde_json::Value,
     pub session_id: [u8; 32],
@@ -37,6 +38,7 @@ pub(super) async fn handle_execution_success(
         service,
         state,
         agent_state,
+        rules,
         tool,
         tool_args,
         session_id,
@@ -427,6 +429,39 @@ pub(super) async fn handle_execution_success(
                 );
             }
         }
+        if !command_scope {
+            mark_execution_receipt(&mut agent_state.tool_execution_log, "execution");
+            verification_checks.push(receipt_marker("execution"));
+            emit_execution_contract_receipt_event(
+                service,
+                session_id,
+                step_index,
+                resolved_intent_id,
+                "execution",
+                "execution",
+                true,
+                "execution_invocation_completed=true",
+                None,
+                None,
+                synthesized_payload_hash.clone(),
+            );
+
+            mark_execution_receipt(&mut agent_state.tool_execution_log, "verification");
+            verification_checks.push(receipt_marker("verification"));
+            emit_execution_contract_receipt_event(
+                service,
+                session_id,
+                step_index,
+                resolved_intent_id,
+                "verification",
+                "verification",
+                true,
+                "verification_receipt_recorded=true",
+                None,
+                None,
+                synthesized_payload_hash.clone(),
+            );
+        }
         if let Some(entry) = history_entry.clone() {
             let tool_msg = ioi_types::app::agentic::ChatMessage {
                 role: "tool".to_string(),
@@ -447,6 +482,7 @@ pub(super) async fn handle_execution_success(
         service,
         _state: state,
         agent_state,
+        rules,
         tool,
         tool_args,
         session_id,
