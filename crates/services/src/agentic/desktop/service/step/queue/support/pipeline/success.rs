@@ -311,7 +311,8 @@ pub(crate) fn append_pending_web_success_from_bundle(
     let query_contract = synthesis_query_contract(pending);
     let headline_collection_mode = query_is_generic_headline_collection(&query_contract);
     if headline_collection_mode {
-        let before = pending.successful_reads.len();
+        let fallback_trimmed = fallback_url.trim();
+        let mut appended = false;
 
         for doc in bundle.documents.iter().take(8) {
             let title = doc
@@ -326,17 +327,36 @@ pub(crate) fn append_pending_web_success_from_bundle(
                 })
                 .filter(|value| !value.trim().is_empty());
             let excerpt = prioritized_signal_excerpt(&doc.content_text, WEB_PIPELINE_EXCERPT_CHARS);
-            push_pending_web_success(pending, &doc.url, title, excerpt);
+            if try_append_headline_bundle_success(
+                pending,
+                fallback_trimmed,
+                doc.url.as_str(),
+                title,
+                excerpt,
+            ) {
+                appended = true;
+                break;
+            }
         }
 
-        for source in bundle.sources.iter().take(8) {
-            let excerpt =
-                prioritized_signal_excerpt(source.snippet.as_deref().unwrap_or_default(), 180);
-            push_pending_web_success(pending, &source.url, source.title.clone(), excerpt);
+        if !appended {
+            for source in bundle.sources.iter().take(8) {
+                let excerpt =
+                    prioritized_signal_excerpt(source.snippet.as_deref().unwrap_or_default(), 180);
+                if try_append_headline_bundle_success(
+                    pending,
+                    fallback_trimmed,
+                    source.url.as_str(),
+                    source.title.clone(),
+                    excerpt,
+                ) {
+                    appended = true;
+                    break;
+                }
+            }
         }
 
-        let fallback_trimmed = fallback_url.trim();
-        if pending.successful_reads.len() == before && !fallback_trimmed.is_empty() {
+        if !appended && !fallback_trimmed.is_empty() {
             append_pending_web_success_fallback(pending, fallback_trimmed, None);
         }
         return;
@@ -394,4 +414,60 @@ pub(crate) fn append_pending_web_success_from_bundle(
     }
 
     append_pending_web_success_fallback(pending, fallback_url, None);
+}
+
+fn try_append_headline_bundle_success(
+    pending: &mut PendingSearchCompletion,
+    requested_url: &str,
+    candidate_url: &str,
+    title: Option<String>,
+    excerpt: String,
+) -> bool {
+    let candidate_trimmed = candidate_url.trim();
+    if candidate_trimmed.is_empty() {
+        return false;
+    }
+    let requested_trimmed = requested_url.trim();
+    if !requested_trimmed.is_empty()
+        && !headline_bundle_url_matches_requested(candidate_trimmed, requested_trimmed)
+    {
+        return false;
+    }
+
+    let recorded_url = if headline_read_success_url_allowed(requested_trimmed) {
+        requested_trimmed.to_string()
+    } else if headline_read_success_url_allowed(candidate_trimmed) {
+        candidate_trimmed.to_string()
+    } else {
+        return false;
+    };
+    push_pending_web_success(pending, &recorded_url, title, excerpt);
+    true
+}
+
+fn headline_bundle_url_matches_requested(candidate_url: &str, requested_url: &str) -> bool {
+    if url_structurally_equivalent(candidate_url, requested_url) {
+        return true;
+    }
+    let Some(candidate_host) = normalized_source_host(candidate_url) else {
+        return false;
+    };
+    let Some(requested_host) = normalized_source_host(requested_url) else {
+        return false;
+    };
+    candidate_host == requested_host
+}
+
+fn normalized_source_host(url: &str) -> Option<String> {
+    source_host(url)
+        .map(|host| host.strip_prefix("www.").unwrap_or(&host).to_ascii_lowercase())
+}
+
+fn headline_read_success_url_allowed(url: &str) -> bool {
+    let trimmed = url.trim();
+    !trimmed.is_empty()
+        && is_citable_web_url(trimmed)
+        && !is_search_hub_url(trimmed)
+        && !is_news_feed_wrapper_url(trimmed)
+        && !is_multi_item_listing_url(trimmed)
 }

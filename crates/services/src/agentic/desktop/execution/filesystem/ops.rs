@@ -1,6 +1,10 @@
 use std::fs;
+use std::io::{Read, Write};
 use std::path::Path;
+use std::time::UNIX_EPOCH;
 use walkdir::WalkDir;
+use zip::write::FileOptions;
+use zip::{CompressionMethod, ZipWriter};
 
 fn is_cross_device_rename_error(err: &std::io::Error) -> bool {
     // Unix EXDEV=18, Windows ERROR_NOT_SAME_DEVICE=17.
@@ -375,4 +379,172 @@ pub(super) fn create_directory_deterministic(path: &Path, recursive: bool) -> Re
 
     create_result.map_err(|e| format!("Failed to create directory '{}': {}", path.display(), e))?;
     Ok(())
+}
+
+fn system_time_to_epoch_ms(value: Result<std::time::SystemTime, std::io::Error>) -> Option<u64> {
+    value
+        .ok()
+        .and_then(|ts| ts.duration_since(UNIX_EPOCH).ok())
+        .map(|duration| duration.as_millis() as u64)
+}
+
+pub(super) fn stat_path_deterministic(path: &Path) -> Result<String, String> {
+    let metadata = fs::symlink_metadata(path)
+        .map_err(|e| format!("Failed to stat '{}': {}", path.display(), e))?;
+
+    let file_type = metadata.file_type();
+    let entry_type = if file_type.is_symlink() {
+        "symlink"
+    } else if metadata.is_file() {
+        "file"
+    } else if metadata.is_dir() {
+        "directory"
+    } else {
+        "other"
+    };
+
+    let payload = serde_json::json!({
+        "path": path.display().to_string(),
+        "entry_type": entry_type,
+        "size_bytes": metadata.len(),
+        "readonly": metadata.permissions().readonly(),
+        "modified_epoch_ms": system_time_to_epoch_ms(metadata.modified()),
+        "accessed_epoch_ms": system_time_to_epoch_ms(metadata.accessed()),
+        "created_epoch_ms": system_time_to_epoch_ms(metadata.created()),
+    });
+
+    serde_json::to_string(&payload).map_err(|e| format!("Failed to serialize stat payload: {}", e))
+}
+
+pub(super) fn create_zip_from_directory_deterministic(
+    source: &Path,
+    destination_zip_path: &Path,
+    overwrite: bool,
+) -> Result<Vec<String>, String> {
+    let source_kind = match path_entry_kind(source)? {
+        Some(kind) => kind,
+        None => {
+            return Err(format!(
+                "Source path '{}' does not exist.",
+                source.display()
+            ))
+        }
+    };
+
+    if source_kind != FsEntryKind::Directory {
+        return Err(format!(
+            "Source path '{}' must be a directory.",
+            source.display()
+        ));
+    }
+
+    if destination_zip_path.starts_with(source) {
+        return Err(format!(
+            "Destination '{}' cannot be inside source directory '{}'.",
+            destination_zip_path.display(),
+            source.display()
+        ));
+    }
+
+    remove_existing_destination(destination_zip_path, overwrite)?;
+
+    if let Some(parent) = destination_zip_path.parent() {
+        fs::create_dir_all(parent).map_err(|e| {
+            format!(
+                "Failed to create destination parent '{}': {}",
+                parent.display(),
+                e
+            )
+        })?;
+    }
+
+    let file = fs::File::create(destination_zip_path).map_err(|e| {
+        format!(
+            "Failed to create destination zip '{}': {}",
+            destination_zip_path.display(),
+            e
+        )
+    })?;
+    let mut zip = ZipWriter::new(file);
+    let file_options = FileOptions::default().compression_method(CompressionMethod::Deflated);
+    let dir_options = FileOptions::default().compression_method(CompressionMethod::Stored);
+
+    let archive_result = (|| -> Result<Vec<String>, String> {
+        let mut archived_entries = Vec::new();
+        let walker = WalkDir::new(source)
+            .follow_links(false)
+            .sort_by_file_name()
+            .into_iter();
+
+        for entry in walker {
+            let entry = entry.map_err(|e| format!("Directory traversal failed: {}", e))?;
+            let entry_path = entry.path();
+            let relative = entry_path
+                .strip_prefix(source)
+                .map_err(|e| format!("Failed to normalize archived path: {}", e))?;
+            if relative.as_os_str().is_empty() {
+                continue;
+            }
+
+            let relative_name = relative.to_string_lossy().replace('\\', "/");
+            if entry.file_type().is_symlink() {
+                return Err(format!(
+                    "Archive creation does not support symlink source '{}'.",
+                    entry_path.display()
+                ));
+            }
+
+            if entry.file_type().is_dir() {
+                let dir_name = format!("{}/", relative_name);
+                zip.add_directory(dir_name.clone(), dir_options)
+                    .map_err(|e| format!("Failed to add directory '{}' to zip: {}", dir_name, e))?;
+                archived_entries.push(dir_name);
+                continue;
+            }
+
+            if entry.file_type().is_file() {
+                zip.start_file(relative_name.clone(), file_options)
+                    .map_err(|e| format!("Failed to add file '{}' to zip: {}", relative_name, e))?;
+                let mut source_file = fs::File::open(entry_path).map_err(|e| {
+                    format!(
+                        "Failed to open source file '{}' for zipping: {}",
+                        entry_path.display(),
+                        e
+                    )
+                })?;
+                let mut buffer = Vec::new();
+                source_file.read_to_end(&mut buffer).map_err(|e| {
+                    format!(
+                        "Failed to read source file '{}' for zipping: {}",
+                        entry_path.display(),
+                        e
+                    )
+                })?;
+                zip.write_all(&buffer).map_err(|e| {
+                    format!(
+                        "Failed to write archived file '{}' to zip: {}",
+                        relative_name, e
+                    )
+                })?;
+                archived_entries.push(relative_name);
+                continue;
+            }
+
+            return Err(format!(
+                "Archive creation does not support special filesystem entry '{}'.",
+                entry_path.display()
+            ));
+        }
+
+        zip.finish()
+            .map_err(|e| format!("Failed to finalize zip archive: {}", e))?;
+
+        Ok(archived_entries)
+    })();
+
+    if archive_result.is_err() {
+        let _ = fs::remove_file(destination_zip_path);
+    }
+
+    archive_result
 }

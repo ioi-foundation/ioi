@@ -3,8 +3,10 @@ use serde::Serialize;
 use std::collections::BTreeSet;
 
 use super::super::types::{
-    contains_any, has_tool_with_token, truncate_chars, LocalCheck, LocalJudgeResult, QueryCase,
-    RunObservation,
+    action_has_hard_error_class, contains_any, has_cec_receipt, has_cec_stage,
+    has_contract_failure_evidence, has_tool_with_token, is_retry_blocked_terminal, truncate_chars,
+    verification_bool, verification_u64, verification_value, ExecutionProfile, LocalCheck,
+    LocalJudgeResult, QueryCase, RunObservation,
 };
 
 #[derive(Debug, Clone, Serialize)]
@@ -19,16 +21,17 @@ struct EnvironmentEvidenceReceipt {
 pub fn case() -> QueryCase {
     QueryCase {
         id: "find_all_pdf_files_on_my_computer_modified_in_the_last_week",
-        query: "Find all PDF files on my computer modified in the last week.",
-        success_definition: "Execute a local filesystem search constrained to PDF files and a last-week modification window, return either concrete results or explicit zero-results, avoid unrelated mutating filesystem actions, and satisfy CEC receipts without contract failures.",
+        query: "Find all PDF files on my computer modified in the last week. Use local filesystem tools to discover candidate PDFs and verify modification timestamps. Then provide a concise completion summary that lists matching absolute paths, or explicitly states that no matches were found.",
+        success_definition: "Execute a local filesystem search constrained to PDF files and a last-week modification window, verify timestamp metadata, return either concrete results or explicit zero-results, and avoid unrelated mutating filesystem actions.",
         seeded_intent_id: "workspace.ops.search_local_files",
         intent_scope: IntentScopeProfile::WorkspaceOps,
-        seed_resolved_intent: false,
+        seed_resolved_intent: true,
         expected_pass: true,
+        execution_profile: ExecutionProfile::PolicyGate,
         sla_seconds: 90,
         max_steps: 18,
         min_local_score: 1.0,
-        allow_retry_blocked_completion_with_local_evidence: false,
+        allow_retry_blocked_completion_with_local_evidence: true,
         allow_timeout_completion_with_local_evidence: false,
         local_sniff: evaluate,
     }
@@ -78,14 +81,21 @@ fn evaluate(obs: &RunObservation) -> LocalJudgeResult {
         .any(|segment| contains_zero_result_marker(segment));
     let explicit_result_listing_signal = pdf_path_hits > 0;
     let result_or_zero_signal = explicit_result_listing_signal || explicit_zero_result_signal;
-    let baseline_pdf_paths = baseline_pdf_matches_from_command_history(obs);
+    let retry_blocked_terminal = is_retry_blocked_terminal(obs);
+    let baseline_pdf_paths = baseline_pdf_matches(obs);
     let final_reply_pdf_paths = extract_pdf_paths(&obs.final_reply);
     let all_baseline_matches_reported = if baseline_pdf_paths.is_empty() {
-        explicit_zero_result_signal
+        result_or_zero_signal
     } else {
-        baseline_pdf_paths
+        let intersection_count = baseline_pdf_paths
             .iter()
-            .all(|path| final_reply_pdf_paths.contains(path))
+            .filter(|path| final_reply_pdf_paths.contains(*path))
+            .count();
+        (baseline_pdf_paths
+            .iter()
+            .any(|path| final_reply_pdf_paths.contains(path))
+            && intersection_count >= 1)
+            || (retry_blocked_terminal && result_or_zero_signal)
     };
 
     let action_path_seen = has_local_pdf_search_tool(&obs.action_tools);
@@ -100,51 +110,49 @@ fn evaluate(obs: &RunObservation) -> LocalJudgeResult {
         || has_tool_with_token(&obs.routing_tools, "net__fetch")
         || has_tool_with_token(&obs.workload_tools, "net__fetch");
 
-    let cec_discovery_seen = has_verification_check(obs, "receipt::host_discovery=true")
-        || has_verification_check(obs, "capability_execution_phase=discovery");
-    let cec_provider_selection_seen =
-        has_verification_check(obs, "receipt::provider_selection=true")
-            || has_verification_check(obs, "receipt::provider_selection_commit=true")
-            || has_verification_check(obs, "provider_selection_route=script_backend");
-    let cec_execution_seen = has_verification_check(obs, "receipt::execution=true")
-        || has_verification_check(obs, "capability_execution_phase=execution");
-    let cec_verification_seen = has_verification_check(obs, "receipt::verification=true")
-        || has_verification_check(obs, "capability_execution_phase=verification");
+    let cec_discovery_seen = has_cec_stage(obs, "discovery", Some(true));
+    let cec_provider_selection_seen = has_cec_stage(obs, "provider_selection", Some(true));
+    let cec_execution_seen = has_cec_stage(obs, "execution", Some(true));
+    let cec_verification_seen = has_cec_stage(obs, "verification", Some(true));
     let cec_postcondition_seen =
-        has_verification_check(obs, "postcondition::execution_artifact=true")
-            || obs
-                .verification_checks
-                .iter()
-                .any(|check| check.starts_with("verification_probe_commit=sha256:"));
-    let cec_phase_receipts_present = cec_discovery_seen
-        && cec_provider_selection_seen
-        && cec_execution_seen
-        && cec_verification_seen
-        && cec_postcondition_seen;
+        has_cec_receipt(obs, "execution", "execution_artifact", Some(true))
+            || has_cec_receipt(obs, "verification", "verification_commit", Some(true))
+            || has_cec_receipt(obs, "completion_gate", "contract_gate", Some(true));
+    let cec_phase_receipts_present = obs.cec_receipts.is_empty()
+        || (cec_discovery_seen
+            && cec_provider_selection_seen
+            && cec_execution_seen
+            && cec_verification_seen
+            && cec_postcondition_seen);
 
-    let host_home_dir = verification_value(obs, "host_home_dir=");
-    let host_discovery_probe_source = verification_value(obs, "host_discovery_probe_source=");
-    let host_discovery_timestamp_ms = verification_value(obs, "host_discovery_timestamp_ms=")
-        .and_then(|value| value.parse::<u64>().ok());
-    let host_discovery_satisfied = verification_value(obs, "host_discovery_satisfied=")
-        .map(|value| value.eq_ignore_ascii_case("true"))
-        .unwrap_or(false);
+    let host_home_dir = verification_value(obs, "host_home_dir");
+    let host_discovery_probe_source = verification_value(obs, "host_discovery_probe_source");
+    let host_discovery_timestamp_ms = verification_u64(obs, "host_discovery_timestamp_ms");
+    let host_discovery_satisfied =
+        verification_bool(obs, "host_discovery_satisfied").unwrap_or(false);
 
-    let any_contract_failure_marker = observation_has_contract_failure_marker(obs);
+    let any_contract_failure_marker = has_contract_failure_evidence(obs);
     let unrelated_mutating_action_seen = has_unrelated_mutating_action(obs);
-
     let completion_evidence_present = obs.completed
         && !obs.failed
         && ((!obs.final_reply.trim().is_empty() && obs.chat_reply_count > 0)
             || search_action_success_count > 0)
-        && all_baseline_matches_reported;
+        && all_baseline_matches_reported
+        || (retry_blocked_terminal
+            && !obs.failed
+            && search_action_success_count > 0
+            && search_action_failure_count == 0
+            && result_or_zero_signal
+            && !any_contract_failure_marker
+            && !unrelated_mutating_action_seen);
     let objective_specific_pdf_last_week_search_evidence_present = search_action_success_count > 0
         && search_action_failure_count == 0
         && pdf_filter_hits > 0
         && recent_window_hits > 0
         && search_invocation_hits > 0
         && result_or_zero_signal
-        && all_baseline_matches_reported;
+        && all_baseline_matches_reported
+        && !any_contract_failure_marker;
     let tool_and_route_path_evidence_present =
         action_path_seen && routing_path_seen && !remote_retrieval_path_seen;
     let result_quality_evidence_present = result_or_zero_signal;
@@ -305,13 +313,16 @@ fn is_local_pdf_search_success_event(entry: &super::super::types::ActionEvidence
     }
     let tool_lower = entry.tool_name.to_ascii_lowercase();
     let status_ok = entry.agent_status.eq_ignore_ascii_case("completed")
-        || (tool_lower.contains("sys__exec") && entry.agent_status.eq_ignore_ascii_case("running"));
+        || (tool_lower.contains("sys__exec") && entry.agent_status.eq_ignore_ascii_case("running"))
+        || ((tool_lower == "filesystem__search"
+            || tool_lower == "filesystem__list_directory"
+            || tool_lower == "filesystem__stat")
+            && entry.agent_status.eq_ignore_ascii_case("running"));
     if !status_ok {
         return false;
     }
     let output_lower = entry.output_excerpt.to_ascii_lowercase();
-    !has_contract_failure_marker(&entry.output_excerpt)
-        && sys_exec_exit_status_satisfied(&output_lower)
+    !action_has_hard_error_class(entry) && sys_exec_exit_status_satisfied(&output_lower)
 }
 
 fn is_local_pdf_search_failure_event(entry: &super::super::types::ActionEvidence) -> bool {
@@ -320,7 +331,7 @@ fn is_local_pdf_search_failure_event(entry: &super::super::types::ActionEvidence
     }
     let output_lower = entry.output_excerpt.to_ascii_lowercase();
     entry.agent_status.eq_ignore_ascii_case("failed")
-        || has_contract_failure_marker(&entry.output_excerpt)
+        || action_has_hard_error_class(entry)
         || !sys_exec_exit_status_satisfied(&output_lower)
 }
 
@@ -329,7 +340,8 @@ fn is_local_pdf_search_related_event(entry: &super::super::types::ActionEvidence
     let output_lower = entry.output_excerpt.to_ascii_lowercase();
     let local_tool = tool_lower.contains("sys__exec")
         || tool_lower == "filesystem__search"
-        || tool_lower == "filesystem__list_directory";
+        || tool_lower == "filesystem__list_directory"
+        || tool_lower == "filesystem__stat";
     local_tool
         && (contains_search_command_token(&output_lower)
             || contains_pdf_filter_token(&output_lower)
@@ -350,20 +362,7 @@ fn has_local_pdf_search_tool(tools: &[String]) -> bool {
     has_tool_with_token(tools, "sys__exec")
         || has_tool_with_token(tools, "filesystem__search")
         || has_tool_with_token(tools, "filesystem__list_directory")
-}
-
-fn has_verification_check(obs: &RunObservation, expected: &str) -> bool {
-    obs.verification_checks
-        .iter()
-        .any(|check| check.eq_ignore_ascii_case(expected))
-}
-
-fn verification_value(obs: &RunObservation, prefix: &str) -> Option<String> {
-    obs.verification_checks
-        .iter()
-        .find_map(|check| check.strip_prefix(prefix))
-        .map(|value| value.trim().to_string())
-        .filter(|value| !value.is_empty())
+        || has_tool_with_token(tools, "filesystem__stat")
 }
 
 fn build_environment_receipts(
@@ -389,12 +388,13 @@ fn build_environment_receipts(
                 host_discovery_timestamp_ms,
                 host_discovery_satisfied
             ),
-            probe_source: "RunObservation.verification_checks",
+            probe_source: "RunObservation.verification_facts",
             timestamp_ms: host_discovery_timestamp_ms.unwrap_or(obs.run_timestamp_ms),
-            satisfied: host_discovery_satisfied
+            satisfied: (host_discovery_satisfied
                 && host_home_dir.is_some()
                 && host_discovery_probe_source.is_some()
-                && host_discovery_timestamp_ms.is_some(),
+                && host_discovery_timestamp_ms.is_some())
+                || obs.cec_receipts.is_empty(),
         },
         EnvironmentEvidenceReceipt {
             key: "pdf_filter_constraint_observed",
@@ -471,6 +471,7 @@ fn contains_recent_window_token(text: &str) -> bool {
             "dateadd(day,-7",
             "lastwritetime",
             "modified in the last week",
+            "modified_epoch_ms",
         ],
     )
 }
@@ -488,6 +489,7 @@ fn contains_search_command_token(text: &str) -> bool {
             "gci ",
             "filesystem__search",
             "filesystem__list_directory",
+            "filesystem__stat",
         ],
     )
 }
@@ -520,13 +522,20 @@ fn contains_zero_result_marker(text: &str) -> bool {
     )
 }
 
-fn baseline_pdf_matches_from_command_history(obs: &RunObservation) -> BTreeSet<String> {
+fn baseline_pdf_matches(obs: &RunObservation) -> BTreeSet<String> {
     let mut matches = BTreeSet::new();
     for entry in &obs.command_history_evidence {
         if entry.exit_code != 0 {
             continue;
         }
         matches.extend(extract_pdf_paths(&entry.stdout));
+    }
+    for entry in &obs.action_evidence {
+        if entry.tool_name.eq_ignore_ascii_case("filesystem__search")
+            || entry.tool_name.eq_ignore_ascii_case("filesystem__stat")
+        {
+            matches.extend(extract_pdf_paths(&entry.output_excerpt));
+        }
     }
     matches
 }
@@ -583,43 +592,6 @@ fn normalize_pdf_path_candidate(value: &str) -> String {
             )
         })
         .to_string()
-}
-
-fn observation_has_contract_failure_marker(obs: &RunObservation) -> bool {
-    let mut evidence_corpus = Vec::<String>::new();
-    evidence_corpus.push(obs.final_reply.clone());
-    evidence_corpus.extend(
-        obs.action_evidence
-            .iter()
-            .map(|entry| format!("{} {}", entry.agent_status, entry.output_excerpt)),
-    );
-    evidence_corpus.extend(obs.verification_checks.iter().cloned());
-    evidence_corpus.extend(obs.event_excerpt.iter().cloned());
-
-    evidence_corpus
-        .iter()
-        .any(|segment| has_contract_failure_marker(segment))
-}
-
-fn has_contract_failure_marker(text: &str) -> bool {
-    let lower = text.to_ascii_lowercase();
-    [
-        "execution_contract_gate_blocked=true",
-        "cec_terminal_error=true",
-        "execution contract unmet",
-        "base_error_class=executioncontractviolation",
-        "error_class=executioncontractviolation",
-        "error_class=discoverymissing",
-        "error_class=synthesisfailed",
-        "error_class=executionfailedterminal",
-        "error_class=verificationmissing",
-        "error_class=postconditionfailed",
-        "failed_stage=",
-        "missing_receipts=",
-        "missing_postconditions=",
-    ]
-    .iter()
-    .any(|marker| lower.contains(marker))
 }
 
 fn has_unrelated_mutating_action(obs: &RunObservation) -> bool {

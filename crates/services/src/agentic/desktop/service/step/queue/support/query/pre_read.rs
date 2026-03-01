@@ -10,6 +10,17 @@ pub(crate) fn pre_read_candidate_plan(
 ) -> PreReadCandidatePlan {
     let total_candidates = candidate_urls.len();
     if total_candidates == 0 {
+        let projection = build_query_constraint_projection_with_locality_hint(
+            query_contract,
+            min_sources,
+            &candidate_source_hints,
+            locality_hint,
+        );
+        let requires_constraint_search_probe = projection.has_constraint_objective()
+            && projection
+                .constraints
+                .scopes
+                .contains(&ConstraintScope::TimeSensitive);
         return PreReadCandidatePlan {
             candidate_urls,
             probe_source_hints: candidate_source_hints.clone(),
@@ -18,7 +29,7 @@ pub(crate) fn pre_read_candidate_plan(
             pruned_candidates: 0,
             resolvable_candidates: 0,
             scoreable_candidates: 0,
-            requires_constraint_search_probe: false,
+            requires_constraint_search_probe,
         };
     }
 
@@ -168,9 +179,6 @@ pub(crate) fn pre_read_candidate_plan(
             if reject_search_hub && is_search_hub_url(url) {
                 return None;
             }
-            if headline_lookup_mode && is_news_feed_wrapper_url(url) {
-                return None;
-            }
             if prefer_non_listing_sources && is_multi_item_listing_url(url) {
                 return None;
             }
@@ -222,9 +230,6 @@ pub(crate) fn pre_read_candidate_plan(
                 break;
             }
             if seen_candidate_urls.contains(url) || is_search_hub_url(url) {
-                continue;
-            }
-            if headline_lookup_mode && is_news_feed_wrapper_url(url) {
                 continue;
             }
             if prefer_non_listing_sources && is_multi_item_listing_url(url) {
@@ -285,13 +290,14 @@ pub(crate) fn pre_read_candidate_plan(
     let kept_urls = candidate_urls.iter().cloned().collect::<BTreeSet<_>>();
     let mut candidate_source_hints = Vec::new();
     let mut seen_hint_urls = BTreeSet::new();
+    let mut seen_hint_domains = BTreeSet::new();
     for url in &candidate_urls {
         if let Some(hint) = hints_by_url.get(url) {
             let trimmed = hint.url.trim();
-            if headline_lookup_mode && is_news_feed_wrapper_url(trimmed) {
-                continue;
-            }
             if !trimmed.is_empty() && seen_hint_urls.insert(trimmed.to_string()) {
+                if let Some(domain_key) = canonical_domain_key(trimmed) {
+                    seen_hint_domains.insert(domain_key);
+                }
                 candidate_source_hints.push(hint.clone());
             }
         }
@@ -305,9 +311,6 @@ pub(crate) fn pre_read_candidate_plan(
         if reject_search_hub && is_search_hub_url(url) {
             continue;
         }
-        if headline_lookup_mode && is_news_feed_wrapper_url(url) {
-            continue;
-        }
         if prefer_non_listing_sources && is_multi_item_listing_url(url) {
             continue;
         }
@@ -315,15 +318,24 @@ pub(crate) fn pre_read_candidate_plan(
         {
             continue;
         }
+        let domain_key =
+            canonical_domain_key(url).unwrap_or_else(|| url.trim().to_ascii_lowercase());
+        let headline_floor_gap = headline_lookup_mode
+            && seen_hint_domains.len() < distinct_domain_floor
+            && !seen_hint_domains.contains(&domain_key);
         let include_hint = compatibility_passes_projection(&projection, compatibility)
             || compatibility.compatibility_score > 0
-            || *resolvable_payload;
+            || *resolvable_payload
+            || headline_floor_gap;
         if !include_hint {
             continue;
         }
         if let Some(hint) = hints_by_url.get(url) {
             let trimmed = hint.url.trim();
             if !trimmed.is_empty() && seen_hint_urls.insert(trimmed.to_string()) {
+                if let Some(hint_domain_key) = canonical_domain_key(trimmed) {
+                    seen_hint_domains.insert(hint_domain_key);
+                }
                 candidate_source_hints.push(hint.clone());
             }
         }

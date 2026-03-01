@@ -10,8 +10,9 @@ mod search;
 
 use list::list_directory_entries;
 use ops::{
-    copy_path_deterministic, create_directory_deterministic, delete_path_deterministic,
-    move_path_deterministic,
+    copy_path_deterministic, create_directory_deterministic,
+    create_zip_from_directory_deterministic, delete_path_deterministic, move_path_deterministic,
+    stat_path_deterministic,
 };
 #[cfg(test)]
 use patch::fuzzy_find_indices;

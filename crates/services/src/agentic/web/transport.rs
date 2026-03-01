@@ -50,6 +50,21 @@ pub(crate) fn detect_human_challenge(url: &str, content: &str) -> Option<&'stati
         return Some("human-verification challenge detected");
     }
 
+    // Cloudflare challenge flows.
+    let cloudflare_surface = content_lc.contains("cloudflare")
+        || content_lc.contains("cf-ray")
+        || content_lc.contains("ray id")
+        || content_lc.contains("__cf_chl")
+        || content_lc.contains("cf_chl");
+    if cloudflare_surface
+        && (content_lc.contains("just a moment")
+            || content_lc.contains("checking your browser before accessing")
+            || content_lc.contains("please enable javascript and cookies to continue")
+            || content_lc.contains("attention required"))
+    {
+        return Some("cloudflare challenge detected");
+    }
+
     // DuckDuckGo anomaly / bot-check flows.
     if content_lc.contains("anomaly")
         && (url_lc.contains("duckduckgo") || content_lc.contains("duckduckgo"))

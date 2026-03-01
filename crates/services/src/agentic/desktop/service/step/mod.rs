@@ -343,6 +343,7 @@ pub async fn handle_step(
                     step_index: agent_state.step_count,
                     tool_name: "system::intent_clarification".to_string(),
                     output: clarification_output.to_string(),
+                    error_class: None,
                     agent_status: "Paused".to_string(),
                 });
             }

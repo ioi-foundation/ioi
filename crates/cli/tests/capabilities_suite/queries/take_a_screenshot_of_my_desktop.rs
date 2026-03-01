@@ -2,7 +2,9 @@ use ioi_types::app::agentic::IntentScopeProfile;
 use serde::Serialize;
 
 use super::super::types::{
-    has_tool_with_token, truncate_chars, LocalCheck, LocalJudgeResult, QueryCase, RunObservation,
+    action_has_hard_error_class, has_contract_failure_evidence, has_policy_decision,
+    has_tool_with_token, has_verification_pair, is_retry_blocked_terminal, truncate_chars,
+    ExecutionProfile, LocalCheck, LocalJudgeResult, QueryCase, RunObservation,
 };
 
 #[derive(Debug, Clone, Serialize)]
@@ -23,6 +25,7 @@ pub fn case() -> QueryCase {
         intent_scope: IntentScopeProfile::UiInteraction,
         seed_resolved_intent: true,
         expected_pass: true,
+        execution_profile: ExecutionProfile::PolicyGate,
         sla_seconds: 45,
         max_steps: 10,
         min_local_score: 1.0,
@@ -56,14 +59,11 @@ fn evaluate(obs: &RunObservation) -> LocalJudgeResult {
             entry.tool_name.eq_ignore_ascii_case("computer") && capture_action_failed(entry)
         })
         .count();
-    let paused_retry_blocked = obs
-        .final_status
-        .to_ascii_lowercase()
-        .contains("retry blocked: unchanged attemptkey for unexpectedstate");
-    let any_contract_failure_marker = observation_has_contract_failure_marker(obs);
+    let paused_retry_blocked = is_retry_blocked_terminal(obs);
+    let any_contract_failure_marker = has_contract_failure_evidence(obs);
     let capture_route_terminalized =
-        has_verification_check(obs, "screenshot_capture_terminalized=true");
-    let incident_resolved = has_verification_check(obs, "incident_resolved=true");
+        has_verification_pair(obs, "screenshot_capture_terminalized", "true");
+    let incident_resolved = has_verification_pair(obs, "incident_resolved", "true");
     let screenshot_reply_signal = screenshot_success_output(&obs.final_reply)
         || obs
             .action_evidence
@@ -79,15 +79,10 @@ fn evaluate(obs: &RunObservation) -> LocalJudgeResult {
     let action_path_seen = has_capture_path_signal(&obs.action_tools);
     let routing_path_seen = has_capture_path_signal(&obs.routing_tools);
     let no_gui_snapshot_fallback = gui_snapshot_count == 0 && routing_gui_snapshot_count == 0;
-    let policy_decision_allow = obs.verification_checks.iter().any(|check| {
-        check.eq_ignore_ascii_case("policy_decision=approved")
-            || check.eq_ignore_ascii_case("policy_decision=allowed")
-    });
-    let approval_gate_seen = obs.approval_required_events > 0
-        || obs
-            .verification_checks
-            .iter()
-            .any(|check| check.eq_ignore_ascii_case("policy_decision=require_approval"));
+    let policy_decision_allow =
+        has_policy_decision(obs, "approved") || has_policy_decision(obs, "allowed");
+    let approval_gate_seen =
+        obs.approval_required_events > 0 || has_policy_decision(obs, "require_approval");
     let approval_transition_seen = approval_gate_seen && policy_decision_allow;
     let environment_receipts = build_environment_receipts(
         obs,
@@ -214,8 +209,7 @@ fn is_gui_snapshot_event(entry: &super::super::types::ActionEvidence) -> bool {
 }
 
 fn capture_action_failed(entry: &super::super::types::ActionEvidence) -> bool {
-    entry.agent_status.eq_ignore_ascii_case("failed")
-        || has_contract_failure_marker(&entry.output_excerpt)
+    entry.agent_status.eq_ignore_ascii_case("failed") || action_has_hard_error_class(entry)
 }
 
 fn has_capture_path_signal(tools: &[String]) -> bool {
@@ -300,49 +294,6 @@ fn build_environment_receipts(
     ]
 }
 
-fn has_verification_check(obs: &RunObservation, expected: &str) -> bool {
-    obs.verification_checks
-        .iter()
-        .any(|check| check.eq_ignore_ascii_case(expected))
-}
-
 fn serialize_environment_receipts(receipts: &[EnvironmentEvidenceReceipt]) -> String {
     serde_json::to_string(receipts).unwrap_or_else(|_| "[]".to_string())
-}
-
-fn observation_has_contract_failure_marker(obs: &RunObservation) -> bool {
-    let mut evidence_corpus = Vec::<String>::new();
-    evidence_corpus.push(obs.final_reply.clone());
-    evidence_corpus.extend(
-        obs.action_evidence
-            .iter()
-            .map(|entry| format!("{} {}", entry.agent_status, entry.output_excerpt)),
-    );
-    evidence_corpus.extend(obs.verification_checks.iter().cloned());
-    evidence_corpus.extend(obs.event_excerpt.iter().cloned());
-
-    evidence_corpus
-        .iter()
-        .any(|segment| has_contract_failure_marker(segment))
-}
-
-fn has_contract_failure_marker(text: &str) -> bool {
-    let lower = text.to_ascii_lowercase();
-    [
-        "execution_contract_gate_blocked=true",
-        "cec_terminal_error=true",
-        "execution contract unmet",
-        "base_error_class=executioncontractviolation",
-        "error_class=executioncontractviolation",
-        "error_class=discoverymissing",
-        "error_class=synthesisfailed",
-        "error_class=executionfailedterminal",
-        "error_class=verificationmissing",
-        "error_class=postconditionfailed",
-        "failed_stage=",
-        "missing_receipts=",
-        "missing_postconditions=",
-    ]
-    .iter()
-    .any(|marker| lower.contains(marker))
 }

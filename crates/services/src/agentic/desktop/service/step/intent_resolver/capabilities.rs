@@ -125,6 +125,14 @@ pub(super) fn tool_capability_bindings() -> Vec<ToolCapabilityBinding> {
             capabilities: vec![capability("filesystem.read")],
         },
         ToolCapabilityBinding {
+            tool_name: "filesystem__stat".to_string(),
+            action_target: ActionTarget::FsRead,
+            capabilities: vec![
+                capability("filesystem.read"),
+                capability("filesystem.metadata"),
+            ],
+        },
+        ToolCapabilityBinding {
             tool_name: "filesystem__write_file".to_string(),
             action_target: ActionTarget::FsWrite,
             capabilities: vec![capability("filesystem.write")],
@@ -142,6 +150,11 @@ pub(super) fn tool_capability_bindings() -> Vec<ToolCapabilityBinding> {
         ToolCapabilityBinding {
             tool_name: "filesystem__create_directory".to_string(),
             action_target: ActionTarget::Custom("filesystem__create_directory".to_string()),
+            capabilities: vec![capability("filesystem.write")],
+        },
+        ToolCapabilityBinding {
+            tool_name: "filesystem__create_zip".to_string(),
+            action_target: ActionTarget::Custom("filesystem__create_zip".to_string()),
             capabilities: vec![capability("filesystem.write")],
         },
         ToolCapabilityBinding {
@@ -507,14 +520,14 @@ mod tests {
     }
 
     #[test]
-    fn workspace_ops_temporal_file_queries_require_metadata_capability() {
+    fn workspace_ops_temporal_file_queries_are_feasible_with_metadata_tooling() {
         let entry = workspace_ops_entry();
         let profile = temporal_files_profile();
         let bindings = tool_capability_bindings();
         let rules = ActionRules::default();
 
-        assert!(!intent_feasible_without_policy(&entry, &bindings, &profile));
-        assert!(!intent_feasible_for_execution(
+        assert!(intent_feasible_without_policy(&entry, &bindings, &profile));
+        assert!(intent_feasible_for_execution(
             &entry, &bindings, &rules, &profile
         ));
     }

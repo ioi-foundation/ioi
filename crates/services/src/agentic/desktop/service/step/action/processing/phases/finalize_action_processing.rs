@@ -444,6 +444,7 @@ pub(crate) async fn finalize_action_processing(
                 step_index: pre_state_summary.step_index,
                 tool_name: current_tool_name.clone(),
                 output: output_str,
+                error_class: extract_error_class_token(error_msg.as_deref()).map(str::to_string),
                 agent_status: get_status_str(&agent_state.status),
             });
 
@@ -462,12 +463,27 @@ pub(crate) async fn finalize_action_processing(
                         .push(format!("response_composer_fallback_reason={}", reason));
                 }
                 verification_checks.push("terminal_chat_reply_emitted=true".to_string());
+                if current_tool_name != "chat__reply"
+                    && matches!(agent_state.status, AgentStatus::Completed(_))
+                {
+                    let intent_id = resolved_intent_id(agent_state);
+                    emit_completion_gate_status_event(
+                        service,
+                        session_id,
+                        pre_state_summary.step_index,
+                        intent_id.as_str(),
+                        true,
+                        "finalize_terminal_chat_reply_gate_passed",
+                    );
+                    verification_checks.push("cec_completion_gate_emitted=true".to_string());
+                }
                 if current_tool_name != "chat__reply" {
                     let _ = tx.send(KernelEvent::AgentActionResult {
                         session_id,
                         step_index: pre_state_summary.step_index,
                         tool_name: "chat__reply".to_string(),
                         output: composed.output,
+                        error_class: None,
                         agent_status: get_status_str(&agent_state.status),
                     });
                 }

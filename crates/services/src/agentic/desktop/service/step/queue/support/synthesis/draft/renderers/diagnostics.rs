@@ -64,28 +64,11 @@ pub(super) fn assess_multi_story_grounding(
     } else {
         BTreeSet::new()
     };
-    let headline_story_title_overlap = if headline_lookup_mode {
-        let titles = draft
-            .stories
-            .iter()
-            .take(story_count)
-            .map(|story| story.title.as_str())
-            .collect::<Vec<_>>();
-        (0..titles.len()).any(|left_idx| {
-            ((left_idx + 1)..titles.len())
-                .any(|right_idx| headline_story_titles_overlap(titles[left_idx], titles[right_idx]))
-        })
-    } else {
-        false
-    };
-    let has_story_topic_diversity_floor = !headline_lookup_mode
-        || (headline_shared_story_anchor_tokens.is_empty() && !headline_story_title_overlap);
     let insufficient_multi_story_grounding = !use_single_snapshot_layout
         && story_count > 1
         && (!has_story_slot_floor
             || !has_story_coverage_floor
             || !has_distinct_source_floor
-            || !has_story_topic_diversity_floor
             || (!has_read_grounding && !has_primary_status_inventory));
 
     MultiStoryGroundingAssessment {
@@ -109,7 +92,7 @@ pub(super) fn render_insufficient_multi_story_floor(
 ) -> String {
     let mut lines = vec![summary_heading(draft), String::new()];
     lines.push(format!(
-        "Synthesis unavailable: grounded evidence did not satisfy the multi-story floor (stories={} of {}, citations_per_story={}, distinct_actionable_sources={} of {}, shared_story_topics={}).",
+        "Synthesis unavailable: multi-story evidence floor unmet (stories={} of {}, citations_per_story={}, distinct_actionable_sources={} of {}, shared_story_topics={}).",
         draft.stories.len().min(story_count),
         story_count,
         assessment.story_citation_floor,
@@ -117,6 +100,48 @@ pub(super) fn render_insufficient_multi_story_floor(
         assessment.required_distinct_source_floor,
         assessment.shared_story_topic_count
     ));
+
+    let mut used_story_urls = BTreeSet::new();
+    for (idx, story) in draft
+        .stories
+        .iter()
+        .take(story_count.max(1).min(draft.stories.len()))
+        .enumerate()
+    {
+        lines.push(String::new());
+        lines.push(format!("Story {}: {}", idx + 1, story.title));
+        lines.push(format!("What happened: {}", story.what_happened));
+        lines.push("Citations:".to_string());
+
+        let mut emitted = 0usize;
+        let mut seen_story_urls = BTreeSet::new();
+        for citation_id in story
+            .citation_ids
+            .iter()
+            .take(assessment.story_citation_floor.max(1))
+        {
+            let Some(citation) = draft.citations_by_id.get(citation_id) else {
+                continue;
+            };
+            if !citation_usable_url(&citation.url, headline_lookup_mode) {
+                continue;
+            }
+            if !seen_story_urls.insert(citation.url.clone()) {
+                continue;
+            }
+            used_story_urls.insert(citation.url.clone());
+            lines.push(format!(
+                "- {} | {} | {} | {}",
+                citation.source_label, citation.url, citation.timestamp_utc, citation.note
+            ));
+            emitted += 1;
+        }
+        if emitted == 0 {
+            lines.push("- No citable evidence was captured for this story slot.".to_string());
+        }
+        lines.push(format!("Confidence: {}", story.confidence));
+        lines.push(format!("Caveat: {}", story.caveat));
+    }
 
     let mut candidate_citations = draft
         .citations_by_id
@@ -127,12 +152,18 @@ pub(super) fn render_insufficient_multi_story_floor(
     candidate_citations.sort_by(|left, right| left.url.cmp(&right.url));
     candidate_citations.dedup_by(|left, right| left.url == right.url);
     if !candidate_citations.is_empty() {
-        lines.push("Candidate sources (metadata-only):".to_string());
-        for citation in &candidate_citations {
-            lines.push(format!(
-                "- {} | {} | {} | {}",
-                citation.source_label, citation.url, citation.timestamp_utc, citation.note
-            ));
+        let additional_candidates = candidate_citations
+            .into_iter()
+            .filter(|citation| !used_story_urls.contains(&citation.url))
+            .collect::<Vec<_>>();
+        if !additional_candidates.is_empty() {
+            lines.push("Candidate sources (metadata-only):".to_string());
+            for citation in &additional_candidates {
+                lines.push(format!(
+                    "- {} | {} | {} | {}",
+                    citation.source_label, citation.url, citation.timestamp_utc, citation.note
+                ));
+            }
         }
     }
 
@@ -209,17 +240,6 @@ fn headline_story_topic_tokens(input: &str) -> BTreeSet<String> {
             Some(normalized.to_string())
         })
         .collect()
-}
-
-fn headline_story_titles_overlap(left: &str, right: &str) -> bool {
-    let left_tokens = headline_story_topic_tokens(left);
-    let right_tokens = headline_story_topic_tokens(right);
-    if left_tokens.is_empty() || right_tokens.is_empty() {
-        return false;
-    }
-    let overlap = left_tokens.intersection(&right_tokens).count();
-    let smaller = left_tokens.len().min(right_tokens.len());
-    overlap >= 2 && overlap * 5 >= smaller * 2
 }
 
 fn headline_story_shared_anchor_tokens(

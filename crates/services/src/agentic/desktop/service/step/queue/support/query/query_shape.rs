@@ -237,10 +237,30 @@ pub(crate) fn query_is_generic_headline_collection(query: &str) -> bool {
 }
 
 pub(super) fn generic_headline_search_phrase(query: &str) -> String {
+    let trimmed = query.trim();
+    if trimmed.is_empty() {
+        return String::new();
+    }
+
+    let lowered = trimmed.to_ascii_lowercase();
+    let has_structured_operator = trimmed.contains('"')
+        || lowered.contains("-site:")
+        || lowered.contains(" site:")
+        || lowered.contains("inurl:")
+        || lowered.contains("intitle:");
+    if has_structured_operator {
+        return trimmed.to_string();
+    }
+
     let mut tokens = Vec::new();
     let mut seen = BTreeSet::new();
-    for raw in query.split(|ch: char| !ch.is_ascii_alphanumeric()) {
-        let mut normalized = raw.trim().to_ascii_lowercase();
+    for raw in trimmed.split_whitespace() {
+        let mut normalized = raw
+            .trim()
+            .trim_matches(|ch: char| matches!(ch, ',' | ';' | ':' | '.' | '!' | '?' | '(' | ')'))
+            .trim_matches('"')
+            .to_ascii_lowercase()
+            .replace('\'', "");
         if normalized == "todays" {
             normalized = "today".to_string();
         }
@@ -260,7 +280,6 @@ pub(super) fn generic_headline_search_phrase(query: &str) -> String {
                 | "would"
                 | "can"
                 | "you"
-                | "today"
         ) {
             continue;
         }
@@ -269,57 +288,11 @@ pub(super) fn generic_headline_search_phrase(query: &str) -> String {
         }
     }
 
-    if !tokens.iter().any(|token| token == "news") {
-        tokens.push("news".to_string());
+    if tokens.is_empty() {
+        trimmed.to_string()
+    } else {
+        tokens.join(" ")
     }
-    if !tokens
-        .iter()
-        .any(|token| token == "headline" || token == "headlines")
-    {
-        tokens.push("headlines".to_string());
-    }
-    if !tokens
-        .iter()
-        .any(|token| matches!(token.as_str(), "latest" | "recent" | "breaking"))
-    {
-        tokens.push("latest".to_string());
-    }
-    if !tokens
-        .iter()
-        .any(|token| matches!(token.as_str(), "top" | "latest" | "breaking"))
-    {
-        tokens.push("top".to_string());
-    }
-
-    let priority = ["latest", "breaking", "top", "news", "headlines"];
-    let mut ordered = Vec::new();
-    let mut included = BTreeSet::new();
-    for wanted in priority {
-        if tokens.iter().any(|token| token == wanted) && included.insert(wanted.to_string()) {
-            ordered.push(wanted.to_string());
-        }
-    }
-    for token in tokens {
-        if included.insert(token.clone()) {
-            ordered.push(token);
-        }
-    }
-
-    let mut query = ordered.join(" ").trim().to_string();
-    if query.is_empty() {
-        query = "latest top news headlines".to_string();
-    }
-
-    let quality_terms = ["world", "politics", "business"];
-    query = append_unique_query_terms(
-        &query,
-        &quality_terms
-            .iter()
-            .map(|term| term.to_string())
-            .collect::<Vec<_>>(),
-    );
-
-    query
 }
 
 pub(crate) fn query_requires_structured_synthesis(query: &str) -> bool {

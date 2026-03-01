@@ -82,13 +82,15 @@ fn summarize_kernel_event(kernel_event: &ioi_types::app::KernelEvent) -> String 
             step_index,
             tool_name,
             output,
+            error_class,
             agent_status,
         } => format!(
-            "AgentActionResult session={} step_index={} tool_name={} agent_status={} output_{}",
+            "AgentActionResult session={} step_index={} tool_name={} agent_status={} error_class={} output_{}",
             prefix_hex_4(session_id),
             step_index,
             tool_name,
             agent_status,
+            error_class.as_deref().unwrap_or("none"),
             text_fingerprint(output)
         ),
         Ev::AgentSpawn {
@@ -320,6 +322,7 @@ fn map_kernel_event(
             step_index,
             tool_name,
             output,
+            error_class,
             agent_status,
         } => Some(ChainEventEnum::ActionResult(
             ioi_ipc::public::AgentActionResult {
@@ -328,6 +331,8 @@ fn map_kernel_event(
                 tool_name,
                 output,
                 agent_status,
+                error_class: error_class.clone().unwrap_or_default(),
+                has_error_class: error_class.is_some(),
             },
         )),
         ioi_types::app::KernelEvent::AgentSpawn {

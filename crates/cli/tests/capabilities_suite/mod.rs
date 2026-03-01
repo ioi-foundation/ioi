@@ -8,7 +8,7 @@ use ioi_api::vm::inference::{HttpInferenceRuntime, InferenceRuntime};
 use serde_json::json;
 use std::sync::Arc;
 
-use self::types::CaseOutcome;
+use self::types::{is_retry_blocked_terminal, is_timeout_terminal, CaseOutcome, ExecutionProfile};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum KernelLogDumpMode {
@@ -47,6 +47,36 @@ fn should_emit_kernel_log_dump(
     }
 }
 
+fn configured_execution_profile() -> Result<Option<ExecutionProfile>> {
+    let raw = std::env::var("CAPABILITIES_PROFILE")
+        .unwrap_or_else(|_| "hermetic".to_string())
+        .trim()
+        .to_ascii_lowercase();
+    match raw.as_str() {
+        "all" | "*" => Ok(None),
+        "hermetic" => Ok(Some(ExecutionProfile::Hermetic)),
+        "policy_gate" | "policy-gate" | "policy" => Ok(Some(ExecutionProfile::PolicyGate)),
+        "privileged" => Ok(Some(ExecutionProfile::Privileged)),
+        other => Err(anyhow!(
+            "invalid CAPABILITIES_PROFILE='{}'; expected hermetic|policy_gate|privileged|all",
+            other
+        )),
+    }
+}
+
+fn is_human_intervention_blocker(observation: &types::RunObservation) -> bool {
+    types::verification_bool(observation, "awaiting_sudo_password").unwrap_or(false)
+        || observation.verification_facts.iter().any(|fact| {
+            fact.key
+                .eq_ignore_ascii_case("human_intervention_pause_reason")
+        })
+        || observation
+            .terminal_pause_reason
+            .as_ref()
+            .map(|reason| reason.to_ascii_lowercase().contains("sudo password"))
+            .unwrap_or(false)
+}
+
 pub async fn run_capabilities_suite() -> Result<()> {
     ioi_cli::testing::build_test_artifacts();
     harness::load_env_from_workspace_dotenv_if_present();
@@ -76,10 +106,22 @@ pub async fn run_capabilities_suite() -> Result<()> {
         .filter(|value| *value > 0)
         .unwrap_or(1);
 
+    let selected_profile = configured_execution_profile()?;
+    let mut cases = queries::all_cases();
+    if let Some(profile) = selected_profile {
+        cases.retain(|case| case.execution_profile == profile);
+    }
+    if cases.is_empty() {
+        return Err(anyhow!(
+            "no capabilities cases selected for CAPABILITIES_PROFILE={}",
+            std::env::var("CAPABILITIES_PROFILE").unwrap_or_else(|_| "hermetic".to_string())
+        ));
+    }
+
     let mut outcomes = Vec::new();
     let mut run_index = 0usize;
     let kernel_log_mode = kernel_log_dump_mode();
-    for case in queries::all_cases().into_iter() {
+    for case in cases.into_iter() {
         let attempts_allowed = if case.expected_pass { max_attempts } else { 1 };
         let debug_observation = std::env::var("CAPABILITIES_DEBUG_OBSERVATION")
             .map(|value| value.eq_ignore_ascii_case("1") || value.eq_ignore_ascii_case("true"))
@@ -122,14 +164,7 @@ pub async fn run_capabilities_suite() -> Result<()> {
                 case.id,
                 "top_news_headlines" | "take_a_screenshot_of_my_desktop"
             );
-            let timeout_terminal = observation
-                .final_status
-                .to_ascii_lowercase()
-                .contains("timeoutorhang")
-                || observation
-                    .verification_checks
-                    .iter()
-                    .any(|check| check.eq_ignore_ascii_case("failure_class=TimeoutOrHang"));
+            let timeout_terminal = is_timeout_terminal(&observation);
             let timeout_completion_override = case.allow_timeout_completion_with_local_evidence
                 && timeout_terminal
                 && local.pass
@@ -139,10 +174,7 @@ pub async fn run_capabilities_suite() -> Result<()> {
             } else {
                 arbiter.pass || (local.pass && (!observation.failed || timeout_completion_override))
             };
-            let retry_blocked_terminal = observation
-                .final_status
-                .to_ascii_lowercase()
-                .contains("retry blocked: unchanged attemptkey for unexpectedstate");
+            let retry_blocked_terminal = is_retry_blocked_terminal(&observation);
             let completion_effective_pass = observation.completed
                 || (case.allow_retry_blocked_completion_with_local_evidence
                     && retry_blocked_terminal
@@ -151,14 +183,19 @@ pub async fn run_capabilities_suite() -> Result<()> {
                     && local.score >= case.min_local_score)
                 || timeout_completion_override
                 || (arbiter.pass && local.score >= case.min_local_score);
+            let unresolved_approval_gate = types::has_unresolved_approval_gate(&observation);
             let approval_effective_pass = if case.id == "take_a_screenshot_of_my_desktop" {
-                observation.approval_required_events > 0
+                observation.approval_required_events > 0 && !unresolved_approval_gate
             } else {
-                observation.approval_required_events == 0
+                !unresolved_approval_gate
             };
+            let hermetic_intervention_blocked = case.execution_profile
+                == ExecutionProfile::Hermetic
+                && is_human_intervention_blocker(&observation);
 
             let observed_pass = completion_effective_pass
                 && approval_effective_pass
+                && !hermetic_intervention_blocked
                 && observation.elapsed_ms <= (case.sla_seconds as u128 * 1_000)
                 && local.score >= case.min_local_score
                 && (!strict_local_required || local.pass)

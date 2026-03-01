@@ -1,9 +1,13 @@
 use super::*;
+use crate::agentic::desktop::service::step::queue::support::{
+    required_story_count, synthesis_query_contract,
+};
 
 pub(in super::super) async fn maybe_handle_web_read(
     service: &DesktopAgentService,
     agent_state: &mut AgentState,
     session_id: [u8; 32],
+    pre_state_step_index: u32,
     tool_name: &str,
     tool_wrapper: &AgentTool,
     is_gated: bool,
@@ -42,14 +46,27 @@ pub(in super::super) async fn maybe_handle_web_read(
     let now_ms = web_pipeline_now_ms();
     let elapsed_ms = now_ms.saturating_sub(pending.started_at_ms);
     let remaining_candidates = remaining_pending_web_candidates(&pending);
+    let query_contract = synthesis_query_contract(&pending);
+    let headline_collection_mode = query_is_generic_headline_collection(&query_contract);
+    let required_story_floor = required_story_count(&query_contract).max(1);
+    let observed_story_domains = pending
+        .successful_reads
+        .iter()
+        .filter_map(|source| source_host(source.url.trim()))
+        .map(|host| host.strip_prefix("www.").unwrap_or(&host).to_string())
+        .collect::<std::collections::BTreeSet<_>>()
+        .len();
+    let story_floor_met = !headline_collection_mode
+        || (pending.successful_reads.len() >= required_story_floor
+            && observed_story_domains >= required_story_floor);
     let min_sources_required = pending.min_sources.max(1) as usize;
     let floor_unmet = pending.successful_reads.len() < min_sources_required;
+    let source_floor_met = !floor_unmet;
+    let quality_floor_unmet = floor_unmet || !story_floor_met;
     let probe_marker_prefix = "ioi://constraint-probe/";
-    let probe_already_attempted = pending
-        .attempted_urls
-        .iter()
-        .any(|url| url.starts_with(probe_marker_prefix));
-    let probe_allowed = remaining_candidates == 0 && floor_unmet && !probe_already_attempted;
+    let probe_allowed = remaining_candidates == 0
+        && quality_floor_unmet
+        && web_pipeline_grounded_probe_attempt_available(&pending);
     let mut probe_budget_ok = true;
     let mut probe_queued = false;
     if probe_allowed {
@@ -100,16 +117,8 @@ pub(in super::super) async fn maybe_handle_web_read(
 
     let completion_reason = if probe_queued {
         None
-    } else if pending.deadline_ms > 0 && now_ms >= pending.deadline_ms {
-        Some(WebPipelineCompletionReason::DeadlineReached)
-    } else if remaining_candidates == 0 {
-        if pending.successful_reads.len() >= min_sources_required {
-            Some(WebPipelineCompletionReason::MinSourcesReached)
-        } else {
-            Some(WebPipelineCompletionReason::ExhaustedCandidates)
-        }
     } else {
-        None
+        web_pipeline_completion_reason(&pending, now_ms)
     };
 
     verification_checks.push(format!(
@@ -122,6 +131,16 @@ pub(in super::super) async fn maybe_handle_web_read(
     ));
     verification_checks.push(format!("web_budget_ms={}", elapsed_ms));
     verification_checks.push(format!("web_remaining_candidates={}", remaining_candidates));
+    verification_checks.push(format!("web_source_floor_met={}", source_floor_met));
+    verification_checks.push(format!(
+        "web_headline_story_floor_required={}",
+        required_story_floor
+    ));
+    verification_checks.push(format!(
+        "web_headline_story_floor_observed={}",
+        observed_story_domains
+    ));
+    verification_checks.push(format!("web_headline_story_floor_met={}", story_floor_met));
     verification_checks.push(format!(
         "web_constraint_search_probe_allowed={}",
         probe_allowed
@@ -146,6 +165,16 @@ pub(in super::super) async fn maybe_handle_web_read(
             completion_summary,
             true,
         );
+        let intent_id = resolved_intent_id(agent_state);
+        emit_completion_gate_status_event(
+            service,
+            session_id,
+            pre_state_step_index,
+            intent_id.as_str(),
+            true,
+            "web_pipeline_read_completion_gate_passed",
+        );
+        verification_checks.push("cec_completion_gate_emitted=true".to_string());
         verification_checks.push("web_pipeline_active=false".to_string());
         verification_checks.push("terminal_chat_reply_ready=true".to_string());
         return Ok(());

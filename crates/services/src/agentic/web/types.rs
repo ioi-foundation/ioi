@@ -10,6 +10,7 @@ pub(crate) enum SearchProviderStage {
     DdgHttp,
     DdgBrowser,
     BingHttp,
+    BingNewsRss,
     GoogleHttp,
     GoogleNewsRss,
 }

@@ -136,6 +136,25 @@ pub(crate) fn single_snapshot_additional_probe_attempt_count(
         .saturating_add(probe_query_delta)
 }
 
+pub(crate) fn web_pipeline_grounded_probe_attempt_limit(
+    pending: &PendingSearchCompletion,
+) -> usize {
+    let query_contract = synthesis_query_contract(pending);
+    let required_distinct_source_floor = required_distinct_citations(&query_contract);
+    required_distinct_source_floor
+        .max(pending.min_sources.max(1) as usize)
+        .max(1)
+        .saturating_sub(1)
+        .clamp(1, WEB_PIPELINE_CONSTRAINT_SEARCH_LIMIT_MAX as usize)
+}
+
+pub(crate) fn web_pipeline_grounded_probe_attempt_available(
+    pending: &PendingSearchCompletion,
+) -> bool {
+    single_snapshot_additional_probe_attempt_count(pending)
+        < web_pipeline_grounded_probe_attempt_limit(pending)
+}
+
 pub(crate) fn single_snapshot_requires_current_metric_observation_contract(
     pending: &PendingSearchCompletion,
 ) -> bool {
@@ -205,6 +224,18 @@ pub(crate) fn web_pipeline_completion_reason(
     let required_distinct_source_floor = required_distinct_citations(&query_contract);
 
     let single_snapshot_mode = prefers_single_fact_snapshot(&query_contract);
+    let headline_collection_mode = query_is_generic_headline_collection(&query_contract);
+    let required_story_floor = required_story_count(&query_contract).max(1);
+    let observed_story_domains = pending
+        .successful_reads
+        .iter()
+        .filter_map(|source| source_host(source.url.trim()))
+        .map(|host| host.strip_prefix("www.").unwrap_or(&host).to_string())
+        .collect::<std::collections::BTreeSet<_>>()
+        .len();
+    let story_floor_met = !headline_collection_mode
+        || (pending.successful_reads.len() >= required_story_floor
+            && observed_story_domains >= required_story_floor);
     let query_facets = analyze_query_facets(&query_contract);
     let remaining_candidates = remaining_pending_web_candidates(pending);
     let has_viable_followup_candidate =
@@ -229,6 +260,20 @@ pub(crate) fn web_pipeline_completion_reason(
     }
 
     if grounded_floor_met {
+        if headline_collection_mode && !story_floor_met {
+            let grounded_probe_budget_allows = if pending.deadline_ms == 0 {
+                true
+            } else {
+                pending.deadline_ms.saturating_sub(now_ms)
+                    >= WEB_PIPELINE_MIN_REMAINING_BUDGET_MS_FOR_SEARCH_PROBE
+            };
+            if web_pipeline_grounded_probe_attempt_available(pending)
+                && grounded_probe_budget_allows
+            {
+                return None;
+            }
+            return Some(WebPipelineCompletionReason::ExhaustedCandidates);
+        }
         if single_snapshot_mode && web_pipeline_requires_metric_probe_followup(pending, now_ms) {
             return None;
         }
@@ -249,11 +294,6 @@ pub(crate) fn web_pipeline_completion_reason(
         return Some(WebPipelineCompletionReason::DeadlineReached);
     }
     if remaining_candidates == 0 {
-        let grounded_probe_limit = required_distinct_source_floor
-            .max(min_sources)
-            .max(1)
-            .saturating_sub(1)
-            .clamp(1, WEB_PIPELINE_CONSTRAINT_SEARCH_LIMIT_MAX as usize);
         let grounded_probe_budget_allows = if pending.deadline_ms == 0 {
             true
         } else {
@@ -263,7 +303,7 @@ pub(crate) fn web_pipeline_completion_reason(
         let grounded_probe_recovery = !single_snapshot_mode
             && query_facets.grounded_external_required
             && !grounded_floor_met
-            && single_snapshot_additional_probe_attempt_count(pending) < grounded_probe_limit
+            && web_pipeline_grounded_probe_attempt_available(pending)
             && grounded_probe_budget_allows;
         if grounded_probe_recovery {
             return None;

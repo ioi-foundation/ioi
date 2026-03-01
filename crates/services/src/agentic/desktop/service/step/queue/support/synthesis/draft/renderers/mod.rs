@@ -22,13 +22,7 @@ pub(crate) fn render_synthesis_draft(draft: &SynthesisDraft) -> String {
                 || query_lower.contains("breaking news")
                 || (query_lower.contains("top") && query_lower.contains("news")))
     };
-    let story_count = if headline_lookup_mode && requested_story_count > 1 {
-        requested_story_count
-            .saturating_sub(draft.blocked_urls.len())
-            .clamp(2, requested_story_count)
-    } else {
-        requested_story_count
-    };
+    let story_count = requested_story_count;
     let use_single_snapshot_layout = story_count == 1 && prefers_single_fact_snapshot(&draft.query);
     let insight_receipts = synthesis_insight_receipts(draft);
     let conflict_notes = synthesis_conflict_notes(draft);

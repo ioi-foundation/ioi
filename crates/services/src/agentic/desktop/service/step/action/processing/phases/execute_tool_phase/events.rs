@@ -48,7 +48,7 @@ pub(super) fn emit_execution_contract_receipt_event(
     ));
 }
 
-pub(super) fn resolved_intent_id(agent_state: &AgentState) -> String {
+pub(crate) fn resolved_intent_id(agent_state: &AgentState) -> String {
     agent_state
         .resolved_intent
         .as_ref()
@@ -78,7 +78,7 @@ fn stage_for_contract_key(key: &str) -> &'static str {
     }
 }
 
-pub(super) fn emit_completion_gate_status_event(
+pub(crate) fn emit_completion_gate_status_event(
     service: &DesktopAgentService,
     session_id: [u8; 32],
     step_index: u32,

@@ -22,6 +22,22 @@ pub(crate) fn build_google_serp_url(query: &str) -> String {
     url.to_string()
 }
 
+pub(crate) fn build_google_news_serp_url(query: &str) -> String {
+    let trimmed = query.trim();
+    let mut url = Url::parse("https://www.google.com/search").expect("static base url parses");
+    {
+        let mut query_pairs = url.query_pairs_mut();
+        if !trimmed.is_empty() {
+            query_pairs.append_pair("q", trimmed);
+        }
+        query_pairs
+            .append_pair("tbm", "nws")
+            .append_pair("hl", "en-US")
+            .append_pair("gl", "US");
+    }
+    url.to_string()
+}
+
 pub(crate) fn build_bing_serp_url(query: &str) -> String {
     let trimmed = query.trim();
     if trimmed.is_empty() {
@@ -29,6 +45,19 @@ pub(crate) fn build_bing_serp_url(query: &str) -> String {
     }
     let mut url = Url::parse("https://www.bing.com/search").expect("static base url parses");
     url.query_pairs_mut().append_pair("q", trimmed);
+    url.to_string()
+}
+
+pub(crate) fn build_bing_news_rss_url(query: &str) -> String {
+    let trimmed = query.trim();
+    if trimmed.is_empty() {
+        return "https://www.bing.com/news/search?format=rss".to_string();
+    }
+    let mut url =
+        Url::parse("https://www.bing.com/news/search").expect("static base url parses");
+    url.query_pairs_mut()
+        .append_pair("q", trimmed)
+        .append_pair("format", "rss");
     url.to_string()
 }
 
@@ -164,6 +193,21 @@ fn decode_bing_redirect(url: &str) -> Option<String> {
     let host = parsed.host_str()?.to_ascii_lowercase();
     if !host.ends_with("bing.com") {
         return None;
+    }
+    if parsed.path().starts_with("/news/apiclick.aspx") {
+        let candidate = parsed
+            .query_pairs()
+            .find(|(k, _)| k == "url" || k == "u" || k == "ru")
+            .map(|(_, v)| v.to_string())?;
+        let trimmed = candidate.trim();
+        if !(trimmed.starts_with("http://") || trimmed.starts_with("https://")) {
+            return None;
+        }
+        if let Ok(mut dest) = Url::parse(trimmed) {
+            dest.set_fragment(None);
+            return Some(dest.to_string());
+        }
+        return Some(trimmed.to_string());
     }
     if !parsed.path().starts_with("/ck/") {
         return None;

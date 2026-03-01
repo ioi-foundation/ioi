@@ -2,8 +2,9 @@ use ioi_types::app::agentic::IntentScopeProfile;
 use serde::Serialize;
 
 use super::super::types::{
-    contains_any, has_tool_with_token, truncate_chars, LocalCheck, LocalJudgeResult, QueryCase,
-    RunObservation,
+    action_has_hard_error_class, contains_any, has_contract_failure_evidence, has_tool_with_token,
+    has_verification_pair, truncate_chars, verification_bool, verification_value, ExecutionProfile,
+    LocalCheck, LocalJudgeResult, QueryCase, RunObservation,
 };
 
 #[derive(Debug, Clone, Serialize)]
@@ -24,6 +25,7 @@ pub fn case() -> QueryCase {
         intent_scope: IntentScopeProfile::Conversation,
         seed_resolved_intent: true,
         expected_pass: true,
+        execution_profile: ExecutionProfile::Hermetic,
         sla_seconds: 90,
         max_steps: 16,
         min_local_score: 1.0,
@@ -77,14 +79,16 @@ fn evaluate(obs: &RunObservation) -> LocalJudgeResult {
         && received_timestamp_present
         && mailbox_output_present;
 
-    let setup_env_loaded = has_verification_check(obs, "env_receipt::mail_env_file_loaded=true");
+    let setup_env_loaded = has_verification_pair(obs, "env_receipt::mail_env_file_loaded", "true");
     let setup_connector_bootstrap =
-        has_verification_check(obs, "env_receipt::mail_connector_bootstrap=true");
-    let setup_channel_seeded = has_verification_check(obs, "env_receipt::mail_channel_seeded=true");
-    let setup_lease_seeded = has_verification_check(obs, "env_receipt::mail_lease_seeded=true");
+        has_verification_pair(obs, "env_receipt::mail_connector_bootstrap", "true");
+    let setup_channel_seeded =
+        has_verification_pair(obs, "env_receipt::mail_channel_seeded", "true");
+    let setup_lease_seeded = has_verification_pair(obs, "env_receipt::mail_lease_seeded", "true");
     let setup_receipt_timestamp_present =
-        verification_value(obs, "env_receipt::mail_setup_timestamp_ms=").is_some();
-    let setup_mailbox = verification_value(obs, "env_receipt::mail_mailbox=");
+        verification_value(obs, "env_receipt::mail_setup_timestamp_ms").is_some();
+    let setup_mailbox = verification_value(obs, "env_receipt::mail_mailbox")
+        .map(|value| value.to_ascii_lowercase());
     let setup_mailbox_binding_present = setup_mailbox
         .as_ref()
         .map(|mailbox| {
@@ -102,18 +106,22 @@ fn evaluate(obs: &RunObservation) -> LocalJudgeResult {
         && setup_lease_seeded
         && setup_receipt_timestamp_present;
 
-    let mailbox_fallback_markers_present = has_mailbox_fallback_marker(&obs.final_reply)
-        || obs
-            .verification_checks
-            .iter()
-            .any(|check| has_mailbox_fallback_marker(check))
+    let mailbox_runtime_fallback_markers_present =
+        verification_bool(obs, "mailbox_connector_path_required").unwrap_or(false)
+            || verification_bool(obs, "mailbox_non_connector_tool_blocked").unwrap_or(false)
+            || verification_bool(obs, "mailbox_invalid_tool_call_fail_fast").unwrap_or(false)
+            || verification_bool(obs, "mailbox_system_fail_degraded_to_reply").unwrap_or(false);
+    let mailbox_response_fallback_markers_present = has_mailbox_fallback_marker(&obs.final_reply)
         || obs
             .event_excerpt
             .iter()
             .any(|line| has_mailbox_fallback_marker(line));
+    let mailbox_fallback_markers_present =
+        mailbox_runtime_fallback_markers_present || mailbox_response_fallback_markers_present;
     let no_mailbox_fallback_markers = !mailbox_fallback_markers_present;
 
-    let any_contract_failure_marker = observation_has_contract_failure_marker(obs);
+    let any_contract_failure_marker =
+        has_contract_failure_evidence(obs) || has_mailbox_runtime_failure_marker(obs);
     let completion_evidence_present = obs.completed
         && !obs.failed
         && ((!obs.final_reply.trim().is_empty() && obs.chat_reply_count > 0)
@@ -265,9 +273,7 @@ fn is_mail_read_latest_success_event(entry: &super::super::types::ActionEvidence
     );
     is_mail_read_latest_tool_name(&entry.tool_name)
         && non_failure_status
-        && !has_contract_failure_marker(&entry.output_excerpt)
-        && !lower.contains("error_class=")
-        && !lower.contains("\"error_class\":")
+        && !action_has_hard_error_class(entry)
         && (imap_citation_present(&lower)
             || (lower.contains("\"mailbox\":") && lower.contains("\"message\":")))
 }
@@ -276,12 +282,7 @@ fn is_mail_read_latest_failure_event(entry: &super::super::types::ActionEvidence
     if !is_mail_read_latest_tool_name(&entry.tool_name) {
         return false;
     }
-    entry.agent_status.eq_ignore_ascii_case("failed")
-        || has_contract_failure_marker(&entry.output_excerpt)
-        || entry
-            .output_excerpt
-            .to_ascii_lowercase()
-            .contains("error_class=")
+    entry.agent_status.eq_ignore_ascii_case("failed") || action_has_hard_error_class(entry)
 }
 
 fn is_mail_read_latest_tool_name(tool_name: &str) -> bool {
@@ -303,20 +304,6 @@ fn imap_citation_present(lower: &str) -> bool {
     lower.contains("\"citation\":\"imap://") || lower.contains("\"citation\": \"imap://")
 }
 
-fn has_verification_check(obs: &RunObservation, expected: &str) -> bool {
-    obs.verification_checks
-        .iter()
-        .any(|check| check.eq_ignore_ascii_case(expected))
-}
-
-fn verification_value(obs: &RunObservation, prefix: &str) -> Option<String> {
-    obs.verification_checks
-        .iter()
-        .find_map(|check| check.strip_prefix(prefix))
-        .map(|value| value.trim().to_ascii_lowercase())
-        .filter(|value| !value.is_empty())
-}
-
 fn build_environment_receipts(
     obs: &RunObservation,
     mail_read_success_count: usize,
@@ -331,11 +318,11 @@ fn build_environment_receipts(
             key: "mail_env_bootstrap_loaded",
             observed_value: format!(
                 "env_receipt::mail_env_file_loaded={}",
-                has_verification_check(obs, "env_receipt::mail_env_file_loaded=true")
+                has_verification_pair(obs, "env_receipt::mail_env_file_loaded", "true")
             ),
-            probe_source: "RunObservation.verification_checks",
+            probe_source: "RunObservation.verification_facts",
             timestamp_ms: obs.run_timestamp_ms,
-            satisfied: has_verification_check(obs, "env_receipt::mail_env_file_loaded=true"),
+            satisfied: has_verification_pair(obs, "env_receipt::mail_env_file_loaded", "true"),
         },
         EnvironmentEvidenceReceipt {
             key: "mail_connector_runtime_configured",
@@ -343,7 +330,7 @@ fn build_environment_receipts(
                 "connector_setup_receipts_present={}",
                 connector_environment_setup_receipts_present
             ),
-            probe_source: "RunObservation.verification_checks",
+            probe_source: "RunObservation.verification_facts",
             timestamp_ms: obs.run_timestamp_ms,
             satisfied: connector_environment_setup_receipts_present,
         },
@@ -382,33 +369,6 @@ fn serialize_environment_receipts(receipts: &[EnvironmentEvidenceReceipt]) -> St
     serde_json::to_string(receipts).unwrap_or_else(|_| "[]".to_string())
 }
 
-fn observation_has_contract_failure_marker(obs: &RunObservation) -> bool {
-    let mut evidence_corpus = Vec::<String>::new();
-    evidence_corpus.push(obs.final_reply.clone());
-    evidence_corpus.extend(
-        obs.action_evidence
-            .iter()
-            .filter(|entry| is_mail_read_latest_tool_name(&entry.tool_name))
-            .map(|entry| format!("{} {}", entry.agent_status, entry.output_excerpt)),
-    );
-    evidence_corpus.extend(obs.verification_checks.iter().cloned());
-    evidence_corpus.extend(
-        obs.event_excerpt
-            .iter()
-            .filter(|line| {
-                let lower = line.to_ascii_lowercase();
-                lower.contains("mail_read_latest")
-                    || lower.contains("completion_gate")
-                    || lower.contains("contract_gate")
-            })
-            .cloned(),
-    );
-
-    evidence_corpus
-        .iter()
-        .any(|segment| has_contract_failure_marker(segment))
-}
-
 fn has_mailbox_fallback_marker(text: &str) -> bool {
     let lower = text.to_ascii_lowercase();
     [
@@ -424,22 +384,8 @@ fn has_mailbox_fallback_marker(text: &str) -> bool {
     .any(|marker| lower.contains(marker))
 }
 
-fn has_contract_failure_marker(text: &str) -> bool {
-    let lower = text.to_ascii_lowercase();
+fn has_mailbox_runtime_failure_marker(obs: &RunObservation) -> bool {
     [
-        "execution_contract_gate_blocked=true",
-        "cec_terminal_error=true",
-        "execution contract unmet",
-        "base_error_class=executioncontractviolation",
-        "error_class=executioncontractviolation",
-        "error_class=discoverymissing",
-        "error_class=synthesisfailed",
-        "error_class=executionfailedterminal",
-        "error_class=verificationmissing",
-        "error_class=postconditionfailed",
-        "failed_stage=",
-        "missing_receipts=",
-        "missing_postconditions=",
         "wallet_network service is not active in the servicedirectory",
         "unable to resolve wallet mail channel_id",
         "unable to resolve wallet mail lease_id",
@@ -447,5 +393,16 @@ fn has_contract_failure_marker(text: &str) -> bool {
         "no wallet mail lease binding available",
     ]
     .iter()
-    .any(|marker| lower.contains(marker))
+    .any(|marker| {
+        let marker = marker.to_ascii_lowercase();
+        obs.final_reply.to_ascii_lowercase().contains(&marker)
+            || obs
+                .action_evidence
+                .iter()
+                .any(|entry| entry.output_excerpt.to_ascii_lowercase().contains(&marker))
+            || obs
+                .event_excerpt
+                .iter()
+                .any(|line| line.to_ascii_lowercase().contains(&marker))
+    })
 }

@@ -107,6 +107,7 @@ ibc-proto = { workspace = true, features = ["serde", "std"] }
 transport-verifier = { path = "../plugins/transport-verifier" }
 # [NEW] For pHash testing in mocks
 image = "0.25"
+zip = { version = "0.6.6", default-features = false, features = ["deflate"] }
 # [FIX] Add zk-types dependency for zk fixture generation
 zk-types = { path = "../plugins/zk-types" }
 

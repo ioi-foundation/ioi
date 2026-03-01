@@ -1,3 +1,4 @@
+mod compress_the_projects_folder_into_a_zip_file_and_put_it_on_my_desktop;
 mod create_a_new_folder_on_my_desktop_called_project_some_number;
 mod download_and_install_vlc_media_player;
 mod find_all_pdf_files_on_my_computer_modified_in_the_last_week;
@@ -21,6 +22,7 @@ pub fn all_cases() -> Vec<QueryCase> {
         whats_the_current_price_of_bitcoin::case(),
         open_calculator_app::case(),
         set_timer_15_minutes::case(),
+        compress_the_projects_folder_into_a_zip_file_and_put_it_on_my_desktop::case(),
         create_a_new_folder_on_my_desktop_called_project_some_number::case(),
         download_and_install_vlc_media_player::case(),
         download_and_install_vlc_media_player::case_unseeded(),

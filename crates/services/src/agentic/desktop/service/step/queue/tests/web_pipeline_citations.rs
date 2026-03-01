@@ -343,6 +343,63 @@ fn web_pipeline_citation_selector_limits_duplicate_claim_clusters_when_alternati
 }
 
 #[test]
+fn web_pipeline_citation_selector_keeps_story_anchor_even_if_url_was_used_by_prior_story() {
+    let source = PendingSearchReadSummary {
+        url: "https://www.bbc.com/news/live/cn5ge95q6y7t".to_string(),
+        title: Some(
+            "Iran and Israel launch fresh attacks after Iran's Supreme Leader killed".to_string(),
+        ),
+        excerpt: "Live updates from BBC News with timeline and casualty detail.".to_string(),
+    };
+    let candidates = vec![
+        CitationCandidate {
+            id: "BBC".to_string(),
+            url: "https://www.bbc.com/news/live/cn5ge95q6y7t".to_string(),
+            source_label: "BBC live updates".to_string(),
+            excerpt: "Live updates from BBC News with timeline and casualty detail.".to_string(),
+            timestamp_utc: "2026-03-01T13:44:19Z".to_string(),
+            note: "retrieved_utc".to_string(),
+            from_successful_read: true,
+        },
+        CitationCandidate {
+            id: "CBS".to_string(),
+            url: "https://www.cbsnews.com/live-updates/us-iran-war-israel-day-2/".to_string(),
+            source_label: "CBS live updates".to_string(),
+            excerpt: "CBS reports ongoing strikes and official statements.".to_string(),
+            timestamp_utc: "2026-03-01T13:44:19Z".to_string(),
+            note: "retrieved_utc".to_string(),
+            from_successful_read: true,
+        },
+        CitationCandidate {
+            id: "ALJ".to_string(),
+            url: "https://www.aljazeera.com/news/2026/3/1/protest-at-us-consulate".to_string(),
+            source_label: "Al Jazeera report".to_string(),
+            excerpt: "Al Jazeera reports on related protest developments.".to_string(),
+            timestamp_utc: "2026-03-01T13:44:19Z".to_string(),
+            note: "retrieved_utc".to_string(),
+            from_successful_read: true,
+        },
+    ];
+    let mut used_urls = BTreeSet::from([source.url.clone()]);
+    let constraints = single_snapshot_constraint_set_with_hints("today top news headlines", 2, &[]);
+    let selected_ids = citation_ids_for_story(
+        &source,
+        &candidates,
+        &mut used_urls,
+        2,
+        false,
+        &constraints,
+        ResolutionPolicy::default(),
+    );
+
+    assert!(
+        selected_ids.iter().any(|id| id == "BBC"),
+        "expected story anchor citation to be preserved even when URL is already used"
+    );
+    assert_eq!(selected_ids.len(), 2);
+}
+
+#[test]
 fn web_pipeline_reply_heading_is_query_agnostic() {
     let pending = PendingSearchCompletion {
         query: "latest regional cloud availability updates".to_string(),

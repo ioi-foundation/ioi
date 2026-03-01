@@ -17,12 +17,15 @@ pub(crate) fn search_provider_plan(
     match profile {
         SearchBackendProfile::ConstraintGroundedTimeSensitive => &[
             SearchProviderStage::BingHttp,
+            SearchProviderStage::BingNewsRss,
             SearchProviderStage::GoogleHttp,
+            SearchProviderStage::GoogleNewsRss,
             SearchProviderStage::DdgHttp,
             SearchProviderStage::DdgBrowser,
         ],
         SearchBackendProfile::ConstraintGroundedExternal => &[
             SearchProviderStage::BingHttp,
+            SearchProviderStage::BingNewsRss,
             SearchProviderStage::DdgHttp,
             SearchProviderStage::GoogleHttp,
             SearchProviderStage::GoogleNewsRss,
@@ -32,6 +35,7 @@ pub(crate) fn search_provider_plan(
             SearchProviderStage::DdgHttp,
             SearchProviderStage::DdgBrowser,
             SearchProviderStage::BingHttp,
+            SearchProviderStage::BingNewsRss,
             SearchProviderStage::GoogleHttp,
             SearchProviderStage::GoogleNewsRss,
         ],
@@ -40,23 +44,7 @@ pub(crate) fn search_provider_plan(
 
 pub(crate) fn effective_search_provider_plan(query: &str) -> Vec<SearchProviderStage> {
     let profile = search_backend_profile(query);
-    let mut plan = search_provider_plan(profile).to_vec();
-    if query_is_generic_headline_lookup(query) {
-        // Headline retrieval is time-budgeted; prioritize RSS first to maximize
-        // early multi-outlet discovery hints before direct provider fallbacks.
-        if let Some(idx) = plan
-            .iter()
-            .position(|stage| *stage == SearchProviderStage::GoogleNewsRss)
-        {
-            let stage = plan.remove(idx);
-            let insert_idx = 0;
-            plan.insert(insert_idx, stage);
-        } else {
-            let insert_idx = 0;
-            plan.insert(insert_idx, SearchProviderStage::GoogleNewsRss);
-        }
-    }
-    plan
+    search_provider_plan(profile).to_vec()
 }
 
 pub(crate) fn search_budget_exhausted(started_at_ms: u64) -> bool {

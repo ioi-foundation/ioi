@@ -171,7 +171,9 @@ message AgentActionResult {
     string output = 4;
     // [NEW] The authoritative lifecycle state after this action.
     // e.g. "Running", "Paused", "Completed", "Failed"
-    string agent_status = 5; 
+    string agent_status = 5;
+    string error_class = 6;
+    bool has_error_class = 7;
 }
 
 // --- Workload Orchestration Events ---

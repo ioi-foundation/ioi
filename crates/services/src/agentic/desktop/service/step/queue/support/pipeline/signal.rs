@@ -109,7 +109,6 @@ pub(crate) fn is_low_signal_title(title: &str) -> bool {
         || lower.contains("breaking news, latest news")
         || lower.contains("today's latest headlines")
         || lower.contains("latest news and videos")
-        || lower.contains("reuters | breaking international news")
         || lower.contains("top stories")
 }
 

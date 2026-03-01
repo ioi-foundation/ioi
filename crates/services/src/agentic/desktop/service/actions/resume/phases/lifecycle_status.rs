@@ -192,6 +192,7 @@ pub(crate) async fn run_lifecycle_status_phase(
                 step_index: agent_state.step_count,
                 tool_name: "sys__install_package".to_string(),
                 output: err.clone().unwrap_or_default(),
+                error_class: extract_error_class_token(err.as_deref()).map(str::to_string),
                 agent_status: "Paused".to_string(),
             });
         }
@@ -351,6 +352,7 @@ pub(crate) async fn run_lifecycle_status_phase(
                             step_index: agent_state.step_count,
                             tool_name: "chat__reply".to_string(),
                             output: message.clone(),
+                            error_class: None,
                             agent_status: status::status_str(&agent_state.status),
                         });
                         terminal_response_emitted = true;
@@ -525,6 +527,7 @@ pub(crate) async fn run_lifecycle_status_phase(
                 step_index: agent_state.step_count,
                 tool_name: tool_name.clone(),
                 output,
+                error_class: extract_error_class_token(err.as_deref()).map(str::to_string),
                 agent_status: status::status_str(&agent_state.status),
             });
         }

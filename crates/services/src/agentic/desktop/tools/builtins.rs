@@ -763,6 +763,21 @@ pub(super) fn push_builtin_tools(
         parameters: fs_search_params.to_string(),
     });
 
+    let fs_stat_params = json!({
+        "type": "object",
+        "properties": {
+            "path": { "type": "string", "description": "Path to inspect for deterministic metadata." }
+        },
+        "required": ["path"]
+    });
+    tools.push(LlmToolDefinition {
+        name: "filesystem__stat".to_string(),
+        description:
+            "Return deterministic metadata for a file or directory, including modified timestamp."
+                .to_string(),
+        parameters: fs_stat_params.to_string(),
+    });
+
     let fs_move_params = json!({
         "type": "object",
         "properties": {
@@ -841,6 +856,26 @@ pub(super) fn push_builtin_tools(
         description: "Create a directory deterministically without invoking shell commands."
             .to_string(),
         parameters: fs_create_directory_params.to_string(),
+    });
+
+    let fs_create_zip_params = json!({
+        "type": "object",
+        "properties": {
+            "source_path": { "type": "string", "description": "Source directory path to compress." },
+            "destination_zip_path": { "type": "string", "description": "Destination .zip file path." },
+            "overwrite": {
+                "type": "boolean",
+                "description": "When true, replace an existing destination zip file."
+            }
+        },
+        "required": ["source_path", "destination_zip_path"]
+    });
+    tools.push(LlmToolDefinition {
+        name: "filesystem__create_zip".to_string(),
+        description:
+            "Create a zip archive from a source directory deterministically without invoking shell commands."
+                .to_string(),
+        parameters: fs_create_zip_params.to_string(),
     });
 
     let install_pkg_params = json!({

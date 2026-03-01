@@ -1,13 +1,16 @@
 use super::{
     apply_patch, copy_path_deterministic, create_directory_deterministic,
-    delete_path_deterministic, fuzzy_find_indices, list_directory_entries, move_path_deterministic,
-    resolve_home_directory, resolve_tool_path, search_files,
+    create_zip_from_directory_deterministic, delete_path_deterministic, fuzzy_find_indices,
+    list_directory_entries, move_path_deterministic, resolve_home_directory, resolve_tool_path,
+    search_files, stat_path_deterministic,
 };
 use std::fs;
+use std::io::Read;
 #[cfg(unix)]
 use std::os::unix::fs::symlink;
 use std::path::PathBuf;
 use std::time::{SystemTime, UNIX_EPOCH};
+use zip::ZipArchive;
 
 fn make_temp_dir(name: &str) -> PathBuf {
     let nanos = SystemTime::now()
@@ -106,6 +109,40 @@ fn search_files_traversal_is_sorted_by_filename() {
     assert_eq!(lines.len(), 2);
     assert!(lines[0].contains("a.txt:1: needle in a"));
     assert!(lines[1].contains("b.txt:1: needle in b"));
+
+    let _ = fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn stat_path_reports_expected_metadata_fields() {
+    let dir = make_temp_dir("stat");
+    let file_path = dir.join("example.txt");
+    fs::write(&file_path, "payload").expect("file should be written");
+
+    let payload =
+        stat_path_deterministic(&file_path).expect("stat tool should return serialized payload");
+    let parsed: serde_json::Value =
+        serde_json::from_str(&payload).expect("stat payload should be valid json");
+
+    assert_eq!(
+        parsed.get("path").and_then(|value| value.as_str()),
+        Some(file_path.to_string_lossy().as_ref())
+    );
+    assert_eq!(
+        parsed.get("entry_type").and_then(|value| value.as_str()),
+        Some("file")
+    );
+    assert_eq!(
+        parsed.get("size_bytes").and_then(|value| value.as_u64()),
+        Some(7)
+    );
+    assert!(
+        parsed
+            .get("modified_epoch_ms")
+            .and_then(|value| value.as_u64())
+            .is_some(),
+        "modified_epoch_ms should be present for regular files"
+    );
 
     let _ = fs::remove_dir_all(&dir);
 }
@@ -393,6 +430,56 @@ fn create_directory_rejects_existing_file_path() {
     let err = create_directory_deterministic(&target, true)
         .expect_err("create directory should fail for file path");
     assert!(err.contains("not a directory"));
+
+    let _ = fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn create_zip_archives_directory_entries_deterministically() {
+    let dir = make_temp_dir("create-zip");
+    let source = dir.join("Projects");
+    let nested = source.join("src");
+    let destination = dir.join("Projects.zip");
+    fs::create_dir_all(&nested).expect("source tree should be created");
+    fs::write(source.join("README.md"), "hello").expect("readme should be written");
+    fs::write(nested.join("main.rs"), "fn main() {}").expect("main should be written");
+
+    let entries = create_zip_from_directory_deterministic(&source, &destination, false)
+        .expect("zip creation should succeed");
+    assert!(destination.is_file());
+    assert!(entries.iter().any(|entry| entry == "README.md"));
+    assert!(entries.iter().any(|entry| entry == "src/"));
+    assert!(entries.iter().any(|entry| entry == "src/main.rs"));
+
+    let file = fs::File::open(&destination).expect("zip should be readable");
+    let mut archive = ZipArchive::new(file).expect("zip archive should parse");
+    let mut readme = String::new();
+    archive
+        .by_name("README.md")
+        .expect("README should be present")
+        .read_to_string(&mut readme)
+        .expect("README should read");
+    assert_eq!(readme, "hello");
+
+    let _ = fs::remove_dir_all(&dir);
+}
+
+#[cfg(unix)]
+#[test]
+fn create_zip_rejects_symlink_entries() {
+    let dir = make_temp_dir("create-zip-symlink");
+    let source = dir.join("Projects");
+    let destination = dir.join("Projects.zip");
+    fs::create_dir_all(&source).expect("source tree should be created");
+    let real = source.join("real.txt");
+    let link = source.join("link.txt");
+    fs::write(&real, "payload").expect("real file should be written");
+    symlink(&real, &link).expect("symlink should be created");
+
+    let err = create_zip_from_directory_deterministic(&source, &destination, false)
+        .expect_err("zip should reject symlink");
+    assert!(err.contains("symlink"));
+    assert!(!destination.exists());
 
     let _ = fs::remove_dir_all(&dir);
 }
