@@ -3,15 +3,18 @@ import type { AgentEvent, ChatMessage } from "../../../types";
 import { MarkdownMessage } from "../components/MarkdownMessage";
 import { MessageActions } from "../components/MessageActions";
 import { ThoughtChain } from "../components/ThoughtChain";
+import type { ChatEvent } from "./useGateState";
 
-type LegacyChatEvent = ChatMessage & {
-  isGate?: boolean;
-  gateData?: unknown;
-};
+type LegacyChatEvent = ChatEvent;
+
+type LegacyPresentationGroup =
+  | { type: "message"; content: LegacyChatEvent }
+  | { type: "chain"; content: ChatMessage[] }
+  | { type: "gate"; content: unknown };
 
 interface LegacyPresentationOptions {
   activeHistory: ChatMessage[];
-  chatEvents: LegacyChatEvent[];
+  chatEvents: ChatEvent[];
   activeEvents: AgentEvent[];
   isRunning: boolean;
   taskMeta: {
@@ -38,10 +41,7 @@ export function useLegacyPresentation({
       ...chatEvents,
     ];
 
-    const groups: Array<{
-      type: "message" | "chain" | "gate";
-      content: any;
-    }> = [];
+    const groups: LegacyPresentationGroup[] = [];
 
     let currentChain: ChatMessage[] = [];
     let foundChain = false;

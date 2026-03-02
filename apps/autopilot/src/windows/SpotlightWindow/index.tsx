@@ -1,6 +1,6 @@
 // apps/autopilot/src/windows/SpotlightWindow/index.tsx
 
-import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
+import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { useAgentStore } from "../../store/agentStore";
 import {
@@ -20,18 +20,15 @@ import { useLegacyPresentation } from "./hooks/useLegacyPresentation";
 // Sub-components
 import { icons } from "./components/Icons";
 import { IOIWatermark } from "./components/IOIWatermark";
-import { MarkdownMessage } from "./components/MarkdownMessage";
 import { ScrollToBottom } from "./components/ScrollToBottom";
 import { HistorySidebar } from "./components/HistorySidebar";
 import { ThoughtChain } from "./components/ThoughtChain";
-import { AnswerCard } from "./components/AnswerCard";
 import { SpotlightArtifactPanel } from "./components/SpotlightArtifactPanel";
-import { VisualEvidenceCard } from "./components/VisualEvidenceCard";
+import { ConversationTimeline } from "./components/ConversationTimeline";
 import { SpotlightInputSection } from "./components/SpotlightInputSection";
 import { SpotlightGateDock } from "./components/SpotlightGateDock";
 import { buildRunPresentation } from "./viewmodels/contentPipeline";
 import { exportThreadContextBundle } from "./utils/exportContext";
-import { normalizeVisualHash } from "./utils/visualHash";
 import {
   ARTIFACT_PANEL_WIDTH,
   BASE_PANEL_WIDTH,
@@ -367,7 +364,7 @@ export function SpotlightWindow({ variant = "overlay" }: SpotlightWindowProps) {
 
   const { legacyChatElements, hasLegacyChainContent } = useLegacyPresentation({
     activeHistory,
-    chatEvents: chatEvents as any,
+    chatEvents,
     activeEvents,
     isRunning,
     taskMeta: {
@@ -425,178 +422,27 @@ export function SpotlightWindow({ variant = "overlay" }: SpotlightWindowProps) {
               {!hasContent && <IOIWatermark onSuggestionClick={(text) => setIntent(text)} />}
 
               {CONTENT_PIPELINE_V2_ENABLED ? (
-                <>
-                  {conversationTurns.map((turn, index) => {
-                    const isLatestTurn = index === conversationTurns.length - 1;
-                    const isLatestAnsweredTurn = index === latestAnsweredTurnIndex;
-                    const turnContext = turnContexts[index] || null;
-                    const latestAnswerMatches =
-                      isLatestAnsweredTurn &&
-                      !!turn.answer &&
-                      !!runPresentation.finalAnswer;
-                    const hasThoughtSummary = !!runPresentation.thoughtSummary;
-                    const showLiveThinking = isLatestTurn && !!turn.prompt && !turn.answer && isRunning;
-                    const showThoughtTrigger = !!turn.prompt && (showLiveThinking || !!turn.answer);
-                    const thoughtCount = turnContext?.thoughtCount || 0;
-                    const visualReceiptCount = turnContext?.visualReceiptCount || 0;
-                    const liveVisualHash =
-                      isLatestTurn && showLiveThinking
-                        ? normalizeVisualHash(task?.visual_hash ?? "") || null
-                        : null;
-                    const inlineVisualHash = liveVisualHash || turnContext?.latestVisualHash || null;
-                    const showInlineVisualReceipt =
-                      !!inlineVisualHash || (!!turnContext && turnContext.visualReceiptCount > 0);
-                    const hasTurnTrace =
-                      (turnContext?.kernelEventCount || 0) > 0 ||
-                      thoughtCount > 0 ||
-                      visualReceiptCount > 0;
-
-                    return (
-                      <React.Fragment key={turn.key}>
-                        {turn.prompt && (
-                          <div className="spot-message user spot-message--prompt">
-                            <div className="message-content-text">{turn.prompt.text}</div>
-                          </div>
-                        )}
-
-                        {showThoughtTrigger && (
-                          <button
-                            className={`spot-thinking-pill ${
-                              showLiveThinking ? "spot-thinking-pill--active" : ""
-                            }`}
-                            type="button"
-                            onClick={() =>
-                              openArtifactHub(
-                                turnContext?.defaultView ||
-                                  (hasThoughtSummary ? "thoughts" : "kernel_logs"),
-                                turnContext?.turnId || null,
-                              )
-                            }
-                            title="Open thinking artifacts"
-                          >
-                            <span className="spot-thinking-pill-icon">{icons.sparkles}</span>
-                            <span className="spot-thinking-pill-text">Thinking...</span>
-                            <span className="spot-thinking-pill-detail">
-                              {showLiveThinking
-                                ? task?.current_step || "Reasoning across tools"
-                                : !hasTurnTrace
-                                  ? "No trace captured"
-                                  : thoughtCount > 0
-                                    ? `${thoughtCount} ${thoughtCount === 1 ? "step" : "steps"} captured`
-                                    : visualReceiptCount > 0
-                                      ? `${visualReceiptCount} visual ${
-                                          visualReceiptCount === 1 ? "receipt" : "receipts"
-                                        } captured`
-                                      : `${turnContext?.kernelEventCount || 0} events captured`}
-                            </span>
-                          </button>
-                        )}
-
-                        {showLiveThinking && !!turnContext?.streamPreview && (
-                          <div className="thought-stream-panel spot-inline-stream-panel">
-                            <div className="thought-stream-header">
-                              <span>{turnContext.streamLabel || "Terminal output"}</span>
-                              <span>{turnContext.streamIsFinal ? "final" : "live"}</span>
-                            </div>
-                            <pre className="thought-stream-output">
-                              {turnContext.streamPreview}
-                            </pre>
-                          </div>
-                        )}
-
-                        {showInlineVisualReceipt && (
-                          <VisualEvidenceCard
-                            hash={inlineVisualHash || ""}
-                            timestamp={turnContext?.latestVisualTimestamp || null}
-                            stepIndex={turnContext?.latestVisualStepIndex || null}
-                            title={
-                              showLiveThinking
-                                ? "Live visual context"
-                                : turnContext?.latestVisualHasBlob
-                                  ? "Captured visual context"
-                                  : "Captured screenshot receipt (metadata-only)"
-                            }
-                            compact={true}
-                            className="spot-inline-visual-evidence"
-                          />
-                        )}
-                        {showInlineVisualReceipt &&
-                          !inlineVisualHash &&
-                          !!turnContext?.latestVisualSummary && (
-                            <p className="spot-inline-visual-summary">
-                              {turnContext.latestVisualSummary}
-                            </p>
-                          )}
-
-                        {turn.answer &&
-                          (latestAnswerMatches && runPresentation.finalAnswer ? (
-                            <AnswerCard
-                              answer={runPresentation.finalAnswer}
-                              sourceSummary={runPresentation.sourceSummary}
-                              sourceDurationLabel={task?.receipt?.duration}
-                              onDownloadContext={handleDownloadContext}
-                              onOpenArtifacts={() =>
-                                openArtifactHub(
-                                  turnContext?.defaultView ||
-                                    (runPresentation.thoughtSummary
-                                      ? "thoughts"
-                                      : runPresentation.sourceSummary
-                                        ? "sources"
-                                        : "kernel_logs"),
-                                  turnContext?.turnId || null,
-                                )
-                              }
-                              onOpenSources={openSourceSummaryPanel}
-                            />
-                          ) : (
-                            <div className="spot-message agent">
-                              <MarkdownMessage text={turn.answer.text} />
-                            </div>
-                          ))}
-                      </React.Fragment>
-                    );
-                  })}
-
-                  {conversationTurns.length === 0 && runPresentation.finalAnswer && (
-                    <AnswerCard
-                      answer={runPresentation.finalAnswer}
-                      sourceSummary={runPresentation.sourceSummary}
-                      sourceDurationLabel={task?.receipt?.duration}
-                      onDownloadContext={handleDownloadContext}
-                      onOpenArtifacts={() =>
-                        openArtifactHub(
-                          runPresentation.thoughtSummary
-                            ? "thoughts"
-                            : runPresentation.sourceSummary
-                              ? "sources"
-                              : "kernel_logs",
-                        )
-                      }
-                      onOpenSources={openSourceSummaryPanel}
-                    />
-                  )}
-                </>
+                <ConversationTimeline
+                  conversationTurns={conversationTurns}
+                  latestAnsweredTurnIndex={latestAnsweredTurnIndex}
+                  turnContexts={turnContexts}
+                  runPresentation={runPresentation}
+                  isRunning={isRunning}
+                  currentStep={task?.current_step}
+                  visualHash={task?.visual_hash || null}
+                  sourceDurationLabel={task?.receipt?.duration}
+                  showInitialLoader={showInitialLoader}
+                  icons={icons}
+                  onDownloadContext={handleDownloadContext}
+                  onOpenArtifactHub={openArtifactHub}
+                  onOpenSourceSummary={openSourceSummaryPanel}
+                />
               ) : (
                 <>{legacyChatElements}</>
               )}
 
               {showInitialLoader &&
-                (CONTENT_PIPELINE_V2_ENABLED ? (
-                  <button
-                    className="spot-thinking-pill spot-thinking-pill--active"
-                    type="button"
-                    onClick={() =>
-                      openArtifactHub(runPresentation.thoughtSummary ? "thoughts" : "kernel_logs")
-                    }
-                    title="Open thinking artifacts"
-                  >
-                    <span className="spot-thinking-pill-icon">{icons.sparkles}</span>
-                    <span className="spot-thinking-pill-text">Thinking...</span>
-                    <span className="spot-thinking-pill-detail">
-                      {task?.current_step || "Initializing..."}
-                    </span>
-                  </button>
-                ) : (
+                (!CONTENT_PIPELINE_V2_ENABLED && (
                   <ThoughtChain
                     messages={[]}
                     activeStep={task?.current_step || "Initializing..."}

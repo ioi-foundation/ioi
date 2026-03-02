@@ -3639,6 +3639,43 @@ async fn bootstrap_mailbox_runtime_state(
     ])
 }
 
+fn bootstrap_optional_fixture<T, B, P>(
+    enabled: bool,
+    bootstrap: B,
+    preflight: P,
+    setup_checks: &mut Vec<String>,
+) -> Result<Option<T>>
+where
+    B: FnOnce() -> Result<T>,
+    P: FnOnce(&T) -> Vec<String>,
+{
+    if !enabled {
+        return Ok(None);
+    }
+    let fixture = bootstrap()?;
+    setup_checks.extend(preflight(&fixture));
+    Ok(Some(fixture))
+}
+
+fn insert_fixture_checks<T>(
+    verification_checks: &mut BTreeSet<String>,
+    fixture: Option<&T>,
+    post_run: fn(&T) -> Vec<String>,
+    cleanup: Option<fn(&T) -> Vec<String>>,
+) {
+    let Some(fixture) = fixture else {
+        return;
+    };
+    for check in post_run(fixture) {
+        verification_checks.insert(check);
+    }
+    if let Some(cleanup_fn) = cleanup {
+        for check in cleanup_fn(fixture) {
+            verification_checks.insert(check);
+        }
+    }
+}
+
 pub async fn run_case(
     case: &QueryCase,
     run_index: usize,
@@ -3670,108 +3707,91 @@ pub async fn run_case(
     let run_unique_num = run_unique_num(run_index, run_timestamp_ms);
     let mut run_query = render_query_for_run(case.query, run_index, run_timestamp_ms);
     let mut runtime_setup_verification_checks = Vec::<String>::new();
-    let vlc_install_fixture = if should_bootstrap_vlc_install_fixture(case.id) {
-        let fixture = bootstrap_vlc_install_fixture_runtime()?;
-        runtime_setup_verification_checks.extend(vlc_install_fixture_preflight_checks(
-            &fixture,
-            run_timestamp_ms,
-        ));
-        Some(fixture)
-    } else {
-        None
-    };
-    let projects_zip_fixture = if should_bootstrap_projects_zip_fixture(case.id) {
-        let fixture = bootstrap_projects_zip_fixture_runtime()?;
-        runtime_setup_verification_checks.extend(projects_zip_fixture_preflight_checks(
-            &fixture,
-            run_timestamp_ms,
-        ));
-        Some(fixture)
-    } else {
-        None
-    };
-    let downloads_lowercase_fixture = if should_bootstrap_downloads_lowercase_fixture(case.id) {
-        let fixture = bootstrap_downloads_lowercase_fixture_runtime(&run_unique_num)?;
-        runtime_setup_verification_checks.extend(downloads_lowercase_fixture_preflight_checks(
-            &fixture,
-            run_timestamp_ms,
-        ));
-        Some(fixture)
-    } else {
-        None
-    };
-    let downloads_png_move_fixture = if should_bootstrap_downloads_png_move_fixture(case.id) {
-        let fixture = bootstrap_downloads_png_move_fixture_runtime(&run_unique_num)?;
-        runtime_setup_verification_checks.extend(downloads_png_move_fixture_preflight_checks(
-            &fixture,
-            &run_unique_num,
-            run_timestamp_ms,
-        ));
+    let vlc_install_fixture = bootstrap_optional_fixture(
+        should_bootstrap_vlc_install_fixture(case.id),
+        bootstrap_vlc_install_fixture_runtime,
+        |fixture| vlc_install_fixture_preflight_checks(fixture, run_timestamp_ms),
+        &mut runtime_setup_verification_checks,
+    )?;
+    let projects_zip_fixture = bootstrap_optional_fixture(
+        should_bootstrap_projects_zip_fixture(case.id),
+        bootstrap_projects_zip_fixture_runtime,
+        |fixture| projects_zip_fixture_preflight_checks(fixture, run_timestamp_ms),
+        &mut runtime_setup_verification_checks,
+    )?;
+    let downloads_lowercase_fixture = bootstrap_optional_fixture(
+        should_bootstrap_downloads_lowercase_fixture(case.id),
+        || bootstrap_downloads_lowercase_fixture_runtime(&run_unique_num),
+        |fixture| downloads_lowercase_fixture_preflight_checks(fixture, run_timestamp_ms),
+        &mut runtime_setup_verification_checks,
+    )?;
+    let downloads_png_move_fixture = bootstrap_optional_fixture(
+        should_bootstrap_downloads_png_move_fixture(case.id),
+        || bootstrap_downloads_png_move_fixture_runtime(&run_unique_num),
+        |fixture| {
+            downloads_png_move_fixture_preflight_checks(fixture, &run_unique_num, run_timestamp_ms)
+        },
+        &mut runtime_setup_verification_checks,
+    )?;
+    if let Some(fixture) = downloads_png_move_fixture.as_ref() {
         run_query = run_query.replace(
             "{DOWNLOADS_PNG_MOVE_FIXTURE_DIR}",
             &fixture.target_dir.to_string_lossy(),
         );
-        Some(fixture)
-    } else {
-        None
-    };
-    let documents_summary_fixture = if should_bootstrap_documents_summary_fixture(case.id) {
-        let fixture = bootstrap_documents_summary_fixture_runtime(&run_unique_num)?;
-        runtime_setup_verification_checks.extend(documents_summary_fixture_preflight_checks(
-            &fixture,
-            &run_unique_num,
-            run_timestamp_ms,
-        ));
+    }
+    let documents_summary_fixture = bootstrap_optional_fixture(
+        should_bootstrap_documents_summary_fixture(case.id),
+        || bootstrap_documents_summary_fixture_runtime(&run_unique_num),
+        |fixture| {
+            documents_summary_fixture_preflight_checks(fixture, &run_unique_num, run_timestamp_ms)
+        },
+        &mut runtime_setup_verification_checks,
+    )?;
+    if let Some(fixture) = documents_summary_fixture.as_ref() {
         run_query = run_query.replace("{DOCS_FIXTURE_DIR}", &fixture.fixture_dir.to_string_lossy());
-        Some(fixture)
-    } else {
-        None
-    };
-    let pdf_last_week_fixture = if should_bootstrap_pdf_last_week_fixture(case.id) {
-        let fixture = bootstrap_pdf_last_week_fixture_runtime(&run_unique_num)?;
-        runtime_setup_verification_checks.extend(pdf_last_week_fixture_preflight_checks(
-            &fixture,
-            &run_unique_num,
-            run_timestamp_ms,
-        ));
+    }
+    let pdf_last_week_fixture = bootstrap_optional_fixture(
+        should_bootstrap_pdf_last_week_fixture(case.id),
+        || bootstrap_pdf_last_week_fixture_runtime(&run_unique_num),
+        |fixture| {
+            pdf_last_week_fixture_preflight_checks(fixture, &run_unique_num, run_timestamp_ms)
+        },
+        &mut runtime_setup_verification_checks,
+    )?;
+    if let Some(fixture) = pdf_last_week_fixture.as_ref() {
         run_query = run_query.replace(
             "{PDF_LAST_WEEK_FIXTURE_DIR}",
             &fixture.fixture_dir.to_string_lossy(),
         );
-        Some(fixture)
-    } else {
-        None
-    };
-    let spotify_uninstall_fixture = if should_bootstrap_spotify_uninstall_fixture(case.id) {
-        let fixture = bootstrap_spotify_uninstall_fixture_runtime(&run_unique_num)?;
-        runtime_setup_verification_checks.extend(spotify_uninstall_fixture_preflight_checks(
-            &fixture,
-            &run_unique_num,
-            run_timestamp_ms,
-        ));
+    }
+    let spotify_uninstall_fixture = bootstrap_optional_fixture(
+        should_bootstrap_spotify_uninstall_fixture(case.id),
+        || bootstrap_spotify_uninstall_fixture_runtime(&run_unique_num),
+        |fixture| {
+            spotify_uninstall_fixture_preflight_checks(fixture, &run_unique_num, run_timestamp_ms)
+        },
+        &mut runtime_setup_verification_checks,
+    )?;
+    if let Some(fixture) = spotify_uninstall_fixture.as_ref() {
         run_query = run_query.replace(
             "{SPOTIFY_UNINSTALL_FIXTURE_ROOT}",
             &fixture.fixture_root.to_string_lossy(),
         );
-        Some(fixture)
-    } else {
-        None
-    };
-    let top_memory_apps_fixture = if should_bootstrap_top_memory_apps_fixture(case.id) {
-        let fixture = bootstrap_top_memory_apps_fixture_runtime(&run_unique_num)?;
-        runtime_setup_verification_checks.extend(top_memory_apps_fixture_preflight_checks(
-            &fixture,
-            &run_unique_num,
-            run_timestamp_ms,
-        ));
+    }
+    let top_memory_apps_fixture = bootstrap_optional_fixture(
+        should_bootstrap_top_memory_apps_fixture(case.id),
+        || bootstrap_top_memory_apps_fixture_runtime(&run_unique_num),
+        |fixture| {
+            top_memory_apps_fixture_preflight_checks(fixture, &run_unique_num, run_timestamp_ms)
+        },
+        &mut runtime_setup_verification_checks,
+    )?;
+    if let Some(fixture) = top_memory_apps_fixture.as_ref() {
         run_query = run_query.replace(
             "{TOP_MEMORY_APPS_PROBE_PATH}",
             &fixture.probe_script_path.to_string_lossy(),
         );
-        Some(fixture)
-    } else {
-        None
-    };
+    }
     if should_bootstrap_mailbox_runtime(&run_query) {
         runtime_setup_verification_checks.extend(
             bootstrap_mailbox_runtime_state(
@@ -4050,67 +4070,54 @@ pub async fn run_case(
     for check in runtime_setup_verification_checks {
         verification_checks.insert(check);
     }
-    if let Some(fixture) = vlc_install_fixture.as_ref() {
-        for check in vlc_install_fixture_post_run_checks(fixture) {
-            verification_checks.insert(check);
-        }
-    }
-    if let Some(fixture) = projects_zip_fixture.as_ref() {
-        for check in projects_zip_fixture_post_run_checks(fixture) {
-            verification_checks.insert(check);
-        }
-        for check in projects_zip_fixture_cleanup_checks(fixture) {
-            verification_checks.insert(check);
-        }
-    }
-    if let Some(fixture) = downloads_lowercase_fixture.as_ref() {
-        for check in downloads_lowercase_fixture_post_run_checks(fixture) {
-            verification_checks.insert(check);
-        }
-        for check in downloads_lowercase_fixture_cleanup_checks(fixture) {
-            verification_checks.insert(check);
-        }
-    }
-    if let Some(fixture) = downloads_png_move_fixture.as_ref() {
-        for check in downloads_png_move_fixture_post_run_checks(fixture) {
-            verification_checks.insert(check);
-        }
-        for check in downloads_png_move_fixture_cleanup_checks(fixture) {
-            verification_checks.insert(check);
-        }
-    }
-    if let Some(fixture) = documents_summary_fixture.as_ref() {
-        for check in documents_summary_fixture_post_run_checks(fixture) {
-            verification_checks.insert(check);
-        }
-        for check in documents_summary_fixture_cleanup_checks(fixture) {
-            verification_checks.insert(check);
-        }
-    }
-    if let Some(fixture) = pdf_last_week_fixture.as_ref() {
-        for check in pdf_last_week_fixture_post_run_checks(fixture) {
-            verification_checks.insert(check);
-        }
-        for check in pdf_last_week_fixture_cleanup_checks(fixture) {
-            verification_checks.insert(check);
-        }
-    }
-    if let Some(fixture) = spotify_uninstall_fixture.as_ref() {
-        for check in spotify_uninstall_fixture_post_run_checks(fixture) {
-            verification_checks.insert(check);
-        }
-        for check in spotify_uninstall_fixture_cleanup_checks(fixture) {
-            verification_checks.insert(check);
-        }
-    }
-    if let Some(fixture) = top_memory_apps_fixture.as_ref() {
-        for check in top_memory_apps_fixture_post_run_checks(fixture) {
-            verification_checks.insert(check);
-        }
-        for check in top_memory_apps_fixture_cleanup_checks(fixture) {
-            verification_checks.insert(check);
-        }
-    }
+    insert_fixture_checks(
+        &mut verification_checks,
+        vlc_install_fixture.as_ref(),
+        vlc_install_fixture_post_run_checks,
+        None,
+    );
+    insert_fixture_checks(
+        &mut verification_checks,
+        projects_zip_fixture.as_ref(),
+        projects_zip_fixture_post_run_checks,
+        Some(projects_zip_fixture_cleanup_checks),
+    );
+    insert_fixture_checks(
+        &mut verification_checks,
+        downloads_lowercase_fixture.as_ref(),
+        downloads_lowercase_fixture_post_run_checks,
+        Some(downloads_lowercase_fixture_cleanup_checks),
+    );
+    insert_fixture_checks(
+        &mut verification_checks,
+        downloads_png_move_fixture.as_ref(),
+        downloads_png_move_fixture_post_run_checks,
+        Some(downloads_png_move_fixture_cleanup_checks),
+    );
+    insert_fixture_checks(
+        &mut verification_checks,
+        documents_summary_fixture.as_ref(),
+        documents_summary_fixture_post_run_checks,
+        Some(documents_summary_fixture_cleanup_checks),
+    );
+    insert_fixture_checks(
+        &mut verification_checks,
+        pdf_last_week_fixture.as_ref(),
+        pdf_last_week_fixture_post_run_checks,
+        Some(pdf_last_week_fixture_cleanup_checks),
+    );
+    insert_fixture_checks(
+        &mut verification_checks,
+        spotify_uninstall_fixture.as_ref(),
+        spotify_uninstall_fixture_post_run_checks,
+        Some(spotify_uninstall_fixture_cleanup_checks),
+    );
+    insert_fixture_checks(
+        &mut verification_checks,
+        top_memory_apps_fixture.as_ref(),
+        top_memory_apps_fixture_post_run_checks,
+        Some(top_memory_apps_fixture_cleanup_checks),
+    );
 
     let event_excerpt = captured_events
         .iter()

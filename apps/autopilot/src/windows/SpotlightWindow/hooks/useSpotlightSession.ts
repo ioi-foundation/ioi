@@ -1,8 +1,10 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useReducer } from "react";
 import type {
   ChangeEvent,
+  Dispatch,
   KeyboardEvent,
   RefObject,
+  SetStateAction,
 } from "react";
 import { emit } from "@tauri-apps/api/event";
 import { invoke } from "@tauri-apps/api/core";
@@ -28,6 +30,74 @@ type UseSpotlightSessionOptions = {
   loadThreadArtifacts: (threadId: string) => Promise<unknown>;
 };
 
+type SessionUiState = {
+  intent: string;
+  localHistory: ChatMessage[];
+  autoContext: boolean;
+  activeDropdown: string | null;
+  sessions: SessionSummary[];
+  workspaceMode: string;
+  selectedModel: string;
+  chatEvents: ChatEvent[];
+  artifactHubView: ArtifactHubViewKey | null;
+  artifactHubTurnId: string | null;
+  runtimePasswordPending: boolean;
+  runtimePasswordSessionId: string | null;
+  inputFocused: boolean;
+  searchQuery: string;
+  isDraggingFile: boolean;
+};
+
+type SessionUiValue = SessionUiState[keyof SessionUiState];
+
+type SessionUiAction = {
+  type: "set";
+  key: keyof SessionUiState;
+  value: SetStateAction<SessionUiValue>;
+};
+
+const INITIAL_STATE: SessionUiState = {
+  intent: "",
+  localHistory: [],
+  autoContext: true,
+  activeDropdown: null,
+  sessions: [],
+  workspaceMode: "local",
+  selectedModel: "GPT-4o",
+  chatEvents: [],
+  artifactHubView: null,
+  artifactHubTurnId: null,
+  runtimePasswordPending: false,
+  runtimePasswordSessionId: null,
+  inputFocused: false,
+  searchQuery: "",
+  isDraggingFile: false,
+};
+
+function sessionUiReducer(
+  state: SessionUiState,
+  action: SessionUiAction,
+): SessionUiState {
+  if (action.type !== "set") {
+    return state;
+  }
+
+  const current = state[action.key] as SessionUiValue;
+  const next =
+    typeof action.value === "function"
+      ? (action.value as (prev: SessionUiValue) => SessionUiValue)(current)
+      : action.value;
+
+  if (Object.is(current, next)) {
+    return state;
+  }
+
+  return {
+    ...state,
+    [action.key]: next,
+  } as SessionUiState;
+}
+
 export function useSpotlightSession({
   isStudioVariant,
   task,
@@ -40,21 +110,60 @@ export function useSpotlightSession({
   loadThreadEvents,
   loadThreadArtifacts,
 }: UseSpotlightSessionOptions) {
-  const [intent, setIntent] = useState("");
-  const [localHistory, setLocalHistory] = useState<ChatMessage[]>([]);
-  const [autoContext, setAutoContext] = useState(true);
-  const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
-  const [sessions, setSessions] = useState<SessionSummary[]>([]);
-  const [workspaceMode, setWorkspaceMode] = useState("local");
-  const [selectedModel, setSelectedModel] = useState("GPT-4o");
-  const [chatEvents, setChatEvents] = useState<ChatEvent[]>([]);
-  const [artifactHubView, setArtifactHubView] = useState<ArtifactHubViewKey | null>(null);
-  const [artifactHubTurnId, setArtifactHubTurnId] = useState<string | null>(null);
-  const [runtimePasswordPending, setRuntimePasswordPending] = useState(false);
-  const [runtimePasswordSessionId, setRuntimePasswordSessionId] = useState<string | null>(null);
-  const [inputFocused, setInputFocused] = useState(false);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [isDraggingFile] = useState(false);
+  const [state, dispatch] = useReducer(sessionUiReducer, INITIAL_STATE);
+
+  const setField = useCallback(
+    <K extends keyof SessionUiState>(
+      key: K,
+      value: SetStateAction<SessionUiState[K]>,
+    ) => {
+      dispatch({ type: "set", key, value: value as SetStateAction<SessionUiValue> });
+    },
+    [],
+  );
+
+  const setIntent = useCallback((value: SetStateAction<string>) => {
+    setField("intent", value);
+  }, [setField]);
+  const setAutoContext = useCallback((value: SetStateAction<boolean>) => {
+    setField("autoContext", value);
+  }, [setField]);
+  const setActiveDropdown = useCallback((value: SetStateAction<string | null>) => {
+    setField("activeDropdown", value);
+  }, [setField]);
+  const setSessions = useCallback((value: SetStateAction<SessionSummary[]>) => {
+    setField("sessions", value);
+  }, [setField]);
+  const setWorkspaceMode = useCallback((value: SetStateAction<string>) => {
+    setField("workspaceMode", value);
+  }, [setField]);
+  const setSelectedModel = useCallback((value: SetStateAction<string>) => {
+    setField("selectedModel", value);
+  }, [setField]);
+  const setChatEvents: Dispatch<SetStateAction<ChatEvent[]>> = useCallback((value) => {
+    setField("chatEvents", value);
+  }, [setField]);
+  const setArtifactHubView = useCallback((value: SetStateAction<ArtifactHubViewKey | null>) => {
+    setField("artifactHubView", value);
+  }, [setField]);
+  const setArtifactHubTurnId = useCallback((value: SetStateAction<string | null>) => {
+    setField("artifactHubTurnId", value);
+  }, [setField]);
+  const setRuntimePasswordPending: Dispatch<SetStateAction<boolean>> = useCallback((value) => {
+    setField("runtimePasswordPending", value);
+  }, [setField]);
+  const setRuntimePasswordSessionId: Dispatch<SetStateAction<string | null>> = useCallback((value) => {
+    setField("runtimePasswordSessionId", value);
+  }, [setField]);
+  const setInputFocused = useCallback((value: SetStateAction<boolean>) => {
+    setField("inputFocused", value);
+  }, [setField]);
+  const setSearchQuery = useCallback((value: SetStateAction<string>) => {
+    setField("searchQuery", value);
+  }, [setField]);
+  const setLocalHistory = useCallback((value: SetStateAction<ChatMessage[]>) => {
+    setField("localHistory", value);
+  }, [setField]);
 
   useEffect(() => {
     initEventListeners();
@@ -76,7 +185,7 @@ export function useSpotlightSession({
     loadHistory();
     const interval = setInterval(loadHistory, 5000);
     return () => clearInterval(interval);
-  }, []);
+  }, [setSessions]);
 
   useEffect(() => {
     const threadId = task?.session_id || task?.id;
@@ -109,11 +218,11 @@ export function useSpotlightSession({
         console.error("Failed to load session:", e);
       }
     },
-    [setSelectedArtifactId, toggleArtifactPanel],
+    [setArtifactHubView, setSelectedArtifactId, toggleArtifactPanel],
   );
 
   const handleSubmit = useCallback(async () => {
-    const text = intent.trim();
+    const text = state.intent.trim();
     if (!text) return;
     if (task?.phase === "Gate" || task?.pending_request_hash) return;
     if (task?.credential_request?.kind === "sudo_password") return;
@@ -133,13 +242,13 @@ export function useSpotlightSession({
     if ((task?.current_step || "").toLowerCase().includes("waiting for sudo password")) {
       return;
     }
-    setIntent("");
+
+    if (task && task.phase === "Running") return;
 
     if (inputRef.current) {
       inputRef.current.style.height = "auto";
     }
-
-    if (task && task.phase === "Running") return;
+    setIntent("");
 
     try {
       if (task && task.id && task.phase !== "Failed") {
@@ -156,7 +265,16 @@ export function useSpotlightSession({
     } catch (e) {
       console.error(e);
     }
-  }, [continueTask, inputRef, intent, isStudioVariant, openStudio, startTask, task]);
+  }, [
+    continueTask,
+    inputRef,
+    isStudioVariant,
+    openStudio,
+    setIntent,
+    startTask,
+    state.intent,
+    task,
+  ]);
 
   const handleSubmitRuntimePassword = useCallback(
     async (password: string) => {
@@ -174,7 +292,7 @@ export function useSpotlightSession({
         throw err;
       }
     },
-    [task?.id, task?.session_id],
+    [setRuntimePasswordPending, setRuntimePasswordSessionId, task?.id, task?.session_id],
   );
 
   const handleCancelRuntimePassword = useCallback(() => {
@@ -249,17 +367,28 @@ export function useSpotlightSession({
     setSelectedArtifactId(null);
     void toggleArtifactPanel(false);
     setTimeout(() => inputRef.current?.focus(), 50);
-  }, [inputRef, resetSession, setSelectedArtifactId, toggleArtifactPanel]);
+  }, [
+    inputRef,
+    resetSession,
+    setArtifactHubView,
+    setChatEvents,
+    setLocalHistory,
+    setSelectedArtifactId,
+    toggleArtifactPanel,
+  ]);
 
   const handleGlobalClick = useCallback(() => {
-    if (activeDropdown) setActiveDropdown(null);
-  }, [activeDropdown]);
+    if (state.activeDropdown) setActiveDropdown(null);
+  }, [setActiveDropdown, state.activeDropdown]);
 
-  const handleInputChange = useCallback((e: ChangeEvent<HTMLTextAreaElement>) => {
-    setIntent(e.target.value);
-    e.target.style.height = "auto";
-    e.target.style.height = Math.min(e.target.scrollHeight, 120) + "px";
-  }, []);
+  const handleInputChange = useCallback(
+    (e: ChangeEvent<HTMLTextAreaElement>) => {
+      setIntent(e.target.value);
+      e.target.style.height = "auto";
+      e.target.style.height = Math.min(e.target.scrollHeight, 120) + "px";
+    },
+    [setIntent],
+  );
 
   const handleInputKeyDown = useCallback(
     (e: KeyboardEvent<HTMLTextAreaElement>) => {
@@ -280,33 +409,33 @@ export function useSpotlightSession({
   );
 
   return {
-    intent,
+    intent: state.intent,
     setIntent,
-    localHistory,
-    autoContext,
+    localHistory: state.localHistory,
+    autoContext: state.autoContext,
     setAutoContext,
-    activeDropdown,
+    activeDropdown: state.activeDropdown,
     setActiveDropdown,
-    sessions,
-    workspaceMode,
+    sessions: state.sessions,
+    workspaceMode: state.workspaceMode,
     setWorkspaceMode,
-    selectedModel,
+    selectedModel: state.selectedModel,
     setSelectedModel,
-    chatEvents,
+    chatEvents: state.chatEvents,
     setChatEvents,
-    artifactHubView,
+    artifactHubView: state.artifactHubView,
     setArtifactHubView,
-    artifactHubTurnId,
+    artifactHubTurnId: state.artifactHubTurnId,
     setArtifactHubTurnId,
-    runtimePasswordPending,
+    runtimePasswordPending: state.runtimePasswordPending,
     setRuntimePasswordPending,
-    runtimePasswordSessionId,
+    runtimePasswordSessionId: state.runtimePasswordSessionId,
     setRuntimePasswordSessionId,
-    inputFocused,
+    inputFocused: state.inputFocused,
     setInputFocused,
-    searchQuery,
+    searchQuery: state.searchQuery,
     setSearchQuery,
-    isDraggingFile,
+    isDraggingFile: state.isDraggingFile,
     openStudio,
     handleLoadSession,
     handleSubmit,
