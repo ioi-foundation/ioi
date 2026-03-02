@@ -19,6 +19,8 @@ pub mod settlement;
 pub mod timing; // [NEW]
 /// Data structures for wallet.network control-plane and session artifacts.
 pub mod wallet_network;
+/// Typed workload execution substrate contracts.
+pub mod workload;
 
 pub use action::*;
 pub use consensus::*;
@@ -36,6 +38,7 @@ pub use penalties::*;
 pub use settlement::*;
 pub use timing::*; // [NEW]
 pub use wallet_network::*;
+pub use workload::*;
 
 // [NEW] Moved ContextSlice here from drivers
 use parity_scale_codec::{Decode, Encode};

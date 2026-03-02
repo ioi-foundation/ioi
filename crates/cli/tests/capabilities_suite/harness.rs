@@ -170,6 +170,20 @@ const DOWNLOADS_PNG_MOVE_TARGET_PREFIX: &str = "ioi_png_move_";
 const DOWNLOADS_PNG_MOVE_IMAGES_DIR_NAME: &str = "Images";
 const DOWNLOADS_PNG_MOVE_EXPECTED_PNG_FILES: [&str; 2] = ["alpha.png", "graph.png"];
 const DOWNLOADS_PNG_MOVE_EXPECTED_NON_PNG_FILES: [&str; 2] = ["notes.txt", "thumb.jpg"];
+const DESKTOP_DOCUMENTS_BACKUP_CASE_ID: &str =
+    "back_up_my_desktop_and_documents_folders_to_an_external_drive";
+const DESKTOP_DOCUMENTS_BACKUP_FIXTURE_MODE: &str =
+    "desktop_documents_backup_external_drive_fixture_v1";
+const DESKTOP_DOCUMENTS_BACKUP_FIXTURE_PROBE_SOURCE: &str =
+    "harness.desktop_documents_backup_fixture";
+const DESKTOP_DOCUMENTS_BACKUP_TARGET_PREFIX: &str = "ioi_backup_";
+const DESKTOP_DOCUMENTS_BACKUP_EXPECTED_DESKTOP_FILES: [&str; 3] =
+    ["Projects/roadmap.md", "Screenshots/sprint.png", "todo.txt"];
+const DESKTOP_DOCUMENTS_BACKUP_EXPECTED_DOCUMENTS_FILES: [&str; 3] = [
+    "finance/q1-budget.csv",
+    "reference/ops/runbook.txt",
+    "report.md",
+];
 const DOCUMENTS_SUMMARY_CASE_ID: &str =
     "summarize_the_contents_of_the_most_recent_document_in_my_documents_folder";
 const DOCUMENTS_SUMMARY_FIXTURE_MODE: &str = "documents_latest_summary_fixture_v1";
@@ -304,6 +318,19 @@ struct DownloadsPngMoveFixtureRuntime {
     downloads_dir: PathBuf,
     target_dir: PathBuf,
     images_dir: PathBuf,
+}
+
+struct DesktopDocumentsBackupFixtureRuntime {
+    _temp_dir: tempfile::TempDir,
+    _env_home: ScopedEnvVar,
+    _env_userprofile: ScopedEnvVar,
+    home_dir: PathBuf,
+    desktop_dir: PathBuf,
+    documents_dir: PathBuf,
+    external_drive_path: PathBuf,
+    backup_root: PathBuf,
+    backup_desktop_path: PathBuf,
+    backup_documents_path: PathBuf,
 }
 
 struct DocumentsSummaryFixtureRuntime {
@@ -1074,6 +1101,10 @@ fn should_bootstrap_downloads_png_move_fixture(case_id: &str) -> bool {
     case_id.eq_ignore_ascii_case(DOWNLOADS_PNG_MOVE_CASE_ID)
 }
 
+fn should_bootstrap_desktop_documents_backup_fixture(case_id: &str) -> bool {
+    case_id.eq_ignore_ascii_case(DESKTOP_DOCUMENTS_BACKUP_CASE_ID)
+}
+
 fn should_bootstrap_documents_summary_fixture(case_id: &str) -> bool {
     case_id.eq_ignore_ascii_case(DOCUMENTS_SUMMARY_CASE_ID)
 }
@@ -1577,6 +1608,62 @@ fn list_directory_entry_names(path: &Path) -> Vec<String> {
     entries
 }
 
+fn list_relative_file_paths(path: &Path) -> Vec<String> {
+    fn collect(root: &Path, cursor: &Path, output: &mut Vec<String>) {
+        let mut entries = std::fs::read_dir(cursor)
+            .ok()
+            .into_iter()
+            .flatten()
+            .filter_map(|entry| entry.ok())
+            .collect::<Vec<_>>();
+        entries.sort_by(|left, right| left.file_name().cmp(&right.file_name()));
+
+        for entry in entries {
+            let entry_path = entry.path();
+            let Ok(metadata) = entry.metadata() else {
+                continue;
+            };
+            if metadata.is_dir() {
+                collect(root, &entry_path, output);
+                continue;
+            }
+            if !metadata.is_file() {
+                continue;
+            }
+            let Ok(relative) = entry_path.strip_prefix(root) else {
+                continue;
+            };
+            output.push(relative.to_string_lossy().replace('\\', "/"));
+        }
+    }
+
+    if !path.is_dir() {
+        return Vec::new();
+    }
+
+    let mut files = Vec::new();
+    collect(path, path, &mut files);
+    files.sort();
+    files
+}
+
+fn file_sets_content_match(
+    source_root: &Path,
+    destination_root: &Path,
+    relative_files: &[String],
+) -> bool {
+    relative_files.iter().all(|relative| {
+        let source = source_root.join(relative);
+        let destination = destination_root.join(relative);
+        let source_bytes = std::fs::read(source).ok();
+        let destination_bytes = std::fs::read(destination).ok();
+        match (source_bytes, destination_bytes) {
+            (Some(left), Some(right)) => left == right,
+            _ => false,
+        }
+    })
+}
+
 fn downloads_lowercase_fixture_post_run_checks(
     fixture: &DownloadsLowercaseFixtureRuntime,
 ) -> Vec<String> {
@@ -2008,6 +2095,365 @@ fn downloads_png_move_fixture_cleanup_checks(
         ),
         format!(
             "env_receipt::downloads_png_move_cleanup_satisfied={}",
+            cleanup_satisfied
+        ),
+    ]
+}
+
+fn bootstrap_desktop_documents_backup_fixture_runtime(
+    run_unique_num: &str,
+) -> Result<DesktopDocumentsBackupFixtureRuntime> {
+    let temp_dir = tempdir()?;
+    let home_dir = temp_dir.path().join("home");
+    let desktop_dir = home_dir.join("Desktop");
+    let documents_dir = home_dir.join("Documents");
+    let external_drive_path = temp_dir.path().join("mnt").join("external_drive");
+    let backup_root = external_drive_path.join(format!(
+        "{}{}",
+        DESKTOP_DOCUMENTS_BACKUP_TARGET_PREFIX, run_unique_num
+    ));
+    let backup_desktop_path = backup_root.join("Desktop");
+    let backup_documents_path = backup_root.join("Documents");
+
+    std::fs::create_dir_all(desktop_dir.join("Projects"))?;
+    std::fs::create_dir_all(desktop_dir.join("Screenshots"))?;
+    std::fs::create_dir_all(documents_dir.join("finance"))?;
+    std::fs::create_dir_all(documents_dir.join("reference").join("ops"))?;
+    std::fs::create_dir_all(&external_drive_path)?;
+
+    std::fs::write(
+        desktop_dir.join("todo.txt"),
+        "Desktop todo list\n- ship backup flow\n",
+    )?;
+    std::fs::write(
+        desktop_dir.join("Projects").join("roadmap.md"),
+        "Q2 roadmap checkpoint\n",
+    )?;
+    std::fs::write(
+        desktop_dir.join("Screenshots").join("sprint.png"),
+        "fixture screenshot bytes\n",
+    )?;
+
+    std::fs::write(
+        documents_dir.join("report.md"),
+        "Weekly report\nStatus: green\n",
+    )?;
+    std::fs::write(
+        documents_dir.join("finance").join("q1-budget.csv"),
+        "category,amount\ninfra,1200\n",
+    )?;
+    std::fs::write(
+        documents_dir
+            .join("reference")
+            .join("ops")
+            .join("runbook.txt"),
+        "Incident runbook v1\n",
+    )?;
+
+    let env_home = ScopedEnvVar::set("HOME", home_dir.to_string_lossy().to_string());
+    let env_userprofile = ScopedEnvVar::set("USERPROFILE", home_dir.to_string_lossy().to_string());
+
+    Ok(DesktopDocumentsBackupFixtureRuntime {
+        _temp_dir: temp_dir,
+        _env_home: env_home,
+        _env_userprofile: env_userprofile,
+        home_dir,
+        desktop_dir,
+        documents_dir,
+        external_drive_path,
+        backup_root,
+        backup_desktop_path,
+        backup_documents_path,
+    })
+}
+
+fn desktop_documents_backup_fixture_preflight_checks(
+    fixture: &DesktopDocumentsBackupFixtureRuntime,
+    run_unique_num: &str,
+    run_timestamp_ms: u64,
+) -> Vec<String> {
+    let seeded_desktop_files = list_relative_file_paths(&fixture.desktop_dir);
+    let seeded_documents_files = list_relative_file_paths(&fixture.documents_dir);
+    let seeded_desktop_satisfied =
+        DESKTOP_DOCUMENTS_BACKUP_EXPECTED_DESKTOP_FILES
+            .iter()
+            .all(|expected| {
+                seeded_desktop_files
+                    .iter()
+                    .any(|observed| observed == expected)
+            })
+            && seeded_desktop_files.len() == DESKTOP_DOCUMENTS_BACKUP_EXPECTED_DESKTOP_FILES.len();
+    let seeded_documents_satisfied = DESKTOP_DOCUMENTS_BACKUP_EXPECTED_DOCUMENTS_FILES
+        .iter()
+        .all(|expected| {
+            seeded_documents_files
+                .iter()
+                .any(|observed| observed == expected)
+        })
+        && seeded_documents_files.len() == DESKTOP_DOCUMENTS_BACKUP_EXPECTED_DOCUMENTS_FILES.len();
+    let destination_absent_satisfied = !fixture.backup_root.exists();
+    let run_unique_satisfied = fixture
+        .backup_root
+        .file_name()
+        .and_then(|name| name.to_str())
+        .map(|name| name.ends_with(run_unique_num))
+        .unwrap_or(false);
+    let fixture_satisfied = fixture.external_drive_path.is_dir()
+        && seeded_desktop_satisfied
+        && seeded_documents_satisfied
+        && destination_absent_satisfied
+        && run_unique_satisfied;
+
+    vec![
+        format!(
+            "env_receipt::desktop_documents_backup_fixture_mode={}",
+            DESKTOP_DOCUMENTS_BACKUP_FIXTURE_MODE
+        ),
+        format!(
+            "env_receipt::desktop_documents_backup_fixture_probe_source={}",
+            DESKTOP_DOCUMENTS_BACKUP_FIXTURE_PROBE_SOURCE
+        ),
+        format!(
+            "env_receipt::desktop_documents_backup_fixture_timestamp_ms={}",
+            run_timestamp_ms
+        ),
+        format!(
+            "env_receipt::desktop_documents_backup_home_dir={}",
+            fixture.home_dir.to_string_lossy()
+        ),
+        format!(
+            "env_receipt::desktop_documents_backup_desktop_dir={}",
+            fixture.desktop_dir.to_string_lossy()
+        ),
+        format!(
+            "env_receipt::desktop_documents_backup_documents_dir={}",
+            fixture.documents_dir.to_string_lossy()
+        ),
+        format!(
+            "env_receipt::desktop_documents_backup_external_drive_path={}",
+            fixture.external_drive_path.to_string_lossy()
+        ),
+        format!(
+            "env_receipt::desktop_documents_backup_destination_root={}",
+            fixture.backup_root.to_string_lossy()
+        ),
+        format!(
+            "env_receipt::desktop_documents_backup_run_unique_num={}",
+            run_unique_num
+        ),
+        format!(
+            "env_receipt::desktop_documents_backup_run_unique_satisfied={}",
+            run_unique_satisfied
+        ),
+        format!(
+            "env_receipt::desktop_documents_backup_seeded_desktop_files={}",
+            seeded_desktop_files.join(",")
+        ),
+        format!(
+            "env_receipt::desktop_documents_backup_seeded_documents_files={}",
+            seeded_documents_files.join(",")
+        ),
+        format!(
+            "env_receipt::desktop_documents_backup_seeded_desktop_files_satisfied={}",
+            seeded_desktop_satisfied
+        ),
+        format!(
+            "env_receipt::desktop_documents_backup_seeded_documents_files_satisfied={}",
+            seeded_documents_satisfied
+        ),
+        format!(
+            "env_receipt::desktop_documents_backup_destination_absent_satisfied={}",
+            destination_absent_satisfied
+        ),
+        format!(
+            "env_receipt::desktop_documents_backup_fixture_satisfied={}",
+            fixture_satisfied
+        ),
+    ]
+}
+
+fn desktop_documents_backup_fixture_post_run_checks(
+    fixture: &DesktopDocumentsBackupFixtureRuntime,
+) -> Vec<String> {
+    let timestamp_ms = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_millis() as u64;
+    let probe_source = format!("{}.fs_probe", DESKTOP_DOCUMENTS_BACKUP_FIXTURE_PROBE_SOURCE);
+
+    let backup_root_satisfied = fixture.backup_root.is_dir();
+    let backup_desktop_satisfied = fixture.backup_desktop_path.is_dir();
+    let backup_documents_satisfied = fixture.backup_documents_path.is_dir();
+
+    let source_desktop_files = list_relative_file_paths(&fixture.desktop_dir);
+    let source_documents_files = list_relative_file_paths(&fixture.documents_dir);
+    let backup_desktop_files = list_relative_file_paths(&fixture.backup_desktop_path);
+    let backup_documents_files = list_relative_file_paths(&fixture.backup_documents_path);
+
+    let source_desktop_satisfied =
+        DESKTOP_DOCUMENTS_BACKUP_EXPECTED_DESKTOP_FILES
+            .iter()
+            .all(|expected| {
+                source_desktop_files
+                    .iter()
+                    .any(|observed| observed == expected)
+            })
+            && source_desktop_files.len() == DESKTOP_DOCUMENTS_BACKUP_EXPECTED_DESKTOP_FILES.len();
+    let source_documents_satisfied = DESKTOP_DOCUMENTS_BACKUP_EXPECTED_DOCUMENTS_FILES
+        .iter()
+        .all(|expected| {
+            source_documents_files
+                .iter()
+                .any(|observed| observed == expected)
+        })
+        && source_documents_files.len() == DESKTOP_DOCUMENTS_BACKUP_EXPECTED_DOCUMENTS_FILES.len();
+    let backup_desktop_files_satisfied = DESKTOP_DOCUMENTS_BACKUP_EXPECTED_DESKTOP_FILES
+        .iter()
+        .all(|expected| {
+            backup_desktop_files
+                .iter()
+                .any(|observed| observed == expected)
+        })
+        && backup_desktop_files.len() == DESKTOP_DOCUMENTS_BACKUP_EXPECTED_DESKTOP_FILES.len();
+    let backup_documents_files_satisfied = DESKTOP_DOCUMENTS_BACKUP_EXPECTED_DOCUMENTS_FILES
+        .iter()
+        .all(|expected| {
+            backup_documents_files
+                .iter()
+                .any(|observed| observed == expected)
+        })
+        && backup_documents_files.len() == DESKTOP_DOCUMENTS_BACKUP_EXPECTED_DOCUMENTS_FILES.len();
+    let source_preserved_satisfied = source_desktop_satisfied && source_documents_satisfied;
+    let content_match_satisfied = backup_desktop_files_satisfied
+        && backup_documents_files_satisfied
+        && file_sets_content_match(
+            &fixture.desktop_dir,
+            &fixture.backup_desktop_path,
+            &backup_desktop_files,
+        )
+        && file_sets_content_match(
+            &fixture.documents_dir,
+            &fixture.backup_documents_path,
+            &backup_documents_files,
+        );
+
+    let external_drive_entries = list_directory_entry_names(&fixture.external_drive_path);
+    let expected_backup_dir_name = fixture
+        .backup_root
+        .file_name()
+        .and_then(|name| name.to_str())
+        .unwrap_or_default()
+        .to_string();
+    let scope_satisfied = !expected_backup_dir_name.is_empty()
+        && external_drive_entries.len() == 1
+        && external_drive_entries
+            .iter()
+            .any(|entry| entry == &expected_backup_dir_name);
+
+    vec![
+        format!(
+            "env_receipt::desktop_documents_backup_backup_root_path={}",
+            fixture.backup_root.to_string_lossy()
+        ),
+        format!(
+            "env_receipt::desktop_documents_backup_backup_probe_source={}",
+            probe_source
+        ),
+        format!(
+            "env_receipt::desktop_documents_backup_backup_timestamp_ms={}",
+            timestamp_ms
+        ),
+        format!(
+            "env_receipt::desktop_documents_backup_backup_root_satisfied={}",
+            backup_root_satisfied
+        ),
+        format!(
+            "env_receipt::desktop_documents_backup_backup_desktop_path={}",
+            fixture.backup_desktop_path.to_string_lossy()
+        ),
+        format!(
+            "env_receipt::desktop_documents_backup_backup_desktop_satisfied={}",
+            backup_desktop_satisfied
+        ),
+        format!(
+            "env_receipt::desktop_documents_backup_backup_desktop_files={}",
+            backup_desktop_files.join(",")
+        ),
+        format!(
+            "env_receipt::desktop_documents_backup_backup_desktop_files_satisfied={}",
+            backup_desktop_files_satisfied
+        ),
+        format!(
+            "env_receipt::desktop_documents_backup_backup_documents_path={}",
+            fixture.backup_documents_path.to_string_lossy()
+        ),
+        format!(
+            "env_receipt::desktop_documents_backup_backup_documents_satisfied={}",
+            backup_documents_satisfied
+        ),
+        format!(
+            "env_receipt::desktop_documents_backup_backup_documents_files={}",
+            backup_documents_files.join(",")
+        ),
+        format!(
+            "env_receipt::desktop_documents_backup_backup_documents_files_satisfied={}",
+            backup_documents_files_satisfied
+        ),
+        format!(
+            "env_receipt::desktop_documents_backup_source_desktop_files={}",
+            source_desktop_files.join(",")
+        ),
+        format!(
+            "env_receipt::desktop_documents_backup_source_documents_files={}",
+            source_documents_files.join(",")
+        ),
+        format!(
+            "env_receipt::desktop_documents_backup_source_preserved_satisfied={}",
+            source_preserved_satisfied
+        ),
+        format!(
+            "env_receipt::desktop_documents_backup_content_match_satisfied={}",
+            content_match_satisfied
+        ),
+        format!(
+            "env_receipt::desktop_documents_backup_scope_satisfied={}",
+            scope_satisfied
+        ),
+    ]
+}
+
+fn desktop_documents_backup_fixture_cleanup_checks(
+    fixture: &DesktopDocumentsBackupFixtureRuntime,
+) -> Vec<String> {
+    let timestamp_ms = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_millis() as u64;
+    let probe_source = format!(
+        "{}.cleanup_probe",
+        DESKTOP_DOCUMENTS_BACKUP_FIXTURE_PROBE_SOURCE
+    );
+
+    let _ = std::fs::remove_dir_all(&fixture.backup_root);
+    let _ = std::fs::remove_dir_all(&fixture.external_drive_path);
+    let _ = std::fs::remove_dir_all(&fixture.desktop_dir);
+    let _ = std::fs::remove_dir_all(&fixture.documents_dir);
+    let cleanup_satisfied = !fixture.backup_root.exists()
+        && !fixture.external_drive_path.exists()
+        && !fixture.desktop_dir.exists()
+        && !fixture.documents_dir.exists();
+
+    vec![
+        format!(
+            "env_receipt::desktop_documents_backup_cleanup_probe_source={}",
+            probe_source
+        ),
+        format!(
+            "env_receipt::desktop_documents_backup_cleanup_timestamp_ms={}",
+            timestamp_ms
+        ),
+        format!(
+            "env_receipt::desktop_documents_backup_cleanup_satisfied={}",
             cleanup_satisfied
         ),
     ]
@@ -4377,6 +4823,28 @@ pub async fn run_case(
             &fixture.target_dir.to_string_lossy(),
         );
     }
+    let desktop_documents_backup_fixture = bootstrap_optional_fixture(
+        should_bootstrap_desktop_documents_backup_fixture(case.id),
+        || bootstrap_desktop_documents_backup_fixture_runtime(&run_unique_num),
+        |fixture| {
+            desktop_documents_backup_fixture_preflight_checks(
+                fixture,
+                &run_unique_num,
+                run_timestamp_ms,
+            )
+        },
+        &mut runtime_setup_verification_checks,
+    )?;
+    if let Some(fixture) = desktop_documents_backup_fixture.as_ref() {
+        run_query = run_query.replace(
+            "{BACKUP_EXTERNAL_DRIVE_PATH}",
+            &fixture.external_drive_path.to_string_lossy(),
+        );
+        run_query = run_query.replace(
+            "{BACKUP_DESTINATION_PATH}",
+            &fixture.backup_root.to_string_lossy(),
+        );
+    }
     let documents_summary_fixture = bootstrap_optional_fixture(
         should_bootstrap_documents_summary_fixture(case.id),
         || bootstrap_documents_summary_fixture_runtime(&run_unique_num),
@@ -4745,6 +5213,12 @@ pub async fn run_case(
         downloads_png_move_fixture.as_ref(),
         downloads_png_move_fixture_post_run_checks,
         Some(downloads_png_move_fixture_cleanup_checks),
+    );
+    insert_fixture_checks(
+        &mut verification_checks,
+        desktop_documents_backup_fixture.as_ref(),
+        desktop_documents_backup_fixture_post_run_checks,
+        Some(desktop_documents_backup_fixture_cleanup_checks),
     );
     insert_fixture_checks(
         &mut verification_checks,

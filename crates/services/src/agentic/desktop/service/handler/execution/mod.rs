@@ -19,9 +19,9 @@ use ioi_scs::{FrameType, RetentionClass};
 use ioi_types::app::agentic::AgentTool;
 use ioi_types::app::{
     determinism_commit_state_key, determinism_evidence_state_key, AccountId, ActionRequest,
-    ActionTarget, ApprovalToken, ChainId, CommittedAction, DeterminismEvidence,
-    ExecutionContractReceiptEvent, FirewallDecisionReceipt, KernelEvent, PolicyVerdict,
-    SignatureSuite,
+    ActionTarget, ApprovalToken, CapabilityLease, CapabilityLeaseMode, ChainId, CommittedAction,
+    DeterminismEvidence, ExecutionContractReceiptEvent, FirewallDecisionReceipt, KernelEvent,
+    NetMode, PolicyVerdict, RuntimeTarget, SignatureSuite, UiSurfaceSpec, WorkloadSpec,
 };
 use ioi_types::codec;
 use ioi_types::error::TransactionError;
@@ -30,6 +30,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::json;
 use std::sync::Arc;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use url::Url;
 
 mod handlers;
 
@@ -55,6 +56,8 @@ struct DeterminismContext {
     target_str: String,
     tool_hash: [u8; 32],
     intent_id: String,
+    workload_spec: WorkloadSpec,
+    observed_domain: Option<String>,
     signing_context: Option<(ChainId, AccountId)>,
 }
 
@@ -116,6 +119,178 @@ fn resolved_intent_id(agent_state: &AgentState) -> String {
         .as_ref()
         .map(|resolved| resolved.intent_id.clone())
         .unwrap_or_else(|| "resolver.unclassified".to_string())
+}
+
+fn unix_timestamp_ms_now() -> u64 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_millis() as u64
+}
+
+fn runtime_target_for_tool(tool: &AgentTool) -> RuntimeTarget {
+    match tool {
+        AgentTool::FsWrite { .. }
+        | AgentTool::FsPatch { .. }
+        | AgentTool::FsRead { .. }
+        | AgentTool::FsList { .. }
+        | AgentTool::FsSearch { .. }
+        | AgentTool::FsStat { .. }
+        | AgentTool::FsCreateDirectory { .. }
+        | AgentTool::FsCreateZip { .. }
+        | AgentTool::FsMove { .. }
+        | AgentTool::FsCopy { .. }
+        | AgentTool::FsDelete { .. } => RuntimeTarget::Filesystem,
+        AgentTool::SysExec { .. }
+        | AgentTool::SysExecSession { .. }
+        | AgentTool::SysExecSessionReset {}
+        | AgentTool::SysInstallPackage { .. }
+        | AgentTool::SysChangeDir { .. }
+        | AgentTool::OsLaunchApp { .. } => RuntimeTarget::System,
+        AgentTool::Computer(_)
+        | AgentTool::GuiClick { .. }
+        | AgentTool::GuiType { .. }
+        | AgentTool::GuiScroll { .. }
+        | AgentTool::GuiSnapshot { .. }
+        | AgentTool::GuiClickElement { .. }
+        | AgentTool::UiFind { .. }
+        | AgentTool::OsFocusWindow { .. }
+        | AgentTool::OsCopy { .. }
+        | AgentTool::OsPaste {} => RuntimeTarget::DesktopUi,
+        AgentTool::BrowserNavigate { .. }
+        | AgentTool::BrowserSnapshot { .. }
+        | AgentTool::BrowserClick { .. }
+        | AgentTool::BrowserClickElement { .. }
+        | AgentTool::BrowserSyntheticClick { .. }
+        | AgentTool::BrowserScroll { .. }
+        | AgentTool::BrowserType { .. }
+        | AgentTool::BrowserKey { .. } => RuntimeTarget::Browser,
+        AgentTool::WebSearch { .. } | AgentTool::WebRead { .. } | AgentTool::NetFetch { .. } => {
+            RuntimeTarget::Network
+        }
+        AgentTool::MemorySearch { .. } | AgentTool::MemoryInspect { .. } => RuntimeTarget::Memory,
+        AgentTool::Dynamic(_) => RuntimeTarget::McpAdapter,
+        AgentTool::MathEval { .. }
+        | AgentTool::ChatReply { .. }
+        | AgentTool::AgentDelegate { .. }
+        | AgentTool::AgentAwait { .. }
+        | AgentTool::AgentPause { .. }
+        | AgentTool::AgentComplete { .. }
+        | AgentTool::CommerceCheckout { .. }
+        | AgentTool::SystemFail { .. } => RuntimeTarget::ControlPlane,
+    }
+}
+
+fn target_requires_network_lease(target: &ActionTarget) -> bool {
+    match target {
+        ActionTarget::NetFetch
+        | ActionTarget::WebRetrieve
+        | ActionTarget::BrowserInteract
+        | ActionTarget::BrowserInspect
+        | ActionTarget::CommerceDiscovery
+        | ActionTarget::CommerceCheckout => true,
+        ActionTarget::Custom(label) => {
+            let normalized = label.trim().to_ascii_lowercase();
+            normalized.starts_with("net::")
+                || normalized.starts_with("web::")
+                || normalized.starts_with("browser::")
+        }
+        _ => false,
+    }
+}
+
+fn normalize_domain_from_url(raw: &str) -> Option<String> {
+    let trimmed = raw.trim();
+    if trimmed.is_empty() {
+        return None;
+    }
+    Url::parse(trimmed)
+        .or_else(|_| Url::parse(&format!("https://{}", trimmed)))
+        .ok()
+        .and_then(|parsed| parsed.host_str().map(|value| value.to_ascii_lowercase()))
+}
+
+fn observed_domain_for_dynamic_tool(value: &serde_json::Value) -> Option<String> {
+    let arguments = value.get("arguments")?;
+    if let Some(url) = arguments.get("url").and_then(|entry| entry.as_str()) {
+        return normalize_domain_from_url(url);
+    }
+    if let Some(url) = arguments
+        .get("merchant_url")
+        .and_then(|entry| entry.as_str())
+    {
+        return normalize_domain_from_url(url);
+    }
+    None
+}
+
+fn observed_domain_for_tool(tool: &AgentTool) -> Option<String> {
+    match tool {
+        AgentTool::NetFetch { url, .. }
+        | AgentTool::WebRead { url, .. }
+        | AgentTool::BrowserNavigate { url }
+        | AgentTool::CommerceCheckout {
+            merchant_url: url, ..
+        } => normalize_domain_from_url(url),
+        AgentTool::WebSearch { url, .. } => url.as_deref().and_then(normalize_domain_from_url),
+        AgentTool::Dynamic(value) => observed_domain_for_dynamic_tool(value),
+        _ => None,
+    }
+}
+
+fn build_workload_spec(
+    tool: &AgentTool,
+    target: &ActionTarget,
+    request_hash: [u8; 32],
+    window_binding: Option<u64>,
+    target_app_hint: Option<String>,
+    now_ms: u64,
+) -> (WorkloadSpec, Option<String>) {
+    let observed_domain = observed_domain_for_tool(tool);
+    let net_mode = if target_requires_network_lease(target) {
+        if observed_domain.is_some() {
+            NetMode::AllowListed
+        } else {
+            NetMode::AllowAny
+        }
+    } else {
+        NetMode::Disabled
+    };
+
+    let mut domain_allowlist = Vec::new();
+    if let Some(domain) = observed_domain.as_ref() {
+        domain_allowlist.push(domain.clone());
+    }
+
+    let lease = CapabilityLease {
+        lease_id: request_hash,
+        issued_at_ms: now_ms,
+        expires_at_ms: now_ms.saturating_add(5 * 60 * 1_000),
+        mode: CapabilityLeaseMode::OneShot,
+        capability_allowlist: vec![target.canonical_label()],
+        domain_allowlist,
+    };
+
+    let requires_focused_window = target_requires_window_binding(target);
+    let ui_surface = if requires_focused_window || target_app_hint.is_some() {
+        Some(UiSurfaceSpec {
+            window_id: window_binding,
+            app_hint: target_app_hint,
+            requires_focused_window,
+        })
+    } else {
+        None
+    };
+
+    (
+        WorkloadSpec {
+            runtime_target: runtime_target_for_tool(tool),
+            net_mode,
+            capability_lease: Some(lease),
+            ui_surface,
+        },
+        observed_domain,
+    )
 }
 
 fn emit_execution_contract_receipt_event(
@@ -645,6 +820,17 @@ async fn build_determinism_context(
             e
         ))
     })?;
+    let (workload_spec, observed_domain) = build_workload_spec(
+        tool,
+        &target,
+        request_hash,
+        window_binding,
+        agent_state
+            .target
+            .as_ref()
+            .and_then(|target| target.app_hint.clone()),
+        unix_timestamp_ms_now(),
+    );
 
     let target_str = match &target {
         ioi_types::app::ActionTarget::Custom(s) => s.clone(),
@@ -661,6 +847,8 @@ async fn build_determinism_context(
         target_str,
         tool_hash,
         intent_id: resolved_intent_id(agent_state),
+        workload_spec,
+        observed_domain,
         signing_context: execution_call_context.map(|ctx| (ctx.chain_id, ctx.signer_account_id)),
     })
 }
@@ -750,6 +938,50 @@ async fn enforce_policy_and_record(
             determinism.target_str
         ),
     );
+
+    let workload_lease_check = determinism.workload_spec.evaluate_lease(
+        &determinism.request.target,
+        determinism.observed_domain.as_deref(),
+        unix_timestamp_ms_now(),
+    );
+    let workload_lease_reason = workload_lease_check
+        .reason
+        .as_deref()
+        .unwrap_or("none")
+        .to_string();
+    emit_execution_contract_receipt_event(
+        service,
+        session_id,
+        step_index,
+        &determinism.intent_id,
+        "execution",
+        "capability_lease",
+        workload_lease_check.satisfied,
+        &format!(
+            "observed_value={};probe_source={};timestamp_ms={};satisfied={};reason={};runtime_target={};net_mode={}",
+            workload_lease_check.observed_value,
+            workload_lease_check.probe_source,
+            workload_lease_check.timestamp_ms,
+            workload_lease_check.satisfied,
+            workload_lease_reason,
+            determinism.workload_spec.runtime_target.as_label(),
+            determinism.workload_spec.net_mode.as_label()
+        ),
+    );
+    if !workload_lease_check.satisfied {
+        let exit = emit_policy_decision_and_exit(
+            service,
+            execution_state,
+            session_id,
+            step_index,
+            &determinism.target_str,
+            determinism,
+            "REQUIRE_APPROVAL",
+            PolicyVerdict::Block(format!("out_of_lease:{}", workload_lease_reason)),
+            TransactionError::PendingApproval(hex::encode(determinism.request_hash)),
+        )?;
+        return Err(exit);
+    }
 
     let matched_approval_token = agent_state
         .pending_approval
@@ -1061,6 +1293,7 @@ pub async fn handle_action_execution(
         Some(agent_state.current_tier),
     )
     .with_expected_visual_hash(Some(visual_phash))
+    .with_workload_spec(Some(determinism.workload_spec.clone()))
     .with_working_directory(Some(agent_state.working_directory.clone()));
 
     // Explicitly acquire lease for browser tools

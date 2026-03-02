@@ -27,7 +27,7 @@ use ioi_drivers::gui::operator::ClickTarget;
 use ioi_drivers::mcp::McpManager;
 use ioi_drivers::terminal::TerminalDriver;
 use ioi_types::app::agentic::AgentTool;
-use ioi_types::app::KernelEvent;
+use ioi_types::app::{KernelEvent, WorkloadSpec};
 use serde::{Deserialize, Serialize};
 
 pub(crate) mod workload {
@@ -192,6 +192,7 @@ pub struct ToolExecutor {
     pub(crate) lens_registry: Option<Arc<LensRegistry>>,
     pub(crate) inference: Arc<dyn InferenceRuntime>,
     pub(crate) pii_scrubber: Option<PiiScrubber>,
+    pub(crate) workload_spec: Option<WorkloadSpec>,
 
     // Context fields populated via builder pattern
     pub(crate) active_window: Option<WindowInfo>,
@@ -223,6 +224,7 @@ impl ToolExecutor {
             lens_registry,
             inference,
             pii_scrubber,
+            workload_spec: None,
             active_window: None,
             target_app_hint: None,
             current_tier: None,
@@ -250,6 +252,11 @@ impl ToolExecutor {
 
     pub fn with_working_directory(mut self, working_directory: Option<String>) -> Self {
         self.working_directory = working_directory;
+        self
+    }
+
+    pub fn with_workload_spec(mut self, workload_spec: Option<WorkloadSpec>) -> Self {
+        self.workload_spec = workload_spec;
         self
     }
 
