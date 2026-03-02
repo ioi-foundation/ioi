@@ -3,13 +3,53 @@ use crate::template::interpolate_template;
 use ioi_scs::RetrievalSearchPolicy;
 use serde_json::json;
 
+fn parse_input_object(input: &str) -> Value {
+    serde_json::from_str(input).unwrap_or(json!({}))
+}
+
+fn latency_metrics(start: std::time::Instant) -> Value {
+    json!({ "latency_ms": start.elapsed().as_millis() })
+}
+
+fn build_result(
+    status: &str,
+    output: String,
+    data: Option<Value>,
+    metrics: Option<Value>,
+    input_snapshot: Option<Value>,
+    context_slice: Option<Value>,
+) -> ExecutionResult {
+    ExecutionResult {
+        status: status.to_string(),
+        output,
+        data,
+        metrics,
+        input_snapshot,
+        context_slice,
+    }
+}
+
+async fn ensure_browser_ready(input_obj: &Value) -> Option<ExecutionResult> {
+    if let Err(e) = BROWSER_DRIVER.launch(false).await {
+        return Some(build_result(
+            "error",
+            format!("Failed to launch browser driver: {}", e),
+            None,
+            None,
+            Some(input_obj.clone()),
+            None,
+        ));
+    }
+    None
+}
+
 pub(super) async fn run_mcp_tool(
     tool_name: &str,
     config: &Value,
     input: &str,
 ) -> Result<ExecutionResult, Box<dyn Error>> {
     let start = std::time::Instant::now();
-    let input_obj: Value = serde_json::from_str(input).unwrap_or(json!({}));
+    let input_obj = parse_input_object(input);
 
     let raw_args = config.get("arguments").cloned().unwrap_or(json!({}));
 
@@ -47,25 +87,25 @@ pub(super) async fn run_mcp_tool(
     }
 
     match MCP_MANAGER.execute_tool(tool_name, args).await {
-        Ok(output) => Ok(ExecutionResult {
-            status: "success".to_string(),
-            output: output.clone(),
-            data: match serde_json::from_str(&output) {
+        Ok(output) => Ok(build_result(
+            "success",
+            output.clone(),
+            match serde_json::from_str(&output) {
                 Ok(v) => Some(v),
                 Err(_) => Some(json!({ "raw": output })),
             },
-            metrics: Some(json!({ "latency_ms": start.elapsed().as_millis() })),
-            input_snapshot: Some(input_obj),
-            context_slice: None,
-        }),
-        Err(e) => Ok(ExecutionResult {
-            status: "error".to_string(),
-            output: format!("MCP Error: {}", e),
-            data: None,
-            metrics: None,
-            input_snapshot: Some(input_obj),
-            context_slice: None,
-        }),
+            Some(latency_metrics(start)),
+            Some(input_obj),
+            None,
+        )),
+        Err(e) => Ok(build_result(
+            "error",
+            format!("MCP Error: {}", e),
+            None,
+            None,
+            Some(input_obj),
+            None,
+        )),
     }
 }
 
@@ -74,17 +114,10 @@ pub(super) async fn run_browser_execution(
     input: &str,
 ) -> Result<ExecutionResult, Box<dyn Error>> {
     let start = std::time::Instant::now();
-    let input_obj: Value = serde_json::from_str(input).unwrap_or(serde_json::json!({}));
+    let input_obj = parse_input_object(input);
 
-    if let Err(e) = BROWSER_DRIVER.launch(false).await {
-        return Ok(ExecutionResult {
-            status: "error".to_string(),
-            output: format!("Failed to launch browser driver: {}", e),
-            data: None,
-            metrics: None,
-            input_snapshot: Some(input_obj),
-            context_slice: None,
-        });
+    if let Some(error) = ensure_browser_ready(&input_obj).await {
+        return Ok(error);
     }
 
     let action = config
@@ -101,45 +134,45 @@ pub(super) async fn run_browser_execution(
             let url = interpolate_template(url_template, &input_obj);
 
             match BROWSER_DRIVER.navigate(&url).await {
-                Ok(content) => Ok(ExecutionResult {
-                    status: "success".to_string(),
-                    output: content.clone(),
-                    data: Some(serde_json::json!({
+                Ok(content) => Ok(build_result(
+                    "success",
+                    content.clone(),
+                    Some(json!({
                         "url": url,
                         "title": "Page Loaded",
                         "content_length": content.len()
                     })),
-                    metrics: Some(serde_json::json!({ "latency_ms": start.elapsed().as_millis() })),
-                    input_snapshot: Some(input_obj),
-                    context_slice: None,
-                }),
-                Err(e) => Ok(ExecutionResult {
-                    status: "error".to_string(),
-                    output: format!("Navigation failed: {}", e),
-                    data: None,
-                    metrics: Some(serde_json::json!({ "latency_ms": start.elapsed().as_millis() })),
-                    input_snapshot: Some(input_obj),
-                    context_slice: None,
-                }),
+                    Some(latency_metrics(start)),
+                    Some(input_obj),
+                    None,
+                )),
+                Err(e) => Ok(build_result(
+                    "error",
+                    format!("Navigation failed: {}", e),
+                    None,
+                    Some(latency_metrics(start)),
+                    Some(input_obj),
+                    None,
+                )),
             }
         }
         "extract_dom" => match BROWSER_DRIVER.extract_dom().await {
-            Ok(dom) => Ok(ExecutionResult {
-                status: "success".to_string(),
-                output: dom.clone(),
-                data: Some(serde_json::json!({ "dom_length": dom.len() })),
-                metrics: Some(serde_json::json!({ "latency_ms": start.elapsed().as_millis() })),
-                input_snapshot: Some(input_obj),
-                context_slice: None,
-            }),
-            Err(e) => Ok(ExecutionResult {
-                status: "error".to_string(),
-                output: format!("DOM extraction failed: {}", e),
-                data: None,
-                metrics: None,
-                input_snapshot: Some(input_obj),
-                context_slice: None,
-            }),
+            Ok(dom) => Ok(build_result(
+                "success",
+                dom.clone(),
+                Some(json!({ "dom_length": dom.len() })),
+                Some(latency_metrics(start)),
+                Some(input_obj),
+                None,
+            )),
+            Err(e) => Ok(build_result(
+                "error",
+                format!("DOM extraction failed: {}", e),
+                None,
+                None,
+                Some(input_obj),
+                None,
+            )),
         },
         "click" => {
             let selector_template = config
@@ -150,32 +183,32 @@ pub(super) async fn run_browser_execution(
             let selector = interpolate_template(selector_template, &input_obj);
 
             match BROWSER_DRIVER.click_selector(&selector).await {
-                Ok(_) => Ok(ExecutionResult {
-                    status: "success".to_string(),
-                    output: format!("Clicked element: {}", selector),
-                    data: Some(serde_json::json!({ "action": "click", "selector": selector })),
-                    metrics: Some(serde_json::json!({ "latency_ms": start.elapsed().as_millis() })),
-                    input_snapshot: Some(input_obj),
-                    context_slice: None,
-                }),
-                Err(e) => Ok(ExecutionResult {
-                    status: "error".to_string(),
-                    output: format!("Click failed for '{}': {}", selector, e),
-                    data: None,
-                    metrics: None,
-                    input_snapshot: Some(input_obj),
-                    context_slice: None,
-                }),
+                Ok(_) => Ok(build_result(
+                    "success",
+                    format!("Clicked element: {}", selector),
+                    Some(json!({ "action": "click", "selector": selector })),
+                    Some(latency_metrics(start)),
+                    Some(input_obj),
+                    None,
+                )),
+                Err(e) => Ok(build_result(
+                    "error",
+                    format!("Click failed for '{}': {}", selector, e),
+                    None,
+                    None,
+                    Some(input_obj),
+                    None,
+                )),
             }
         }
-        _ => Ok(ExecutionResult {
-            status: "error".to_string(),
-            output: format!("Unknown browser action: {}", action),
-            data: None,
-            metrics: None,
-            input_snapshot: Some(input_obj),
-            context_slice: None,
-        }),
+        _ => Ok(build_result(
+            "error",
+            format!("Unknown browser action: {}", action),
+            None,
+            None,
+            Some(input_obj),
+            None,
+        )),
     }
 }
 
@@ -184,17 +217,10 @@ pub(super) async fn run_web_search_execution(
     input: &str,
 ) -> Result<ExecutionResult, Box<dyn Error>> {
     let start = std::time::Instant::now();
-    let input_obj: Value = serde_json::from_str(input).unwrap_or(serde_json::json!({}));
+    let input_obj = parse_input_object(input);
 
-    if let Err(e) = BROWSER_DRIVER.launch(false).await {
-        return Ok(ExecutionResult {
-            status: "error".to_string(),
-            output: format!("Failed to launch browser driver: {}", e),
-            data: None,
-            metrics: None,
-            input_snapshot: Some(input_obj),
-            context_slice: None,
-        });
+    if let Some(error) = ensure_browser_ready(&input_obj).await {
+        return Ok(error);
     }
 
     let query_template = config
@@ -214,23 +240,23 @@ pub(super) async fn run_web_search_execution(
         Ok(bundle) => {
             let data = serde_json::to_value(&bundle).ok();
             let output = serde_json::to_string_pretty(&bundle).unwrap_or_else(|_| query.clone());
-            Ok(ExecutionResult {
-                status: "success".to_string(),
+            Ok(build_result(
+                "success",
                 output,
                 data,
-                metrics: Some(serde_json::json!({ "latency_ms": start.elapsed().as_millis() })),
-                input_snapshot: Some(input_obj),
-                context_slice: None,
-            })
+                Some(latency_metrics(start)),
+                Some(input_obj),
+                None,
+            ))
         }
-        Err(e) => Ok(ExecutionResult {
-            status: "error".to_string(),
-            output: format!("Web search failed: {}", e),
-            data: None,
-            metrics: Some(serde_json::json!({ "latency_ms": start.elapsed().as_millis() })),
-            input_snapshot: Some(input_obj),
-            context_slice: None,
-        }),
+        Err(e) => Ok(build_result(
+            "error",
+            format!("Web search failed: {}", e),
+            None,
+            Some(latency_metrics(start)),
+            Some(input_obj),
+            None,
+        )),
     }
 }
 
@@ -239,17 +265,10 @@ pub(super) async fn run_web_read_execution(
     input: &str,
 ) -> Result<ExecutionResult, Box<dyn Error>> {
     let start = std::time::Instant::now();
-    let input_obj: Value = serde_json::from_str(input).unwrap_or(serde_json::json!({}));
+    let input_obj = parse_input_object(input);
 
-    if let Err(e) = BROWSER_DRIVER.launch(false).await {
-        return Ok(ExecutionResult {
-            status: "error".to_string(),
-            output: format!("Failed to launch browser driver: {}", e),
-            data: None,
-            metrics: None,
-            input_snapshot: Some(input_obj),
-            context_slice: None,
-        });
+    if let Some(error) = ensure_browser_ready(&input_obj).await {
+        return Ok(error);
     }
 
     let url_template = config
@@ -270,23 +289,23 @@ pub(super) async fn run_web_read_execution(
         Ok(bundle) => {
             let data = serde_json::to_value(&bundle).ok();
             let output = serde_json::to_string_pretty(&bundle).unwrap_or_else(|_| url.clone());
-            Ok(ExecutionResult {
-                status: "success".to_string(),
+            Ok(build_result(
+                "success",
                 output,
                 data,
-                metrics: Some(serde_json::json!({ "latency_ms": start.elapsed().as_millis() })),
-                input_snapshot: Some(input_obj),
-                context_slice: None,
-            })
+                Some(latency_metrics(start)),
+                Some(input_obj),
+                None,
+            ))
         }
-        Err(e) => Ok(ExecutionResult {
-            status: "error".to_string(),
-            output: format!("Web read failed: {}", e),
-            data: None,
-            metrics: Some(serde_json::json!({ "latency_ms": start.elapsed().as_millis() })),
-            input_snapshot: Some(input_obj),
-            context_slice: None,
-        }),
+        Err(e) => Ok(build_result(
+            "error",
+            format!("Web read failed: {}", e),
+            None,
+            Some(latency_metrics(start)),
+            Some(input_obj),
+            None,
+        )),
     }
 }
 
@@ -632,16 +651,16 @@ pub(super) async fn run_code_execution(
 
     tokio::time::sleep(std::time::Duration::from_millis(500)).await;
 
-    let input_obj: Value = serde_json::from_str(input).unwrap_or(json!({}));
+    let input_obj = parse_input_object(input);
 
-    Ok(ExecutionResult {
-        status: "success".into(),
-        output: format!("Executed {} code (Simulated)", language),
-        data: Some(serde_json::json!({ "processed": true, "result": "simulated_data" })),
-        metrics: None,
-        input_snapshot: Some(input_obj),
-        context_slice: None,
-    })
+    Ok(build_result(
+        "success",
+        format!("Executed {} code (Simulated)", language),
+        Some(json!({ "processed": true, "result": "simulated_data" })),
+        None,
+        Some(input_obj),
+        None,
+    ))
 }
 
 pub(super) async fn run_router_execution(
@@ -665,14 +684,14 @@ pub(super) async fn run_router_execution(
         }
     }
 
-    Ok(ExecutionResult {
-        status: "success".into(),
-        output: selected_route.clone(),
-        data: Some(json!({ "route": selected_route })),
-        metrics: None,
-        input_snapshot: Some(serde_json::from_str(input)?),
-        context_slice: None,
-    })
+    Ok(build_result(
+        "success",
+        selected_route.clone(),
+        Some(json!({ "route": selected_route })),
+        None,
+        Some(parse_input_object(input)),
+        None,
+    ))
 }
 
 pub(super) async fn run_wait_execution(config: &Value) -> Result<ExecutionResult, Box<dyn Error>> {
@@ -682,14 +701,14 @@ pub(super) async fn run_wait_execution(config: &Value) -> Result<ExecutionResult
         .unwrap_or(1000);
     tokio::time::sleep(std::time::Duration::from_millis(duration)).await;
 
-    Ok(ExecutionResult {
-        status: "success".into(),
-        output: format!("Waited {}ms", duration),
-        data: None,
-        metrics: None,
-        input_snapshot: None,
-        context_slice: None,
-    })
+    Ok(build_result(
+        "success",
+        format!("Waited {}ms", duration),
+        None,
+        None,
+        None,
+        None,
+    ))
 }
 
 pub(super) async fn run_context_execution(
@@ -698,14 +717,14 @@ pub(super) async fn run_context_execution(
 ) -> Result<ExecutionResult, Box<dyn Error>> {
     let vars = config.get("variables").cloned().unwrap_or(json!({}));
 
-    Ok(ExecutionResult {
-        status: "success".into(),
-        output: "Context Updated".into(),
-        data: Some(vars),
-        metrics: None,
-        input_snapshot: Some(serde_json::from_str(input)?),
-        context_slice: None,
-    })
+    Ok(build_result(
+        "success",
+        "Context Updated".into(),
+        Some(vars),
+        None,
+        Some(parse_input_object(input)),
+        None,
+    ))
 }
 
 // Semantic Retrieval Implementation
@@ -719,7 +738,7 @@ pub(super) async fn run_retrieval_execution(
 
     // 1. Resolve Query
     // Either from config "query" template or raw input
-    let input_obj: Value = serde_json::from_str(input).unwrap_or(json!({}));
+    let input_obj = parse_input_object(input);
     let query_template = config
         .get("query")
         .and_then(|s| s.as_str())

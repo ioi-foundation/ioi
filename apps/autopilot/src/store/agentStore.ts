@@ -1,6 +1,6 @@
 // apps/autopilot/src/store/agentStore.ts
 import { create } from "zustand";
-import type { AgentStatus, AgentEvent, Artifact } from "../types";
+import type { AgentStatus, AgentEvent, Artifact, ChatMessage } from "../types";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 
@@ -75,12 +75,6 @@ export interface SwarmAgent {
   policy_hash: string;
   // Evolutionary Status
   generation?: number;
-}
-
-export interface ChatMessage {
-  role: string;
-  text: string;
-  timestamp: number;
 }
 
 export interface AgentTask {
@@ -167,6 +161,29 @@ interface AgentStore {
   loadThreadArtifacts: (threadId: string) => Promise<Artifact[]>;
 }
 
+function normalizeTask(task: AgentTask): AgentTask {
+  return {
+    ...task,
+    generation: task.generation ?? 0,
+    fitness_score: task.fitness_score ?? 0.0,
+    lineage_id: task.lineage_id || "genesis",
+    events: Array.isArray(task.events) ? task.events : [],
+    artifacts: Array.isArray(task.artifacts) ? task.artifacts : [],
+  };
+}
+
+function appendUniqueEvent(events: AgentEvent[], next: AgentEvent): AgentEvent[] {
+  return events.some((event) => event.event_id === next.event_id)
+    ? events
+    : [...events, next];
+}
+
+function appendUniqueArtifact(artifacts: Artifact[], next: Artifact): Artifact[] {
+  return artifacts.some((artifact) => artifact.artifact_id === next.artifact_id)
+    ? artifacts
+    : [...artifacts, next];
+}
+
 export const useAgentStore = create<AgentStore>((set, get) => ({
   task: null,
   receipts: [],
@@ -178,14 +195,7 @@ export const useAgentStore = create<AgentStore>((set, get) => ({
   // [MODIFIED] Removed mode param. Defaults to "Agent" internally in backend.
   startTask: async (intent: string): Promise<AgentTask | null> => {
     try {
-      const task = await invoke<AgentTask>("start_task", { intent });
-      // Initialize evolutionary fields if missing from backend response (backward compat)
-      if (task.generation === undefined) task.generation = 0;
-      if (task.fitness_score === undefined) task.fitness_score = 0.0;
-      if (!task.lineage_id) task.lineage_id = "genesis";
-      if (!task.events) task.events = [];
-      if (!task.artifacts) task.artifacts = [];
-
+      const task = normalizeTask(await invoke<AgentTask>("start_task", { intent }));
       set({ task, events: task.events, artifacts: task.artifacts });
       return task;
     } catch (e) {
@@ -195,9 +205,8 @@ export const useAgentStore = create<AgentStore>((set, get) => ({
   },
 
   updateTask: (task: AgentTask) => {
-    if (!task.events) task.events = [];
-    if (!task.artifacts) task.artifacts = [];
-    set({ task, events: task.events, artifacts: task.artifacts });
+    const normalized = normalizeTask(task);
+    set({ task: normalized, events: normalized.events, artifacts: normalized.artifacts });
   },
 
   dismissTask: async () => {
@@ -328,14 +337,12 @@ export async function initEventListeners() {
 
   await listen<AgentEvent>("agent-event", (e) => {
     useAgentStore.setState((state) => {
-      const seenInStore = state.events.some((event) => event.event_id === e.payload.event_id);
+      const events = appendUniqueEvent(state.events, e.payload);
       const taskEvents = state.task?.events || [];
-      const seenInTask = taskEvents.some((event) => event.event_id === e.payload.event_id);
-      const events = seenInStore ? state.events : [...state.events, e.payload];
       const task = state.task
         ? {
             ...state.task,
-            events: seenInTask ? taskEvents : [...taskEvents, e.payload],
+            events: appendUniqueEvent(taskEvents, e.payload),
           }
         : state.task;
       return { events, task };
@@ -344,20 +351,11 @@ export async function initEventListeners() {
 
   await listen<Artifact>("artifact-created", (e) => {
     useAgentStore.setState((state) => {
-      const exists = state.artifacts.some(
-        (a) => a.artifact_id === e.payload.artifact_id,
-      );
-      const artifacts = exists
-        ? state.artifacts
-        : [...state.artifacts, e.payload];
+      const artifacts = appendUniqueArtifact(state.artifacts, e.payload);
       const task = state.task
         ? {
             ...state.task,
-            artifacts: state.task.artifacts.some(
-              (a) => a.artifact_id === e.payload.artifact_id,
-            )
-              ? state.task.artifacts
-              : [...(state.task.artifacts || []), e.payload],
+            artifacts: appendUniqueArtifact(state.task.artifacts || [], e.payload),
           }
         : state.task;
       return { artifacts, task };
@@ -365,7 +363,7 @@ export async function initEventListeners() {
   });
 
   // Listen for Ghost Inputs
-  await listen("ghost-input", (e: any) => {
+  await listen<{ device: string; description: string }>("ghost-input", (e) => {
     useAgentStore.getState().addGhostStep({
       device: e.payload.device,
       description: e.payload.description,
@@ -377,16 +375,11 @@ export async function initEventListeners() {
   try {
     const task = await invoke<AgentTask | null>("get_current_task");
     if (task) {
-      // Initialize evolutionary fields if missing from backend response (backward compat)
-      if (task.generation === undefined) task.generation = 0;
-      if (task.fitness_score === undefined) task.fitness_score = 0.0;
-      if (!task.lineage_id) task.lineage_id = "genesis";
-      if (!task.events) task.events = [];
-      if (!task.artifacts) task.artifacts = [];
+      const normalized = normalizeTask(task);
       useAgentStore.setState({
-        task,
-        events: task.events,
-        artifacts: task.artifacts,
+        task: normalized,
+        events: normalized.events,
+        artifacts: normalized.artifacts,
       });
     }
   } catch (e) {

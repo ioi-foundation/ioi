@@ -48,6 +48,16 @@ struct FirewallSignatureEnvelope {
     signature: Vec<u8>,
 }
 
+struct DeterminismContext {
+    request: ActionRequest,
+    request_hash: [u8; 32],
+    policy_hash: [u8; 32],
+    target_str: String,
+    tool_hash: [u8; 32],
+    intent_id: String,
+    signing_context: Option<(ChainId, AccountId)>,
+}
+
 fn no_visual(
     success: bool,
     history_entry: Option<String>,
@@ -530,6 +540,388 @@ fn compute_approval_token_ref(token: &ApprovalToken) -> Result<[u8; 32], Transac
     Ok(out)
 }
 
+async fn prepare_tool_for_execution(
+    service: &DesktopAgentService,
+    tool: &mut AgentTool,
+    rules: &ActionRules,
+    session_id: [u8; 32],
+    agent_state: &AgentState,
+    os_driver: &Arc<dyn OsDriver>,
+    scoped_exception_hash: Option<[u8; 32]>,
+) -> Result<(Option<ioi_api::vm::drivers::os::WindowInfo>, Option<String>), TransactionError> {
+    let foreground_window = query_active_window_with_timeout(os_driver, session_id, "pre").await;
+    let target_app_hint = agent_state.target.as_ref().and_then(|t| t.app_hint.clone());
+
+    // Pre-policy normalization:
+    // - Convert search-result browser navigation into governed `web__search` for WebResearch.
+    // - Ensure `web__search` carries a computed SERP URL for deterministic policy hashing.
+    normalize_web_research_tool_call(
+        tool,
+        agent_state.resolved_intent.as_ref(),
+        &agent_state.goal,
+    );
+
+    // `web__search` carries a computed SERP URL for deterministic
+    // policy enforcement + hashing (the model should only provide the query).
+    if let AgentTool::WebSearch { query, url, .. } = tool {
+        if url.as_ref().map(|u| u.trim().is_empty()).unwrap_or(true) {
+            *url = Some(crate::agentic::web::build_default_search_url(query));
+        }
+    }
+
+    // Stage D transform-first enforcement for egress-capable tools.
+    pii::apply_pii_transform_first(service, rules, session_id, scoped_exception_hash, tool).await?;
+
+    Ok((foreground_window, target_app_hint))
+}
+
+async fn build_determinism_context(
+    service: &DesktopAgentService,
+    tool: &AgentTool,
+    rules: &ActionRules,
+    agent_state: &AgentState,
+    os_driver: &Arc<dyn OsDriver>,
+    session_id: [u8; 32],
+    step_index: u32,
+    execution_call_context: Option<ServiceCallContext<'_>>,
+) -> Result<DeterminismContext, TransactionError> {
+    // 1. Serialization for Policy Check
+    let tool_value =
+        serde_json::to_value(tool).map_err(|e| TransactionError::Serialization(e.to_string()))?;
+    let args_value = tool_value
+        .get("arguments")
+        .cloned()
+        .unwrap_or_else(|| json!({}));
+    let request_params = serde_jcs::to_vec(&args_value)
+        .map_err(|e| TransactionError::Serialization(e.to_string()))?;
+
+    // 2. Compute Canonical Tool Bytes for Hash Stability
+    let tool_jcs =
+        serde_jcs::to_vec(tool).map_err(|e| TransactionError::Serialization(e.to_string()))?;
+    let tool_hash_bytes = ioi_crypto::algorithms::hash::sha256(&tool_jcs).map_err(|e| {
+        TransactionError::Invalid(format!(
+            "ERROR_CLASS=DeterminismBoundary Tool hash failed: {}",
+            e
+        ))
+    })?;
+    let mut tool_hash = [0u8; 32];
+    tool_hash.copy_from_slice(tool_hash_bytes.as_ref());
+
+    let mut target = tool.target();
+    // `FrameType::Observation` inspection can invoke screenshot captioning; gate it via a
+    // distinct policy target so default-safe rules can require explicit approval.
+    if let AgentTool::MemoryInspect { frame_id } = tool {
+        if let Some(scs_mutex) = service.scs.as_ref() {
+            if let Ok(store) = scs_mutex.lock() {
+                if let Some(frame) = store.toc.frames.get(*frame_id as usize) {
+                    if matches!(frame.frame_type, FrameType::Observation) {
+                        target = ioi_types::app::ActionTarget::Custom(
+                            "memory::inspect_observation".to_string(),
+                        );
+                    }
+                }
+            }
+        }
+    }
+
+    let window_binding =
+        resolve_window_binding_for_target(os_driver, session_id, &target, "pre_determinism_commit")
+            .await?;
+
+    let request = ioi_types::app::ActionRequest {
+        target: target.clone(),
+        params: request_params,
+        context: ioi_types::app::ActionContext {
+            agent_id: "desktop_agent".into(),
+            session_id: Some(session_id),
+            window_id: window_binding,
+        },
+        nonce: step_index as u64,
+    };
+
+    let request_hash = request.try_hash().map_err(|e| {
+        TransactionError::Invalid(format!(
+            "ERROR_CLASS=DeterminismBoundary Invalid committed action request: {}",
+            e
+        ))
+    })?;
+
+    let target_str = match &target {
+        ioi_types::app::ActionTarget::Custom(s) => s.clone(),
+        _ => serde_json::to_string(&target)
+            .unwrap_or_else(|_| "unknown".to_string())
+            .trim_matches('"')
+            .to_string(),
+    };
+
+    Ok(DeterminismContext {
+        request,
+        request_hash,
+        policy_hash: compute_policy_hash(rules)?,
+        target_str,
+        tool_hash,
+        intent_id: resolved_intent_id(agent_state),
+        signing_context: execution_call_context.map(|ctx| (ctx.chain_id, ctx.signer_account_id)),
+    })
+}
+
+fn emit_policy_decision_and_exit(
+    service: &DesktopAgentService,
+    execution_state: &mut Option<&mut dyn StateAccess>,
+    session_id: [u8; 32],
+    step_index: u32,
+    target_str: &str,
+    determinism: &DeterminismContext,
+    verdict: &str,
+    firewall_verdict: PolicyVerdict,
+    exit_error: TransactionError,
+) -> Result<TransactionError, TransactionError> {
+    let firewall_receipt_hash = if let Some(state) = execution_state.as_deref_mut() {
+        Some(persist_firewall_decision_receipt(
+            state,
+            session_id,
+            step_index,
+            determinism.request_hash,
+            determinism.policy_hash,
+            firewall_verdict,
+            determinism.signing_context,
+        )?)
+    } else {
+        None
+    };
+    emit_execution_contract_receipt_event(
+        service,
+        session_id,
+        step_index,
+        &determinism.intent_id,
+        "execution",
+        "policy_decision",
+        false,
+        &format!(
+            "decision={};policy_hash={};request_hash={};firewall_receipt_hash={}",
+            verdict,
+            hex::encode(determinism.policy_hash),
+            hex::encode(determinism.request_hash),
+            firewall_receipt_hash
+                .map(hex::encode)
+                .unwrap_or_else(|| "unavailable".to_string())
+        ),
+    );
+    if let Some(tx) = &service.event_sender {
+        let _ = tx.send(KernelEvent::FirewallInterception {
+            verdict: verdict.to_string(),
+            target: target_str.to_string(),
+            request_hash: determinism.request_hash,
+            session_id: Some(session_id),
+        });
+    }
+    Ok(exit_error)
+}
+
+async fn enforce_policy_and_record(
+    service: &DesktopAgentService,
+    tool: &AgentTool,
+    rules: &ActionRules,
+    agent_state: &AgentState,
+    os_driver: &Arc<dyn OsDriver>,
+    session_id: [u8; 32],
+    step_index: u32,
+    execution_state: &mut Option<&mut dyn StateAccess>,
+    determinism: &DeterminismContext,
+) -> Result<(), TransactionError> {
+    // 3. Policy Check
+    let skip_policy = matches!(tool, AgentTool::SystemFail { .. });
+    if skip_policy {
+        return Ok(());
+    }
+
+    emit_execution_contract_receipt_event(
+        service,
+        session_id,
+        step_index,
+        &determinism.intent_id,
+        "execution",
+        "policy_hash_binding",
+        true,
+        &format!(
+            "policy_hash={};request_hash={};target={}",
+            hex::encode(determinism.policy_hash),
+            hex::encode(determinism.request_hash),
+            determinism.target_str
+        ),
+    );
+
+    let matched_approval_token = agent_state
+        .pending_approval
+        .as_ref()
+        .filter(|token| token.request_hash == determinism.request_hash);
+    let approved_by_runtime_secret = approvals::is_runtime_secret_install_retry_approved(
+        tool,
+        determinism.tool_hash,
+        session_id,
+        agent_state,
+    );
+    let is_approved = matched_approval_token.is_some() || approved_by_runtime_secret;
+    let mut firewall_verdict = PolicyVerdict::Allow;
+
+    if is_approved {
+        if matched_approval_token.is_some() {
+            log::info!(
+                "Policy Gate: Pre-approved via Token for hash {}",
+                hex::encode(determinism.request_hash)
+            );
+            if let Some(token) = matched_approval_token {
+                let approval_ref = compute_approval_token_ref(token)?;
+                firewall_verdict = PolicyVerdict::Approved(approval_ref);
+            }
+        } else {
+            log::info!(
+                "Policy Gate: Pre-approved via runtime secret retry for hash {}",
+                hex::encode(determinism.request_hash)
+            );
+            firewall_verdict = PolicyVerdict::Allow;
+        }
+    } else {
+        use crate::agentic::policy::PolicyEngine;
+        use crate::agentic::rules::Verdict;
+
+        let verdict = PolicyEngine::evaluate(
+            rules,
+            &determinism.request,
+            &service.scrubber.model,
+            os_driver,
+            None,
+        )
+        .await;
+
+        match verdict {
+            Verdict::Allow => {
+                firewall_verdict = PolicyVerdict::Allow;
+            }
+            Verdict::Block => {
+                let exit = emit_policy_decision_and_exit(
+                    service,
+                    execution_state,
+                    session_id,
+                    step_index,
+                    &determinism.target_str,
+                    determinism,
+                    "BLOCK",
+                    PolicyVerdict::Block("blocked_by_policy".to_string()),
+                    TransactionError::Invalid("Blocked by Policy".into()),
+                )?;
+                return Err(exit);
+            }
+            Verdict::RequireApproval => {
+                log::info!(
+                    "Policy Gate: RequireApproval for hash: {}",
+                    hex::encode(determinism.request_hash)
+                );
+                let exit = emit_policy_decision_and_exit(
+                    service,
+                    execution_state,
+                    session_id,
+                    step_index,
+                    &determinism.target_str,
+                    determinism,
+                    "REQUIRE_APPROVAL",
+                    PolicyVerdict::Block("require_approval".to_string()),
+                    TransactionError::PendingApproval(hex::encode(determinism.request_hash)),
+                )?;
+                return Err(exit);
+            }
+        }
+    }
+
+    let firewall_receipt_hash = if let Some(state) = execution_state.as_deref_mut() {
+        Some(persist_firewall_decision_receipt(
+            state,
+            session_id,
+            step_index,
+            determinism.request_hash,
+            determinism.policy_hash,
+            firewall_verdict,
+            determinism.signing_context,
+        )?)
+    } else {
+        None
+    };
+    emit_execution_contract_receipt_event(
+        service,
+        session_id,
+        step_index,
+        &determinism.intent_id,
+        "execution",
+        "firewall_decision_receipt",
+        true,
+        &format!(
+            "request_hash={};policy_hash={};firewall_receipt_hash={}",
+            hex::encode(determinism.request_hash),
+            hex::encode(determinism.policy_hash),
+            firewall_receipt_hash
+                .map(hex::encode)
+                .unwrap_or_else(|| "unavailable".to_string())
+        ),
+    );
+
+    let approval_ref = matched_approval_token
+        .map(compute_approval_token_ref)
+        .transpose()?;
+    let recovery_retry = agent_state.consecutive_failures > 0;
+    let recovery_reason = recovery_retry
+        .then(|| format!("consecutive_failures={}", agent_state.consecutive_failures));
+
+    let committed_action =
+        CommittedAction::commit(&determinism.request, determinism.policy_hash, approval_ref)
+            .map_err(|e| {
+                TransactionError::Invalid(format!(
+                    "ERROR_CLASS=DeterminismBoundary Unable to commit action: {}",
+                    e
+                ))
+            })?;
+
+    committed_action
+        .verify(&determinism.request, determinism.policy_hash, approval_ref)
+        .map_err(|e| {
+            TransactionError::Invalid(format!(
+                "ERROR_CLASS=DeterminismBoundary Commit verification failed: {}",
+                e
+            ))
+        })?;
+
+    if let Some(state) = execution_state.as_deref_mut() {
+        persist_committed_action(state, session_id, step_index, &committed_action)?;
+        persist_determinism_evidence(
+            state,
+            session_id,
+            step_index,
+            &determinism.request,
+            &committed_action,
+            recovery_retry,
+            recovery_reason.clone(),
+        )?;
+    }
+
+    emit_execution_contract_receipt_event(
+        service,
+        session_id,
+        step_index,
+        &determinism.intent_id,
+        "execution",
+        "determinism_commit",
+        true,
+        &format!(
+            "commitment_hash={};request_hash={};policy_hash={};recovery_retry={}",
+            hex::encode(committed_action.commitment_hash),
+            hex::encode(committed_action.request_hash),
+            hex::encode(committed_action.policy_hash),
+            recovery_retry
+        ),
+    );
+
+    Ok(())
+}
+
 pub async fn handle_action_execution(
     service: &DesktopAgentService,
     tool: AgentTool,
@@ -553,354 +945,41 @@ pub async fn handle_action_execution(
     // [VERIFIED] This line ensures the registry propagates to execution
     let lens_registry_arc = service.lens_registry.clone();
 
-    let mut foreground_window =
-        query_active_window_with_timeout(os_driver, session_id, "pre").await;
-    let target_app_hint = agent_state.target.as_ref().and_then(|t| t.app_hint.clone());
-
-    // Pre-policy normalization:
-    // - Convert search-result browser navigation into governed `web__search` for WebResearch.
-    // - Ensure `web__search` carries a computed SERP URL for deterministic policy hashing.
-    normalize_web_research_tool_call(
+    let (mut foreground_window, target_app_hint) = prepare_tool_for_execution(
+        service,
         &mut tool,
-        agent_state.resolved_intent.as_ref(),
-        &agent_state.goal,
-    );
+        rules,
+        session_id,
+        agent_state,
+        os_driver,
+        scoped_exception_hash,
+    )
+    .await?;
 
-    // `web__search` carries a computed SERP URL for deterministic
-    // policy enforcement + hashing (the model should only provide the query).
-    if let AgentTool::WebSearch { query, url, .. } = &mut tool {
-        if url.as_ref().map(|u| u.trim().is_empty()).unwrap_or(true) {
-            *url = Some(crate::agentic::web::build_default_search_url(query));
-        }
-    }
+    let determinism = build_determinism_context(
+        service,
+        &tool,
+        rules,
+        agent_state,
+        os_driver,
+        session_id,
+        step_index,
+        execution_call_context,
+    )
+    .await?;
 
-    // Stage D transform-first enforcement for egress-capable tools.
-    pii::apply_pii_transform_first(service, rules, session_id, scoped_exception_hash, &mut tool)
-        .await?;
-
-    // 1. Serialization for Policy Check
-    let tool_value =
-        serde_json::to_value(&tool).map_err(|e| TransactionError::Serialization(e.to_string()))?;
-
-    let args_value = if let Some(args) = tool_value.get("arguments") {
-        args.clone()
-    } else {
-        json!({})
-    };
-
-    let request_params = serde_jcs::to_vec(&args_value)
-        .map_err(|e| TransactionError::Serialization(e.to_string()))?;
-
-    // 2. Compute Canonical Tool Bytes for Hash Stability
-    let tool_jcs =
-        serde_jcs::to_vec(&tool).map_err(|e| TransactionError::Serialization(e.to_string()))?;
-    let tool_hash_bytes = ioi_crypto::algorithms::hash::sha256(&tool_jcs).map_err(|e| {
-        TransactionError::Invalid(format!(
-            "ERROR_CLASS=DeterminismBoundary Tool hash failed: {}",
-            e
-        ))
-    })?;
-    let mut tool_hash = [0u8; 32];
-    tool_hash.copy_from_slice(tool_hash_bytes.as_ref());
-
-    let mut target = tool.target();
-    // `FrameType::Observation` inspection can invoke screenshot captioning; gate it via a
-    // distinct policy target so default-safe rules can require explicit approval.
-    if let AgentTool::MemoryInspect { frame_id } = &tool {
-        if let Some(scs_mutex) = service.scs.as_ref() {
-            if let Ok(store) = scs_mutex.lock() {
-                if let Some(frame) = store.toc.frames.get(*frame_id as usize) {
-                    if matches!(frame.frame_type, FrameType::Observation) {
-                        target = ioi_types::app::ActionTarget::Custom(
-                            "memory::inspect_observation".to_string(),
-                        );
-                    }
-                }
-            }
-        }
-    }
-
-    let window_binding =
-        resolve_window_binding_for_target(os_driver, session_id, &target, "pre_determinism_commit")
-            .await?;
-
-    let dummy_request = ioi_types::app::ActionRequest {
-        target: target.clone(),
-        params: request_params,
-        context: ioi_types::app::ActionContext {
-            agent_id: "desktop_agent".into(),
-            session_id: Some(session_id),
-            window_id: window_binding,
-        },
-        nonce: step_index as u64,
-    };
-
-    let request_hash = dummy_request.try_hash().map_err(|e| {
-        TransactionError::Invalid(format!(
-            "ERROR_CLASS=DeterminismBoundary Invalid committed action request: {}",
-            e
-        ))
-    })?;
-
-    let target_str = match &target {
-        ioi_types::app::ActionTarget::Custom(s) => s.clone(),
-        _ => serde_json::to_string(&target)
-            .unwrap_or_else(|_| "unknown".to_string())
-            .trim_matches('"')
-            .to_string(),
-    };
-    let intent_id = resolved_intent_id(agent_state);
-    let firewall_signing_context =
-        execution_call_context.map(|ctx| (ctx.chain_id, ctx.signer_account_id));
-
-    // 3. Policy Check
-    let skip_policy = matches!(tool, AgentTool::SystemFail { .. });
-
-    if !skip_policy {
-        let policy_hash = compute_policy_hash(rules)?;
-        emit_execution_contract_receipt_event(
-            service,
-            session_id,
-            step_index,
-            &intent_id,
-            "execution",
-            "policy_hash_binding",
-            true,
-            &format!(
-                "policy_hash={};request_hash={};target={}",
-                hex::encode(policy_hash),
-                hex::encode(request_hash),
-                target_str
-            ),
-        );
-
-        let matched_approval_token = agent_state
-            .pending_approval
-            .as_ref()
-            .filter(|token| token.request_hash == request_hash);
-        let approved_by_runtime_secret = approvals::is_runtime_secret_install_retry_approved(
-            &tool,
-            tool_hash,
-            session_id,
-            agent_state,
-        );
-        let is_approved = matched_approval_token.is_some() || approved_by_runtime_secret;
-        let mut firewall_verdict = PolicyVerdict::Allow;
-
-        if is_approved {
-            if matched_approval_token.is_some() {
-                log::info!(
-                    "Policy Gate: Pre-approved via Token for hash {}",
-                    hex::encode(request_hash)
-                );
-                if let Some(token) = matched_approval_token {
-                    let approval_ref = compute_approval_token_ref(token)?;
-                    firewall_verdict = PolicyVerdict::Approved(approval_ref);
-                }
-            } else {
-                log::info!(
-                    "Policy Gate: Pre-approved via runtime secret retry for hash {}",
-                    hex::encode(request_hash)
-                );
-                firewall_verdict = PolicyVerdict::Allow;
-            }
-        } else {
-            // Import PolicyEngine from service level
-            use crate::agentic::policy::PolicyEngine;
-            use crate::agentic::rules::Verdict;
-
-            let verdict = PolicyEngine::evaluate(
-                rules,
-                &dummy_request,
-                &service.scrubber.model,
-                os_driver,
-                None,
-            )
-            .await;
-
-            match verdict {
-                Verdict::Allow => {
-                    firewall_verdict = PolicyVerdict::Allow;
-                }
-                Verdict::Block => {
-                    firewall_verdict = PolicyVerdict::Block("blocked_by_policy".to_string());
-                    let firewall_receipt_hash = if let Some(state) = execution_state.as_deref_mut()
-                    {
-                        Some(persist_firewall_decision_receipt(
-                            state,
-                            session_id,
-                            step_index,
-                            request_hash,
-                            policy_hash,
-                            firewall_verdict.clone(),
-                            firewall_signing_context,
-                        )?)
-                    } else {
-                        None
-                    };
-                    emit_execution_contract_receipt_event(
-                        service,
-                        session_id,
-                        step_index,
-                        &intent_id,
-                        "execution",
-                        "policy_decision",
-                        false,
-                        &format!(
-                            "decision=BLOCK;policy_hash={};request_hash={};firewall_receipt_hash={}",
-                            hex::encode(policy_hash),
-                            hex::encode(request_hash),
-                            firewall_receipt_hash
-                                .map(hex::encode)
-                                .unwrap_or_else(|| "unavailable".to_string())
-                        ),
-                    );
-                    if let Some(tx) = &service.event_sender {
-                        let _ = tx.send(KernelEvent::FirewallInterception {
-                            verdict: "BLOCK".to_string(),
-                            target: target_str.clone(),
-                            request_hash,
-                            session_id: Some(session_id),
-                        });
-                    }
-                    return Err(TransactionError::Invalid("Blocked by Policy".into()));
-                }
-                Verdict::RequireApproval => {
-                    firewall_verdict = PolicyVerdict::Block("require_approval".to_string());
-                    let firewall_receipt_hash = if let Some(state) = execution_state.as_deref_mut()
-                    {
-                        Some(persist_firewall_decision_receipt(
-                            state,
-                            session_id,
-                            step_index,
-                            request_hash,
-                            policy_hash,
-                            firewall_verdict.clone(),
-                            firewall_signing_context,
-                        )?)
-                    } else {
-                        None
-                    };
-                    log::info!(
-                        "Policy Gate: RequireApproval for hash: {}",
-                        hex::encode(request_hash)
-                    );
-                    emit_execution_contract_receipt_event(
-                        service,
-                        session_id,
-                        step_index,
-                        &intent_id,
-                        "execution",
-                        "policy_decision",
-                        false,
-                        &format!(
-                            "decision=REQUIRE_APPROVAL;policy_hash={};request_hash={};firewall_receipt_hash={}",
-                            hex::encode(policy_hash),
-                            hex::encode(request_hash),
-                            firewall_receipt_hash
-                                .map(hex::encode)
-                                .unwrap_or_else(|| "unavailable".to_string())
-                        ),
-                    );
-
-                    if let Some(tx) = &service.event_sender {
-                        let _ = tx.send(KernelEvent::FirewallInterception {
-                            verdict: "REQUIRE_APPROVAL".to_string(),
-                            target: target_str.clone(),
-                            request_hash,
-                            session_id: Some(session_id),
-                        });
-                    }
-                    return Err(TransactionError::PendingApproval(hex::encode(request_hash)));
-                }
-            }
-        }
-
-        let firewall_receipt_hash = if let Some(state) = execution_state.as_deref_mut() {
-            Some(persist_firewall_decision_receipt(
-                state,
-                session_id,
-                step_index,
-                request_hash,
-                policy_hash,
-                firewall_verdict,
-                firewall_signing_context,
-            )?)
-        } else {
-            None
-        };
-        emit_execution_contract_receipt_event(
-            service,
-            session_id,
-            step_index,
-            &intent_id,
-            "execution",
-            "firewall_decision_receipt",
-            true,
-            &format!(
-                "request_hash={};policy_hash={};firewall_receipt_hash={}",
-                hex::encode(request_hash),
-                hex::encode(policy_hash),
-                firewall_receipt_hash
-                    .map(hex::encode)
-                    .unwrap_or_else(|| "unavailable".to_string())
-            ),
-        );
-
-        let approval_ref = matched_approval_token
-            .map(compute_approval_token_ref)
-            .transpose()?;
-        let recovery_retry = agent_state.consecutive_failures > 0;
-        let recovery_reason = recovery_retry
-            .then(|| format!("consecutive_failures={}", agent_state.consecutive_failures));
-
-        let committed_action = CommittedAction::commit(&dummy_request, policy_hash, approval_ref)
-            .map_err(|e| {
-            TransactionError::Invalid(format!(
-                "ERROR_CLASS=DeterminismBoundary Unable to commit action: {}",
-                e
-            ))
-        })?;
-
-        committed_action
-            .verify(&dummy_request, policy_hash, approval_ref)
-            .map_err(|e| {
-                TransactionError::Invalid(format!(
-                    "ERROR_CLASS=DeterminismBoundary Commit verification failed: {}",
-                    e
-                ))
-            })?;
-
-        if let Some(state) = execution_state.as_deref_mut() {
-            persist_committed_action(state, session_id, step_index, &committed_action)?;
-            persist_determinism_evidence(
-                state,
-                session_id,
-                step_index,
-                &dummy_request,
-                &committed_action,
-                recovery_retry,
-                recovery_reason.clone(),
-            )?;
-        }
-
-        emit_execution_contract_receipt_event(
-            service,
-            session_id,
-            step_index,
-            &intent_id,
-            "execution",
-            "determinism_commit",
-            true,
-            &format!(
-                "commitment_hash={};request_hash={};policy_hash={};recovery_retry={}",
-                hex::encode(committed_action.commitment_hash),
-                hex::encode(committed_action.request_hash),
-                hex::encode(committed_action.policy_hash),
-                recovery_retry
-            ),
-        );
-    }
+    enforce_policy_and_record(
+        service,
+        &tool,
+        rules,
+        agent_state,
+        os_driver,
+        session_id,
+        step_index,
+        &mut execution_state,
+        &determinism,
+    )
+    .await?;
 
     // Pre-execution focus recovery for click-like tools.
     // This reduces FocusMismatch loops by verifying/repairing focus before click dispatch.
