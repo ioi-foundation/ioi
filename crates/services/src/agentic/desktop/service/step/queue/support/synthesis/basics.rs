@@ -193,6 +193,9 @@ pub(crate) fn contains_current_condition_metric_signal(text: &str) -> bool {
                 | MetricAxis::Rate
         )
     });
+    if schema.axis_hits.contains(&MetricAxis::Price) && !has_price_quote_payload(text) {
+        return false;
+    }
     has_observable_axis || temperature_observation
 }
 
@@ -530,6 +533,9 @@ pub(crate) fn metric_axis_display_priority(axis: MetricAxis) -> usize {
 pub(crate) fn axis_specific_metric_line(axis: MetricAxis, text: &str) -> Option<String> {
     let schema = analyze_metric_schema(text);
     if !schema.axis_hits.contains(&axis) || !has_quantitative_metric_payload(text, true) {
+        return None;
+    }
+    if axis == MetricAxis::Price && !has_price_quote_payload(text) {
         return None;
     }
     let focused = compact_metric_focus(text);

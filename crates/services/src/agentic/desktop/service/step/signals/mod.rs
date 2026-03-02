@@ -12,7 +12,7 @@ pub use goal::{
     query_semantic_anchor_tokens, query_structural_directive_tokens, GoalSignalProfile,
     IntentSurface,
 };
-pub use metric::{analyze_metric_schema, MetricAxis, MetricSchemaProfile};
+pub use metric::{analyze_metric_schema, has_price_quote_payload, MetricAxis, MetricSchemaProfile};
 pub use query::{analyze_query_facets, QueryFacetProfile};
 pub use report::{
     infer_report_sections, report_section_aliases, report_section_key, report_section_label,

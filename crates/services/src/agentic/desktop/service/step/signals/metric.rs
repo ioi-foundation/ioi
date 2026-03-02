@@ -97,6 +97,17 @@ const METRIC_UNIT_MARKERS: [&str; 17] = [
 ];
 const METRIC_CURRENCY_MARKERS: [&str; 8] =
     ["$", " usd", " eur", " gbp", " jpy", " cad", " aud", " chf"];
+const PRICE_QUOTE_CURRENCY_TOKENS: [&str; 8] =
+    ["usd", "eur", "gbp", "jpy", "cad", "aud", "chf", "usdt"];
+const PRICE_QUOTE_SCALE_MARKERS: [&str; 7] = [
+    " million ",
+    " billion ",
+    " trillion ",
+    " market cap ",
+    " valuation ",
+    " valued at ",
+    " circulating supply ",
+];
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum MetricAxis {
@@ -287,4 +298,98 @@ pub fn analyze_metric_schema(text: &str) -> MetricSchemaProfile {
         horizon_hits,
         range_hits,
     }
+}
+
+fn token_digit_count(token: &str) -> usize {
+    token.chars().filter(|ch| ch.is_ascii_digit()).count()
+}
+
+fn token_has_currency_indicator(token: &str) -> bool {
+    let lower = token.to_ascii_lowercase();
+    lower.contains('$')
+        || lower.contains('\u{20ac}')
+        || lower.contains('\u{00a3}')
+        || lower.contains('\u{00a5}')
+        || PRICE_QUOTE_CURRENCY_TOKENS
+            .iter()
+            .any(|currency| lower.contains(currency))
+}
+
+fn token_normalized(token: &str) -> String {
+    token
+        .trim_matches(|ch: char| ",.;:!?()[]{}'\"".contains(ch))
+        .to_ascii_lowercase()
+}
+
+fn token_is_currency_token(token: &str) -> bool {
+    PRICE_QUOTE_CURRENCY_TOKENS.contains(&token)
+}
+
+pub fn has_price_quote_payload(text: &str) -> bool {
+    let schema = analyze_metric_schema(text);
+    if !schema.axis_hits.contains(&MetricAxis::Price) || schema.numeric_token_hits == 0 {
+        return false;
+    }
+
+    let normalized = normalize_marker_text(text);
+    let lowered = format!(" {} ", normalized);
+    let valuation_scale_heavy = PRICE_QUOTE_SCALE_MARKERS
+        .iter()
+        .any(|marker| lowered.contains(marker));
+
+    let tokens = metric_tokens(text);
+    let mut quote_token_present = false;
+
+    for (idx, token) in tokens.iter().enumerate() {
+        let trimmed = token_normalized(token);
+        if trimmed.is_empty() || looks_like_clock_time(&trimmed) || is_iso_date_token(&trimmed) {
+            continue;
+        }
+        if !token_has_numeric_payload(&trimmed) {
+            continue;
+        }
+
+        let digit_count = token_digit_count(&trimmed);
+        if digit_count == 0 {
+            continue;
+        }
+
+        let prev_currency = idx
+            .checked_sub(1)
+            .and_then(|prev| tokens.get(prev))
+            .map(|value| token_is_currency_token(&token_normalized(value)))
+            .unwrap_or(false);
+        let next_currency = tokens
+            .get(idx + 1)
+            .map(|value| token_is_currency_token(&token_normalized(value)))
+            .unwrap_or(false);
+        let currency_context =
+            token_has_currency_indicator(&trimmed) || prev_currency || next_currency;
+        if !currency_context {
+            continue;
+        }
+
+        let has_precision_shape = trimmed.contains('.') || trimmed.contains(',');
+        let has_magnitude_shape = digit_count >= 3;
+        if has_precision_shape || has_magnitude_shape {
+            quote_token_present = true;
+            break;
+        }
+    }
+
+    if !quote_token_present {
+        return false;
+    }
+
+    if !valuation_scale_heavy {
+        return true;
+    }
+
+    // Scale-heavy snippets are accepted only when they still expose explicit quote context.
+    lowered.contains(" price ")
+        || lowered.contains(" quote ")
+        || lowered.contains(" per ")
+        || lowered.contains(" to usd ")
+        || lowered.contains(" usd per ")
+        || lowered.contains(" = ")
 }

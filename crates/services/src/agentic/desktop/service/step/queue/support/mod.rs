@@ -5,10 +5,10 @@ use super::envelope::{
 use crate::agentic::desktop::middleware;
 use crate::agentic::desktop::service::step::signals::{
     analyze_metric_schema, analyze_query_facets, analyze_source_record_signals,
-    infer_report_sections, is_mailbox_connector_intent, query_semantic_anchor_tokens,
-    query_structural_directive_tokens, report_section_aliases, report_section_key,
-    report_section_label, MetricAxis, MetricSchemaProfile, QueryFacetProfile, ReportSectionKind,
-    SourceSignalProfile, WEB_EVIDENCE_SIGNAL_VERSION,
+    has_price_quote_payload, infer_report_sections, is_mailbox_connector_intent,
+    query_semantic_anchor_tokens, query_structural_directive_tokens, report_section_aliases,
+    report_section_key, report_section_label, MetricAxis, MetricSchemaProfile, QueryFacetProfile,
+    ReportSectionKind, SourceSignalProfile, WEB_EVIDENCE_SIGNAL_VERSION,
 };
 use crate::agentic::desktop::types::{
     AgentState, PendingSearchCompletion, PendingSearchReadSummary,
