@@ -1,9 +1,10 @@
 use super::{
     analyze_goal_signals, analyze_metric_schema, analyze_query_facets,
-    analyze_source_record_signals, analyze_source_text_signals, infer_interaction_target,
-    infer_report_sections, is_live_external_research_goal, is_mail_connector_tool_name,
-    is_mailbox_connector_intent, query_semantic_anchor_tokens, query_structural_directive_tokens,
-    report_section_label, GoalSignalProfile, MetricAxis, ReportSectionKind,
+    analyze_source_record_signals, analyze_source_text_signals, has_price_quote_payload,
+    infer_interaction_target, infer_report_sections, is_live_external_research_goal,
+    is_mail_connector_tool_name, is_mailbox_connector_intent, query_semantic_anchor_tokens,
+    query_structural_directive_tokens, report_section_label, GoalSignalProfile, MetricAxis,
+    ReportSectionKind,
 };
 
 #[test]
@@ -191,6 +192,16 @@ fn metric_schema_marks_temperature_axis_for_degree_only_observations() {
     let observation = analyze_metric_schema("Fair 35°F 2°C");
     assert!(observation.has_metric_payload());
     assert!(observation.axis_hits.contains(&MetricAxis::Temperature));
+}
+
+#[test]
+fn price_quote_signal_requires_explicit_quote_shape() {
+    assert!(has_price_quote_payload(
+        "Bitcoin price right now: $86,743.63 USD as of 17:23 UTC."
+    ));
+    assert!(!has_price_quote_payload(
+        "2 million BTC valued at about $36 billion at the current price."
+    ));
 }
 
 #[test]

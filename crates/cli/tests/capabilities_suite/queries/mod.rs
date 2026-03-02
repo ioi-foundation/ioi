@@ -8,6 +8,7 @@ mod multiply_247_by_38;
 mod open_calculator_app;
 mod read_me_the_last_email_i_received;
 mod rename_every_file_in_my_downloads_folder_to_lowercase;
+mod schedule_my_computer_to_shut_down_at_11_pm_tonight;
 mod set_timer_15_minutes;
 mod summarize_the_contents_of_the_most_recent_document_in_my_documents_folder;
 mod take_a_screenshot_of_my_desktop;
@@ -27,6 +28,7 @@ pub fn all_cases() -> Vec<QueryCase> {
         check_which_apps_are_using_the_most_memory_right_now_and_list_them::case(),
         open_calculator_app::case(),
         set_timer_15_minutes::case(),
+        schedule_my_computer_to_shut_down_at_11_pm_tonight::case(),
         compress_the_projects_folder_into_a_zip_file_and_put_it_on_my_desktop::case(),
         create_a_new_folder_on_my_desktop_called_project_some_number::case(),
         download_and_install_vlc_media_player::case(),

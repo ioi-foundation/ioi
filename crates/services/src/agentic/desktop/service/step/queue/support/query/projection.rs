@@ -409,19 +409,33 @@ pub(crate) fn candidate_time_sensitive_resolvable_payload(title: &str, excerpt: 
         schema.axis_hits.len() >= TIME_SENSITIVE_RESOLVABLE_SURFACE_MIN_AXIS
     }
 
-    let source_schema = analyze_metric_schema(&format!("{} {}", title, excerpt));
-    if source_schema.has_current_observation_payload()
+    fn schema_has_price_without_quote(schema: &MetricSchemaProfile, text: &str) -> bool {
+        schema.axis_hits.contains(&MetricAxis::Price) && !has_price_quote_payload(text)
+    }
+
+    let source_text = format!("{} {}", title, excerpt);
+    let source_schema = analyze_metric_schema(&source_text);
+    let source_has_price_without_quote =
+        schema_has_price_without_quote(&source_schema, &source_text);
+    if (source_schema.has_current_observation_payload() && !source_has_price_without_quote)
         || (source_schema.numeric_token_hits > 0 && source_schema.unit_hits > 0)
     {
         return true;
     }
 
     let excerpt_schema = analyze_metric_schema(excerpt);
-    if observation_surface_signal(&excerpt_schema) {
+    let excerpt_has_price_without_quote = schema_has_price_without_quote(&excerpt_schema, excerpt);
+    if observation_surface_signal(&excerpt_schema) && !excerpt_has_price_without_quote {
         return true;
     }
 
-    excerpt.trim().is_empty() && observation_surface_signal(&analyze_metric_schema(title))
+    if !excerpt.trim().is_empty() {
+        return false;
+    }
+
+    let title_schema = analyze_metric_schema(title);
+    observation_surface_signal(&title_schema)
+        && !schema_has_price_without_quote(&title_schema, title)
 }
 
 pub(crate) fn compatibility_passes_projection(

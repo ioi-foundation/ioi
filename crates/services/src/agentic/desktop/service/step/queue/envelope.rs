@@ -1,5 +1,5 @@
 use crate::agentic::desktop::service::step::signals::{
-    analyze_metric_schema, analyze_query_facets, MetricAxis,
+    analyze_metric_schema, analyze_query_facets, has_price_quote_payload, MetricAxis,
 };
 use crate::agentic::desktop::types::PendingSearchReadSummary;
 use std::collections::{BTreeMap, BTreeSet};
@@ -367,11 +367,16 @@ fn extract_claims(evidence: &Evidence) -> Vec<Claim> {
         return Vec::new();
     }
     let unavailable = text_has_unavailable_markers(evidence.text.as_str());
+    let price_quote_payload = has_price_quote_payload(&evidence.text);
     let mut out = Vec::new();
     for facet in schema.axis_hits.iter().copied() {
+        let numeric_price_observation = facet != MetricAxis::Price || price_quote_payload;
         let value_state = if unavailable {
             ClaimValueState::Unavailable
-        } else if schema.has_current_observation_payload() && schema.numeric_token_hits > 0 {
+        } else if schema.has_current_observation_payload()
+            && schema.numeric_token_hits > 0
+            && numeric_price_observation
+        {
             ClaimValueState::NumericObserved
         } else {
             ClaimValueState::PresentWithoutNumeric

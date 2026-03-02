@@ -500,6 +500,95 @@ fn web_pipeline_single_snapshot_continues_when_grounded_hints_lack_resolvable_me
 }
 
 #[test]
+fn web_pipeline_single_snapshot_keeps_running_for_price_queries_when_only_valuation_snippets_exist()
+{
+    let pending = PendingSearchCompletion {
+        query: "What's the current price of Bitcoin?".to_string(),
+        query_contract: "What's the current price of Bitcoin?".to_string(),
+        url: "https://www.bing.com/search?q=current+bitcoin+price".to_string(),
+        started_step: 1,
+        started_at_ms: 1_771_465_364_000,
+        deadline_ms: 1_771_465_424_000,
+        candidate_urls: vec![
+            "https://www.coindesk.com/price/bitcoin".to_string(),
+            "https://crypto.news/price/bitcoin/".to_string(),
+            "https://www.coinbase.com/price/bitcoin".to_string(),
+        ],
+        candidate_source_hints: vec![PendingSearchReadSummary {
+            url: "https://www.coinbase.com/price/bitcoin".to_string(),
+            title: Some("Coinbase Bitcoin Price".to_string()),
+            excerpt: "BTC price right now: $86,743.63 USD.".to_string(),
+        }],
+        attempted_urls: vec![
+            "https://www.coindesk.com/price/bitcoin".to_string(),
+            "https://crypto.news/price/bitcoin/".to_string(),
+        ],
+        blocked_urls: vec![],
+        successful_reads: vec![
+            PendingSearchReadSummary {
+                url: "https://www.coindesk.com/price/bitcoin".to_string(),
+                title: Some("CoinDesk Bitcoin price".to_string()),
+                excerpt: "Overview and market data for Bitcoin with charts and market cap."
+                    .to_string(),
+            },
+            PendingSearchReadSummary {
+                url: "https://crypto.news/price/bitcoin/".to_string(),
+                title: Some("Crypto.news Bitcoin price".to_string()),
+                excerpt: "2 million BTC valued at about $36 billion at the current price."
+                    .to_string(),
+            },
+        ],
+        min_sources: 2,
+    };
+
+    let reason = web_pipeline_completion_reason(&pending, 1_771_465_380_000);
+    assert!(
+        reason.is_none(),
+        "valuation-only snippets should keep price query pipeline active for a resolvable quote source; got {:?}",
+        reason
+    );
+}
+
+#[test]
+fn web_pipeline_single_snapshot_completes_price_queries_when_explicit_quote_is_present() {
+    let pending = PendingSearchCompletion {
+        query: "What's the current price of Bitcoin?".to_string(),
+        query_contract: "What's the current price of Bitcoin?".to_string(),
+        url: "https://www.bing.com/search?q=current+bitcoin+price".to_string(),
+        started_step: 1,
+        started_at_ms: 1_771_465_364_000,
+        deadline_ms: 1_771_465_424_000,
+        candidate_urls: vec![
+            "https://www.coindesk.com/price/bitcoin".to_string(),
+            "https://www.coinbase.com/price/bitcoin".to_string(),
+        ],
+        candidate_source_hints: vec![],
+        attempted_urls: vec![
+            "https://www.coindesk.com/price/bitcoin".to_string(),
+            "https://www.coinbase.com/price/bitcoin".to_string(),
+        ],
+        blocked_urls: vec![],
+        successful_reads: vec![
+            PendingSearchReadSummary {
+                url: "https://www.coindesk.com/price/bitcoin".to_string(),
+                title: Some("CoinDesk Bitcoin price".to_string()),
+                excerpt: "Bitcoin price right now: $86,743.63 USD as of 17:23 UTC.".to_string(),
+            },
+            PendingSearchReadSummary {
+                url: "https://www.coinbase.com/price/bitcoin".to_string(),
+                title: Some("Coinbase Bitcoin price".to_string()),
+                excerpt: "Current BTC quote: 86,744 USD.".to_string(),
+            },
+        ],
+        min_sources: 2,
+    };
+
+    let reason = web_pipeline_completion_reason(&pending, 1_771_465_380_000)
+        .expect("explicit quote grounding should allow completion");
+    assert_eq!(reason, WebPipelineCompletionReason::MinSourcesReached);
+}
+
+#[test]
 fn web_pipeline_grounded_probe_attempts_remain_available_before_limit() {
     let pending = PendingSearchCompletion {
         query: "Tell me today's top news headlines.".to_string(),

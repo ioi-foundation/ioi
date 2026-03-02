@@ -203,6 +203,12 @@ const TOP_MEMORY_APPS_CASE_ID: &str =
 const TOP_MEMORY_APPS_FIXTURE_MODE: &str = "top_memory_apps_fixture_v1";
 const TOP_MEMORY_APPS_FIXTURE_PROBE_SOURCE: &str = "harness.top_memory_apps_fixture";
 const TOP_MEMORY_APPS_PROBE_SCRIPT_NAME: &str = "top_memory_apps_probe";
+const SHUTDOWN_SCHEDULE_CASE_ID: &str = "schedule_my_computer_to_shut_down_at_11_pm_tonight";
+const SHUTDOWN_SCHEDULE_FIXTURE_MODE: &str = "shutdown_schedule_fixture_v1";
+const SHUTDOWN_SCHEDULE_FIXTURE_PROBE_SOURCE: &str = "harness.shutdown_schedule_fixture";
+const SHUTDOWN_SCHEDULE_PROBE_SCRIPT_NAME: &str = "shutdown_schedule_probe";
+const SHUTDOWN_SCHEDULE_PROVIDER_IDS: [&str; 3] = ["shutdown", "systemctl", "at"];
+const SHUTDOWN_SCHEDULE_TARGET_LOCAL_TIME: &str = "23:00";
 
 #[derive(Debug, Clone)]
 struct MailRuntimeBootstrapConfig {
@@ -350,6 +356,19 @@ struct TopMemoryAppsFixtureRuntime {
     receipt_path: PathBuf,
 }
 
+struct ShutdownScheduleFixtureRuntime {
+    _temp_dir: tempfile::TempDir,
+    _env_path: ScopedEnvVar,
+    _env_fixture_mode: ScopedEnvVar,
+    _env_receipt_path: ScopedEnvVar,
+    _env_provider_receipt_path: ScopedEnvVar,
+    _env_run_unique_num: ScopedEnvVar,
+    fixture_root: PathBuf,
+    probe_script_path: PathBuf,
+    receipt_path: PathBuf,
+    provider_receipt_path: PathBuf,
+}
+
 #[derive(Debug, Clone)]
 struct TopMemoryAppProbeRow {
     rank: usize,
@@ -362,6 +381,26 @@ struct TopMemoryAppProbeRow {
 struct TopMemoryAppsProbeReceipt {
     provider: String,
     rows: Vec<TopMemoryAppProbeRow>,
+}
+
+#[derive(Debug, Clone, Default)]
+struct ShutdownScheduleProbeReceipt {
+    provider: String,
+    target_local_time: String,
+    target_local_date: String,
+    now_epoch_sec: i64,
+    target_epoch_sec: i64,
+    delay_seconds: i64,
+    rollover_to_next_day: bool,
+    run_unique_num: String,
+    scheduled: bool,
+}
+
+#[derive(Debug, Clone, Default)]
+struct ShutdownProviderInvocationReceipt {
+    provider: String,
+    provider_invoked: bool,
+    provider_args: String,
 }
 
 fn find_workspace_file(file_name: &str) -> Option<PathBuf> {
@@ -1049,6 +1088,10 @@ fn should_bootstrap_spotify_uninstall_fixture(case_id: &str) -> bool {
 
 fn should_bootstrap_top_memory_apps_fixture(case_id: &str) -> bool {
     case_id.eq_ignore_ascii_case(TOP_MEMORY_APPS_CASE_ID)
+}
+
+fn should_bootstrap_shutdown_schedule_fixture(case_id: &str) -> bool {
+    case_id.eq_ignore_ascii_case(SHUTDOWN_SCHEDULE_CASE_ID)
 }
 
 fn write_executable_script(path: &Path, content: &str) -> Result<()> {
@@ -3398,6 +3441,601 @@ fn top_memory_apps_fixture_cleanup_checks(fixture: &TopMemoryAppsFixtureRuntime)
     ]
 }
 
+fn bootstrap_shutdown_schedule_fixture_runtime(
+    run_unique_num: &str,
+) -> Result<ShutdownScheduleFixtureRuntime> {
+    let temp_dir = tempdir()?;
+    let fixture_root = temp_dir
+        .path()
+        .join(format!("shutdown_schedule_{}", run_unique_num));
+    let fixture_bin = fixture_root.join("bin");
+    let fixture_receipts = fixture_root.join("receipts");
+    std::fs::create_dir_all(&fixture_bin)?;
+    std::fs::create_dir_all(&fixture_receipts)?;
+
+    let probe_script_path = fixture_bin.join(SHUTDOWN_SCHEDULE_PROBE_SCRIPT_NAME);
+    let receipt_path = fixture_receipts.join("shutdown_schedule_receipt.txt");
+    let provider_receipt_path = fixture_receipts.join("shutdown_provider_receipt.txt");
+    let _ = std::fs::remove_file(&receipt_path);
+    let _ = std::fs::remove_file(&provider_receipt_path);
+
+    let sudo_script = r#"#!/usr/bin/env bash
+set -euo pipefail
+if [ "$#" -eq 0 ]; then
+  exit 0
+fi
+args=()
+for arg in "$@"; do
+  case "$arg" in
+    -n|-S|-k|--) ;;
+    *) args+=("$arg") ;;
+  esac
+done
+if [ "${#args[@]}" -eq 0 ]; then
+  exit 0
+fi
+exec "${args[@]}"
+"#;
+    write_executable_script(&fixture_bin.join("sudo"), sudo_script)?;
+
+    let provider_script = r#"#!/usr/bin/env bash
+set -euo pipefail
+
+provider="${1:-}"
+if [ -z "$provider" ]; then
+  echo "shutdown schedule fixture: missing provider id" >&2
+  exit 2
+fi
+shift || true
+
+provider_receipt_path="${IOI_SHUTDOWN_SCHEDULE_PROVIDER_RECEIPT_PATH:-}"
+if [ -z "$provider_receipt_path" ]; then
+  echo "shutdown schedule fixture: IOI_SHUTDOWN_SCHEDULE_PROVIDER_RECEIPT_PATH missing" >&2
+  exit 3
+fi
+
+mkdir -p "$(dirname "$provider_receipt_path")"
+{
+  echo "provider=${provider}"
+  echo "provider_invoked=true"
+  echo "provider_args=$*"
+} > "$provider_receipt_path"
+
+case "$provider" in
+  shutdown|systemctl|at)
+    exit 0
+    ;;
+  *)
+    echo "shutdown schedule fixture: unsupported provider '$provider'" >&2
+    exit 2
+    ;;
+esac
+"#;
+    write_executable_script(
+        &fixture_bin.join("shutdown_fixture_provider"),
+        provider_script,
+    )?;
+
+    write_executable_script(
+        &fixture_bin.join("shutdown"),
+        "#!/usr/bin/env bash\nset -euo pipefail\nexec shutdown_fixture_provider shutdown \"$@\"\n",
+    )?;
+    write_executable_script(
+        &fixture_bin.join("systemctl"),
+        "#!/usr/bin/env bash\nset -euo pipefail\nexec shutdown_fixture_provider systemctl \"$@\"\n",
+    )?;
+    write_executable_script(
+        &fixture_bin.join("at"),
+        "#!/usr/bin/env bash\nset -euo pipefail\nexec shutdown_fixture_provider at \"$@\"\n",
+    )?;
+    write_executable_script(
+        &fixture_bin.join("poweroff"),
+        "#!/usr/bin/env bash\nset -euo pipefail\nexec shutdown_fixture_provider shutdown poweroff \"$@\"\n",
+    )?;
+    write_executable_script(
+        &fixture_bin.join("halt"),
+        "#!/usr/bin/env bash\nset -euo pipefail\nexec shutdown_fixture_provider shutdown halt \"$@\"\n",
+    )?;
+    write_executable_script(
+        &fixture_bin.join("reboot"),
+        "#!/usr/bin/env bash\nset -euo pipefail\nexec shutdown_fixture_provider shutdown reboot \"$@\"\n",
+    )?;
+
+    let probe_script = r#"#!/usr/bin/env bash
+set -euo pipefail
+
+if [ "${1:-}" != "--target-local" ]; then
+  echo "expected usage: shutdown_schedule_probe --target-local <HH:MM>" >&2
+  exit 2
+fi
+target_local="${2:-}"
+if [ -z "$target_local" ]; then
+  echo "missing --target-local value" >&2
+  exit 2
+fi
+if ! [[ "$target_local" =~ ^([0-1][0-9]|2[0-3]):[0-5][0-9]$ ]]; then
+  echo "invalid target time format '$target_local'; expected HH:MM" >&2
+  exit 2
+fi
+
+receipt_path="${IOI_SHUTDOWN_SCHEDULE_RECEIPT_PATH:-}"
+run_unique_num="${IOI_SHUTDOWN_SCHEDULE_RUN_UNIQUE_NUM:-}"
+if [ -z "$receipt_path" ]; then
+  echo "missing IOI_SHUTDOWN_SCHEDULE_RECEIPT_PATH" >&2
+  exit 3
+fi
+if [ -z "$run_unique_num" ]; then
+  echo "missing IOI_SHUTDOWN_SCHEDULE_RUN_UNIQUE_NUM" >&2
+  exit 3
+fi
+
+for required in date shutdown_fixture_provider; do
+  if ! command -v "$required" >/dev/null 2>&1; then
+    echo "missing required provider binary: $required" >&2
+    exit 4
+  fi
+done
+
+provider=""
+for candidate in shutdown systemctl at; do
+  if command -v "$candidate" >/dev/null 2>&1; then
+    provider="$candidate"
+    break
+  fi
+done
+if [ -z "$provider" ]; then
+  echo "no supported shutdown scheduling provider found" >&2
+  exit 5
+fi
+
+now_epoch="$(date +%s 2>/dev/null || true)"
+today_date="$(date +%F 2>/dev/null || true)"
+target_today_epoch="$(date -d "${today_date} ${target_local}:00" +%s 2>/dev/null || true)"
+if [ -z "$now_epoch" ] || [ -z "$today_date" ] || [ -z "$target_today_epoch" ]; then
+  echo "date provider did not return required values" >&2
+  exit 6
+fi
+if ! [[ "$now_epoch" =~ ^-?[0-9]+$ ]] || ! [[ "$target_today_epoch" =~ ^-?[0-9]+$ ]]; then
+  echo "date provider returned non-numeric epoch values" >&2
+  exit 6
+fi
+
+target_epoch="$target_today_epoch"
+rollover_to_next_day=false
+if [ "$target_epoch" -le "$now_epoch" ]; then
+  target_epoch="$((target_today_epoch + 86400))"
+  rollover_to_next_day=true
+fi
+delay_seconds="$((target_epoch - now_epoch))"
+if [ "$delay_seconds" -le 0 ]; then
+  echo "computed delay_seconds must be positive" >&2
+  exit 7
+fi
+target_local_date="$(date -d "@${target_epoch}" +%F 2>/dev/null || true)"
+if [ -z "$target_local_date" ]; then
+  echo "failed to compute local target date" >&2
+  exit 7
+fi
+
+case "$provider" in
+  shutdown)
+    shutdown -h "$target_local"
+    ;;
+  systemctl)
+    systemctl poweroff "--when=${target_local}"
+    ;;
+  at)
+    at "$target_local" </dev/null
+    ;;
+  *)
+    echo "unsupported provider '$provider'" >&2
+    exit 8
+    ;;
+esac
+
+mkdir -p "$(dirname "$receipt_path")"
+{
+  echo "provider=${provider}"
+  echo "target_local_time=${target_local}"
+  echo "target_local_date=${target_local_date}"
+  echo "now_epoch_sec=${now_epoch}"
+  echo "target_epoch_sec=${target_epoch}"
+  echo "delay_seconds=${delay_seconds}"
+  echo "rollover_to_next_day=${rollover_to_next_day}"
+  echo "run_unique_num=${run_unique_num}"
+  echo "scheduled=true"
+} > "$receipt_path"
+
+cat "$receipt_path"
+"#;
+    write_executable_script(&probe_script_path, probe_script)?;
+
+    let inherited_path = std::env::var("PATH").unwrap_or_default();
+    let fixture_path = format!("{}:{}", fixture_bin.to_string_lossy(), inherited_path);
+    let env_path = ScopedEnvVar::set("PATH", fixture_path);
+    let env_fixture_mode = ScopedEnvVar::set(
+        "IOI_SHUTDOWN_SCHEDULE_FIXTURE_MODE",
+        SHUTDOWN_SCHEDULE_FIXTURE_MODE,
+    );
+    let env_receipt_path = ScopedEnvVar::set(
+        "IOI_SHUTDOWN_SCHEDULE_RECEIPT_PATH",
+        receipt_path.to_string_lossy().to_string(),
+    );
+    let env_provider_receipt_path = ScopedEnvVar::set(
+        "IOI_SHUTDOWN_SCHEDULE_PROVIDER_RECEIPT_PATH",
+        provider_receipt_path.to_string_lossy().to_string(),
+    );
+    let env_run_unique_num = ScopedEnvVar::set(
+        "IOI_SHUTDOWN_SCHEDULE_RUN_UNIQUE_NUM",
+        run_unique_num.to_string(),
+    );
+
+    Ok(ShutdownScheduleFixtureRuntime {
+        _temp_dir: temp_dir,
+        _env_path: env_path,
+        _env_fixture_mode: env_fixture_mode,
+        _env_receipt_path: env_receipt_path,
+        _env_provider_receipt_path: env_provider_receipt_path,
+        _env_run_unique_num: env_run_unique_num,
+        fixture_root,
+        probe_script_path,
+        receipt_path,
+        provider_receipt_path,
+    })
+}
+
+fn shutdown_schedule_fixture_preflight_checks(
+    fixture: &ShutdownScheduleFixtureRuntime,
+    run_unique_num: &str,
+    run_timestamp_ms: u64,
+) -> Vec<String> {
+    let run_unique_satisfied = fixture
+        .fixture_root
+        .file_name()
+        .and_then(|name| name.to_str())
+        .map(|name| name.ends_with(run_unique_num))
+        .unwrap_or(false);
+    let probe_script_seeded_satisfied = fixture.probe_script_path.is_file();
+    let receipt_absent_satisfied = !fixture.receipt_path.exists();
+    let provider_receipt_absent_satisfied = !fixture.provider_receipt_path.exists();
+    let fixture_satisfied = run_unique_satisfied
+        && probe_script_seeded_satisfied
+        && receipt_absent_satisfied
+        && provider_receipt_absent_satisfied;
+
+    vec![
+        format!(
+            "env_receipt::shutdown_schedule_fixture_mode={}",
+            SHUTDOWN_SCHEDULE_FIXTURE_MODE
+        ),
+        format!(
+            "env_receipt::shutdown_schedule_fixture_probe_source={}",
+            SHUTDOWN_SCHEDULE_FIXTURE_PROBE_SOURCE
+        ),
+        format!(
+            "env_receipt::shutdown_schedule_fixture_timestamp_ms={}",
+            run_timestamp_ms
+        ),
+        format!(
+            "env_receipt::shutdown_schedule_fixture_root={}",
+            fixture.fixture_root.to_string_lossy()
+        ),
+        format!(
+            "env_receipt::shutdown_schedule_probe_script_path={}",
+            fixture.probe_script_path.to_string_lossy()
+        ),
+        format!(
+            "env_receipt::shutdown_schedule_receipt_path={}",
+            fixture.receipt_path.to_string_lossy()
+        ),
+        format!(
+            "env_receipt::shutdown_schedule_provider_receipt_path={}",
+            fixture.provider_receipt_path.to_string_lossy()
+        ),
+        format!(
+            "env_receipt::shutdown_schedule_run_unique_num={}",
+            run_unique_num
+        ),
+        format!(
+            "env_receipt::shutdown_schedule_run_unique_satisfied={}",
+            run_unique_satisfied
+        ),
+        format!(
+            "env_receipt::shutdown_schedule_probe_script_seeded_satisfied={}",
+            probe_script_seeded_satisfied
+        ),
+        format!(
+            "env_receipt::shutdown_schedule_receipt_absent_satisfied={}",
+            receipt_absent_satisfied
+        ),
+        format!(
+            "env_receipt::shutdown_schedule_provider_receipt_absent_satisfied={}",
+            provider_receipt_absent_satisfied
+        ),
+        format!(
+            "env_receipt::shutdown_schedule_fixture_satisfied={}",
+            fixture_satisfied
+        ),
+    ]
+}
+
+fn parse_shutdown_schedule_probe_receipt(path: &Path) -> ShutdownScheduleProbeReceipt {
+    let mut receipt = ShutdownScheduleProbeReceipt::default();
+    let raw = std::fs::read_to_string(path).unwrap_or_default();
+    for line in raw.lines() {
+        let trimmed = line.trim();
+        if trimmed.is_empty() {
+            continue;
+        }
+        let Some((key, value)) = trimmed.split_once('=') else {
+            continue;
+        };
+        let key = key.trim();
+        let value = value.trim();
+        match key {
+            "provider" => receipt.provider = value.to_string(),
+            "target_local_time" => receipt.target_local_time = value.to_string(),
+            "target_local_date" => receipt.target_local_date = value.to_string(),
+            "now_epoch_sec" => receipt.now_epoch_sec = value.parse::<i64>().unwrap_or_default(),
+            "target_epoch_sec" => {
+                receipt.target_epoch_sec = value.parse::<i64>().unwrap_or_default()
+            }
+            "delay_seconds" => receipt.delay_seconds = value.parse::<i64>().unwrap_or_default(),
+            "rollover_to_next_day" => {
+                receipt.rollover_to_next_day = value.eq_ignore_ascii_case("true")
+            }
+            "run_unique_num" => receipt.run_unique_num = value.to_string(),
+            "scheduled" => receipt.scheduled = value.eq_ignore_ascii_case("true"),
+            _ => {}
+        }
+    }
+    receipt
+}
+
+fn parse_shutdown_provider_invocation_receipt(path: &Path) -> ShutdownProviderInvocationReceipt {
+    let mut receipt = ShutdownProviderInvocationReceipt::default();
+    let raw = std::fs::read_to_string(path).unwrap_or_default();
+    for line in raw.lines() {
+        let trimmed = line.trim();
+        if trimmed.is_empty() {
+            continue;
+        }
+        let Some((key, value)) = trimmed.split_once('=') else {
+            continue;
+        };
+        let key = key.trim();
+        let value = value.trim();
+        match key {
+            "provider" => receipt.provider = value.to_string(),
+            "provider_invoked" => receipt.provider_invoked = value.eq_ignore_ascii_case("true"),
+            "provider_args" => receipt.provider_args = value.to_string(),
+            _ => {}
+        }
+    }
+    receipt
+}
+
+fn shutdown_schedule_fixture_post_run_checks(
+    fixture: &ShutdownScheduleFixtureRuntime,
+) -> Vec<String> {
+    let timestamp_ms = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_millis() as u64;
+    let probe_source = format!("{}.receipt_probe", SHUTDOWN_SCHEDULE_FIXTURE_PROBE_SOURCE);
+
+    let receipt_path_satisfied = fixture.receipt_path.is_file();
+    let provider_receipt_path_satisfied = fixture.provider_receipt_path.is_file();
+    let receipt = if receipt_path_satisfied {
+        parse_shutdown_schedule_probe_receipt(&fixture.receipt_path)
+    } else {
+        ShutdownScheduleProbeReceipt::default()
+    };
+    let provider_receipt = if provider_receipt_path_satisfied {
+        parse_shutdown_provider_invocation_receipt(&fixture.provider_receipt_path)
+    } else {
+        ShutdownProviderInvocationReceipt::default()
+    };
+
+    let provider_satisfied = SHUTDOWN_SCHEDULE_PROVIDER_IDS
+        .iter()
+        .any(|provider| receipt.provider.eq_ignore_ascii_case(provider));
+    let target_local_time_satisfied =
+        receipt.target_local_time == SHUTDOWN_SCHEDULE_TARGET_LOCAL_TIME;
+    let target_after_run_satisfied = receipt.target_epoch_sec > 0
+        && receipt.now_epoch_sec > 0
+        && receipt.target_epoch_sec > receipt.now_epoch_sec;
+    let expected_delay = receipt
+        .target_epoch_sec
+        .saturating_sub(receipt.now_epoch_sec);
+    let delay_window_satisfied = target_after_run_satisfied
+        && expected_delay == receipt.delay_seconds
+        && receipt.delay_seconds > 0
+        && receipt.delay_seconds <= 86_400;
+    let run_unique_match_satisfied = !receipt.run_unique_num.trim().is_empty()
+        && fixture
+            .fixture_root
+            .file_name()
+            .and_then(|name| name.to_str())
+            .map(|name| name.ends_with(&receipt.run_unique_num))
+            .unwrap_or(false);
+    let provider_invoked_satisfied = provider_receipt.provider_invoked
+        && provider_receipt
+            .provider
+            .eq_ignore_ascii_case(&receipt.provider);
+    let provider_args_target_satisfied = provider_receipt
+        .provider_args
+        .contains(SHUTDOWN_SCHEDULE_TARGET_LOCAL_TIME);
+    let scheduled_satisfied = receipt.scheduled;
+    let scope_satisfied = provider_satisfied
+        && target_local_time_satisfied
+        && target_after_run_satisfied
+        && delay_window_satisfied
+        && run_unique_match_satisfied
+        && scheduled_satisfied
+        && provider_invoked_satisfied
+        && provider_args_target_satisfied
+        && receipt_path_satisfied
+        && provider_receipt_path_satisfied;
+
+    vec![
+        format!(
+            "env_receipt::shutdown_schedule_provider={}",
+            receipt.provider
+        ),
+        format!(
+            "env_receipt::shutdown_schedule_provider_probe_source={}",
+            probe_source
+        ),
+        format!(
+            "env_receipt::shutdown_schedule_provider_timestamp_ms={}",
+            timestamp_ms
+        ),
+        format!(
+            "env_receipt::shutdown_schedule_provider_satisfied={}",
+            provider_satisfied
+        ),
+        format!(
+            "env_receipt::shutdown_schedule_target_local_time={}",
+            receipt.target_local_time
+        ),
+        format!(
+            "env_receipt::shutdown_schedule_target_local_date={}",
+            receipt.target_local_date
+        ),
+        format!(
+            "env_receipt::shutdown_schedule_target_local_time_satisfied={}",
+            target_local_time_satisfied
+        ),
+        format!(
+            "env_receipt::shutdown_schedule_now_epoch_sec={}",
+            receipt.now_epoch_sec
+        ),
+        format!(
+            "env_receipt::shutdown_schedule_target_epoch_sec={}",
+            receipt.target_epoch_sec
+        ),
+        format!(
+            "env_receipt::shutdown_schedule_delay_seconds={}",
+            receipt.delay_seconds
+        ),
+        format!(
+            "env_receipt::shutdown_schedule_delay_window_satisfied={}",
+            delay_window_satisfied
+        ),
+        format!(
+            "env_receipt::shutdown_schedule_target_after_run_satisfied={}",
+            target_after_run_satisfied
+        ),
+        format!(
+            "env_receipt::shutdown_schedule_rollover_to_next_day={}",
+            receipt.rollover_to_next_day
+        ),
+        format!(
+            "env_receipt::shutdown_schedule_run_unique_observed={}",
+            receipt.run_unique_num
+        ),
+        format!(
+            "env_receipt::shutdown_schedule_run_unique_match_satisfied={}",
+            run_unique_match_satisfied
+        ),
+        format!(
+            "env_receipt::shutdown_schedule_scheduled_satisfied={}",
+            scheduled_satisfied
+        ),
+        format!(
+            "env_receipt::shutdown_schedule_provider_receipt_provider={}",
+            provider_receipt.provider
+        ),
+        format!(
+            "env_receipt::shutdown_schedule_provider_args={}",
+            provider_receipt.provider_args
+        ),
+        format!(
+            "env_receipt::shutdown_schedule_provider_receipt_probe_source={}",
+            probe_source
+        ),
+        format!(
+            "env_receipt::shutdown_schedule_provider_receipt_timestamp_ms={}",
+            timestamp_ms
+        ),
+        format!(
+            "env_receipt::shutdown_schedule_provider_invoked_satisfied={}",
+            provider_invoked_satisfied
+        ),
+        format!(
+            "env_receipt::shutdown_schedule_provider_args_target_satisfied={}",
+            provider_args_target_satisfied
+        ),
+        format!(
+            "env_receipt::shutdown_schedule_receipt_path={}",
+            fixture.receipt_path.to_string_lossy()
+        ),
+        format!(
+            "env_receipt::shutdown_schedule_provider_receipt_path={}",
+            fixture.provider_receipt_path.to_string_lossy()
+        ),
+        format!(
+            "env_receipt::shutdown_schedule_receipt_path_satisfied={}",
+            receipt_path_satisfied
+        ),
+        format!(
+            "env_receipt::shutdown_schedule_provider_receipt_path_satisfied={}",
+            provider_receipt_path_satisfied
+        ),
+        format!(
+            "env_receipt::shutdown_schedule_scope_satisfied={}",
+            scope_satisfied
+        ),
+    ]
+}
+
+fn shutdown_schedule_fixture_cleanup_checks(
+    fixture: &ShutdownScheduleFixtureRuntime,
+) -> Vec<String> {
+    let timestamp_ms = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_millis() as u64;
+    let probe_source = format!("{}.cleanup_probe", SHUTDOWN_SCHEDULE_FIXTURE_PROBE_SOURCE);
+    let _ = std::fs::remove_file(&fixture.receipt_path);
+    let _ = std::fs::remove_file(&fixture.provider_receipt_path);
+    let _ = std::fs::remove_dir_all(&fixture.fixture_root);
+    let fixture_root_exists_after_cleanup = fixture.fixture_root.exists();
+    let receipt_exists_after_cleanup = fixture.receipt_path.exists();
+    let provider_receipt_exists_after_cleanup = fixture.provider_receipt_path.exists();
+    let cleanup_satisfied = !fixture_root_exists_after_cleanup
+        && !receipt_exists_after_cleanup
+        && !provider_receipt_exists_after_cleanup;
+
+    vec![
+        format!(
+            "env_receipt::shutdown_schedule_cleanup_probe_source={}",
+            probe_source
+        ),
+        format!(
+            "env_receipt::shutdown_schedule_cleanup_timestamp_ms={}",
+            timestamp_ms
+        ),
+        format!(
+            "env_receipt::shutdown_schedule_cleanup_fixture_root_exists={}",
+            fixture_root_exists_after_cleanup
+        ),
+        format!(
+            "env_receipt::shutdown_schedule_cleanup_receipt_exists={}",
+            receipt_exists_after_cleanup
+        ),
+        format!(
+            "env_receipt::shutdown_schedule_cleanup_provider_receipt_exists={}",
+            provider_receipt_exists_after_cleanup
+        ),
+        format!(
+            "env_receipt::shutdown_schedule_cleanup_satisfied={}",
+            cleanup_satisfied
+        ),
+    ]
+}
+
 fn wallet_channel_key(channel_id: &[u8; 32]) -> Vec<u8> {
     [b"channel::".as_slice(), channel_id.as_slice()].concat()
 }
@@ -3792,6 +4430,20 @@ pub async fn run_case(
             &fixture.probe_script_path.to_string_lossy(),
         );
     }
+    let shutdown_schedule_fixture = bootstrap_optional_fixture(
+        should_bootstrap_shutdown_schedule_fixture(case.id),
+        || bootstrap_shutdown_schedule_fixture_runtime(&run_unique_num),
+        |fixture| {
+            shutdown_schedule_fixture_preflight_checks(fixture, &run_unique_num, run_timestamp_ms)
+        },
+        &mut runtime_setup_verification_checks,
+    )?;
+    if let Some(fixture) = shutdown_schedule_fixture.as_ref() {
+        run_query = run_query.replace(
+            "{SHUTDOWN_SCHEDULE_PROBE_PATH}",
+            &fixture.probe_script_path.to_string_lossy(),
+        );
+    }
     if should_bootstrap_mailbox_runtime(&run_query) {
         runtime_setup_verification_checks.extend(
             bootstrap_mailbox_runtime_state(
@@ -4117,6 +4769,12 @@ pub async fn run_case(
         top_memory_apps_fixture.as_ref(),
         top_memory_apps_fixture_post_run_checks,
         Some(top_memory_apps_fixture_cleanup_checks),
+    );
+    insert_fixture_checks(
+        &mut verification_checks,
+        shutdown_schedule_fixture.as_ref(),
+        shutdown_schedule_fixture_post_run_checks,
+        Some(shutdown_schedule_fixture_cleanup_checks),
     );
 
     let event_excerpt = captured_events
