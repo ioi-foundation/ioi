@@ -162,6 +162,14 @@ const DOWNLOADS_LOWERCASE_EXPECTED_FINAL_FILES: [&str; 3] =
     ["alpha.txt", "budget 2026.pdf", "mixed_case.jpg"];
 const DOWNLOADS_LOWERCASE_EXPECTED_ORIGINAL_FILES: [&str; 3] =
     ["Alpha.TXT", "Budget 2026.PDF", "MiXeD_Case.JPG"];
+const DOWNLOADS_PNG_MOVE_CASE_ID: &str =
+    "move_all_png_files_from_downloads_into_a_new_folder_called_images";
+const DOWNLOADS_PNG_MOVE_FIXTURE_MODE: &str = "downloads_png_move_fixture_v1";
+const DOWNLOADS_PNG_MOVE_FIXTURE_PROBE_SOURCE: &str = "harness.downloads_png_move_fixture";
+const DOWNLOADS_PNG_MOVE_TARGET_PREFIX: &str = "ioi_png_move_";
+const DOWNLOADS_PNG_MOVE_IMAGES_DIR_NAME: &str = "Images";
+const DOWNLOADS_PNG_MOVE_EXPECTED_PNG_FILES: [&str; 2] = ["alpha.png", "graph.png"];
+const DOWNLOADS_PNG_MOVE_EXPECTED_NON_PNG_FILES: [&str; 2] = ["notes.txt", "thumb.jpg"];
 const DOCUMENTS_SUMMARY_CASE_ID: &str =
     "summarize_the_contents_of_the_most_recent_document_in_my_documents_folder";
 const DOCUMENTS_SUMMARY_FIXTURE_MODE: &str = "documents_latest_summary_fixture_v1";
@@ -183,6 +191,13 @@ const PDF_LAST_WEEK_FIXTURE_PROBE_SOURCE: &str = "harness.pdf_last_week_fixture"
 const PDF_LAST_WEEK_FIXTURE_DIR_PREFIX: &str = "ioi_pdf_last_week_";
 const PDF_LAST_WEEK_EXPECTED_PDF_FILES: [&str; 2] = ["weekly_status.pdf", "incident_report.pdf"];
 const PDF_LAST_WEEK_SUPPORTING_FILE: &str = "notes.txt";
+const SPOTIFY_UNINSTALL_CASE_ID: &str = "uninstall_spotify_and_remove_its_leftover_config_files";
+const SPOTIFY_UNINSTALL_FIXTURE_MODE: &str = "spotify_uninstall_fixture_v1";
+const SPOTIFY_UNINSTALL_FIXTURE_PROBE_SOURCE: &str = "harness.spotify_uninstall_fixture";
+const SPOTIFY_UNINSTALL_PROVIDER_IDS: [&str; 5] = ["apt-get", "snap", "flatpak", "brew", "pacman"];
+const SPOTIFY_UNINSTALL_CONFIG_RELATIVE_PATHS: [&str; 3] =
+    [".config/spotify", ".cache/spotify", ".local/share/spotify"];
+const SPOTIFY_UNINSTALL_SENTINEL_FILE_NAME: &str = "ioi_fixture_keep_sentinel.txt";
 
 #[derive(Debug, Clone)]
 struct MailRuntimeBootstrapConfig {
@@ -270,6 +285,16 @@ struct DownloadsLowercaseFixtureRuntime {
     target_dir: PathBuf,
 }
 
+struct DownloadsPngMoveFixtureRuntime {
+    _temp_dir: tempfile::TempDir,
+    _env_home: ScopedEnvVar,
+    _env_userprofile: ScopedEnvVar,
+    home_dir: PathBuf,
+    downloads_dir: PathBuf,
+    target_dir: PathBuf,
+    images_dir: PathBuf,
+}
+
 struct DocumentsSummaryFixtureRuntime {
     _temp_dir: tempfile::TempDir,
     _env_home: ScopedEnvVar,
@@ -289,6 +314,25 @@ struct PdfLastWeekFixtureRuntime {
     fixture_dir: PathBuf,
     expected_pdf_paths: Vec<PathBuf>,
     window_start_epoch_ms: u64,
+}
+
+struct SpotifyUninstallFixtureRuntime {
+    _temp_dir: tempfile::TempDir,
+    _env_home: ScopedEnvVar,
+    _env_userprofile: ScopedEnvVar,
+    _env_path: ScopedEnvVar,
+    _env_fixture_root: ScopedEnvVar,
+    _env_fixture_mode: ScopedEnvVar,
+    _env_install_marker: ScopedEnvVar,
+    _env_binary_path: ScopedEnvVar,
+    _env_provider_receipt: ScopedEnvVar,
+    home_dir: PathBuf,
+    fixture_root: PathBuf,
+    provider_receipt_path: PathBuf,
+    install_marker_path: PathBuf,
+    binary_path: PathBuf,
+    config_paths: Vec<PathBuf>,
+    sentinel_paths: Vec<PathBuf>,
 }
 
 fn find_workspace_file(file_name: &str) -> Option<PathBuf> {
@@ -958,12 +1002,20 @@ fn should_bootstrap_downloads_lowercase_fixture(case_id: &str) -> bool {
     case_id.eq_ignore_ascii_case(DOWNLOADS_LOWERCASE_CASE_ID)
 }
 
+fn should_bootstrap_downloads_png_move_fixture(case_id: &str) -> bool {
+    case_id.eq_ignore_ascii_case(DOWNLOADS_PNG_MOVE_CASE_ID)
+}
+
 fn should_bootstrap_documents_summary_fixture(case_id: &str) -> bool {
     case_id.eq_ignore_ascii_case(DOCUMENTS_SUMMARY_CASE_ID)
 }
 
 fn should_bootstrap_pdf_last_week_fixture(case_id: &str) -> bool {
     case_id.eq_ignore_ascii_case(PDF_LAST_WEEK_CASE_ID)
+}
+
+fn should_bootstrap_spotify_uninstall_fixture(case_id: &str) -> bool {
+    case_id.eq_ignore_ascii_case(SPOTIFY_UNINSTALL_CASE_ID)
 }
 
 fn write_executable_script(path: &Path, content: &str) -> Result<()> {
@@ -1572,6 +1624,319 @@ fn downloads_lowercase_fixture_cleanup_checks(
     ]
 }
 
+fn bootstrap_downloads_png_move_fixture_runtime(
+    run_unique_num: &str,
+) -> Result<DownloadsPngMoveFixtureRuntime> {
+    let temp_dir = tempdir()?;
+    let home_dir = temp_dir.path().join("home");
+    let downloads_dir = home_dir.join("Downloads");
+    std::fs::create_dir_all(&downloads_dir)?;
+    let target_dir = downloads_dir.join(format!(
+        "{}{}",
+        DOWNLOADS_PNG_MOVE_TARGET_PREFIX, run_unique_num
+    ));
+    std::fs::create_dir_all(&target_dir)?;
+    for file_name in DOWNLOADS_PNG_MOVE_EXPECTED_PNG_FILES {
+        std::fs::write(
+            target_dir.join(file_name),
+            format!("fixture png payload for {}", file_name),
+        )?;
+    }
+    for file_name in DOWNLOADS_PNG_MOVE_EXPECTED_NON_PNG_FILES {
+        std::fs::write(
+            target_dir.join(file_name),
+            format!("fixture non-png payload for {}", file_name),
+        )?;
+    }
+    let images_dir = target_dir.join(DOWNLOADS_PNG_MOVE_IMAGES_DIR_NAME);
+
+    let env_home = ScopedEnvVar::set("HOME", home_dir.to_string_lossy().to_string());
+    let env_userprofile = ScopedEnvVar::set("USERPROFILE", home_dir.to_string_lossy().to_string());
+
+    Ok(DownloadsPngMoveFixtureRuntime {
+        _temp_dir: temp_dir,
+        _env_home: env_home,
+        _env_userprofile: env_userprofile,
+        home_dir,
+        downloads_dir,
+        target_dir,
+        images_dir,
+    })
+}
+
+fn downloads_png_move_fixture_preflight_checks(
+    fixture: &DownloadsPngMoveFixtureRuntime,
+    run_unique_num: &str,
+    run_timestamp_ms: u64,
+) -> Vec<String> {
+    let seeded_entries = list_directory_entry_names(&fixture.target_dir);
+    let seeded_png_satisfied = DOWNLOADS_PNG_MOVE_EXPECTED_PNG_FILES
+        .iter()
+        .all(|expected| seeded_entries.iter().any(|observed| observed == expected));
+    let seeded_non_png_satisfied = DOWNLOADS_PNG_MOVE_EXPECTED_NON_PNG_FILES
+        .iter()
+        .all(|expected| seeded_entries.iter().any(|observed| observed == expected));
+    let images_dir_absent_satisfied = !fixture.images_dir.exists();
+    let run_unique_satisfied = fixture
+        .target_dir
+        .file_name()
+        .and_then(|name| name.to_str())
+        .map(|name| name.ends_with(run_unique_num))
+        .unwrap_or(false);
+
+    vec![
+        format!(
+            "env_receipt::downloads_png_move_fixture_mode={}",
+            DOWNLOADS_PNG_MOVE_FIXTURE_MODE
+        ),
+        format!(
+            "env_receipt::downloads_png_move_fixture_probe_source={}",
+            DOWNLOADS_PNG_MOVE_FIXTURE_PROBE_SOURCE
+        ),
+        format!(
+            "env_receipt::downloads_png_move_fixture_timestamp_ms={}",
+            run_timestamp_ms
+        ),
+        format!(
+            "env_receipt::downloads_png_move_home_dir={}",
+            fixture.home_dir.to_string_lossy()
+        ),
+        format!(
+            "env_receipt::downloads_png_move_downloads_dir={}",
+            fixture.downloads_dir.to_string_lossy()
+        ),
+        format!(
+            "env_receipt::downloads_png_move_target_dir={}",
+            fixture.target_dir.to_string_lossy()
+        ),
+        format!(
+            "env_receipt::downloads_png_move_images_dir={}",
+            fixture.images_dir.to_string_lossy()
+        ),
+        format!(
+            "env_receipt::downloads_png_move_run_unique_num={}",
+            run_unique_num
+        ),
+        format!(
+            "env_receipt::downloads_png_move_seeded_entries={}",
+            seeded_entries.join(",")
+        ),
+        format!(
+            "env_receipt::downloads_png_move_seeded_png_files={}",
+            DOWNLOADS_PNG_MOVE_EXPECTED_PNG_FILES.join(",")
+        ),
+        format!(
+            "env_receipt::downloads_png_move_seeded_non_png_files={}",
+            DOWNLOADS_PNG_MOVE_EXPECTED_NON_PNG_FILES.join(",")
+        ),
+        format!(
+            "env_receipt::downloads_png_move_seeded_png_satisfied={}",
+            seeded_png_satisfied
+        ),
+        format!(
+            "env_receipt::downloads_png_move_seeded_non_png_satisfied={}",
+            seeded_non_png_satisfied
+        ),
+        format!(
+            "env_receipt::downloads_png_move_images_dir_absent_satisfied={}",
+            images_dir_absent_satisfied
+        ),
+        format!(
+            "env_receipt::downloads_png_move_run_unique_satisfied={}",
+            run_unique_satisfied
+        ),
+        format!(
+            "env_receipt::downloads_png_move_fixture_satisfied={}",
+            seeded_png_satisfied
+                && seeded_non_png_satisfied
+                && images_dir_absent_satisfied
+                && run_unique_satisfied
+        ),
+    ]
+}
+
+fn downloads_png_move_fixture_post_run_checks(
+    fixture: &DownloadsPngMoveFixtureRuntime,
+) -> Vec<String> {
+    let timestamp_ms = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_millis() as u64;
+    let probe_source = format!("{}.fs_probe", DOWNLOADS_PNG_MOVE_FIXTURE_PROBE_SOURCE);
+
+    let expected_target_dir_name = fixture
+        .target_dir
+        .file_name()
+        .and_then(|name| name.to_str())
+        .unwrap_or_default()
+        .to_string();
+    let mut target_dirs_sorted = std::fs::read_dir(&fixture.downloads_dir)
+        .ok()
+        .into_iter()
+        .flatten()
+        .filter_map(|entry| entry.ok())
+        .filter(|entry| entry.file_type().map(|kind| kind.is_dir()).unwrap_or(false))
+        .filter_map(|entry| entry.file_name().to_str().map(str::to_string))
+        .filter(|name| name.starts_with(DOWNLOADS_PNG_MOVE_TARGET_PREFIX))
+        .collect::<Vec<_>>();
+    target_dirs_sorted.sort();
+    let target_dir_count = target_dirs_sorted.len();
+    let target_dir_name = target_dirs_sorted.first().cloned().unwrap_or_default();
+    let target_dir_path = if target_dir_name.is_empty() {
+        String::new()
+    } else {
+        fixture
+            .downloads_dir
+            .join(&target_dir_name)
+            .to_string_lossy()
+            .to_string()
+    };
+    let target_dir_satisfied = target_dir_count == 1
+        && !target_dir_path.is_empty()
+        && target_dir_name == expected_target_dir_name;
+
+    let source_dir_path = fixture.downloads_dir.join(&target_dir_name);
+    let source_entries = if target_dir_satisfied {
+        list_directory_entry_names(&source_dir_path)
+    } else {
+        Vec::new()
+    };
+    let images_dir_path = if target_dir_satisfied {
+        source_dir_path.join(DOWNLOADS_PNG_MOVE_IMAGES_DIR_NAME)
+    } else {
+        fixture.images_dir.clone()
+    };
+    let images_dir_exists = images_dir_path.is_dir();
+    let images_entries = if images_dir_exists {
+        list_directory_entry_names(&images_dir_path)
+    } else {
+        Vec::new()
+    };
+    let images_entries_satisfied = DOWNLOADS_PNG_MOVE_EXPECTED_PNG_FILES
+        .iter()
+        .all(|expected| images_entries.iter().any(|observed| observed == expected))
+        && images_entries.len() == DOWNLOADS_PNG_MOVE_EXPECTED_PNG_FILES.len();
+    let source_non_png_preserved = DOWNLOADS_PNG_MOVE_EXPECTED_NON_PNG_FILES
+        .iter()
+        .all(|expected| source_entries.iter().any(|observed| observed == expected));
+    let source_png_absent = DOWNLOADS_PNG_MOVE_EXPECTED_PNG_FILES
+        .iter()
+        .all(|png_name| !source_entries.iter().any(|observed| observed == png_name));
+    let source_entries_scope_satisfied = source_entries.iter().all(|entry| {
+        entry == DOWNLOADS_PNG_MOVE_IMAGES_DIR_NAME
+            || DOWNLOADS_PNG_MOVE_EXPECTED_NON_PNG_FILES
+                .iter()
+                .any(|expected| entry == expected)
+    }) && source_entries.len()
+        == DOWNLOADS_PNG_MOVE_EXPECTED_NON_PNG_FILES.len() + 1;
+    let downloads_scope_satisfied = std::fs::read_dir(&fixture.downloads_dir)
+        .ok()
+        .into_iter()
+        .flatten()
+        .filter_map(|entry| entry.ok())
+        .all(|entry| {
+            entry
+                .file_name()
+                .to_str()
+                .map(|name| name.starts_with(DOWNLOADS_PNG_MOVE_TARGET_PREFIX))
+                .unwrap_or(false)
+        });
+    let scope_satisfied =
+        target_dir_satisfied && source_entries_scope_satisfied && downloads_scope_satisfied;
+
+    vec![
+        format!(
+            "env_receipt::downloads_png_move_target_dir_count={}",
+            target_dir_count
+        ),
+        format!(
+            "env_receipt::downloads_png_move_target_dir_path={}",
+            target_dir_path
+        ),
+        format!(
+            "env_receipt::downloads_png_move_target_dir_probe_source={}",
+            probe_source
+        ),
+        format!(
+            "env_receipt::downloads_png_move_target_dir_timestamp_ms={}",
+            timestamp_ms
+        ),
+        format!(
+            "env_receipt::downloads_png_move_target_dir_satisfied={}",
+            target_dir_satisfied
+        ),
+        format!(
+            "env_receipt::downloads_png_move_images_dir_path={}",
+            images_dir_path.to_string_lossy()
+        ),
+        format!(
+            "env_receipt::downloads_png_move_images_dir_probe_source={}",
+            probe_source
+        ),
+        format!(
+            "env_receipt::downloads_png_move_images_dir_timestamp_ms={}",
+            timestamp_ms
+        ),
+        format!(
+            "env_receipt::downloads_png_move_images_dir_satisfied={}",
+            images_dir_exists
+        ),
+        format!(
+            "env_receipt::downloads_png_move_images_entries={}",
+            images_entries.join(",")
+        ),
+        format!(
+            "env_receipt::downloads_png_move_images_entries_satisfied={}",
+            images_entries_satisfied
+        ),
+        format!(
+            "env_receipt::downloads_png_move_source_entries={}",
+            source_entries.join(",")
+        ),
+        format!(
+            "env_receipt::downloads_png_move_source_non_png_preserved_satisfied={}",
+            source_non_png_preserved
+        ),
+        format!(
+            "env_receipt::downloads_png_move_source_png_absent_satisfied={}",
+            source_png_absent
+        ),
+        format!(
+            "env_receipt::downloads_png_move_scope_satisfied={}",
+            scope_satisfied
+        ),
+    ]
+}
+
+fn downloads_png_move_fixture_cleanup_checks(
+    fixture: &DownloadsPngMoveFixtureRuntime,
+) -> Vec<String> {
+    let timestamp_ms = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_millis() as u64;
+    let probe_source = format!("{}.cleanup_probe", DOWNLOADS_PNG_MOVE_FIXTURE_PROBE_SOURCE);
+    let _ = std::fs::remove_dir_all(&fixture.downloads_dir);
+    let _ = std::fs::create_dir_all(&fixture.downloads_dir);
+    let remaining_entries = list_directory_entry_names(&fixture.downloads_dir);
+    let cleanup_satisfied = remaining_entries.is_empty();
+
+    vec![
+        format!(
+            "env_receipt::downloads_png_move_cleanup_probe_source={}",
+            probe_source
+        ),
+        format!(
+            "env_receipt::downloads_png_move_cleanup_timestamp_ms={}",
+            timestamp_ms
+        ),
+        format!(
+            "env_receipt::downloads_png_move_cleanup_satisfied={}",
+            cleanup_satisfied
+        ),
+    ]
+}
+
 fn bootstrap_documents_summary_fixture_runtime(
     run_unique_num: &str,
 ) -> Result<DocumentsSummaryFixtureRuntime> {
@@ -2159,6 +2524,517 @@ fn pdf_last_week_fixture_cleanup_checks(fixture: &PdfLastWeekFixtureRuntime) -> 
     ]
 }
 
+fn bootstrap_spotify_uninstall_fixture_runtime(
+    run_unique_num: &str,
+) -> Result<SpotifyUninstallFixtureRuntime> {
+    let temp_dir = tempdir()?;
+    let home_dir = temp_dir.path().join("home");
+    let fixture_root = temp_dir
+        .path()
+        .join(format!("spotify_uninstall_{}", run_unique_num));
+    let fixture_bin = temp_dir.path().join("bin");
+    let install_state_dir = fixture_root.join("install_state");
+    let receipts_dir = fixture_root.join("receipts");
+    let local_bin_dir = home_dir.join(".local").join("bin");
+
+    std::fs::create_dir_all(&fixture_bin)?;
+    std::fs::create_dir_all(&install_state_dir)?;
+    std::fs::create_dir_all(&receipts_dir)?;
+    std::fs::create_dir_all(&local_bin_dir)?;
+
+    let config_paths = SPOTIFY_UNINSTALL_CONFIG_RELATIVE_PATHS
+        .iter()
+        .map(|relative| home_dir.join(relative))
+        .collect::<Vec<_>>();
+    for path in &config_paths {
+        std::fs::create_dir_all(path)?;
+        std::fs::write(
+            path.join("prefs.json"),
+            format!("fixture config payload for {}", path.to_string_lossy()),
+        )?;
+    }
+
+    let sentinel_paths = vec![
+        home_dir
+            .join(".config")
+            .join(SPOTIFY_UNINSTALL_SENTINEL_FILE_NAME),
+        home_dir
+            .join(".cache")
+            .join(SPOTIFY_UNINSTALL_SENTINEL_FILE_NAME),
+        home_dir
+            .join(".local")
+            .join("share")
+            .join(SPOTIFY_UNINSTALL_SENTINEL_FILE_NAME),
+    ];
+    for path in &sentinel_paths {
+        if let Some(parent) = path.parent() {
+            std::fs::create_dir_all(parent)?;
+        }
+        std::fs::write(path, "fixture sentinel must persist\n")?;
+    }
+
+    let install_marker_path = install_state_dir.join("spotify.installed");
+    std::fs::write(&install_marker_path, "spotify\n")?;
+    let binary_path = local_bin_dir.join("spotify");
+    write_executable_script(
+        &binary_path,
+        "#!/usr/bin/env bash\nset -euo pipefail\necho \"Spotify fixture binary\"\n",
+    )?;
+
+    let provider_receipt_path = receipts_dir.join("provider.txt");
+    let _ = std::fs::remove_file(&provider_receipt_path);
+
+    let sudo_script = r#"#!/usr/bin/env bash
+set -euo pipefail
+if [ "$#" -eq 0 ]; then
+  exit 0
+fi
+args=()
+for arg in "$@"; do
+  case "$arg" in
+    -n|-S|-k|--) ;;
+    *) args+=("$arg") ;;
+  esac
+done
+if [ "${#args[@]}" -eq 0 ]; then
+  exit 0
+fi
+exec "${args[@]}"
+"#;
+    write_executable_script(&fixture_bin.join("sudo"), sudo_script)?;
+
+    let provider_script = r#"#!/usr/bin/env bash
+set -euo pipefail
+provider="${1:-}"
+if [ -z "$provider" ]; then
+  echo "spotify fixture provider: missing provider id" >&2
+  exit 2
+fi
+shift || true
+
+command_name="${1:-}"
+if [ -z "$command_name" ]; then
+  echo "spotify fixture provider: missing provider command" >&2
+  exit 2
+fi
+shift || true
+
+is_uninstall=0
+case "$provider" in
+  apt-get)
+    case "$command_name" in
+      update|--version|-v|help)
+        echo "Hit:1 http://fixture.example stable InRelease"
+        echo "Reading package lists... Done"
+        exit 0
+        ;;
+      remove|purge|autoremove|uninstall)
+        is_uninstall=1
+        ;;
+      *)
+        echo "spotify fixture apt-get: unsupported command '$command_name'" >&2
+        exit 2
+        ;;
+    esac
+    ;;
+  snap)
+    case "$command_name" in
+      --version|version|list|find|info)
+        echo "snap    2.0-fixture"
+        exit 0
+        ;;
+      remove|uninstall)
+        is_uninstall=1
+        ;;
+      *)
+        echo "spotify fixture snap: unsupported command '$command_name'" >&2
+        exit 2
+        ;;
+    esac
+    ;;
+  flatpak)
+    case "$command_name" in
+      --version|--installations|list|info|remotes|search)
+        echo "flatpak fixture discovery ok"
+        exit 0
+        ;;
+      uninstall|remove)
+        is_uninstall=1
+        ;;
+      *)
+        echo "spotify fixture flatpak: unsupported command '$command_name'" >&2
+        exit 2
+        ;;
+    esac
+    ;;
+  brew)
+    case "$command_name" in
+      --version|list|info|search)
+        echo "Homebrew 4.0-fixture"
+        exit 0
+        ;;
+      uninstall|remove)
+        is_uninstall=1
+        ;;
+      *)
+        echo "spotify fixture brew: unsupported command '$command_name'" >&2
+        exit 2
+        ;;
+    esac
+    ;;
+  pacman)
+    case "$command_name" in
+      -V|-Q|-Qi|-Ss)
+        echo "pacman fixture discovery ok"
+        exit 0
+        ;;
+      -R|-Rs|-Rns|-Rnsc|--remove)
+        is_uninstall=1
+        ;;
+      *)
+        echo "spotify fixture pacman: unsupported command '$command_name'" >&2
+        exit 2
+        ;;
+    esac
+    ;;
+  *)
+    echo "spotify fixture provider: unsupported provider '$provider'" >&2
+    exit 2
+    ;;
+esac
+
+if [ "$is_uninstall" -ne 1 ]; then
+  exit 0
+fi
+
+spotify_match=0
+for arg in "$@"; do
+  case "$arg" in
+    -*) ;;
+    spotify|spotify:*|spotify-client*|com.spotify.Client|com.spotify.Client//stable)
+      spotify_match=1
+      ;;
+  esac
+done
+if [ "$spotify_match" -ne 1 ]; then
+  echo "spotify fixture provider: spotify package id missing" >&2
+  exit 100
+fi
+
+install_marker="${IOI_SPOTIFY_INSTALL_MARKER:-}"
+binary_path="${IOI_SPOTIFY_BINARY_PATH:-}"
+provider_receipt="${IOI_SPOTIFY_PROVIDER_RECEIPT:-}"
+if [ -z "$install_marker" ] || [ -z "$provider_receipt" ]; then
+  echo "spotify fixture provider: required env vars are missing" >&2
+  exit 2
+fi
+
+rm -f "$install_marker"
+if [ -n "$binary_path" ]; then
+  rm -f "$binary_path"
+fi
+mkdir -p "$(dirname "$provider_receipt")"
+printf '%s\n' "$provider" > "$provider_receipt"
+echo "spotify fixture: removed spotify via provider '$provider'"
+"#;
+    write_executable_script(
+        &fixture_bin.join("spotify_fixture_provider"),
+        provider_script,
+    )?;
+
+    write_executable_script(
+        &fixture_bin.join("apt-get"),
+        "#!/usr/bin/env bash\nset -euo pipefail\nexec spotify_fixture_provider apt-get \"$@\"\n",
+    )?;
+    write_executable_script(
+        &fixture_bin.join("apt"),
+        "#!/usr/bin/env bash\nset -euo pipefail\nexec apt-get \"$@\"\n",
+    )?;
+    write_executable_script(
+        &fixture_bin.join("snap"),
+        "#!/usr/bin/env bash\nset -euo pipefail\nexec spotify_fixture_provider snap \"$@\"\n",
+    )?;
+    write_executable_script(
+        &fixture_bin.join("flatpak"),
+        "#!/usr/bin/env bash\nset -euo pipefail\nexec spotify_fixture_provider flatpak \"$@\"\n",
+    )?;
+    write_executable_script(
+        &fixture_bin.join("brew"),
+        "#!/usr/bin/env bash\nset -euo pipefail\nexec spotify_fixture_provider brew \"$@\"\n",
+    )?;
+    write_executable_script(
+        &fixture_bin.join("pacman"),
+        "#!/usr/bin/env bash\nset -euo pipefail\nexec spotify_fixture_provider pacman \"$@\"\n",
+    )?;
+
+    let inherited_path = std::env::var("PATH").unwrap_or_default();
+    let fixture_path = format!(
+        "{}:{}:{}",
+        fixture_bin.to_string_lossy(),
+        local_bin_dir.to_string_lossy(),
+        inherited_path
+    );
+    let env_home = ScopedEnvVar::set("HOME", home_dir.to_string_lossy().to_string());
+    let env_userprofile = ScopedEnvVar::set("USERPROFILE", home_dir.to_string_lossy().to_string());
+    let env_path = ScopedEnvVar::set("PATH", fixture_path);
+    let env_fixture_root = ScopedEnvVar::set(
+        "IOI_SPOTIFY_FIXTURE_ROOT",
+        fixture_root.to_string_lossy().to_string(),
+    );
+    let env_fixture_mode =
+        ScopedEnvVar::set("IOI_SPOTIFY_FIXTURE_MODE", SPOTIFY_UNINSTALL_FIXTURE_MODE);
+    let env_install_marker = ScopedEnvVar::set(
+        "IOI_SPOTIFY_INSTALL_MARKER",
+        install_marker_path.to_string_lossy().to_string(),
+    );
+    let env_binary_path = ScopedEnvVar::set(
+        "IOI_SPOTIFY_BINARY_PATH",
+        binary_path.to_string_lossy().to_string(),
+    );
+    let env_provider_receipt = ScopedEnvVar::set(
+        "IOI_SPOTIFY_PROVIDER_RECEIPT",
+        provider_receipt_path.to_string_lossy().to_string(),
+    );
+
+    Ok(SpotifyUninstallFixtureRuntime {
+        _temp_dir: temp_dir,
+        _env_home: env_home,
+        _env_userprofile: env_userprofile,
+        _env_path: env_path,
+        _env_fixture_root: env_fixture_root,
+        _env_fixture_mode: env_fixture_mode,
+        _env_install_marker: env_install_marker,
+        _env_binary_path: env_binary_path,
+        _env_provider_receipt: env_provider_receipt,
+        home_dir,
+        fixture_root,
+        provider_receipt_path,
+        install_marker_path,
+        binary_path,
+        config_paths,
+        sentinel_paths,
+    })
+}
+
+fn spotify_uninstall_fixture_preflight_checks(
+    fixture: &SpotifyUninstallFixtureRuntime,
+    run_unique_num: &str,
+    run_timestamp_ms: u64,
+) -> Vec<String> {
+    let config_paths_seeded = fixture.config_paths.iter().all(|path| path.is_dir());
+    let sentinel_paths_seeded = fixture.sentinel_paths.iter().all(|path| path.is_file());
+    let install_marker_seeded = fixture.install_marker_path.is_file();
+    let binary_seeded = fixture.binary_path.is_file();
+    let provider_receipt_absent = !fixture.provider_receipt_path.exists();
+    let run_unique_satisfied = fixture
+        .fixture_root
+        .file_name()
+        .and_then(|name| name.to_str())
+        .map(|name| name.ends_with(run_unique_num))
+        .unwrap_or(false);
+    let fixture_satisfied = config_paths_seeded
+        && sentinel_paths_seeded
+        && install_marker_seeded
+        && binary_seeded
+        && provider_receipt_absent
+        && run_unique_satisfied;
+
+    vec![
+        format!(
+            "env_receipt::spotify_uninstall_fixture_mode={}",
+            SPOTIFY_UNINSTALL_FIXTURE_MODE
+        ),
+        format!(
+            "env_receipt::spotify_uninstall_fixture_probe_source={}",
+            SPOTIFY_UNINSTALL_FIXTURE_PROBE_SOURCE
+        ),
+        format!(
+            "env_receipt::spotify_uninstall_fixture_timestamp_ms={}",
+            run_timestamp_ms
+        ),
+        format!(
+            "env_receipt::spotify_uninstall_fixture_home_dir={}",
+            fixture.home_dir.to_string_lossy()
+        ),
+        format!(
+            "env_receipt::spotify_uninstall_fixture_root={}",
+            fixture.fixture_root.to_string_lossy()
+        ),
+        format!(
+            "env_receipt::spotify_uninstall_run_unique_num={}",
+            run_unique_num
+        ),
+        format!(
+            "env_receipt::spotify_uninstall_provider_candidates={}",
+            SPOTIFY_UNINSTALL_PROVIDER_IDS.join(",")
+        ),
+        format!(
+            "env_receipt::spotify_uninstall_provider_receipt_path={}",
+            fixture.provider_receipt_path.to_string_lossy()
+        ),
+        format!(
+            "env_receipt::spotify_uninstall_install_marker_path={}",
+            fixture.install_marker_path.to_string_lossy()
+        ),
+        format!(
+            "env_receipt::spotify_uninstall_binary_path={}",
+            fixture.binary_path.to_string_lossy()
+        ),
+        format!(
+            "env_receipt::spotify_uninstall_config_paths={}",
+            join_paths_csv(&fixture.config_paths)
+        ),
+        format!(
+            "env_receipt::spotify_uninstall_sentinel_paths={}",
+            join_paths_csv(&fixture.sentinel_paths)
+        ),
+        format!(
+            "env_receipt::spotify_uninstall_config_paths_seeded_satisfied={}",
+            config_paths_seeded
+        ),
+        format!(
+            "env_receipt::spotify_uninstall_sentinel_paths_seeded_satisfied={}",
+            sentinel_paths_seeded
+        ),
+        format!(
+            "env_receipt::spotify_uninstall_install_marker_seeded_satisfied={}",
+            install_marker_seeded
+        ),
+        format!(
+            "env_receipt::spotify_uninstall_binary_seeded_satisfied={}",
+            binary_seeded
+        ),
+        format!(
+            "env_receipt::spotify_uninstall_provider_receipt_absent_satisfied={}",
+            provider_receipt_absent
+        ),
+        format!(
+            "env_receipt::spotify_uninstall_run_unique_satisfied={}",
+            run_unique_satisfied
+        ),
+        format!(
+            "env_receipt::spotify_uninstall_fixture_satisfied={}",
+            fixture_satisfied
+        ),
+    ]
+}
+
+fn spotify_uninstall_fixture_post_run_checks(
+    fixture: &SpotifyUninstallFixtureRuntime,
+) -> Vec<String> {
+    let timestamp_ms = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_millis() as u64;
+    let probe_source = format!("{}.fs_probe", SPOTIFY_UNINSTALL_FIXTURE_PROBE_SOURCE);
+
+    let provider_selected = std::fs::read_to_string(&fixture.provider_receipt_path)
+        .unwrap_or_default()
+        .trim()
+        .to_string();
+    let provider_satisfied = SPOTIFY_UNINSTALL_PROVIDER_IDS
+        .iter()
+        .any(|provider| provider_selected.eq_ignore_ascii_case(provider));
+    let install_marker_removed = !fixture.install_marker_path.exists();
+    let binary_absent = !fixture.binary_path.exists();
+    let config_paths_removed = fixture.config_paths.iter().all(|path| !path.exists());
+    let sentinel_paths_preserved = fixture.sentinel_paths.iter().all(|path| path.is_file());
+    let scope_satisfied = sentinel_paths_preserved;
+
+    vec![
+        format!(
+            "env_receipt::spotify_uninstall_provider={}",
+            provider_selected
+        ),
+        format!(
+            "env_receipt::spotify_uninstall_provider_probe_source={}",
+            probe_source
+        ),
+        format!(
+            "env_receipt::spotify_uninstall_provider_timestamp_ms={}",
+            timestamp_ms
+        ),
+        format!(
+            "env_receipt::spotify_uninstall_provider_satisfied={}",
+            provider_satisfied
+        ),
+        format!(
+            "env_receipt::spotify_uninstall_install_marker_path={}",
+            fixture.install_marker_path.to_string_lossy()
+        ),
+        format!(
+            "env_receipt::spotify_uninstall_install_marker_removed_satisfied={}",
+            install_marker_removed
+        ),
+        format!(
+            "env_receipt::spotify_uninstall_binary_path={}",
+            fixture.binary_path.to_string_lossy()
+        ),
+        format!(
+            "env_receipt::spotify_uninstall_binary_absent_satisfied={}",
+            binary_absent
+        ),
+        format!(
+            "env_receipt::spotify_uninstall_config_paths={}",
+            join_paths_csv(&fixture.config_paths)
+        ),
+        format!(
+            "env_receipt::spotify_uninstall_config_paths_removed_satisfied={}",
+            config_paths_removed
+        ),
+        format!(
+            "env_receipt::spotify_uninstall_sentinel_paths={}",
+            join_paths_csv(&fixture.sentinel_paths)
+        ),
+        format!(
+            "env_receipt::spotify_uninstall_scope_satisfied={}",
+            scope_satisfied
+        ),
+    ]
+}
+
+fn spotify_uninstall_fixture_cleanup_checks(
+    fixture: &SpotifyUninstallFixtureRuntime,
+) -> Vec<String> {
+    let timestamp_ms = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_millis() as u64;
+    let probe_source = format!("{}.cleanup_probe", SPOTIFY_UNINSTALL_FIXTURE_PROBE_SOURCE);
+
+    let _ = std::fs::remove_file(&fixture.provider_receipt_path);
+    let _ = std::fs::remove_dir_all(&fixture.home_dir);
+    let _ = std::fs::create_dir_all(&fixture.home_dir);
+    let _ = std::fs::remove_dir_all(&fixture.fixture_root);
+    let _ = std::fs::create_dir_all(&fixture.fixture_root);
+    let home_entries = list_directory_entry_names(&fixture.home_dir);
+    let fixture_root_entries = list_directory_entry_names(&fixture.fixture_root);
+    let cleanup_satisfied = home_entries.is_empty() && fixture_root_entries.is_empty();
+
+    vec![
+        format!(
+            "env_receipt::spotify_uninstall_cleanup_probe_source={}",
+            probe_source
+        ),
+        format!(
+            "env_receipt::spotify_uninstall_cleanup_timestamp_ms={}",
+            timestamp_ms
+        ),
+        format!(
+            "env_receipt::spotify_uninstall_cleanup_home_entries={}",
+            home_entries.join(",")
+        ),
+        format!(
+            "env_receipt::spotify_uninstall_cleanup_fixture_root_entries={}",
+            fixture_root_entries.join(",")
+        ),
+        format!(
+            "env_receipt::spotify_uninstall_cleanup_satisfied={}",
+            cleanup_satisfied
+        ),
+    ]
+}
+
 fn wallet_channel_key(channel_id: &[u8; 32]) -> Vec<u8> {
     [b"channel::".as_slice(), channel_id.as_slice()].concat()
 }
@@ -2461,6 +3337,21 @@ pub async fn run_case(
     } else {
         None
     };
+    let downloads_png_move_fixture = if should_bootstrap_downloads_png_move_fixture(case.id) {
+        let fixture = bootstrap_downloads_png_move_fixture_runtime(&run_unique_num)?;
+        runtime_setup_verification_checks.extend(downloads_png_move_fixture_preflight_checks(
+            &fixture,
+            &run_unique_num,
+            run_timestamp_ms,
+        ));
+        run_query = run_query.replace(
+            "{DOWNLOADS_PNG_MOVE_FIXTURE_DIR}",
+            &fixture.target_dir.to_string_lossy(),
+        );
+        Some(fixture)
+    } else {
+        None
+    };
     let documents_summary_fixture = if should_bootstrap_documents_summary_fixture(case.id) {
         let fixture = bootstrap_documents_summary_fixture_runtime(&run_unique_num)?;
         runtime_setup_verification_checks.extend(documents_summary_fixture_preflight_checks(
@@ -2483,6 +3374,21 @@ pub async fn run_case(
         run_query = run_query.replace(
             "{PDF_LAST_WEEK_FIXTURE_DIR}",
             &fixture.fixture_dir.to_string_lossy(),
+        );
+        Some(fixture)
+    } else {
+        None
+    };
+    let spotify_uninstall_fixture = if should_bootstrap_spotify_uninstall_fixture(case.id) {
+        let fixture = bootstrap_spotify_uninstall_fixture_runtime(&run_unique_num)?;
+        runtime_setup_verification_checks.extend(spotify_uninstall_fixture_preflight_checks(
+            &fixture,
+            &run_unique_num,
+            run_timestamp_ms,
+        ));
+        run_query = run_query.replace(
+            "{SPOTIFY_UNINSTALL_FIXTURE_ROOT}",
+            &fixture.fixture_root.to_string_lossy(),
         );
         Some(fixture)
     } else {
@@ -2781,6 +3687,14 @@ pub async fn run_case(
             verification_checks.insert(check);
         }
     }
+    if let Some(fixture) = downloads_png_move_fixture.as_ref() {
+        for check in downloads_png_move_fixture_post_run_checks(fixture) {
+            verification_checks.insert(check);
+        }
+        for check in downloads_png_move_fixture_cleanup_checks(fixture) {
+            verification_checks.insert(check);
+        }
+    }
     if let Some(fixture) = documents_summary_fixture.as_ref() {
         for check in documents_summary_fixture_post_run_checks(fixture) {
             verification_checks.insert(check);
@@ -2794,6 +3708,14 @@ pub async fn run_case(
             verification_checks.insert(check);
         }
         for check in pdf_last_week_fixture_cleanup_checks(fixture) {
+            verification_checks.insert(check);
+        }
+    }
+    if let Some(fixture) = spotify_uninstall_fixture.as_ref() {
+        for check in spotify_uninstall_fixture_post_run_checks(fixture) {
+            verification_checks.insert(check);
+        }
+        for check in spotify_uninstall_fixture_cleanup_checks(fixture) {
             verification_checks.insert(check);
         }
     }
