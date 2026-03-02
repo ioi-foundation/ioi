@@ -2700,6 +2700,12 @@ pub async fn run_case(
                         action_error_classes.insert(error_class.clone());
                     }
                 }
+                WorkloadReceipt::FsWrite(fs) => {
+                    workload_tools.insert(fs.tool_name.clone());
+                    if let Some(error_class) = fs.error_class.as_ref() {
+                        action_error_classes.insert(error_class.clone());
+                    }
+                }
                 WorkloadReceipt::Exec(exec) => {
                     workload_tools.insert(exec.tool_name.clone());
                     if let Some(error_class) = exec.error_class.as_ref() {

@@ -11,6 +11,7 @@ mod routing_receipt;
 mod spawn;
 mod system;
 mod thought;
+mod workload_receipt;
 
 pub async fn monitor_kernel_events(app: tauri::AppHandle) {
     loop {
@@ -54,8 +55,8 @@ pub async fn monitor_kernel_events(app: tauri::AppHandle) {
                     ChainEventEnum::WorkloadActivity(activity) => {
                         process_activity::handle_workload_activity(&app, activity).await;
                     }
-                    ChainEventEnum::WorkloadReceipt(_receipt) => {
-                        // Receipt details are handled via ActionResult and RoutingReceipt paths.
+                    ChainEventEnum::WorkloadReceipt(receipt) => {
+                        workload_receipt::handle_workload_receipt(&app, receipt).await;
                     }
                     ChainEventEnum::RoutingReceipt(receipt) => {
                         routing_receipt::handle_routing_receipt(&app, receipt).await;

@@ -215,6 +215,7 @@ message WorkloadReceipt {
         WorkloadExecReceipt exec = 10;
         WorkloadNetFetchReceipt net_fetch = 11;
         WorkloadWebRetrieveReceipt web_retrieve = 12;
+        WorkloadFsWriteReceipt fs_write = 13;
     }
 }
 
@@ -282,6 +283,23 @@ message WorkloadWebRetrieveReceipt {
 
     string error_class = 14;
     bool has_error_class = 15;
+}
+
+message WorkloadFsWriteReceipt {
+    string tool_name = 1;
+    string operation = 2; // write_file|patch|create_directory|create_zip|move|copy|delete
+    string target_path = 3; // redacted/scrubbed path
+
+    string destination_path = 4; // redacted/scrubbed path
+    bool has_destination_path = 5;
+
+    uint64 bytes_written = 6;
+    bool has_bytes_written = 7;
+
+    bool success = 8;
+
+    string error_class = 9;
+    bool has_error_class = 10;
 }
 
 // [NEW] Message for agent spawning
