@@ -32,6 +32,20 @@ const COMMAND_SCOPE_REQUIRED_RECEIPTS: [&str; 3] =
     ["provider_selection", "execution", "verification"];
 const COMMAND_SCOPE_REQUIRED_POSTCONDITIONS: [&str; 1] = ["execution_artifact"];
 pub const CLOCK_TIMESTAMP_POSTCONDITION: &str = "clock_timestamp_observed";
+const RRSA_BASE_REQUIRED_RECEIPTS: [&str; 3] = [
+    "rrsa_request_binding",
+    "rrsa_firewall_decision",
+    "rrsa_domain",
+];
+const RRSA_UI_REQUIRED_RECEIPTS: [&str; 1] = ["rrsa_output_commitment"];
+const RRSA_FILESYSTEM_REQUIRED_RECEIPTS: [&str; 2] =
+    ["rrsa_output_commitment", "rrsa_path_scope_binding"];
+const RRSA_NETWORK_REQUIRED_RECEIPTS: [&str; 2] = ["rrsa_output_commitment", "rrsa_domain_binding"];
+const RRSA_WALLET_REQUIRED_RECEIPTS: [&str; 3] = [
+    "rrsa_tx_hash_binding",
+    "rrsa_approval_token_ref",
+    "rrsa_eei_bundle_commitment",
+];
 
 const CLOCK_PAYLOAD_COMMAND_TOKENS: [&str; 6] = [
     "date",
@@ -844,6 +858,46 @@ fn required_markers_from_matrix(
     ))
 }
 
+fn rrsa_required_receipts(agent_state: &AgentState) -> Vec<String> {
+    let mut required = Vec::<String>::new();
+    let Some(domain_raw) = execution_receipt_value(&agent_state.tool_execution_log, "rrsa_domain")
+    else {
+        return required;
+    };
+    let domain = domain_raw.trim().to_ascii_lowercase();
+    if domain.is_empty() {
+        return required;
+    }
+
+    for receipt in RRSA_BASE_REQUIRED_RECEIPTS {
+        append_unique_marker(&mut required, receipt);
+    }
+    match domain.as_str() {
+        "ui_browser" => {
+            for receipt in RRSA_UI_REQUIRED_RECEIPTS {
+                append_unique_marker(&mut required, receipt);
+            }
+        }
+        "filesystem" => {
+            for receipt in RRSA_FILESYSTEM_REQUIRED_RECEIPTS {
+                append_unique_marker(&mut required, receipt);
+            }
+        }
+        "network_web" => {
+            for receipt in RRSA_NETWORK_REQUIRED_RECEIPTS {
+                append_unique_marker(&mut required, receipt);
+            }
+        }
+        "wallet" => {
+            for receipt in RRSA_WALLET_REQUIRED_RECEIPTS {
+                append_unique_marker(&mut required, receipt);
+            }
+        }
+        _ => {}
+    }
+    required
+}
+
 fn resolved_contract_requirements(
     agent_state: &AgentState,
     matrix: Option<&[IntentMatrixEntry]>,
@@ -873,6 +927,10 @@ fn resolved_contract_requirements(
         for postcondition in COMMAND_SCOPE_REQUIRED_POSTCONDITIONS {
             append_unique_marker(&mut required_postconditions, postcondition);
         }
+    }
+
+    for rrsa_receipt in rrsa_required_receipts(agent_state) {
+        append_unique_marker(&mut required_receipts, &rrsa_receipt);
     }
 
     (required_receipts, required_postconditions)
@@ -1033,7 +1091,7 @@ mod tests {
         VERIFICATION_COMMIT_RECEIPT,
     };
     use crate::agentic::desktop::service::step::action::support::{
-        mark_execution_postcondition, mark_execution_receipt,
+        mark_execution_postcondition, mark_execution_receipt, mark_execution_receipt_with_value,
     };
     use crate::agentic::desktop::types::{
         AgentMode, AgentState, AgentStatus, CommandExecution, ExecutionTier, ToolCallStatus,
@@ -1236,5 +1294,70 @@ mod tests {
 
         assert!(missing.contains(&"receipt::host_discovery=true".to_string()));
         assert!(missing.contains(&"receipt::provider_selection=true".to_string()));
+    }
+
+    #[test]
+    fn rrsa_network_domain_enforces_domain_binding_at_completion_gate() {
+        let mut state = test_agent_state();
+        state.resolved_intent = Some(command_scope_intent("command.probe"));
+        mark_execution_receipt(&mut state.tool_execution_log, "execution");
+        mark_execution_receipt(&mut state.tool_execution_log, "verification");
+        mark_execution_receipt_with_value(
+            &mut state.tool_execution_log,
+            "rrsa_request_binding",
+            "sha256:abc".to_string(),
+        );
+        mark_execution_receipt_with_value(
+            &mut state.tool_execution_log,
+            "rrsa_firewall_decision",
+            "sha256:def".to_string(),
+        );
+        mark_execution_receipt_with_value(
+            &mut state.tool_execution_log,
+            "rrsa_domain",
+            "network_web".to_string(),
+        );
+        mark_execution_receipt_with_value(
+            &mut state.tool_execution_log,
+            "rrsa_output_commitment",
+            "sha256:123".to_string(),
+        );
+
+        let rules = ActionRules::default();
+        let missing = missing_execution_contract_markers_with_rules(&state, &rules);
+        assert!(missing.contains(&"receipt::rrsa_domain_binding=true".to_string()));
+    }
+
+    #[test]
+    fn rrsa_wallet_domain_enforces_tx_approval_and_eei_bindings() {
+        let mut state = test_agent_state();
+        state.resolved_intent = Some(command_scope_intent("command.probe"));
+        mark_execution_receipt(&mut state.tool_execution_log, "execution");
+        mark_execution_receipt(&mut state.tool_execution_log, "verification");
+        mark_execution_receipt_with_value(
+            &mut state.tool_execution_log,
+            "rrsa_request_binding",
+            "sha256:abc".to_string(),
+        );
+        mark_execution_receipt_with_value(
+            &mut state.tool_execution_log,
+            "rrsa_firewall_decision",
+            "sha256:def".to_string(),
+        );
+        mark_execution_receipt_with_value(
+            &mut state.tool_execution_log,
+            "rrsa_domain",
+            "wallet".to_string(),
+        );
+        mark_execution_receipt_with_value(
+            &mut state.tool_execution_log,
+            "rrsa_tx_hash_binding",
+            "sha256:tx".to_string(),
+        );
+
+        let rules = ActionRules::default();
+        let missing = missing_execution_contract_markers_with_rules(&state, &rules);
+        assert!(missing.contains(&"receipt::rrsa_approval_token_ref=true".to_string()));
+        assert!(missing.contains(&"receipt::rrsa_eei_bundle_commitment=true".to_string()));
     }
 }

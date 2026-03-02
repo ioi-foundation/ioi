@@ -6,6 +6,7 @@ mod events;
 mod execute;
 mod pending_approval;
 mod precheck;
+mod rrsa;
 mod success_path;
 mod system_fail;
 mod timer_contract;

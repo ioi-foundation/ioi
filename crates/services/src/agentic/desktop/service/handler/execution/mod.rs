@@ -7,18 +7,26 @@ use super::web_research::normalize_web_research_tool_call;
 use crate::agentic::desktop::execution::ToolExecutor;
 use crate::agentic::desktop::types::AgentState;
 use crate::agentic::rules::ActionRules;
+use ioi_api::crypto::{SerializableKey, SigningKeyPair, VerifyingKey};
 use ioi_api::state::StateAccess;
 use ioi_api::vm::drivers::os::OsDriver;
 use ioi_crypto::algorithms::hash::sha256;
+use ioi_crypto::sign::eddsa::{
+    Ed25519KeyPair, Ed25519PrivateKey, Ed25519PublicKey, Ed25519Signature,
+};
 use ioi_drivers::mcp::McpManager;
 use ioi_scs::{FrameType, RetentionClass};
 use ioi_types::app::agentic::AgentTool;
 use ioi_types::app::{
-    determinism_commit_state_key, determinism_evidence_state_key, ActionRequest, ActionTarget,
-    ApprovalToken, CommittedAction, DeterminismEvidence, ExecutionContractReceiptEvent,
-    KernelEvent,
+    determinism_commit_state_key, determinism_evidence_state_key, AccountId, ActionRequest,
+    ActionTarget, ApprovalToken, ChainId, CommittedAction, DeterminismEvidence,
+    ExecutionContractReceiptEvent, FirewallDecisionReceipt, KernelEvent, PolicyVerdict,
+    SignatureSuite,
 };
+use ioi_types::codec;
 use ioi_types::error::TransactionError;
+use parity_scale_codec::{Decode, Encode};
+use serde::{Deserialize, Serialize};
 use serde_json::json;
 use std::sync::Arc;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
@@ -27,8 +35,18 @@ mod handlers;
 
 const ACTIVE_WINDOW_QUERY_TIMEOUT: Duration = Duration::from_millis(300);
 const CEC_CONTRACT_VERSION: &str = "cec.v0.4";
+const FIREWALL_DECISION_STATE_PREFIX: &[u8] = b"agentic:firewall:decision:v1:";
+const FIREWALL_SIGNING_KEY_STATE_PREFIX: &[u8] = b"agentic:firewall:signing_key:v1:";
 
 type ActionExecutionOutcome = (bool, Option<String>, Option<String>, Option<[u8; 32]>);
+
+#[derive(Debug, Clone, Serialize, Deserialize, Encode, Decode)]
+struct FirewallSignatureEnvelope {
+    suite: SignatureSuite,
+    signer_account_id: [u8; 32],
+    public_key: Vec<u8>,
+    signature: Vec<u8>,
+}
 
 fn no_visual(
     success: bool,
@@ -168,6 +186,220 @@ fn persist_determinism_evidence(
         .map_err(|e| TransactionError::Serialization(e.to_string()))?;
     state.insert(&key, &bytes)?;
     Ok(())
+}
+
+fn firewall_decision_state_key(session_id: [u8; 32], step_index: u32) -> Vec<u8> {
+    let mut key = Vec::with_capacity(
+        FIREWALL_DECISION_STATE_PREFIX.len() + session_id.len() + std::mem::size_of::<u32>(),
+    );
+    key.extend_from_slice(FIREWALL_DECISION_STATE_PREFIX);
+    key.extend_from_slice(&session_id);
+    key.extend_from_slice(&step_index.to_be_bytes());
+    key
+}
+
+fn firewall_signing_key_state_key(chain_id: ChainId, signer_account_id: AccountId) -> Vec<u8> {
+    let mut key = Vec::with_capacity(
+        FIREWALL_SIGNING_KEY_STATE_PREFIX.len()
+            + std::mem::size_of::<u32>()
+            + signer_account_id.0.len(),
+    );
+    key.extend_from_slice(FIREWALL_SIGNING_KEY_STATE_PREFIX);
+    key.extend_from_slice(&chain_id.0.to_be_bytes());
+    key.extend_from_slice(&signer_account_id.0);
+    key
+}
+
+fn firewall_decision_receipt_hash(
+    receipt: &FirewallDecisionReceipt,
+) -> Result<[u8; 32], TransactionError> {
+    let canonical =
+        serde_jcs::to_vec(receipt).map_err(|e| TransactionError::Serialization(e.to_string()))?;
+    let digest = sha256(&canonical).map_err(|e| {
+        TransactionError::Invalid(format!(
+            "ERROR_CLASS=DeterminismBoundary Firewall receipt hash failed: {}",
+            e
+        ))
+    })?;
+    let mut out = [0u8; 32];
+    out.copy_from_slice(digest.as_ref());
+    Ok(out)
+}
+
+fn derive_firewall_signing_seed(
+    chain_id: ChainId,
+    signer_account_id: AccountId,
+) -> Result<[u8; 32], TransactionError> {
+    let seed_material = json!({
+        "domain": "agentic.firewall.signing_key.v1",
+        "chain_id": chain_id.0,
+        "signer_account_id": hex::encode(signer_account_id.0),
+    });
+    let canonical = serde_jcs::to_vec(&seed_material)
+        .map_err(|e| TransactionError::Serialization(e.to_string()))?;
+    let digest = sha256(&canonical).map_err(|e| {
+        TransactionError::Invalid(format!(
+            "ERROR_CLASS=DeterminismBoundary Firewall signing seed derivation failed: {}",
+            e
+        ))
+    })?;
+    let mut seed = [0u8; 32];
+    seed.copy_from_slice(digest.as_ref());
+    Ok(seed)
+}
+
+fn load_or_init_firewall_signing_seed(
+    state: &mut dyn StateAccess,
+    chain_id: ChainId,
+    signer_account_id: AccountId,
+) -> Result<[u8; 32], TransactionError> {
+    let key = firewall_signing_key_state_key(chain_id, signer_account_id);
+    if let Some(existing) = state.get(&key)? {
+        if existing.len() != 32 {
+            return Err(TransactionError::Invalid(format!(
+                "ERROR_CLASS=DeterminismBoundary Firewall signing seed malformed (len={})",
+                existing.len()
+            )));
+        }
+        let mut seed = [0u8; 32];
+        seed.copy_from_slice(&existing);
+        return Ok(seed);
+    }
+    let seed = derive_firewall_signing_seed(chain_id, signer_account_id)?;
+    state.insert(&key, &seed)?;
+    Ok(seed)
+}
+
+fn verify_firewall_attestation_signature(
+    attestation_bytes: &[u8],
+    encoded_envelope: &[u8],
+) -> Result<(), TransactionError> {
+    let envelope: FirewallSignatureEnvelope = codec::from_bytes_canonical(encoded_envelope)
+        .map_err(|e| {
+            TransactionError::Invalid(format!(
+                "ERROR_CLASS=DeterminismBoundary Firewall signature envelope decode failed: {}",
+                e
+            ))
+        })?;
+    if envelope.suite != SignatureSuite::ED25519 {
+        return Err(TransactionError::Invalid(format!(
+            "ERROR_CLASS=DeterminismBoundary Unsupported firewall signature suite: {}",
+            envelope.suite.0
+        )));
+    }
+
+    let public_key = Ed25519PublicKey::from_bytes(&envelope.public_key).map_err(|e| {
+        TransactionError::Invalid(format!(
+            "ERROR_CLASS=DeterminismBoundary Firewall public key decode failed: {}",
+            e
+        ))
+    })?;
+    let signature = Ed25519Signature::from_bytes(&envelope.signature).map_err(|e| {
+        TransactionError::Invalid(format!(
+            "ERROR_CLASS=DeterminismBoundary Firewall signature decode failed: {}",
+            e
+        ))
+    })?;
+    public_key
+        .verify(attestation_bytes, &signature)
+        .map_err(|e| {
+            TransactionError::Invalid(format!(
+                "ERROR_CLASS=DeterminismBoundary Firewall signature verification failed: {}",
+                e
+            ))
+        })?;
+    Ok(())
+}
+
+fn sign_firewall_attestation(
+    state: &mut dyn StateAccess,
+    signing_context: Option<(ChainId, AccountId)>,
+    attestation_bytes: &[u8],
+) -> Result<Vec<u8>, TransactionError> {
+    let (chain_id, signer_account_id) = signing_context.ok_or_else(|| {
+        TransactionError::Invalid(
+            "ERROR_CLASS=DeterminismBoundary Missing firewall signing context.".to_string(),
+        )
+    })?;
+    let seed = load_or_init_firewall_signing_seed(state, chain_id, signer_account_id)?;
+    let private_key = Ed25519PrivateKey::from_bytes(&seed).map_err(|e| {
+        TransactionError::Invalid(format!(
+            "ERROR_CLASS=DeterminismBoundary Firewall signing private key decode failed: {}",
+            e
+        ))
+    })?;
+    let keypair = Ed25519KeyPair::from_private_key(&private_key).map_err(|e| {
+        TransactionError::Invalid(format!(
+            "ERROR_CLASS=DeterminismBoundary Firewall signing keypair derivation failed: {}",
+            e
+        ))
+    })?;
+    let signature = keypair.sign(attestation_bytes).map_err(|e| {
+        TransactionError::Invalid(format!(
+            "ERROR_CLASS=DeterminismBoundary Firewall attestation sign failed: {}",
+            e
+        ))
+    })?;
+    let envelope = FirewallSignatureEnvelope {
+        suite: SignatureSuite::ED25519,
+        signer_account_id: signer_account_id.0,
+        public_key: keypair.public_key().to_bytes(),
+        signature: signature.to_bytes(),
+    };
+    let encoded = codec::to_bytes_canonical(&envelope)
+        .map_err(|e| TransactionError::Serialization(e.to_string()))?;
+    verify_firewall_attestation_signature(attestation_bytes, &encoded)?;
+    Ok(encoded)
+}
+
+fn persist_firewall_decision_receipt(
+    state: &mut dyn StateAccess,
+    session_id: [u8; 32],
+    step_index: u32,
+    request_hash: [u8; 32],
+    policy_hash: [u8; 32],
+    verdict: PolicyVerdict,
+    signing_context: Option<(ChainId, AccountId)>,
+) -> Result<[u8; 32], TransactionError> {
+    let (seq, prev_receipt_hash) = if step_index == 0 {
+        (0u64, [0u8; 32])
+    } else {
+        let prev_key = firewall_decision_state_key(session_id, step_index.saturating_sub(1));
+        let prev = state
+            .get(&prev_key)?
+            .and_then(|bytes| codec::from_bytes_canonical::<FirewallDecisionReceipt>(&bytes).ok());
+        if let Some(prev) = prev {
+            let prev_hash = firewall_decision_receipt_hash(&prev)?;
+            (prev.seq.saturating_add(1), prev_hash)
+        } else {
+            (step_index as u64, [0u8; 32])
+        }
+    };
+
+    let attestation_payload = json!({
+        "request_hash": request_hash,
+        "policy_hash": policy_hash,
+        "verdict": verdict,
+        "seq": seq,
+        "prev_receipt_hash": prev_receipt_hash,
+    });
+    let attestation_bytes = serde_jcs::to_vec(&attestation_payload)
+        .map_err(|e| TransactionError::Serialization(e.to_string()))?;
+    let guardian_sig = sign_firewall_attestation(state, signing_context, &attestation_bytes)?;
+
+    let receipt = FirewallDecisionReceipt {
+        request_hash,
+        policy_hash,
+        verdict,
+        seq,
+        prev_receipt_hash,
+        guardian_sig,
+    };
+    let key = firewall_decision_state_key(session_id, step_index);
+    let bytes = codec::to_bytes_canonical(&receipt)
+        .map_err(|e| TransactionError::Serialization(e.to_string()))?;
+    state.insert(&key, &bytes)?;
+    firewall_decision_receipt_hash(&receipt)
 }
 
 async fn query_active_window_with_timeout(
@@ -418,6 +650,8 @@ pub async fn handle_action_execution(
             .to_string(),
     };
     let intent_id = resolved_intent_id(agent_state);
+    let firewall_signing_context =
+        execution_call_context.map(|ctx| (ctx.chain_id, ctx.signer_account_id));
 
     // 3. Policy Check
     let skip_policy = matches!(tool, AgentTool::SystemFail { .. });
@@ -451,6 +685,7 @@ pub async fn handle_action_execution(
             agent_state,
         );
         let is_approved = matched_approval_token.is_some() || approved_by_runtime_secret;
+        let mut firewall_verdict = PolicyVerdict::Allow;
 
         if is_approved {
             if matched_approval_token.is_some() {
@@ -458,11 +693,16 @@ pub async fn handle_action_execution(
                     "Policy Gate: Pre-approved via Token for hash {}",
                     hex::encode(request_hash)
                 );
+                if let Some(token) = matched_approval_token {
+                    let approval_ref = compute_approval_token_ref(token)?;
+                    firewall_verdict = PolicyVerdict::Approved(approval_ref);
+                }
             } else {
                 log::info!(
                     "Policy Gate: Pre-approved via runtime secret retry for hash {}",
                     hex::encode(request_hash)
                 );
+                firewall_verdict = PolicyVerdict::Allow;
             }
         } else {
             // Import PolicyEngine from service level
@@ -479,8 +719,25 @@ pub async fn handle_action_execution(
             .await;
 
             match verdict {
-                Verdict::Allow => {}
+                Verdict::Allow => {
+                    firewall_verdict = PolicyVerdict::Allow;
+                }
                 Verdict::Block => {
+                    firewall_verdict = PolicyVerdict::Block("blocked_by_policy".to_string());
+                    let firewall_receipt_hash = if let Some(state) = execution_state.as_deref_mut()
+                    {
+                        Some(persist_firewall_decision_receipt(
+                            state,
+                            session_id,
+                            step_index,
+                            request_hash,
+                            policy_hash,
+                            firewall_verdict.clone(),
+                            firewall_signing_context,
+                        )?)
+                    } else {
+                        None
+                    };
                     emit_execution_contract_receipt_event(
                         service,
                         session_id,
@@ -490,9 +747,12 @@ pub async fn handle_action_execution(
                         "policy_decision",
                         false,
                         &format!(
-                            "decision=BLOCK;policy_hash={};request_hash={}",
+                            "decision=BLOCK;policy_hash={};request_hash={};firewall_receipt_hash={}",
                             hex::encode(policy_hash),
-                            hex::encode(request_hash)
+                            hex::encode(request_hash),
+                            firewall_receipt_hash
+                                .map(hex::encode)
+                                .unwrap_or_else(|| "unavailable".to_string())
                         ),
                     );
                     if let Some(tx) = &service.event_sender {
@@ -506,6 +766,21 @@ pub async fn handle_action_execution(
                     return Err(TransactionError::Invalid("Blocked by Policy".into()));
                 }
                 Verdict::RequireApproval => {
+                    firewall_verdict = PolicyVerdict::Block("require_approval".to_string());
+                    let firewall_receipt_hash = if let Some(state) = execution_state.as_deref_mut()
+                    {
+                        Some(persist_firewall_decision_receipt(
+                            state,
+                            session_id,
+                            step_index,
+                            request_hash,
+                            policy_hash,
+                            firewall_verdict.clone(),
+                            firewall_signing_context,
+                        )?)
+                    } else {
+                        None
+                    };
                     log::info!(
                         "Policy Gate: RequireApproval for hash: {}",
                         hex::encode(request_hash)
@@ -519,9 +794,12 @@ pub async fn handle_action_execution(
                         "policy_decision",
                         false,
                         &format!(
-                            "decision=REQUIRE_APPROVAL;policy_hash={};request_hash={}",
+                            "decision=REQUIRE_APPROVAL;policy_hash={};request_hash={};firewall_receipt_hash={}",
                             hex::encode(policy_hash),
-                            hex::encode(request_hash)
+                            hex::encode(request_hash),
+                            firewall_receipt_hash
+                                .map(hex::encode)
+                                .unwrap_or_else(|| "unavailable".to_string())
                         ),
                     );
 
@@ -537,6 +815,37 @@ pub async fn handle_action_execution(
                 }
             }
         }
+
+        let firewall_receipt_hash = if let Some(state) = execution_state.as_deref_mut() {
+            Some(persist_firewall_decision_receipt(
+                state,
+                session_id,
+                step_index,
+                request_hash,
+                policy_hash,
+                firewall_verdict,
+                firewall_signing_context,
+            )?)
+        } else {
+            None
+        };
+        emit_execution_contract_receipt_event(
+            service,
+            session_id,
+            step_index,
+            &intent_id,
+            "execution",
+            "firewall_decision_receipt",
+            true,
+            &format!(
+                "request_hash={};policy_hash={};firewall_receipt_hash={}",
+                hex::encode(request_hash),
+                hex::encode(policy_hash),
+                firewall_receipt_hash
+                    .map(hex::encode)
+                    .unwrap_or_else(|| "unavailable".to_string())
+            ),
+        );
 
         let approval_ref = matched_approval_token
             .map(compute_approval_token_ref)

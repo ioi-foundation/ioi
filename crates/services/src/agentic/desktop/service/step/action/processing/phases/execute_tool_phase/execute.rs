@@ -2,6 +2,7 @@ use super::contracts::{bootstrap_contract, duplicate_execution_state};
 use super::duplicate::{handle_duplicate_command_execution, DuplicateExecutionContext};
 use super::pending_approval::{handle_pending_approval, PendingApprovalContext};
 use super::precheck::run_execution_prechecks;
+use super::rrsa::{record_rrsa_action_evidence, RrsaContext};
 use super::success_path::{handle_execution_success, ExecutionSuccessContext};
 use super::timer_contract::{
     prepare_timer_contract, restore_pending_visual_context, TimerContractContext,
@@ -201,6 +202,32 @@ pub(crate) async fn execute_tool_phase(
                             execution_result,
                         })
                         .await?;
+                        if let Err(rrsa_error) = record_rrsa_action_evidence(RrsaContext {
+                            service,
+                            agent_state,
+                            tool: &tool,
+                            tool_args: &tool_args,
+                            session_id,
+                            step_index: pre_state_summary.step_index,
+                            resolved_intent_id: &resolved_intent_id,
+                            synthesized_payload_hash: synthesized_payload_hash.clone(),
+                            req_hash_hex: req_hash_hex.as_str(),
+                            policy_decision: policy_decision.as_str(),
+                            success,
+                            error_msg: error_msg.as_deref(),
+                            history_entry: history_entry.as_deref(),
+                            trace_visual_hash,
+                            verification_checks: &mut verification_checks,
+                        }) {
+                            let msg = format!(
+                                "ERROR_CLASS=ActionEnforceability RRSA contract unmet. {}",
+                                rrsa_error
+                            );
+                            success = false;
+                            error_msg = Some(msg.clone());
+                            history_entry = Some(msg.clone());
+                            action_output = Some(msg);
+                        }
                     }
                     Err(TransactionError::PendingApproval(h)) => {
                         let pending_approval = handle_pending_approval(PendingApprovalContext {

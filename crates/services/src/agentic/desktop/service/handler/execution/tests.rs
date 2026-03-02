@@ -5,10 +5,13 @@ use super::query_active_window_with_timeout;
 use crate::agentic::desktop::runtime_secret;
 use crate::agentic::desktop::types::{AgentMode, AgentState, AgentStatus, ExecutionTier};
 use async_trait::async_trait;
+use ioi_api::state::StateScanIter;
 use ioi_api::vm::drivers::os::{OsDriver, WindowInfo};
 use ioi_types::app::agentic::{
     AgentTool, ComputerAction, IntentConfidenceBand, IntentScopeProfile, ResolvedIntentState,
 };
+use ioi_types::app::{AccountId, ChainId};
+use ioi_types::error::StateError;
 use ioi_types::error::VmError;
 use std::collections::BTreeMap;
 use std::sync::Arc;
@@ -338,4 +341,86 @@ fn does_not_rewrite_memory_search_for_workspace_local_goal() {
     );
 
     assert!(matches!(tool, AgentTool::MemorySearch { .. }));
+}
+
+#[derive(Default)]
+struct MockState {
+    data: BTreeMap<Vec<u8>, Vec<u8>>,
+}
+
+impl ioi_api::state::StateAccess for MockState {
+    fn get(&self, key: &[u8]) -> Result<Option<Vec<u8>>, StateError> {
+        Ok(self.data.get(key).cloned())
+    }
+
+    fn insert(&mut self, key: &[u8], value: &[u8]) -> Result<(), StateError> {
+        self.data.insert(key.to_vec(), value.to_vec());
+        Ok(())
+    }
+
+    fn delete(&mut self, key: &[u8]) -> Result<(), StateError> {
+        self.data.remove(key);
+        Ok(())
+    }
+
+    fn batch_set(&mut self, updates: &[(Vec<u8>, Vec<u8>)]) -> Result<(), StateError> {
+        for (key, value) in updates {
+            self.insert(key, value)?;
+        }
+        Ok(())
+    }
+
+    fn batch_get(&self, keys: &[Vec<u8>]) -> Result<Vec<Option<Vec<u8>>>, StateError> {
+        keys.iter().map(|key| self.get(key)).collect()
+    }
+
+    fn batch_apply(
+        &mut self,
+        inserts: &[(Vec<u8>, Vec<u8>)],
+        deletes: &[Vec<u8>],
+    ) -> Result<(), StateError> {
+        for key in deletes {
+            self.delete(key)?;
+        }
+        for (key, value) in inserts {
+            self.insert(key, value)?;
+        }
+        Ok(())
+    }
+
+    fn prefix_scan(&self, prefix: &[u8]) -> Result<StateScanIter<'_>, StateError> {
+        let rows: Vec<_> = self
+            .data
+            .iter()
+            .filter(|(key, _)| key.starts_with(prefix))
+            .map(|(key, value)| Ok((Arc::from(key.as_slice()), Arc::from(value.as_slice()))))
+            .collect();
+        Ok(Box::new(rows.into_iter()))
+    }
+}
+
+#[test]
+fn firewall_attestation_signatures_are_real_and_verifiable() {
+    let mut state = MockState::default();
+    let attestation = b"firewall.attestation.payload";
+    let ctx = Some((ChainId(7), AccountId([9u8; 32])));
+
+    let sig = super::sign_firewall_attestation(&mut state, ctx, attestation)
+        .expect("signature envelope should be generated");
+    super::verify_firewall_attestation_signature(attestation, &sig)
+        .expect("signature envelope should verify");
+}
+
+#[test]
+fn firewall_attestation_signature_is_deterministic_for_same_signer_and_payload() {
+    let mut state = MockState::default();
+    let attestation = b"deterministic.payload";
+    let ctx = Some((ChainId(1), AccountId([3u8; 32])));
+
+    let first =
+        super::sign_firewall_attestation(&mut state, ctx, attestation).expect("first signature");
+    let second =
+        super::sign_firewall_attestation(&mut state, ctx, attestation).expect("second signature");
+
+    assert_eq!(first, second);
 }
