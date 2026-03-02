@@ -62,6 +62,21 @@ fn parse_hash_hex(input: &str) -> Option<[u8; 32]> {
     Some(out)
 }
 
+fn policy_request_params(method: &str, params: &[u8]) -> Vec<u8> {
+    if serde_json::from_slice::<serde_json::Value>(params).is_ok() {
+        return params.to_vec();
+    }
+
+    serde_json::to_vec(&serde_json::json!({
+        "__ioi_policy_non_json_params": {
+            "method": method,
+            "encoding": "hex",
+            "value": hex::encode(params),
+        }
+    }))
+    .unwrap_or_else(|_| b"{\"__ioi_policy_non_json_params\":null}".to_vec())
+}
+
 /// The main firewall entry point.
 pub async fn enforce_firewall(
     state: &mut dyn StateAccess,
@@ -463,7 +478,7 @@ pub async fn enforce_firewall(
 
             let dummy_request = ioi_types::app::ActionRequest {
                 target: ioi_types::app::ActionTarget::Custom(method.clone()),
-                params: params.clone(),
+                params: policy_request_params(method, params),
                 context: ioi_types::app::ActionContext {
                     agent_id: "unknown".into(),
                     session_id: session_id_opt,

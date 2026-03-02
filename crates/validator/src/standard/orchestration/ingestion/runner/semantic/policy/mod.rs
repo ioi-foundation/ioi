@@ -9,6 +9,21 @@ use std::sync::Arc;
 mod egress;
 mod verdict;
 
+fn policy_request_params(method: &str, params: &[u8]) -> Vec<u8> {
+    if serde_json::from_slice::<serde_json::Value>(params).is_ok() {
+        return params.to_vec();
+    }
+
+    serde_json::to_vec(&serde_json::json!({
+        "__ioi_policy_non_json_params": {
+            "method": method,
+            "encoding": "hex",
+            "value": hex::encode(params),
+        }
+    }))
+    .unwrap_or_else(|_| b"{\"__ioi_policy_non_json_params\":null}".to_vec())
+}
+
 pub(crate) async fn evaluate_service_policy_and_egress(
     p_tx: &ProcessedTx,
     service_id: &str,
@@ -26,7 +41,7 @@ pub(crate) async fn evaluate_service_policy_and_egress(
 ) -> bool {
     let request = ActionRequest {
         target: ActionTarget::Custom(method.to_owned()),
-        params: params.to_owned(),
+        params: policy_request_params(method, params),
         context: ActionContext {
             agent_id: "unknown".into(),
             session_id: resume_session_id,
