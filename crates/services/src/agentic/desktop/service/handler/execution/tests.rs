@@ -10,7 +10,7 @@ use ioi_api::vm::drivers::os::{OsDriver, WindowInfo};
 use ioi_types::app::agentic::{
     AgentTool, ComputerAction, IntentConfidenceBand, IntentScopeProfile, ResolvedIntentState,
 };
-use ioi_types::app::{AccountId, ChainId};
+use ioi_types::app::{AccountId, ActionTarget, ChainId, NetMode, RuntimeTarget};
 use ioi_types::error::StateError;
 use ioi_types::error::VmError;
 use std::collections::BTreeMap;
@@ -423,4 +423,51 @@ fn firewall_attestation_signature_is_deterministic_for_same_signer_and_payload()
         super::sign_firewall_attestation(&mut state, ctx, attestation).expect("second signature");
 
     assert_eq!(first, second);
+}
+
+#[test]
+fn runtime_target_maps_dynamic_tools_to_mcp_adapter() {
+    let tool = AgentTool::Dynamic(serde_json::json!({
+        "name": "filesystem__read_file",
+        "arguments": { "path": "README.md" }
+    }));
+    assert_eq!(
+        super::runtime_target_for_tool(&tool),
+        RuntimeTarget::McpAdapter
+    );
+}
+
+#[test]
+fn build_workload_spec_binds_domain_and_allowlisted_net_mode_for_net_fetch() {
+    let tool = AgentTool::NetFetch {
+        url: "https://api.example.com/v1/status".to_string(),
+        max_chars: Some(256),
+    };
+    let (spec, observed_domain) =
+        super::build_workload_spec(&tool, &ActionTarget::NetFetch, [5u8; 32], None, None, 2_000);
+
+    assert_eq!(spec.runtime_target, RuntimeTarget::Network);
+    assert_eq!(spec.net_mode, NetMode::AllowListed);
+    assert_eq!(observed_domain.as_deref(), Some("api.example.com"));
+
+    let lease = spec
+        .capability_lease
+        .as_ref()
+        .expect("net fetch should mint capability lease");
+    assert!(lease.allows_capability("net::fetch"));
+    assert!(lease.allows_domain("status.api.example.com"));
+}
+
+#[test]
+fn workload_spec_check_fails_closed_when_capability_lease_missing() {
+    let tool = AgentTool::FsRead {
+        path: "README.md".to_string(),
+    };
+    let (mut spec, _) =
+        super::build_workload_spec(&tool, &ActionTarget::FsRead, [8u8; 32], None, None, 1_000);
+    spec.capability_lease = None;
+
+    let check = spec.evaluate_lease(&ActionTarget::FsRead, None, 1_100);
+    assert!(!check.satisfied);
+    assert_eq!(check.reason.as_deref(), Some("missing_capability_lease"));
 }

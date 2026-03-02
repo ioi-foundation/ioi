@@ -10,7 +10,11 @@ pub async fn handle(exec: &ToolExecutor, raw_json: Value) -> ToolExecutionResult
             .cloned()
             .unwrap_or(serde_json::json!({}));
 
-        match exec.mcp.execute_tool(name, args).await {
+        match exec
+            .mcp
+            .execute_tool_with_spec(name, args, exec.workload_spec.as_ref())
+            .await
+        {
             Ok(result) => ToolExecutionResult::success(result),
             Err(e) => ToolExecutionResult::failure(format!("MCP Error: {}", e)),
         }

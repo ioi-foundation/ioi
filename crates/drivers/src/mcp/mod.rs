@@ -6,6 +6,7 @@ pub mod transport; // [NEW] Register module
 
 use anyhow::{anyhow, Result};
 use ioi_types::app::agentic::LlmToolDefinition;
+use ioi_types::app::{ActionTarget, RuntimeTarget, WorkloadSpec};
 use serde_json::Value;
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -106,6 +107,51 @@ impl McpManager {
 
     /// Routes a tool execution request to the correct underlying process.
     pub async fn execute_tool(&self, namespaced_tool: &str, args: Value) -> Result<String> {
+        self.execute_tool_with_spec(namespaced_tool, args, None)
+            .await
+    }
+
+    /// Routes a tool execution request to the correct underlying process with
+    /// explicit workload substrate bindings.
+    pub async fn execute_tool_with_spec(
+        &self,
+        namespaced_tool: &str,
+        args: Value,
+        workload_spec: Option<&WorkloadSpec>,
+    ) -> Result<String> {
+        let spec = workload_spec.ok_or_else(|| {
+            anyhow!(
+                "ERROR_CLASS=PolicyBlocked Missing WorkloadSpec for MCP tool '{}'",
+                namespaced_tool
+            )
+        })?;
+        if spec.runtime_target != RuntimeTarget::McpAdapter {
+            return Err(anyhow!(
+                "ERROR_CLASS=PolicyBlocked RuntimeTarget '{}' is invalid for MCP tool '{}'",
+                spec.runtime_target.as_label(),
+                namespaced_tool
+            ));
+        }
+        let now_ms = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .ok()
+            .map(|duration| duration.as_millis() as u64)
+            .unwrap_or(0);
+        let lease_check = spec.evaluate_lease(
+            &ActionTarget::Custom(namespaced_tool.to_string()),
+            None,
+            now_ms,
+        );
+        if !lease_check.satisfied {
+            return Err(anyhow!(
+                "ERROR_CLASS=PolicyBlocked MCP lease validation failed for '{}': {}",
+                namespaced_tool,
+                lease_check
+                    .reason
+                    .unwrap_or_else(|| "unspecified_failure".to_string())
+            ));
+        }
+
         let table = self.tool_routing_table.read().await;
 
         // 1. Resolve Server
@@ -133,5 +179,66 @@ impl McpManager {
 
         // 4. Return result content (extract from MCP "content" array)
         Ok(result_json.to_string())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use ioi_types::app::{CapabilityLease, CapabilityLeaseMode, NetMode};
+
+    fn mcp_spec(issued_at_ms: u64, expires_at_ms: u64) -> WorkloadSpec {
+        WorkloadSpec {
+            runtime_target: RuntimeTarget::McpAdapter,
+            net_mode: NetMode::Disabled,
+            capability_lease: Some(CapabilityLease {
+                lease_id: [9u8; 32],
+                issued_at_ms,
+                expires_at_ms,
+                mode: CapabilityLeaseMode::OneShot,
+                capability_allowlist: vec!["filesystem__read_file".to_string()],
+                domain_allowlist: vec![],
+            }),
+            ui_surface: None,
+        }
+    }
+
+    #[tokio::test]
+    async fn execute_tool_requires_workload_spec() {
+        let manager = McpManager::new();
+        let err = manager
+            .execute_tool_with_spec("filesystem__read_file", serde_json::json!({}), None)
+            .await
+            .expect_err("missing workload spec must fail");
+        let rendered = format!("{:#}", err);
+        assert!(rendered.contains("ERROR_CLASS=PolicyBlocked"));
+        assert!(rendered.contains("Missing WorkloadSpec"));
+    }
+
+    #[tokio::test]
+    async fn execute_tool_rejects_wrong_runtime_target() {
+        let manager = McpManager::new();
+        let mut spec = mcp_spec(100, 1000);
+        spec.runtime_target = RuntimeTarget::System;
+        let err = manager
+            .execute_tool_with_spec("filesystem__read_file", serde_json::json!({}), Some(&spec))
+            .await
+            .expect_err("invalid runtime target must fail");
+        let rendered = format!("{:#}", err);
+        assert!(rendered.contains("ERROR_CLASS=PolicyBlocked"));
+        assert!(rendered.contains("RuntimeTarget"));
+    }
+
+    #[tokio::test]
+    async fn execute_tool_rejects_expired_lease() {
+        let manager = McpManager::new();
+        let spec = mcp_spec(0, 1);
+        let err = manager
+            .execute_tool_with_spec("filesystem__read_file", serde_json::json!({}), Some(&spec))
+            .await
+            .expect_err("expired lease must fail");
+        let rendered = format!("{:#}", err);
+        assert!(rendered.contains("ERROR_CLASS=PolicyBlocked"));
+        assert!(rendered.contains("capability_lease_expired"));
     }
 }
