@@ -154,6 +154,23 @@ fn summarize_kernel_event(kernel_event: &ioi_types::app::KernelEvent) -> String 
                     .unwrap_or_else(|| "none".to_string()),
                 exec.error_class.as_deref().unwrap_or("none")
             ),
+            ioi_types::app::WorkloadReceipt::FsWrite(fs) => format!(
+                "WorkloadReceipt(FsWrite) session={} step_index={} workload_id={} tool_name={} operation={} target_path_{} has_destination_path={} destination_path_{} has_bytes_written={} bytes_written={} success={} error_class={}",
+                prefix_hex_4(&receipt.session_id),
+                receipt.step_index,
+                receipt.workload_id,
+                fs.tool_name,
+                fs.operation,
+                text_fingerprint(&fs.target_path),
+                fs.destination_path.is_some(),
+                text_fingerprint(fs.destination_path.as_deref().unwrap_or("")),
+                fs.bytes_written.is_some(),
+                fs.bytes_written
+                    .map(|v| v.to_string())
+                    .unwrap_or_else(|| "none".to_string()),
+                fs.success,
+                fs.error_class.as_deref().unwrap_or("none")
+            ),
             ioi_types::app::WorkloadReceipt::NetFetch(net) => format!(
                 "WorkloadReceipt(NetFetch) session={} step_index={} workload_id={} method={} has_status_code={} status_code={} truncated={} success={} requested_url_{} has_final_url={} final_url_{} error_class={}",
                 prefix_hex_4(&receipt.session_id),
@@ -414,6 +431,28 @@ fn map_kernel_event(
                     )),
                 },
             )),
+            ioi_types::app::WorkloadReceipt::FsWrite(fs) => Some(ChainEventEnum::WorkloadReceipt(
+                ioi_ipc::public::WorkloadReceipt {
+                    session_id: hex::encode(receipt.session_id),
+                    step_index: receipt.step_index,
+                    workload_id: receipt.workload_id,
+                    timestamp_ms: receipt.timestamp_ms,
+                    receipt: Some(ioi_ipc::public::workload_receipt::Receipt::FsWrite(
+                        ioi_ipc::public::WorkloadFsWriteReceipt {
+                            tool_name: fs.tool_name,
+                            operation: fs.operation,
+                            target_path: fs.target_path,
+                            destination_path: fs.destination_path.clone().unwrap_or_default(),
+                            has_destination_path: fs.destination_path.is_some(),
+                            bytes_written: fs.bytes_written.unwrap_or_default(),
+                            has_bytes_written: fs.bytes_written.is_some(),
+                            success: fs.success,
+                            error_class: fs.error_class.clone().unwrap_or_default(),
+                            has_error_class: fs.error_class.is_some(),
+                        },
+                    )),
+                },
+            )),
             ioi_types::app::WorkloadReceipt::NetFetch(net) => Some(
                 ChainEventEnum::WorkloadReceipt(ioi_ipc::public::WorkloadReceipt {
                     session_id: hex::encode(receipt.session_id),
@@ -661,7 +700,8 @@ mod workload_event_mapping_tests {
     use ioi_ipc::public::chain_event::Event as ChainEventEnum;
     use ioi_types::app::{
         KernelEvent, WorkloadActivityEvent, WorkloadActivityKind, WorkloadExecReceipt,
-        WorkloadNetFetchReceipt, WorkloadReceipt, WorkloadReceiptEvent, WorkloadWebRetrieveReceipt,
+        WorkloadFsWriteReceipt, WorkloadNetFetchReceipt, WorkloadReceipt, WorkloadReceiptEvent,
+        WorkloadWebRetrieveReceipt,
     };
 
     #[test]
@@ -734,6 +774,42 @@ mod workload_event_mapping_tests {
                     assert!(!exec.has_error_class);
                 }
                 other => panic!("expected exec receipt, got: {:?}", other),
+            },
+            other => panic!("expected workload receipt chain event, got: {:?}", other),
+        }
+
+        let receipt = KernelEvent::WorkloadReceipt(WorkloadReceiptEvent {
+            session_id: [7u8; 32],
+            step_index: 42,
+            workload_id: "wid-fs".to_string(),
+            timestamp_ms: 124,
+            receipt: WorkloadReceipt::FsWrite(WorkloadFsWriteReceipt {
+                tool_name: "filesystem__write_file".to_string(),
+                operation: "write_file".to_string(),
+                target_path: "/tmp/file.txt".to_string(),
+                destination_path: None,
+                bytes_written: Some(17),
+                success: true,
+                error_class: None,
+            }),
+        });
+        let mapped = map_kernel_event(receipt, &keypair, signer_pk.as_str())
+            .expect("fs-write workload receipt should map");
+        match mapped {
+            ChainEventEnum::WorkloadReceipt(payload) => match payload.receipt {
+                Some(ioi_ipc::public::workload_receipt::Receipt::FsWrite(fs)) => {
+                    assert_eq!(fs.tool_name, "filesystem__write_file");
+                    assert_eq!(fs.operation, "write_file");
+                    assert_eq!(fs.target_path, "/tmp/file.txt");
+                    assert!(!fs.has_destination_path);
+                    assert_eq!(fs.destination_path, "");
+                    assert!(fs.has_bytes_written);
+                    assert_eq!(fs.bytes_written, 17);
+                    assert!(fs.success);
+                    assert!(!fs.has_error_class);
+                    assert_eq!(fs.error_class, "");
+                }
+                other => panic!("expected fs_write receipt, got: {:?}", other),
             },
             other => panic!("expected workload receipt chain event, got: {:?}", other),
         }

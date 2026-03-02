@@ -350,7 +350,9 @@ impl ToolExecutor {
             | AgentTool::FsCreateZip { .. }
             | AgentTool::FsMove { .. }
             | AgentTool::FsCopy { .. }
-            | AgentTool::FsDelete { .. } => filesystem::handle(self, tool).await,
+            | AgentTool::FsDelete { .. } => {
+                filesystem::handle(self, tool, session_id, step_index).await
+            }
 
             // Deterministic math evaluation domain.
             AgentTool::MathEval { .. } => math::handle(self, tool).await,

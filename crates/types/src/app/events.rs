@@ -368,6 +368,8 @@ pub struct WorkloadReceiptEvent {
 pub enum WorkloadReceipt {
     /// A command execution receipt.
     Exec(WorkloadExecReceipt),
+    /// A filesystem mutation/write receipt.
+    FsWrite(WorkloadFsWriteReceipt),
     /// A network fetch receipt ("net__fetch").
     NetFetch(WorkloadNetFetchReceipt),
     /// A governed web retrieval receipt ("web__search" / "web__read").
@@ -399,6 +401,28 @@ pub struct WorkloadExecReceipt {
     pub error_class: Option<String>,
     /// Human-friendly preview string (for UI correlation).
     pub command_preview: String,
+}
+
+/// Audit receipt for filesystem mutation/write workloads.
+#[derive(Clone, Debug, Serialize, Deserialize, Encode, Decode, PartialEq, Eq)]
+pub struct WorkloadFsWriteReceipt {
+    /// Tool that initiated the filesystem mutation.
+    pub tool_name: String,
+    /// Operation label (e.g. "write_file", "patch", "create_directory", "move", "copy", "delete", "create_zip").
+    pub operation: String,
+    /// Primary target path for the operation (scrubbed when policy requires).
+    pub target_path: String,
+    /// Optional secondary/destination path.
+    #[serde(default)]
+    pub destination_path: Option<String>,
+    /// Optional bytes written/produced when known.
+    #[serde(default)]
+    pub bytes_written: Option<u64>,
+    /// Success flag as surfaced by the executor.
+    pub success: bool,
+    /// Optional error class when failure output includes an `ERROR_CLASS=...` prefix.
+    #[serde(default)]
+    pub error_class: Option<String>,
 }
 
 /// Audit receipt for a `net__fetch` workload.
