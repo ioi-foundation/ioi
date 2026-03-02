@@ -146,10 +146,12 @@ rl.on('line', (line) => {
             allow_child_processes: true,
             workspace_root: Some(temp_dir.path().to_string_lossy().to_string()),
         },
-        mode: McpMode::Development,
+        allowed_tools: Vec::new(),
     };
 
-    mcp_manager.start_server("echo_server", config).await?;
+    mcp_manager
+        .start_server("echo_server", McpMode::Development, config)
+        .await?;
 
     use ioi_services::agentic::desktop::DesktopAgentService;
     let gui = Arc::new(MockGuiDriver);

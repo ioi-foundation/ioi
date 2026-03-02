@@ -210,8 +210,44 @@ pub(super) fn handle_duplicate_command_execution(
 }
 
 fn is_non_command_duplicate_noop_tool(tool_name: &str) -> bool {
+    is_read_only_filesystem_tool(tool_name)
+        || matches!(
+            tool_name,
+            "wallet_network__mail_read_latest" | "wallet_mail_read_latest" | "mail__read_latest"
+        )
+}
+
+fn is_read_only_filesystem_tool(tool_name: &str) -> bool {
     matches!(
         tool_name,
-        "wallet_network__mail_read_latest" | "wallet_mail_read_latest" | "mail__read_latest"
+        "filesystem__list_directory"
+            | "filesystem__read_file"
+            | "filesystem__stat"
+            | "filesystem__search"
     )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{is_non_command_duplicate_noop_tool, is_read_only_filesystem_tool};
+
+    #[test]
+    fn read_only_filesystem_tools_are_noop_safe() {
+        assert!(is_read_only_filesystem_tool("filesystem__list_directory"));
+        assert!(is_read_only_filesystem_tool("filesystem__read_file"));
+        assert!(is_read_only_filesystem_tool("filesystem__stat"));
+        assert!(is_read_only_filesystem_tool("filesystem__search"));
+        assert!(!is_read_only_filesystem_tool("filesystem__move_path"));
+    }
+
+    #[test]
+    fn noop_allowlist_includes_read_only_filesystem_tools() {
+        assert!(is_non_command_duplicate_noop_tool(
+            "filesystem__list_directory"
+        ));
+        assert!(is_non_command_duplicate_noop_tool("mail__read_latest"));
+        assert!(!is_non_command_duplicate_noop_tool(
+            "filesystem__create_directory"
+        ));
+    }
 }

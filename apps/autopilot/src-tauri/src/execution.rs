@@ -97,6 +97,7 @@ pub async fn init_mcp_servers(app_handle: tauri::AppHandle) {
         println!("[Studio] Set IOI_STUDIO_MCP_PROFILE=dev_filesystem to opt in.");
         return;
     }
+    let mcp_mode = McpMode::Development;
 
     let fs_config = McpServerConfig {
         command: "npx".to_string(),
@@ -115,7 +116,7 @@ pub async fn init_mcp_servers(app_handle: tauri::AppHandle) {
             allow_child_processes: true,
             workspace_root: Some(abs_data_dir.to_string_lossy().to_string()),
         },
-        mode: McpMode::Development,
+        allowed_tools: Vec::new(),
     };
 
     println!(
@@ -123,7 +124,10 @@ pub async fn init_mcp_servers(app_handle: tauri::AppHandle) {
         abs_data_dir
     );
 
-    if let Err(e) = MCP_MANAGER.start_server("filesystem_dev", fs_config).await {
+    if let Err(e) = MCP_MANAGER
+        .start_server("filesystem_dev", mcp_mode, fs_config)
+        .await
+    {
         eprintln!("[Studio] Failed to start filesystem_dev MCP: {}", e);
     } else {
         println!("[Studio] filesystem_dev MCP active.");

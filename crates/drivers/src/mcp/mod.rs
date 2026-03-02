@@ -32,7 +32,7 @@ pub struct McpServerConfig {
     pub source: McpServerSource,
     pub integrity: McpIntegrityConfig,
     pub containment: McpContainmentConfig,
-    pub mode: McpMode,
+    pub allowed_tools: Vec<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -86,8 +86,13 @@ impl McpManager {
         }
     }
 
-    pub async fn start_server(&self, name: &str, config: McpServerConfig) -> Result<()> {
-        validate_start_policy(name, &config)?;
+    pub async fn start_server(
+        &self,
+        name: &str,
+        mode: McpMode,
+        config: McpServerConfig,
+    ) -> Result<()> {
+        validate_start_policy(name, mode, &config)?;
         let prepared = prepare_server_config(name, &config)?;
 
         log::info!(
@@ -97,7 +102,7 @@ impl McpManager {
             prepared.args,
             config.tier,
             config.source,
-            config.mode
+            mode
         );
 
         let transport = McpTransport::spawn(
@@ -106,7 +111,7 @@ impl McpManager {
             prepared.env.clone(),
             McpSpawnPolicy {
                 containment: prepared.containment.clone(),
-                mode: config.mode,
+                mode,
             },
         )
         .await?;
@@ -122,8 +127,21 @@ impl McpManager {
         let mut cached_definitions = Vec::new();
         let mut tool_names = Vec::new();
         let mut registered_this_server = HashSet::new();
+        let allowed_tools = normalize_allowed_tools(&config.allowed_tools);
+        let mut admitted_raw_tools = HashSet::new();
 
         for tool in tools {
+            if let Some(allowlist) = allowed_tools.as_ref() {
+                if !allowlist.contains(tool.name.as_str()) {
+                    tracing::info!(
+                        target: "mcp",
+                        server = name,
+                        tool = %tool.name,
+                        "Skipping MCP tool not present in allowed_tools"
+                    );
+                    continue;
+                }
+            }
             let namespaced_name = format!("{}__{}", name, tool.name);
 
             if AgentTool::is_reserved_tool_name(&namespaced_name) {
@@ -141,8 +159,9 @@ impl McpManager {
                 ));
             }
 
+            admitted_raw_tools.insert(tool.name.clone());
             let risk = classify_tool_risk(&tool.name, tool.description.as_deref());
-            enforce_tool_admission_policy(&config, name, &namespaced_name, risk)?;
+            enforce_tool_admission_policy(&config, mode, name, &namespaced_name, risk)?;
 
             table.insert(namespaced_name.clone(), name.to_string());
             cached_definitions.push(LlmToolDefinition {
@@ -152,6 +171,29 @@ impl McpManager {
             });
             tool_names.push(namespaced_name.clone());
             log::debug!("Registered MCP Tool: {}", namespaced_name);
+        }
+        if mode == McpMode::Production {
+            if let Some(allowlist) = allowed_tools.as_ref() {
+                let mut missing = allowlist
+                    .iter()
+                    .filter(|tool| !admitted_raw_tools.contains(*tool))
+                    .cloned()
+                    .collect::<Vec<_>>();
+                missing.sort();
+                if !missing.is_empty() {
+                    return Err(anyhow!(
+                        "ERROR_CLASS=PolicyBlocked MCP server '{}' did not expose required allowed_tools entries: {}",
+                        name,
+                        missing.join(", ")
+                    ));
+                }
+            }
+            if tool_names.is_empty() {
+                return Err(anyhow!(
+                    "ERROR_CLASS=PolicyBlocked MCP server '{}' admitted zero tools in production mode",
+                    name
+                ));
+            }
         }
 
         cache.insert(name.to_string(), cached_definitions);
@@ -165,7 +207,7 @@ impl McpManager {
                 declared_version: config.integrity.version.clone(),
                 tier: config.tier,
                 source: config.source,
-                mode: config.mode,
+                mode,
                 started_at_ms: unix_ms_now(),
                 tools: tool_names.clone(),
             },
@@ -179,7 +221,7 @@ impl McpManager {
             server = name,
             tier = ?config.tier,
             source = ?config.source,
-            mode = ?config.mode,
+            mode = ?mode,
             tool_count = tool_names.len(),
             "MCP server started and admitted"
         );
@@ -244,11 +286,10 @@ impl McpManager {
 
         let table = self.tool_routing_table.read().await;
         let server_name = table.get(namespaced_tool).ok_or_else(|| {
-            if let Some(native_family) = native_tool_family_hint(namespaced_tool) {
+            if AgentTool::is_reserved_tool_name(namespaced_tool) {
                 anyhow!(
-                    "Tool '{}' not found in active MCP servers. Native drivers handle {} tools; MCP variants are optional and disabled by default for safety.",
-                    namespaced_tool,
-                    native_family
+                    "Tool '{}' is reserved for native drivers and is not served by MCP. Native tool execution remains available even when MCP is disabled.",
+                    namespaced_tool
                 )
             } else {
                 anyhow!(
@@ -286,16 +327,37 @@ fn unix_ms_now() -> u64 {
         .unwrap_or(0)
 }
 
-fn validate_start_policy(name: &str, config: &McpServerConfig) -> Result<()> {
+fn validate_start_policy(name: &str, mode: McpMode, config: &McpServerConfig) -> Result<()> {
     if config.command.trim().is_empty() {
         bail!(
             "ERROR_CLASS=PolicyBlocked MCP server '{}' command is empty",
             name
         );
     }
+    if config
+        .allowed_tools
+        .iter()
+        .any(|tool| tool.trim().is_empty())
+    {
+        bail!(
+            "ERROR_CLASS=PolicyBlocked MCP server '{}' contains empty entries in allowed_tools",
+            name
+        );
+    }
+    let mut seen_allowed = HashSet::new();
+    for tool in &config.allowed_tools {
+        let normalized = tool.trim();
+        if !normalized.is_empty() && !seen_allowed.insert(normalized.to_string()) {
+            bail!(
+                "ERROR_CLASS=PolicyBlocked MCP server '{}' contains duplicate allowed_tools entry '{}'",
+                name,
+                normalized
+            );
+        }
+    }
 
     let installer = looks_like_network_installer(&config.command, config.source);
-    if config.mode != McpMode::Development && installer {
+    if mode != McpMode::Development && installer {
         bail!(
             "ERROR_CLASS=PolicyBlocked MCP server '{}' uses installer-style command '{}' outside development mode",
             name,
@@ -303,14 +365,25 @@ fn validate_start_policy(name: &str, config: &McpServerConfig) -> Result<()> {
         );
     }
 
-    if config.mode == McpMode::Production && config.tier == McpServerTier::Unverified {
+    if mode == McpMode::Production && config.tier == McpServerTier::Unverified {
         bail!(
             "ERROR_CLASS=PolicyBlocked MCP server '{}' has unverified tier in production mode",
             name
         );
     }
+    if mode == McpMode::Production && config.allowed_tools.is_empty() {
+        bail!(
+            "ERROR_CLASS=PolicyBlocked MCP server '{}' requires non-empty allowed_tools in production mode",
+            name
+        );
+    }
+    if mode == McpMode::Production && !cfg!(target_os = "linux") {
+        bail!(
+            "ERROR_CLASS=PolicyBlocked MCP production mode is currently supported only on Linux (strict containment requirement)"
+        );
+    }
 
-    if config.mode == McpMode::Production {
+    if mode == McpMode::Production {
         if config
             .integrity
             .version
@@ -496,28 +569,6 @@ fn sha256_file_hex(path: &Path) -> Result<String> {
     Ok(hex::encode(digest.as_ref()))
 }
 
-fn native_tool_family_hint(namespaced_tool: &str) -> Option<&'static str> {
-    if namespaced_tool.starts_with("filesystem__") {
-        return Some("filesystem__*");
-    }
-    if namespaced_tool.starts_with("sys__") {
-        return Some("sys__*");
-    }
-    if namespaced_tool.starts_with("browser__") {
-        return Some("browser__*");
-    }
-    if namespaced_tool.starts_with("ui__") {
-        return Some("ui__*");
-    }
-    if namespaced_tool.starts_with("web__") {
-        return Some("web__*");
-    }
-    if namespaced_tool.starts_with("wallet_network__") {
-        return Some("wallet_network__*");
-    }
-    None
-}
-
 fn looks_like_network_installer(command: &str, source: McpServerSource) -> bool {
     if source == McpServerSource::PackageManager {
         return true;
@@ -533,6 +584,7 @@ fn looks_like_network_installer(command: &str, source: McpServerSource) -> bool 
     )
 }
 
+// Heuristic only. Admission enforcement remains driven by explicit mode/tier/integrity/policy.
 fn classify_tool_risk(tool_name: &str, description: Option<&str>) -> McpToolRiskDomain {
     let mut haystack = tool_name.to_ascii_lowercase();
     if let Some(desc) = description {
@@ -594,11 +646,12 @@ fn contains_any(haystack: &str, needles: &[&str]) -> bool {
 
 fn enforce_tool_admission_policy(
     config: &McpServerConfig,
+    mode: McpMode,
     server_name: &str,
     tool_name: &str,
     risk: McpToolRiskDomain,
 ) -> Result<()> {
-    if config.mode == McpMode::Production && config.tier == McpServerTier::Unverified {
+    if mode == McpMode::Production && config.tier == McpServerTier::Unverified {
         bail!(
             "ERROR_CLASS=PolicyBlocked MCP server '{}' is unverified and cannot admit '{}'",
             server_name,
@@ -606,7 +659,7 @@ fn enforce_tool_admission_policy(
         );
     }
 
-    if config.mode != McpMode::Development
+    if mode != McpMode::Development
         && config.tier == McpServerTier::Unverified
         && risk != McpToolRiskDomain::Low
     {
@@ -619,6 +672,23 @@ fn enforce_tool_admission_policy(
     }
 
     Ok(())
+}
+
+fn normalize_allowed_tools(allowed_tools: &[String]) -> Option<HashSet<String>> {
+    if allowed_tools.is_empty() {
+        return None;
+    }
+    let normalized = allowed_tools
+        .iter()
+        .map(|tool| tool.trim())
+        .filter(|tool| !tool.is_empty())
+        .map(|tool| tool.to_string())
+        .collect::<HashSet<_>>();
+    if normalized.is_empty() {
+        None
+    } else {
+        Some(normalized)
+    }
 }
 
 fn enforce_runtime_containment(
@@ -861,11 +931,34 @@ mod tests {
                 lockfile_sha256: None,
             },
             containment: McpContainmentConfig::default(),
-            mode: McpMode::Production,
+            allowed_tools: vec!["echo".to_string()],
         };
-        let err = validate_start_policy("demo", &cfg).expect_err("installer command must fail");
+        let err = validate_start_policy("demo", McpMode::Production, &cfg)
+            .expect_err("installer command must fail");
         let rendered = format!("{:#}", err);
         assert!(rendered.contains("PolicyBlocked"));
+    }
+
+    #[test]
+    fn production_requires_allowed_tools() {
+        let cfg = McpServerConfig {
+            command: "/bin/echo".to_string(),
+            args: vec!["ok".to_string()],
+            env: HashMap::new(),
+            tier: McpServerTier::Verified,
+            source: McpServerSource::LocalBin,
+            integrity: McpIntegrityConfig {
+                version: Some("1.0.0".to_string()),
+                sha256: Some("a".repeat(64)),
+                lockfile_sha256: None,
+            },
+            containment: McpContainmentConfig::default(),
+            allowed_tools: Vec::new(),
+        };
+        let err = validate_start_policy("demo", McpMode::Production, &cfg)
+            .expect_err("production mode must require allowed_tools");
+        let rendered = format!("{:#}", err);
+        assert!(rendered.contains("allowed_tools"));
     }
 
     #[test]

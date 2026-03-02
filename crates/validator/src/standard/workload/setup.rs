@@ -498,11 +498,15 @@ where
                     source: server_cfg.source,
                     integrity: server_cfg.integrity.clone(),
                     containment: server_cfg.containment.clone(),
-                    mode: config.mcp_mode,
+                    allowed_tools: server_cfg.allowed_tools.clone(),
                 };
+                let mcp_mode = config.mcp_mode;
 
                 tokio::spawn(async move {
-                    if let Err(e) = manager_clone.start_server(&name_clone, mcp_cfg).await {
+                    if let Err(e) = manager_clone
+                        .start_server(&name_clone, mcp_mode, mcp_cfg)
+                        .await
+                    {
                         tracing::error!(target: "mcp", "Failed to start MCP server '{}': {}", name_clone, e);
                     } else {
                         tracing::info!(target: "mcp", "MCP server '{}' started successfully", name_clone);

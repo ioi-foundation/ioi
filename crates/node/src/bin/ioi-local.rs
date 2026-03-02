@@ -359,6 +359,7 @@ async fn main() -> Result<()> {
                     allow_child_processes: true,
                     workspace_root: Some(workspace_str.clone()),
                 },
+                allowed_tools: Vec::new(),
             },
         );
         McpMode::Development

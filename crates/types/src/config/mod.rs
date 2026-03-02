@@ -6,6 +6,7 @@ use crate::service_configs::{GovernanceParams, MethodPermission, MigrationConfig
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use std::collections::HashMap;
+use std::collections::HashSet;
 
 pub mod consensus;
 pub use consensus::*;
@@ -319,6 +320,10 @@ pub struct McpConfigEntry {
     /// Containment contract for subprocess runtime boundaries.
     #[serde(default)]
     pub containment: McpContainmentConfig,
+    /// Optional explicit allowlist of raw MCP tool names (`tools/list` names).
+    /// If empty, all tools are eligible in development mode.
+    #[serde(default)]
+    pub allowed_tools: Vec<String>,
 }
 
 /// Configuration for the Workload container (`workload.toml`).
@@ -452,6 +457,12 @@ impl WorkloadConfig {
                     .to_string(),
             );
         }
+        if self.mcp_mode == McpMode::Production && !cfg!(target_os = "linux") {
+            return Err(
+                "Configuration Error: mcp_mode=production is currently supported only on Linux (strict containment requirement)."
+                    .to_string(),
+            );
+        }
 
         let installer_commands = ["npx", "npm", "pnpm", "yarn", "bunx", "pipx", "uvx"];
         for (name, server) in &self.mcp_servers {
@@ -468,6 +479,26 @@ impl WorkloadConfig {
                     return Err(format!(
                         "Configuration Error: mcp_servers.{}.integrity.sha256 must be 64 hex characters.",
                         name
+                    ));
+                }
+            }
+            if server
+                .allowed_tools
+                .iter()
+                .any(|tool| tool.trim().is_empty())
+            {
+                return Err(format!(
+                    "Configuration Error: mcp_servers.{}.allowed_tools cannot contain empty entries.",
+                    name
+                ));
+            }
+            let mut dedupe = HashSet::new();
+            for tool in &server.allowed_tools {
+                let normalized = tool.trim().to_string();
+                if !dedupe.insert(normalized.clone()) {
+                    return Err(format!(
+                        "Configuration Error: mcp_servers.{}.allowed_tools contains duplicate entry '{}'.",
+                        name, normalized
                     ));
                 }
             }
@@ -490,6 +521,12 @@ impl WorkloadConfig {
             }
 
             if self.mcp_mode == McpMode::Production {
+                if server.allowed_tools.is_empty() {
+                    return Err(format!(
+                        "Configuration Error: mcp_servers.{}.allowed_tools is required in production mode.",
+                        name
+                    ));
+                }
                 if server.tier == McpServerTier::Unverified {
                     return Err(format!(
                         "Configuration Error: mcp_servers.{} tier 'unverified' is not allowed in production mode.",
