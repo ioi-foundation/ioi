@@ -204,6 +204,23 @@ pub struct VectorIndexManifest {
     pub dimension: u32,
     /// The Merkle Root of the index.
     pub root_hash: [u8; 32],
+    /// Optional committed coarse quantizer summary for lower-bound certificates.
+    pub coarse_quantizer: Option<CoarseQuantizerManifestRef>,
+}
+
+/// Minimal TOC-level commitment reference for coarse quantizer metadata.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CoarseQuantizerManifestRef {
+    /// Coarse quantizer schema version.
+    pub version: u8,
+    /// Root commitment of the quantizer metadata.
+    pub quantizer_root: [u8; 32],
+    /// Number of clusters.
+    pub cluster_count: u32,
+    /// Lower-bound metric label (e.g. `l2`).
+    pub metric: String,
+    /// Whether embeddings are L2-normalized.
+    pub embedding_normalized: bool,
 }
 
 impl ScsHeader {

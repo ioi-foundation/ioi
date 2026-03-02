@@ -1,5 +1,6 @@
 use super::*;
 use crate::template::interpolate_template;
+use ioi_scs::RetrievalSearchPolicy;
 use serde_json::json;
 
 pub(super) async fn run_mcp_tool(
@@ -753,9 +754,24 @@ pub(super) async fn run_retrieval_execution(
 
     // 3. Search SCS
     let limit = config.get("limit").and_then(|v| v.as_u64()).unwrap_or(3) as usize;
+    let ef_search = config
+        .get("ef_search")
+        .and_then(|v| v.as_u64())
+        .unwrap_or((limit as u64).saturating_mul(8).max(32));
+    let candidate_limit = config
+        .get("candidate_limit")
+        .and_then(|v| v.as_u64())
+        .unwrap_or((limit as u64).saturating_mul(4).max(16));
+    let policy = RetrievalSearchPolicy {
+        k: limit.max(1).min(u32::MAX as usize) as u32,
+        ef_search: ef_search.max(1).min(u32::MAX as u64) as u32,
+        candidate_limit: candidate_limit.max(limit as u64).min(u32::MAX as u64) as u32,
+        distance_metric: "cosine_distance".to_string(),
+        embedding_normalized: true,
+    };
 
     // Search logic requires unlocking SCS
-    let results = {
+    let (results, retrieval_receipt) = {
         let store = scs.lock().map_err(|_| "SCS lock poisoned")?;
 
         // We need to access the index. Since get_vector_index returns a mutex, we must handle it.
@@ -764,13 +780,13 @@ pub(super) async fn run_retrieval_execution(
         let index_arc = store
             .get_vector_index()
             .map_err(|e| format!("Failed to get index: {}", e))?;
-        let index_guard = index_arc.lock().map_err(|_| "Index lock poisoned")?;
+        let mut index_guard = index_arc.lock().map_err(|_| "Index lock poisoned")?;
 
-        if let Some(index) = index_guard.as_ref() {
-            match index.search(&embedding, limit) {
-                Ok(hits) => {
+        if let Some(index) = index_guard.as_mut() {
+            match index.search_hybrid_with_certificate(&embedding, &policy) {
+                Ok((hits, certificate)) => {
                     let mut docs = Vec::new();
-                    for (frame_id, dist) in hits {
+                    for (frame_id, dist, _, _) in hits {
                         // Read payload
                         if let Ok(payload) = store.read_frame_payload(frame_id) {
                             // Try UTF-8
@@ -783,13 +799,32 @@ pub(super) async fn run_retrieval_execution(
                             }
                         }
                     }
-                    docs
+                    let receipt = json!({
+                        "tool_name": "retrieval",
+                        "backend": "scs:mhnsw",
+                        "query_hash": hex::encode(certificate.certificate.query_hash),
+                        "index_root": hex::encode(certificate.certificate.index_root),
+                        "k": policy.k,
+                        "ef_search": policy.ef_search,
+                        "candidate_limit": policy.candidate_limit,
+                        "candidate_count_total": certificate.candidate_count_total,
+                        "candidate_count_reranked": certificate.candidate_count_total,
+                        "candidate_truncated": false,
+                        "distance_metric": policy.distance_metric,
+                        "embedding_normalized": policy.embedding_normalized,
+                        "proof_hash": serde_json::to_vec(&certificate)
+                            .ok()
+                            .and_then(|bytes| ioi_crypto::algorithms::hash::sha256(&bytes).ok())
+                            .map(hex::encode),
+                        "certificate_mode": "single_level_lb"
+                    });
+                    (docs, Some(receipt))
                 }
                 Err(e) => return Err(format!("Index search failed: {}", e).into()),
             }
         } else {
             // No index loaded/created yet
-            Vec::new()
+            (Vec::new(), None)
         }
     };
 
@@ -803,10 +838,13 @@ pub(super) async fn run_retrieval_execution(
     Ok(ExecutionResult {
         status: "success".into(),
         output: context_str,
-        data: Some(json!({ "results": results })),
+        data: Some(json!({ "results": results, "retrieval_receipt": retrieval_receipt })),
         metrics: Some(json!({
             "latency_ms": start.elapsed().as_millis(),
-            "hits": results.len()
+            "hits": results.len(),
+            "k": policy.k,
+            "ef_search": policy.ef_search,
+            "candidate_limit": policy.candidate_limit
         })),
         input_snapshot: Some(input_obj),
         context_slice: Some(json!(results)),

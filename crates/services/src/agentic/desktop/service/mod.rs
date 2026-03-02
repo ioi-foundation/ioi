@@ -276,6 +276,14 @@ impl DesktopAgentService {
         self::memory::retrieve_context_hybrid(self, query, visual_phash).await
     }
 
+    pub async fn retrieve_context_hybrid_with_receipt(
+        &self,
+        query: &str,
+        visual_phash: Option<[u8; 32]>,
+    ) -> self::memory::HybridRetrievalResult {
+        self::memory::retrieve_context_hybrid_with_receipt(self, query, visual_phash).await
+    }
+
     pub(crate) fn select_runtime(
         &self,
         state: &crate::agentic::desktop::types::AgentState,

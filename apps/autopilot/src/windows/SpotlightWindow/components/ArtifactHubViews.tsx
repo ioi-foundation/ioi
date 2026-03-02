@@ -6,6 +6,7 @@ import type {
   ThoughtAgentSummary,
 } from "../../../types";
 import { icons } from "./Icons";
+import { SubstrateGlassBox } from "./SubstrateGlassBox";
 import { VisualEvidenceCard } from "./VisualEvidenceCard";
 import type { ScreenshotReceiptEvidence } from "../utils/screenshotEvidence";
 
@@ -30,6 +31,28 @@ export interface SecurityPolicyRow {
   reportArtifactId: string | null;
 }
 
+export interface SubstrateReceiptRow {
+  eventId: string;
+  timestamp: string;
+  stepIndex: number;
+  toolName: string;
+  queryHash: string;
+  indexRoot: string;
+  k: number;
+  efSearch: number;
+  candidateLimit: number;
+  candidateTotal: number;
+  candidateReranked: number;
+  candidateTruncated: boolean;
+  distanceMetric: string;
+  embeddingNormalized: boolean;
+  proofHash?: string;
+  proofRef?: string;
+  certificateMode?: string;
+  success: boolean;
+  errorClass?: string;
+}
+
 function clipText(value: string, maxChars: number): string {
   const compact = value.replace(/\s+/g, " ").trim();
   if (compact.length <= maxChars) return compact;
@@ -47,6 +70,7 @@ interface ArtifactHubDetailViewProps {
   fileArtifacts: Artifact[];
   revisionArtifacts: Artifact[];
   screenshotReceipts: ScreenshotReceiptEvidence[];
+  substrateReceipts: SubstrateReceiptRow[];
   onOpenArtifact?: (artifactId: string) => void;
   openExternalUrl: (url: string) => Promise<void>;
   extractArtifactUrl: (artifact: Artifact) => string | null;
@@ -356,6 +380,60 @@ function ScreenshotsView({
   );
 }
 
+function SubstrateView({
+  substrateReceipts,
+}: {
+  substrateReceipts: SubstrateReceiptRow[];
+}) {
+  if (substrateReceipts.length === 0) {
+    return (
+      <p className="artifact-hub-empty">
+        No substrate introspection receipts captured for this scope.
+      </p>
+    );
+  }
+
+  return (
+    <div className="artifact-hub-substrate">
+      <SubstrateGlassBox receipts={substrateReceipts} maxReceipts={24} />
+      <div className="artifact-hub-substrate-list">
+        {substrateReceipts.map((receipt) => (
+          <article className="artifact-hub-substrate-row" key={receipt.eventId}>
+            <div className="artifact-hub-generic-meta">
+              <span>{receipt.timestamp}</span>
+              <span>step {receipt.stepIndex}</span>
+              <span>{receipt.success ? "success" : "failure"}</span>
+            </div>
+            <div className="artifact-hub-generic-title">
+              {receipt.toolName || "scs_retrieve"} · k={receipt.k} · ef={receipt.efSearch}
+            </div>
+            <p className="artifact-hub-generic-summary">
+              candidates={receipt.candidateReranked}/{receipt.candidateTotal} (limit{" "}
+              {receipt.candidateLimit}) · truncated=
+              {receipt.candidateTruncated ? "true" : "false"} · metric=
+              {receipt.distanceMetric}
+              {receipt.embeddingNormalized ? " (normalized)" : ""}
+            </p>
+            <div className="artifact-hub-substrate-meta">
+              <span title={receipt.queryHash}>query={clipText(receipt.queryHash, 16)}</span>
+              <span title={receipt.indexRoot}>index={clipText(receipt.indexRoot, 16)}</span>
+              {!!receipt.proofHash && (
+                <span title={receipt.proofHash}>proof={clipText(receipt.proofHash, 16)}</span>
+              )}
+              {!!receipt.certificateMode && (
+                <span>certificate={receipt.certificateMode}</span>
+              )}
+            </div>
+            {!!receipt.errorClass && (
+              <p className="artifact-hub-generic-summary">error={receipt.errorClass}</p>
+            )}
+          </article>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export function ArtifactHubDetailView({
   activeView,
   searches,
@@ -367,6 +445,7 @@ export function ArtifactHubDetailView({
   fileArtifacts,
   revisionArtifacts,
   screenshotReceipts,
+  substrateReceipts,
   onOpenArtifact,
   openExternalUrl,
   extractArtifactUrl,
@@ -382,6 +461,8 @@ export function ArtifactHubDetailView({
           openExternalUrl={openExternalUrl}
         />
       );
+    case "substrate":
+      return <SubstrateView substrateReceipts={substrateReceipts} />;
     case "sources":
       return (
         <SourcesView

@@ -203,6 +203,66 @@ fn summarize_workload_receipt(receipt: &WorkloadReceipt) -> Option<WorkloadRecei
                 }),
             })
         }
+        WorkloadReceiptKind::ScsRetrieve(scs) => {
+            let proof_ref = if scs.has_proof_ref {
+                Some(scs.proof_ref.clone())
+            } else {
+                None
+            };
+            let proof_hash = if scs.has_proof_hash {
+                Some(scs.proof_hash.clone())
+            } else {
+                None
+            };
+            let certificate_mode = if scs.has_certificate_mode {
+                Some(scs.certificate_mode.clone())
+            } else {
+                None
+            };
+            let error_class = if scs.has_error_class {
+                Some(scs.error_class.clone())
+            } else {
+                None
+            };
+            Some(WorkloadReceiptSummary {
+                kind: "scs_retrieve",
+                tool_name: scs.tool_name.clone(),
+                success: scs.success,
+                summary: format!(
+                    "WorkloadReceipt(ScsRetrieve) tool={} backend={} success={} k={} ef={} candidates={}/{} truncated={}",
+                    scs.tool_name,
+                    scs.backend,
+                    scs.success,
+                    scs.k,
+                    scs.ef_search,
+                    scs.candidate_count_reranked,
+                    scs.candidate_count_total,
+                    scs.candidate_truncated
+                ),
+                digest: json!({
+                    "kind": "scs_retrieve",
+                    "tool_name": scs.tool_name,
+                    "backend": scs.backend,
+                    "query_hash": scs.query_hash,
+                    "index_root": scs.index_root,
+                    "k": scs.k,
+                    "ef_search": scs.ef_search,
+                    "candidate_limit": scs.candidate_limit,
+                    "candidate_count_total": scs.candidate_count_total,
+                    "candidate_count_reranked": scs.candidate_count_reranked,
+                    "candidate_truncated": scs.candidate_truncated,
+                    "distance_metric": scs.distance_metric,
+                    "embedding_normalized": scs.embedding_normalized,
+                    "success": scs.success,
+                    "error_class": error_class,
+                }),
+                details: json!({
+                    "proof_ref": proof_ref,
+                    "proof_hash": proof_hash,
+                    "certificate_mode": certificate_mode,
+                }),
+            })
+        }
     }
 }
 

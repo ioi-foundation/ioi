@@ -374,6 +374,8 @@ pub enum WorkloadReceipt {
     NetFetch(WorkloadNetFetchReceipt),
     /// A governed web retrieval receipt ("web__search" / "web__read").
     WebRetrieve(WorkloadWebRetrieveReceipt),
+    /// A governed SCS retrieval receipt ("memory__search" / retrieval pipelines).
+    ScsRetrieve(WorkloadScsRetrieveReceipt),
 }
 
 /// Audit receipt for an `Exec` workload.
@@ -486,6 +488,49 @@ pub struct WorkloadWebRetrieveReceipt {
     /// Success flag (retrieve + serialization succeeded).
     pub success: bool,
     /// Optional error class when failure output includes an `ERROR_CLASS=...` prefix.
+    #[serde(default)]
+    pub error_class: Option<String>,
+}
+
+/// Audit receipt for `memory__search` / SCS retrieval workloads.
+#[derive(Clone, Debug, Serialize, Deserialize, Encode, Decode, PartialEq, Eq)]
+pub struct WorkloadScsRetrieveReceipt {
+    /// Tool that initiated the retrieval workload.
+    pub tool_name: String,
+    /// Retrieval backend identifier (e.g. "scs:mhnsw").
+    pub backend: String,
+    /// Hash of query bytes used for retrieval.
+    pub query_hash: String,
+    /// Hex root commitment of the index used for retrieval.
+    pub index_root: String,
+    /// Requested top-k.
+    pub k: u32,
+    /// ANN exploration budget.
+    pub ef_search: u32,
+    /// Candidate rerank hard cap.
+    pub candidate_limit: u32,
+    /// Number of ANN candidates prior to truncation.
+    pub candidate_count_total: u32,
+    /// Number of candidates reranked.
+    pub candidate_count_reranked: u32,
+    /// Whether candidate set was truncated deterministically.
+    pub candidate_truncated: bool,
+    /// Rerank metric label.
+    pub distance_metric: String,
+    /// Embedding normalization policy.
+    pub embedding_normalized: bool,
+    /// Optional content-addressed pointer to proof blob.
+    #[serde(default)]
+    pub proof_ref: Option<String>,
+    /// Optional proof hash commitment.
+    #[serde(default)]
+    pub proof_hash: Option<String>,
+    /// Retrieval certificate mode (single-level contract: "single_level_lb").
+    #[serde(default)]
+    pub certificate_mode: Option<String>,
+    /// Success flag as surfaced by the retriever.
+    pub success: bool,
+    /// Optional error class when retrieval fails.
     #[serde(default)]
     pub error_class: Option<String>,
 }

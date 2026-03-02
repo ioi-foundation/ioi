@@ -204,6 +204,26 @@ fn summarize_kernel_event(kernel_event: &ioi_types::app::KernelEvent) -> String 
                 web.success,
                 web.error_class.as_deref().unwrap_or("none")
             ),
+            ioi_types::app::WorkloadReceipt::ScsRetrieve(scs) => format!(
+                "WorkloadReceipt(ScsRetrieve) session={} step_index={} workload_id={} tool_name={} backend={} query_hash={} index_root={} k={} ef_search={} candidate_limit={} candidate_count_total={} candidate_count_reranked={} candidate_truncated={} metric={} embedding_normalized={} success={} error_class={}",
+                prefix_hex_4(&receipt.session_id),
+                receipt.step_index,
+                receipt.workload_id,
+                scs.tool_name,
+                scs.backend,
+                scs.query_hash,
+                scs.index_root,
+                scs.k,
+                scs.ef_search,
+                scs.candidate_limit,
+                scs.candidate_count_total,
+                scs.candidate_count_reranked,
+                scs.candidate_truncated,
+                scs.distance_metric,
+                scs.embedding_normalized,
+                scs.success,
+                scs.error_class.as_deref().unwrap_or("none")
+            ),
         },
         Ev::RoutingReceipt(receipt) => format!(
             "RoutingReceipt session={} step_index={} tool_name={} policy_decision={} success={} action_json_{}",
@@ -509,6 +529,39 @@ fn map_kernel_event(
                     )),
                 }),
             ),
+            ioi_types::app::WorkloadReceipt::ScsRetrieve(scs) => Some(
+                ChainEventEnum::WorkloadReceipt(ioi_ipc::public::WorkloadReceipt {
+                    session_id: hex::encode(receipt.session_id),
+                    step_index: receipt.step_index,
+                    workload_id: receipt.workload_id,
+                    timestamp_ms: receipt.timestamp_ms,
+                    receipt: Some(ioi_ipc::public::workload_receipt::Receipt::ScsRetrieve(
+                        ioi_ipc::public::WorkloadScsRetrieveReceipt {
+                            tool_name: scs.tool_name,
+                            backend: scs.backend,
+                            query_hash: scs.query_hash,
+                            index_root: scs.index_root,
+                            k: scs.k,
+                            ef_search: scs.ef_search,
+                            candidate_limit: scs.candidate_limit,
+                            candidate_count_total: scs.candidate_count_total,
+                            candidate_count_reranked: scs.candidate_count_reranked,
+                            candidate_truncated: scs.candidate_truncated,
+                            distance_metric: scs.distance_metric,
+                            embedding_normalized: scs.embedding_normalized,
+                            proof_ref: scs.proof_ref.clone().unwrap_or_default(),
+                            has_proof_ref: scs.proof_ref.is_some(),
+                            proof_hash: scs.proof_hash.clone().unwrap_or_default(),
+                            has_proof_hash: scs.proof_hash.is_some(),
+                            certificate_mode: scs.certificate_mode.clone().unwrap_or_default(),
+                            has_certificate_mode: scs.certificate_mode.is_some(),
+                            success: scs.success,
+                            error_class: scs.error_class.clone().unwrap_or_default(),
+                            has_error_class: scs.error_class.is_some(),
+                        },
+                    )),
+                }),
+            ),
         },
         ioi_types::app::KernelEvent::RoutingReceipt(receipt) => {
             Some(ChainEventEnum::RoutingReceipt(map_routing_receipt(
@@ -701,7 +754,7 @@ mod workload_event_mapping_tests {
     use ioi_types::app::{
         KernelEvent, WorkloadActivityEvent, WorkloadActivityKind, WorkloadExecReceipt,
         WorkloadFsWriteReceipt, WorkloadNetFetchReceipt, WorkloadReceipt, WorkloadReceiptEvent,
-        WorkloadWebRetrieveReceipt,
+        WorkloadScsRetrieveReceipt, WorkloadWebRetrieveReceipt,
     };
 
     #[test]
@@ -902,6 +955,62 @@ mod workload_event_mapping_tests {
                     assert_eq!(web.error_class, "");
                 }
                 other => panic!("expected web_retrieve receipt, got: {:?}", other),
+            },
+            other => panic!("expected workload receipt chain event, got: {:?}", other),
+        }
+
+        let receipt = KernelEvent::WorkloadReceipt(WorkloadReceiptEvent {
+            session_id: [7u8; 32],
+            step_index: 42,
+            workload_id: "wid-scs".to_string(),
+            timestamp_ms: 127,
+            receipt: WorkloadReceipt::ScsRetrieve(WorkloadScsRetrieveReceipt {
+                tool_name: "memory__search".to_string(),
+                backend: "scs:mhnsw".to_string(),
+                query_hash: "abcd".to_string(),
+                index_root: "beef".to_string(),
+                k: 5,
+                ef_search: 64,
+                candidate_limit: 32,
+                candidate_count_total: 18,
+                candidate_count_reranked: 18,
+                candidate_truncated: false,
+                distance_metric: "cosine_distance".to_string(),
+                embedding_normalized: false,
+                proof_ref: Some("scs://proof/123".to_string()),
+                proof_hash: Some("deadbeef".to_string()),
+                certificate_mode: Some("single_level_lb".to_string()),
+                success: true,
+                error_class: None,
+            }),
+        });
+        let mapped = map_kernel_event(receipt, &keypair, signer_pk.as_str())
+            .expect("scs-retrieve workload receipt should map");
+        match mapped {
+            ChainEventEnum::WorkloadReceipt(payload) => match payload.receipt {
+                Some(ioi_ipc::public::workload_receipt::Receipt::ScsRetrieve(scs)) => {
+                    assert_eq!(scs.tool_name, "memory__search");
+                    assert_eq!(scs.backend, "scs:mhnsw");
+                    assert_eq!(scs.query_hash, "abcd");
+                    assert_eq!(scs.index_root, "beef");
+                    assert_eq!(scs.k, 5);
+                    assert_eq!(scs.ef_search, 64);
+                    assert_eq!(scs.candidate_limit, 32);
+                    assert_eq!(scs.candidate_count_total, 18);
+                    assert_eq!(scs.candidate_count_reranked, 18);
+                    assert!(!scs.candidate_truncated);
+                    assert_eq!(scs.distance_metric, "cosine_distance");
+                    assert!(!scs.embedding_normalized);
+                    assert!(scs.has_proof_ref);
+                    assert_eq!(scs.proof_ref, "scs://proof/123");
+                    assert!(scs.has_proof_hash);
+                    assert_eq!(scs.proof_hash, "deadbeef");
+                    assert!(scs.has_certificate_mode);
+                    assert_eq!(scs.certificate_mode, "single_level_lb");
+                    assert!(scs.success);
+                    assert!(!scs.has_error_class);
+                }
+                other => panic!("expected scs_retrieve receipt, got: {:?}", other),
             },
             other => panic!("expected workload receipt chain event, got: {:?}", other),
         }

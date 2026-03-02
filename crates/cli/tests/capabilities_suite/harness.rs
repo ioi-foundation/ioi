@@ -4002,6 +4002,12 @@ pub async fn run_case(
                         action_error_classes.insert(error_class.clone());
                     }
                 }
+                WorkloadReceipt::ScsRetrieve(scs) => {
+                    workload_tools.insert(scs.tool_name.clone());
+                    if let Some(error_class) = scs.error_class.as_ref() {
+                        action_error_classes.insert(error_class.clone());
+                    }
+                }
             },
             KernelEvent::ExecutionContractReceipt(receipt) => {
                 cec_receipts.push(CecReceiptEvidence {

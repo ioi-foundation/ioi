@@ -22,6 +22,7 @@ use ioi_api::state::{
     ProofProvider, PrunePlan, StateAccess, StateManager, StateScanIter, VerifiableState,
 };
 use ioi_api::storage::NodeStore;
+use ioi_crypto::algorithms::hash::sha256;
 use ioi_types::app::{Membership, RootHash};
 use ioi_types::error::StateError;
 use parity_scale_codec::{Decode, Encode};
@@ -161,19 +162,14 @@ impl<CS: CommitmentScheme, M: DistanceMetric> StateAccess for MHnswIndex<CS, M> 
 
 impl<CS: CommitmentScheme, M: DistanceMetric + Debug> VerifiableState for MHnswIndex<CS, M>
 where
-    CS::Commitment: From<Vec<u8>>,
+    CS::Commitment: From<Vec<u8>> + AsRef<[u8]>,
     CS::Proof: From<HashProof>,
 {
     type Commitment = CS::Commitment;
     type Proof = CS::Proof;
 
     fn root_commitment(&self) -> Self::Commitment {
-        if let Some(eid) = self.graph.entry_point {
-            if let Some(node) = self.graph.nodes.get(&eid) {
-                return CS::Commitment::from(node.hash.to_vec());
-            }
-        }
-        CS::Commitment::from(vec![0u8; 32])
+        CS::Commitment::from(self.graph.index_root().to_vec())
     }
 
     fn as_any(&self) -> &dyn Any {
@@ -189,7 +185,7 @@ where
 
 impl<CS: CommitmentScheme, M: DistanceMetric + Debug> ProofProvider for MHnswIndex<CS, M>
 where
-    CS::Commitment: From<Vec<u8>>,
+    CS::Commitment: From<Vec<u8>> + AsRef<[u8]>,
     CS::Proof: From<HashProof> + AsRef<[u8]>,
     CS::Witness: Default,
 {
@@ -212,11 +208,35 @@ where
 
     fn verify_proof(
         &self,
-        _commitment: &Self::Commitment,
-        _proof: &Self::Proof,
-        _key: &[u8],
-        _value: &[u8],
+        commitment: &Self::Commitment,
+        proof: &Self::Proof,
+        key: &[u8],
+        value: &[u8],
     ) -> Result<(), StateError> {
+        let present_value = self
+            .get(key)?
+            .ok_or_else(|| StateError::Backend("Proof verification failed: key absent".into()))?;
+
+        if present_value != value {
+            return Err(StateError::Backend(
+                "Proof verification failed: value mismatch".into(),
+            ));
+        }
+
+        // HashProof::as_ref() is the proven value bytes for the default hash scheme.
+        if proof.as_ref() != value {
+            return Err(StateError::Backend(
+                "Proof verification failed: proof payload mismatch".into(),
+            ));
+        }
+
+        let local_commitment = self.root_commitment();
+        if local_commitment.as_ref() != commitment.as_ref() {
+            return Err(StateError::Backend(
+                "Proof verification failed: commitment mismatch".into(),
+            ));
+        }
+
         Ok(())
     }
 
@@ -246,8 +266,8 @@ where
     fn commitment_from_bytes(&self, bytes: &[u8]) -> Result<Self::Commitment, StateError> {
         Ok(CS::Commitment::from(bytes.to_vec()))
     }
-    fn commitment_to_bytes(&self, _c: &Self::Commitment) -> Vec<u8> {
-        vec![]
+    fn commitment_to_bytes(&self, c: &Self::Commitment) -> Vec<u8> {
+        c.as_ref().to_vec()
     }
 }
 
@@ -256,7 +276,7 @@ where
 #[async_trait]
 impl<CS: CommitmentScheme, M: DistanceMetric + Debug> StateManager for MHnswIndex<CS, M>
 where
-    CS::Commitment: From<Vec<u8>>,
+    CS::Commitment: From<Vec<u8>> + AsRef<[u8]>,
     CS::Proof: From<HashProof> + AsRef<[u8]>,
     CS::Witness: Default,
 {
@@ -267,8 +287,20 @@ where
         Ok(0)
     }
     fn commit_version(&mut self, _height: u64) -> Result<RootHash, StateError> {
-        let _root = self.root_commitment();
-        Ok([0u8; 32])
+        let commitment = self.root_commitment();
+        let bytes = commitment.as_ref();
+        if bytes.len() == 32 {
+            let mut out = [0u8; 32];
+            out.copy_from_slice(bytes);
+            Ok(out)
+        } else {
+            let digest = sha256(bytes).map_err(|e| StateError::Backend(e.to_string()))?;
+            let mut out = [0u8; 32];
+            let digest_bytes = digest.as_ref();
+            let len = digest_bytes.len().min(32);
+            out[..len].copy_from_slice(&digest_bytes[..len]);
+            Ok(out)
+        }
     }
 
     fn adopt_known_root(&mut self, _root_bytes: &[u8], _version: u64) -> Result<(), StateError> {

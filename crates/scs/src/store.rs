@@ -10,8 +10,8 @@
 //! - **Cryptographic Lifecycle:** Encryption, Key Shredding, and Epoch Rotation.
 
 use crate::format::{
-    EpochManifest, Frame, FrameId, FrameType, RetentionClass, ScsHeader, Toc, Tombstone,
-    VectorIndexManifest, HEADER_SIZE, SCS_VERSION,
+    CoarseQuantizerManifestRef, EpochManifest, Frame, FrameId, FrameType, RetentionClass,
+    ScsHeader, Toc, Tombstone, VectorIndexManifest, HEADER_SIZE, SCS_VERSION,
 };
 use crate::index::VectorIndex;
 use anyhow::{anyhow, Result};
@@ -478,6 +478,18 @@ impl SovereignContextStore {
             count: artifact.count,
             dimension: artifact.dimension,
             root_hash: artifact.root_hash,
+            coarse_quantizer: artifact.coarse_quantizer.as_ref().map(|q| {
+                CoarseQuantizerManifestRef {
+                    version: q.version,
+                    quantizer_root: q.quantizer_root,
+                    cluster_count: q.clusters.len() as u32,
+                    metric: match q.metric {
+                        crate::certificate::LowerBoundMetric::L2 => "l2",
+                    }
+                    .to_string(),
+                    embedding_normalized: q.embedding_normalized,
+                }
+            }),
         });
 
         // 3. Rewrite TOC at new end

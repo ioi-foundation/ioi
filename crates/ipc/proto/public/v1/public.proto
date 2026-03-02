@@ -216,6 +216,7 @@ message WorkloadReceipt {
         WorkloadNetFetchReceipt net_fetch = 11;
         WorkloadWebRetrieveReceipt web_retrieve = 12;
         WorkloadFsWriteReceipt fs_write = 13;
+        WorkloadScsRetrieveReceipt scs_retrieve = 14;
     }
 }
 
@@ -300,6 +301,34 @@ message WorkloadFsWriteReceipt {
 
     string error_class = 9;
     bool has_error_class = 10;
+}
+
+message WorkloadScsRetrieveReceipt {
+    string tool_name = 1; // "memory__search" / retrieval caller
+    string backend = 2;   // "scs:mhnsw"
+    string query_hash = 3;
+    string index_root = 4;
+
+    uint32 k = 5;
+    uint32 ef_search = 6;
+    uint32 candidate_limit = 7;
+    uint32 candidate_count_total = 8;
+    uint32 candidate_count_reranked = 9;
+    bool candidate_truncated = 10;
+
+    string distance_metric = 11;
+    bool embedding_normalized = 12;
+
+    string proof_ref = 13;
+    bool has_proof_ref = 14;
+    string proof_hash = 15;
+    bool has_proof_hash = 16;
+    string certificate_mode = 17; // single-level default: "single_level_lb"
+    bool has_certificate_mode = 18;
+
+    bool success = 19;
+    string error_class = 20;
+    bool has_error_class = 21;
 }
 
 // [NEW] Message for agent spawning

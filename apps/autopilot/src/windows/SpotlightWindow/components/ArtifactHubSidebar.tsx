@@ -12,6 +12,7 @@ import {
   ArtifactHubDetailView,
   type KernelLogRow,
   type SecurityPolicyRow,
+  type SubstrateReceiptRow,
 } from "./ArtifactHubViews";
 import {
   collectScreenshotReceipts,
@@ -51,6 +52,7 @@ const MAX_KERNEL_LOG_ROWS = 240;
 const MAX_SUMMARY_CHARS = 220;
 const TURN_FILTER_VIEWS = new Set<ArtifactHubViewKey>([
   "thoughts",
+  "substrate",
   "sources",
   "kernel_logs",
   "security_policy",
@@ -89,6 +91,29 @@ function eventHasPolicyDigest(event: AgentEvent): boolean {
   );
 }
 
+function toOptionalNumber(value: unknown): number | null {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return value;
+  }
+  if (typeof value === "string" && value.trim().length > 0) {
+    const parsed = Number(value);
+    if (Number.isFinite(parsed)) {
+      return parsed;
+    }
+  }
+  return null;
+}
+
+function toOptionalBool(value: unknown): boolean | null {
+  if (typeof value === "boolean") return value;
+  if (typeof value === "string") {
+    const normalized = value.trim().toLowerCase();
+    if (normalized === "true") return true;
+    if (normalized === "false") return false;
+  }
+  return null;
+}
+
 function extractArtifactUrl(artifact: Artifact): string | null {
   const metadata = artifact.metadata || {};
   const candidates = [metadata.url, metadata.source_url, metadata.screenshot_url];
@@ -105,6 +130,8 @@ function sectionLabel(key: ArtifactHubViewKey): string {
   switch (key) {
     case "thoughts":
       return "Thoughts";
+    case "substrate":
+      return "Substrate";
     case "sources":
       return "Sources";
     case "kernel_logs":
@@ -296,10 +323,53 @@ export function ArtifactHubSidebar({
     () => collectScreenshotReceipts(scopedEvents),
     [scopedEvents],
   );
+  const substrateReceipts = useMemo<SubstrateReceiptRow[]>(() => {
+    const rows: SubstrateReceiptRow[] = [];
+    for (const event of scopedEvents) {
+      if (event.event_type !== "RECEIPT") continue;
+      const digest = event.digest || {};
+      const kind = toEventString(digest.kind).trim().toLowerCase();
+      if (kind !== "scs_retrieve") continue;
+
+      const payload = (event.details?.payload || {}) as Record<string, unknown>;
+      const proofHash = toEventString(payload.proof_hash).trim();
+      const proofRef = toEventString(payload.proof_ref).trim();
+      const certificateMode = toEventString(payload.certificate_mode).trim();
+      const errorClass = toEventString(digest.error_class).trim();
+
+      rows.push({
+        eventId: event.event_id,
+        timestamp: formatTimestamp(event.timestamp),
+        stepIndex: event.step_index,
+        toolName: toEventString(digest.tool_name).trim() || "scs_retrieve",
+        queryHash: toEventString(digest.query_hash).trim(),
+        indexRoot: toEventString(digest.index_root).trim(),
+        k: Math.max(1, Math.floor(toOptionalNumber(digest.k) || 1)),
+        efSearch: Math.max(1, Math.floor(toOptionalNumber(digest.ef_search) || 1)),
+        candidateLimit: Math.max(1, Math.floor(toOptionalNumber(digest.candidate_limit) || 1)),
+        candidateTotal: Math.max(0, Math.floor(toOptionalNumber(digest.candidate_count_total) || 0)),
+        candidateReranked: Math.max(
+          0,
+          Math.floor(toOptionalNumber(digest.candidate_count_reranked) || 0),
+        ),
+        candidateTruncated: toOptionalBool(digest.candidate_truncated) || false,
+        distanceMetric: toEventString(digest.distance_metric).trim() || "unknown",
+        embeddingNormalized: toOptionalBool(digest.embedding_normalized) || false,
+        proofHash: proofHash || undefined,
+        proofRef: proofRef || undefined,
+        certificateMode: certificateMode || undefined,
+        success: toOptionalBool(digest.success) ?? true,
+        errorClass: errorClass || undefined,
+      });
+    }
+    rows.sort((a, b) => a.timestamp.localeCompare(b.timestamp));
+    return rows;
+  }, [scopedEvents]);
 
   const sections = useMemo<HubSection[]>(
     () => [
       { key: "thoughts", label: sectionLabel("thoughts"), count: thoughtAgents.length },
+      { key: "substrate", label: sectionLabel("substrate"), count: substrateReceipts.length },
       { key: "sources", label: sectionLabel("sources"), count: visibleSourceCount },
       { key: "kernel_logs", label: sectionLabel("kernel_logs"), count: kernelLogs.length },
       { key: "security_policy", label: sectionLabel("security_policy"), count: securityRows.length },
@@ -313,6 +383,7 @@ export function ArtifactHubSidebar({
       revisionArtifacts.length,
       screenshotReceipts.length,
       securityRows.length,
+      substrateReceipts.length,
       visibleSourceCount,
       thoughtAgents.length,
     ],
@@ -347,6 +418,7 @@ export function ArtifactHubSidebar({
       fileArtifacts={fileArtifacts}
       revisionArtifacts={revisionArtifacts}
       screenshotReceipts={screenshotReceipts}
+      substrateReceipts={substrateReceipts}
       onOpenArtifact={onOpenArtifact}
       openExternalUrl={openExternalUrl}
       extractArtifactUrl={extractArtifactUrl}

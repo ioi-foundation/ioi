@@ -1041,7 +1041,7 @@ pub async fn handle_action_execution(
             missing_capability,
         )),
         AgentTool::MemorySearch { query } => {
-            Ok(handlers::handle_memory_search_tool(service, &query).await)
+            Ok(handlers::handle_memory_search_tool(service, session_id, step_index, &query).await)
         }
         AgentTool::MemoryInspect { frame_id } => {
             Ok(handlers::handle_memory_inspect_tool(service, frame_id).await)
