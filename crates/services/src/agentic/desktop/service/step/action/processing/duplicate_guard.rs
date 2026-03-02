@@ -3,7 +3,8 @@ use crate::agentic::desktop::service::step::action::command_contract::{
 };
 use crate::agentic::desktop::types::CommandExecution;
 use ioi_types::app::agentic::AgentTool;
-use std::collections::VecDeque;
+use std::collections::{HashMap, VecDeque};
+use std::path::Path;
 
 pub(super) fn duplicate_command_execution_summary(tool: &AgentTool) -> String {
     let _ = tool;
@@ -127,6 +128,9 @@ pub(super) fn duplicate_command_cached_completion_summary(
     // Reuse eligibility checks from cached-success path.
     let _ = duplicate_command_cached_success_summary(tool, history_entry)?;
     let entry = history_entry?;
+    if let Some(summary) = structured_probe_completion_summary(entry) {
+        return Some(summary);
+    }
     if normalize_command_binary(&entry.command).as_deref() == Some("find")
         && is_safe_find_probe_command(entry.command.trim())
     {
@@ -138,6 +142,85 @@ pub(super) fn duplicate_command_cached_completion_summary(
     preferred_cached_completion_line(&entry.stdout)
         .or_else(|| preferred_cached_completion_line(&entry.stderr))
         .or_else(|| duplicate_command_cached_success_summary(tool, Some(entry)))
+}
+
+fn structured_probe_completion_summary(entry: &CommandExecution) -> Option<String> {
+    let values = parse_key_value_lines(&entry.stdout);
+    let provider = values.get("provider")?;
+    let memory_rows = parse_memory_probe_rows(&entry.stdout);
+    if !memory_rows.is_empty() {
+        let mut summary = format!("Top memory apps by rss_kb via provider '{}':", provider);
+        for (rank, app, pid, rss_kb) in memory_rows {
+            summary.push_str(&format!(
+                "\n{}. {} (pid {}, rss_kb {})",
+                rank, app, pid, rss_kb
+            ));
+        }
+        return Some(summary);
+    }
+    if let Some(target_local_time) = values.get("target_local_time") {
+        return Some(format!(
+            "Shutdown scheduled via provider '{}' for local time {}.",
+            provider, target_local_time
+        ));
+    }
+    if let Some(run_timestamp_utc) = format_utc_rfc3339(entry.timestamp_ms) {
+        return Some(format!(
+            "Probe completed via provider '{}' (run timestamp UTC: {}).",
+            provider, run_timestamp_utc
+        ));
+    }
+    Some(format!("Probe completed via provider '{}'.", provider))
+}
+
+fn parse_key_value_lines(text: &str) -> HashMap<String, String> {
+    let mut values = HashMap::new();
+    for line in text.lines() {
+        let trimmed = line.trim();
+        if trimmed.is_empty() {
+            continue;
+        }
+        let Some((raw_key, raw_value)) = trimmed.split_once('=') else {
+            continue;
+        };
+        let key = raw_key.trim().to_ascii_lowercase();
+        let value = raw_value.trim();
+        if key.is_empty() || value.is_empty() {
+            continue;
+        }
+        values.insert(key, value.to_string());
+    }
+    values
+}
+
+fn parse_memory_probe_rows(text: &str) -> Vec<(u32, String, String, String)> {
+    let mut rows = Vec::new();
+    for line in text.lines() {
+        let trimmed = line.trim();
+        if !trimmed.starts_with("row|") {
+            continue;
+        }
+        let mut parts = trimmed.split('|');
+        let marker = parts.next().unwrap_or_default();
+        let rank_raw = parts.next().unwrap_or_default().trim();
+        let app = parts.next().unwrap_or_default().trim();
+        let pid = parts.next().unwrap_or_default().trim();
+        let rss_kb = parts.next().unwrap_or_default().trim();
+        if marker != "row"
+            || app.is_empty()
+            || pid.is_empty()
+            || rss_kb.is_empty()
+            || parts.next().is_some()
+        {
+            continue;
+        }
+        let rank = rank_raw
+            .parse::<u32>()
+            .unwrap_or_else(|_| rows.len() as u32 + 1);
+        rows.push((rank, app.to_string(), pid.to_string(), rss_kb.to_string()));
+    }
+    rows.sort_by_key(|row| row.0);
+    rows
 }
 
 fn preferred_cached_completion_line(text: &str) -> Option<String> {
@@ -193,6 +276,14 @@ fn is_safe_read_probe_command(command_preview: &str) -> bool {
     let Some(binary) = normalize_command_binary(trimmed) else {
         return false;
     };
+    let binary_basename = Path::new(&binary)
+        .file_name()
+        .and_then(|name| name.to_str())
+        .unwrap_or(binary.as_str())
+        .to_ascii_lowercase();
+    if binary_basename.ends_with("_probe") || binary_basename == "probe" {
+        return true;
+    }
 
     matches!(
         binary.as_str(),
@@ -431,5 +522,55 @@ mod tests {
         let summary = duplicate_command_cached_completion_summary(&tool, Some(&history))
             .expect("safe find completion should use full stdout");
         assert_eq!(summary, "/home/user/a.pdf\n/home/user/b.pdf");
+    }
+
+    #[test]
+    fn duplicate_probe_completion_extracts_provider_and_target_time() {
+        let tool = AgentTool::SysExec {
+            command: "/tmp/demo/shutdown_schedule_probe".to_string(),
+            args: vec!["--target-local".to_string(), "23:00".to_string()],
+            stdin: None,
+            detach: false,
+        };
+        let history = CommandExecution {
+            command: "/tmp/demo/shutdown_schedule_probe --target-local 23:00".to_string(),
+            exit_code: 0,
+            stdout: "provider=shutdown\ntarget_local_time=23:00\nscheduled=true\n".to_string(),
+            stderr: String::new(),
+            timestamp_ms: 1_772_000_000_000,
+            step_index: 2,
+        };
+
+        let summary = duplicate_command_cached_completion_summary(&tool, Some(&history))
+            .expect("probe completion should be synthesized");
+        assert!(summary.contains("provider 'shutdown'"));
+        assert!(summary.contains("23:00"));
+    }
+
+    #[test]
+    fn duplicate_probe_completion_includes_ranked_memory_rows() {
+        let tool = AgentTool::SysExec {
+            command: "/tmp/demo/top_memory_apps_probe".to_string(),
+            args: vec!["5".to_string()],
+            stdin: None,
+            detach: false,
+        };
+        let history = CommandExecution {
+            command: "/tmp/demo/top_memory_apps_probe 5".to_string(),
+            exit_code: 0,
+            stdout: "provider=ps\nrow|1|firefox-bin|6795|892632\nrow|2|soffice.bin|58757|795564\n"
+                .to_string(),
+            stderr: String::new(),
+            timestamp_ms: 1_772_000_000_000,
+            step_index: 2,
+        };
+
+        let summary = duplicate_command_cached_completion_summary(&tool, Some(&history))
+            .expect("top-memory probe completion should include ranked rows");
+        assert!(summary.contains("Top memory apps"));
+        assert!(summary.contains("firefox-bin"));
+        assert!(summary.contains("pid 6795"));
+        assert!(summary.contains("rss_kb 892632"));
+        assert!(summary.contains("soffice.bin"));
     }
 }

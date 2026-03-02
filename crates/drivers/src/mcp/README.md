@@ -9,7 +9,7 @@ In the IOI Kernel, MCP is the **extension bus for software integrations**. Core/
 ### 1. The Manager (`mod.rs`)
 The `McpManager` is the central registry.
 *   **Startup:** Reads `workload.toml` for explicitly configured extension servers.
-*   **Admission Policy:** Enforces mode/tier/source/integrity/containment before launch (e.g., denies installer-style commands outside dev mode, enforces hash pins for audited/verified servers).
+*   **Admission Policy:** Enforces mode/tier/source/integrity/containment before launch (e.g., denies installer-style commands outside dev mode, enforces hash pins for audited/verified servers, and gates tools against explicit `allowed_tools` where configured).
 *   **Discovery:** Performs the initialization handshake (`initialize`, `notifications/initialized`) and queries `tools/list` to discover capabilities.
 *   **Routing:** Maintains a map of `tool_name -> server_instance` with namespaced tool IDs (`server__tool`), and rejects collisions with reserved native tool names.
 *   **Provenance:** Records per-server receipts (command path/hash, version, tier, mode, admitted tool set).

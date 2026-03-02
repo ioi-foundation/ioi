@@ -95,6 +95,7 @@ pub fn run(args: ConfigCmdArgs) -> Result<()> {
                                 allow_child_processes: true,
                                 workspace_root: Some("./".to_string()),
                             },
+                            allowed_tools: Vec::new(),
                         },
                     );
                     McpMode::Development
