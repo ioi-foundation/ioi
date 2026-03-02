@@ -1,6 +1,8 @@
 use super::*;
 use crate::template::interpolate_template;
+use ioi_crypto::algorithms::hash::sha256;
 use ioi_scs::RetrievalSearchPolicy;
+use ioi_types::app::{CapabilityLease, CapabilityLeaseMode, NetMode, RuntimeTarget, WorkloadSpec};
 use serde_json::json;
 
 fn parse_input_object(input: &str) -> Value {
@@ -9,6 +11,14 @@ fn parse_input_object(input: &str) -> Value {
 
 fn latency_metrics(start: std::time::Instant) -> Value {
     json!({ "latency_ms": start.elapsed().as_millis() })
+}
+
+fn unix_ms_now() -> u64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .ok()
+        .map(|duration| duration.as_millis() as u64)
+        .unwrap_or(0)
 }
 
 fn build_result(
@@ -86,7 +96,48 @@ pub(super) async fn run_mcp_tool(
         }
     }
 
-    match MCP_MANAGER.execute_tool(tool_name, args).await {
+    let now_ms = unix_ms_now();
+    let domain_allowlist = args
+        .as_object()
+        .and_then(|map| map.get("url"))
+        .and_then(|value| value.as_str())
+        .and_then(|url| {
+            url::Url::parse(url)
+                .ok()
+                .and_then(|parsed| parsed.host_str().map(|host| host.to_ascii_lowercase()))
+        })
+        .map(|host| vec![host])
+        .unwrap_or_default();
+    let net_mode = if domain_allowlist.is_empty() {
+        NetMode::Disabled
+    } else {
+        NetMode::AllowListed
+    };
+    let lease_material = serde_json::to_vec(&json!({
+        "tool_name": tool_name,
+        "issued_at_ms": now_ms,
+        "arguments": args,
+    }))?;
+    let lease_id = sha256(&lease_material)?;
+
+    let ephemeral_spec = WorkloadSpec {
+        runtime_target: RuntimeTarget::McpAdapter,
+        net_mode,
+        capability_lease: Some(CapabilityLease {
+            lease_id,
+            issued_at_ms: now_ms.saturating_sub(1_000),
+            expires_at_ms: now_ms.saturating_add(300_000),
+            mode: CapabilityLeaseMode::OneShot,
+            capability_allowlist: vec![tool_name.to_string()],
+            domain_allowlist,
+        }),
+        ui_surface: None,
+    };
+
+    match MCP_MANAGER
+        .execute_tool_with_spec(tool_name, args, Some(&ephemeral_spec))
+        .await
+    {
         Ok(output) => Ok(build_result(
             "success",
             output.clone(),

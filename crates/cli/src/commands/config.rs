@@ -1,15 +1,22 @@
 // Path: crates/cli/src/commands/config.rs
 
 use anyhow::Result;
-use clap::{Parser, Subcommand};
+use clap::{Parser, Subcommand, ValueEnum};
 use ioi_types::config::{
     CommitmentSchemeType, ConnectorConfig, ConsensusType, InferenceConfig, McpConfigEntry,
-    OrchestrationConfig, RpcHardeningConfig, StateTreeType, ValidatorRole, VmFuelCosts,
-    WorkloadConfig, ZkConfig,
+    McpContainmentConfig, McpContainmentMode, McpIntegrityConfig, McpMode, McpServerSource,
+    McpServerTier, OrchestrationConfig, RpcHardeningConfig, StateTreeType, ValidatorRole,
+    VmFuelCosts, WorkloadConfig, ZkConfig,
 };
 use std::collections::HashMap;
 use std::fs;
 use std::path::PathBuf;
+
+#[derive(Debug, Clone, Copy, ValueEnum)]
+pub enum McpProfileArg {
+    Disabled,
+    DevFilesystem,
+}
 
 #[derive(Parser, Debug)]
 pub struct ConfigCmdArgs {
@@ -25,12 +32,18 @@ pub enum ConfigSubCommands {
         out_dir: PathBuf,
         #[clap(long, default_value = "1")]
         chain_id: u32,
+        #[clap(long, value_enum, default_value = "disabled")]
+        mcp_profile: McpProfileArg,
     },
 }
 
 pub fn run(args: ConfigCmdArgs) -> Result<()> {
     match args.command {
-        ConfigSubCommands::New { out_dir, chain_id } => {
+        ConfigSubCommands::New {
+            out_dir,
+            chain_id,
+            mcp_profile,
+        } => {
             fs::create_dir_all(&out_dir)?;
 
             let orch_cfg = OrchestrationConfig {
@@ -59,24 +72,34 @@ pub fn run(args: ConfigCmdArgs) -> Result<()> {
                 },
             );
 
-            // [NEW] Default MCP Server Configuration
             let mut mcp_servers = HashMap::new();
-
-            // Example: Filesystem MCP
-            // This assumes 'npx' is available in the environment.
-            // It mounts the current directory as an allowed path.
-            mcp_servers.insert(
-                "filesystem".to_string(),
-                McpConfigEntry {
-                    command: "npx".to_string(),
-                    args: vec![
-                        "-y".to_string(),
-                        "@modelcontextprotocol/server-filesystem".to_string(),
-                        "./".to_string(), // Allow access to current directory
-                    ],
-                    env: HashMap::new(),
-                },
-            );
+            let mcp_mode = match mcp_profile {
+                McpProfileArg::Disabled => McpMode::Disabled,
+                McpProfileArg::DevFilesystem => {
+                    mcp_servers.insert(
+                        "filesystem_dev".to_string(),
+                        McpConfigEntry {
+                            command: "npx".to_string(),
+                            args: vec![
+                                "-y".to_string(),
+                                "@modelcontextprotocol/server-filesystem".to_string(),
+                                "./".to_string(),
+                            ],
+                            env: HashMap::new(),
+                            tier: McpServerTier::Unverified,
+                            source: McpServerSource::PackageManager,
+                            integrity: McpIntegrityConfig::default(),
+                            containment: McpContainmentConfig {
+                                mode: McpContainmentMode::DeveloperUnconfined,
+                                allow_network_egress: true,
+                                allow_child_processes: true,
+                                workspace_root: Some("./".to_string()),
+                            },
+                        },
+                    );
+                    McpMode::Development
+                }
+            };
 
             let workload_cfg = WorkloadConfig {
                 runtimes: vec!["wasm".into()],
@@ -99,6 +122,7 @@ pub fn run(args: ConfigCmdArgs) -> Result<()> {
                 reasoning_inference: None,
                 connectors,
                 mcp_servers,
+                mcp_mode,
             };
 
             fs::write(
@@ -112,7 +136,10 @@ pub fn run(args: ConfigCmdArgs) -> Result<()> {
 
             println!("✅ Generated config files in {}", out_dir.display());
             println!("ℹ️  Edit workload.toml to configure MCP servers.");
-            println!("   Default: 'filesystem' MCP server is enabled (via npx).");
+            println!("   Default: mcp_mode=disabled (native filesystem tools stay available).");
+            println!(
+                "   Dev opt-in: rerun with --mcp-profile dev-filesystem to enable filesystem_dev MCP."
+            );
         }
     }
     Ok(())

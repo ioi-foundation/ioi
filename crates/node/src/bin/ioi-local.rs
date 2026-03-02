@@ -22,7 +22,9 @@ use ioi_types::app::{
     ValidatorSetV1, ValidatorSetsV1, ValidatorV1,
 };
 use ioi_types::config::{
-    ConsensusType, InitialServiceConfig, OrchestrationConfig, ValidatorRole, WorkloadConfig,
+    ConsensusType, InitialServiceConfig, McpConfigEntry, McpContainmentConfig, McpContainmentMode,
+    McpIntegrityConfig, McpMode, McpServerSource, McpServerTier, OrchestrationConfig,
+    ValidatorRole, WorkloadConfig,
 };
 use ioi_types::service_configs::MigrationConfig;
 use ioi_validator::common::{GuardianContainer, LocalSigner};
@@ -334,19 +336,35 @@ async fn main() -> Result<()> {
     println!("📂 Mounting User Space (Gated): {}", workspace_str);
 
     let mut mcp_servers = std::collections::HashMap::new();
-    mcp_servers.insert(
-        "filesystem".to_string(),
-        ioi_types::config::McpConfigEntry {
-            command: "npx".to_string(),
-            args: vec![
-                "-y".to_string(),
-                "@modelcontextprotocol/server-filesystem".to_string(),
-                abs_data_dir_str.clone(),
-                workspace_str,
-            ],
-            env: std::collections::HashMap::new(),
-        },
-    );
+    let mcp_profile = std::env::var("IOI_MCP_PROFILE")
+        .unwrap_or_else(|_| "disabled".to_string())
+        .to_ascii_lowercase();
+    let mcp_mode = if mcp_profile == "dev_filesystem" {
+        mcp_servers.insert(
+            "filesystem_dev".to_string(),
+            McpConfigEntry {
+                command: "npx".to_string(),
+                args: vec![
+                    "-y".to_string(),
+                    "@modelcontextprotocol/server-filesystem".to_string(),
+                    workspace_str.clone(),
+                ],
+                env: std::collections::HashMap::new(),
+                tier: McpServerTier::Unverified,
+                source: McpServerSource::PackageManager,
+                integrity: McpIntegrityConfig::default(),
+                containment: McpContainmentConfig {
+                    mode: McpContainmentMode::DeveloperUnconfined,
+                    allow_network_egress: true,
+                    allow_child_processes: true,
+                    workspace_root: Some(workspace_str.clone()),
+                },
+            },
+        );
+        McpMode::Development
+    } else {
+        McpMode::Disabled
+    };
 
     let workload_config = WorkloadConfig {
         runtimes: vec!["wasm".to_string()],
@@ -389,6 +407,7 @@ async fn main() -> Result<()> {
         reasoning_inference: None,
         connectors: Default::default(),
         mcp_servers,
+        mcp_mode,
     };
 
     // 4. Genesis Generation
@@ -667,7 +686,11 @@ async fn main() -> Result<()> {
     println!("   - SCS Storage: Active (.scs)");
     println!("   - GUI Automation: Enabled (Visual Grounding Active + LiDAR)");
     println!("   - Browser Automation: Enabled");
-    println!("   - MCP: Enabled (Filesystem)");
+    if workload_config.mcp_mode == McpMode::Disabled {
+        println!("   - MCP: Disabled by default (native filesystem tools remain available).");
+    } else {
+        println!("   - MCP: Development profile enabled ({})", mcp_profile);
+    }
     println!("   - Market: Active (Universal Asset Ledger)");
     println!(
         "   - RPC will listen on http://{}",

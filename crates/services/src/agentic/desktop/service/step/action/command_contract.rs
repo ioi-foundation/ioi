@@ -10,6 +10,7 @@ use ioi_types::app::agentic::{
     AgentTool, IntentMatrixEntry, IntentRoutingPolicy, IntentScopeProfile,
 };
 use ioi_types::app::ActionTarget;
+use regex::Regex;
 use std::collections::BTreeMap;
 use time::format_description::well_known::Rfc3339;
 use time::OffsetDateTime;
@@ -1036,16 +1037,17 @@ pub fn missing_execution_contract_markers_with_rules(
 }
 
 pub fn enrich_command_scope_summary(summary: &str, agent_state: &AgentState) -> String {
+    let normalized_summary = normalize_runtime_home_paths(summary);
     let command_scope = agent_state
         .resolved_intent
         .as_ref()
         .map(|resolved| resolved.scope == IntentScopeProfile::CommandExecution)
         .unwrap_or(false);
     if !command_scope {
-        return summary.to_string();
+        return normalized_summary;
     }
 
-    let mut enriched = summary.to_string();
+    let mut enriched = normalized_summary;
     let timer_contract_active = requires_timer_notification_contract(agent_state);
     let run_timestamp_utc = if timer_contract_active {
         latest_timer_backend_history_entry(agent_state)
@@ -1080,6 +1082,54 @@ pub fn enrich_command_scope_summary(summary: &str, agent_state: &AgentState) -> 
         enriched = upsert_structured_field(&enriched, RUN_TIMESTAMP_UTC_MARKER, &run_timestamp_utc);
     }
     enriched
+}
+
+fn normalize_runtime_home_paths(summary: &str) -> String {
+    let Some(runtime_home_dir) = runtime_home_directory() else {
+        return summary.to_string();
+    };
+    let runtime_home_dir = runtime_home_dir.trim_end_matches('/').to_string();
+    if runtime_home_dir.is_empty() {
+        return summary.to_string();
+    }
+
+    const RUNTIME_HOME_PLACEHOLDER: &str = "__IOI_RUNTIME_HOME__";
+    let mut normalized = summary.replace(&runtime_home_dir, RUNTIME_HOME_PLACEHOLDER);
+    normalized = normalized.replace("~/", &format!("{RUNTIME_HOME_PLACEHOLDER}/"));
+
+    // Guard against synthesized "/home/<known-user-dir>/..." paths that should stay
+    // scoped under the runtime-owned home root in fixture and sandboxed environments.
+    for segment in [
+        "Desktop",
+        "Documents",
+        "Downloads",
+        "Music",
+        "Pictures",
+        "Videos",
+        "desktop",
+        "documents",
+        "downloads",
+        "music",
+        "pictures",
+        "videos",
+    ] {
+        let escaped_segment = regex::escape(segment);
+        // Replace only rooted aliases (start/whitespace/punctuation), never when "/home/<dir>"
+        // appears inside an already-correct runtime path like "/tmp/.../home/<dir>".
+        let alias_pattern =
+            format!(r"(?P<prefix>^|[^\w./-])(?P<alias>/home/{escaped_segment})(?P<suffix>/|$|\s)");
+        let alias_re = Regex::new(&alias_pattern).expect("home alias regex should compile");
+        normalized = alias_re
+            .replace_all(&normalized, |captures: &regex::Captures<'_>| {
+                format!(
+                    "{}{}/{}{}",
+                    &captures["prefix"], RUNTIME_HOME_PLACEHOLDER, segment, &captures["suffix"]
+                )
+            })
+            .into_owned();
+    }
+
+    normalized.replace(RUNTIME_HOME_PLACEHOLDER, &runtime_home_dir)
 }
 
 #[cfg(test)]
@@ -1264,6 +1314,52 @@ mod tests {
         let summary = "Completed command run with expected output.";
         let enriched = enrich_command_scope_summary(summary, &state);
         assert!(enriched.contains(summary));
+    }
+
+    #[test]
+    fn enrich_summary_normalizes_runtime_home_paths_for_non_command_scope() {
+        let mut state = test_agent_state();
+        state.resolved_intent = Some(resolved_intent(
+            "workspace.ops",
+            IntentScopeProfile::WorkspaceOps,
+        ));
+        let previous_home = std::env::var("HOME").ok();
+        std::env::set_var("HOME", "/tmp/ioi-fixture/home");
+
+        let enriched = enrich_command_scope_summary(
+            "Moved files to ~/Downloads/ioi_lowercase_123 and /home/Downloads/ioi_lowercase_123",
+            &state,
+        );
+        let expected = "/tmp/ioi-fixture/home/Downloads/ioi_lowercase_123";
+        assert_eq!(enriched.matches(expected).count(), 2);
+        assert!(!enriched.contains("~/Downloads/ioi_lowercase_123"));
+
+        if let Some(value) = previous_home {
+            std::env::set_var("HOME", value);
+        } else {
+            std::env::remove_var("HOME");
+        }
+    }
+
+    #[test]
+    fn enrich_summary_does_not_duplicate_existing_runtime_home_paths() {
+        let mut state = test_agent_state();
+        state.resolved_intent = Some(resolved_intent(
+            "workspace.ops",
+            IntentScopeProfile::WorkspaceOps,
+        ));
+        let previous_home = std::env::var("HOME").ok();
+        std::env::set_var("HOME", "/tmp/ioi-fixture/home");
+
+        let input = "/tmp/ioi-fixture/home/Documents/report.pdf";
+        let enriched = enrich_command_scope_summary(input, &state);
+        assert_eq!(enriched, input);
+
+        if let Some(value) = previous_home {
+            std::env::set_var("HOME", value);
+        } else {
+            std::env::remove_var("HOME");
+        }
     }
 
     #[test]

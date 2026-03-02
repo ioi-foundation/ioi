@@ -20,7 +20,7 @@ Direct integration with web browsers via the Chrome DevTools Protocol (CDP).
 
 ### 3. Model Context Protocol (`src/mcp`)
 A native host for the standard **Model Context Protocol**.
-*   Spawns and manages external MCP servers (e.g., `filesystem`, `postgres`).
+*   Spawns and manages external MCP extension servers (e.g., `postgres`, `slack`).
 *   Bridges external tools into the Agent's context window via stdio JSON-RPC.
 
 ### 4. Universal Commerce Protocol (`src/ucp`)

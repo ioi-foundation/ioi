@@ -30,6 +30,10 @@ use ioi_api::transaction::context::TxContext;
 use ioi_drivers::browser::BrowserDriver;
 use ioi_drivers::mcp::{McpManager, McpServerConfig};
 use ioi_drivers::terminal::TerminalDriver;
+use ioi_types::config::{
+    McpContainmentConfig, McpContainmentMode, McpIntegrityConfig, McpMode, McpServerSource,
+    McpServerTier,
+};
 
 // [NEW] Imports for Policy Injection
 use ioi_services::agentic::rules::{ActionRules, DefaultPolicy, Rule, Verdict};
@@ -133,6 +137,16 @@ rl.on('line', (line) => {
         command: "node".to_string(),
         args: vec![script_path.to_string_lossy().to_string()],
         env: HashMap::new(),
+        tier: McpServerTier::Unverified,
+        source: McpServerSource::LocalBin,
+        integrity: McpIntegrityConfig::default(),
+        containment: McpContainmentConfig {
+            mode: McpContainmentMode::DeveloperUnconfined,
+            allow_network_egress: true,
+            allow_child_processes: true,
+            workspace_root: Some(temp_dir.path().to_string_lossy().to_string()),
+        },
+        mode: McpMode::Development,
     };
 
     mcp_manager.start_server("echo_server", config).await?;

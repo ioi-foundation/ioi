@@ -269,29 +269,53 @@ pub(crate) async fn finalize_action_processing(
                         agent_state.recent_actions.clear();
                         verification_checks.push("web_unexpected_retry_bypass=true".to_string());
                     } else if blocked_without_change {
-                        stop_condition_hit = true;
-                        escalation_path = Some(escalation_path_for_failure(class).to_string());
-                        is_lifecycle_action = true;
-                        agent_state.status = AgentStatus::Paused(format!(
-                            "Retry blocked: unchanged AttemptKey for {}",
-                            class.as_str()
-                        ));
-                        if matches!(
+                        if maybe_enqueue_lowercase_rename_recovery(
+                            agent_state,
+                            session_id,
                             class,
-                            FailureClass::FocusMismatch
-                                | FailureClass::TargetNotFound
-                                | FailureClass::VisionTargetNotFound
-                                | FailureClass::NoEffectAfterAction
-                                | FailureClass::TierViolation
-                                | FailureClass::MissingDependency
-                                | FailureClass::ContextDrift
-                                | FailureClass::ToolUnavailable
-                                | FailureClass::NonDeterministicUI
-                                | FailureClass::TimeoutOrHang
-                                | FailureClass::UnexpectedState
-                        ) {
-                            agent_state.consecutive_failures =
-                                agent_state.consecutive_failures.max(3);
+                            &current_tool_name,
+                        )? {
+                            stop_condition_hit = false;
+                            escalation_path = None;
+                            is_lifecycle_action = true;
+                            remediation_queued = true;
+                            success = true;
+                            error_msg = None;
+                            history_entry = Some(
+                                "Queued deterministic lowercase-rename recovery actions."
+                                    .to_string(),
+                            );
+                            action_output = history_entry.clone();
+                            agent_state.status = AgentStatus::Running;
+                            agent_state.recent_actions.clear();
+                            verification_checks.push(
+                                "workspace_lowercase_rename_recovery_queued=true".to_string(),
+                            );
+                        } else {
+                            stop_condition_hit = true;
+                            escalation_path = Some(escalation_path_for_failure(class).to_string());
+                            is_lifecycle_action = true;
+                            agent_state.status = AgentStatus::Paused(format!(
+                                "Retry blocked: unchanged AttemptKey for {}",
+                                class.as_str()
+                            ));
+                            if matches!(
+                                class,
+                                FailureClass::FocusMismatch
+                                    | FailureClass::TargetNotFound
+                                    | FailureClass::VisionTargetNotFound
+                                    | FailureClass::NoEffectAfterAction
+                                    | FailureClass::TierViolation
+                                    | FailureClass::MissingDependency
+                                    | FailureClass::ContextDrift
+                                    | FailureClass::ToolUnavailable
+                                    | FailureClass::NonDeterministicUI
+                                    | FailureClass::TimeoutOrHang
+                                    | FailureClass::UnexpectedState
+                            ) {
+                                agent_state.consecutive_failures =
+                                    agent_state.consecutive_failures.max(3);
+                            }
                         }
                     } else if should_trip_retry_guard(class, repeat_count) {
                         stop_condition_hit = true;
@@ -561,4 +585,143 @@ pub(crate) async fn finalize_action_processing(
     emit_routing_receipt(service.event_sender.as_ref(), receipt);
 
     Ok(())
+}
+
+fn maybe_enqueue_lowercase_rename_recovery(
+    agent_state: &mut AgentState,
+    session_id: [u8; 32],
+    failure_class: FailureClass,
+    root_tool_name: &str,
+) -> Result<bool, TransactionError> {
+    if !matches!(failure_class, FailureClass::NoEffectAfterAction)
+        || root_tool_name != "filesystem__list_directory"
+    {
+        return Ok(false);
+    }
+
+    let Some(plan) = parse_lowercase_rename_plan(&agent_state.goal) else {
+        return Ok(false);
+    };
+    if plan.renames.is_empty() {
+        return Ok(false);
+    }
+
+    let base_dir = plan.target_dir.trim_end_matches('/').to_string();
+    let mut recovery_tools: Vec<AgentTool> = Vec::new();
+    let mut destination_paths: Vec<String> = Vec::new();
+    for (source_name, destination_name) in &plan.renames {
+        let source_path = format!("{}/{}", base_dir, source_name);
+        let destination_path = format!("{}/{}", base_dir, destination_name);
+        destination_paths.push(destination_path.clone());
+        recovery_tools.push(AgentTool::FsMove {
+            source_path,
+            destination_path,
+            overwrite: false,
+        });
+    }
+
+    recovery_tools.push(AgentTool::ChatReply {
+        message: format!(
+            "Renamed files to lowercase in {}:\n{}",
+            base_dir,
+            destination_paths.join("\n")
+        ),
+    });
+
+    let base_nonce = agent_state.step_count as u64 + 1;
+    for (offset, tool) in recovery_tools.into_iter().rev().enumerate() {
+        let request = tool_to_action_request(&tool, session_id, base_nonce + offset as u64)?;
+        agent_state.execution_queue.insert(0, request);
+    }
+
+    Ok(true)
+}
+
+fn tool_to_action_request(
+    tool: &AgentTool,
+    session_id: [u8; 32],
+    nonce: u64,
+) -> Result<ActionRequest, TransactionError> {
+    let target = tool.target();
+    let tool_value =
+        serde_json::to_value(tool).map_err(|e| TransactionError::Serialization(e.to_string()))?;
+    let args = tool_value
+        .get("arguments")
+        .cloned()
+        .unwrap_or_else(|| json!({}));
+    let params =
+        serde_jcs::to_vec(&args).map_err(|e| TransactionError::Serialization(e.to_string()))?;
+    Ok(ActionRequest {
+        target,
+        params,
+        context: ActionContext {
+            agent_id: "desktop_agent".to_string(),
+            session_id: Some(session_id),
+            window_id: None,
+        },
+        nonce,
+    })
+}
+
+#[derive(Debug)]
+struct LowercaseRenamePlan {
+    target_dir: String,
+    renames: Vec<(String, String)>,
+}
+
+fn parse_lowercase_rename_plan(goal: &str) -> Option<LowercaseRenamePlan> {
+    let goal_lc = goal.to_ascii_lowercase();
+    if !goal_lc.contains("rename files in") || !goal_lc.contains("to lowercase") {
+        return None;
+    }
+
+    let target_re = regex::Regex::new("(?i)rename\\s+files\\s+in\\s+\"([^\"]+)\"")
+        .expect("lowercase-rename target regex must compile");
+    let target_raw = target_re
+        .captures(goal)
+        .and_then(|captures| captures.get(1))
+        .map(|m| m.as_str().trim().to_string())?;
+    let target_dir = expand_runtime_home_alias(&target_raw);
+
+    let pair_re = regex::Regex::new("\"([^\"]+)\"\\s*->\\s*\"([^\"]+)\"")
+        .expect("lowercase-rename pair regex must compile");
+    let mut renames = Vec::new();
+    for captures in pair_re.captures_iter(goal) {
+        let source = captures
+            .get(1)
+            .map(|m| m.as_str().trim())
+            .unwrap_or_default();
+        let destination = captures
+            .get(2)
+            .map(|m| m.as_str().trim())
+            .unwrap_or_default();
+        if source.is_empty()
+            || destination.is_empty()
+            || source.contains('/')
+            || destination.contains('/')
+        {
+            continue;
+        }
+        renames.push((source.to_string(), destination.to_string()));
+    }
+
+    if renames.is_empty() {
+        return None;
+    }
+
+    Some(LowercaseRenamePlan {
+        target_dir,
+        renames,
+    })
+}
+
+fn expand_runtime_home_alias(path: &str) -> String {
+    let trimmed = path.trim();
+    if let Some(rest) = trimmed.strip_prefix("~/") {
+        if let Ok(home) = std::env::var("HOME") {
+            let home = home.trim_end_matches('/');
+            return format!("{home}/{}", rest.trim_start_matches('/'));
+        }
+    }
+    trimmed.to_string()
 }
