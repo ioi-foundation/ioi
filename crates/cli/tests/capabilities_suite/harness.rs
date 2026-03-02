@@ -198,6 +198,11 @@ const SPOTIFY_UNINSTALL_PROVIDER_IDS: [&str; 5] = ["apt-get", "snap", "flatpak",
 const SPOTIFY_UNINSTALL_CONFIG_RELATIVE_PATHS: [&str; 3] =
     [".config/spotify", ".cache/spotify", ".local/share/spotify"];
 const SPOTIFY_UNINSTALL_SENTINEL_FILE_NAME: &str = "ioi_fixture_keep_sentinel.txt";
+const TOP_MEMORY_APPS_CASE_ID: &str =
+    "check_which_apps_are_using_the_most_memory_right_now_and_list_them";
+const TOP_MEMORY_APPS_FIXTURE_MODE: &str = "top_memory_apps_fixture_v1";
+const TOP_MEMORY_APPS_FIXTURE_PROBE_SOURCE: &str = "harness.top_memory_apps_fixture";
+const TOP_MEMORY_APPS_PROBE_SCRIPT_NAME: &str = "top_memory_apps_probe";
 
 #[derive(Debug, Clone)]
 struct MailRuntimeBootstrapConfig {
@@ -333,6 +338,30 @@ struct SpotifyUninstallFixtureRuntime {
     binary_path: PathBuf,
     config_paths: Vec<PathBuf>,
     sentinel_paths: Vec<PathBuf>,
+}
+
+struct TopMemoryAppsFixtureRuntime {
+    _temp_dir: tempfile::TempDir,
+    _env_path: ScopedEnvVar,
+    _env_fixture_mode: ScopedEnvVar,
+    _env_receipt_path: ScopedEnvVar,
+    fixture_root: PathBuf,
+    probe_script_path: PathBuf,
+    receipt_path: PathBuf,
+}
+
+#[derive(Debug, Clone)]
+struct TopMemoryAppProbeRow {
+    rank: usize,
+    app: String,
+    pid: u32,
+    rss_kb: u64,
+}
+
+#[derive(Debug, Clone, Default)]
+struct TopMemoryAppsProbeReceipt {
+    provider: String,
+    rows: Vec<TopMemoryAppProbeRow>,
 }
 
 fn find_workspace_file(file_name: &str) -> Option<PathBuf> {
@@ -1016,6 +1045,10 @@ fn should_bootstrap_pdf_last_week_fixture(case_id: &str) -> bool {
 
 fn should_bootstrap_spotify_uninstall_fixture(case_id: &str) -> bool {
     case_id.eq_ignore_ascii_case(SPOTIFY_UNINSTALL_CASE_ID)
+}
+
+fn should_bootstrap_top_memory_apps_fixture(case_id: &str) -> bool {
+    case_id.eq_ignore_ascii_case(TOP_MEMORY_APPS_CASE_ID)
 }
 
 fn write_executable_script(path: &Path, content: &str) -> Result<()> {
@@ -3035,6 +3068,336 @@ fn spotify_uninstall_fixture_cleanup_checks(
     ]
 }
 
+fn bootstrap_top_memory_apps_fixture_runtime(
+    run_unique_num: &str,
+) -> Result<TopMemoryAppsFixtureRuntime> {
+    let temp_dir = tempdir()?;
+    let fixture_root = temp_dir
+        .path()
+        .join(format!("top_memory_apps_{}", run_unique_num));
+    let fixture_bin = fixture_root.join("bin");
+    let fixture_receipts = fixture_root.join("receipts");
+    std::fs::create_dir_all(&fixture_bin)?;
+    std::fs::create_dir_all(&fixture_receipts)?;
+
+    let probe_script_path = fixture_bin.join(TOP_MEMORY_APPS_PROBE_SCRIPT_NAME);
+    let receipt_path = fixture_receipts.join("latest_probe_receipt.txt");
+    let _ = std::fs::remove_file(&receipt_path);
+
+    let probe_script = r#"#!/usr/bin/env bash
+set -euo pipefail
+
+top_n="${1:-5}"
+if ! [[ "$top_n" =~ ^[0-9]+$ ]] || [ "$top_n" -lt 1 ]; then
+  echo "invalid top_n argument; expected positive integer" >&2
+  exit 2
+fi
+
+for required in ps sort head awk; do
+  if ! command -v "$required" >/dev/null 2>&1; then
+    echo "missing required provider binary: $required" >&2
+    exit 3
+  fi
+done
+
+receipt_path="${IOI_TOP_MEMORY_APPS_RECEIPT_PATH:-}"
+if [ -z "$receipt_path" ]; then
+  echo "missing IOI_TOP_MEMORY_APPS_RECEIPT_PATH" >&2
+  exit 4
+fi
+
+rows="$(
+  ps -eo pid=,comm=,rss= 2>/dev/null \
+    | awk '
+      {
+        pid=$1; app=$2; rss=$3;
+        if (pid ~ /^[0-9]+$/ && rss ~ /^[0-9]+$/ && app != "") {
+          print rss "\t" app "\t" pid;
+        }
+      }
+    ' \
+    | sort -t$'\t' -k1,1nr \
+    | head -n "$top_n"
+)"
+
+if [ -z "$rows" ]; then
+  echo "no process rows were produced by ps provider" >&2
+  exit 5
+fi
+
+mkdir -p "$(dirname "$receipt_path")"
+{
+  echo "provider=ps"
+  rank=1
+  while IFS=$'\t' read -r rss app pid; do
+    if [ -z "${rss:-}" ] || [ -z "${app:-}" ] || [ -z "${pid:-}" ]; then
+      continue
+    fi
+    echo "row|${rank}|${app}|${pid}|${rss}"
+    rank=$((rank + 1))
+  done <<< "$rows"
+} > "$receipt_path"
+
+cat "$receipt_path"
+"#;
+    write_executable_script(&probe_script_path, probe_script)?;
+
+    let inherited_path = std::env::var("PATH").unwrap_or_default();
+    let fixture_path = format!("{}:{}", fixture_bin.to_string_lossy(), inherited_path);
+    let env_path = ScopedEnvVar::set("PATH", fixture_path);
+    let env_fixture_mode = ScopedEnvVar::set(
+        "IOI_TOP_MEMORY_APPS_FIXTURE_MODE",
+        TOP_MEMORY_APPS_FIXTURE_MODE,
+    );
+    let env_receipt_path = ScopedEnvVar::set(
+        "IOI_TOP_MEMORY_APPS_RECEIPT_PATH",
+        receipt_path.to_string_lossy().to_string(),
+    );
+
+    Ok(TopMemoryAppsFixtureRuntime {
+        _temp_dir: temp_dir,
+        _env_path: env_path,
+        _env_fixture_mode: env_fixture_mode,
+        _env_receipt_path: env_receipt_path,
+        fixture_root,
+        probe_script_path,
+        receipt_path,
+    })
+}
+
+fn top_memory_apps_fixture_preflight_checks(
+    fixture: &TopMemoryAppsFixtureRuntime,
+    run_unique_num: &str,
+    run_timestamp_ms: u64,
+) -> Vec<String> {
+    let run_unique_satisfied = fixture
+        .fixture_root
+        .file_name()
+        .and_then(|name| name.to_str())
+        .map(|name| name.ends_with(run_unique_num))
+        .unwrap_or(false);
+    let probe_script_seeded_satisfied = fixture.probe_script_path.is_file();
+    let receipt_absent_satisfied = !fixture.receipt_path.exists();
+    let fixture_satisfied =
+        run_unique_satisfied && probe_script_seeded_satisfied && receipt_absent_satisfied;
+
+    vec![
+        format!(
+            "env_receipt::top_memory_apps_fixture_mode={}",
+            TOP_MEMORY_APPS_FIXTURE_MODE
+        ),
+        format!(
+            "env_receipt::top_memory_apps_fixture_probe_source={}",
+            TOP_MEMORY_APPS_FIXTURE_PROBE_SOURCE
+        ),
+        format!(
+            "env_receipt::top_memory_apps_fixture_timestamp_ms={}",
+            run_timestamp_ms
+        ),
+        format!(
+            "env_receipt::top_memory_apps_fixture_root={}",
+            fixture.fixture_root.to_string_lossy()
+        ),
+        format!(
+            "env_receipt::top_memory_apps_probe_script_path={}",
+            fixture.probe_script_path.to_string_lossy()
+        ),
+        format!(
+            "env_receipt::top_memory_apps_receipt_path={}",
+            fixture.receipt_path.to_string_lossy()
+        ),
+        format!(
+            "env_receipt::top_memory_apps_run_unique_num={}",
+            run_unique_num
+        ),
+        format!(
+            "env_receipt::top_memory_apps_run_unique_satisfied={}",
+            run_unique_satisfied
+        ),
+        format!(
+            "env_receipt::top_memory_apps_probe_script_seeded_satisfied={}",
+            probe_script_seeded_satisfied
+        ),
+        format!(
+            "env_receipt::top_memory_apps_receipt_absent_satisfied={}",
+            receipt_absent_satisfied
+        ),
+        format!(
+            "env_receipt::top_memory_apps_fixture_satisfied={}",
+            fixture_satisfied
+        ),
+    ]
+}
+
+fn parse_top_memory_apps_probe_receipt(path: &Path) -> TopMemoryAppsProbeReceipt {
+    let mut receipt = TopMemoryAppsProbeReceipt::default();
+    let raw = std::fs::read_to_string(path).unwrap_or_default();
+    for line in raw.lines() {
+        let trimmed = line.trim();
+        if trimmed.is_empty() {
+            continue;
+        }
+        if let Some(provider) = trimmed.strip_prefix("provider=") {
+            receipt.provider = provider.trim().to_string();
+            continue;
+        }
+        if let Some(payload) = trimmed.strip_prefix("row|") {
+            let mut parts = payload.split('|').map(str::trim);
+            let rank = parts.next().and_then(|value| value.parse::<usize>().ok());
+            let app = parts.next().map(str::to_string);
+            let pid = parts.next().and_then(|value| value.parse::<u32>().ok());
+            let rss_kb = parts.next().and_then(|value| value.parse::<u64>().ok());
+            if let (Some(rank), Some(app), Some(pid), Some(rss_kb)) = (rank, app, pid, rss_kb) {
+                if !app.is_empty() && pid > 0 && rss_kb > 0 {
+                    receipt.rows.push(TopMemoryAppProbeRow {
+                        rank,
+                        app,
+                        pid,
+                        rss_kb,
+                    });
+                }
+            }
+        }
+    }
+    receipt.rows.sort_by_key(|row| row.rank);
+    receipt
+}
+
+fn top_memory_apps_rows_sorted_desc(rows: &[TopMemoryAppProbeRow]) -> bool {
+    if rows.len() < 3 {
+        return false;
+    }
+
+    let mut previous_rss: Option<u64> = None;
+    for (index, row) in rows.iter().enumerate() {
+        if row.rank != index + 1 || row.app.trim().is_empty() || row.pid == 0 || row.rss_kb == 0 {
+            return false;
+        }
+        if let Some(previous) = previous_rss {
+            if row.rss_kb > previous {
+                return false;
+            }
+        }
+        previous_rss = Some(row.rss_kb);
+    }
+    true
+}
+
+fn top_memory_apps_fixture_post_run_checks(fixture: &TopMemoryAppsFixtureRuntime) -> Vec<String> {
+    let timestamp_ms = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_millis() as u64;
+    let probe_source = format!("{}.receipt_probe", TOP_MEMORY_APPS_FIXTURE_PROBE_SOURCE);
+    let receipt_present_satisfied = fixture.receipt_path.is_file();
+    let receipt = if receipt_present_satisfied {
+        parse_top_memory_apps_probe_receipt(&fixture.receipt_path)
+    } else {
+        TopMemoryAppsProbeReceipt::default()
+    };
+    let provider_satisfied = receipt.provider.eq_ignore_ascii_case("ps");
+    let row_count = receipt.rows.len();
+    let row_count_satisfied = row_count >= 3;
+    let rows_sorted_desc_satisfied = top_memory_apps_rows_sorted_desc(&receipt.rows);
+    let scope_satisfied = provider_satisfied && row_count_satisfied && rows_sorted_desc_satisfied;
+
+    let mut checks = vec![
+        format!("env_receipt::top_memory_apps_provider={}", receipt.provider),
+        format!(
+            "env_receipt::top_memory_apps_provider_probe_source={}",
+            probe_source
+        ),
+        format!(
+            "env_receipt::top_memory_apps_provider_timestamp_ms={}",
+            timestamp_ms
+        ),
+        format!(
+            "env_receipt::top_memory_apps_provider_satisfied={}",
+            provider_satisfied
+        ),
+        format!("env_receipt::top_memory_apps_row_count={}", row_count),
+        format!(
+            "env_receipt::top_memory_apps_row_count_probe_source={}",
+            probe_source
+        ),
+        format!(
+            "env_receipt::top_memory_apps_row_count_timestamp_ms={}",
+            timestamp_ms
+        ),
+        format!(
+            "env_receipt::top_memory_apps_row_count_satisfied={}",
+            row_count_satisfied
+        ),
+        format!(
+            "env_receipt::top_memory_apps_rows_sorted_desc_satisfied={}",
+            rows_sorted_desc_satisfied
+        ),
+        format!(
+            "env_receipt::top_memory_apps_receipt_path={}",
+            fixture.receipt_path.to_string_lossy()
+        ),
+        format!(
+            "env_receipt::top_memory_apps_receipt_probe_source={}",
+            probe_source
+        ),
+        format!(
+            "env_receipt::top_memory_apps_receipt_timestamp_ms={}",
+            timestamp_ms
+        ),
+        format!(
+            "env_receipt::top_memory_apps_receipt_path_satisfied={}",
+            receipt_present_satisfied
+        ),
+        format!(
+            "env_receipt::top_memory_apps_scope_satisfied={}",
+            scope_satisfied
+        ),
+    ];
+    for row in receipt.rows {
+        checks.push(format!(
+            "env_receipt::top_memory_apps_row={}|{}|{}|{}",
+            row.rank, row.app, row.pid, row.rss_kb
+        ));
+    }
+    checks
+}
+
+fn top_memory_apps_fixture_cleanup_checks(fixture: &TopMemoryAppsFixtureRuntime) -> Vec<String> {
+    let timestamp_ms = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_millis() as u64;
+    let probe_source = format!("{}.cleanup_probe", TOP_MEMORY_APPS_FIXTURE_PROBE_SOURCE);
+    let _ = std::fs::remove_file(&fixture.receipt_path);
+    let _ = std::fs::remove_dir_all(&fixture.fixture_root);
+    let fixture_root_exists_after_cleanup = fixture.fixture_root.exists();
+    let receipt_exists_after_cleanup = fixture.receipt_path.exists();
+    let cleanup_satisfied = !fixture_root_exists_after_cleanup && !receipt_exists_after_cleanup;
+
+    vec![
+        format!(
+            "env_receipt::top_memory_apps_cleanup_probe_source={}",
+            probe_source
+        ),
+        format!(
+            "env_receipt::top_memory_apps_cleanup_timestamp_ms={}",
+            timestamp_ms
+        ),
+        format!(
+            "env_receipt::top_memory_apps_cleanup_fixture_root_exists={}",
+            fixture_root_exists_after_cleanup
+        ),
+        format!(
+            "env_receipt::top_memory_apps_cleanup_receipt_exists={}",
+            receipt_exists_after_cleanup
+        ),
+        format!(
+            "env_receipt::top_memory_apps_cleanup_satisfied={}",
+            cleanup_satisfied
+        ),
+    ]
+}
+
 fn wallet_channel_key(channel_id: &[u8; 32]) -> Vec<u8> {
     [b"channel::".as_slice(), channel_id.as_slice()].concat()
 }
@@ -3394,6 +3757,21 @@ pub async fn run_case(
     } else {
         None
     };
+    let top_memory_apps_fixture = if should_bootstrap_top_memory_apps_fixture(case.id) {
+        let fixture = bootstrap_top_memory_apps_fixture_runtime(&run_unique_num)?;
+        runtime_setup_verification_checks.extend(top_memory_apps_fixture_preflight_checks(
+            &fixture,
+            &run_unique_num,
+            run_timestamp_ms,
+        ));
+        run_query = run_query.replace(
+            "{TOP_MEMORY_APPS_PROBE_PATH}",
+            &fixture.probe_script_path.to_string_lossy(),
+        );
+        Some(fixture)
+    } else {
+        None
+    };
     if should_bootstrap_mailbox_runtime(&run_query) {
         runtime_setup_verification_checks.extend(
             bootstrap_mailbox_runtime_state(
@@ -3716,6 +4094,14 @@ pub async fn run_case(
             verification_checks.insert(check);
         }
         for check in spotify_uninstall_fixture_cleanup_checks(fixture) {
+            verification_checks.insert(check);
+        }
+    }
+    if let Some(fixture) = top_memory_apps_fixture.as_ref() {
+        for check in top_memory_apps_fixture_post_run_checks(fixture) {
+            verification_checks.insert(check);
+        }
+        for check in top_memory_apps_fixture_cleanup_checks(fixture) {
             verification_checks.insert(check);
         }
     }
