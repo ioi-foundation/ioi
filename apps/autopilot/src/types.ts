@@ -365,6 +365,7 @@ export interface PlanSummary {
 
 export type ArtifactHubViewKey =
   | "thoughts"
+  | "substrate"
   | "sources"
   | "kernel_logs"
   | "security_policy"

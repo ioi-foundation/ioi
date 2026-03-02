@@ -2,6 +2,7 @@ use crate::agentic::desktop::keys::get_skill_stats_key;
 use ioi_api::state::StateAccess;
 use ioi_api::vm::inference::InferenceRuntime;
 use ioi_scs::{FrameType, SovereignContextStore};
+use ioi_state::tree::mhnsw::proof::RetrievalSearchPolicy;
 use ioi_types::app::agentic::AgentMacro;
 use ioi_types::app::agentic::{LlmToolDefinition, SkillStats};
 use ioi_types::codec;
@@ -20,9 +21,12 @@ pub(super) async fn inject_skill_tools(
         let candidates = {
             if let Ok(store) = scs.lock() {
                 if let Ok(index_arc) = store.get_vector_index() {
-                    if let Ok(index) = index_arc.lock() {
-                        if let Some(idx) = index.as_ref() {
-                            idx.search_hybrid(&query_vec, 10).unwrap_or_default()
+                    if let Ok(mut index) = index_arc.lock() {
+                        if let Some(idx) = index.as_mut() {
+                            let policy = RetrievalSearchPolicy::default_for_k(10);
+                            idx.search_hybrid_with_certificate(&query_vec, &policy)
+                                .map(|(hits, _proof)| hits)
+                                .unwrap_or_default()
                         } else {
                             vec![]
                         }

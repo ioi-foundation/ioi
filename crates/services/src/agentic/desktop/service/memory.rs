@@ -10,10 +10,12 @@ use base64::{engine::general_purpose::STANDARD as BASE64, Engine as _};
 use hex;
 use ioi_crypto::algorithms::hash::sha256;
 use ioi_scs::{FrameType, RetentionClass};
+use ioi_state::tree::mhnsw::proof::RetrievalSearchPolicy;
 use ioi_types::app::agentic::{ChatMessage, InferenceOptions, StepTrace, SwarmManifest};
-use ioi_types::app::{RedactionMap, RedactionType};
+use ioi_types::app::{RedactionMap, RedactionType, WorkloadScsRetrieveReceipt};
 use ioi_types::codec;
 use ioi_types::error::TransactionError;
+use parity_scale_codec::Encode;
 use serde_json::json;
 use std::collections::HashSet;
 use tokio::time::{timeout, Duration, Instant};
@@ -22,6 +24,12 @@ const SCS_SEMANTIC_INDEXING_BUDGET: Duration = Duration::from_secs(2);
 
 fn should_embed_for_semantic_indexing(role: &str) -> bool {
     role.eq_ignore_ascii_case("user") || role.eq_ignore_ascii_case("assistant")
+}
+
+#[derive(Debug, Clone)]
+pub struct HybridRetrievalResult {
+    pub output: String,
+    pub receipt: Option<WorkloadScsRetrieveReceipt>,
 }
 
 /// Retrieve a Swarm Manifest from the Market or SCS.
@@ -48,9 +56,57 @@ pub async fn retrieve_context_hybrid(
     query: &str,
     _visual_phash: Option<[u8; 32]>,
 ) -> String {
+    retrieve_context_hybrid_with_receipt(service, query, _visual_phash)
+        .await
+        .output
+}
+
+/// Hybrid Retrieval with a structured receipt payload suitable for workload events.
+pub async fn retrieve_context_hybrid_with_receipt(
+    service: &DesktopAgentService,
+    query: &str,
+    _visual_phash: Option<[u8; 32]>,
+) -> HybridRetrievalResult {
+    let default_policy = RetrievalSearchPolicy {
+        k: 5,
+        ef_search: 64,
+        candidate_limit: 32,
+        distance_metric: "cosine_distance".to_string(),
+        embedding_normalized: true,
+    };
+    let query_hash = sha256(query.as_bytes())
+        .ok()
+        .map(hex::encode)
+        .unwrap_or_default();
+
+    let empty_failure_receipt = |error_class: Option<String>| WorkloadScsRetrieveReceipt {
+        tool_name: "memory__search".to_string(),
+        backend: "scs:mhnsw".to_string(),
+        query_hash: query_hash.clone(),
+        index_root: String::new(),
+        k: default_policy.k,
+        ef_search: default_policy.ef_search,
+        candidate_limit: default_policy.candidate_limit,
+        candidate_count_total: 0,
+        candidate_count_reranked: 0,
+        candidate_truncated: false,
+        distance_metric: default_policy.distance_metric.clone(),
+        embedding_normalized: default_policy.embedding_normalized,
+        proof_ref: None,
+        proof_hash: None,
+        certificate_mode: Some("single_level_lb".to_string()),
+        success: false,
+        error_class,
+    };
+
     let scs_mutex = match &service.scs {
         Some(m) => m,
-        None => return "".to_string(),
+        None => {
+            return HybridRetrievalResult {
+                output: "".to_string(),
+                receipt: None,
+            }
+        }
     };
 
     // Use reasoning model to embed the query
@@ -60,55 +116,74 @@ pub async fn retrieve_context_hybrid(
         Ok(vec) => vec,
         Err(e) => {
             log::warn!("Failed to generate embedding for RAG: {}", e);
-            return "".to_string();
+            return HybridRetrievalResult {
+                output: "".to_string(),
+                receipt: Some(empty_failure_receipt(Some("UnexpectedState".to_string()))),
+            };
         }
     };
 
     let results = {
         let scs = match scs_mutex.lock() {
             Ok(s) => s,
-            Err(_) => return "".to_string(),
+            Err(_) => {
+                return HybridRetrievalResult {
+                    output: "".to_string(),
+                    receipt: Some(empty_failure_receipt(Some("UnexpectedState".to_string()))),
+                }
+            }
         };
 
         let index_mutex = match scs.get_vector_index() {
             Ok(idx) => idx,
             Err(e) => {
                 log::warn!("Failed to get vector index: {}", e);
-                return "".to_string();
+                return HybridRetrievalResult {
+                    output: "".to_string(),
+                    receipt: Some(empty_failure_receipt(Some("UnexpectedState".to_string()))),
+                };
             }
         };
 
-        let idx = match index_mutex.lock() {
+        let mut idx = match index_mutex.lock() {
             Ok(i) => i,
-            Err(_) => return "".to_string(),
+            Err(_) => {
+                return HybridRetrievalResult {
+                    output: "".to_string(),
+                    receipt: Some(empty_failure_receipt(Some("UnexpectedState".to_string()))),
+                }
+            }
         };
 
-        if let Some(index) = idx.as_ref() {
-            // Use Hybrid Search to get metadata (Type, VisualHash)
-            index.search_hybrid(&embedding, 5)
+        if let Some(index) = idx.as_mut() {
+            index.search_hybrid_with_certificate(&embedding, &default_policy)
         } else {
-            Ok(vec![])
+            Err(anyhow::anyhow!("vector index unavailable"))
         }
     };
 
-    let matches = match results {
+    let (matches, certified_proof) = match results {
         Ok(m) => m,
         Err(e) => {
             log::warn!("RAG search failed: {}", e);
-            return "".to_string();
+            return HybridRetrievalResult {
+                output: "".to_string(),
+                receipt: Some(empty_failure_receipt(Some("UnexpectedState".to_string()))),
+            };
         }
     };
-
-    if matches.is_empty() {
-        return "".to_string();
-    }
 
     let mut output = String::new();
     let mut top_snippet_included = false;
 
     let scs = match scs_mutex.lock() {
         Ok(s) => s,
-        Err(_) => return "".to_string(),
+        Err(_) => {
+            return HybridRetrievalResult {
+                output: "".to_string(),
+                receipt: Some(empty_failure_receipt(Some("UnexpectedState".to_string()))),
+            }
+        }
     };
 
     for (i, (frame_id, distance, f_type, _)) in matches.iter().enumerate() {
@@ -149,7 +224,39 @@ pub async fn retrieve_context_hybrid(
         }
     }
 
-    output
+    let proof_bytes = certified_proof.encode();
+    let proof_hash = sha256(&proof_bytes).ok().map(hex::encode);
+
+    let receipt = WorkloadScsRetrieveReceipt {
+        tool_name: "memory__search".to_string(),
+        backend: "scs:mhnsw".to_string(),
+        query_hash: if query_hash.is_empty() {
+            query_hash.clone()
+        } else {
+            query_hash
+        },
+        index_root: hex::encode(certified_proof.certificate.index_root),
+        k: default_policy.k,
+        ef_search: default_policy.ef_search,
+        candidate_limit: default_policy.candidate_limit,
+        candidate_count_total: certified_proof.candidate_count_total,
+        candidate_count_reranked: certified_proof.candidate_count_total,
+        candidate_truncated: false,
+        distance_metric: default_policy.distance_metric.clone(),
+        embedding_normalized: default_policy.embedding_normalized,
+        proof_ref: proof_hash
+            .as_ref()
+            .map(|h| format!("scs://retrieval-certificate/{}", h)),
+        proof_hash,
+        certificate_mode: Some("single_level_lb".to_string()),
+        success: true,
+        error_class: None,
+    };
+
+    HybridRetrievalResult {
+        output,
+        receipt: Some(receipt),
+    }
 }
 
 pub async fn append_chat_to_scs(

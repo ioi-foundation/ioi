@@ -877,3 +877,97 @@
   background: rgba(255, 255, 255, 0.02);
   padding: 8px;
 }
+
+.artifact-hub-substrate {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.artifact-hub-substrate-card {
+  border: 1px solid rgba(116, 145, 255, 0.32);
+  border-radius: 12px;
+  background:
+    radial-gradient(circle at 16% 10%, rgba(96, 165, 250, 0.18), transparent 46%),
+    radial-gradient(circle at 84% 0%, rgba(244, 114, 182, 0.14), transparent 42%),
+    rgba(8, 11, 19, 0.9);
+  padding: 8px;
+}
+
+.artifact-hub-substrate-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.artifact-hub-substrate-title {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--spot-text-primary);
+}
+
+.artifact-hub-substrate-badge {
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 999px;
+  padding: 3px 8px;
+  font-size: 10px;
+  color: var(--spot-text-dim);
+  background: rgba(255, 255, 255, 0.04);
+  font-family: var(--spot-font-mono);
+}
+
+.artifact-hub-substrate-canvas {
+  height: 280px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background:
+    linear-gradient(180deg, rgba(17, 24, 39, 0.3), rgba(17, 24, 39, 0.8)),
+    radial-gradient(circle at 50% 50%, rgba(59, 130, 246, 0.1), transparent 60%);
+  overflow: hidden;
+}
+
+.artifact-hub-substrate-legend {
+  margin-top: 8px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.artifact-hub-substrate-legend > span {
+  font-size: 10px;
+  color: var(--spot-text-muted);
+  border: 1px dashed rgba(255, 255, 255, 0.14);
+  border-radius: 999px;
+  padding: 2px 7px;
+}
+
+.artifact-hub-substrate-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.artifact-hub-substrate-row {
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 9px;
+  background: rgba(255, 255, 255, 0.02);
+  padding: 8px 9px;
+}
+
+.artifact-hub-substrate-meta {
+  margin-top: 7px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.artifact-hub-substrate-meta > span {
+  font-size: 10px;
+  color: var(--spot-text-dim);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 999px;
+  padding: 2px 7px;
+  font-family: var(--spot-font-mono);
+}

@@ -34,6 +34,7 @@
 //! *   **Zero-Copy Access:** Designed for memory-mapped I/O, allowing
 //!     instantaneous loading of massive context windows into the Workload container.
 
+pub mod certificate;
 pub mod format;
 pub mod index;
 pub mod pii_scrubber;
@@ -41,8 +42,13 @@ pub mod store;
 
 // Re-export primary types for consumer ergonomics
 // [FIX] Added RetentionClass to re-exports
+pub use certificate::{
+    build_lower_bound_certificate, l2_distance, lower_bound_l2, query_hash,
+    unit_cosine_distance_to_l2, verify_lower_bound_certificate, CoarseQuantizerCluster,
+    CoarseQuantizerManifest, LowerBoundCertificate, LowerBoundMetric, PrunedClusterBound,
+};
 pub use format::{Frame, FrameId, FrameType, RetentionClass, ScsHeader};
-pub use index::{RetrievalProof, VectorIndex};
+pub use index::{CertifiedRetrievalProof, RetrievalProof, RetrievalSearchPolicy, VectorIndex};
 pub use store::{SovereignContextStore, StoreConfig};
 
 /// The standard file extension for SCS containers.
