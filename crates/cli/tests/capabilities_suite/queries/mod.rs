@@ -1,3 +1,4 @@
+mod check_which_apps_are_using_the_most_memory_right_now_and_list_them;
 mod compress_the_projects_folder_into_a_zip_file_and_put_it_on_my_desktop;
 mod create_a_new_folder_on_my_desktop_called_project_some_number;
 mod download_and_install_vlc_media_player;
@@ -23,6 +24,7 @@ pub fn all_cases() -> Vec<QueryCase> {
         what_time_is_it::case(),
         weather_right_now::case(),
         whats_the_current_price_of_bitcoin::case(),
+        check_which_apps_are_using_the_most_memory_right_now_and_list_them::case(),
         open_calculator_app::case(),
         set_timer_15_minutes::case(),
         compress_the_projects_folder_into_a_zip_file_and_put_it_on_my_desktop::case(),
