@@ -434,6 +434,7 @@ impl TestValidator {
             reasoning_inference: None,
             connectors: HashMap::new(),
             mcp_servers: Default::default(), // [FIX] Initialize mcp_servers
+            mcp_mode: Default::default(),
         };
 
         if state_tree_type == "Verkle" {

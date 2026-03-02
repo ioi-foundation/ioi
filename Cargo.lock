@@ -7264,6 +7264,7 @@ dependencies = [
  "dcrypt",
  "enigo",
  "futures",
+ "hex",
  "image",
  "image_hasher",
  "imageproc",

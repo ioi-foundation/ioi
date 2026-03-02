@@ -29,7 +29,8 @@ use ioi_types::{
     app::agentic::InferenceOptions,
     app::{to_root_hash, Membership},
     config::{
-        InferenceConfig, InitialServiceConfig, OrchestrationConfig, ValidatorRole, WorkloadConfig,
+        InferenceConfig, InitialServiceConfig, McpMode, OrchestrationConfig, ValidatorRole,
+        WorkloadConfig,
     },
     keys::{STATUS_KEY, VALIDATOR_SET_KEY},
 };
@@ -472,33 +473,42 @@ where
         // [NEW] Initialize MCP Manager and spawn servers
         let mcp_manager = Arc::new(McpManager::new());
 
-        for (name, server_cfg) in &config.mcp_servers {
-            let manager_clone = mcp_manager.clone();
-            let name_clone = name.clone();
+        if config.mcp_mode == McpMode::Disabled {
+            tracing::info!(target: "mcp", "MCP is disabled (mcp_mode=disabled).");
+        } else {
+            for (name, server_cfg) in &config.mcp_servers {
+                let manager_clone = mcp_manager.clone();
+                let name_clone = name.clone();
 
-            let mut resolved_env = HashMap::new();
-            for (k, v) in &server_cfg.env {
-                if let Some(secret_ref) = v.strip_prefix("env:") {
-                    let secret = std::env::var(secret_ref).unwrap_or_default();
-                    resolved_env.insert(k.clone(), secret);
-                } else {
-                    resolved_env.insert(k.clone(), v.clone());
+                let mut resolved_env = HashMap::new();
+                for (k, v) in &server_cfg.env {
+                    if let Some(secret_ref) = v.strip_prefix("env:") {
+                        let secret = std::env::var(secret_ref).unwrap_or_default();
+                        resolved_env.insert(k.clone(), secret);
+                    } else {
+                        resolved_env.insert(k.clone(), v.clone());
+                    }
                 }
+
+                let mcp_cfg = McpServerConfig {
+                    command: server_cfg.command.clone(),
+                    args: server_cfg.args.clone(),
+                    env: resolved_env,
+                    tier: server_cfg.tier,
+                    source: server_cfg.source,
+                    integrity: server_cfg.integrity.clone(),
+                    containment: server_cfg.containment.clone(),
+                    mode: config.mcp_mode,
+                };
+
+                tokio::spawn(async move {
+                    if let Err(e) = manager_clone.start_server(&name_clone, mcp_cfg).await {
+                        tracing::error!(target: "mcp", "Failed to start MCP server '{}': {}", name_clone, e);
+                    } else {
+                        tracing::info!(target: "mcp", "MCP server '{}' started successfully", name_clone);
+                    }
+                });
             }
-
-            let mcp_cfg = McpServerConfig {
-                command: server_cfg.command.clone(),
-                args: server_cfg.args.clone(),
-                env: resolved_env,
-            };
-
-            tokio::spawn(async move {
-                if let Err(e) = manager_clone.start_server(&name_clone, mcp_cfg).await {
-                    tracing::error!(target: "mcp", "Failed to start MCP server '{}': {}", name_clone, e);
-                } else {
-                    tracing::info!(target: "mcp", "MCP server '{}' started successfully", name_clone);
-                }
-            });
         }
 
         // [MODIFIED] Pass MCP Manager to DesktopAgentService

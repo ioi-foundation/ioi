@@ -18,6 +18,10 @@ use ioi_services::agentic::policy::PolicyEngine;
 use ioi_services::agentic::rules::{ActionRules, DefaultPolicy, Rule, RuleConditions, Verdict};
 use ioi_types::app::agentic::EvidenceGraph;
 use ioi_types::app::{ActionContext, ActionRequest, ActionTarget};
+use ioi_types::config::{
+    McpContainmentConfig, McpContainmentMode, McpIntegrityConfig, McpMode, McpServerSource,
+    McpServerTier,
+};
 use tauri::Manager;
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -83,6 +87,17 @@ pub async fn init_mcp_servers(app_handle: tauri::AppHandle) {
         data_dir.clone()
     });
 
+    let profile = std::env::var("IOI_STUDIO_MCP_PROFILE")
+        .unwrap_or_else(|_| "disabled".to_string())
+        .to_ascii_lowercase();
+    if profile != "dev_filesystem" {
+        println!(
+            "[Studio] MCP disabled by default. Native filesystem drivers remain available; optional MCP filesystem server is off for safety."
+        );
+        println!("[Studio] Set IOI_STUDIO_MCP_PROFILE=dev_filesystem to opt in.");
+        return;
+    }
+
     let fs_config = McpServerConfig {
         command: "npx".to_string(),
         args: vec![
@@ -91,14 +106,27 @@ pub async fn init_mcp_servers(app_handle: tauri::AppHandle) {
             abs_data_dir.to_string_lossy().to_string(),
         ],
         env: HashMap::new(),
+        tier: McpServerTier::Unverified,
+        source: McpServerSource::PackageManager,
+        integrity: McpIntegrityConfig::default(),
+        containment: McpContainmentConfig {
+            mode: McpContainmentMode::DeveloperUnconfined,
+            allow_network_egress: true,
+            allow_child_processes: true,
+            workspace_root: Some(abs_data_dir.to_string_lossy().to_string()),
+        },
+        mode: McpMode::Development,
     };
 
-    println!("[Studio] Spawning Filesystem MCP at {:?}", abs_data_dir);
+    println!(
+        "[Studio] Spawning optional dev Filesystem MCP at {:?}",
+        abs_data_dir
+    );
 
-    if let Err(e) = MCP_MANAGER.start_server("filesystem", fs_config).await {
-        eprintln!("[Studio] Failed to start filesystem MCP: {}", e);
+    if let Err(e) = MCP_MANAGER.start_server("filesystem_dev", fs_config).await {
+        eprintln!("[Studio] Failed to start filesystem_dev MCP: {}", e);
     } else {
-        println!("[Studio] Filesystem MCP active.");
+        println!("[Studio] filesystem_dev MCP active.");
     }
 }
 

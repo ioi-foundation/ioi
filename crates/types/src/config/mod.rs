@@ -183,6 +183,118 @@ pub struct ConnectorConfig {
     pub region: Option<String>,
 }
 
+/// Global MCP execution mode for the workload.
+#[derive(Debug, Serialize, Deserialize, Clone, Copy, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum McpMode {
+    /// No MCP servers may be configured or started.
+    Disabled,
+    /// Development-only MCP mode. Allows unverified servers for local iteration.
+    Development,
+    /// Production MCP mode. Requires pinned/integrity-checked, contained servers.
+    Production,
+}
+
+impl Default for McpMode {
+    fn default() -> Self {
+        Self::Disabled
+    }
+}
+
+/// Trust tier for an MCP server entry.
+#[derive(Debug, Serialize, Deserialize, Clone, Copy, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum McpServerTier {
+    /// First-party or formally audited server artifact.
+    Audited,
+    /// Pinned and verified server artifact (integrity checked, not fully audited).
+    Verified,
+    /// Unverified plugin/server intended only for explicit development workflows.
+    Unverified,
+}
+
+impl Default for McpServerTier {
+    fn default() -> Self {
+        Self::Unverified
+    }
+}
+
+/// Source class for MCP server artifacts.
+#[derive(Debug, Serialize, Deserialize, Clone, Copy, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum McpServerSource {
+    /// Local binary installed on the host.
+    LocalBin,
+    /// Vendored artifact shipped with the runtime/deployment bundle.
+    Vendored,
+    /// Package-manager resolved artifact (for example `npx`, `pipx`, `uvx`).
+    PackageManager,
+}
+
+impl Default for McpServerSource {
+    fn default() -> Self {
+        Self::LocalBin
+    }
+}
+
+/// Containment mode for MCP server processes.
+#[derive(Debug, Serialize, Deserialize, Clone, Copy, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum McpContainmentMode {
+    /// Strict containment expected (no ambient authority by default).
+    Strict,
+    /// Explicitly uncontained development mode.
+    DeveloperUnconfined,
+}
+
+impl Default for McpContainmentMode {
+    fn default() -> Self {
+        Self::Strict
+    }
+}
+
+/// Integrity pinning metadata for MCP server artifacts.
+#[derive(Debug, Serialize, Deserialize, Clone, Default)]
+pub struct McpIntegrityConfig {
+    /// Human-readable pinned version label (e.g., "1.4.2").
+    #[serde(default)]
+    pub version: Option<String>,
+    /// Hex-encoded SHA-256 of the executable artifact to run.
+    #[serde(default)]
+    pub sha256: Option<String>,
+    /// Optional lockfile hash for package-manager based sources.
+    #[serde(default)]
+    pub lockfile_sha256: Option<String>,
+}
+
+/// Runtime containment contract for MCP server subprocesses.
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct McpContainmentConfig {
+    /// Containment mode to apply at launch.
+    #[serde(default)]
+    pub mode: McpContainmentMode,
+    /// Whether outbound network egress is allowed.
+    #[serde(default)]
+    pub allow_network_egress: bool,
+    /// Whether the server can spawn child processes.
+    #[serde(default)]
+    pub allow_child_processes: bool,
+    /// Workspace root used for path-scoped operations and process cwd.
+    #[serde(default)]
+    pub workspace_root: Option<String>,
+}
+
+impl Default for McpContainmentConfig {
+    fn default() -> Self {
+        Self {
+            mode: McpContainmentMode::Strict,
+            allow_network_egress: false,
+            allow_child_processes: false,
+            workspace_root: None,
+        }
+    }
+}
+
 /// Configuration for an external MCP server process.
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct McpConfigEntry {
@@ -195,6 +307,18 @@ pub struct McpConfigEntry {
     /// from the Guardian's secure vault at runtime.
     #[serde(default)]
     pub env: HashMap<String, String>,
+    /// Trust tier for admission and runtime policy checks.
+    #[serde(default)]
+    pub tier: McpServerTier,
+    /// Artifact/source class used for supply-chain policy.
+    #[serde(default)]
+    pub source: McpServerSource,
+    /// Integrity pins for deterministic artifact identity.
+    #[serde(default)]
+    pub integrity: McpIntegrityConfig,
+    /// Containment contract for subprocess runtime boundaries.
+    #[serde(default)]
+    pub containment: McpContainmentConfig,
 }
 
 /// Configuration for the Workload container (`workload.toml`).
@@ -273,6 +397,9 @@ pub struct WorkloadConfig {
     /// Key is the logical server name (e.g. "filesystem"), Value contains execution details.
     #[serde(default)]
     pub mcp_servers: HashMap<String, McpConfigEntry>,
+    /// Global MCP execution mode.
+    #[serde(default)]
+    pub mcp_mode: McpMode,
 }
 
 impl WorkloadConfig {
@@ -316,6 +443,104 @@ impl WorkloadConfig {
                 return Err(
                     "Configuration Error: 'reasoning_inference.api_url' is required.".to_string(),
                 );
+            }
+        }
+
+        if self.mcp_mode == McpMode::Disabled && !self.mcp_servers.is_empty() {
+            return Err(
+                "Configuration Error: 'mcp_servers' requires 'mcp_mode' to be 'development' or 'production'."
+                    .to_string(),
+            );
+        }
+
+        let installer_commands = ["npx", "npm", "pnpm", "yarn", "bunx", "pipx", "uvx"];
+        for (name, server) in &self.mcp_servers {
+            if server.command.trim().is_empty() {
+                return Err(format!(
+                    "Configuration Error: mcp_servers.{} has an empty command.",
+                    name
+                ));
+            }
+
+            if let Some(sha) = server.integrity.sha256.as_deref() {
+                let is_sha256 = sha.len() == 64 && sha.chars().all(|ch| ch.is_ascii_hexdigit());
+                if !is_sha256 {
+                    return Err(format!(
+                        "Configuration Error: mcp_servers.{}.integrity.sha256 must be 64 hex characters.",
+                        name
+                    ));
+                }
+            }
+
+            let command_base = std::path::Path::new(server.command.trim())
+                .file_name()
+                .and_then(|part| part.to_str())
+                .unwrap_or(server.command.trim())
+                .to_ascii_lowercase();
+            let uses_installer = server.source == McpServerSource::PackageManager
+                || installer_commands
+                    .iter()
+                    .any(|candidate| command_base == *candidate);
+
+            if self.mcp_mode != McpMode::Development && uses_installer {
+                return Err(format!(
+                    "Configuration Error: mcp_servers.{} uses installer-style command '{}' but mcp_mode is not development.",
+                    name, server.command
+                ));
+            }
+
+            if self.mcp_mode == McpMode::Production {
+                if server.tier == McpServerTier::Unverified {
+                    return Err(format!(
+                        "Configuration Error: mcp_servers.{} tier 'unverified' is not allowed in production mode.",
+                        name
+                    ));
+                }
+                if server
+                    .integrity
+                    .version
+                    .as_deref()
+                    .unwrap_or("")
+                    .trim()
+                    .is_empty()
+                {
+                    return Err(format!(
+                        "Configuration Error: mcp_servers.{}.integrity.version is required in production mode.",
+                        name
+                    ));
+                }
+                if server
+                    .integrity
+                    .sha256
+                    .as_deref()
+                    .unwrap_or("")
+                    .trim()
+                    .is_empty()
+                {
+                    return Err(format!(
+                        "Configuration Error: mcp_servers.{}.integrity.sha256 is required in production mode.",
+                        name
+                    ));
+                }
+                if server.containment.mode != McpContainmentMode::Strict {
+                    return Err(format!(
+                        "Configuration Error: mcp_servers.{} must use strict containment in production mode.",
+                        name
+                    ));
+                }
+                if server
+                    .containment
+                    .workspace_root
+                    .as_deref()
+                    .unwrap_or("")
+                    .trim()
+                    .is_empty()
+                {
+                    return Err(format!(
+                        "Configuration Error: mcp_servers.{}.containment.workspace_root is required in production mode.",
+                        name
+                    ));
+                }
             }
         }
 

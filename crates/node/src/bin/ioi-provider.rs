@@ -139,6 +139,7 @@ async fn main() -> Result<()> {
         reasoning_inference: None,
         connectors: Default::default(),
         mcp_servers: Default::default(),
+        mcp_mode: Default::default(),
     };
 
     // 5. Setup Stack

@@ -1,6 +1,7 @@
 // Path: crates/drivers/src/mcp/transport.rs
 
 use anyhow::{anyhow, Result};
+use ioi_types::config::{McpContainmentConfig, McpContainmentMode, McpMode};
 use serde_json::{json, Value};
 use std::collections::HashMap;
 use std::process::Stdio;
@@ -8,6 +9,12 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::process::Command;
 use tokio::sync::{mpsc, oneshot};
+
+#[derive(Debug, Clone)]
+pub struct McpSpawnPolicy {
+    pub containment: McpContainmentConfig,
+    pub mode: McpMode,
+}
 
 /// Handles the JSON-RPC 2.0 communication over Stdio.
 pub struct McpTransport {
@@ -22,14 +29,46 @@ impl McpTransport {
         cmd: String,
         args: Vec<String>,
         env: HashMap<String, String>,
+        policy: McpSpawnPolicy,
     ) -> Result<Self> {
-        let mut child = Command::new(cmd)
-            .args(args)
-            .envs(env)
+        let mut command = Command::new(cmd);
+        command.kill_on_drop(true);
+        command.args(args);
+        command.env_clear();
+        command.env("PATH", "/usr/bin:/bin");
+        command.env(
+            "IOI_MCP_MODE",
+            format!("{:?}", policy.mode).to_ascii_lowercase(),
+        );
+
+        if let Some(root) = policy.containment.workspace_root.as_deref() {
+            std::fs::create_dir_all(root)?;
+            let tmp_dir = std::path::Path::new(root).join(".tmp");
+            std::fs::create_dir_all(&tmp_dir)?;
+            command.current_dir(root);
+            command.env("HOME", root);
+            command.env("TMPDIR", tmp_dir.to_string_lossy().to_string());
+        }
+
+        // No ambient secret inheritance. Only explicitly configured vars are passed through.
+        for (key, value) in env {
+            command.env(key, value);
+        }
+
+        command
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
-            .stderr(Stdio::inherit())
-            .spawn()?;
+            .stderr(Stdio::inherit());
+
+        if policy.containment.mode == McpContainmentMode::Strict {
+            apply_strict_containment(&mut command, &policy)?;
+        } else if policy.mode == McpMode::Production {
+            return Err(anyhow!(
+                "ERROR_CLASS=PolicyBlocked production MCP mode requires strict containment"
+            ));
+        }
+
+        let mut child = command.spawn()?;
 
         let stdin = child.stdin.take().ok_or(anyhow!("Failed to open stdin"))?;
         let stdout = child
@@ -70,11 +109,8 @@ impl McpTransport {
                             } else if let Some(res) = json.get("result") {
                                 let _ = sender.send(Ok(res.clone()));
                             }
-                        } else {
-                            // [FIX] Auto-ack incoming requests (logging for now)
-                            if json.get("method").is_some() {
-                                tracing::debug!("MCP: Auto-acking incoming request ID {}", id);
-                            }
+                        } else if json.get("method").is_some() {
+                            tracing::debug!("MCP: Auto-acking incoming request ID {}", id);
                         }
                     }
                 }
@@ -121,16 +157,10 @@ impl McpTransport {
         });
 
         let init_fut = self.send_request("initialize", params);
-
-        // [FIX] Increase timeout to 300s (5 min) for initial npx install
-        match tokio::time::timeout(std::time::Duration::from_secs(300), init_fut).await {
+        match tokio::time::timeout(std::time::Duration::from_secs(60), init_fut).await {
             Ok(Ok(_)) => {}
             Ok(Err(e)) => return Err(anyhow!("MCP Initialize failed: {}", e)),
-            Err(_) => {
-                return Err(anyhow!(
-                    "MCP Initialize timed out (300s). Check npx/network."
-                ))
-            }
+            Err(_) => return Err(anyhow!("MCP Initialize timed out (60s).")),
         }
 
         let notify = json!({
@@ -152,6 +182,73 @@ impl McpTransport {
             "arguments": arguments
         });
         self.send_request("tools/call", params).await
+    }
+}
+
+fn apply_strict_containment(command: &mut Command, policy: &McpSpawnPolicy) -> Result<()> {
+    #[cfg(unix)]
+    {
+        let allow_child_processes = policy.containment.allow_child_processes;
+        let allow_network_egress = policy.containment.allow_network_egress;
+        let mode = policy.mode;
+
+        // Best-effort hardening at process boundary: clear env, restrict child process fan-out,
+        // and disable network namespace where the kernel permits unprivileged netns unshare.
+        unsafe {
+            command.pre_exec(move || {
+                if !allow_child_processes {
+                    let nproc = libc::rlimit {
+                        rlim_cur: 1,
+                        rlim_max: 1,
+                    };
+                    if libc::setrlimit(libc::RLIMIT_NPROC, &nproc) != 0 {
+                        return Err(std::io::Error::last_os_error());
+                    }
+                }
+
+                #[cfg(target_os = "linux")]
+                {
+                    if !allow_network_egress && libc::unshare(libc::CLONE_NEWNET) != 0 {
+                        let err = std::io::Error::last_os_error();
+                        let code = err.raw_os_error().unwrap_or_default();
+                        let dev_fallback = mode == McpMode::Development
+                            && matches!(
+                                code,
+                                libc::EPERM | libc::EACCES | libc::EINVAL | libc::ENOSYS
+                            );
+                        if !dev_fallback {
+                            return Err(err);
+                        }
+                    }
+                }
+                #[cfg(not(target_os = "linux"))]
+                {
+                    if !allow_network_egress {
+                        if mode != McpMode::Development {
+                            return Err(std::io::Error::new(
+                                std::io::ErrorKind::Unsupported,
+                                "strict MCP network containment requires Linux",
+                            ));
+                        }
+                    }
+                }
+
+                Ok(())
+            });
+        }
+        return Ok(());
+    }
+
+    #[cfg(not(unix))]
+    {
+        if !policy.containment.allow_network_egress || !policy.containment.allow_child_processes {
+            if policy.mode != McpMode::Development {
+                return Err(anyhow!(
+                    "strict MCP containment is not fully supported on this platform"
+                ));
+            }
+        }
+        Ok(())
     }
 }
 

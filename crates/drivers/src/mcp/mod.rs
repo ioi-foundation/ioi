@@ -2,36 +2,77 @@
 
 pub mod compression;
 pub mod protocol;
-pub mod transport; // [NEW] Register module
+pub mod transport;
 
-use anyhow::{anyhow, Result};
-use ioi_types::app::agentic::LlmToolDefinition;
+use anyhow::{anyhow, bail, Result};
+use ioi_crypto::algorithms::hash::sha256;
+use ioi_types::app::agentic::{AgentTool, LlmToolDefinition};
 use ioi_types::app::{ActionTarget, RuntimeTarget, WorkloadSpec};
+use ioi_types::config::{
+    McpContainmentConfig, McpContainmentMode, McpIntegrityConfig, McpMode, McpServerSource,
+    McpServerTier,
+};
+use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
+use std::ffi::OsString;
+use std::fs;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
-// [FIX] Removed unused McpToolInfo import
-use self::transport::McpTransport;
+use self::transport::{McpSpawnPolicy, McpTransport};
 
-/// Configuration for an external MCP server.
-#[derive(Debug, Clone, serde::Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
 pub struct McpServerConfig {
     pub command: String,
     pub args: Vec<String>,
     pub env: HashMap<String, String>,
+    pub tier: McpServerTier,
+    pub source: McpServerSource,
+    pub integrity: McpIntegrityConfig,
+    pub containment: McpContainmentConfig,
+    pub mode: McpMode,
 }
 
-/// The Manager responsible for the lifecycle of all MCP child processes.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct McpServerReceipt {
+    pub server_name: String,
+    pub command_path: String,
+    pub command_sha256: String,
+    pub declared_version: Option<String>,
+    pub tier: McpServerTier,
+    pub source: McpServerSource,
+    pub mode: McpMode,
+    pub started_at_ms: u64,
+    pub tools: Vec<String>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum McpToolRiskDomain {
+    Low,
+    Filesystem,
+    Network,
+    Execution,
+    Ui,
+    Wallet,
+}
+
+#[derive(Debug, Clone)]
+struct PreparedServerConfig {
+    command_path: PathBuf,
+    command_sha256: String,
+    args: Vec<String>,
+    env: HashMap<String, String>,
+    containment: McpContainmentConfig,
+}
+
 pub struct McpManager {
-    /// Active connections to child processes, keyed by server name (e.g., "stripe", "filesystem").
     servers: RwLock<HashMap<String, Arc<McpTransport>>>,
-    /// Flattened map of "tool_name" -> "server_name" for routing.
-    /// e.g. "filesystem_read_file" -> "filesystem"
     tool_routing_table: RwLock<HashMap<String, String>>,
-    /// Cache of tool definitions to prevent repeated IPC calls to child processes.
     tool_cache: RwLock<HashMap<String, Vec<LlmToolDefinition>>>,
+    server_containment: RwLock<HashMap<String, McpContainmentConfig>>,
+    server_receipts: RwLock<HashMap<String, McpServerReceipt>>,
 }
 
 impl McpManager {
@@ -40,79 +81,131 @@ impl McpManager {
             servers: RwLock::new(HashMap::new()),
             tool_routing_table: RwLock::new(HashMap::new()),
             tool_cache: RwLock::new(HashMap::new()),
+            server_containment: RwLock::new(HashMap::new()),
+            server_receipts: RwLock::new(HashMap::new()),
         }
     }
 
-    /// Spawns a new MCP server and performs the initialization handshake.
     pub async fn start_server(&self, name: &str, config: McpServerConfig) -> Result<()> {
+        validate_start_policy(name, &config)?;
+        let prepared = prepare_server_config(name, &config)?;
+
         log::info!(
-            "Starting MCP Server '{}': {} {:?}",
+            "Starting MCP Server '{}': {} {:?} tier={:?} source={:?} mode={:?}",
             name,
-            config.command,
-            config.args
+            prepared.command_path.display(),
+            prepared.args,
+            config.tier,
+            config.source,
+            config.mode
         );
 
-        let transport = McpTransport::spawn(config.command, config.args, config.env).await?;
+        let transport = McpTransport::spawn(
+            prepared.command_path.to_string_lossy().to_string(),
+            prepared.args.clone(),
+            prepared.env.clone(),
+            McpSpawnPolicy {
+                containment: prepared.containment.clone(),
+                mode: config.mode,
+            },
+        )
+        .await?;
 
-        // 1. Initialize Handshake (Client -> Server)
         transport.initialize().await?;
-
-        // 2. List Tools (Server -> Client)
-        // We do this ONCE at startup and cache the result.
         let tools = transport.list_tools().await?;
 
-        // 3. Update Routing Table & Cache
         let mut table = self.tool_routing_table.write().await;
         let mut cache = self.tool_cache.write().await;
+        let mut containment = self.server_containment.write().await;
+        let mut receipts = self.server_receipts.write().await;
 
         let mut cached_definitions = Vec::new();
+        let mut tool_names = Vec::new();
+        let mut registered_this_server = HashSet::new();
 
         for tool in tools {
-            // Namespace the tool: "server_name__tool_name"
-            // This prevents collision between "stripe::get" and "aws::get"
             let namespaced_name = format!("{}__{}", name, tool.name);
-            table.insert(namespaced_name.clone(), name.to_string());
 
+            if AgentTool::is_reserved_tool_name(&namespaced_name) {
+                return Err(anyhow!(
+                    "ERROR_CLASS=PolicyBlocked MCP tool '{}' collides with reserved native tool name",
+                    namespaced_name
+                ));
+            }
+            if table.contains_key(&namespaced_name)
+                || !registered_this_server.insert(namespaced_name.clone())
+            {
+                return Err(anyhow!(
+                    "ERROR_CLASS=PolicyBlocked MCP tool '{}' collides with an existing tool registration",
+                    namespaced_name
+                ));
+            }
+
+            let risk = classify_tool_risk(&tool.name, tool.description.as_deref());
+            enforce_tool_admission_policy(&config, name, &namespaced_name, risk)?;
+
+            table.insert(namespaced_name.clone(), name.to_string());
             cached_definitions.push(LlmToolDefinition {
                 name: namespaced_name.clone(),
                 description: tool.description.unwrap_or_default(),
-                parameters: tool.input_schema.to_string(), // Raw JSON schema string
+                parameters: tool.input_schema.to_string(),
             });
-
+            tool_names.push(namespaced_name.clone());
             log::debug!("Registered MCP Tool: {}", namespaced_name);
         }
 
         cache.insert(name.to_string(), cached_definitions);
+        containment.insert(name.to_string(), prepared.containment.clone());
+        receipts.insert(
+            name.to_string(),
+            McpServerReceipt {
+                server_name: name.to_string(),
+                command_path: prepared.command_path.to_string_lossy().to_string(),
+                command_sha256: prepared.command_sha256,
+                declared_version: config.integrity.version.clone(),
+                tier: config.tier,
+                source: config.source,
+                mode: config.mode,
+                started_at_ms: unix_ms_now(),
+                tools: tool_names.clone(),
+            },
+        );
 
         let mut servers = self.servers.write().await;
         servers.insert(name.to_string(), Arc::new(transport));
 
+        tracing::info!(
+            target: "mcp",
+            server = name,
+            tier = ?config.tier,
+            source = ?config.source,
+            mode = ?config.mode,
+            tool_count = tool_names.len(),
+            "MCP server started and admitted"
+        );
+
         Ok(())
     }
 
-    /// Discovers all tools exposed by connected MCP servers.
-    /// This is aggregated into the System Prompt for the AI.
-    ///
-    /// OPTIMIZATION: Returns cached definitions instead of querying child processes.
     pub async fn get_all_tools(&self) -> Vec<LlmToolDefinition> {
         let cache = self.tool_cache.read().await;
         let mut all_tools = Vec::new();
-
         for tools in cache.values() {
             all_tools.extend(tools.clone());
         }
-
         all_tools
     }
 
-    /// Routes a tool execution request to the correct underlying process.
+    pub async fn get_server_receipts(&self) -> Vec<McpServerReceipt> {
+        let receipts = self.server_receipts.read().await;
+        receipts.values().cloned().collect()
+    }
+
     pub async fn execute_tool(&self, namespaced_tool: &str, args: Value) -> Result<String> {
         self.execute_tool_with_spec(namespaced_tool, args, None)
             .await
     }
 
-    /// Routes a tool execution request to the correct underlying process with
-    /// explicit workload substrate bindings.
     pub async fn execute_tool_with_spec(
         &self,
         namespaced_tool: &str,
@@ -132,11 +225,8 @@ impl McpManager {
                 namespaced_tool
             ));
         }
-        let now_ms = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .ok()
-            .map(|duration| duration.as_millis() as u64)
-            .unwrap_or(0);
+
+        let now_ms = unix_ms_now();
         let lease_check = spec.evaluate_lease(
             &ActionTarget::Custom(namespaced_tool.to_string()),
             None,
@@ -153,33 +243,548 @@ impl McpManager {
         }
 
         let table = self.tool_routing_table.read().await;
-
-        // 1. Resolve Server
         let server_name = table.get(namespaced_tool).ok_or_else(|| {
-            anyhow!(
-                "Tool '{}' not found in any active MCP server",
-                namespaced_tool
-            )
+            if let Some(native_family) = native_tool_family_hint(namespaced_tool) {
+                anyhow!(
+                    "Tool '{}' not found in active MCP servers. Native drivers handle {} tools; MCP variants are optional and disabled by default for safety.",
+                    namespaced_tool,
+                    native_family
+                )
+            } else {
+                anyhow!(
+                    "Tool '{}' not found in any active MCP server",
+                    namespaced_tool
+                )
+            }
         })?;
 
-        // 2. Extract Raw Tool Name (remove prefix)
-        // "stripe__refund" -> "refund"
-        let prefix = format!("{}__{}", server_name, "");
+        let prefix = format!("{}__", server_name);
         let raw_tool_name = namespaced_tool
             .strip_prefix(&prefix)
             .unwrap_or(namespaced_tool);
+
+        let containment = self.server_containment.read().await;
+        if let Some(policy) = containment.get(server_name) {
+            enforce_runtime_containment(raw_tool_name, namespaced_tool, &args, policy)?;
+        }
 
         let servers = self.servers.read().await;
         let transport = servers
             .get(server_name)
             .ok_or_else(|| anyhow!("MCP Server '{}' is dead or disconnected", server_name))?;
 
-        // 3. Execute via Stdio
         let result_json = transport.call_tool(raw_tool_name, args).await?;
-
-        // 4. Return result content (extract from MCP "content" array)
         Ok(result_json.to_string())
     }
+}
+
+fn unix_ms_now() -> u64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .ok()
+        .map(|duration| duration.as_millis() as u64)
+        .unwrap_or(0)
+}
+
+fn validate_start_policy(name: &str, config: &McpServerConfig) -> Result<()> {
+    if config.command.trim().is_empty() {
+        bail!(
+            "ERROR_CLASS=PolicyBlocked MCP server '{}' command is empty",
+            name
+        );
+    }
+
+    let installer = looks_like_network_installer(&config.command, config.source);
+    if config.mode != McpMode::Development && installer {
+        bail!(
+            "ERROR_CLASS=PolicyBlocked MCP server '{}' uses installer-style command '{}' outside development mode",
+            name,
+            config.command
+        );
+    }
+
+    if config.mode == McpMode::Production && config.tier == McpServerTier::Unverified {
+        bail!(
+            "ERROR_CLASS=PolicyBlocked MCP server '{}' has unverified tier in production mode",
+            name
+        );
+    }
+
+    if config.mode == McpMode::Production {
+        if config
+            .integrity
+            .version
+            .as_deref()
+            .unwrap_or("")
+            .trim()
+            .is_empty()
+        {
+            bail!(
+                "ERROR_CLASS=PolicyBlocked MCP server '{}' requires integrity.version in production mode",
+                name
+            );
+        }
+        if config
+            .integrity
+            .sha256
+            .as_deref()
+            .unwrap_or("")
+            .trim()
+            .is_empty()
+        {
+            bail!(
+                "ERROR_CLASS=PolicyBlocked MCP server '{}' requires integrity.sha256 in production mode",
+                name
+            );
+        }
+        if config.containment.mode != McpContainmentMode::Strict {
+            bail!(
+                "ERROR_CLASS=PolicyBlocked MCP server '{}' must use strict containment in production mode",
+                name
+            );
+        }
+        if config
+            .containment
+            .workspace_root
+            .as_deref()
+            .unwrap_or("")
+            .trim()
+            .is_empty()
+        {
+            bail!(
+                "ERROR_CLASS=PolicyBlocked MCP server '{}' requires containment.workspace_root in production mode",
+                name
+            );
+        }
+        if !Path::new(config.command.trim()).is_absolute() {
+            bail!(
+                "ERROR_CLASS=PolicyBlocked MCP server '{}' command must be an absolute path in production mode",
+                name
+            );
+        }
+    }
+
+    if matches!(
+        config.tier,
+        McpServerTier::Audited | McpServerTier::Verified
+    ) && (config
+        .integrity
+        .version
+        .as_deref()
+        .unwrap_or("")
+        .trim()
+        .is_empty()
+        || config
+            .integrity
+            .sha256
+            .as_deref()
+            .unwrap_or("")
+            .trim()
+            .is_empty())
+    {
+        bail!(
+            "ERROR_CLASS=PolicyBlocked MCP server '{}' tier {:?} requires integrity.version and integrity.sha256",
+            name,
+            config.tier
+        );
+    }
+
+    if let Some(hash) = config.integrity.sha256.as_deref() {
+        let valid = hash.len() == 64 && hash.chars().all(|ch| ch.is_ascii_hexdigit());
+        if !valid {
+            bail!(
+                "ERROR_CLASS=PolicyBlocked MCP server '{}' has invalid integrity.sha256 format",
+                name
+            );
+        }
+    }
+
+    Ok(())
+}
+
+fn prepare_server_config(name: &str, config: &McpServerConfig) -> Result<PreparedServerConfig> {
+    let command_path = resolve_command_path(&config.command)?;
+    let command_sha = sha256_file_hex(&command_path)?;
+
+    if let Some(expected) = config.integrity.sha256.as_deref() {
+        if !expected.eq_ignore_ascii_case(&command_sha) {
+            bail!(
+                "ERROR_CLASS=PolicyBlocked MCP server '{}' executable hash mismatch (expected={}, actual={})",
+                name,
+                expected,
+                command_sha
+            );
+        }
+    }
+
+    let workspace_root = if let Some(root) = config.containment.workspace_root.as_deref() {
+        let path = PathBuf::from(root);
+        if !path.exists() {
+            fs::create_dir_all(&path).map_err(|e| {
+                anyhow!(
+                    "Failed to create containment workspace_root '{}' for MCP server '{}': {}",
+                    root,
+                    name,
+                    e
+                )
+            })?;
+        }
+        let canon = fs::canonicalize(&path).map_err(|e| {
+            anyhow!(
+                "Failed to canonicalize containment workspace_root '{}' for MCP server '{}': {}",
+                root,
+                name,
+                e
+            )
+        })?;
+        Some(canon.to_string_lossy().to_string())
+    } else {
+        None
+    };
+
+    let mut containment = config.containment.clone();
+    containment.workspace_root = workspace_root;
+
+    Ok(PreparedServerConfig {
+        command_path,
+        command_sha256: command_sha,
+        args: config.args.clone(),
+        env: config.env.clone(),
+        containment,
+    })
+}
+
+fn resolve_command_path(command: &str) -> Result<PathBuf> {
+    let trimmed = command.trim();
+    let candidate = Path::new(trimmed);
+
+    if candidate.is_absolute() || trimmed.contains(std::path::MAIN_SEPARATOR) {
+        return fs::canonicalize(candidate)
+            .map_err(|e| anyhow!("Failed to resolve MCP command path '{}': {}", trimmed, e));
+    }
+
+    let path_var = std::env::var_os("PATH")
+        .ok_or_else(|| anyhow!("PATH is not set; cannot resolve MCP command '{}'", trimmed))?;
+    for dir in std::env::split_paths(&path_var) {
+        let joined = dir.join(trimmed);
+        if joined.is_file() {
+            return fs::canonicalize(&joined).map_err(|e| {
+                anyhow!(
+                    "Failed to resolve MCP command path '{}': {}",
+                    joined.display(),
+                    e
+                )
+            });
+        }
+    }
+
+    Err(anyhow!(
+        "Unable to resolve MCP command '{}' from PATH",
+        trimmed
+    ))
+}
+
+fn sha256_file_hex(path: &Path) -> Result<String> {
+    let bytes = fs::read(path).map_err(|e| {
+        anyhow!(
+            "Failed to read MCP command '{}' for hashing: {}",
+            path.display(),
+            e
+        )
+    })?;
+    let digest = sha256(&bytes)?;
+    Ok(hex::encode(digest.as_ref()))
+}
+
+fn native_tool_family_hint(namespaced_tool: &str) -> Option<&'static str> {
+    if namespaced_tool.starts_with("filesystem__") {
+        return Some("filesystem__*");
+    }
+    if namespaced_tool.starts_with("sys__") {
+        return Some("sys__*");
+    }
+    if namespaced_tool.starts_with("browser__") {
+        return Some("browser__*");
+    }
+    if namespaced_tool.starts_with("ui__") {
+        return Some("ui__*");
+    }
+    if namespaced_tool.starts_with("web__") {
+        return Some("web__*");
+    }
+    if namespaced_tool.starts_with("wallet_network__") {
+        return Some("wallet_network__*");
+    }
+    None
+}
+
+fn looks_like_network_installer(command: &str, source: McpServerSource) -> bool {
+    if source == McpServerSource::PackageManager {
+        return true;
+    }
+    let base = Path::new(command.trim())
+        .file_name()
+        .and_then(|name| name.to_str())
+        .unwrap_or(command.trim())
+        .to_ascii_lowercase();
+    matches!(
+        base.as_str(),
+        "npx" | "npm" | "pnpm" | "yarn" | "bunx" | "pipx" | "uvx"
+    )
+}
+
+fn classify_tool_risk(tool_name: &str, description: Option<&str>) -> McpToolRiskDomain {
+    let mut haystack = tool_name.to_ascii_lowercase();
+    if let Some(desc) = description {
+        haystack.push(' ');
+        haystack.push_str(&desc.to_ascii_lowercase());
+    }
+
+    if contains_any(
+        &haystack,
+        &["wallet", "payment", "checkout", "sign", "seed", "key"],
+    ) {
+        return McpToolRiskDomain::Wallet;
+    }
+    if contains_any(
+        &haystack,
+        &[
+            "exec", "shell", "command", "spawn", "process", "terminal", "run",
+        ],
+    ) {
+        return McpToolRiskDomain::Execution;
+    }
+    if contains_any(
+        &haystack,
+        &[
+            "filesystem",
+            "file",
+            "path",
+            "directory",
+            "folder",
+            "read_file",
+            "write_file",
+        ],
+    ) {
+        return McpToolRiskDomain::Filesystem;
+    }
+    if contains_any(
+        &haystack,
+        &[
+            "url", "http", "https", "web", "request", "fetch", "socket", "network", "dns",
+        ],
+    ) {
+        return McpToolRiskDomain::Network;
+    }
+    if contains_any(
+        &haystack,
+        &[
+            "browser", "gui", "click", "type", "window", "mouse", "keyboard", "ui",
+        ],
+    ) {
+        return McpToolRiskDomain::Ui;
+    }
+
+    McpToolRiskDomain::Low
+}
+
+fn contains_any(haystack: &str, needles: &[&str]) -> bool {
+    needles.iter().any(|needle| haystack.contains(needle))
+}
+
+fn enforce_tool_admission_policy(
+    config: &McpServerConfig,
+    server_name: &str,
+    tool_name: &str,
+    risk: McpToolRiskDomain,
+) -> Result<()> {
+    if config.mode == McpMode::Production && config.tier == McpServerTier::Unverified {
+        bail!(
+            "ERROR_CLASS=PolicyBlocked MCP server '{}' is unverified and cannot admit '{}'",
+            server_name,
+            tool_name
+        );
+    }
+
+    if config.mode != McpMode::Development
+        && config.tier == McpServerTier::Unverified
+        && risk != McpToolRiskDomain::Low
+    {
+        bail!(
+            "ERROR_CLASS=PolicyBlocked MCP tool '{}' from server '{}' has high-risk domain {:?} with unverified tier",
+            tool_name,
+            server_name,
+            risk
+        );
+    }
+
+    Ok(())
+}
+
+fn enforce_runtime_containment(
+    raw_tool_name: &str,
+    namespaced_tool: &str,
+    args: &Value,
+    containment: &McpContainmentConfig,
+) -> Result<()> {
+    let lower_tool = raw_tool_name.to_ascii_lowercase();
+
+    if !containment.allow_child_processes
+        && contains_any(
+            &lower_tool,
+            &[
+                "exec", "shell", "spawn", "process", "command", "terminal", "run",
+            ],
+        )
+    {
+        bail!(
+            "ERROR_CLASS=PolicyBlocked MCP containment blocked execution-capable tool '{}'",
+            namespaced_tool
+        );
+    }
+
+    if !containment.allow_network_egress
+        && (contains_any(
+            &lower_tool,
+            &[
+                "http", "https", "url", "fetch", "request", "socket", "network", "dns",
+            ],
+        ) || json_contains_network_fields(args))
+    {
+        bail!(
+            "ERROR_CLASS=PolicyBlocked MCP containment blocked network egress for '{}'",
+            namespaced_tool
+        );
+    }
+
+    if let Some(root) = containment.workspace_root.as_deref() {
+        let root_path = PathBuf::from(root);
+        enforce_json_path_scope(args, &root_path)?;
+    }
+
+    Ok(())
+}
+
+fn json_contains_network_fields(value: &Value) -> bool {
+    match value {
+        Value::Object(map) => map.iter().any(|(key, entry)| {
+            let key_lower = key.to_ascii_lowercase();
+            let key_is_network = key_lower.contains("url")
+                || key_lower.contains("uri")
+                || key_lower.contains("host")
+                || key_lower.contains("domain")
+                || key_lower.contains("endpoint");
+            key_is_network
+                && entry
+                    .as_str()
+                    .map(|text| !text.trim().is_empty())
+                    .unwrap_or(false)
+                || json_contains_network_fields(entry)
+        }),
+        Value::Array(items) => items.iter().any(json_contains_network_fields),
+        _ => false,
+    }
+}
+
+fn enforce_json_path_scope(value: &Value, workspace_root: &Path) -> Result<()> {
+    match value {
+        Value::Object(map) => {
+            for (key, entry) in map {
+                let key_lower = key.to_ascii_lowercase();
+                let key_is_path = key_lower == "path"
+                    || key_lower.ends_with("_path")
+                    || key_lower.contains("directory")
+                    || key_lower.contains("folder")
+                    || key_lower == "cwd"
+                    || key_lower == "workspace";
+                if key_is_path {
+                    if let Some(path_value) = entry.as_str() {
+                        ensure_path_is_scoped(path_value, workspace_root)?;
+                    }
+                }
+                enforce_json_path_scope(entry, workspace_root)?;
+            }
+            Ok(())
+        }
+        Value::Array(items) => {
+            for item in items {
+                enforce_json_path_scope(item, workspace_root)?;
+            }
+            Ok(())
+        }
+        _ => Ok(()),
+    }
+}
+
+fn ensure_path_is_scoped(path_value: &str, workspace_root: &Path) -> Result<()> {
+    let candidate = Path::new(path_value.trim());
+    if candidate.as_os_str().is_empty() {
+        return Ok(());
+    }
+
+    let absolute = if candidate.is_absolute() {
+        candidate.to_path_buf()
+    } else {
+        workspace_root.join(candidate)
+    };
+    let normalized = normalize_path_with_missing_segments(&absolute)?;
+    let root = fs::canonicalize(workspace_root).map_err(|e| {
+        anyhow!(
+            "Failed to canonicalize MCP containment workspace root '{}': {}",
+            workspace_root.display(),
+            e
+        )
+    })?;
+
+    if !normalized.starts_with(&root) {
+        bail!(
+            "ERROR_CLASS=PolicyBlocked MCP containment rejected out-of-scope path '{}' (workspace_root='{}')",
+            path_value,
+            root.display()
+        );
+    }
+
+    Ok(())
+}
+
+fn normalize_path_with_missing_segments(path: &Path) -> Result<PathBuf> {
+    if path.exists() {
+        return fs::canonicalize(path).map_err(|e| {
+            anyhow!(
+                "Failed to canonicalize MCP path candidate '{}': {}",
+                path.display(),
+                e
+            )
+        });
+    }
+
+    let mut suffix: Vec<OsString> = Vec::new();
+    let mut cursor = path.to_path_buf();
+    while !cursor.exists() {
+        let file_name = cursor.file_name().ok_or_else(|| {
+            anyhow!(
+                "Cannot normalize MCP path '{}' (missing ancestor)",
+                path.display()
+            )
+        })?;
+        suffix.push(file_name.to_os_string());
+        cursor = cursor
+            .parent()
+            .ok_or_else(|| anyhow!("Cannot normalize MCP path '{}' (no parent)", path.display()))?
+            .to_path_buf();
+    }
+
+    let mut normalized = fs::canonicalize(&cursor).map_err(|e| {
+        anyhow!(
+            "Failed to canonicalize MCP path ancestor '{}': {}",
+            cursor.display(),
+            e
+        )
+    })?;
+    for segment in suffix.iter().rev() {
+        normalized.push(segment);
+    }
+    Ok(normalized)
 }
 
 #[cfg(test)]
@@ -196,7 +801,7 @@ mod tests {
                 issued_at_ms,
                 expires_at_ms,
                 mode: CapabilityLeaseMode::OneShot,
-                capability_allowlist: vec!["filesystem__read_file".to_string()],
+                capability_allowlist: vec!["echo_server__echo".to_string()],
                 domain_allowlist: vec![],
             }),
             ui_surface: None,
@@ -207,7 +812,7 @@ mod tests {
     async fn execute_tool_requires_workload_spec() {
         let manager = McpManager::new();
         let err = manager
-            .execute_tool_with_spec("filesystem__read_file", serde_json::json!({}), None)
+            .execute_tool_with_spec("echo_server__echo", serde_json::json!({}), None)
             .await
             .expect_err("missing workload spec must fail");
         let rendered = format!("{:#}", err);
@@ -221,7 +826,7 @@ mod tests {
         let mut spec = mcp_spec(100, 1000);
         spec.runtime_target = RuntimeTarget::System;
         let err = manager
-            .execute_tool_with_spec("filesystem__read_file", serde_json::json!({}), Some(&spec))
+            .execute_tool_with_spec("echo_server__echo", serde_json::json!({}), Some(&spec))
             .await
             .expect_err("invalid runtime target must fail");
         let rendered = format!("{:#}", err);
@@ -234,11 +839,41 @@ mod tests {
         let manager = McpManager::new();
         let spec = mcp_spec(0, 1);
         let err = manager
-            .execute_tool_with_spec("filesystem__read_file", serde_json::json!({}), Some(&spec))
+            .execute_tool_with_spec("echo_server__echo", serde_json::json!({}), Some(&spec))
             .await
             .expect_err("expired lease must fail");
         let rendered = format!("{:#}", err);
         assert!(rendered.contains("ERROR_CLASS=PolicyBlocked"));
         assert!(rendered.contains("capability_lease_expired"));
+    }
+
+    #[test]
+    fn production_rejects_installer_command() {
+        let cfg = McpServerConfig {
+            command: "npx".to_string(),
+            args: vec!["-y".to_string(), "@scope/server".to_string()],
+            env: HashMap::new(),
+            tier: McpServerTier::Verified,
+            source: McpServerSource::PackageManager,
+            integrity: McpIntegrityConfig {
+                version: Some("1.0.0".to_string()),
+                sha256: Some("a".repeat(64)),
+                lockfile_sha256: None,
+            },
+            containment: McpContainmentConfig::default(),
+            mode: McpMode::Production,
+        };
+        let err = validate_start_policy("demo", &cfg).expect_err("installer command must fail");
+        let rendered = format!("{:#}", err);
+        assert!(rendered.contains("PolicyBlocked"));
+    }
+
+    #[test]
+    fn path_scope_rejects_escape() {
+        let root = tempfile::tempdir().expect("tempdir");
+        let value = serde_json::json!({ "path": "/etc/passwd" });
+        let err = enforce_json_path_scope(&value, root.path()).expect_err("escape must fail");
+        let rendered = format!("{:#}", err);
+        assert!(rendered.contains("PolicyBlocked"));
     }
 }

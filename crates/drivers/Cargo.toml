@@ -21,6 +21,7 @@ serde = { workspace = true }
 thiserror = { workspace = true }
 serde_json = { workspace = true }
 dcrypt = { workspace = true }
+hex = { workspace = true }
 
 # GUI Automation
 enigo = "0.2.1"
