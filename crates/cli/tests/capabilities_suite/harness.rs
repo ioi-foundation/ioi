@@ -145,6 +145,7 @@ const MAIL_E2E_KEY_IMAP_BEARER_TOKEN_SECRET_ID: &str = "MAIL_E2E_IMAP_BEARER_TOK
 const MAIL_E2E_KEY_SMTP_USERNAME_SECRET_ID: &str = "MAIL_E2E_SMTP_USERNAME_SECRET_ID";
 const MAIL_E2E_KEY_SMTP_PASSWORD_SECRET_ID: &str = "MAIL_E2E_SMTP_PASSWORD_SECRET_ID";
 const MAIL_E2E_KEY_SMTP_BEARER_TOKEN_SECRET_ID: &str = "MAIL_E2E_SMTP_BEARER_TOKEN_SECRET_ID";
+const MAIL_E2E_KEY_PROVIDER_DRIVER: &str = "MAIL_E2E_PROVIDER_DRIVER";
 const VLC_INSTALL_CASE_ID: &str = "download_and_install_vlc_media_player";
 const VLC_INSTALL_UNSEEDED_CASE_ID: &str = "download_and_install_vlc_media_player_unseeded";
 const VLC_INSTALL_FIXTURE_MODE: &str = "apt_get_vlc_fixture_v1";
@@ -223,11 +224,16 @@ const SHUTDOWN_SCHEDULE_FIXTURE_PROBE_SOURCE: &str = "harness.shutdown_schedule_
 const SHUTDOWN_SCHEDULE_PROBE_SCRIPT_NAME: &str = "shutdown_schedule_probe";
 const SHUTDOWN_SCHEDULE_PROVIDER_IDS: [&str; 3] = ["shutdown", "systemctl", "at"];
 const SHUTDOWN_SCHEDULE_TARGET_LOCAL_TIME: &str = "23:00";
+const MAIL_REPLY_SEND_CASE_ID: &str =
+    "draft_an_email_to_team_ioi_network_saying_tomorrows_standup_is_moved_to_2_pm_and_send_it";
+const MAIL_REPLY_MOCK_FIXTURE_MODE: &str = "mail_reply_mock_driver_fixture_v1";
+const MAIL_REPLY_MOCK_FIXTURE_PROBE_SOURCE: &str = "harness.mail_reply_mock_driver_fixture";
 
 #[derive(Debug, Clone)]
 struct MailRuntimeBootstrapConfig {
     auth_mode: MailConnectorAuthMode,
     mailbox: String,
+    provider_driver: Option<String>,
     account_email: String,
     imap_host: String,
     imap_port: u16,
@@ -394,6 +400,12 @@ struct ShutdownScheduleFixtureRuntime {
     probe_script_path: PathBuf,
     receipt_path: PathBuf,
     provider_receipt_path: PathBuf,
+}
+
+struct MailReplyMockDriverFixtureRuntime {
+    _temp_dir: tempfile::TempDir,
+    fixture_root: PathBuf,
+    manifest_path: PathBuf,
 }
 
 #[derive(Debug, Clone)]
@@ -608,6 +620,8 @@ fn parse_mail_runtime_bootstrap_config() -> Result<MailRuntimeBootstrapConfig> {
         auth_mode,
         mailbox: optional_env_value(MAIL_E2E_KEY_MAILBOX, MAIL_E2E_DEFAULT_MAILBOX)
             .to_ascii_lowercase(),
+        provider_driver: nonempty_env_value(MAIL_E2E_KEY_PROVIDER_DRIVER)
+            .map(|value| value.to_ascii_lowercase()),
         account_email: required_env_value(MAIL_E2E_KEY_ACCOUNT_EMAIL)?.to_ascii_lowercase(),
         imap_host: required_env_value(MAIL_E2E_KEY_IMAP_HOST)?.to_ascii_lowercase(),
         imap_port: parse_u16_env(MAIL_E2E_KEY_IMAP_PORT)?,
@@ -1123,6 +1137,10 @@ fn should_bootstrap_top_memory_apps_fixture(case_id: &str) -> bool {
 
 fn should_bootstrap_shutdown_schedule_fixture(case_id: &str) -> bool {
     case_id.eq_ignore_ascii_case(SHUTDOWN_SCHEDULE_CASE_ID)
+}
+
+fn should_bootstrap_mail_reply_mock_fixture(case_id: &str) -> bool {
+    case_id.eq_ignore_ascii_case(MAIL_REPLY_SEND_CASE_ID)
 }
 
 fn write_executable_script(path: &Path, content: &str) -> Result<()> {
@@ -4482,6 +4500,139 @@ fn shutdown_schedule_fixture_cleanup_checks(
     ]
 }
 
+fn bootstrap_mail_reply_mock_fixture_runtime(
+    run_unique_num: &str,
+) -> Result<MailReplyMockDriverFixtureRuntime> {
+    let temp_dir = tempdir()?;
+    let fixture_root = temp_dir
+        .path()
+        .join(format!("ioi_mail_reply_fixture_{}", run_unique_num));
+    std::fs::create_dir_all(&fixture_root)?;
+    let manifest_path = fixture_root.join("fixture_manifest.txt");
+    std::fs::write(
+        &manifest_path,
+        format!(
+            "mode={}\nrun_unique_num={}\nprovider_driver=mock\n",
+            MAIL_REPLY_MOCK_FIXTURE_MODE, run_unique_num
+        ),
+    )?;
+
+    Ok(MailReplyMockDriverFixtureRuntime {
+        _temp_dir: temp_dir,
+        fixture_root,
+        manifest_path,
+    })
+}
+
+fn mail_reply_mock_fixture_preflight_checks(
+    fixture: &MailReplyMockDriverFixtureRuntime,
+    run_unique_num: &str,
+    run_timestamp_ms: u64,
+) -> Vec<String> {
+    let probe_source = format!("{}.preflight", MAIL_REPLY_MOCK_FIXTURE_PROBE_SOURCE);
+    let fixture_root = fixture.fixture_root.to_string_lossy().to_string();
+    let run_unique_satisfied = fixture_root.contains(run_unique_num);
+    let manifest_seeded_satisfied = fixture.manifest_path.is_file();
+    let fixture_satisfied = fixture.fixture_root.is_dir() && run_unique_satisfied;
+
+    vec![
+        format!(
+            "env_receipt::mail_reply_fixture_mode={}",
+            MAIL_REPLY_MOCK_FIXTURE_MODE
+        ),
+        format!(
+            "env_receipt::mail_reply_fixture_probe_source={}",
+            MAIL_REPLY_MOCK_FIXTURE_PROBE_SOURCE
+        ),
+        format!(
+            "env_receipt::mail_reply_fixture_timestamp_ms={}",
+            run_timestamp_ms
+        ),
+        format!(
+            "env_receipt::mail_reply_fixture_root={}",
+            fixture.fixture_root.to_string_lossy()
+        ),
+        format!(
+            "env_receipt::mail_reply_fixture_manifest_path={}",
+            fixture.manifest_path.to_string_lossy()
+        ),
+        format!(
+            "env_receipt::mail_reply_fixture_run_unique_num={}",
+            run_unique_num
+        ),
+        format!(
+            "env_receipt::mail_reply_fixture_run_unique_satisfied={}",
+            run_unique_satisfied
+        ),
+        format!(
+            "env_receipt::mail_reply_fixture_manifest_seeded_satisfied={}",
+            manifest_seeded_satisfied
+        ),
+        format!(
+            "env_receipt::mail_reply_fixture_satisfied={}",
+            fixture_satisfied
+        ),
+        format!("env_receipt::mail_reply_fixture_probe={}", probe_source),
+    ]
+}
+
+fn mail_reply_mock_fixture_post_run_checks(
+    fixture: &MailReplyMockDriverFixtureRuntime,
+) -> Vec<String> {
+    let root_exists_satisfied = fixture.fixture_root.is_dir();
+    let manifest_exists_satisfied = fixture.manifest_path.is_file();
+
+    vec![
+        format!(
+            "env_receipt::mail_reply_fixture_root_exists_satisfied={}",
+            root_exists_satisfied
+        ),
+        format!(
+            "env_receipt::mail_reply_fixture_manifest_exists_satisfied={}",
+            manifest_exists_satisfied
+        ),
+    ]
+}
+
+fn mail_reply_mock_fixture_cleanup_checks(
+    fixture: &MailReplyMockDriverFixtureRuntime,
+) -> Vec<String> {
+    let timestamp_ms = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_millis() as u64;
+    let probe_source = format!("{}.cleanup_probe", MAIL_REPLY_MOCK_FIXTURE_PROBE_SOURCE);
+
+    let _ = std::fs::remove_file(&fixture.manifest_path);
+    let _ = std::fs::remove_dir_all(&fixture.fixture_root);
+    let fixture_root_exists_after_cleanup = fixture.fixture_root.exists();
+    let manifest_exists_after_cleanup = fixture.manifest_path.exists();
+    let cleanup_satisfied = !fixture_root_exists_after_cleanup && !manifest_exists_after_cleanup;
+
+    vec![
+        format!(
+            "env_receipt::mail_reply_fixture_cleanup_probe_source={}",
+            probe_source
+        ),
+        format!(
+            "env_receipt::mail_reply_fixture_cleanup_timestamp_ms={}",
+            timestamp_ms
+        ),
+        format!(
+            "env_receipt::mail_reply_fixture_cleanup_root_exists={}",
+            fixture_root_exists_after_cleanup
+        ),
+        format!(
+            "env_receipt::mail_reply_fixture_cleanup_manifest_exists={}",
+            manifest_exists_after_cleanup
+        ),
+        format!(
+            "env_receipt::mail_reply_fixture_cleanup_satisfied={}",
+            cleanup_satisfied
+        ),
+    ]
+}
+
 fn wallet_channel_key(channel_id: &[u8; 32]) -> Vec<u8> {
     [b"channel::".as_slice(), channel_id.as_slice()].concat()
 }
@@ -4564,6 +4715,7 @@ async fn bootstrap_mailbox_runtime_state(
     wallet_service: &WalletNetworkService,
     run_index: usize,
     run_timestamp_ms: u64,
+    provider_driver_override: Option<&str>,
 ) -> Result<Vec<String>> {
     let config = parse_mail_runtime_bootstrap_config()?;
     upsert_wallet_network_service_meta(state)?;
@@ -4589,6 +4741,53 @@ async fn bootstrap_mailbox_runtime_state(
         .await?;
     }
 
+    let provider_driver = provider_driver_override
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(|value| value.to_ascii_lowercase())
+        .or_else(|| config.provider_driver.clone());
+    let provider_driver_source = if provider_driver_override
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .is_some()
+    {
+        "fixture_override"
+    } else if config.provider_driver.is_some() {
+        "env"
+    } else {
+        "default"
+    };
+    let mut connector_metadata = BTreeMap::new();
+    if let Some(driver) = provider_driver.clone() {
+        connector_metadata.insert("driver".to_string(), driver);
+    }
+
+    let channel_capability_set = vec![
+        "mail.read.latest".to_string(),
+        "mail.read".to_string(),
+        "email:read".to_string(),
+        "mail.list.recent".to_string(),
+        "mail.list".to_string(),
+        "email:list".to_string(),
+        "mail.reply".to_string(),
+        "mail.send".to_string(),
+        "email:send".to_string(),
+        "mail.write".to_string(),
+        "email:write".to_string(),
+        "mail.compose".to_string(),
+        "email:compose".to_string(),
+    ];
+    let lease_capability_subset = channel_capability_set.clone();
+    let mail_send_capability_seeded = channel_capability_set
+        .iter()
+        .any(|capability| capability == "mail.reply" || capability == "mail.send")
+        && lease_capability_subset
+            .iter()
+            .any(|capability| capability == "mail.reply" || capability == "mail.send");
+    let provider_driver_label = provider_driver
+        .clone()
+        .unwrap_or_else(|| "live".to_string());
+
     let upsert = MailConnectorUpsertParams {
         mailbox: config.mailbox.clone(),
         config: MailConnectorConfig {
@@ -4611,7 +4810,7 @@ async fn bootstrap_mailbox_runtime_state(
                 smtp_username_alias: config.smtp_username_alias.clone(),
                 smtp_password_alias: config.smtp_secret_alias.clone(),
             },
-            metadata: BTreeMap::new(),
+            metadata: connector_metadata,
         },
     };
     invoke_wallet_method(
@@ -4646,14 +4845,7 @@ async fn bootstrap_mailbox_runtime_state(
         policy_hash,
         policy_version: 1,
         root_grant_id,
-        capability_set: vec![
-            "mail.read.latest".to_string(),
-            "mail.read".to_string(),
-            "email:read".to_string(),
-            "mail.list.recent".to_string(),
-            "mail.list".to_string(),
-            "email:list".to_string(),
-        ],
+        capability_set: channel_capability_set.clone(),
         constraints: constraints.clone(),
         delegation_rules: SessionChannelDelegationRules {
             max_depth: 0,
@@ -4685,11 +4877,7 @@ async fn bootstrap_mailbox_runtime_state(
         subject_id,
         policy_hash,
         grant_id: root_grant_id,
-        capability_subset: vec![
-            "mail.read.latest".to_string(),
-            "mail.read".to_string(),
-            "email:read".to_string(),
-        ],
+        capability_subset: lease_capability_subset.clone(),
         constraints_subset: constraints,
         mode: SessionLeaseMode::Lease,
         expires_at_ms: lease_expires_at_ms,
@@ -4717,6 +4905,26 @@ async fn bootstrap_mailbox_runtime_state(
         "env_receipt::mail_connector_bootstrap=true".to_string(),
         "env_receipt::mail_channel_seeded=true".to_string(),
         "env_receipt::mail_lease_seeded=true".to_string(),
+        format!(
+            "env_receipt::mail_send_capability_seeded={}",
+            mail_send_capability_seeded
+        ),
+        format!(
+            "env_receipt::mail_channel_capabilities={}",
+            channel_capability_set.join(",")
+        ),
+        format!(
+            "env_receipt::mail_lease_capabilities={}",
+            lease_capability_subset.join(",")
+        ),
+        format!(
+            "env_receipt::mail_provider_driver={}",
+            provider_driver_label
+        ),
+        format!(
+            "env_receipt::mail_provider_driver_source={}",
+            provider_driver_source
+        ),
         format!("env_receipt::mail_auth_mode={}", auth_mode_label),
         format!("env_receipt::mail_mailbox={}", config.mailbox),
         format!("env_receipt::mail_setup_timestamp_ms={}", run_timestamp_ms),
@@ -4912,6 +5120,15 @@ pub async fn run_case(
             &fixture.probe_script_path.to_string_lossy(),
         );
     }
+    let mail_reply_mock_fixture = bootstrap_optional_fixture(
+        should_bootstrap_mail_reply_mock_fixture(case.id),
+        || bootstrap_mail_reply_mock_fixture_runtime(&run_unique_num),
+        |fixture| {
+            mail_reply_mock_fixture_preflight_checks(fixture, &run_unique_num, run_timestamp_ms)
+        },
+        &mut runtime_setup_verification_checks,
+    )?;
+    let mail_provider_driver_override = mail_reply_mock_fixture.as_ref().map(|_| "mock");
     if should_bootstrap_mailbox_runtime(&run_query) {
         runtime_setup_verification_checks.extend(
             bootstrap_mailbox_runtime_state(
@@ -4920,6 +5137,7 @@ pub async fn run_case(
                 wallet_service.as_ref(),
                 run_index,
                 run_timestamp_ms,
+                mail_provider_driver_override,
             )
             .await?,
         );
@@ -5249,6 +5467,12 @@ pub async fn run_case(
         shutdown_schedule_fixture.as_ref(),
         shutdown_schedule_fixture_post_run_checks,
         Some(shutdown_schedule_fixture_cleanup_checks),
+    );
+    insert_fixture_checks(
+        &mut verification_checks,
+        mail_reply_mock_fixture.as_ref(),
+        mail_reply_mock_fixture_post_run_checks,
+        Some(mail_reply_mock_fixture_cleanup_checks),
     );
 
     let event_excerpt = captured_events

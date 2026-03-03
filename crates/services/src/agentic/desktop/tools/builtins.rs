@@ -294,10 +294,10 @@ pub(super) fn push_builtin_tools(
             let browser_wait_params = json!({
                 "type": "object",
                 "properties": {
-                    "ms": { "type": "integer", "description": "Milliseconds to wait (1-30000). Use for fixed-duration waits." },
+                    "ms": { "type": "integer", "description": "Milliseconds to wait (1-30000). Use for fixed-duration waits. Mutually exclusive with condition waits." },
                     "condition": {
                         "type": "string",
-                        "description": "Condition to wait for.",
+                        "description": "Condition to wait for. Use together with timeout_ms when not providing ms.",
                         "enum": ["selector_visible", "text_present", "dom_stable"]
                     },
                     "selector": { "type": "string", "description": "Selector used by condition='selector_visible'." },
@@ -307,16 +307,12 @@ pub(super) fn push_builtin_tools(
                         "description": "Text search scope for condition='text_present'.",
                         "enum": ["visible", "document"]
                     },
-                    "timeout_ms": { "type": "integer", "description": "Timeout for condition waits in milliseconds (1-30000)." }
-                },
-                "anyOf": [
-                    { "required": ["ms"] },
-                    { "required": ["condition", "timeout_ms"] }
-                ]
+                    "timeout_ms": { "type": "integer", "description": "Timeout for condition waits in milliseconds (1-30000). Required when condition is provided." }
+                }
             });
             tools.push(LlmToolDefinition {
                 name: "browser__wait".to_string(),
-                description: "Wait in browser workflows by fixed duration or condition."
+                description: "Wait in browser workflows by fixed duration or condition. Valid forms are either {ms} or {condition, timeout_ms}; the executor enforces this contract."
                     .to_string(),
                 parameters: browser_wait_params.to_string(),
             });
@@ -351,17 +347,13 @@ pub(super) fn push_builtin_tools(
             let browser_dropdown_options_params = json!({
                 "type": "object",
                 "properties": {
-                    "selector": { "type": "string", "description": "Optional CSS selector for a native <select> element." },
-                    "som_id": { "type": "integer", "description": "Optional SoM ID for a native <select> element." }
-                },
-                "anyOf": [
-                    { "required": ["selector"] },
-                    { "required": ["som_id"] }
-                ]
+                    "selector": { "type": "string", "description": "CSS selector for a native <select> element. Provide this or som_id." },
+                    "som_id": { "type": "integer", "description": "SoM ID for a native <select> element. Provide this or selector." }
+                }
             });
             tools.push(LlmToolDefinition {
                 name: "browser__dropdown_options".to_string(),
-                description: "List options for a native <select> dropdown by selector or SoM ID."
+                description: "List options for a native <select> dropdown. Provide exactly one locator: selector or som_id; executor validates this contract."
                     .to_string(),
                 parameters: browser_dropdown_options_params.to_string(),
             });
@@ -371,29 +363,15 @@ pub(super) fn push_builtin_tools(
             let browser_select_dropdown_params = json!({
                 "type": "object",
                 "properties": {
-                    "selector": { "type": "string", "description": "Optional CSS selector for a native <select> element." },
-                    "som_id": { "type": "integer", "description": "Optional SoM ID for a native <select> element." },
-                    "value": { "type": "string", "description": "Option value to select (exact match)." },
-                    "label": { "type": "string", "description": "Visible option label to select (exact match)." }
-                },
-                "allOf": [
-                    {
-                        "anyOf": [
-                            { "required": ["selector"] },
-                            { "required": ["som_id"] }
-                        ]
-                    },
-                    {
-                        "anyOf": [
-                            { "required": ["value"] },
-                            { "required": ["label"] }
-                        ]
-                    }
-                ]
+                    "selector": { "type": "string", "description": "CSS selector for a native <select> element. Provide this or som_id." },
+                    "som_id": { "type": "integer", "description": "SoM ID for a native <select> element. Provide this or selector." },
+                    "value": { "type": "string", "description": "Option value to select (exact match). Provide this or label." },
+                    "label": { "type": "string", "description": "Visible option label to select (exact match). Provide this or value." }
+                }
             });
             tools.push(LlmToolDefinition {
                 name: "browser__select_dropdown".to_string(),
-                description: "Select an option in a native <select> dropdown by value or label."
+                description: "Select an option in a native <select> dropdown. Provide exactly one locator (selector or som_id) and one selector target (value or label); executor validates this contract."
                     .to_string(),
                 parameters: browser_select_dropdown_params.to_string(),
             });

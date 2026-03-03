@@ -52,7 +52,7 @@ pub fn should_enter_incident_recovery(
 
 pub(crate) fn should_skip_incident_recovery_for_intent(
     intent: IntentClass,
-    _root_tool_name: &str,
+    root_tool_name: &str,
     root_failure_class: FailureClass,
 ) -> bool {
     if matches!(intent, IntentClass::CommandTask) {
@@ -69,6 +69,17 @@ pub(crate) fn should_skip_incident_recovery_for_intent(
                 | FailureClass::ContextDrift
                 | FailureClass::UnexpectedState
         )
+        || (matches!(intent, IntentClass::ConversationTask)
+            && matches!(
+                root_failure_class,
+                FailureClass::NoEffectAfterAction
+                    | FailureClass::ContextDrift
+                    | FailureClass::UnexpectedState
+            )
+            && matches!(
+                root_tool_name.trim().to_ascii_lowercase().as_str(),
+                "wallet_network__mail_reply" | "wallet_mail_reply" | "mail__reply"
+            ))
 }
 
 pub async fn emit_incident_chat_progress(

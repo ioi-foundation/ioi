@@ -214,6 +214,59 @@ fn pick_string<'a>(args: &'a JsonMap<String, JsonValue>, keys: &[&str]) -> Optio
     keys.iter().find_map(|key| args.get(*key)?.as_str())
 }
 
+fn pick_nonempty_string(args: &JsonMap<String, JsonValue>, keys: &[&str]) -> Option<String> {
+    pick_string(args, keys)
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(ToString::to_string)
+}
+
+fn resolve_mail_reply_fields(
+    args: &JsonMap<String, JsonValue>,
+) -> Result<(String, String, String), TransactionError> {
+    let to = pick_nonempty_string(
+        args,
+        &[
+            "to",
+            "email",
+            "recipient",
+            "recipient_email",
+            "recipientEmail",
+        ],
+    )
+    .ok_or_else(|| {
+        TransactionError::Invalid("wallet_network__mail_reply requires non-empty 'to'".to_string())
+    })?;
+    let body_candidate = pick_nonempty_string(
+        args,
+        &[
+            "body",
+            "message",
+            "text",
+            "content",
+            "email_body",
+            "emailBody",
+        ],
+    );
+    let subject_candidate =
+        pick_nonempty_string(args, &["subject", "title", "email_subject", "emailSubject"]);
+
+    let subject = subject_candidate
+        .clone()
+        .or_else(|| body_candidate.clone())
+        .ok_or_else(|| {
+            TransactionError::Invalid(
+                "wallet_network__mail_reply requires non-empty 'subject'".to_string(),
+            )
+        })?;
+    let body = body_candidate.or(subject_candidate).ok_or_else(|| {
+        TransactionError::Invalid(
+            "wallet_network__mail_reply requires non-empty 'body'".to_string(),
+        )
+    })?;
+    Ok((to, subject, body))
+}
+
 fn pick_u64(args: &JsonMap<String, JsonValue>, keys: &[&str]) -> Option<u64> {
     keys.iter().find_map(|key| {
         let value = args.get(*key)?;
@@ -527,33 +580,7 @@ pub(super) async fn try_execute_wallet_mail_dynamic_tool(
             (codec::to_bytes_canonical(&params)?, params.operation_id)
         }
         WalletMailToolMethod::Reply => {
-            let to = pick_string(&args, &["to"])
-                .map(str::trim)
-                .filter(|value| !value.is_empty())
-                .ok_or_else(|| {
-                    TransactionError::Invalid(
-                        "wallet_network__mail_reply requires non-empty 'to'".to_string(),
-                    )
-                })?
-                .to_string();
-            let subject = pick_string(&args, &["subject"])
-                .map(str::trim)
-                .filter(|value| !value.is_empty())
-                .ok_or_else(|| {
-                    TransactionError::Invalid(
-                        "wallet_network__mail_reply requires non-empty 'subject'".to_string(),
-                    )
-                })?
-                .to_string();
-            let body = pick_string(&args, &["body"])
-                .map(str::trim)
-                .filter(|value| !value.is_empty())
-                .ok_or_else(|| {
-                    TransactionError::Invalid(
-                        "wallet_network__mail_reply requires non-empty 'body'".to_string(),
-                    )
-                })?
-                .to_string();
+            let (to, subject, body) = resolve_mail_reply_fields(&args)?;
             let reply_to_message_id =
                 pick_string(&args, &["reply_to_message_id", "replyToMessageId"])
                     .map(str::trim)
@@ -928,7 +955,11 @@ pub(super) async fn try_execute_wallet_mail_dynamic_tool(
 
 #[cfg(test)]
 mod tests {
-    use super::{is_wallet_mail_namespace_tool_name, wallet_mail_method_from_tool_name};
+    use super::{
+        is_wallet_mail_namespace_tool_name, resolve_mail_reply_fields,
+        wallet_mail_method_from_tool_name,
+    };
+    use serde_json::{json, Map as JsonMap, Value as JsonValue};
 
     #[test]
     fn wallet_mail_namespace_detection_includes_connector_tools() {
@@ -945,5 +976,37 @@ mod tests {
         assert!(
             wallet_mail_method_from_tool_name("wallet_network__mail_connector_upsert").is_none()
         );
+    }
+
+    #[test]
+    fn mail_reply_field_resolution_accepts_email_message_aliases() {
+        let value = json!({
+            "email": "team@ioi.network",
+            "message": "Tomorrow's standup is moved to 2 PM."
+        });
+        let args: JsonMap<String, JsonValue> =
+            value.as_object().expect("test args must be object").clone();
+
+        let (to, subject, body) = resolve_mail_reply_fields(&args).expect("aliases should resolve");
+        assert_eq!(to, "team@ioi.network");
+        assert_eq!(subject, "Tomorrow's standup is moved to 2 PM.");
+        assert_eq!(body, "Tomorrow's standup is moved to 2 PM.");
+    }
+
+    #[test]
+    fn mail_reply_field_resolution_prefers_explicit_subject_and_body() {
+        let value = json!({
+            "to": "team@ioi.network",
+            "subject": "Standup moved",
+            "body": "Tomorrow's standup is moved to 2 PM."
+        });
+        let args: JsonMap<String, JsonValue> =
+            value.as_object().expect("test args must be object").clone();
+
+        let (to, subject, body) =
+            resolve_mail_reply_fields(&args).expect("explicit fields should resolve");
+        assert_eq!(to, "team@ioi.network");
+        assert_eq!(subject, "Standup moved");
+        assert_eq!(body, "Tomorrow's standup is moved to 2 PM.");
     }
 }

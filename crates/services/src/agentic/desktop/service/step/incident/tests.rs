@@ -102,3 +102,22 @@ fn file_task_no_effect_failures_skip_incident_recovery() {
         FailureClass::NoEffectAfterAction
     ));
 }
+
+#[test]
+fn conversation_mail_reply_no_effect_skips_incident_recovery() {
+    assert!(should_skip_incident_recovery_for_intent(
+        IntentClass::ConversationTask,
+        "wallet_network__mail_reply",
+        FailureClass::NoEffectAfterAction
+    ));
+    assert!(should_skip_incident_recovery_for_intent(
+        IntentClass::ConversationTask,
+        "mail__reply",
+        FailureClass::UnexpectedState
+    ));
+    assert!(!should_skip_incident_recovery_for_intent(
+        IntentClass::ConversationTask,
+        "wallet_network__mail_list_recent",
+        FailureClass::NoEffectAfterAction
+    ));
+}
