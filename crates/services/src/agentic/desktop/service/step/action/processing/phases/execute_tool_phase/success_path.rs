@@ -71,6 +71,31 @@ fn parse_find_text_found(history_entry: Option<&str>) -> Option<bool> {
         .and_then(|found| found.as_bool())
 }
 
+fn parse_wait_condition_met(history_entry: Option<&str>) -> Option<bool> {
+    let raw = history_entry?;
+    let value: serde_json::Value = serde_json::from_str(raw).ok()?;
+    value
+        .get("wait")
+        .and_then(|wait| wait.get("met"))
+        .and_then(|met| met.as_bool())
+}
+
+fn compact_browser_receipt_evidence(history_entry: Option<&str>) -> String {
+    let raw = history_entry
+        .map(str::trim)
+        .filter(|entry| !entry.is_empty())
+        .unwrap_or("browser_action_success=true");
+
+    let normalized = serde_json::from_str::<serde_json::Value>(raw)
+        .ok()
+        .and_then(|value| serde_jcs::to_vec(&value).ok())
+        .unwrap_or_else(|| raw.as_bytes().to_vec());
+
+    sha256(&normalized)
+        .map(|digest| format!("sha256:{}", hex::encode(digest.as_ref())))
+        .unwrap_or_else(|_| "sha256:unavailable".to_string())
+}
+
 fn record_browser_success_markers(
     service: &DesktopAgentService,
     agent_state: &mut AgentState,
@@ -83,10 +108,7 @@ fn record_browser_success_markers(
     resolved_intent_id: &str,
     synthesized_payload_hash: Option<String>,
 ) {
-    let evidence = history_entry
-        .map(str::trim)
-        .filter(|entry| !entry.is_empty())
-        .unwrap_or("browser_action_success=true");
+    let evidence = compact_browser_receipt_evidence(history_entry);
 
     match tool {
         AgentTool::BrowserUploadFile { .. } => {
@@ -99,7 +121,7 @@ fn record_browser_success_markers(
                 resolved_intent_id,
                 synthesized_payload_hash.clone(),
                 "browser_upload_file",
-                evidence,
+                evidence.as_str(),
             );
             record_browser_marker_postcondition(
                 service,
@@ -123,7 +145,7 @@ fn record_browser_success_markers(
                 resolved_intent_id,
                 synthesized_payload_hash.clone(),
                 "browser_dropdown_selected",
-                evidence,
+                evidence.as_str(),
             );
             record_browser_marker_postcondition(
                 service,
@@ -147,7 +169,7 @@ fn record_browser_success_markers(
                 resolved_intent_id,
                 synthesized_payload_hash.clone(),
                 "browser_history_back",
-                evidence,
+                evidence.as_str(),
             );
             record_browser_marker_postcondition(
                 service,
@@ -171,7 +193,7 @@ fn record_browser_success_markers(
                 resolved_intent_id,
                 synthesized_payload_hash.clone(),
                 "browser_wait",
-                evidence,
+                evidence.as_str(),
             );
             record_browser_marker_postcondition(
                 service,
@@ -181,9 +203,22 @@ fn record_browser_success_markers(
                 step_index,
                 resolved_intent_id,
                 synthesized_payload_hash,
-                "browser_wait_elapsed",
-                "browser_wait_elapsed=true",
+                "browser_wait_completed",
+                "browser_wait_completed=true",
             );
+            if parse_wait_condition_met(history_entry) == Some(true) {
+                record_browser_marker_postcondition(
+                    service,
+                    agent_state,
+                    verification_checks,
+                    session_id,
+                    step_index,
+                    resolved_intent_id,
+                    None,
+                    "browser_wait_condition_met",
+                    "browser_wait_condition_met=true",
+                );
+            }
         }
         AgentTool::BrowserTabSwitch { .. } => {
             record_browser_marker_receipt(
@@ -195,7 +230,7 @@ fn record_browser_success_markers(
                 resolved_intent_id,
                 synthesized_payload_hash.clone(),
                 "browser_tab_switch",
-                evidence,
+                evidence.as_str(),
             );
             record_browser_marker_postcondition(
                 service,
@@ -219,7 +254,7 @@ fn record_browser_success_markers(
                 resolved_intent_id,
                 synthesized_payload_hash.clone(),
                 "browser_tab_close",
-                evidence,
+                evidence.as_str(),
             );
             record_browser_marker_postcondition(
                 service,
@@ -243,7 +278,7 @@ fn record_browser_success_markers(
                 resolved_intent_id,
                 synthesized_payload_hash.clone(),
                 "browser_find_text",
-                evidence,
+                evidence.as_str(),
             );
             if parse_find_text_found(history_entry) == Some(true) {
                 record_browser_marker_postcondition(
@@ -269,7 +304,7 @@ fn record_browser_success_markers(
                 resolved_intent_id,
                 synthesized_payload_hash.clone(),
                 "browser_screenshot",
-                evidence,
+                evidence.as_str(),
             );
             if trace_visual_hash.is_some() {
                 record_browser_marker_postcondition(
@@ -295,7 +330,7 @@ fn record_browser_success_markers(
                 resolved_intent_id,
                 synthesized_payload_hash,
                 "browser_dropdown_options",
-                evidence,
+                evidence.as_str(),
             );
         }
         AgentTool::BrowserTabList {} => {
@@ -308,7 +343,7 @@ fn record_browser_success_markers(
                 resolved_intent_id,
                 synthesized_payload_hash,
                 "browser_tab_list",
-                evidence,
+                evidence.as_str(),
             );
         }
         _ => {}

@@ -9,7 +9,6 @@ use chromiumoxide::cdp::browser_protocol::page::{
     GetNavigationHistoryParams, NavigateToHistoryEntryParams,
 };
 use chromiumoxide::keys;
-use std::path::PathBuf;
 use std::time::Instant;
 
 impl BrowserDriver {
@@ -211,14 +210,21 @@ impl BrowserDriver {
             if (!root) {
                 return "dom:none";
             }
-            const text = String(root.innerText || "").replace(/\s+/g, " ").trim().slice(0, 2048);
+            const nodeCount = root.querySelectorAll("*").length;
+            const interactiveCount = root.querySelectorAll(
+                "a,button,input,select,textarea,[role='button'],[role='link'],[role='textbox'],[tabindex]"
+            ).length;
             const attrs = [
+                location.href || "",
+                document.title || "",
+                document.readyState || "",
+                nodeCount,
+                interactiveCount,
                 root.childElementCount || 0,
                 root.scrollHeight || 0,
-                root.scrollWidth || 0,
-                text.length
+                root.scrollWidth || 0
             ];
-            return `${attrs.join("|")}|${text}`;
+            return attrs.join("|");
         })()"#;
         self.evaluate_js(script).await
     }
@@ -355,7 +361,7 @@ impl BrowserDriver {
         self.require_runtime()?;
         self.ensure_page().await?;
 
-        let canonical_paths = Self::canonicalize_upload_paths(paths)?;
+        let validated_paths = Self::validate_upload_paths(paths)?;
 
         let target_selector = selector
             .map(str::trim)
@@ -384,7 +390,7 @@ impl BrowserDriver {
         }
 
         let params = SetFileInputFilesParams::builder()
-            .files(canonical_paths.clone())
+            .files(validated_paths.clone())
             .node_id(query.node_id)
             .build()
             .map_err(BrowserError::Internal)?;
@@ -393,7 +399,7 @@ impl BrowserDriver {
             .await
             .map_err(|e| BrowserError::Internal(format!("DOM.setFileInputFiles failed: {}", e)))?;
 
-        Ok(canonical_paths.len())
+        Ok(validated_paths.len())
     }
 
     pub async fn upload_files_to_backend_node(
@@ -404,7 +410,7 @@ impl BrowserDriver {
         self.require_runtime()?;
         self.ensure_page().await?;
 
-        let canonical_paths = Self::canonicalize_upload_paths(paths)?;
+        let validated_paths = Self::validate_upload_paths(paths)?;
         let page = { self.active_page.lock().await.clone() }.ok_or(BrowserError::NoActivePage)?;
 
         let parsed_backend_id = backend_dom_node_id.trim().parse::<i64>().map_err(|e| {
@@ -416,7 +422,7 @@ impl BrowserDriver {
         let backend_node_id = BackendNodeId::new(parsed_backend_id);
 
         let params = SetFileInputFilesParams::builder()
-            .files(canonical_paths.clone())
+            .files(validated_paths.clone())
             .backend_node_id(backend_node_id)
             .build()
             .map_err(BrowserError::Internal)?;
@@ -425,12 +431,10 @@ impl BrowserDriver {
             .await
             .map_err(|e| BrowserError::Internal(format!("DOM.setFileInputFiles failed: {}", e)))?;
 
-        Ok(canonical_paths.len())
+        Ok(validated_paths.len())
     }
 
-    fn canonicalize_upload_paths(
-        paths: &[String],
-    ) -> std::result::Result<Vec<String>, BrowserError> {
+    fn validate_upload_paths(paths: &[String]) -> std::result::Result<Vec<String>, BrowserError> {
         if paths.is_empty() {
             return Err(BrowserError::Internal(
                 "browser__upload_file requires at least one path".to_string(),
@@ -446,19 +450,20 @@ impl BrowserDriver {
                         "browser__upload_file paths cannot be empty".to_string(),
                     ));
                 }
-                let canonical = std::fs::canonicalize(PathBuf::from(trimmed)).map_err(|e| {
-                    BrowserError::Internal(format!(
-                        "Failed to resolve upload path '{}': {}",
-                        trimmed, e
-                    ))
-                })?;
-                if !canonical.is_file() {
+                let path = std::path::Path::new(trimmed);
+                if !path.is_absolute() {
                     return Err(BrowserError::Internal(format!(
-                        "Upload path is not a file: '{}'",
-                        canonical.display()
+                        "Upload path must be an absolute scoped file path: '{}'",
+                        trimmed
                     )));
                 }
-                Ok(canonical.to_string_lossy().to_string())
+                if !path.is_file() {
+                    return Err(BrowserError::Internal(format!(
+                        "Upload path is not a file: '{}'",
+                        trimmed
+                    )));
+                }
+                Ok(trimmed.to_string())
             })
             .collect::<Result<Vec<String>, BrowserError>>()
     }

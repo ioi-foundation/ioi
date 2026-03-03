@@ -329,7 +329,7 @@ pub(super) fn push_builtin_tools(
                     "paths": {
                         "type": "array",
                         "items": { "type": "string" },
-                        "description": "One or more local file paths to attach."
+                        "description": "One or more workspace-scoped file paths to attach."
                     },
                     "selector": {
                         "type": "string",

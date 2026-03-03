@@ -265,7 +265,10 @@ pub(super) fn tool_capability_bindings() -> Vec<ToolCapabilityBinding> {
         ToolCapabilityBinding {
             tool_name: "browser__upload_file".to_string(),
             action_target: ActionTarget::BrowserInteract,
-            capabilities: vec![capability("browser.interact")],
+            capabilities: vec![
+                capability("browser.interact"),
+                capability("filesystem.read"),
+            ],
         },
         ToolCapabilityBinding {
             tool_name: "browser__dropdown_options".to_string(),
