@@ -252,6 +252,210 @@ pub(super) fn push_builtin_tools(
             });
         }
 
+        if is_tool_allowed_for_resolution(resolved_intent, "browser__find_text") {
+            let browser_find_text_params = json!({
+                "type": "object",
+                "properties": {
+                    "query": { "type": "string", "description": "Literal text to find." },
+                    "scope": {
+                        "type": "string",
+                        "description": "Search scope: 'visible' (default) or 'document'.",
+                        "enum": ["visible", "document"]
+                    },
+                    "scroll": { "type": "boolean", "description": "Scroll first match into view." }
+                },
+                "required": ["query"]
+            });
+            tools.push(LlmToolDefinition {
+                name: "browser__find_text".to_string(),
+                description: "Find literal text on the page and optionally scroll to first match."
+                    .to_string(),
+                parameters: browser_find_text_params.to_string(),
+            });
+        }
+
+        if is_tool_allowed_for_resolution(resolved_intent, "browser__screenshot") {
+            let browser_screenshot_params = json!({
+                "type": "object",
+                "properties": {
+                    "full_page": { "type": "boolean", "description": "Capture beyond viewport for full page screenshot." }
+                },
+                "required": ["full_page"]
+            });
+            tools.push(LlmToolDefinition {
+                name: "browser__screenshot".to_string(),
+                description: "Capture a browser screenshot as visual observation evidence."
+                    .to_string(),
+                parameters: browser_screenshot_params.to_string(),
+            });
+        }
+
+        if is_tool_allowed_for_resolution(resolved_intent, "browser__wait") {
+            let browser_wait_params = json!({
+                "type": "object",
+                "properties": {
+                    "ms": { "type": "integer", "description": "Milliseconds to wait (1-30000). Use for fixed-duration waits." },
+                    "condition": {
+                        "type": "string",
+                        "description": "Condition to wait for.",
+                        "enum": ["selector_visible", "text_present", "dom_stable"]
+                    },
+                    "selector": { "type": "string", "description": "Selector used by condition='selector_visible'." },
+                    "query": { "type": "string", "description": "Literal text used by condition='text_present'." },
+                    "scope": {
+                        "type": "string",
+                        "description": "Text search scope for condition='text_present'.",
+                        "enum": ["visible", "document"]
+                    },
+                    "timeout_ms": { "type": "integer", "description": "Timeout for condition waits in milliseconds (1-30000)." }
+                },
+                "anyOf": [
+                    { "required": ["ms"] },
+                    { "required": ["condition", "timeout_ms"] }
+                ]
+            });
+            tools.push(LlmToolDefinition {
+                name: "browser__wait".to_string(),
+                description: "Wait in browser workflows by fixed duration or condition."
+                    .to_string(),
+                parameters: browser_wait_params.to_string(),
+            });
+        }
+
+        if is_tool_allowed_for_resolution(resolved_intent, "browser__upload_file") {
+            let browser_upload_file_params = json!({
+                "type": "object",
+                "properties": {
+                    "paths": {
+                        "type": "array",
+                        "items": { "type": "string" },
+                        "description": "One or more local file paths to attach."
+                    },
+                    "selector": {
+                        "type": "string",
+                        "description": "Optional CSS selector for file input (defaults to input[type='file'])."
+                    },
+                    "som_id": { "type": "integer", "description": "Optional SoM ID for target file input." }
+                },
+                "required": ["paths"]
+            });
+            tools.push(LlmToolDefinition {
+                name: "browser__upload_file".to_string(),
+                description: "Attach local files to a browser file input by selector or SoM ID."
+                    .to_string(),
+                parameters: browser_upload_file_params.to_string(),
+            });
+        }
+
+        if is_tool_allowed_for_resolution(resolved_intent, "browser__dropdown_options") {
+            let browser_dropdown_options_params = json!({
+                "type": "object",
+                "properties": {
+                    "selector": { "type": "string", "description": "Optional CSS selector for a native <select> element." },
+                    "som_id": { "type": "integer", "description": "Optional SoM ID for a native <select> element." }
+                },
+                "anyOf": [
+                    { "required": ["selector"] },
+                    { "required": ["som_id"] }
+                ]
+            });
+            tools.push(LlmToolDefinition {
+                name: "browser__dropdown_options".to_string(),
+                description: "List options for a native <select> dropdown by selector or SoM ID."
+                    .to_string(),
+                parameters: browser_dropdown_options_params.to_string(),
+            });
+        }
+
+        if is_tool_allowed_for_resolution(resolved_intent, "browser__select_dropdown") {
+            let browser_select_dropdown_params = json!({
+                "type": "object",
+                "properties": {
+                    "selector": { "type": "string", "description": "Optional CSS selector for a native <select> element." },
+                    "som_id": { "type": "integer", "description": "Optional SoM ID for a native <select> element." },
+                    "value": { "type": "string", "description": "Option value to select (exact match)." },
+                    "label": { "type": "string", "description": "Visible option label to select (exact match)." }
+                },
+                "allOf": [
+                    {
+                        "anyOf": [
+                            { "required": ["selector"] },
+                            { "required": ["som_id"] }
+                        ]
+                    },
+                    {
+                        "anyOf": [
+                            { "required": ["value"] },
+                            { "required": ["label"] }
+                        ]
+                    }
+                ]
+            });
+            tools.push(LlmToolDefinition {
+                name: "browser__select_dropdown".to_string(),
+                description: "Select an option in a native <select> dropdown by value or label."
+                    .to_string(),
+                parameters: browser_select_dropdown_params.to_string(),
+            });
+        }
+
+        if is_tool_allowed_for_resolution(resolved_intent, "browser__go_back") {
+            let browser_back_params = json!({
+                "type": "object",
+                "properties": {
+                    "steps": { "type": "integer", "description": "Optional number of history entries to go back (default 1)." }
+                }
+            });
+            tools.push(LlmToolDefinition {
+                name: "browser__go_back".to_string(),
+                description: "Navigate back in browser history.".to_string(),
+                parameters: browser_back_params.to_string(),
+            });
+        }
+
+        if is_tool_allowed_for_resolution(resolved_intent, "browser__tab_list") {
+            let browser_tab_list_params = json!({
+                "type": "object",
+                "properties": {},
+                "required": []
+            });
+            tools.push(LlmToolDefinition {
+                name: "browser__tab_list".to_string(),
+                description: "List open browser tabs with stable tab IDs.".to_string(),
+                parameters: browser_tab_list_params.to_string(),
+            });
+        }
+
+        if is_tool_allowed_for_resolution(resolved_intent, "browser__tab_switch") {
+            let browser_tab_switch_params = json!({
+                "type": "object",
+                "properties": {
+                    "tab_id": { "type": "string", "description": "Tab ID returned by browser__tab_list." }
+                },
+                "required": ["tab_id"]
+            });
+            tools.push(LlmToolDefinition {
+                name: "browser__tab_switch".to_string(),
+                description: "Switch the active browser tab.".to_string(),
+                parameters: browser_tab_switch_params.to_string(),
+            });
+        }
+
+        if is_tool_allowed_for_resolution(resolved_intent, "browser__tab_close") {
+            let browser_tab_close_params = json!({
+                "type": "object",
+                "properties": {
+                    "tab_id": { "type": "string", "description": "Tab ID returned by browser__tab_list." }
+                },
+                "required": ["tab_id"]
+            });
+            tools.push(LlmToolDefinition {
+                name: "browser__tab_close".to_string(),
+                description: "Close a browser tab by ID.".to_string(),
+                parameters: browser_tab_close_params.to_string(),
+            });
+        }
+
         if is_tool_allowed_for_resolution(resolved_intent, "browser__snapshot") {
             let snapshot_params = json!({
                 "type": "object",

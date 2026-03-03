@@ -322,6 +322,7 @@ fn should_embed_queue_tool_name_metadata(target: &ActionTarget, tool_name: &str)
     matches!(target, ActionTarget::FsRead | ActionTarget::FsWrite)
         || (matches!(target, ActionTarget::GuiClick | ActionTarget::UiClick)
             && tool_name == "gui__click_element")
+        || matches!(target, ActionTarget::BrowserInteract)
         || (matches!(target, ActionTarget::SysExec)
             && matches!(tool_name, "sys__exec_session" | "sys__exec_session_reset"))
 }
@@ -493,13 +494,17 @@ mod tests {
     }
 
     #[test]
-    fn non_fs_targets_do_not_embed_tool_name_metadata() {
+    fn browser_targets_embed_tool_name_metadata() {
         let value = queued_params(AgentTool::BrowserClickElement {
             id: "submit_button".to_string(),
         });
         assert!(
-            value.get(QUEUE_TOOL_NAME_KEY).is_none(),
-            "non-fs targets should not carry explicit queue metadata"
+            value.get(QUEUE_TOOL_NAME_KEY).is_some(),
+            "browser targets should carry explicit queue metadata"
+        );
+        assert_eq!(
+            value.get(QUEUE_TOOL_NAME_KEY).and_then(|v| v.as_str()),
+            Some("browser__click_element")
         );
     }
 

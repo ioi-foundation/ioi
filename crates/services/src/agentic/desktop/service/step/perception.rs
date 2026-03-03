@@ -420,7 +420,7 @@ async fn capture_background_visuals(
     // [NEW] Acquire lease before calling driver
     service.browser.set_lease(true);
 
-    match service.browser.capture_tab_screenshot().await {
+    match service.browser.capture_tab_screenshot(false).await {
         Ok(raw_bytes) => {
             let mut img = image::load_from_memory(&raw_bytes)
                 .map_err(|e| TransactionError::Invalid(e.to_string()))?

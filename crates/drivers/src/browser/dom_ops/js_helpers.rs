@@ -1,7 +1,7 @@
 use super::super::*;
 
 impl BrowserDriver {
-    pub(super) async fn evaluate_js<T: DeserializeOwned>(
+    pub(crate) async fn evaluate_js<T: DeserializeOwned>(
         &self,
         script: &str,
     ) -> Result<T, BrowserError> {
@@ -16,7 +16,7 @@ impl BrowserDriver {
             .map_err(|e| BrowserError::Internal(format!("JS decode failed: {}", e)))
     }
 
-    pub(super) fn deep_dom_helper_js() -> &'static str {
+    pub(crate) fn deep_dom_helper_js() -> &'static str {
         r#"
                 const enqueueFrameDocument = (node, queue) => {
                     if (!node || !node.tagName || node.tagName.toLowerCase() !== "iframe") {

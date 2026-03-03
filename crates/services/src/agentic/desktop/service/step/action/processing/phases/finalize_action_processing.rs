@@ -643,12 +643,18 @@ fn tool_to_action_request(
     nonce: u64,
 ) -> Result<ActionRequest, TransactionError> {
     let target = tool.target();
+    let tool_name = queue_tool_name(tool);
     let tool_value =
         serde_json::to_value(tool).map_err(|e| TransactionError::Serialization(e.to_string()))?;
-    let args = tool_value
+    let mut args = tool_value
         .get("arguments")
         .cloned()
         .unwrap_or_else(|| json!({}));
+    if should_embed_queue_tool_name_metadata(&target, &tool_name) {
+        if let Some(obj) = args.as_object_mut() {
+            obj.insert(QUEUE_TOOL_NAME_KEY.to_string(), json!(tool_name));
+        }
+    }
     let params =
         serde_jcs::to_vec(&args).map_err(|e| TransactionError::Serialization(e.to_string()))?;
     Ok(ActionRequest {
@@ -667,6 +673,29 @@ fn tool_to_action_request(
 struct LowercaseRenamePlan {
     target_dir: String,
     renames: Vec<(String, String)>,
+}
+
+const QUEUE_TOOL_NAME_KEY: &str = "__ioi_tool_name";
+
+fn should_embed_queue_tool_name_metadata(target: &ActionTarget, tool_name: &str) -> bool {
+    matches!(target, ActionTarget::FsRead | ActionTarget::FsWrite)
+        || (matches!(target, ActionTarget::GuiClick | ActionTarget::UiClick)
+            && tool_name == "gui__click_element")
+        || matches!(target, ActionTarget::BrowserInteract)
+        || (matches!(target, ActionTarget::SysExec)
+            && matches!(tool_name, "sys__exec_session" | "sys__exec_session_reset"))
+}
+
+fn queue_tool_name(tool: &AgentTool) -> String {
+    serde_json::to_value(tool)
+        .ok()
+        .and_then(|value| {
+            value
+                .get("name")
+                .and_then(|name| name.as_str())
+                .map(str::to_string)
+        })
+        .unwrap_or_else(|| format!("{:?}", tool.target()))
 }
 
 fn parse_lowercase_rename_plan(goal: &str) -> Option<LowercaseRenamePlan> {

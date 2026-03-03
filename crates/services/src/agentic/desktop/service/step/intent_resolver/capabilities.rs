@@ -247,6 +247,56 @@ pub(super) fn tool_capability_bindings() -> Vec<ToolCapabilityBinding> {
             action_target: ActionTarget::BrowserInteract,
             capabilities: vec![capability("browser.interact")],
         },
+        ToolCapabilityBinding {
+            tool_name: "browser__find_text".to_string(),
+            action_target: ActionTarget::BrowserInteract,
+            capabilities: vec![capability("browser.interact")],
+        },
+        ToolCapabilityBinding {
+            tool_name: "browser__screenshot".to_string(),
+            action_target: ActionTarget::BrowserInteract,
+            capabilities: vec![capability("browser.interact")],
+        },
+        ToolCapabilityBinding {
+            tool_name: "browser__wait".to_string(),
+            action_target: ActionTarget::BrowserInteract,
+            capabilities: vec![capability("browser.interact"), capability("sys.time.read")],
+        },
+        ToolCapabilityBinding {
+            tool_name: "browser__upload_file".to_string(),
+            action_target: ActionTarget::BrowserInteract,
+            capabilities: vec![capability("browser.interact")],
+        },
+        ToolCapabilityBinding {
+            tool_name: "browser__dropdown_options".to_string(),
+            action_target: ActionTarget::BrowserInteract,
+            capabilities: vec![capability("browser.interact")],
+        },
+        ToolCapabilityBinding {
+            tool_name: "browser__select_dropdown".to_string(),
+            action_target: ActionTarget::BrowserInteract,
+            capabilities: vec![capability("browser.interact")],
+        },
+        ToolCapabilityBinding {
+            tool_name: "browser__go_back".to_string(),
+            action_target: ActionTarget::BrowserInteract,
+            capabilities: vec![capability("browser.interact")],
+        },
+        ToolCapabilityBinding {
+            tool_name: "browser__tab_list".to_string(),
+            action_target: ActionTarget::BrowserInteract,
+            capabilities: vec![capability("browser.interact")],
+        },
+        ToolCapabilityBinding {
+            tool_name: "browser__tab_switch".to_string(),
+            action_target: ActionTarget::BrowserInteract,
+            capabilities: vec![capability("browser.interact")],
+        },
+        ToolCapabilityBinding {
+            tool_name: "browser__tab_close".to_string(),
+            action_target: ActionTarget::BrowserInteract,
+            capabilities: vec![capability("browser.interact")],
+        },
     ]
 }
 

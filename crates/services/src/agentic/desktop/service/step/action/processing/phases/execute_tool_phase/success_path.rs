@@ -2,6 +2,319 @@ use super::events::emit_execution_contract_receipt_event;
 use super::tool_outcome::{apply_tool_outcome_and_followups, ToolOutcomeContext};
 use super::*;
 
+fn record_browser_marker_receipt(
+    service: &DesktopAgentService,
+    agent_state: &mut AgentState,
+    verification_checks: &mut Vec<String>,
+    session_id: [u8; 32],
+    step_index: u32,
+    resolved_intent_id: &str,
+    synthesized_payload_hash: Option<String>,
+    key: &str,
+    evidence: &str,
+) {
+    mark_execution_receipt_with_value(
+        &mut agent_state.tool_execution_log,
+        key,
+        evidence.to_string(),
+    );
+    verification_checks.push(receipt_marker(key));
+    emit_execution_contract_receipt_event(
+        service,
+        session_id,
+        step_index,
+        resolved_intent_id,
+        "execution",
+        key,
+        true,
+        evidence,
+        None,
+        None,
+        synthesized_payload_hash,
+    );
+}
+
+fn record_browser_marker_postcondition(
+    service: &DesktopAgentService,
+    agent_state: &mut AgentState,
+    verification_checks: &mut Vec<String>,
+    session_id: [u8; 32],
+    step_index: u32,
+    resolved_intent_id: &str,
+    synthesized_payload_hash: Option<String>,
+    key: &str,
+    evidence: &str,
+) {
+    mark_execution_postcondition(&mut agent_state.tool_execution_log, key);
+    verification_checks.push(postcondition_marker(key));
+    emit_execution_contract_receipt_event(
+        service,
+        session_id,
+        step_index,
+        resolved_intent_id,
+        "verification",
+        key,
+        true,
+        evidence,
+        None,
+        None,
+        synthesized_payload_hash,
+    );
+}
+
+fn parse_find_text_found(history_entry: Option<&str>) -> Option<bool> {
+    let raw = history_entry?;
+    let value: serde_json::Value = serde_json::from_str(raw).ok()?;
+    value
+        .get("result")
+        .and_then(|result| result.get("found"))
+        .and_then(|found| found.as_bool())
+}
+
+fn record_browser_success_markers(
+    service: &DesktopAgentService,
+    agent_state: &mut AgentState,
+    tool: &AgentTool,
+    history_entry: Option<&str>,
+    trace_visual_hash: Option<[u8; 32]>,
+    verification_checks: &mut Vec<String>,
+    session_id: [u8; 32],
+    step_index: u32,
+    resolved_intent_id: &str,
+    synthesized_payload_hash: Option<String>,
+) {
+    let evidence = history_entry
+        .map(str::trim)
+        .filter(|entry| !entry.is_empty())
+        .unwrap_or("browser_action_success=true");
+
+    match tool {
+        AgentTool::BrowserUploadFile { .. } => {
+            record_browser_marker_receipt(
+                service,
+                agent_state,
+                verification_checks,
+                session_id,
+                step_index,
+                resolved_intent_id,
+                synthesized_payload_hash.clone(),
+                "browser_upload_file",
+                evidence,
+            );
+            record_browser_marker_postcondition(
+                service,
+                agent_state,
+                verification_checks,
+                session_id,
+                step_index,
+                resolved_intent_id,
+                synthesized_payload_hash,
+                "browser_file_attached",
+                "browser_file_attached=true",
+            );
+        }
+        AgentTool::BrowserSelectDropdown { .. } => {
+            record_browser_marker_receipt(
+                service,
+                agent_state,
+                verification_checks,
+                session_id,
+                step_index,
+                resolved_intent_id,
+                synthesized_payload_hash.clone(),
+                "browser_dropdown_selected",
+                evidence,
+            );
+            record_browser_marker_postcondition(
+                service,
+                agent_state,
+                verification_checks,
+                session_id,
+                step_index,
+                resolved_intent_id,
+                synthesized_payload_hash,
+                "browser_dropdown_selection_applied",
+                "browser_dropdown_selection_applied=true",
+            );
+        }
+        AgentTool::BrowserGoBack { .. } => {
+            record_browser_marker_receipt(
+                service,
+                agent_state,
+                verification_checks,
+                session_id,
+                step_index,
+                resolved_intent_id,
+                synthesized_payload_hash.clone(),
+                "browser_history_back",
+                evidence,
+            );
+            record_browser_marker_postcondition(
+                service,
+                agent_state,
+                verification_checks,
+                session_id,
+                step_index,
+                resolved_intent_id,
+                synthesized_payload_hash,
+                "browser_navigation_changed",
+                "browser_navigation_changed=true",
+            );
+        }
+        AgentTool::BrowserWait { .. } => {
+            record_browser_marker_receipt(
+                service,
+                agent_state,
+                verification_checks,
+                session_id,
+                step_index,
+                resolved_intent_id,
+                synthesized_payload_hash.clone(),
+                "browser_wait",
+                evidence,
+            );
+            record_browser_marker_postcondition(
+                service,
+                agent_state,
+                verification_checks,
+                session_id,
+                step_index,
+                resolved_intent_id,
+                synthesized_payload_hash,
+                "browser_wait_elapsed",
+                "browser_wait_elapsed=true",
+            );
+        }
+        AgentTool::BrowserTabSwitch { .. } => {
+            record_browser_marker_receipt(
+                service,
+                agent_state,
+                verification_checks,
+                session_id,
+                step_index,
+                resolved_intent_id,
+                synthesized_payload_hash.clone(),
+                "browser_tab_switch",
+                evidence,
+            );
+            record_browser_marker_postcondition(
+                service,
+                agent_state,
+                verification_checks,
+                session_id,
+                step_index,
+                resolved_intent_id,
+                synthesized_payload_hash,
+                "browser_active_tab_selected",
+                "browser_active_tab_selected=true",
+            );
+        }
+        AgentTool::BrowserTabClose { .. } => {
+            record_browser_marker_receipt(
+                service,
+                agent_state,
+                verification_checks,
+                session_id,
+                step_index,
+                resolved_intent_id,
+                synthesized_payload_hash.clone(),
+                "browser_tab_close",
+                evidence,
+            );
+            record_browser_marker_postcondition(
+                service,
+                agent_state,
+                verification_checks,
+                session_id,
+                step_index,
+                resolved_intent_id,
+                synthesized_payload_hash,
+                "browser_tab_closed",
+                "browser_tab_closed=true",
+            );
+        }
+        AgentTool::BrowserFindText { .. } => {
+            record_browser_marker_receipt(
+                service,
+                agent_state,
+                verification_checks,
+                session_id,
+                step_index,
+                resolved_intent_id,
+                synthesized_payload_hash.clone(),
+                "browser_find_text",
+                evidence,
+            );
+            if parse_find_text_found(history_entry) == Some(true) {
+                record_browser_marker_postcondition(
+                    service,
+                    agent_state,
+                    verification_checks,
+                    session_id,
+                    step_index,
+                    resolved_intent_id,
+                    synthesized_payload_hash,
+                    "browser_text_found",
+                    "browser_text_found=true",
+                );
+            }
+        }
+        AgentTool::BrowserScreenshot { .. } => {
+            record_browser_marker_receipt(
+                service,
+                agent_state,
+                verification_checks,
+                session_id,
+                step_index,
+                resolved_intent_id,
+                synthesized_payload_hash.clone(),
+                "browser_screenshot",
+                evidence,
+            );
+            if trace_visual_hash.is_some() {
+                record_browser_marker_postcondition(
+                    service,
+                    agent_state,
+                    verification_checks,
+                    session_id,
+                    step_index,
+                    resolved_intent_id,
+                    synthesized_payload_hash,
+                    "browser_visual_observation",
+                    "browser_visual_observation=true",
+                );
+            }
+        }
+        AgentTool::BrowserDropdownOptions { .. } => {
+            record_browser_marker_receipt(
+                service,
+                agent_state,
+                verification_checks,
+                session_id,
+                step_index,
+                resolved_intent_id,
+                synthesized_payload_hash,
+                "browser_dropdown_options",
+                evidence,
+            );
+        }
+        AgentTool::BrowserTabList {} => {
+            record_browser_marker_receipt(
+                service,
+                agent_state,
+                verification_checks,
+                session_id,
+                step_index,
+                resolved_intent_id,
+                synthesized_payload_hash,
+                "browser_tab_list",
+                evidence,
+            );
+        }
+        _ => {}
+    }
+}
+
 pub(super) struct ExecutionSuccessContext<'a, 's> {
     pub service: &'a DesktopAgentService,
     pub state: &'s mut dyn StateAccess,
@@ -287,6 +600,19 @@ pub(super) async fn handle_execution_success(
     }
 
     if *success {
+        record_browser_success_markers(
+            service,
+            agent_state,
+            tool,
+            history_entry.as_deref(),
+            *trace_visual_hash,
+            verification_checks,
+            session_id,
+            step_index,
+            resolved_intent_id,
+            synthesized_payload_hash.clone(),
+        );
+
         if is_command_execution_provider_tool(tool) {
             if command_scope && requires_timer_notification_contract(agent_state) {
                 if matches!(

@@ -20,6 +20,249 @@ fn queue_maps_browser_click_element_from_browser_interact_target() {
 }
 
 #[test]
+fn queue_maps_browser_wait_from_browser_interact_target() {
+    let request = build_request(
+        ActionTarget::BrowserInteract,
+        22,
+        serde_json::json!({
+            "ms": 400
+        }),
+    );
+
+    let tool = queue_action_request_to_tool(&request).expect("queue mapping should succeed");
+    match tool {
+        AgentTool::BrowserWait { ms, condition, .. } => {
+            assert_eq!(ms, Some(400));
+            assert!(condition.is_none());
+        }
+        other => panic!("expected BrowserWait, got {:?}", other),
+    }
+}
+
+#[test]
+fn queue_maps_browser_wait_condition_from_browser_interact_target() {
+    let request = build_request(
+        ActionTarget::BrowserInteract,
+        223,
+        serde_json::json!({
+            "condition": "selector_visible",
+            "selector": "input[name='q']",
+            "timeout_ms": 1200
+        }),
+    );
+
+    let tool = queue_action_request_to_tool(&request).expect("queue mapping should succeed");
+    match tool {
+        AgentTool::BrowserWait {
+            ms,
+            condition,
+            selector,
+            timeout_ms,
+            ..
+        } => {
+            assert!(ms.is_none());
+            assert_eq!(condition.as_deref(), Some("selector_visible"));
+            assert_eq!(selector.as_deref(), Some("input[name='q']"));
+            assert_eq!(timeout_ms, Some(1200));
+        }
+        other => panic!("expected BrowserWait condition mode, got {:?}", other),
+    }
+}
+
+#[test]
+fn queue_maps_browser_find_text_from_browser_interact_target() {
+    let request = build_request(
+        ActionTarget::BrowserInteract,
+        221,
+        serde_json::json!({
+            "query": "weather",
+            "scope": "visible",
+            "scroll": true
+        }),
+    );
+
+    let tool = queue_action_request_to_tool(&request).expect("queue mapping should succeed");
+    match tool {
+        AgentTool::BrowserFindText {
+            query,
+            scope,
+            scroll,
+        } => {
+            assert_eq!(query, "weather");
+            assert_eq!(scope.as_deref(), Some("visible"));
+            assert!(scroll);
+        }
+        other => panic!("expected BrowserFindText, got {:?}", other),
+    }
+}
+
+#[test]
+fn queue_maps_browser_screenshot_from_browser_interact_target() {
+    let request = build_request(
+        ActionTarget::BrowserInteract,
+        222,
+        serde_json::json!({
+            "full_page": true
+        }),
+    );
+
+    let tool = queue_action_request_to_tool(&request).expect("queue mapping should succeed");
+    match tool {
+        AgentTool::BrowserScreenshot { full_page } => assert!(full_page),
+        other => panic!("expected BrowserScreenshot, got {:?}", other),
+    }
+}
+
+#[test]
+fn queue_maps_browser_upload_file_from_browser_interact_target() {
+    let request = build_request(
+        ActionTarget::BrowserInteract,
+        23,
+        serde_json::json!({
+            "selector": "input[type='file']",
+            "paths": ["/tmp/demo.txt"]
+        }),
+    );
+
+    let tool = queue_action_request_to_tool(&request).expect("queue mapping should succeed");
+    match tool {
+        AgentTool::BrowserUploadFile {
+            selector,
+            som_id,
+            paths,
+        } => {
+            assert_eq!(selector.as_deref(), Some("input[type='file']"));
+            assert!(som_id.is_none());
+            assert_eq!(paths, vec!["/tmp/demo.txt".to_string()]);
+        }
+        other => panic!("expected BrowserUploadFile, got {:?}", other),
+    }
+}
+
+#[test]
+fn queue_maps_browser_upload_file_with_som_id_from_browser_interact_target() {
+    let request = build_request(
+        ActionTarget::BrowserInteract,
+        27,
+        serde_json::json!({
+            "som_id": 7,
+            "paths": ["/tmp/demo.txt"]
+        }),
+    );
+
+    let tool = queue_action_request_to_tool(&request).expect("queue mapping should succeed");
+    match tool {
+        AgentTool::BrowserUploadFile {
+            selector,
+            som_id,
+            paths,
+        } => {
+            assert!(selector.is_none());
+            assert_eq!(som_id, Some(7));
+            assert_eq!(paths, vec!["/tmp/demo.txt".to_string()]);
+        }
+        other => panic!("expected BrowserUploadFile, got {:?}", other),
+    }
+}
+
+#[test]
+fn queue_maps_browser_select_dropdown_from_browser_interact_target() {
+    let request = build_request(
+        ActionTarget::BrowserInteract,
+        24,
+        serde_json::json!({
+            "selector": "select[name='country']",
+            "value": "US"
+        }),
+    );
+
+    let tool = queue_action_request_to_tool(&request).expect("queue mapping should succeed");
+    match tool {
+        AgentTool::BrowserSelectDropdown {
+            selector,
+            som_id,
+            value,
+            label,
+        } => {
+            assert_eq!(selector.as_deref(), Some("select[name='country']"));
+            assert!(som_id.is_none());
+            assert_eq!(value.as_deref(), Some("US"));
+            assert!(label.is_none());
+        }
+        other => panic!("expected BrowserSelectDropdown, got {:?}", other),
+    }
+}
+
+#[test]
+fn queue_maps_browser_select_dropdown_with_som_id_from_browser_interact_target() {
+    let request = build_request(
+        ActionTarget::BrowserInteract,
+        28,
+        serde_json::json!({
+            "som_id": 12,
+            "label": "United States"
+        }),
+    );
+
+    let tool = queue_action_request_to_tool(&request).expect("queue mapping should succeed");
+    match tool {
+        AgentTool::BrowserSelectDropdown {
+            selector,
+            som_id,
+            value,
+            label,
+        } => {
+            assert!(selector.is_none());
+            assert_eq!(som_id, Some(12));
+            assert!(value.is_none());
+            assert_eq!(label.as_deref(), Some("United States"));
+        }
+        other => panic!("expected BrowserSelectDropdown, got {:?}", other),
+    }
+}
+
+#[test]
+fn queue_uses_explicit_browser_tool_name_override_for_dropdown_options() {
+    let request = build_request(
+        ActionTarget::BrowserInteract,
+        26,
+        serde_json::json!({
+            "selector": "select[name='country']",
+            "__ioi_tool_name": "browser__dropdown_options"
+        }),
+    );
+
+    let tool = queue_action_request_to_tool(&request).expect("queue mapping should succeed");
+    match tool {
+        AgentTool::BrowserDropdownOptions { selector, som_id } => {
+            assert_eq!(selector.as_deref(), Some("select[name='country']"));
+            assert!(som_id.is_none());
+        }
+        other => panic!("expected BrowserDropdownOptions, got {:?}", other),
+    }
+}
+
+#[test]
+fn queue_maps_browser_dropdown_options_from_som_id_payload() {
+    let request = build_request(
+        ActionTarget::BrowserInteract,
+        29,
+        serde_json::json!({
+            "som_id": 42
+        }),
+    );
+
+    let tool = queue_action_request_to_tool(&request).expect("queue mapping should succeed");
+    match tool {
+        AgentTool::BrowserDropdownOptions { selector, som_id } => {
+            assert!(selector.is_none());
+            assert_eq!(som_id, Some(42));
+        }
+        other => panic!("expected BrowserDropdownOptions, got {:?}", other),
+    }
+}
+
+#[test]
 fn queue_maps_net_fetch_target_to_typed_net_fetch_tool() {
     let request = build_request(
         ActionTarget::NetFetch,
