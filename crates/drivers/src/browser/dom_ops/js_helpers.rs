@@ -1,6 +1,8 @@
 use super::super::*;
 
 impl BrowserDriver {
+    // Internal DOM helper only. This is intentionally not exposed as an agent tool.
+    // Any future evaluate-style tool must add explicit policy gating and receipts.
     pub(crate) async fn evaluate_js<T: DeserializeOwned>(
         &self,
         script: &str,

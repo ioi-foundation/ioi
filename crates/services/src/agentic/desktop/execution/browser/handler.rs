@@ -5,6 +5,8 @@ use super::tree::{apply_browser_auto_lens, detect_human_challenge, render_browse
 use ioi_types::app::agentic::AgentTool;
 use serde_json::json;
 use std::collections::BTreeMap;
+use std::env;
+use std::path::PathBuf;
 
 fn semantic_candidates(semantic_blob: &str) -> Vec<String> {
     semantic_blob
@@ -13,6 +15,113 @@ fn semantic_candidates(semantic_blob: &str) -> Vec<String> {
         .filter(|candidate| !candidate.is_empty())
         .map(str::to_string)
         .collect()
+}
+
+fn resolve_home_directory() -> Result<PathBuf, String> {
+    if let Some(home) = env::var_os("HOME").filter(|value| !value.is_empty()) {
+        return Ok(PathBuf::from(home));
+    }
+    if let Some(user_profile) = env::var_os("USERPROFILE").filter(|value| !value.is_empty()) {
+        return Ok(PathBuf::from(user_profile));
+    }
+    if let (Some(home_drive), Some(home_path)) = (env::var_os("HOMEDRIVE"), env::var_os("HOMEPATH"))
+    {
+        if !home_drive.is_empty() && !home_path.is_empty() {
+            let mut combined = PathBuf::from(home_drive);
+            combined.push(home_path);
+            return Ok(combined);
+        }
+    }
+    Err("Home directory is not configured (HOME/USERPROFILE).".to_string())
+}
+
+fn expand_tilde_path(path: &str) -> Result<PathBuf, String> {
+    if path == "~" {
+        return resolve_home_directory();
+    }
+    if let Some(remainder) = path.strip_prefix("~/").or_else(|| path.strip_prefix("~\\")) {
+        return Ok(resolve_home_directory()?.join(remainder));
+    }
+    Ok(PathBuf::from(path))
+}
+
+fn resolve_upload_scope_root(cwd: Option<&str>) -> Result<PathBuf, String> {
+    let normalized = cwd.unwrap_or(".").trim();
+    let candidate = if normalized.is_empty() {
+        PathBuf::from(".")
+    } else {
+        expand_tilde_path(normalized)?
+    };
+    let absolute = if candidate.is_absolute() {
+        candidate
+    } else {
+        env::current_dir()
+            .map_err(|e| format!("Failed to resolve current directory: {}", e))?
+            .join(candidate)
+    };
+    let canonical = std::fs::canonicalize(&absolute).map_err(|e| {
+        format!(
+            "Failed to resolve upload scope root '{}': {}",
+            absolute.display(),
+            e
+        )
+    })?;
+    if !canonical.is_dir() {
+        return Err(format!(
+            "Upload scope root '{}' is not a directory.",
+            canonical.display()
+        ));
+    }
+    Ok(canonical)
+}
+
+fn resolve_scoped_upload_paths(paths: &[String], cwd: Option<&str>) -> Result<Vec<String>, String> {
+    if paths.is_empty() {
+        return Err("browser__upload_file requires at least one path".to_string());
+    }
+
+    let scope_root = resolve_upload_scope_root(cwd)?;
+    let mut resolved = Vec::with_capacity(paths.len());
+
+    for raw in paths {
+        let trimmed = raw.trim();
+        if trimmed.is_empty() {
+            return Err("browser__upload_file paths cannot be empty".to_string());
+        }
+
+        let requested = expand_tilde_path(trimmed)?;
+        let candidate = if requested.is_absolute() {
+            requested
+        } else {
+            scope_root.join(requested)
+        };
+
+        let canonical = std::fs::canonicalize(&candidate).map_err(|e| {
+            format!(
+                "Failed to resolve upload path '{}' within scope '{}': {}",
+                trimmed,
+                scope_root.display(),
+                e
+            )
+        })?;
+        if !canonical.is_file() {
+            return Err(format!(
+                "Upload path is not a file: '{}'",
+                canonical.display()
+            ));
+        }
+        if !canonical.starts_with(&scope_root) {
+            return Err(format!(
+                "Upload path '{}' is outside allowed scope root '{}'.",
+                canonical.display(),
+                scope_root.display()
+            ));
+        }
+
+        resolved.push(canonical.to_string_lossy().to_string());
+    }
+
+    Ok(resolved)
 }
 
 async fn resolve_semantic_target_from_som(
@@ -209,6 +318,17 @@ pub async fn handle(
             selector,
             som_id,
         } => {
+            let scoped_paths =
+                match resolve_scoped_upload_paths(&paths, exec.working_directory.as_deref()) {
+                    Ok(paths) => paths,
+                    Err(reason) => {
+                        return ToolExecutionResult::failure(format!(
+                            "ERROR_CLASS=PathScopeViolation Browser upload failed: {}",
+                            reason
+                        ))
+                    }
+                };
+
             let selector = selector
                 .as_deref()
                 .map(str::trim)
@@ -238,7 +358,7 @@ pub async fn handle(
                 };
                 match exec
                     .browser
-                    .upload_files_to_backend_node(backend_dom_node_id, &paths)
+                    .upload_files_to_backend_node(backend_dom_node_id, &scoped_paths)
                     .await
                 {
                     Ok(attached) => {
@@ -251,7 +371,7 @@ pub async fn handle(
                     Err(e) => ToolExecutionResult::failure(format!("Browser upload failed: {}", e)),
                 }
             } else {
-                match exec.browser.upload_files(selector, &paths).await {
+                match exec.browser.upload_files(selector, &scoped_paths).await {
                     Ok(attached) => ToolExecutionResult::success(format!(
                         "Attached {} file(s) using selector {}",
                         attached,
@@ -427,5 +547,68 @@ pub async fn handle(
             Err(e) => ToolExecutionResult::failure(format!("Browser tab close failed: {}", e)),
         },
         _ => ToolExecutionResult::failure("Unsupported Browser action"),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::resolve_scoped_upload_paths;
+    use std::fs;
+    use std::path::PathBuf;
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    fn temp_dir(name: &str) -> PathBuf {
+        let suffix = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("clock")
+            .as_nanos();
+        let dir = std::env::temp_dir().join(format!(
+            "ioi_browser_handler_{}_{}_{}",
+            name,
+            std::process::id(),
+            suffix
+        ));
+        fs::create_dir_all(&dir).expect("create temp dir");
+        dir
+    }
+
+    #[test]
+    fn resolve_scoped_upload_paths_resolves_relative_files_within_scope() {
+        let scope_root = temp_dir("scope_ok");
+        let nested = scope_root.join("docs");
+        fs::create_dir_all(&nested).expect("create nested dir");
+        let file_path = nested.join("invoice.txt");
+        fs::write(&file_path, b"ok").expect("write test file");
+
+        let resolved = resolve_scoped_upload_paths(
+            &[String::from("docs/invoice.txt")],
+            Some(scope_root.to_string_lossy().as_ref()),
+        )
+        .expect("paths should resolve");
+
+        let expected = fs::canonicalize(&file_path).expect("canonical file");
+        assert_eq!(resolved, vec![expected.to_string_lossy().to_string()]);
+
+        let _ = fs::remove_dir_all(&scope_root);
+    }
+
+    #[test]
+    fn resolve_scoped_upload_paths_rejects_absolute_paths_outside_scope() {
+        let scope_root = temp_dir("scope_root");
+        let outside_root = temp_dir("outside_root");
+        let outside_file = outside_root.join("secret.txt");
+        fs::write(&outside_file, b"nope").expect("write outside file");
+        let outside_canonical = fs::canonicalize(&outside_file).expect("canonical outside file");
+
+        let err = resolve_scoped_upload_paths(
+            &[outside_canonical.to_string_lossy().to_string()],
+            Some(scope_root.to_string_lossy().as_ref()),
+        )
+        .expect_err("outside path must fail");
+
+        assert!(err.contains("outside allowed scope root"));
+
+        let _ = fs::remove_dir_all(&scope_root);
+        let _ = fs::remove_dir_all(&outside_root);
     }
 }
