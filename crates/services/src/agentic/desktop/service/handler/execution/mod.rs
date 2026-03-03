@@ -164,7 +164,17 @@ fn runtime_target_for_tool(tool: &AgentTool) -> RuntimeTarget {
         | AgentTool::BrowserSyntheticClick { .. }
         | AgentTool::BrowserScroll { .. }
         | AgentTool::BrowserType { .. }
-        | AgentTool::BrowserKey { .. } => RuntimeTarget::Browser,
+        | AgentTool::BrowserKey { .. }
+        | AgentTool::BrowserFindText { .. }
+        | AgentTool::BrowserScreenshot { .. }
+        | AgentTool::BrowserWait { .. }
+        | AgentTool::BrowserUploadFile { .. }
+        | AgentTool::BrowserDropdownOptions { .. }
+        | AgentTool::BrowserSelectDropdown { .. }
+        | AgentTool::BrowserGoBack { .. }
+        | AgentTool::BrowserTabList {}
+        | AgentTool::BrowserTabSwitch { .. }
+        | AgentTool::BrowserTabClose { .. } => RuntimeTarget::Browser,
         AgentTool::WebSearch { .. } | AgentTool::WebRead { .. } | AgentTool::NetFetch { .. } => {
             RuntimeTarget::Network
         }
@@ -1307,6 +1317,16 @@ pub async fn handle_action_execution(
             | AgentTool::BrowserScroll { .. }
             | AgentTool::BrowserType { .. }
             | AgentTool::BrowserKey { .. }
+            | AgentTool::BrowserFindText { .. }
+            | AgentTool::BrowserScreenshot { .. }
+            | AgentTool::BrowserWait { .. }
+            | AgentTool::BrowserUploadFile { .. }
+            | AgentTool::BrowserDropdownOptions { .. }
+            | AgentTool::BrowserSelectDropdown { .. }
+            | AgentTool::BrowserGoBack { .. }
+            | AgentTool::BrowserTabList {}
+            | AgentTool::BrowserTabSwitch { .. }
+            | AgentTool::BrowserTabClose { .. }
     ) {
         service.browser.set_lease(true);
     }

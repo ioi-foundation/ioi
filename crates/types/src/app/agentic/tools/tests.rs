@@ -33,6 +33,16 @@ fn is_expected_egress_tool_exhaustive(tool: &AgentTool) -> bool {
         | AgentTool::BrowserSyntheticClick { .. }
         | AgentTool::BrowserScroll { .. }
         | AgentTool::BrowserKey { .. }
+        | AgentTool::BrowserFindText { .. }
+        | AgentTool::BrowserScreenshot { .. }
+        | AgentTool::BrowserWait { .. }
+        | AgentTool::BrowserUploadFile { .. }
+        | AgentTool::BrowserDropdownOptions { .. }
+        | AgentTool::BrowserSelectDropdown { .. }
+        | AgentTool::BrowserGoBack { .. }
+        | AgentTool::BrowserTabList {}
+        | AgentTool::BrowserTabSwitch { .. }
+        | AgentTool::BrowserTabClose { .. }
         | AgentTool::GuiClick { .. }
         | AgentTool::GuiType { .. }
         | AgentTool::GuiScroll { .. }
@@ -218,6 +228,99 @@ fn browser_key_target_maps_to_custom_browser_key_tool() {
         key: "Enter".to_string(),
     };
     assert_eq!(tool.target(), crate::app::ActionTarget::BrowserInteract);
+}
+
+#[test]
+fn browser_find_text_target_maps_to_browser_interact_scope() {
+    let tool = AgentTool::BrowserFindText {
+        query: "weather".to_string(),
+        scope: Some("visible".to_string()),
+        scroll: true,
+    };
+    assert_eq!(tool.target(), crate::app::ActionTarget::BrowserInteract);
+}
+
+#[test]
+fn browser_screenshot_target_maps_to_browser_interact_scope() {
+    let tool = AgentTool::BrowserScreenshot { full_page: true };
+    assert_eq!(tool.target(), crate::app::ActionTarget::BrowserInteract);
+}
+
+#[test]
+fn browser_wait_target_maps_to_browser_interact_scope() {
+    let tool = AgentTool::BrowserWait {
+        ms: Some(250),
+        condition: None,
+        selector: None,
+        query: None,
+        scope: None,
+        timeout_ms: None,
+    };
+    assert_eq!(tool.target(), crate::app::ActionTarget::BrowserInteract);
+}
+
+#[test]
+fn browser_upload_target_maps_to_browser_interact_scope() {
+    let tool = AgentTool::BrowserUploadFile {
+        paths: vec!["/tmp/demo.txt".to_string()],
+        selector: Some("input[type='file']".to_string()),
+        som_id: None,
+    };
+    assert_eq!(tool.target(), crate::app::ActionTarget::BrowserInteract);
+}
+
+#[test]
+fn browser_dropdown_tools_target_map_to_browser_interact_scope() {
+    let options_tool = AgentTool::BrowserDropdownOptions {
+        selector: Some("select[name='country']".to_string()),
+        som_id: None,
+    };
+    let select_tool = AgentTool::BrowserSelectDropdown {
+        selector: Some("select[name='country']".to_string()),
+        som_id: None,
+        value: Some("US".to_string()),
+        label: None,
+    };
+
+    assert_eq!(
+        options_tool.target(),
+        crate::app::ActionTarget::BrowserInteract
+    );
+    assert_eq!(
+        select_tool.target(),
+        crate::app::ActionTarget::BrowserInteract
+    );
+}
+
+#[test]
+fn browser_go_back_target_maps_to_browser_interact_scope() {
+    let tool = AgentTool::BrowserGoBack { steps: Some(2) };
+    assert_eq!(tool.target(), crate::app::ActionTarget::BrowserInteract);
+}
+
+#[test]
+fn browser_tab_tools_target_map_to_browser_interact_scope() {
+    let list_tool = AgentTool::BrowserTabList {};
+    let switch_tool = AgentTool::BrowserTabSwitch {
+        tab_id: "tab-a".to_string(),
+    };
+    let close_tool = AgentTool::BrowserTabClose {
+        tab_id: "tab-b".to_string(),
+        close: true,
+    };
+
+    assert_eq!(
+        list_tool.target(),
+        crate::app::ActionTarget::BrowserInteract
+    );
+    assert_eq!(
+        switch_tool.target(),
+        crate::app::ActionTarget::BrowserInteract
+    );
+    assert_eq!(
+        close_tool.target(),
+        crate::app::ActionTarget::BrowserInteract
+    );
 }
 
 #[test]

@@ -141,6 +141,39 @@ pub(super) fn infer_browser_interact_tool_name(
         ));
     };
 
+    if obj.contains_key("tab_id") {
+        if obj.get("close").and_then(|value| value.as_bool()) == Some(true) {
+            return Ok("browser__tab_close");
+        }
+        return Ok("browser__tab_switch");
+    }
+    if obj.contains_key("paths") {
+        return Ok("browser__upload_file");
+    }
+    if obj.contains_key("ms") {
+        return Ok("browser__wait");
+    }
+    if obj.contains_key("condition") {
+        return Ok("browser__wait");
+    }
+    if obj.contains_key("query") {
+        return Ok("browser__find_text");
+    }
+    if obj.contains_key("full_page") {
+        return Ok("browser__screenshot");
+    }
+    if obj.contains_key("value") || obj.contains_key("label") {
+        return Ok("browser__select_dropdown");
+    }
+    if obj.contains_key("som_id") {
+        return Ok("browser__dropdown_options");
+    }
+    if obj.is_empty() {
+        return Ok("browser__tab_list");
+    }
+    if obj.contains_key("steps") {
+        return Ok("browser__go_back");
+    }
     if obj.contains_key("url") {
         return Ok("browser__navigate");
     }
@@ -196,6 +229,7 @@ pub(super) enum QueueToolNameScope {
     Write,
     GuiClick,
     SysExec,
+    BrowserInteract,
 }
 
 pub(super) fn explicit_queue_tool_name_scope(target: &ActionTarget) -> Option<QueueToolNameScope> {
@@ -206,6 +240,7 @@ pub(super) fn explicit_queue_tool_name_scope(target: &ActionTarget) -> Option<Qu
         ActionTarget::Custom(name) if name == "fs::write" => Some(QueueToolNameScope::Write),
         ActionTarget::GuiClick | ActionTarget::UiClick => Some(QueueToolNameScope::GuiClick),
         ActionTarget::SysExec => Some(QueueToolNameScope::SysExec),
+        ActionTarget::BrowserInteract => Some(QueueToolNameScope::BrowserInteract),
         _ => None,
     }
 }
@@ -238,6 +273,26 @@ pub(super) fn is_explicit_tool_name_allowed_for_scope(
         QueueToolNameScope::SysExec => {
             matches!(tool_name, "sys__exec_session" | "sys__exec_session_reset")
         }
+        QueueToolNameScope::BrowserInteract => matches!(
+            tool_name,
+            "browser__navigate"
+                | "browser__click"
+                | "browser__click_element"
+                | "browser__synthetic_click"
+                | "browser__scroll"
+                | "browser__type"
+                | "browser__key"
+                | "browser__find_text"
+                | "browser__screenshot"
+                | "browser__wait"
+                | "browser__upload_file"
+                | "browser__dropdown_options"
+                | "browser__select_dropdown"
+                | "browser__go_back"
+                | "browser__tab_list"
+                | "browser__tab_switch"
+                | "browser__tab_close"
+        ),
     }
 }
 

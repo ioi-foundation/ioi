@@ -4,6 +4,10 @@ use serde::{Deserialize, Serialize};
 
 use super::{CommerceItem, ComputerAction};
 
+fn default_true() -> bool {
+    true
+}
+
 /// The single source of truth for all Agent Capabilities.
 #[derive(Debug, Serialize, Deserialize, JsonSchema, Clone)]
 #[serde(tag = "name", content = "arguments", rename_all = "snake_case")]
@@ -247,6 +251,123 @@ pub enum AgentTool {
         key: String,
     },
 
+    /// Find literal text on the current page and optionally scroll to the first match.
+    #[serde(rename = "browser__find_text")]
+    BrowserFindText {
+        /// Literal text to find.
+        query: String,
+        /// Optional search scope: `visible` (default) or `document`.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        scope: Option<String>,
+        /// Whether to scroll the first match into view.
+        #[serde(default)]
+        scroll: bool,
+    },
+
+    /// Capture a browser screenshot as a visual observation.
+    #[serde(rename = "browser__screenshot")]
+    BrowserScreenshot {
+        /// Whether to capture beyond viewport for full-page output.
+        full_page: bool,
+    },
+
+    /// Explicit wait primitive for browser workflows.
+    #[serde(rename = "browser__wait")]
+    BrowserWait {
+        /// Optional fixed duration to wait in milliseconds.
+        ///
+        /// When `condition` is absent, this must be provided.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        ms: Option<u64>,
+        /// Optional condition to wait for.
+        ///
+        /// Supported values: `selector_visible`, `text_present`, `dom_stable`.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        condition: Option<String>,
+        /// Optional selector used by `selector_visible`.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        selector: Option<String>,
+        /// Optional literal text used by `text_present`.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        query: Option<String>,
+        /// Optional text scope for `text_present`: `visible` (default) or `document`.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        scope: Option<String>,
+        /// Optional timeout in milliseconds for condition waits.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        timeout_ms: Option<u64>,
+    },
+
+    /// Attach one or more local files to a browser file input.
+    #[serde(rename = "browser__upload_file")]
+    BrowserUploadFile {
+        /// Paths to files on the local filesystem.
+        paths: Vec<String>,
+        /// Optional CSS selector for the target file input. Defaults to `input[type='file']`.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        selector: Option<String>,
+        /// Optional SoM ID for the target element (resolved via current visual semantic map).
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        som_id: Option<u32>,
+    },
+
+    /// List options for a native `<select>` dropdown.
+    #[serde(rename = "browser__dropdown_options")]
+    BrowserDropdownOptions {
+        /// Optional CSS selector for the dropdown element.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        selector: Option<String>,
+        /// Optional SoM ID for the dropdown element (resolved via current visual semantic map).
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        som_id: Option<u32>,
+    },
+
+    /// Select a value or label for a native `<select>` dropdown.
+    #[serde(rename = "browser__select_dropdown")]
+    BrowserSelectDropdown {
+        /// Optional CSS selector for the dropdown element.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        selector: Option<String>,
+        /// Optional SoM ID for the dropdown element (resolved via current visual semantic map).
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        som_id: Option<u32>,
+        /// Optional option value to select.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        value: Option<String>,
+        /// Optional visible label text to select.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        label: Option<String>,
+    },
+
+    /// Navigate backward in browser history.
+    #[serde(rename = "browser__go_back")]
+    BrowserGoBack {
+        /// Number of history entries to go back. Defaults to 1.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        steps: Option<u32>,
+    },
+
+    /// List open browser tabs for the interactive browser context.
+    #[serde(rename = "browser__tab_list")]
+    BrowserTabList {},
+
+    /// Switch focus to an existing browser tab by tab id.
+    #[serde(rename = "browser__tab_switch")]
+    BrowserTabSwitch {
+        /// Stable tab identifier for the current browser session.
+        tab_id: String,
+    },
+
+    /// Close an existing browser tab by tab id.
+    #[serde(rename = "browser__tab_close")]
+    BrowserTabClose {
+        /// Stable tab identifier for the current browser session.
+        tab_id: String,
+        /// Distinguishes close replay from other tab actions in ActionTarget-level queues.
+        #[serde(default = "default_true")]
+        close: bool,
+    },
+
     /// Search the web via an edge/local SERP and return typed sources with provenance.
     ///
     /// Note: the `url` field is computed deterministically by the runtime and is not intended
@@ -478,6 +599,16 @@ impl AgentTool {
                 | "browser__scroll"
                 | "browser__type"
                 | "browser__key"
+                | "browser__find_text"
+                | "browser__screenshot"
+                | "browser__wait"
+                | "browser__upload_file"
+                | "browser__dropdown_options"
+                | "browser__select_dropdown"
+                | "browser__go_back"
+                | "browser__tab_list"
+                | "browser__tab_switch"
+                | "browser__tab_close"
                 | "web__search"
                 | "web__read"
                 | "net__fetch"

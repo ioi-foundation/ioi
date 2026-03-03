@@ -329,7 +329,17 @@ fn classify_domain(tool: &AgentTool) -> Option<RrsaDomain> {
         | AgentTool::BrowserSyntheticClick { .. }
         | AgentTool::BrowserScroll { .. }
         | AgentTool::BrowserType { .. }
-        | AgentTool::BrowserKey { .. } => Some(RrsaDomain::UiBrowser),
+        | AgentTool::BrowserKey { .. }
+        | AgentTool::BrowserFindText { .. }
+        | AgentTool::BrowserScreenshot { .. }
+        | AgentTool::BrowserWait { .. }
+        | AgentTool::BrowserUploadFile { .. }
+        | AgentTool::BrowserDropdownOptions { .. }
+        | AgentTool::BrowserSelectDropdown { .. }
+        | AgentTool::BrowserGoBack { .. }
+        | AgentTool::BrowserTabList {}
+        | AgentTool::BrowserTabSwitch { .. }
+        | AgentTool::BrowserTabClose { .. } => Some(RrsaDomain::UiBrowser),
 
         AgentTool::FsWrite { .. }
         | AgentTool::FsPatch { .. }

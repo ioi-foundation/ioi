@@ -339,7 +339,17 @@ impl ToolExecutor {
             | AgentTool::BrowserSyntheticClick { .. }
             | AgentTool::BrowserScroll { .. }
             | AgentTool::BrowserType { .. }
-            | AgentTool::BrowserKey { .. } => browser::handle(self, tool).await,
+            | AgentTool::BrowserKey { .. }
+            | AgentTool::BrowserFindText { .. }
+            | AgentTool::BrowserScreenshot { .. }
+            | AgentTool::BrowserWait { .. }
+            | AgentTool::BrowserUploadFile { .. }
+            | AgentTool::BrowserDropdownOptions { .. }
+            | AgentTool::BrowserSelectDropdown { .. }
+            | AgentTool::BrowserGoBack { .. }
+            | AgentTool::BrowserTabList {}
+            | AgentTool::BrowserTabSwitch { .. }
+            | AgentTool::BrowserTabClose { .. } => browser::handle(self, tool, semantic_map).await,
 
             // Web Retrieval Domain
             AgentTool::WebSearch { .. }

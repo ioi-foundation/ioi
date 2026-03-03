@@ -12,7 +12,17 @@ fn action_target_for_macro_step(target: &str, _params: &serde_json::Value) -> Ac
         | "browser__synthetic_click"
         | "browser__scroll"
         | "browser__type"
-        | "browser__key" => ActionTarget::BrowserInteract,
+        | "browser__key"
+        | "browser__find_text"
+        | "browser__screenshot"
+        | "browser__wait"
+        | "browser__upload_file"
+        | "browser__dropdown_options"
+        | "browser__select_dropdown"
+        | "browser__go_back"
+        | "browser__tab_list"
+        | "browser__tab_switch"
+        | "browser__tab_close" => ActionTarget::BrowserInteract,
         "gui__type" => ActionTarget::GuiType,
         "gui__click" => ActionTarget::GuiClick,
         // Element-targeted click variants should route as GUI clicks (policy/app isolation),
@@ -44,6 +54,13 @@ fn macro_step_params_with_queue_metadata(
         "gui__click_element" | "ui__click_element" | "ui__click_component"
     ) {
         Some(GUI_CLICK_ELEMENT_TOOL_NAME.to_string())
+    } else if target_str.starts_with("browser__")
+        && matches!(
+            action_target_for_macro_step(target_str, params),
+            ActionTarget::BrowserInteract
+        )
+    {
+        Some(target_str.to_string())
     } else if matches!(target_str, "sys__exec_session" | "sys__exec_session_reset") {
         Some(target_str.to_string())
     } else {
@@ -560,5 +577,22 @@ mod tests {
             Some(GUI_CLICK_ELEMENT_TOOL_NAME)
         );
         assert_eq!(args.get("id").and_then(|v| v.as_str()), Some("btn_submit"));
+    }
+
+    #[test]
+    fn macro_step_browser_interact_tool_injects_queue_tool_name() {
+        let params = json!({"selector": "select[name='country']"});
+        let target = action_target_for_macro_step("browser__dropdown_options", &params);
+        assert_eq!(target, ActionTarget::BrowserInteract);
+
+        let args = macro_step_params_with_queue_metadata("browser__dropdown_options", &params);
+        assert_eq!(
+            args.get(QUEUE_TOOL_NAME_KEY).and_then(|v| v.as_str()),
+            Some("browser__dropdown_options")
+        );
+        assert_eq!(
+            args.get("selector").and_then(|v| v.as_str()),
+            Some("select[name='country']")
+        );
     }
 }

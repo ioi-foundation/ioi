@@ -76,6 +76,43 @@ impl Default for SelectorProbe {
     }
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BrowserTabInfo {
+    pub tab_id: String,
+    pub title: String,
+    pub url: String,
+    pub active: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BrowserDropdownOption {
+    pub value: String,
+    pub label: String,
+    pub selected: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BrowserDropdownSelection {
+    pub value: String,
+    pub label: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BrowserFindTextResult {
+    pub found: bool,
+    pub count: u32,
+    pub scope: String,
+    pub scrolled: bool,
+    pub first_snippet: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BrowserWaitResult {
+    pub condition: String,
+    pub met: bool,
+    pub elapsed_ms: u64,
+}
+
 pub struct BrowserDriver {
     // Hermetic Instance
     browser: Arc<Mutex<Option<Arc<Browser>>>>,

@@ -33,7 +33,17 @@ pub(super) fn target_for_tool(tool: &AgentTool) -> ActionTarget {
         | AgentTool::BrowserSyntheticClick { .. }
         | AgentTool::BrowserScroll { .. }
         | AgentTool::BrowserType { .. }
-        | AgentTool::BrowserKey { .. } => ActionTarget::BrowserInteract,
+        | AgentTool::BrowserKey { .. }
+        | AgentTool::BrowserFindText { .. }
+        | AgentTool::BrowserScreenshot { .. }
+        | AgentTool::BrowserWait { .. }
+        | AgentTool::BrowserUploadFile { .. }
+        | AgentTool::BrowserDropdownOptions { .. }
+        | AgentTool::BrowserSelectDropdown { .. }
+        | AgentTool::BrowserGoBack { .. }
+        | AgentTool::BrowserTabList {}
+        | AgentTool::BrowserTabSwitch { .. }
+        | AgentTool::BrowserTabClose { .. } => ActionTarget::BrowserInteract,
 
         AgentTool::BrowserSnapshot { .. } => ActionTarget::BrowserInspect,
 
@@ -98,7 +108,17 @@ pub(super) fn target_for_tool(tool: &AgentTool) -> ActionTarget {
                     | "browser__synthetic_click"
                     | "browser__scroll"
                     | "browser__type"
-                    | "browser__key" => ActionTarget::BrowserInteract,
+                    | "browser__key"
+                    | "browser__find_text"
+                    | "browser__screenshot"
+                    | "browser__wait"
+                    | "browser__upload_file"
+                    | "browser__dropdown_options"
+                    | "browser__select_dropdown"
+                    | "browser__go_back"
+                    | "browser__tab_list"
+                    | "browser__tab_switch"
+                    | "browser__tab_close" => ActionTarget::BrowserInteract,
                     "sys__exec"
                     | "sys__exec_session"
                     | "sys__exec_session_reset"

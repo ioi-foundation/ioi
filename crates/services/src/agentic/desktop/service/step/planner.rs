@@ -5,7 +5,7 @@ use crate::agentic::desktop::types::{
 };
 use ioi_crypto::algorithms::hash::sha256;
 use ioi_types::app::agentic::{AgentTool, ResolvedIntentState};
-use ioi_types::app::{ActionContext, ActionRequest};
+use ioi_types::app::{ActionContext, ActionRequest, ActionTarget};
 use ioi_types::error::TransactionError;
 use serde_json::json;
 use std::collections::{BTreeMap, BTreeSet};
@@ -14,6 +14,7 @@ const MAX_PLAN_STEPS: usize = 256;
 const MAX_TOTAL_TOOL_ACTIONS: usize = 512;
 const MAX_SAME_TOOL_REPEATS: usize = 24;
 const MAX_REPLAN_COUNT: u32 = 64;
+const QUEUE_TOOL_NAME_KEY: &str = "__ioi_tool_name";
 
 pub(crate) const PLANNER_FALLBACK_REASON_PLANNING_DISABLED: &str = "planning_disabled";
 pub(crate) const PLANNER_FALLBACK_REASON_VALIDATION_FAILED: &str = "planner_validation_failed";
@@ -23,6 +24,15 @@ pub(crate) const PLANNER_FALLBACK_REASON_DISCOVERY_REQUIREMENTS_UNSATISFIED: &st
     "planner_discovery_requirements_unsatisfied";
 pub(crate) const PLANNER_FALLBACK_REASON_DISPATCH_FAILED: &str = "planner_dispatch_failed";
 pub(crate) const PLANNER_FALLBACK_REASON_EXECUTOR_MISMATCH: &str = "executor_dispatch_mismatch";
+
+fn should_embed_queue_tool_name_metadata(target: &ActionTarget, tool_name: &str) -> bool {
+    matches!(target, ActionTarget::FsRead | ActionTarget::FsWrite)
+        || (matches!(target, ActionTarget::GuiClick | ActionTarget::UiClick)
+            && tool_name == "gui__click_element")
+        || matches!(target, ActionTarget::BrowserInteract)
+        || (matches!(target, ActionTarget::SysExec)
+            && matches!(tool_name, "sys__exec_session" | "sys__exec_session_reset"))
+}
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) enum PlannerDispatchMatch {
@@ -534,10 +544,18 @@ pub(crate) fn dispatch_next_planner_action(
         "name": tool_name,
         "arguments": args_value,
     }));
-    let params = serde_jcs::to_vec(&args_value)
+    let target = tool.target();
+    let mut queued_args = args_value.clone();
+    if should_embed_queue_tool_name_metadata(&target, tool_name) {
+        if let Some(obj) = queued_args.as_object_mut() {
+            obj.insert(QUEUE_TOOL_NAME_KEY.to_string(), json!(tool_name));
+        }
+    }
+
+    let params = serde_jcs::to_vec(&queued_args)
         .map_err(|e| TransactionError::Serialization(e.to_string()))?;
     let request = ActionRequest {
-        target: tool.target(),
+        target,
         params,
         context: ActionContext {
             agent_id: "desktop_agent".to_string(),
@@ -663,17 +681,19 @@ pub(crate) fn record_planner_step_outcome(
 #[cfg(test)]
 mod tests {
     use super::{
-        match_dispatched_step_for_execution, record_planner_step_outcome,
-        validate_and_hash_planner_state, validate_planner_state, PlannerDispatchMatch,
+        dispatch_next_planner_action, match_dispatched_step_for_execution,
+        record_planner_step_outcome, validate_and_hash_planner_state, validate_planner_state,
+        PlannerDispatchMatch,
     };
     use crate::agentic::desktop::types::{
-        PlanStep, PlanStepConstraint, PlannerState, PlannerStatus, PlannerStepKind,
-        PlannerStepStatus, PLANNER_SCHEMA_VERSION_V1,
+        AgentMode, AgentState, AgentStatus, ExecutionTier, PlanStep, PlanStepConstraint,
+        PlannerState, PlannerStatus, PlannerStepKind, PlannerStepStatus, PLANNER_SCHEMA_VERSION_V1,
     };
     use ioi_types::app::agentic::{
         CapabilityId, IntentCandidateScore, IntentConfidenceBand, IntentScopeProfile,
         ResolvedIntentState,
     };
+    use std::collections::BTreeMap;
 
     fn resolved_command_intent() -> ResolvedIntentState {
         ResolvedIntentState {
@@ -686,6 +706,33 @@ mod tests {
                 score: 0.99,
             }],
             required_capabilities: vec![CapabilityId::from("command.exec")],
+            risk_class: "low".to_string(),
+            preferred_tier: "tool_first".to_string(),
+            matrix_version: "intent-matrix-test".to_string(),
+            embedding_model_id: "test".to_string(),
+            embedding_model_version: "v1".to_string(),
+            similarity_function_id: "cosine".to_string(),
+            intent_set_hash: [1u8; 32],
+            tool_registry_hash: [2u8; 32],
+            capability_ontology_hash: [3u8; 32],
+            query_normalization_version: "intent_query_norm_v1".to_string(),
+            matrix_source_hash: [4u8; 32],
+            receipt_hash: [5u8; 32],
+            constrained: false,
+        }
+    }
+
+    fn resolved_web_intent() -> ResolvedIntentState {
+        ResolvedIntentState {
+            intent_id: "web.research".to_string(),
+            scope: IntentScopeProfile::WebResearch,
+            band: IntentConfidenceBand::High,
+            score: 0.99,
+            top_k: vec![IntentCandidateScore {
+                intent_id: "web.research".to_string(),
+                score: 0.99,
+            }],
+            required_capabilities: vec![CapabilityId::from("browser.interact")],
             risk_class: "low".to_string(),
             preferred_tier: "tool_first".to_string(),
             matrix_version: "intent-matrix-test".to_string(),
@@ -730,6 +777,46 @@ mod tests {
             status: PlannerStatus::Ready,
             last_replan_reason: None,
             last_batch: vec!["step-1".to_string()],
+        }
+    }
+
+    fn test_agent_state() -> AgentState {
+        AgentState {
+            session_id: [0u8; 32],
+            goal: "test".to_string(),
+            transcript_root: [0u8; 32],
+            status: AgentStatus::Running,
+            step_count: 0,
+            max_steps: 8,
+            last_action_type: None,
+            parent_session_id: None,
+            child_session_ids: vec![],
+            budget: 1,
+            tokens_used: 0,
+            consecutive_failures: 0,
+            pending_approval: None,
+            pending_tool_call: None,
+            pending_tool_jcs: None,
+            pending_tool_hash: None,
+            pending_visual_hash: None,
+            recent_actions: vec![],
+            mode: AgentMode::Agent,
+            current_tier: ExecutionTier::DomHeadless,
+            last_screen_phash: None,
+            execution_queue: vec![],
+            pending_search_completion: None,
+            planner_state: None,
+            active_skill_hash: None,
+            tool_execution_log: BTreeMap::new(),
+            visual_som_map: None,
+            visual_semantic_map: None,
+            swarm_context: None,
+            target: None,
+            resolved_intent: None,
+            awaiting_intent_clarification: false,
+            working_directory: ".".to_string(),
+            command_history: Default::default(),
+            active_lens: None,
         }
     }
 
@@ -874,5 +961,31 @@ mod tests {
             .receipts
             .iter()
             .any(|receipt| receipt.contains("execution_error=ERROR_CLASS=PolicyBlocked")));
+    }
+
+    #[test]
+    fn planner_dispatch_embeds_browser_tool_name_metadata_for_browser_interact() {
+        let resolved = resolved_web_intent();
+        let mut planner = base_planner_state();
+        planner.steps[0].tool_name = Some("browser__dropdown_options".to_string());
+        planner.steps[0].arguments_json =
+            Some(r#"{"selector":"select[name='country']"}"#.to_string());
+
+        let mut agent_state = test_agent_state();
+        agent_state.planner_state = Some(planner);
+
+        let dispatched =
+            dispatch_next_planner_action(&mut agent_state, [2u8; 32], 11, Some(&resolved))
+                .expect("planner dispatch should succeed");
+        assert_eq!(dispatched.as_deref(), Some("step-1"));
+        assert_eq!(agent_state.execution_queue.len(), 1);
+
+        let params: serde_json::Value =
+            serde_json::from_slice(&agent_state.execution_queue[0].params)
+                .expect("queued params should decode");
+        assert_eq!(
+            params.get("__ioi_tool_name").and_then(|v| v.as_str()),
+            Some("browser__dropdown_options")
+        );
     }
 }
