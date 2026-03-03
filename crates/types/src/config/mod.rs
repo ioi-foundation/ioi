@@ -185,10 +185,11 @@ pub struct ConnectorConfig {
 }
 
 /// Global MCP execution mode for the workload.
-#[derive(Debug, Serialize, Deserialize, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Serialize, Deserialize, Clone, Copy, PartialEq, Eq, Default)]
 #[serde(rename_all = "snake_case")]
 pub enum McpMode {
     /// No MCP servers may be configured or started.
+    #[default]
     Disabled,
     /// Development-only MCP mode. Allows unverified servers for local iteration.
     Development,
@@ -196,14 +197,8 @@ pub enum McpMode {
     Production,
 }
 
-impl Default for McpMode {
-    fn default() -> Self {
-        Self::Disabled
-    }
-}
-
 /// Trust tier for an MCP server entry.
-#[derive(Debug, Serialize, Deserialize, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Serialize, Deserialize, Clone, Copy, PartialEq, Eq, Default)]
 #[serde(rename_all = "snake_case")]
 pub enum McpServerTier {
     /// First-party or formally audited server artifact.
@@ -211,20 +206,16 @@ pub enum McpServerTier {
     /// Pinned and verified server artifact (integrity checked, not fully audited).
     Verified,
     /// Unverified plugin/server intended only for explicit development workflows.
+    #[default]
     Unverified,
 }
 
-impl Default for McpServerTier {
-    fn default() -> Self {
-        Self::Unverified
-    }
-}
-
 /// Source class for MCP server artifacts.
-#[derive(Debug, Serialize, Deserialize, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Serialize, Deserialize, Clone, Copy, PartialEq, Eq, Default)]
 #[serde(rename_all = "snake_case")]
 pub enum McpServerSource {
     /// Local binary installed on the host.
+    #[default]
     LocalBin,
     /// Vendored artifact shipped with the runtime/deployment bundle.
     Vendored,
@@ -232,26 +223,15 @@ pub enum McpServerSource {
     PackageManager,
 }
 
-impl Default for McpServerSource {
-    fn default() -> Self {
-        Self::LocalBin
-    }
-}
-
 /// Containment mode for MCP server processes.
-#[derive(Debug, Serialize, Deserialize, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Serialize, Deserialize, Clone, Copy, PartialEq, Eq, Default)]
 #[serde(rename_all = "snake_case")]
 pub enum McpContainmentMode {
     /// Strict containment expected (no ambient authority by default).
+    #[default]
     Strict,
     /// Explicitly uncontained development mode.
     DeveloperUnconfined,
-}
-
-impl Default for McpContainmentMode {
-    fn default() -> Self {
-        Self::Strict
-    }
 }
 
 /// Integrity pinning metadata for MCP server artifacts.
