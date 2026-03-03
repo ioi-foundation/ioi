@@ -43,7 +43,7 @@ pub(super) fn handle_duplicate_command_execution(
 
     let mut success = false;
     let mut error_msg = None;
-    let history_entry: Option<String>;
+    let mut history_entry: Option<String> = None;
     let action_output: Option<String>;
     let mut terminal_chat_reply_output = None;
     let mut is_lifecycle_action = false;
@@ -174,7 +174,33 @@ pub(super) fn handle_duplicate_command_execution(
         if noop_duplicate_allowed {
             success = true;
             error_msg = None;
-            action_output = Some(summary.clone());
+            if is_mail_reply_tool(&tool_name) {
+                let completion = format!(
+                    "Email send request already completed: {} Duplicate resend was skipped to avoid duplicate delivery.",
+                    agent_state.goal.trim()
+                );
+                history_entry = Some(completion.clone());
+                action_output = Some(completion.clone());
+                terminal_chat_reply_output = Some(completion.clone());
+                is_lifecycle_action = true;
+                agent_state.status = AgentStatus::Completed(Some(completion));
+                agent_state.execution_queue.clear();
+                agent_state.pending_search_completion = None;
+                verification_checks
+                    .push("duplicate_action_fingerprint_terminalized=true".to_string());
+                verification_checks.push("terminal_chat_reply_ready=true".to_string());
+                verification_checks.push("duplicate_mail_reply_noop_terminalized=true".to_string());
+                emit_completion_gate_status_event(
+                    service,
+                    session_id,
+                    step_index,
+                    resolved_intent_id,
+                    true,
+                    "duplicate_mail_reply_noop_completion",
+                );
+            } else {
+                action_output = Some(summary.clone());
+            }
             verification_checks
                 .push("duplicate_action_fingerprint_non_command_noop=true".to_string());
         } else {
@@ -183,8 +209,12 @@ pub(super) fn handle_duplicate_command_execution(
             error_msg = Some(duplicate_error.clone());
             action_output = Some(duplicate_error);
         }
-        history_entry = Some(summary.clone());
-        agent_state.status = AgentStatus::Running;
+        if history_entry.is_none() {
+            history_entry = Some(summary.clone());
+        }
+        if !matches!(agent_state.status, AgentStatus::Completed(_)) {
+            agent_state.status = AgentStatus::Running;
+        }
         verification_checks
             .push("duplicate_action_fingerprint_non_command_skipped=true".to_string());
         verification_checks
@@ -211,10 +241,8 @@ pub(super) fn handle_duplicate_command_execution(
 
 fn is_non_command_duplicate_noop_tool(tool_name: &str) -> bool {
     is_read_only_filesystem_tool(tool_name)
-        || matches!(
-            tool_name,
-            "wallet_network__mail_read_latest" | "wallet_mail_read_latest" | "mail__read_latest"
-        )
+        || is_mail_read_latest_tool(tool_name)
+        || is_mail_reply_tool(tool_name)
 }
 
 fn is_read_only_filesystem_tool(tool_name: &str) -> bool {
@@ -227,9 +255,26 @@ fn is_read_only_filesystem_tool(tool_name: &str) -> bool {
     )
 }
 
+fn is_mail_read_latest_tool(tool_name: &str) -> bool {
+    matches!(
+        tool_name,
+        "wallet_network__mail_read_latest" | "wallet_mail_read_latest" | "mail__read_latest"
+    )
+}
+
+fn is_mail_reply_tool(tool_name: &str) -> bool {
+    matches!(
+        tool_name,
+        "wallet_network__mail_reply" | "wallet_mail_reply" | "mail__reply"
+    )
+}
+
 #[cfg(test)]
 mod tests {
-    use super::{is_non_command_duplicate_noop_tool, is_read_only_filesystem_tool};
+    use super::{
+        is_mail_read_latest_tool, is_mail_reply_tool, is_non_command_duplicate_noop_tool,
+        is_read_only_filesystem_tool,
+    };
 
     #[test]
     fn read_only_filesystem_tools_are_noop_safe() {
@@ -246,8 +291,17 @@ mod tests {
             "filesystem__list_directory"
         ));
         assert!(is_non_command_duplicate_noop_tool("mail__read_latest"));
+        assert!(is_non_command_duplicate_noop_tool("mail__reply"));
         assert!(!is_non_command_duplicate_noop_tool(
             "filesystem__create_directory"
         ));
+    }
+
+    #[test]
+    fn mail_tool_duplicate_helpers_match_expected_tools() {
+        assert!(is_mail_read_latest_tool("wallet_network__mail_read_latest"));
+        assert!(is_mail_reply_tool("wallet_network__mail_reply"));
+        assert!(is_mail_reply_tool("mail__reply"));
+        assert!(!is_mail_reply_tool("wallet_network__mail_read_latest"));
     }
 }

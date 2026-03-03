@@ -244,7 +244,7 @@ const MAILBOX_PERSONAL_SCOPE_MARKERS: [&str; 9] = [
     " my inbox ",
 ];
 
-const MAILBOX_ACTION_MARKERS: [&str; 13] = [
+const MAILBOX_ACTION_MARKERS: [&str; 17] = [
     " read ",
     " list ",
     " check ",
@@ -252,6 +252,10 @@ const MAILBOX_ACTION_MARKERS: [&str; 13] = [
     " recent ",
     " newest ",
     " most recent ",
+    " send ",
+    " draft ",
+    " compose ",
+    " write ",
     " delete ",
     " remove ",
     " reply ",

@@ -58,6 +58,11 @@ MAIL_E2E_AUTH_MODE=
 # Defaults to "primary"
 MAIL_E2E_MAILBOX=
 
+# Optional connector provider driver override.
+# Set to "mock" to force deterministic in-process mock mail provider
+# (no external IMAP/SMTP network side effects).
+MAIL_E2E_PROVIDER_DRIVER=
+
 # TLS mode values: plaintext | starttls | tls
 # Defaults: IMAP=tls, SMTP=starttls
 MAIL_E2E_IMAP_TLS_MODE=

@@ -109,6 +109,7 @@ mod tests {
     use ioi_types::app::agentic::{
         CapabilityId, IntentConfidenceBand, IntentScopeProfile, ResolvedIntentState,
     };
+    use serde_json::Value;
     use std::sync::Arc;
 
     fn resolved(scope: IntentScopeProfile) -> ResolvedIntentState {
@@ -313,5 +314,51 @@ mod tests {
 
         assert!(tools.iter().any(|t| t.name == "browser__snapshot"));
         assert!(tools.iter().any(|t| t.name == "browser__click_element"));
+    }
+
+    #[tokio::test(flavor = "current_thread")]
+    async fn browser_tool_schemas_avoid_top_level_combinators_for_provider_compat() {
+        let intent = resolved(IntentScopeProfile::WebResearch);
+        let state = IAVLTree::new(HashCommitmentScheme::new());
+        let runtime: Arc<dyn InferenceRuntime> = Arc::new(MockInferenceRuntime);
+        let tools = discover_tools(
+            &state,
+            None,
+            None,
+            "wait for a selector and interact with a dropdown",
+            runtime,
+            ExecutionTier::DomHeadless,
+            "terminal",
+            Some(&intent),
+        )
+        .await;
+
+        for tool_name in [
+            "browser__wait",
+            "browser__dropdown_options",
+            "browser__select_dropdown",
+        ] {
+            let tool = tools
+                .iter()
+                .find(|tool| tool.name == tool_name)
+                .unwrap_or_else(|| panic!("expected tool '{}' to be discovered", tool_name));
+            let schema: Value = serde_json::from_str(&tool.parameters)
+                .unwrap_or_else(|err| panic!("invalid schema JSON for {}: {}", tool_name, err));
+
+            assert_eq!(
+                schema.get("type").and_then(Value::as_str),
+                Some("object"),
+                "{} must expose an object schema",
+                tool_name
+            );
+            for forbidden in ["anyOf", "oneOf", "allOf", "enum", "not"] {
+                assert!(
+                    schema.get(forbidden).is_none(),
+                    "{} schema must not use top-level '{}'",
+                    tool_name,
+                    forbidden
+                );
+            }
+        }
     }
 }

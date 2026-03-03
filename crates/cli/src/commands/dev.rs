@@ -58,6 +58,7 @@ const MAIL_E2E_KEY_IMAP_BEARER_TOKEN_SECRET_ID: &str = "MAIL_E2E_IMAP_BEARER_TOK
 const MAIL_E2E_KEY_SMTP_USERNAME_SECRET_ID: &str = "MAIL_E2E_SMTP_USERNAME_SECRET_ID";
 const MAIL_E2E_KEY_SMTP_PASSWORD_SECRET_ID: &str = "MAIL_E2E_SMTP_PASSWORD_SECRET_ID";
 const MAIL_E2E_KEY_SMTP_BEARER_TOKEN_SECRET_ID: &str = "MAIL_E2E_SMTP_BEARER_TOKEN_SECRET_ID";
+const MAIL_E2E_KEY_PROVIDER_DRIVER: &str = "MAIL_E2E_PROVIDER_DRIVER";
 
 #[derive(Parser, Debug)]
 pub struct DevArgs {
@@ -96,6 +97,7 @@ struct HumanStep {
 struct LocalMailBootstrapConfig {
     auth_mode: MailConnectorAuthMode,
     mailbox: String,
+    provider_driver: Option<String>,
     account_email: String,
     imap_host: String,
     imap_port: u16,
@@ -226,6 +228,11 @@ async fn run_bootstrap_mail(rpc: &str, env_file: PathBuf) -> Result<()> {
         );
     }
 
+    let mut connector_metadata = BTreeMap::new();
+    if let Some(driver) = config.provider_driver.clone() {
+        connector_metadata.insert("driver".to_string(), driver);
+    }
+
     let upsert = MailConnectorUpsertParams {
         mailbox: config.mailbox.clone(),
         config: MailConnectorConfig {
@@ -248,7 +255,7 @@ async fn run_bootstrap_mail(rpc: &str, env_file: PathBuf) -> Result<()> {
                 smtp_username_alias: config.smtp_username_alias.clone(),
                 smtp_password_alias: config.smtp_secret_alias.clone(),
             },
-            metadata: BTreeMap::new(),
+            metadata: connector_metadata,
         },
     };
     let params = codec::to_bytes_canonical(&upsert)
@@ -524,6 +531,8 @@ fn parse_mail_bootstrap_config(map: &BTreeMap<String, String>) -> Result<LocalMa
     Ok(LocalMailBootstrapConfig {
         auth_mode,
         mailbox: optional_env_value(map, MAIL_E2E_KEY_MAILBOX, MAIL_E2E_DEFAULT_MAILBOX),
+        provider_driver: nonempty_env_value(map, MAIL_E2E_KEY_PROVIDER_DRIVER)
+            .map(|value| value.to_ascii_lowercase()),
         account_email: required_env_value(map, MAIL_E2E_KEY_ACCOUNT_EMAIL)?,
         imap_host: required_env_value(map, MAIL_E2E_KEY_IMAP_HOST)?,
         imap_port: parse_required_u16_env(map, MAIL_E2E_KEY_IMAP_PORT)?,

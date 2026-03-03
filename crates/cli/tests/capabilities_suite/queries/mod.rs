@@ -3,6 +3,7 @@ mod check_which_apps_are_using_the_most_memory_right_now_and_list_them;
 mod compress_the_projects_folder_into_a_zip_file_and_put_it_on_my_desktop;
 mod create_a_new_folder_on_my_desktop_called_project_some_number;
 mod download_and_install_vlc_media_player;
+mod draft_an_email_to_team_ioi_network_saying_tomorrows_standup_is_moved_to_2_pm_and_send_it;
 mod find_all_pdf_files_on_my_computer_modified_in_the_last_week;
 mod move_all_png_files_from_downloads_into_a_new_folder_called_images;
 mod multiply_247_by_38;
@@ -31,6 +32,7 @@ pub fn all_cases() -> Vec<QueryCase> {
         open_calculator_app::case(),
         set_timer_15_minutes::case(),
         schedule_my_computer_to_shut_down_at_11_pm_tonight::case(),
+        draft_an_email_to_team_ioi_network_saying_tomorrows_standup_is_moved_to_2_pm_and_send_it::case(),
         compress_the_projects_folder_into_a_zip_file_and_put_it_on_my_desktop::case(),
         create_a_new_folder_on_my_desktop_called_project_some_number::case(),
         download_and_install_vlc_media_player::case(),

@@ -141,6 +141,16 @@ fn mailbox_connector_signal_detects_personal_mailbox_intent() {
 }
 
 #[test]
+fn mailbox_connector_signal_detects_send_intent_without_personal_pronouns() {
+    assert!(is_mailbox_connector_intent(
+        "Draft an email to team@ioi.network saying tomorrow's standup is moved to 2 PM and send it."
+    ));
+    assert!(!is_live_external_research_goal(
+        "Draft an email to team@ioi.network saying tomorrow's standup is moved to 2 PM and send it."
+    ));
+}
+
+#[test]
 fn mailbox_connector_signal_ignores_general_web_queries() {
     assert!(!is_mailbox_connector_intent(
         "Find the latest cloud outage updates with citations"
