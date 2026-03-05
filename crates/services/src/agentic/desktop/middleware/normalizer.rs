@@ -2,7 +2,7 @@ use anyhow::{anyhow, Result};
 use ioi_types::app::agentic::AgentTool;
 use serde_json::{json, Value};
 
-use super::builtins::is_deterministic_tool_name;
+use super::builtins::{canonical_deterministic_tool_name, is_deterministic_tool_name};
 use super::coercion::{
     lower_edit_line_to_fs_write, normalize_install_package_arguments,
     normalize_net_fetch_arguments, normalize_ui_click_arguments,
@@ -57,6 +57,16 @@ impl ToolNormalizer {
                     if name_str.starts_with("functions.") {
                         let fixed_name = name_str.strip_prefix("functions.").unwrap();
                         map.insert("name".to_string(), json!(fixed_name));
+                    }
+                }
+            }
+
+            // Canonicalize deterministic tool aliases (for example sys_exec -> sys__exec)
+            // before schema deserialization so built-ins stay on typed execution paths.
+            if let Some(name_val) = map.get("name") {
+                if let Some(name_str) = name_val.as_str() {
+                    if let Some(canonical_name) = canonical_deterministic_tool_name(name_str) {
+                        map.insert("name".to_string(), json!(canonical_name));
                     }
                 }
             }

@@ -2,9 +2,10 @@ use super::handlers::channel::hash_channel_envelope;
 use super::keys::{
     approval_consumption_key, approval_key, channel_key, channel_key_state_key,
     injection_grant_key, lease_consumption_key, lease_counter_window_key, lease_key,
-    lease_replay_key, mail_connector_get_receipt_key, mail_connector_key, mail_count_receipt_key,
-    mail_delete_receipt_key, mail_list_receipt_key, mail_read_receipt_key, mail_reply_receipt_key,
-    receipt_window_key, session_delegation_key, session_key, PANIC_FLAG_KEY, REVOCATION_EPOCH_KEY,
+    lease_replay_key, mail_connector_binding_receipt_key, mail_connector_get_receipt_key,
+    mail_connector_key, mail_count_receipt_key, mail_delete_receipt_key, mail_list_receipt_key,
+    mail_read_receipt_key, mail_reply_receipt_key, receipt_window_key, session_delegation_key,
+    session_key, PANIC_FLAG_KEY, REVOCATION_EPOCH_KEY,
 };
 use super::support::load_typed;
 use super::*;
@@ -18,15 +19,16 @@ use ioi_crypto::sign::eddsa::Ed25519KeyPair;
 use ioi_types::app::action::{ApprovalScope, ApprovalToken};
 use ioi_types::app::wallet_network::{
     GuardianAttestation, MailConnectorAuthMode, MailConnectorConfig, MailConnectorEndpoint,
-    MailConnectorGetParams, MailConnectorGetReceipt, MailConnectorProvider, MailConnectorRecord,
-    MailConnectorSecretAliases, MailConnectorTlsMode, MailConnectorUpsertParams,
-    MailDeleteSpamParams, MailDeleteSpamReceipt, MailListRecentParams, MailListRecentReceipt,
-    MailReadLatestParams, MailReadLatestReceipt, MailReplyParams, MailReplyReceipt,
-    MailboxTotalCountParams, MailboxTotalCountReceipt, SecretInjectionGrant,
-    SecretInjectionRequest, SecretInjectionRequestRecord, SessionChannelKeyState,
-    SessionChannelOpenAck, SessionChannelOpenConfirm, SessionChannelOpenInit,
-    SessionChannelOpenTry, SessionChannelRecord, SessionChannelState, SessionGrant, SessionLease,
-    SessionLeaseMode, VaultSecretRecord, WalletApprovalDecision, WalletInterceptionContext,
+    MailConnectorEnsureBindingParams, MailConnectorEnsureBindingReceipt, MailConnectorGetParams,
+    MailConnectorGetReceipt, MailConnectorProvider, MailConnectorRecord, MailConnectorSecretAliases,
+    MailConnectorTlsMode, MailConnectorUpsertParams, MailDeleteSpamParams, MailDeleteSpamReceipt,
+    MailListRecentParams, MailListRecentReceipt, MailReadLatestParams, MailReadLatestReceipt,
+    MailReplyParams, MailReplyReceipt, MailboxTotalCountParams, MailboxTotalCountReceipt,
+    SecretInjectionGrant, SecretInjectionRequest, SecretInjectionRequestRecord,
+    SessionChannelKeyState, SessionChannelOpenAck, SessionChannelOpenConfirm,
+    SessionChannelOpenInit, SessionChannelOpenTry, SessionChannelRecord, SessionChannelState,
+    SessionGrant, SessionLease, SessionLeaseMode, VaultSecretRecord, WalletApprovalDecision,
+    WalletInterceptionContext,
 };
 use ioi_types::app::{
     account_id_from_key_material, AccountId, ActionTarget, ChainId, SignatureProof, SignatureSuite,

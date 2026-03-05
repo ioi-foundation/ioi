@@ -794,6 +794,32 @@ fn has_review_request_for_hash(
 }
 
 fn seeded_required_capabilities(scope: IntentScopeProfile, intent_id: &str) -> Vec<CapabilityId> {
+    let normalized_intent_id = intent_id.trim().to_ascii_lowercase();
+    if normalized_intent_id == "mail.read.latest" {
+        return vec![
+            CapabilityId::from("agent.lifecycle"),
+            CapabilityId::from("mail.read.latest"),
+        ];
+    }
+    if normalized_intent_id == "mail.list.recent" {
+        return vec![
+            CapabilityId::from("agent.lifecycle"),
+            CapabilityId::from("mail.list.recent"),
+        ];
+    }
+    if normalized_intent_id == "mail.delete.spam" {
+        return vec![
+            CapabilityId::from("agent.lifecycle"),
+            CapabilityId::from("mail.delete.spam"),
+        ];
+    }
+    if normalized_intent_id == "mail.reply" {
+        return vec![
+            CapabilityId::from("agent.lifecycle"),
+            CapabilityId::from("mail.reply"),
+        ];
+    }
+
     let mut caps = match scope {
         IntentScopeProfile::Conversation => vec![CapabilityId::from("conversation.reply")],
         IntentScopeProfile::WebResearch => vec![
@@ -829,7 +855,7 @@ fn seeded_required_capabilities(scope: IntentScopeProfile, intent_id: &str) -> V
         IntentScopeProfile::Unknown => vec![CapabilityId::from("conversation.reply")],
     };
 
-    let install_intent = intent_id.to_ascii_lowercase().contains("install");
+    let install_intent = normalized_intent_id.contains("install");
     if install_intent && matches!(scope, IntentScopeProfile::CommandExecution) {
         caps.push(CapabilityId::from("system.install_package"));
     }

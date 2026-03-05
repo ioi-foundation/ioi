@@ -56,6 +56,7 @@ pub async fn discover_tools(
 
     // Dynamic service tools (on-chain services)
     services::push_service_tools(state, active_window_title, &mut tools);
+    services::inject_mail_connector_fallback_tools_if_needed(resolved_intent, &mut tools);
 
     // MCP tool discovery
     if let Some(mcp) = mcp {

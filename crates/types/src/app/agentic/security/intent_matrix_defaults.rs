@@ -221,6 +221,123 @@ IntentMatrixEntry {
     ],
 },
 IntentMatrixEntry {
+    intent_id: "mail.read.latest".to_string(),
+    semantic_descriptor:
+        "read the latest message from a connected mailbox and return sender subject received metadata and body preview"
+            .to_string(),
+    query_binding: IntentQueryBindingClass::None,
+    required_capabilities: vec![
+        CapabilityId::from("agent.lifecycle"),
+        CapabilityId::from("mail.read.latest"),
+    ],
+    risk_class: "medium".to_string(),
+    scope: IntentScopeProfile::Conversation,
+    preferred_tier: "tool_first".to_string(),
+    applicability_class: ExecutionApplicabilityClass::Mixed,
+    requires_host_discovery: Some(false),
+    provider_selection_mode: Some(ProviderSelectionMode::CapabilityOnly),
+    required_receipts: vec!["execution".to_string(), "verification".to_string()],
+    required_postconditions: vec![],
+    verification_mode: Some(VerificationMode::DeterministicCheck),
+    aliases: vec![
+        "read email".to_string(),
+        "latest email".to_string(),
+        "inbox latest".to_string(),
+    ],
+    exemplars: vec![
+        "read me the latest email i received".to_string(),
+        "show the most recent inbox message".to_string(),
+    ],
+},
+IntentMatrixEntry {
+    intent_id: "mail.list.recent".to_string(),
+    semantic_descriptor:
+        "list recent messages from a connected mailbox including sender subject and received metadata"
+            .to_string(),
+    query_binding: IntentQueryBindingClass::None,
+    required_capabilities: vec![
+        CapabilityId::from("agent.lifecycle"),
+        CapabilityId::from("mail.list.recent"),
+    ],
+    risk_class: "medium".to_string(),
+    scope: IntentScopeProfile::Conversation,
+    preferred_tier: "tool_first".to_string(),
+    applicability_class: ExecutionApplicabilityClass::Mixed,
+    requires_host_discovery: Some(false),
+    provider_selection_mode: Some(ProviderSelectionMode::CapabilityOnly),
+    required_receipts: vec!["execution".to_string(), "verification".to_string()],
+    required_postconditions: vec![],
+    verification_mode: Some(VerificationMode::DeterministicCheck),
+    aliases: vec![
+        "list emails".to_string(),
+        "recent inbox".to_string(),
+        "recent email list".to_string(),
+    ],
+    exemplars: vec![
+        "list my recent emails".to_string(),
+        "show the last 10 inbox messages".to_string(),
+    ],
+},
+IntentMatrixEntry {
+    intent_id: "mail.delete.spam".to_string(),
+    semantic_descriptor:
+        "delete spam or junk messages from a connected mailbox using mailbox cleanup operations"
+            .to_string(),
+    query_binding: IntentQueryBindingClass::None,
+    required_capabilities: vec![
+        CapabilityId::from("agent.lifecycle"),
+        CapabilityId::from("mail.delete.spam"),
+    ],
+    risk_class: "high".to_string(),
+    scope: IntentScopeProfile::Conversation,
+    preferred_tier: "tool_first".to_string(),
+    applicability_class: ExecutionApplicabilityClass::Mixed,
+    requires_host_discovery: Some(false),
+    provider_selection_mode: Some(ProviderSelectionMode::CapabilityOnly),
+    required_receipts: vec!["execution".to_string(), "verification".to_string()],
+    required_postconditions: vec![],
+    verification_mode: Some(VerificationMode::DeterministicCheck),
+    aliases: vec![
+        "delete spam".to_string(),
+        "clean junk".to_string(),
+        "spam cleanup".to_string(),
+    ],
+    exemplars: vec![
+        "delete spam emails".to_string(),
+        "clean junk mailbox messages".to_string(),
+    ],
+},
+IntentMatrixEntry {
+    intent_id: "mail.reply".to_string(),
+    semantic_descriptor:
+        "compose draft and send an email reply or new outbound message with explicit recipient subject and body through a connected mailbox"
+            .to_string(),
+    query_binding: IntentQueryBindingClass::None,
+    required_capabilities: vec![
+        CapabilityId::from("agent.lifecycle"),
+        CapabilityId::from("mail.reply"),
+    ],
+    risk_class: "high".to_string(),
+    scope: IntentScopeProfile::Conversation,
+    preferred_tier: "tool_first".to_string(),
+    applicability_class: ExecutionApplicabilityClass::Mixed,
+    requires_host_discovery: Some(false),
+    provider_selection_mode: Some(ProviderSelectionMode::CapabilityOnly),
+    required_receipts: vec!["execution".to_string(), "verification".to_string()],
+    required_postconditions: vec![],
+    verification_mode: Some(VerificationMode::DeterministicCheck),
+    aliases: vec![
+        "send email".to_string(),
+        "draft email".to_string(),
+        "compose message".to_string(),
+        "reply email".to_string(),
+    ],
+    exemplars: vec![
+        "draft an email to team and send it".to_string(),
+        "reply to this message with an update".to_string(),
+    ],
+},
+IntentMatrixEntry {
     intent_id: "command.probe".to_string(),
     semantic_descriptor:
         "check whether a binary or tool is available in PATH without mutating host state"

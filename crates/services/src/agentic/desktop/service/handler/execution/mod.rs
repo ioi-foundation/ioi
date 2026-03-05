@@ -1397,10 +1397,28 @@ pub async fn handle_action_execution(
             if let (Some(state), Some(call_context)) =
                 (execution_state.as_deref_mut(), execution_call_context)
             {
+                let latest_user_message_raw = service
+                    .hydrate_session_history_raw(agent_state.session_id)
+                    .ok()
+                    .and_then(|history| {
+                        history
+                            .iter()
+                            .rfind(|message| message.role == "user")
+                            .map(|message| message.content.clone())
+                    })
+                    .or_else(|| {
+                        let goal = agent_state.goal.trim();
+                        if goal.is_empty() {
+                            None
+                        } else {
+                            Some(goal.to_string())
+                        }
+                    });
                 if let Some(result) = try_execute_wallet_mail_dynamic_tool(
                     state,
                     call_context,
                     &value,
+                    latest_user_message_raw.as_deref(),
                     session_id,
                     step_index,
                 )

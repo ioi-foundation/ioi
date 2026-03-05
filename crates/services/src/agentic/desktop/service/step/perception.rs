@@ -1,7 +1,9 @@
 // Path: crates/services/src/agentic/desktop/service/step/perception.rs
 
 use crate::agentic::desktop::service::step::anti_loop::latest_failure_class;
-use crate::agentic::desktop::service::step::signals::is_browser_surface;
+use crate::agentic::desktop::service::step::signals::{
+    is_browser_surface, is_mail_connector_tool_name,
+};
 use crate::agentic::desktop::service::step::visual::hamming_distance;
 use crate::agentic::desktop::service::DesktopAgentService;
 use crate::agentic::desktop::tools::discover_tools;
@@ -349,6 +351,42 @@ pub async fn gather_context(
         agent_state.resolved_intent.as_ref(),
     )
     .await;
+
+    let discovered_tool_names = tools
+        .iter()
+        .map(|tool| tool.name.as_str())
+        .collect::<Vec<_>>();
+    let discovered_mail_tools = tools
+        .iter()
+        .filter(|tool| is_mail_connector_tool_name(&tool.name))
+        .map(|tool| tool.name.as_str())
+        .collect::<Vec<_>>();
+    let resolved_intent_id = agent_state
+        .resolved_intent
+        .as_ref()
+        .map(|intent| intent.intent_id.as_str())
+        .unwrap_or("none");
+    let resolved_caps = agent_state
+        .resolved_intent
+        .as_ref()
+        .map(|intent| {
+            intent
+                .required_capabilities
+                .iter()
+                .map(|cap| cap.as_str())
+                .collect::<Vec<_>>()
+        })
+        .unwrap_or_default();
+    log::info!(
+        "Perception discovered tools for current step session={} resolved_intent={} tool_count={} mail_tool_count={} required_capabilities={:?} tools={:?} mail_tools={:?}",
+        hex::encode(agent_state.session_id),
+        resolved_intent_id,
+        discovered_tool_names.len(),
+        discovered_mail_tools.len(),
+        resolved_caps,
+        discovered_tool_names,
+        discovered_mail_tools
+    );
 
     let tool_desc = tools
         .iter()

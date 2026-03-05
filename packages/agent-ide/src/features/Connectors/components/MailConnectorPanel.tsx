@@ -13,10 +13,10 @@ export function MailConnectorPanel({ mail }: MailConnectorPanelProps) {
     <div className="connector-test-panel">
       <div className="mail-account-setup">
         <div className="mail-setup-head">
-          <h3>Quick Add Mail Account</h3>
+          <h3>Connect Mail Account</h3>
           <p>
-            Enter the same account details you would use in iOS Mail or Outlook. Credentials are
-            stored as vault aliases.
+            Add an inbox Autopilot can use. You can connect more than one account by using
+            different mailbox names.
           </p>
         </div>
         <div className="mail-account-grid">
@@ -56,7 +56,7 @@ export function MailConnectorPanel({ mail }: MailConnectorPanelProps) {
             />
           </label>
           <label>
-            Mailbox label
+            Mailbox name
             <input
               value={mail.mailSetupMailbox}
               onChange={(event) => mail.setMailSetupMailbox(event.target.value)}
@@ -66,8 +66,8 @@ export function MailConnectorPanel({ mail }: MailConnectorPanelProps) {
         </div>
         <p className="mail-provider-hint">
           {mail.effectivePreset
-            ? `${mail.effectivePreset.label}: ${mail.effectivePreset.imapHost}:${mail.effectivePreset.imapPort} (${mail.effectivePreset.imapTlsMode.toUpperCase()}) and ${mail.effectivePreset.smtpHost}:${mail.effectivePreset.smtpPort} (${mail.effectivePreset.smtpTlsMode.toUpperCase()}). ${mail.effectivePreset.note}`
-            : "Custom mode: enter your provider's IMAP/SMTP host, port, and TLS mode in Advanced settings."}
+            ? `${mail.effectivePreset.label} settings detected. ${mail.effectivePreset.note}`
+            : "Custom mode: provide IMAP/SMTP details in Advanced settings."}
         </p>
         <div className="mail-setup-actions">
           <button
@@ -76,16 +76,47 @@ export function MailConnectorPanel({ mail }: MailConnectorPanelProps) {
             onClick={mail.saveMailAccount}
             disabled={mail.mailBusy || !mail.mailSetupRuntimeReady}
           >
-            Save Mail Account
+            {mail.mailBusy ? "Connecting..." : "Connect Account"}
           </button>
           <button
             type="button"
             className="btn-secondary"
             onClick={() => mail.setMailSetupAdvancedOpen((value) => !value)}
           >
-            {mail.mailSetupAdvancedOpen ? "Hide Advanced Settings" : "Show Advanced Settings"}
+            {mail.mailSetupAdvancedOpen
+              ? "Hide Advanced Server Settings"
+              : "Show Advanced Server Settings"}
           </button>
         </div>
+        {mail.mailSetupNotice ? <p className="connector-test-success">{mail.mailSetupNotice}</p> : null}
+        {mail.connectedMailAccounts.length > 0 ? (
+          <div className="mail-connected-accounts">
+            <h4>Connected Accounts</h4>
+            <ul>
+              {mail.connectedMailAccounts.map((account) => {
+                const isActive = mail.mailMailbox.trim() === account.mailbox;
+                return (
+                  <li key={account.mailbox}>
+                    <div className="mail-connected-identity">
+                      <strong>{account.accountEmail}</strong>
+                      <span>
+                        mailbox: <code>{account.mailbox}</code>
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      className="btn-secondary"
+                      onClick={() => mail.selectConfiguredAccount(account.mailbox)}
+                      disabled={isActive}
+                    >
+                      {isActive ? "Active" : "Use"}
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+        ) : null}
         {mail.mailSetupAdvancedOpen ? (
           <div className="mail-account-grid advanced">
             <label>
@@ -179,7 +210,7 @@ export function MailConnectorPanel({ mail }: MailConnectorPanelProps) {
         className="btn-secondary"
         onClick={() => mail.setShowOperatorTools((value) => !value)}
       >
-        {mail.showOperatorTools ? "Hide Operator Tools" : "Show Operator Tools"}
+        {mail.showOperatorTools ? "Hide Developer Tools" : "Show Developer Tools"}
       </button>
 
       {mail.showOperatorTools ? (
@@ -315,7 +346,9 @@ export function MailConnectorPanel({ mail }: MailConnectorPanelProps) {
         </>
       ) : null}
       {mail.mailError ? <p className="connector-test-error">{mail.mailError}</p> : null}
-      {mail.mailResult ? <pre className="connector-test-result">{mail.mailResult}</pre> : null}
+      {mail.showOperatorTools && mail.mailResult ? (
+        <pre className="connector-test-result">{mail.mailResult}</pre>
+      ) : null}
     </div>
   );
 }
