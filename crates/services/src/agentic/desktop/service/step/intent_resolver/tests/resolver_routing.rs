@@ -312,6 +312,70 @@ async fn resolver_routes_timer_queries_to_command_exec() {
 }
 
 #[tokio::test(flavor = "current_thread")]
+async fn resolver_routes_mail_send_queries_to_mail_reply_not_clock() {
+    let gui: Arc<dyn GuiDriver> = Arc::new(NoopGuiDriver);
+    let terminal = Arc::new(TerminalDriver::new());
+    let browser = Arc::new(BrowserDriver::new());
+    let inference: Arc<dyn InferenceRuntime> = Arc::new(MailReplyIntentRuntime);
+    let service = DesktopAgentService::new(gui, terminal, browser, inference);
+
+    let mut agent_state = test_agent_state();
+    agent_state.goal =
+        "Draft an email to team@ioi.network saying tomorrow's standup is moved to 2 PM and send it."
+            .to_string();
+
+    let mut rules = ActionRules::default();
+    rules.ontology_policy.intent_routing.matrix_version = "intent-matrix-v15-mail-send-test".into();
+    let resolved = resolve_step_intent(&service, &agent_state, &rules, "terminal")
+        .await
+        .unwrap();
+
+    assert_eq!(resolved.intent_id, "mail.reply");
+    assert_eq!(resolved.scope, IntentScopeProfile::Conversation);
+    assert_ne!(resolved.intent_id, "system.clock.read");
+    assert!(resolved
+        .required_capabilities
+        .iter()
+        .any(|capability| capability.as_str() == "mail.reply"));
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn resolver_does_not_allow_clock_intent_when_host_clock_binding_is_false() {
+    let gui: Arc<dyn GuiDriver> = Arc::new(NoopGuiDriver);
+    let terminal = Arc::new(TerminalDriver::new());
+    let browser = Arc::new(BrowserDriver::new());
+    let inference: Arc<dyn InferenceRuntime> = Arc::new(ClockSkewedCommandBindingRuntime);
+    let service = DesktopAgentService::new(gui, terminal, browser, inference);
+
+    let mut agent_state = test_agent_state();
+    agent_state.goal = "Rename every file in my Downloads folder to lowercase.".to_string();
+
+    let mut rules = ActionRules::default();
+    rules.ontology_policy.intent_routing.matrix_version =
+        "intent-matrix-v15-host-local-binding-gate-test".into();
+    rules.ontology_policy.intent_routing.matrix = rules
+        .ontology_policy
+        .intent_routing
+        .matrix
+        .iter()
+        .filter(|entry| {
+            matches!(
+                entry.intent_id.as_str(),
+                "system.clock.read" | "command.exec"
+            )
+        })
+        .cloned()
+        .collect();
+
+    let resolved = resolve_step_intent(&service, &agent_state, &rules, "terminal")
+        .await
+        .unwrap();
+
+    assert_eq!(resolved.intent_id, "command.exec");
+    assert_ne!(resolved.intent_id, "system.clock.read");
+}
+
+#[tokio::test(flavor = "current_thread")]
 async fn resolver_routes_calculator_queries_to_math_eval_not_command_exec() {
     let gui: Arc<dyn GuiDriver> = Arc::new(NoopGuiDriver);
     let terminal = Arc::new(TerminalDriver::new());
@@ -582,6 +646,64 @@ async fn resolver_abstains_when_embeddings_and_model_ranking_fail() {
         .iter()
         .any(|candidate| candidate.score <= f32::EPSILON));
     assert!(should_pause_for_clarification(
+        &resolved,
+        &rules.ontology_policy.intent_routing
+    ));
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn resolver_routes_mail_send_when_rank_backend_is_unavailable() {
+    let gui: Arc<dyn GuiDriver> = Arc::new(NoopGuiDriver);
+    let terminal = Arc::new(TerminalDriver::new());
+    let browser = Arc::new(BrowserDriver::new());
+    let inference: Arc<dyn InferenceRuntime> = Arc::new(NoEmbeddingRuntime);
+    let service = DesktopAgentService::new(gui, terminal, browser, inference);
+
+    let mut agent_state = test_agent_state();
+    agent_state.goal =
+        "Draft an email to team@ioi.network saying tomorrow's standup is moved to 2 PM and send it."
+            .to_string();
+
+    let mut rules = ActionRules::default();
+    rules.ontology_policy.intent_routing.matrix_version =
+        "intent-matrix-v15-mail-no-rank-backend-test".into();
+    rules.ontology_policy.intent_routing.matrix = rules
+        .ontology_policy
+        .intent_routing
+        .matrix
+        .iter()
+        .filter(|entry| {
+            matches!(
+                entry.intent_id.as_str(),
+                "mail.reply" | "conversation.reply" | "system.clock.read"
+            )
+        })
+        .cloned()
+        .collect();
+
+    let resolved = resolve_step_intent(&service, &agent_state, &rules, "terminal")
+        .await
+        .unwrap();
+    let medium_threshold = rules
+        .ontology_policy
+        .intent_routing
+        .confidence
+        .medium_threshold_bps as f32
+        / 10_000.0;
+
+    assert_eq!(resolved.intent_id, "mail.reply");
+    assert_eq!(resolved.scope, IntentScopeProfile::Conversation);
+    assert_eq!(resolved.band, IntentConfidenceBand::Medium);
+    assert!(resolved.score >= medium_threshold);
+    assert_eq!(
+        resolved
+            .top_k
+            .first()
+            .map(|candidate| candidate.intent_id.as_str()),
+        Some("mail.reply")
+    );
+    assert_eq!(resolved.embedding_model_id, "resolver.unavailable");
+    assert!(!should_pause_for_clarification(
         &resolved,
         &rules.ontology_policy.intent_routing
     ));

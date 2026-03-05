@@ -5,14 +5,14 @@ use ioi_api::services::{BlockchainService, UpgradableService};
 use ioi_api::state::StateAccess;
 use ioi_api::transaction::context::TxContext;
 use ioi_types::app::wallet_network::{
-    MailConnectorGetParams, MailConnectorUpsertParams, MailDeleteSpamParams, MailListRecentParams,
-    MailReadLatestParams, MailReplyParams, MailboxTotalCountParams, OwnerAnchor,
-    SecretInjectionGrant, SecretInjectionRequestRecord, SessionChannelClose,
-    SessionChannelDelegationRules, SessionChannelOpenAck, SessionChannelOpenConfirm,
-    SessionChannelOpenInit, SessionChannelOpenTry, SessionChannelOrdering, SessionGrant,
-    SessionLease, SessionLeaseMode, SessionReceiptCommit, SessionReceiptCommitDirection,
-    VaultIdentity, VaultPolicyRule, VaultSecretRecord, WalletApprovalDecision,
-    WalletInterceptionContext,
+    MailConnectorEnsureBindingParams, MailConnectorGetParams, MailConnectorUpsertParams,
+    MailDeleteSpamParams, MailListRecentParams, MailReadLatestParams, MailReplyParams,
+    MailboxTotalCountParams, OwnerAnchor, SecretInjectionGrant, SecretInjectionRequestRecord,
+    SessionChannelClose, SessionChannelDelegationRules, SessionChannelOpenAck,
+    SessionChannelOpenConfirm, SessionChannelOpenInit, SessionChannelOpenTry,
+    SessionChannelOrdering, SessionGrant, SessionLease, SessionLeaseMode, SessionReceiptCommit,
+    SessionReceiptCommitDirection, VaultIdentity, VaultPolicyRule, VaultSecretRecord,
+    WalletApprovalDecision, WalletInterceptionContext,
 };
 use ioi_types::app::ActionTarget;
 use ioi_types::codec;
@@ -258,6 +258,11 @@ impl BlockchainService for WalletNetworkService {
             "mail_connector_get@v1" => {
                 let request: MailConnectorGetParams = codec::from_bytes_canonical(params)?;
                 handlers::connectors::mail_connector_get(state, ctx, request)
+            }
+            "mail_connector_ensure_binding@v1" => {
+                let request: MailConnectorEnsureBindingParams =
+                    codec::from_bytes_canonical(params)?;
+                handlers::connectors::mail_connector_ensure_binding(state, ctx, request)
             }
             "mail_read_latest@v1" => {
                 let request: MailReadLatestParams = codec::from_bytes_canonical(params)?;

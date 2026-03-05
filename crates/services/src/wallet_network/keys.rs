@@ -23,6 +23,8 @@ pub(super) const LEASE_REPLAY_PREFIX: &[u8] = b"lease_replay::";
 pub(super) const LEASE_COUNTER_WINDOW_PREFIX: &[u8] = b"lease_counter_window::";
 pub(super) const MAIL_CONNECTOR_PREFIX: &[u8] = b"mail_connector::";
 pub(super) const MAIL_CONNECTOR_GET_RECEIPT_PREFIX: &[u8] = b"mail_connector_get_receipt::";
+pub(super) const MAIL_CONNECTOR_BINDING_RECEIPT_PREFIX: &[u8] =
+    b"mail_connector_binding_receipt::";
 pub(super) const MAIL_READ_RECEIPT_PREFIX: &[u8] = b"mail_read_receipt::";
 pub(super) const MAIL_LIST_RECEIPT_PREFIX: &[u8] = b"mail_list_receipt::";
 pub(super) const MAIL_COUNT_RECEIPT_PREFIX: &[u8] = b"mail_count_receipt::";
@@ -136,6 +138,10 @@ pub(super) fn mail_connector_key(mailbox: &str) -> Vec<u8> {
 
 pub(super) fn mail_connector_get_receipt_key(request_id: &[u8; 32]) -> Vec<u8> {
     [MAIL_CONNECTOR_GET_RECEIPT_PREFIX, request_id.as_slice()].concat()
+}
+
+pub(super) fn mail_connector_binding_receipt_key(request_id: &[u8; 32]) -> Vec<u8> {
+    [MAIL_CONNECTOR_BINDING_RECEIPT_PREFIX, request_id.as_slice()].concat()
 }
 
 pub(super) fn mail_read_receipt_key(operation_id: &[u8; 32]) -> Vec<u8> {

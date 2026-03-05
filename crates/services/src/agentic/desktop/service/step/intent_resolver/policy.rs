@@ -263,10 +263,7 @@ pub(super) fn query_binding_satisfied(
     }
     match query_binding_for_intent(entry) {
         IntentQueryBindingClass::None => true,
-        IntentQueryBindingClass::HostLocal => {
-            query_binding_profile.host_local_clock_targeted
-                || !query_binding_profile.remote_public_fact_required
-        }
+        IntentQueryBindingClass::HostLocal => query_binding_profile.host_local_clock_targeted,
         IntentQueryBindingClass::RemotePublicFact => {
             query_binding_profile.remote_public_fact_required
         }

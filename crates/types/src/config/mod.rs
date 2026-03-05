@@ -669,6 +669,7 @@ pub fn default_service_policies() -> BTreeMap<String, ServicePolicy> {
         "store_secret_record@v1",
         "mail_connector_upsert@v1",
         "mail_connector_get@v1",
+        "mail_connector_ensure_binding@v1",
         "open_channel_init@v1",
         "open_channel_try@v1",
         "open_channel_ack@v1",
@@ -695,6 +696,30 @@ pub fn default_service_policies() -> BTreeMap<String, ServicePolicy> {
         ServicePolicy {
             methods: wallet_methods,
             allowed_system_prefixes: vec![],
+        },
+    );
+
+    // Desktop Agent
+    let mut desktop_agent_methods = BTreeMap::new();
+    for method in [
+        "start@v1",
+        "resume@v1",
+        "step@v1",
+        "post_message@v1",
+        "delete_session@v1",
+    ] {
+        desktop_agent_methods.insert(method.to_string(), MethodPermission::User);
+    }
+    map.insert(
+        "desktop_agent".to_string(),
+        ServicePolicy {
+            methods: desktop_agent_methods,
+            // Required for namespaced desktop-agent state to discover active service tools
+            // and to bridge wallet-network connector state for mail capability execution.
+            allowed_system_prefixes: vec![
+                "upgrade::active::".to_string(),
+                "_service_data::wallet_network::".to_string(),
+            ],
         },
     );
 

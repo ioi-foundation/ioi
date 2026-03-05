@@ -364,7 +364,7 @@ mod tests {
         let upgraded = default_safe_policy();
         assert_eq!(
             upgraded.ontology_policy.intent_routing.matrix_version,
-            "intent-matrix-v14"
+            "intent-matrix-v15"
         );
     }
 }

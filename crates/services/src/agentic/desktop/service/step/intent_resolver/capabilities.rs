@@ -168,6 +168,87 @@ pub(super) fn tool_capability_bindings() -> Vec<ToolCapabilityBinding> {
             capabilities: vec![capability("filesystem.write")],
         },
         ToolCapabilityBinding {
+            tool_name: "wallet_network__mail_read_latest".to_string(),
+            action_target: ActionTarget::Custom("wallet_network__mail_read_latest".to_string()),
+            capabilities: vec![capability("mail.read.latest")],
+        },
+        ToolCapabilityBinding {
+            tool_name: "wallet_mail_read_latest".to_string(),
+            action_target: ActionTarget::Custom("wallet_mail_read_latest".to_string()),
+            capabilities: vec![capability("mail.read.latest")],
+        },
+        ToolCapabilityBinding {
+            tool_name: "mail__read_latest".to_string(),
+            action_target: ActionTarget::Custom("mail__read_latest".to_string()),
+            capabilities: vec![capability("mail.read.latest")],
+        },
+        ToolCapabilityBinding {
+            tool_name: "wallet_network__mail_list_recent".to_string(),
+            action_target: ActionTarget::Custom("wallet_network__mail_list_recent".to_string()),
+            capabilities: vec![
+                capability("mail.list.recent"),
+                capability("mail.read.latest"),
+            ],
+        },
+        ToolCapabilityBinding {
+            tool_name: "wallet_mail_list_recent".to_string(),
+            action_target: ActionTarget::Custom("wallet_mail_list_recent".to_string()),
+            capabilities: vec![
+                capability("mail.list.recent"),
+                capability("mail.read.latest"),
+            ],
+        },
+        ToolCapabilityBinding {
+            tool_name: "mail__list_recent".to_string(),
+            action_target: ActionTarget::Custom("mail__list_recent".to_string()),
+            capabilities: vec![
+                capability("mail.list.recent"),
+                capability("mail.read.latest"),
+            ],
+        },
+        ToolCapabilityBinding {
+            tool_name: "wallet_network__mail_delete_spam".to_string(),
+            action_target: ActionTarget::Custom("wallet_network__mail_delete_spam".to_string()),
+            capabilities: vec![capability("mail.delete.spam")],
+        },
+        ToolCapabilityBinding {
+            tool_name: "wallet_mail_delete_spam".to_string(),
+            action_target: ActionTarget::Custom("wallet_mail_delete_spam".to_string()),
+            capabilities: vec![capability("mail.delete.spam")],
+        },
+        ToolCapabilityBinding {
+            tool_name: "mail__delete_spam".to_string(),
+            action_target: ActionTarget::Custom("mail__delete_spam".to_string()),
+            capabilities: vec![capability("mail.delete.spam")],
+        },
+        ToolCapabilityBinding {
+            tool_name: "wallet_network__mail_reply".to_string(),
+            action_target: ActionTarget::Custom("wallet_network__mail_reply".to_string()),
+            capabilities: vec![
+                capability("mail.reply"),
+                capability("mail.send"),
+                capability("conversation.reply"),
+            ],
+        },
+        ToolCapabilityBinding {
+            tool_name: "wallet_mail_reply".to_string(),
+            action_target: ActionTarget::Custom("wallet_mail_reply".to_string()),
+            capabilities: vec![
+                capability("mail.reply"),
+                capability("mail.send"),
+                capability("conversation.reply"),
+            ],
+        },
+        ToolCapabilityBinding {
+            tool_name: "mail__reply".to_string(),
+            action_target: ActionTarget::Custom("mail__reply".to_string()),
+            capabilities: vec![
+                capability("mail.reply"),
+                capability("mail.send"),
+                capability("conversation.reply"),
+            ],
+        },
+        ToolCapabilityBinding {
             tool_name: "sys__exec".to_string(),
             action_target: ActionTarget::SysExec,
             capabilities: vec![capability("command.exec"), capability("command.probe")],

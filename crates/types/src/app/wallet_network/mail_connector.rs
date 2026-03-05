@@ -124,6 +124,48 @@ pub struct MailConnectorGetReceipt {
     pub connector: MailConnectorRecord,
 }
 
+/// Request to ensure a mailbox has an active wallet session channel/lease binding.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Encode, Decode)]
+pub struct MailConnectorEnsureBindingParams {
+    /// Stable request identifier for replay detection.
+    pub request_id: [u8; 32],
+    /// Logical mailbox name (defaults to `primary` when empty).
+    #[serde(default)]
+    pub mailbox: String,
+    /// Optional explicit audience; defaults to transaction signer when omitted.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub audience: Option<[u8; 32]>,
+    /// Optional lease ttl in milliseconds.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub lease_ttl_ms: Option<u64>,
+}
+
+/// Persisted receipt for `mail_connector_ensure_binding@v1`.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Encode, Decode)]
+pub struct MailConnectorEnsureBindingReceipt {
+    /// Stable request identifier.
+    pub request_id: [u8; 32],
+    /// Logical mailbox that was resolved.
+    pub mailbox: String,
+    /// Audience/signer bound to the lease.
+    pub audience: [u8; 32],
+    /// Active channel identifier.
+    pub channel_id: [u8; 32],
+    /// Active lease identifier.
+    pub lease_id: [u8; 32],
+    /// Whether an existing binding was reused instead of creating a new one.
+    pub reused_existing: bool,
+    /// Binding issuance timestamp.
+    pub issued_at_ms: u64,
+    /// Channel expiry timestamp.
+    pub channel_expires_at_ms: u64,
+    /// Lease expiry timestamp.
+    pub lease_expires_at_ms: u64,
+    /// Effective capability set bound to the channel/lease.
+    #[serde(default)]
+    pub capability_set: Vec<String>,
+}
+
 /// Connector-first operation request for reading the latest mail message.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Encode, Decode)]
 pub struct MailReadLatestParams {

@@ -99,6 +99,29 @@ function inferProviderFromEmail(email: string): SupportedProviderPreset | "custo
   return "custom";
 }
 
+export interface ConnectedMailAccount {
+  mailbox: string;
+  accountEmail: string;
+  updatedAtMs: number;
+}
+
+interface UseMailConnectorActionsOptions {
+  onAccountConfigured?: (result: WalletMailConfigureAccountResult) => void;
+}
+
+function upsertConnectedMailAccount(
+  accounts: ConnectedMailAccount[],
+  result: WalletMailConfigureAccountResult
+): ConnectedMailAccount[] {
+  const next = accounts.filter((account) => account.mailbox !== result.mailbox);
+  next.unshift({
+    mailbox: result.mailbox,
+    accountEmail: result.accountEmail,
+    updatedAtMs: result.updatedAtMs,
+  });
+  return next;
+}
+
 export interface MailConnectorActionsState {
   mailProviderPreset: MailProviderPresetKey;
   setMailProviderPreset: Dispatch<SetStateAction<MailProviderPresetKey>>;
@@ -149,11 +172,14 @@ export interface MailConnectorActionsState {
   mailBusy: boolean;
   mailError: string | null;
   mailResult: string;
+  mailSetupNotice: string | null;
+  connectedMailAccounts: ConnectedMailAccount[];
   mailConnectorRuntimeReady: boolean;
   mailAssistantRuntimeReady: boolean;
   mailApprovalRuntimeReady: boolean;
   mailSetupRuntimeReady: boolean;
   effectivePreset: MailProviderPreset | null;
+  selectConfiguredAccount: (mailbox: string) => void;
   runMailListRecent: () => Promise<void>;
   runMailReadLatest: () => Promise<void>;
   runMailIntent: () => Promise<void>;
@@ -161,7 +187,10 @@ export interface MailConnectorActionsState {
   saveMailAccount: () => Promise<void>;
 }
 
-export function useMailConnectorActions(runtime: AgentRuntime): MailConnectorActionsState {
+export function useMailConnectorActions(
+  runtime: AgentRuntime,
+  options?: UseMailConnectorActionsOptions
+): MailConnectorActionsState {
   const [mailProviderPreset, setMailProviderPreset] = useState<MailProviderPresetKey>("auto");
   const [mailSetupEmail, setMailSetupEmail] = useState("");
   const [mailSetupPassword, setMailSetupPassword] = useState("");
@@ -189,6 +218,8 @@ export function useMailConnectorActions(runtime: AgentRuntime): MailConnectorAct
   const [mailBusy, setMailBusy] = useState(false);
   const [mailError, setMailError] = useState<string | null>(null);
   const [mailResult, setMailResult] = useState<string>("");
+  const [mailSetupNotice, setMailSetupNotice] = useState<string | null>(null);
+  const [connectedMailAccounts, setConnectedMailAccounts] = useState<ConnectedMailAccount[]>([]);
 
   const mailConnectorRuntimeReady = Boolean(
     runtime.walletMailReadLatest && runtime.walletMailListRecent
@@ -272,6 +303,7 @@ export function useMailConnectorActions(runtime: AgentRuntime): MailConnectorAct
 
     setMailBusy(true);
     setMailError(null);
+    setMailSetupNotice(null);
     try {
       const result: WalletMailConfigureAccountResult = await runtime.walletMailConfigureAccount({
         mailbox: mailSetupMailbox.trim() || "primary",
@@ -288,11 +320,17 @@ export function useMailConnectorActions(runtime: AgentRuntime): MailConnectorAct
         smtpUsername: mailSetupSmtpUsername.trim() || accountEmail,
         smtpSecret: mailSetupPassword,
       });
+      setConnectedMailAccounts((accounts) => upsertConnectedMailAccount(accounts, result));
       setMailSetupPassword("");
       setMailSetupMailbox(result.mailbox);
       setMailMailbox(result.mailbox);
+      setMailSetupNotice(
+        `Connected ${result.accountEmail} to mailbox "${result.mailbox}".`
+      );
       setMailResult(JSON.stringify(result, null, 2));
+      options?.onAccountConfigured?.(result);
     } catch (error) {
+      setMailSetupNotice(null);
       setMailError(error instanceof Error ? error.message : String(error));
     } finally {
       setMailBusy(false);
@@ -435,6 +473,13 @@ export function useMailConnectorActions(runtime: AgentRuntime): MailConnectorAct
     }
   };
 
+  const selectConfiguredAccount = (mailbox: string) => {
+    const normalized = mailbox.trim();
+    if (!normalized) return;
+    setMailSetupMailbox(normalized);
+    setMailMailbox(normalized);
+  };
+
   return {
     mailProviderPreset,
     setMailProviderPreset,
@@ -485,11 +530,14 @@ export function useMailConnectorActions(runtime: AgentRuntime): MailConnectorAct
     mailBusy,
     mailError,
     mailResult,
+    mailSetupNotice,
+    connectedMailAccounts,
     mailConnectorRuntimeReady,
     mailAssistantRuntimeReady,
     mailApprovalRuntimeReady,
     mailSetupRuntimeReady,
     effectivePreset,
+    selectConfiguredAccount,
     runMailListRecent,
     runMailReadLatest,
     runMailIntent,

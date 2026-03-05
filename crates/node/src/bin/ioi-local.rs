@@ -75,6 +75,13 @@ struct LocalOpts {
     data_dir: PathBuf,
 }
 
+fn desktop_agent_allowed_system_prefixes() -> Vec<String> {
+    vec![
+        "upgrade::active::".to_string(),
+        String::from_utf8_lossy(&service_namespace_prefix("wallet_network")).to_string(),
+    ]
+}
+
 #[tokio::main]
 async fn main() -> Result<()> {
     // Install default crypto provider for rustls 0.23+
@@ -149,7 +156,7 @@ async fn main() -> Result<()> {
         artifact_hash: [0u8; 32],
         activated_at: 0,
         methods: agent_methods,
-        allowed_system_prefixes: vec![],
+        allowed_system_prefixes: desktop_agent_allowed_system_prefixes(),
         generation_id: 0,
         parent_hash: None,
         author: Some(local_account_id), // User owns their agent
@@ -271,7 +278,7 @@ async fn main() -> Result<()> {
         "desktop_agent".to_string(),
         ioi_types::config::ServicePolicy {
             methods: agent_meta.methods.clone(),
-            allowed_system_prefixes: vec![],
+            allowed_system_prefixes: desktop_agent_allowed_system_prefixes(),
         },
     );
 

@@ -4,17 +4,22 @@ use crate::wallet_network::mail_ontology::{
     SPAM_HIGH_CONFIDENCE_THRESHOLD_BPS,
 };
 use crate::wallet_network::LeaseActionReplayWindowState;
-use ioi_api::state::StateAccess;
+use ioi_api::state::{service_namespace_prefix, NamespacedStateAccess, StateAccess};
 use ioi_api::transaction::context::TxContext;
 use ioi_types::app::wallet_network::{
-    MailDeleteSpamParams, MailDeleteSpamReceipt, MailListRecentParams, MailListRecentReceipt,
-    MailReadLatestParams, MailReadLatestReceipt, MailReplyParams, MailReplyReceipt,
-    SessionChannelRecord, SessionChannelState, SessionLease,
+    MailConnectorEnsureBindingParams, MailDeleteSpamParams, MailDeleteSpamReceipt,
+    MailListRecentParams, MailListRecentReceipt, MailReadLatestParams, MailReadLatestReceipt,
+    MailReplyParams, MailReplyReceipt, SessionChannelRecord, SessionChannelState, SessionLease,
 };
 use ioi_types::codec;
 use ioi_types::error::TransactionError;
+use ioi_types::keys::active_service_key;
+use ioi_types::service_configs::ActiveServiceMeta;
+use lettre::message::Mailbox;
+use regex::Regex;
 use serde_json::{json, Map as JsonMap, Value as JsonValue};
 use std::collections::BTreeMap;
+use std::sync::OnceLock;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum WalletMailToolMethod {
@@ -44,10 +49,13 @@ struct InferredMailBinding {
 const CHANNEL_PREFIX: &[u8] = b"channel::";
 const LEASE_PREFIX: &[u8] = b"lease::";
 const LEASE_ACTION_WINDOW_PREFIX: &[u8] = b"lease_action_window::";
+const MAIL_CONNECTOR_PREFIX: &[u8] = b"mail_connector::";
 const MAIL_READ_RECEIPT_PREFIX: &[u8] = b"mail_read_receipt::";
 const MAIL_LIST_RECEIPT_PREFIX: &[u8] = b"mail_list_receipt::";
 const MAIL_DELETE_RECEIPT_PREFIX: &[u8] = b"mail_delete_receipt::";
 const MAIL_REPLY_RECEIPT_PREFIX: &[u8] = b"mail_reply_receipt::";
+const WALLET_SERVICE_ID: &str = "wallet_network";
+const MAIL_CONNECTOR_ENSURE_BINDING_METHOD: &str = "mail_connector_ensure_binding@v1";
 
 const MAIL_READ_CAPABILITY_ALIASES: &[&str] =
     &["mail.read.latest", "mail:read", "mail.read", "email:read"];
@@ -81,6 +89,7 @@ const MAIL_REPLY_CAPABILITY_ALIASES: &[&str] = &[
     "mail.modify",
     "email:modify",
 ];
+static EMAIL_EXTRACT_RE: OnceLock<Regex> = OnceLock::new();
 
 fn wallet_mail_method_from_tool_name(name: &str) -> Option<WalletMailToolMethod> {
     let normalized = name.trim().to_ascii_lowercase();
@@ -136,6 +145,86 @@ fn mail_delete_receipt_storage_key(operation_id: &[u8; 32]) -> Vec<u8> {
 
 fn mail_reply_receipt_storage_key(operation_id: &[u8; 32]) -> Vec<u8> {
     [MAIL_REPLY_RECEIPT_PREFIX, operation_id.as_slice()].concat()
+}
+
+fn mail_connector_storage_key(mailbox: &str) -> Vec<u8> {
+    [MAIL_CONNECTOR_PREFIX, normalize_mailbox(mailbox).as_bytes()].concat()
+}
+
+fn load_active_service_meta(
+    state: &dyn StateAccess,
+    service_id: &str,
+) -> Result<ActiveServiceMeta, TransactionError> {
+    let key = active_service_key(service_id);
+    let bytes = state
+        .get(&key)
+        .map_err(TransactionError::State)?
+        .ok_or_else(|| {
+            TransactionError::Invalid(format!(
+                "active service metadata is missing for '{}'",
+                service_id
+            ))
+        })?;
+    codec::from_bytes_canonical(&bytes).map_err(Into::into)
+}
+
+fn mailbox_connector_configured(
+    state: &dyn StateAccess,
+    mailbox_hint: &str,
+) -> Result<bool, TransactionError> {
+    state
+        .get(&mail_connector_storage_key(mailbox_hint))
+        .map(|value| value.is_some())
+        .map_err(TransactionError::State)
+}
+
+fn is_missing_mail_binding_error(error: &TransactionError) -> bool {
+    let text = error.to_string().to_ascii_lowercase();
+    text.contains("no wallet mail lease binding available")
+        || text.contains("unable to resolve wallet mail channel_id")
+        || text.contains("unable to resolve wallet mail lease_id")
+}
+
+async fn ensure_wallet_mail_binding(
+    state: &mut dyn StateAccess,
+    wallet_service: &std::sync::Arc<dyn ioi_api::services::BlockchainService>,
+    call_context: ServiceCallContext<'_>,
+    mailbox: &str,
+    session_id: [u8; 32],
+    step_index: u32,
+    now_ms: u64,
+) -> Result<(), TransactionError> {
+    let request_id = compute_sha256_id(&format!(
+        "wallet-mail-binding:{}:{}:{}:{}",
+        hex::encode(session_id),
+        step_index,
+        normalize_mailbox(mailbox),
+        now_ms
+    ));
+    let params = MailConnectorEnsureBindingParams {
+        request_id,
+        mailbox: normalize_mailbox(mailbox),
+        audience: Some(call_context.signer_account_id.0),
+        lease_ttl_ms: None,
+    };
+    let payload = codec::to_bytes_canonical(&params)?;
+    let mut wallet_ctx = TxContext {
+        block_height: call_context.block_height,
+        block_timestamp: call_context.block_timestamp,
+        chain_id: call_context.chain_id,
+        signer_account_id: call_context.signer_account_id,
+        services: call_context.services,
+        simulation: call_context.simulation,
+        is_internal: call_context.is_internal,
+    };
+    wallet_service
+        .handle_service_call(
+            state,
+            MAIL_CONNECTOR_ENSURE_BINDING_METHOD,
+            &payload,
+            &mut wallet_ctx,
+        )
+        .await
 }
 
 fn capability_aliases(method: WalletMailToolMethod) -> &'static [&'static str] {
@@ -221,10 +310,64 @@ fn pick_nonempty_string(args: &JsonMap<String, JsonValue>, keys: &[&str]) -> Opt
         .map(ToString::to_string)
 }
 
-fn resolve_mail_reply_fields(
+fn email_extract_regex() -> &'static Regex {
+    EMAIL_EXTRACT_RE.get_or_init(|| {
+        Regex::new(r"(?i)\b[a-z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)+\b")
+            .expect("email extraction regex must compile")
+    })
+}
+
+fn is_redacted_email_placeholder(value: &str) -> bool {
+    let normalized = value.trim().to_ascii_lowercase();
+    normalized.contains("<redacted:email>")
+        || normalized == "redacted:email"
+        || normalized == "redacted_email"
+}
+
+fn extract_first_email_address(value: &str) -> Option<String> {
+    for mat in email_extract_regex().find_iter(value) {
+        let candidate = mat.as_str().trim();
+        if candidate.is_empty() || is_redacted_email_placeholder(candidate) {
+            continue;
+        }
+        if candidate.parse::<Mailbox>().is_ok() {
+            return Some(candidate.to_string());
+        }
+    }
+    None
+}
+
+fn canonicalize_mail_recipient(value: &str) -> Option<String> {
+    let trimmed = value.trim();
+    if trimmed.is_empty() || is_redacted_email_placeholder(trimmed) {
+        return None;
+    }
+
+    let mailto_stripped =
+        if trimmed.len() >= "mailto:".len() && trimmed[..7].eq_ignore_ascii_case("mailto:") {
+            trimmed[7..]
+                .split(['?', '#'])
+                .next()
+                .map(str::trim)
+                .unwrap_or("")
+        } else {
+            trimmed
+        };
+    if !mailto_stripped.is_empty() && mailto_stripped.parse::<Mailbox>().is_ok() {
+        return Some(mailto_stripped.to_string());
+    }
+    if trimmed.parse::<Mailbox>().is_ok() {
+        return Some(trimmed.to_string());
+    }
+
+    extract_first_email_address(trimmed)
+}
+
+fn resolve_mail_reply_fields_with_context(
     args: &JsonMap<String, JsonValue>,
+    latest_user_message: Option<&str>,
 ) -> Result<(String, String, String), TransactionError> {
-    let to = pick_nonempty_string(
+    let raw_to = pick_nonempty_string(
         args,
         &[
             "to",
@@ -237,6 +380,13 @@ fn resolve_mail_reply_fields(
     .ok_or_else(|| {
         TransactionError::Invalid("wallet_network__mail_reply requires non-empty 'to'".to_string())
     })?;
+    let to = canonicalize_mail_recipient(&raw_to)
+        .or_else(|| latest_user_message.and_then(|message| extract_first_email_address(message)))
+        .ok_or_else(|| {
+            TransactionError::Invalid(
+                "wallet_network__mail_reply requires a valid recipient email address".to_string(),
+            )
+        })?;
     let body_candidate = pick_nonempty_string(
         args,
         &[
@@ -453,62 +603,50 @@ fn truncate_chars(input: &str, max_chars: usize) -> String {
     input.chars().take(max_chars).collect::<String>() + "..."
 }
 
-pub(super) async fn try_execute_wallet_mail_dynamic_tool(
+async fn execute_wallet_mail_dynamic_tool_on_state(
     state: &mut dyn StateAccess,
+    wallet_service: &std::sync::Arc<dyn ioi_api::services::BlockchainService>,
     call_context: ServiceCallContext<'_>,
-    dynamic_tool: &JsonValue,
+    method: WalletMailToolMethod,
+    args: &JsonMap<String, JsonValue>,
+    mailbox_hint: &str,
+    latest_user_message: Option<&str>,
     session_id: [u8; 32],
     step_index: u32,
-) -> Result<Option<(bool, Option<String>, Option<String>)>, TransactionError> {
-    let Some(tool_name) = dynamic_tool.get("name").and_then(|value| value.as_str()) else {
-        return Ok(None);
-    };
-    let Some(method) = wallet_mail_method_from_tool_name(tool_name) else {
-        if is_wallet_mail_namespace_tool_name(tool_name) {
-            return Ok(Some((
-                false,
-                None,
-                Some(format!(
-                    "ERROR_CLASS=UnsupportedTool unsupported wallet mail tool '{}'",
-                    tool_name.trim()
-                )),
-            )));
-        }
-        return Ok(None);
-    };
-
-    let wallet_service = call_context
-        .services
-        .services()
-        .find(|service| service.id() == "wallet_network")
-        .cloned()
-        .ok_or_else(|| {
-            TransactionError::Invalid(
-                "wallet_network service is not active in the ServiceDirectory".to_string(),
-            )
-        })?;
-
-    let arguments = dynamic_tool
-        .get("arguments")
-        .cloned()
-        .unwrap_or_else(|| JsonValue::Object(JsonMap::new()));
-    let args = extract_dynamic_args_object(&arguments)?;
-
-    let now_ms = call_context.block_timestamp / 1_000_000;
-    let mailbox_hint = pick_string(&args, &["mailbox", "mailbox_name", "mailboxName"])
-        .map(normalize_mailbox)
-        .unwrap_or_else(|| "primary".to_string());
-
-    let channel_id = pick_hex_32(&args, &["channel_id", "channelId"])?;
-    let lease_id = pick_hex_32(&args, &["lease_id", "leaseId"])?;
+    now_ms: u64,
+) -> Result<(bool, Option<String>, Option<String>), TransactionError> {
+    let channel_id = pick_hex_32(args, &["channel_id", "channelId"])?;
+    let lease_id = pick_hex_32(args, &["lease_id", "leaseId"])?;
     let inferred = if channel_id.is_none() || lease_id.is_none() {
-        Some(infer_mail_binding(
+        match infer_mail_binding(
             state,
             method,
             call_context.signer_account_id.0,
-            &mailbox_hint,
+            mailbox_hint,
             now_ms,
-        )?)
+        ) {
+            Ok(binding) => Some(binding),
+            Err(error) if is_missing_mail_binding_error(&error) => {
+                ensure_wallet_mail_binding(
+                    state,
+                    wallet_service,
+                    call_context,
+                    mailbox_hint,
+                    session_id,
+                    step_index,
+                    now_ms,
+                )
+                .await?;
+                Some(infer_mail_binding(
+                    state,
+                    method,
+                    call_context.signer_account_id.0,
+                    mailbox_hint,
+                    now_ms,
+                )?)
+            }
+            Err(error) => return Err(error),
+        }
     } else {
         None
     };
@@ -523,10 +661,10 @@ pub(super) async fn try_execute_wallet_mail_dynamic_tool(
             TransactionError::Invalid("unable to resolve wallet mail lease_id".to_string())
         })?;
 
-    let op_seq = pick_u64(&args, &["op_seq", "opSeq"])
+    let op_seq = pick_u64(args, &["op_seq", "opSeq"])
         .filter(|value| *value >= 1)
         .unwrap_or_else(|| infer_next_op_seq(state, channel_id, lease_id));
-    let operation_id = pick_hex_32(&args, &["operation_id", "operationId"])?.unwrap_or_else(|| {
+    let operation_id = pick_hex_32(args, &["operation_id", "operationId"])?.unwrap_or_else(|| {
         compute_sha256_id(&format!(
             "{}:{}:{}:{}:{}",
             hex::encode(session_id),
@@ -536,9 +674,9 @@ pub(super) async fn try_execute_wallet_mail_dynamic_tool(
             now_ms
         ))
     });
-    let op_nonce = pick_hex_32(&args, &["op_nonce", "opNonce"])?
+    let op_nonce = pick_hex_32(args, &["op_nonce", "opNonce"])?
         .unwrap_or_else(|| op_nonce_from_operation(operation_id, step_index));
-    let requested_at_ms = pick_u64(&args, &["requested_at_ms", "requestedAtMs"]).unwrap_or(now_ms);
+    let requested_at_ms = pick_u64(args, &["requested_at_ms", "requestedAtMs"]).unwrap_or(now_ms);
 
     let (params_bytes, receipt_operation_id) = match method {
         WalletMailToolMethod::ReadLatest => {
@@ -548,7 +686,7 @@ pub(super) async fn try_execute_wallet_mail_dynamic_tool(
                 lease_id,
                 op_seq,
                 op_nonce: Some(op_nonce),
-                mailbox: mailbox_hint.clone(),
+                mailbox: mailbox_hint.to_string(),
                 requested_at_ms,
             };
             (codec::to_bytes_canonical(&params)?, params.operation_id)
@@ -560,8 +698,8 @@ pub(super) async fn try_execute_wallet_mail_dynamic_tool(
                 lease_id,
                 op_seq,
                 op_nonce: Some(op_nonce),
-                mailbox: mailbox_hint.clone(),
-                limit: pick_u32(&args, &["limit"]).unwrap_or(25).clamp(1, 200),
+                mailbox: mailbox_hint.to_string(),
+                limit: pick_u32(args, &["limit"]).unwrap_or(25).clamp(1, 200),
                 requested_at_ms,
             };
             (codec::to_bytes_canonical(&params)?, params.operation_id)
@@ -573,16 +711,17 @@ pub(super) async fn try_execute_wallet_mail_dynamic_tool(
                 lease_id,
                 op_seq,
                 op_nonce: Some(op_nonce),
-                mailbox: mailbox_hint.clone(),
-                max_delete: pick_u32(&args, &["max_delete", "maxDelete"]).unwrap_or(25),
+                mailbox: mailbox_hint.to_string(),
+                max_delete: pick_u32(args, &["max_delete", "maxDelete"]).unwrap_or(25),
                 requested_at_ms,
             };
             (codec::to_bytes_canonical(&params)?, params.operation_id)
         }
         WalletMailToolMethod::Reply => {
-            let (to, subject, body) = resolve_mail_reply_fields(&args)?;
+            let (to, subject, body) =
+                resolve_mail_reply_fields_with_context(args, latest_user_message)?;
             let reply_to_message_id =
-                pick_string(&args, &["reply_to_message_id", "replyToMessageId"])
+                pick_string(args, &["reply_to_message_id", "replyToMessageId"])
                     .map(str::trim)
                     .filter(|value| !value.is_empty())
                     .map(ToString::to_string);
@@ -593,7 +732,7 @@ pub(super) async fn try_execute_wallet_mail_dynamic_tool(
                 lease_id,
                 op_seq,
                 op_nonce: Some(op_nonce),
-                mailbox: mailbox_hint.clone(),
+                mailbox: mailbox_hint.to_string(),
                 to,
                 subject,
                 body,
@@ -618,7 +757,7 @@ pub(super) async fn try_execute_wallet_mail_dynamic_tool(
         .handle_service_call(state, method.method_name(), &params_bytes, &mut wallet_ctx)
         .await
     {
-        return Ok(Some((
+        return Ok((
             false,
             None,
             Some(format!(
@@ -626,7 +765,7 @@ pub(super) async fn try_execute_wallet_mail_dynamic_tool(
                 method.method_name(),
                 error
             )),
-        )));
+        ));
     }
 
     let output = match method {
@@ -950,13 +1089,114 @@ pub(super) async fn try_execute_wallet_mail_dynamic_tool(
         }
     };
 
-    Ok(Some((true, Some(output), None)))
+    Ok((true, Some(output), None))
+}
+
+pub(super) async fn try_execute_wallet_mail_dynamic_tool(
+    state: &mut dyn StateAccess,
+    call_context: ServiceCallContext<'_>,
+    dynamic_tool: &JsonValue,
+    latest_user_message: Option<&str>,
+    session_id: [u8; 32],
+    step_index: u32,
+) -> Result<Option<(bool, Option<String>, Option<String>)>, TransactionError> {
+    let Some(tool_name) = dynamic_tool.get("name").and_then(|value| value.as_str()) else {
+        return Ok(None);
+    };
+    let Some(method) = wallet_mail_method_from_tool_name(tool_name) else {
+        if is_wallet_mail_namespace_tool_name(tool_name) {
+            return Ok(Some((
+                false,
+                None,
+                Some(format!(
+                    "ERROR_CLASS=UnsupportedTool unsupported wallet mail tool '{}'",
+                    tool_name.trim()
+                )),
+            )));
+        }
+        return Ok(None);
+    };
+
+    let wallet_service = call_context
+        .services
+        .services()
+        .find(|service| service.id() == "wallet_network")
+        .cloned()
+        .ok_or_else(|| {
+            TransactionError::Invalid(
+                "wallet_network service is not active in the ServiceDirectory".to_string(),
+            )
+        })?;
+
+    let arguments = dynamic_tool
+        .get("arguments")
+        .cloned()
+        .unwrap_or_else(|| JsonValue::Object(JsonMap::new()));
+    let args = extract_dynamic_args_object(&arguments)?;
+
+    let now_ms = call_context.block_timestamp / 1_000_000;
+    let mailbox_hint = pick_string(&args, &["mailbox", "mailbox_name", "mailboxName"])
+        .map(normalize_mailbox)
+        .unwrap_or_else(|| "primary".to_string());
+    if mailbox_connector_configured(state, &mailbox_hint)? {
+        let result = execute_wallet_mail_dynamic_tool_on_state(
+            state,
+            &wallet_service,
+            call_context,
+            method,
+            &args,
+            &mailbox_hint,
+            latest_user_message,
+            session_id,
+            step_index,
+            now_ms,
+        )
+        .await?;
+        return Ok(Some(result));
+    }
+
+    let wallet_meta = load_active_service_meta(state, WALLET_SERVICE_ID)?;
+    {
+        let wallet_prefix = service_namespace_prefix(WALLET_SERVICE_ID);
+        let mut wallet_state = NamespacedStateAccess::new(state, wallet_prefix, &wallet_meta);
+        if mailbox_connector_configured(&wallet_state, &mailbox_hint)? {
+            let result = execute_wallet_mail_dynamic_tool_on_state(
+                &mut wallet_state,
+                &wallet_service,
+                call_context,
+                method,
+                &args,
+                &mailbox_hint,
+                latest_user_message,
+                session_id,
+                step_index,
+                now_ms,
+            )
+            .await?;
+            return Ok(Some(result));
+        }
+    }
+
+    let result = execute_wallet_mail_dynamic_tool_on_state(
+        state,
+        &wallet_service,
+        call_context,
+        method,
+        &args,
+        &mailbox_hint,
+        latest_user_message,
+        session_id,
+        step_index,
+        now_ms,
+    )
+    .await?;
+    Ok(Some(result))
 }
 
 #[cfg(test)]
 mod tests {
     use super::{
-        is_wallet_mail_namespace_tool_name, resolve_mail_reply_fields,
+        is_wallet_mail_namespace_tool_name, resolve_mail_reply_fields_with_context,
         wallet_mail_method_from_tool_name,
     };
     use serde_json::{json, Map as JsonMap, Value as JsonValue};
@@ -987,7 +1227,8 @@ mod tests {
         let args: JsonMap<String, JsonValue> =
             value.as_object().expect("test args must be object").clone();
 
-        let (to, subject, body) = resolve_mail_reply_fields(&args).expect("aliases should resolve");
+        let (to, subject, body) =
+            resolve_mail_reply_fields_with_context(&args, None).expect("aliases should resolve");
         assert_eq!(to, "team@ioi.network");
         assert_eq!(subject, "Tomorrow's standup is moved to 2 PM.");
         assert_eq!(body, "Tomorrow's standup is moved to 2 PM.");
@@ -1003,10 +1244,61 @@ mod tests {
         let args: JsonMap<String, JsonValue> =
             value.as_object().expect("test args must be object").clone();
 
-        let (to, subject, body) =
-            resolve_mail_reply_fields(&args).expect("explicit fields should resolve");
+        let (to, subject, body) = resolve_mail_reply_fields_with_context(&args, None)
+            .expect("explicit fields should resolve");
         assert_eq!(to, "team@ioi.network");
         assert_eq!(subject, "Standup moved");
         assert_eq!(body, "Tomorrow's standup is moved to 2 PM.");
+    }
+
+    #[test]
+    fn mail_reply_field_resolution_recovers_redacted_to_from_latest_user_message() {
+        let value = json!({
+            "to": "<REDACTED:email>",
+            "subject": "Standup moved",
+            "body": "Tomorrow's standup is moved to 2 PM."
+        });
+        let args: JsonMap<String, JsonValue> =
+            value.as_object().expect("test args must be object").clone();
+        let latest_user_message =
+            "Draft an email to team@ioi.network saying tomorrow's standup is moved to 2 PM and send it.";
+
+        let (to, subject, body) =
+            resolve_mail_reply_fields_with_context(&args, Some(latest_user_message))
+                .expect("recipient should be recovered from latest user message");
+        assert_eq!(to, "team@ioi.network");
+        assert_eq!(subject, "Standup moved");
+        assert_eq!(body, "Tomorrow's standup is moved to 2 PM.");
+    }
+
+    #[test]
+    fn mail_reply_field_resolution_accepts_mailto_recipient() {
+        let value = json!({
+            "to": "mailto:team@ioi.network?subject=Ignored",
+            "subject": "Standup moved",
+            "body": "Tomorrow's standup is moved to 2 PM."
+        });
+        let args: JsonMap<String, JsonValue> =
+            value.as_object().expect("test args must be object").clone();
+
+        let (to, _, _) = resolve_mail_reply_fields_with_context(&args, None)
+            .expect("mailto recipient should parse");
+        assert_eq!(to, "team@ioi.network");
+    }
+
+    #[test]
+    fn mail_reply_field_resolution_rejects_invalid_recipient_without_context() {
+        let value = json!({
+            "to": "<REDACTED:email>",
+            "subject": "Standup moved",
+            "body": "Tomorrow's standup is moved to 2 PM."
+        });
+        let args: JsonMap<String, JsonValue> =
+            value.as_object().expect("test args must be object").clone();
+
+        let error = resolve_mail_reply_fields_with_context(&args, None)
+            .expect_err("must reject invalid to");
+        let message = error.to_string().to_ascii_lowercase();
+        assert!(message.contains("valid recipient email"));
     }
 }

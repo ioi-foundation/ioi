@@ -22,6 +22,26 @@ fn test_normalize_markdown() {
 }
 
 #[test]
+fn test_normalize_sys_exec_single_underscore_alias() {
+    let input = r#"{"name":"sys_exec","arguments":{"command":"ls"}}"#;
+    let tool = ToolNormalizer::normalize(input).unwrap();
+    match tool {
+        AgentTool::SysExec { command, .. } => assert_eq!(command, "ls"),
+        other => panic!("Expected SysExec, got {:?}", other),
+    }
+}
+
+#[test]
+fn test_normalize_sys_exec_colon_alias() {
+    let input = r#"{"name":"sys::exec","arguments":{"command":"pwd"}}"#;
+    let tool = ToolNormalizer::normalize(input).unwrap();
+    match tool {
+        AgentTool::SysExec { command, .. } => assert_eq!(command, "pwd"),
+        other => panic!("Expected SysExec, got {:?}", other),
+    }
+}
+
+#[test]
 fn test_normalize_openai_tool_calls_wrapper_with_string_arguments() {
     let input = r#"{
           "tool_calls": [

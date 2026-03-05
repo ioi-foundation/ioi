@@ -3,7 +3,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { 
   AgentRuntime, GraphPayload, GraphEvent, ProjectFile, AgentSummary, 
-  FleetState, Zone, Container, MarketplaceAgent, ConnectorSummary,
+  FleetState, Zone, Container, MarketplaceAgent, ConnectorSummary, ConnectorStatus,
   WalletMailDeleteSpamInput, WalletMailDeleteSpamResult,
   WalletMailReplyInput, WalletMailReplyResult,
   WalletMailListRecentInput, WalletMailListRecentResult,
@@ -36,7 +36,7 @@ const MARKET_AGENTS: MarketplaceAgent[] = [
   { id: "a4", name: "Video Gen", developer: "CreativeX", price: "$0.10/min", description: "AI Video", requirements: "H100 GPU" },
 ];
 
-const CONNECTORS: ConnectorSummary[] = [
+const INITIAL_CONNECTORS: ConnectorSummary[] = [
   {
     id: "mail.primary",
     name: "Mail",
@@ -62,7 +62,55 @@ const CONNECTORS: ConnectorSummary[] = [
   },
 ];
 
+function cloneConnectors(connectors: ConnectorSummary[]): ConnectorSummary[] {
+  return connectors.map((connector) => ({
+    ...connector,
+    scopes: [...connector.scopes],
+  }));
+}
+
+function patchMailConnectorConnected(
+  connectors: ConnectorSummary[],
+  result: WalletMailConfigureAccountResult
+): ConnectorSummary[] {
+  const connectedAt = new Date(result.updatedAtMs).toISOString();
+  const connectedNote = `Connected ${result.accountEmail} on mailbox "${result.mailbox}".`;
+
+  let found = false;
+  const next = connectors.map((connector) => {
+    if (connector.id !== "mail.primary") return connector;
+    found = true;
+    return {
+      ...connector,
+      status: "connected" as ConnectorStatus,
+      lastSyncAtUtc: connectedAt,
+      notes: connectedNote,
+    };
+  });
+
+  if (found) return next;
+
+  return [
+    {
+      id: "mail.primary",
+      name: "Mail",
+      provider: "wallet.network",
+      category: "communication",
+      description:
+        "Planned first wallet_network integration. Enables inbox listing and latest-email read under delegated wallet session policy.",
+      status: "connected" as ConnectorStatus,
+      authMode: "wallet_network_session",
+      scopes: ["mail.read.latest", "mail.list.recent", "mail.delete.spam", "mail.reply"],
+      lastSyncAtUtc: connectedAt,
+      notes: connectedNote,
+    },
+    ...next,
+  ];
+}
+
 export class TauriRuntime implements AgentRuntime {
+    private connectors: ConnectorSummary[] = cloneConnectors(INITIAL_CONNECTORS);
+
     async runGraph(payload: GraphPayload): Promise<void> {
         await invoke("run_studio_graph", { payload });
     }
@@ -142,7 +190,7 @@ export class TauriRuntime implements AgentRuntime {
     }
 
     async getConnectors(): Promise<ConnectorSummary[]> {
-        return CONNECTORS;
+        return cloneConnectors(this.connectors);
     }
 
     async walletMailReadLatest(
@@ -212,7 +260,7 @@ export class TauriRuntime implements AgentRuntime {
     async walletMailConfigureAccount(
       input: WalletMailConfigureAccountInput
     ): Promise<WalletMailConfigureAccountResult> {
-      return invoke("wallet_mail_configure_account", {
+      const result = await invoke<WalletMailConfigureAccountResult>("wallet_mail_configure_account", {
         mailbox: input.mailbox ?? null,
         accountEmail: input.accountEmail,
         authMode: input.authMode ?? "password",
@@ -227,6 +275,8 @@ export class TauriRuntime implements AgentRuntime {
         smtpUsername: input.smtpUsername ?? null,
         smtpSecret: input.smtpSecret,
       });
+      this.connectors = patchMailConnectorConnected(this.connectors, result);
+      return result;
     }
 
     async walletMailGenerateApprovalArtifact(

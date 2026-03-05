@@ -464,6 +464,127 @@ impl InferenceRuntime for LocalitySkewedRuntime {
 }
 
 #[derive(Debug, Default, Clone)]
+struct MailReplyIntentRuntime;
+
+#[async_trait]
+impl InferenceRuntime for MailReplyIntentRuntime {
+    async fn execute_inference(
+        &self,
+        _model_hash: [u8; 32],
+        input_context: &[u8],
+        _options: InferenceOptions,
+    ) -> Result<Vec<u8>, VmError> {
+        let prompt = String::from_utf8_lossy(input_context).to_ascii_lowercase();
+        let query = query_from_input_context(input_context);
+        if prompt.contains("remote_public_fact_required")
+            && query.contains("draft an email")
+            && query.contains("send it")
+        {
+            return Ok(serde_json::json!({
+                "remote_public_fact_required": false,
+                "host_local_clock_targeted": false,
+                "command_directed": false,
+                "app_launch_directed": false,
+                "direct_ui_input": false,
+                "desktop_screenshot_requested": false,
+                "temporal_filesystem_filter": false
+            })
+            .to_string()
+            .into_bytes());
+        }
+        Ok(Vec::new())
+    }
+
+    async fn embed_text(&self, text: &str) -> Result<Vec<f32>, VmError> {
+        let text_lc = text.to_ascii_lowercase();
+        if text_lc.contains("compose draft and send an email")
+            || text_lc.contains("outbound message")
+        {
+            return Ok(vec![1.0, 0.0, 0.0]);
+        }
+        if text_lc.contains("read only this host machine local or utc clock timestamp") {
+            return Ok(vec![-1.0, 0.0, 0.0]);
+        }
+        if text_lc.contains("execute local shell or terminal commands") {
+            return Ok(vec![0.0, -1.0, 0.0]);
+        }
+        if text_lc.contains("draft an email to team@ioi.network saying tomorrow's standup is moved to 2 pm and send it")
+        {
+            return Ok(vec![1.0, 0.0, 0.0]);
+        }
+        if text_lc.contains("respond conversationally without executing external side effects") {
+            return Ok(vec![0.0, 0.0, 1.0]);
+        }
+        Ok(vec![0.0, 0.0, -1.0])
+    }
+
+    async fn load_model(&self, _model_hash: [u8; 32], _path: &Path) -> Result<(), VmError> {
+        Ok(())
+    }
+
+    async fn unload_model(&self, _model_hash: [u8; 32]) -> Result<(), VmError> {
+        Ok(())
+    }
+}
+
+#[derive(Debug, Default, Clone)]
+struct ClockSkewedCommandBindingRuntime;
+
+#[async_trait]
+impl InferenceRuntime for ClockSkewedCommandBindingRuntime {
+    async fn execute_inference(
+        &self,
+        _model_hash: [u8; 32],
+        input_context: &[u8],
+        _options: InferenceOptions,
+    ) -> Result<Vec<u8>, VmError> {
+        let prompt = String::from_utf8_lossy(input_context).to_ascii_lowercase();
+        let query = query_from_input_context(input_context);
+        if prompt.contains("remote_public_fact_required")
+            && query.contains("rename every file")
+            && query.contains("downloads")
+            && query.contains("lowercase")
+        {
+            return Ok(serde_json::json!({
+                "remote_public_fact_required": false,
+                "host_local_clock_targeted": false,
+                "command_directed": true,
+                "app_launch_directed": false,
+                "direct_ui_input": false,
+                "desktop_screenshot_requested": false,
+                "temporal_filesystem_filter": false
+            })
+            .to_string()
+            .into_bytes());
+        }
+        Ok(Vec::new())
+    }
+
+    async fn embed_text(&self, text: &str) -> Result<Vec<f32>, VmError> {
+        let text_lc = text.to_ascii_lowercase();
+        if text_lc.contains("read only this host machine local or utc clock timestamp") {
+            return Ok(vec![1.0, 0.0]);
+        }
+        if text_lc.contains("execute local shell or terminal commands") {
+            return Ok(vec![0.9, 0.1]);
+        }
+        if text_lc.contains("rename every file in my downloads folder to lowercase") {
+            // Deliberately skew toward clock so query-binding feasibility must gate clock intents.
+            return Ok(vec![1.0, 0.0]);
+        }
+        Ok(vec![0.0, 1.0])
+    }
+
+    async fn load_model(&self, _model_hash: [u8; 32], _path: &Path) -> Result<(), VmError> {
+        Ok(())
+    }
+
+    async fn unload_model(&self, _model_hash: [u8; 32]) -> Result<(), VmError> {
+        Ok(())
+    }
+}
+
+#[derive(Debug, Default, Clone)]
 struct AmbiguousRuntime;
 
 #[derive(Debug, Default, Clone)]

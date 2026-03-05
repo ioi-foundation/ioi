@@ -260,6 +260,64 @@
   flex-wrap: wrap;
 }
 
+.mail-connected-accounts {
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  background: var(--surface-3);
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.mail-connected-accounts h4 {
+  margin: 0;
+  font-size: 11px;
+  color: var(--text-primary);
+}
+
+.mail-connected-accounts ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.mail-connected-accounts li {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 6px;
+  padding: 6px 8px;
+  background: var(--surface-2);
+}
+
+.mail-connected-identity {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.mail-connected-identity strong {
+  font-size: 11px;
+  color: var(--text-primary);
+  word-break: break-all;
+}
+
+.mail-connected-identity span {
+  font-size: 10px;
+  color: var(--text-secondary);
+}
+
+.mail-connected-identity code {
+  font-size: 10px;
+}
+
 .connector-intent-panel {
   border: 1px solid var(--border-subtle);
   border-radius: 8px;
@@ -361,6 +419,12 @@
   margin: 0;
   font-size: 11px;
   color: var(--status-warning);
+}
+
+.connector-test-success {
+  margin: 0;
+  font-size: 11px;
+  color: var(--status-success);
 }
 
 .connector-test-result {

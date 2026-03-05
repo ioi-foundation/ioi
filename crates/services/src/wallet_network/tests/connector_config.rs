@@ -1,5 +1,70 @@
 use super::*;
 
+fn seed_primary_connector(
+    service: &WalletNetworkService,
+    state: &mut MockState,
+    ctx: &mut TxContext<'_>,
+) {
+    for (secret_id, alias, value) in [
+        ("mail-imap-user", "mail.imap.user", "agent@example.com"),
+        ("mail-imap-pass", "mail.imap.pass", "imap-password"),
+        ("mail-smtp-user", "mail.smtp.user", "agent@example.com"),
+        ("mail-smtp-pass", "mail.smtp.pass", "smtp-password"),
+    ] {
+        let secret = VaultSecretRecord {
+            secret_id: secret_id.to_string(),
+            alias: alias.to_string(),
+            kind: ioi_types::app::wallet_network::SecretKind::AccessToken,
+            ciphertext: value.as_bytes().to_vec(),
+            metadata: BTreeMap::new(),
+            created_at_ms: 1_750_000_000_000,
+            rotated_at_ms: None,
+        };
+        let secret_params = codec::to_bytes_canonical(&secret).expect("encode secret");
+        run_async(service.handle_service_call(
+            state,
+            "store_secret_record@v1",
+            &secret_params,
+            ctx,
+        ))
+        .expect("store connector secret");
+    }
+
+    let upsert = MailConnectorUpsertParams {
+        mailbox: "primary".to_string(),
+        config: MailConnectorConfig {
+            provider: MailConnectorProvider::ImapSmtp,
+            auth_mode: MailConnectorAuthMode::Password,
+            account_email: "agent@example.com".to_string(),
+            imap: MailConnectorEndpoint {
+                host: "imap.example.com".to_string(),
+                port: 993,
+                tls_mode: MailConnectorTlsMode::Tls,
+            },
+            smtp: MailConnectorEndpoint {
+                host: "smtp.example.com".to_string(),
+                port: 587,
+                tls_mode: MailConnectorTlsMode::StartTls,
+            },
+            secret_aliases: MailConnectorSecretAliases {
+                imap_username_alias: "mail.imap.user".to_string(),
+                imap_password_alias: "mail.imap.pass".to_string(),
+                smtp_username_alias: "mail.smtp.user".to_string(),
+                smtp_password_alias: "mail.smtp.pass".to_string(),
+            },
+            metadata: BTreeMap::new(),
+        },
+    };
+    let upsert_params = codec::to_bytes_canonical(&upsert).expect("encode");
+    run_async(service.handle_service_call(
+        state,
+        "mail_connector_upsert@v1",
+        &upsert_params,
+        ctx,
+    ))
+    .expect("mail connector upsert");
+}
+
 #[test]
 fn mail_connector_upsert_and_get_round_trip() {
     let service = WalletNetworkService;
@@ -129,6 +194,104 @@ fn mail_connector_upsert_and_get_round_trip() {
     .expect("decode receipt");
     assert_eq!(receipt.mailbox, "primary");
     assert_eq!(receipt.connector, connector);
+}
+
+#[test]
+fn mail_connector_ensure_binding_provisions_and_reuses_binding() {
+    let service = WalletNetworkService;
+    let mut state = MockState::default();
+    let signer = [0x88u8; 32];
+
+    with_ctx_signer(signer, |ctx| {
+        seed_primary_connector(&service, &mut state, ctx);
+
+        let ensure_a = MailConnectorEnsureBindingParams {
+            request_id: [0x61u8; 32],
+            mailbox: "primary".to_string(),
+            audience: None,
+            lease_ttl_ms: None,
+        };
+        let ensure_a_params = codec::to_bytes_canonical(&ensure_a).expect("encode");
+        run_async(service.handle_service_call(
+            &mut state,
+            "mail_connector_ensure_binding@v1",
+            &ensure_a_params,
+            ctx,
+        ))
+        .expect("ensure binding should provision");
+
+        let receipt_a: MailConnectorEnsureBindingReceipt = codec::from_bytes_canonical(
+            &state
+                .get(&mail_connector_binding_receipt_key(&ensure_a.request_id))
+                .expect("state")
+                .expect("binding receipt a"),
+        )
+        .expect("decode binding receipt a");
+        assert_eq!(receipt_a.mailbox, "primary");
+        assert_eq!(receipt_a.audience, signer);
+        assert!(!receipt_a.reused_existing);
+        assert!(receipt_a.channel_id != [0u8; 32]);
+        assert!(receipt_a.lease_id != [0u8; 32]);
+        assert!(receipt_a.channel_expires_at_ms >= receipt_a.lease_expires_at_ms);
+
+        let channel: SessionChannelRecord = codec::from_bytes_canonical(
+            &state
+                .get(&channel_key(&receipt_a.channel_id))
+                .expect("state")
+                .expect("channel"),
+        )
+        .expect("decode channel");
+        assert_eq!(channel.state, SessionChannelState::Open);
+
+        let lease: SessionLease = codec::from_bytes_canonical(
+            &state
+                .get(&lease_key(&receipt_a.channel_id, &receipt_a.lease_id))
+                .expect("state")
+                .expect("lease"),
+        )
+        .expect("decode lease");
+        assert_eq!(lease.audience, signer);
+        assert_eq!(lease.channel_id, receipt_a.channel_id);
+        assert!(
+            lease
+                .capability_subset
+                .iter()
+                .any(|cap| cap.eq_ignore_ascii_case("mail.reply"))
+        );
+        assert!(
+            lease
+                .capability_subset
+                .iter()
+                .any(|cap| cap.eq_ignore_ascii_case("mail.read.latest"))
+        );
+
+        let ensure_b = MailConnectorEnsureBindingParams {
+            request_id: [0x62u8; 32],
+            mailbox: "primary".to_string(),
+            audience: None,
+            lease_ttl_ms: None,
+        };
+        let ensure_b_params = codec::to_bytes_canonical(&ensure_b).expect("encode");
+        run_async(service.handle_service_call(
+            &mut state,
+            "mail_connector_ensure_binding@v1",
+            &ensure_b_params,
+            ctx,
+        ))
+        .expect("ensure binding should reuse existing");
+
+        let receipt_b: MailConnectorEnsureBindingReceipt = codec::from_bytes_canonical(
+            &state
+                .get(&mail_connector_binding_receipt_key(&ensure_b.request_id))
+                .expect("state")
+                .expect("binding receipt b"),
+        )
+        .expect("decode binding receipt b");
+        assert!(receipt_b.reused_existing);
+        assert_eq!(receipt_b.channel_id, receipt_a.channel_id);
+        assert_eq!(receipt_b.lease_id, receipt_a.lease_id);
+        assert_eq!(receipt_b.audience, signer);
+    });
 }
 
 #[test]

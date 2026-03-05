@@ -1,5 +1,43 @@
 use super::*;
 
+fn apply_mail_reply_fallback_score(
+    query: &str,
+    ranked_candidates: &mut Vec<IntentCandidateScore>,
+    matrix: &[IntentMatrixEntry],
+    bindings: &[ToolCapabilityBinding],
+    rules: &ActionRules,
+    query_binding_profile: &QueryBindingProfile,
+    policy: &IntentRoutingPolicy,
+) -> Option<f32> {
+    if !crate::agentic::desktop::service::step::helpers::is_mailbox_connector_goal(query) {
+        return None;
+    }
+    let mail_reply_entry = matrix
+        .iter()
+        .find(|entry| entry.intent_id == "mail.reply")?;
+    if !intent_feasible_for_execution(mail_reply_entry, bindings, rules, query_binding_profile) {
+        return None;
+    }
+
+    let fallback_score = quantize_score(
+        (policy.confidence.medium_threshold_bps as f32 / 10_000.0).clamp(0.0, 1.0),
+        policy,
+    );
+    if let Some(candidate) = ranked_candidates
+        .iter_mut()
+        .find(|candidate| candidate.intent_id == "mail.reply")
+    {
+        candidate.score = candidate.score.max(fallback_score);
+    } else {
+        ranked_candidates.push(IntentCandidateScore {
+            intent_id: "mail.reply".to_string(),
+            score: fallback_score,
+        });
+    }
+    sort_scores_desc(ranked_candidates);
+    Some(fallback_score)
+}
+
 pub async fn resolve_step_intent(
     service: &DesktopAgentService,
     agent_state: &AgentState,
@@ -158,6 +196,23 @@ pub async fn resolve_step_intent(
         ranked_candidates = zero_ranked_candidates(&matrix);
     }
     quantize_and_sort_scores(&mut ranked_candidates, policy);
+    if rank_result.is_none() && all_candidate_scores_zero(&ranked_candidates) {
+        if let Some(fallback_score) = apply_mail_reply_fallback_score(
+            &query,
+            &mut ranked_candidates,
+            &matrix,
+            &bindings,
+            rules,
+            &query_binding_profile,
+            policy,
+        ) {
+            log::info!(
+                "IntentResolverDeterministicFallback session={} fallback_intent=mail.reply score={:.3} reason=rank_backend_unavailable",
+                session_prefix,
+                fallback_score
+            );
+        }
+    }
     let routed_top_k = ranked_candidates
         .iter()
         .take(5)

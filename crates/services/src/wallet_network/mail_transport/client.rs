@@ -17,15 +17,19 @@ use crate::wallet_network::mail_ontology::{
     parse_volume_band, MAIL_ONTOLOGY_SIGNAL_VERSION, SPAM_HIGH_CONFIDENCE_THRESHOLD_BPS,
 };
 use ioi_types::app::wallet_network::{
-    MailConnectorAuthMode, MailConnectorConfig, MailConnectorProvider, MailConnectorTlsMode,
-    MailboxTotalCountProvenance,
+    MailConnectorAuthMode, MailConnectorConfig, MailConnectorEndpoint, MailConnectorProvider,
+    MailConnectorTlsMode, MailboxTotalCountProvenance,
 };
 use ioi_types::error::TransactionError;
 use lettre::message::Mailbox;
+use lettre::transport::smtp::Error as SmtpError;
 use lettre::transport::smtp::authentication::{Credentials, Mechanism};
 use lettre::{Message, SmtpTransport, Transport};
 
 pub(crate) struct ImapSmtpMailProviderClient;
+
+const SMTP_STARTTLS_PORT: u16 = 587;
+const SMTP_TLS_PORT: u16 = 465;
 
 pub(crate) fn mail_provider_for_config(
     config: &MailConnectorConfig,
@@ -218,38 +222,34 @@ impl MailProviderClient for ImapSmtpMailProviderClient {
             .subject(subject)
             .body(body.to_string())
             .map_err(|e| TransactionError::Invalid(format!("smtp message build failed: {}", e)))?;
+        let attempt_plan = smtp_endpoint_attempt_plan(&config.smtp);
+        let mut failures = Vec::new();
 
-        let smtp_builder = match config.smtp.tls_mode {
-            MailConnectorTlsMode::Plaintext => SmtpTransport::builder_dangerous(&config.smtp.host),
-            MailConnectorTlsMode::StartTls => SmtpTransport::starttls_relay(&config.smtp.host)
-                .map_err(|e| {
-                    TransactionError::Invalid(format!("smtp starttls relay init failed: {}", e))
-                })?,
-            MailConnectorTlsMode::Tls => SmtpTransport::relay(&config.smtp.host).map_err(|e| {
-                TransactionError::Invalid(format!("smtp tls relay init failed: {}", e))
-            })?,
-        };
-        let mut smtp_builder = smtp_builder
-            .port(config.smtp.port)
-            .credentials(Credentials::new(
-                credentials.smtp_username.clone(),
-                smtp_auth_secret(credentials).to_string(),
-            ));
-        if credentials.auth_mode == MailConnectorAuthMode::Oauth2 {
-            smtp_builder = smtp_builder.authentication(vec![Mechanism::Xoauth2]);
+        for (index, endpoint) in attempt_plan.iter().enumerate() {
+            match send_via_smtp_endpoint(endpoint, credentials, &message) {
+                Ok(sent_id) => return Ok(bound_text(&sent_id, 128)),
+                Err(failure) => {
+                    let allow_retry = failure.retryable_secure_mode_mismatch
+                        && index + 1 < attempt_plan.len();
+                    failures.push(format!(
+                        "{}:{} ({}) => {}",
+                        endpoint.host,
+                        endpoint.port,
+                        smtp_tls_mode_label(endpoint.tls_mode),
+                        failure.message
+                    ));
+                    if !allow_retry {
+                        break;
+                    }
+                }
+            }
         }
-        let smtp_transport = smtp_builder.build();
 
-        let response = smtp_transport.send(&message).map_err(|e| {
-            TransactionError::Invalid(format!("smtp send failed for '{}': {}", to, e))
-        })?;
-        let sent_id = response
-            .first_word()
-            .map(str::trim)
-            .filter(|value| !value.is_empty())
-            .map(ToString::to_string)
-            .unwrap_or_else(|| "smtp-ack".to_string());
-        Ok(bound_text(&sent_id, 128))
+        Err(TransactionError::Invalid(format!(
+            "smtp send failed for '{}': {}",
+            to,
+            failures.join("; ")
+        )))
     }
 
     fn delete_spam(
@@ -518,4 +518,189 @@ fn is_mock_provider(config: &MailConnectorConfig) -> bool {
         .get("driver")
         .map(|value| value.trim().eq_ignore_ascii_case("mock"))
         .unwrap_or(false)
+}
+
+struct SmtpSendFailure {
+    message: String,
+    retryable_secure_mode_mismatch: bool,
+}
+
+fn send_via_smtp_endpoint(
+    endpoint: &MailConnectorEndpoint,
+    credentials: &MailProviderCredentials,
+    message: &Message,
+) -> Result<String, SmtpSendFailure> {
+    let smtp_builder = smtp_transport_builder(endpoint).map_err(|err| SmtpSendFailure {
+        retryable_secure_mode_mismatch: false,
+        message: err,
+    })?;
+    let mut smtp_builder = smtp_builder
+        .port(endpoint.port)
+        .credentials(Credentials::new(
+            credentials.smtp_username.clone(),
+            smtp_auth_secret(credentials).to_string(),
+        ));
+    if credentials.auth_mode == MailConnectorAuthMode::Oauth2 {
+        smtp_builder = smtp_builder.authentication(vec![Mechanism::Xoauth2]);
+    }
+    let smtp_transport = smtp_builder.build();
+    let response = smtp_transport.send(message).map_err(|err| SmtpSendFailure {
+        retryable_secure_mode_mismatch: smtp_error_requires_secure_mode_retry(&err),
+        message: err.to_string(),
+    })?;
+    Ok(response
+        .first_word()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(ToString::to_string)
+        .unwrap_or_else(|| "smtp-ack".to_string()))
+}
+
+fn smtp_transport_builder(
+    endpoint: &MailConnectorEndpoint,
+) -> Result<lettre::transport::smtp::SmtpTransportBuilder, String> {
+    match endpoint.tls_mode {
+        MailConnectorTlsMode::Plaintext => Ok(SmtpTransport::builder_dangerous(&endpoint.host)),
+        MailConnectorTlsMode::StartTls => SmtpTransport::starttls_relay(&endpoint.host)
+            .map_err(|e| format!("smtp starttls relay init failed: {}", e)),
+        MailConnectorTlsMode::Tls => SmtpTransport::relay(&endpoint.host)
+            .map_err(|e| format!("smtp tls relay init failed: {}", e)),
+    }
+}
+
+fn smtp_endpoint_attempt_plan(endpoint: &MailConnectorEndpoint) -> Vec<MailConnectorEndpoint> {
+    let mut attempts = vec![endpoint.clone()];
+    if let Some(alternate_mode) = alternate_secure_smtp_tls_mode(endpoint.tls_mode) {
+        push_unique_smtp_endpoint(
+            &mut attempts,
+            MailConnectorEndpoint {
+                host: endpoint.host.clone(),
+                port: endpoint.port,
+                tls_mode: alternate_mode,
+            },
+        );
+        push_unique_smtp_endpoint(
+            &mut attempts,
+            MailConnectorEndpoint {
+                host: endpoint.host.clone(),
+                port: standard_smtp_port_for_tls_mode(alternate_mode),
+                tls_mode: alternate_mode,
+            },
+        );
+    }
+    attempts
+}
+
+fn push_unique_smtp_endpoint(
+    attempts: &mut Vec<MailConnectorEndpoint>,
+    candidate: MailConnectorEndpoint,
+) {
+    if attempts.iter().any(|existing| {
+        existing.host == candidate.host
+            && existing.port == candidate.port
+            && existing.tls_mode == candidate.tls_mode
+    }) {
+        return;
+    }
+    attempts.push(candidate);
+}
+
+fn alternate_secure_smtp_tls_mode(mode: MailConnectorTlsMode) -> Option<MailConnectorTlsMode> {
+    match mode {
+        MailConnectorTlsMode::Plaintext => None,
+        MailConnectorTlsMode::StartTls => Some(MailConnectorTlsMode::Tls),
+        MailConnectorTlsMode::Tls => Some(MailConnectorTlsMode::StartTls),
+    }
+}
+
+fn standard_smtp_port_for_tls_mode(mode: MailConnectorTlsMode) -> u16 {
+    match mode {
+        MailConnectorTlsMode::Plaintext | MailConnectorTlsMode::StartTls => SMTP_STARTTLS_PORT,
+        MailConnectorTlsMode::Tls => SMTP_TLS_PORT,
+    }
+}
+
+fn smtp_tls_mode_label(mode: MailConnectorTlsMode) -> &'static str {
+    match mode {
+        MailConnectorTlsMode::Plaintext => "plaintext",
+        MailConnectorTlsMode::StartTls => "starttls",
+        MailConnectorTlsMode::Tls => "tls",
+    }
+}
+
+fn smtp_error_requires_secure_mode_retry(err: &SmtpError) -> bool {
+    err.is_tls() || smtp_error_text_requires_secure_mode_retry(&err.to_string())
+}
+
+fn smtp_error_text_requires_secure_mode_retry(raw: &str) -> bool {
+    let normalized = raw.trim().to_ascii_lowercase();
+    normalized.contains("wrong version number")
+        || normalized.contains("ssl3_get_record")
+        || normalized.contains("starttls is not supported")
+        || normalized.contains("must issue a starttls command first")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn smtp_attempt_plan_retries_opposite_mode_on_same_port_first() {
+        let attempts = smtp_endpoint_attempt_plan(&MailConnectorEndpoint {
+            host: "smtp.aol.com".to_string(),
+            port: 587,
+            tls_mode: MailConnectorTlsMode::Tls,
+        });
+        assert_eq!(attempts.len(), 2);
+        assert_eq!(attempts[0].port, 587);
+        assert_eq!(attempts[0].tls_mode, MailConnectorTlsMode::Tls);
+        assert_eq!(attempts[1].port, 587);
+        assert_eq!(attempts[1].tls_mode, MailConnectorTlsMode::StartTls);
+    }
+
+    #[test]
+    fn smtp_attempt_plan_adds_standard_secure_port_when_needed() {
+        let attempts = smtp_endpoint_attempt_plan(&MailConnectorEndpoint {
+            host: "smtp.aol.com".to_string(),
+            port: 465,
+            tls_mode: MailConnectorTlsMode::Tls,
+        });
+        assert_eq!(attempts.len(), 3);
+        assert_eq!(attempts[0].port, 465);
+        assert_eq!(attempts[0].tls_mode, MailConnectorTlsMode::Tls);
+        assert_eq!(attempts[1].port, 465);
+        assert_eq!(attempts[1].tls_mode, MailConnectorTlsMode::StartTls);
+        assert_eq!(attempts[2].port, 587);
+        assert_eq!(attempts[2].tls_mode, MailConnectorTlsMode::StartTls);
+    }
+
+    #[test]
+    fn smtp_attempt_plan_mirrors_starttls_to_wrapper_tls() {
+        let attempts = smtp_endpoint_attempt_plan(&MailConnectorEndpoint {
+            host: "smtp.example.com".to_string(),
+            port: 587,
+            tls_mode: MailConnectorTlsMode::StartTls,
+        });
+        assert_eq!(attempts.len(), 3);
+        assert_eq!(attempts[1].port, 587);
+        assert_eq!(attempts[1].tls_mode, MailConnectorTlsMode::Tls);
+        assert_eq!(attempts[2].port, 465);
+        assert_eq!(attempts[2].tls_mode, MailConnectorTlsMode::Tls);
+    }
+
+    #[test]
+    fn smtp_protocol_mismatch_classifier_flags_secure_mode_errors() {
+        assert!(smtp_error_text_requires_secure_mode_retry(
+            "Connection error: error:0A00010B:SSL routines:ssl3_get_record:wrong version number"
+        ));
+        assert!(smtp_error_text_requires_secure_mode_retry(
+            "internal client error: STARTTLS is not supported on this server"
+        ));
+        assert!(smtp_error_text_requires_secure_mode_retry(
+            "Connection error: Must issue a STARTTLS command first"
+        ));
+        assert!(!smtp_error_text_requires_secure_mode_retry(
+            "permanent error (535): authentication failed"
+        ));
+    }
 }
