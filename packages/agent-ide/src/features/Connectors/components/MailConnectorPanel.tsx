@@ -56,6 +56,15 @@ export function MailConnectorPanel({ mail }: MailConnectorPanelProps) {
             />
           </label>
           <label>
+            Send as name
+            <input
+              value={mail.mailSetupSenderDisplayName}
+              onChange={(event) => mail.setMailSetupSenderDisplayName(event.target.value)}
+              placeholder="Optional display name"
+              autoComplete="name"
+            />
+          </label>
+          <label>
             Mailbox name
             <input
               value={mail.mailSetupMailbox}
@@ -99,6 +108,7 @@ export function MailConnectorPanel({ mail }: MailConnectorPanelProps) {
                   <li key={account.mailbox}>
                     <div className="mail-connected-identity">
                       <strong>{account.accountEmail}</strong>
+                      {account.senderDisplayName ? <span>send as {account.senderDisplayName}</span> : null}
                       <span>
                         mailbox: <code>{account.mailbox}</code>
                       </span>
@@ -215,67 +225,6 @@ export function MailConnectorPanel({ mail }: MailConnectorPanelProps) {
 
       {mail.showOperatorTools ? (
         <>
-          {mail.mailAssistantRuntimeReady ? (
-            <div className="connector-intent-panel">
-              <label>
-                Assistant mail request
-                <textarea
-                  value={mail.mailIntentQuery}
-                  onChange={(event) => mail.setMailIntentQuery(event.target.value)}
-                  placeholder="Read me the last email I received."
-                  rows={3}
-                />
-              </label>
-              <label>
-                Approval artifact JSON (auto-generated for delete/reply when enabled)
-                <textarea
-                  value={mail.mailApprovalArtifactJson}
-                  onChange={(event) => mail.setMailApprovalArtifactJson(event.target.value)}
-                  placeholder='{"interception":{...},"decision":"approved_by_human","approval_token":{...}}'
-                  rows={3}
-                />
-              </label>
-              <label className="connector-intent-checkbox">
-                <input
-                  type="checkbox"
-                  checked={mail.mailAutoGenerateApproval}
-                  onChange={(event) => mail.setMailAutoGenerateApproval(event.target.checked)}
-                />
-                Auto-generate approval artifact for write intents
-              </label>
-              <label>
-                Approval TTL seconds
-                <input
-                  type="number"
-                  min={30}
-                  max={3600}
-                  value={mail.mailApprovalTtlSeconds}
-                  onChange={(event) =>
-                    mail.setMailApprovalTtlSeconds(
-                      Math.max(30, Math.min(3600, Number(event.target.value) || 30))
-                    )
-                  }
-                  disabled={!mail.mailApprovalRuntimeReady}
-                />
-              </label>
-              <button
-                type="button"
-                className="btn-secondary"
-                onClick={mail.runGenerateMailApprovalArtifact}
-                disabled={mail.mailBusy || !mail.mailApprovalRuntimeReady}
-              >
-                Generate Approval Artifact
-              </button>
-              <button
-                type="button"
-                className="btn-primary"
-                onClick={mail.runMailIntent}
-                disabled={mail.mailBusy}
-              >
-                Run Assistant Intent
-              </button>
-            </div>
-          ) : null}
           <div className="connector-test-grid">
             <label>
               Channel ID

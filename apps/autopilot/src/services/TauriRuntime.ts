@@ -8,8 +8,6 @@ import {
   WalletMailReplyInput, WalletMailReplyResult,
   WalletMailListRecentInput, WalletMailListRecentResult,
   WalletMailReadLatestInput, WalletMailReadLatestResult,
-  WalletMailIntentInput, WalletMailIntentResult,
-  WalletMailApprovalArtifactInput, WalletMailApprovalArtifactResult,
   WalletMailConfigureAccountInput, WalletMailConfigureAccountResult
 } from "@ioi/agent-ide";
 
@@ -74,7 +72,10 @@ function patchMailConnectorConnected(
   result: WalletMailConfigureAccountResult
 ): ConnectorSummary[] {
   const connectedAt = new Date(result.updatedAtMs).toISOString();
-  const connectedNote = `Connected ${result.accountEmail} on mailbox "${result.mailbox}".`;
+  const identityLabel = result.senderDisplayName
+    ? `${result.accountEmail} as ${result.senderDisplayName}`
+    : result.accountEmail;
+  const connectedNote = `Connected ${identityLabel} on mailbox "${result.mailbox}".`;
 
   let found = false;
   const next = connectors.map((connector) => {
@@ -243,20 +244,6 @@ export class TauriRuntime implements AgentRuntime {
       });
     }
 
-    async walletMailHandleIntent(
-      input: WalletMailIntentInput
-    ): Promise<WalletMailIntentResult> {
-      return invoke("wallet_mail_handle_intent", {
-        channelId: input.channelId,
-        leaseId: input.leaseId,
-        opSeq: input.opSeq,
-        query: input.query,
-        mailbox: input.mailbox ?? null,
-        listLimit: input.listLimit ?? null,
-        approvalArtifactJson: input.approvalArtifactJson ?? null,
-      });
-    }
-
     async walletMailConfigureAccount(
       input: WalletMailConfigureAccountInput
     ): Promise<WalletMailConfigureAccountResult> {
@@ -270,6 +257,7 @@ export class TauriRuntime implements AgentRuntime {
         smtpHost: input.smtpHost,
         smtpPort: input.smtpPort,
         smtpTlsMode: input.smtpTlsMode ?? "starttls",
+        senderDisplayName: input.senderDisplayName ?? null,
         imapUsername: input.imapUsername ?? null,
         imapSecret: input.imapSecret,
         smtpUsername: input.smtpUsername ?? null,
@@ -277,19 +265,6 @@ export class TauriRuntime implements AgentRuntime {
       });
       this.connectors = patchMailConnectorConnected(this.connectors, result);
       return result;
-    }
-
-    async walletMailGenerateApprovalArtifact(
-      input: WalletMailApprovalArtifactInput
-    ): Promise<WalletMailApprovalArtifactResult> {
-      return invoke("wallet_mail_generate_approval_artifact", {
-        channelId: input.channelId,
-        leaseId: input.leaseId,
-        opSeq: input.opSeq,
-        query: input.query,
-        mailbox: input.mailbox ?? null,
-        ttlSeconds: input.ttlSeconds ?? null,
-      });
     }
 
     onEvent(callback: (event: GraphEvent) => void): () => void {

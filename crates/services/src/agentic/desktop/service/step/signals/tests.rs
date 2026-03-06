@@ -178,7 +178,7 @@ fn mailbox_tool_name_signal_matches_connector_prefixes() {
     assert!(is_mail_connector_tool_name(
         "wallet_network__mail_read_latest"
     ));
-    assert!(is_mail_connector_tool_name("wallet_mail_handle_intent"));
+    assert!(is_mail_connector_tool_name("wallet_network__mail_reply"));
     assert!(!is_mail_connector_tool_name("web__search"));
 }
 

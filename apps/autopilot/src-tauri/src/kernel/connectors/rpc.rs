@@ -115,22 +115,3 @@ pub(crate) async fn query_wallet_state(
     }
     Ok(resp.value)
 }
-
-pub(crate) async fn load_wallet_revocation_epoch(
-    client: &mut PublicApiClient<Channel>,
-) -> Result<u64, String> {
-    let full_key = [
-        service_namespace_prefix("wallet_network").as_slice(),
-        b"revocation_epoch".as_slice(),
-    ]
-    .concat();
-    let resp = client
-        .query_raw_state(tonic::Request::new(QueryRawStateRequest { key: full_key }))
-        .await
-        .map_err(|e| format!("Failed to query wallet revocation epoch: {}", e))?
-        .into_inner();
-    if !resp.found || resp.value.is_empty() {
-        return Ok(0);
-    }
-    codec::from_bytes_canonical::<u64>(&resp.value).map_err(|e| e.to_string())
-}

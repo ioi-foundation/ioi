@@ -110,18 +110,15 @@ fn push_mail_connector_fallback_tools(tools: &mut Vec<LlmToolDefinition>) {
         "type": "object",
         "properties": {
             "mailbox": { "type": "string", "description": "Mailbox alias (default: primary)." },
-            "to": { "type": "string", "description": "Recipient email address." },
-            "subject": { "type": "string", "description": "Email subject line." },
-            "body": { "type": "string", "description": "Email body text." },
+            "reply_to_message_id": { "type": "string", "description": "Optional message id to thread the outbound email against." },
             "channel_id": { "type": "string", "description": "Optional hex channel id override." },
             "lease_id": { "type": "string", "description": "Optional hex lease id override." }
-        },
-        "required": ["to", "subject", "body"]
+        }
     });
     tools.push(LlmToolDefinition {
         name: "wallet_network__mail_reply".to_string(),
         description:
-            "Draft and send an outbound email through a connected mailbox via wallet network."
+            "Draft and send an outbound email through a connected mailbox via wallet network using the latest user request as the authoritative draft source. Optional explicit canonical fields `to`, `subject`, and `body` are accepted only when they are complete and final; otherwise the runtime synthesizes the final draft before execution."
                 .to_string(),
         parameters: reply_params.to_string(),
     });
