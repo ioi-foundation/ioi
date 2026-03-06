@@ -652,7 +652,7 @@ async fn resolver_abstains_when_embeddings_and_model_ranking_fail() {
 }
 
 #[tokio::test(flavor = "current_thread")]
-async fn resolver_routes_mail_send_when_rank_backend_is_unavailable() {
+async fn resolver_fails_closed_for_mail_send_when_rank_backend_is_unavailable() {
     let gui: Arc<dyn GuiDriver> = Arc::new(NoopGuiDriver);
     let terminal = Arc::new(TerminalDriver::new());
     let browser = Arc::new(BrowserDriver::new());
@@ -684,26 +684,17 @@ async fn resolver_routes_mail_send_when_rank_backend_is_unavailable() {
     let resolved = resolve_step_intent(&service, &agent_state, &rules, "terminal")
         .await
         .unwrap();
-    let medium_threshold = rules
-        .ontology_policy
-        .intent_routing
-        .confidence
-        .medium_threshold_bps as f32
-        / 10_000.0;
-
-    assert_eq!(resolved.intent_id, "mail.reply");
-    assert_eq!(resolved.scope, IntentScopeProfile::Conversation);
-    assert_eq!(resolved.band, IntentConfidenceBand::Medium);
-    assert!(resolved.score >= medium_threshold);
-    assert_eq!(
-        resolved
-            .top_k
-            .first()
-            .map(|candidate| candidate.intent_id.as_str()),
-        Some("mail.reply")
-    );
+    assert_eq!(resolved.intent_id, "resolver.unclassified");
+    assert_eq!(resolved.scope, IntentScopeProfile::Unknown);
+    assert_eq!(resolved.band, IntentConfidenceBand::Low);
+    assert_eq!(resolved.score, 0.0);
+    assert!(!resolved.top_k.is_empty());
+    assert!(resolved
+        .top_k
+        .iter()
+        .all(|candidate| candidate.score <= f32::EPSILON));
     assert_eq!(resolved.embedding_model_id, "resolver.unavailable");
-    assert!(!should_pause_for_clarification(
+    assert!(should_pause_for_clarification(
         &resolved,
         &rules.ontology_policy.intent_routing
     ));

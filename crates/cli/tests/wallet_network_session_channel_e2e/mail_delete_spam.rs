@@ -198,6 +198,7 @@ async fn wallet_network_mail_delete_spam_via_real_callservice_txs() -> Result<()
                     provider: MailConnectorProvider::ImapSmtp,
                     auth_mode: MailConnectorAuthMode::Password,
                     account_email: "agent@example.com".to_string(),
+                    sender_display_name: None,
                     imap: MailConnectorEndpoint {
                         host: "mock.local".to_string(),
                         port: 993,

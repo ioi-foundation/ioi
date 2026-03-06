@@ -21,6 +21,7 @@ const MAIL_LIST_RECENT_MAX_LIMIT: usize = 200;
 const MAIL_DELETE_SPAM_DEFAULT_LIMIT: u32 = 25;
 const MAIL_DELETE_SPAM_MAX_LIMIT: u32 = 500;
 const MAIL_CONNECTOR_MAX_ALIAS_LEN: usize = 128;
+const MAIL_CONNECTOR_MAX_DISPLAY_NAME_LEN: usize = 128;
 const MAIL_CONNECTOR_SENSITIVE_METADATA_KEYWORDS: [&str; 6] = [
     "password",
     "secret",
@@ -309,12 +310,14 @@ pub(super) fn normalize_mail_connector_config(
     let imap = normalize_mail_connector_endpoint("imap", config.imap)?;
     let smtp = normalize_mail_connector_endpoint("smtp", config.smtp)?;
     let secret_aliases = normalize_mail_connector_secret_aliases(config.secret_aliases)?;
+    let sender_display_name = normalize_optional_sender_display_name(config.sender_display_name)?;
     let metadata = normalize_mail_connector_metadata(config.metadata)?;
 
     Ok(MailConnectorConfig {
         provider: config.provider,
         auth_mode: normalize_mail_connector_auth_mode(config.auth_mode),
         account_email,
+        sender_display_name,
         imap,
         smtp,
         secret_aliases,
@@ -400,6 +403,30 @@ fn normalize_required_secret_alias(
         )));
     }
     Ok(normalized)
+}
+
+fn normalize_optional_sender_display_name(
+    sender_display_name: Option<String>,
+) -> Result<Option<String>, TransactionError> {
+    let Some(sender_display_name) = sender_display_name else {
+        return Ok(None);
+    };
+    let normalized = sender_display_name.trim().to_string();
+    if normalized.is_empty() {
+        return Ok(None);
+    }
+    if normalized.len() > MAIL_CONNECTOR_MAX_DISPLAY_NAME_LEN {
+        return Err(TransactionError::Invalid(format!(
+            "mail connector sender_display_name exceeds max length {}",
+            MAIL_CONNECTOR_MAX_DISPLAY_NAME_LEN
+        )));
+    }
+    if normalized.chars().any(|ch| ch.is_control()) {
+        return Err(TransactionError::Invalid(
+            "mail connector sender_display_name must not contain control characters".to_string(),
+        ));
+    }
+    Ok(Some(normalized))
 }
 
 fn normalize_mail_connector_metadata(

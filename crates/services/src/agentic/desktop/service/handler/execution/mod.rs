@@ -1415,6 +1415,7 @@ pub async fn handle_action_execution(
                         }
                     });
                 if let Some(result) = try_execute_wallet_mail_dynamic_tool(
+                    service,
                     state,
                     call_context,
                     &value,

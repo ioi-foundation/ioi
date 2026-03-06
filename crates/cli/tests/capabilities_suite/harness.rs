@@ -4820,6 +4820,7 @@ async fn bootstrap_mailbox_runtime_state(
             provider: MailConnectorProvider::ImapSmtp,
             auth_mode: config.auth_mode,
             account_email: config.account_email.clone(),
+            sender_display_name: None,
             imap: MailConnectorEndpoint {
                 host: config.imap_host.clone(),
                 port: config.imap_port,

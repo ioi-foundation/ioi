@@ -67,6 +67,9 @@ pub struct MailConnectorConfig {
     pub auth_mode: MailConnectorAuthMode,
     /// Account/from email address associated with this connector.
     pub account_email: String,
+    /// Optional sender display name for mailbox-scoped outbound identity.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub sender_display_name: Option<String>,
     /// IMAP endpoint config for read/list/delete operations.
     pub imap: MailConnectorEndpoint,
     /// SMTP endpoint config for send/reply operations.

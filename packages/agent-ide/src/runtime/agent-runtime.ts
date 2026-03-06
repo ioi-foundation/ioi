@@ -152,55 +152,13 @@ export interface WalletMailReplyResult {
   sentMessageId: string;
 }
 
-export interface WalletMailIntentInput {
-  channelId: string;
-  leaseId: string;
-  opSeq: number;
-  query: string;
-  mailbox?: string;
-  listLimit?: number;
-  approvalArtifactJson?: string;
-}
-
-export interface WalletMailApprovalArtifactInput {
-  channelId: string;
-  leaseId: string;
-  opSeq: number;
-  query: string;
-  mailbox?: string;
-  ttlSeconds?: number;
-}
-
-export interface WalletMailApprovalArtifactResult {
-  normalizedIntent: string;
-  requestHashHex: string;
-  audienceHex: string;
-  revocationEpoch: number;
-  expiresAtMs: number;
-  approvalArtifactJson: string;
-}
-
-export interface WalletMailIntentResult {
-  query: string;
-  normalizedIntent: string;
-  policyDecision: string;
-  reason: string;
-  approved: boolean;
-  executed: boolean;
-  operation?: string;
-  nextOpSeq: number;
-  readLatest?: WalletMailReadLatestResult;
-  listRecent?: WalletMailListRecentResult;
-  deleteSpam?: WalletMailDeleteSpamResult;
-  reply?: WalletMailReplyResult;
-}
-
 export type WalletMailConnectorAuthMode = "password" | "oauth2";
 export type WalletMailConnectorTlsMode = "plaintext" | "starttls" | "tls";
 
 export interface WalletMailConfigureAccountInput {
   mailbox?: string;
   accountEmail: string;
+  senderDisplayName?: string;
   authMode?: WalletMailConnectorAuthMode;
   imapHost: string;
   imapPort: number;
@@ -217,6 +175,7 @@ export interface WalletMailConfigureAccountInput {
 export interface WalletMailConfigureAccountResult {
   mailbox: string;
   accountEmail: string;
+  senderDisplayName?: string;
   authMode: WalletMailConnectorAuthMode;
   imapHost: string;
   imapPort: number;
@@ -300,15 +259,9 @@ export interface AgentRuntime {
   walletMailReply?(
     input: WalletMailReplyInput
   ): Promise<WalletMailReplyResult>;
-  walletMailHandleIntent?(
-    input: WalletMailIntentInput
-  ): Promise<WalletMailIntentResult>;
   walletMailConfigureAccount?(
     input: WalletMailConfigureAccountInput
   ): Promise<WalletMailConfigureAccountResult>;
-  walletMailGenerateApprovalArtifact?(
-    input: WalletMailApprovalArtifactInput
-  ): Promise<WalletMailApprovalArtifactResult>;
 
   // Event Subscription
   onEvent(callback: (event: GraphEvent) => void): () => void;

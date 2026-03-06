@@ -1,8 +1,6 @@
-mod approval;
 mod commands;
 mod config;
 mod constants;
-mod intent;
 mod operations;
 mod rpc;
 mod types;
@@ -13,9 +11,8 @@ use std::sync::Mutex;
 use tauri::State;
 
 pub use types::{
-    WalletMailApprovalArtifactResult, WalletMailConfigureAccountResult, WalletMailDeleteSpamResult,
-    WalletMailIntentResult, WalletMailListRecentResult, WalletMailReadLatestResult,
-    WalletMailReplyResult,
+    WalletMailConfigureAccountResult, WalletMailDeleteSpamResult, WalletMailListRecentResult,
+    WalletMailReadLatestResult, WalletMailReplyResult,
 };
 
 #[tauri::command]
@@ -30,6 +27,7 @@ pub async fn wallet_mail_configure_account(
     smtp_host: String,
     smtp_port: u16,
     smtp_tls_mode: Option<String>,
+    sender_display_name: Option<String>,
     imap_username: Option<String>,
     imap_secret: String,
     smtp_username: Option<String>,
@@ -46,32 +44,11 @@ pub async fn wallet_mail_configure_account(
         smtp_host,
         smtp_port,
         smtp_tls_mode,
+        sender_display_name,
         imap_username,
         imap_secret,
         smtp_username,
         smtp_secret,
-    )
-    .await
-}
-
-#[tauri::command]
-pub async fn wallet_mail_generate_approval_artifact(
-    state: State<'_, Mutex<AppState>>,
-    channel_id: String,
-    lease_id: String,
-    op_seq: u64,
-    query: String,
-    mailbox: Option<String>,
-    ttl_seconds: Option<u64>,
-) -> Result<WalletMailApprovalArtifactResult, String> {
-    commands::wallet_mail_generate_approval_artifact(
-        state,
-        channel_id,
-        lease_id,
-        op_seq,
-        query,
-        mailbox,
-        ttl_seconds,
     )
     .await
 }
@@ -134,30 +111,6 @@ pub async fn wallet_mail_reply(
         subject,
         body,
         reply_to_message_id,
-    )
-    .await
-}
-
-#[tauri::command]
-pub async fn wallet_mail_handle_intent(
-    state: State<'_, Mutex<AppState>>,
-    channel_id: String,
-    lease_id: String,
-    op_seq: u64,
-    query: String,
-    mailbox: Option<String>,
-    list_limit: Option<u32>,
-    approval_artifact_json: Option<String>,
-) -> Result<WalletMailIntentResult, String> {
-    commands::wallet_mail_handle_intent(
-        state,
-        channel_id,
-        lease_id,
-        op_seq,
-        query,
-        mailbox,
-        list_limit,
-        approval_artifact_json,
     )
     .await
 }

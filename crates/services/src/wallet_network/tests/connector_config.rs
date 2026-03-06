@@ -36,6 +36,7 @@ fn seed_primary_connector(
             provider: MailConnectorProvider::ImapSmtp,
             auth_mode: MailConnectorAuthMode::Password,
             account_email: "agent@example.com".to_string(),
+            sender_display_name: None,
             imap: MailConnectorEndpoint {
                 host: "imap.example.com".to_string(),
                 port: 993,
@@ -103,6 +104,7 @@ fn mail_connector_upsert_and_get_round_trip() {
                 provider: MailConnectorProvider::ImapSmtp,
                 auth_mode: MailConnectorAuthMode::Password,
                 account_email: " Agent@Example.COM ".to_string(),
+                sender_display_name: Some(" Levi Josman ".to_string()),
                 imap: MailConnectorEndpoint {
                     host: " IMAP.EXAMPLE.COM ".to_string(),
                     port: 993,
@@ -169,6 +171,10 @@ fn mail_connector_upsert_and_get_round_trip() {
     .expect("decode connector");
     assert_eq!(connector.mailbox, "primary");
     assert_eq!(connector.config.account_email, "agent@example.com");
+    assert_eq!(
+        connector.config.sender_display_name.as_deref(),
+        Some("Levi Josman")
+    );
     assert_eq!(connector.config.imap.host, "imap.example.com");
     assert_eq!(connector.config.smtp.host, "smtp.example.com");
     assert_eq!(
@@ -331,6 +337,7 @@ fn mail_connector_upsert_rejects_unregistered_secret_aliases() {
                 provider: MailConnectorProvider::ImapSmtp,
                 auth_mode: MailConnectorAuthMode::Password,
                 account_email: "agent@example.com".to_string(),
+                sender_display_name: None,
                 imap: MailConnectorEndpoint {
                     host: "imap.example.com".to_string(),
                     port: 993,
@@ -374,6 +381,7 @@ fn mail_connector_upsert_rejects_sensitive_metadata_keys() {
                 provider: MailConnectorProvider::ImapSmtp,
                 auth_mode: MailConnectorAuthMode::Password,
                 account_email: "agent@example.com".to_string(),
+                sender_display_name: None,
                 imap: MailConnectorEndpoint {
                     host: "imap.example.com".to_string(),
                     port: 993,
@@ -402,5 +410,74 @@ fn mail_connector_upsert_rejects_sensitive_metadata_keys() {
         ))
         .expect_err("sensitive metadata key should fail");
         assert!(err.to_string().contains("use secret aliases instead"));
+    });
+}
+
+#[test]
+fn mail_connector_upsert_rejects_sender_display_name_with_control_chars() {
+    let service = WalletNetworkService;
+    let mut state = MockState::default();
+
+    with_ctx(|ctx| {
+        for (secret_id, alias, value) in [
+            ("mail-imap-user", "mail.imap.user", "agent@example.com"),
+            ("mail-imap-pass", "mail.imap.pass", "imap-password"),
+            ("mail-smtp-user", "mail.smtp.user", "agent@example.com"),
+            ("mail-smtp-pass", "mail.smtp.pass", "smtp-password"),
+        ] {
+            let secret = VaultSecretRecord {
+                secret_id: secret_id.to_string(),
+                alias: alias.to_string(),
+                kind: ioi_types::app::wallet_network::SecretKind::AccessToken,
+                ciphertext: value.as_bytes().to_vec(),
+                metadata: BTreeMap::new(),
+                created_at_ms: 1_750_000_000_000,
+                rotated_at_ms: None,
+            };
+            let secret_params = codec::to_bytes_canonical(&secret).expect("encode secret");
+            run_async(service.handle_service_call(
+                &mut state,
+                "store_secret_record@v1",
+                &secret_params,
+                ctx,
+            ))
+            .expect("store connector secret");
+        }
+
+        let upsert = MailConnectorUpsertParams {
+            mailbox: "primary".to_string(),
+            config: MailConnectorConfig {
+                provider: MailConnectorProvider::ImapSmtp,
+                auth_mode: MailConnectorAuthMode::Password,
+                account_email: "agent@example.com".to_string(),
+                sender_display_name: Some("Levi\nJosman".to_string()),
+                imap: MailConnectorEndpoint {
+                    host: "imap.example.com".to_string(),
+                    port: 993,
+                    tls_mode: MailConnectorTlsMode::Tls,
+                },
+                smtp: MailConnectorEndpoint {
+                    host: "smtp.example.com".to_string(),
+                    port: 587,
+                    tls_mode: MailConnectorTlsMode::StartTls,
+                },
+                secret_aliases: MailConnectorSecretAliases {
+                    imap_username_alias: "mail.imap.user".to_string(),
+                    imap_password_alias: "mail.imap.pass".to_string(),
+                    smtp_username_alias: "mail.smtp.user".to_string(),
+                    smtp_password_alias: "mail.smtp.pass".to_string(),
+                },
+                metadata: BTreeMap::new(),
+            },
+        };
+        let upsert_params = codec::to_bytes_canonical(&upsert).expect("encode");
+        let err = run_async(service.handle_service_call(
+            &mut state,
+            "mail_connector_upsert@v1",
+            &upsert_params,
+            ctx,
+        ))
+        .expect_err("sender display name control chars should fail");
+        assert!(err.to_string().contains("sender_display_name"));
     });
 }
