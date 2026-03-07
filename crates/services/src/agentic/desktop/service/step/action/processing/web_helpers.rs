@@ -9,7 +9,14 @@ use serde_json::json;
 const WEB_RESEARCH_BOOTSTRAP_SEARCH_LIMIT: u32 = 15;
 
 fn is_web_retrieval_timeout_tool(tool_name: &str) -> bool {
-    matches!(tool_name, "web__search" | "web__read" | "browser__navigate")
+    matches!(
+        tool_name,
+        "web__search"
+            | "web__read"
+            | "media__extract_transcript"
+            | "media__extract_multimodal_evidence"
+            | "browser__navigate"
+    )
 }
 
 pub(super) fn should_fail_fast_web_timeout(

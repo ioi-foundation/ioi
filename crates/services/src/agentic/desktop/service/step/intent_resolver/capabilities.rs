@@ -284,6 +284,16 @@ pub(super) fn tool_capability_bindings() -> Vec<ToolCapabilityBinding> {
             capabilities: vec![capability("web.retrieve"), capability("sys.time.read")],
         },
         ToolCapabilityBinding {
+            tool_name: "media__extract_transcript".to_string(),
+            action_target: ActionTarget::WebRetrieve,
+            capabilities: vec![capability("web.retrieve"), capability("sys.time.read")],
+        },
+        ToolCapabilityBinding {
+            tool_name: "media__extract_multimodal_evidence".to_string(),
+            action_target: ActionTarget::WebRetrieve,
+            capabilities: vec![capability("web.retrieve"), capability("sys.time.read")],
+        },
+        ToolCapabilityBinding {
             tool_name: "net__fetch".to_string(),
             action_target: ActionTarget::NetFetch,
             capabilities: vec![capability("net.fetch")],

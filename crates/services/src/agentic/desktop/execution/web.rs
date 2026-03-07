@@ -12,6 +12,7 @@ use std::time::Duration;
 const NET_FETCH_DEFAULT_MAX_CHARS: u32 = 12_000;
 const NET_FETCH_MAX_CHARS_LIMIT: u32 = 120_000;
 const NET_FETCH_MAX_BYTES_LIMIT: usize = 2_000_000;
+const MEDIA_EXTRACT_DEFAULT_MAX_CHARS: u32 = 72_000;
 const WEB_RETRIEVE_RECEIPT_MAX_CHARS: usize = 512;
 const WEB_RETRIEVE_PREVIEW_MAX_CHARS: usize = 256;
 
@@ -335,6 +336,233 @@ pub async fn handle(
                         max_chars: Some(max_chars),
                         sources_count: if result.success { sources_count } else { 0 },
                         documents_count: if result.success { documents_count } else { 0 },
+                        success: result.success,
+                        error_class: workload::extract_error_class(result.error.as_deref()),
+                    }),
+                );
+            }
+
+            result
+        }
+        AgentTool::MediaExtractTranscript {
+            url,
+            language,
+            max_chars,
+        } => {
+            let max_chars = max_chars.unwrap_or(MEDIA_EXTRACT_DEFAULT_MAX_CHARS);
+            let url_trimmed = url.trim();
+            let url_redacted = Url::parse(url_trimmed)
+                .ok()
+                .map(|parsed| redact_url_for_receipt(&parsed).to_string())
+                .unwrap_or_else(|| strip_userinfo_from_urlish(strip_query_fragment(url_trimmed)));
+            let url_for_receipt_raw =
+                workload::scrub_workload_text_field_for_receipt(exec, url_redacted.as_str()).await;
+            let (url_for_receipt, _) =
+                truncate_chars(&url_for_receipt_raw, WEB_RETRIEVE_RECEIPT_MAX_CHARS);
+
+            let receipt_preview_raw = if url_for_receipt.trim().is_empty() {
+                "media__extract_transcript".to_string()
+            } else {
+                format!("media__extract_transcript {}", url_for_receipt)
+            };
+            let (receipt_preview, _) =
+                truncate_chars(&receipt_preview_raw, WEB_RETRIEVE_PREVIEW_MAX_CHARS);
+            let workload_id = workload::compute_workload_id(
+                session_id,
+                step_index,
+                "media__extract_transcript",
+                &receipt_preview,
+            );
+
+            if let Some(tx) = exec.event_sender.as_ref() {
+                workload::emit_workload_activity(
+                    tx,
+                    session_id,
+                    step_index,
+                    workload_id.clone(),
+                    WorkloadActivityKind::Lifecycle {
+                        phase: "started".to_string(),
+                        exit_code: None,
+                    },
+                );
+            }
+
+            let mut backend_for_receipt = "edge:media".to_string();
+            let result = match crate::agentic::web::edge_media_extract_transcript(
+                &url,
+                language.as_deref(),
+                Some(max_chars),
+            )
+            .await
+            {
+                Ok(bundle) => {
+                    backend_for_receipt = bundle.backend.clone();
+                    serde_json::to_string_pretty(&bundle).map_or_else(
+                        |err| {
+                            ToolExecutionResult::failure(format!(
+                                "ERROR_CLASS=SerializationFailed Failed to serialize media transcript evidence: {}",
+                                err
+                            ))
+                        },
+                        ToolExecutionResult::success,
+                    )
+                }
+                Err(err) => ToolExecutionResult::failure(err.to_string()),
+            };
+
+            if let Some(tx) = exec.event_sender.as_ref() {
+                workload::emit_workload_activity(
+                    tx,
+                    session_id,
+                    step_index,
+                    workload_id.clone(),
+                    WorkloadActivityKind::Lifecycle {
+                        phase: if result.success {
+                            "completed".to_string()
+                        } else {
+                            "failed".to_string()
+                        },
+                        exit_code: None,
+                    },
+                );
+                workload::emit_workload_receipt(
+                    tx,
+                    session_id,
+                    step_index,
+                    workload_id.clone(),
+                    WorkloadReceipt::WebRetrieve(WorkloadWebRetrieveReceipt {
+                        tool_name: "media__extract_transcript".to_string(),
+                        backend: backend_for_receipt,
+                        query: language
+                            .as_deref()
+                            .map(str::trim)
+                            .filter(|value| !value.is_empty())
+                            .map(|value| format!("language={}", value)),
+                        url: (!url_for_receipt.trim().is_empty()).then_some(url_for_receipt),
+                        limit: None,
+                        max_chars: Some(max_chars),
+                        sources_count: if result.success { 1 } else { 0 },
+                        documents_count: if result.success { 1 } else { 0 },
+                        success: result.success,
+                        error_class: workload::extract_error_class(result.error.as_deref()),
+                    }),
+                );
+            }
+
+            result
+        }
+        AgentTool::MediaExtractMultimodalEvidence {
+            url,
+            language,
+            max_chars,
+            frame_limit,
+        } => {
+            let max_chars = max_chars.unwrap_or(MEDIA_EXTRACT_DEFAULT_MAX_CHARS);
+            let url_trimmed = url.trim();
+            let url_redacted = Url::parse(url_trimmed)
+                .ok()
+                .map(|parsed| redact_url_for_receipt(&parsed).to_string())
+                .unwrap_or_else(|| strip_userinfo_from_urlish(strip_query_fragment(url_trimmed)));
+            let url_for_receipt_raw =
+                workload::scrub_workload_text_field_for_receipt(exec, url_redacted.as_str()).await;
+            let (url_for_receipt, _) =
+                truncate_chars(&url_for_receipt_raw, WEB_RETRIEVE_RECEIPT_MAX_CHARS);
+
+            let receipt_preview_raw = if url_for_receipt.trim().is_empty() {
+                "media__extract_multimodal_evidence".to_string()
+            } else {
+                format!("media__extract_multimodal_evidence {}", url_for_receipt)
+            };
+            let (receipt_preview, _) =
+                truncate_chars(&receipt_preview_raw, WEB_RETRIEVE_PREVIEW_MAX_CHARS);
+            let workload_id = workload::compute_workload_id(
+                session_id,
+                step_index,
+                "media__extract_multimodal_evidence",
+                &receipt_preview,
+            );
+
+            if let Some(tx) = exec.event_sender.as_ref() {
+                workload::emit_workload_activity(
+                    tx,
+                    session_id,
+                    step_index,
+                    workload_id.clone(),
+                    WorkloadActivityKind::Lifecycle {
+                        phase: "started".to_string(),
+                        exit_code: None,
+                    },
+                );
+            }
+
+            let mut backend_for_receipt = "edge:media:multimodal".to_string();
+            let result = match crate::agentic::web::edge_media_extract_multimodal_evidence(
+                &url,
+                language.as_deref(),
+                Some(max_chars),
+                frame_limit,
+                exec.inference.clone(),
+            )
+            .await
+            {
+                Ok(bundle) => {
+                    backend_for_receipt = bundle
+                        .visual
+                        .as_ref()
+                        .map(|visual| visual.backend.clone())
+                        .or_else(|| {
+                            bundle
+                                .transcript
+                                .as_ref()
+                                .map(|transcript| transcript.backend.clone())
+                        })
+                        .unwrap_or_else(|| "edge:media:multimodal".to_string());
+                    serde_json::to_string_pretty(&bundle).map_or_else(
+                        |err| {
+                            ToolExecutionResult::failure(format!(
+                                "ERROR_CLASS=SerializationFailed Failed to serialize media multimodal evidence: {}",
+                                err
+                            ))
+                        },
+                        ToolExecutionResult::success,
+                    )
+                }
+                Err(err) => ToolExecutionResult::failure(err.to_string()),
+            };
+
+            if let Some(tx) = exec.event_sender.as_ref() {
+                workload::emit_workload_activity(
+                    tx,
+                    session_id,
+                    step_index,
+                    workload_id.clone(),
+                    WorkloadActivityKind::Lifecycle {
+                        phase: if result.success {
+                            "completed".to_string()
+                        } else {
+                            "failed".to_string()
+                        },
+                        exit_code: None,
+                    },
+                );
+                workload::emit_workload_receipt(
+                    tx,
+                    session_id,
+                    step_index,
+                    workload_id.clone(),
+                    WorkloadReceipt::WebRetrieve(WorkloadWebRetrieveReceipt {
+                        tool_name: "media__extract_multimodal_evidence".to_string(),
+                        backend: backend_for_receipt,
+                        query: language
+                            .as_deref()
+                            .map(str::trim)
+                            .filter(|value| !value.is_empty())
+                            .map(|value| format!("language={}", value)),
+                        url: (!url_for_receipt.trim().is_empty()).then_some(url_for_receipt),
+                        limit: frame_limit,
+                        max_chars: Some(max_chars),
+                        sources_count: if result.success { 1 } else { 0 },
+                        documents_count: if result.success { 1 } else { 0 },
                         success: result.success,
                         error_class: workload::extract_error_class(result.error.as_deref()),
                     }),

@@ -6,6 +6,8 @@ fn is_expected_egress_tool_exhaustive(tool: &AgentTool) -> bool {
         | AgentTool::BrowserNavigate { .. }
         | AgentTool::WebSearch { .. }
         | AgentTool::WebRead { .. }
+        | AgentTool::MediaExtractTranscript { .. }
+        | AgentTool::MediaExtractMultimodalEvidence { .. }
         | AgentTool::NetFetch { .. }
         | AgentTool::BrowserType { .. }
         | AgentTool::CommerceCheckout { .. } => true,
@@ -90,6 +92,27 @@ fn web_read_target_maps_to_web_retrieve_scope() {
     let tool = AgentTool::WebRead {
         url: "https://example.com".to_string(),
         max_chars: None,
+    };
+    assert_eq!(tool.target(), crate::app::ActionTarget::WebRetrieve);
+}
+
+#[test]
+fn media_extract_transcript_target_maps_to_web_retrieve_scope() {
+    let tool = AgentTool::MediaExtractTranscript {
+        url: "https://example.com/video".to_string(),
+        language: Some("en".to_string()),
+        max_chars: Some(4096),
+    };
+    assert_eq!(tool.target(), crate::app::ActionTarget::WebRetrieve);
+}
+
+#[test]
+fn media_extract_multimodal_target_maps_to_web_retrieve_scope() {
+    let tool = AgentTool::MediaExtractMultimodalEvidence {
+        url: "https://example.com/video".to_string(),
+        language: Some("en".to_string()),
+        max_chars: Some(4096),
+        frame_limit: Some(6),
     };
     assert_eq!(tool.target(), crate::app::ActionTarget::WebRetrieve);
 }
@@ -447,6 +470,41 @@ fn pii_egress_specs_cover_known_egress_tools() {
         PiiTarget::Action(ActionTarget::WebRetrieve)
     );
 
+    let media_specs = AgentTool::MediaExtractTranscript {
+        url: "https://example.com/video".to_string(),
+        language: Some("en".to_string()),
+        max_chars: Some(4096),
+    }
+    .pii_egress_specs();
+    assert_eq!(media_specs.len(), 1);
+    assert_eq!(
+        media_specs[0].field,
+        PiiEgressField::MediaExtractTranscriptUrl
+    );
+    assert!(!media_specs[0].supports_transform);
+    assert_eq!(
+        media_specs[0].target,
+        PiiTarget::Action(ActionTarget::WebRetrieve)
+    );
+
+    let multimodal_specs = AgentTool::MediaExtractMultimodalEvidence {
+        url: "https://example.com/video".to_string(),
+        language: Some("en".to_string()),
+        max_chars: Some(4096),
+        frame_limit: Some(6),
+    }
+    .pii_egress_specs();
+    assert_eq!(multimodal_specs.len(), 1);
+    assert_eq!(
+        multimodal_specs[0].field,
+        PiiEgressField::MediaExtractMultimodalEvidenceUrl
+    );
+    assert!(!multimodal_specs[0].supports_transform);
+    assert_eq!(
+        multimodal_specs[0].target,
+        PiiTarget::Action(ActionTarget::WebRetrieve)
+    );
+
     let net_fetch_specs = AgentTool::NetFetch {
         url: "https://example.com".to_string(),
         max_chars: None,
@@ -532,6 +590,39 @@ fn pii_egress_field_mut_maps_to_expected_text_slots() {
     *url = "https://clean.example".to_string();
     match net_fetch {
         AgentTool::NetFetch { url, .. } => assert_eq!(url, "https://clean.example"),
+        _ => panic!("unexpected tool variant"),
+    }
+
+    let mut media_tool = AgentTool::MediaExtractTranscript {
+        url: "https://example.com/video".to_string(),
+        language: Some("en".to_string()),
+        max_chars: Some(1200),
+    };
+    let media_url = media_tool
+        .pii_egress_field_mut(PiiEgressField::MediaExtractTranscriptUrl)
+        .expect("media transcript url");
+    *media_url = "https://clean.example/video".to_string();
+    match media_tool {
+        AgentTool::MediaExtractTranscript { url, .. } => {
+            assert_eq!(url, "https://clean.example/video")
+        }
+        _ => panic!("unexpected tool variant"),
+    }
+
+    let mut multimodal_tool = AgentTool::MediaExtractMultimodalEvidence {
+        url: "https://example.com/video".to_string(),
+        language: Some("en".to_string()),
+        max_chars: Some(1200),
+        frame_limit: Some(6),
+    };
+    let multimodal_url = multimodal_tool
+        .pii_egress_field_mut(PiiEgressField::MediaExtractMultimodalEvidenceUrl)
+        .expect("media multimodal url");
+    *multimodal_url = "https://clean.example/video".to_string();
+    match multimodal_tool {
+        AgentTool::MediaExtractMultimodalEvidence { url, .. } => {
+            assert_eq!(url, "https://clean.example/video")
+        }
         _ => panic!("unexpected tool variant"),
     }
 }

@@ -1,3 +1,4 @@
+{
     // Deterministic System tools are available across all tiers.
     let sys_params = json!({
         "type": "object",
@@ -27,3 +28,4 @@
         description: "Execute a terminal command or launch a local GUI application. Use 'detach: true' for persistent apps.".to_string(),
         parameters: sys_params.to_string(),
     });
+}

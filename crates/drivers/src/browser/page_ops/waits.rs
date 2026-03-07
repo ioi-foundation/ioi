@@ -1,3 +1,4 @@
+impl BrowserDriver {
     pub async fn wait_ms(&self, ms: u64) -> std::result::Result<u64, BrowserError> {
         self.require_runtime()?;
         self.ensure_page().await?;
@@ -150,3 +151,4 @@
         })()"#;
         self.evaluate_js(script).await
     }
+}

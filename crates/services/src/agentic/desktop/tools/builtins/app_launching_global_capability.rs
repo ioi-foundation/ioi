@@ -1,3 +1,4 @@
+{
     // App Launching (Global Capability)
     // We expose this in all tiers to allow the agent to open applications (like Calculator) immediately.
     let launch_params = json!({
@@ -17,3 +18,4 @@
                 .to_string(),
         parameters: launch_params.to_string(),
     });
+}

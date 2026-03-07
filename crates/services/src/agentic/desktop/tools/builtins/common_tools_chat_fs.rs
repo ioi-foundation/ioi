@@ -1,3 +1,4 @@
+{
     // Common Tools (Chat, FS)
     let chat_params = json!({
         "type": "object",
@@ -320,3 +321,4 @@
             .to_string(),
         parameters: install_pkg_params.to_string(),
     });
+}

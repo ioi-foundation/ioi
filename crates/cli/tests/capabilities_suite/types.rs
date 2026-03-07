@@ -118,6 +118,7 @@ pub struct WebObservation {
 #[derive(Debug, Clone, Serialize)]
 pub struct WebProviderCandidateObservation {
     pub provider_id: String,
+    pub modality: Option<String>,
     pub source_count: usize,
     pub selected: bool,
     pub success: bool,

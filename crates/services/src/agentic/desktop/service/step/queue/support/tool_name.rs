@@ -229,6 +229,7 @@ pub(super) enum QueueToolNameScope {
     Write,
     GuiClick,
     SysExec,
+    WebRetrieve,
     BrowserInteract,
 }
 
@@ -240,6 +241,7 @@ pub(super) fn explicit_queue_tool_name_scope(target: &ActionTarget) -> Option<Qu
         ActionTarget::Custom(name) if name == "fs::write" => Some(QueueToolNameScope::Write),
         ActionTarget::GuiClick | ActionTarget::UiClick => Some(QueueToolNameScope::GuiClick),
         ActionTarget::SysExec => Some(QueueToolNameScope::SysExec),
+        ActionTarget::WebRetrieve => Some(QueueToolNameScope::WebRetrieve),
         ActionTarget::BrowserInteract => Some(QueueToolNameScope::BrowserInteract),
         _ => None,
     }
@@ -272,6 +274,15 @@ pub(super) fn is_explicit_tool_name_allowed_for_scope(
         }
         QueueToolNameScope::SysExec => {
             matches!(tool_name, "sys__exec_session" | "sys__exec_session_reset")
+        }
+        QueueToolNameScope::WebRetrieve => {
+            matches!(
+                tool_name,
+                "web__search"
+                    | "web__read"
+                    | "media__extract_transcript"
+                    | "media__extract_multimodal_evidence"
+            )
         }
         QueueToolNameScope::BrowserInteract => matches!(
             tool_name,

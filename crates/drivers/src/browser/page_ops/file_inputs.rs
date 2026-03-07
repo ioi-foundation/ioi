@@ -1,3 +1,4 @@
+impl BrowserDriver {
     pub async fn upload_files(
         &self,
         selector: Option<&str>,
@@ -78,3 +79,4 @@
 
         Ok(validated_paths.len())
     }
+}

@@ -14,6 +14,7 @@ mod rename_every_file_in_my_downloads_folder_to_lowercase;
 mod schedule_my_computer_to_shut_down_at_11_pm_tonight;
 mod set_timer_15_minutes;
 mod summarize_the_contents_of_the_most_recent_document_in_my_documents_folder;
+mod summarize_the_key_points_from_this_45_minute_youtube_video;
 mod take_a_screenshot_of_my_desktop;
 mod top_news_headlines;
 mod uninstall_spotify_and_remove_its_leftover_config_files;
@@ -43,6 +44,7 @@ pub fn all_cases() -> Vec<QueryCase> {
         move_all_png_files_from_downloads_into_a_new_folder_called_images::case(),
         rename_every_file_in_my_downloads_folder_to_lowercase::case(),
         summarize_the_contents_of_the_most_recent_document_in_my_documents_folder::case(),
+        summarize_the_key_points_from_this_45_minute_youtube_video::case(),
         uninstall_spotify_and_remove_its_leftover_config_files::case(),
         take_a_screenshot_of_my_desktop::case(),
         read_me_the_last_email_i_received::case(),

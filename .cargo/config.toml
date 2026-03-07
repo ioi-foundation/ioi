@@ -1,3 +1,7 @@
 [net]
 git-fetch-with-cli = true
 retry = 3
+
+[env]
+CMAKE = { value = "tools/managed_cmake.sh", relative = true }
+WHISPER_DONT_GENERATE_BINDINGS = "1"

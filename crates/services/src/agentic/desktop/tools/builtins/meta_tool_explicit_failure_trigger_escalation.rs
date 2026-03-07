@@ -1,3 +1,4 @@
+{
     // Meta Tool: Explicit Failure (Trigger Escalation)
     let fail_params = json!({
         "type": "object",
@@ -12,3 +13,4 @@
         description: "Call this if you cannot proceed with the available tools. This signals the system to escalate your permissions or switch execution tiers.".to_string(),
         parameters: fail_params.to_string(),
     });
+}

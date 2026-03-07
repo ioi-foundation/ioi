@@ -1,3 +1,4 @@
+{
     // Deterministic System tools are available across all tiers.
     let math_eval_params = json!({
         "type": "object",
@@ -16,3 +17,4 @@
                 .to_string(),
         parameters: math_eval_params.to_string(),
     });
+}

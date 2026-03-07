@@ -1,3 +1,4 @@
+{
     // Typed Web Retrieval (intent-gated)
     // Prefer these for web research so the model gets a provenance-tracked evidence bundle.
     if allow_web_search {
@@ -33,4 +34,40 @@
                     .to_string(),
             parameters: params.to_string(),
         });
+
+        let media_params = json!({
+            "type": "object",
+            "properties": {
+                "url": { "type": "string", "description": "Exact media/page URL to inspect." },
+                "language": { "type": "string", "description": "Requested transcript language (for example: 'en')." },
+                "max_chars": { "type": "integer", "description": "Optional max transcript characters to return." }
+            },
+            "required": ["url"]
+        });
+        tools.push(LlmToolDefinition {
+            name: "media__extract_transcript".to_string(),
+            description:
+                "Extract transcript text from a remote audio/video URL using managed media providers with provenance receipts."
+                    .to_string(),
+            parameters: media_params.to_string(),
+        });
+
+        let multimodal_params = json!({
+            "type": "object",
+            "properties": {
+                "url": { "type": "string", "description": "Exact media/page URL to inspect." },
+                "language": { "type": "string", "description": "Requested transcript language (for example: 'en')." },
+                "max_chars": { "type": "integer", "description": "Optional max transcript characters to return." },
+                "frame_limit": { "type": "integer", "description": "Optional max sampled frames to analyze." }
+            },
+            "required": ["url"]
+        });
+        tools.push(LlmToolDefinition {
+            name: "media__extract_multimodal_evidence".to_string(),
+            description:
+                "Extract transcript plus visual frame evidence from a remote audio/video URL using managed media tooling with provenance receipts."
+                    .to_string(),
+            parameters: multimodal_params.to_string(),
+        });
     }
+}

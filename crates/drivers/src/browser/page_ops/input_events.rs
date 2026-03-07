@@ -1,3 +1,4 @@
+impl BrowserDriver {
     pub async fn synthetic_click_with_button(
         &self,
         x: f64,
@@ -232,3 +233,4 @@
             Err(BrowserError::NoActivePage)
         }
     }
+}

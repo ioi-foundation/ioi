@@ -110,6 +110,14 @@ struct TopMemoryAppsFixtureRuntime {
     receipt_path: PathBuf,
 }
 
+struct MediaTranscriptFixtureRuntime {
+    _temp_dir: tempfile::TempDir,
+    _env_media_tool_home: ScopedEnvVar,
+    fixture_root: PathBuf,
+    tool_home: PathBuf,
+    receipt_path: PathBuf,
+}
+
 struct ShutdownScheduleFixtureRuntime {
     _temp_dir: tempfile::TempDir,
     _env_path: ScopedEnvVar,
@@ -148,6 +156,44 @@ struct TopMemoryAppProbeRow {
 struct TopMemoryAppsProbeReceipt {
     provider: String,
     rows: Vec<TopMemoryAppProbeRow>,
+}
+
+#[derive(Debug, Clone, Default, Deserialize)]
+struct MediaTranscriptFixtureReceipt {
+    requested_url: String,
+    canonical_url: String,
+    title: Option<String>,
+    duration_seconds: Option<u64>,
+    requested_language: String,
+    #[serde(default)]
+    selected_modalities: Vec<String>,
+    #[serde(default)]
+    selected_provider_ids: Vec<String>,
+    transcript_provider_id: Option<String>,
+    transcript_provider_version: Option<String>,
+    transcript_provider_binary_path: Option<String>,
+    transcript_provider_model_id: Option<String>,
+    transcript_provider_model_path: Option<String>,
+    transcript_selected_audio_format_id: Option<String>,
+    transcript_selected_audio_ext: Option<String>,
+    transcript_selected_audio_acodec: Option<String>,
+    transcript_language: Option<String>,
+    transcript_source_kind: Option<String>,
+    transcript_char_count: Option<u32>,
+    transcript_segment_count: Option<u32>,
+    transcript_hash: Option<String>,
+    visual_provider_id: Option<String>,
+    visual_provider_version: Option<String>,
+    visual_provider_binary_path: Option<String>,
+    visual_ffprobe_path: Option<String>,
+    visual_selected_video_format_id: Option<String>,
+    visual_selected_video_ext: Option<String>,
+    visual_selected_video_codec: Option<String>,
+    visual_frame_count: Option<u32>,
+    visual_char_count: Option<u32>,
+    visual_hash: Option<String>,
+    visual_summary_char_count: Option<u32>,
+    retrieved_at_ms: u64,
 }
 
 #[derive(Debug, Clone, Default)]
@@ -206,6 +252,10 @@ fn should_bootstrap_spotify_uninstall_fixture(case_id: &str) -> bool {
 
 fn should_bootstrap_top_memory_apps_fixture(case_id: &str) -> bool {
     case_id.eq_ignore_ascii_case(TOP_MEMORY_APPS_CASE_ID)
+}
+
+fn should_bootstrap_media_transcript_fixture(case_id: &str) -> bool {
+    case_id.eq_ignore_ascii_case(MEDIA_TRANSCRIPT_SUMMARY_CASE_ID)
 }
 
 fn should_bootstrap_shutdown_schedule_fixture(case_id: &str) -> bool {
@@ -2859,6 +2909,526 @@ fn top_memory_apps_fixture_cleanup_checks(
     push_environment_metadata(
         &mut batch,
         "top_memory_apps_cleanup",
+        Some(probe_source),
+        Some(timestamp_ms),
+        Some(cleanup_satisfied),
+    );
+    batch
+}
+
+fn bootstrap_media_transcript_fixture_runtime(
+    run_unique_num: &str,
+) -> Result<MediaTranscriptFixtureRuntime> {
+    let temp_dir = tempdir()?;
+    let fixture_root = temp_dir
+        .path()
+        .join(format!("media_multimodal_summary_{}", run_unique_num));
+    let tool_home = fixture_root.join("tool_home");
+    let receipt_path = tool_home.join("receipts").join("last_success.json");
+    std::fs::create_dir_all(&tool_home)?;
+    let env_media_tool_home = ScopedEnvVar::set(
+        MEDIA_TRANSCRIPT_SUMMARY_TOOL_HOME_ENV_KEY,
+        tool_home.to_string_lossy().to_string(),
+    );
+
+    Ok(MediaTranscriptFixtureRuntime {
+        _temp_dir: temp_dir,
+        _env_media_tool_home: env_media_tool_home,
+        fixture_root,
+        tool_home,
+        receipt_path,
+    })
+}
+
+fn media_transcript_fixture_preflight_checks(
+    fixture: &MediaTranscriptFixtureRuntime,
+    run_unique_num: &str,
+    run_timestamp_ms: u64,
+) -> EnvironmentEvidenceBatch {
+    let run_unique_satisfied = fixture
+        .fixture_root
+        .file_name()
+        .and_then(|name| name.to_str())
+        .map(|name| name.ends_with(run_unique_num))
+        .unwrap_or(false);
+    let tool_home_seeded_satisfied = fixture.tool_home.is_dir();
+    let receipt_absent_satisfied = !fixture.receipt_path.exists();
+    let fixture_satisfied =
+        run_unique_satisfied && tool_home_seeded_satisfied && receipt_absent_satisfied;
+    let mut batch = EnvironmentEvidenceBatch::default();
+    push_environment_receipt(
+        &mut batch,
+        "media_multimodal_fixture_mode",
+        MEDIA_TRANSCRIPT_SUMMARY_FIXTURE_MODE,
+        Some(MEDIA_TRANSCRIPT_SUMMARY_FIXTURE_PROBE_SOURCE.to_string()),
+        Some(run_timestamp_ms),
+        Some(true),
+    );
+    push_environment_receipt(
+        &mut batch,
+        "media_multimodal_fixture_root",
+        fixture.fixture_root.to_string_lossy().to_string(),
+        Some(MEDIA_TRANSCRIPT_SUMMARY_FIXTURE_PROBE_SOURCE.to_string()),
+        Some(run_timestamp_ms),
+        Some(run_unique_satisfied),
+    );
+    push_environment_receipt(
+        &mut batch,
+        "media_multimodal_tool_home",
+        fixture.tool_home.to_string_lossy().to_string(),
+        Some(MEDIA_TRANSCRIPT_SUMMARY_FIXTURE_PROBE_SOURCE.to_string()),
+        Some(run_timestamp_ms),
+        Some(tool_home_seeded_satisfied),
+    );
+    push_environment_receipt(
+        &mut batch,
+        "media_multimodal_receipt_path",
+        fixture.receipt_path.to_string_lossy().to_string(),
+        Some(MEDIA_TRANSCRIPT_SUMMARY_FIXTURE_PROBE_SOURCE.to_string()),
+        Some(run_timestamp_ms),
+        Some(receipt_absent_satisfied),
+    );
+    push_environment_receipt(
+        &mut batch,
+        "media_multimodal_run_unique_num",
+        run_unique_num.to_string(),
+        Some(MEDIA_TRANSCRIPT_SUMMARY_FIXTURE_PROBE_SOURCE.to_string()),
+        Some(run_timestamp_ms),
+        Some(run_unique_satisfied),
+    );
+    push_environment_metadata(
+        &mut batch,
+        "media_multimodal_run_unique",
+        Some(MEDIA_TRANSCRIPT_SUMMARY_FIXTURE_PROBE_SOURCE.to_string()),
+        Some(run_timestamp_ms),
+        Some(run_unique_satisfied),
+    );
+    push_environment_metadata(
+        &mut batch,
+        "media_multimodal_tool_home_seeded",
+        Some(MEDIA_TRANSCRIPT_SUMMARY_FIXTURE_PROBE_SOURCE.to_string()),
+        Some(run_timestamp_ms),
+        Some(tool_home_seeded_satisfied),
+    );
+    push_environment_metadata(
+        &mut batch,
+        "media_multimodal_receipt_absent",
+        Some(MEDIA_TRANSCRIPT_SUMMARY_FIXTURE_PROBE_SOURCE.to_string()),
+        Some(run_timestamp_ms),
+        Some(receipt_absent_satisfied),
+    );
+    push_environment_metadata(
+        &mut batch,
+        "media_multimodal_fixture",
+        Some(MEDIA_TRANSCRIPT_SUMMARY_FIXTURE_PROBE_SOURCE.to_string()),
+        Some(run_timestamp_ms),
+        Some(fixture_satisfied),
+    );
+    batch
+}
+
+fn parse_media_transcript_fixture_receipt(path: &Path) -> MediaTranscriptFixtureReceipt {
+    std::fs::read_to_string(path)
+        .ok()
+        .and_then(|raw| serde_json::from_str::<MediaTranscriptFixtureReceipt>(&raw).ok())
+        .unwrap_or_default()
+}
+
+fn media_transcript_fixture_post_run_checks(
+    fixture: &MediaTranscriptFixtureRuntime,
+) -> EnvironmentEvidenceBatch {
+    let timestamp_ms = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_millis() as u64;
+    let probe_source = format!("{}.receipt_probe", MEDIA_TRANSCRIPT_SUMMARY_FIXTURE_PROBE_SOURCE);
+    let receipt_present_satisfied = fixture.receipt_path.is_file();
+    let receipt = if receipt_present_satisfied {
+        parse_media_transcript_fixture_receipt(&fixture.receipt_path)
+    } else {
+        MediaTranscriptFixtureReceipt::default()
+    };
+    let selected_modalities_value = receipt.selected_modalities.join(",");
+    let selected_modalities_satisfied = receipt
+        .selected_modalities
+        .iter()
+        .any(|value| value.eq_ignore_ascii_case("transcript"))
+        && receipt
+            .selected_modalities
+            .iter()
+            .any(|value| value.eq_ignore_ascii_case("visual"));
+    let transcript_provider_binary_path = receipt
+        .transcript_provider_binary_path
+        .clone()
+        .unwrap_or_default();
+    let transcript_provider_binary_path_buf =
+        PathBuf::from(transcript_provider_binary_path.trim());
+    let transcript_provider_binary_satisfied = transcript_provider_binary_path_buf.is_file()
+        && transcript_provider_binary_path_buf.starts_with(&fixture.tool_home);
+    let transcript_provider_model_id = receipt
+        .transcript_provider_model_id
+        .clone()
+        .unwrap_or_default();
+    let transcript_provider_model_path = receipt
+        .transcript_provider_model_path
+        .clone()
+        .unwrap_or_default();
+    let transcript_provider_model_path_buf =
+        PathBuf::from(transcript_provider_model_path.trim());
+    let transcript_provider_id = receipt.transcript_provider_id.clone().unwrap_or_default();
+    let transcript_provider_model_satisfied = if transcript_provider_id
+        .eq_ignore_ascii_case("yt_dlp.whisper_rs_audio")
+    {
+        !transcript_provider_model_id.trim().is_empty()
+            && transcript_provider_model_path_buf.is_file()
+            && transcript_provider_model_path_buf.starts_with(&fixture.tool_home)
+    } else {
+        transcript_provider_model_id.trim().is_empty()
+            && transcript_provider_model_path.trim().is_empty()
+    };
+    let transcript_selected_audio_format_id = receipt
+        .transcript_selected_audio_format_id
+        .clone()
+        .unwrap_or_default();
+    let transcript_selected_audio_ext = receipt
+        .transcript_selected_audio_ext
+        .clone()
+        .unwrap_or_default();
+    let transcript_selected_audio_acodec = receipt
+        .transcript_selected_audio_acodec
+        .clone()
+        .unwrap_or_default();
+    let transcript_selected_audio_satisfied = if transcript_provider_id
+        .eq_ignore_ascii_case("yt_dlp.whisper_rs_audio")
+    {
+        !transcript_selected_audio_format_id.trim().is_empty()
+            && !transcript_selected_audio_ext.trim().is_empty()
+            && !transcript_selected_audio_acodec.trim().is_empty()
+    } else {
+        transcript_selected_audio_format_id.trim().is_empty()
+            && transcript_selected_audio_ext.trim().is_empty()
+            && transcript_selected_audio_acodec.trim().is_empty()
+    };
+    let visual_provider_binary_path = receipt
+        .visual_provider_binary_path
+        .clone()
+        .unwrap_or_default();
+    let visual_provider_binary_path_buf = PathBuf::from(visual_provider_binary_path.trim());
+    let visual_provider_binary_satisfied = visual_provider_binary_path_buf.is_file()
+        && visual_provider_binary_path_buf.starts_with(&fixture.tool_home);
+    let visual_ffprobe_path = receipt.visual_ffprobe_path.clone().unwrap_or_default();
+    let visual_ffprobe_path_buf = PathBuf::from(visual_ffprobe_path.trim());
+    let visual_ffprobe_satisfied =
+        visual_ffprobe_path_buf.is_file() && visual_ffprobe_path_buf.starts_with(&fixture.tool_home);
+    let requested_url_satisfied =
+        receipt.requested_url.trim().eq_ignore_ascii_case(MEDIA_TRANSCRIPT_SUMMARY_EXPECTED_URL);
+    let canonical_url_satisfied = receipt.canonical_url.contains("9Tm2c6NJH4Y");
+    let title_satisfied = receipt
+        .title
+        .as_deref()
+        .map(str::trim)
+        .is_some_and(|value| !value.is_empty());
+    let duration_seconds = receipt.duration_seconds.unwrap_or_default();
+    let duration_satisfied = duration_seconds >= 2_400;
+    let transcript_char_count = receipt.transcript_char_count.unwrap_or_default();
+    let transcript_char_count_satisfied = transcript_char_count >= 3_000;
+    let transcript_segment_count = receipt.transcript_segment_count.unwrap_or_default();
+    let transcript_segment_count_satisfied = transcript_segment_count >= 100;
+    let transcript_language = receipt.transcript_language.clone().unwrap_or_default();
+    let transcript_language_satisfied = transcript_language
+        .trim()
+        .to_ascii_lowercase()
+        .starts_with("en");
+    let transcript_source_kind = receipt.transcript_source_kind.clone().unwrap_or_default();
+    let transcript_source_kind_satisfied = matches!(
+        transcript_source_kind.trim(),
+        "manual" | "automatic" | "stt"
+    );
+    let visual_frame_count = receipt.visual_frame_count.unwrap_or_default();
+    let visual_frame_count_satisfied = visual_frame_count >= 4;
+    let visual_char_count = receipt.visual_char_count.unwrap_or_default();
+    let visual_char_count_satisfied = visual_char_count >= 100;
+    let visual_hash = receipt.visual_hash.clone().unwrap_or_default();
+    let visual_hash_satisfied = !visual_hash.trim().is_empty();
+    let scope_satisfied = fixture.tool_home.starts_with(&fixture.fixture_root)
+        && fixture.receipt_path.starts_with(&fixture.tool_home)
+        && transcript_provider_binary_path_buf.starts_with(&fixture.tool_home)
+        && visual_provider_binary_path_buf.starts_with(&fixture.tool_home)
+        && (transcript_provider_model_path.trim().is_empty()
+            || transcript_provider_model_path_buf.starts_with(&fixture.tool_home))
+        && visual_ffprobe_path_buf.starts_with(&fixture.tool_home);
+    let transcript_provider_version_satisfied = receipt
+        .transcript_provider_version
+        .as_deref()
+        .map(str::trim)
+        .is_some_and(|value| !value.is_empty());
+    let visual_provider_version_satisfied = receipt
+        .visual_provider_version
+        .as_deref()
+        .map(str::trim)
+        .is_some_and(|value| !value.is_empty());
+    let transcript_hash_satisfied = receipt
+        .transcript_hash
+        .as_deref()
+        .map(str::trim)
+        .is_some_and(|value| !value.is_empty());
+    let mut batch = EnvironmentEvidenceBatch::default();
+    push_environment_receipt(
+        &mut batch,
+        "media_multimodal_receipt_path",
+        fixture.receipt_path.to_string_lossy().to_string(),
+        Some(probe_source.clone()),
+        Some(timestamp_ms),
+        Some(receipt_present_satisfied),
+    );
+    push_environment_metadata(
+        &mut batch,
+        "media_multimodal_receipt",
+        Some(probe_source.clone()),
+        Some(timestamp_ms),
+        Some(receipt_present_satisfied),
+    );
+    push_environment_receipt(
+        &mut batch,
+        "media_multimodal_transcript_provider_id",
+        transcript_provider_id,
+        Some(probe_source.clone()),
+        Some(timestamp_ms),
+        Some(transcript_provider_binary_satisfied),
+    );
+    push_environment_receipt(
+        &mut batch,
+        "media_multimodal_transcript_provider_version",
+        receipt.transcript_provider_version.unwrap_or_default(),
+        Some(probe_source.clone()),
+        Some(timestamp_ms),
+        Some(transcript_provider_version_satisfied),
+    );
+    push_environment_receipt(
+        &mut batch,
+        "media_multimodal_transcript_provider_binary_path",
+        transcript_provider_binary_path,
+        Some(probe_source.clone()),
+        Some(timestamp_ms),
+        Some(transcript_provider_binary_satisfied),
+    );
+    push_environment_receipt(
+        &mut batch,
+        "media_multimodal_transcript_provider_model_id",
+        transcript_provider_model_id,
+        Some(probe_source.clone()),
+        Some(timestamp_ms),
+        Some(transcript_provider_model_satisfied),
+    );
+    push_environment_receipt(
+        &mut batch,
+        "media_multimodal_transcript_provider_model_path",
+        transcript_provider_model_path,
+        Some(probe_source.clone()),
+        Some(timestamp_ms),
+        Some(transcript_provider_model_satisfied),
+    );
+    push_environment_receipt(
+        &mut batch,
+        "media_multimodal_transcript_selected_audio_format_id",
+        transcript_selected_audio_format_id,
+        Some(probe_source.clone()),
+        Some(timestamp_ms),
+        Some(transcript_selected_audio_satisfied),
+    );
+    push_environment_receipt(
+        &mut batch,
+        "media_multimodal_transcript_selected_audio_ext",
+        transcript_selected_audio_ext,
+        Some(probe_source.clone()),
+        Some(timestamp_ms),
+        Some(transcript_selected_audio_satisfied),
+    );
+    push_environment_receipt(
+        &mut batch,
+        "media_multimodal_transcript_selected_audio_acodec",
+        transcript_selected_audio_acodec,
+        Some(probe_source.clone()),
+        Some(timestamp_ms),
+        Some(transcript_selected_audio_satisfied),
+    );
+    push_environment_receipt(
+        &mut batch,
+        "media_multimodal_requested_url",
+        receipt.requested_url,
+        Some(probe_source.clone()),
+        Some(timestamp_ms),
+        Some(requested_url_satisfied),
+    );
+    push_environment_receipt(
+        &mut batch,
+        "media_multimodal_canonical_url",
+        receipt.canonical_url,
+        Some(probe_source.clone()),
+        Some(timestamp_ms),
+        Some(canonical_url_satisfied),
+    );
+    push_environment_receipt(
+        &mut batch,
+        "media_multimodal_title",
+        receipt.title.unwrap_or_default(),
+        Some(probe_source.clone()),
+        Some(timestamp_ms),
+        Some(title_satisfied),
+    );
+    push_environment_receipt(
+        &mut batch,
+        "media_multimodal_duration_seconds",
+        duration_seconds.to_string(),
+        Some(probe_source.clone()),
+        Some(timestamp_ms),
+        Some(duration_satisfied),
+    );
+    push_environment_receipt(
+        &mut batch,
+        "media_multimodal_transcript_char_count",
+        transcript_char_count.to_string(),
+        Some(probe_source.clone()),
+        Some(timestamp_ms),
+        Some(transcript_char_count_satisfied),
+    );
+    push_environment_receipt(
+        &mut batch,
+        "media_multimodal_transcript_segment_count",
+        transcript_segment_count.to_string(),
+        Some(probe_source.clone()),
+        Some(timestamp_ms),
+        Some(transcript_segment_count_satisfied),
+    );
+    push_environment_receipt(
+        &mut batch,
+        "media_multimodal_transcript_language",
+        transcript_language,
+        Some(probe_source.clone()),
+        Some(timestamp_ms),
+        Some(transcript_language_satisfied),
+    );
+    push_environment_receipt(
+        &mut batch,
+        "media_multimodal_transcript_source_kind",
+        transcript_source_kind,
+        Some(probe_source.clone()),
+        Some(timestamp_ms),
+        Some(transcript_source_kind_satisfied),
+    );
+    push_environment_receipt(
+        &mut batch,
+        "media_multimodal_transcript_hash",
+        receipt.transcript_hash.unwrap_or_default(),
+        Some(probe_source.clone()),
+        Some(timestamp_ms),
+        Some(transcript_hash_satisfied),
+    );
+    push_environment_receipt(
+        &mut batch,
+        "media_multimodal_visual_provider_id",
+        receipt.visual_provider_id.unwrap_or_default(),
+        Some(probe_source.clone()),
+        Some(timestamp_ms),
+        Some(visual_provider_binary_satisfied),
+    );
+    push_environment_receipt(
+        &mut batch,
+        "media_multimodal_visual_provider_version",
+        receipt.visual_provider_version.unwrap_or_default(),
+        Some(probe_source.clone()),
+        Some(timestamp_ms),
+        Some(visual_provider_version_satisfied),
+    );
+    push_environment_receipt(
+        &mut batch,
+        "media_multimodal_visual_provider_binary_path",
+        visual_provider_binary_path,
+        Some(probe_source.clone()),
+        Some(timestamp_ms),
+        Some(visual_provider_binary_satisfied),
+    );
+    push_environment_receipt(
+        &mut batch,
+        "media_multimodal_visual_ffprobe_path",
+        visual_ffprobe_path,
+        Some(probe_source.clone()),
+        Some(timestamp_ms),
+        Some(visual_ffprobe_satisfied),
+    );
+    push_environment_receipt(
+        &mut batch,
+        "media_multimodal_visual_frame_count",
+        visual_frame_count.to_string(),
+        Some(probe_source.clone()),
+        Some(timestamp_ms),
+        Some(visual_frame_count_satisfied),
+    );
+    push_environment_receipt(
+        &mut batch,
+        "media_multimodal_visual_char_count",
+        visual_char_count.to_string(),
+        Some(probe_source.clone()),
+        Some(timestamp_ms),
+        Some(visual_char_count_satisfied),
+    );
+    push_environment_receipt(
+        &mut batch,
+        "media_multimodal_visual_hash",
+        visual_hash,
+        Some(probe_source.clone()),
+        Some(timestamp_ms),
+        Some(visual_hash_satisfied),
+    );
+    push_environment_receipt(
+        &mut batch,
+        "media_multimodal_selected_modalities",
+        selected_modalities_value,
+        Some(probe_source.clone()),
+        Some(timestamp_ms),
+        Some(selected_modalities_satisfied),
+    );
+    push_environment_observation(
+        &mut batch,
+        "media_multimodal_retrieved_at_ms",
+        receipt.retrieved_at_ms.to_string(),
+    );
+    push_environment_metadata(
+        &mut batch,
+        "media_multimodal_scope",
+        Some(probe_source),
+        Some(timestamp_ms),
+        Some(scope_satisfied),
+    );
+    batch
+}
+
+fn media_transcript_fixture_cleanup_checks(
+    fixture: &MediaTranscriptFixtureRuntime,
+) -> EnvironmentEvidenceBatch {
+    let timestamp_ms = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_millis() as u64;
+    let probe_source = format!("{}.cleanup_probe", MEDIA_TRANSCRIPT_SUMMARY_FIXTURE_PROBE_SOURCE);
+    let _ = std::fs::remove_dir_all(&fixture.fixture_root);
+    let fixture_root_exists_after_cleanup = fixture.fixture_root.exists();
+    let receipt_exists_after_cleanup = fixture.receipt_path.exists();
+    let cleanup_satisfied = !fixture_root_exists_after_cleanup && !receipt_exists_after_cleanup;
+    let mut batch = EnvironmentEvidenceBatch::default();
+    push_environment_observation(
+        &mut batch,
+        "media_multimodal_cleanup_fixture_root_exists",
+        fixture_root_exists_after_cleanup.to_string(),
+    );
+    push_environment_observation(
+        &mut batch,
+        "media_multimodal_cleanup_receipt_exists",
+        receipt_exists_after_cleanup.to_string(),
+    );
+    push_environment_metadata(
+        &mut batch,
+        "media_multimodal_cleanup",
         Some(probe_source),
         Some(timestamp_ms),
         Some(cleanup_satisfied),

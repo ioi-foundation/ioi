@@ -1,3 +1,4 @@
+{
     // Only expose Computer tools in VisualForeground (Tier 3)
     if tier == ExecutionTier::VisualForeground {
         let find_params = json!({
@@ -86,3 +87,4 @@
             parameters: computer_params.to_string(),
         });
     }
+}

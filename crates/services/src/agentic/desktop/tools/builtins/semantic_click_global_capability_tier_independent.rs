@@ -1,3 +1,4 @@
+{
     // Semantic Click (Global Capability - Tier Independent)
     let click_sem_params = json!({
         "type": "object",
@@ -16,3 +17,4 @@
                 .to_string(),
         parameters: click_sem_params.to_string(),
     });
+}

@@ -1,3 +1,4 @@
+{
     // Native capabilities
 
     // Browser Navigation (intent-gated)
@@ -19,3 +20,4 @@
             parameters: nav_params.to_string(),
         });
     }
+}

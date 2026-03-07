@@ -251,6 +251,10 @@ mod tests {
         assert!(tools.iter().any(|t| t.name == "browser__navigate"));
         assert!(tools.iter().any(|t| t.name == "web__search"));
         assert!(tools.iter().any(|t| t.name == "web__read"));
+        assert!(tools.iter().any(|t| t.name == "media__extract_transcript"));
+        assert!(tools
+            .iter()
+            .any(|t| t.name == "media__extract_multimodal_evidence"));
         assert!(tools.iter().any(|t| t.name == "chat__reply"));
     }
 

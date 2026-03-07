@@ -2,7 +2,10 @@ use super::*;
 
 fn action_target_for_macro_step(target: &str, _params: &serde_json::Value) -> ActionTarget {
     match target {
-        "web__search" | "web__read" => ActionTarget::WebRetrieve,
+        "web__search"
+        | "web__read"
+        | "media__extract_transcript"
+        | "media__extract_multimodal_evidence" => ActionTarget::WebRetrieve,
         "net__fetch" => ActionTarget::NetFetch,
         "browser__snapshot" => ActionTarget::BrowserInspect,
         "gui__snapshot" => ActionTarget::GuiInspect,
@@ -60,6 +63,11 @@ fn macro_step_params_with_queue_metadata(
             ActionTarget::BrowserInteract
         )
     {
+        Some(target_str.to_string())
+    } else if matches!(
+        target_str,
+        "media__extract_transcript" | "media__extract_multimodal_evidence"
+    ) {
         Some(target_str.to_string())
     } else if matches!(target_str, "sys__exec_session" | "sys__exec_session_reset") {
         Some(target_str.to_string())
@@ -593,6 +601,41 @@ mod tests {
         assert_eq!(
             args.get("selector").and_then(|v| v.as_str()),
             Some("select[name='country']")
+        );
+    }
+
+    #[test]
+    fn macro_step_media_extract_transcript_maps_to_web_retrieve_and_injects_queue_tool_name() {
+        let params = json!({"url": "https://example.com/video", "language": "en"});
+        let target = action_target_for_macro_step("media__extract_transcript", &params);
+        assert_eq!(target, ActionTarget::WebRetrieve);
+
+        let args = macro_step_params_with_queue_metadata("media__extract_transcript", &params);
+        assert_eq!(
+            args.get(QUEUE_TOOL_NAME_KEY).and_then(|v| v.as_str()),
+            Some("media__extract_transcript")
+        );
+        assert_eq!(
+            args.get("url").and_then(|v| v.as_str()),
+            Some("https://example.com/video")
+        );
+    }
+
+    #[test]
+    fn macro_step_media_extract_multimodal_maps_to_web_retrieve_and_injects_queue_tool_name() {
+        let params = json!({"url": "https://example.com/video", "language": "en", "frame_limit": 6});
+        let target = action_target_for_macro_step("media__extract_multimodal_evidence", &params);
+        assert_eq!(target, ActionTarget::WebRetrieve);
+
+        let args =
+            macro_step_params_with_queue_metadata("media__extract_multimodal_evidence", &params);
+        assert_eq!(
+            args.get(QUEUE_TOOL_NAME_KEY).and_then(|v| v.as_str()),
+            Some("media__extract_multimodal_evidence")
+        );
+        assert_eq!(
+            args.get("url").and_then(|v| v.as_str()),
+            Some("https://example.com/video")
         );
     }
 }

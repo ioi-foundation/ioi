@@ -243,6 +243,63 @@ fn queue_uses_explicit_browser_tool_name_override_for_dropdown_options() {
 }
 
 #[test]
+fn queue_uses_explicit_webretrieve_tool_name_override_for_media_extract_transcript() {
+    let request = build_request(
+        ActionTarget::WebRetrieve,
+        30,
+        serde_json::json!({
+            "url": "https://example.com/video",
+            "language": "en",
+            "__ioi_tool_name": "media__extract_transcript"
+        }),
+    );
+
+    let tool = queue_action_request_to_tool(&request).expect("queue mapping should succeed");
+    match tool {
+        AgentTool::MediaExtractTranscript {
+            url,
+            language,
+            max_chars,
+        } => {
+            assert_eq!(url, "https://example.com/video");
+            assert_eq!(language.as_deref(), Some("en"));
+            assert!(max_chars.is_none());
+        }
+        other => panic!("expected MediaExtractTranscript, got {:?}", other),
+    }
+}
+
+#[test]
+fn queue_uses_explicit_webretrieve_tool_name_override_for_media_extract_multimodal() {
+    let request = build_request(
+        ActionTarget::WebRetrieve,
+        31,
+        serde_json::json!({
+            "url": "https://example.com/video",
+            "language": "en",
+            "frame_limit": 6,
+            "__ioi_tool_name": "media__extract_multimodal_evidence"
+        }),
+    );
+
+    let tool = queue_action_request_to_tool(&request).expect("queue mapping should succeed");
+    match tool {
+        AgentTool::MediaExtractMultimodalEvidence {
+            url,
+            language,
+            max_chars,
+            frame_limit,
+        } => {
+            assert_eq!(url, "https://example.com/video");
+            assert_eq!(language.as_deref(), Some("en"));
+            assert!(max_chars.is_none());
+            assert_eq!(frame_limit, Some(6));
+        }
+        other => panic!("expected MediaExtractMultimodalEvidence, got {:?}", other),
+    }
+}
+
+#[test]
 fn queue_maps_browser_dropdown_options_from_som_id_payload() {
     let request = build_request(
         ActionTarget::BrowserInteract,

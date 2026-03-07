@@ -1,3 +1,4 @@
+impl BrowserDriver {
     pub async fn navigate(&self, url: &str) -> std::result::Result<String, BrowserError> {
         self.require_runtime()?;
         self.ensure_page().await?;
@@ -61,3 +62,4 @@
             Err(BrowserError::NoActivePage)
         }
     }
+}

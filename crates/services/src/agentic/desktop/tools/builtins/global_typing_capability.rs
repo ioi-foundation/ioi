@@ -1,3 +1,4 @@
+{
     // Global typing capability.
     let gui_type_params = json!({
         "type": "object",
@@ -14,3 +15,4 @@
         description: "Type text into the focused UI control.".to_string(),
         parameters: gui_type_params.to_string(),
     });
+}

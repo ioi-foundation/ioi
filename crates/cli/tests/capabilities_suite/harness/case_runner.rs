@@ -552,6 +552,19 @@ pub async fn run_case(
         &mut runtime_setup_verification_checks,
         &mut runtime_setup_environment_receipts,
     )?;
+    let media_transcript_fixture = bootstrap_optional_fixture(
+        should_bootstrap_media_transcript_fixture(case.id),
+        || bootstrap_media_transcript_fixture_runtime(&run_unique_num),
+        |fixture| {
+            environment_evidence_batch_from_checks(media_transcript_fixture_preflight_checks(
+                fixture,
+                &run_unique_num,
+                run_timestamp_ms,
+            ))
+        },
+        &mut runtime_setup_verification_checks,
+        &mut runtime_setup_environment_receipts,
+    )?;
     if let Some(fixture) = top_memory_apps_fixture.as_ref() {
         run_query = run_query.replace(
             "{TOP_MEMORY_APPS_PROBE_PATH}",
@@ -1043,6 +1056,21 @@ pub async fn run_case(
         top_memory_apps_fixture.as_ref(),
         |fixture| environment_evidence_batch_from_checks(top_memory_apps_fixture_post_run_checks(fixture)),
         Some(|fixture| environment_evidence_batch_from_checks(top_memory_apps_fixture_cleanup_checks(fixture))),
+    );
+    insert_fixture_evidence(
+        &mut verification_checks,
+        &mut environment_receipts,
+        media_transcript_fixture.as_ref(),
+        |fixture| {
+            environment_evidence_batch_from_checks(media_transcript_fixture_post_run_checks(
+                fixture,
+            ))
+        },
+        Some(|fixture| {
+            environment_evidence_batch_from_checks(media_transcript_fixture_cleanup_checks(
+                fixture,
+            ))
+        }),
     );
     insert_fixture_evidence(
         &mut verification_checks,

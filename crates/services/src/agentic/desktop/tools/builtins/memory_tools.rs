@@ -1,3 +1,4 @@
+{
     // Memory Tools
     let mem_search_params = json!({
         "type": "object",
@@ -40,3 +41,4 @@
         description: "Spawn a sub-agent to handle a complex, multi-step subtask (e.g. 'Research this topic'). Do NOT use for simple atomic actions like clicking or opening apps.".to_string(),
         parameters: delegate_params.to_string(),
     });
+}
